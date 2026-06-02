@@ -2703,6 +2703,9 @@ impl TypeContext {
         if self.resolve_number_identity_call(expr) {
             return;
         }
+        if self.resolve_number_parse_int_call(expr) {
+            return;
+        }
 
         self.resolve_expression(&expr.callee);
         for arg in &expr.args {
@@ -3449,6 +3452,86 @@ impl TypeContext {
             _ => false,
         };
 
+        true
+    }
+
+    fn resolve_number_parse_int_call(&mut self, expr: &CallExpression) -> bool {
+        let Some(callee_name) =
+            self.resolve_static_callable_name(&expr.callee)
+                .or_else(|| match &expr.callee {
+                    Expression::Identifier(name) => Some(name.clone()),
+                    _ => None,
+                })
+        else {
+            return false;
+        };
+
+        if !matches!(
+            callee_name.as_str(),
+            "parseInt"
+                | "globalThis.parseInt"
+                | r#"globalThis["parseInt"]"#
+                | r#"globalThis['parseInt']"#
+                | "Number.parseInt"
+                | "globalThis.Number.parseInt"
+                | r#"globalThis["Number"].parseInt"#
+                | r#"globalThis['Number'].parseInt"#
+                | r#"Number["parseInt"]"#
+                | r#"Number['parseInt']"#
+                | r#"globalThis.Number["parseInt"]"#
+                | r#"globalThis.Number['parseInt']"#
+                | r#"globalThis["Number"]["parseInt"]"#
+                | r#"globalThis['Number']['parseInt']"#
+        ) {
+            return false;
+        }
+
+        let Some(value_expr) = expr.args.first() else {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "parseInt requires at least one statically-known ASCII string argument in the current phase; use an explicit literal or the later compatibility path",
+            ));
+            return true;
+        };
+
+        let source = self.resolve_static_string_expression(value_expr);
+        let radix = expr
+            .args
+            .get(1)
+            .and_then(|argument| self.resolve_static_numeric_literal_value(argument));
+        let supported_radix = expr.args.get(1).is_none_or(|_| {
+            radix.is_some_and(|radix| {
+                radix.is_finite()
+                    && radix.fract() == 0.0
+                    && (radix == 0.0 || (2.0..=36.0).contains(&radix))
+            })
+        });
+
+        if matches!(expr.args.len(), 1 | 2)
+            && source.as_ref().is_some_and(|source| source.is_ascii())
+            && supported_radix
+            && source
+                .as_ref()
+                .zip(Some(radix.unwrap_or(0.0)))
+                .is_some_and(|(source, radix)| {
+                    static_parse_int_ascii(source, radix as u32).is_some()
+                })
+        {
+            self.resolve_expression(value_expr);
+            for arg in expr.args.iter().skip(1) {
+                self.resolve_expression(arg);
+            }
+            return true;
+        }
+
+        self.resolve_expression(value_expr);
+        for arg in expr.args.iter().skip(1) {
+            self.resolve_expression(arg);
+        }
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "parseInt is unavailable unless the input is a statically-known ASCII string that yields an integer result and the optional radix is omitted, 0, or a statically-known integer from 2 through 36 in the current direct-runtime path; use explicit literals or the later compatibility path",
+        ));
         true
     }
 
@@ -6787,6 +6870,58 @@ fn parse_numeric_literal_value(text: &str) -> Option<f64> {
         return stripped.parse::<f64>().ok();
     }
     text.parse::<f64>().ok()
+}
+
+fn static_parse_int_ascii(source: &str, radix: u32) -> Option<i64> {
+    if !source.is_ascii() || !(radix == 0 || (2..=36).contains(&radix)) {
+        return None;
+    }
+
+    let trimmed = source.trim_start_matches(|ch: char| ch.is_ascii_whitespace());
+    let (negative, rest) = if let Some(rest) = trimmed.strip_prefix('-') {
+        (true, rest)
+    } else if let Some(rest) = trimmed.strip_prefix('+') {
+        (false, rest)
+    } else {
+        (false, trimmed)
+    };
+
+    let (radix, digits) = if radix == 0 {
+        if let Some(rest) = rest.strip_prefix("0x").or_else(|| rest.strip_prefix("0X")) {
+            (16, rest)
+        } else {
+            (10, rest)
+        }
+    } else if radix == 16 {
+        (
+            16,
+            rest.strip_prefix("0x")
+                .or_else(|| rest.strip_prefix("0X"))
+                .unwrap_or(rest),
+        )
+    } else {
+        (radix, rest)
+    };
+
+    let mut value: i64 = 0;
+    let mut consumed = false;
+    for ch in digits.chars() {
+        let Some(digit) = ch.to_digit(radix) else {
+            break;
+        };
+        consumed = true;
+        value = value.checked_mul(radix as i64)?.checked_add(digit as i64)?;
+    }
+
+    if !consumed {
+        return None;
+    }
+
+    if negative {
+        value.checked_neg()
+    } else {
+        Some(value)
+    }
 }
 
 fn builtin_globals() -> &'static [&'static str] {

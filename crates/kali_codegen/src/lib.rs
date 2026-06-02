@@ -1692,6 +1692,14 @@ impl<'a> FunctionEmitter<'a> {
             return emitted;
         }
 
+        if let Some(result) = self.resolve_static_parse_int_call(node, &callee_node) {
+            function.instruction(&Instruction::I64Const(result));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Scalar,
+            };
+        }
+
         if let Some(result) = self.resolve_static_array_some_every_call(node, "some") {
             function.instruction(&Instruction::I64Const(if result { 1 } else { 0 }));
             return EmittedValue {
@@ -3595,6 +3603,61 @@ impl<'a> FunctionEmitter<'a> {
                 | Some("globalThis.Number")
                 | Some(r#"globalThis["Number"]"#)
                 | Some(r#"globalThis['Number']"#)
+        )
+    }
+
+    fn resolve_static_parse_int_call(&self, node: &LirNode, callee_node: &LirNode) -> Option<i64> {
+        if node.kind != LirNodeKind::Call || !(2..=3).contains(&node.children.len()) {
+            return None;
+        }
+
+        if !self.is_parse_int_callable(callee_node) {
+            return None;
+        }
+
+        let source = match self.resolve_static_object_identity_value(*node.children.get(1)?)? {
+            StaticObjectIdentityValue::String(value) if value.is_ascii() => value,
+            _ => return None,
+        };
+        let radix = match node.children.get(2) {
+            Some(id) => {
+                let radix = self.resolve_static_numeric_value(*id)?;
+                if !radix.is_finite() || radix.fract() != 0.0 {
+                    return None;
+                }
+                radix as u32
+            }
+            None => 0,
+        };
+        static_parse_int_ascii(&source, radix)
+    }
+
+    fn is_parse_int_callable(&self, callee_node: &LirNode) -> bool {
+        let Some(method) = callee_node.text.as_deref() else {
+            return false;
+        };
+
+        if method == "parseInt" && callee_node.children.is_empty() {
+            return true;
+        }
+
+        if method != "parseInt" {
+            return false;
+        }
+
+        let Some(object) = callee_node.children.first().copied() else {
+            return false;
+        };
+        let Some(object) = self.resolve_transparent_object_root_node(object) else {
+            return false;
+        };
+        matches!(
+            self.node(object).text.as_deref(),
+            Some("Number")
+                | Some("globalThis.Number")
+                | Some(r#"globalThis["Number"]"#)
+                | Some(r#"globalThis['Number']"#)
+                | Some("globalThis")
         )
     }
 
@@ -9043,6 +9106,58 @@ fn parse_numeric_literal_value(text: &str) -> Option<f64> {
         return stripped.parse::<f64>().ok();
     }
     text.parse::<f64>().ok()
+}
+
+fn static_parse_int_ascii(source: &str, radix: u32) -> Option<i64> {
+    if !source.is_ascii() || !(radix == 0 || (2..=36).contains(&radix)) {
+        return None;
+    }
+
+    let trimmed = source.trim_start_matches(|ch: char| ch.is_ascii_whitespace());
+    let (negative, rest) = if let Some(rest) = trimmed.strip_prefix('-') {
+        (true, rest)
+    } else if let Some(rest) = trimmed.strip_prefix('+') {
+        (false, rest)
+    } else {
+        (false, trimmed)
+    };
+
+    let (radix, digits) = if radix == 0 {
+        if let Some(rest) = rest.strip_prefix("0x").or_else(|| rest.strip_prefix("0X")) {
+            (16, rest)
+        } else {
+            (10, rest)
+        }
+    } else if radix == 16 {
+        (
+            16,
+            rest.strip_prefix("0x")
+                .or_else(|| rest.strip_prefix("0X"))
+                .unwrap_or(rest),
+        )
+    } else {
+        (radix, rest)
+    };
+
+    let mut value: i64 = 0;
+    let mut consumed = false;
+    for ch in digits.chars() {
+        let Some(digit) = ch.to_digit(radix) else {
+            break;
+        };
+        consumed = true;
+        value = value.checked_mul(radix as i64)?.checked_add(digit as i64)?;
+    }
+
+    if !consumed {
+        return None;
+    }
+
+    if negative {
+        value.checked_neg()
+    } else {
+        Some(value)
+    }
 }
 
 #[cfg(test)]
