@@ -98,13 +98,29 @@ fn assert_browser_find_family_succeeds(command: &str, filename: &str, json_outpu
         assert_eq!(json["schemaVersion"], 1);
         assert_eq!(json["command"], command);
         assert_eq!(json["success"], true);
-        if command == "run" {
-            assert_eq!(json["exitCode"], 0);
-            assert_eq!(json["stdout"], "2\n2\n1\n3\n3\n2\nbrowser find family ok\n");
-        } else {
-            assert_eq!(json["payload"]["passed"], 1);
-            assert_eq!(json["payload"]["failed"], 0);
-            assert_eq!(json["stdout"], "2\n2\n1\n3\n3\n2\nbrowser find family ok\n");
+        assert_eq!(json["exitCode"], 0);
+        assert!(json["errors"].as_array().expect("errors array").is_empty());
+        match command {
+            "check" => {
+                assert_eq!(json["payload"]["errorCount"], 0);
+                assert_eq!(json["payload"]["filesChecked"], 1);
+                assert_eq!(json["payload"]["warningCount"], 0);
+                assert!(json["stdout"].is_null());
+                assert!(json["stderr"].is_null());
+            }
+            "build" => {
+                assert_eq!(json["payload"]["artifactKind"], "bundle");
+                assert_eq!(json["payload"]["bundleFormat"], "esm");
+            }
+            "run" => {
+                assert_eq!(json["stdout"], "2\n2\n1\n3\n3\n2\nbrowser find family ok\n");
+            }
+            "test" => {
+                assert_eq!(json["payload"]["passed"], 1);
+                assert_eq!(json["payload"]["failed"], 0);
+                assert_eq!(json["stdout"], "2\n2\n1\n3\n3\n2\nbrowser find family ok\n");
+            }
+            other => panic!("unsupported command in find-family helper: {other}"),
         }
     } else if matches!(command, "run" | "test") {
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -151,9 +167,23 @@ fn check_supports_find_family_in_browser_api_surface_js_ts_jsx_and_tsx_input() {
 }
 
 #[test]
+fn json_check_supports_find_family_in_browser_api_surface_js_ts_jsx_and_tsx_input() {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        assert_browser_find_family_succeeds("check", &format!("main.{extension}"), true);
+    }
+}
+
+#[test]
 fn build_supports_find_family_in_browser_api_surface_js_ts_jsx_and_tsx_input() {
     for extension in ["js", "ts", "jsx", "tsx"] {
         assert_browser_find_family_succeeds("build", &format!("main.{extension}"), false);
+    }
+}
+
+#[test]
+fn json_build_supports_find_family_in_browser_api_surface_js_ts_jsx_and_tsx_input() {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        assert_browser_find_family_succeeds("build", &format!("main.{extension}"), true);
     }
 }
 
