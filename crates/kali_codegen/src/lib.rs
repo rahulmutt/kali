@@ -1842,6 +1842,15 @@ impl<'a> FunctionEmitter<'a> {
             return self.emit_node(function, literal, true);
         }
 
+        if let Some(result) = self.resolve_static_string_char_at_call(node) {
+            let literal = self.alloc_scratch_node(
+                LirNodeKind::Literal,
+                Some(quote_string_literal(&result)),
+                vec![],
+            );
+            return self.emit_node(function, literal, true);
+        }
+
         if let Some(result) = self.resolve_static_string_trim_call(node) {
             let literal = self.alloc_scratch_node(
                 LirNodeKind::Literal,
@@ -1864,6 +1873,18 @@ impl<'a> FunctionEmitter<'a> {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
                 "String.prototype.repeat is unavailable unless the receiver is a statically-known ASCII string literal and the repeat count is a statically-known integer from 0 through 1024 in the current direct-runtime path; use explicit ASCII literals or the later compatibility path",
+            ));
+            function.instruction(&Instruction::Unreachable);
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
+
+        if self.is_string_char_at_call_with_literal_receiver(node) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "String.prototype.charAt is unavailable unless the receiver is a statically-known ASCII string literal and the optional index is a statically-known integer in the current direct-runtime path; use explicit ASCII literals or the later compatibility path",
             ));
             function.instruction(&Instruction::Unreachable);
             return EmittedValue {
@@ -4270,6 +4291,68 @@ impl<'a> FunctionEmitter<'a> {
         };
         let callee_node = self.node(callee);
         callee_node.text.as_deref() == Some("repeat")
+            && callee_node
+                .children
+                .first()
+                .copied()
+                .and_then(|receiver| self.resolve_static_object_identity_value(receiver))
+                .is_some_and(|value| matches!(value, StaticObjectIdentityValue::String(_)))
+    }
+
+    fn resolve_static_string_char_at_call(&self, node: &LirNode) -> Option<String> {
+        if node.kind != LirNodeKind::Call || !matches!(node.children.len(), 1 | 2) {
+            return None;
+        }
+
+        let callee = node.children.first().copied()?;
+        let callee = self.resolve_transparent_callable_node(callee)?;
+        let callee_node = self.node(callee);
+        if callee_node.text.as_deref() != Some("charAt") {
+            return None;
+        }
+
+        let receiver = callee_node.children.first().copied()?;
+        let source = match self.resolve_static_object_identity_value(receiver)? {
+            StaticObjectIdentityValue::String(value) if value.is_ascii() => value,
+            _ => return None,
+        };
+        let index = match node.children.get(1) {
+            Some(id) => {
+                let index = self.resolve_static_numeric_value(*id)?;
+                if !index.is_finite() || index.fract() != 0.0 {
+                    return None;
+                }
+                index as i64
+            }
+            None => 0,
+        };
+
+        if index < 0 {
+            return Some(String::new());
+        }
+
+        Some(
+            source
+                .as_bytes()
+                .get(index as usize)
+                .map(|byte| (*byte as char).to_string())
+                .unwrap_or_default(),
+        )
+    }
+
+    fn is_string_char_at_call_with_literal_receiver(&self, node: &LirNode) -> bool {
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+
+        let Some(callee) = node.children.first().copied() else {
+            return false;
+        };
+        let Some(callee) = self.resolve_transparent_callable_node(callee) else {
+            return false;
+        };
+        let callee_node = self.node(callee);
+        callee_node.text.as_deref() == Some("charAt")
             && callee_node
                 .children
                 .first()
