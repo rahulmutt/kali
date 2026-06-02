@@ -3,7 +3,7 @@
   "$id": "https://kali-lang.org/schemas/diagnostic/v1",
   "title": "Kali Diagnostic v1",
   "type": "object",
-  "additionalProperties": true,
+  "additionalProperties": false,
   "required": [
     "severity",
     "code",
@@ -20,12 +20,13 @@
       "enum": [
         "error",
         "warning",
-        "info"
+        "info",
+        "hint"
       ]
     },
     "code": {
       "type": "string",
-      "pattern": "^[EWI][0-9]{4}$"
+      "pattern": "^[EWIH][0-9]{4}$"
     },
     "message": {
       "type": "string"
@@ -34,6 +35,72 @@
       "type": "string"
     },
     "span": {
+      "$ref": "#/$defs/sourceSpan"
+    },
+    "labels": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/label"
+      }
+    },
+    "help": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "related": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/relatedInfo"
+      }
+    },
+    "fix": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/suggestedFix"
+        }
+      ]
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "context": {
+      "$ref": "#/$defs/diagnosticContext"
+    }
+  },
+  "$defs": {
+    "sourceLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "line",
+        "column"
+      ],
+      "properties": {
+        "file": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "sourceSpan": {
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -45,7 +112,9 @@
       ],
       "properties": {
         "file": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "line": {
           "type": "integer",
@@ -65,91 +134,92 @@
         }
       }
     },
-    "labels": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": true,
-        "required": [
-          "file",
-          "line",
-          "column",
-          "endLine",
-          "endColumn"
-        ],
-        "properties": {
-          "file": {
-            "type": "string"
-          },
-          "line": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "column": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "endLine": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "endColumn": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "label": {
-            "type": "string"
-          },
-          "isPrimary": {
-            "type": "boolean"
-          }
-        }
-      }
-    },
-    "help": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "related": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": true,
-        "properties": {
-          "file": {
-            "type": "string"
-          },
-          "line": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "column": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "label": {
-            "type": "string"
-          }
-        }
-      }
-    },
-    "fix": {
-      "type": [
-        "null",
-        "object"
-      ]
-    },
-    "notes": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
-    },
-    "context": {
+    "label": {
       "type": "object",
-      "additionalProperties": true,
+      "additionalProperties": false,
+      "required": [
+        "span",
+        "message",
+        "style"
+      ],
+      "properties": {
+        "span": {
+          "$ref": "#/$defs/sourceSpan"
+        },
+        "message": {
+          "type": "string"
+        },
+        "style": {
+          "type": "string",
+          "enum": [
+            "primary",
+            "secondary"
+          ]
+        }
+      }
+    },
+    "relatedInfo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "message",
+        "span"
+      ],
+      "properties": {
+        "message": {
+          "type": "string"
+        },
+        "span": {
+          "$ref": "#/$defs/sourceSpan"
+        }
+      }
+    },
+    "textEdit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "start",
+        "end",
+        "newText"
+      ],
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "start": {
+          "$ref": "#/$defs/sourceLocation"
+        },
+        "end": {
+          "$ref": "#/$defs/sourceLocation"
+        },
+        "newText": {
+          "type": "string"
+        }
+      }
+    },
+    "suggestedFix": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "message",
+        "edits"
+      ],
+      "properties": {
+        "message": {
+          "type": "string"
+        },
+        "edits": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/textEdit"
+          }
+        }
+      }
+    },
+    "diagnosticContext": {
+      "type": "object",
+      "additionalProperties": false,
       "required": [
         "origin"
       ],
@@ -167,13 +237,17 @@
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "flag": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "requestedValue": {},
         "effectiveValue": {}

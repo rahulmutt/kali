@@ -3,7 +3,7 @@
   "$id": "https://kali-lang.org/schemas/envelope/v1",
   "title": "Kali CLI Envelope v1",
   "type": "object",
-  "additionalProperties": true,
+  "additionalProperties": false,
   "required": [
     "schemaVersion",
     "command",
@@ -17,7 +17,9 @@
       "const": 1
     },
     "command": {
-      "type": "string"
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
     },
     "success": {
       "type": "boolean"
@@ -68,27 +70,81 @@
         "null"
       ]
     },
+    "exitCode": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/artifact"
+      }
+    },
     "timings": {
       "type": "array",
       "items": {
-        "type": "object",
-        "required": [
-          "phase",
-          "milliseconds"
-        ],
-        "properties": {
-          "phase": {
-            "type": "string"
-          },
-          "milliseconds": {
-            "type": "number"
-          }
+        "$ref": "#/$defs/timing"
+      }
+    }
+  },
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "kind",
+        "bytes"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
-        "additionalProperties": false
+        "kind": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "primary-executable",
+            "primary-library",
+            "primary-component",
+            "browser-glue",
+            "interface-wit",
+            "embedding-header",
+            "embedding-metadata",
+            "binding-package-manifest",
+            "debug-source-map"
+          ]
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
       }
     },
-    "exitCode": {
-      "type": "integer"
+    "timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "phase",
+        "milliseconds"
+      ],
+      "properties": {
+        "phase": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
+        },
+        "milliseconds": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
     }
   }
 }

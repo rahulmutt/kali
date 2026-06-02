@@ -78,7 +78,7 @@ fn core_schema_documents_match_current_cli_contracts() {
         &fs::read_to_string(root.join("schemas/envelope/v1.json")).expect("read envelope schema"),
     )
     .expect("parse envelope schema");
-    assert_eq!(envelope["additionalProperties"], true);
+    assert_eq!(envelope["additionalProperties"], false);
     assert_eq!(
         required_fields(&envelope),
         [
@@ -116,26 +116,33 @@ fn core_schema_documents_match_current_cli_contracts() {
         ["object", "array", "string", "number", "boolean", "null"]
     );
     assert_eq!(envelope["properties"]["timings"]["type"], "array");
-    assert_eq!(envelope["properties"]["timings"]["items"]["type"], "object");
     assert_eq!(
-        envelope["properties"]["timings"]["items"]["additionalProperties"],
-        false
+        envelope["properties"]["timings"]["items"]["$ref"],
+        "#/$defs/timing"
     );
+    assert_eq!(envelope["$defs"]["timing"]["type"], "object");
+    assert_eq!(envelope["$defs"]["timing"]["additionalProperties"], false);
     assert_eq!(
-        required_fields(&envelope["properties"]["timings"]["items"]),
+        required_fields(&envelope["$defs"]["timing"]),
         ["phase", "milliseconds"]
             .iter()
             .map(|value| value.to_string())
             .collect::<Vec<_>>()
     );
     assert_eq!(
-        envelope["properties"]["timings"]["items"]["properties"]["phase"]["type"],
+        envelope["$defs"]["timing"]["properties"]["phase"]["type"],
         "string"
     );
     assert_eq!(
-        envelope["properties"]["timings"]["items"]["properties"]["milliseconds"]["type"],
+        envelope["$defs"]["timing"]["properties"]["milliseconds"]["type"],
         "number"
     );
+    assert_eq!(envelope["properties"]["artifacts"]["type"], "array");
+    assert_eq!(
+        envelope["properties"]["artifacts"]["items"]["$ref"],
+        "#/$defs/artifact"
+    );
+    assert_eq!(envelope["$defs"]["artifact"]["additionalProperties"], false);
     assert_eq!(
         envelope["properties"]["stdout"]["type"],
         serde_json::json!(["string", "null"])
@@ -693,6 +700,7 @@ fn core_schema_documents_match_current_cli_contracts() {
     )
     .expect("parse diagnostic schema");
     assert_eq!(diagnostic["type"], "object");
+    assert_eq!(diagnostic["additionalProperties"], false);
     assert_eq!(
         diagnostic["required"]
             .as_array()
@@ -709,11 +717,11 @@ fn core_schema_documents_match_current_cli_contracts() {
             .iter()
             .map(|value| value.as_str().expect("severity enum string"))
             .collect::<Vec<_>>(),
-        vec!["error", "warning", "info"]
+        vec!["error", "warning", "info", "hint"]
     );
     assert_eq!(
         diagnostic["properties"]["code"]["pattern"],
-        "^[EWI][0-9]{4}$"
+        "^[EWIH][0-9]{4}$"
     );
     assert_eq!(
         diagnostic["properties"]["help"],
@@ -721,57 +729,64 @@ fn core_schema_documents_match_current_cli_contracts() {
     );
     assert_eq!(
         diagnostic["properties"]["fix"],
-        serde_json::json!({"type": ["null", "object"]})
+        serde_json::json!({"anyOf": [{"type": "null"}, {"$ref": "#/$defs/suggestedFix"}]})
     );
     assert_eq!(
-        diagnostic["properties"]["span"]["required"]
-            .as_array()
-            .expect("span required array")
-            .iter()
-            .map(|value| value.as_str().expect("span required string"))
-            .collect::<Vec<_>>(),
+        diagnostic["properties"]["span"]["$ref"],
+        "#/$defs/sourceSpan"
+    );
+    assert_eq!(
+        diagnostic["properties"]["labels"]["items"]["$ref"],
+        "#/$defs/label"
+    );
+    assert_eq!(
+        diagnostic["properties"]["related"]["items"]["$ref"],
+        "#/$defs/relatedInfo"
+    );
+    assert_eq!(
+        diagnostic["properties"]["context"]["$ref"],
+        "#/$defs/diagnosticContext"
+    );
+    for def_name in [
+        "sourceLocation",
+        "sourceSpan",
+        "label",
+        "relatedInfo",
+        "textEdit",
+        "suggestedFix",
+        "diagnosticContext",
+    ] {
+        assert_eq!(
+            diagnostic["$defs"][def_name]["additionalProperties"], false,
+            "{def_name} should be fixed-shape"
+        );
+    }
+    assert_eq!(
+        required_fields(&diagnostic["$defs"]["sourceSpan"]),
         vec!["file", "line", "column", "endLine", "endColumn"]
     );
     assert_eq!(
-        diagnostic["properties"]["span"]["additionalProperties"],
-        false
-    );
-    assert_eq!(
-        diagnostic["properties"]["labels"]["items"]["required"]
-            .as_array()
-            .expect("label required array")
-            .iter()
-            .map(|value| value.as_str().expect("label required string"))
-            .collect::<Vec<_>>(),
-        vec!["file", "line", "column", "endLine", "endColumn"]
+        required_fields(&diagnostic["$defs"]["label"]),
+        vec!["span", "message", "style"]
     );
     for key in ["line", "column", "endLine", "endColumn"] {
         assert_eq!(
-            diagnostic["properties"]["span"]["properties"][key]["minimum"],
-            1
-        );
-        assert_eq!(
-            diagnostic["properties"]["labels"]["items"]["properties"][key]["minimum"],
+            diagnostic["$defs"]["sourceSpan"]["properties"][key]["minimum"],
             1
         );
     }
     for key in ["line", "column"] {
         assert_eq!(
-            diagnostic["properties"]["related"]["items"]["properties"][key]["minimum"],
+            diagnostic["$defs"]["sourceLocation"]["properties"][key]["minimum"],
             1
         );
     }
-    assert_eq!(diagnostic["properties"]["context"]["type"], "object");
     assert_eq!(
-        diagnostic["properties"]["context"]["additionalProperties"],
-        true
-    );
-    assert_eq!(
-        required_fields(&diagnostic["properties"]["context"]),
+        required_fields(&diagnostic["$defs"]["diagnosticContext"]),
         vec!["origin"]
     );
     assert_eq!(
-        diagnostic["properties"]["context"]["properties"]["origin"]["enum"]
+        diagnostic["$defs"]["diagnosticContext"]["properties"]["origin"]["enum"]
             .as_array()
             .expect("diagnostic context origin enum array")
             .iter()
@@ -782,19 +797,19 @@ fn core_schema_documents_match_current_cli_contracts() {
         vec!["cli", "config", "default", "source"]
     );
     assert_eq!(
-        diagnostic["properties"]["context"]["properties"]["configPath"]["type"],
+        diagnostic["$defs"]["diagnosticContext"]["properties"]["configPath"]["type"],
         serde_json::json!(["string", "null"])
     );
     assert_eq!(
-        diagnostic["properties"]["context"]["properties"]["flag"]["type"],
+        diagnostic["$defs"]["diagnosticContext"]["properties"]["flag"]["type"],
         serde_json::json!(["string", "null"])
     );
     assert_eq!(
-        diagnostic["properties"]["context"]["properties"]["requestedValue"],
+        diagnostic["$defs"]["diagnosticContext"]["properties"]["requestedValue"],
         serde_json::json!({})
     );
     assert_eq!(
-        diagnostic["properties"]["context"]["properties"]["effectiveValue"],
+        diagnostic["$defs"]["diagnosticContext"]["properties"]["effectiveValue"],
         serde_json::json!({})
     );
 

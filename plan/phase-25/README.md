@@ -35,7 +35,7 @@ Widen proof-backed and machine-contract confidence while keeping claims exact.
 
 - Continue validating JSON payloads, artifact manifests, diagnostics, source spans, and schema-v1 envelopes at emission boundaries.
 - Keep command-shape, arity, JSON-mode, and diagnostic-context regressions explicit for every newly promoted surface.
-- Keep docs/schema drift tests aligned with README and CLI examples.
+- Keep docs/schema drift tests aligned with README and CLI examples; the CLI envelope and diagnostic schema files are now pinned by fixed-shape schema-posture regression tests.
 - Respect schema extension posture; do not make validators narrower than published schemas.
 
 ## Exit gate

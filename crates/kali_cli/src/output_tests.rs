@@ -25,6 +25,92 @@ fn assert_payload_accepts_schema_permitted_extension_key(
 }
 
 #[test]
+fn published_cli_envelope_schema_matches_fixed_shape_validator_posture() {
+    let schema: serde_json::Value =
+        serde_json::from_str(include_str!("../../../schemas/envelope/v1.json"))
+            .expect("envelope schema should be valid JSON");
+    let object = schema.as_object().expect("envelope schema object");
+
+    assert_eq!(object.get("additionalProperties"), Some(&json!(false)));
+
+    let properties = object
+        .get("properties")
+        .and_then(serde_json::Value::as_object)
+        .expect("envelope schema properties");
+    for key in [
+        "schemaVersion",
+        "command",
+        "success",
+        "errors",
+        "warnings",
+        "payload",
+        "stdout",
+        "stderr",
+        "exitCode",
+        "artifacts",
+        "timings",
+    ] {
+        assert!(
+            properties.contains_key(key),
+            "missing envelope property {key}"
+        );
+    }
+    assert_eq!(properties["exitCode"].get("minimum"), Some(&json!(0)));
+    assert_eq!(properties["command"].get("minLength"), Some(&json!(1)));
+
+    let defs = object
+        .get("$defs")
+        .and_then(serde_json::Value::as_object)
+        .expect("envelope schema defs");
+    assert_eq!(
+        defs["artifact"].get("additionalProperties"),
+        Some(&json!(false))
+    );
+    assert_eq!(
+        defs["timing"].get("additionalProperties"),
+        Some(&json!(false))
+    );
+}
+
+#[test]
+fn published_diagnostic_schema_matches_fixed_shape_validator_posture() {
+    let schema: serde_json::Value =
+        serde_json::from_str(include_str!("../../../schemas/diagnostic/v1.json"))
+            .expect("diagnostic schema should be valid JSON");
+    let object = schema.as_object().expect("diagnostic schema object");
+
+    assert_eq!(object.get("additionalProperties"), Some(&json!(false)));
+    assert!(object
+        .get("properties")
+        .and_then(|properties| properties.get("severity"))
+        .and_then(|severity| severity.get("enum"))
+        .and_then(serde_json::Value::as_array)
+        .expect("severity enum")
+        .iter()
+        .any(|value| value == "hint"));
+
+    let defs = object
+        .get("$defs")
+        .and_then(serde_json::Value::as_object)
+        .expect("diagnostic schema defs");
+    for key in [
+        "sourceLocation",
+        "sourceSpan",
+        "label",
+        "relatedInfo",
+        "textEdit",
+        "suggestedFix",
+        "diagnosticContext",
+    ] {
+        assert_eq!(
+            defs[key].get("additionalProperties"),
+            Some(&json!(false)),
+            "{key} should be fixed-shape"
+        );
+    }
+}
+
+#[test]
 fn emitted_cli_envelopes_satisfy_the_schema_v1_top_level_shape() {
     let value = emit_envelope_value(
         "doctor",
