@@ -5081,6 +5081,30 @@ fn supported_array_find_last_index_call_with_strict_equality_callback_lowers_to_
 }
 
 #[test]
+fn supported_array_find_call_with_strict_inequality_callback_lowers_to_value() {
+    let program = parse_and_lower_lir("console.log([0, 1, 2].find((value) => value !== 0));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 1"), "{printed}");
+}
+
+#[test]
 fn supported_array_find_last_call_with_truthy_callback_lowers_to_value() {
     let program = parse_and_lower_lir("console.log([0, 1, 2, 3].findLast((value) => value > 1));");
     let mut ctx = CodegenCtx::new(TargetConfig {

@@ -13,6 +13,8 @@ fn number_predicates_source() -> &'static str {
   console.log([0, 1].some((value) => value > 1));
   console.log([2, 3].every((value) => value > 1));
   console.log([1, 2].every((value) => value > 1));
+  console.log([0, 1, 2].some((value) => value === 1));
+  console.log([1, 2].every((value) => value !== 0));
 }
 main();
 "#
@@ -24,6 +26,8 @@ fn number_predicates_test_source() -> &'static str {
   console.log([0, 1].some((value) => value > 1));
   console.log([2, 3].every((value) => value > 1));
   console.log([1, 2].every((value) => value > 1));
+  console.log([0, 1, 2].some((value) => value === 1));
+  console.log([1, 2].every((value) => value !== 0));
 }
 main();
 "#
@@ -57,11 +61,11 @@ fn assert_run_supports_number_predicates_in_js_input(json_output: bool) {
         assert_eq!(json["schemaVersion"], 1);
         assert_eq!(json["command"], "run");
         assert_eq!(json["success"], true);
-        assert_eq!(json["stdout"], "1\n0\n1\n0\n");
+        assert_eq!(json["stdout"], "1\n0\n1\n0\n1\n1\n");
         assert!(json["errors"].as_array().expect("errors array").is_empty());
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert_eq!(stdout, "1\n0\n1\n0\n", "stdout: {stdout}");
+        assert_eq!(stdout, "1\n0\n1\n0\n1\n1\n", "stdout: {stdout}");
     }
 }
 
@@ -98,11 +102,11 @@ fn assert_test_supports_number_predicates_in_js_input(json_output: bool) {
         assert!(json["errors"].as_array().expect("errors array").is_empty());
         assert_eq!(
             json["stdout"].as_str().expect("stdout string"),
-            "1\n0\n1\n0\n"
+            "1\n0\n1\n0\n1\n1\n"
         );
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.starts_with("1\n0\n1\n0\n"), "stdout: {stdout}");
+        assert!(stdout.starts_with("1\n0\n1\n0\n1\n1\n"), "stdout: {stdout}");
         assert!(stdout.contains("ok 1"), "stdout: {stdout}");
     }
 }

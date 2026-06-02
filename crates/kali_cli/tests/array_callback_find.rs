@@ -12,9 +12,11 @@ fn find_family_source() -> &'static str {
   console.log([0, 1, 2].find((value) => value > 1));
   console.log([0, 1, 2].findIndex((value) => value > 1));
   console.log([0, 1, 2].findIndex((value) => value === 1));
+  console.log([0, 1, 2].find((value) => value !== 0));
   console.log([0, 1, 2, 3].findLast((value) => value > 1));
   console.log([0, 1, 2, 3].findLastIndex((value) => value > 1));
   console.log([1, 2, 1].findLastIndex((value) => value === 1));
+  console.log([1, 2, 1].findLast((value) => value !== 1));
 }
 main();
 "#
@@ -33,11 +35,14 @@ fn assert_find_family_succeeds(command: &str, extension: &str) {
 
     if command == "run" {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert_eq!(stdout, "2\n2\n1\n3\n3\n2\n", "unexpected stdout: {stdout}");
+        assert_eq!(
+            stdout, "2\n2\n1\n1\n3\n3\n2\n2\n",
+            "unexpected stdout: {stdout}"
+        );
     } else if command == "test" {
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(
-            stdout.contains("2\n2\n1\n3\n3\n2\n"),
+            stdout.contains("2\n2\n1\n1\n3\n3\n2\n2\n"),
             "unexpected stdout: {stdout}"
         );
     }
@@ -48,9 +53,11 @@ fn browser_find_family_source(command: &str) -> String {
   console.log([0, 1, 2].find((value) => value > 1));
   console.log([0, 1, 2].findIndex((value) => value > 1));
   console.log([0, 1, 2].findIndex((value) => value === 1));
+  console.log([0, 1, 2].find((value) => value !== 0));
   console.log([0, 1, 2, 3].findLast((value) => value > 1));
   console.log([0, 1, 2, 3].findLastIndex((value) => value > 1));
   console.log([1, 2, 1].findLastIndex((value) => value === 1));
+  console.log([1, 2, 1].findLast((value) => value !== 1));
   console.log('browser find family ok');
 }
 browserFindFamilySlices();
@@ -113,18 +120,27 @@ fn assert_browser_find_family_succeeds(command: &str, filename: &str, json_outpu
                 assert_eq!(json["payload"]["bundleFormat"], "esm");
             }
             "run" => {
-                assert_eq!(json["stdout"], "2\n2\n1\n3\n3\n2\nbrowser find family ok\n");
+                assert_eq!(
+                    json["stdout"],
+                    "2\n2\n1\n1\n3\n3\n2\n2\nbrowser find family ok\n"
+                );
             }
             "test" => {
                 assert_eq!(json["payload"]["passed"], 1);
                 assert_eq!(json["payload"]["failed"], 0);
-                assert_eq!(json["stdout"], "2\n2\n1\n3\n3\n2\nbrowser find family ok\n");
+                assert_eq!(
+                    json["stdout"],
+                    "2\n2\n1\n1\n3\n3\n2\n2\nbrowser find family ok\n"
+                );
             }
             other => panic!("unsupported command in find-family helper: {other}"),
         }
     } else if matches!(command, "run" | "test") {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.starts_with("2\n2\n1\n3\n3\n2\n"), "stdout: {stdout}");
+        assert!(
+            stdout.starts_with("2\n2\n1\n1\n3\n3\n2\n2\n"),
+            "stdout: {stdout}"
+        );
         if command == "test" {
             assert!(stdout.contains("ok 1"), "stdout: {stdout}");
         }

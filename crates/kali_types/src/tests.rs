@@ -14100,6 +14100,10 @@ fn test_resolution_allows_array_find_family_in_non_browser_surface() {
         ("findIndex", "(value) => value > 1"),
         ("findLast", "(value) => value > 1"),
         ("findLastIndex", "(value) => value > 1"),
+        ("find", "(value) => value === 2"),
+        ("findIndex", "(value) => value !== 1"),
+        ("findLast", "(value) => value === 2"),
+        ("findLastIndex", "(value) => value !== 1"),
     ] {
         let dir = tempfile::tempdir().unwrap();
         let source_path = dir.path().join("main.js");
