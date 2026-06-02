@@ -2796,9 +2796,31 @@ fn generator_function_without_yield_still_remains_feature_unavailable() {
 }
 
 #[test]
+fn supported_for_of_array_iteration_accepts_static_predicate_filter_calls() {
+    let program = parse_and_lower_lir(
+        "for (const item of [1, 2, 3].filter((value) => value > 1)) { console.log(item); }",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
 fn unsupported_array_callback_iteration_lowering_reports_feature_unavailable() {
     for source in [
-        "const values = [1, 2]; for (const item of values.filter((value) => value > 1)) { console.log(item); }",
         "const values = [1, 2]; for (const item of values.find((value) => value > 1)) { console.log(item); }",
         "const values = [1, 2]; for (const item of values.findIndex((value) => value > 1)) { console.log(item); }",
         "const values = [1, 2]; for (const item of values.findLast((value) => value > 1)) { console.log(item); }",

@@ -1067,6 +1067,7 @@ impl TypeContext {
                         && self.is_static_array_iteration_target(&call.args[0])
                     || self.is_static_identity_array_map_call(call)
                     || self.is_static_identity_array_filter_call(call)
+                    || self.is_static_predicate_array_filter_call(call)
                     || self.is_static_identity_array_flat_map_call(call)
             }
             Expression::NewExpression(expr) => {
@@ -1110,6 +1111,20 @@ impl TypeContext {
         call.args.len() == 1
             && self.is_static_truthy_array_literal(&member.object)
             && self.is_identity_array_callback(&call.args[0])
+    }
+
+    fn is_static_predicate_array_filter_call(&self, call: &CallExpression) -> bool {
+        let Expression::MemberExpression(member) = &call.callee else {
+            return false;
+        };
+
+        if member.property.as_str() != "filter" {
+            return false;
+        }
+
+        call.args.len() == 1
+            && self.is_static_array_iteration_target(&member.object)
+            && self.is_some_every_array_callback(&call.args[0])
     }
 
     fn is_static_identity_array_flat_map_call(&self, call: &CallExpression) -> bool {
@@ -4021,11 +4036,15 @@ impl TypeContext {
         }
 
         if method == "filter"
-            && expr
+            && ((expr
                 .args
                 .first()
                 .is_some_and(|callback| self.is_identity_array_callback(callback))
-            && self.is_static_truthy_array_literal(&member.object)
+                && self.is_static_truthy_array_literal(&member.object))
+                || expr
+                    .args
+                    .first()
+                    .is_some_and(|callback| self.is_some_every_array_callback(callback)))
         {
             self.resolve_expression(&member.object);
             for arg in &expr.args {

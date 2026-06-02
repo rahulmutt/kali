@@ -3854,6 +3854,56 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    fn resolve_static_array_filter_items(&self, node: &LirNode) -> Option<Vec<LirNodeId>> {
+        let mut current = node;
+        while current.kind == LirNodeKind::Value
+            && current.children.len() == 1
+            && current.text.as_deref().is_none_or(|text| text.is_empty())
+        {
+            current = self.node(current.children[0]);
+        }
+
+        if current.kind != LirNodeKind::Call || current.children.len() != 2 {
+            return None;
+        }
+
+        let callee = current.children.first().copied()?;
+        let callee = self.resolve_transparent_callable_node(callee)?;
+        let callee_node = self.node(callee);
+        if !callee_node.text.as_deref().is_some_and(|text| {
+            text == "filter"
+                || text.ends_with(".filter")
+                || text.ends_with("[\"filter\"]")
+                || text.ends_with("['filter']")
+        }) {
+            return None;
+        }
+
+        let callback = current.children.get(1).copied()?;
+        let source = callee_node.children.first().copied()?;
+        let source = self.resolve_literal_aggregate(source)?;
+        let source_node = self.node(source).clone();
+        let source_node = if source_node.kind == LirNodeKind::Value
+            && source_node.text.is_none()
+            && source_node.children.len() == 1
+        {
+            self.node(source_node.children[0]).clone()
+        } else {
+            source_node
+        };
+        if !self.is_array_literal(&source_node) {
+            return None;
+        }
+
+        let mut items = Vec::new();
+        for child in &source_node.children {
+            if self.resolve_static_array_callback_truthiness(callback, *child)? {
+                items.push(*child);
+            }
+        }
+        Some(items)
+    }
+
     fn resolve_static_array_reduce_call(&self, node: &LirNode, method: &str) -> Option<i64> {
         if node.kind != LirNodeKind::Call || node.children.len() != 3 {
             return None;
@@ -5938,6 +5988,38 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
 
+            let break_index = self.push_control_frame(ControlFlowLabelKind::LoopBreak);
+            function.instruction(&Instruction::Block(BlockType::Empty));
+            for child in items {
+                let previous_binding = self.bindings.insert(loop_name.clone(), child);
+                let continue_index = self.push_control_frame(ControlFlowLabelKind::LoopContinue);
+                self.loop_frames.push(LoopFrame {
+                    break_index,
+                    continue_index,
+                });
+                function.instruction(&Instruction::Block(BlockType::Empty));
+                if let Some(body) = body {
+                    let _ = self.emit_node(function, body, false);
+                }
+                if let Some(previous_binding) = previous_binding {
+                    self.bindings.insert(loop_name.clone(), previous_binding);
+                } else {
+                    self.bindings.remove(&loop_name);
+                }
+                function.instruction(&Instruction::End);
+                self.pop_control_frame(ControlFlowLabelKind::LoopContinue);
+                self.loop_frames.pop();
+            }
+            function.instruction(&Instruction::End);
+            self.pop_control_frame(ControlFlowLabelKind::LoopBreak);
+
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
+
+        if let Some(items) = self.resolve_static_array_filter_items(&array) {
             let break_index = self.push_control_frame(ControlFlowLabelKind::LoopBreak);
             function.instruction(&Instruction::Block(BlockType::Empty));
             for child in items {
