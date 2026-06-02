@@ -5352,6 +5352,58 @@ fn supported_static_string_replace_lowers_ascii_literals() {
 }
 
 #[test]
+fn supported_static_string_split_lowers_ascii_literals_to_array() {
+    let program = parse_and_lower_lir(
+        "const parts = 'a,b,c'.split(','); console.log(parts.length); console.log(parts[1]); const chars = 'abc'.split('', 2); console.log(chars.length); console.log(chars[0]);",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("\"b\""), "{printed}");
+    assert!(printed.contains("\"a\""), "{printed}");
+    assert!(printed.contains("\"3\""), "{printed}");
+    assert!(printed.contains("\"2\""), "{printed}");
+}
+
+#[test]
+fn unsupported_static_string_split_non_ascii_receiver_is_gated() {
+    let program = parse_and_lower_lir("console.log('á,b'.split(','));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == Some(5506)
+                && diagnostic
+                    .message
+                    .contains("String.prototype.split is unavailable")),
+        "expected split gate diagnostic: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn supported_static_array_at_lowers_positive_and_negative_indexes_to_values() {
     let program =
         parse_and_lower_lir("console.log([10, 20, 30].at(1)); console.log([10, 20, 30].at(-1));");

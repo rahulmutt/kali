@@ -2725,6 +2725,7 @@ impl TypeContext {
         self.resolve_string_trim_member_call(expr);
         self.resolve_string_case_member_call(expr);
         self.resolve_string_replace_member_call(expr);
+        self.resolve_string_split_member_call(expr);
         self.resolve_promise_member_call(expr);
     }
 
@@ -4677,6 +4678,53 @@ impl TypeContext {
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
             "String.prototype.replace is unavailable unless the receiver, search value, and replacement are statically-known ASCII string literals and the replacement contains no substitution markers in the current direct-runtime path; use explicit ASCII literals or the later compatibility path".to_string(),
+        ));
+    }
+
+    fn resolve_string_split_member_call(&mut self, expr: &CallExpression) {
+        let Expression::MemberExpression(member) = &expr.callee else {
+            return;
+        };
+
+        if member.property.as_str() != "split" {
+            return;
+        }
+
+        let source = self.resolve_static_string_expression(&member.object);
+        let separator = expr
+            .args
+            .first()
+            .and_then(|argument| self.resolve_static_string_expression(argument));
+        let limit = expr
+            .args
+            .get(1)
+            .and_then(|argument| self.resolve_static_numeric_literal_value(argument));
+        let has_ascii_operands = source
+            .as_ref()
+            .zip(separator.as_ref())
+            .is_some_and(|(source, separator)| source.is_ascii() && separator.is_ascii());
+        let has_supported_limit = expr.args.get(1).is_none_or(|_| {
+            limit.is_some_and(|limit| {
+                limit.is_finite() && limit.fract() == 0.0 && (0.0..=1024.0).contains(&limit)
+            })
+        });
+
+        if matches!(expr.args.len(), 1 | 2) && has_ascii_operands && has_supported_limit {
+            self.resolve_expression(&member.object);
+            for arg in &expr.args {
+                self.resolve_expression(arg);
+            }
+            return;
+        }
+
+        self.resolve_expression(&member.object);
+        for arg in &expr.args {
+            self.resolve_expression(arg);
+        }
+
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "String.prototype.split is unavailable unless the receiver and separator are statically-known ASCII string literals and the optional limit is a statically-known integer from 0 through 1024 in the current direct-runtime path; use explicit ASCII literals or the later compatibility path".to_string(),
         ));
     }
 

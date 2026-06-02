@@ -1905,6 +1905,21 @@ impl<'a> FunctionEmitter<'a> {
             return self.emit_node(function, literal, true);
         }
 
+        if let Some(parts) = self.resolve_static_string_split_call(node) {
+            let children = parts
+                .into_iter()
+                .map(|part| {
+                    self.alloc_scratch_node(
+                        LirNodeKind::Literal,
+                        Some(quote_string_literal(&part)),
+                        vec![],
+                    )
+                })
+                .collect();
+            let literal = self.alloc_scratch_node(LirNodeKind::Value, None, children);
+            return self.emit_node(function, literal, true);
+        }
+
         if self.is_string_repeat_call_with_literal_receiver(node) {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
@@ -1973,6 +1988,18 @@ impl<'a> FunctionEmitter<'a> {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
                 "String.prototype.replace is unavailable unless the receiver, search value, and replacement are statically-known ASCII string literals and the replacement contains no substitution markers in the current direct-runtime path; use explicit ASCII literals or the later compatibility path",
+            ));
+            function.instruction(&Instruction::Unreachable);
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
+
+        if self.is_string_split_call_with_literal_receiver(node) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "String.prototype.split is unavailable unless the receiver and separator are statically-known ASCII string literals and the optional limit is a statically-known integer from 0 through 1024 in the current direct-runtime path; use explicit ASCII literals or the later compatibility path",
             ));
             function.instruction(&Instruction::Unreachable);
             return EmittedValue {
@@ -4686,6 +4713,73 @@ impl<'a> FunctionEmitter<'a> {
         };
         let callee_node = self.node(callee);
         callee_node.text.as_deref() == Some("replace")
+            && callee_node
+                .children
+                .first()
+                .copied()
+                .and_then(|receiver| self.resolve_static_object_identity_value(receiver))
+                .is_some_and(|value| matches!(value, StaticObjectIdentityValue::String(_)))
+    }
+
+    fn resolve_static_string_split_call(&self, node: &LirNode) -> Option<Vec<String>> {
+        if node.kind != LirNodeKind::Call || !matches!(node.children.len(), 2 | 3) {
+            return None;
+        }
+
+        let callee = node.children.first().copied()?;
+        let callee = self.resolve_transparent_callable_node(callee)?;
+        let callee_node = self.node(callee);
+        if callee_node.text.as_deref() != Some("split") {
+            return None;
+        }
+
+        let receiver = callee_node.children.first().copied()?;
+        let source = match self.resolve_static_object_identity_value(receiver)? {
+            StaticObjectIdentityValue::String(value) if value.is_ascii() => value,
+            _ => return None,
+        };
+        let separator = match self.resolve_static_object_identity_value(*node.children.get(1)?)? {
+            StaticObjectIdentityValue::String(value) if value.is_ascii() => value,
+            _ => return None,
+        };
+        let limit = match node.children.get(2) {
+            Some(id) => {
+                let limit = self.resolve_static_numeric_value(*id)?;
+                if !limit.is_finite() || limit.fract() != 0.0 || !(0.0..=1024.0).contains(&limit) {
+                    return None;
+                }
+                Some(limit as usize)
+            }
+            None => None,
+        };
+
+        let mut parts = if separator.is_empty() {
+            source.chars().map(|ch| ch.to_string()).collect::<Vec<_>>()
+        } else {
+            source
+                .split(&separator)
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+        };
+        if let Some(limit) = limit {
+            parts.truncate(limit);
+        }
+        Some(parts)
+    }
+
+    fn is_string_split_call_with_literal_receiver(&self, node: &LirNode) -> bool {
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+
+        let Some(callee) = node.children.first().copied() else {
+            return false;
+        };
+        let Some(callee) = self.resolve_transparent_callable_node(callee) else {
+            return false;
+        };
+        let callee_node = self.node(callee);
+        callee_node.text.as_deref() == Some("split")
             && callee_node
                 .children
                 .first()
