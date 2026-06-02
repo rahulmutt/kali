@@ -1808,6 +1808,22 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if let Some(result) = self.resolve_static_string_search_call(node, "startsWith") {
+            function.instruction(&Instruction::I64Const(if result >= 0 { 1 } else { 0 }));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Boolean,
+            };
+        }
+
+        if let Some(result) = self.resolve_static_string_search_call(node, "endsWith") {
+            function.instruction(&Instruction::I64Const(if result >= 0 { 1 } else { 0 }));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Boolean,
+            };
+        }
+
         if let Some(result) = self.resolve_static_array_at_call(node) {
             match result {
                 StaticArrayAtResult::Value(value) => return self.emit_node(function, value, true),
@@ -4090,6 +4106,22 @@ impl<'a> FunctionEmitter<'a> {
                     .rfind(&search)
                     .filter(|index| *index <= position)
                     .map_or(Some(-1), |index| Some(index as i64))
+            }
+            "startsWith" => {
+                let position = explicit_from_index.unwrap_or(0).clamp(0, length) as usize;
+                source
+                    .get(position..)
+                    .filter(|suffix| suffix.starts_with(&search))
+                    .map(|_| position as i64)
+                    .or(Some(-1))
+            }
+            "endsWith" => {
+                let end = explicit_from_index.unwrap_or(length).clamp(0, length) as usize;
+                source
+                    .get(..end)
+                    .filter(|prefix| prefix.ends_with(&search))
+                    .map(|_| 0)
+                    .or(Some(-1))
             }
             _ => None,
         }

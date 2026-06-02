@@ -4251,7 +4251,10 @@ impl TypeContext {
         };
 
         let method = member.property.as_str();
-        if !matches!(method, "includes" | "indexOf" | "lastIndexOf") {
+        if !matches!(
+            method,
+            "includes" | "indexOf" | "lastIndexOf" | "startsWith" | "endsWith"
+        ) {
             return;
         }
 
@@ -4268,12 +4271,12 @@ impl TypeContext {
             .zip(search.as_ref())
             .is_some_and(|(source, search)| source.is_ascii() && search.is_ascii());
         let supported_arg_count = matches!(expr.args.len(), 1 | 2);
-        let has_static_from_index = expr
+        let has_static_position = expr
             .args
             .get(1)
             .is_none_or(|argument| self.is_static_numeric_literal_expr(argument));
 
-        if supported_arg_count && has_ascii_source_and_search && has_static_from_index {
+        if supported_arg_count && has_ascii_source_and_search && has_static_position {
             self.resolve_expression(&member.object);
             for arg in &expr.args {
                 self.resolve_expression(arg);
@@ -4289,7 +4292,7 @@ impl TypeContext {
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
             format!(
-                "string search method '{method}' is unavailable unless the receiver, search value, and fromIndex are statically-known ASCII string/number literals in the current direct-runtime path; use explicit ASCII literals or the later compatibility path"
+                "string search method '{method}' is unavailable unless the receiver, search value, and position/fromIndex are statically-known ASCII string/number literals in the current direct-runtime path; use explicit ASCII literals or the later compatibility path"
             ),
         ));
     }

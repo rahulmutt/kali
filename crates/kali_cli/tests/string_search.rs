@@ -12,7 +12,7 @@ fn run_supports_static_ascii_string_search_helpers() {
     let source_path = dir.path().join("string-search.js");
     fs::write(
         &source_path,
-        "console.log(\"hello\".includes(\"ell\"));\nconsole.log(\"hello\".indexOf(\"l\", 3));\nconsole.log(\"hello\".lastIndexOf(\"l\"));\nconsole.log(\"hello\".lastIndexOf(\"l\", 2));\nconsole.log(\"hello\".lastIndexOf(\"l\", -1));\n",
+        "console.log(\"hello\".includes(\"ell\"));\nconsole.log(\"hello\".indexOf(\"l\", 3));\nconsole.log(\"hello\".lastIndexOf(\"l\"));\nconsole.log(\"hello\".lastIndexOf(\"l\", 2));\nconsole.log(\"hello\".lastIndexOf(\"l\", -1));\nconsole.log(\"hello\".startsWith(\"he\"));\nconsole.log(\"hello\".startsWith(\"ll\", 2));\nconsole.log(\"hello\".endsWith(\"lo\"));\nconsole.log(\"hello\".endsWith(\"ell\", 4));\nconsole.log(\"hello\".endsWith(\"he\", 4));\n",
     )
     .expect("write source");
 
@@ -29,7 +29,10 @@ fn run_supports_static_ascii_string_search_helpers() {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    assert_eq!(String::from_utf8_lossy(&output.stdout), "1\n3\n3\n2\n-1\n");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "1\n3\n3\n2\n-1\n1\n1\n1\n1\n0\n"
+    );
 }
 
 #[test]
@@ -38,7 +41,7 @@ fn check_rejects_dynamic_static_string_search_operand() {
     let source_path = dir.path().join("string-search-dynamic.js");
     fs::write(
         &source_path,
-        "function has(needle) { return \"hello\".includes(needle); }\n",
+        "function has(needle) { return \"hello\".startsWith(needle); }\n",
     )
     .expect("write source");
 
