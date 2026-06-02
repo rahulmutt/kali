@@ -2716,6 +2716,7 @@ impl TypeContext {
         self.resolve_array_join_member_call(expr);
         self.resolve_string_search_member_call(expr);
         self.resolve_string_slice_member_call(expr);
+        self.resolve_string_substring_member_call(expr);
         self.resolve_string_repeat_member_call(expr);
         self.resolve_string_pad_member_call(expr);
         self.resolve_string_char_at_member_call(expr);
@@ -4340,6 +4341,42 @@ impl TypeContext {
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
             "String.prototype.slice is unavailable unless the receiver is a statically-known ASCII string literal and the start/end bounds are statically-known integers in the current direct-runtime path; use explicit ASCII literals or the later compatibility path".to_string(),
+        ));
+    }
+
+    fn resolve_string_substring_member_call(&mut self, expr: &CallExpression) {
+        let Expression::MemberExpression(member) = &expr.callee else {
+            return;
+        };
+
+        if member.property.as_str() != "substring" {
+            return;
+        }
+
+        let source = self.resolve_static_string_expression(&member.object);
+        let has_ascii_source = source.as_ref().is_some_and(|source| source.is_ascii());
+        let supported_arg_count = matches!(expr.args.len(), 1 | 2);
+        let has_static_integer_bounds = expr.args.iter().all(|argument| {
+            self.resolve_static_numeric_literal_value(argument)
+                .is_some_and(|bound| bound.is_finite() && bound.fract() == 0.0)
+        });
+
+        if supported_arg_count && has_ascii_source && has_static_integer_bounds {
+            self.resolve_expression(&member.object);
+            for arg in &expr.args {
+                self.resolve_expression(arg);
+            }
+            return;
+        }
+
+        self.resolve_expression(&member.object);
+        for arg in &expr.args {
+            self.resolve_expression(arg);
+        }
+
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "String.prototype.substring is unavailable unless the receiver is a statically-known ASCII string literal and the start/end bounds are statically-known integers in the current direct-runtime path; use explicit ASCII literals or the later compatibility path".to_string(),
         ));
     }
 

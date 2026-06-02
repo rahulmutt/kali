@@ -1833,6 +1833,15 @@ impl<'a> FunctionEmitter<'a> {
             return self.emit_node(function, literal, true);
         }
 
+        if let Some(result) = self.resolve_static_string_substring_call(node) {
+            let literal = self.alloc_scratch_node(
+                LirNodeKind::Literal,
+                Some(quote_string_literal(&result)),
+                vec![],
+            );
+            return self.emit_node(function, literal, true);
+        }
+
         if let Some(result) = self.resolve_static_string_repeat_call(node) {
             let literal = self.alloc_scratch_node(
                 LirNodeKind::Literal,
@@ -4270,6 +4279,50 @@ impl<'a> FunctionEmitter<'a> {
             end.min(length)
         };
         let to = to.max(from);
+
+        source
+            .get(from as usize..to as usize)
+            .map(ToString::to_string)
+    }
+
+    fn resolve_static_string_substring_call(&self, node: &LirNode) -> Option<String> {
+        if node.kind != LirNodeKind::Call || !(2..=3).contains(&node.children.len()) {
+            return None;
+        }
+
+        let callee = node.children.first().copied()?;
+        let callee = self.resolve_transparent_callable_node(callee)?;
+        let callee_node = self.node(callee);
+        if callee_node.text.as_deref() != Some("substring") {
+            return None;
+        }
+
+        let receiver = callee_node.children.first().copied()?;
+        let source = match self.resolve_static_object_identity_value(receiver)? {
+            StaticObjectIdentityValue::String(value) if value.is_ascii() => value,
+            _ => return None,
+        };
+        let start = self.resolve_static_numeric_value(*node.children.get(1)?)?;
+        if !start.is_finite() || start.fract() != 0.0 {
+            return None;
+        }
+        let end = match node.children.get(2) {
+            Some(id) => {
+                let end = self.resolve_static_numeric_value(*id)?;
+                if !end.is_finite() || end.fract() != 0.0 {
+                    return None;
+                }
+                end as i64
+            }
+            None => source.len() as i64,
+        };
+
+        let length = source.len() as i64;
+        let mut from = (start as i64).clamp(0, length);
+        let mut to = end.clamp(0, length);
+        if from > to {
+            std::mem::swap(&mut from, &mut to);
+        }
 
         source
             .get(from as usize..to as usize)
