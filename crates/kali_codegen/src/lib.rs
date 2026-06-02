@@ -1824,6 +1824,15 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if let Some(result) = self.resolve_static_string_slice_call(node) {
+            let literal = self.alloc_scratch_node(
+                LirNodeKind::Literal,
+                Some(quote_string_literal(&result)),
+                vec![],
+            );
+            return self.emit_node(function, literal, true);
+        }
+
         if let Some(result) = self.resolve_static_array_at_call(node) {
             match result {
                 StaticArrayAtResult::Value(value) => return self.emit_node(function, value, true),
@@ -4125,6 +4134,49 @@ impl<'a> FunctionEmitter<'a> {
             }
             _ => None,
         }
+    }
+
+    fn resolve_static_string_slice_call(&self, node: &LirNode) -> Option<String> {
+        if node.kind != LirNodeKind::Call || !(2..=3).contains(&node.children.len()) {
+            return None;
+        }
+
+        let callee = node.children.first().copied()?;
+        let callee = self.resolve_transparent_callable_node(callee)?;
+        let callee_node = self.node(callee);
+        if callee_node.text.as_deref() != Some("slice") {
+            return None;
+        }
+
+        let receiver = callee_node.children.first().copied()?;
+        let source = match self.resolve_static_object_identity_value(receiver)? {
+            StaticObjectIdentityValue::String(value) if value.is_ascii() => value,
+            _ => return None,
+        };
+        let start = self
+            .resolve_static_numeric_value(*node.children.get(1)?)?
+            .trunc() as i64;
+        let end = match node.children.get(2) {
+            Some(id) => self.resolve_static_numeric_value(*id)?.trunc() as i64,
+            None => source.len() as i64,
+        };
+
+        let length = source.len() as i64;
+        let from = if start < 0 {
+            (length + start).max(0)
+        } else {
+            start.min(length)
+        };
+        let to = if end < 0 {
+            (length + end).max(0)
+        } else {
+            end.min(length)
+        };
+        let to = to.max(from);
+
+        source
+            .get(from as usize..to as usize)
+            .map(ToString::to_string)
     }
 
     fn resolve_static_array_at_call(&self, node: &LirNode) -> Option<StaticArrayAtResult> {
