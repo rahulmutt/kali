@@ -14064,6 +14064,61 @@ fn test_resolution_allows_static_array_search_family_in_non_browser_surface() {
 }
 
 #[test]
+fn test_resolution_allows_static_array_at_in_non_browser_surface() {
+    for source in [
+        "const result = [0, 1, 2].at(1);",
+        "const result = [0, 1, 2].at(-1);",
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let source_path = dir.path().join("main.js");
+        fs::write(&source_path, source).unwrap();
+
+        let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
+        let tokens = lexer.lex_all().tokens;
+        let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+        let statements = parser.parse(None).statements;
+
+        let mut ctx = TypeContext::with_base_path(&source_path);
+        let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+        assert!(
+            result.diagnostics.is_empty(),
+            "unexpected diagnostics for {source}: {:?}",
+            result.diagnostics
+        );
+    }
+}
+
+#[test]
+fn test_resolution_rejects_dynamic_array_at_in_non_browser_surface() {
+    for source in [
+        "function get(index) { return [0, 1, 2].at(index); }",
+        "function get(values) { return values.at(1); }",
+        "const value = [0, 1, 2].at(3);",
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let source_path = dir.path().join("main.js");
+        fs::write(&source_path, source).unwrap();
+
+        let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
+        let tokens = lexer.lex_all().tokens;
+        let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+        let statements = parser.parse(None).statements;
+
+        let mut ctx = TypeContext::with_base_path(&source_path);
+        let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)
+                    && diag.message.contains("Array.prototype.at")),
+            "expected Array.prototype.at feature gate for {source}, got {:?}",
+            result.diagnostics
+        );
+    }
+}
+
+#[test]
 fn test_resolution_rejects_dynamic_array_search_family_in_non_browser_surface() {
     for source in [
         "function has(needle) { return [0, 1, 2].includes(needle); }",

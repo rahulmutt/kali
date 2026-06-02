@@ -58,6 +58,12 @@ enum StaticArraySearchResult {
     Index(i64),
 }
 
+#[derive(Clone, Debug, PartialEq)]
+enum StaticArrayAtResult {
+    Value(LirNodeId),
+    OutOfRange,
+}
+
 impl StaticObjectIdentityValue {
     fn same_value(&self, other: &Self) -> bool {
         match (self, other) {
@@ -1775,6 +1781,35 @@ impl<'a> FunctionEmitter<'a> {
             return EmittedValue {
                 produced: true,
                 shape: ValueShape::Scalar,
+            };
+        }
+
+        if let Some(result) = self.resolve_static_array_at_call(node) {
+            match result {
+                StaticArrayAtResult::Value(value) => return self.emit_node(function, value, true),
+                StaticArrayAtResult::OutOfRange => {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        "Array.prototype.at is unavailable for statically out-of-range indexes in the current phase because undefined value emission is not yet supported on this path; use an in-range literal index or the later compatibility path".to_string(),
+                    ));
+                    function.instruction(&Instruction::Unreachable);
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                }
+            }
+        }
+
+        if self.is_array_at_call_with_literal_receiver(node) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "Array.prototype.at is unavailable unless the receiver is a statically-known array literal and the index is a statically-known in-range integer in the current phase; use explicit constants or the later compatibility path".to_string(),
+            ));
+            function.instruction(&Instruction::Unreachable);
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
             };
         }
 
@@ -3971,6 +4006,58 @@ impl<'a> FunctionEmitter<'a> {
             }
             _ => None,
         }
+    }
+
+    fn resolve_static_array_at_call(&self, node: &LirNode) -> Option<StaticArrayAtResult> {
+        if node.kind != LirNodeKind::Call || node.children.len() != 2 {
+            return None;
+        }
+
+        let source_node = self.static_array_at_literal_receiver(node)?;
+        let index = self
+            .resolve_static_numeric_value(*node.children.get(1)?)?
+            .trunc() as i64;
+        let length = source_node.children.len() as i64;
+        let resolved_index = if index >= 0 { index } else { length + index };
+        if resolved_index < 0 || resolved_index >= length {
+            return Some(StaticArrayAtResult::OutOfRange);
+        }
+
+        source_node
+            .children
+            .get(resolved_index as usize)
+            .copied()
+            .map(StaticArrayAtResult::Value)
+    }
+
+    fn is_array_at_call_with_literal_receiver(&self, node: &LirNode) -> bool {
+        self.static_array_at_literal_receiver(node).is_some()
+    }
+
+    fn static_array_at_literal_receiver(&self, node: &LirNode) -> Option<&LirNode> {
+        if node.kind != LirNodeKind::Call || node.children.len() != 2 {
+            return None;
+        }
+
+        let callee = node.children.first().copied()?;
+        let callee = self.resolve_transparent_callable_node(callee)?;
+        let callee_node = self.node(callee);
+        if callee_node.text.as_deref() != Some("at") {
+            return None;
+        }
+
+        let source = callee_node.children.first().copied()?;
+        let source = self.resolve_literal_aggregate(source)?;
+        let source_node = self.node(source);
+        let source_node = if source_node.kind == LirNodeKind::Value
+            && source_node.text.is_none()
+            && source_node.children.len() == 1
+        {
+            self.node(source_node.children[0])
+        } else {
+            source_node
+        };
+        self.is_array_literal(source_node).then_some(source_node)
     }
 
     fn resolve_static_array_filter_items(&self, node: &LirNode) -> Option<Vec<LirNodeId>> {

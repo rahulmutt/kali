@@ -5056,6 +5056,51 @@ fn supported_static_array_last_index_of_defaults_from_index_to_array_tail() {
 }
 
 #[test]
+fn supported_static_array_at_lowers_positive_and_negative_indexes_to_values() {
+    let program =
+        parse_and_lower_lir("console.log([10, 20, 30].at(1)); console.log([10, 20, 30].at(-1));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 20"), "{printed}");
+    assert!(printed.contains("i64.const 30"), "{printed}");
+}
+
+#[test]
+fn unsupported_static_array_at_out_of_range_reports_feature_unavailable() {
+    let program = parse_and_lower_lir("console.log([10, 20, 30].at(3));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.iter().any(|diagnostic| diagnostic.code
+            == Some(e5::FEATURE_UNAVAILABLE as u32)
+            && diagnostic.message.contains("Array.prototype.at")),
+        "expected Array.prototype.at unavailable diagnostic: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn supported_array_find_last_index_call_with_strict_equality_callback_lowers_to_last_index() {
     let program =
         parse_and_lower_lir("console.log([1, 2, 1].findLastIndex((value) => value === 1));");
