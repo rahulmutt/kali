@@ -14634,6 +14634,7 @@ fn test_resolution_rejects_dynamic_or_non_ascii_string_replace_in_non_browser_su
         "const result = 'héllo'.replace('h', 'j');",
         "const result = 'hello'.replace('h', 'é');",
         "const result = 'hello'.replace('h', '$&');",
+        "const result = 'hello'.replaceAll('h', '$&');",
     ] {
         let dir = tempfile::tempdir().unwrap();
         let source_path = dir.path().join("main.js");

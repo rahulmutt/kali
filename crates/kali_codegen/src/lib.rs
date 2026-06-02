@@ -1904,7 +1904,16 @@ impl<'a> FunctionEmitter<'a> {
             return self.emit_node(function, literal, true);
         }
 
-        if let Some(result) = self.resolve_static_string_replace_call(node) {
+        if let Some(result) = self.resolve_static_string_replace_call(node, "replace") {
+            let literal = self.alloc_scratch_node(
+                LirNodeKind::Literal,
+                Some(quote_string_literal(&result)),
+                vec![],
+            );
+            return self.emit_node(function, literal, true);
+        }
+
+        if let Some(result) = self.resolve_static_string_replace_call(node, "replaceAll") {
             let literal = self.alloc_scratch_node(
                 LirNodeKind::Literal,
                 Some(quote_string_literal(&result)),
@@ -1992,10 +2001,12 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
-        if self.is_string_replace_call_with_literal_receiver(node) {
+        if let Some(method) = self.string_replace_call_method_with_literal_receiver(node) {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
-                "String.prototype.replace is unavailable unless the receiver, search value, and replacement are statically-known ASCII string literals and the replacement contains no substitution markers in the current direct-runtime path; use explicit ASCII literals or the later compatibility path",
+                format!(
+                    "String.prototype.{method} is unavailable unless the receiver, search value, and replacement are statically-known ASCII string literals and the replacement contains no substitution markers in the current direct-runtime path; use explicit ASCII literals or the later compatibility path"
+                ),
             ));
             function.instruction(&Instruction::Unreachable);
             return EmittedValue {
@@ -4735,7 +4746,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn resolve_static_string_replace_call(&self, node: &LirNode) -> Option<String> {
+    fn resolve_static_string_replace_call(&self, node: &LirNode, method: &str) -> Option<String> {
         if node.kind != LirNodeKind::Call || node.children.len() != 3 {
             return None;
         }
@@ -4743,7 +4754,7 @@ impl<'a> FunctionEmitter<'a> {
         let callee = node.children.first().copied()?;
         let callee = self.resolve_transparent_callable_node(callee)?;
         let callee_node = self.node(callee);
-        if callee_node.text.as_deref() != Some("replace") {
+        if callee_node.text.as_deref() != Some(method) {
             return None;
         }
 
@@ -4765,28 +4776,32 @@ impl<'a> FunctionEmitter<'a> {
             _ => return None,
         };
 
-        Some(source.replacen(&search, &replacement, 1))
+        match method {
+            "replace" => Some(source.replacen(&search, &replacement, 1)),
+            "replaceAll" => Some(source.replace(&search, &replacement)),
+            _ => None,
+        }
     }
 
-    fn is_string_replace_call_with_literal_receiver(&self, node: &LirNode) -> bool {
+    fn string_replace_call_method_with_literal_receiver(&self, node: &LirNode) -> Option<String> {
         if node.kind != LirNodeKind::Call {
-            return false;
+            return None;
         }
 
-        let Some(callee) = node.children.first().copied() else {
-            return false;
-        };
-        let Some(callee) = self.resolve_transparent_callable_node(callee) else {
-            return false;
-        };
+        let callee = node.children.first().copied()?;
+        let callee = self.resolve_transparent_callable_node(callee)?;
         let callee_node = self.node(callee);
-        callee_node.text.as_deref() == Some("replace")
-            && callee_node
-                .children
-                .first()
-                .copied()
-                .and_then(|receiver| self.resolve_static_object_identity_value(receiver))
-                .is_some_and(|value| matches!(value, StaticObjectIdentityValue::String(_)))
+        let method = callee_node.text.as_deref()?;
+        if !matches!(method, "replace" | "replaceAll") {
+            return None;
+        }
+        callee_node
+            .children
+            .first()
+            .copied()
+            .and_then(|receiver| self.resolve_static_object_identity_value(receiver))
+            .is_some_and(|value| matches!(value, StaticObjectIdentityValue::String(_)))
+            .then(|| method.to_string())
     }
 
     fn resolve_static_string_split_call(&self, node: &LirNode) -> Option<Vec<String>> {

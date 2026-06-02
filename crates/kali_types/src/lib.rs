@@ -4721,7 +4721,7 @@ impl TypeContext {
         };
 
         let method = member.property.as_str();
-        if method != "replace" {
+        if !matches!(method, "replace" | "replaceAll") {
             return;
         }
 
@@ -4760,7 +4760,9 @@ impl TypeContext {
 
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
-            "String.prototype.replace is unavailable unless the receiver, search value, and replacement are statically-known ASCII string literals and the replacement contains no substitution markers in the current direct-runtime path; use explicit ASCII literals or the later compatibility path".to_string(),
+            format!(
+                "String.prototype.{method} is unavailable unless the receiver, search value, and replacement are statically-known ASCII string literals and the replacement contains no substitution markers in the current direct-runtime path; use explicit ASCII literals or the later compatibility path"
+            ),
         ));
     }
 

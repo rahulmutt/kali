@@ -10,6 +10,8 @@ fn kali_bin() -> String {
 fn supported_source() -> &'static str {
     r#"console.log("hello hello".replace("hello", "hi"));
 console.log("abc".replace("", "X"));
+console.log("hello hello".replaceAll("hello", "hi"));
+console.log("abc".replaceAll("", "X"));
 "#
 }
 
@@ -32,7 +34,10 @@ fn run_supports_static_ascii_string_replace() {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    assert_eq!(String::from_utf8_lossy(&output.stdout), "hi hello\nXabc\n");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "hi hello\nXabc\nhi hi\nXaXbXcX\n"
+    );
 }
 
 #[test]
@@ -102,4 +107,9 @@ fn check_gates_non_ascii_static_string_replace_operand() {
 #[test]
 fn check_gates_string_replace_substitution_marker() {
     assert_check_gates_unsupported_string_replace("console.log('hello'.replace('h', '$&'));\n");
+}
+
+#[test]
+fn check_gates_string_replace_all_substitution_marker() {
+    assert_check_gates_unsupported_string_replace("console.log('hello'.replaceAll('h', '$&'));\n");
 }

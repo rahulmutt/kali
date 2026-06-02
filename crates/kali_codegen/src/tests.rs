@@ -5327,7 +5327,7 @@ fn supported_static_string_case_family_lowers_ascii_literals() {
 #[test]
 fn supported_static_string_replace_lowers_ascii_literals() {
     let program = parse_and_lower_lir(
-        "console.log('hello hello'.replace('hello', 'hi')); console.log('abc'.replace('', 'X'));",
+        "console.log('hello hello'.replace('hello', 'hi')); console.log('abc'.replace('', 'X')); console.log('hello hello'.replaceAll('hello', 'hi')); console.log('abc'.replaceAll('', 'X'));",
     );
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,
@@ -5349,6 +5349,31 @@ fn supported_static_string_replace_lowers_ascii_literals() {
     let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
     assert!(printed.contains("hi hello"), "{printed}");
     assert!(printed.contains("Xabc"), "{printed}");
+    assert!(printed.contains("hi hi"), "{printed}");
+    assert!(printed.contains("XaXbXcX"), "{printed}");
+}
+
+#[test]
+fn unsupported_static_string_replace_all_substitution_marker_is_gated() {
+    let program = parse_and_lower_lir("console.log('hello'.replaceAll('h', '$&')); ");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == Some(5506)
+                && diagnostic
+                    .message
+                    .contains("String.prototype.replaceAll is unavailable")),
+        "expected replaceAll gate diagnostic: {:?}",
+        result.diagnostics
+    );
 }
 
 #[test]
