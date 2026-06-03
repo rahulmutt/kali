@@ -1463,6 +1463,30 @@ impl<'a> FunctionEmitter<'a> {
         None
     }
 
+    fn static_ascii_string_relational_result(
+        &self,
+        left: LirNodeId,
+        right: LirNodeId,
+        op: &str,
+    ) -> Option<bool> {
+        let left = match self.resolve_static_object_identity_value(left)? {
+            StaticObjectIdentityValue::String(value) if value.is_ascii() => value,
+            _ => return None,
+        };
+        let right = match self.resolve_static_object_identity_value(right)? {
+            StaticObjectIdentityValue::String(value) if value.is_ascii() => value,
+            _ => return None,
+        };
+
+        Some(match op {
+            "<" => left < right,
+            "<=" => left <= right,
+            ">" => left > right,
+            ">=" => left >= right,
+            _ => return None,
+        })
+    }
+
     fn emit_binary(&mut self, function: &mut Function, node: &LirNode) -> EmittedValue {
         let op = node.text.as_deref().unwrap_or_default();
         let left = node.children[0];
@@ -1487,6 +1511,16 @@ impl<'a> FunctionEmitter<'a> {
                         0
                     },
                 ));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Boolean,
+                };
+            }
+        }
+
+        if matches!(op, "<" | "<=" | ">" | ">=") {
+            if let Some(result) = self.static_ascii_string_relational_result(left, right, op) {
+                function.instruction(&Instruction::I64Const(if result { 1 } else { 0 }));
                 return EmittedValue {
                     produced: true,
                     shape: ValueShape::Boolean,
