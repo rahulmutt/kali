@@ -5355,6 +5355,35 @@ fn supported_static_string_at_lowers_ascii_literals() {
 }
 
 #[test]
+fn supported_static_parse_float_integer_slice_lowers_ascii_literals() {
+    let program = parse_and_lower_lir(
+        "console.log(parseFloat('42.0px')); console.log(globalThis.parseFloat('-1.2e1tail')); console.log(Number.parseFloat('7.000')); console.log(Object.freeze(globalThis[\"Number\"][\"parseFloat\"])(Object.freeze('6.02e2')));",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("42"), "{printed}");
+    assert!(printed.contains("-12"), "{printed}");
+    assert!(printed.contains("7"), "{printed}");
+    assert!(printed.contains("602"), "{printed}");
+}
+
+#[test]
 fn supported_static_string_char_at_lowers_ascii_literals() {
     let program = parse_and_lower_lir(
         "console.log('hello'.charAt()); console.log('hello'.charAt(1)); console.log('hello'.charAt(-1)); console.log('hello'.charAt(99));",

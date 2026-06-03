@@ -2709,6 +2709,9 @@ impl TypeContext {
         if self.resolve_number_parse_int_call(expr) {
             return;
         }
+        if self.resolve_number_parse_float_call(expr) {
+            return;
+        }
         if self.resolve_array_is_array_call(expr) {
             return;
         }
@@ -3613,6 +3616,67 @@ impl TypeContext {
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
             "parseInt is unavailable unless the input is a statically-known ASCII string that yields an integer result and the optional radix is omitted, 0, or a statically-known integer from 2 through 36 in the current direct-runtime path; use explicit literals or the later compatibility path",
+        ));
+        true
+    }
+
+    fn resolve_number_parse_float_call(&mut self, expr: &CallExpression) -> bool {
+        let Some(callee_name) =
+            self.resolve_static_callable_name(&expr.callee)
+                .or_else(|| match &expr.callee {
+                    Expression::Identifier(name) => Some(name.clone()),
+                    _ => None,
+                })
+        else {
+            return false;
+        };
+
+        if !matches!(
+            callee_name.as_str(),
+            "parseFloat"
+                | "globalThis.parseFloat"
+                | r#"globalThis["parseFloat"]"#
+                | r#"globalThis['parseFloat']"#
+                | "Number.parseFloat"
+                | "globalThis.Number.parseFloat"
+                | r#"globalThis["Number"].parseFloat"#
+                | r#"globalThis['Number'].parseFloat"#
+                | r#"Number["parseFloat"]"#
+                | r#"Number['parseFloat']"#
+                | r#"globalThis.Number["parseFloat"]"#
+                | r#"globalThis.Number['parseFloat']"#
+                | r#"globalThis["Number"]["parseFloat"]"#
+                | r#"globalThis['Number']['parseFloat']"#
+        ) {
+            return false;
+        }
+
+        let Some(value_expr) = expr.args.first() else {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "parseFloat requires at least one statically-known ASCII string argument in the current phase; use an explicit literal or the later compatibility path",
+            ));
+            return true;
+        };
+
+        let source = self.resolve_static_string_expression(value_expr);
+        if expr.args.len() == 1
+            && source.as_ref().is_some_and(|source| source.is_ascii())
+            && source
+                .as_ref()
+                .is_some_and(|source| static_parse_float_ascii_integer(source).is_some())
+        {
+            self.resolve_expression(value_expr);
+            return true;
+        }
+
+        self.resolve_expression(value_expr);
+        for arg in expr.args.iter().skip(1) {
+            self.resolve_expression(arg);
+        }
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "parseFloat is unavailable unless the input is a statically-known ASCII string that yields a bounded integer result in the current direct-runtime path; use explicit literals or the later compatibility path",
         ));
         true
     }
@@ -7217,6 +7281,67 @@ fn parse_numeric_literal_value(text: &str) -> Option<f64> {
         return stripped.parse::<f64>().ok();
     }
     text.parse::<f64>().ok()
+}
+
+fn static_parse_float_ascii_integer(source: &str) -> Option<i64> {
+    if !source.is_ascii() {
+        return None;
+    }
+
+    let trimmed = source.trim_start_matches(|ch: char| ch.is_ascii_whitespace());
+    let mut end = 0;
+    let bytes = trimmed.as_bytes();
+    if matches!(bytes.get(end), Some(b'+' | b'-')) {
+        end += 1;
+    }
+
+    let digits_before = bytes[end..]
+        .iter()
+        .take_while(|byte| byte.is_ascii_digit())
+        .count();
+    end += digits_before;
+
+    let mut digits_after = 0;
+    if bytes.get(end) == Some(&b'.') {
+        end += 1;
+        digits_after = bytes[end..]
+            .iter()
+            .take_while(|byte| byte.is_ascii_digit())
+            .count();
+        end += digits_after;
+    }
+
+    if digits_before + digits_after == 0 {
+        return None;
+    }
+
+    if matches!(bytes.get(end), Some(b'e' | b'E')) {
+        let exponent_marker = end;
+        end += 1;
+        if matches!(bytes.get(end), Some(b'+' | b'-')) {
+            end += 1;
+        }
+        let exponent_digits = bytes[end..]
+            .iter()
+            .take_while(|byte| byte.is_ascii_digit())
+            .count();
+        if exponent_digits == 0 {
+            end = exponent_marker;
+        } else {
+            end += exponent_digits;
+        }
+    }
+
+    let value = trimmed[..end].parse::<f64>().ok()?;
+    if !value.is_finite()
+        || value.fract() != 0.0
+        || value < i64::MIN as f64
+        || value > i64::MAX as f64
+    {
+        return None;
+    }
+
+    Some(value as i64)
 }
 
 fn static_parse_int_ascii(source: &str, radix: u32) -> Option<i64> {

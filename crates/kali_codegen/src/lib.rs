@@ -1714,6 +1714,14 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if let Some(result) = self.resolve_static_parse_float_call(node, &callee_node) {
+            function.instruction(&Instruction::I64Const(result));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Scalar,
+            };
+        }
+
         if let Some(result) = self.resolve_static_array_some_every_call(node, "some") {
             function.instruction(&Instruction::I64Const(if result { 1 } else { 0 }));
             return EmittedValue {
@@ -3869,6 +3877,31 @@ impl<'a> FunctionEmitter<'a> {
         static_parse_int_ascii(&source, radix)
     }
 
+    fn resolve_static_parse_float_call(
+        &self,
+        node: &LirNode,
+        callee_node: &LirNode,
+    ) -> Option<i64> {
+        if node.kind != LirNodeKind::Call || node.children.len() != 2 {
+            return None;
+        }
+
+        let callee_id = *node.children.first()?;
+        let callee_node = self
+            .resolve_transparent_callable_node(callee_id)
+            .map(|id| self.node(id))
+            .unwrap_or(callee_node);
+        if !self.is_parse_float_callable(callee_node) {
+            return None;
+        }
+
+        let source = match self.resolve_static_object_identity_value(*node.children.get(1)?)? {
+            StaticObjectIdentityValue::String(value) if value.is_ascii() => value,
+            _ => return None,
+        };
+        static_parse_float_ascii_integer(&source)
+    }
+
     fn global_number_predicate_callable_method<'b>(
         &self,
         callee_node: &'b LirNode,
@@ -3890,15 +3923,23 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     fn is_parse_int_callable(&self, callee_node: &LirNode) -> bool {
+        self.is_number_parse_callable(callee_node, "parseInt")
+    }
+
+    fn is_parse_float_callable(&self, callee_node: &LirNode) -> bool {
+        self.is_number_parse_callable(callee_node, "parseFloat")
+    }
+
+    fn is_number_parse_callable(&self, callee_node: &LirNode, expected: &str) -> bool {
         let Some(method) = callee_node.text.as_deref() else {
             return false;
         };
 
-        if method == "parseInt" && callee_node.children.is_empty() {
+        if method == expected && callee_node.children.is_empty() {
             return true;
         }
 
-        if method != "parseInt" {
+        if method != expected {
             return false;
         }
 
@@ -9664,6 +9705,67 @@ fn parse_numeric_literal_value(text: &str) -> Option<f64> {
         return stripped.parse::<f64>().ok();
     }
     text.parse::<f64>().ok()
+}
+
+fn static_parse_float_ascii_integer(source: &str) -> Option<i64> {
+    if !source.is_ascii() {
+        return None;
+    }
+
+    let trimmed = source.trim_start_matches(|ch: char| ch.is_ascii_whitespace());
+    let mut end = 0;
+    let bytes = trimmed.as_bytes();
+    if matches!(bytes.get(end), Some(b'+' | b'-')) {
+        end += 1;
+    }
+
+    let digits_before = bytes[end..]
+        .iter()
+        .take_while(|byte| byte.is_ascii_digit())
+        .count();
+    end += digits_before;
+
+    let mut digits_after = 0;
+    if bytes.get(end) == Some(&b'.') {
+        end += 1;
+        digits_after = bytes[end..]
+            .iter()
+            .take_while(|byte| byte.is_ascii_digit())
+            .count();
+        end += digits_after;
+    }
+
+    if digits_before + digits_after == 0 {
+        return None;
+    }
+
+    if matches!(bytes.get(end), Some(b'e' | b'E')) {
+        let exponent_marker = end;
+        end += 1;
+        if matches!(bytes.get(end), Some(b'+' | b'-')) {
+            end += 1;
+        }
+        let exponent_digits = bytes[end..]
+            .iter()
+            .take_while(|byte| byte.is_ascii_digit())
+            .count();
+        if exponent_digits == 0 {
+            end = exponent_marker;
+        } else {
+            end += exponent_digits;
+        }
+    }
+
+    let value = trimmed[..end].parse::<f64>().ok()?;
+    if !value.is_finite()
+        || value.fract() != 0.0
+        || value < i64::MIN as f64
+        || value > i64::MAX as f64
+    {
+        return None;
+    }
+
+    Some(value as i64)
 }
 
 fn static_parse_int_ascii(source: &str, radix: u32) -> Option<i64> {

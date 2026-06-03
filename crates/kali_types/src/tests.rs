@@ -14751,6 +14751,35 @@ fn test_resolution_allows_static_ascii_parse_int_in_non_browser_surface() {
 }
 
 #[test]
+fn test_resolution_allows_static_ascii_parse_float_integer_in_non_browser_surface() {
+    for source in [
+        "const result = parseFloat('42.0px');",
+        "const result = globalThis.parseFloat('-1.2e1tail');",
+        "const result = Number.parseFloat('7.000');",
+        "const source = '6.02e2'; const result = globalThis[\"Number\"][\"parseFloat\"](Object.freeze(source));",
+        "const parse = Object.freeze(parseFloat); const result = parse(Object.freeze('77.0'));",
+        "const parse = Object.freeze(globalThis[\"Number\"][\"parseFloat\"]); const result = parse('10e1');",
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let source_path = dir.path().join("main.js");
+        fs::write(&source_path, source).unwrap();
+
+        let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
+        let tokens = lexer.lex_all().tokens;
+        let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+        let statements = parser.parse(None).statements;
+
+        let mut ctx = TypeContext::with_base_path(&source_path);
+        let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+        assert!(
+            result.diagnostics.is_empty(),
+            "unexpected diagnostics for {source}: {:?}",
+            result.diagnostics
+        );
+    }
+}
+
+#[test]
 fn test_resolution_rejects_dynamic_or_invalid_parse_int_in_non_browser_surface() {
     for source in [
         "function parse(value) { return parseInt(value); }",
@@ -14777,6 +14806,38 @@ fn test_resolution_rejects_dynamic_or_invalid_parse_int_in_non_browser_surface()
                 .any(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)
                     && diag.message.contains("parseInt")),
             "expected parseInt feature gate for {source}, got {:?}",
+            result.diagnostics
+        );
+    }
+}
+
+#[test]
+fn test_resolution_rejects_dynamic_or_invalid_parse_float_in_non_browser_surface() {
+    for source in [
+        "function parse(value) { return parseFloat(value); }",
+        "const result = parseFloat('é');",
+        "const result = parseFloat('nope');",
+        "const result = parseFloat('1.5');",
+        "const result = parseFloat('10', 10);",
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let source_path = dir.path().join("main.js");
+        fs::write(&source_path, source).unwrap();
+
+        let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
+        let tokens = lexer.lex_all().tokens;
+        let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+        let statements = parser.parse(None).statements;
+
+        let mut ctx = TypeContext::with_base_path(&source_path);
+        let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)
+                    && diag.message.contains("parseFloat")),
+            "expected parseFloat feature gate for {source}, got {:?}",
             result.diagnostics
         );
     }
