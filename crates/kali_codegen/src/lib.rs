@@ -4855,11 +4855,23 @@ impl<'a> FunctionEmitter<'a> {
             _ => return None,
         };
         let start = match node.children.get(1) {
-            Some(id) => self.resolve_static_numeric_value(*id)?.trunc() as i64,
+            Some(id) => {
+                let start = self.resolve_static_numeric_value(*id)?;
+                if !start.is_finite() {
+                    return None;
+                }
+                start.trunc() as i64
+            }
             None => 0,
         };
         let end = match node.children.get(2) {
-            Some(id) => self.resolve_static_numeric_value(*id)?.trunc() as i64,
+            Some(id) => {
+                let end = self.resolve_static_numeric_value(*id)?;
+                if !end.is_finite() {
+                    return None;
+                }
+                end.trunc() as i64
+            }
             None => source.len() as i64,
         };
 

@@ -14297,7 +14297,9 @@ fn test_resolution_allows_static_ascii_string_slice_in_non_browser_surface() {
     for source in [
         "const result = 'hello'.slice(1);",
         "const result = 'hello'.slice(1, 4);",
+        "const result = 'hello'.slice(1.5, 4.9);",
         "const result = 'hello'.slice(-4, -1);",
+        "const source = 'hello'; const result = Object.freeze(source).slice(Object.freeze(1.5), 4.9);",
     ] {
         let dir = tempfile::tempdir().unwrap();
         let source_path = dir.path().join("main.js");
@@ -15010,6 +15012,7 @@ fn test_resolution_rejects_dynamic_or_non_ascii_string_slice_in_non_browser_surf
         "function cut(start) { return 'hello'.slice(start); }",
         "function cut(end) { return 'hello'.slice(1, end); }",
         "const result = 'héllo'.slice(1);",
+        "const result = 'hello'.slice(1 / 0);",
     ] {
         let dir = tempfile::tempdir().unwrap();
         let source_path = dir.path().join("main.js");

@@ -5223,6 +5223,34 @@ fn supported_static_string_search_lowers_omitted_search_as_undefined() {
 }
 
 #[test]
+fn supported_static_string_slice_lowers_ascii_literals() {
+    let program = parse_and_lower_lir(
+        "console.log('hello'.slice(1)); console.log('hello'.slice(1, 4)); console.log('hello'.slice(1.5, 4.9)); console.log('hello'.slice(-4, -1)); console.log('hello'.slice(4, 1));",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("ello"), "{printed}");
+    assert!(printed.contains("ell"), "{printed}");
+    assert!(printed.contains("el"), "{printed}");
+}
+
+#[test]
 fn supported_static_string_substring_lowers_ascii_literals() {
     let program = parse_and_lower_lir(
         "console.log('hello'.substring(1)); console.log('hello'.substring(1, 4)); console.log('hello'.substring(1.5, 4.9)); console.log('hello'.substring(4, 1)); console.log('hello'.substring(-2, 2));",

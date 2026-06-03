@@ -4860,12 +4860,12 @@ impl TypeContext {
 
         let has_ascii_source = source.as_ref().is_some_and(|source| source.is_ascii());
         let supported_arg_count = matches!(expr.args.len(), 0..=2);
-        let has_static_bounds = expr
-            .args
-            .iter()
-            .all(|argument| self.is_static_numeric_literal_expr(argument));
+        let has_static_finite_bounds = expr.args.iter().all(|argument| {
+            self.resolve_static_numeric_literal_value(argument)
+                .is_some_and(|bound| bound.is_finite())
+        });
 
-        if supported_arg_count && has_ascii_source && has_static_bounds {
+        if supported_arg_count && has_ascii_source && has_static_finite_bounds {
             self.resolve_expression(&member.object);
             for arg in &expr.args {
                 self.resolve_expression(arg);
@@ -4880,7 +4880,7 @@ impl TypeContext {
 
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
-            "String.prototype.slice is unavailable unless the receiver is a statically-known ASCII string literal and the start/end bounds are statically-known integers in the current direct-runtime path; use explicit ASCII literals or the later compatibility path".to_string(),
+            "String.prototype.slice is unavailable unless the receiver is a statically-known ASCII string literal and the start/end bounds are statically-known finite numeric literals in the current direct-runtime path; use explicit ASCII literals or the later compatibility path".to_string(),
         ));
     }
 
