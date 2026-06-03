@@ -5653,6 +5653,10 @@ impl<'a> FunctionEmitter<'a> {
         let index = self.static_member_index(node.text.as_deref()?)?;
         let source = node.children[0];
 
+        if let Some(result) = self.resolve_static_array_concat_element(source, index) {
+            return Some(result);
+        }
+
         if let Some(parts) = self.resolve_static_string_split_parts_from_id(source) {
             return Some(
                 parts
@@ -5682,6 +5686,69 @@ impl<'a> FunctionEmitter<'a> {
     fn static_member_index(&self, text: &str) -> Option<usize> {
         let index = parse_number_literal(text)?;
         (index >= 0 && text.chars().all(|ch| ch.is_ascii_digit())).then_some(index as usize)
+    }
+
+    fn resolve_static_array_concat_element(
+        &self,
+        id: LirNodeId,
+        index: usize,
+    ) -> Option<StaticIndexMemberResult> {
+        let node = self.node(id);
+        if node.kind != LirNodeKind::Call || node.children.is_empty() {
+            return None;
+        }
+
+        let callee = self.resolve_transparent_callable_node(*node.children.first()?)?;
+        let callee_node = self.node(callee);
+        if callee_node.text.as_deref() != Some("concat") {
+            return None;
+        }
+
+        let receiver = *callee_node.children.first()?;
+        let mut elements = Vec::new();
+        self.collect_static_array_concat_operand(receiver, true, &mut elements)?;
+        for arg in node.children.iter().skip(1).copied() {
+            self.collect_static_array_concat_operand(arg, false, &mut elements)?;
+        }
+
+        Some(
+            elements
+                .get(index)
+                .copied()
+                .map(StaticIndexMemberResult::Node)
+                .unwrap_or(StaticIndexMemberResult::Undefined),
+        )
+    }
+
+    fn collect_static_array_concat_operand(
+        &self,
+        id: LirNodeId,
+        require_array: bool,
+        elements: &mut Vec<LirNodeId>,
+    ) -> Option<()> {
+        if let Some(aggregate_id) = self.resolve_literal_aggregate(id) {
+            let aggregate = self.node(aggregate_id);
+            if self.is_array_literal(aggregate) {
+                elements.extend(aggregate.children.iter().copied());
+                return Some(());
+            }
+        }
+
+        if require_array {
+            return None;
+        }
+
+        match self.resolve_static_object_identity_value(id)? {
+            StaticObjectIdentityValue::Boolean(_)
+            | StaticObjectIdentityValue::Number(_)
+            | StaticObjectIdentityValue::String(_)
+            | StaticObjectIdentityValue::BigInt(_)
+            | StaticObjectIdentityValue::Null
+            | StaticObjectIdentityValue::Undefined => {
+                elements.push(id);
+                Some(())
+            }
+        }
     }
 
     fn resolve_static_string_split_parts_from_id(&self, mut id: LirNodeId) -> Option<Vec<String>> {

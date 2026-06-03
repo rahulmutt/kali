@@ -2800,6 +2800,7 @@ impl TypeContext {
         self.resolve_array_callback_member_call(expr);
         self.resolve_array_search_member_call(expr);
         self.resolve_array_slice_member_call(expr);
+        self.resolve_array_concat_member_call(expr);
         self.resolve_array_at_member_call(expr);
         self.resolve_array_join_member_call(expr);
         self.resolve_array_to_string_member_call(expr);
@@ -4679,6 +4680,58 @@ impl TypeContext {
         ));
     }
 
+    fn resolve_array_concat_member_call(&mut self, expr: &CallExpression) {
+        let Expression::MemberExpression(member) = &expr.callee else {
+            return;
+        };
+
+        if member.property.as_str() != "concat" {
+            return;
+        }
+
+        if self
+            .resolve_static_string_expression(&member.object)
+            .is_some()
+        {
+            return;
+        }
+
+        if !self.is_static_array_concat_receiver(&member.object)
+            && !expr
+                .args
+                .iter()
+                .any(|argument| self.is_static_array_concat_receiver(argument))
+        {
+            return;
+        }
+
+        let has_static_receiver = self.is_static_array_concat_receiver(&member.object);
+        let has_static_operands = expr.args.iter().all(|argument| {
+            self.is_static_array_concat_receiver(argument)
+                || self
+                    .resolve_static_object_identity_literal_value(argument)
+                    .is_some_and(|value| !matches!(value, StaticObjectIdentityValue::Reference(_)))
+        });
+
+        if has_static_receiver && has_static_operands {
+            self.resolve_expression(&member.object);
+            for arg in &expr.args {
+                self.resolve_expression(arg);
+            }
+            return;
+        }
+
+        self.resolve_expression(&member.object);
+        for arg in &expr.args {
+            self.resolve_expression(arg);
+        }
+
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "Array.prototype.concat is unavailable unless the receiver is a statically-known array literal and each argument is a statically-known array or primitive literal in the current direct-runtime path; use explicit literals or the later compatibility path".to_string(),
+        ));
+    }
+
     fn resolve_array_at_member_call(&mut self, expr: &CallExpression) {
         let Expression::MemberExpression(member) = &expr.callee else {
             return;
@@ -5035,12 +5088,28 @@ impl TypeContext {
         Some(result)
     }
 
+    fn is_static_array_concat_receiver(&self, expression: &Expression) -> bool {
+        match self.unwrap_for_of_wrapper_expression(expression) {
+            Expression::ArrayExpression(_) => true,
+            Expression::Identifier(name) => self.resolve_static_array_binding_name(name),
+            Expression::CallExpression(call) if Self::is_object_freeze_call(call) => call
+                .args
+                .first()
+                .is_some_and(|arg| self.is_static_array_concat_receiver(arg)),
+            _ => false,
+        }
+    }
+
     fn resolve_string_concat_member_call(&mut self, expr: &CallExpression) {
         let Expression::MemberExpression(member) = &expr.callee else {
             return;
         };
 
         if member.property.as_str() != "concat" {
+            return;
+        }
+
+        if self.is_static_array_concat_receiver(&member.object) {
             return;
         }
 

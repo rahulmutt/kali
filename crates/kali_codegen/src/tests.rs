@@ -5678,6 +5678,34 @@ fn unsupported_static_string_split_non_ascii_receiver_is_gated() {
 }
 
 #[test]
+fn supported_static_array_concat_direct_index_lowers_static_operands() {
+    let program = parse_and_lower_lir(
+        "const left = [1, 2]; const right = [3, 4]; console.log(left.concat(right, 5)[2]); console.log([1].concat(Object.freeze(2), [3])[1]); console.log([1].concat([2])[4]);",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("\"3\""), "{printed}");
+    assert!(printed.contains("\"2\""), "{printed}");
+    assert!(printed.contains("undefined"), "{printed}");
+}
+
+#[test]
 fn supported_static_array_at_lowers_positive_and_negative_indexes_to_values() {
     let program =
         parse_and_lower_lir("console.log([10, 20, 30].at(1)); console.log([10, 20, 30].at(-1));");
