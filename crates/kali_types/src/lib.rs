@@ -3822,7 +3822,7 @@ impl TypeContext {
             return;
         }
 
-        if method == "expm1" || method == "log1p" {
+        if method == "expm1" || method == "log1p" || method == "fround" {
             let Some(value) = expr
                 .args
                 .first()

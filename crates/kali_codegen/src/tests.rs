@@ -381,6 +381,33 @@ fn number_is_finite_is_integer_and_is_nan_lowers_for_static_primitive_values() {
 }
 
 #[test]
+fn math_fround_zero_slice_lowers_for_static_zero_literals() {
+    let program = parse_and_lower_lir("const zero = 0; console.log(Math.fround(zero));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.is_error()),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 0"), "{printed}");
+}
+
+#[test]
 fn object_is_lowers_for_fresh_object_and_array_literals() {
     let program = parse_and_lower_lir(
         "console.log(Object.is({}, {})); console.log(Object.is([], [])); console.log(Object.is({ a: 1 }, { a: 1 })); console.log(Object.is([1], [1]));",
@@ -3742,10 +3769,11 @@ fn unsupported_math_log_member_reports_feature_unavailable() {
 }
 
 #[test]
-fn unsupported_math_expm1_and_log1p_member_reports_feature_unavailable() {
+fn unsupported_math_expm1_log1p_and_fround_member_reports_feature_unavailable() {
     for (source, expected_method) in [
         ("console.log(Math.expm1(1));", "Math.expm1"),
         ("console.log(Math.log1p(1));", "Math.log1p"),
+        ("console.log(Math.fround(1));", "Math.fround"),
     ] {
         let program = parse_and_lower_lir(source);
         let mut ctx = CodegenCtx::new(TargetConfig {

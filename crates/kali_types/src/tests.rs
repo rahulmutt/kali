@@ -6334,7 +6334,7 @@ fn test_resolution_traverses_extra_math_tan_arguments_after_the_supported_slice(
 }
 
 #[test]
-fn test_resolution_supports_math_expm1_and_log1p_exact_identity_literals() {
+fn test_resolution_supports_math_expm1_log1p_and_fround_exact_zero_literals() {
     let mut ctx = TypeContext::new();
     let statements = vec![
         Statement::VariableDeclaration(VariableDeclaration {
@@ -6362,6 +6362,15 @@ fn test_resolution_supports_math_expm1_and_log1p_exact_identity_literals() {
                 args: vec![Expression::Identifier("zero".to_string())],
             }))),
         }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Math".to_string()),
+                    property: "fround".to_string(),
+                })),
+                args: vec![Expression::Identifier("zero".to_string())],
+            }))),
+        }),
     ];
 
     let result = ctx.resolve_statements(&statements);
@@ -6373,7 +6382,7 @@ fn test_resolution_supports_math_expm1_and_log1p_exact_identity_literals() {
 }
 
 #[test]
-fn test_resolution_supports_math_expm1_and_log1p_const_numeric_alias_chain_literals() {
+fn test_resolution_supports_math_expm1_log1p_and_fround_const_numeric_alias_chain_literals() {
     let mut ctx = TypeContext::new();
     let statements = vec![
         Statement::VariableDeclaration(VariableDeclaration {
@@ -6408,6 +6417,15 @@ fn test_resolution_supports_math_expm1_and_log1p_const_numeric_alias_chain_liter
                 args: vec![Expression::Identifier("alias".to_string())],
             }))),
         }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Math".to_string()),
+                    property: "fround".to_string(),
+                })),
+                args: vec![Expression::Identifier("alias".to_string())],
+            }))),
+        }),
     ];
 
     let result = ctx.resolve_statements(&statements);
@@ -6419,7 +6437,7 @@ fn test_resolution_supports_math_expm1_and_log1p_const_numeric_alias_chain_liter
 }
 
 #[test]
-fn test_resolution_reports_math_expm1_and_log1p_non_identity_literals_as_unavailable() {
+fn test_resolution_reports_math_expm1_log1p_and_fround_non_identity_literals_as_unavailable() {
     let mut ctx = TypeContext::new();
     let statements = vec![
         Statement::ExpressionStatement(ExpressionStatement {
@@ -6440,10 +6458,19 @@ fn test_resolution_reports_math_expm1_and_log1p_non_identity_literals_as_unavail
                 args: vec![Expression::Literal(LiteralValue::Number(1.0))],
             }))),
         }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Math".to_string()),
+                    property: "fround".to_string(),
+                })),
+                args: vec![Expression::Literal(LiteralValue::Number(1.0))],
+            }))),
+        }),
     ];
 
     let result = ctx.resolve_statements(&statements);
-    assert_eq!(result.diagnostics.len(), 2);
+    assert_eq!(result.diagnostics.len(), 3);
     assert!(result
         .diagnostics
         .iter()
@@ -6457,6 +6484,11 @@ fn test_resolution_reports_math_expm1_and_log1p_non_identity_literals_as_unavail
         .diagnostics
         .iter()
         .any(|diag| diag.message.contains("Math.log1p")
+            && diag.message.contains("zero numeric literal")));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains("Math.fround")
             && diag.message.contains("zero numeric literal")));
 }
 

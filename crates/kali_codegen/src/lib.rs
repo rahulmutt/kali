@@ -2898,7 +2898,7 @@ impl<'a> FunctionEmitter<'a> {
                 };
             }
 
-            if method == "expm1" || method == "log1p" {
+            if method == "expm1" || method == "log1p" || method == "fround" {
                 let mut args = node.children.iter().skip(1);
                 let Some(value) = args.next() else {
                     self.diagnostics.push(Diagnostic::error(
@@ -2914,10 +2914,11 @@ impl<'a> FunctionEmitter<'a> {
                     };
                 };
 
-                let folded = if method == "expm1" {
-                    self.math_expm1_constant_value(*value)
-                } else {
-                    self.math_log1p_constant_value(*value)
+                let folded = match method {
+                    "expm1" => self.math_expm1_constant_value(*value),
+                    "log1p" => self.math_log1p_constant_value(*value),
+                    "fround" => self.math_fround_zero_constant_value(*value),
+                    _ => unreachable!(),
                 };
                 let Some(folded) = folded else {
                     self.diagnostics.push(Diagnostic::error(
@@ -6244,6 +6245,16 @@ impl<'a> FunctionEmitter<'a> {
         let rendered = self.render_static_value(arg)?;
         let value = parse_number_literal(&rendered)?;
         if value == 0 {
+            Some(0)
+        } else {
+            None
+        }
+    }
+
+    fn math_fround_zero_constant_value(&self, arg: LirNodeId) -> Option<i64> {
+        let rendered = self.render_static_value(arg)?;
+        let value = parse_numeric_literal_value(&rendered)?;
+        if value == 0.0 {
             Some(0)
         } else {
             None

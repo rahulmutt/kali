@@ -3262,7 +3262,7 @@ fn assert_build_source_file_supports_math_inverse_trig_identity_literals_in_inpu
         .expect("generated wasm should validate");
 }
 
-fn assert_build_source_file_supports_math_expm1_and_log1p_identity_literals_in_input(
+fn assert_build_source_file_supports_math_expm1_log1p_and_fround_identity_literals_in_input(
     api_surface: ApiSurface,
     extension: &str,
 ) {
@@ -3270,7 +3270,7 @@ fn assert_build_source_file_supports_math_expm1_and_log1p_identity_literals_in_i
     let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
-        "console.log(Math.expm1(0)); console.log(Math.log1p(0));\n",
+        "console.log(Math.expm1(0)); console.log(Math.log1p(0)); console.log(Math.fround(0));\n",
     )
     .expect("write source");
 
@@ -3284,7 +3284,7 @@ fn assert_build_source_file_supports_math_expm1_and_log1p_identity_literals_in_i
         None,
         None,
     )
-    .expect("Math.expm1/log1p identity build should succeed");
+    .expect("Math.expm1/log1p/fround identity build should succeed");
 
     Validator::new()
         .validate_all(&output.wasm_bytes)
@@ -4137,34 +4137,34 @@ fn build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denomin
 }
 
 #[test]
-fn build_source_file_supports_math_expm1_and_log1p_identity_literals_in_js_input() {
-    assert_build_source_file_supports_math_expm1_and_log1p_identity_literals_in_input(
+fn build_source_file_supports_math_expm1_log1p_and_fround_identity_literals_in_js_input() {
+    assert_build_source_file_supports_math_expm1_log1p_and_fround_identity_literals_in_input(
         ApiSurface::Deno,
         "js",
     );
 }
 
 #[test]
-fn build_source_file_supports_math_expm1_and_log1p_identity_literals_in_ts_input() {
-    assert_build_source_file_supports_math_expm1_and_log1p_identity_literals_in_input(
+fn build_source_file_supports_math_expm1_log1p_and_fround_identity_literals_in_ts_input() {
+    assert_build_source_file_supports_math_expm1_log1p_and_fround_identity_literals_in_input(
         ApiSurface::Deno,
         "ts",
     );
 }
 
 #[test]
-fn build_source_file_supports_math_expm1_and_log1p_identity_literals_in_browser_api_surface_in_js_input(
+fn build_source_file_supports_math_expm1_log1p_and_fround_identity_literals_in_browser_api_surface_in_js_input(
 ) {
-    assert_build_source_file_supports_math_expm1_and_log1p_identity_literals_in_input(
+    assert_build_source_file_supports_math_expm1_log1p_and_fround_identity_literals_in_input(
         ApiSurface::Browser,
         "js",
     );
 }
 
 #[test]
-fn build_source_file_supports_math_expm1_and_log1p_identity_literals_in_browser_api_surface_in_ts_input(
+fn build_source_file_supports_math_expm1_log1p_and_fround_identity_literals_in_browser_api_surface_in_ts_input(
 ) {
-    assert_build_source_file_supports_math_expm1_and_log1p_identity_literals_in_input(
+    assert_build_source_file_supports_math_expm1_log1p_and_fround_identity_literals_in_input(
         ApiSurface::Browser,
         "ts",
     );
@@ -4413,7 +4413,7 @@ fn build_source_file_supports_math_pow_frozen_callable_alias_inventory_in_browse
     }
 }
 
-fn assert_build_source_file_supports_math_expm1_and_log1p_const_alias_chain_in_input(
+fn assert_build_source_file_supports_math_expm1_log1p_and_fround_const_alias_chain_in_input(
     api_surface: ApiSurface,
     extension: &str,
 ) {
@@ -4421,7 +4421,7 @@ fn assert_build_source_file_supports_math_expm1_and_log1p_const_alias_chain_in_i
     let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
-        "const zero = 0; const alias = zero; console.log(Math.expm1(alias)); console.log(Math.log1p(alias));\n",
+        "const zero = 0; const alias = zero; console.log(Math.expm1(alias)); console.log(Math.log1p(alias)); console.log(Math.fround(alias));\n",
     )
     .expect("write source");
 
@@ -4435,7 +4435,7 @@ fn assert_build_source_file_supports_math_expm1_and_log1p_const_alias_chain_in_i
         None,
         None,
     )
-    .expect("Math.expm1/log1p const alias chain build should succeed");
+    .expect("Math.expm1/log1p/fround const alias chain build should succeed");
 
     Validator::new()
         .validate_all(&output.wasm_bytes)
@@ -4443,34 +4443,34 @@ fn assert_build_source_file_supports_math_expm1_and_log1p_const_alias_chain_in_i
 }
 
 #[test]
-fn build_source_file_supports_math_expm1_and_log1p_const_alias_chain_in_js_input() {
-    assert_build_source_file_supports_math_expm1_and_log1p_const_alias_chain_in_input(
+fn build_source_file_supports_math_expm1_log1p_and_fround_const_alias_chain_in_js_input() {
+    assert_build_source_file_supports_math_expm1_log1p_and_fround_const_alias_chain_in_input(
         ApiSurface::Deno,
         "js",
     );
 }
 
 #[test]
-fn build_source_file_supports_math_expm1_and_log1p_const_alias_chain_in_ts_input() {
-    assert_build_source_file_supports_math_expm1_and_log1p_const_alias_chain_in_input(
+fn build_source_file_supports_math_expm1_log1p_and_fround_const_alias_chain_in_ts_input() {
+    assert_build_source_file_supports_math_expm1_log1p_and_fround_const_alias_chain_in_input(
         ApiSurface::Deno,
         "ts",
     );
 }
 
 #[test]
-fn build_source_file_supports_math_expm1_and_log1p_const_alias_chain_in_browser_api_surface_in_js_input(
+fn build_source_file_supports_math_expm1_log1p_and_fround_const_alias_chain_in_browser_api_surface_in_js_input(
 ) {
-    assert_build_source_file_supports_math_expm1_and_log1p_const_alias_chain_in_input(
+    assert_build_source_file_supports_math_expm1_log1p_and_fround_const_alias_chain_in_input(
         ApiSurface::Browser,
         "js",
     );
 }
 
 #[test]
-fn build_source_file_supports_math_expm1_and_log1p_const_alias_chain_in_browser_api_surface_in_ts_input(
+fn build_source_file_supports_math_expm1_log1p_and_fround_const_alias_chain_in_browser_api_surface_in_ts_input(
 ) {
-    assert_build_source_file_supports_math_expm1_and_log1p_const_alias_chain_in_input(
+    assert_build_source_file_supports_math_expm1_log1p_and_fround_const_alias_chain_in_input(
         ApiSurface::Browser,
         "ts",
     );
