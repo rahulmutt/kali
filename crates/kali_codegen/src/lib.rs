@@ -4899,25 +4899,28 @@ impl<'a> FunctionEmitter<'a> {
             _ => return None,
         };
         let start = match node.children.get(1) {
-            Some(id) => self.resolve_static_numeric_value(*id)?,
-            None => 0.0,
+            Some(id) => {
+                let start = self.resolve_static_numeric_value(*id)?;
+                if !start.is_finite() {
+                    return None;
+                }
+                start.trunc() as i64
+            }
+            None => 0,
         };
-        if !start.is_finite() || start.fract() != 0.0 {
-            return None;
-        }
         let end = match node.children.get(2) {
             Some(id) => {
                 let end = self.resolve_static_numeric_value(*id)?;
-                if !end.is_finite() || end.fract() != 0.0 {
+                if !end.is_finite() {
                     return None;
                 }
-                end as i64
+                end.trunc() as i64
             }
             None => source.len() as i64,
         };
 
         let length = source.len() as i64;
-        let mut from = (start as i64).clamp(0, length);
+        let mut from = start.clamp(0, length);
         let mut to = end.clamp(0, length);
         if from > to {
             std::mem::swap(&mut from, &mut to);

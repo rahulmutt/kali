@@ -5225,7 +5225,7 @@ fn supported_static_string_search_lowers_omitted_search_as_undefined() {
 #[test]
 fn supported_static_string_substring_lowers_ascii_literals() {
     let program = parse_and_lower_lir(
-        "console.log('hello'.substring(1)); console.log('hello'.substring(1, 4)); console.log('hello'.substring(4, 1)); console.log('hello'.substring(-2, 2));",
+        "console.log('hello'.substring(1)); console.log('hello'.substring(1, 4)); console.log('hello'.substring(1.5, 4.9)); console.log('hello'.substring(4, 1)); console.log('hello'.substring(-2, 2));",
     );
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,

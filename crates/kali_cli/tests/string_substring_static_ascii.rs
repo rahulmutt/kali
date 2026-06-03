@@ -11,6 +11,7 @@ fn supported_source() -> &'static str {
     r#"console.log("hello".substring());
 console.log("hello".substring(1));
 console.log("hello".substring(1, 4));
+console.log("hello".substring(1.5, 4.9));
 console.log("hello".substring(4, 1));
 console.log("hello".substring(-2, 2));
 "#
@@ -37,7 +38,7 @@ fn run_supports_static_ascii_string_substring() {
     );
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "hello\nello\nell\nell\nhe\n"
+        "hello\nello\nell\nell\nell\nhe\n"
     );
 }
 

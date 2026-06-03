@@ -14323,8 +14323,9 @@ fn test_resolution_allows_static_ascii_string_substring_in_non_browser_surface()
     for source in [
         "const result = 'hello'.substring(1);",
         "const result = 'hello'.substring(1, 4);",
+        "const result = 'hello'.substring(1.5, 4.9);",
         "const result = 'hello'.substring(4, 1);",
-        "const source = 'hello'; const result = Object.freeze(source).substring(Object.freeze(1), 4);",
+        "const source = 'hello'; const result = Object.freeze(source).substring(Object.freeze(1.5), 4.9);"
     ] {
         let dir = tempfile::tempdir().unwrap();
         let source_path = dir.path().join("main.js");
@@ -14350,7 +14351,7 @@ fn test_resolution_rejects_dynamic_or_non_ascii_string_substring_in_non_browser_
     for source in [
         "function cut(start) { return 'hello'.substring(start); }",
         "function cut(value) { return value.substring(1); }",
-        "const result = 'hello'.substring(1.5);",
+        "const result = 'hello'.substring(Infinity);",
         "const result = 'héllo'.substring(1);",
     ] {
         let dir = tempfile::tempdir().unwrap();
