@@ -8,7 +8,9 @@ fn kali_bin() -> String {
 }
 
 fn supported_source() -> &'static str {
-    r#"console.log(String.fromCodePoint(72, 105));
+    r#"console.log(String.fromCodePoint());
+console.log(Object.freeze(globalThis.String.fromCodePoint)());
+console.log(String.fromCodePoint(72, 105));
 console.log(globalThis.String.fromCodePoint(79, 75));
 console.log(globalThis["String"]["fromCodePoint"](65));
 console.log(globalThis["String"]['fromCodePoint'](67));
@@ -40,7 +42,7 @@ fn run_supports_static_ascii_string_from_code_point() {
     );
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "Hi\nOK\nA\nC\nD\nBye\n"
+        "\n\nHi\nOK\nA\nC\nD\nBye\n"
     );
 }
 
