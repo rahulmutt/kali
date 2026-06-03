@@ -1692,6 +1692,14 @@ impl<'a> FunctionEmitter<'a> {
             return emitted;
         }
 
+        if let Some(result) = self.resolve_static_global_number_predicate_call(node, &callee_node) {
+            function.instruction(&Instruction::I64Const(if result { 1 } else { 0 }));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Boolean,
+            };
+        }
+
         if let Some(result) = self.resolve_static_parse_int_call(node, &callee_node) {
             function.instruction(&Instruction::I64Const(result));
             return EmittedValue {
@@ -3758,6 +3766,34 @@ impl<'a> FunctionEmitter<'a> {
         self.resolve_static_object_identity_value(id).map(|_| false)
     }
 
+    fn resolve_static_global_number_predicate_call(
+        &self,
+        node: &LirNode,
+        callee_node: &LirNode,
+    ) -> Option<bool> {
+        if node.kind != LirNodeKind::Call || node.children.len() < 2 {
+            return None;
+        }
+
+        let callee_id = *node.children.first()?;
+        let callee_node = self
+            .resolve_transparent_callable_node(callee_id)
+            .map(|id| self.node(id))
+            .unwrap_or(callee_node);
+        let method = self.global_number_predicate_callable_method(callee_node)?;
+        let StaticObjectIdentityValue::Number(number) =
+            self.resolve_static_object_identity_value(*node.children.get(1)?)?
+        else {
+            return None;
+        };
+
+        match method {
+            "isFinite" => Some(number.is_finite()),
+            "isNaN" => Some(number.is_nan()),
+            _ => None,
+        }
+    }
+
     fn resolve_static_parse_int_call(&self, node: &LirNode, callee_node: &LirNode) -> Option<i64> {
         if node.kind != LirNodeKind::Call || !(2..=3).contains(&node.children.len()) {
             return None;
@@ -3787,6 +3823,26 @@ impl<'a> FunctionEmitter<'a> {
             None => 0,
         };
         static_parse_int_ascii(&source, radix)
+    }
+
+    fn global_number_predicate_callable_method<'b>(
+        &self,
+        callee_node: &'b LirNode,
+    ) -> Option<&'b str> {
+        let method = callee_node.text.as_deref()?;
+        if method == "isFinite" || method == "isNaN" {
+            if callee_node.children.is_empty() {
+                return Some(method);
+            }
+
+            let object = callee_node.children.first().copied()?;
+            let object = self.resolve_transparent_object_root_node(object)?;
+            if matches!(self.node(object).text.as_deref(), Some("globalThis")) {
+                return Some(method);
+            }
+        }
+
+        None
     }
 
     fn is_parse_int_callable(&self, callee_node: &LirNode) -> bool {
@@ -5011,7 +5067,10 @@ impl<'a> FunctionEmitter<'a> {
         let callee = self.resolve_transparent_callable_node(callee)?;
         let callee_node = self.node(callee);
         let method = callee_node.text.as_deref()?;
-        if !matches!(method, "trim" | "trimStart" | "trimEnd") {
+        if !matches!(
+            method,
+            "trim" | "trimStart" | "trimEnd" | "trimLeft" | "trimRight"
+        ) {
             return None;
         }
 
@@ -5024,8 +5083,8 @@ impl<'a> FunctionEmitter<'a> {
         let is_ascii_trim = |ch: char| ch.is_ascii_whitespace();
         match method {
             "trim" => Some(source.trim_matches(is_ascii_trim).to_string()),
-            "trimStart" => Some(source.trim_start_matches(is_ascii_trim).to_string()),
-            "trimEnd" => Some(source.trim_end_matches(is_ascii_trim).to_string()),
+            "trimStart" | "trimLeft" => Some(source.trim_start_matches(is_ascii_trim).to_string()),
+            "trimEnd" | "trimRight" => Some(source.trim_end_matches(is_ascii_trim).to_string()),
             _ => None,
         }
     }

@@ -2703,6 +2703,9 @@ impl TypeContext {
         if self.resolve_number_identity_call(expr) {
             return;
         }
+        if self.resolve_global_number_predicate_call(expr) {
+            return;
+        }
         if self.resolve_number_parse_int_call(expr) {
             return;
         }
@@ -3464,6 +3467,68 @@ impl TypeContext {
                 }
                 _ => false,
             },
+            _ => false,
+        };
+
+        true
+    }
+
+    fn resolve_global_number_predicate_call(&mut self, expr: &CallExpression) -> bool {
+        let Some(callee_name) =
+            self.resolve_static_callable_name(&expr.callee)
+                .or_else(|| match &expr.callee {
+                    Expression::Identifier(name) => Some(name.clone()),
+                    _ => None,
+                })
+        else {
+            return false;
+        };
+
+        let method = match callee_name.as_str() {
+            "isFinite"
+            | "globalThis.isFinite"
+            | r#"globalThis["isFinite"]"#
+            | r#"globalThis['isFinite']"# => "isFinite",
+            "isNaN" | "globalThis.isNaN" | r#"globalThis["isNaN"]"# | r#"globalThis['isNaN']"# => {
+                "isNaN"
+            }
+            _ => return false,
+        };
+
+        let Some(value_expr) = expr.args.first() else {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "global {method} requires at least one statically-known numeric value in the current phase; use an explicit numeric constant or the later compatibility path"
+                ),
+            ));
+            return true;
+        };
+
+        let Some(StaticObjectIdentityValue::Number(number)) =
+            self.resolve_static_object_identity_literal_value(value_expr)
+        else {
+            self.resolve_expression(value_expr);
+            for arg in expr.args.iter().skip(1) {
+                self.resolve_expression(arg);
+            }
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "global {method} is unavailable unless the argument is a statically-known numeric value in the current direct-runtime path; use an explicit numeric constant or the later compatibility path"
+                ),
+            ));
+            return true;
+        };
+
+        self.resolve_expression(value_expr);
+        for arg in expr.args.iter().skip(1) {
+            self.resolve_expression(arg);
+        }
+
+        let _ = match method {
+            "isFinite" => number.is_finite(),
+            "isNaN" => number.is_nan(),
             _ => false,
         };
 
@@ -4860,7 +4925,10 @@ impl TypeContext {
         };
 
         let method = member.property.as_str();
-        if !matches!(method, "trim" | "trimStart" | "trimEnd") {
+        if !matches!(
+            method,
+            "trim" | "trimStart" | "trimEnd" | "trimLeft" | "trimRight"
+        ) {
             return;
         }
 

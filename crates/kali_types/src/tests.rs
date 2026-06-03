@@ -3057,6 +3057,15 @@ const objectAlias = object;
 const numeric = 1;
 const numericAlias = numeric;
 const safeInteger = Number.isSafeInteger;
+const globalFinite = isFinite;
+const globalNaN = Object.freeze(globalThis["isNaN"]);
+isFinite(numericAlias);
+globalThis.isFinite(numericAlias);
+globalThis["isFinite"](numericAlias);
+globalFinite(numericAlias);
+globalThis.isNaN(NaN);
+globalThis["isNaN"](NaN);
+globalNaN(NaN);
 globalThis["Object"]["is"](objectAlias, object);
 globalThis.Object["is"](object, object);
 globalThis["Object"].is(objectAlias, object);
@@ -14519,6 +14528,8 @@ fn test_resolution_allows_static_ascii_string_trim_family_in_non_browser_surface
         "const result = '  hello  '.trim();",
         "const result = '  hello  '.trimStart();",
         "const result = '  hello  '.trimEnd();",
+        "const result = '  hello  '.trimLeft();",
+        "const result = '  hello  '.trimRight();",
         "const source = ' hello '; const result = Object.freeze(source).trim();",
     ] {
         let dir = tempfile::tempdir().unwrap();
@@ -14753,6 +14764,8 @@ fn test_resolution_rejects_non_ascii_or_argument_string_trim_family_in_non_brows
         "const result = '  héllo  '.trim();",
         "const result = '  hello  '.trimStart(1);",
         "const result = '  hello  '.trimEnd(1);",
+        "const result = '  hello  '.trimLeft(1);",
+        "const result = '  hello  '.trimRight(1);",
     ] {
         let dir = tempfile::tempdir().unwrap();
         let source_path = dir.path().join("main.js");
