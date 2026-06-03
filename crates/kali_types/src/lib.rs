@@ -3041,6 +3041,8 @@ impl TypeContext {
                 | "globalThis.Array.isArray"
                 | "String.fromCharCode"
                 | "globalThis.String.fromCharCode"
+                | "String.fromCodePoint"
+                | "globalThis.String.fromCodePoint"
                 | "globalThis.Number.isFinite"
                 | "globalThis.Number.isNaN"
                 | "globalThis.Number.isInteger"
@@ -3147,6 +3149,14 @@ impl TypeContext {
                 | r#"globalThis['String']['fromCharCode']"#
                 | r#"String["fromCharCode"]"#
                 | r#"String['fromCharCode']"#
+                | r#"globalThis["String"].fromCodePoint"#
+                | r#"globalThis['String'].fromCodePoint"#
+                | r#"globalThis.String["fromCodePoint"]"#
+                | r#"globalThis.String['fromCodePoint']"#
+                | r#"globalThis["String"]["fromCodePoint"]"#
+                | r#"globalThis['String']['fromCodePoint']"#
+                | r#"String["fromCodePoint"]"#
+                | r#"String['fromCodePoint']"#
         )
     }
 
@@ -3733,9 +3743,9 @@ impl TypeContext {
             return false;
         };
 
-        if !Self::is_string_from_char_code_callable_name(&callee_name) {
+        let Some(method) = Self::static_ascii_string_constructor_method(&callee_name) else {
             return false;
-        }
+        };
 
         let supported = expr.args.iter().all(|arg| {
             self.resolve_static_numeric_literal_value(arg)
@@ -3752,25 +3762,41 @@ impl TypeContext {
 
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
-            "String.fromCharCode is unavailable unless every argument is a statically-known ASCII integer code unit from 0 through 127 in the current direct-runtime path; use explicit ASCII integer literals or the later compatibility path",
+            format!(
+                "String.{method} is unavailable unless every argument is a statically-known ASCII integer code unit from 0 through 127 in the current direct-runtime path; use explicit ASCII integer literals or the later compatibility path"
+            ),
         ));
         true
     }
 
     fn is_string_from_char_code_callable_name(name: &str) -> bool {
-        matches!(
-            name,
+        Self::static_ascii_string_constructor_method(name) == Some("fromCharCode")
+    }
+
+    fn static_ascii_string_constructor_method(name: &str) -> Option<&'static str> {
+        match name {
             "String.fromCharCode"
-                | "globalThis.String.fromCharCode"
-                | r#"String["fromCharCode"]"#
-                | r#"String['fromCharCode']"#
-                | r#"globalThis.String["fromCharCode"]"#
-                | r#"globalThis.String['fromCharCode']"#
-                | r#"globalThis["String"].fromCharCode"#
-                | r#"globalThis['String'].fromCharCode"#
-                | r#"globalThis["String"]["fromCharCode"]"#
-                | r#"globalThis['String']['fromCharCode']"#
-        )
+            | "globalThis.String.fromCharCode"
+            | r#"String["fromCharCode"]"#
+            | r#"String['fromCharCode']"#
+            | r#"globalThis.String["fromCharCode"]"#
+            | r#"globalThis.String['fromCharCode']"#
+            | r#"globalThis["String"].fromCharCode"#
+            | r#"globalThis['String'].fromCharCode"#
+            | r#"globalThis["String"]["fromCharCode"]"#
+            | r#"globalThis['String']['fromCharCode']"# => Some("fromCharCode"),
+            "String.fromCodePoint"
+            | "globalThis.String.fromCodePoint"
+            | r#"String["fromCodePoint"]"#
+            | r#"String['fromCodePoint']"#
+            | r#"globalThis.String["fromCodePoint"]"#
+            | r#"globalThis.String['fromCodePoint']"#
+            | r#"globalThis["String"].fromCodePoint"#
+            | r#"globalThis['String'].fromCodePoint"#
+            | r#"globalThis["String"]["fromCodePoint"]"#
+            | r#"globalThis['String']['fromCodePoint']"# => Some("fromCodePoint"),
+            _ => None,
+        }
     }
 
     fn resolve_array_is_array_call(&mut self, expr: &CallExpression) -> bool {

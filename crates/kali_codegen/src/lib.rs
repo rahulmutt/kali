@@ -4005,7 +4005,7 @@ impl<'a> FunctionEmitter<'a> {
             return false;
         };
 
-        if method != "fromCharCode" {
+        if method != "fromCharCode" && method != "fromCodePoint" {
             return false;
         }
 
