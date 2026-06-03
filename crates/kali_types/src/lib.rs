@@ -1810,7 +1810,8 @@ impl TypeContext {
                 .and_then(|argument| self.resolve_static_string_expression(argument)),
             Expression::CallExpression(call) => self
                 .resolve_static_string_from_char_code_expression(call)
-                .or_else(|| self.resolve_static_string_concat_expression(call)),
+                .or_else(|| self.resolve_static_string_concat_expression(call))
+                .or_else(|| self.resolve_static_string_normalize_expression(call)),
             Expression::LogicalExpression(expr) => {
                 let left = self.resolve_static_object_identity_literal_value(&expr.left)?;
                 match expr.operator {
@@ -1917,6 +1918,26 @@ impl TypeContext {
             rendered.push(char::from_u32(value as u32)?);
         }
         Some(rendered)
+    }
+
+    fn resolve_static_string_normalize_expression(&self, expr: &CallExpression) -> Option<String> {
+        let Expression::MemberExpression(member) = &expr.callee else {
+            return None;
+        };
+        if member.property.as_str() != "normalize" {
+            return None;
+        }
+
+        let source = self.resolve_static_string_expression(&member.object)?;
+        if !source.is_ascii() || expr.args.len() > 1 {
+            return None;
+        }
+        let form = expr
+            .args
+            .first()
+            .map(|argument| self.resolve_static_string_expression(argument))
+            .unwrap_or_else(|| Some("NFC".to_string()))?;
+        matches!(form.as_str(), "NFC" | "NFD" | "NFKC" | "NFKD").then_some(source)
     }
 
     fn resolve_static_string_binding(&self, name: &str) -> Option<String> {
@@ -2793,6 +2814,7 @@ impl TypeContext {
         self.resolve_string_code_point_at_member_call(expr);
         self.resolve_string_trim_member_call(expr);
         self.resolve_string_case_member_call(expr);
+        self.resolve_string_normalize_member_call(expr);
         self.resolve_string_replace_member_call(expr);
         self.resolve_string_split_member_call(expr);
         self.resolve_promise_member_call(expr);
@@ -5263,6 +5285,47 @@ impl TypeContext {
             format!(
                 "String.prototype.{method} is unavailable unless the receiver is a statically-known ASCII string literal and no arguments are supplied in the current direct-runtime path; use explicit ASCII literals or the later compatibility path"
             ),
+        ));
+    }
+
+    fn resolve_string_normalize_member_call(&mut self, expr: &CallExpression) {
+        let Expression::MemberExpression(member) = &expr.callee else {
+            return;
+        };
+
+        if member.property.as_str() != "normalize" {
+            return;
+        }
+
+        let source = self.resolve_static_string_expression(&member.object);
+        let form = expr
+            .args
+            .first()
+            .map(|argument| self.resolve_static_string_expression(argument))
+            .unwrap_or_else(|| Some("NFC".to_string()));
+        let has_supported_form = form
+            .as_ref()
+            .is_some_and(|form| matches!(form.as_str(), "NFC" | "NFD" | "NFKC" | "NFKD"));
+
+        if matches!(expr.args.len(), 0 | 1)
+            && source.as_ref().is_some_and(|source| source.is_ascii())
+            && has_supported_form
+        {
+            self.resolve_expression(&member.object);
+            for arg in &expr.args {
+                self.resolve_expression(arg);
+            }
+            return;
+        }
+
+        self.resolve_expression(&member.object);
+        for arg in &expr.args {
+            self.resolve_expression(arg);
+        }
+
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "String.prototype.normalize is unavailable unless the receiver is a statically-known ASCII string literal and the optional normalization form is one of the statically-known strings NFC, NFD, NFKC, or NFKD in the current direct-runtime path; use explicit ASCII literals or the later compatibility path".to_string(),
         ));
     }
 

@@ -2011,6 +2011,15 @@ impl<'a> FunctionEmitter<'a> {
             return self.emit_node(function, literal, true);
         }
 
+        if let Some(result) = self.resolve_static_string_normalize_call(node) {
+            let literal = self.alloc_scratch_node(
+                LirNodeKind::Literal,
+                Some(quote_string_literal(&result)),
+                vec![],
+            );
+            return self.emit_node(function, literal, true);
+        }
+
         if let Some(result) = self.resolve_static_string_replace_call(node, "replace") {
             let literal = self.alloc_scratch_node(
                 LirNodeKind::Literal,
@@ -2150,6 +2159,18 @@ impl<'a> FunctionEmitter<'a> {
                 format!(
                     "String.prototype.{method} is unavailable unless the receiver is a statically-known ASCII string literal and no arguments are supplied in the current direct-runtime path; use explicit ASCII literals or the later compatibility path"
                 ),
+            ));
+            function.instruction(&Instruction::Unreachable);
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
+
+        if self.is_string_normalize_call_with_literal_receiver(node) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "String.prototype.normalize is unavailable unless the receiver is a statically-known ASCII string literal and the optional normalization form is one of the statically-known strings NFC, NFD, NFKC, or NFKD in the current direct-runtime path; use explicit ASCII literals or the later compatibility path",
             ));
             function.instruction(&Instruction::Unreachable);
             return EmittedValue {
@@ -5371,6 +5392,59 @@ impl<'a> FunctionEmitter<'a> {
             "toUpperCase" | "toLocaleUpperCase" => Some(source.to_ascii_uppercase()),
             _ => None,
         }
+    }
+
+    fn resolve_static_string_normalize_call(&self, node: &LirNode) -> Option<String> {
+        if node.kind != LirNodeKind::Call || !matches!(node.children.len(), 1 | 2) {
+            return None;
+        }
+
+        let callee = node.children.first().copied()?;
+        let callee = self.resolve_transparent_callable_node(callee)?;
+        let callee_node = self.node(callee);
+        if callee_node.text.as_deref() != Some("normalize") {
+            return None;
+        }
+
+        let receiver = callee_node.children.first().copied()?;
+        let source = match self.resolve_static_object_identity_value(receiver)? {
+            StaticObjectIdentityValue::String(value) if value.is_ascii() => value,
+            _ => return None,
+        };
+        let form = match node.children.get(1) {
+            Some(id) => match self.resolve_static_object_identity_value(*id)? {
+                StaticObjectIdentityValue::String(value)
+                    if matches!(value.as_str(), "NFC" | "NFD" | "NFKC" | "NFKD") =>
+                {
+                    value
+                }
+                _ => return None,
+            },
+            None => "NFC".to_string(),
+        };
+
+        matches!(form.as_str(), "NFC" | "NFD" | "NFKC" | "NFKD").then_some(source)
+    }
+
+    fn is_string_normalize_call_with_literal_receiver(&self, node: &LirNode) -> bool {
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+
+        let Some(callee) = node.children.first().copied() else {
+            return false;
+        };
+        let Some(callee) = self.resolve_transparent_callable_node(callee) else {
+            return false;
+        };
+        let callee_node = self.node(callee);
+        callee_node.text.as_deref() == Some("normalize")
+            && callee_node
+                .children
+                .first()
+                .copied()
+                .and_then(|receiver| self.resolve_static_object_identity_value(receiver))
+                .is_some_and(|value| matches!(value, StaticObjectIdentityValue::String(_)))
     }
 
     fn resolve_static_string_replace_call(&self, node: &LirNode, method: &str) -> Option<String> {
