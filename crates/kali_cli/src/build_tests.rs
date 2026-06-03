@@ -106,6 +106,40 @@ console.log("flatMap:" + [1, 2].flatMap((value) => [value]).join(','));
 }
 
 #[test]
+fn build_and_check_source_file_accepts_static_string_split_without_separator_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"const whole = 'abc'.split();
+console.log(whole.length);
+console.log(whole[0]);
+"#,
+    )
+    .expect("write source");
+
+    check_source_file(&source_path, ApiSurface::Deno, &[], false, false)
+        .expect("check should succeed");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Deno,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("build should succeed");
+
+    assert!(output.output_path.exists());
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("artifact should validate");
+}
+
+#[test]
 fn build_source_file_supports_deno_env_get_in_ts_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");

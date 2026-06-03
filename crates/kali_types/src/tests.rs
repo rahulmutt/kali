@@ -14569,6 +14569,7 @@ fn test_resolution_allows_static_ascii_string_split_in_non_browser_surface() {
     for source in [
         "const result = 'a,b,c'.split(',');",
         "const result = 'abc'.split('', 2);",
+        "const whole = 'abc'.split();",
         "const source = 'a-b'; const result = Object.freeze(source).split(Object.freeze('-'));",
     ] {
         let dir = tempfile::tempdir().unwrap();

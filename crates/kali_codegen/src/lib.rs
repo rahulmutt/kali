@@ -2052,7 +2052,7 @@ impl<'a> FunctionEmitter<'a> {
         if self.is_string_split_call_with_literal_receiver(node) {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
-                "String.prototype.split is unavailable unless the receiver and separator are statically-known ASCII string literals and the optional limit is a statically-known integer from 0 through 1024 in the current direct-runtime path; use explicit ASCII literals or the later compatibility path",
+                "String.prototype.split is unavailable unless the receiver is a statically-known ASCII string literal, the optional separator is a statically-known ASCII string literal, and the optional limit is a statically-known integer from 0 through 1024 in the current direct-runtime path; use explicit ASCII literals or the later compatibility path",
             ));
             function.instruction(&Instruction::Unreachable);
             return EmittedValue {
@@ -4960,7 +4960,7 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     fn resolve_static_string_split_call(&self, node: &LirNode) -> Option<Vec<String>> {
-        if node.kind != LirNodeKind::Call || !matches!(node.children.len(), 2 | 3) {
+        if node.kind != LirNodeKind::Call || !matches!(node.children.len(), 1 | 2 | 3) {
             return None;
         }
 
@@ -4976,9 +4976,12 @@ impl<'a> FunctionEmitter<'a> {
             StaticObjectIdentityValue::String(value) if value.is_ascii() => value,
             _ => return None,
         };
-        let separator = match self.resolve_static_object_identity_value(*node.children.get(1)?)? {
-            StaticObjectIdentityValue::String(value) if value.is_ascii() => value,
-            _ => return None,
+        let separator = match node.children.get(1) {
+            Some(id) => match self.resolve_static_object_identity_value(*id)? {
+                StaticObjectIdentityValue::String(value) if value.is_ascii() => Some(value),
+                _ => return None,
+            },
+            None => None,
         };
         let limit = match node.children.get(2) {
             Some(id) => {
@@ -4991,13 +4994,15 @@ impl<'a> FunctionEmitter<'a> {
             None => None,
         };
 
-        let mut parts = if separator.is_empty() {
-            source.chars().map(|ch| ch.to_string()).collect::<Vec<_>>()
-        } else {
-            source
+        let mut parts = match separator {
+            Some(separator) if separator.is_empty() => {
+                source.chars().map(|ch| ch.to_string()).collect::<Vec<_>>()
+            }
+            Some(separator) => source
                 .split(&separator)
                 .map(ToString::to_string)
-                .collect::<Vec<_>>()
+                .collect::<Vec<_>>(),
+            None => vec![source],
         };
         if let Some(limit) = limit {
             parts.truncate(limit);

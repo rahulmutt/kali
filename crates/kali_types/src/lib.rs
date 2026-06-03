@@ -4865,17 +4865,21 @@ impl TypeContext {
             .args
             .get(1)
             .and_then(|argument| self.resolve_static_numeric_literal_value(argument));
-        let has_ascii_operands = source
-            .as_ref()
-            .zip(separator.as_ref())
-            .is_some_and(|(source, separator)| source.is_ascii() && separator.is_ascii());
+        let has_ascii_operands = source.as_ref().is_some_and(|source| {
+            source.is_ascii()
+                && expr.args.first().is_none_or(|_| {
+                    separator
+                        .as_ref()
+                        .is_some_and(|separator| separator.is_ascii())
+                })
+        });
         let has_supported_limit = expr.args.get(1).is_none_or(|_| {
             limit.is_some_and(|limit| {
                 limit.is_finite() && limit.fract() == 0.0 && (0.0..=1024.0).contains(&limit)
             })
         });
 
-        if matches!(expr.args.len(), 1 | 2) && has_ascii_operands && has_supported_limit {
+        if matches!(expr.args.len(), 0 | 1 | 2) && has_ascii_operands && has_supported_limit {
             self.resolve_expression(&member.object);
             for arg in &expr.args {
                 self.resolve_expression(arg);
@@ -4890,7 +4894,7 @@ impl TypeContext {
 
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
-            "String.prototype.split is unavailable unless the receiver and separator are statically-known ASCII string literals and the optional limit is a statically-known integer from 0 through 1024 in the current direct-runtime path; use explicit ASCII literals or the later compatibility path".to_string(),
+            "String.prototype.split is unavailable unless the receiver is a statically-known ASCII string literal, the optional separator is a statically-known ASCII string literal, and the optional limit is a statically-known integer from 0 through 1024 in the current direct-runtime path; use explicit ASCII literals or the later compatibility path".to_string(),
         ));
     }
 

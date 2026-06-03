@@ -5407,7 +5407,7 @@ fn unsupported_static_string_replace_all_substitution_marker_is_gated() {
 #[test]
 fn supported_static_string_split_lowers_ascii_literals_to_array() {
     let program = parse_and_lower_lir(
-        "const parts = 'a,b,c'.split(','); console.log(parts.length); console.log(parts[1]); const chars = 'abc'.split('', 2); console.log(chars.length); console.log(chars[0]);",
+        "const whole = 'abc'.split(); console.log(whole.length); console.log(whole[0]); const parts = 'a,b,c'.split(','); console.log(parts.length); console.log(parts[1]); const chars = 'abc'.split('', 2); console.log(chars.length); console.log(chars[0]);",
     );
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,
@@ -5427,6 +5427,7 @@ fn supported_static_string_split_lowers_ascii_literals_to_array() {
         .expect("generated wasm should validate");
 
     let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("\"abc\""), "{printed}");
     assert!(printed.contains("\"b\""), "{printed}");
     assert!(printed.contains("\"a\""), "{printed}");
     assert!(printed.contains("\"3\""), "{printed}");
