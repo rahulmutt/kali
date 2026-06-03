@@ -1980,7 +1980,16 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         if let Some(result) = self.resolve_static_string_code_point_at_call(node) {
-            let literal = self.alloc_scratch_node(LirNodeKind::Literal, Some(result), vec![]);
+            let literal = match result {
+                StaticStringAtResult::Value(value) => {
+                    self.alloc_scratch_node(LirNodeKind::Literal, Some(value), vec![])
+                }
+                StaticStringAtResult::OutOfRange => self.alloc_scratch_node(
+                    LirNodeKind::Literal,
+                    Some("undefined".to_string()),
+                    vec![],
+                ),
+            };
             return self.emit_node(function, literal, true);
         }
 
@@ -2126,7 +2135,7 @@ impl<'a> FunctionEmitter<'a> {
         if self.is_string_code_point_at_call_with_literal_receiver(node) {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
-                "String.prototype.codePointAt is unavailable unless the receiver is a statically-known ASCII string literal and the optional index is a statically-known in-range integer in the current direct-runtime path; use explicit ASCII literals or the later compatibility path",
+                "String.prototype.codePointAt is unavailable unless the receiver is a statically-known ASCII string literal and the optional index is a statically-known integer in the current direct-runtime path; use explicit ASCII literals or the later compatibility path",
             ));
             function.instruction(&Instruction::Unreachable);
             return EmittedValue {
@@ -5248,7 +5257,10 @@ impl<'a> FunctionEmitter<'a> {
                 .is_some_and(|value| matches!(value, StaticObjectIdentityValue::String(_)))
     }
 
-    fn resolve_static_string_code_point_at_call(&self, node: &LirNode) -> Option<String> {
+    fn resolve_static_string_code_point_at_call(
+        &self,
+        node: &LirNode,
+    ) -> Option<StaticStringAtResult> {
         if node.kind != LirNodeKind::Call || !matches!(node.children.len(), 1 | 2) {
             return None;
         }
@@ -5277,13 +5289,13 @@ impl<'a> FunctionEmitter<'a> {
         };
 
         if index < 0 {
-            return None;
+            return Some(StaticStringAtResult::OutOfRange);
         }
 
-        source
-            .as_bytes()
-            .get(index as usize)
-            .map(|byte| byte.to_string())
+        Some(match source.as_bytes().get(index as usize) {
+            Some(byte) => StaticStringAtResult::Value(byte.to_string()),
+            None => StaticStringAtResult::OutOfRange,
+        })
     }
 
     fn is_string_code_point_at_call_with_literal_receiver(&self, node: &LirNode) -> bool {
@@ -7059,6 +7071,13 @@ impl<'a> FunctionEmitter<'a> {
                 }
 
                 if let Some(result) = self.resolve_static_string_at_call(node) {
+                    return match result {
+                        StaticStringAtResult::Value(value) => Some(value),
+                        StaticStringAtResult::OutOfRange => Some("undefined".to_string()),
+                    };
+                }
+
+                if let Some(result) = self.resolve_static_string_code_point_at_call(node) {
                     return match result {
                         StaticStringAtResult::Value(value) => Some(value),
                         StaticStringAtResult::OutOfRange => Some("undefined".to_string()),

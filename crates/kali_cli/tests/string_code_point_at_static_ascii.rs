@@ -10,6 +10,11 @@ fn kali_bin() -> String {
 fn supported_source() -> &'static str {
     r#"console.log("ABC".codePointAt());
 console.log("ABC".codePointAt(1));
+console.log("ABC".codePointAt(3));
+console.log("ABC".codePointAt(-1));
+console.log(Object.freeze("ABC").codePointAt(Object.freeze(2)));
+const missing = "ABC".codePointAt(99);
+console.log(missing);
 "#
 }
 
@@ -32,7 +37,10 @@ fn run_supports_static_ascii_string_code_point_at() {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    assert_eq!(String::from_utf8_lossy(&output.stdout), "65\n66\n");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "65\n66\nundefined\nundefined\n67\nundefined\n"
+    );
 }
 
 #[test]
@@ -95,12 +103,6 @@ fn check_gates_string_code_point_at_extra_arguments() {
 #[test]
 fn check_gates_non_ascii_static_string_code_point_at_receiver() {
     assert_check_gates_unsupported_string_code_point_at("console.log('é'.codePointAt(0));\n");
-}
-
-#[test]
-fn check_gates_static_out_of_range_string_code_point_at_index() {
-    assert_check_gates_unsupported_string_code_point_at("console.log('ABC'.codePointAt(3));\n");
-    assert_check_gates_unsupported_string_code_point_at("console.log('ABC'.codePointAt(-1));\n");
 }
 
 #[test]
