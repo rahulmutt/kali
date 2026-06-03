@@ -80,3 +80,27 @@ fn check_rejects_dynamic_array_join_operand() {
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(stderr.contains("Array.prototype.join"), "stderr: {stderr}");
 }
+
+#[test]
+fn check_rejects_argument_bearing_static_array_to_string() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("array-to-string-args.js");
+    fs::write(&source_path, "console.log([1, 2].toString('-'));\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg("--output")
+        .arg("json")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success(), "expected check to fail");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("\"code\":\"E5506\""), "stdout: {stdout}");
+    assert!(
+        stdout.contains("Array.prototype.toString"),
+        "stdout: {stdout}"
+    );
+}

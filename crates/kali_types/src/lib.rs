@@ -1080,6 +1080,28 @@ impl TypeContext {
         }
     }
 
+    fn is_static_literal_array_receiver(&self, expression: &Expression) -> bool {
+        match self.unwrap_for_of_wrapper_expression(expression) {
+            Expression::ArrayExpression(array) => {
+                array.elements.iter().all(|element| match element {
+                    Some(ExpressionOrSpread::Expression(expr)) => {
+                        self.is_static_array_iteration_element(expr)
+                    }
+                    Some(ExpressionOrSpread::Spread(spread)) => {
+                        self.is_static_literal_array_receiver(&spread.argument)
+                    }
+                    Some(ExpressionOrSpread::Empty) | None => false,
+                })
+            }
+            Expression::Identifier(name) => self.resolve_static_array_binding_name(name),
+            Expression::CallExpression(call) if Self::is_object_freeze_call(call) => call
+                .args
+                .first()
+                .is_some_and(|arg| self.is_static_literal_array_receiver(arg)),
+            _ => false,
+        }
+    }
+
     fn is_static_truthy_array_literal(&self, expression: &Expression) -> bool {
         match self.unwrap_for_of_wrapper_expression(expression) {
             Expression::ArrayExpression(array) => {
@@ -4674,14 +4696,24 @@ impl TypeContext {
             return;
         }
 
-        let has_static_receiver = self.is_static_array_iteration_target(&member.object);
+        let has_static_receiver = self.is_static_literal_array_receiver(&member.object);
         if !has_static_receiver {
             return;
         }
 
-        if expr.args.is_empty() {
-            self.resolve_expression(&member.object);
+        self.resolve_expression(&member.object);
+        for arg in &expr.args {
+            self.resolve_expression(arg);
         }
+
+        if expr.args.is_empty() {
+            return;
+        }
+
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "Array.prototype.toString is unavailable for static literal-array receivers when arguments are supplied in the current direct-runtime path; use a no-argument call or the later compatibility path".to_string(),
+        ));
     }
 
     fn resolve_array_search_member_call(&mut self, expr: &CallExpression) {
