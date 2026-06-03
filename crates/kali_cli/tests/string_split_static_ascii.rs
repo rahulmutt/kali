@@ -10,11 +10,39 @@ fn kali_bin() -> String {
 fn supported_source() -> &'static str {
     r#"const whole = "abc".split();
 console.log(whole.length);
+console.log(whole[0]);
 const comma = "a,b,c".split(",");
 console.log(comma.length);
+console.log(comma[1]);
 const chars = Object.freeze("abc").split(Object.freeze(""), Object.freeze(2));
 console.log(chars.length);
+console.log(chars[0]);
 "#
+}
+
+#[test]
+fn run_supports_static_ascii_string_split_with_indexed_access() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("string-split.js");
+    fs::write(&source_path, supported_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "1\nabc\n3\nb\n2\na\n"
+    );
 }
 
 #[test]

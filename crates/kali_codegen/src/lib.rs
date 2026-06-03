@@ -70,6 +70,13 @@ enum StaticStringAtResult {
     OutOfRange,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+enum StaticIndexMemberResult {
+    Node(LirNodeId),
+    String(String),
+    Undefined,
+}
+
 impl StaticObjectIdentityValue {
     fn same_value(&self, other: &Self) -> bool {
         match (self, other) {
@@ -660,6 +667,31 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             1 => {
+                if let Some(result) = self.resolve_static_index_member(node) {
+                    return match result {
+                        StaticIndexMemberResult::Node(value) => {
+                            self.emit_node(function, value, true)
+                        }
+                        StaticIndexMemberResult::String(value) => {
+                            let (offset, len) = self.strings.intern(&value);
+                            function.instruction(&Instruction::I64Const(encode_string_handle(
+                                offset, len,
+                            )));
+                            EmittedValue {
+                                produced: true,
+                                shape: ValueShape::Scalar,
+                            }
+                        }
+                        StaticIndexMemberResult::Undefined => {
+                            function.instruction(&Instruction::I64Const(0));
+                            EmittedValue {
+                                produced: true,
+                                shape: ValueShape::Boolean,
+                            }
+                        }
+                    };
+                }
+
                 if node.text.as_deref().unwrap_or_default().is_empty() {
                     self.emit_node(function, node.children[0], want_value)
                 } else {
@@ -5387,6 +5419,85 @@ impl<'a> FunctionEmitter<'a> {
             .then(|| method.to_string())
     }
 
+    fn resolve_static_index_member(&self, node: &LirNode) -> Option<StaticIndexMemberResult> {
+        if node.kind != LirNodeKind::Value || node.children.len() != 1 {
+            return None;
+        }
+
+        let index = self.static_member_index(node.text.as_deref()?)?;
+        let source = node.children[0];
+
+        if let Some(parts) = self.resolve_static_string_split_parts_from_id(source) {
+            return Some(
+                parts
+                    .get(index)
+                    .cloned()
+                    .map(StaticIndexMemberResult::String)
+                    .unwrap_or(StaticIndexMemberResult::Undefined),
+            );
+        }
+
+        let source = self.resolve_literal_aggregate(source)?;
+        let source_node = self.node(source);
+        if self.is_array_literal(source_node) {
+            return Some(
+                source_node
+                    .children
+                    .get(index)
+                    .copied()
+                    .map(StaticIndexMemberResult::Node)
+                    .unwrap_or(StaticIndexMemberResult::Undefined),
+            );
+        }
+
+        None
+    }
+
+    fn static_member_index(&self, text: &str) -> Option<usize> {
+        let index = parse_number_literal(text)?;
+        (index >= 0 && text.chars().all(|ch| ch.is_ascii_digit())).then_some(index as usize)
+    }
+
+    fn resolve_static_string_split_parts_from_id(&self, mut id: LirNodeId) -> Option<Vec<String>> {
+        let mut seen = HashSet::new();
+        loop {
+            if !seen.insert(id.0) {
+                return None;
+            }
+
+            let node = self.node(id);
+            if let Some(parts) = self.resolve_static_string_split_call(node) {
+                return Some(parts);
+            }
+
+            if node.kind == LirNodeKind::Value
+                && node.text.as_deref().is_some_and(|text| text.is_empty())
+                && !node.children.is_empty()
+            {
+                id = *node.children.last().expect("sequence wrapper has a child");
+                continue;
+            }
+
+            if node.kind == LirNodeKind::Value
+                && node.children.is_empty()
+                && node.text.as_deref().is_some()
+            {
+                let name = node.text.as_deref()?;
+                if let Some(bound) = self.bindings.get(name).copied() {
+                    id = bound;
+                    continue;
+                }
+            }
+
+            if self.is_object_freeze_call(node) || self.is_frozen_array_from_call(node) {
+                id = node.children.get(1).copied()?;
+                continue;
+            }
+
+            return None;
+        }
+    }
+
     fn resolve_static_string_split_call(&self, node: &LirNode) -> Option<Vec<String>> {
         if node.kind != LirNodeKind::Call || !matches!(node.children.len(), 1..=3) {
             return None;
@@ -7009,6 +7120,12 @@ impl<'a> FunctionEmitter<'a> {
                     } else {
                         self.render_length(&node.children[0])
                     }
+                } else if let Some(result) = self.resolve_static_index_member(node) {
+                    match result {
+                        StaticIndexMemberResult::Node(value) => self.render_static_value(value),
+                        StaticIndexMemberResult::String(value) => Some(value),
+                        StaticIndexMemberResult::Undefined => Some("undefined".to_string()),
+                    }
                 } else if node.text.is_none() {
                     if node.children.len() == 1 {
                         self.render_static_value(node.children[0])
@@ -7467,6 +7584,10 @@ impl<'a> FunctionEmitter<'a> {
     fn render_length(&self, id: &LirNodeId) -> Option<String> {
         if self.process_argv_slice_start(*id).is_some() {
             return None;
+        }
+
+        if let Some(parts) = self.resolve_static_string_split_parts_from_id(*id) {
+            return Some(parts.len().to_string());
         }
 
         let node = self.node(*id);
