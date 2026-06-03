@@ -4,7 +4,7 @@ namespace KaliCore
 
 /-- Typing judgment for the bounded core fragment modelled in Lean. The current
 proof boundary now covers literals, variables, closed functions, application,
-sequencing, conditionals, assignment, and try/catch. That keeps the progress
+closed let-bindings, sequencing, conditionals, assignment, and try/catch. That keeps the progress
 and preservation story mechanised while still leaving bare throw plus the wider
 memory / lowering proofs for later work.
 -/
@@ -13,6 +13,7 @@ inductive Typing : Context → Expr → Ty → Prop where
   | var : ∀ {Γ x T}, Context.lookup Γ x = some T → Typing Γ (.EVar x) T
   | lam : ∀ {Γ x ty body retTy}, Typing [] body retTy → Typing Γ (.EFun x ty body) (.TFun [ty] retTy)
   | app : ∀ {Γ x ty body a argTy retTy}, Typing [] body retTy → Typing Γ a argTy → Typing Γ (.EApp (.EFun x ty body) a) retTy
+  | let1 : ∀ {Γ name init body initTy bodyTy}, Typing Γ init initTy → Typing [] body bodyTy → Typing Γ (.ELet name init body) bodyTy
   | seq : ∀ {Γ e1 e2 t1 t2}, Typing Γ e1 t1 → Typing Γ e2 t2 → Typing Γ (.ESeq e1 e2) t2
   | ite : ∀ {Γ c t f tRet}, Typing Γ c .TBool → Typing Γ t tRet → Typing Γ f tRet → Typing Γ (.EIf c t f) tRet
   | assign : ∀ {Γ name e t}, Typing Γ e t → Typing Γ (.EAssign name e) t
@@ -44,6 +45,13 @@ theorem subst_closed : ∀ {e : Expr} {T : Ty} {x : String} {v : Expr}, Typing [
       cases hty with
       | app hbody harg =>
           simp [subst, ihArg harg]
+  | ELet name init body ihInit ihBody =>
+      intro T x v hty
+      cases hty with
+      | let1 hinit hbody =>
+          by_cases hname : name = x
+          · simp [subst, hname, ihInit hinit]
+          · simp [subst, hname, ihInit hinit, ihBody hbody]
   | ESeq e1 e2 ih1 ih2 =>
       intro T x v hty
       cases hty with
@@ -92,6 +100,13 @@ theorem progress : ∀ (e : Expr) (T : Ty), Typing [] e T → Value e ∨ ∃ e'
           rcases ihArg _ harg with hargval | ⟨a', ha⟩
           · exact Or.inr ⟨_, step.app_beta hargval⟩
           · exact Or.inr ⟨_, step.app_right (Value.closure _ _ _) ha⟩
+  | ELet name init body ihInit ihBody =>
+      intro T hty
+      cases hty with
+      | let1 hinit hbody =>
+          rcases ihInit _ hinit with hinitval | ⟨init', hinit'⟩
+          · exact Or.inr ⟨_, step.let_value hinitval⟩
+          · exact Or.inr ⟨_, step.let_init hinit'⟩
   | ESeq e1 e2 ih1 ih2 =>
       intro T hty
       cases hty with
@@ -174,6 +189,15 @@ theorem preservation : ∀ (e e' : Expr) (T : Ty), Typing [] e T → step e e' �
               simpa [subst_closed hbody] using hbody
           | app_left hs =>
               cases hs
+  | ELet name init body ihInit ihBody =>
+      intro e' T hty hstep
+      cases hty with
+      | let1 hinit hbody =>
+          cases hstep with
+          | let_init hs =>
+              exact Typing.let1 (ihInit _ _ hinit hs) hbody
+          | let_value hv =>
+              simpa [subst_closed hbody] using hbody
   | ESeq e1 e2 ih1 ih2 =>
       intro e' T hty hstep
       cases hty with

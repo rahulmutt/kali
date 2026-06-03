@@ -37,6 +37,7 @@ inductive Expr where
   | EVar : String → Expr
   | EFun : String → Ty → Expr → Expr
   | EApp : Expr → Expr → Expr
+  | ELet : String → Expr → Expr → Expr
   | ESeq : Expr → Expr → Expr
   | EIf : Expr → Expr → Expr → Expr
   | EAssign : String → Expr → Expr

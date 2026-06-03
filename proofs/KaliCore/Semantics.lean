@@ -55,6 +55,9 @@ def subst (x : String) (replacement : Expr) : Expr → Expr
   | .EVar y => if y = x then replacement else .EVar y
   | .EFun y ty body => .EFun y ty body
   | .EApp fn arg => .EApp (subst x replacement fn) (subst x replacement arg)
+  | .ELet y init body =>
+      if y = x then .ELet y (subst x replacement init) body
+      else .ELet y (subst x replacement init) (subst x replacement body)
   | .ESeq e1 e2 => .ESeq (subst x replacement e1) (subst x replacement e2)
   | .EIf cond tBranch fBranch =>
       .EIf (subst x replacement cond) (subst x replacement tBranch) (subst x replacement fBranch)
@@ -72,6 +75,8 @@ inductive step : Expr → Expr → Prop where
   | app_left : ∀ {f f' a}, step f f' → step (.EApp f a) (.EApp f' a)
   | app_right : ∀ {f a a'}, Value f → step a a' → step (.EApp f a) (.EApp f a')
   | app_beta : ∀ {x ty body v}, Value v → step (.EApp (.EFun x ty body) v) (subst x v body)
+  | let_init : ∀ {x init init' body}, step init init' → step (.ELet x init body) (.ELet x init' body)
+  | let_value : ∀ {x v body}, Value v → step (.ELet x v body) (subst x v body)
   | seq_left : ∀ {e1 e1' e2}, step e1 e1' → step (.ESeq e1 e2) (.ESeq e1' e2)
   | seq_value : ∀ {v e2}, Value v → step (.ESeq v e2) e2
   | if_cond : ∀ {c c' t e}, step c c' → step (.EIf c t e) (.EIf c' t e)
