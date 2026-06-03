@@ -2112,6 +2112,45 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if self.is_array_is_array_call(&callee_node) {
+            let mut args = node.children.iter().skip(1);
+            let Some(argument) = args.next() else {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Array.isArray requires at least one statically-known argument in the current phase; use an explicit literal or the later compatibility path",
+                ));
+                function.instruction(&Instruction::Unreachable);
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            };
+
+            if let Some(result) = self.static_array_is_array_result(*argument) {
+                for arg in args {
+                    let produced = self.emit_node(function, *arg, true);
+                    if produced.produced {
+                        function.instruction(&Instruction::Drop);
+                    }
+                }
+                function.instruction(&Instruction::I64Const(if result { 1 } else { 0 }));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Boolean,
+                };
+            }
+
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "Array.isArray is unavailable unless the argument is a statically-known array, object, or primitive literal in the current phase; use explicit literals or the later compatibility path",
+            ));
+            function.instruction(&Instruction::Unreachable);
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
+
         if self.is_object_has_own_call(node, &callee_node) {
             let Some(object_id) = node.children.get(1).copied() else {
                 return EmittedValue {
@@ -3651,6 +3690,44 @@ impl<'a> FunctionEmitter<'a> {
         )
     }
 
+    fn is_array_object(&self, callee_node: &LirNode) -> bool {
+        let Some(object) = callee_node.children.first().copied() else {
+            return false;
+        };
+        let Some(object) = self.resolve_transparent_object_root_node(object) else {
+            return false;
+        };
+        matches!(
+            self.node(object).text.as_deref(),
+            Some("Array")
+                | Some("globalThis.Array")
+                | Some(r#"globalThis["Array"]"#)
+                | Some(r#"globalThis['Array']"#)
+        )
+    }
+
+    fn is_array_is_array_call(&self, callee_node: &LirNode) -> bool {
+        let Some(text) = callee_node.text.as_deref() else {
+            return false;
+        };
+        (text == "isArray" || text.ends_with(r#"["isArray"]"#) || text.ends_with(r#"['isArray']"#))
+            && self.is_array_object(callee_node)
+    }
+
+    fn static_array_is_array_result(&self, id: LirNodeId) -> Option<bool> {
+        if let Some(aggregate_id) = self.resolve_literal_aggregate(id) {
+            let aggregate = self.node(aggregate_id);
+            if self.is_array_literal(aggregate) {
+                return Some(true);
+            }
+            if self.is_object_literal(aggregate) {
+                return Some(false);
+            }
+        }
+
+        self.resolve_static_object_identity_value(id).map(|_| false)
+    }
+
     fn resolve_static_parse_int_call(&self, node: &LirNode, callee_node: &LirNode) -> Option<i64> {
         if node.kind != LirNodeKind::Call || !(2..=3).contains(&node.children.len()) {
             return None;
@@ -4960,7 +5037,7 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     fn resolve_static_string_split_call(&self, node: &LirNode) -> Option<Vec<String>> {
-        if node.kind != LirNodeKind::Call || !matches!(node.children.len(), 1 | 2 | 3) {
+        if node.kind != LirNodeKind::Call || !matches!(node.children.len(), 1..=3) {
             return None;
         }
 

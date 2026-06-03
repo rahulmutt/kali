@@ -2706,6 +2706,9 @@ impl TypeContext {
         if self.resolve_number_parse_int_call(expr) {
             return;
         }
+        if self.resolve_array_is_array_call(expr) {
+            return;
+        }
 
         self.resolve_expression(&expr.callee);
         for arg in &expr.args {
@@ -2995,6 +2998,8 @@ impl TypeContext {
                 | "Number.isNaN"
                 | "Number.isInteger"
                 | "Number.isSafeInteger"
+                | "Array.isArray"
+                | "globalThis.Array.isArray"
                 | "globalThis.Number.isFinite"
                 | "globalThis.Number.isNaN"
                 | "globalThis.Number.isInteger"
@@ -3085,6 +3090,14 @@ impl TypeContext {
                 | r#"globalThis["Number"]["isNaN"]"#
                 | r#"globalThis["Number"]["isInteger"]"#
                 | r#"globalThis["Number"]["isSafeInteger"]"#
+                | r#"globalThis["Array"].isArray"#
+                | r#"globalThis['Array'].isArray"#
+                | r#"globalThis.Array["isArray"]"#
+                | r#"globalThis.Array['isArray']"#
+                | r#"globalThis["Array"]["isArray"]"#
+                | r#"globalThis['Array']['isArray']"#
+                | r#"Array["isArray"]"#
+                | r#"Array['isArray']"#
         )
     }
 
@@ -3535,6 +3548,102 @@ impl TypeContext {
             "parseInt is unavailable unless the input is a statically-known ASCII string that yields an integer result and the optional radix is omitted, 0, or a statically-known integer from 2 through 36 in the current direct-runtime path; use explicit literals or the later compatibility path",
         ));
         true
+    }
+
+    fn resolve_array_is_array_call(&mut self, expr: &CallExpression) -> bool {
+        let Some(callee_name) = self.resolve_static_callable_name(&expr.callee) else {
+            return false;
+        };
+
+        if !matches!(
+            callee_name.as_str(),
+            "Array.isArray"
+                | "globalThis.Array.isArray"
+                | r#"Array["isArray"]"#
+                | r#"Array['isArray']"#
+                | r#"globalThis.Array["isArray"]"#
+                | r#"globalThis.Array['isArray']"#
+                | r#"globalThis["Array"].isArray"#
+                | r#"globalThis['Array'].isArray"#
+                | r#"globalThis["Array"]["isArray"]"#
+                | r#"globalThis['Array']['isArray']"#
+        ) {
+            return false;
+        }
+
+        let Some(argument) = expr.args.first() else {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "Array.isArray requires at least one statically-known argument in the current phase; use an explicit literal or the later compatibility path",
+            ));
+            return true;
+        };
+
+        if self
+            .resolve_static_array_is_array_argument(argument)
+            .is_some()
+        {
+            self.resolve_expression(argument);
+            for arg in expr.args.iter().skip(1) {
+                self.resolve_expression(arg);
+            }
+            return true;
+        }
+
+        self.resolve_expression(argument);
+        for arg in expr.args.iter().skip(1) {
+            self.resolve_expression(arg);
+        }
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "Array.isArray is unavailable unless the argument is a statically-known array, object, or primitive literal in the current phase; use explicit literals or the later compatibility path",
+        ));
+        true
+    }
+
+    fn resolve_static_array_is_array_argument(&self, expression: &Expression) -> Option<bool> {
+        let unwrapped = self.unwrap_for_of_wrapper_expression(expression);
+        match unwrapped {
+            Expression::ArrayExpression(_) => Some(true),
+            Expression::ObjectExpression(_) => Some(false),
+            Expression::Identifier(name) => {
+                if self.resolve_static_array_binding_name(name) {
+                    Some(true)
+                } else if self.resolve_static_object_binding_name(name)
+                    || self.resolve_static_string_binding(name).is_some()
+                    || self.resolve_static_object_identity_binding(name).is_some()
+                {
+                    Some(false)
+                } else {
+                    None
+                }
+            }
+            Expression::CallExpression(call) => {
+                if Self::is_object_freeze_call(call) {
+                    call.args
+                        .first()
+                        .and_then(|arg| self.resolve_static_array_is_array_argument(arg))
+                } else if self.is_static_array_from_call(call)
+                    || self.is_static_identity_array_map_call(call)
+                    || self.is_static_identity_array_filter_call(call)
+                    || self.is_static_predicate_array_filter_call(call)
+                    || self.is_static_identity_array_flat_map_call(call)
+                {
+                    Some(true)
+                } else if self.resolve_static_object_model_call_target(call) {
+                    Some(false)
+                } else {
+                    None
+                }
+            }
+            _ => self
+                .resolve_static_object_identity_literal_value(unwrapped)
+                .map(|_| false),
+        }
+    }
+
+    fn resolve_static_object_model_call_target(&self, call: &CallExpression) -> bool {
+        self.resolve_static_object_from_entries_call(call)
     }
 
     fn resolve_math_member_call(&mut self, expr: &CallExpression) {
@@ -4879,7 +4988,7 @@ impl TypeContext {
             })
         });
 
-        if matches!(expr.args.len(), 0 | 1 | 2) && has_ascii_operands && has_supported_limit {
+        if matches!(expr.args.len(), 0..=2) && has_ascii_operands && has_supported_limit {
             self.resolve_expression(&member.object);
             for arg in &expr.args {
                 self.resolve_expression(arg);
