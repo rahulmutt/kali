@@ -2726,6 +2726,7 @@ impl TypeContext {
         self.resolve_string_pad_member_call(expr);
         self.resolve_string_char_at_member_call(expr);
         self.resolve_string_char_code_at_member_call(expr);
+        self.resolve_string_code_point_at_member_call(expr);
         self.resolve_string_trim_member_call(expr);
         self.resolve_string_case_member_call(expr);
         self.resolve_string_replace_member_call(expr);
@@ -4685,6 +4686,49 @@ impl TypeContext {
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
             "String.prototype.charCodeAt is unavailable unless the receiver is a statically-known ASCII string literal and the optional index is a statically-known integer in the current direct-runtime path; use explicit ASCII literals or the later compatibility path".to_string(),
+        ));
+    }
+
+    fn resolve_string_code_point_at_member_call(&mut self, expr: &CallExpression) {
+        let Expression::MemberExpression(member) = &expr.callee else {
+            return;
+        };
+
+        if member.property.as_str() != "codePointAt" {
+            return;
+        }
+
+        let source = self.resolve_static_string_expression(&member.object);
+        let has_ascii_source = source.as_ref().is_some_and(|source| source.is_ascii());
+        let supported_arg_count = matches!(expr.args.len(), 0 | 1);
+        let has_static_in_range_integer_index = source.as_ref().is_some_and(|source| {
+            expr.args.first().is_none_or(|argument| {
+                self.resolve_static_numeric_literal_value(argument)
+                    .is_some_and(|index| {
+                        index.is_finite()
+                            && index.fract() == 0.0
+                            && index >= 0.0
+                            && index < source.len() as f64
+                    })
+            })
+        });
+
+        if supported_arg_count && has_ascii_source && has_static_in_range_integer_index {
+            self.resolve_expression(&member.object);
+            for arg in &expr.args {
+                self.resolve_expression(arg);
+            }
+            return;
+        }
+
+        self.resolve_expression(&member.object);
+        for arg in &expr.args {
+            self.resolve_expression(arg);
+        }
+
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "String.prototype.codePointAt is unavailable unless the receiver is a statically-known ASCII string literal and the optional index is a statically-known in-range integer in the current direct-runtime path; use explicit ASCII literals or the later compatibility path".to_string(),
         ));
     }
 
