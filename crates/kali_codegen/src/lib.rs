@@ -1722,6 +1722,15 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if let Some(result) = self.resolve_static_string_from_char_code_call(node, &callee_node) {
+            let (offset, len) = self.strings.intern(&result);
+            function.instruction(&Instruction::I64Const(encode_string_handle(offset, len)));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Scalar,
+            };
+        }
+
         if let Some(result) = self.resolve_static_array_some_every_call(node, "some") {
             function.instruction(&Instruction::I64Const(if result { 1 } else { 0 }));
             return EmittedValue {
@@ -3902,6 +3911,35 @@ impl<'a> FunctionEmitter<'a> {
         static_parse_float_ascii_integer(&source)
     }
 
+    fn resolve_static_string_from_char_code_call(
+        &self,
+        node: &LirNode,
+        callee_node: &LirNode,
+    ) -> Option<String> {
+        if node.kind != LirNodeKind::Call {
+            return None;
+        }
+
+        let callee_id = *node.children.first()?;
+        let callee_node = self
+            .resolve_transparent_callable_node(callee_id)
+            .map(|id| self.node(id))
+            .unwrap_or(callee_node);
+        if !self.is_string_from_char_code_callable(callee_node) {
+            return None;
+        }
+
+        let mut rendered = String::new();
+        for id in node.children.iter().skip(1) {
+            let value = self.resolve_static_numeric_value(*id)?;
+            if !is_supported_static_ascii_char_code(value) {
+                return None;
+            }
+            rendered.push(char::from_u32(value as u32)?);
+        }
+        Some(rendered)
+    }
+
     fn global_number_predicate_callable_method<'b>(
         &self,
         callee_node: &'b LirNode,
@@ -3928,6 +3966,30 @@ impl<'a> FunctionEmitter<'a> {
 
     fn is_parse_float_callable(&self, callee_node: &LirNode) -> bool {
         self.is_number_parse_callable(callee_node, "parseFloat")
+    }
+
+    fn is_string_from_char_code_callable(&self, callee_node: &LirNode) -> bool {
+        let Some(method) = callee_node.text.as_deref() else {
+            return false;
+        };
+
+        if method != "fromCharCode" {
+            return false;
+        }
+
+        let Some(object) = callee_node.children.first().copied() else {
+            return false;
+        };
+        let Some(object) = self.resolve_transparent_object_root_node(object) else {
+            return false;
+        };
+        matches!(
+            self.node(object).text.as_deref(),
+            Some("String")
+                | Some("globalThis.String")
+                | Some(r#"globalThis["String"]"#)
+                | Some(r#"globalThis['String']"#)
+        )
     }
 
     fn is_number_parse_callable(&self, callee_node: &LirNode, expected: &str) -> bool {
@@ -9705,6 +9767,10 @@ fn parse_numeric_literal_value(text: &str) -> Option<f64> {
         return stripped.parse::<f64>().ok();
     }
     text.parse::<f64>().ok()
+}
+
+fn is_supported_static_ascii_char_code(value: f64) -> bool {
+    value.is_finite() && value.fract() == 0.0 && (0.0..=127.0).contains(&value)
 }
 
 fn static_parse_float_ascii_integer(source: &str) -> Option<i64> {

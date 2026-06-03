@@ -1786,7 +1786,9 @@ impl TypeContext {
                 .args
                 .first()
                 .and_then(|argument| self.resolve_static_string_expression(argument)),
-            Expression::CallExpression(call) => self.resolve_static_string_concat_expression(call),
+            Expression::CallExpression(call) => self
+                .resolve_static_string_from_char_code_expression(call)
+                .or_else(|| self.resolve_static_string_concat_expression(call)),
             Expression::LogicalExpression(expr) => {
                 let left = self.resolve_static_object_identity_literal_value(&expr.left)?;
                 match expr.operator {
@@ -1867,6 +1869,32 @@ impl TypeContext {
             Expression::Identifier(name) => self.resolve_static_string_binding(name),
             _ => None,
         }
+    }
+
+    fn resolve_static_string_from_char_code_expression(
+        &self,
+        expr: &CallExpression,
+    ) -> Option<String> {
+        let callee_name =
+            self.resolve_static_callable_name(&expr.callee)
+                .or_else(|| match &expr.callee {
+                    Expression::Identifier(name) => Some(name.clone()),
+                    _ => None,
+                })?;
+
+        if !Self::is_string_from_char_code_callable_name(&callee_name) {
+            return None;
+        }
+
+        let mut rendered = String::new();
+        for arg in &expr.args {
+            let value = self.resolve_static_numeric_literal_value(arg)?;
+            if !is_supported_static_ascii_char_code(value) {
+                return None;
+            }
+            rendered.push(char::from_u32(value as u32)?);
+        }
+        Some(rendered)
     }
 
     fn resolve_static_string_binding(&self, name: &str) -> Option<String> {
@@ -2712,6 +2740,9 @@ impl TypeContext {
         if self.resolve_number_parse_float_call(expr) {
             return;
         }
+        if self.resolve_string_from_char_code_call(expr) {
+            return;
+        }
         if self.resolve_array_is_array_call(expr) {
             return;
         }
@@ -3008,6 +3039,8 @@ impl TypeContext {
                 | "Number.isSafeInteger"
                 | "Array.isArray"
                 | "globalThis.Array.isArray"
+                | "String.fromCharCode"
+                | "globalThis.String.fromCharCode"
                 | "globalThis.Number.isFinite"
                 | "globalThis.Number.isNaN"
                 | "globalThis.Number.isInteger"
@@ -3106,6 +3139,14 @@ impl TypeContext {
                 | r#"globalThis['Array']['isArray']"#
                 | r#"Array["isArray"]"#
                 | r#"Array['isArray']"#
+                | r#"globalThis["String"].fromCharCode"#
+                | r#"globalThis['String'].fromCharCode"#
+                | r#"globalThis.String["fromCharCode"]"#
+                | r#"globalThis.String['fromCharCode']"#
+                | r#"globalThis["String"]["fromCharCode"]"#
+                | r#"globalThis['String']['fromCharCode']"#
+                | r#"String["fromCharCode"]"#
+                | r#"String['fromCharCode']"#
         )
     }
 
@@ -3679,6 +3720,57 @@ impl TypeContext {
             "parseFloat is unavailable unless the input is a statically-known ASCII string that yields a bounded integer result in the current direct-runtime path; use explicit literals or the later compatibility path",
         ));
         true
+    }
+
+    fn resolve_string_from_char_code_call(&mut self, expr: &CallExpression) -> bool {
+        let Some(callee_name) =
+            self.resolve_static_callable_name(&expr.callee)
+                .or_else(|| match &expr.callee {
+                    Expression::Identifier(name) => Some(name.clone()),
+                    _ => None,
+                })
+        else {
+            return false;
+        };
+
+        if !Self::is_string_from_char_code_callable_name(&callee_name) {
+            return false;
+        }
+
+        let supported = expr.args.iter().all(|arg| {
+            self.resolve_static_numeric_literal_value(arg)
+                .is_some_and(is_supported_static_ascii_char_code)
+        });
+
+        for arg in &expr.args {
+            self.resolve_expression(arg);
+        }
+
+        if supported {
+            return true;
+        }
+
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "String.fromCharCode is unavailable unless every argument is a statically-known ASCII integer code unit from 0 through 127 in the current direct-runtime path; use explicit ASCII integer literals or the later compatibility path",
+        ));
+        true
+    }
+
+    fn is_string_from_char_code_callable_name(name: &str) -> bool {
+        matches!(
+            name,
+            "String.fromCharCode"
+                | "globalThis.String.fromCharCode"
+                | r#"String["fromCharCode"]"#
+                | r#"String['fromCharCode']"#
+                | r#"globalThis.String["fromCharCode"]"#
+                | r#"globalThis.String['fromCharCode']"#
+                | r#"globalThis["String"].fromCharCode"#
+                | r#"globalThis['String'].fromCharCode"#
+                | r#"globalThis["String"]["fromCharCode"]"#
+                | r#"globalThis['String']['fromCharCode']"#
+        )
     }
 
     fn resolve_array_is_array_call(&mut self, expr: &CallExpression) -> bool {
@@ -7281,6 +7373,10 @@ fn parse_numeric_literal_value(text: &str) -> Option<f64> {
         return stripped.parse::<f64>().ok();
     }
     text.parse::<f64>().ok()
+}
+
+fn is_supported_static_ascii_char_code(value: f64) -> bool {
+    value.is_finite() && value.fract() == 0.0 && (0.0..=127.0).contains(&value)
 }
 
 fn static_parse_float_ascii_integer(source: &str) -> Option<i64> {
