@@ -908,6 +908,17 @@ impl<'a> FunctionEmitter<'a> {
                     }
                 }
 
+                if let Some(StaticObjectIdentityValue::String(value)) =
+                    self.resolve_static_object_identity_value(arg)
+                {
+                    function
+                        .instruction(&Instruction::I64Const(value.encode_utf16().count() as i64));
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Scalar,
+                    };
+                }
+
                 let produced = self.emit_node(function, arg, true);
                 if produced.produced {
                     function.instruction(&Instruction::Drop);
@@ -7747,6 +7758,7 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         let callee = node.children.first().copied()?;
+        let callee = self.resolve_transparent_callable_node(callee)?;
         let callee_node = self.node(callee);
         if callee_node.text.as_deref() != Some("slice") {
             return None;
@@ -7769,6 +7781,12 @@ impl<'a> FunctionEmitter<'a> {
 
         if let Some(parts) = self.resolve_static_string_split_parts_from_id(*id) {
             return Some(parts.len().to_string());
+        }
+
+        if let Some(StaticObjectIdentityValue::String(value)) =
+            self.resolve_static_object_identity_value(*id)
+        {
+            return Some(value.encode_utf16().count().to_string());
         }
 
         let node = self.node(*id);

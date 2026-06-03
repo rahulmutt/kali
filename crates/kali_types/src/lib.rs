@@ -4645,6 +4645,14 @@ impl TypeContext {
             return;
         }
 
+        if Self::is_runtime_args_slice_member(member) {
+            self.resolve_expression(&member.object);
+            for arg in &expr.args {
+                self.resolve_expression(arg);
+            }
+            return;
+        }
+
         let has_static_receiver = self.is_static_array_iteration_target(&member.object);
         let supported_arg_count = expr.args.len() <= 2;
         let has_static_bounds = expr.args.iter().all(|argument| {
@@ -6718,6 +6726,18 @@ impl TypeContext {
         let object_name = Self::member_access_root_name(&expr.object)?;
 
         Some(format!("{}.{}", object_name, expr.property))
+    }
+
+    fn is_runtime_args_slice_member(expr: &MemberExpression) -> bool {
+        if expr.property != "slice" {
+            return false;
+        }
+
+        matches!(
+            &expr.object,
+            Expression::MemberExpression(object)
+                if matches!(Self::member_access_name(object).as_deref(), Some("process.argv" | "Deno.args"))
+        )
     }
 
     fn member_access_name_bracketed(expr: &MemberExpression) -> Option<String> {
