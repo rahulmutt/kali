@@ -21,6 +21,8 @@ console.log(Array.isArray(arr));
 console.log(Array["isArray"](obj));
 console.log(globalThis["Array"]["isArray"](frozen));
 console.log(globalThis.Array.isArray(Array.from([4])));
+console.log(Array.isArray(new Set([1, 2, 1])));
+console.log(globalThis.Array.isArray(new globalThis["Map"]([[1, 2]])));
 console.log(Array.isArray("x"));
 "#,
     )
@@ -46,7 +48,7 @@ console.log(Array.isArray("x"));
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "run");
     assert_eq!(json["success"], true);
-    assert_eq!(json["stdout"], "1\n0\n1\n1\n0\n");
+    assert_eq!(json["stdout"], "1\n0\n1\n1\n0\n0\n0\n");
     assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 

@@ -3738,6 +3738,13 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     fn static_array_is_array_result(&self, id: LirNodeId) -> Option<bool> {
+        let node = self.node(id);
+        if self.resolve_set_constructor_call(node).is_some()
+            || self.resolve_map_constructor_call(node).is_some()
+        {
+            return Some(false);
+        }
+
         if let Some(aggregate_id) = self.resolve_literal_aggregate(id) {
             let aggregate = self.node(aggregate_id);
             if self.is_array_literal(aggregate) {

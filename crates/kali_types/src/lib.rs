@@ -3636,6 +3636,12 @@ impl TypeContext {
                     None
                 }
             }
+            Expression::NewExpression(expr)
+                if self.is_static_set_constructor_iteration_target(expr)
+                    || self.is_static_map_constructor_iteration_target(expr) =>
+            {
+                Some(false)
+            }
             _ => self
                 .resolve_static_object_identity_literal_value(unwrapped)
                 .map(|_| false),
