@@ -51,7 +51,7 @@ Keep this file at the sequencing level. Exact coverage belongs in tests, maturit
 - Maintain compact dashboards of supported vs gated semantics.
 - Keep plan files free of implementation-journal prose; use compact baseline summaries and leave exhaustive evidence to tests, specs, schemas, and proof files.
 - Keep diagnostic codes and wording aligned with `specs/15-errors.md`.
-- Mirror support and rejection coverage across source classes and command contexts when claims span those contexts.
+- Mirror support and rejection coverage across source classes and command contexts when claims span those contexts. Current conformance hygiene now pins the static ASCII string-search helper slice on standalone run, JSON check, and browser-targeted bundle paths across the JS/TS/JSX/TSX source-class matrix while preserving dynamic-operand gates.
 
 ## Exit gate
 
