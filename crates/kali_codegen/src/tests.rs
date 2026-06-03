@@ -5111,6 +5111,33 @@ fn supported_static_array_join_lowers_to_static_string() {
 }
 
 #[test]
+fn supported_static_array_to_string_lowers_to_static_string() {
+    let program = parse_and_lower_lir(
+        "console.log([1, true, null, 'x'].toString()); console.log(['a', 'b'].toString());",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("1,true,,x"), "{printed}");
+    assert!(printed.contains("a,b"), "{printed}");
+}
+
+#[test]
 fn supported_static_string_search_lowers_ascii_literals() {
     let program = parse_and_lower_lir(
         "console.log(\"hello\".includes(\"ell\")); console.log(\"hello\".indexOf(\"l\", 3)); console.log(\"hello\".lastIndexOf(\"l\")); console.log(\"hello\".lastIndexOf(\"l\", 2)); console.log(\"hello\".lastIndexOf(\"l\", -1));",

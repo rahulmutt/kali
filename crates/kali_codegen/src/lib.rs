@@ -2149,6 +2149,15 @@ impl<'a> FunctionEmitter<'a> {
             return self.emit_node(function, literal, true);
         }
 
+        if let Some(result) = self.resolve_static_array_to_string_call(node) {
+            let literal = self.alloc_scratch_node(
+                LirNodeKind::Literal,
+                Some(quote_string_literal(&result)),
+                vec![],
+            );
+            return self.emit_node(function, literal, true);
+        }
+
         if self.is_array_at_call_with_literal_receiver(node) {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
@@ -5404,6 +5413,29 @@ impl<'a> FunctionEmitter<'a> {
             None => ",".to_string(),
         };
 
+        self.resolve_static_array_join_receiver(callee_node, &separator)
+    }
+
+    fn resolve_static_array_to_string_call(&self, node: &LirNode) -> Option<String> {
+        if node.kind != LirNodeKind::Call || node.children.len() != 1 {
+            return None;
+        }
+
+        let callee = node.children.first().copied()?;
+        let callee = self.resolve_transparent_callable_node(callee)?;
+        let callee_node = self.node(callee);
+        if callee_node.text.as_deref() != Some("toString") {
+            return None;
+        }
+
+        self.resolve_static_array_join_receiver(callee_node, ",")
+    }
+
+    fn resolve_static_array_join_receiver(
+        &self,
+        callee_node: &LirNode,
+        separator: &str,
+    ) -> Option<String> {
         let source = callee_node.children.first().copied()?;
         let source = self.resolve_literal_aggregate(source)?;
         let source_node = self.node(source);
@@ -5423,7 +5455,7 @@ impl<'a> FunctionEmitter<'a> {
         for child in &source_node.children {
             rendered.push(self.static_array_join_element_to_string(*child)?);
         }
-        Some(rendered.join(&separator))
+        Some(rendered.join(separator))
     }
 
     fn static_array_join_element_to_string(&self, id: LirNodeId) -> Option<String> {

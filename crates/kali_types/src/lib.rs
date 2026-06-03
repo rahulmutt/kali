@@ -2724,6 +2724,7 @@ impl TypeContext {
         self.resolve_array_search_member_call(expr);
         self.resolve_array_at_member_call(expr);
         self.resolve_array_join_member_call(expr);
+        self.resolve_array_to_string_member_call(expr);
         self.resolve_string_search_member_call(expr);
         self.resolve_string_slice_member_call(expr);
         self.resolve_string_substring_member_call(expr);
@@ -4480,6 +4481,25 @@ impl TypeContext {
             e5::FEATURE_UNAVAILABLE as u32,
             "Array.prototype.join is unavailable for static literal-array receivers unless the optional separator is a statically-known string in the current direct-runtime path; use explicit literals or the later compatibility path".to_string(),
         ));
+    }
+
+    fn resolve_array_to_string_member_call(&mut self, expr: &CallExpression) {
+        let Expression::MemberExpression(member) = &expr.callee else {
+            return;
+        };
+
+        if member.property.as_str() != "toString" {
+            return;
+        }
+
+        let has_static_receiver = self.is_static_array_iteration_target(&member.object);
+        if !has_static_receiver {
+            return;
+        }
+
+        if expr.args.is_empty() {
+            self.resolve_expression(&member.object);
+        }
     }
 
     fn resolve_array_search_member_call(&mut self, expr: &CallExpression) {
