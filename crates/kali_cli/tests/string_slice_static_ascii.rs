@@ -8,7 +8,8 @@ fn kali_bin() -> String {
 }
 
 fn supported_source() -> &'static str {
-    r#"console.log("hello".slice(1));
+    r#"console.log("hello".slice());
+console.log("hello".slice(1));
 console.log("hello".slice(1, 4));
 console.log("hello".slice(-4, -1));
 console.log("hello".slice(4, 1));
@@ -36,7 +37,7 @@ fn run_supports_static_ascii_string_slice() {
     );
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "ello\nell\nell\n\n"
+        "hello\nello\nell\nell\n\n"
     );
 }
 

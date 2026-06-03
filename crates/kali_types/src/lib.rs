@@ -4517,7 +4517,7 @@ impl TypeContext {
         }
 
         let has_ascii_source = source.as_ref().is_some_and(|source| source.is_ascii());
-        let supported_arg_count = matches!(expr.args.len(), 1 | 2);
+        let supported_arg_count = matches!(expr.args.len(), 0..=2);
         let has_static_bounds = expr
             .args
             .iter()
@@ -4553,7 +4553,7 @@ impl TypeContext {
 
         let source = self.resolve_static_string_expression(&member.object);
         let has_ascii_source = source.as_ref().is_some_and(|source| source.is_ascii());
-        let supported_arg_count = matches!(expr.args.len(), 1 | 2);
+        let supported_arg_count = matches!(expr.args.len(), 0..=2);
         let has_static_integer_bounds = expr.args.iter().all(|argument| {
             self.resolve_static_numeric_literal_value(argument)
                 .is_some_and(|bound| bound.is_finite() && bound.fract() == 0.0)

@@ -4502,7 +4502,7 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     fn resolve_static_string_slice_call(&self, node: &LirNode) -> Option<String> {
-        if node.kind != LirNodeKind::Call || !(2..=3).contains(&node.children.len()) {
+        if node.kind != LirNodeKind::Call || !(1..=3).contains(&node.children.len()) {
             return None;
         }
 
@@ -4518,9 +4518,10 @@ impl<'a> FunctionEmitter<'a> {
             StaticObjectIdentityValue::String(value) if value.is_ascii() => value,
             _ => return None,
         };
-        let start = self
-            .resolve_static_numeric_value(*node.children.get(1)?)?
-            .trunc() as i64;
+        let start = match node.children.get(1) {
+            Some(id) => self.resolve_static_numeric_value(*id)?.trunc() as i64,
+            None => 0,
+        };
         let end = match node.children.get(2) {
             Some(id) => self.resolve_static_numeric_value(*id)?.trunc() as i64,
             None => source.len() as i64,
@@ -4545,7 +4546,7 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     fn resolve_static_string_substring_call(&self, node: &LirNode) -> Option<String> {
-        if node.kind != LirNodeKind::Call || !(2..=3).contains(&node.children.len()) {
+        if node.kind != LirNodeKind::Call || !(1..=3).contains(&node.children.len()) {
             return None;
         }
 
@@ -4561,7 +4562,10 @@ impl<'a> FunctionEmitter<'a> {
             StaticObjectIdentityValue::String(value) if value.is_ascii() => value,
             _ => return None,
         };
-        let start = self.resolve_static_numeric_value(*node.children.get(1)?)?;
+        let start = match node.children.get(1) {
+            Some(id) => self.resolve_static_numeric_value(*id)?,
+            None => 0.0,
+        };
         if !start.is_finite() || start.fract() != 0.0 {
             return None;
         }
