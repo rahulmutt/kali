@@ -1832,6 +1832,15 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if let Some(result) = self.resolve_static_string_identity_call(node) {
+            let literal = self.alloc_scratch_node(
+                LirNodeKind::Literal,
+                Some(quote_string_literal(&result)),
+                vec![],
+            );
+            return self.emit_node(function, literal, true);
+        }
+
         if let Some(result) = self.resolve_static_string_slice_call(node) {
             let literal = self.alloc_scratch_node(
                 LirNodeKind::Literal,
@@ -1945,6 +1954,20 @@ impl<'a> FunctionEmitter<'a> {
                 .collect();
             let literal = self.alloc_scratch_node(LirNodeKind::Value, None, children);
             return self.emit_node(function, literal, true);
+        }
+
+        if let Some(method) = self.string_identity_call_method_with_literal_receiver(node) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "String.prototype.{method} is unavailable with arguments in the current direct-runtime path; use a no-argument static string call or the later compatibility path"
+                ),
+            ));
+            function.instruction(&Instruction::Unreachable);
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
         }
 
         if self.is_string_repeat_call_with_literal_receiver(node) {
@@ -4502,6 +4525,44 @@ impl<'a> FunctionEmitter<'a> {
             }
             _ => None,
         }
+    }
+
+    fn resolve_static_string_identity_call(&self, node: &LirNode) -> Option<String> {
+        if node.kind != LirNodeKind::Call || node.children.len() != 1 {
+            return None;
+        }
+
+        let callee = node.children.first().copied()?;
+        let callee = self.resolve_transparent_callable_node(callee)?;
+        let callee_node = self.node(callee);
+        if !matches!(callee_node.text.as_deref(), Some("toString" | "valueOf")) {
+            return None;
+        }
+
+        let receiver = callee_node.children.first().copied()?;
+        match self.resolve_static_object_identity_value(receiver)? {
+            StaticObjectIdentityValue::String(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    fn string_identity_call_method_with_literal_receiver(&self, node: &LirNode) -> Option<String> {
+        if node.kind != LirNodeKind::Call || node.children.len() <= 1 {
+            return None;
+        }
+
+        let callee = node.children.first().copied()?;
+        let callee = self.resolve_transparent_callable_node(callee)?;
+        let callee_node = self.node(callee);
+        let method = callee_node.text.as_deref()?;
+        if !matches!(method, "toString" | "valueOf") {
+            return None;
+        }
+
+        let receiver = callee_node.children.first().copied()?;
+        self.resolve_static_object_identity_value(receiver)
+            .is_some_and(|value| matches!(value, StaticObjectIdentityValue::String(_)))
+            .then(|| method.to_string())
     }
 
     fn resolve_static_string_slice_call(&self, node: &LirNode) -> Option<String> {

@@ -34,7 +34,7 @@ Implemented areas include:
 - public source-graph and registry effect/audit commands;
 - package install/materialization, registry/raw-URL flows, lifecycle-hook gating, and package-corpus probes;
 - Deno/Web/Node API slices with explicit late-compatibility gates;
-- runtime slices for supported object, iterator, BigInt, Math, Promise, console, dynamic-import, reflection, static array-helper, and static ASCII string-helper behavior, with broader dynamic/non-ASCII/callback-dependent forms kept behind canonical gates;
+- runtime slices for supported object, iterator, BigInt, Math, Promise, console, dynamic-import, reflection, static array-helper, static ASCII string-helper, and no-argument static string identity-helper behavior, with broader dynamic/callback-dependent forms kept behind canonical gates;
 - library, WIT, C ABI, component, metadata, and binding-package artifact lanes;
 - deterministic PGO input handling and benchmark fixtures; the new `math-round-builtin` / `math-round-builtin-js` pair now does the same for `Math.round`, and the `folded-arithmetic-variant` slice now also has a JS workload form (`folded-arithmetic-variant-js`);
 - Lean proof infrastructure with proof-backed claims limited to the published boundary.
