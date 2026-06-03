@@ -919,6 +919,12 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             op if op.parse::<usize>().is_ok() || op.parse::<isize>().is_ok() => {
+                if let Ok(index) = op.parse::<usize>() {
+                    if let Some(element) = self.resolve_static_array_slice_element(arg, index) {
+                        return self.emit_node(function, element, true);
+                    }
+                }
+
                 if let Some(aggregate_id) = self.resolve_literal_aggregate(arg) {
                     let aggregate = self.node(aggregate_id).clone();
                     if self.is_array_literal(&aggregate)
@@ -4721,6 +4727,69 @@ impl<'a> FunctionEmitter<'a> {
             }
             _ => None,
         }
+    }
+
+    fn resolve_static_array_slice_bounds(
+        &self,
+        node: &LirNode,
+    ) -> Option<(LirNodeId, usize, usize)> {
+        if node.kind != LirNodeKind::Call || !(1..=3).contains(&node.children.len()) {
+            return None;
+        }
+
+        let callee = node.children.first().copied()?;
+        let callee = self.resolve_transparent_callable_node(callee)?;
+        let callee_node = self.node(callee);
+        if callee_node.text.as_deref() != Some("slice") {
+            return None;
+        }
+
+        let source = callee_node.children.first().copied()?;
+        let source = self.resolve_literal_aggregate(source)?;
+        let source_node = self.node(source);
+        if !self.is_array_literal(source_node) {
+            return None;
+        }
+
+        let length = source_node.children.len() as i64;
+        let normalize = |value: Option<f64>, default: i64| -> Option<i64> {
+            let value = value.map(|value| {
+                if value < 0.0 {
+                    (length as f64 + value.trunc()).max(0.0)
+                } else {
+                    value.trunc().min(length as f64)
+                }
+            });
+            let normalized = value.unwrap_or(default as f64);
+            if normalized.is_finite() {
+                Some(normalized as i64)
+            } else {
+                None
+            }
+        };
+
+        let start_value = match node.children.get(1) {
+            Some(id) => Some(self.resolve_static_numeric_value(*id)?),
+            None => None,
+        };
+        let end_value = match node.children.get(2) {
+            Some(id) => Some(self.resolve_static_numeric_value(*id)?),
+            None => None,
+        };
+        let start = normalize(start_value, 0)?;
+        let end = normalize(end_value, length)?;
+        let end = end.max(start);
+
+        Some((source, start as usize, end as usize))
+    }
+
+    fn resolve_static_array_slice_element(&self, id: LirNodeId, index: usize) -> Option<LirNodeId> {
+        let (source, start, end) = self.resolve_static_array_slice_bounds(self.node(id))?;
+        let absolute_index = start.checked_add(index)?;
+        if absolute_index >= end {
+            return None;
+        }
+        self.node(source).children.get(absolute_index).copied()
     }
 
     fn resolve_static_string_search_call(&self, node: &LirNode, method: &str) -> Option<i64> {

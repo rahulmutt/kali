@@ -2799,6 +2799,7 @@ impl TypeContext {
         self.resolve_math_member_call(expr);
         self.resolve_array_callback_member_call(expr);
         self.resolve_array_search_member_call(expr);
+        self.resolve_array_slice_member_call(expr);
         self.resolve_array_at_member_call(expr);
         self.resolve_array_join_member_call(expr);
         self.resolve_array_to_string_member_call(expr);
@@ -4625,6 +4626,48 @@ impl TypeContext {
             format!(
                 "array callback method '{method}' is unavailable in the current direct-runtime path; use a supported iterator slice or the later compatibility path"
             ),
+        ));
+    }
+
+    fn resolve_array_slice_member_call(&mut self, expr: &CallExpression) {
+        let Expression::MemberExpression(member) = &expr.callee else {
+            return;
+        };
+
+        if member.property.as_str() != "slice" {
+            return;
+        }
+
+        if self
+            .resolve_static_string_expression(&member.object)
+            .is_some()
+        {
+            return;
+        }
+
+        let has_static_receiver = self.is_static_array_iteration_target(&member.object);
+        let supported_arg_count = expr.args.len() <= 2;
+        let has_static_bounds = expr.args.iter().all(|argument| {
+            self.resolve_static_numeric_literal_value(argument)
+                .is_some_and(|value| value.is_finite())
+        });
+
+        if has_static_receiver && supported_arg_count && has_static_bounds {
+            self.resolve_expression(&member.object);
+            for arg in &expr.args {
+                self.resolve_expression(arg);
+            }
+            return;
+        }
+
+        self.resolve_expression(&member.object);
+        for arg in &expr.args {
+            self.resolve_expression(arg);
+        }
+
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "Array.prototype.slice is unavailable unless the receiver is a statically-known array literal and the optional start/end bounds are statically-known finite numeric literals in the current direct-runtime path; use explicit literals or the later compatibility path",
         ));
     }
 
