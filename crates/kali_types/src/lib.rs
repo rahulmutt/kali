@@ -5207,7 +5207,10 @@ impl TypeContext {
         };
 
         let method = member.property.as_str();
-        if !matches!(method, "toLowerCase" | "toUpperCase") {
+        if !matches!(
+            method,
+            "toLowerCase" | "toUpperCase" | "toLocaleLowerCase" | "toLocaleUpperCase"
+        ) {
             return;
         }
 

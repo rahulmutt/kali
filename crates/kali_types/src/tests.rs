@@ -14647,7 +14647,10 @@ fn test_resolution_allows_static_ascii_string_case_family_in_non_browser_surface
     for source in [
         "const result = 'Hello'.toLowerCase();",
         "const result = 'Hello'.toUpperCase();",
+        "const result = 'Hello'.toLocaleLowerCase();",
+        "const result = 'Hello'.toLocaleUpperCase();",
         "const source = 'Hello'; const result = Object.freeze(source).toLowerCase();",
+        "const source = 'Hello'; const result = Object.freeze(source).toLocaleUpperCase();",
     ] {
         let dir = tempfile::tempdir().unwrap();
         let source_path = dir.path().join("main.js");
@@ -14947,7 +14950,10 @@ fn test_resolution_rejects_non_ascii_or_argument_string_case_family_in_non_brows
     for source in [
         "const result = 'héllo'.toLowerCase();",
         "const result = 'hello'.toUpperCase(1);",
+        "const result = 'hello'.toLocaleLowerCase('tr');",
+        "const result = 'héllo'.toLocaleUpperCase();",
         "function convert(value) { return value.toLowerCase(); }",
+        "function convert(value) { return value.toLocaleLowerCase(); }",
     ] {
         let dir = tempfile::tempdir().unwrap();
         let source_path = dir.path().join("main.js");

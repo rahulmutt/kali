@@ -5367,8 +5367,8 @@ impl<'a> FunctionEmitter<'a> {
         };
 
         match method.as_str() {
-            "toLowerCase" => Some(source.to_ascii_lowercase()),
-            "toUpperCase" => Some(source.to_ascii_uppercase()),
+            "toLowerCase" | "toLocaleLowerCase" => Some(source.to_ascii_lowercase()),
+            "toUpperCase" | "toLocaleUpperCase" => Some(source.to_ascii_uppercase()),
             _ => None,
         }
     }
@@ -5590,7 +5590,11 @@ impl<'a> FunctionEmitter<'a> {
         let callee = node.children.first().copied()?;
         let callee = self.resolve_transparent_callable_node(callee)?;
         let method = self.node(callee).text.as_deref()?;
-        matches!(method, "toLowerCase" | "toUpperCase").then(|| method.to_string())
+        matches!(
+            method,
+            "toLowerCase" | "toUpperCase" | "toLocaleLowerCase" | "toLocaleUpperCase"
+        )
+        .then(|| method.to_string())
     }
 
     fn resolve_static_array_at_call(&self, node: &LirNode) -> Option<StaticArrayAtResult> {

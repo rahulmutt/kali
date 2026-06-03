@@ -5470,7 +5470,7 @@ fn supported_static_string_trim_family_lowers_ascii_literals() {
 #[test]
 fn supported_static_string_case_family_lowers_ascii_literals() {
     let program = parse_and_lower_lir(
-        "console.log('HeLLo'.toLowerCase()); console.log('HeLLo'.toUpperCase());",
+        "console.log('HeLLo'.toLowerCase()); console.log('HeLLo'.toUpperCase()); console.log('HeLLo'.toLocaleLowerCase()); console.log('HeLLo'.toLocaleUpperCase());",
     );
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,

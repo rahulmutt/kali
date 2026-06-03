@@ -10,9 +10,13 @@ fn kali_bin() -> String {
 fn supported_source() -> &'static str {
     r#"console.log("HeLLo".toLowerCase());
 console.log("HeLLo".toUpperCase());
+console.log("HeLLo".toLocaleLowerCase());
+console.log("HeLLo".toLocaleUpperCase());
 const source = "MiXeD";
 console.log(Object.freeze(source).toLowerCase());
 console.log(Object.freeze(source).toUpperCase());
+console.log(Object.freeze(source).toLocaleLowerCase());
+console.log(Object.freeze(source).toLocaleUpperCase());
 "#
 }
 
@@ -37,7 +41,7 @@ fn run_supports_static_ascii_string_case_family() {
     );
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "hello\nHELLO\nmixed\nMIXED\n"
+        "hello\nHELLO\nhello\nHELLO\nmixed\nMIXED\nmixed\nMIXED\n"
     );
 }
 
@@ -157,11 +161,13 @@ fn assert_check_gates_unsupported_string_case(source: &str) {
 #[test]
 fn check_gates_string_case_arguments() {
     assert_check_gates_unsupported_string_case("console.log('hello'.toLowerCase(1));\n");
+    assert_check_gates_unsupported_string_case("console.log('hello'.toLocaleLowerCase('tr'));\n");
 }
 
 #[test]
 fn check_gates_non_ascii_static_string_case_receiver() {
     assert_check_gates_unsupported_string_case("console.log('héllo'.toUpperCase());\n");
+    assert_check_gates_unsupported_string_case("console.log('héllo'.toLocaleUpperCase());\n");
 }
 
 #[test]
