@@ -6080,7 +6080,7 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     fn resolve_static_array_reduce_call(&self, node: &LirNode, method: &str) -> Option<i64> {
-        if node.kind != LirNodeKind::Call || node.children.len() != 3 {
+        if node.kind != LirNodeKind::Call || !matches!(node.children.len(), 2 | 3) {
             return None;
         }
 
@@ -6092,7 +6092,6 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         let callback = node.children.get(1).copied()?;
-        let initial = node.children.get(2).copied()?;
         let source = callee_node.children.first().copied()?;
         let source = self.resolve_literal_aggregate(source)?;
         let source_node = self.node(source).clone();
@@ -6108,14 +6107,23 @@ impl<'a> FunctionEmitter<'a> {
             return None;
         }
 
-        let mut accumulator = self.resolve_static_numeric_value(initial)?;
-        let values: Box<dyn Iterator<Item = &LirNodeId>> = if method == "reduceRight" {
-            Box::new(source_node.children.iter().rev())
+        let mut ordered_values: Vec<LirNodeId> = if method == "reduceRight" {
+            source_node.children.iter().rev().copied().collect()
         } else {
-            Box::new(source_node.children.iter())
+            source_node.children.clone()
         };
-        for child in values {
-            let current = self.resolve_static_numeric_value(*child)?;
+
+        let mut accumulator = match node.children.get(2).copied() {
+            Some(initial) => self.resolve_static_numeric_value(initial)?,
+            None => {
+                let first = ordered_values.first().copied()?;
+                ordered_values.remove(0);
+                self.resolve_static_numeric_value(first)?
+            }
+        };
+
+        for child in ordered_values {
+            let current = self.resolve_static_numeric_value(child)?;
             accumulator =
                 self.resolve_static_numeric_reducer_callback(callback, accumulator, current)?;
         }

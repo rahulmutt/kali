@@ -11,6 +11,8 @@ fn reduce_source(command: &str) -> String {
     let body = r#"function reduceSlices() {
   console.log([1, 2, 3].reduce((acc, value) => acc + value, 0));
   console.log([1, 2, 3].reduceRight((acc, value) => acc - value, 0));
+  console.log([1, 2, 3].reduce((acc, value) => acc + value));
+  console.log([1, 2, 3].reduceRight((acc, value) => acc - value));
 }
 reduceSlices();
 "#;
@@ -63,13 +65,16 @@ fn assert_reduce_succeeds(command: &str, extension: &str, browser: bool, json_ou
         assert_eq!(json["success"], true);
         if matches!(command, "run" | "test") {
             assert!(
-                json["stdout"].as_str().expect("stdout").contains("6\n-6\n"),
+                json["stdout"]
+                    .as_str()
+                    .expect("stdout")
+                    .contains("6\n-6\n6\n0\n"),
                 "json: {json:?}"
             );
         }
     } else if matches!(command, "run" | "test") {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("6\n-6\n"), "stdout: {stdout}");
+        assert!(stdout.contains("6\n-6\n6\n0\n"), "stdout: {stdout}");
     }
 }
 

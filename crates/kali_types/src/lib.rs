@@ -1121,6 +1121,28 @@ impl TypeContext {
         }
     }
 
+    fn is_static_non_empty_numeric_array_iteration_target(&self, expression: &Expression) -> bool {
+        match self.unwrap_for_of_wrapper_expression(expression) {
+            Expression::ArrayExpression(array) => {
+                !array.elements.is_empty()
+                    && array.elements.iter().all(|element| match element {
+                        Some(ExpressionOrSpread::Expression(expr)) => {
+                            self.is_static_numeric_literal_expr(expr)
+                        }
+                        Some(ExpressionOrSpread::Spread(_))
+                        | Some(ExpressionOrSpread::Empty)
+                        | None => false,
+                    })
+            }
+            Expression::CallExpression(call) if Self::is_object_freeze_call(call) => {
+                call.args.first().is_some_and(|argument| {
+                    self.is_static_non_empty_numeric_array_iteration_target(argument)
+                })
+            }
+            _ => false,
+        }
+    }
+
     fn is_static_identity_array_filter_call(&self, call: &CallExpression) -> bool {
         let Expression::MemberExpression(member) = &call.callee else {
             return false;
@@ -4605,9 +4627,11 @@ impl TypeContext {
         }
 
         if matches!(method, "reduce" | "reduceRight")
-            && expr.args.len() == 2
-            && self.is_static_array_iteration_target(&member.object)
-            && self.is_static_numeric_literal_expr(&expr.args[1])
+            && ((expr.args.len() == 2
+                && self.is_static_array_iteration_target(&member.object)
+                && self.is_static_numeric_literal_expr(&expr.args[1]))
+                || (expr.args.len() == 1
+                    && self.is_static_non_empty_numeric_array_iteration_target(&member.object)))
             && self.is_numeric_reducer_callback(&expr.args[0])
         {
             self.resolve_expression(&member.object);
