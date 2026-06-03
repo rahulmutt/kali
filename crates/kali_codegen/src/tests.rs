@@ -5163,7 +5163,7 @@ fn supported_static_array_to_string_lowers_to_static_string() {
 #[test]
 fn supported_static_string_search_lowers_ascii_literals() {
     let program = parse_and_lower_lir(
-        "console.log(\"hello\".includes(\"ell\")); console.log(\"hello\".indexOf(\"l\", 3)); console.log(\"hello\".lastIndexOf(\"l\")); console.log(\"hello\".lastIndexOf(\"l\", 2)); console.log(\"hello\".lastIndexOf(\"l\", -1));",
+        "console.log(\"hello\".includes(\"ell\")); console.log(\"hello\".includes(\"e\", -4)); console.log(\"hello\".indexOf(\"l\", 3)); console.log(\"hello\".indexOf(\"e\", -2)); console.log(\"hello\".lastIndexOf(\"l\")); console.log(\"hello\".lastIndexOf(\"l\", 2)); console.log(\"hello\".lastIndexOf(\"l\", -1));",
     );
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,

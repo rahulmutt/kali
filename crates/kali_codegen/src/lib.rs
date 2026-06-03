@@ -4847,10 +4847,10 @@ impl<'a> FunctionEmitter<'a> {
         match method {
             "includes" | "indexOf" => {
                 let from_index = explicit_from_index.unwrap_or(0);
-                let start = if from_index >= 0 {
-                    from_index.min(length)
-                } else {
+                let start = if method == "includes" && from_index < 0 {
                     (length + from_index).max(0)
+                } else {
+                    from_index.max(0).min(length)
                 } as usize;
                 let haystack = source.get(start..)?;
                 haystack

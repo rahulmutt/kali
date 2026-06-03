@@ -8,7 +8,7 @@ fn kali_bin() -> String {
 }
 
 fn supported_source() -> &'static str {
-    "console.log(\"hello\".includes(\"ell\"));\nconsole.log(\"hello\".indexOf(\"l\", 3));\nconsole.log(\"hello\".lastIndexOf(\"l\"));\nconsole.log(\"hello\".lastIndexOf(\"l\", 2));\nconsole.log(\"hello\".lastIndexOf(\"l\", -1));\nconsole.log(\"hello\".startsWith(\"he\"));\nconsole.log(\"hello\".startsWith(\"ll\", 2));\nconsole.log(\"hello\".endsWith(\"lo\"));\nconsole.log(\"hello\".endsWith(\"ell\", 4));\nconsole.log(\"hello\".endsWith(\"he\", 4));\n"
+    "console.log(\"hello\".includes(\"ell\"));\nconsole.log(\"hello\".includes(\"e\", -4));\nconsole.log(\"hello\".indexOf(\"l\", 3));\nconsole.log(\"hello\".indexOf(\"e\", -2));\nconsole.log(\"hello\".lastIndexOf(\"l\"));\nconsole.log(\"hello\".lastIndexOf(\"l\", 2));\nconsole.log(\"hello\".lastIndexOf(\"l\", -1));\nconsole.log(\"hello\".startsWith(\"he\"));\nconsole.log(\"hello\".startsWith(\"ll\", 2));\nconsole.log(\"hello\".endsWith(\"lo\"));\nconsole.log(\"hello\".endsWith(\"ell\", 4));\nconsole.log(\"hello\".endsWith(\"he\", 4));\n"
 }
 
 #[test]
@@ -32,7 +32,7 @@ fn run_supports_static_ascii_string_search_helpers() {
     );
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "1\n3\n3\n2\n-1\n1\n1\n1\n1\n0\n"
+        "1\n1\n3\n1\n3\n2\n-1\n1\n1\n1\n1\n0\n"
     );
 }
 
