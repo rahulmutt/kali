@@ -230,6 +230,10 @@ impl Parser {
             | TokenType::Null
             | TokenType::Undefined
             | TokenType::Void
+            | TokenType::Not
+            | TokenType::Tilde
+            | TokenType::Plus
+            | TokenType::Minus
             | TokenType::NumericLiteral
             | TokenType::StringLiteral
             | TokenType::Template
@@ -1239,6 +1243,14 @@ impl Parser {
                 let argument = self.parse_unary_expression();
                 Expression::UnaryExpression(Box::new(UnaryExpression {
                     operator: "void".to_string(),
+                    argument,
+                }))
+            }
+            Some(TokenType::Tilde) => {
+                let _ = self.stream.advance();
+                let argument = self.parse_unary_expression();
+                Expression::UnaryExpression(Box::new(UnaryExpression {
+                    operator: "~".to_string(),
                     argument,
                 }))
             }

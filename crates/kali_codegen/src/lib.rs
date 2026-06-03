@@ -793,6 +793,17 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             "+" => self.emit_node(function, arg, true),
+            "~" => {
+                function.instruction(&Instruction::I64Const(0));
+                let _ = self.emit_node(function, arg, true);
+                function.instruction(&Instruction::I64Sub);
+                function.instruction(&Instruction::I64Const(1));
+                function.instruction(&Instruction::I64Sub);
+                EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                }
+            }
             "!" => {
                 let _ = self.emit_node(function, arg, true);
                 function.instruction(&Instruction::I64Eqz);

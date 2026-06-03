@@ -128,6 +128,10 @@ export function unaryPrefixSmoke() {
   if (positive !== 3) {
     throw new Error('expected unary plus to preserve the numeric value');
   }
+  const bitwiseNot = ~1;
+  if (bitwiseNot !== -2) {
+    throw new Error('expected bitwise not to invert integer bits');
+  }
   const value = void (1 + 2);
   if (value !== void 0) {
     throw new Error('expected void to evaluate to undefined');
@@ -29002,6 +29006,10 @@ fn unary_prefix_semantics_source(test_mode: bool) -> String {
   if (positive !== 3) {
     throw new Error('expected unary plus to preserve the numeric value');
   }
+  const bitwiseNot = ~1;
+  if (bitwiseNot !== -2) {
+    throw new Error('expected bitwise not to invert integer bits');
+  }
   let counter = 1;
   const prefix = ++counter;
   if (prefix !== 2 || counter !== 2) {
@@ -29034,6 +29042,10 @@ if (negative !== -3) {
 const positive = +(1 + 2);
 if (positive !== 3) {
   throw new Error('expected unary plus to preserve the numeric value');
+}
+const bitwiseNot = ~1;
+if (bitwiseNot !== -2) {
+  throw new Error('expected bitwise not to invert integer bits');
 }
 let counter = 1;
 const prefix = ++counter;
@@ -29127,6 +29139,10 @@ fn browser_harness_unary_prefix_semantics_source(test_mode: bool) -> String {
   if (postfix !== 2 || counter !== 1) {
     throw new Error('expected postfix update expressions to return the previous value');
   }
+  const bitwiseNot = ~1;
+  if (bitwiseNot !== -2) {
+    throw new Error('expected bitwise not to invert integer bits');
+  }
 });
 "#
         .to_string();
@@ -29140,6 +29156,10 @@ if (prefix !== 2 || counter !== 2) {
 const postfix = counter--;
 if (postfix !== 2 || counter !== 1) {
   throw new Error('expected postfix update expressions to return the previous value');
+}
+const bitwiseNot = ~1;
+if (bitwiseNot !== -2) {
+  throw new Error('expected bitwise not to invert integer bits');
 }
 "#
     .to_string()

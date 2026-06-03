@@ -62,6 +62,23 @@ fn test_parse_void_unary_expression() {
 }
 
 #[test]
+fn test_parse_bitwise_not_unary_expression() {
+    let tokens = lex("~value;");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+    assert_eq!(output.statements.len(), 1);
+
+    let Statement::ExpressionStatement(expr_stmt) = &output.statements[0] else {
+        panic!("Expected ExpressionStatement");
+    };
+    let Expression::UnaryExpression(unary) = expr_stmt.expression.as_ref() else {
+        panic!("Expected UnaryExpression, got {:?}", expr_stmt.expression);
+    };
+    assert_eq!(unary.operator, "~");
+    assert!(matches!(unary.argument, Expression::Identifier(_)));
+}
+
+#[test]
 fn test_parse_postfix_update_expression() {
     let tokens = lex("value--;");
     let mut parser = Parser::new(FileId::new(0), tokens);
