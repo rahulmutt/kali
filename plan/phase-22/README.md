@@ -23,6 +23,7 @@ Keep browser-targeted compilation, browser harness execution, and standalone bro
 - Define valid positive thread budgets by command, API surface, target, and runtime profile.
 - Specify interaction with `SharedArrayBuffer`, `Atomics`, workers, resource accounting, and deterministic failure modes.
 - Preserve AOT-only compilation, no tracing/background GC, deterministic JSON, and resource-limit honesty.
+- Current rejection evidence includes direct `SharedArrayBuffer` / `Atomics` globals, `globalThis` dot/bracket aliases, and frozen direct/global aliases in the shared late-threaded-runtime source inventory; full threaded behavior remains unpromoted until the runtime/profile contract is implemented.
 
 ### 22.2 Browser runtime contract
 

@@ -119,12 +119,22 @@ fn sequence_wrapped_async_generator_class_expression_source() -> &'static str {
 #[test]
 fn browser_late_threaded_runtime_source_includes_bracketed_forms() {
     let source = late_threaded_runtime_source();
+    assert!(source.contains("SharedArrayBuffer"), "source: {source}");
+    assert!(
+        source.contains("Object.freeze(SharedArrayBuffer)"),
+        "source: {source}"
+    );
     assert!(
         source.contains(r#"globalThis["SharedArrayBuffer"]"#),
         "source: {source}"
     );
     assert!(
         source.contains(r#"globalThis['SharedArrayBuffer']"#),
+        "source: {source}"
+    );
+    assert!(source.contains("Atomics"), "source: {source}");
+    assert!(
+        source.contains("Object.freeze(Atomics)"),
         "source: {source}"
     );
     assert!(
