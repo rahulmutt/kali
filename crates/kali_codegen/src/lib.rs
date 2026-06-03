@@ -64,6 +64,12 @@ enum StaticArrayAtResult {
     OutOfRange,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+enum StaticStringAtResult {
+    Value(String),
+    OutOfRange,
+}
+
 impl StaticObjectIdentityValue {
     fn same_value(&self, other: &Self) -> bool {
         match (self, other) {
@@ -1894,6 +1900,22 @@ impl<'a> FunctionEmitter<'a> {
             return self.emit_node(function, literal, true);
         }
 
+        if let Some(result) = self.resolve_static_string_at_call(node) {
+            let literal = match result {
+                StaticStringAtResult::Value(value) => self.alloc_scratch_node(
+                    LirNodeKind::Literal,
+                    Some(quote_string_literal(&value)),
+                    vec![],
+                ),
+                StaticStringAtResult::OutOfRange => self.alloc_scratch_node(
+                    LirNodeKind::Literal,
+                    Some("undefined".to_string()),
+                    vec![],
+                ),
+            };
+            return self.emit_node(function, literal, true);
+        }
+
         if let Some(result) = self.resolve_static_string_char_at_call(node) {
             let literal = self.alloc_scratch_node(
                 LirNodeKind::Literal,
@@ -2008,6 +2030,18 @@ impl<'a> FunctionEmitter<'a> {
                 format!(
                     "String.prototype.{method} is unavailable unless the receiver is a statically-known ASCII string literal, the target length is a statically-known integer from 0 through 1024, and the optional pad string is statically-known ASCII in the current direct-runtime path; use explicit ASCII literals or the later compatibility path"
                 ),
+            ));
+            function.instruction(&Instruction::Unreachable);
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
+
+        if self.is_string_at_call_with_literal_receiver(node) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "String.prototype.at is unavailable unless the receiver is a statically-known ASCII string literal and the optional index is a statically-known integer in the current direct-runtime path; use explicit ASCII literals or the later compatibility path",
             ));
             function.instruction(&Instruction::Unreachable);
             return EmittedValue {
@@ -4876,6 +4910,76 @@ impl<'a> FunctionEmitter<'a> {
         matches!(method, "padStart" | "padEnd").then(|| method.to_string())
     }
 
+    fn resolve_static_string_at_call(&self, node: &LirNode) -> Option<StaticStringAtResult> {
+        if node.kind != LirNodeKind::Call || !matches!(node.children.len(), 1 | 2) {
+            return None;
+        }
+
+        let callee = node.children.first().copied()?;
+        let callee = self.resolve_transparent_callable_node(callee)?;
+        let callee_node = self.node(callee);
+        if callee_node.text.as_deref() != Some("at") {
+            return None;
+        }
+
+        let receiver = callee_node.children.first().copied()?;
+        let source = self
+            .resolve_static_object_identity_value(receiver)
+            .and_then(|value| match value {
+                StaticObjectIdentityValue::String(value) => Some(value),
+                _ => None,
+            })?;
+        if !source.is_ascii() {
+            return None;
+        }
+        let index = match node.children.get(1) {
+            Some(id) => {
+                let index = self.resolve_static_numeric_value(*id)?;
+                if !index.is_finite() || index.fract() != 0.0 {
+                    return None;
+                }
+                index as i64
+            }
+            None => 0,
+        };
+
+        let length = source.len() as i64;
+        let index = if index < 0 { length + index } else { index };
+        if index < 0 || index >= length {
+            return Some(StaticStringAtResult::OutOfRange);
+        }
+
+        Some(StaticStringAtResult::Value(
+            source
+                .as_bytes()
+                .get(index as usize)
+                .map(|byte| (*byte as char).to_string())?,
+        ))
+    }
+
+    fn is_string_at_call_with_literal_receiver(&self, node: &LirNode) -> bool {
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+
+        let Some(callee) = node.children.first().copied() else {
+            return false;
+        };
+        let Some(callee) = self.resolve_transparent_callable_node(callee) else {
+            return false;
+        };
+        let callee_node = self.node(callee);
+        callee_node.text.as_deref() == Some("at")
+            && callee_node
+                .children
+                .first()
+                .copied()
+                .is_some_and(|receiver| {
+                    self.resolve_static_object_identity_value(receiver)
+                        .is_some_and(|value| matches!(value, StaticObjectIdentityValue::String(_)))
+                })
+    }
+
     fn resolve_static_string_char_at_call(&self, node: &LirNode) -> Option<String> {
         if node.kind != LirNodeKind::Call || !matches!(node.children.len(), 1 | 2) {
             return None;
@@ -5363,6 +5467,12 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         let source = callee_node.children.first().copied()?;
+        if matches!(
+            self.resolve_static_object_identity_value(source),
+            Some(StaticObjectIdentityValue::String(_))
+        ) {
+            return None;
+        }
         let source = self.resolve_literal_aggregate(source)?;
         let source_node = self.node(source);
         let source_node = if source_node.kind == LirNodeKind::Value
@@ -6699,6 +6809,13 @@ impl<'a> FunctionEmitter<'a> {
                     return match result {
                         StaticArrayAtResult::Value(value) => self.render_static_value(value),
                         StaticArrayAtResult::OutOfRange => Some("undefined".to_string()),
+                    };
+                }
+
+                if let Some(result) = self.resolve_static_string_at_call(node) {
+                    return match result {
+                        StaticStringAtResult::Value(value) => Some(value),
+                        StaticStringAtResult::OutOfRange => Some("undefined".to_string()),
                     };
                 }
 

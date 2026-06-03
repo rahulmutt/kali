@@ -5299,6 +5299,35 @@ fn unsupported_static_string_concat_dynamic_operand_is_gated() {
 }
 
 #[test]
+fn supported_static_string_at_lowers_ascii_literals() {
+    let program = parse_and_lower_lir(
+        "console.log('hello'.at()); console.log('hello'.at(1)); console.log('hello'.at(-1)); console.log('hello'.at(99));",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("\"h\""), "{printed}");
+    assert!(printed.contains("\"e\""), "{printed}");
+    assert!(printed.contains("\"o\""), "{printed}");
+    assert!(printed.contains("undefined"), "{printed}");
+}
+
+#[test]
 fn supported_static_string_char_at_lowers_ascii_literals() {
     let program = parse_and_lower_lir(
         "console.log('hello'.charAt()); console.log('hello'.charAt(1)); console.log('hello'.charAt(-1)); console.log('hello'.charAt(99));",

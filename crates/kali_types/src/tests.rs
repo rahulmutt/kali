@@ -14438,6 +14438,65 @@ fn test_resolution_rejects_dynamic_or_non_ascii_string_concat_in_non_browser_sur
 }
 
 #[test]
+fn test_resolution_allows_static_ascii_string_at_in_non_browser_surface() {
+    for source in [
+        "const result = 'hello'.at();",
+        "const result = 'hello'.at(1);",
+        "const result = 'hello'.at(-1);",
+        "const result = 'hello'.at(99);",
+        "const source = 'hello'; const result = Object.freeze(source).at(Object.freeze(4));",
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let source_path = dir.path().join("main.js");
+        fs::write(&source_path, source).unwrap();
+
+        let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
+        let tokens = lexer.lex_all().tokens;
+        let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+        let statements = parser.parse(None).statements;
+
+        let mut ctx = TypeContext::with_base_path(&source_path);
+        let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+        assert!(
+            result.diagnostics.is_empty(),
+            "unexpected diagnostics for {source}: {:?}",
+            result.diagnostics
+        );
+    }
+}
+
+#[test]
+fn test_resolution_rejects_dynamic_or_non_ascii_string_at_in_non_browser_surface() {
+    for source in [
+        "function pick(index) { return 'hello'.at(index); }",
+        "function pick(value) { return value.at(1); }",
+        "const result = 'hello'.at(1.5);",
+        "const result = 'héllo'.at(1);",
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let source_path = dir.path().join("main.js");
+        fs::write(&source_path, source).unwrap();
+
+        let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
+        let tokens = lexer.lex_all().tokens;
+        let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+        let statements = parser.parse(None).statements;
+
+        let mut ctx = TypeContext::with_base_path(&source_path);
+        let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)
+                    && diag.message.contains("String.prototype.at")),
+            "expected String.prototype.at feature gate for {source}, got {:?}",
+            result.diagnostics
+        );
+    }
+}
+
+#[test]
 fn test_resolution_allows_static_ascii_string_char_at_in_non_browser_surface() {
     for source in [
         "const result = 'hello'.charAt();",

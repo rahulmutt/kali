@@ -2730,6 +2730,7 @@ impl TypeContext {
         self.resolve_string_repeat_member_call(expr);
         self.resolve_string_concat_member_call(expr);
         self.resolve_string_pad_member_call(expr);
+        self.resolve_string_at_member_call(expr);
         self.resolve_string_char_at_member_call(expr);
         self.resolve_string_char_code_at_member_call(expr);
         self.resolve_string_code_point_at_member_call(expr);
@@ -4409,6 +4410,13 @@ impl TypeContext {
             return;
         }
 
+        if matches!(
+            self.resolve_static_object_identity_literal_value(&member.object),
+            Some(StaticObjectIdentityValue::String(_))
+        ) {
+            return;
+        }
+
         let has_static_receiver = self.is_static_array_iteration_target(&member.object);
         let static_index = expr
             .args
@@ -4801,6 +4809,48 @@ impl TypeContext {
             format!(
                 "String.prototype.{method} is unavailable unless the receiver is a statically-known ASCII string literal, the target length is a statically-known integer from 0 through 1024, and the optional pad string is statically-known ASCII in the current direct-runtime path; use explicit ASCII literals or the later compatibility path"
             ),
+        ));
+    }
+
+    fn resolve_string_at_member_call(&mut self, expr: &CallExpression) {
+        let Expression::MemberExpression(member) = &expr.callee else {
+            return;
+        };
+
+        if member.property.as_str() != "at" {
+            return;
+        }
+        if matches!(member.object, Expression::ArrayExpression(_)) {
+            return;
+        }
+
+        let source = match self.resolve_static_object_identity_literal_value(&member.object) {
+            Some(StaticObjectIdentityValue::String(value)) => Some(value),
+            _ => None,
+        };
+        let has_ascii_source = source.as_ref().is_some_and(|source| source.is_ascii());
+        let supported_arg_count = matches!(expr.args.len(), 0 | 1);
+        let has_static_integer_index = expr.args.first().is_none_or(|argument| {
+            self.resolve_static_numeric_literal_value(argument)
+                .is_some_and(|index| index.is_finite() && index.fract() == 0.0)
+        });
+
+        if supported_arg_count && has_ascii_source && has_static_integer_index {
+            self.resolve_expression(&member.object);
+            for arg in &expr.args {
+                self.resolve_expression(arg);
+            }
+            return;
+        }
+
+        self.resolve_expression(&member.object);
+        for arg in &expr.args {
+            self.resolve_expression(arg);
+        }
+
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "String.prototype.at is unavailable unless the receiver is a statically-known ASCII string literal and the optional index is a statically-known integer in the current direct-runtime path; use explicit ASCII literals or the later compatibility path".to_string(),
         ));
     }
 

@@ -8,7 +8,11 @@ fn kali_bin() -> String {
 }
 
 fn supported_source() -> &'static str {
-    r#"console.log("hello".charAt());
+    r#"console.log("hello".at());
+console.log("hello".at(1));
+console.log("hello".at(-1));
+console.log("hello".at(99));
+console.log("hello".charAt());
 console.log("hello".charAt(1));
 console.log("hello".charAt(-1));
 console.log("hello".charAt(99));
@@ -40,7 +44,7 @@ fn run_supports_static_ascii_string_char_at() {
     );
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "h\ne\n\n\n104\n101\nNaN\nNaN\n"
+        "h\ne\no\nundefined\nh\ne\n\n\n104\n101\nNaN\nNaN\n"
     );
 }
 
@@ -94,6 +98,28 @@ fn assert_check_gates_unsupported_string_char_at(source: &str) {
     let json: Value = serde_json::from_slice(&output.stdout).expect("json stdout");
     assert_eq!(json["success"], false);
     assert_eq!(json["errors"][0]["code"], "E5506");
+}
+
+#[test]
+fn check_gates_string_at_dynamic_index() {
+    assert_check_gates_unsupported_string_char_at(
+        "function pick(index) { return 'hello'.at(index); }\n",
+    );
+}
+
+#[test]
+fn check_gates_string_at_non_integer_index() {
+    assert_check_gates_unsupported_string_char_at("console.log('hello'.at(1.5));\n");
+}
+
+#[test]
+fn check_gates_non_ascii_static_string_at_receiver() {
+    assert_check_gates_unsupported_string_char_at("console.log('héllo'.at(1));\n");
+}
+
+#[test]
+fn check_gates_dynamic_string_at_receiver() {
+    assert_check_gates_unsupported_string_char_at("function pick(value) { return value.at(1); }\n");
 }
 
 #[test]
