@@ -44,6 +44,21 @@ theorem Context.lookup_remove_ne (Γ : Context) (x y : String) (h : x ≠ y) :
         simp [Context.lookup, Context.remove, hxz, hyz]
       · simp [Context.lookup, Context.remove, hxz, ih]
 
+/-- Removing an absent binding leaves the bounded typing context unchanged. -/
+theorem Context.remove_absent (Γ : Context) (x : String) :
+    Context.lookup Γ x = none → Context.remove Γ x = Γ := by
+  induction Γ with
+  | nil =>
+      intro hlookup
+      simp [Context.remove]
+  | cons head Γ ih =>
+      rcases head with ⟨y, ty⟩
+      intro hlookup
+      by_cases hxy : x = y
+      · simp [Context.lookup, hxy] at hlookup
+      · simp [Context.lookup, Context.remove, hxy] at hlookup ⊢
+        exact ih hlookup
+
 /-- Runtime value predicate for the small-step semantics. -/
 inductive Value : Expr → Prop where
   | lit : ∀ v, Value (Expr.ELit v)

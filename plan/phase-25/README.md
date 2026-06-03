@@ -25,7 +25,7 @@ Widen proof-backed and machine-contract confidence while keeping claims exact.
 - Widen core semantics, ownership/RC, effects, type-system, and lowering models in small named slices.
 - Pair every widened proof-backed claim with mechanized theorem inventory and proof-CI evidence.
 - Keep full-language/full-host proof wording out of release claims until those semantics are modeled.
-- Current progress: the core closed-fragment soundness model now includes closed let-bindings in `KaliCore.Soundness.progress` / `preservation`; `proofs/BOUNDARY.md` owns the updated theorem inventory.
+- Current progress: the core closed-fragment soundness model now includes closed let-bindings in `KaliCore.Soundness.progress` / `preservation`; the bounded typing-context helper slice now also includes `Context.remove_absent`; `proofs/BOUNDARY.md` owns the updated theorem inventory.
 
 ### 25.3 Proof CI triggers
 
