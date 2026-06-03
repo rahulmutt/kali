@@ -4413,6 +4413,12 @@ impl TypeContext {
             return;
         }
 
+        if self
+            .resolve_static_string_expression(&member.object)
+            .is_some()
+        {
+            return;
+        }
         let has_static_receiver = self.is_static_array_iteration_target(&member.object);
         let supported_arg_count = matches!(expr.args.len(), 1 | 2);
         let has_static_search_value = expr
@@ -4470,12 +4476,13 @@ impl TypeContext {
         let search = expr
             .args
             .first()
-            .and_then(|argument| self.resolve_static_string_expression(argument));
+            .map(|argument| self.resolve_static_string_expression(argument))
+            .unwrap_or_else(|| Some("undefined".to_string()));
         let has_ascii_source_and_search = source
             .as_ref()
             .zip(search.as_ref())
             .is_some_and(|(source, search)| source.is_ascii() && search.is_ascii());
-        let supported_arg_count = matches!(expr.args.len(), 1 | 2);
+        let supported_arg_count = matches!(expr.args.len(), 0..=2);
         let has_static_position = expr
             .args
             .get(1)
@@ -4497,7 +4504,7 @@ impl TypeContext {
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
             format!(
-                "string search method '{method}' is unavailable unless the receiver, search value, and position/fromIndex are statically-known ASCII string/number literals in the current direct-runtime path; use explicit ASCII literals or the later compatibility path"
+                "string search method '{method}' is unavailable unless the receiver, optional search value, and position/fromIndex are statically-known ASCII string/number literals in the current direct-runtime path; use explicit ASCII literals or the later compatibility path"
             ),
         ));
     }

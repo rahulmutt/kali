@@ -4429,7 +4429,7 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     fn resolve_static_string_search_call(&self, node: &LirNode, method: &str) -> Option<i64> {
-        if node.kind != LirNodeKind::Call || !(2..=3).contains(&node.children.len()) {
+        if node.kind != LirNodeKind::Call || !(1..=3).contains(&node.children.len()) {
             return None;
         }
 
@@ -4445,9 +4445,12 @@ impl<'a> FunctionEmitter<'a> {
             StaticObjectIdentityValue::String(value) if value.is_ascii() => value,
             _ => return None,
         };
-        let search = match self.resolve_static_object_identity_value(*node.children.get(1)?)? {
-            StaticObjectIdentityValue::String(value) if value.is_ascii() => value,
-            _ => return None,
+        let search = match node.children.get(1) {
+            Some(id) => match self.resolve_static_object_identity_value(*id)? {
+                StaticObjectIdentityValue::String(value) if value.is_ascii() => value,
+                _ => return None,
+            },
+            None => "undefined".to_string(),
         };
         let explicit_from_index = match node.children.get(2) {
             Some(id) => Some(self.resolve_static_numeric_value(*id)?.trunc() as i64),

@@ -14338,6 +14338,34 @@ fn test_resolution_allows_static_ascii_string_concat_in_non_browser_surface() {
 }
 
 #[test]
+fn test_resolution_allows_static_ascii_string_search_omitted_search_in_non_browser_surface() {
+    for source in [
+        "const result = 'hello'.includes();",
+        "const result = 'hello'.indexOf();",
+        "const result = 'hello'.lastIndexOf();",
+        "const result = 'hello'.startsWith();",
+        "const result = 'hello'.endsWith();",
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let source_path = dir.path().join("main.js");
+        fs::write(&source_path, source).unwrap();
+
+        let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
+        let tokens = lexer.lex_all().tokens;
+        let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+        let statements = parser.parse(None).statements;
+
+        let mut ctx = TypeContext::with_base_path(&source_path);
+        let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+        assert!(
+            result.diagnostics.is_empty(),
+            "unexpected diagnostics for {source}: {:?}",
+            result.diagnostics
+        );
+    }
+}
+
+#[test]
 fn test_resolution_rejects_dynamic_or_non_ascii_string_concat_in_non_browser_surface() {
     for source in [
         "function join(suffix) { return 'he'.concat(suffix); }",
