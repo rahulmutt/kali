@@ -12,6 +12,10 @@ fn supported_source() -> &'static str {
 console.log("hello".charAt(1));
 console.log("hello".charAt(-1));
 console.log("hello".charAt(99));
+console.log("hello".charCodeAt());
+console.log("hello".charCodeAt(1));
+console.log("hello".charCodeAt(-1));
+console.log("hello".charCodeAt(99));
 "#
 }
 
@@ -34,7 +38,10 @@ fn run_supports_static_ascii_string_char_at() {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    assert_eq!(String::from_utf8_lossy(&output.stdout), "h\ne\n\n\n");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "h\ne\n\n\n104\n101\nNaN\nNaN\n"
+    );
 }
 
 #[test]
@@ -110,5 +117,29 @@ fn check_gates_non_ascii_static_string_char_at_receiver() {
 fn check_gates_dynamic_string_char_at_receiver() {
     assert_check_gates_unsupported_string_char_at(
         "function pick(value) { return value.charAt(1); }\n",
+    );
+}
+
+#[test]
+fn check_gates_string_char_code_at_dynamic_index() {
+    assert_check_gates_unsupported_string_char_at(
+        "function pick(index) { return 'hello'.charCodeAt(index); }\n",
+    );
+}
+
+#[test]
+fn check_gates_string_char_code_at_non_integer_index() {
+    assert_check_gates_unsupported_string_char_at("console.log('hello'.charCodeAt(1.5));\n");
+}
+
+#[test]
+fn check_gates_non_ascii_static_string_char_code_at_receiver() {
+    assert_check_gates_unsupported_string_char_at("console.log('héllo'.charCodeAt(1));\n");
+}
+
+#[test]
+fn check_gates_dynamic_string_char_code_at_receiver() {
+    assert_check_gates_unsupported_string_char_at(
+        "function pick(value) { return value.charCodeAt(1); }\n",
     );
 }
