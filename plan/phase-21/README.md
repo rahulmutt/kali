@@ -30,6 +30,7 @@ Keep this file at the sequencing level. Exact coverage belongs in tests, maturit
 - Expand `for...of`, `for await...of`, spreads, `Array.from`, object-enumeration helpers, `Set`/`Map` iteration, and iterable consumption beyond current bounded static slices.
 - Implement protocol lookup, `next` result handling, abrupt completion, iterator close, async iterator finalization, and error propagation.
 - Add conformance fixtures for supported built-ins and negative diagnostics for unimplemented protocol edges.
+- Tighten direct-runtime element-access evidence for arrays produced by static helper folds, including `String.prototype.split`, before using length-only smoke as evidence for broader indexed array semantics.
 - Keep transparent wrapper handling only where it remains deterministic and evidence-backed.
 
 ### 21.3 Dynamic language and built-in semantics
@@ -52,7 +53,7 @@ Keep this file at the sequencing level. Exact coverage belongs in tests, maturit
 - Maintain compact dashboards of supported vs gated semantics.
 - Keep plan files free of implementation-journal prose; use compact baseline summaries and leave exhaustive evidence to tests, specs, schemas, and proof files.
 - Keep diagnostic codes and wording aligned with `specs/15-errors.md`.
-- Mirror support and rejection coverage across source classes and command contexts when claims span those contexts. Current conformance hygiene now pins the static ASCII string-search helper slice on standalone run, JSON check, and browser-targeted bundle paths across the JS/TS/JSX/TSX source-class matrix while preserving dynamic-operand gates.
+- Mirror support and rejection coverage across source classes and command contexts when claims span those contexts. Current conformance hygiene now pins the static ASCII string-search helper slice on standalone run, JSON check, and browser-targeted bundle paths across the JS/TS/JSX/TSX source-class matrix while preserving dynamic-operand gates. The static ASCII `String.prototype.split` helper slice now has JSON check, browser-targeted bundle source-class matrix, and canonical dynamic/non-ASCII/limit gate coverage; direct-runtime indexed element access remains scheduled for tightening before claiming broader run semantics.
 
 ## Exit gate
 
