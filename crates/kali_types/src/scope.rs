@@ -94,3 +94,7 @@ impl<'a> ScopeRef<'a> {
         self.scope
     }
 }
+
+#[cfg(test)]
+#[path = "scope_tests.rs"]
+mod scope_tests;
