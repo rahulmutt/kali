@@ -846,3 +846,7 @@ impl TypeContext {
         None
     }
 }
+
+#[cfg(test)]
+#[path = "math_tests.rs"]
+mod math_tests;
