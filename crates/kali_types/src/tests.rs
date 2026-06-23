@@ -1,4 +1,5 @@
 use super::*;
+use crate::test_support::*;
 use kali_ast::{
     ArrayExpression, ArrowFunctionExpression, AssignmentExpression, AssignmentOperator,
     AwaitExpression, BinaryExpression, BlockStatement, CallExpression, ClassBody, ClassDeclaration,
@@ -17,37 +18,6 @@ use kali_common::{
 use kali_error::_error_codes::{e3, e5};
 use std::fs;
 use tempfile::tempdir;
-
-fn sequence_expression(expressions: Vec<Expression>) -> Expression {
-    Expression::SequenceExpression(Box::new(kali_ast::SequenceExpression { expressions }))
-}
-
-fn optional_chain_global_this_math() -> Expression {
-    Expression::OptionalChainExpression(Box::new(OptionalChainExpression {
-        inner: Box::new(OptionalChainInner::NonNull {
-            object: Box::new(Expression::MemberExpression(Box::new(MemberExpression {
-                object: Expression::Identifier("globalThis".to_string()),
-                property: "Math".to_string(),
-            }))),
-            optional: true,
-        }),
-    }))
-}
-
-fn optional_chain_global_this_math_pow() -> Expression {
-    Expression::OptionalChainExpression(Box::new(OptionalChainExpression {
-        inner: Box::new(OptionalChainInner::NonNull {
-            object: Box::new(Expression::MemberExpression(Box::new(MemberExpression {
-                object: Expression::MemberExpression(Box::new(MemberExpression {
-                    object: Expression::Identifier("globalThis".to_string()),
-                    property: "Math".to_string(),
-                })),
-                property: "pow".to_string(),
-            }))),
-            optional: true,
-        }),
-    }))
-}
 
 #[test]
 fn test_scope_creation() {
