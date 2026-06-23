@@ -1,6 +1,10 @@
-use crate::*;
 use crate::test_support::*;
-use kali_ast::{ArrowFunctionExpression, BinaryExpression, CallExpression, Expression, ExpressionStatement, LiteralValue, MemberExpression, SatisfiesExpression, TemplateElement, TemplateLiteral, TypeAssertion, VariableDeclaration, VariableDeclarator};
+use crate::*;
+use kali_ast::{
+    ArrowFunctionExpression, BinaryExpression, CallExpression, Expression, ExpressionStatement,
+    LiteralValue, MemberExpression, SatisfiesExpression, TemplateElement, TemplateLiteral,
+    TypeAssertion, VariableDeclaration, VariableDeclarator,
+};
 
 #[test]
 fn test_resolution_accepts_wrapped_call_targets_with_type_assertions_and_satisfies() {

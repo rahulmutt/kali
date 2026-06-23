@@ -316,13 +316,20 @@ impl TypeContext {
         }
     }
 
-    pub(crate) fn is_supported_static_callable_member_expression(&self, expr: &MemberExpression) -> bool {
+    pub(crate) fn is_supported_static_callable_member_expression(
+        &self,
+        expr: &MemberExpression,
+    ) -> bool {
         let dotted = Self::member_access_name(expr).unwrap_or_else(|| expr.property.clone());
         let bracketed = Self::member_access_name_bracketed(expr).unwrap_or_else(|| dotted.clone());
         self.is_supported_static_callable_member_name(&dotted, &bracketed)
     }
 
-    pub(crate) fn is_supported_static_callable_member_name(&self, dotted: &str, bracketed: &str) -> bool {
+    pub(crate) fn is_supported_static_callable_member_name(
+        &self,
+        dotted: &str,
+        bracketed: &str,
+    ) -> bool {
         matches!(
             dotted,
             "Object.is"
@@ -460,7 +467,6 @@ impl TypeContext {
                 | r#"String['fromCodePoint']"#
         )
     }
-
 }
 
 #[cfg(test)]

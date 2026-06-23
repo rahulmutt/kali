@@ -504,7 +504,6 @@ impl TypeContext {
 
         Ok(true)
     }
-
 }
 
 #[cfg(test)]

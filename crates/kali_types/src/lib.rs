@@ -10,12 +10,12 @@ mod late_host;
 mod package;
 mod resolve;
 mod scope;
-mod typecheck;
 mod static_analysis;
+mod typecheck;
 
 use builtins::*;
-use package::*;
 pub use context::{ResolutionResult, TypeContext};
+use package::*;
 pub use scope::{Scope, ScopeRef, ScopeType};
 pub use typecheck::TypeChecker;
 use typecheck::*;
@@ -52,7 +52,6 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
-
 
 #[cfg(test)]
 #[path = "test_support.rs"]

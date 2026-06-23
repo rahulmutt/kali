@@ -1,5 +1,5 @@
-use crate::*;
 use crate::test_support::*;
+use crate::*;
 use kali_ast::{DecoratedExpression, Expression, LiteralValue, ParenthesizedExpression};
 
 #[test]

@@ -3,7 +3,6 @@
 use crate::*;
 
 impl TypeContext {
-
     pub(crate) fn resolve_permission_query_call(&mut self, expr: &CallExpression) {
         let Some(callee_name) = self.resolve_static_callable_name(&expr.callee) else {
             return;
@@ -77,7 +76,10 @@ impl TypeContext {
         }
     }
 
-    pub(crate) fn resolve_permissions_query_descriptor_name(&self, expr: &Expression) -> Option<String> {
+    pub(crate) fn resolve_permissions_query_descriptor_name(
+        &self,
+        expr: &Expression,
+    ) -> Option<String> {
         match expr {
             Expression::ParenthesizedExpression(expr) => {
                 self.resolve_permissions_query_descriptor_name(&expr.expression)
@@ -310,7 +312,10 @@ impl TypeContext {
         true
     }
 
-    pub(crate) fn resolve_late_permission_escalation_member(&mut self, expr: &MemberExpression) -> bool {
+    pub(crate) fn resolve_late_permission_escalation_member(
+        &mut self,
+        expr: &MemberExpression,
+    ) -> bool {
         let dotted = Self::member_access_name(expr).unwrap_or_else(|| expr.property.clone());
         let bracketed = Self::member_access_name_bracketed(expr).unwrap_or_else(|| dotted.clone());
 
@@ -456,7 +461,10 @@ impl TypeContext {
         true
     }
 
-    pub(crate) fn resolve_late_env_assignment_mutation(&mut self, expr: &AssignmentExpression) -> bool {
+    pub(crate) fn resolve_late_env_assignment_mutation(
+        &mut self,
+        expr: &AssignmentExpression,
+    ) -> bool {
         let Expression::MemberExpression(member) = &expr.left else {
             return false;
         };
@@ -490,7 +498,10 @@ impl TypeContext {
         false
     }
 
-    pub(crate) fn resolve_late_process_env_mutation_member(&mut self, member: &MemberExpression) -> bool {
+    pub(crate) fn resolve_late_process_env_mutation_member(
+        &mut self,
+        member: &MemberExpression,
+    ) -> bool {
         let dotted = Self::member_access_name(member).unwrap_or_else(|| member.property.clone());
         let bracketed =
             Self::member_access_name_bracketed(member).unwrap_or_else(|| dotted.clone());
@@ -649,7 +660,6 @@ impl TypeContext {
         ));
         true
     }
-
 }
 
 #[cfg(test)]

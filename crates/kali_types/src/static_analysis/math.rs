@@ -581,7 +581,10 @@ impl TypeContext {
             .is_some_and(|value| value.fract() != 0.0)
     }
 
-    pub(crate) fn resolve_static_numeric_literal_value(&self, expression: &Expression) -> Option<f64> {
+    pub(crate) fn resolve_static_numeric_literal_value(
+        &self,
+        expression: &Expression,
+    ) -> Option<f64> {
         match expression {
             Expression::Literal(LiteralValue::Number(value)) => Some(*value),
             Expression::ParenthesizedExpression(expr) => {
@@ -732,7 +735,10 @@ impl TypeContext {
         Some(if method == "cosh" { 1 } else { 0 })
     }
 
-    pub(crate) fn resolve_math_sqrt_static_literal_root(&self, expression: &Expression) -> Option<i64> {
+    pub(crate) fn resolve_math_sqrt_static_literal_root(
+        &self,
+        expression: &Expression,
+    ) -> Option<i64> {
         let value = self.resolve_static_numeric_literal_value(expression)?;
         if !value.is_finite() || value.fract() != 0.0 || value < 0.0 || value > i64::MAX as f64 {
             return None;
@@ -747,7 +753,10 @@ impl TypeContext {
         }
     }
 
-    pub(crate) fn resolve_math_cbrt_static_literal_root(&self, expression: &Expression) -> Option<i64> {
+    pub(crate) fn resolve_math_cbrt_static_literal_root(
+        &self,
+        expression: &Expression,
+    ) -> Option<i64> {
         let value = self.resolve_static_numeric_literal_value(expression)?;
         if !value.is_finite()
             || value.fract() != 0.0
@@ -766,7 +775,10 @@ impl TypeContext {
         }
     }
 
-    pub(crate) fn resolve_math_log2_static_literal_exponent(&self, expression: &Expression) -> Option<i64> {
+    pub(crate) fn resolve_math_log2_static_literal_exponent(
+        &self,
+        expression: &Expression,
+    ) -> Option<i64> {
         let value = self.resolve_static_numeric_literal_value(expression)?;
         if !value.is_finite() || value.fract() != 0.0 || value <= 0.0 || value > u64::MAX as f64 {
             return None;
@@ -780,7 +792,10 @@ impl TypeContext {
         }
     }
 
-    pub(crate) fn resolve_math_log10_static_literal_exponent(&self, expression: &Expression) -> Option<i64> {
+    pub(crate) fn resolve_math_log10_static_literal_exponent(
+        &self,
+        expression: &Expression,
+    ) -> Option<i64> {
         let value = self.resolve_static_numeric_literal_value(expression)?;
         if !value.is_finite() || value.fract() != 0.0 || value <= 0.0 || value > i64::MAX as f64 {
             return None;
@@ -800,7 +815,10 @@ impl TypeContext {
         }
     }
 
-    pub(crate) fn resolve_math_hypot_static_literal_root(&self, expressions: &[Expression]) -> Option<i64> {
+    pub(crate) fn resolve_math_hypot_static_literal_root(
+        &self,
+        expressions: &[Expression],
+    ) -> Option<i64> {
         if expressions.is_empty() {
             return Some(0);
         }

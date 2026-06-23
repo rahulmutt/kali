@@ -1,5 +1,8 @@
 use crate::*;
-use kali_ast::{BlockStatement, Expression, ExpressionStatement, FunctionDeclaration, LiteralValue, YieldExpression};
+use kali_ast::{
+    BlockStatement, Expression, ExpressionStatement, FunctionDeclaration, LiteralValue,
+    YieldExpression,
+};
 use kali_error::_error_codes::e5;
 use std::fs;
 

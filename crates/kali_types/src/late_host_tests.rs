@@ -1,6 +1,11 @@
-use crate::*;
 use crate::test_support::*;
-use kali_ast::{AssignmentExpression, AssignmentOperator, AwaitExpression, CallExpression, DecoratedExpression, Expression, ExpressionStatement, LiteralValue, MemberExpression, ObjectExpression, ObjectProperty, ObjectPropertyKind, ParenthesizedExpression, PropertyName, SatisfiesExpression, UnaryExpression, VariableDeclaration, VariableDeclarator};
+use crate::*;
+use kali_ast::{
+    AssignmentExpression, AssignmentOperator, AwaitExpression, CallExpression, DecoratedExpression,
+    Expression, ExpressionStatement, LiteralValue, MemberExpression, ObjectExpression,
+    ObjectProperty, ObjectPropertyKind, ParenthesizedExpression, PropertyName, SatisfiesExpression,
+    UnaryExpression, VariableDeclaration, VariableDeclarator,
+};
 use kali_common::process_kill_zero_probe_source;
 use kali_error::_error_codes::{e3, e5};
 use std::fs;

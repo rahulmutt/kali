@@ -2,7 +2,10 @@
 use crate::*;
 
 impl TypeContext {
-    pub(crate) fn resolve_static_string_iterable_expression(&self, expression: &Expression) -> Option<String> {
+    pub(crate) fn resolve_static_string_iterable_expression(
+        &self,
+        expression: &Expression,
+    ) -> Option<String> {
         match self.unwrap_for_of_wrapper_expression(expression) {
             Expression::Literal(LiteralValue::String(value)) => Some(value.clone()),
             Expression::Identifier(name) => self.resolve_static_string_binding(name),
@@ -34,7 +37,10 @@ impl TypeContext {
             _ => None,
         }
     }
-    pub(crate) fn resolve_static_string_expression(&self, expression: &Expression) -> Option<String> {
+    pub(crate) fn resolve_static_string_expression(
+        &self,
+        expression: &Expression,
+    ) -> Option<String> {
         match expression {
             Expression::Literal(LiteralValue::String(value)) => {
                 if let Some(rendered) = resolve_interpolated_template_literal(value, |segment| {
@@ -189,7 +195,10 @@ impl TypeContext {
         }
         Some(rendered)
     }
-    pub(crate) fn resolve_static_string_normalize_expression(&self, expr: &CallExpression) -> Option<String> {
+    pub(crate) fn resolve_static_string_normalize_expression(
+        &self,
+        expr: &CallExpression,
+    ) -> Option<String> {
         let Expression::MemberExpression(member) = &expr.callee else {
             return None;
         };
@@ -463,7 +472,10 @@ impl TypeContext {
             "String.prototype.repeat is unavailable unless the receiver is a statically-known ASCII string literal and the repeat count is a statically-known integer from 0 through 1024 in the current direct-runtime path; use explicit ASCII literals or the later compatibility path".to_string(),
         ));
     }
-    pub(crate) fn resolve_static_string_concat_expression(&self, expr: &CallExpression) -> Option<String> {
+    pub(crate) fn resolve_static_string_concat_expression(
+        &self,
+        expr: &CallExpression,
+    ) -> Option<String> {
         let Expression::MemberExpression(member) = &expr.callee else {
             return None;
         };

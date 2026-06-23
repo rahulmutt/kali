@@ -1,6 +1,10 @@
-use crate::*;
 use crate::test_support::*;
-use kali_ast::{AssignmentExpression, AssignmentOperator, BlockStatement, CallExpression, DecoratedExpression, Expression, ExpressionStatement, ForOfLefthand, ForOfStatement, LiteralValue, MemberExpression, VariableDeclaration, VariableDeclarator};
+use crate::*;
+use kali_ast::{
+    AssignmentExpression, AssignmentOperator, BlockStatement, CallExpression, DecoratedExpression,
+    Expression, ExpressionStatement, ForOfLefthand, ForOfStatement, LiteralValue, MemberExpression,
+    VariableDeclaration, VariableDeclarator,
+};
 use kali_error::_error_codes::e5;
 use std::fs;
 use tempfile::tempdir;

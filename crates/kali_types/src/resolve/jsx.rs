@@ -26,7 +26,6 @@ impl TypeContext {
             JsxChild::JsxFragment(child) => self.resolve_jsx_fragment(child),
         }
     }
-
 }
 
 #[cfg(test)]

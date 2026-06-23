@@ -201,7 +201,6 @@ impl TypeContext {
             _ => None,
         }
     }
-
 }
 
 #[cfg(test)]

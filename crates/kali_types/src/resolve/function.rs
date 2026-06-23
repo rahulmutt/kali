@@ -1,6 +1,6 @@
 //! Function, arrow, and class resolution.
-use crate::*;
 use crate::resolve::block_contains_yield_delegation;
+use crate::*;
 
 impl TypeContext {
     pub(crate) fn resolve_function_expression(&mut self, expr: &FunctionExpression) {
@@ -80,7 +80,6 @@ impl TypeContext {
         }
         self.pop_scope();
     }
-
 }
 
 #[cfg(test)]

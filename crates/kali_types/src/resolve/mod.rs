@@ -1,11 +1,11 @@
 //! Statement and expression resolution.
 use crate::*;
 
-mod expression;
 mod call;
-mod member;
+mod expression;
 mod function;
 mod jsx;
+mod member;
 
 pub(crate) fn block_contains_yield_delegation(block: &BlockStatement) -> bool {
     block.body.iter().any(statement_contains_yield_delegation)
@@ -243,7 +243,6 @@ pub(crate) fn expression_contains_yield_delegation(expression: &Expression) -> b
         _ => false,
     }
 }
-
 
 impl TypeContext {
     pub fn resolve_statements(&mut self, statements: &[Statement]) -> ResolutionResult {
@@ -716,7 +715,10 @@ impl TypeContext {
         }
     }
 
-    pub(crate) fn resolve_export_default(&mut self, declaration: &kali_ast::ExportDefaultDeclaration) {
+    pub(crate) fn resolve_export_default(
+        &mut self,
+        declaration: &kali_ast::ExportDefaultDeclaration,
+    ) {
         match declaration {
             kali_ast::ExportDefaultDeclaration::Expression(expr) => self.resolve_expression(expr),
             kali_ast::ExportDefaultDeclaration::FunctionDeclaration(func) => {
@@ -741,5 +743,4 @@ impl TypeContext {
             }
         }
     }
-
 }

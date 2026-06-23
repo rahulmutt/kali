@@ -2,7 +2,10 @@
 use crate::*;
 
 impl TypeContext {
-    pub(crate) fn unwrap_for_of_wrapper_expression<'a>(&self, expression: &'a Expression) -> &'a Expression {
+    pub(crate) fn unwrap_for_of_wrapper_expression<'a>(
+        &self,
+        expression: &'a Expression,
+    ) -> &'a Expression {
         let mut current = expression;
         loop {
             current = match current {
@@ -181,7 +184,10 @@ impl TypeContext {
             _ => false,
         }
     }
-    pub(crate) fn is_static_non_empty_numeric_array_iteration_target(&self, expression: &Expression) -> bool {
+    pub(crate) fn is_static_non_empty_numeric_array_iteration_target(
+        &self,
+        expression: &Expression,
+    ) -> bool {
         match self.unwrap_for_of_wrapper_expression(expression) {
             Expression::ArrayExpression(array) => {
                 !array.elements.is_empty()
@@ -260,7 +266,10 @@ impl TypeContext {
             && self.is_static_array_iteration_target(&member.object)
             && self.is_identity_array_callback(&call.args[0])
     }
-    pub(crate) fn is_static_set_constructor_iteration_target(&self, expression: &NewExpression) -> bool {
+    pub(crate) fn is_static_set_constructor_iteration_target(
+        &self,
+        expression: &NewExpression,
+    ) -> bool {
         let (callee_expression, args) = match &expression.callee {
             Expression::CallExpression(call) if Self::is_object_freeze_call(call) => {
                 (call.args.first().unwrap_or(&call.callee), &expression.args)
@@ -283,7 +292,10 @@ impl TypeContext {
         ) && args.len() == 1
             && self.is_static_array_iteration_target(&args[0])
     }
-    pub(crate) fn is_static_map_constructor_iteration_target(&self, expression: &NewExpression) -> bool {
+    pub(crate) fn is_static_map_constructor_iteration_target(
+        &self,
+        expression: &NewExpression,
+    ) -> bool {
         let (callee_expression, args) = match &expression.callee {
             Expression::CallExpression(call) if Self::is_object_freeze_call(call) => {
                 (call.args.first().unwrap_or(&call.callee), &expression.args)
@@ -305,7 +317,10 @@ impl TypeContext {
         ) && args.len() == 1
             && self.is_static_array_iteration_target(&args[0])
     }
-    pub(crate) fn is_static_object_enumeration_iteration_target(&self, call: &CallExpression) -> bool {
+    pub(crate) fn is_static_object_enumeration_iteration_target(
+        &self,
+        call: &CallExpression,
+    ) -> bool {
         let Some(callee_name) = self.resolve_static_callable_name(&call.callee) else {
             return false;
         };
@@ -457,7 +472,10 @@ impl TypeContext {
         ));
         true
     }
-    pub(crate) fn resolve_static_array_is_array_argument(&self, expression: &Expression) -> Option<bool> {
+    pub(crate) fn resolve_static_array_is_array_argument(
+        &self,
+        expression: &Expression,
+    ) -> Option<bool> {
         let unwrapped = self.unwrap_for_of_wrapper_expression(expression);
         match unwrapped {
             Expression::ArrayExpression(_) => Some(true),
