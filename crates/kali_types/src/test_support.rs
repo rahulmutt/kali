@@ -1,17 +1,5 @@
 //! kali_types-specific test builders and macros (compiled under cfg(test)).
-use super::*;
-use kali_ast::{
-    ArrayExpression, ArrowFunctionExpression, AssignmentExpression, AssignmentOperator,
-    AwaitExpression, BinaryExpression, BlockStatement, CallExpression, ClassBody, ClassDeclaration,
-    ClassExpression, ConditionalExpression, DecoratedExpression, ExportDefaultDeclaration,
-    ExportNamedDeclaration, ExportSpecifier, Expression, ExpressionOrSpread, ExpressionStatement,
-    ForOfLefthand, ForOfStatement, FunctionDeclaration, FunctionExpression, LiteralValue,
-    LogicalExpression, LogicalOperator, MemberExpression, MethodDefinition, ObjectExpression,
-    ObjectProperty, ObjectPropertyKind, OptionalChainExpression, OptionalChainInner,
-    ParenthesizedExpression, PropertyName, SatisfiesExpression, SequenceExpression,
-    TemplateElement, TemplateLiteral, TypeAliasDeclaration, TypeAssertion, UnaryExpression,
-    UpdateExpression, UpdateOperator, VariableDeclaration, VariableDeclarator, YieldExpression,
-};
+use kali_ast::{Expression, MemberExpression, OptionalChainExpression, OptionalChainInner};
 
 // --- builder functions (migrated from tests.rs) ---
 
@@ -63,6 +51,9 @@ macro_rules! assert_resolution {
         result
     }};
 }
+// Re-exported for sibling `*_tests.rs` modules (adopted in later tasks); not yet
+// referenced crate-wide, so the re-export is intentionally allowed to be unused.
+#[allow(unused_imports)]
 pub(crate) use assert_resolution;
 
 /// `ident!("x")` → `Expression::Identifier("x".into())`.
@@ -71,6 +62,7 @@ macro_rules! ident {
         kali_ast::Expression::Identifier($name.to_string())
     };
 }
+#[allow(unused_imports)]
 pub(crate) use ident;
 
 /// `member!(obj, "prop")` → a `MemberExpression` wrapped in `Expression`.
@@ -82,6 +74,7 @@ macro_rules! member {
         }))
     };
 }
+#[allow(unused_imports)]
 pub(crate) use member;
 
 /// `call!(callee, [arg, ...])` → a `CallExpression` wrapped in `Expression`.
@@ -94,6 +87,7 @@ macro_rules! call {
         }))
     };
 }
+#[allow(unused_imports)]
 pub(crate) use call;
 
 // Compile guard: invokes each macro once to force type-checking of macro bodies.
