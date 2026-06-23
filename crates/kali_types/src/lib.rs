@@ -160,11 +160,11 @@ impl StaticObjectIdentityValue {
     }
 }
 
-fn block_contains_yield_delegation(block: &BlockStatement) -> bool {
+pub(crate) fn block_contains_yield_delegation(block: &BlockStatement) -> bool {
     block.body.iter().any(statement_contains_yield_delegation)
 }
 
-fn statement_contains_yield_delegation(statement: &Statement) -> bool {
+pub(crate) fn statement_contains_yield_delegation(statement: &Statement) -> bool {
     match statement {
         Statement::ExpressionStatement(expression) => {
             expression_contains_yield_delegation(&expression.expression)
@@ -308,7 +308,7 @@ fn statement_contains_yield_delegation(statement: &Statement) -> bool {
     }
 }
 
-fn expression_contains_yield_delegation(expression: &Expression) -> bool {
+pub(crate) fn expression_contains_yield_delegation(expression: &Expression) -> bool {
     match expression {
         Expression::YieldExpression(yield_expr) => yield_expr.delegate,
         Expression::ParenthesizedExpression(parenthesized) => {
@@ -7391,7 +7391,7 @@ impl TypeContext {
     }
 }
 
-fn package_root_for_materialized_source(source: &Path) -> Option<PathBuf> {
+pub(crate) fn package_root_for_materialized_source(source: &Path) -> Option<PathBuf> {
     for ancestor in source.ancestors() {
         if !ancestor.join("package.json").exists() {
             continue;
@@ -7415,7 +7415,7 @@ fn package_root_for_materialized_source(source: &Path) -> Option<PathBuf> {
     None
 }
 
-fn reject_native_addon_package_source(source: &Path) -> Option<Diagnostic> {
+pub(crate) fn reject_native_addon_package_source(source: &Path) -> Option<Diagnostic> {
     let package_root = package_root_for_materialized_source(source)?;
     let package_json_path = package_root.join("package.json");
     let package_json_contents = fs::read_to_string(&package_json_path).ok()?;
@@ -7469,7 +7469,7 @@ fn reject_native_addon_package_source(source: &Path) -> Option<Diagnostic> {
     None
 }
 
-fn value_contains_native_addon_path(value: &serde_json::Value) -> bool {
+pub(crate) fn value_contains_native_addon_path(value: &serde_json::Value) -> bool {
     match value {
         serde_json::Value::String(path) => path.ends_with(".node"),
         serde_json::Value::Array(values) => values.iter().any(value_contains_native_addon_path),
@@ -7478,7 +7478,7 @@ fn value_contains_native_addon_path(value: &serde_json::Value) -> bool {
     }
 }
 
-fn native_addon_path(value: &serde_json::Value) -> Option<&str> {
+pub(crate) fn native_addon_path(value: &serde_json::Value) -> Option<&str> {
     value.as_str().filter(|path| path.ends_with(".node"))
 }
 
@@ -7545,15 +7545,15 @@ impl TypeChecker {
     }
 }
 
-fn is_ident_start(ch: char) -> bool {
+pub(crate) fn is_ident_start(ch: char) -> bool {
     ch == '_' || ch == '$' || ch.is_ascii_alphabetic()
 }
 
-fn is_ident_continue(ch: char) -> bool {
+pub(crate) fn is_ident_continue(ch: char) -> bool {
     is_ident_start(ch) || ch.is_ascii_digit()
 }
 
-fn is_type_annotation_keyword(ident: &str) -> bool {
+pub(crate) fn is_type_annotation_keyword(ident: &str) -> bool {
     matches!(
         ident,
         "any"
@@ -7586,7 +7586,7 @@ fn is_type_annotation_keyword(ident: &str) -> bool {
     )
 }
 
-fn is_property_name_context(chars: &[char], start: usize, end: usize) -> bool {
+pub(crate) fn is_property_name_context(chars: &[char], start: usize, end: usize) -> bool {
     if matches!(next_non_whitespace_char(chars, end), Some(':')) {
         return true;
     }
@@ -7613,7 +7613,7 @@ fn is_property_name_context(chars: &[char], start: usize, end: usize) -> bool {
     false
 }
 
-fn next_non_whitespace_char(chars: &[char], mut index: usize) -> Option<char> {
+pub(crate) fn next_non_whitespace_char(chars: &[char], mut index: usize) -> Option<char> {
     while index < chars.len() {
         let ch = chars[index];
         if !ch.is_whitespace() {
@@ -7624,7 +7624,7 @@ fn next_non_whitespace_char(chars: &[char], mut index: usize) -> Option<char> {
     None
 }
 
-fn skip_quoted_annotation_segment(chars: &[char], start: usize) -> usize {
+pub(crate) fn skip_quoted_annotation_segment(chars: &[char], start: usize) -> usize {
     let quote = chars[start];
     let mut index = start + 1;
     while index < chars.len() {
@@ -7641,18 +7641,18 @@ fn skip_quoted_annotation_segment(chars: &[char], start: usize) -> usize {
     chars.len()
 }
 
-fn parse_numeric_literal_value(text: &str) -> Option<f64> {
+pub(crate) fn parse_numeric_literal_value(text: &str) -> Option<f64> {
     if let Some(stripped) = text.strip_suffix('n') {
         return stripped.parse::<f64>().ok();
     }
     text.parse::<f64>().ok()
 }
 
-fn is_supported_static_ascii_char_code(value: f64) -> bool {
+pub(crate) fn is_supported_static_ascii_char_code(value: f64) -> bool {
     value.is_finite() && value.fract() == 0.0 && (0.0..=127.0).contains(&value)
 }
 
-fn static_parse_float_ascii_integer(source: &str) -> Option<i64> {
+pub(crate) fn static_parse_float_ascii_integer(source: &str) -> Option<i64> {
     if !source.is_ascii() {
         return None;
     }
@@ -7713,7 +7713,7 @@ fn static_parse_float_ascii_integer(source: &str) -> Option<i64> {
     Some(value as i64)
 }
 
-fn static_parse_int_ascii(source: &str, radix: u32) -> Option<i64> {
+pub(crate) fn static_parse_int_ascii(source: &str, radix: u32) -> Option<i64> {
     if !source.is_ascii() || !(radix == 0 || (2..=36).contains(&radix)) {
         return None;
     }
@@ -7765,7 +7765,7 @@ fn static_parse_int_ascii(source: &str, radix: u32) -> Option<i64> {
     }
 }
 
-fn builtin_globals() -> &'static [&'static str] {
+pub(crate) fn builtin_globals() -> &'static [&'static str] {
     &[
         "AbortController",
         "AbortSignal",
@@ -7842,11 +7842,11 @@ fn builtin_globals() -> &'static [&'static str] {
     ]
 }
 
-fn node_builtin_globals() -> &'static [&'static str] {
+pub(crate) fn node_builtin_globals() -> &'static [&'static str] {
     &["Buffer", "exports", "module", "process", "require"]
 }
 
-fn node_builtin_specifiers() -> &'static [&'static str] {
+pub(crate) fn node_builtin_specifiers() -> &'static [&'static str] {
     &[
         "assert",
         "buffer",
@@ -7867,12 +7867,12 @@ fn node_builtin_specifiers() -> &'static [&'static str] {
     ]
 }
 
-fn is_node_builtin_specifier(source: &str) -> bool {
+pub(crate) fn is_node_builtin_specifier(source: &str) -> bool {
     let normalized = source.strip_prefix("node:").unwrap_or(source);
     node_builtin_specifiers().contains(&normalized)
 }
 
-fn bind_builtin(scope: &mut Scope, next_binding_id: &mut u32, name: &str) {
+pub(crate) fn bind_builtin(scope: &mut Scope, next_binding_id: &mut u32, name: &str) {
     if scope.contains(name) {
         return;
     }
@@ -7883,7 +7883,7 @@ fn bind_builtin(scope: &mut Scope, next_binding_id: &mut u32, name: &str) {
         .expect("binding id overflow is unreachable in stage 1");
 }
 
-fn duplicate_binding(name: &str) -> Diagnostic {
+pub(crate) fn duplicate_binding(name: &str) -> Diagnostic {
     Diagnostic::error(
         e3::DUPLICATE_BINDING as u32,
         format!("duplicate binding '{}'", name),
