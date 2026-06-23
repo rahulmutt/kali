@@ -651,3 +651,7 @@ impl TypeContext {
     }
 
 }
+
+#[cfg(test)]
+#[path = "late_host_tests.rs"]
+mod late_host_tests;
