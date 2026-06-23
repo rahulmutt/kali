@@ -59,7 +59,7 @@ pub struct Scope {
     pub mutable_bindings: IndexMap<String, bool>,
     pub static_values: IndexMap<String, String>,
     pub static_numeric_values: IndexMap<String, String>,
-    static_identity_values: IndexMap<String, StaticObjectIdentityValue>,
+    pub(crate) static_identity_values: IndexMap<String, StaticObjectIdentityValue>,
     pub static_arrays: IndexMap<String, bool>,
     pub static_objects: IndexMap<String, bool>,
     pub static_reference_values: IndexMap<String, String>,
@@ -97,7 +97,7 @@ impl Scope {
         self.bindings.contains_key(name)
     }
 
-    fn invalidate_static_binding(&mut self, name: &str) {
+    pub(crate) fn invalidate_static_binding(&mut self, name: &str) {
         self.static_values.shift_remove(name);
         self.static_numeric_values.shift_remove(name);
         self.static_identity_values.shift_remove(name);
@@ -117,7 +117,7 @@ pub struct ResolutionResult {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-enum StaticObjectIdentityValue {
+pub(crate) enum StaticObjectIdentityValue {
     Boolean(bool),
     Number(f64),
     String(String),
@@ -128,7 +128,7 @@ enum StaticObjectIdentityValue {
 }
 
 impl StaticObjectIdentityValue {
-    fn same_value(&self, other: &Self) -> bool {
+    pub(crate) fn same_value(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Boolean(left), Self::Boolean(right)) => left == right,
             (Self::String(left), Self::String(right)) => left == right,
@@ -144,11 +144,11 @@ impl StaticObjectIdentityValue {
         }
     }
 
-    fn is_nullish(&self) -> bool {
+    pub(crate) fn is_nullish(&self) -> bool {
         matches!(self, Self::Null | Self::Undefined)
     }
 
-    fn truthiness(&self) -> Option<bool> {
+    pub(crate) fn truthiness(&self) -> Option<bool> {
         match self {
             Self::Boolean(value) => Some(*value),
             Self::Number(value) => Some(!value.is_nan() && *value != 0.0),
@@ -403,17 +403,17 @@ pub struct TypeContext {
     pub scopes: IndexMap<NodeId, Scope>,
     pub scope_stack: Vec<NodeId>,
     pub type_env: IndexMap<NodeId, String>,
-    diagnostics: Vec<Diagnostic>,
-    next_scope_id: u32,
-    next_binding_id: u32,
-    base_path: Option<PathBuf>,
-    api_surface: String,
-    runtime_profiles: Vec<String>,
-    sandbox_policy_attached: bool,
-    in_generator_function: bool,
-    has_generator_function: bool,
-    has_async_generator_function: bool,
-    has_generator_yield_delegation: bool,
+    pub(crate) diagnostics: Vec<Diagnostic>,
+    pub(crate) next_scope_id: u32,
+    pub(crate) next_binding_id: u32,
+    pub(crate) base_path: Option<PathBuf>,
+    pub(crate) api_surface: String,
+    pub(crate) runtime_profiles: Vec<String>,
+    pub(crate) sandbox_policy_attached: bool,
+    pub(crate) in_generator_function: bool,
+    pub(crate) has_generator_function: bool,
+    pub(crate) has_async_generator_function: bool,
+    pub(crate) has_generator_yield_delegation: bool,
 }
 
 impl TypeContext {
@@ -509,7 +509,7 @@ impl TypeContext {
         self.sandbox_policy_attached = sandbox_policy_attached;
     }
 
-    fn has_threaded_runtime_profile(&self) -> bool {
+    pub(crate) fn has_threaded_runtime_profile(&self) -> bool {
         self.runtime_profiles
             .iter()
             .any(|profile| profile.trim() == "wasm-threads")
@@ -630,7 +630,7 @@ impl TypeContext {
         self.resolve_statements_at_path(Some(file_path), statements)
     }
 
-    fn next_binding_id(&mut self) -> NodeId {
+    pub(crate) fn next_binding_id(&mut self) -> NodeId {
         let id = NodeId::new(self.next_binding_id);
         self.next_binding_id = self
             .next_binding_id
@@ -639,15 +639,15 @@ impl TypeContext {
         id
     }
 
-    fn current_scope_id(&self) -> Option<NodeId> {
+    pub(crate) fn current_scope_id(&self) -> Option<NodeId> {
         self.scope_stack.last().copied()
     }
 
-    fn scope_mut(&mut self, scope_id: NodeId) -> Option<&mut Scope> {
+    pub(crate) fn scope_mut(&mut self, scope_id: NodeId) -> Option<&mut Scope> {
         self.scopes.get_mut(&scope_id)
     }
 
-    fn bind_current_scope(&mut self, name: impl Into<String>) {
+    pub(crate) fn bind_current_scope(&mut self, name: impl Into<String>) {
         let name = name.into();
         let binding_id = self.next_binding_id();
         match self.current_scope_id() {
@@ -669,7 +669,7 @@ impl TypeContext {
         }
     }
 
-    fn bind_in_scope(&mut self, scope_id: NodeId, name: impl Into<String>) {
+    pub(crate) fn bind_in_scope(&mut self, scope_id: NodeId, name: impl Into<String>) {
         let name = name.into();
         let binding_id = self.next_binding_id();
         let scope = self.scope_mut(scope_id).expect("scope exists");
@@ -680,20 +680,20 @@ impl TypeContext {
         scope.bind(name, binding_id);
     }
 
-    fn resolve_statement_list(&mut self, statements: &[Statement]) {
+    pub(crate) fn resolve_statement_list(&mut self, statements: &[Statement]) {
         for statement in statements {
             self.resolve_statement(statement);
         }
     }
 
-    fn record_generator_function_lowering(&mut self, is_async: bool) {
+    pub(crate) fn record_generator_function_lowering(&mut self, is_async: bool) {
         self.has_generator_function = true;
         if is_async {
             self.has_async_generator_function = true;
         }
     }
 
-    fn emit_pending_generator_function_lowering_diagnostic(&mut self) {
+    pub(crate) fn emit_pending_generator_function_lowering_diagnostic(&mut self) {
         if !self.has_generator_function && !self.has_async_generator_function {
             return;
         }
@@ -718,7 +718,7 @@ impl TypeContext {
         self.has_async_generator_function = false;
     }
 
-    fn resolve_statement(&mut self, statement: &Statement) {
+    pub(crate) fn resolve_statement(&mut self, statement: &Statement) {
         match statement {
             Statement::ExpressionStatement(ExpressionStatement { expression }) => {
                 self.resolve_expression(expression)
@@ -919,26 +919,26 @@ impl TypeContext {
         }
     }
 
-    fn resolve_block_statement(&mut self, block: &BlockStatement) {
+    pub(crate) fn resolve_block_statement(&mut self, block: &BlockStatement) {
         self.push_scope(ScopeType::Block);
         self.resolve_block_body(block);
         self.pop_scope();
     }
 
-    fn resolve_block_body(&mut self, block: &BlockStatement) {
+    pub(crate) fn resolve_block_body(&mut self, block: &BlockStatement) {
         for statement in &block.body {
             self.resolve_statement(statement);
         }
     }
 
-    fn resolve_loop_body(&mut self, body: &Statement) {
+    pub(crate) fn resolve_loop_body(&mut self, body: &Statement) {
         match body {
             Statement::BlockStatement(block) => self.resolve_block_body(block),
             other => self.resolve_statement(other),
         }
     }
 
-    fn unwrap_for_of_wrapper_expression<'a>(&self, expression: &'a Expression) -> &'a Expression {
+    pub(crate) fn unwrap_for_of_wrapper_expression<'a>(&self, expression: &'a Expression) -> &'a Expression {
         let mut current = expression;
         loop {
             current = match current {
@@ -1038,7 +1038,7 @@ impl TypeContext {
         }
     }
 
-    fn is_static_array_iteration_target(&self, expression: &Expression) -> bool {
+    pub(crate) fn is_static_array_iteration_target(&self, expression: &Expression) -> bool {
         match self.unwrap_for_of_wrapper_expression(expression) {
             Expression::ArrayExpression(array) => {
                 array.elements.iter().all(|element| match element {
@@ -1080,7 +1080,7 @@ impl TypeContext {
         }
     }
 
-    fn is_static_literal_array_receiver(&self, expression: &Expression) -> bool {
+    pub(crate) fn is_static_literal_array_receiver(&self, expression: &Expression) -> bool {
         match self.unwrap_for_of_wrapper_expression(expression) {
             Expression::ArrayExpression(array) => {
                 array.elements.iter().all(|element| match element {
@@ -1102,7 +1102,7 @@ impl TypeContext {
         }
     }
 
-    fn is_static_truthy_array_literal(&self, expression: &Expression) -> bool {
+    pub(crate) fn is_static_truthy_array_literal(&self, expression: &Expression) -> bool {
         match self.unwrap_for_of_wrapper_expression(expression) {
             Expression::ArrayExpression(array) => {
                 array.elements.iter().all(|element| match element {
@@ -1121,7 +1121,7 @@ impl TypeContext {
         }
     }
 
-    fn is_static_non_empty_numeric_array_iteration_target(&self, expression: &Expression) -> bool {
+    pub(crate) fn is_static_non_empty_numeric_array_iteration_target(&self, expression: &Expression) -> bool {
         match self.unwrap_for_of_wrapper_expression(expression) {
             Expression::ArrayExpression(array) => {
                 !array.elements.is_empty()
@@ -1143,7 +1143,7 @@ impl TypeContext {
         }
     }
 
-    fn is_static_identity_array_filter_call(&self, call: &CallExpression) -> bool {
+    pub(crate) fn is_static_identity_array_filter_call(&self, call: &CallExpression) -> bool {
         let Expression::MemberExpression(member) = &call.callee else {
             return false;
         };
@@ -1157,7 +1157,7 @@ impl TypeContext {
             && self.is_identity_array_callback(&call.args[0])
     }
 
-    fn is_static_predicate_array_filter_call(&self, call: &CallExpression) -> bool {
+    pub(crate) fn is_static_predicate_array_filter_call(&self, call: &CallExpression) -> bool {
         let Expression::MemberExpression(member) = &call.callee else {
             return false;
         };
@@ -1171,7 +1171,7 @@ impl TypeContext {
             && self.is_some_every_array_callback(&call.args[0])
     }
 
-    fn is_static_identity_array_flat_map_call(&self, call: &CallExpression) -> bool {
+    pub(crate) fn is_static_identity_array_flat_map_call(&self, call: &CallExpression) -> bool {
         let Expression::MemberExpression(member) = &call.callee else {
             return false;
         };
@@ -1185,14 +1185,14 @@ impl TypeContext {
             && self.is_identity_array_flat_map_callback(&call.args[0])
     }
 
-    fn is_static_array_from_call(&self, call: &CallExpression) -> bool {
+    pub(crate) fn is_static_array_from_call(&self, call: &CallExpression) -> bool {
         matches!(
             self.resolve_static_callable_name(&call.callee).as_deref(),
             Some(name) if kali_common::array_from_aliases().contains(&name)
         )
     }
 
-    fn is_static_identity_array_map_call(&self, call: &CallExpression) -> bool {
+    pub(crate) fn is_static_identity_array_map_call(&self, call: &CallExpression) -> bool {
         let Expression::MemberExpression(member) = &call.callee else {
             return false;
         };
@@ -1206,7 +1206,7 @@ impl TypeContext {
             && self.is_identity_array_callback(&call.args[0])
     }
 
-    fn is_static_set_constructor_iteration_target(&self, expression: &NewExpression) -> bool {
+    pub(crate) fn is_static_set_constructor_iteration_target(&self, expression: &NewExpression) -> bool {
         let (callee_expression, args) = match &expression.callee {
             Expression::CallExpression(call) if Self::is_object_freeze_call(call) => {
                 (call.args.first().unwrap_or(&call.callee), &expression.args)
@@ -1230,7 +1230,7 @@ impl TypeContext {
             && self.is_static_array_iteration_target(&args[0])
     }
 
-    fn is_static_map_constructor_iteration_target(&self, expression: &NewExpression) -> bool {
+    pub(crate) fn is_static_map_constructor_iteration_target(&self, expression: &NewExpression) -> bool {
         let (callee_expression, args) = match &expression.callee {
             Expression::CallExpression(call) if Self::is_object_freeze_call(call) => {
                 (call.args.first().unwrap_or(&call.callee), &expression.args)
@@ -1253,7 +1253,7 @@ impl TypeContext {
             && self.is_static_array_iteration_target(&args[0])
     }
 
-    fn resolve_static_string_iterable_expression(&self, expression: &Expression) -> Option<String> {
+    pub(crate) fn resolve_static_string_iterable_expression(&self, expression: &Expression) -> Option<String> {
         match self.unwrap_for_of_wrapper_expression(expression) {
             Expression::Literal(LiteralValue::String(value)) => Some(value.clone()),
             Expression::Identifier(name) => self.resolve_static_string_binding(name),
@@ -1286,7 +1286,7 @@ impl TypeContext {
         }
     }
 
-    fn is_static_object_enumeration_iteration_target(&self, call: &CallExpression) -> bool {
+    pub(crate) fn is_static_object_enumeration_iteration_target(&self, call: &CallExpression) -> bool {
         let Some(callee_name) = self.resolve_static_callable_name(&call.callee) else {
             return false;
         };
@@ -1352,7 +1352,7 @@ impl TypeContext {
         self.resolve_static_object_keys_target(object_arg)
     }
 
-    fn is_static_array_iteration_element(&self, expression: &Expression) -> bool {
+    pub(crate) fn is_static_array_iteration_element(&self, expression: &Expression) -> bool {
         match self.unwrap_for_of_wrapper_expression(expression) {
             Expression::Literal(_) => true,
             Expression::Identifier(_) => {
@@ -1378,14 +1378,14 @@ impl TypeContext {
         }
     }
 
-    fn is_simple_for_of_binding_expression(&self, expression: &Expression) -> bool {
+    pub(crate) fn is_simple_for_of_binding_expression(&self, expression: &Expression) -> bool {
         matches!(
             self.unwrap_for_of_wrapper_expression(expression),
             Expression::Identifier(_)
         )
     }
 
-    fn is_simple_update_target_expression(&self, expression: &Expression) -> bool {
+    pub(crate) fn is_simple_update_target_expression(&self, expression: &Expression) -> bool {
         matches!(
             expression,
             Expression::Identifier(_)
@@ -1396,7 +1396,7 @@ impl TypeContext {
         )
     }
 
-    fn resolve_update_binding_name(&self, expression: &Expression) -> Option<String> {
+    pub(crate) fn resolve_update_binding_name(&self, expression: &Expression) -> Option<String> {
         match expression {
             Expression::Identifier(name) => Some(name.clone()),
             Expression::ParenthesizedExpression(expr) => {
@@ -1413,7 +1413,7 @@ impl TypeContext {
         }
     }
 
-    fn resolve_switch_cases(&mut self, cases: &[SwitchCase]) {
+    pub(crate) fn resolve_switch_cases(&mut self, cases: &[SwitchCase]) {
         self.push_scope(ScopeType::Block);
         for case in cases {
             if let Some(test) = &case.test {
@@ -1426,7 +1426,7 @@ impl TypeContext {
         self.pop_scope();
     }
 
-    fn resolve_variable_declaration(&mut self, declaration: &VariableDeclaration) {
+    pub(crate) fn resolve_variable_declaration(&mut self, declaration: &VariableDeclaration) {
         let target_scope = self.variable_binding_scope(&declaration.kind);
         for declarator in &declaration.declarations {
             self.bind_in_scope(target_scope, declarator.id.clone());
@@ -1502,7 +1502,7 @@ impl TypeContext {
         }
     }
 
-    fn variable_binding_scope(&self, kind: &str) -> NodeId {
+    pub(crate) fn variable_binding_scope(&self, kind: &str) -> NodeId {
         if kind != "var" {
             return self.current_scope_id().unwrap_or_else(|| NodeId::new(0));
         }
@@ -1519,7 +1519,7 @@ impl TypeContext {
         self.current_scope_id().unwrap_or_else(|| NodeId::new(0))
     }
 
-    fn resolve_expression(&mut self, expression: &Expression) {
+    pub(crate) fn resolve_expression(&mut self, expression: &Expression) {
         match expression {
             Expression::Identifier(name) => self.resolve_identifier(name),
             Expression::Literal(_) => {}
@@ -1676,7 +1676,7 @@ impl TypeContext {
         }
     }
 
-    fn resolve_update_expression(&mut self, expr: &UpdateExpression) {
+    pub(crate) fn resolve_update_expression(&mut self, expr: &UpdateExpression) {
         self.resolve_expression(&expr.argument);
 
         if !self.is_simple_update_target_expression(&expr.argument) {
@@ -1708,7 +1708,7 @@ impl TypeContext {
         }
     }
 
-    fn invalidate_static_binding(&mut self, name: &str) {
+    pub(crate) fn invalidate_static_binding(&mut self, name: &str) {
         let mut current = self.current_scope_id();
         while let Some(scope_id) = current {
             if let Some(scope) = self.scopes.get_mut(&scope_id) {
@@ -1727,7 +1727,7 @@ impl TypeContext {
         }
     }
 
-    fn binding_is_mutable(&self, name: &str) -> bool {
+    pub(crate) fn binding_is_mutable(&self, name: &str) -> bool {
         let mut current = self.current_scope_id();
         while let Some(scope_id) = current {
             let scope = self.scopes.get(&scope_id).expect("scope exists");
@@ -1746,7 +1746,7 @@ impl TypeContext {
                 .unwrap_or(false)
     }
 
-    fn resolve_import_expression(&mut self, expr: &ImportExpression) {
+    pub(crate) fn resolve_import_expression(&mut self, expr: &ImportExpression) {
         self.resolve_expression(&expr.source);
 
         if let Some(source) = self.resolve_static_import_source(&expr.source) {
@@ -1781,11 +1781,11 @@ impl TypeContext {
         }
     }
 
-    fn resolve_static_import_source(&self, expression: &Expression) -> Option<String> {
+    pub(crate) fn resolve_static_import_source(&self, expression: &Expression) -> Option<String> {
         self.resolve_static_string_expression(expression)
     }
 
-    fn resolve_static_string_expression(&self, expression: &Expression) -> Option<String> {
+    pub(crate) fn resolve_static_string_expression(&self, expression: &Expression) -> Option<String> {
         match expression {
             Expression::Literal(LiteralValue::String(value)) => {
                 if let Some(rendered) = resolve_interpolated_template_literal(value, |segment| {
@@ -1916,7 +1916,7 @@ impl TypeContext {
         }
     }
 
-    fn resolve_static_string_from_char_code_expression(
+    pub(crate) fn resolve_static_string_from_char_code_expression(
         &self,
         expr: &CallExpression,
     ) -> Option<String> {
@@ -1942,7 +1942,7 @@ impl TypeContext {
         Some(rendered)
     }
 
-    fn resolve_static_string_normalize_expression(&self, expr: &CallExpression) -> Option<String> {
+    pub(crate) fn resolve_static_string_normalize_expression(&self, expr: &CallExpression) -> Option<String> {
         let Expression::MemberExpression(member) = &expr.callee else {
             return None;
         };
@@ -1962,7 +1962,7 @@ impl TypeContext {
         matches!(form.as_str(), "NFC" | "NFD" | "NFKC" | "NFKD").then_some(source)
     }
 
-    fn resolve_static_string_binding(&self, name: &str) -> Option<String> {
+    pub(crate) fn resolve_static_string_binding(&self, name: &str) -> Option<String> {
         let mut current = self.current_scope_id();
         while let Some(scope_id) = current {
             let scope = self.scopes.get(&scope_id)?;
@@ -1975,7 +1975,7 @@ impl TypeContext {
         self.global_scope.static_values.get(name).cloned()
     }
 
-    fn resolve_static_string_from_source(&self, source: &str) -> Option<String> {
+    pub(crate) fn resolve_static_string_from_source(&self, source: &str) -> Option<String> {
         let wrapped = format!("const __kali_template__ = ({source});");
         let lexer = Lexer::new(kali_common::FileId::new(0), wrapped);
         let tokens = lexer.lex_all().tokens;
@@ -1988,7 +1988,7 @@ impl TypeContext {
         self.resolve_static_string_expression(initializer)
     }
 
-    fn resolve_static_object_identity_binding(
+    pub(crate) fn resolve_static_object_identity_binding(
         &self,
         name: &str,
     ) -> Option<StaticObjectIdentityValue> {
@@ -2004,14 +2004,14 @@ impl TypeContext {
         self.global_scope.static_identity_values.get(name).cloned()
     }
 
-    fn resolve_static_object_identity_reference_name(
+    pub(crate) fn resolve_static_object_identity_reference_name(
         &self,
         expression: &Expression,
     ) -> Option<String> {
         self.resolve_static_reference_root(expression)
     }
 
-    fn resolve_static_object_identity_literal_value(
+    pub(crate) fn resolve_static_object_identity_literal_value(
         &self,
         expression: &Expression,
     ) -> Option<StaticObjectIdentityValue> {
@@ -2217,7 +2217,7 @@ impl TypeContext {
         }
     }
 
-    fn resolve_static_numeric_binding(&self, name: &str) -> Option<f64> {
+    pub(crate) fn resolve_static_numeric_binding(&self, name: &str) -> Option<f64> {
         let mut current = self.current_scope_id();
         while let Some(scope_id) = current {
             let scope = self.scopes.get(&scope_id)?;
@@ -2233,7 +2233,7 @@ impl TypeContext {
             .and_then(|value| parse_numeric_literal_value(value))
     }
 
-    fn resolve_static_array_binding_name(&self, name: &str) -> bool {
+    pub(crate) fn resolve_static_array_binding_name(&self, name: &str) -> bool {
         let mut current = self.current_scope_id();
         while let Some(scope_id) = current {
             let scope = self.scopes.get(&scope_id).expect("scope exists");
@@ -2246,7 +2246,7 @@ impl TypeContext {
         self.global_scope.static_arrays.contains_key(name)
     }
 
-    fn resolve_static_object_binding_name(&self, name: &str) -> bool {
+    pub(crate) fn resolve_static_object_binding_name(&self, name: &str) -> bool {
         let mut current = self.current_scope_id();
         while let Some(scope_id) = current {
             let scope = self.scopes.get(&scope_id).expect("scope exists");
@@ -2259,7 +2259,7 @@ impl TypeContext {
         self.global_scope.static_objects.contains_key(name)
     }
 
-    fn resolve_static_reference_binding_name(&self, name: &str) -> Option<String> {
+    pub(crate) fn resolve_static_reference_binding_name(&self, name: &str) -> Option<String> {
         let mut current = self.current_scope_id();
         while let Some(scope_id) = current {
             let scope = self.scopes.get(&scope_id).expect("scope exists");
@@ -2272,7 +2272,7 @@ impl TypeContext {
         self.global_scope.static_reference_values.get(name).cloned()
     }
 
-    fn resolve_static_reference_root(&self, expression: &Expression) -> Option<String> {
+    pub(crate) fn resolve_static_reference_root(&self, expression: &Expression) -> Option<String> {
         match expression {
             Expression::ParenthesizedExpression(expr) => {
                 self.resolve_static_reference_root(&expr.expression)
@@ -2421,7 +2421,7 @@ impl TypeContext {
         }
     }
 
-    fn resolve_static_object_keys_binding_name(&self, name: &str) -> bool {
+    pub(crate) fn resolve_static_object_keys_binding_name(&self, name: &str) -> bool {
         let mut current = self.current_scope_id();
         while let Some(scope_id) = current {
             let scope = self.scopes.get(&scope_id).expect("scope exists");
@@ -2434,7 +2434,7 @@ impl TypeContext {
         self.global_scope.static_object_keys.contains_key(name)
     }
 
-    fn resolve_static_object_model_target(&self, expression: &Expression) -> bool {
+    pub(crate) fn resolve_static_object_model_target(&self, expression: &Expression) -> bool {
         match expression {
             Expression::ParenthesizedExpression(expr) => {
                 self.resolve_static_object_model_target(&expr.expression)
@@ -2498,7 +2498,7 @@ impl TypeContext {
         }
     }
 
-    fn resolve_static_object_keys_target(&self, expression: &Expression) -> bool {
+    pub(crate) fn resolve_static_object_keys_target(&self, expression: &Expression) -> bool {
         match expression {
             Expression::ParenthesizedExpression(expr) => {
                 self.resolve_static_object_keys_target(&expr.expression)
@@ -2569,7 +2569,7 @@ impl TypeContext {
         }
     }
 
-    fn is_object_freeze_call(call: &CallExpression) -> bool {
+    pub(crate) fn is_object_freeze_call(call: &CallExpression) -> bool {
         matches!(
             Self::call_member_access_name(&call.callee).as_deref(),
             Some("Object.freeze")
@@ -2585,7 +2585,7 @@ impl TypeContext {
         ) && call.args.len() == 1
     }
 
-    fn is_reflect_own_keys_call(call: &CallExpression) -> bool {
+    pub(crate) fn is_reflect_own_keys_call(call: &CallExpression) -> bool {
         matches!(
             Self::call_member_access_name(&call.callee).as_deref(),
             Some("Reflect.ownKeys")
@@ -2603,7 +2603,7 @@ impl TypeContext {
         ) && call.args.len() == 1
     }
 
-    fn resolve_static_object_from_entries_call(&self, call: &CallExpression) -> bool {
+    pub(crate) fn resolve_static_object_from_entries_call(&self, call: &CallExpression) -> bool {
         let Some(callee_name) = self.resolve_static_callable_name(&call.callee) else {
             return false;
         };
@@ -2634,7 +2634,7 @@ impl TypeContext {
         self.resolve_static_from_entries_entries(entries)
     }
 
-    fn resolve_static_from_entries_entries(&self, expression: &Expression) -> bool {
+    pub(crate) fn resolve_static_from_entries_entries(&self, expression: &Expression) -> bool {
         match expression {
             Expression::ParenthesizedExpression(expr) => {
                 self.resolve_static_from_entries_entries(&expr.expression)
@@ -2704,7 +2704,7 @@ impl TypeContext {
         }
     }
 
-    fn normalize_import_segment(value: &str) -> String {
+    pub(crate) fn normalize_import_segment(value: &str) -> String {
         let trimmed = value.trim();
         if trimmed.len() >= 2 {
             let mut chars = trimmed.chars();
@@ -2717,7 +2717,7 @@ impl TypeContext {
         trimmed.to_string()
     }
 
-    fn resolve_identifier(&mut self, name: &str) {
+    pub(crate) fn resolve_identifier(&mut self, name: &str) {
         if matches!(name, "unknown" | "undefined") {
             return;
         }
@@ -2769,7 +2769,7 @@ impl TypeContext {
         }
     }
 
-    fn resolve_call_expression(&mut self, expr: &CallExpression) {
+    pub(crate) fn resolve_call_expression(&mut self, expr: &CallExpression) {
         if let Expression::SequenceExpression(sequence) = &expr.callee {
             if sequence.expressions.len() > 1 {
                 for callee_expression in sequence
@@ -2844,7 +2844,7 @@ impl TypeContext {
         self.resolve_promise_member_call(expr);
     }
 
-    fn call_member_access_name(expression: &Expression) -> Option<String> {
+    pub(crate) fn call_member_access_name(expression: &Expression) -> Option<String> {
         match expression {
             Expression::MemberExpression(member) => Self::member_access_name(member),
             Expression::ParenthesizedExpression(expr) => {
@@ -2870,7 +2870,7 @@ impl TypeContext {
         }
     }
 
-    fn unwrap_static_callable_expression(expression: &Expression) -> &Expression {
+    pub(crate) fn unwrap_static_callable_expression(expression: &Expression) -> &Expression {
         match expression {
             Expression::ParenthesizedExpression(expr) => {
                 Self::unwrap_static_callable_expression(&expr.expression)
@@ -2909,7 +2909,7 @@ impl TypeContext {
         }
     }
 
-    fn resolve_static_callable_name(&self, expression: &Expression) -> Option<String> {
+    pub(crate) fn resolve_static_callable_name(&self, expression: &Expression) -> Option<String> {
         let expression = Self::unwrap_static_callable_expression(expression);
         if let Expression::ConditionalExpression(expr) = expression {
             match self.resolve_static_object_identity_literal_value(&expr.test) {
@@ -3043,7 +3043,7 @@ impl TypeContext {
             .or_else(|| self.resolve_static_reference_root(expression))
     }
 
-    fn contains_optional_chain(expression: &Expression) -> bool {
+    pub(crate) fn contains_optional_chain(expression: &Expression) -> bool {
         match expression {
             Expression::OptionalChainExpression(_) => true,
             Expression::ParenthesizedExpression(expr) => {
@@ -3083,13 +3083,13 @@ impl TypeContext {
         }
     }
 
-    fn is_supported_static_callable_member_expression(&self, expr: &MemberExpression) -> bool {
+    pub(crate) fn is_supported_static_callable_member_expression(&self, expr: &MemberExpression) -> bool {
         let dotted = Self::member_access_name(expr).unwrap_or_else(|| expr.property.clone());
         let bracketed = Self::member_access_name_bracketed(expr).unwrap_or_else(|| dotted.clone());
         self.is_supported_static_callable_member_name(&dotted, &bracketed)
     }
 
-    fn is_supported_static_callable_member_name(&self, dotted: &str, bracketed: &str) -> bool {
+    pub(crate) fn is_supported_static_callable_member_name(&self, dotted: &str, bracketed: &str) -> bool {
         matches!(
             dotted,
             "Object.is"
@@ -3228,7 +3228,7 @@ impl TypeContext {
         )
     }
 
-    fn resolve_member_expression(&mut self, expr: &MemberExpression) {
+    pub(crate) fn resolve_member_expression(&mut self, expr: &MemberExpression) {
         if self.resolve_late_intl_member(expr) {
             return;
         }
@@ -3265,7 +3265,7 @@ impl TypeContext {
         self.resolve_late_permission_escalation_member(expr);
     }
 
-    fn resolve_permission_query_call(&mut self, expr: &CallExpression) {
+    pub(crate) fn resolve_permission_query_call(&mut self, expr: &CallExpression) {
         let Some(callee_name) = self.resolve_static_callable_name(&expr.callee) else {
             return;
         };
@@ -3298,7 +3298,7 @@ impl TypeContext {
         ));
     }
 
-    fn resolve_process_kill_call(&mut self, expr: &CallExpression) {
+    pub(crate) fn resolve_process_kill_call(&mut self, expr: &CallExpression) {
         let Some(callee_name) = self.resolve_static_callable_name(&expr.callee) else {
             return;
         };
@@ -3338,7 +3338,7 @@ impl TypeContext {
         }
     }
 
-    fn resolve_frozen_late_object_model_call(&mut self, expr: &CallExpression) -> bool {
+    pub(crate) fn resolve_frozen_late_object_model_call(&mut self, expr: &CallExpression) -> bool {
         if !Self::is_object_freeze_call(expr) {
             return false;
         }
@@ -3381,7 +3381,7 @@ impl TypeContext {
         true
     }
 
-    fn resolve_frozen_late_object_model_name(
+    pub(crate) fn resolve_frozen_late_object_model_name(
         &self,
         expression: &Expression,
     ) -> Option<(String, String)> {
@@ -3411,7 +3411,7 @@ impl TypeContext {
         }
     }
 
-    fn resolve_static_object_model_call(&mut self, expr: &CallExpression) -> bool {
+    pub(crate) fn resolve_static_object_model_call(&mut self, expr: &CallExpression) -> bool {
         let Some(callee_name) = self.resolve_static_callable_name(&expr.callee) else {
             return false;
         };
@@ -3457,7 +3457,7 @@ impl TypeContext {
         true
     }
 
-    fn resolve_static_object_identity_call(&mut self, expr: &CallExpression) -> bool {
+    pub(crate) fn resolve_static_object_identity_call(&mut self, expr: &CallExpression) -> bool {
         let Some(callee_name) = self.resolve_static_callable_name(&expr.callee) else {
             return false;
         };
@@ -3536,7 +3536,7 @@ impl TypeContext {
         true
     }
 
-    fn resolve_number_identity_call(&mut self, expr: &CallExpression) -> bool {
+    pub(crate) fn resolve_number_identity_call(&mut self, expr: &CallExpression) -> bool {
         let Some(callee_name) = self.resolve_static_callable_name(&expr.callee) else {
             return false;
         };
@@ -3597,7 +3597,7 @@ impl TypeContext {
         true
     }
 
-    fn resolve_global_number_predicate_call(&mut self, expr: &CallExpression) -> bool {
+    pub(crate) fn resolve_global_number_predicate_call(&mut self, expr: &CallExpression) -> bool {
         let Some(callee_name) =
             self.resolve_static_callable_name(&expr.callee)
                 .or_else(|| match &expr.callee {
@@ -3659,7 +3659,7 @@ impl TypeContext {
         true
     }
 
-    fn resolve_number_parse_int_call(&mut self, expr: &CallExpression) -> bool {
+    pub(crate) fn resolve_number_parse_int_call(&mut self, expr: &CallExpression) -> bool {
         let Some(callee_name) =
             self.resolve_static_callable_name(&expr.callee)
                 .or_else(|| match &expr.callee {
@@ -3739,7 +3739,7 @@ impl TypeContext {
         true
     }
 
-    fn resolve_number_parse_float_call(&mut self, expr: &CallExpression) -> bool {
+    pub(crate) fn resolve_number_parse_float_call(&mut self, expr: &CallExpression) -> bool {
         let Some(callee_name) =
             self.resolve_static_callable_name(&expr.callee)
                 .or_else(|| match &expr.callee {
@@ -3800,7 +3800,7 @@ impl TypeContext {
         true
     }
 
-    fn resolve_string_from_char_code_call(&mut self, expr: &CallExpression) -> bool {
+    pub(crate) fn resolve_string_from_char_code_call(&mut self, expr: &CallExpression) -> bool {
         let Some(callee_name) =
             self.resolve_static_callable_name(&expr.callee)
                 .or_else(|| match &expr.callee {
@@ -3837,11 +3837,11 @@ impl TypeContext {
         true
     }
 
-    fn is_string_from_char_code_callable_name(name: &str) -> bool {
+    pub(crate) fn is_string_from_char_code_callable_name(name: &str) -> bool {
         Self::static_ascii_string_constructor_method(name) == Some("fromCharCode")
     }
 
-    fn static_ascii_string_constructor_method(name: &str) -> Option<&'static str> {
+    pub(crate) fn static_ascii_string_constructor_method(name: &str) -> Option<&'static str> {
         match name {
             "String.fromCharCode"
             | "globalThis.String.fromCharCode"
@@ -3867,7 +3867,7 @@ impl TypeContext {
         }
     }
 
-    fn resolve_array_is_array_call(&mut self, expr: &CallExpression) -> bool {
+    pub(crate) fn resolve_array_is_array_call(&mut self, expr: &CallExpression) -> bool {
         let Some(callee_name) = self.resolve_static_callable_name(&expr.callee) else {
             return false;
         };
@@ -3918,7 +3918,7 @@ impl TypeContext {
         true
     }
 
-    fn resolve_static_array_is_array_argument(&self, expression: &Expression) -> Option<bool> {
+    pub(crate) fn resolve_static_array_is_array_argument(&self, expression: &Expression) -> Option<bool> {
         let unwrapped = self.unwrap_for_of_wrapper_expression(expression);
         match unwrapped {
             Expression::ArrayExpression(_) => Some(true),
@@ -3965,11 +3965,11 @@ impl TypeContext {
         }
     }
 
-    fn resolve_static_object_model_call_target(&self, call: &CallExpression) -> bool {
+    pub(crate) fn resolve_static_object_model_call_target(&self, call: &CallExpression) -> bool {
         self.resolve_static_object_from_entries_call(call)
     }
 
-    fn resolve_math_member_call(&mut self, expr: &CallExpression) {
+    pub(crate) fn resolve_math_member_call(&mut self, expr: &CallExpression) {
         let Some(callee_name) = self.resolve_static_callable_name(&expr.callee) else {
             return;
         };
@@ -4527,7 +4527,7 @@ impl TypeContext {
         ));
     }
 
-    fn resolve_array_callback_member_call(&mut self, expr: &CallExpression) {
+    pub(crate) fn resolve_array_callback_member_call(&mut self, expr: &CallExpression) {
         let Expression::MemberExpression(member) = &expr.callee else {
             return;
         };
@@ -4654,7 +4654,7 @@ impl TypeContext {
         ));
     }
 
-    fn resolve_array_slice_member_call(&mut self, expr: &CallExpression) {
+    pub(crate) fn resolve_array_slice_member_call(&mut self, expr: &CallExpression) {
         let Expression::MemberExpression(member) = &expr.callee else {
             return;
         };
@@ -4704,7 +4704,7 @@ impl TypeContext {
         ));
     }
 
-    fn resolve_array_concat_member_call(&mut self, expr: &CallExpression) {
+    pub(crate) fn resolve_array_concat_member_call(&mut self, expr: &CallExpression) {
         let Expression::MemberExpression(member) = &expr.callee else {
             return;
         };
@@ -4756,7 +4756,7 @@ impl TypeContext {
         ));
     }
 
-    fn resolve_array_at_member_call(&mut self, expr: &CallExpression) {
+    pub(crate) fn resolve_array_at_member_call(&mut self, expr: &CallExpression) {
         let Expression::MemberExpression(member) = &expr.callee else {
             return;
         };
@@ -4798,7 +4798,7 @@ impl TypeContext {
         ));
     }
 
-    fn resolve_array_join_member_call(&mut self, expr: &CallExpression) {
+    pub(crate) fn resolve_array_join_member_call(&mut self, expr: &CallExpression) {
         let Expression::MemberExpression(member) = &expr.callee else {
             return;
         };
@@ -4837,7 +4837,7 @@ impl TypeContext {
         ));
     }
 
-    fn resolve_array_to_string_member_call(&mut self, expr: &CallExpression) {
+    pub(crate) fn resolve_array_to_string_member_call(&mut self, expr: &CallExpression) {
         let Expression::MemberExpression(member) = &expr.callee else {
             return;
         };
@@ -4866,7 +4866,7 @@ impl TypeContext {
         ));
     }
 
-    fn resolve_array_search_member_call(&mut self, expr: &CallExpression) {
+    pub(crate) fn resolve_array_search_member_call(&mut self, expr: &CallExpression) {
         let Expression::MemberExpression(member) = &expr.callee else {
             return;
         };
@@ -4919,7 +4919,7 @@ impl TypeContext {
         ));
     }
 
-    fn resolve_string_search_member_call(&mut self, expr: &CallExpression) {
+    pub(crate) fn resolve_string_search_member_call(&mut self, expr: &CallExpression) {
         let Expression::MemberExpression(member) = &expr.callee else {
             return;
         };
@@ -4972,7 +4972,7 @@ impl TypeContext {
         ));
     }
 
-    fn resolve_string_slice_member_call(&mut self, expr: &CallExpression) {
+    pub(crate) fn resolve_string_slice_member_call(&mut self, expr: &CallExpression) {
         let Expression::MemberExpression(member) = &expr.callee else {
             return;
         };
@@ -5012,7 +5012,7 @@ impl TypeContext {
         ));
     }
 
-    fn resolve_string_substring_member_call(&mut self, expr: &CallExpression) {
+    pub(crate) fn resolve_string_substring_member_call(&mut self, expr: &CallExpression) {
         let Expression::MemberExpression(member) = &expr.callee else {
             return;
         };
@@ -5048,7 +5048,7 @@ impl TypeContext {
         ));
     }
 
-    fn resolve_string_repeat_member_call(&mut self, expr: &CallExpression) {
+    pub(crate) fn resolve_string_repeat_member_call(&mut self, expr: &CallExpression) {
         let Expression::MemberExpression(member) = &expr.callee else {
             return;
         };
@@ -5090,7 +5090,7 @@ impl TypeContext {
         ));
     }
 
-    fn resolve_static_string_concat_expression(&self, expr: &CallExpression) -> Option<String> {
+    pub(crate) fn resolve_static_string_concat_expression(&self, expr: &CallExpression) -> Option<String> {
         let Expression::MemberExpression(member) = &expr.callee else {
             return None;
         };
@@ -5112,7 +5112,7 @@ impl TypeContext {
         Some(result)
     }
 
-    fn is_static_array_concat_receiver(&self, expression: &Expression) -> bool {
+    pub(crate) fn is_static_array_concat_receiver(&self, expression: &Expression) -> bool {
         match self.unwrap_for_of_wrapper_expression(expression) {
             Expression::ArrayExpression(_) => true,
             Expression::Identifier(name) => self.resolve_static_array_binding_name(name),
@@ -5124,7 +5124,7 @@ impl TypeContext {
         }
     }
 
-    fn resolve_string_concat_member_call(&mut self, expr: &CallExpression) {
+    pub(crate) fn resolve_string_concat_member_call(&mut self, expr: &CallExpression) {
         let Expression::MemberExpression(member) = &expr.callee else {
             return;
         };
@@ -5163,7 +5163,7 @@ impl TypeContext {
         ));
     }
 
-    fn resolve_string_pad_member_call(&mut self, expr: &CallExpression) {
+    pub(crate) fn resolve_string_pad_member_call(&mut self, expr: &CallExpression) {
         let Expression::MemberExpression(member) = &expr.callee else {
             return;
         };
@@ -5212,7 +5212,7 @@ impl TypeContext {
         ));
     }
 
-    fn resolve_string_at_member_call(&mut self, expr: &CallExpression) {
+    pub(crate) fn resolve_string_at_member_call(&mut self, expr: &CallExpression) {
         let Expression::MemberExpression(member) = &expr.callee else {
             return;
         };
@@ -5254,7 +5254,7 @@ impl TypeContext {
         ));
     }
 
-    fn resolve_string_char_at_member_call(&mut self, expr: &CallExpression) {
+    pub(crate) fn resolve_string_char_at_member_call(&mut self, expr: &CallExpression) {
         let Expression::MemberExpression(member) = &expr.callee else {
             return;
         };
@@ -5290,7 +5290,7 @@ impl TypeContext {
         ));
     }
 
-    fn resolve_string_char_code_at_member_call(&mut self, expr: &CallExpression) {
+    pub(crate) fn resolve_string_char_code_at_member_call(&mut self, expr: &CallExpression) {
         let Expression::MemberExpression(member) = &expr.callee else {
             return;
         };
@@ -5326,7 +5326,7 @@ impl TypeContext {
         ));
     }
 
-    fn resolve_string_code_point_at_member_call(&mut self, expr: &CallExpression) {
+    pub(crate) fn resolve_string_code_point_at_member_call(&mut self, expr: &CallExpression) {
         let Expression::MemberExpression(member) = &expr.callee else {
             return;
         };
@@ -5362,7 +5362,7 @@ impl TypeContext {
         ));
     }
 
-    fn resolve_string_trim_member_call(&mut self, expr: &CallExpression) {
+    pub(crate) fn resolve_string_trim_member_call(&mut self, expr: &CallExpression) {
         let Expression::MemberExpression(member) = &expr.callee else {
             return;
         };
@@ -5399,7 +5399,7 @@ impl TypeContext {
         ));
     }
 
-    fn resolve_string_case_member_call(&mut self, expr: &CallExpression) {
+    pub(crate) fn resolve_string_case_member_call(&mut self, expr: &CallExpression) {
         let Expression::MemberExpression(member) = &expr.callee else {
             return;
         };
@@ -5432,7 +5432,7 @@ impl TypeContext {
         ));
     }
 
-    fn resolve_string_normalize_member_call(&mut self, expr: &CallExpression) {
+    pub(crate) fn resolve_string_normalize_member_call(&mut self, expr: &CallExpression) {
         let Expression::MemberExpression(member) = &expr.callee else {
             return;
         };
@@ -5473,7 +5473,7 @@ impl TypeContext {
         ));
     }
 
-    fn resolve_string_replace_member_call(&mut self, expr: &CallExpression) {
+    pub(crate) fn resolve_string_replace_member_call(&mut self, expr: &CallExpression) {
         let Expression::MemberExpression(member) = &expr.callee else {
             return;
         };
@@ -5524,7 +5524,7 @@ impl TypeContext {
         ));
     }
 
-    fn resolve_string_split_member_call(&mut self, expr: &CallExpression) {
+    pub(crate) fn resolve_string_split_member_call(&mut self, expr: &CallExpression) {
         let Expression::MemberExpression(member) = &expr.callee else {
             return;
         };
@@ -5575,7 +5575,7 @@ impl TypeContext {
         ));
     }
 
-    fn is_identity_array_callback(&self, expression: &Expression) -> bool {
+    pub(crate) fn is_identity_array_callback(&self, expression: &Expression) -> bool {
         match self.unwrap_for_of_wrapper_expression(expression) {
             Expression::ArrowFunctionExpression(arrow) => {
                 arrow.params.len() == 1
@@ -5599,7 +5599,7 @@ impl TypeContext {
         }
     }
 
-    fn is_identity_array_callback_expression(
+    pub(crate) fn is_identity_array_callback_expression(
         &self,
         expression: &Expression,
         param_name: &str,
@@ -5614,7 +5614,7 @@ impl TypeContext {
         }
     }
 
-    fn is_some_every_array_callback(&self, expression: &Expression) -> bool {
+    pub(crate) fn is_some_every_array_callback(&self, expression: &Expression) -> bool {
         match self.unwrap_for_of_wrapper_expression(expression) {
             Expression::ArrowFunctionExpression(arrow) => {
                 arrow.params.len() == 1
@@ -5641,7 +5641,7 @@ impl TypeContext {
         }
     }
 
-    fn is_some_every_array_callback_expression(
+    pub(crate) fn is_some_every_array_callback_expression(
         &self,
         expression: &Expression,
         param_name: &str,
@@ -5724,7 +5724,7 @@ impl TypeContext {
         }
     }
 
-    fn is_some_every_array_callback_identity_operand(
+    pub(crate) fn is_some_every_array_callback_identity_operand(
         &self,
         expression: &Expression,
         param_name: &str,
@@ -5768,7 +5768,7 @@ impl TypeContext {
         }
     }
 
-    fn is_some_every_array_callback_operand(
+    pub(crate) fn is_some_every_array_callback_operand(
         &self,
         expression: &Expression,
         param_name: &str,
@@ -5816,7 +5816,7 @@ impl TypeContext {
         }
     }
 
-    fn is_numeric_reducer_callback(&self, expression: &Expression) -> bool {
+    pub(crate) fn is_numeric_reducer_callback(&self, expression: &Expression) -> bool {
         match self.unwrap_for_of_wrapper_expression(expression) {
             Expression::ArrowFunctionExpression(arrow) => {
                 arrow.params.len() >= 2
@@ -5847,7 +5847,7 @@ impl TypeContext {
         }
     }
 
-    fn is_numeric_reducer_callback_expression(
+    pub(crate) fn is_numeric_reducer_callback_expression(
         &self,
         expression: &Expression,
         accumulator_name: &str,
@@ -5915,12 +5915,12 @@ impl TypeContext {
         }
     }
 
-    fn is_static_numeric_literal_expr(&self, expression: &Expression) -> bool {
+    pub(crate) fn is_static_numeric_literal_expr(&self, expression: &Expression) -> bool {
         self.resolve_static_numeric_literal_value(expression)
             .is_some()
     }
 
-    fn is_identity_array_flat_map_callback(&self, expression: &Expression) -> bool {
+    pub(crate) fn is_identity_array_flat_map_callback(&self, expression: &Expression) -> bool {
         match self.unwrap_for_of_wrapper_expression(expression) {
             Expression::ArrowFunctionExpression(arrow) => {
                 arrow.params.len() == 1
@@ -5949,7 +5949,7 @@ impl TypeContext {
         }
     }
 
-    fn is_identity_array_flat_map_callback_expression(
+    pub(crate) fn is_identity_array_flat_map_callback_expression(
         &self,
         expression: &Expression,
         param_name: &str,
@@ -5970,14 +5970,14 @@ impl TypeContext {
         }
     }
 
-    fn resolve_promise_member_call(&mut self, _expr: &CallExpression) {}
+    pub(crate) fn resolve_promise_member_call(&mut self, _expr: &CallExpression) {}
 
-    fn contains_non_integer_numeric_literal(&self, expression: &Expression) -> bool {
+    pub(crate) fn contains_non_integer_numeric_literal(&self, expression: &Expression) -> bool {
         self.resolve_static_numeric_literal_value(expression)
             .is_some_and(|value| value.fract() != 0.0)
     }
 
-    fn resolve_static_numeric_literal_value(&self, expression: &Expression) -> Option<f64> {
+    pub(crate) fn resolve_static_numeric_literal_value(&self, expression: &Expression) -> Option<f64> {
         match expression {
             Expression::Literal(LiteralValue::Number(value)) => Some(*value),
             Expression::ParenthesizedExpression(expr) => {
@@ -6043,7 +6043,7 @@ impl TypeContext {
         }
     }
 
-    fn resolve_math_round_like_static_literal_value(
+    pub(crate) fn resolve_math_round_like_static_literal_value(
         &self,
         method: &str,
         expression: Option<&Expression>,
@@ -6064,12 +6064,12 @@ impl TypeContext {
         Some(folded as i64)
     }
 
-    fn contains_negative_numeric_literal(&self, expression: &Expression) -> bool {
+    pub(crate) fn contains_negative_numeric_literal(&self, expression: &Expression) -> bool {
         self.resolve_static_numeric_literal_value(expression)
             .is_some_and(|value| value < 0.0)
     }
 
-    fn resolve_math_extrema_static_literal_value(
+    pub(crate) fn resolve_math_extrema_static_literal_value(
         &self,
         method: &str,
         expressions: &[Expression],
@@ -6101,7 +6101,7 @@ impl TypeContext {
         Some(folded)
     }
 
-    fn resolve_math_inverse_hyperbolic_constant_value(
+    pub(crate) fn resolve_math_inverse_hyperbolic_constant_value(
         &self,
         method: &str,
         expression: &Expression,
@@ -6115,7 +6115,7 @@ impl TypeContext {
         }
     }
 
-    fn resolve_math_hyperbolic_zero_constant_value(
+    pub(crate) fn resolve_math_hyperbolic_zero_constant_value(
         &self,
         method: &str,
         expression: &Expression,
@@ -6128,7 +6128,7 @@ impl TypeContext {
         Some(if method == "cosh" { 1 } else { 0 })
     }
 
-    fn resolve_math_sqrt_static_literal_root(&self, expression: &Expression) -> Option<i64> {
+    pub(crate) fn resolve_math_sqrt_static_literal_root(&self, expression: &Expression) -> Option<i64> {
         let value = self.resolve_static_numeric_literal_value(expression)?;
         if !value.is_finite() || value.fract() != 0.0 || value < 0.0 || value > i64::MAX as f64 {
             return None;
@@ -6143,7 +6143,7 @@ impl TypeContext {
         }
     }
 
-    fn resolve_math_cbrt_static_literal_root(&self, expression: &Expression) -> Option<i64> {
+    pub(crate) fn resolve_math_cbrt_static_literal_root(&self, expression: &Expression) -> Option<i64> {
         let value = self.resolve_static_numeric_literal_value(expression)?;
         if !value.is_finite()
             || value.fract() != 0.0
@@ -6162,7 +6162,7 @@ impl TypeContext {
         }
     }
 
-    fn resolve_math_log2_static_literal_exponent(&self, expression: &Expression) -> Option<i64> {
+    pub(crate) fn resolve_math_log2_static_literal_exponent(&self, expression: &Expression) -> Option<i64> {
         let value = self.resolve_static_numeric_literal_value(expression)?;
         if !value.is_finite() || value.fract() != 0.0 || value <= 0.0 || value > u64::MAX as f64 {
             return None;
@@ -6176,7 +6176,7 @@ impl TypeContext {
         }
     }
 
-    fn resolve_math_log10_static_literal_exponent(&self, expression: &Expression) -> Option<i64> {
+    pub(crate) fn resolve_math_log10_static_literal_exponent(&self, expression: &Expression) -> Option<i64> {
         let value = self.resolve_static_numeric_literal_value(expression)?;
         if !value.is_finite() || value.fract() != 0.0 || value <= 0.0 || value > i64::MAX as f64 {
             return None;
@@ -6196,7 +6196,7 @@ impl TypeContext {
         }
     }
 
-    fn resolve_math_hypot_static_literal_root(&self, expressions: &[Expression]) -> Option<i64> {
+    pub(crate) fn resolve_math_hypot_static_literal_root(&self, expressions: &[Expression]) -> Option<i64> {
         if expressions.is_empty() {
             return Some(0);
         }
@@ -6219,7 +6219,7 @@ impl TypeContext {
         self.resolve_perfect_square_i128(sum)
     }
 
-    fn resolve_perfect_square_i128(&self, value: i128) -> Option<i64> {
+    pub(crate) fn resolve_perfect_square_i128(&self, value: i128) -> Option<i64> {
         if value < 0 {
             return None;
         }
@@ -6242,7 +6242,7 @@ impl TypeContext {
         None
     }
 
-    fn resolve_permissions_query_descriptor_name(&self, expr: &Expression) -> Option<String> {
+    pub(crate) fn resolve_permissions_query_descriptor_name(&self, expr: &Expression) -> Option<String> {
         match expr {
             Expression::ParenthesizedExpression(expr) => {
                 self.resolve_permissions_query_descriptor_name(&expr.expression)
@@ -6285,7 +6285,7 @@ impl TypeContext {
         }
     }
 
-    fn resolve_threaded_runtime_member(&mut self, expr: &MemberExpression) {
+    pub(crate) fn resolve_threaded_runtime_member(&mut self, expr: &MemberExpression) {
         let Expression::Identifier(object_name) = &expr.object else {
             return;
         };
@@ -6311,7 +6311,7 @@ impl TypeContext {
         ));
     }
 
-    fn resolve_late_host_control_member(&mut self, expr: &MemberExpression) {
+    pub(crate) fn resolve_late_host_control_member(&mut self, expr: &MemberExpression) {
         if !matches!(
             expr.property.as_str(),
             "pid" | "cwd" | "chdir" | "exit" | "kill"
@@ -6421,7 +6421,7 @@ impl TypeContext {
         ));
     }
 
-    fn resolve_late_subprocess_member(&mut self, expr: &MemberExpression) -> bool {
+    pub(crate) fn resolve_late_subprocess_member(&mut self, expr: &MemberExpression) -> bool {
         if self.sandbox_policy_attached {
             return false;
         }
@@ -6447,7 +6447,7 @@ impl TypeContext {
         true
     }
 
-    fn resolve_late_network_member(&mut self, expr: &MemberExpression) -> bool {
+    pub(crate) fn resolve_late_network_member(&mut self, expr: &MemberExpression) -> bool {
         if self.sandbox_policy_attached {
             return false;
         }
@@ -6475,7 +6475,7 @@ impl TypeContext {
         true
     }
 
-    fn resolve_late_permission_escalation_member(&mut self, expr: &MemberExpression) -> bool {
+    pub(crate) fn resolve_late_permission_escalation_member(&mut self, expr: &MemberExpression) -> bool {
         let dotted = Self::member_access_name(expr).unwrap_or_else(|| expr.property.clone());
         let bracketed = Self::member_access_name_bracketed(expr).unwrap_or_else(|| dotted.clone());
 
@@ -6508,7 +6508,7 @@ impl TypeContext {
         true
     }
 
-    fn resolve_deno_args_member(&mut self, expr: &MemberExpression) -> bool {
+    pub(crate) fn resolve_deno_args_member(&mut self, expr: &MemberExpression) -> bool {
         let Some(object_name) = Self::member_object_name(&expr.object) else {
             return false;
         };
@@ -6534,7 +6534,7 @@ impl TypeContext {
         true
     }
 
-    fn resolve_late_env_object_member(&mut self, expr: &MemberExpression) -> bool {
+    pub(crate) fn resolve_late_env_object_member(&mut self, expr: &MemberExpression) -> bool {
         if self.api_surface == "deno" {
             return false;
         }
@@ -6593,7 +6593,7 @@ impl TypeContext {
         true
     }
 
-    fn resolve_late_env_mutation_member(&mut self, expr: &MemberExpression) -> bool {
+    pub(crate) fn resolve_late_env_mutation_member(&mut self, expr: &MemberExpression) -> bool {
         if self.api_surface == "deno" {
             return false;
         }
@@ -6621,7 +6621,7 @@ impl TypeContext {
         true
     }
 
-    fn resolve_late_env_assignment_mutation(&mut self, expr: &AssignmentExpression) -> bool {
+    pub(crate) fn resolve_late_env_assignment_mutation(&mut self, expr: &AssignmentExpression) -> bool {
         let Expression::MemberExpression(member) = &expr.left else {
             return false;
         };
@@ -6655,7 +6655,7 @@ impl TypeContext {
         false
     }
 
-    fn resolve_late_process_env_mutation_member(&mut self, member: &MemberExpression) -> bool {
+    pub(crate) fn resolve_late_process_env_mutation_member(&mut self, member: &MemberExpression) -> bool {
         let dotted = Self::member_access_name(member).unwrap_or_else(|| member.property.clone());
         let bracketed =
             Self::member_access_name_bracketed(member).unwrap_or_else(|| dotted.clone());
@@ -6685,11 +6685,11 @@ impl TypeContext {
         false
     }
 
-    fn is_process_env_root_path(path: &str) -> bool {
+    pub(crate) fn is_process_env_root_path(path: &str) -> bool {
         matches!(path, "process.env" | "globalThis.process.env")
     }
 
-    fn is_process_env_mutation_path(path: &str) -> bool {
+    pub(crate) fn is_process_env_mutation_path(path: &str) -> bool {
         Self::is_process_env_root_path(path)
             || path.starts_with("process.env.")
             || path.starts_with("process.env[")
@@ -6697,7 +6697,7 @@ impl TypeContext {
             || path.starts_with("globalThis.process.env[")
     }
 
-    fn resolve_late_intl_member(&mut self, expr: &MemberExpression) -> bool {
+    pub(crate) fn resolve_late_intl_member(&mut self, expr: &MemberExpression) -> bool {
         let is_intl_root = matches!(&expr.object, Expression::Identifier(name) if name == "Intl")
             || matches!(
                 &expr.object,
@@ -6733,7 +6733,7 @@ impl TypeContext {
         true
     }
 
-    fn resolve_late_object_model_member(&mut self, expr: &MemberExpression) -> bool {
+    pub(crate) fn resolve_late_object_model_member(&mut self, expr: &MemberExpression) -> bool {
         let dotted = Self::member_access_name(expr).unwrap_or_else(|| expr.property.clone());
         let bracketed = Self::member_access_name_bracketed(expr).unwrap_or_else(|| dotted.clone());
         let single_quoted = Self::member_access_name_single_quoted(expr).unwrap_or_else(|| {
@@ -6815,13 +6815,13 @@ impl TypeContext {
         true
     }
 
-    fn member_access_name(expr: &MemberExpression) -> Option<String> {
+    pub(crate) fn member_access_name(expr: &MemberExpression) -> Option<String> {
         let object_name = Self::member_access_root_name(&expr.object)?;
 
         Some(format!("{}.{}", object_name, expr.property))
     }
 
-    fn is_runtime_args_slice_member(expr: &MemberExpression) -> bool {
+    pub(crate) fn is_runtime_args_slice_member(expr: &MemberExpression) -> bool {
         if expr.property != "slice" {
             return false;
         }
@@ -6833,19 +6833,19 @@ impl TypeContext {
         )
     }
 
-    fn member_access_name_bracketed(expr: &MemberExpression) -> Option<String> {
+    pub(crate) fn member_access_name_bracketed(expr: &MemberExpression) -> Option<String> {
         let object_name = Self::member_access_bracketed_root_name(&expr.object)?;
 
         Some(format!("{}[\"{}\"]", object_name, expr.property))
     }
 
-    fn member_access_name_single_quoted(expr: &MemberExpression) -> Option<String> {
+    pub(crate) fn member_access_name_single_quoted(expr: &MemberExpression) -> Option<String> {
         let object_name = Self::member_access_single_quoted_root_name(&expr.object)?;
 
         Some(format!("{}['{}']", object_name, expr.property))
     }
 
-    fn member_access_single_quoted_root_name(object: &Expression) -> Option<String> {
+    pub(crate) fn member_access_single_quoted_root_name(object: &Expression) -> Option<String> {
         match object {
             Expression::Identifier(name) => Some(name.clone()),
             Expression::MemberExpression(member) => Self::member_access_name_single_quoted(member),
@@ -6884,7 +6884,7 @@ impl TypeContext {
         }
     }
 
-    fn member_access_bracketed_root_name(object: &Expression) -> Option<String> {
+    pub(crate) fn member_access_bracketed_root_name(object: &Expression) -> Option<String> {
         match object {
             Expression::Identifier(name) => Some(name.clone()),
             Expression::MemberExpression(member) => Self::member_access_name_bracketed(member),
@@ -6923,7 +6923,7 @@ impl TypeContext {
         }
     }
 
-    fn member_access_root_name(object: &Expression) -> Option<String> {
+    pub(crate) fn member_access_root_name(object: &Expression) -> Option<String> {
         match object {
             Expression::Identifier(name) => Some(name.clone()),
             Expression::MemberExpression(member) => Self::member_access_name(member),
@@ -6953,7 +6953,7 @@ impl TypeContext {
         }
     }
 
-    fn member_object_name(object: &Expression) -> Option<String> {
+    pub(crate) fn member_object_name(object: &Expression) -> Option<String> {
         match object {
             Expression::Identifier(name) => Some(name.clone()),
             Expression::MemberExpression(member) if matches!(&member.object, Expression::Identifier(name) if name == "globalThis") => {
@@ -6978,7 +6978,7 @@ impl TypeContext {
         }
     }
 
-    fn resolve_function_expression(&mut self, expr: &FunctionExpression) {
+    pub(crate) fn resolve_function_expression(&mut self, expr: &FunctionExpression) {
         self.push_scope(ScopeType::Function);
         let previous_generator = self.in_generator_function;
         self.in_generator_function = expr.generator;
@@ -6996,7 +6996,7 @@ impl TypeContext {
         self.pop_scope();
     }
 
-    fn resolve_arrow_function(&mut self, expr: &ArrowFunctionExpression) {
+    pub(crate) fn resolve_arrow_function(&mut self, expr: &ArrowFunctionExpression) {
         self.push_scope(ScopeType::Function);
         self.bind_function_params(&expr.params);
         if let Some(return_type) = &expr.returnType {
@@ -7006,7 +7006,7 @@ impl TypeContext {
         self.pop_scope();
     }
 
-    fn resolve_class_expression(&mut self, expr: &ClassExpression) {
+    pub(crate) fn resolve_class_expression(&mut self, expr: &ClassExpression) {
         self.push_scope(ScopeType::Class);
         if let Some(name) = &expr.id {
             self.bind_current_scope(name.clone());
@@ -7015,7 +7015,7 @@ impl TypeContext {
         self.pop_scope();
     }
 
-    fn resolve_class_body(&mut self, body: &ClassBody) {
+    pub(crate) fn resolve_class_body(&mut self, body: &ClassBody) {
         self.push_scope(ScopeType::Class);
         let mut has_generator = false;
         let mut has_async_generator = false;
@@ -7056,7 +7056,7 @@ impl TypeContext {
         self.pop_scope();
     }
 
-    fn resolve_import_declaration(&mut self, declaration: &ImportDeclaration) {
+    pub(crate) fn resolve_import_declaration(&mut self, declaration: &ImportDeclaration) {
         match self.resolve_import_source(&declaration.source) {
             Ok(true) => {}
             Ok(false) => {
@@ -7096,7 +7096,7 @@ impl TypeContext {
         }
     }
 
-    fn resolve_export_all(&mut self, declaration: &ExportAllDeclaration) {
+    pub(crate) fn resolve_export_all(&mut self, declaration: &ExportAllDeclaration) {
         match self.resolve_import_source(&declaration.source) {
             Ok(true) => {}
             Ok(false) => {
@@ -7117,7 +7117,7 @@ impl TypeContext {
         }
     }
 
-    fn resolve_export_named(&mut self, declaration: &kali_ast::ExportNamedDeclaration) {
+    pub(crate) fn resolve_export_named(&mut self, declaration: &kali_ast::ExportNamedDeclaration) {
         if let Some(source) = &declaration.source {
             match self.resolve_import_source(source) {
                 Ok(true) => {}
@@ -7142,7 +7142,7 @@ impl TypeContext {
         }
     }
 
-    fn resolve_export_default(&mut self, declaration: &kali_ast::ExportDefaultDeclaration) {
+    pub(crate) fn resolve_export_default(&mut self, declaration: &kali_ast::ExportDefaultDeclaration) {
         match declaration {
             kali_ast::ExportDefaultDeclaration::Expression(expr) => self.resolve_expression(expr),
             kali_ast::ExportDefaultDeclaration::FunctionDeclaration(func) => {
@@ -7168,52 +7168,52 @@ impl TypeContext {
         }
     }
 
-    fn resolve_optional_chain(&mut self, expr: &OptionalChainExpression) {
+    pub(crate) fn resolve_optional_chain(&mut self, expr: &OptionalChainExpression) {
         match expr.inner.as_ref() {
             OptionalChainInner::NonNull { object, .. } => self.resolve_expression(object),
         }
     }
 
-    fn resolve_template_literal(&mut self, template: &TemplateLiteral) {
+    pub(crate) fn resolve_template_literal(&mut self, template: &TemplateLiteral) {
         for expr in &template.expressions {
             self.resolve_expression(expr);
         }
     }
 
-    fn resolve_object_property(&mut self, property: &ObjectProperty) {
+    pub(crate) fn resolve_object_property(&mut self, property: &ObjectProperty) {
         self.resolve_property_name(&property.key);
         self.resolve_expression(&property.value);
     }
 
-    fn resolve_property_name(&mut self, name: &PropertyName) {
+    pub(crate) fn resolve_property_name(&mut self, name: &PropertyName) {
         match name {
             PropertyName::Identifier(_) | PropertyName::Number(_) | PropertyName::String(_) => {}
         }
     }
 
-    fn resolve_type_assertion(&mut self, expr: &TypeAssertion) {
+    pub(crate) fn resolve_type_assertion(&mut self, expr: &TypeAssertion) {
         self.resolve_type_annotation_text(&expr.type_name);
         self.resolve_expression(&expr.expression);
     }
 
-    fn resolve_satisfies_expression(&mut self, expr: &kali_ast::SatisfiesExpression) {
+    pub(crate) fn resolve_satisfies_expression(&mut self, expr: &kali_ast::SatisfiesExpression) {
         self.resolve_type_annotation_text(&expr.type_name);
         self.resolve_expression(&expr.expression);
     }
 
-    fn resolve_jsx_element(&mut self, expr: &JsxElement) {
+    pub(crate) fn resolve_jsx_element(&mut self, expr: &JsxElement) {
         for child in &expr.children {
             self.resolve_jsx_child(child);
         }
     }
 
-    fn resolve_jsx_fragment(&mut self, expr: &JsxFragment) {
+    pub(crate) fn resolve_jsx_fragment(&mut self, expr: &JsxFragment) {
         for child in &expr.children {
             self.resolve_jsx_child(child);
         }
     }
 
-    fn resolve_jsx_child(&mut self, child: &JsxChild) {
+    pub(crate) fn resolve_jsx_child(&mut self, child: &JsxChild) {
         match child {
             JsxChild::JsxText(_) => {}
             JsxChild::JsxExpression(container) => {
@@ -7226,23 +7226,23 @@ impl TypeContext {
         }
     }
 
-    fn bind_function_params(&mut self, params: &[FunctionParam]) {
+    pub(crate) fn bind_function_params(&mut self, params: &[FunctionParam]) {
         for param in params {
             self.bind_current_scope(param.name.clone());
         }
     }
 
-    fn bind_name_list(&mut self, names: &[String]) {
+    pub(crate) fn bind_name_list(&mut self, names: &[String]) {
         for name in names {
             self.bind_current_scope(name.clone());
         }
     }
 
-    fn bind_type_params(&mut self, type_params: &[String]) {
+    pub(crate) fn bind_type_params(&mut self, type_params: &[String]) {
         self.bind_name_list(type_params)
     }
 
-    fn resolve_type_annotation_text(&mut self, annotation: &str) {
+    pub(crate) fn resolve_type_annotation_text(&mut self, annotation: &str) {
         let annotation = annotation.trim();
         if annotation.is_empty() {
             return;
@@ -7286,7 +7286,7 @@ impl TypeContext {
         }
     }
 
-    fn resolve_relative_import_source(&self, base_dir: &Path, source: &str) -> bool {
+    pub(crate) fn resolve_relative_import_source(&self, base_dir: &Path, source: &str) -> bool {
         let candidate = base_dir.join(source);
         if candidate.is_file() {
             return true;
@@ -7310,7 +7310,7 @@ impl TypeContext {
         })
     }
 
-    fn resolve_directory_index_candidate(&self, directory: &Path) -> bool {
+    pub(crate) fn resolve_directory_index_candidate(&self, directory: &Path) -> bool {
         for index_name in [
             "index.ts",
             "index.tsx",
@@ -7332,7 +7332,7 @@ impl TypeContext {
         false
     }
 
-    fn resolve_import_source(&self, source: &str) -> Result<bool, Diagnostic> {
+    pub(crate) fn resolve_import_source(&self, source: &str) -> Result<bool, Diagnostic> {
         if self.api_surface == "node" && is_node_builtin_specifier(source) {
             return Ok(true);
         }
