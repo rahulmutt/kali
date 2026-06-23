@@ -1,9 +1,9 @@
 use crate::*;
+use crate::test_support::*;
 use kali_ast::{ArrowFunctionExpression, BinaryExpression, CallExpression, Expression, ExpressionStatement, LiteralValue, MemberExpression, SatisfiesExpression, TemplateElement, TemplateLiteral, TypeAssertion, VariableDeclaration, VariableDeclarator};
 
 #[test]
 fn test_resolution_accepts_wrapped_call_targets_with_type_assertions_and_satisfies() {
-    let mut ctx = TypeContext::new();
     let statements = vec![
         Statement::VariableDeclaration(VariableDeclaration {
             kind: "const".to_string(),
@@ -80,13 +80,11 @@ fn test_resolution_accepts_wrapped_call_targets_with_type_assertions_and_satisfi
         }),
     ];
 
-    let result = ctx.resolve_statements(&statements);
-    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    assert_resolution!(statements, diagnostics: 0);
 }
 
 #[test]
 fn test_resolution_accepts_wrapped_local_function_call_targets() {
-    let mut ctx = TypeContext::new();
     let statements = vec![
         Statement::VariableDeclaration(VariableDeclaration {
             kind: "const".to_string(),
@@ -122,10 +120,5 @@ fn test_resolution_accepts_wrapped_local_function_call_targets() {
         }),
     ];
 
-    let result = ctx.resolve_statements(&statements);
-    assert!(
-        result.diagnostics.is_empty(),
-        "unexpected diagnostics: {:?}",
-        result.diagnostics
-    );
+    assert_resolution!(statements, diagnostics: 0);
 }

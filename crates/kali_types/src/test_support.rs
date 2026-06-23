@@ -51,9 +51,6 @@ macro_rules! assert_resolution {
         result
     }};
 }
-// Re-exported for sibling `*_tests.rs` modules (adopted in later tasks); not yet
-// referenced crate-wide, so the re-export is intentionally allowed to be unused.
-#[allow(unused_imports)]
 pub(crate) use assert_resolution;
 
 /// `ident!("x")` → `Expression::Identifier("x".into())`.
