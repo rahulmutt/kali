@@ -925,3 +925,7 @@ impl TypeContext {
         ));
     }
 }
+
+#[cfg(test)]
+#[path = "string_tests.rs"]
+mod string_tests;
