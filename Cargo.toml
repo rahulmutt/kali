@@ -7,6 +7,7 @@ members = [
     "crates/kali_parser",
     "crates/kali_ast",
     "crates/kali_types",
+    "crates/kali_test_support",
     "crates/kali_hir",
     "crates/kali_mir",
     "crates/kali_lir",
@@ -41,6 +42,7 @@ kali_lexer = { path = "crates/kali_lexer" }
 kali_parser = { path = "crates/kali_parser" }
 kali_ast = { path = "crates/kali_ast" }
 kali_types = { path = "crates/kali_types" }
+kali_test_support = { path = "crates/kali_test_support" }
 kali_hir = { path = "crates/kali_hir" }
 kali_mir = { path = "crates/kali_mir" }
 kali_lir = { path = "crates/kali_lir" }

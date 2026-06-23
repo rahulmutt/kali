@@ -1420,6 +1420,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "kali_test_support"
+version = "0.1.0"
+dependencies = [
+ "tempfile",
+]
+
+[[package]]
 name = "kali_types"
 version = "0.1.0"
 dependencies = [
@@ -1430,6 +1437,7 @@ dependencies = [
  "kali_lexer",
  "kali_npm",
  "kali_parser",
+ "kali_test_support",
  "serde_json",
  "tempfile",
 ]
