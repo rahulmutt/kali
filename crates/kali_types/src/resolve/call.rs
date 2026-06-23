@@ -462,3 +462,7 @@ impl TypeContext {
     }
 
 }
+
+#[cfg(test)]
+#[path = "call_tests.rs"]
+mod call_tests;
