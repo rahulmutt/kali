@@ -28,3 +28,7 @@ impl TypeContext {
     }
 
 }
+
+#[cfg(test)]
+#[path = "jsx_tests.rs"]
+mod jsx_tests;
