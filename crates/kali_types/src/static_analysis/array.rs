@@ -1284,3 +1284,7 @@ impl TypeContext {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "array_tests.rs"]
+mod array_tests;
