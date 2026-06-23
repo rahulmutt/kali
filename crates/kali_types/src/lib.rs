@@ -4,6 +4,12 @@
 //! downstream compiler stages use to catch unresolved names and duplicate
 //! bindings before lowering.
 
+mod builtins;
+mod package;
+
+use builtins::*;
+use package::*;
+
 use indexmap::IndexMap;
 use kali_ast::{
     ArrayExpression, ArrowFunctionExpression, AssignmentExpression, AssignmentOperator,
@@ -114,50 +120,6 @@ pub struct ResolutionResult {
     pub diagnostics: Vec<Diagnostic>,
     pub scopes: IndexMap<NodeId, Scope>,
     pub global_scope: Scope,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub(crate) enum StaticObjectIdentityValue {
-    Boolean(bool),
-    Number(f64),
-    String(String),
-    BigInt(i64),
-    Null,
-    Undefined,
-    Reference(String),
-}
-
-impl StaticObjectIdentityValue {
-    pub(crate) fn same_value(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Boolean(left), Self::Boolean(right)) => left == right,
-            (Self::String(left), Self::String(right)) => left == right,
-            (Self::BigInt(left), Self::BigInt(right)) => left == right,
-            (Self::Null, Self::Null) | (Self::Undefined, Self::Undefined) => true,
-            (Self::Number(left), Self::Number(right)) => {
-                (left.is_nan() && right.is_nan())
-                    || (left == right
-                        && (left != &0.0 || left.is_sign_positive() == right.is_sign_positive()))
-            }
-            (Self::Reference(left), Self::Reference(right)) => left == right,
-            _ => false,
-        }
-    }
-
-    pub(crate) fn is_nullish(&self) -> bool {
-        matches!(self, Self::Null | Self::Undefined)
-    }
-
-    pub(crate) fn truthiness(&self) -> Option<bool> {
-        match self {
-            Self::Boolean(value) => Some(*value),
-            Self::Number(value) => Some(!value.is_nan() && *value != 0.0),
-            Self::String(value) => Some(!value.is_empty()),
-            Self::BigInt(value) => Some(*value != 0),
-            Self::Null | Self::Undefined => Some(false),
-            Self::Reference(_) => None,
-        }
-    }
 }
 
 pub(crate) fn block_contains_yield_delegation(block: &BlockStatement) -> bool {
@@ -7391,97 +7353,6 @@ impl TypeContext {
     }
 }
 
-pub(crate) fn package_root_for_materialized_source(source: &Path) -> Option<PathBuf> {
-    for ancestor in source.ancestors() {
-        if !ancestor.join("package.json").exists() {
-            continue;
-        }
-
-        let parent = ancestor.parent()?;
-        if parent.file_name() == Some(std::ffi::OsStr::new("node_modules")) {
-            return Some(ancestor.to_path_buf());
-        }
-
-        let grandparent = parent.parent()?;
-        if parent
-            .file_name()
-            .is_some_and(|name| name.to_string_lossy().starts_with('@'))
-            && grandparent.file_name() == Some(std::ffi::OsStr::new("node_modules"))
-        {
-            return Some(ancestor.to_path_buf());
-        }
-    }
-
-    None
-}
-
-pub(crate) fn reject_native_addon_package_source(source: &Path) -> Option<Diagnostic> {
-    let package_root = package_root_for_materialized_source(source)?;
-    let package_json_path = package_root.join("package.json");
-    let package_json_contents = fs::read_to_string(&package_json_path).ok()?;
-    let package_json: serde_json::Value = serde_json::from_str(&package_json_contents).ok()?;
-    let package_name = package_json
-        .get("name")
-        .and_then(|value| value.as_str())
-        .map(str::to_owned)
-        .unwrap_or_else(|| package_root.display().to_string());
-
-    let entrypoint = package_json
-        .get("main")
-        .and_then(native_addon_path)
-        .or_else(|| package_json.get("module").and_then(native_addon_path));
-    if let Some(path) = entrypoint {
-        return Some(Diagnostic::error(
-            e6::INCOMPATIBLE_PACKAGE as u32,
-            format!(
-                "package '{}' publishes a native addon entrypoint '{}' and falls outside the pure JS/TS package contract",
-                package_name, path
-            ),
-        ));
-    }
-
-    if package_json
-        .get("exports")
-        .is_some_and(value_contains_native_addon_path)
-    {
-        return Some(Diagnostic::error(
-            e6::INCOMPATIBLE_PACKAGE as u32,
-            format!(
-                "package '{}' publishes a native addon exports target and falls outside the pure JS/TS package contract",
-                package_name
-            ),
-        ));
-    }
-
-    if package_json
-        .get("bin")
-        .is_some_and(value_contains_native_addon_path)
-    {
-        return Some(Diagnostic::error(
-            e6::INCOMPATIBLE_PACKAGE as u32,
-            format!(
-                "package '{}' publishes a native addon bin entrypoint and falls outside the pure JS/TS package contract",
-                package_name
-            ),
-        ));
-    }
-
-    None
-}
-
-pub(crate) fn value_contains_native_addon_path(value: &serde_json::Value) -> bool {
-    match value {
-        serde_json::Value::String(path) => path.ends_with(".node"),
-        serde_json::Value::Array(values) => values.iter().any(value_contains_native_addon_path),
-        serde_json::Value::Object(map) => map.values().any(value_contains_native_addon_path),
-        _ => false,
-    }
-}
-
-pub(crate) fn native_addon_path(value: &serde_json::Value) -> Option<&str> {
-    value.as_str().filter(|path| path.ends_with(".node"))
-}
-
 impl Default for TypeContext {
     fn default() -> Self {
         Self::new()
@@ -7763,132 +7634,6 @@ pub(crate) fn static_parse_int_ascii(source: &str, radix: u32) -> Option<i64> {
     } else {
         Some(value)
     }
-}
-
-pub(crate) fn builtin_globals() -> &'static [&'static str] {
-    &[
-        "AbortController",
-        "AbortSignal",
-        "Array",
-        "Blob",
-        "Boolean",
-        "atob",
-        "btoa",
-        "BroadcastChannel",
-        "clearInterval",
-        "clearTimeout",
-        "console",
-        "CustomEvent",
-        "Date",
-        "Deno",
-        "decodeURI",
-        "decodeURIComponent",
-        "encodeURI",
-        "encodeURIComponent",
-        "Error",
-        "eval",
-        "File",
-        "FileReader",
-        "FormData",
-        "Event",
-        "EventTarget",
-        "WebSocket",
-        "Worker",
-        "indexedDB",
-        "localStorage",
-        "sessionStorage",
-        "fetch",
-        "Function",
-        "globalThis",
-        "Headers",
-        "Infinity",
-        "Intl",
-        "isFinite",
-        "isNaN",
-        "JSON",
-        "Kali",
-        "Map",
-        "Math",
-        "NaN",
-        "Object",
-        "navigator",
-        "parseFloat",
-        "parseInt",
-        "performance",
-        "Promise",
-        "Proxy",
-        "queueMicrotask",
-        "Reflect",
-        "RegExp",
-        "Request",
-        "ReadableStream",
-        "Response",
-        "Set",
-        "setInterval",
-        "setTimeout",
-        "String",
-        "structuredClone",
-        "Symbol",
-        "TextDecoder",
-        "TextEncoder",
-        "TransformStream",
-        "URL",
-        "URLSearchParams",
-        "WeakMap",
-        "WeakSet",
-        "WritableStream",
-        "abs",
-        "crypto",
-    ]
-}
-
-pub(crate) fn node_builtin_globals() -> &'static [&'static str] {
-    &["Buffer", "exports", "module", "process", "require"]
-}
-
-pub(crate) fn node_builtin_specifiers() -> &'static [&'static str] {
-    &[
-        "assert",
-        "buffer",
-        "child_process",
-        "crypto",
-        "events",
-        "fs",
-        "fs/promises",
-        "http",
-        "https",
-        "os",
-        "path",
-        "process",
-        "stream",
-        "timers",
-        "url",
-        "util",
-    ]
-}
-
-pub(crate) fn is_node_builtin_specifier(source: &str) -> bool {
-    let normalized = source.strip_prefix("node:").unwrap_or(source);
-    node_builtin_specifiers().contains(&normalized)
-}
-
-pub(crate) fn bind_builtin(scope: &mut Scope, next_binding_id: &mut u32, name: &str) {
-    if scope.contains(name) {
-        return;
-    }
-
-    scope.bind(name, NodeId::new(*next_binding_id));
-    *next_binding_id = next_binding_id
-        .checked_add(1)
-        .expect("binding id overflow is unreachable in stage 1");
-}
-
-pub(crate) fn duplicate_binding(name: &str) -> Diagnostic {
-    Diagnostic::error(
-        e3::DUPLICATE_BINDING as u32,
-        format!("duplicate binding '{}'", name),
-    )
-    .with_suggestion("rename the binding or move it into a nested scope")
 }
 
 #[cfg(test)]
