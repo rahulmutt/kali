@@ -891,3 +891,7 @@ impl TypeContext {
         self.resolve_static_object_from_entries_call(call)
     }
 }
+
+#[cfg(test)]
+#[path = "object_tests.rs"]
+mod object_tests;
