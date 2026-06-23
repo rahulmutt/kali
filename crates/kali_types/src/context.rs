@@ -284,3 +284,7 @@ impl TypeContext {
         self.bind_name_list(type_params)
     }
 }
+
+#[cfg(test)]
+#[path = "context_tests.rs"]
+mod context_tests;
