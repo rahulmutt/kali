@@ -314,3 +314,7 @@ impl TypeContext {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "typecheck_tests.rs"]
+mod typecheck_tests;
