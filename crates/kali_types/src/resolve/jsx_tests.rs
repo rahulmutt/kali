@@ -1,4 +1,5 @@
 use crate::*;
+use kali_test_support::fixtures;
 use kali_ast::{
     BlockStatement, Expression, ExpressionStatement, FunctionDeclaration, LiteralValue,
     YieldExpression,
@@ -8,7 +9,7 @@ use std::fs;
 
 #[test]
 fn test_resolution_accepts_directory_index_dynamic_import_targets_in_jsx_files() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.jsx");
     let lazy_dir = dir.path().join("lazy");
     fs::create_dir(&lazy_dir).unwrap();
@@ -32,7 +33,7 @@ fn test_resolution_accepts_directory_index_dynamic_import_targets_in_jsx_files()
 
 #[test]
 fn test_resolution_rejects_generator_function_lowering_in_jsx_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.jsx");
     fs::write(&source_path, "function* main() { yield* []; }\nmain();").unwrap();
 

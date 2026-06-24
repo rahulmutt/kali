@@ -1,4 +1,5 @@
 use crate::*;
+use kali_test_support::fixtures;
 use kali_ast::{
     BinaryExpression, BlockStatement, CallExpression, Expression, ExpressionStatement,
     ForOfLefthand, ForOfStatement, LiteralValue, MemberExpression, VariableDeclaration,
@@ -9,7 +10,7 @@ use std::fs;
 
 #[test]
 fn test_resolution_supports_for_of_array_iteration_with_const_string_alias_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -73,7 +74,7 @@ fn test_resolution_supports_for_of_array_iteration_with_const_string_alias_in_js
 
 #[test]
 fn test_resolution_supports_for_of_string_concatenation_iteration_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -135,7 +136,7 @@ fn test_resolution_supports_for_of_string_concatenation_iteration_in_js_input() 
 
 #[test]
 fn test_resolution_supports_for_await_string_concatenation_iteration_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -197,7 +198,7 @@ fn test_resolution_supports_for_await_string_concatenation_iteration_in_js_input
 
 #[test]
 fn test_resolution_supports_for_of_template_literal_string_iteration_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -245,7 +246,7 @@ fn test_resolution_supports_for_of_template_literal_string_iteration_in_js_input
 
 #[test]
 fn test_resolution_supports_for_await_of_array_iteration_with_const_string_alias_in_ts_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
@@ -309,7 +310,7 @@ fn test_resolution_supports_for_await_of_array_iteration_with_const_string_alias
 
 #[test]
 fn test_resolution_supports_for_await_of_array_iteration_with_const_string_alias_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -379,7 +380,7 @@ fn test_resolution_allows_static_ascii_string_search_family_in_non_browser_surfa
         "const result = \"hello\".lastIndexOf(\"l\");",
         "const source = \"hello\"; const result = Object.freeze(source).includes(Object.freeze(\"he\"));",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 
@@ -401,7 +402,7 @@ fn test_resolution_allows_static_ascii_string_search_family_in_non_browser_surfa
 #[test]
 fn test_resolution_rejects_argument_bearing_static_array_to_string_in_non_browser_surface() {
     let source = "const result = [0, 1, 2].toString('-');";
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(&source_path, source).unwrap();
 
@@ -430,7 +431,7 @@ fn test_resolution_rejects_dynamic_or_non_ascii_string_search_family_in_non_brow
         "function at(from) { return \"hello\".indexOf(\"l\", from); }",
         "const result = \"héllo\".lastIndexOf(\"l\");",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 
@@ -462,7 +463,7 @@ fn test_resolution_allows_static_ascii_string_slice_in_non_browser_surface() {
         "const result = 'hello'.slice(-4, -1);",
         "const source = 'hello'; const result = Object.freeze(source).slice(Object.freeze(1.5), 4.9);",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 
@@ -490,7 +491,7 @@ fn test_resolution_allows_static_ascii_string_substring_in_non_browser_surface()
         "const result = 'hello'.substring(4, 1);",
         "const source = 'hello'; const result = Object.freeze(source).substring(Object.freeze(1.5), 4.9);"
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 
@@ -517,7 +518,7 @@ fn test_resolution_rejects_dynamic_or_non_ascii_string_substring_in_non_browser_
         "const result = 'hello'.substring(Infinity);",
         "const result = 'héllo'.substring(1);",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 
@@ -548,7 +549,7 @@ fn test_resolution_allows_static_ascii_string_concat_in_non_browser_surface() {
         "const result = 'hello'.concat();",
         "const suffix = 'llo'; const result = Object.freeze('he').concat(Object.freeze(suffix));",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 
@@ -576,7 +577,7 @@ fn test_resolution_allows_static_ascii_string_search_omitted_search_in_non_brows
         "const result = 'hello'.startsWith();",
         "const result = 'hello'.endsWith();",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 
@@ -603,7 +604,7 @@ fn test_resolution_rejects_dynamic_or_non_ascii_string_concat_in_non_browser_sur
         "const result = 'hé'.concat('llo');",
         "const result = 'he'.concat('lló');",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 
@@ -635,7 +636,7 @@ fn test_resolution_allows_static_ascii_string_at_in_non_browser_surface() {
         "const result = 'hello'.at(99);",
         "const source = 'hello'; const result = Object.freeze(source).at(Object.freeze(4));",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 
@@ -662,7 +663,7 @@ fn test_resolution_rejects_dynamic_or_non_ascii_string_at_in_non_browser_surface
         "const result = 'hello'.at(1.5);",
         "const result = 'héllo'.at(1);",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 
@@ -693,7 +694,7 @@ fn test_resolution_allows_static_ascii_string_char_at_in_non_browser_surface() {
         "const result = 'hello'.charAt(-1);",
         "const source = 'hello'; const result = Object.freeze(source).charAt(Object.freeze(4));",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 
@@ -720,7 +721,7 @@ fn test_resolution_rejects_dynamic_or_non_ascii_string_char_at_in_non_browser_su
         "const result = 'hello'.charAt(1.5);",
         "const result = 'héllo'.charAt(1);",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 
@@ -752,7 +753,7 @@ fn test_resolution_allows_static_ascii_string_char_code_at_in_non_browser_surfac
         "const result = 'hello'.charCodeAt(99);",
         "const source = 'hello'; const result = Object.freeze(source).charCodeAt(Object.freeze(4));",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 
@@ -779,7 +780,7 @@ fn test_resolution_rejects_dynamic_or_non_ascii_string_char_code_at_in_non_brows
         "const result = 'hello'.charCodeAt(1.5);",
         "const result = 'héllo'.charCodeAt(1);",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 
@@ -812,7 +813,7 @@ fn test_resolution_allows_static_ascii_string_trim_family_in_non_browser_surface
         "const result = '  hello  '.trimRight();",
         "const source = ' hello '; const result = Object.freeze(source).trim();",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 
@@ -841,7 +842,7 @@ fn test_resolution_allows_static_ascii_string_case_family_in_non_browser_surface
         "const source = 'Hello'; const result = Object.freeze(source).toLowerCase();",
         "const source = 'Hello'; const result = Object.freeze(source).toLocaleUpperCase();",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 
@@ -867,7 +868,7 @@ fn test_resolution_allows_static_ascii_string_replace_in_non_browser_surface() {
         "const result = 'abc'.replace('', 'X');",
         "const source = 'hello'; const result = Object.freeze(source).replace(Object.freeze('h'), 'j');",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 
@@ -894,7 +895,7 @@ fn test_resolution_allows_static_ascii_string_split_in_non_browser_surface() {
         "const whole = 'abc'.split();",
         "const source = 'a-b'; const result = Object.freeze(source).split(Object.freeze('-'));",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 
@@ -923,7 +924,7 @@ fn test_resolution_rejects_dynamic_or_non_ascii_string_split_in_non_browser_surf
         "const result = 'a,b'.split('é');",
         "const result = 'a,b'.split(',', -1);",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 
@@ -957,7 +958,7 @@ fn test_resolution_rejects_dynamic_or_non_ascii_string_replace_in_non_browser_su
         "const result = 'hello'.replace('h', '$&');",
         "const result = 'hello'.replaceAll('h', '$&');",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 
@@ -989,7 +990,7 @@ fn test_resolution_rejects_non_ascii_or_argument_string_trim_family_in_non_brows
         "const result = '  hello  '.trimLeft(1);",
         "const result = '  hello  '.trimRight(1);",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 
@@ -1022,7 +1023,7 @@ fn test_resolution_rejects_non_ascii_or_argument_string_case_family_in_non_brows
         "function convert(value) { return value.toLowerCase(); }",
         "function convert(value) { return value.toLocaleLowerCase(); }",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 
@@ -1053,7 +1054,7 @@ fn test_resolution_rejects_dynamic_or_non_ascii_string_slice_in_non_browser_surf
         "const result = 'héllo'.slice(1);",
         "const result = 'hello'.slice(1 / 0);",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 

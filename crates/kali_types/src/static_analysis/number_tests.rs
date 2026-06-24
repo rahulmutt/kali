@@ -1,4 +1,5 @@
 use crate::*;
+use kali_test_support::fixtures;
 use kali_ast::{
     CallExpression, Expression, ExpressionStatement, LiteralValue, MemberExpression,
     VariableDeclaration, VariableDeclarator,
@@ -214,7 +215,7 @@ fn test_resolution_allows_static_ascii_parse_int_in_non_browser_surface() {
         "const parse = Object.freeze(parseInt); const result = parse(Object.freeze('77'), 8);",
         "const parse = Object.freeze(globalThis[\"Number\"][\"parseInt\"]); const result = parse('10', Object.freeze(2));",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 
@@ -243,7 +244,7 @@ fn test_resolution_allows_static_ascii_parse_float_integer_in_non_browser_surfac
         "const parse = Object.freeze(parseFloat); const result = parse(Object.freeze('77.0'));",
         "const parse = Object.freeze(globalThis[\"Number\"][\"parseFloat\"]); const result = parse('10e1');",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 
@@ -271,7 +272,7 @@ fn test_resolution_rejects_dynamic_or_invalid_parse_int_in_non_browser_surface()
         "const result = parseInt('10', 1);",
         "const result = parseInt('10', radix);",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 
@@ -303,7 +304,7 @@ fn test_resolution_rejects_dynamic_or_invalid_parse_float_in_non_browser_surface
         "const result = parseFloat('1.5');",
         "const result = parseFloat('10', 10);",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 

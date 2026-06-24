@@ -1,4 +1,5 @@
 use crate::test_support::*;
+use kali_test_support::fixtures;
 use crate::*;
 use kali_ast::{
     AssignmentExpression, AssignmentOperator, AwaitExpression, CallExpression, DecoratedExpression,
@@ -9,7 +10,6 @@ use kali_ast::{
 use kali_common::process_kill_zero_probe_source;
 use kali_error::_error_codes::{e3, e5};
 use std::fs;
-use tempfile::tempdir;
 
 #[test]
 fn test_resolution_allows_browser_file_reader_global() {
@@ -380,7 +380,7 @@ fn test_resolution_reports_late_host_control_globals_as_unavailable() {
 #[test]
 fn test_resolution_reports_late_host_control_globals_through_await_wrapped_receivers_as_unavailable(
 ) {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     let mut ctx = TypeContext::with_base_path_and_api_surface(&source_path, "browser");
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
@@ -414,7 +414,7 @@ fn test_resolution_reports_late_host_control_globals_through_await_wrapped_recei
 
 #[test]
 fn test_resolution_reports_deno_args_as_unavailable_on_browser_surface() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     let mut ctx = TypeContext::with_base_path_and_api_surface(&source_path, "browser");
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
@@ -1233,7 +1233,7 @@ fn test_resolution_accepts_supported_permission_query_descriptors_with_const_bin
         })
     }
 
-    let dir = tempdir().expect("tempdir");
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(&source_path, "const descriptor = 'read';\n").expect("write source");
 
@@ -1297,7 +1297,7 @@ fn test_resolution_accepts_supported_permission_query_descriptors_with_const_bin
         })
     }
 
-    let dir = tempdir().expect("tempdir");
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
     fs::write(&source_path, "const descriptor = 'read';\n").expect("write source");
 
@@ -1770,7 +1770,7 @@ fn test_resolution_rejects_node_builtin_imports_outside_node_context() {
 
 #[test]
 fn test_resolution_supports_process_kill_zero_probe_wrappers_on_node_surface() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -1876,7 +1876,7 @@ fn test_resolution_supports_process_kill_zero_probe_wrappers_on_node_surface() {
 
 #[test]
 fn test_resolution_supports_bracketed_process_kill_zero_probe_wrappers_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     let mut source = process_kill_zero_probe_source();
     source.push_str(" const killer = process.kill; const bracketedKiller = globalThis[\"process\"][\"kill\"]; const sequenceKiller = (process.kill, process.kill); killer(0); bracketedKiller(+0); sequenceKiller(0);");
@@ -1898,7 +1898,7 @@ fn test_resolution_supports_bracketed_process_kill_zero_probe_wrappers_in_js_inp
 
 #[test]
 fn test_resolution_supports_process_kill_zero_probe_through_static_zero_aliases_on_node_surface() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
@@ -1957,7 +1957,7 @@ fn test_resolution_supports_process_kill_zero_probe_through_static_zero_aliases_
 
 #[test]
 fn test_resolution_supports_process_kill_zero_probe_satisfies_wrappers_on_node_surface() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
     let source = kali_common::process_kill_zero_probe_satisfies_source();
     fs::write(&source_path, source).unwrap();
@@ -2038,7 +2038,7 @@ fn test_resolution_supports_process_kill_zero_probe_satisfies_wrappers_on_node_s
 
 #[test]
 fn test_resolution_rejects_process_kill_non_zero_literal_on_node_surface() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(&source_path, "process.kill(1);").unwrap();
 

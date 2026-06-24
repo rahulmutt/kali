@@ -1,4 +1,5 @@
 use crate::test_support::*;
+use kali_test_support::fixtures;
 use crate::*;
 use kali_ast::{
     AssignmentExpression, AssignmentOperator, BlockStatement, CallExpression, DecoratedExpression,
@@ -7,11 +8,10 @@ use kali_ast::{
 };
 use kali_error::_error_codes::e5;
 use std::fs;
-use tempfile::tempdir;
 
 #[test]
 fn test_resolution_accepts_new_set_iteration_target_in_js_input() {
-    let dir = tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     let source = r#"for (const value of new Set([1, 2, 1])) {
     console.log(value);
@@ -41,7 +41,7 @@ fn test_resolution_accepts_new_set_iteration_target_in_js_input() {
 
 #[test]
 fn test_resolution_accepts_new_set_iteration_target_via_builtin_alias_in_js_input() {
-    let dir = tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     let source = r#"const setAlias = Set; const wrappedSetAlias = (setAlias); const values = [1, 2, 1]; for (const value of new setAlias(values)) { console.log(value); } for await (const value of new (wrappedSetAlias)(values)) { console.log(value); }
 "#;
@@ -62,7 +62,7 @@ fn test_resolution_accepts_new_set_iteration_target_via_builtin_alias_in_js_inpu
 }
 
 fn assert_resolution_accepts_frozen_iterator_protocol_edge(source_filename: &str, source: &str) {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join(source_filename);
     fs::write(&source_path, source).unwrap();
 
@@ -98,7 +98,7 @@ fn test_resolution_accepts_frozen_map_iteration_in_ts_input() {
 
 #[test]
 fn test_resolution_accepts_new_map_iteration_target_in_js_input() {
-    let dir = tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     let source = r#"for (const entry of new Map([[1, 2], [1, 3], [4, 5]])) {
     console.log(entry[0], entry[1]);
@@ -128,7 +128,7 @@ fn test_resolution_accepts_new_map_iteration_target_in_js_input() {
 
 #[test]
 fn test_resolution_accepts_new_map_iteration_target_via_builtin_alias_in_js_input() {
-    let dir = tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     let source = r#"const mapAlias = Map; const wrappedMapAlias = (mapAlias); const values = [[1, 2], [1, 3], [4, 5]]; for (const entry of new mapAlias(values)) { console.log(entry[0], entry[1]); } for await (const entry of new (wrappedMapAlias)(values)) { console.log(entry[0], entry[1]); }
 "#;
@@ -150,7 +150,7 @@ fn test_resolution_accepts_new_map_iteration_target_via_builtin_alias_in_js_inpu
 
 #[test]
 fn test_resolution_accepts_global_this_set_and_map_iteration_targets_in_js_input() {
-    let dir = tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     let source = r#"for (const value of new globalThis.Set([1, 2, 1])) {
     console.log(value);
@@ -195,7 +195,7 @@ for await (const entry of new globalThis['Map']([[1, 2], [1, 3], [4, 5]])) {
 
 #[test]
 fn test_resolution_supports_for_of_array_iteration() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
@@ -246,7 +246,7 @@ fn test_resolution_supports_for_of_array_iteration() {
 
 #[test]
 fn test_resolution_supports_for_of_array_iteration_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -356,7 +356,7 @@ fn test_resolution_supports_parenthesized_single_quoted_bracketed_frozen_global_
 #[test]
 fn test_resolution_recognizes_parenthesized_bracketed_frozen_global_this_array_from_dot_callable_name_in_js_input(
 ) {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -391,7 +391,7 @@ fn test_resolution_recognizes_parenthesized_bracketed_frozen_global_this_array_f
 #[test]
 fn test_resolution_recognizes_parenthesized_single_quoted_frozen_global_this_array_from_dot_callable_name_in_js_input(
 ) {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -450,7 +450,7 @@ fn test_resolution_supports_sequence_wrapped_frozen_array_from_iteration_in_js_i
 
 #[test]
 fn test_resolution_recognizes_nullish_wrapped_array_from_callable_name_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -484,7 +484,7 @@ fn test_resolution_recognizes_nullish_wrapped_array_from_callable_name_in_js_inp
 
 #[test]
 fn test_resolution_recognizes_frozen_array_from_callable_name_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -517,7 +517,7 @@ fn test_resolution_recognizes_frozen_array_from_callable_name_in_js_input() {
 
 #[test]
 fn test_resolution_recognizes_and_wrapped_array_from_callable_name_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -551,7 +551,7 @@ fn test_resolution_recognizes_and_wrapped_array_from_callable_name_in_js_input()
 
 #[test]
 fn test_resolution_recognizes_or_wrapped_array_from_callable_name_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -586,7 +586,7 @@ fn test_resolution_recognizes_or_wrapped_array_from_callable_name_in_js_input() 
 #[test]
 fn test_resolution_recognizes_and_wrapped_bracketed_global_this_array_from_callable_name_in_js_input(
 ) {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -621,7 +621,7 @@ fn test_resolution_recognizes_and_wrapped_bracketed_global_this_array_from_calla
 #[test]
 fn test_resolution_recognizes_nullish_wrapped_bracketed_global_this_array_from_callable_name_in_js_input(
 ) {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -656,7 +656,7 @@ fn test_resolution_recognizes_nullish_wrapped_bracketed_global_this_array_from_c
 #[test]
 fn test_resolution_recognizes_nullish_wrapped_fully_bracketed_global_this_array_from_callable_name_in_js_input(
 ) {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -691,7 +691,7 @@ fn test_resolution_recognizes_nullish_wrapped_fully_bracketed_global_this_array_
 #[test]
 fn test_resolution_recognizes_nullish_wrapped_single_quoted_fully_bracketed_global_this_array_from_callable_name_in_js_input(
 ) {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -725,7 +725,7 @@ fn test_resolution_recognizes_nullish_wrapped_single_quoted_fully_bracketed_glob
 
 #[test]
 fn test_resolution_recognizes_array_from_callable_name_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -758,7 +758,7 @@ fn test_resolution_recognizes_array_from_callable_name_in_js_input() {
 
 #[test]
 fn test_resolution_recognizes_global_this_array_from_callable_name_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -791,7 +791,7 @@ fn test_resolution_recognizes_global_this_array_from_callable_name_in_js_input()
 
 #[test]
 fn test_resolution_recognizes_bracketed_global_this_array_from_callable_name_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -826,7 +826,7 @@ fn test_resolution_recognizes_bracketed_global_this_array_from_callable_name_in_
 #[test]
 fn test_resolution_recognizes_single_quoted_bracketed_global_this_array_from_callable_name_in_js_input(
 ) {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -860,7 +860,7 @@ fn test_resolution_recognizes_single_quoted_bracketed_global_this_array_from_cal
 
 #[test]
 fn test_resolution_recognizes_bracketed_global_this_array_bracket_from_callable_name_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -895,7 +895,7 @@ fn test_resolution_recognizes_bracketed_global_this_array_bracket_from_callable_
 #[test]
 fn test_resolution_recognizes_single_quoted_bracketed_global_this_array_bracket_from_callable_name_in_js_input(
 ) {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -930,7 +930,7 @@ fn test_resolution_recognizes_single_quoted_bracketed_global_this_array_bracket_
 #[test]
 fn test_resolution_recognizes_nullish_wrapped_bracketed_global_this_array_bracket_from_callable_name_in_js_input(
 ) {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -964,7 +964,7 @@ fn test_resolution_recognizes_nullish_wrapped_bracketed_global_this_array_bracke
 
 #[test]
 fn test_resolution_recognizes_single_quoted_bracketed_array_from_callable_name_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -1063,7 +1063,7 @@ fn test_resolution_supports_parenthesized_mixed_quoted_bracket_root_array_from_i
 
 #[test]
 fn test_resolution_supports_for_of_array_iteration_with_sequence_wrappers_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -1267,7 +1267,7 @@ fn test_resolution_rejects_for_await_non_literal_iterable_as_unavailable() {
 
 #[test]
 fn test_resolution_supports_for_of_array_iteration_with_parenthesized_binding_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -1325,7 +1325,7 @@ fn test_resolution_supports_for_of_array_iteration_with_parenthesized_binding_in
 
 #[test]
 fn test_resolution_supports_for_of_array_iteration_with_parenthesized_binding_in_ts_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
@@ -1383,7 +1383,7 @@ fn test_resolution_supports_for_of_array_iteration_with_parenthesized_binding_in
 
 #[test]
 fn test_resolution_rejects_for_of_array_iteration_with_identifier_iterable() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
@@ -1428,7 +1428,7 @@ fn test_resolution_rejects_for_of_array_iteration_with_identifier_iterable() {
 
 #[test]
 fn test_resolution_supports_for_of_array_iteration_with_const_alias_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -1488,7 +1488,7 @@ fn test_resolution_supports_for_of_array_iteration_with_const_alias_in_js_input(
 
 #[test]
 fn test_resolution_supports_for_of_array_iteration_with_const_alias_in_ts_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
@@ -1548,7 +1548,7 @@ fn test_resolution_supports_for_of_array_iteration_with_const_alias_in_ts_input(
 
 #[test]
 fn test_resolution_supports_for_of_array_iteration_with_let_binding_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -1609,7 +1609,7 @@ fn test_resolution_supports_for_of_array_iteration_with_let_binding_in_js_input(
 #[test]
 fn test_resolution_rejects_for_of_array_iteration_with_let_binding_rebound_before_use_in_js_input()
 {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -1690,7 +1690,7 @@ fn test_resolution_rejects_for_of_array_iteration_with_let_binding_rebound_befor
 
 #[test]
 fn test_resolution_supports_for_of_array_iteration_with_const_numeric_alias_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -1752,7 +1752,7 @@ fn test_resolution_supports_for_of_array_iteration_with_const_numeric_alias_in_j
 
 #[test]
 fn test_resolution_supports_for_of_array_iteration_with_const_numeric_alias_in_ts_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
@@ -1814,7 +1814,7 @@ fn test_resolution_supports_for_of_array_iteration_with_const_numeric_alias_in_t
 
 #[test]
 fn test_resolution_supports_for_of_array_iteration_with_decorated_wrappers_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -1884,7 +1884,7 @@ fn test_resolution_supports_for_of_array_iteration_with_decorated_wrappers_in_js
 
 #[test]
 fn test_resolution_supports_for_of_array_iteration_with_decorated_wrappers_in_ts_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
@@ -1955,7 +1955,7 @@ fn test_resolution_supports_for_of_array_iteration_with_decorated_wrappers_in_ts
 #[test]
 fn test_resolution_supports_for_of_array_iteration_with_spread_of_const_bound_literal_arrays_in_js_input(
 ) {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -2021,7 +2021,7 @@ fn test_resolution_supports_for_of_array_iteration_with_spread_of_const_bound_li
 
 #[test]
 fn test_resolution_supports_for_of_array_iteration_with_decorated_spread_targets_in_ts_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
 
     let statements = vec![
@@ -2084,7 +2084,7 @@ fn test_resolution_supports_for_of_array_iteration_with_decorated_spread_targets
 
 #[test]
 fn test_resolution_supports_for_of_array_iteration_with_decorated_spread_targets_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
 
     let statements = vec![
@@ -2147,7 +2147,7 @@ fn test_resolution_supports_for_of_array_iteration_with_decorated_spread_targets
 
 #[test]
 fn test_resolution_supports_for_await_of_array_iteration_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -2198,7 +2198,7 @@ fn test_resolution_supports_for_await_of_array_iteration_in_js_input() {
 
 #[test]
 fn test_resolution_supports_for_await_of_array_iteration_with_sequence_wrappers_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -2264,7 +2264,7 @@ fn test_resolution_supports_for_await_of_array_iteration_with_sequence_wrappers_
 
 #[test]
 fn test_resolution_supports_for_await_of_array_iteration_with_decorated_wrappers_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -2334,7 +2334,7 @@ fn test_resolution_supports_for_await_of_array_iteration_with_decorated_wrappers
 
 #[test]
 fn test_resolution_supports_for_await_of_array_iteration_with_decorated_wrappers_in_jsx_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.jsx");
     fs::write(
         &source_path,
@@ -2404,7 +2404,7 @@ fn test_resolution_supports_for_await_of_array_iteration_with_decorated_wrappers
 
 #[test]
 fn test_resolution_supports_for_await_of_array_iteration_with_decorated_wrappers_in_ts_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
@@ -2474,7 +2474,7 @@ fn test_resolution_supports_for_await_of_array_iteration_with_decorated_wrappers
 
 #[test]
 fn test_resolution_supports_for_await_of_array_iteration_with_decorated_wrappers_in_tsx_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.tsx");
     fs::write(
         &source_path,
@@ -2544,7 +2544,7 @@ fn test_resolution_supports_for_await_of_array_iteration_with_decorated_wrappers
 
 #[test]
 fn test_resolution_supports_for_await_of_await_wrapped_iterables_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -2572,7 +2572,7 @@ fn test_resolution_supports_for_await_of_await_wrapped_iterables_in_js_input() {
 #[test]
 fn test_resolution_supports_for_await_of_array_iteration_with_decorated_spread_targets_in_js_input()
 {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
 
     let statements = vec![
@@ -2636,7 +2636,7 @@ fn test_resolution_supports_for_await_of_array_iteration_with_decorated_spread_t
 #[test]
 fn test_resolution_supports_for_await_of_array_iteration_with_decorated_spread_targets_in_ts_input()
 {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
 
     let statements = vec![
@@ -2699,7 +2699,7 @@ fn test_resolution_supports_for_await_of_array_iteration_with_decorated_spread_t
 
 #[test]
 fn test_resolution_supports_for_await_of_array_iteration_with_const_alias_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -2761,7 +2761,7 @@ fn test_resolution_supports_for_await_of_array_iteration_with_const_alias_in_js_
 
 #[test]
 fn test_resolution_supports_for_await_of_array_iteration_with_const_alias_in_ts_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
@@ -2825,7 +2825,7 @@ fn test_resolution_supports_for_await_of_array_iteration_with_const_alias_in_ts_
 fn test_resolution_allows_static_array_reduce_without_initial_value_on_non_empty_numeric_literals()
 {
     for method in ["reduce", "reduceRight"] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         let source = format!(
             "const result = [1, 2, 3].{method}((accumulator, value) => accumulator + value);"
@@ -2850,7 +2850,7 @@ fn test_resolution_allows_static_array_reduce_without_initial_value_on_non_empty
 #[test]
 fn test_resolution_rejects_static_array_reduce_without_initial_value_on_empty_literals() {
     for method in ["reduce", "reduceRight"] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         let source =
             format!("const result = [].{method}((accumulator, value) => accumulator + value);");
@@ -2885,7 +2885,7 @@ fn test_resolution_rejects_static_array_reduce_without_initial_value_on_empty_li
 
 #[test]
 fn test_resolution_allows_static_predicate_array_filter_in_non_browser_surface() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     let source =
         "for (const value of [1, 2, 3].filter((value) => value > 1)) { console.log(value); }"
@@ -2913,7 +2913,7 @@ fn test_resolution_allows_static_array_search_family_in_non_browser_surface() {
         "const needle = 1; const result = [0, 1, 2].indexOf(needle, 1);",
         "const result = [0, 1, 2, 1].lastIndexOf(1, 2);",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 
@@ -2939,7 +2939,7 @@ fn test_resolution_allows_static_array_join_in_non_browser_surface() {
         "const separator = '-'; const result = [0, 1, 2].join(separator);",
         "const result = ['a', 'b'].join();",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 
@@ -2961,7 +2961,7 @@ fn test_resolution_allows_static_array_join_in_non_browser_surface() {
 #[test]
 fn test_resolution_rejects_dynamic_array_join_in_non_browser_surface() {
     let source = "function join(separator) { return [0, 1, 2].join(separator); }";
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(&source_path, source).unwrap();
 
@@ -2990,7 +2990,7 @@ fn test_resolution_allows_static_array_concat_in_non_browser_surface() {
         "const values = [0, 1]; const result = values.concat(2, [3]);",
         "const result = [0].concat(Object.freeze(1));",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 
@@ -3015,7 +3015,7 @@ fn test_resolution_rejects_dynamic_array_concat_in_non_browser_surface() {
         "function join(values) { return values.concat([1]); }",
         "function join(value) { return [0].concat(value); }",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 
@@ -3045,7 +3045,7 @@ fn test_resolution_allows_static_array_at_in_non_browser_surface() {
         "const result = [0, 1, 2].at(-1);",
         "const result = [0, 1, 2].at(3);",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 
@@ -3070,7 +3070,7 @@ fn test_resolution_rejects_dynamic_array_at_in_non_browser_surface() {
         "function get(index) { return [0, 1, 2].at(index); }",
         "function get(values) { return values.at(1); }",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 
@@ -3100,7 +3100,7 @@ fn test_resolution_rejects_dynamic_array_search_family_in_non_browser_surface() 
         "function at(from) { return [0, 1, 2].indexOf(1, from); }",
         "function find(values) { return values.lastIndexOf(1); }",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 
@@ -3135,7 +3135,7 @@ fn test_resolution_allows_array_find_family_in_non_browser_surface() {
         ("findLast", "(value) => value === 2"),
         ("findLastIndex", "(value) => value !== 1"),
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         let source = format!("const result = [0, 1, 2, 3].{method}({callback});");
         fs::write(&source_path, source).unwrap();
@@ -3160,7 +3160,7 @@ fn test_resolution_allows_array_find_family_in_non_browser_surface() {
 
 #[test]
 fn test_resolution_allows_identity_array_map_in_non_browser_surface() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     let source = "const result = [1, 2, 3].map((value) => value);".to_string();
     fs::write(&source_path, &source).unwrap();
@@ -3181,7 +3181,7 @@ fn test_resolution_allows_identity_array_map_in_non_browser_surface() {
 
 #[test]
 fn test_resolution_allows_identity_array_some_in_non_browser_surface() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     let source = "const result = [0, 1].some((value) => value);".to_string();
     fs::write(&source_path, &source).unwrap();
@@ -3202,7 +3202,7 @@ fn test_resolution_allows_identity_array_some_in_non_browser_surface() {
 
 #[test]
 fn test_resolution_allows_identity_array_every_in_non_browser_surface() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     let source = "const result = [1, 2].every((value) => value);".to_string();
     fs::write(&source_path, &source).unwrap();
@@ -3227,7 +3227,7 @@ fn test_resolution_allows_number_predicate_array_some_every_in_non_browser_surfa
         "const result = [0, 1, 2].some((value) => value > 1);",
         "const result = [2, 3].every((value) => value > 1);",
     ] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join("main.js");
         fs::write(&source_path, source).unwrap();
 
@@ -3248,7 +3248,7 @@ fn test_resolution_allows_number_predicate_array_some_every_in_non_browser_surfa
 
 #[test]
 fn test_resolution_allows_truthy_identity_array_filter_in_non_browser_surface() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     let source = "const result = [1, 2].filter((value) => value);".to_string();
     fs::write(&source_path, &source).unwrap();
@@ -3269,7 +3269,7 @@ fn test_resolution_allows_truthy_identity_array_filter_in_non_browser_surface() 
 
 #[test]
 fn test_resolution_allows_identity_array_flat_map_in_non_browser_surface() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     let source = "const result = [1, 2].flatMap((value) => [value]);".to_string();
     fs::write(&source_path, &source).unwrap();

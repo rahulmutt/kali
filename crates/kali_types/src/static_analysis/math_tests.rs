@@ -1,4 +1,5 @@
 use crate::test_support::*;
+use kali_test_support::fixtures;
 use crate::*;
 use kali_ast::{
     CallExpression, ConditionalExpression, DecoratedExpression, Expression, ExpressionStatement,
@@ -2278,7 +2279,7 @@ frozenDirectRoot.log1p(zero);
 "#;
 
     for extension in ["js", "jsx", "ts", "tsx"] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join(format!("main.{extension}"));
         fs::write(&source_path, source).unwrap();
 
@@ -2323,7 +2324,7 @@ frozenParenthesizedSingleQuotedGlobalThisBracketedRoot(2, exponent);
 "#;
 
     for extension in ["js", "jsx", "ts", "tsx"] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join(format!("main.{extension}"));
         fs::write(&source_path, source).unwrap();
 
@@ -2350,7 +2351,7 @@ fn test_resolution_supports_frozen_math_abs_and_sign_callable_aliases_across_js_
     );
 
     for extension in ["js", "jsx", "ts", "tsx"] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join(format!("main.{extension}"));
         fs::write(&source_path, &source).unwrap();
 
@@ -2377,7 +2378,7 @@ fn test_resolution_supports_frozen_math_round_callable_aliases_across_js_like_ex
     );
 
     for extension in ["js", "jsx", "ts", "tsx"] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join(format!("main.{extension}"));
         fs::write(&source_path, &source).unwrap();
 

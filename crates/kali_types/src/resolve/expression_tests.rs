@@ -1,4 +1,5 @@
 use crate::test_support::*;
+use kali_test_support::fixtures;
 use crate::*;
 use kali_ast::{
     AssignmentExpression, AssignmentOperator, BinaryExpression, BlockStatement,
@@ -10,7 +11,6 @@ use kali_ast::{
 };
 use kali_error::_error_codes::{e3, e5};
 use std::fs;
-use tempfile::tempdir;
 
 #[test]
 fn test_resolution_reports_unresolved_public_exports() {
@@ -38,7 +38,7 @@ fn test_resolution_reports_unresolved_public_exports() {
 
 #[test]
 fn test_resolution_reports_unresolved_public_exports_in_js_input() {
-    let dir = tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(&source_path, "export { missing };").unwrap();
 
@@ -66,7 +66,7 @@ fn test_resolution_reports_unresolved_public_exports_in_js_input() {
 
 #[test]
 fn test_resolution_resolves_export_all_sources_in_js_input() {
-    let dir = tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let helper_path = dir.path().join("helper.js");
     let source_path = dir.path().join("main.js");
     fs::write(
@@ -92,7 +92,7 @@ fn test_resolution_resolves_export_all_sources_in_js_input() {
 #[test]
 fn test_resolution_reports_unresolved_public_exports_in_jsx_and_tsx_input() {
     for extension in ["jsx", "tsx"] {
-        let dir = tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join(format!("main.{extension}"));
         fs::write(&source_path, "export { missing };").unwrap();
 
@@ -121,7 +121,7 @@ fn test_resolution_reports_unresolved_public_exports_in_jsx_and_tsx_input() {
 
 #[test]
 fn test_resolution_reports_unresolved_public_export_aliases_in_js_input() {
-    let dir = tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(&source_path, "export { missing as renamed };").unwrap();
 
@@ -149,7 +149,7 @@ fn test_resolution_reports_unresolved_public_export_aliases_in_js_input() {
 
 #[test]
 fn test_resolution_reports_unresolved_default_exports_in_js_input() {
-    let dir = tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(&source_path, "export default missing;").unwrap();
 
@@ -173,7 +173,7 @@ fn test_resolution_reports_unresolved_default_exports_in_js_input() {
 
 #[test]
 fn test_resolution_reports_unresolved_default_exports_in_ts_input() {
-    let dir = tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
     fs::write(&source_path, "export default missing;").unwrap();
 
@@ -197,7 +197,7 @@ fn test_resolution_reports_unresolved_default_exports_in_ts_input() {
 
 #[test]
 fn test_resolution_reports_unresolved_default_export_aliases_in_js_input() {
-    let dir = tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(&source_path, "export { missing as default };").unwrap();
 
@@ -225,7 +225,7 @@ fn test_resolution_reports_unresolved_default_export_aliases_in_js_input() {
 
 #[test]
 fn test_resolution_reports_unresolved_default_export_aliases_in_ts_input() {
-    let dir = tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
     fs::write(&source_path, "export { missing as default };").unwrap();
 
@@ -254,7 +254,7 @@ fn test_resolution_reports_unresolved_default_export_aliases_in_ts_input() {
 #[test]
 fn test_resolution_reports_unresolved_default_export_aliases_in_jsx_and_tsx_input() {
     for extension in ["jsx", "tsx"] {
-        let dir = tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join(format!("main.{extension}"));
         fs::write(&source_path, "export { missing as default };").unwrap();
 
@@ -283,7 +283,7 @@ fn test_resolution_reports_unresolved_default_export_aliases_in_jsx_and_tsx_inpu
 
 #[test]
 fn test_resolution_reports_unresolved_identifiers_inside_default_export_function_in_js_input() {
-    let dir = tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -321,7 +321,7 @@ fn test_resolution_reports_unresolved_identifiers_inside_default_export_function
 
 #[test]
 fn test_resolution_reports_unresolved_identifiers_inside_default_export_function_in_ts_input() {
-    let dir = tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
@@ -361,7 +361,7 @@ fn test_resolution_reports_unresolved_identifiers_inside_default_export_function
 fn test_resolution_reports_unresolved_identifiers_inside_default_export_function_in_jsx_and_tsx_input(
 ) {
     for extension in ["jsx", "tsx"] {
-        let dir = tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join(format!("main.{extension}"));
         fs::write(
             &source_path,
@@ -400,7 +400,7 @@ fn test_resolution_reports_unresolved_identifiers_inside_default_export_function
 
 #[test]
 fn test_resolution_reports_missing_re_export_sources() {
-    let dir = tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
     fs::write(&source_path, "export { missing } from './missing.ts';").unwrap();
 
@@ -430,7 +430,7 @@ fn test_resolution_reports_missing_re_export_sources() {
 
 #[test]
 fn test_resolution_reports_missing_re_export_sources_in_js_input() {
-    let dir = tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(&source_path, "export { missing } from './missing.js';").unwrap();
 
@@ -461,7 +461,7 @@ fn test_resolution_reports_missing_re_export_sources_in_js_input() {
 #[test]
 fn test_resolution_reports_missing_re_export_sources_in_jsx_and_tsx_input() {
     for extension in ["jsx", "tsx"] {
-        let dir = tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join(format!("main.{extension}"));
         fs::write(
             &source_path,
@@ -766,7 +766,7 @@ fn test_resolution_accepts_decorated_wrappers_for_update_targets() {
 
 #[test]
 fn test_resolution_allows_static_dynamic_import_targets() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
     fs::write(dir.path().join("lazy.ts"), "export const lazy = 7;").unwrap();
     fs::write(&source_path, "const lazy = import(\"./\" + \"lazy.ts\");").unwrap();
@@ -792,7 +792,7 @@ fn test_resolution_allows_static_dynamic_import_targets() {
 
 #[test]
 fn test_resolution_allows_static_dynamic_import_targets_in_js_files() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(dir.path().join("lazy.js"), "export const lazy = 7;").unwrap();
     fs::write(&source_path, "const lazy = import(\"./lazy.js\");").unwrap();
@@ -814,7 +814,7 @@ fn test_resolution_allows_static_dynamic_import_targets_in_js_files() {
 
 #[test]
 fn test_resolution_allows_template_literal_dynamic_import_targets() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
     fs::write(dir.path().join("lazy.ts"), "export const lazy = 7;").unwrap();
     fs::write(
@@ -863,7 +863,7 @@ fn test_resolution_allows_template_literal_dynamic_import_targets() {
 
 #[test]
 fn test_resolution_allows_template_literal_dynamic_import_targets_in_js_files() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(dir.path().join("lazy.js"), "export const lazy = 7;").unwrap();
     fs::write(
@@ -912,7 +912,7 @@ fn test_resolution_allows_template_literal_dynamic_import_targets_in_js_files() 
 
 #[test]
 fn test_resolution_allows_sequence_wrapped_template_literal_dynamic_import_targets_in_js_files() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(dir.path().join("lazy.js"), "export const lazy = 7;").unwrap();
     fs::write(
@@ -964,7 +964,7 @@ fn test_resolution_allows_sequence_wrapped_template_literal_dynamic_import_targe
 
 #[test]
 fn test_resolution_allows_const_bound_dynamic_import_targets() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
     fs::write(dir.path().join("lazy.ts"), "export const lazy = 7;").unwrap();
     fs::write(
@@ -1012,7 +1012,7 @@ fn test_resolution_allows_const_bound_dynamic_import_targets() {
 
 #[test]
 fn test_resolution_allows_parenthesized_dynamic_import_targets() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
     fs::write(dir.path().join("lazy.ts"), "export const lazy = 7;").unwrap();
     fs::write(
@@ -1064,7 +1064,7 @@ fn test_resolution_allows_parenthesized_dynamic_import_targets() {
 
 #[test]
 fn test_resolution_allows_parenthesized_dynamic_import_targets_in_js_files() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(dir.path().join("lazy.js"), "export const lazy = 7;").unwrap();
     fs::write(
@@ -1116,7 +1116,7 @@ fn test_resolution_allows_parenthesized_dynamic_import_targets_in_js_files() {
 
 #[test]
 fn test_resolution_allows_sequence_wrapped_dynamic_import_targets_in_js_files() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(dir.path().join("lazy.js"), "export const lazy = 7;").unwrap();
     fs::write(&source_path, "import((0, \"./lazy.js\"));").unwrap();
@@ -1141,7 +1141,7 @@ fn test_resolution_allows_sequence_wrapped_dynamic_import_targets_in_js_files() 
 
 #[test]
 fn test_resolution_accepts_directory_index_dynamic_import_targets() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
     let lazy_dir = dir.path().join("lazy");
     fs::create_dir(&lazy_dir).unwrap();
@@ -1165,7 +1165,7 @@ fn test_resolution_accepts_directory_index_dynamic_import_targets() {
 
 #[test]
 fn test_resolution_accepts_directory_index_dynamic_import_targets_in_js_files() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     let lazy_dir = dir.path().join("lazy");
     fs::create_dir(&lazy_dir).unwrap();
@@ -1189,7 +1189,7 @@ fn test_resolution_accepts_directory_index_dynamic_import_targets_in_js_files() 
 
 #[test]
 fn test_resolution_accepts_directory_index_dynamic_import_targets_in_tsx_files() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.tsx");
     let lazy_dir = dir.path().join("lazy");
     fs::create_dir(&lazy_dir).unwrap();
@@ -1213,7 +1213,7 @@ fn test_resolution_accepts_directory_index_dynamic_import_targets_in_tsx_files()
 
 #[test]
 fn test_resolution_rejects_directory_dynamic_import_targets_without_index_in_js_files() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     let lazy_dir = dir.path().join("lazy");
     fs::create_dir(&lazy_dir).unwrap();
@@ -1235,7 +1235,7 @@ fn test_resolution_rejects_directory_dynamic_import_targets_without_index_in_js_
 
 #[test]
 fn test_resolution_rejects_directory_dynamic_import_targets_without_index() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
     let lazy_dir = dir.path().join("lazy");
     fs::create_dir(&lazy_dir).unwrap();
@@ -1257,7 +1257,7 @@ fn test_resolution_rejects_directory_dynamic_import_targets_without_index() {
 
 #[test]
 fn test_resolution_reports_unknown_dynamic_import_targets() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
@@ -1296,7 +1296,7 @@ fn test_resolution_reports_unknown_dynamic_import_targets() {
 
 #[test]
 fn test_resolution_accepts_constant_template_dynamic_import_targets() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
     let chunk_path = dir.path().join("lazy.ts");
     fs::write(&chunk_path, "export const lazy = true;").unwrap();
@@ -1334,7 +1334,7 @@ fn test_resolution_accepts_constant_template_dynamic_import_targets() {
 
 #[test]
 fn test_resolution_accepts_logical_wrapped_dynamic_import_targets() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
     let chunk_path = dir.path().join("lazy.ts");
     fs::write(&chunk_path, "export const lazy = true;").unwrap();
@@ -1394,7 +1394,7 @@ fn test_resolution_accepts_logical_wrapped_dynamic_import_targets() {
 
 #[test]
 fn test_resolution_rejects_non_literal_dynamic_import_targets() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
     fs::write(&source_path, "let specifier; import(specifier);").unwrap();
 

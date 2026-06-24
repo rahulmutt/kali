@@ -1,4 +1,5 @@
 use crate::*;
+use kali_test_support::fixtures;
 use kali_ast::{
     BlockStatement, ClassBody, ClassDeclaration, ClassExpression, ExportDefaultDeclaration,
     Expression, ExpressionStatement, FunctionDeclaration, FunctionExpression, LiteralValue,
@@ -88,7 +89,7 @@ fn test_resolution_reports_generator_lowering_as_unavailable() {
 
 #[test]
 fn test_resolution_rejects_generator_function_lowering() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
     fs::write(&source_path, "function* main() { yield* []; }\nmain();").unwrap();
 
@@ -126,7 +127,7 @@ fn test_resolution_rejects_generator_function_lowering() {
 
 #[test]
 fn test_resolution_rejects_generator_yield_delegation_lowering() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
     fs::write(&source_path, "function main() { yield* []; }\nmain();").unwrap();
 
@@ -167,7 +168,7 @@ fn test_resolution_rejects_generator_yield_delegation_lowering() {
 
 #[test]
 fn test_resolution_rejects_generator_function_lowering_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(&source_path, "function* main() { yield* []; }\nmain();").unwrap();
 
@@ -207,7 +208,7 @@ fn test_resolution_rejects_generator_function_lowering_in_js_input() {
 
 #[test]
 fn test_resolution_rejects_async_generator_function_lowering_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(&source_path, "async function* main() { yield 1; }\nmain();").unwrap();
 
@@ -245,7 +246,7 @@ fn test_resolution_rejects_async_generator_function_lowering_in_js_input() {
 
 #[test]
 fn test_resolution_rejects_mixed_generator_function_lowering_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -305,7 +306,7 @@ fn test_resolution_rejects_mixed_generator_function_lowering_in_js_input() {
 
 #[test]
 fn test_resolution_rejects_generator_function_lowering_in_tsx_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.tsx");
     fs::write(&source_path, "function* main() { yield* []; }\nmain();").unwrap();
 
@@ -345,7 +346,7 @@ fn test_resolution_rejects_generator_function_lowering_in_tsx_input() {
 
 #[test]
 fn test_resolution_rejects_class_method_generator_lowering() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
 
     let statements = vec![Statement::ClassDeclaration(ClassDeclaration {
@@ -391,7 +392,7 @@ fn test_resolution_rejects_class_method_generator_lowering() {
 
 #[test]
 fn test_resolution_rejects_async_class_method_generator_lowering() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
 
     let statements = vec![Statement::ClassDeclaration(ClassDeclaration {
@@ -437,7 +438,7 @@ fn test_resolution_rejects_async_class_method_generator_lowering() {
 
 #[test]
 fn test_resolution_collapses_mixed_generator_class_method_lowering() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
 
     let statements = vec![Statement::ClassDeclaration(ClassDeclaration {
@@ -646,7 +647,7 @@ fn test_resolution_rejects_generator_class_expression_lowering() {
     ];
 
     for extension in ["js", "ts", "jsx", "tsx"] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join(format!("main.{extension}"));
 
         for (statement, expected_message) in cases.iter() {
@@ -721,7 +722,7 @@ fn test_resolution_collapses_mixed_generator_class_expression_lowering() {
     });
 
     for extension in ["js", "ts", "jsx", "tsx"] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join(format!("main.{extension}"));
 
         let mut ctx = TypeContext::with_base_path(&source_path);
@@ -763,7 +764,7 @@ fn test_resolution_supports_async_class_method_lowering() {
     })];
 
     for extension in ["js", "ts", "jsx", "tsx"] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join(format!("main.{extension}"));
 
         let mut ctx = TypeContext::with_base_path(&source_path);

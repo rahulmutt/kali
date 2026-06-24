@@ -1,4 +1,5 @@
 use crate::test_support::*;
+use kali_test_support::fixtures;
 use crate::*;
 use kali_ast::{
     ArrayExpression, AssignmentExpression, AssignmentOperator, AwaitExpression, BlockStatement,
@@ -10,7 +11,6 @@ use kali_ast::{
 };
 use kali_error::_error_codes::e5;
 use std::fs;
-use tempfile::tempdir;
 
 #[test]
 fn test_static_object_enumeration_iteration_target_accepts_object_entries() {
@@ -34,7 +34,7 @@ fn test_static_object_enumeration_iteration_target_accepts_object_entries() {
 
 #[test]
 fn test_resolution_supports_bracketed_reflect_own_keys_iteration_target_in_js_input() {
-    let dir = tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     let source = r#"for (const key of globalThis["Reflect"]["ownKeys"]({ a: 1 })) {
     console.log(key);
@@ -73,7 +73,7 @@ for (const key of globalThis['Reflect']['ownKeys']({ a: 1 })) {
 
 #[test]
 fn test_resolution_accepts_object_freeze_wrapped_object_helper_iteration_targets_in_js_input() {
-    let dir = tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     let source = r#"const object = Object.fromEntries([["b", 1], ["a", 2]]);
 async function main() {
@@ -257,7 +257,7 @@ fn test_resolution_supports_object_has_own_as_static_object_model_callable_in_br
 #[test]
 fn test_resolution_supports_object_has_own_helpers_for_static_object_literals_and_alias_chains_in_js_input(
 ) {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -360,7 +360,7 @@ Object.prototype.hasOwnProperty.call(alias, "a");
 
 #[test]
 fn test_resolution_supports_bracketed_and_frozen_object_has_own_aliases_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     let source = r#"const object = Object.fromEntries([["a", 1], ["b", 2]]);
 const alias = object;
@@ -395,7 +395,7 @@ Object.freeze((globalThis["Object"])["hasOwn"])(alias, "a");
 
 #[test]
 fn test_resolution_supports_object_from_entries_with_conditional_wrapper_in_js_input() {
-    let dir = tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -422,7 +422,7 @@ fn test_resolution_supports_object_from_entries_with_conditional_wrapper_in_js_i
 
 #[test]
 fn test_resolution_supports_object_from_entries_with_satisfies_wrapper_in_ts_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
@@ -507,7 +507,7 @@ fn test_resolution_supports_object_from_entries_with_satisfies_wrapper_in_ts_inp
 
 #[test]
 fn test_resolution_supports_object_has_own_on_object_from_entries_results_in_js_input() {
-    let dir = tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     let source = r#"const frozenEntries = Object.freeze([["b", 1], ["a", 2]]);
 const fromEntries = Object.fromEntries(frozenEntries);
@@ -571,7 +571,7 @@ fn test_resolution_supports_same_branch_conditional_string_keys_for_object_has_o
 
 #[test]
 fn test_resolution_supports_bracketed_object_is_and_number_predicate_alias_spelling_in_js_input() {
-    let dir = tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     let source = r#"const object = { a: 1 };
 const objectAlias = object;
@@ -782,7 +782,7 @@ Object.is(globalThis['Object'], globalThis['Object']);
 "#;
 
     for extension in ["js", "jsx", "ts", "tsx"] {
-        let dir = tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join(format!("main.{extension}"));
         fs::write(&source_path, source).unwrap();
 
@@ -1773,7 +1773,7 @@ fn test_resolution_reports_proxy_revocable_member_access_as_late_object_model_ap
 
 #[test]
 fn test_resolution_reports_single_quoted_proxy_revocable_aliases_as_late_object_model_api() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -2012,7 +2012,7 @@ fn test_resolution_supports_object_has_own_helpers_for_static_object_literals_an
 
 #[test]
 fn test_resolution_accepts_object_freeze_wrapped_dynamic_import_targets() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
     let chunk_path = dir.path().join("lazy.ts");
     fs::write(&chunk_path, "export const lazy = true;").unwrap();
@@ -2056,7 +2056,7 @@ fn test_resolution_accepts_object_freeze_wrapped_dynamic_import_targets() {
 
 #[test]
 fn test_resolution_supports_process_kill_zero_probe_object_freeze_wrappers_on_node_surface() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
     let source = r#"Object.freeze(process.kill)(0); Object.freeze((process.kill))(0); Object.freeze((process.kill))(+0); Object.freeze(globalThis.process.kill)(0); Object.freeze(globalThis.process.kill)(+0); Object.freeze(globalThis[\"process\"][\"kill\"])(0); Object.freeze(globalThis[\"process\"].kill)(0); Object.freeze(process)[\"kill\"](0); Object.freeze(globalThis.process)[\"kill\"](0); Object.freeze(globalThis.process)[\"kill\"](+0); Object.freeze(globalThis[\"process\"])[\"kill\"](0); Object.freeze(globalThis[\"process\"])[\"kill\"](+0); Object.freeze(globalThis[\"process\"].kill)(0); Object.freeze(globalThis[\"process\"][\"kill\"])(0); Object.freeze((globalThis.process.kill))(0); Object.freeze((globalThis.process.kill))(+0); Object.freeze((globalThis[\"process\"][\"kill\"]))(0); Object.freeze((globalThis[\"process\"][\"kill\"]))(+0); Object.freeze((globalThis[\"process\"].kill))(0); Object.freeze((globalThis[\"process\"].kill))(+0); Object.freeze((globalThis.process[\"kill\"]))(0); Object.freeze((globalThis.process[\"kill\"]))(+0); Object.freeze((process))[\"kill\"](0); Object.freeze((process))[\"kill\"](+0); Object.freeze((globalThis.process))[\"kill\"](0); Object.freeze((globalThis.process))[\"kill\"](+0); Object.freeze((globalThis["process"]))[\"kill\"](0); Object.freeze((globalThis["process"]))[\"kill\"](+0);"#;
     fs::write(&source_path, source).unwrap();
@@ -2077,7 +2077,7 @@ fn test_resolution_supports_process_kill_zero_probe_object_freeze_wrappers_on_no
 
 #[test]
 fn test_resolution_supports_for_of_object_entries_iteration() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
@@ -2277,7 +2277,7 @@ main();
 "#;
 
     for extension in ["js", "jsx", "ts", "tsx"] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join(format!("main.{extension}"));
         fs::write(&source_path, source).unwrap();
 
@@ -2307,7 +2307,7 @@ main();
 "#;
 
     for extension in ["js", "jsx", "ts", "tsx"] {
-        let dir = tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join(format!("main.{extension}"));
         fs::write(&source_path, source).unwrap();
 
@@ -2337,7 +2337,7 @@ main();
 "#;
 
     for extension in ["js", "jsx", "ts", "tsx"] {
-        let dir = tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join(format!("main.{extension}"));
         fs::write(&source_path, source).unwrap();
 
@@ -2368,7 +2368,7 @@ main();
 "#;
 
     for extension in ["js", "jsx", "ts", "tsx"] {
-        let dir = tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join(format!("main.{extension}"));
         fs::write(&source_path, source).unwrap();
 
@@ -2399,7 +2399,7 @@ main();
 "#;
 
     for extension in ["js", "jsx", "ts", "tsx"] {
-        let dir = tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join(format!("main.{extension}"));
         fs::write(&source_path, source).unwrap();
 
@@ -2445,7 +2445,7 @@ main();
 "#;
 
     for extension in ["js", "jsx", "ts", "tsx"] {
-        let dir = tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join(format!("main.{extension}"));
         fs::write(&source_path, source).unwrap();
 
@@ -2491,7 +2491,7 @@ main();
 "#;
 
     for extension in ["js", "jsx", "ts", "tsx"] {
-        let dir = tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join(format!("main.{extension}"));
         fs::write(&source_path, source).unwrap();
 
@@ -2532,7 +2532,7 @@ main();
 "#;
 
     for extension in ["js", "jsx", "ts", "tsx"] {
-        let dir = tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join(format!("main.{extension}"));
         fs::write(&source_path, source).unwrap();
 
@@ -2553,7 +2553,7 @@ main();
 
 #[test]
 fn test_resolution_supports_object_keys_iteration_with_let_binding_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -2616,7 +2616,7 @@ fn test_resolution_supports_object_keys_iteration_with_let_binding_in_js_input()
 
 #[test]
 fn test_resolution_rejects_object_keys_iteration_with_let_binding_rebound_before_use_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
@@ -2696,7 +2696,7 @@ fn test_resolution_rejects_object_keys_iteration_with_let_binding_rebound_before
 }
 
 fn assert_object_helper_iteration_with_let_binding_in_js_input(helper: &str, rebound: bool) {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     let source = if rebound {
         format!(
@@ -2816,7 +2816,7 @@ fn test_resolution_rejects_object_entries_iteration_with_let_binding_rebound_bef
 
 #[test]
 fn test_resolution_supports_single_quoted_bracket_root_object_enumeration_aliases_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,

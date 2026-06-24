@@ -1,11 +1,11 @@
 use crate::*;
+use kali_test_support::fixtures;
 use kali_ast::{
     ArrowFunctionExpression, Expression, ExpressionStatement, LiteralValue, SatisfiesExpression,
     TypeAliasDeclaration, TypeAssertion, VariableDeclaration, VariableDeclarator,
 };
 use kali_error::_error_codes::e3;
 use std::fs;
-use tempfile::tempdir;
 
 #[test]
 fn test_type_annotation_resolution_accepts_known_names() {
@@ -173,7 +173,7 @@ fn test_type_annotation_resolution_reports_unknown_names() {
 
 #[test]
 fn test_type_annotation_resolution_reports_unknown_names_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(&source_path, "const value = 1;").unwrap();
 
@@ -194,7 +194,7 @@ fn test_type_annotation_resolution_reports_unknown_names_in_js_input() {
 #[test]
 fn test_type_annotation_resolution_reports_unknown_names_in_jsx_and_tsx_input() {
     for extension in ["jsx", "tsx"] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join(format!("main.{extension}"));
         fs::write(&source_path, "const value = 1;").unwrap();
 
@@ -219,7 +219,7 @@ fn test_type_annotation_resolution_reports_unknown_names_in_jsx_and_tsx_input() 
 
 #[test]
 fn test_type_annotation_resolution_accepts_known_names_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(&source_path, "const value = 1;").unwrap();
 
@@ -243,7 +243,7 @@ fn test_type_annotation_resolution_accepts_known_names_in_js_input() {
 
 #[test]
 fn test_type_annotation_resolution_accepts_nested_known_names_in_js_input() {
-    let dir = tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(&source_path, "const value = 1;").unwrap();
 
@@ -268,7 +268,7 @@ fn test_type_annotation_resolution_accepts_nested_known_names_in_js_input() {
 #[test]
 fn test_type_annotation_resolution_accepts_known_names_in_jsx_and_tsx_input() {
     for extension in ["jsx", "tsx"] {
-        let dir = tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join(format!("main.{extension}"));
         fs::write(&source_path, "const value = 1;").unwrap();
 
@@ -297,7 +297,7 @@ fn test_type_annotation_resolution_accepts_known_names_in_jsx_and_tsx_input() {
 
 #[test]
 fn test_type_annotation_resolution_accepts_deeper_nested_known_names_in_js_input() {
-    let dir = tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(&source_path, "const value = 1;").unwrap();
 
@@ -322,7 +322,7 @@ fn test_type_annotation_resolution_accepts_deeper_nested_known_names_in_js_input
 #[test]
 fn test_type_annotation_resolution_accepts_deeper_nested_known_names_in_jsx_and_tsx_input() {
     for extension in ["jsx", "tsx"] {
-        let dir = tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join(format!("main.{extension}"));
         fs::write(&source_path, "const value = 1;").unwrap();
 
@@ -353,7 +353,7 @@ fn test_type_annotation_resolution_accepts_deeper_nested_known_names_in_jsx_and_
 fn test_type_annotation_resolution_accepts_mixed_union_nested_known_names_in_js_jsx_and_tsx_input()
 {
     for extension in ["js", "jsx", "tsx"] {
-        let dir = tempdir().unwrap();
+        let dir = fixtures::tempdir();
         let source_path = dir.path().join(format!("main.{extension}"));
         fs::write(&source_path, "const value = 1;").unwrap();
 

@@ -3,8 +3,8 @@ use kali_ast::{
     Expression, ExpressionStatement, LiteralValue, VariableDeclaration, VariableDeclarator,
 };
 use kali_error::_error_codes::e3;
+use kali_test_support::fixtures;
 use std::fs;
-use tempfile::tempdir;
 
 #[test]
 fn test_type_context() {
@@ -51,17 +51,16 @@ fn test_resolution_reports_unresolved_identifiers() {
 
 #[test]
 fn test_resolution_uses_project_root_for_materialized_packages() {
-    let dir = tempdir().unwrap();
-    fs::write(
-        dir.path().join("kali.json"),
+    let dir = fixtures::tempdir();
+    fixtures::write_manifest(
+        dir.path(),
         r#"{
   "schemaVersion": 1,
   "devDependencies": {
     "@types/lodash": "1.0.0"
   }
 }"#,
-    )
-    .unwrap();
+    );
 
     let src_dir = dir.path().join("src");
     fs::create_dir_all(&src_dir).unwrap();

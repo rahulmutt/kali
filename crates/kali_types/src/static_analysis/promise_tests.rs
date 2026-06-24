@@ -1,4 +1,5 @@
 use crate::*;
+use kali_test_support::fixtures;
 use kali_ast::{CallExpression, Expression, ExpressionStatement, LiteralValue, MemberExpression};
 use std::fs;
 
@@ -74,7 +75,7 @@ fn test_resolution_supports_promise_any_member_calls() {
 
 #[test]
 fn test_resolution_recognizes_bracketed_promise_combinator_callable_names_in_js_input() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = fixtures::tempdir();
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
