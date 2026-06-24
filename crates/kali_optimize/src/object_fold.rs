@@ -373,3 +373,7 @@ impl Optimizer {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "object_fold_tests.rs"]
+mod object_fold_tests;
