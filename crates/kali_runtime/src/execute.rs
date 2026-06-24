@@ -358,3 +358,7 @@ pub(crate) fn execute_browser_runtime(
         thread_topology: outcome.thread_topology,
     })
 }
+
+#[cfg(test)]
+#[path = "execute_tests.rs"]
+mod execute_tests;
