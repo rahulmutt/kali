@@ -31,6 +31,8 @@ mod promise;
 pub use promise::*;
 mod array;
 pub use array::*;
+mod template_literal;
+pub use template_literal::*;
 
 /// Canonical source text for the supported late-compat `Object.hasOwn` / `Object.prototype.hasOwnProperty.call` slice.
 pub fn late_compat_object_has_own_source(receiver_source: &str, key_source: &str) -> String {
@@ -78,28 +80,6 @@ pub fn late_compat_object_has_own_source(receiver_source: &str, key_source: &str
     ]
     .join("; ");
     format!("{source};")
-}
-
-/// Canonical body for the supported template-literal string iteration slice.
-pub const fn template_literal_string_iteration_body_source() -> &'static str {
-    r#"for (const ch of `hello`) { console.log(ch); }"#
-}
-
-/// Canonical browser body for the supported template-literal string iteration slice.
-pub const fn browser_template_literal_string_iteration_body_source() -> &'static str {
-    r#"const prefix = "he";
-const suffix = "llo";
-const syncChars = [];
-for (const item of `${prefix}${suffix}`) {
-  syncChars.push(item);
-}
-const asyncChars = [];
-for await (const item of `${prefix}${suffix}`) {
-  asyncChars.push(item);
-}
-if (syncChars.join("") !== "hello" || asyncChars.join("") !== "hello") {
-  throw new Error('unexpected template literal iteration semantics');
-}"#
 }
 
 /// Canonical root aliases for the supported `Set` constructor slice.
