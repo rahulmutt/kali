@@ -450,3 +450,7 @@ pub(crate) struct FunctionSummary {
     pub(crate) node_count: usize,
     pub(crate) recursive: bool,
 }
+
+#[cfg(test)]
+#[path = "inline_tests.rs"]
+mod inline_tests;
