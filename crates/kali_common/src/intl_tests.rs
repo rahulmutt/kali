@@ -1,4 +1,4 @@
-use super::*;
+use crate::*;
 
 #[test]
 fn test_broader_intl_aliases_and_source_are_canonical() {
