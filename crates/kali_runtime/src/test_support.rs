@@ -1,5 +1,4 @@
 //! kali_runtime-specific test builders (compiled under cfg(test)).
-use crate::*;
 
 pub(crate) fn compile_wat(wat: &str) -> Vec<u8> {
     wat::parse_str(wat).unwrap_or_else(|error| panic!("valid wat error: {error}\n{wat}"))
