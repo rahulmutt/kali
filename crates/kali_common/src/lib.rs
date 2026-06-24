@@ -10,6 +10,7 @@ pub mod interner;
 pub mod source_map;
 pub mod span;
 pub mod template;
+mod helpers;
 
 use ahash::AHashMap;
 use once_cell::sync::Lazy;
@@ -18,6 +19,7 @@ use std::sync::Mutex;
 
 pub use interner::{InternedString, Interner};
 pub use span::Span;
+pub(crate) use helpers::*;
 
 /// Report whether the bytewise shared-memory helpers are lock-free on this target.
 ///
@@ -523,38 +525,6 @@ pub fn process_kill_zero_probe_parenthesized_receiver_freeze_inventory_source() 
     )
 }
 
-fn join_semicolon_terminated_segments(segments: &[&str]) -> String {
-    let mut source = segments.join("; ");
-    source.push(';');
-    source
-}
-
-fn join_zero_probe_aliases(aliases: &[&'static str]) -> String {
-    join_semicolon_terminated_segments(aliases)
-}
-
-fn join_const_binding_lines(bindings: &[(&'static str, &'static str)]) -> String {
-    let lines = bindings
-        .iter()
-        .map(|(name, alias)| format!("const {name} = {alias}"))
-        .collect::<Vec<_>>();
-    let line_refs = lines.iter().map(String::as_str).collect::<Vec<_>>();
-    join_semicolon_terminated_segments(&line_refs)
-}
-
-fn ordered_unique_union(slices: &[&[&'static str]]) -> Vec<&'static str> {
-    let total_len = slices.iter().map(|slice| slice.len()).sum();
-    let mut aliases = Vec::with_capacity(total_len);
-    let mut seen = std::collections::HashSet::with_capacity(total_len);
-
-    for alias in slices.iter().flat_map(|slice| slice.iter().copied()) {
-        if seen.insert(alias) {
-            aliases.push(alias);
-        }
-    }
-
-    aliases
-}
 
 /// Canonical direct zero-probe source text for the supported Node `process.kill(0)` slice.
 pub fn process_kill_zero_probe_direct_source() -> String {
