@@ -1,7 +1,9 @@
 //! Program-level driver and LIR-walking analysis functions.
 use crate::*;
 
-pub(crate) fn generator_lowering_unavailable_message(function_plans: &[FunctionPlan]) -> &'static str {
+pub(crate) fn generator_lowering_unavailable_message(
+    function_plans: &[FunctionPlan],
+) -> &'static str {
     let has_generator = function_plans
         .iter()
         .any(|plan| matches!(plan.flavor, Some(FunctionFlavor::Generator)));

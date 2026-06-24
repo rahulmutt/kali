@@ -1,4 +1,5 @@
 use super::*;
+use crate::lower::collect_functions;
 use wasmparser::Validator;
 
 fn node(kind: LirNodeKind, text: Option<&str>, children: Vec<LirNodeId>) -> LirNode {

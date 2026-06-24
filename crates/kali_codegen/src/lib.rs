@@ -6,14 +6,17 @@ mod emitter;
 mod intrinsics;
 mod lower;
 pub use ctx::{CodegenCtx, CodegenResult, TargetConfig};
-pub(crate) use intrinsics::{quote_string_literal, strip_string_delimiters, parse_number_literal, parse_numeric_literal_value, is_supported_static_ascii_char_code, static_parse_float_ascii_integer, static_parse_int_ascii};
+use ctx::{
+    StaticArrayAtResult, StaticArraySearchResult, StaticIndexMemberResult,
+    StaticObjectIdentityValue, StaticStringAtResult, StringPool,
+};
 use emitter::{
     ControlFlowLabelKind, EmittedValue, FunctionEmitter, FunctionPlan, LoopFrame,
     ObjectEnumerationMode, ValueShape,
 };
-use ctx::{
-    StaticArrayAtResult, StaticArraySearchResult, StaticIndexMemberResult,
-    StaticObjectIdentityValue, StaticStringAtResult, StringPool,
+pub(crate) use intrinsics::{
+    is_supported_static_ascii_char_code, parse_number_literal, parse_numeric_literal_value,
+    quote_string_literal, strip_string_delimiters,
 };
 
 use std::{
@@ -60,12 +63,7 @@ const STRING_HANDLE_TAG: u64 = 0x8000_0000_0000_0000;
 
 pub use lower::lower_lir_to_wasm;
 pub(crate) use lower::{
-    collect_function_locals, collect_function_locals_from_node, collect_functions,
-    collect_functions_from_node, emit_literal, encode_string_handle,
-    function_plan, generator_lowering_unavailable_message, is_function_like,
-    is_process_root, process_env_property_key, program_uses_cwd_set,
-    program_uses_env_delete, program_uses_env_get, program_uses_env_has,
-    program_uses_env_set, program_uses_process_exit, top_level_children,
+    emit_literal, encode_string_handle, is_function_like, process_env_property_key,
 };
 
 #[cfg(test)]

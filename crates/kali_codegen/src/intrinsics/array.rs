@@ -193,7 +193,11 @@ impl<'a> FunctionEmitter<'a> {
         self.is_identity_array_flat_map_expression(body_expr, param_name)
     }
 
-    pub(crate) fn is_identity_array_flat_map_expression(&self, id: LirNodeId, param_name: &str) -> bool {
+    pub(crate) fn is_identity_array_flat_map_expression(
+        &self,
+        id: LirNodeId,
+        param_name: &str,
+    ) -> bool {
         let node = self.node(id);
         if node.kind != LirNodeKind::Value
             || node.text.as_deref().is_some_and(|text| !text.is_empty())
@@ -210,7 +214,10 @@ impl<'a> FunctionEmitter<'a> {
         self.is_identity_array_flat_map_expression(child, param_name)
     }
 
-    pub(crate) fn resolve_identity_array_callback_source(&self, node: &LirNode) -> Option<LirNodeId> {
+    pub(crate) fn resolve_identity_array_callback_source(
+        &self,
+        node: &LirNode,
+    ) -> Option<LirNodeId> {
         if node.kind != LirNodeKind::Call || node.children.len() != 2 {
             return None;
         }
@@ -459,7 +466,11 @@ impl<'a> FunctionEmitter<'a> {
         self.resolve_static_numeric_value(id)
     }
 
-    pub(crate) fn resolve_static_array_some_every_call(&self, node: &LirNode, method: &str) -> Option<bool> {
+    pub(crate) fn resolve_static_array_some_every_call(
+        &self,
+        node: &LirNode,
+        method: &str,
+    ) -> Option<bool> {
         if node.kind != LirNodeKind::Call || node.children.len() != 2 {
             return None;
         }
@@ -585,7 +596,11 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    pub(crate) fn resolve_static_array_search_call(&self, node: &LirNode, method: &str) -> Option<i64> {
+    pub(crate) fn resolve_static_array_search_call(
+        &self,
+        node: &LirNode,
+        method: &str,
+    ) -> Option<i64> {
         if node.kind != LirNodeKind::Call || !(2..=3).contains(&node.children.len()) {
             return None;
         }
@@ -725,7 +740,11 @@ impl<'a> FunctionEmitter<'a> {
         Some((source, start as usize, end as usize))
     }
 
-    pub(crate) fn resolve_static_array_slice_element(&self, id: LirNodeId, index: usize) -> Option<LirNodeId> {
+    pub(crate) fn resolve_static_array_slice_element(
+        &self,
+        id: LirNodeId,
+        index: usize,
+    ) -> Option<LirNodeId> {
         let (source, start, end) = self.resolve_static_array_slice_bounds(self.node(id))?;
         let absolute_index = start.checked_add(index)?;
         if absolute_index >= end {
@@ -797,7 +816,10 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    pub(crate) fn resolve_static_array_at_call(&self, node: &LirNode) -> Option<StaticArrayAtResult> {
+    pub(crate) fn resolve_static_array_at_call(
+        &self,
+        node: &LirNode,
+    ) -> Option<StaticArrayAtResult> {
         if node.kind != LirNodeKind::Call || node.children.len() != 2 {
             return None;
         }
@@ -905,7 +927,10 @@ impl<'a> FunctionEmitter<'a> {
         self.is_array_literal(source_node).then_some(source_node)
     }
 
-    pub(crate) fn resolve_static_array_filter_items(&self, node: &LirNode) -> Option<Vec<LirNodeId>> {
+    pub(crate) fn resolve_static_array_filter_items(
+        &self,
+        node: &LirNode,
+    ) -> Option<Vec<LirNodeId>> {
         let mut current = node;
         while current.kind == LirNodeKind::Value
             && current.children.len() == 1
@@ -955,7 +980,11 @@ impl<'a> FunctionEmitter<'a> {
         Some(items)
     }
 
-    pub(crate) fn resolve_static_array_reduce_call(&self, node: &LirNode, method: &str) -> Option<i64> {
+    pub(crate) fn resolve_static_array_reduce_call(
+        &self,
+        node: &LirNode,
+        method: &str,
+    ) -> Option<i64> {
         if node.kind != LirNodeKind::Call || !matches!(node.children.len(), 2 | 3) {
             return None;
         }
@@ -1011,7 +1040,10 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    pub(crate) fn resolve_truthy_identity_array_filter_source(&self, node: &LirNode) -> Option<LirNodeId> {
+    pub(crate) fn resolve_truthy_identity_array_filter_source(
+        &self,
+        node: &LirNode,
+    ) -> Option<LirNodeId> {
         if node.kind != LirNodeKind::Call || node.children.len() != 2 {
             return None;
         }

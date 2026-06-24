@@ -22,7 +22,10 @@ impl<'a> FunctionEmitter<'a> {
         )
     }
 
-    pub(crate) fn resolve_set_constructor_call<'b>(&'b self, node: &'b LirNode) -> Option<&'b LirNode> {
+    pub(crate) fn resolve_set_constructor_call<'b>(
+        &'b self,
+        node: &'b LirNode,
+    ) -> Option<&'b LirNode> {
         if self.is_set_constructor_call(node) {
             return Some(node);
         }
@@ -227,7 +230,10 @@ impl<'a> FunctionEmitter<'a> {
         )
     }
 
-    pub(crate) fn resolve_map_constructor_call<'b>(&'b self, node: &'b LirNode) -> Option<&'b LirNode> {
+    pub(crate) fn resolve_map_constructor_call<'b>(
+        &'b self,
+        node: &'b LirNode,
+    ) -> Option<&'b LirNode> {
         if self.is_map_constructor_call(node) {
             return Some(node);
         }

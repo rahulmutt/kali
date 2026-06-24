@@ -161,7 +161,11 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    pub(crate) fn resolve_static_parse_int_call(&self, node: &LirNode, callee_node: &LirNode) -> Option<i64> {
+    pub(crate) fn resolve_static_parse_int_call(
+        &self,
+        node: &LirNode,
+        callee_node: &LirNode,
+    ) -> Option<i64> {
         if node.kind != LirNodeKind::Call || !(2..=3).contains(&node.children.len()) {
             return None;
         }

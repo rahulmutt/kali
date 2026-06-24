@@ -143,7 +143,11 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    pub(crate) fn math_sin_cos_zero_constant_value(&self, method: &str, arg: LirNodeId) -> Option<i64> {
+    pub(crate) fn math_sin_cos_zero_constant_value(
+        &self,
+        method: &str,
+        arg: LirNodeId,
+    ) -> Option<i64> {
         let rendered = self.render_static_value(arg)?;
         let value = parse_numeric_literal_value(&rendered)?;
         if value != 0.0 {
@@ -153,7 +157,11 @@ impl<'a> FunctionEmitter<'a> {
         Some(if method == "cos" { 1 } else { 0 })
     }
 
-    pub(crate) fn math_hyperbolic_zero_constant_value(&self, method: &str, arg: LirNodeId) -> Option<i64> {
+    pub(crate) fn math_hyperbolic_zero_constant_value(
+        &self,
+        method: &str,
+        arg: LirNodeId,
+    ) -> Option<i64> {
         let rendered = self.render_static_value(arg)?;
         let value = parse_numeric_literal_value(&rendered)?;
         if value != 0.0 {
@@ -163,7 +171,11 @@ impl<'a> FunctionEmitter<'a> {
         Some(if method == "cosh" { 1 } else { 0 })
     }
 
-    pub(crate) fn math_inverse_trig_constant_value(&self, method: &str, arg: LirNodeId) -> Option<i64> {
+    pub(crate) fn math_inverse_trig_constant_value(
+        &self,
+        method: &str,
+        arg: LirNodeId,
+    ) -> Option<i64> {
         let rendered = self.render_static_value(arg)?;
         let value = parse_numeric_literal_value(&rendered)?;
 
@@ -186,7 +198,11 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    pub(crate) fn math_inverse_hyperbolic_constant_value(&self, method: &str, arg: LirNodeId) -> Option<i64> {
+    pub(crate) fn math_inverse_hyperbolic_constant_value(
+        &self,
+        method: &str,
+        arg: LirNodeId,
+    ) -> Option<i64> {
         let rendered = self.render_static_value(arg)?;
         let value = parse_numeric_literal_value(&rendered)?;
 
@@ -282,7 +298,11 @@ impl<'a> FunctionEmitter<'a> {
         self.perfect_square_root_i128(sum)
     }
 
-    pub(crate) fn math_round_like_static_literal_value(&self, method: &str, arg: LirNodeId) -> Option<i64> {
+    pub(crate) fn math_round_like_static_literal_value(
+        &self,
+        method: &str,
+        arg: LirNodeId,
+    ) -> Option<i64> {
         let rendered = self.render_static_value(arg)?;
         let value = parse_numeric_literal_value(&rendered)?;
         let folded = match method {
@@ -306,7 +326,11 @@ impl<'a> FunctionEmitter<'a> {
         Some(folded as i64)
     }
 
-    pub(crate) fn math_extrema_static_literal_value(&self, method: &str, args: &[LirNodeId]) -> Option<i64> {
+    pub(crate) fn math_extrema_static_literal_value(
+        &self,
+        method: &str,
+        args: &[LirNodeId],
+    ) -> Option<i64> {
         let mut values = args.iter().map(|arg| {
             let rendered = self.render_static_value(*arg)?;
             let value = parse_numeric_literal_value(&rendered)?;
@@ -338,7 +362,11 @@ impl<'a> FunctionEmitter<'a> {
         parse_number_literal(&rendered)?.checked_abs()
     }
 
-    pub(crate) fn math_imul_static_literal_value(&self, left: LirNodeId, right: LirNodeId) -> Option<i64> {
+    pub(crate) fn math_imul_static_literal_value(
+        &self,
+        left: LirNodeId,
+        right: LirNodeId,
+    ) -> Option<i64> {
         let rendered_left = self.render_static_value(left)?;
         let rendered_right = self.render_static_value(right)?;
         let left = parse_number_literal(&rendered_left)? as i32;

@@ -340,7 +340,11 @@ impl<'a> FunctionEmitter<'a> {
         None
     }
 
-    pub(crate) fn static_object_from_entries_has_key(&self, call: &LirNode, key: &str) -> Option<bool> {
+    pub(crate) fn static_object_from_entries_has_key(
+        &self,
+        call: &LirNode,
+        key: &str,
+    ) -> Option<bool> {
         let entries_id = call.children.get(1).copied()?;
         let entries_id = self.resolve_literal_aggregate(entries_id)?;
         let entries_node = self.node(entries_id);
@@ -364,7 +368,10 @@ impl<'a> FunctionEmitter<'a> {
         Some(false)
     }
 
-    pub(crate) fn is_object_enumeration_call(&self, node: &LirNode) -> Option<ObjectEnumerationMode> {
+    pub(crate) fn is_object_enumeration_call(
+        &self,
+        node: &LirNode,
+    ) -> Option<ObjectEnumerationMode> {
         let node = if node.kind == LirNodeKind::Value && node.children.len() == 1 {
             self.node(node.children[0])
         } else {

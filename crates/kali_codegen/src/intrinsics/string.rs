@@ -115,7 +115,11 @@ impl<'a> FunctionEmitter<'a> {
         )
     }
 
-    pub(crate) fn resolve_static_string_search_call(&self, node: &LirNode, method: &str) -> Option<i64> {
+    pub(crate) fn resolve_static_string_search_call(
+        &self,
+        node: &LirNode,
+        method: &str,
+    ) -> Option<i64> {
         if node.kind != LirNodeKind::Call || !(1..=3).contains(&node.children.len()) {
             return None;
         }
@@ -210,7 +214,10 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    pub(crate) fn string_identity_call_method_with_literal_receiver(&self, node: &LirNode) -> Option<String> {
+    pub(crate) fn string_identity_call_method_with_literal_receiver(
+        &self,
+        node: &LirNode,
+    ) -> Option<String> {
         if node.kind != LirNodeKind::Call || node.children.len() <= 1 {
             return None;
         }
@@ -491,7 +498,10 @@ impl<'a> FunctionEmitter<'a> {
         matches!(method, "padStart" | "padEnd").then(|| method.to_string())
     }
 
-    pub(crate) fn resolve_static_string_at_call(&self, node: &LirNode) -> Option<StaticStringAtResult> {
+    pub(crate) fn resolve_static_string_at_call(
+        &self,
+        node: &LirNode,
+    ) -> Option<StaticStringAtResult> {
         if node.kind != LirNodeKind::Call || !matches!(node.children.len(), 1 | 2) {
             return None;
         }
@@ -726,7 +736,10 @@ impl<'a> FunctionEmitter<'a> {
         })
     }
 
-    pub(crate) fn is_string_code_point_at_call_with_literal_receiver(&self, node: &LirNode) -> bool {
+    pub(crate) fn is_string_code_point_at_call_with_literal_receiver(
+        &self,
+        node: &LirNode,
+    ) -> bool {
         if node.kind != LirNodeKind::Call {
             return false;
         }
@@ -854,7 +867,11 @@ impl<'a> FunctionEmitter<'a> {
                 .is_some_and(|value| matches!(value, StaticObjectIdentityValue::String(_)))
     }
 
-    pub(crate) fn resolve_static_string_replace_call(&self, node: &LirNode, method: &str) -> Option<String> {
+    pub(crate) fn resolve_static_string_replace_call(
+        &self,
+        node: &LirNode,
+        method: &str,
+    ) -> Option<String> {
         if node.kind != LirNodeKind::Call || node.children.len() != 3 {
             return None;
         }
@@ -891,7 +908,10 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    pub(crate) fn string_replace_call_method_with_literal_receiver(&self, node: &LirNode) -> Option<String> {
+    pub(crate) fn string_replace_call_method_with_literal_receiver(
+        &self,
+        node: &LirNode,
+    ) -> Option<String> {
         if node.kind != LirNodeKind::Call {
             return None;
         }
@@ -912,7 +932,10 @@ impl<'a> FunctionEmitter<'a> {
             .then(|| method.to_string())
     }
 
-    pub(crate) fn resolve_static_string_split_parts_from_id(&self, mut id: LirNodeId) -> Option<Vec<String>> {
+    pub(crate) fn resolve_static_string_split_parts_from_id(
+        &self,
+        mut id: LirNodeId,
+    ) -> Option<Vec<String>> {
         let mut seen = HashSet::new();
         loop {
             if !seen.insert(id.0) {

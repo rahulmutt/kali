@@ -3324,7 +3324,10 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    pub(crate) fn resolve_static_index_member(&self, node: &LirNode) -> Option<StaticIndexMemberResult> {
+    pub(crate) fn resolve_static_index_member(
+        &self,
+        node: &LirNode,
+    ) -> Option<StaticIndexMemberResult> {
         if node.kind != LirNodeKind::Value || node.children.len() != 1 {
             return None;
         }

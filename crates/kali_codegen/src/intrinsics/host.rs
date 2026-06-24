@@ -310,7 +310,11 @@ impl<'a> FunctionEmitter<'a> {
             .any(|node| node.text.as_deref() == Some("semver"))
     }
 
-    pub(crate) fn render_semver_intrinsic(&self, callee_name: &str, node: &LirNode) -> Option<String> {
+    pub(crate) fn render_semver_intrinsic(
+        &self,
+        callee_name: &str,
+        node: &LirNode,
+    ) -> Option<String> {
         if !self.has_semver_import() {
             return None;
         }
