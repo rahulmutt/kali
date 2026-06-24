@@ -534,3 +534,7 @@ pub(crate) fn parse_regex_literal(text: &str) -> Option<(String, String)> {
 
     Some((pattern, flags))
 }
+
+#[cfg(test)]
+#[path = "constant_fold_tests.rs"]
+mod constant_fold_tests;
