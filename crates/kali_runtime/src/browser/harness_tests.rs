@@ -175,9 +175,8 @@ fn browser_runtime_harness_script_executes_wasm_and_bridges_console_output() {
     );
     let script =
         browser_runtime_harness_script(&wasm, &["alpha".to_string(), "beta".to_string()], false);
-    let tempdir = tempfile::tempdir().expect("tempdir");
-    let script_path = tempdir.path().join("browser-runtime.mjs");
-    fs::write(&script_path, script).expect("write browser runtime script");
+    let tempdir = kali_test_support::fixtures::tempdir();
+    let script_path = kali_test_support::fixtures::write_file(tempdir.path(), "browser-runtime.mjs", &script);
 
     let outcome = browser_harness_run_checked(Some("node"), &script_path, &[], tempdir.path())
         .expect("launch browser runtime harness");
@@ -205,9 +204,8 @@ fn browser_runtime_harness_script_executes_registered_callbacks_and_reports_zero
         "#,
     );
     let script = browser_runtime_harness_script(&wasm, &["gamma".to_string()], true);
-    let tempdir = tempfile::tempdir().expect("tempdir");
-    let script_path = tempdir.path().join("browser-runtime-tests.mjs");
-    fs::write(&script_path, script).expect("write browser runtime test script");
+    let tempdir = kali_test_support::fixtures::tempdir();
+    let script_path = kali_test_support::fixtures::write_file(tempdir.path(), "browser-runtime-tests.mjs", &script);
 
     let outcome = browser_harness_run_checked(Some("node"), &script_path, &[], tempdir.path())
         .expect("launch browser runtime harness");
@@ -246,9 +244,8 @@ fn browser_runtime_harness_script_reports_failed_callbacks_and_nonzero_exit() {
         "#,
     );
     let script = browser_runtime_harness_script(&wasm, &["delta".to_string()], true);
-    let tempdir = tempfile::tempdir().expect("tempdir");
-    let script_path = tempdir.path().join("browser-runtime-tests-failed.mjs");
-    fs::write(&script_path, script).expect("write browser runtime test script");
+    let tempdir = kali_test_support::fixtures::tempdir();
+    let script_path = kali_test_support::fixtures::write_file(tempdir.path(), "browser-runtime-tests-failed.mjs", &script);
 
     let outcome = browser_harness_run_checked(Some("node"), &script_path, &[], tempdir.path())
         .expect("launch browser runtime harness");
@@ -281,9 +278,8 @@ fn browser_runtime_harness_script_reports_an_empty_test_summary_when_no_callback
         "#,
     );
     let script = browser_runtime_harness_script(&wasm, &["epsilon".to_string()], true);
-    let tempdir = tempfile::tempdir().expect("tempdir");
-    let script_path = tempdir.path().join("browser-runtime-empty-tests.mjs");
-    fs::write(&script_path, script).expect("write browser runtime test script");
+    let tempdir = kali_test_support::fixtures::tempdir();
+    let script_path = kali_test_support::fixtures::write_file(tempdir.path(), "browser-runtime-empty-tests.mjs", &script);
 
     let outcome = browser_harness_run_checked(Some("node"), &script_path, &[], tempdir.path())
         .expect("launch browser runtime harness");
@@ -323,10 +319,9 @@ fn browser_runtime_harness_summary_file_capture_is_deterministic() {
         "#,
     );
     let script = browser_runtime_harness_script(&wasm, &["zeta".to_string()], true);
-    let tempdir = tempfile::tempdir().expect("tempdir");
-    let script_path = tempdir.path().join("browser-runtime-summary-file.mjs");
+    let tempdir = kali_test_support::fixtures::tempdir();
+    let script_path = kali_test_support::fixtures::write_file(tempdir.path(), "browser-runtime-summary-file.mjs", &script);
     let summary_path = tempdir.path().join("browser-runtime-summary.json");
-    fs::write(&script_path, script).expect("write browser runtime summary script");
 
     let outcome = browser_harness_run_checked_with_env(
         Some("node"),

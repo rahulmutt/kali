@@ -54,7 +54,7 @@ fn browser_harness_command_parts_exposes_override_and_default_selection() {
 
 #[test]
 fn browser_harness_invocation_checked_preserves_html_entrypoint_file_urls_for_paths_with_spaces() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let script = tempdir.path().join("browser app.html");
     let current_dir = tempdir.path().join("browser cwd");
     std::fs::create_dir_all(&current_dir).expect("create browser cwd");
@@ -101,7 +101,7 @@ fn browser_harness_invocation_checked_preserves_html_entrypoint_file_urls_for_pa
 
 #[test]
 fn browser_harness_launch_failure_reports_the_resolved_command_and_script() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let script = tempdir.path().join("browser app.html");
     let current_dir = tempdir.path().join("browser cwd");
     std::fs::create_dir_all(&current_dir).expect("create browser cwd");

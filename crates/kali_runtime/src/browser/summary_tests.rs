@@ -5,7 +5,7 @@ use std::fs;
 
 #[test]
 fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_is_missing() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let summary_path = tempdir.path().join("browser-runtime-summary.json");
     let outcome = BrowserHarnessOutcome {
         command: vec!["node".to_string()],
@@ -25,9 +25,8 @@ fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_is_missing() {
 
 #[test]
 fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_is_unparseable() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
-    let summary_path = tempdir.path().join("browser-runtime-summary.json");
-    fs::write(&summary_path, "not-json").expect("write malformed summary file");
+    let tempdir = kali_test_support::fixtures::tempdir();
+    let summary_path = kali_test_support::fixtures::write_file(tempdir.path(), "browser-runtime-summary.json", "not-json");
     let outcome = BrowserHarnessOutcome {
         command: vec!["node".to_string()],
         status: browser_exit_status(0),
@@ -46,9 +45,8 @@ fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_is_unparseable
 
 #[test]
 fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_is_whitespace_only() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
-    let summary_path = tempdir.path().join("browser-runtime-summary.json");
-    fs::write(&summary_path, " \n\t\n").expect("write blank summary file");
+    let tempdir = kali_test_support::fixtures::tempdir();
+    let summary_path = kali_test_support::fixtures::write_file(tempdir.path(), "browser-runtime-summary.json", " \n\t\n");
     let outcome = BrowserHarnessOutcome {
         command: vec!["node".to_string()],
         status: browser_exit_status(0),
@@ -73,9 +71,8 @@ fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_is_whitespace_
 
 #[test]
 fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_is_empty() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
-    let summary_path = tempdir.path().join("browser-runtime-summary.json");
-    fs::write(&summary_path, "").expect("write empty summary file");
+    let tempdir = kali_test_support::fixtures::tempdir();
+    let summary_path = kali_test_support::fixtures::write_file(tempdir.path(), "browser-runtime-summary.json", "");
     let outcome = BrowserHarnessOutcome {
         command: vec!["node".to_string()],
         status: browser_exit_status(0),
@@ -100,7 +97,7 @@ fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_is_empty() {
 
 #[test]
 fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_is_unreadable() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let summary_path = tempdir.path().join("browser-runtime-summary.json");
     fs::create_dir(&summary_path).expect("create unreadable summary path");
     let outcome = BrowserHarnessOutcome {
@@ -127,13 +124,8 @@ fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_is_unreadable(
 
 #[test]
 fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_is_incomplete() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
-    let summary_path = tempdir.path().join("browser-runtime-summary.json");
-    fs::write(
-        &summary_path,
-        r#"{"hostContract":"browser-requested","runtimeBackend":"browser-harness"}"#,
-    )
-    .expect("write incomplete summary file");
+    let tempdir = kali_test_support::fixtures::tempdir();
+    let summary_path = kali_test_support::fixtures::write_file(tempdir.path(), "browser-runtime-summary.json", r#"{"hostContract":"browser-requested","runtimeBackend":"browser-harness"}"#);
     let outcome = BrowserHarnessOutcome {
         command: vec!["node".to_string()],
         status: browser_exit_status(0),
@@ -158,13 +150,8 @@ fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_is_incomplete(
 
 #[test]
 fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_has_unexpected_keys() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
-    let summary_path = tempdir.path().join("browser-runtime-summary.json");
-    fs::write(
-        &summary_path,
-        r#"{"args":["summary"],"tests":["browser extra key"],"testsFailed":4,"hostContract":"browser-requested","runtimeBackend":"browser-harness","unexpected":true}"#,
-    )
-    .expect("write summary file with unexpected keys");
+    let tempdir = kali_test_support::fixtures::tempdir();
+    let summary_path = kali_test_support::fixtures::write_file(tempdir.path(), "browser-runtime-summary.json", r#"{"args":["summary"],"tests":["browser extra key"],"testsFailed":4,"hostContract":"browser-requested","runtimeBackend":"browser-harness","unexpected":true}"#);
     let outcome = BrowserHarnessOutcome {
         command: vec!["node".to_string()],
         status: browser_exit_status(0),
@@ -189,13 +176,8 @@ fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_has_unexpected
 
 #[test]
 fn browser_runtime_summary_merges_stdout_labels_when_summary_file_labels_are_invalid() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
-    let summary_path = tempdir.path().join("browser-runtime-summary.json");
-    fs::write(
-        &summary_path,
-        r#"{"args":["zeta"],"tests":["7"],"testsFailed":4,"hostContract":"not-a-contract","runtimeBackend":"not-a-backend"}"#,
-    )
-    .expect("write invalid-label summary file");
+    let tempdir = kali_test_support::fixtures::tempdir();
+    let summary_path = kali_test_support::fixtures::write_file(tempdir.path(), "browser-runtime-summary.json", r#"{"args":["zeta"],"tests":["7"],"testsFailed":4,"hostContract":"not-a-contract","runtimeBackend":"not-a-backend"}"#);
     let outcome = BrowserHarnessOutcome {
         command: vec!["node".to_string()],
         status: browser_exit_status(0),
@@ -221,13 +203,8 @@ fn browser_runtime_summary_merges_stdout_labels_when_summary_file_labels_are_inv
 #[test]
 fn browser_runtime_summary_merges_stdout_metadata_when_summary_file_has_invalid_labels_and_invalid_tests_failed_type(
 ) {
-    let tempdir = tempfile::tempdir().expect("tempdir");
-    let summary_path = tempdir.path().join("browser-runtime-summary.json");
-    fs::write(
-        &summary_path,
-        r#"{"args":["zeta"],"tests":["7"],"testsFailed":"oops","hostContract":"not-a-contract","runtimeBackend":"not-a-backend"}"#,
-    )
-    .expect("write invalid-label summary file");
+    let tempdir = kali_test_support::fixtures::tempdir();
+    let summary_path = kali_test_support::fixtures::write_file(tempdir.path(), "browser-runtime-summary.json", r#"{"args":["zeta"],"tests":["7"],"testsFailed":"oops","hostContract":"not-a-contract","runtimeBackend":"not-a-backend"}"#);
     let outcome = BrowserHarnessOutcome {
         command: vec!["node".to_string()],
         status: browser_exit_status(0),
@@ -252,13 +229,8 @@ fn browser_runtime_summary_merges_stdout_metadata_when_summary_file_has_invalid_
 
 #[test]
 fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_has_invalid_array_items() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
-    let summary_path = tempdir.path().join("browser-runtime-summary.json");
-    fs::write(
-        &summary_path,
-        r#"{"args":[1],"tests":["browser invalid array items"],"testsFailed":4,"hostContract":"browser-requested","runtimeBackend":"browser-harness"}"#,
-    )
-    .expect("write invalid-array summary file");
+    let tempdir = kali_test_support::fixtures::tempdir();
+    let summary_path = kali_test_support::fixtures::write_file(tempdir.path(), "browser-runtime-summary.json", r#"{"args":[1],"tests":["browser invalid array items"],"testsFailed":4,"hostContract":"browser-requested","runtimeBackend":"browser-harness"}"#);
     let outcome = BrowserHarnessOutcome {
         command: vec!["node".to_string()],
         status: browser_exit_status(0),
@@ -286,13 +258,8 @@ fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_has_invalid_ar
 
 #[test]
 fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_has_blank_args_item() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
-    let summary_path = tempdir.path().join("browser-runtime-summary.json");
-    fs::write(
-        &summary_path,
-        r#"{"args":["  "],"tests":["browser blank args item"],"testsFailed":4,"hostContract":"browser-requested","runtimeBackend":"browser-harness"}"#,
-    )
-    .expect("write blank-args summary file");
+    let tempdir = kali_test_support::fixtures::tempdir();
+    let summary_path = kali_test_support::fixtures::write_file(tempdir.path(), "browser-runtime-summary.json", r#"{"args":["  "],"tests":["browser blank args item"],"testsFailed":4,"hostContract":"browser-requested","runtimeBackend":"browser-harness"}"#);
     let outcome = BrowserHarnessOutcome {
         command: vec!["node".to_string()],
         status: browser_exit_status(0),
@@ -317,13 +284,8 @@ fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_has_blank_args
 
 #[test]
 fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_has_blank_tests_item() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
-    let summary_path = tempdir.path().join("browser-runtime-summary.json");
-    fs::write(
-        &summary_path,
-        r#"{"args":["summary"],"tests":["\t"],"testsFailed":4,"hostContract":"browser-requested","runtimeBackend":"browser-harness"}"#,
-    )
-    .expect("write blank-tests summary file");
+    let tempdir = kali_test_support::fixtures::tempdir();
+    let summary_path = kali_test_support::fixtures::write_file(tempdir.path(), "browser-runtime-summary.json", r#"{"args":["summary"],"tests":["\t"],"testsFailed":4,"hostContract":"browser-requested","runtimeBackend":"browser-harness"}"#);
     let outcome = BrowserHarnessOutcome {
         command: vec!["node".to_string()],
         status: browser_exit_status(0),
@@ -348,13 +310,8 @@ fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_has_blank_test
 
 #[test]
 fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_has_padded_args_item() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
-    let summary_path = tempdir.path().join("browser-runtime-summary.json");
-    fs::write(
-        &summary_path,
-        r#"{"args":[" summary "],"tests":["browser padded args item"],"testsFailed":4,"hostContract":"browser-requested","runtimeBackend":"browser-harness"}"#,
-    )
-    .expect("write padded-args summary file");
+    let tempdir = kali_test_support::fixtures::tempdir();
+    let summary_path = kali_test_support::fixtures::write_file(tempdir.path(), "browser-runtime-summary.json", r#"{"args":[" summary "],"tests":["browser padded args item"],"testsFailed":4,"hostContract":"browser-requested","runtimeBackend":"browser-harness"}"#);
     let outcome = BrowserHarnessOutcome {
         command: vec!["node".to_string()],
         status: browser_exit_status(0),
@@ -379,13 +336,8 @@ fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_has_padded_arg
 
 #[test]
 fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_has_padded_tests_item() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
-    let summary_path = tempdir.path().join("browser-runtime-summary.json");
-    fs::write(
-        &summary_path,
-        r#"{"args":["summary"],"tests":[" browser padded tests item "],"testsFailed":4,"hostContract":"browser-requested","runtimeBackend":"browser-harness"}"#,
-    )
-    .expect("write padded-tests summary file");
+    let tempdir = kali_test_support::fixtures::tempdir();
+    let summary_path = kali_test_support::fixtures::write_file(tempdir.path(), "browser-runtime-summary.json", r#"{"args":["summary"],"tests":[" browser padded tests item "],"testsFailed":4,"hostContract":"browser-requested","runtimeBackend":"browser-harness"}"#);
     let outcome = BrowserHarnessOutcome {
         command: vec!["node".to_string()],
         status: browser_exit_status(0),
@@ -410,13 +362,8 @@ fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_has_padded_tes
 
 #[test]
 fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_has_null_args_field() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
-    let summary_path = tempdir.path().join("browser-runtime-summary.json");
-    fs::write(
-        &summary_path,
-        r#"{"args":null,"tests":["browser null args"],"testsFailed":4,"hostContract":"browser-requested","runtimeBackend":"browser-harness"}"#,
-    )
-    .expect("write null-args summary file");
+    let tempdir = kali_test_support::fixtures::tempdir();
+    let summary_path = kali_test_support::fixtures::write_file(tempdir.path(), "browser-runtime-summary.json", r#"{"args":null,"tests":["browser null args"],"testsFailed":4,"hostContract":"browser-requested","runtimeBackend":"browser-harness"}"#);
     let outcome = BrowserHarnessOutcome {
         command: vec!["node".to_string()],
         status: browser_exit_status(0),
@@ -441,13 +388,8 @@ fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_has_null_args_
 
 #[test]
 fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_has_null_tests_field() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
-    let summary_path = tempdir.path().join("browser-runtime-summary.json");
-    fs::write(
-        &summary_path,
-        r#"{"args":["stdout"],"tests":null,"testsFailed":4,"hostContract":"browser-requested","runtimeBackend":"browser-harness"}"#,
-    )
-    .expect("write null-tests summary file");
+    let tempdir = kali_test_support::fixtures::tempdir();
+    let summary_path = kali_test_support::fixtures::write_file(tempdir.path(), "browser-runtime-summary.json", r#"{"args":["stdout"],"tests":null,"testsFailed":4,"hostContract":"browser-requested","runtimeBackend":"browser-harness"}"#);
     let outcome = BrowserHarnessOutcome {
         command: vec!["node".to_string()],
         status: browser_exit_status(0),
@@ -472,13 +414,8 @@ fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_has_null_tests
 
 #[test]
 fn browser_runtime_summary_merges_missing_tests_failed_from_stdout() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
-    let summary_path = tempdir.path().join("browser-runtime-summary.json");
-    fs::write(
-        &summary_path,
-        r#"{"args":["zeta"],"tests":["7"],"hostContract":"browser-requested","runtimeBackend":"browser-harness"}"#,
-    )
-    .expect("write partial summary file");
+    let tempdir = kali_test_support::fixtures::tempdir();
+    let summary_path = kali_test_support::fixtures::write_file(tempdir.path(), "browser-runtime-summary.json", r#"{"args":["zeta"],"tests":["7"],"hostContract":"browser-requested","runtimeBackend":"browser-harness"}"#);
     let outcome = BrowserHarnessOutcome {
         command: vec!["node".to_string()],
         status: browser_exit_status(1),
@@ -503,13 +440,8 @@ fn browser_runtime_summary_merges_missing_tests_failed_from_stdout() {
 
 #[test]
 fn browser_runtime_summary_uses_stdout_labels_when_summary_file_lacks_them() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
-    let summary_path = tempdir.path().join("browser-runtime-summary.json");
-    fs::write(
-        &summary_path,
-        r#"{"args":["zeta"],"tests":["7"],"testsFailed":0}"#,
-    )
-    .expect("write summary file without labels");
+    let tempdir = kali_test_support::fixtures::tempdir();
+    let summary_path = kali_test_support::fixtures::write_file(tempdir.path(), "browser-runtime-summary.json", r#"{"args":["zeta"],"tests":["7"],"testsFailed":0}"#);
     let outcome = BrowserHarnessOutcome {
         command: vec!["node".to_string()],
         status: browser_exit_status(0),
@@ -534,13 +466,8 @@ fn browser_runtime_summary_uses_stdout_labels_when_summary_file_lacks_them() {
 
 #[test]
 fn browser_runtime_summary_uses_stdout_labels_when_summary_file_labels_are_empty() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
-    let summary_path = tempdir.path().join("browser-runtime-summary.json");
-    fs::write(
-        &summary_path,
-        r#"{"args":["zeta"],"tests":["7"],"testsFailed":0,"hostContract":"","runtimeBackend":""}"#,
-    )
-    .expect("write summary file with empty labels");
+    let tempdir = kali_test_support::fixtures::tempdir();
+    let summary_path = kali_test_support::fixtures::write_file(tempdir.path(), "browser-runtime-summary.json", r#"{"args":["zeta"],"tests":["7"],"testsFailed":0,"hostContract":"","runtimeBackend":""}"#);
     let outcome = BrowserHarnessOutcome {
         command: vec!["node".to_string()],
         status: browser_exit_status(0),
@@ -565,13 +492,8 @@ fn browser_runtime_summary_uses_stdout_labels_when_summary_file_labels_are_empty
 
 #[test]
 fn browser_runtime_summary_uses_stdout_labels_when_summary_file_labels_are_whitespace_only() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
-    let summary_path = tempdir.path().join("browser-runtime-summary.json");
-    fs::write(
-        &summary_path,
-        r#"{"args":["zeta"],"tests":["7"],"testsFailed":0,"hostContract":" \n\t ","runtimeBackend":"  \t"}"#,
-    )
-    .expect("write summary file with whitespace-only labels");
+    let tempdir = kali_test_support::fixtures::tempdir();
+    let summary_path = kali_test_support::fixtures::write_file(tempdir.path(), "browser-runtime-summary.json", r#"{"args":["zeta"],"tests":["7"],"testsFailed":0,"hostContract":" \n\t ","runtimeBackend":"  \t"}"#);
     let outcome = BrowserHarnessOutcome {
         command: vec!["node".to_string()],
         status: browser_exit_status(0),
@@ -596,13 +518,8 @@ fn browser_runtime_summary_uses_stdout_labels_when_summary_file_labels_are_white
 
 #[test]
 fn browser_runtime_summary_trims_labels_before_normalizing() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
-    let summary_path = tempdir.path().join("browser-runtime-summary.json");
-    fs::write(
-        &summary_path,
-        r#"{"args":["zeta"],"tests":["7"],"testsFailed":0,"hostContract":" browser-requested ","runtimeBackend":" browser-harness "}"#,
-    )
-    .expect("write summary file with padded labels");
+    let tempdir = kali_test_support::fixtures::tempdir();
+    let summary_path = kali_test_support::fixtures::write_file(tempdir.path(), "browser-runtime-summary.json", r#"{"args":["zeta"],"tests":["7"],"testsFailed":0,"hostContract":" browser-requested ","runtimeBackend":" browser-harness "}"#);
     let outcome = BrowserHarnessOutcome {
         command: vec!["node".to_string()],
         status: browser_exit_status(0),
@@ -627,13 +544,8 @@ fn browser_runtime_summary_trims_labels_before_normalizing() {
 
 #[test]
 fn browser_runtime_summary_trims_labels_and_preserves_stdout_tests_failed_fallback() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
-    let summary_path = tempdir.path().join("browser-runtime-summary.json");
-    fs::write(
-        &summary_path,
-        r#"{"args":["zeta"],"tests":["7"],"hostContract":" browser-requested ","runtimeBackend":" browser-harness "}"#,
-    )
-    .expect("write summary file with padded labels and missing testsFailed");
+    let tempdir = kali_test_support::fixtures::tempdir();
+    let summary_path = kali_test_support::fixtures::write_file(tempdir.path(), "browser-runtime-summary.json", r#"{"args":["zeta"],"tests":["7"],"hostContract":" browser-requested ","runtimeBackend":" browser-harness "}"#);
     let outcome = BrowserHarnessOutcome {
         command: vec!["node".to_string()],
         status: browser_exit_status(0),
@@ -658,9 +570,8 @@ fn browser_runtime_summary_trims_labels_and_preserves_stdout_tests_failed_fallba
 
 #[test]
 fn browser_runtime_summary_prefers_the_last_json_line_from_stdout() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
-    let summary_path = tempdir.path().join("browser-runtime-summary.json");
-    fs::write(&summary_path, "still-not-json").expect("write malformed summary file");
+    let tempdir = kali_test_support::fixtures::tempdir();
+    let summary_path = kali_test_support::fixtures::write_file(tempdir.path(), "browser-runtime-summary.json", "still-not-json");
     let outcome = BrowserHarnessOutcome {
         command: vec!["node".to_string()],
         status: browser_exit_status(0),
@@ -691,7 +602,7 @@ fn browser_runtime_summary_prefers_the_last_json_line_from_stdout() {
 
 #[test]
 fn browser_runtime_summary_prefers_the_last_json_line_from_a_noisy_summary_file() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let summary_path = tempdir.path().join("browser-runtime-summary.json");
     fs::write(
         &summary_path,
@@ -728,7 +639,7 @@ fn browser_runtime_summary_prefers_the_last_json_line_from_a_noisy_summary_file(
 
 #[test]
 fn browser_bundle_runtime_summary_merges_missing_tests_failed_from_stdout() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let bundle_root = tempdir.path().join("browser-app");
     fs::create_dir_all(&bundle_root).expect("create bundle root");
 
@@ -786,7 +697,7 @@ export async function loadWithImports(importObject) {
 #[test]
 fn browser_bundle_runtime_summary_merges_thread_topology_from_stdout_when_summary_file_is_missing_it(
 ) {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let bundle_root = tempdir.path().join("browser-app");
     fs::create_dir_all(&bundle_root).expect("create bundle root");
 
@@ -865,7 +776,7 @@ export async function loadWithImports(importObject) {
 
 #[test]
 fn browser_bundle_runtime_summary_keeps_thread_topology_from_summary_file() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let bundle_root = tempdir.path().join("browser-app");
     fs::create_dir_all(&bundle_root).expect("create bundle root");
 
@@ -945,7 +856,7 @@ export async function loadWithImports(importObject) {
 #[test]
 fn browser_bundle_runtime_summary_falls_back_to_stdout_when_summary_file_thread_topology_is_invalid(
 ) {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let bundle_root = tempdir.path().join("browser-app");
     fs::create_dir_all(&bundle_root).expect("create bundle root");
 
@@ -1024,7 +935,7 @@ export async function loadWithImports(importObject) {
 
 #[test]
 fn browser_bundle_runtime_summary_merges_stdout_tests_failed_when_summary_file_has_null_value() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let bundle_root = tempdir.path().join("browser-app");
     fs::create_dir_all(&bundle_root).expect("create bundle root");
 
@@ -1081,7 +992,7 @@ export async function loadWithImports(importObject) {
 
 #[test]
 fn browser_requested_runtime_summary_merges_missing_tests_failed_from_stdout() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let wasm = compile_wat(
         r#"
             (module
@@ -1116,7 +1027,7 @@ fn browser_requested_runtime_summary_merges_missing_tests_failed_from_stdout() {
 
 #[test]
 fn browser_requested_runtime_summary_keeps_thread_topology_from_summary_file() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let wasm = compile_wat(
         r#"
             (module
@@ -1174,13 +1085,8 @@ fn browser_requested_runtime_summary_keeps_thread_topology_from_summary_file() {
 #[test]
 fn browser_requested_runtime_summary_merges_thread_topology_from_stdout_when_summary_file_is_missing_it(
 ) {
-    let tempdir = tempfile::tempdir().expect("tempdir");
-    let summary_path = tempdir.path().join("browser-runtime-summary.json");
-    fs::write(
-        &summary_path,
-        r#"{"args":["alpha"],"tests":["browser merge"],"testsFailed":2,"hostContract":"browser-requested","runtimeBackend":"browser-harness"}"#,
-    )
-    .expect("write summary file without threadTopology");
+    let tempdir = kali_test_support::fixtures::tempdir();
+    let summary_path = kali_test_support::fixtures::write_file(tempdir.path(), "browser-runtime-summary.json", r#"{"args":["alpha"],"tests":["browser merge"],"testsFailed":2,"hostContract":"browser-requested","runtimeBackend":"browser-harness"}"#);
 
     let outcome = BrowserHarnessOutcome {
         command: vec!["node".to_string()],
@@ -1221,7 +1127,7 @@ fn browser_requested_runtime_summary_merges_thread_topology_from_stdout_when_sum
 #[test]
 fn browser_requested_runtime_summary_merges_thread_topology_from_stdout_end_to_end_when_summary_file_is_missing_it(
 ) {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let wasm = compile_wat(
         r#"
             (module
@@ -1279,7 +1185,7 @@ fn browser_requested_runtime_summary_merges_thread_topology_from_stdout_end_to_e
 #[test]
 fn browser_requested_runtime_summary_falls_back_to_stdout_when_summary_file_thread_topology_is_invalid(
 ) {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let wasm = compile_wat(
         r#"
             (module
@@ -1337,7 +1243,7 @@ fn browser_requested_runtime_summary_falls_back_to_stdout_when_summary_file_thre
 #[test]
 fn browser_requested_runtime_summary_trims_labels_before_falling_back_to_stdout_thread_topology_when_summary_file_thread_topology_is_invalid(
 ) {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let wasm = compile_wat(
         r#"
             (module
@@ -1395,7 +1301,7 @@ fn browser_requested_runtime_summary_trims_labels_before_falling_back_to_stdout_
 #[test]
 fn browser_requested_runtime_summary_falls_back_to_stdout_when_summary_file_thread_topology_script_urls_are_whitespace_only(
 ) {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let wasm = compile_wat(
         r#"
             (module
@@ -1453,7 +1359,7 @@ fn browser_requested_runtime_summary_falls_back_to_stdout_when_summary_file_thre
 #[test]
 fn browser_requested_runtime_summary_falls_back_to_stdout_when_summary_file_thread_topology_script_urls_are_relative(
 ) {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let wasm = compile_wat(
         r#"
             (module
@@ -1510,7 +1416,7 @@ fn browser_requested_runtime_summary_falls_back_to_stdout_when_summary_file_thre
 
 #[test]
 fn browser_requested_runtime_reports_thread_topology_from_thread_spawn() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let wasm = compile_wat(
         r#"
             (module
@@ -1558,7 +1464,7 @@ fn browser_requested_runtime_reports_thread_topology_from_thread_spawn() {
 
 #[test]
 fn browser_requested_runtime_rejects_whitespace_thread_spawn_script_url() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let wasm = compile_wat(
         r#"
             (module
@@ -1590,7 +1496,7 @@ fn browser_requested_runtime_rejects_whitespace_thread_spawn_script_url() {
 #[test]
 fn browser_requested_runtime_summary_merges_stdout_tests_failed_when_summary_file_has_invalid_type()
 {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let wasm = compile_wat(
         r#"
             (module
@@ -1626,7 +1532,7 @@ fn browser_requested_runtime_summary_merges_stdout_tests_failed_when_summary_fil
 #[test]
 fn browser_requested_runtime_summary_falls_back_to_stdout_when_summary_file_has_invalid_tests_failed(
 ) {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let wasm = compile_wat(
         r#"
             (module
@@ -1662,7 +1568,7 @@ fn browser_requested_runtime_summary_falls_back_to_stdout_when_summary_file_has_
 #[test]
 fn browser_requested_runtime_summary_merges_stdout_tests_failed_when_summary_file_has_non_integer_number(
 ) {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let wasm = compile_wat(
         r#"
             (module
@@ -1698,7 +1604,7 @@ fn browser_requested_runtime_summary_merges_stdout_tests_failed_when_summary_fil
 #[test]
 fn browser_requested_runtime_summary_merges_stdout_tests_failed_when_summary_file_has_negative_number(
 ) {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let wasm = compile_wat(
         r#"
             (module
@@ -1733,7 +1639,7 @@ fn browser_requested_runtime_summary_merges_stdout_tests_failed_when_summary_fil
 
 #[test]
 fn browser_requested_runtime_summary_merges_stdout_tests_failed_when_summary_file_has_null_value() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let wasm = compile_wat(
         r#"
             (module
@@ -1768,7 +1674,7 @@ fn browser_requested_runtime_summary_merges_stdout_tests_failed_when_summary_fil
 
 #[test]
 fn browser_requested_runtime_summary_falls_back_to_stdout_when_summary_file_is_missing() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let wasm = compile_wat(
         r#"
             (module
@@ -1806,7 +1712,7 @@ fn browser_requested_runtime_summary_falls_back_to_stdout_when_summary_file_is_m
 
 #[test]
 fn browser_requested_runtime_summary_falls_back_to_stdout_when_summary_file_is_unparseable() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let wasm = compile_wat(
         r#"
             (module
@@ -1844,7 +1750,7 @@ fn browser_requested_runtime_summary_falls_back_to_stdout_when_summary_file_is_u
 
 #[test]
 fn browser_requested_runtime_summary_falls_back_to_stdout_when_summary_file_is_whitespace_only() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let wasm = compile_wat(
         r#"
             (module
@@ -1882,7 +1788,7 @@ fn browser_requested_runtime_summary_falls_back_to_stdout_when_summary_file_is_w
 
 #[test]
 fn browser_requested_runtime_summary_uses_stdout_metadata_when_summary_file_has_invalid_labels() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let wasm = compile_wat(
         r#"
             (module
@@ -1930,7 +1836,7 @@ fn browser_requested_runtime_summary_uses_stdout_metadata_when_summary_file_has_
 #[test]
 fn browser_requested_runtime_summary_uses_stdout_metadata_when_summary_file_has_whitespace_only_labels(
 ) {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let wasm = compile_wat(
         r#"
             (module
@@ -1978,7 +1884,7 @@ fn browser_requested_runtime_summary_uses_stdout_metadata_when_summary_file_has_
 #[test]
 fn browser_requested_runtime_summary_uses_stdout_metadata_when_summary_file_has_invalid_labels_and_is_missing_tests_failed(
 ) {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let wasm = compile_wat(
         r#"
             (module
@@ -2017,7 +1923,7 @@ fn browser_requested_runtime_summary_uses_stdout_metadata_when_summary_file_has_
 #[test]
 fn browser_requested_runtime_summary_falls_back_to_stdout_when_summary_file_has_invalid_array_items(
 ) {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let wasm = compile_wat(
         r#"
             (module
@@ -2056,7 +1962,7 @@ fn browser_requested_runtime_summary_falls_back_to_stdout_when_summary_file_has_
 #[test]
 fn browser_requested_runtime_summary_uses_stdout_metadata_when_summary_file_has_invalid_labels_and_invalid_args(
 ) {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let wasm = compile_wat(
         r#"
             (module
@@ -2103,7 +2009,7 @@ fn browser_requested_runtime_summary_uses_stdout_metadata_when_summary_file_has_
 
 #[test]
 fn browser_bundle_runtime_summary_falls_back_to_stdout_when_summary_file_is_missing() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let bundle_root = tempdir.path().join("browser-app");
     fs::create_dir_all(&bundle_root).expect("create bundle root");
 
@@ -2164,7 +2070,7 @@ export async function loadWithImports(importObject) {
 #[cfg(unix)]
 #[test]
 fn browser_bundle_runtime_summary_falls_back_to_stdout_when_summary_file_is_unreadable() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let bundle_root = tempdir.path().join("browser-app");
     fs::create_dir_all(&bundle_root).expect("create bundle root");
 
@@ -2224,7 +2130,7 @@ export async function loadWithImports(importObject) {
 
 #[test]
 fn browser_bundle_runtime_summary_falls_back_to_stdout_when_summary_file_is_whitespace_only() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let bundle_root = tempdir.path().join("browser-app");
     fs::create_dir_all(&bundle_root).expect("create bundle root");
 
@@ -2284,7 +2190,7 @@ export async function loadWithImports(importObject) {
 
 #[test]
 fn browser_bundle_runtime_summary_falls_back_to_stdout_when_summary_file_is_unparseable() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let bundle_root = tempdir.path().join("browser-app");
     fs::create_dir_all(&bundle_root).expect("create bundle root");
 
@@ -2341,7 +2247,7 @@ export async function loadWithImports(importObject) {
 
 #[test]
 fn browser_bundle_runtime_summary_uses_stdout_metadata_when_summary_file_has_invalid_labels() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let bundle_root = tempdir.path().join("browser-app");
     fs::create_dir_all(&bundle_root).expect("create bundle root");
 
@@ -2411,7 +2317,7 @@ export async function loadWithImports(importObject) {
 #[test]
 fn browser_bundle_runtime_summary_uses_stdout_metadata_when_summary_file_has_whitespace_only_labels(
 ) {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let bundle_root = tempdir.path().join("browser-app");
     fs::create_dir_all(&bundle_root).expect("create bundle root");
 
@@ -2480,7 +2386,7 @@ export async function loadWithImports(importObject) {
 
 #[test]
 fn browser_bundle_runtime_summary_falls_back_to_stdout_when_summary_file_has_invalid_array_items() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let bundle_root = tempdir.path().join("browser-app");
     fs::create_dir_all(&bundle_root).expect("create bundle root");
 
@@ -2540,7 +2446,7 @@ export async function loadWithImports(importObject) {
 
 #[test]
 fn browser_bundle_runtime_summary_uses_stdout_labels_when_summary_file_lacks_them() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let bundle_root = tempdir.path().join("browser-app");
     fs::create_dir_all(&bundle_root).expect("create bundle root");
 

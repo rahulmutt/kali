@@ -91,7 +91,7 @@ fn browser_requested_test_runtime_can_execute_registered_callbacks() {
 #[cfg(unix)]
 #[test]
 fn browser_runtime_execution_helper_uses_html_entrypoint_for_browser_executables() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let browser = tempdir.path().join("firefox");
     symlink("/bin/sh", &browser).expect("link browser executable shim to /bin/sh");
 
@@ -147,7 +147,7 @@ exit 0'"#,
 
 #[test]
 fn browser_bundle_runtime_execute_checked_loads_bundle_exports_and_parses_summary() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let bundle_root = tempdir.path().join("browser-app");
     fs::create_dir_all(&bundle_root).expect("create bundle root");
 
@@ -207,7 +207,7 @@ export async function loadWithImports(importObject) {
 #[cfg(unix)]
 #[test]
 fn browser_bundle_runtime_execute_checked_uses_html_entrypoint_for_browser_executables() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let bundle_root = tempdir.path().join("browser-app");
     fs::create_dir_all(&bundle_root).expect("create bundle root");
 
@@ -283,7 +283,7 @@ fn browser_runtime_execution_helper_launches_browser_harness_and_parses_summary(
                     call $console_log))
         "#,
     );
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let outcome = browser_runtime_execute_checked(
         Some("node"),
         &wasm,
@@ -306,7 +306,7 @@ fn browser_runtime_execution_helper_launches_browser_harness_and_parses_summary(
 
 #[test]
 fn browser_harness_invocation_checked_builds_a_launch_plan() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let script = tempdir.path().join("browser-harness.mjs");
     let args = vec!["alpha".to_string(), "beta".to_string()];
 
@@ -342,7 +342,7 @@ fn browser_harness_invocation_checked_builds_a_launch_plan() {
 #[cfg(unix)]
 #[test]
 fn browser_harness_invocation_checked_uses_file_url_for_browser_executables() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
+    let tempdir = kali_test_support::fixtures::tempdir();
     let script = tempdir.path().join("browser-harness.html");
     let args = vec!["alpha".to_string(), "beta".to_string()];
 
@@ -384,17 +384,16 @@ fn browser_harness_invocation_checked_uses_file_url_for_browser_executables() {
 
 #[test]
 fn browser_harness_run_checked_launches_command_and_captures_output() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
-    let script = tempdir.path().join("browser-harness.mjs");
-    fs::write(
-        &script,
+    let tempdir = kali_test_support::fixtures::tempdir();
+    let script = kali_test_support::fixtures::write_file(
+        tempdir.path(),
+        "browser-harness.mjs",
         r#"
 console.error('browser-harness-stderr');
 console.log(JSON.stringify(process.argv.slice(2)));
 process.exit(7);
 "#,
-    )
-    .expect("write browser harness script");
+    );
 
     let outcome = browser_harness_run_checked(
         Some("node"),
@@ -429,9 +428,8 @@ process.exit(7);
 
 #[test]
 fn browser_harness_launch_failure_preserves_the_resolved_command_vector() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
-    let script = tempdir.path().join("browser-harness.mjs");
-    fs::write(&script, "console.log('unreachable');").expect("write browser harness script");
+    let tempdir = kali_test_support::fixtures::tempdir();
+    let script = kali_test_support::fixtures::write_file(tempdir.path(), "browser-harness.mjs", "console.log('unreachable');");
 
     let error = browser_harness_run_checked(
         Some("definitely-not-a-real-browser-runner"),

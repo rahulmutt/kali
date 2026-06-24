@@ -157,7 +157,7 @@ fn runtime_reports_environment_variable_presence() {
 
 #[test]
 fn runtime_reports_current_working_directory() {
-    let dir = tempfile::tempdir().expect("tempdir");
+    let dir = kali_test_support::fixtures::tempdir();
     let cwd = dir.path().to_path_buf();
     let expected_len = cwd.to_string_lossy().len() as i32;
     let runtime = RuntimeCtx::with_host_context(None, Vec::new(), BTreeMap::new(), cwd);
@@ -232,7 +232,7 @@ fn runtime_deletes_environment_variables() {
 
 #[test]
 fn runtime_writes_text_files() {
-    let dir = tempfile::tempdir().expect("tempdir");
+    let dir = kali_test_support::fixtures::tempdir();
     let runtime =
         RuntimeCtx::with_host_context(None, Vec::new(), capture_env(), dir.path().to_path_buf());
     let wasm = compile_wat(
@@ -390,7 +390,7 @@ fn runtime_rejects_math_pow_negative_exponents_without_panicking() {
 
 #[test]
 fn runtime_executes_node_fs_promises_host_imports() {
-    let dir = tempfile::tempdir().expect("tempdir");
+    let dir = kali_test_support::fixtures::tempdir();
     let runtime = RuntimeCtx::with_host_context_with_api_surface(
         None,
         Vec::new(),
