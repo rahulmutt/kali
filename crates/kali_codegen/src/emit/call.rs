@@ -2516,5 +2516,4 @@ impl<'a> FunctionEmitter<'a> {
             return None;
         }
     }
-
 }
