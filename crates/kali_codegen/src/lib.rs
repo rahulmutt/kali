@@ -67,5 +67,9 @@ pub(crate) use lower::{
 };
 
 #[cfg(test)]
+#[path = "test_support.rs"]
+mod test_support;
+
+#[cfg(test)]
 #[path = "tests.rs"]
 mod tests;

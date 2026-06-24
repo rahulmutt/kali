@@ -1247,6 +1247,7 @@ dependencies = [
  "kali_lir",
  "kali_mir",
  "kali_parser",
+ "kali_test_support",
  "semver",
  "serde",
  "serde_json",
