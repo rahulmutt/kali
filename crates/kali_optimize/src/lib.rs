@@ -37,5 +37,13 @@ use kali_mir::{LayoutDescriptor, MirBindingKind, MirProgram as MirAnalysisProgra
 const HOT_FUNCTION_MINIMUM_WEIGHT: u64 = 8;
 
 #[cfg(test)]
+#[path = "test_support.rs"]
+mod test_support;
+
+#[cfg(test)]
+#[path = "fixture_support_tests.rs"]
+mod fixture_support_tests;
+
+#[cfg(test)]
 #[path = "tests.rs"]
 mod tests;

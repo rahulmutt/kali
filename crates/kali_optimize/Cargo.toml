@@ -11,3 +11,6 @@ kali_lir = { workspace = true }
 kali_mir = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+
+[dev-dependencies]
+kali_test_support = { workspace = true }

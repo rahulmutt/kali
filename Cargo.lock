@@ -1375,6 +1375,7 @@ dependencies = [
  "kali_error",
  "kali_lir",
  "kali_mir",
+ "kali_test_support",
  "serde",
  "serde_json",
 ]
