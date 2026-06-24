@@ -3,6 +3,7 @@ use crate::lower::collect_functions;
 use crate::test_support::*;
 use wasmparser::Validator;
 use kali_mir;
+use kali_test_support::fixtures::{tempdir, write_file};
 
 #[test]
 fn generates_valid_wasm_for_simple_programs() {
@@ -2927,4 +2928,38 @@ fn mir_backed_pipeline_reduces_legacy_overhead_on_escaping_locals() {
         current_instructions < baseline_instructions,
         "MIR-backed pipeline should emit fewer instructions than the legacy baseline"
     );
+}
+
+#[test]
+fn source_path_in_temp_dir_attaches_to_unresolved_identifier_diagnostics() {
+    // Use kali_test_support::fixtures to create a real temp directory with a
+    // source file alongside a package.json; verify the source_path is threaded
+    // through to diagnostics so downstream tooling knows where the file lives.
+    let dir = tempdir();
+    let src = write_file(dir.path(), "index.ts", "missing_var;");
+    let _pkg = write_file(dir.path(), "package.json", r#"{"name":"smoke","version":"1.2.3"}"#);
+
+    let program = parse_and_lower_lir("missing_var;");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    ctx.source_path = Some(src.clone());
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    // The unresolved identifier should produce a warning that embeds the
+    // source path from the temp directory.
+    let src_str = src.to_string_lossy();
+    assert!(
+        result.diagnostics.iter().any(|d| {
+            d.notes.iter().any(|note| note.contains(src_str.as_ref()))
+        }),
+        "expected a diagnostic containing the tempdir source path {:?}; got: {:?}",
+        src,
+        result.diagnostics
+    );
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
 }

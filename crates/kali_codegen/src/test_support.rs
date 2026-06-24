@@ -13,53 +13,24 @@ pub(crate) fn node(kind: LirNodeKind, text: Option<&str>, children: Vec<LirNodeI
 }
 
 pub(crate) fn sample_program() -> LirProgram {
-    let mut nodes = Vec::new();
-
-    let root = LirNodeId(0);
-    let add = LirNodeId(1);
-    let add_param_a = LirNodeId(2);
-    let add_param_b = LirNodeId(3);
-    let add_block = LirNodeId(4);
-    let add_return = LirNodeId(5);
-    let add_expr = LirNodeId(6);
-    let add_left = LirNodeId(7);
-    let add_right = LirNodeId(8);
-    let call_expr = LirNodeId(9);
-    let call_callee = LirNodeId(10);
-    let lit_one = LirNodeId(11);
-    let lit_two = LirNodeId(12);
-
-    nodes.push(node(LirNodeKind::Program, None, vec![add, call_expr]));
-    nodes.push(node(
-        LirNodeKind::Instruction,
-        Some("add"),
-        vec![add_param_a, add_param_b, add_block],
-    ));
-    nodes.push(node(LirNodeKind::Value, Some("a"), vec![]));
-    nodes.push(node(LirNodeKind::Value, Some("b"), vec![]));
-    nodes.push(node(LirNodeKind::Block, None, vec![add_return]));
-    nodes.push(node(
-        LirNodeKind::Instruction,
-        Some("return"),
-        vec![add_expr],
-    ));
-    nodes.push(node(
-        LirNodeKind::Value,
-        Some("+"),
-        vec![add_left, add_right],
-    ));
-    nodes.push(node(LirNodeKind::Value, Some("a"), vec![]));
-    nodes.push(node(LirNodeKind::Value, Some("b"), vec![]));
-    nodes.push(node(
-        LirNodeKind::Call,
-        None,
-        vec![call_callee, lit_one, lit_two],
-    ));
-    nodes.push(node(LirNodeKind::Value, Some("add"), vec![]));
-    nodes.push(node(LirNodeKind::Literal, Some("1"), vec![]));
-    nodes.push(node(LirNodeKind::Literal, Some("2"), vec![]));
-
-    LirProgram { root, nodes }
+    // node indices: 0=Program, 1=Instruction(add), 2=Value(a), 3=Value(b),
+    //               4=Block, 5=Instruction(return), 6=Value(+), 7=Value(a),
+    //               8=Value(b), 9=Call, 10=Value(add), 11=Literal(1), 12=Literal(2)
+    lir!(root: 0, nodes: [
+        (LirNodeKind::Program,     None,          vec![LirNodeId(1), LirNodeId(9)]),
+        (LirNodeKind::Instruction, Some("add"),   vec![LirNodeId(2), LirNodeId(3), LirNodeId(4)]),
+        (LirNodeKind::Value,       Some("a"),     vec![]),
+        (LirNodeKind::Value,       Some("b"),     vec![]),
+        (LirNodeKind::Block,       None,          vec![LirNodeId(5)]),
+        (LirNodeKind::Instruction, Some("return"),vec![LirNodeId(6)]),
+        (LirNodeKind::Value,       Some("+"),     vec![LirNodeId(7), LirNodeId(8)]),
+        (LirNodeKind::Value,       Some("a"),     vec![]),
+        (LirNodeKind::Value,       Some("b"),     vec![]),
+        (LirNodeKind::Call,        None,          vec![LirNodeId(10), LirNodeId(11), LirNodeId(12)]),
+        (LirNodeKind::Value,       Some("add"),   vec![]),
+        (LirNodeKind::Literal,     Some("1"),     vec![]),
+        (LirNodeKind::Literal,     Some("2"),     vec![]),
+    ])
 }
 
 pub(crate) fn parse_and_lower_lir(source: &str) -> LirProgram {
