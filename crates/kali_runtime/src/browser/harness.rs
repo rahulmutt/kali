@@ -548,3 +548,7 @@ pub fn browser_runtime_harness_page(
         module_script = module_script,
     )
 }
+
+#[cfg(test)]
+#[path = "harness_tests.rs"]
+mod harness_tests;
