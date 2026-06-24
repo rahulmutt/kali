@@ -1,7 +1,9 @@
 //! Default host-import registration (`kali:rt` namespace) for the wasmtime linker.
 use crate::*;
 
-pub(crate) fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(), Diagnostic> {
+pub(crate) fn register_default_host_imports(
+    linker: &mut Linker<KaliHostState>,
+) -> Result<(), Diagnostic> {
     linker
         .func_wrap(
             "kali:rt",

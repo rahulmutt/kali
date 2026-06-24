@@ -252,7 +252,11 @@ impl KaliHostState {
         self.pending_microtasks.push_back(callback_id);
     }
 
-    pub(crate) fn register_event_listener(&mut self, event_type: impl Into<String>, callback_id: i32) {
+    pub(crate) fn register_event_listener(
+        &mut self,
+        event_type: impl Into<String>,
+        callback_id: i32,
+    ) {
         self.event_listeners
             .entry(event_type.into())
             .or_default()

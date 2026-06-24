@@ -11,8 +11,9 @@ pub(crate) struct BrowserRuntimeSummary {
     pub(crate) thread_topology: Option<ThreadRuntimeShutdownReport>,
 }
 
-
-pub(crate) fn parse_non_blank_string_array_field(value: Option<&serde_json::Value>) -> Option<Vec<String>> {
+pub(crate) fn parse_non_blank_string_array_field(
+    value: Option<&serde_json::Value>,
+) -> Option<Vec<String>> {
     let items = value?.as_array()?;
     let mut strings = Vec::with_capacity(items.len());
     for item in items {
@@ -128,7 +129,9 @@ pub(crate) fn parse_thread_runtime_shutdown_report_value(
     })
 }
 
-pub(crate) fn parse_browser_runtime_summary_value(value: &serde_json::Value) -> Option<BrowserRuntimeSummary> {
+pub(crate) fn parse_browser_runtime_summary_value(
+    value: &serde_json::Value,
+) -> Option<BrowserRuntimeSummary> {
     let object = value.as_object()?;
     if object.keys().any(|key| {
         !matches!(
@@ -155,8 +158,6 @@ pub(crate) fn parse_browser_runtime_summary_value(value: &serde_json::Value) -> 
         thread_topology: parse_thread_runtime_shutdown_report_value(object.get("threadTopology")),
     })
 }
-
-
 
 pub(crate) fn parse_browser_runtime_summary_opt(stdout: &str) -> Option<BrowserRuntimeSummary> {
     stdout.lines().rev().find_map(|line| {

@@ -1,7 +1,10 @@
 //! Sandbox enforcement, event-loop draining, and callback invocation.
 use crate::*;
 
-pub(crate) fn enforce_operation(state: &mut KaliHostState, op: HostOperation) -> wasmtime::Result<()> {
+pub(crate) fn enforce_operation(
+    state: &mut KaliHostState,
+    op: HostOperation,
+) -> wasmtime::Result<()> {
     if let Some(policy) = state.policy.as_ref() {
         policy.check_operation(op).map_err(|diagnostic| {
             state.pending_diagnostic = Some(diagnostic.clone());
@@ -16,7 +19,6 @@ pub(crate) fn enforce_operation(state: &mut KaliHostState, op: HostOperation) ->
         Ok(())
     }
 }
-
 
 pub(crate) fn drain_event_loop(
     instance: &Instance,

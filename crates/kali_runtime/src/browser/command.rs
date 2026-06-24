@@ -191,7 +191,9 @@ pub(crate) fn browser_harness_is_browser_executable_name(executable: &str) -> bo
     BROWSER_HARNESS_BROWSER_EXECUTABLE_NAMES.contains(&executable)
 }
 
-pub(crate) fn browser_harness_command_parts_for_browser_executable(executable: &str) -> Option<Vec<String>> {
+pub(crate) fn browser_harness_command_parts_for_browser_executable(
+    executable: &str,
+) -> Option<Vec<String>> {
     let executable = browser_harness_normalized_executable_name(executable);
 
     if browser_harness_is_browser_executable_name(&executable) {
