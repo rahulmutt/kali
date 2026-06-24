@@ -189,7 +189,7 @@ pub struct BrowserRuntimeContractDescriptor {
     pub contract_scope_note: &'static str,
 }
 
-fn browser_runtime_contract_descriptor_is_canonical(
+pub(crate) fn browser_runtime_contract_descriptor_is_canonical(
     descriptor: &BrowserRuntimeContractDescriptor,
 ) -> bool {
     let trimmed = |value: &str| !value.trim().is_empty() && value.trim() == value;
@@ -241,7 +241,7 @@ pub fn browser_runtime_contract_value() -> serde_json::Value {
 pub const BROWSER_HARNESS_COMMAND_ENV: &str = "KALI_BROWSER_BUNDLE_HARNESS_COMMAND";
 
 /// Environment variable used to request deterministic browser-harness summary capture.
-const BROWSER_HARNESS_SUMMARY_FILE_ENV: &str = "KALI_BROWSER_HARNESS_SUMMARY_FILE";
+pub(crate) const BROWSER_HARNESS_SUMMARY_FILE_ENV: &str = "KALI_BROWSER_HARNESS_SUMMARY_FILE";
 
 impl BrowserRuntimeContract {
     /// The command family the future browser runtime contract will own.
@@ -526,7 +526,7 @@ impl RuntimeCtx {
         }
     }
 
-    fn browser_harness_command(&self) -> Option<&str> {
+    pub(crate) fn browser_harness_command(&self) -> Option<&str> {
         self.env
             .get(BROWSER_HARNESS_COMMAND_ENV)
             .map(String::as_str)
@@ -537,7 +537,7 @@ impl RuntimeCtx {
         self.process_id
     }
 
-    fn reject_unavailable_threaded_requests(&self) -> Option<Diagnostic> {
+    pub(crate) fn reject_unavailable_threaded_requests(&self) -> Option<Diagnostic> {
         let has_threaded_profile = self
             .canonical_runtime_profiles()
             .iter()
@@ -563,7 +563,7 @@ impl RuntimeCtx {
         self.execute_inner(wasm_bytes, true)
     }
 
-    fn execute_inner(
+    pub(crate) fn execute_inner(
         &self,
         wasm_bytes: &[u8],
         run_registered_tests: bool,
@@ -842,7 +842,7 @@ impl RuntimeCtx {
     }
 }
 
-fn execute_browser_runtime(
+pub(crate) fn execute_browser_runtime(
     runtime: &RuntimeCtx,
     wasm_bytes: &[u8],
     run_registered_tests: bool,
@@ -887,7 +887,7 @@ fn execute_browser_runtime(
     })
 }
 
-fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(), Diagnostic> {
+pub(crate) fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(), Diagnostic> {
     linker
         .func_wrap(
             "kali:rt",
@@ -1656,7 +1656,7 @@ fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(
     Ok(())
 }
 
-fn register_node_host_imports(
+pub(crate) fn register_node_host_imports(
     linker: &mut Linker<KaliHostState>,
     node_projection: NodeRuntimeProjection,
 ) -> Result<(), Diagnostic> {
@@ -2465,11 +2465,11 @@ pub fn normalize_runtime_profiles(runtime_profiles: Vec<String>) -> Vec<String> 
     normalized.into_iter().collect()
 }
 
-fn capture_env() -> BTreeMap<String, String> {
+pub(crate) fn capture_env() -> BTreeMap<String, String> {
     std::env::vars().collect()
 }
 
-fn env_snapshot_value(env: &BTreeMap<String, String>) -> serde_json::Value {
+pub(crate) fn env_snapshot_value(env: &BTreeMap<String, String>) -> serde_json::Value {
     serde_json::Value::Object(
         env.iter()
             .map(|(key, value)| (key.clone(), serde_json::Value::String(value.clone())))
@@ -2477,7 +2477,7 @@ fn env_snapshot_value(env: &BTreeMap<String, String>) -> serde_json::Value {
     )
 }
 
-fn decode_spawn_args(encoded: &str) -> Vec<String> {
+pub(crate) fn decode_spawn_args(encoded: &str) -> Vec<String> {
     if encoded.is_empty() {
         return Vec::new();
     }
@@ -2489,7 +2489,7 @@ fn decode_spawn_args(encoded: &str) -> Vec<String> {
     args
 }
 
-fn read_guest_string(
+pub(crate) fn read_guest_string(
     caller: &mut Caller<'_, KaliHostState>,
     ptr: i32,
     len: i32,
@@ -2500,7 +2500,7 @@ fn read_guest_string(
     })
 }
 
-fn read_guest_string_handle(
+pub(crate) fn read_guest_string_handle(
     caller: &mut Caller<'_, KaliHostState>,
     value: i64,
 ) -> wasmtime::Result<String> {
@@ -2516,7 +2516,7 @@ fn read_guest_string_handle(
     read_guest_string(caller, offset, len)
 }
 
-fn read_guest_bytes(
+pub(crate) fn read_guest_bytes(
     caller: &mut Caller<'_, KaliHostState>,
     ptr: i32,
     len: i32,
@@ -2534,7 +2534,7 @@ fn read_guest_bytes(
     Ok(slice.to_vec())
 }
 
-fn write_guest_bytes(
+pub(crate) fn write_guest_bytes(
     caller: &mut Caller<'_, KaliHostState>,
     ptr: i32,
     cap: i32,
@@ -2556,7 +2556,7 @@ fn write_guest_bytes(
     Ok(bytes.len() as i32)
 }
 
-fn write_guest_string(
+pub(crate) fn write_guest_string(
     caller: &mut Caller<'_, KaliHostState>,
     ptr: i32,
     cap: i32,
@@ -2565,18 +2565,18 @@ fn write_guest_string(
     write_guest_bytes(caller, ptr, cap, value.as_ref().as_bytes())
 }
 
-fn guest_memory(caller: &mut Caller<'_, KaliHostState>) -> wasmtime::Result<Memory> {
+pub(crate) fn guest_memory(caller: &mut Caller<'_, KaliHostState>) -> wasmtime::Result<Memory> {
     match caller.get_export("memory") {
         Some(Extern::Memory(memory)) => Ok(memory),
         _ => Err(wasmtime::Error::msg("guest module does not export memory")),
     }
 }
 
-fn checked_offset(value: i32) -> wasmtime::Result<usize> {
+pub(crate) fn checked_offset(value: i32) -> wasmtime::Result<usize> {
     usize::try_from(value).map_err(|_| wasmtime::Error::msg("negative guest memory offset"))
 }
 
-fn resolve_host_path(state: &KaliHostState, path: &Path) -> PathBuf {
+pub(crate) fn resolve_host_path(state: &KaliHostState, path: &Path) -> PathBuf {
     if path.is_absolute() {
         path.to_path_buf()
     } else {
@@ -2584,7 +2584,7 @@ fn resolve_host_path(state: &KaliHostState, path: &Path) -> PathBuf {
     }
 }
 
-fn normalize_path(path: impl AsRef<Path>) -> PathBuf {
+pub(crate) fn normalize_path(path: impl AsRef<Path>) -> PathBuf {
     let path = path.as_ref();
     let mut normalized = PathBuf::new();
 
@@ -2610,25 +2610,25 @@ fn normalize_path(path: impl AsRef<Path>) -> PathBuf {
     }
 }
 
-fn append_stdout(state: &mut KaliHostState, text: String) {
+pub(crate) fn append_stdout(state: &mut KaliHostState, text: String) {
     state.stdout.push_str(&text);
     state.stdout.push('\n');
 }
 
-fn append_stdout_raw(state: &mut KaliHostState, text: String) {
+pub(crate) fn append_stdout_raw(state: &mut KaliHostState, text: String) {
     state.stdout.push_str(&text);
 }
 
-fn append_stderr(state: &mut KaliHostState, text: String) {
+pub(crate) fn append_stderr(state: &mut KaliHostState, text: String) {
     state.stderr.push_str(&text);
     state.stderr.push('\n');
 }
 
-fn append_stderr_raw(state: &mut KaliHostState, text: String) {
+pub(crate) fn append_stderr_raw(state: &mut KaliHostState, text: String) {
     state.stderr.push_str(&text);
 }
 
-fn format_console_value(caller: &mut Caller<'_, KaliHostState>, value: i64) -> String {
+pub(crate) fn format_console_value(caller: &mut Caller<'_, KaliHostState>, value: i64) -> String {
     let raw = value as u64;
     if raw & STRING_HANDLE_TAG != 0 {
         let offset = ((raw >> 32) & 0x7fff_ffff) as i32;
@@ -2643,16 +2643,16 @@ fn format_console_value(caller: &mut Caller<'_, KaliHostState>, value: i64) -> S
     value.to_string()
 }
 
-const STRING_HANDLE_TAG: u64 = 0x8000_0000_0000_0000;
+pub(crate) const STRING_HANDLE_TAG: u64 = 0x8000_0000_0000_0000;
 
-fn host_import_error(name: &str, error: impl std::fmt::Display) -> Diagnostic {
+pub(crate) fn host_import_error(name: &str, error: impl std::fmt::Display) -> Diagnostic {
     Diagnostic::error(
         e4::UNCAUGHT_ERROR as u32,
         format!("failed to register host import '{}': {}", name, error),
     )
 }
 
-fn runtime_error_diagnostic(error: impl std::fmt::Display) -> Diagnostic {
+pub(crate) fn runtime_error_diagnostic(error: impl std::fmt::Display) -> Diagnostic {
     let message = error.to_string();
     if message.contains("KALI_E4001") || message.contains("E4001") {
         Diagnostic::error(e4::EFFECT_NOT_PERMITTED as u32, message)
@@ -2771,7 +2771,7 @@ pub fn split_command_spec(command: &str) -> Option<Vec<String>> {
     Some(parts)
 }
 
-fn browser_harness_normalized_executable_name(executable: &str) -> String {
+pub(crate) fn browser_harness_normalized_executable_name(executable: &str) -> String {
     let executable = Path::new(executable)
         .file_name()
         .and_then(|name| name.to_str())
@@ -2798,7 +2798,7 @@ fn browser_harness_normalized_executable_name(executable: &str) -> String {
     }
 }
 
-const BROWSER_HARNESS_BROWSER_EXECUTABLE_NAMES: &[&str] = &[
+pub(crate) const BROWSER_HARNESS_BROWSER_EXECUTABLE_NAMES: &[&str] = &[
     "chrome",
     "chrome-beta",
     "chrome-canary",
@@ -2894,11 +2894,11 @@ const BROWSER_HARNESS_BROWSER_EXECUTABLE_NAMES: &[&str] = &[
     "thorium browser",
 ];
 
-fn browser_harness_is_browser_executable_name(executable: &str) -> bool {
+pub(crate) fn browser_harness_is_browser_executable_name(executable: &str) -> bool {
     BROWSER_HARNESS_BROWSER_EXECUTABLE_NAMES.contains(&executable)
 }
 
-fn browser_harness_command_parts_for_browser_executable(executable: &str) -> Option<Vec<String>> {
+pub(crate) fn browser_harness_command_parts_for_browser_executable(executable: &str) -> Option<Vec<String>> {
     let executable = browser_harness_normalized_executable_name(executable);
 
     if browser_harness_is_browser_executable_name(&executable) {
@@ -2908,7 +2908,7 @@ fn browser_harness_command_parts_for_browser_executable(executable: &str) -> Opt
     }
 }
 
-fn browser_harness_default_browser_command_parts() -> Option<Vec<String>> {
+pub(crate) fn browser_harness_default_browser_command_parts() -> Option<Vec<String>> {
     for candidate in BROWSER_HARNESS_BROWSER_EXECUTABLE_NAMES {
         if Command::new(candidate).arg("--version").output().is_ok() {
             if let Some(parts) = browser_harness_command_parts_for_browser_executable(candidate) {
@@ -2920,7 +2920,7 @@ fn browser_harness_default_browser_command_parts() -> Option<Vec<String>> {
     None
 }
 
-fn browser_harness_default_command_parts() -> Vec<String> {
+pub(crate) fn browser_harness_default_command_parts() -> Vec<String> {
     static BROWSER_HARNESS_COMMAND: OnceLock<Vec<String>> = OnceLock::new();
     BROWSER_HARNESS_COMMAND
         .get_or_init(|| {
@@ -3344,11 +3344,11 @@ pub fn browser_bundle_runtime_execute_checked(
     })
 }
 
-fn browser_harness_uses_html_entrypoint(executable: &str) -> bool {
+pub(crate) fn browser_harness_uses_html_entrypoint(executable: &str) -> bool {
     browser_harness_command_parts_for_browser_executable(executable).is_some()
 }
 
-fn browser_runtime_harness_module_script(
+pub(crate) fn browser_runtime_harness_module_script(
     wasm_bytes: &[u8],
     args: &[String],
     run_registered_tests: bool,
@@ -3649,16 +3649,16 @@ impl BrowserRuntimeExecutionOutcome {
 }
 
 #[derive(Default)]
-struct BrowserRuntimeSummary {
-    args: Vec<String>,
-    tests: Vec<String>,
-    tests_failed: Option<usize>,
-    host_contract: Option<RuntimeHostContract>,
-    runtime_backend: Option<RuntimeBackend>,
-    thread_topology: Option<ThreadRuntimeShutdownReport>,
+pub(crate) struct BrowserRuntimeSummary {
+    pub(crate) args: Vec<String>,
+    pub(crate) tests: Vec<String>,
+    pub(crate) tests_failed: Option<usize>,
+    pub(crate) host_contract: Option<RuntimeHostContract>,
+    pub(crate) runtime_backend: Option<RuntimeBackend>,
+    pub(crate) thread_topology: Option<ThreadRuntimeShutdownReport>,
 }
 
-fn parse_runtime_host_contract_label(label: &str) -> Option<RuntimeHostContract> {
+pub(crate) fn parse_runtime_host_contract_label(label: &str) -> Option<RuntimeHostContract> {
     match label {
         "kali-hosted" => Some(RuntimeHostContract::KaliHosted),
         "browser-requested" => Some(RuntimeHostContract::BrowserRequested),
@@ -3666,7 +3666,7 @@ fn parse_runtime_host_contract_label(label: &str) -> Option<RuntimeHostContract>
     }
 }
 
-fn parse_runtime_backend_label(label: &str) -> Option<RuntimeBackend> {
+pub(crate) fn parse_runtime_backend_label(label: &str) -> Option<RuntimeBackend> {
     match label {
         "wasmtime" => Some(RuntimeBackend::Wasmtime),
         "browser-harness" => Some(RuntimeBackend::BrowserHarness),
@@ -3674,7 +3674,7 @@ fn parse_runtime_backend_label(label: &str) -> Option<RuntimeBackend> {
     }
 }
 
-fn parse_non_blank_string_array_field(value: Option<&serde_json::Value>) -> Option<Vec<String>> {
+pub(crate) fn parse_non_blank_string_array_field(value: Option<&serde_json::Value>) -> Option<Vec<String>> {
     let items = value?.as_array()?;
     let mut strings = Vec::with_capacity(items.len());
     for item in items {
@@ -3687,11 +3687,11 @@ fn parse_non_blank_string_array_field(value: Option<&serde_json::Value>) -> Opti
     Some(strings)
 }
 
-fn parse_browser_runtime_summary(stdout: &str) -> BrowserRuntimeSummary {
+pub(crate) fn parse_browser_runtime_summary(stdout: &str) -> BrowserRuntimeSummary {
     parse_browser_runtime_summary_opt(stdout).unwrap_or_default()
 }
 
-fn parse_thread_runtime_instance_snapshot_value(
+pub(crate) fn parse_thread_runtime_instance_snapshot_value(
     value: &serde_json::Value,
 ) -> Option<ThreadRuntimeInstanceSnapshot> {
     let object = value.as_object()?;
@@ -3744,7 +3744,7 @@ fn parse_thread_runtime_instance_snapshot_value(
     })
 }
 
-fn parse_thread_runtime_shutdown_report_value(
+pub(crate) fn parse_thread_runtime_shutdown_report_value(
     value: Option<&serde_json::Value>,
 ) -> Option<ThreadRuntimeShutdownReport> {
     let value = value?;
@@ -3790,7 +3790,7 @@ fn parse_thread_runtime_shutdown_report_value(
     })
 }
 
-fn parse_browser_runtime_summary_value(value: &serde_json::Value) -> Option<BrowserRuntimeSummary> {
+pub(crate) fn parse_browser_runtime_summary_value(value: &serde_json::Value) -> Option<BrowserRuntimeSummary> {
     let object = value.as_object()?;
     if object.keys().any(|key| {
         !matches!(
@@ -3818,7 +3818,7 @@ fn parse_browser_runtime_summary_value(value: &serde_json::Value) -> Option<Brow
     })
 }
 
-fn parse_optional_runtime_host_contract_label(
+pub(crate) fn parse_optional_runtime_host_contract_label(
     value: Option<&serde_json::Value>,
 ) -> Option<RuntimeHostContract> {
     let label = value?.as_str()?.trim();
@@ -3829,7 +3829,7 @@ fn parse_optional_runtime_host_contract_label(
     parse_runtime_host_contract_label(label)
 }
 
-fn parse_optional_runtime_backend_label(
+pub(crate) fn parse_optional_runtime_backend_label(
     value: Option<&serde_json::Value>,
 ) -> Option<RuntimeBackend> {
     let label = value?.as_str()?.trim();
@@ -3840,7 +3840,7 @@ fn parse_optional_runtime_backend_label(
     parse_runtime_backend_label(label)
 }
 
-fn parse_browser_runtime_summary_opt(stdout: &str) -> Option<BrowserRuntimeSummary> {
+pub(crate) fn parse_browser_runtime_summary_opt(stdout: &str) -> Option<BrowserRuntimeSummary> {
     stdout.lines().rev().find_map(|line| {
         let trimmed = line.trim();
         if trimmed.is_empty() {
@@ -3852,7 +3852,7 @@ fn parse_browser_runtime_summary_opt(stdout: &str) -> Option<BrowserRuntimeSumma
     })
 }
 
-fn browser_runtime_summary_for_outcome(
+pub(crate) fn browser_runtime_summary_for_outcome(
     summary_path: &Path,
     outcome: &BrowserHarnessOutcome,
 ) -> BrowserRuntimeSummary {
@@ -4162,7 +4162,7 @@ pub fn browser_harness_command_parts() -> Vec<String> {
     browser_harness_command_parts_for(std::env::var(BROWSER_HARNESS_COMMAND_ENV).ok().as_deref())
 }
 
-fn enforce_operation(state: &mut KaliHostState, op: HostOperation) -> wasmtime::Result<()> {
+pub(crate) fn enforce_operation(state: &mut KaliHostState, op: HostOperation) -> wasmtime::Result<()> {
     if let Some(policy) = state.policy.as_ref() {
         policy.check_operation(op).map_err(|diagnostic| {
             state.pending_diagnostic = Some(diagnostic.clone());
@@ -4303,7 +4303,7 @@ impl KaliHostState {
         self.thread_topology.snapshot_value()
     }
 
-    fn schedule_timer(
+    pub(crate) fn schedule_timer(
         &mut self,
         callback_id: i32,
         delay_ms: i32,
@@ -4345,7 +4345,7 @@ impl KaliHostState {
         Ok(timer_id as i32)
     }
 
-    fn cancel_timer(&mut self, timer_id: i32) -> wasmtime::Result<()> {
+    pub(crate) fn cancel_timer(&mut self, timer_id: i32) -> wasmtime::Result<()> {
         let timer_id = u32::try_from(timer_id)
             .map_err(|_| wasmtime::Error::msg("timer id must be non-negative"))?;
         if self.pending_timers.remove(&timer_id).is_none() {
@@ -4354,32 +4354,32 @@ impl KaliHostState {
         Ok(())
     }
 
-    fn queue_microtask(&mut self, callback_id: i32) {
+    pub(crate) fn queue_microtask(&mut self, callback_id: i32) {
         self.pending_microtasks.push_back(callback_id);
     }
 
-    fn register_event_listener(&mut self, event_type: impl Into<String>, callback_id: i32) {
+    pub(crate) fn register_event_listener(&mut self, event_type: impl Into<String>, callback_id: i32) {
         self.event_listeners
             .entry(event_type.into())
             .or_default()
             .push(callback_id);
     }
 
-    fn event_listener_callbacks(&self, event_type: &str) -> Vec<i32> {
+    pub(crate) fn event_listener_callbacks(&self, event_type: &str) -> Vec<i32> {
         self.event_listeners
             .get(event_type)
             .cloned()
             .unwrap_or_default()
     }
 
-    fn event_listener_count(&self, event_type: &str) -> usize {
+    pub(crate) fn event_listener_count(&self, event_type: &str) -> usize {
         self.event_listeners
             .get(event_type)
             .map(|callbacks| callbacks.len())
             .unwrap_or(0)
     }
 
-    fn begin_spawn(&mut self) -> wasmtime::Result<()> {
+    pub(crate) fn begin_spawn(&mut self) -> wasmtime::Result<()> {
         if let Some(limit) = self.max_spawned_processes {
             if self.active_spawned_processes >= limit as usize {
                 let diagnostic = Diagnostic::error(
@@ -4402,7 +4402,7 @@ impl KaliHostState {
         Ok(())
     }
 
-    fn finish_spawn(&mut self) {
+    pub(crate) fn finish_spawn(&mut self) {
         self.active_spawned_processes = self.active_spawned_processes.saturating_sub(1);
     }
 
@@ -4439,14 +4439,14 @@ impl KaliHostState {
         was_live
     }
 
-    fn has_threaded_runtime_profile(&self) -> bool {
+    pub(crate) fn has_threaded_runtime_profile(&self) -> bool {
         self.runtime_profiles
             .iter()
             .any(|profile| profile.trim() == "wasm-threads")
     }
 
     #[allow(dead_code)]
-    fn begin_thread(&mut self) -> wasmtime::Result<()> {
+    pub(crate) fn begin_thread(&mut self) -> wasmtime::Result<()> {
         if !self.has_threaded_runtime_profile() {
             let diagnostic = Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
@@ -4491,16 +4491,16 @@ impl KaliHostState {
     }
 
     #[allow(dead_code)]
-    fn finish_thread(&mut self) {
+    pub(crate) fn finish_thread(&mut self) {
         self.active_threads = self.active_threads.saturating_sub(1);
     }
 
-    fn take_pending_exit_code(&mut self) -> Option<i32> {
+    pub(crate) fn take_pending_exit_code(&mut self) -> Option<i32> {
         self.pending_exit_code.take()
     }
 }
 
-fn drain_event_loop(
+pub(crate) fn drain_event_loop(
     instance: &Instance,
     store: &mut Store<KaliHostState>,
 ) -> Result<(), Diagnostic> {
@@ -4564,7 +4564,7 @@ fn drain_event_loop(
     Ok(())
 }
 
-fn invoke_callback(
+pub(crate) fn invoke_callback(
     instance: &Instance,
     store: &mut Store<KaliHostState>,
     callback_id: i32,
