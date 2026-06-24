@@ -1,6 +1,5 @@
 use crate::*;
 
-
 #[test]
 fn split_command_spec_supports_shell_like_quoting() {
     let parts = split_command_spec(
@@ -20,7 +19,6 @@ fn split_command_spec_supports_shell_like_quoting() {
         ]
     );
 }
-
 
 #[test]
 fn browser_harness_command_parts_exposes_override_and_default_selection() {
@@ -50,7 +48,6 @@ fn browser_harness_command_parts_exposes_override_and_default_selection() {
         "default browser harness command should prefer a browser executable when one is available"
     );
 }
-
 
 #[test]
 fn browser_harness_invocation_checked_preserves_html_entrypoint_file_urls_for_paths_with_spaces() {
@@ -98,7 +95,6 @@ fn browser_harness_invocation_checked_preserves_html_entrypoint_file_urls_for_pa
     assert_eq!(invocation.command[6], "two words");
 }
 
-
 #[test]
 fn browser_harness_launch_failure_reports_the_resolved_command_and_script() {
     let tempdir = kali_test_support::fixtures::tempdir();
@@ -139,7 +135,6 @@ fn browser_harness_launch_failure_reports_the_resolved_command_and_script() {
     assert!(message.contains("definitely-not-a-real-browser"));
 }
 
-
 #[test]
 fn browser_harness_recognizes_all_canonical_browser_executable_names() {
     for executable in BROWSER_HARNESS_BROWSER_EXECUTABLE_NAMES {
@@ -157,7 +152,6 @@ fn browser_harness_recognizes_all_canonical_browser_executable_names() {
     }
 }
 
-
 #[test]
 fn split_command_spec_rejects_malformed_inputs() {
     assert_eq!(split_command_spec("   "), None);
@@ -165,7 +159,6 @@ fn split_command_spec_rejects_malformed_inputs() {
     assert_eq!(split_command_spec(r#"browser-wrapper "unterminated"#), None);
     assert_eq!(split_command_spec(r#"browser-wrapper \"#), None);
 }
-
 
 #[test]
 fn browser_harness_command_parts_checked_reports_malformed_overrides() {
@@ -196,7 +189,6 @@ fn browser_harness_command_parts_checked_reports_malformed_overrides() {
     assert!(unterminated.contains("unterminated"));
 }
 
-
 #[test]
 fn browser_harness_command_parts_checked_trims_surrounding_whitespace() {
     let parts = browser_harness_command_parts_checked(Some("\n  node --test --reporter tap  \t"))
@@ -204,7 +196,6 @@ fn browser_harness_command_parts_checked_trims_surrounding_whitespace() {
 
     assert_eq!(parts, vec!["node", "--test", "--reporter", "tap"]);
 }
-
 
 #[test]
 fn browser_harness_command_parts_checked_trims_surrounding_whitespace_and_preserves_quotes() {
@@ -218,7 +209,6 @@ fn browser_harness_command_parts_checked_trims_surrounding_whitespace_and_preser
         vec!["chrome", "--headless", "--profile", "real browser"]
     );
 }
-
 
 #[test]
 fn browser_harness_command_parts_for_browser_executables_use_headless_mode() {

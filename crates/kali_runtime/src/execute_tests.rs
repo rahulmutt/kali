@@ -1,7 +1,11 @@
-use crate::*;
 use crate::test_support::*;
-use std::{fs, io::{Read, Write}, net::TcpListener, thread};
-
+use crate::*;
+use std::{
+    fs,
+    io::{Read, Write},
+    net::TcpListener,
+    thread,
+};
 
 #[test]
 fn runtime_executes_modules_with_console_host_imports() {
@@ -35,7 +39,6 @@ fn runtime_executes_modules_with_console_host_imports() {
     assert_eq!(outcome.stderr, "2\n[warn] 3\n");
 }
 
-
 #[test]
 fn runtime_exposes_arguments() {
     let runtime = RuntimeCtx::with_host_context(
@@ -64,7 +67,6 @@ fn runtime_exposes_arguments() {
     assert_eq!(outcome.exit_code, 0);
 }
 
-
 #[test]
 fn runtime_records_guest_process_exit_codes() {
     let runtime = RuntimeCtx::default();
@@ -81,7 +83,6 @@ fn runtime_records_guest_process_exit_codes() {
     let outcome = runtime.execute(&wasm).expect("runtime outcome");
     assert_eq!(outcome.exit_code, 7);
 }
-
 
 #[test]
 fn runtime_exposes_environment_variables() {
@@ -119,7 +120,6 @@ fn runtime_exposes_environment_variables() {
     assert_eq!(outcome.exit_code, 0);
 }
 
-
 #[test]
 fn runtime_reports_environment_variable_presence() {
     let mut env = BTreeMap::new();
@@ -154,7 +154,6 @@ fn runtime_reports_environment_variable_presence() {
     assert_eq!(outcome.exit_code, 0);
 }
 
-
 #[test]
 fn runtime_reports_current_working_directory() {
     let dir = kali_test_support::fixtures::tempdir();
@@ -185,7 +184,6 @@ fn runtime_reports_current_working_directory() {
     let outcome = runtime.execute(&wasm).expect("runtime outcome");
     assert_eq!(outcome.exit_code, 0);
 }
-
 
 #[test]
 fn runtime_deletes_environment_variables() {
@@ -229,7 +227,6 @@ fn runtime_deletes_environment_variables() {
     assert_eq!(outcome.exit_code, 0);
 }
 
-
 #[test]
 fn runtime_writes_text_files() {
     let dir = kali_test_support::fixtures::tempdir();
@@ -263,7 +260,6 @@ fn runtime_writes_text_files() {
     let written = fs::read_to_string(dir.path().join("written.txt")).expect("written file");
     assert_eq!(written, "hello runtime");
 }
-
 
 #[test]
 fn runtime_fetches_http_responses() {
@@ -315,7 +311,6 @@ fn runtime_fetches_http_responses() {
     server.join().expect("server thread");
 }
 
-
 #[test]
 fn runtime_reports_mocked_fetch_failures() {
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind test server");
@@ -360,7 +355,6 @@ fn runtime_reports_mocked_fetch_failures() {
     server.join().expect("server thread");
 }
 
-
 #[test]
 fn runtime_rejects_math_pow_negative_exponents_without_panicking() {
     let runtime = RuntimeCtx::default();
@@ -386,7 +380,6 @@ fn runtime_rejects_math_pow_negative_exponents_without_panicking() {
         diagnostics[0]
     );
 }
-
 
 #[test]
 fn runtime_executes_node_fs_promises_host_imports() {
@@ -436,7 +429,6 @@ fn runtime_executes_node_fs_promises_host_imports() {
     assert_eq!(written, "hello node fs");
 }
 
-
 #[test]
 fn runtime_executes_node_stream_host_imports() {
     let runtime = RuntimeCtx::with_host_context_with_api_surface(
@@ -473,7 +465,6 @@ fn runtime_executes_node_stream_host_imports() {
     let outcome = runtime.execute(&wasm).expect("runtime outcome");
     assert_eq!(outcome.exit_code, 0);
 }
-
 
 #[test]
 fn runtime_executes_node_http_host_imports() {
@@ -529,7 +520,6 @@ fn runtime_executes_node_http_host_imports() {
     assert_eq!(outcome.exit_code, 0);
     server.join().expect("server thread");
 }
-
 
 #[test]
 fn runtime_executes_node_process_host_imports() {
@@ -611,8 +601,6 @@ fn runtime_executes_node_process_host_imports() {
 }
 
 #[cfg(not(windows))]
-
-
 #[test]
 fn runtime_executes_node_child_process_host_imports() {
     let runtime = RuntimeCtx::with_host_context_with_api_surface(
@@ -662,8 +650,6 @@ fn runtime_executes_node_child_process_host_imports() {
 }
 
 #[cfg(not(windows))]
-
-
 #[test]
 fn runtime_enforces_node_child_process_budget() {
     let policy = SandboxPolicy {
@@ -739,8 +725,6 @@ fn runtime_enforces_node_child_process_budget() {
 }
 
 #[cfg(not(windows))]
-
-
 #[test]
 fn runtime_rejects_node_child_processes_when_budget_is_zero() {
     let policy = SandboxPolicy {
@@ -815,7 +799,6 @@ fn runtime_rejects_node_child_processes_when_budget_is_zero() {
         Some(e4::RESOURCE_LIMIT_EXCEEDED as u32)
     );
 }
-
 
 #[test]
 fn runtime_executes_node_util_buffer_and_assert_host_imports() {
@@ -910,7 +893,6 @@ fn runtime_executes_node_util_buffer_and_assert_host_imports() {
     assert_eq!(outcome.exit_code, 0);
 }
 
-
 #[test]
 fn runtime_executes_node_event_emitter_host_imports() {
     let runtime = RuntimeCtx::with_host_context_with_api_surface(
@@ -964,7 +946,6 @@ fn runtime_executes_node_event_emitter_host_imports() {
     assert_eq!(outcome.exit_code, 0);
     assert_eq!(outcome.stdout, "event fired");
 }
-
 
 #[test]
 fn runtime_executes_node_path_host_imports() {
@@ -1148,7 +1129,6 @@ fn runtime_executes_node_path_host_imports() {
     assert_eq!(outcome.exit_code, 0);
 }
 
-
 #[test]
 fn runtime_executes_node_url_host_imports() {
     let runtime = RuntimeCtx::with_host_context_with_api_surface(
@@ -1216,7 +1196,6 @@ fn runtime_executes_node_url_host_imports() {
     let outcome = runtime.execute(&wasm).expect("runtime outcome");
     assert_eq!(outcome.exit_code, 0);
 }
-
 
 #[test]
 fn runtime_executes_node_crypto_and_os_host_imports() {
@@ -1396,7 +1375,6 @@ fn runtime_executes_node_crypto_and_os_host_imports() {
     assert_eq!(outcome.exit_code, 0);
 }
 
-
 #[test]
 fn runtime_exposes_performance_now() {
     let runtime =
@@ -1419,7 +1397,6 @@ fn runtime_exposes_performance_now() {
     let outcome = runtime.execute(&wasm).expect("runtime outcome");
     assert_eq!(outcome.exit_code, 0);
 }
-
 
 #[test]
 fn runtime_fills_random_values() {
@@ -1447,7 +1424,6 @@ fn runtime_fills_random_values() {
     assert_eq!(outcome.exit_code, 0);
 }
 
-
 #[test]
 fn runtime_exposes_crypto_random_uuid() {
     let runtime =
@@ -1473,7 +1449,6 @@ fn runtime_exposes_crypto_random_uuid() {
     let outcome = runtime.execute(&wasm).expect("runtime outcome");
     assert_eq!(outcome.exit_code, 0);
 }
-
 
 #[test]
 fn runtime_rejects_console_calls_when_policy_denies_them() {
@@ -1534,7 +1509,6 @@ fn runtime_rejects_console_calls_when_policy_denies_them() {
     assert_eq!(diagnostics[0].code, Some(e4::EFFECT_NOT_PERMITTED as u32));
 }
 
-
 #[test]
 fn runtime_drains_microtasks_before_timers() {
     let runtime =
@@ -1573,7 +1547,6 @@ fn runtime_drains_microtasks_before_timers() {
     let outcome = runtime.execute(&wasm).expect("runtime outcome");
     assert_eq!(outcome.exit_code, 0);
 }
-
 
 #[test]
 fn runtime_repeating_intervals_can_be_cleared_from_callbacks() {
@@ -1619,7 +1592,6 @@ fn runtime_repeating_intervals_can_be_cleared_from_callbacks() {
     assert_eq!(outcome.exit_code, 0);
 }
 
-
 #[test]
 fn runtime_reports_traps_from_the_entrypoint() {
     let runtime =
@@ -1644,7 +1616,6 @@ fn runtime_reports_traps_from_the_entrypoint() {
     assert!(diagnostics[0].message.contains("runtime trap"));
 }
 
-
 #[test]
 fn runtime_can_clear_scheduled_timers() {
     let runtime =
@@ -1668,7 +1639,6 @@ fn runtime_can_clear_scheduled_timers() {
     let outcome = runtime.execute(&wasm).expect("runtime outcome");
     assert_eq!(outcome.exit_code, 0);
 }
-
 
 #[test]
 fn runtime_rejects_negative_timer_delays() {
@@ -1699,7 +1669,6 @@ fn runtime_rejects_negative_timer_delays() {
     assert!(diagnostics[0].message.contains("runtime trap"));
 }
 
-
 #[test]
 fn runtime_rejects_negative_interval_delays() {
     let runtime =
@@ -1729,7 +1698,6 @@ fn runtime_rejects_negative_interval_delays() {
     assert!(diagnostics[0].message.contains("runtime trap"));
 }
 
-
 #[test]
 fn runtime_collects_and_runs_registered_tests() {
     let runtime =
@@ -1755,7 +1723,6 @@ fn runtime_collects_and_runs_registered_tests() {
     assert_eq!(outcome.tests_run, 1);
     assert_eq!(outcome.tests_failed, 0);
 }
-
 
 #[test]
 fn runtime_reports_failed_registered_tests() {

@@ -1,6 +1,5 @@
 use crate::*;
 
-
 #[test]
 fn browser_runtime_contract_documents_the_future_execution_surface() {
     let descriptor = BrowserRuntimeContract::descriptor();
@@ -103,7 +102,6 @@ fn browser_runtime_contract_documents_the_future_execution_surface() {
         .diagnostic_hint
         .contains("kali build --bundle --api browser"));
 }
-
 
 #[test]
 fn browser_runtime_contract_descriptor_rejects_duplicate_or_whitespace_values() {

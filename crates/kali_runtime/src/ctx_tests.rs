@@ -1,6 +1,5 @@
 use crate::*;
 
-
 #[test]
 fn runtime_context_carries_process_identity() {
     let runtime =
@@ -9,7 +8,6 @@ fn runtime_context_carries_process_identity() {
     assert_eq!(runtime.process_id(), std::process::id());
     assert_eq!(KaliHostState::default().process_id(), std::process::id());
 }
-
 
 #[test]
 fn runtime_context_exposes_deterministic_env_snapshots() {
@@ -116,7 +114,6 @@ fn runtime_context_exposes_deterministic_env_snapshots() {
     );
 }
 
-
 #[test]
 fn runtime_context_carries_runtime_profiles() {
     let runtime = RuntimeCtx::with_api_surface(None, "deno").with_runtime_profiles(vec![
@@ -132,14 +129,12 @@ fn runtime_context_carries_runtime_profiles() {
     );
 }
 
-
 #[test]
 fn runtime_context_carries_thread_budget_override() {
     let runtime = RuntimeCtx::with_api_surface(None, "deno").with_max_threads(Some(0));
 
     assert_eq!(runtime.max_threads, Some(0));
 }
-
 
 #[test]
 fn runtime_context_resolves_effective_thread_budget() {
@@ -176,7 +171,6 @@ fn runtime_context_resolves_effective_thread_budget() {
     let runtime = RuntimeCtx::with_api_surface(None, "deno").with_max_threads(Some(0));
     assert_eq!(runtime.effective_thread_budget(), Some(0));
 }
-
 
 #[test]
 fn runtime_context_resolves_positive_thread_budget_against_policy_cap() {

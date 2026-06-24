@@ -1,9 +1,8 @@
-use crate::*;
 use crate::test_support::*;
-use std::{fs};
+use crate::*;
+use std::fs;
 #[cfg(unix)]
 use std::os::unix::fs::symlink;
-
 
 #[test]
 fn browser_requested_runtime_can_execute_with_an_explicit_harness_command() {
@@ -45,7 +44,6 @@ fn browser_requested_runtime_can_execute_with_an_explicit_harness_command() {
     assert!(outcome.stdout.contains('2'), "stdout: {}", outcome.stdout);
 }
 
-
 #[test]
 fn browser_requested_test_runtime_can_execute_registered_callbacks() {
     let runtime = RuntimeCtx::with_host_context_with_api_surface(
@@ -86,7 +84,6 @@ fn browser_requested_test_runtime_can_execute_registered_callbacks() {
     assert_eq!(outcome.runtime_backend.canonical_label(), "browser-harness");
     assert!(outcome.stdout.contains("11"), "stdout: {}", outcome.stdout);
 }
-
 
 #[cfg(unix)]
 #[test]
@@ -143,7 +140,6 @@ exit 0'"#,
     assert_eq!(outcome.tests_failed, 0);
     assert_eq!(outcome.status.code(), Some(0));
 }
-
 
 #[test]
 fn browser_bundle_runtime_execute_checked_loads_bundle_exports_and_parses_summary() {
@@ -202,7 +198,6 @@ export async function loadWithImports(importObject) {
     assert_eq!(outcome.registered_tests, vec!["7".to_string()]);
     assert_eq!(outcome.tests_run(), 1);
 }
-
 
 #[cfg(unix)]
 #[test]
@@ -265,7 +260,6 @@ export async function loadWithImports(importObject) {
     assert_eq!(outcome.status.code(), Some(0));
 }
 
-
 #[test]
 fn browser_runtime_execution_helper_launches_browser_harness_and_parses_summary() {
     let wasm = compile_wat(
@@ -303,7 +297,6 @@ fn browser_runtime_execution_helper_launches_browser_harness_and_parses_summary(
     assert_eq!(outcome.tests_run(), 1);
 }
 
-
 #[test]
 fn browser_harness_invocation_checked_builds_a_launch_plan() {
     let tempdir = kali_test_support::fixtures::tempdir();
@@ -337,7 +330,6 @@ fn browser_harness_invocation_checked_builds_a_launch_plan() {
         ]
     );
 }
-
 
 #[cfg(unix)]
 #[test]
@@ -380,7 +372,6 @@ fn browser_harness_invocation_checked_uses_file_url_for_browser_executables() {
         ]
     );
 }
-
 
 #[test]
 fn browser_harness_run_checked_launches_command_and_captures_output() {
@@ -425,11 +416,14 @@ process.exit(7);
     );
 }
 
-
 #[test]
 fn browser_harness_launch_failure_preserves_the_resolved_command_vector() {
     let tempdir = kali_test_support::fixtures::tempdir();
-    let script = kali_test_support::fixtures::write_file(tempdir.path(), "browser-harness.mjs", "console.log('unreachable');");
+    let script = kali_test_support::fixtures::write_file(
+        tempdir.path(),
+        "browser-harness.mjs",
+        "console.log('unreachable');",
+    );
 
     let error = browser_harness_run_checked(
         Some("definitely-not-a-real-browser-runner"),
@@ -465,7 +459,6 @@ fn browser_harness_launch_failure_preserves_the_resolved_command_vector() {
         other => panic!("unexpected error: {other:?}"),
     }
 }
-
 
 #[test]
 fn browser_runtime_unavailable_diagnostic_formats_command_context() {

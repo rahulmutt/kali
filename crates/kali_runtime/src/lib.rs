@@ -16,8 +16,7 @@ pub(crate) use host::{imports_default::*, imports_node::*};
 mod browser;
 pub(crate) use browser::{command::*, contract::*, summary::*};
 mod execute;
-#[cfg(test)]
-pub(crate) use execute::execute_browser_runtime;
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 pub use browser::command::{
     browser_harness_command_parts, browser_harness_command_parts_checked,
     browser_harness_command_parts_for, split_command_spec,
@@ -39,7 +38,8 @@ pub use browser::harness::{
     browser_bundle_runtime_harness_script, browser_runtime_harness_page,
     browser_runtime_harness_script,
 };
-use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
+#[cfg(test)]
+pub(crate) use execute::execute_browser_runtime;
 use kali_api_node::{
     NodeAssert, NodeBuffer, NodeChildProcess, NodeCrypto, NodePath, NodeRuntimeProjection, NodeUrl,
     NodeUtil,

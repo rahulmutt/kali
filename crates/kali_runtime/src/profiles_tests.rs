@@ -1,6 +1,5 @@
-use crate::*;
 use crate::test_support::*;
-
+use crate::*;
 
 #[test]
 fn runtime_reports_browser_host_contract_for_browser_api_surface() {
@@ -15,7 +14,6 @@ fn runtime_reports_browser_host_contract_for_browser_api_surface() {
         .canonical_label()
         .contains("browser"));
 }
-
 
 #[test]
 fn runtime_rejects_browser_api_surface() {
@@ -73,7 +71,6 @@ fn runtime_rejects_browser_api_surface() {
     );
 }
 
-
 #[test]
 fn runtime_test_execution_rejects_browser_api_surface() {
     let runtime = RuntimeCtx::with_host_context_with_api_surface(
@@ -130,7 +127,6 @@ fn runtime_test_execution_rejects_browser_api_surface() {
     );
 }
 
-
 #[test]
 fn runtime_accepts_threaded_runtime_profile_requests() {
     let runtime = RuntimeCtx::with_api_surface(None, "deno")
@@ -145,7 +141,6 @@ fn runtime_accepts_threaded_runtime_profile_requests() {
     let outcome = runtime.execute(&wasm).expect("threaded runtime profile");
     assert_eq!(outcome.runtime_profiles, vec!["wasm-threads".to_string()]);
 }
-
 
 #[test]
 fn runtime_rejects_positive_thread_budget_requests_without_threaded_profile() {
@@ -172,7 +167,6 @@ fn runtime_rejects_positive_thread_budget_requests_without_threaded_profile() {
     );
 }
 
-
 #[test]
 fn runtime_accepts_positive_thread_budget_requests_with_threaded_profile() {
     let runtime = RuntimeCtx::with_api_surface(None, "deno")
@@ -190,7 +184,6 @@ fn runtime_accepts_positive_thread_budget_requests_with_threaded_profile() {
         .expect("positive thread budgets should be accepted when the threaded profile is active");
     assert_eq!(outcome.runtime_profiles, vec!["wasm-threads".to_string()]);
 }
-
 
 #[test]
 fn runtime_outcome_carries_runtime_profiles() {
@@ -216,7 +209,6 @@ fn runtime_outcome_carries_runtime_profiles() {
     assert_eq!(outcome.runtime_backend, RuntimeBackend::Wasmtime);
 }
 
-
 #[test]
 fn runtime_execute_normalizes_profiles_from_public_field_mutation() {
     let mut runtime = RuntimeCtx::with_api_surface(None, "deno");
@@ -240,7 +232,6 @@ fn runtime_execute_normalizes_profiles_from_public_field_mutation() {
         vec!["alpha".to_string(), "beta".to_string()]
     );
 }
-
 
 #[test]
 fn runtime_execute_tests_normalizes_profiles_from_public_field_mutation() {
@@ -267,7 +258,6 @@ fn runtime_execute_tests_normalizes_profiles_from_public_field_mutation() {
     );
 }
 
-
 #[test]
 fn runtime_test_outcome_carries_runtime_profiles() {
     let runtime = RuntimeCtx::with_api_surface(None, "deno").with_runtime_profiles(vec![
@@ -292,7 +282,6 @@ fn runtime_test_outcome_carries_runtime_profiles() {
     assert_eq!(outcome.host_contract, RuntimeHostContract::KaliHosted);
 }
 
-
 #[test]
 fn runtime_exposes_canonical_runtime_profiles_from_public_field_mutation() {
     let mut runtime = RuntimeCtx::with_api_surface(None, "deno");
@@ -308,7 +297,6 @@ fn runtime_exposes_canonical_runtime_profiles_from_public_field_mutation() {
         vec!["alpha".to_string(), "wasm-threads".to_string()]
     );
 }
-
 
 #[test]
 fn normalize_runtime_profiles_is_shared_between_callers() {

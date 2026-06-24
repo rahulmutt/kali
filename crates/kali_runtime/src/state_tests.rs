@@ -1,6 +1,5 @@
-use crate::*;
 use crate::test_support::*;
-
+use crate::*;
 
 #[test]
 fn runtime_host_state_tracks_thread_budget_bookkeeping() {
@@ -31,7 +30,6 @@ fn runtime_host_state_tracks_thread_budget_bookkeeping() {
     assert!(state.begin_thread().is_ok());
 }
 
-
 #[test]
 fn runtime_host_state_accepts_trimmed_threaded_runtime_profile() {
     let mut state = KaliHostState {
@@ -43,7 +41,6 @@ fn runtime_host_state_accepts_trimmed_threaded_runtime_profile() {
     assert!(state.begin_thread().is_ok());
     assert_eq!(state.active_threads, 1);
 }
-
 
 #[test]
 fn runtime_host_state_spawns_and_releases_thread_instances() {
@@ -188,7 +185,6 @@ fn runtime_host_state_spawns_and_releases_thread_instances() {
     assert!(!snapshot_after_respawn.live_instances[0].was_terminated);
 }
 
-
 #[test]
 fn runtime_host_state_trims_surrounding_whitespace_from_thread_script_urls() {
     let mut state = KaliHostState {
@@ -240,7 +236,6 @@ fn runtime_host_state_trims_surrounding_whitespace_from_thread_script_urls() {
     );
 }
 
-
 #[test]
 fn runtime_summary_parser_rejects_whitespace_padded_thread_script_urls() {
     let value = serde_json::json!({
@@ -263,7 +258,6 @@ fn runtime_summary_parser_rejects_whitespace_padded_thread_script_urls() {
     );
 }
 
-
 #[test]
 fn runtime_summary_parser_rejects_relative_thread_script_urls() {
     let value = serde_json::json!({
@@ -285,7 +279,6 @@ fn runtime_summary_parser_rejects_relative_thread_script_urls() {
         "relative scriptUrl should be rejected"
     );
 }
-
 
 #[test]
 fn runtime_reports_thread_topology_snapshot_for_spawned_threads() {
@@ -346,7 +339,6 @@ fn runtime_reports_thread_topology_snapshot_for_spawned_threads() {
     assert!(!outcome.thread_topology.live_instances[1].was_terminated);
 }
 
-
 #[test]
 fn runtime_host_state_rolls_back_failed_thread_spawns() {
     let mut state = KaliHostState {
@@ -361,7 +353,6 @@ fn runtime_host_state_rolls_back_failed_thread_spawns() {
     assert_eq!(state.active_threads, 0);
     assert_eq!(state.thread_topology.total_instances(), 0);
 }
-
 
 #[test]
 fn runtime_host_state_rejects_whitespace_only_thread_script_urls() {
@@ -381,7 +372,6 @@ fn runtime_host_state_rejects_whitespace_only_thread_script_urls() {
     assert_eq!(state.active_threads, 0);
     assert_eq!(state.thread_topology.total_instances(), 0);
 }
-
 
 #[test]
 fn runtime_rejects_thread_spawn_host_imports_when_budget_is_zero() {
@@ -413,7 +403,6 @@ fn runtime_rejects_thread_spawn_host_imports_when_budget_is_zero() {
         .message
         .contains("active thread count 1 exceeds policy limit of 0"));
 }
-
 
 #[test]
 fn runtime_executes_thread_spawn_host_imports() {
@@ -463,7 +452,6 @@ fn runtime_executes_thread_spawn_host_imports() {
     );
 }
 
-
 #[test]
 fn runtime_execute_tests_reports_thread_topology_from_thread_spawn() {
     let runtime = RuntimeCtx::with_api_surface(None, "deno")
@@ -506,7 +494,6 @@ fn runtime_execute_tests_reports_thread_topology_from_thread_spawn() {
         })
     );
 }
-
 
 #[test]
 fn runtime_rejects_second_thread_spawn_host_import_when_budget_is_exhausted() {
