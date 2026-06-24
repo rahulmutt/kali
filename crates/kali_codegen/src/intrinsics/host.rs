@@ -575,3 +575,7 @@ impl<'a> FunctionEmitter<'a> {
         self.functions.get(callback_name).copied()
     }
 }
+
+#[cfg(test)]
+#[path = "host_tests.rs"]
+mod host_tests;

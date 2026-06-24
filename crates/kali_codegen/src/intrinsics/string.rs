@@ -1151,3 +1151,7 @@ impl<'a> FunctionEmitter<'a> {
         Some(strip_string_delimiters(text).to_string())
     }
 }
+
+#[cfg(test)]
+#[path = "string_tests.rs"]
+mod string_tests;

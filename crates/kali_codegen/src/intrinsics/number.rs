@@ -464,3 +464,7 @@ impl<'a> FunctionEmitter<'a> {
             .is_some_and(|value| value.fract() != 0.0)
     }
 }
+
+#[cfg(test)]
+#[path = "number_tests.rs"]
+mod number_tests;

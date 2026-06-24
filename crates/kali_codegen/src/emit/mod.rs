@@ -4024,3 +4024,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "emit_tests.rs"]
+mod emit_tests;

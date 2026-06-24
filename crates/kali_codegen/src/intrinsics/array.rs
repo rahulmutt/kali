@@ -1632,3 +1632,7 @@ impl<'a> FunctionEmitter<'a> {
         false
     }
 }
+
+#[cfg(test)]
+#[path = "array_tests.rs"]
+mod array_tests;

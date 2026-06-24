@@ -396,3 +396,7 @@ impl<'a> FunctionEmitter<'a> {
         self.render_static_value(resolved_id)
     }
 }
+
+#[cfg(test)]
+#[path = "collections_tests.rs"]
+mod collections_tests;
