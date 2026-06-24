@@ -826,3 +826,7 @@ impl SpecializationTracker {
         true
     }
 }
+
+#[cfg(test)]
+#[path = "specialize_tests.rs"]
+mod specialize_tests;
