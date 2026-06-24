@@ -1,0 +1,28 @@
+//! Runtime execution outcome.
+
+use crate::*;
+
+/// Result of executing a WASM module.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RuntimeOutcome {
+    /// Process exit code.
+    pub exit_code: i32,
+    /// Number of tests executed during `kali test`.
+    pub tests_run: usize,
+    /// Number of failing tests during `kali test`.
+    pub tests_failed: usize,
+    /// Captured guest stdout.
+    pub stdout: String,
+    /// Captured guest stderr.
+    pub stderr: String,
+    /// Coverage hit ordinals recorded during the execution.
+    pub coverage_hits: Vec<u32>,
+    /// Canonical runtime profiles active for the execution.
+    pub runtime_profiles: Vec<String>,
+    /// High-level host contract selected for the execution.
+    pub host_contract: RuntimeHostContract,
+    /// Canonical runtime backend selected for the execution.
+    pub runtime_backend: RuntimeBackend,
+    /// Deterministic worker/thread shutdown snapshot captured for the execution.
+    pub thread_topology: ThreadRuntimeShutdownReport,
+}
