@@ -57,9 +57,9 @@ pub struct OptimizationReport {
 /// Optimizer context.
 #[derive(Clone, Debug)]
 pub struct Optimizer {
-    level: OptimizationLevel,
-    max_specializations: usize,
-    profile_data: Option<ProfileData>,
+    pub(crate) level: OptimizationLevel,
+    pub(crate) max_specializations: usize,
+    pub(crate) profile_data: Option<ProfileData>,
 }
 
 impl Optimizer {
@@ -174,7 +174,7 @@ impl Optimizer {
         self.optimization_report()
     }
 
-    fn optimize_program_internal(
+    pub(crate) fn optimize_program_internal(
         &self,
         program: &mut LirProgram,
         allow_generic_specialization: bool,
@@ -221,7 +221,7 @@ impl Optimizer {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn optimize_node(
+    pub(crate) fn optimize_node(
         &self,
         program: &mut LirProgram,
         id: LirNodeId,
@@ -295,7 +295,7 @@ impl Optimizer {
         }
     }
 
-    fn optimize_sequence(&self, program: &mut LirProgram, id: LirNodeId) {
+    pub(crate) fn optimize_sequence(&self, program: &mut LirProgram, id: LirNodeId) {
         let snapshot = program.nodes[id.0 as usize].clone();
         match snapshot.kind {
             LirNodeKind::Program | LirNodeKind::Block => {
@@ -331,7 +331,7 @@ impl Optimizer {
         }
     }
 
-    fn is_cse_candidate(&self, program: &LirProgram, id: LirNodeId) -> bool {
+    pub(crate) fn is_cse_candidate(&self, program: &LirProgram, id: LirNodeId) -> bool {
         let Some(node) = program.nodes.get(id.0 as usize) else {
             return false;
         };
@@ -344,7 +344,7 @@ impl Optimizer {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn specialize_layout_bindings(
+    pub(crate) fn specialize_layout_bindings(
         &self,
         program: &mut LirProgram,
         id: LirNodeId,
@@ -441,7 +441,7 @@ impl Optimizer {
         let _ = self.fold_layout_member_access(program, id, tracker, owner, env);
     }
 
-    fn extract_const_binding(
+    pub(crate) fn extract_const_binding(
         &self,
         program: &LirProgram,
         id: LirNodeId,
@@ -471,7 +471,7 @@ impl Optimizer {
         None
     }
 
-    fn is_specializable_binding(&self, program: &LirProgram, id: LirNodeId) -> bool {
+    pub(crate) fn is_specializable_binding(&self, program: &LirProgram, id: LirNodeId) -> bool {
         let Some(node) = program.nodes.get(id.0 as usize) else {
             return false;
         };
@@ -490,7 +490,7 @@ impl Optimizer {
         }
     }
 
-    fn fold_layout_member_access(
+    pub(crate) fn fold_layout_member_access(
         &self,
         program: &mut LirProgram,
         id: LirNodeId,
@@ -566,7 +566,7 @@ impl Optimizer {
         true
     }
 
-    fn object_literal_field(
+    pub(crate) fn object_literal_field(
         &self,
         program: &LirProgram,
         id: LirNodeId,
@@ -592,7 +592,7 @@ impl Optimizer {
         None
     }
 
-    fn array_literal_element(
+    pub(crate) fn array_literal_element(
         &self,
         program: &LirProgram,
         id: LirNodeId,
@@ -606,7 +606,7 @@ impl Optimizer {
         node.children.get(index).copied()
     }
 
-    fn array_literal_length(&self, program: &LirProgram, id: LirNodeId) -> Option<usize> {
+    pub(crate) fn array_literal_length(&self, program: &LirProgram, id: LirNodeId) -> Option<usize> {
         if !self.is_array_literal(program, id) {
             return None;
         }
@@ -615,7 +615,7 @@ impl Optimizer {
         Some(node.children.len())
     }
 
-    fn constant_array_index(
+    pub(crate) fn constant_array_index(
         &self,
         program: &LirProgram,
         env: &BindingEnv,
@@ -632,7 +632,7 @@ impl Optimizer {
         })
     }
 
-    fn is_object_literal(&self, program: &LirProgram, id: LirNodeId) -> bool {
+    pub(crate) fn is_object_literal(&self, program: &LirProgram, id: LirNodeId) -> bool {
         let Some(node) = program.nodes.get(id.0 as usize) else {
             return false;
         };
@@ -659,7 +659,7 @@ impl Optimizer {
         })
     }
 
-    fn is_array_literal(&self, program: &LirProgram, id: LirNodeId) -> bool {
+    pub(crate) fn is_array_literal(&self, program: &LirProgram, id: LirNodeId) -> bool {
         let Some(node) = program.nodes.get(id.0 as usize) else {
             return false;
         };
@@ -670,7 +670,7 @@ impl Optimizer {
         !self.is_object_literal(program, id)
     }
 
-    fn optimize_constant_expression(
+    pub(crate) fn optimize_constant_expression(
         &self,
         program: &mut LirProgram,
         id: LirNodeId,
@@ -763,7 +763,7 @@ impl Optimizer {
         }
     }
 
-    fn optimize_algebraic_identity(
+    pub(crate) fn optimize_algebraic_identity(
         &self,
         program: &mut LirProgram,
         id: LirNodeId,
@@ -920,7 +920,7 @@ impl Optimizer {
         }
     }
     #[allow(clippy::too_many_arguments)]
-    fn optimize_call_site(
+    pub(crate) fn optimize_call_site(
         &self,
         program: &mut LirProgram,
         id: LirNodeId,
@@ -1094,7 +1094,7 @@ impl Optimizer {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn specialize_mir_call_sites(
+    pub(crate) fn specialize_mir_call_sites(
         &self,
         program: &mut LirProgram,
         id: LirNodeId,
@@ -1176,7 +1176,7 @@ impl Optimizer {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn specialize_mir_call_site(
+    pub(crate) fn specialize_mir_call_site(
         &self,
         program: &mut LirProgram,
         id: LirNodeId,
@@ -1297,7 +1297,7 @@ impl Optimizer {
         Some((new_id, callee_name.to_string()))
     }
 
-    fn clone_specialized_function(
+    pub(crate) fn clone_specialized_function(
         &self,
         program: &mut LirProgram,
         summary: &FunctionSummary,
@@ -1326,7 +1326,7 @@ impl Optimizer {
         new_id
     }
 
-    fn specialized_function_name(&self, callee_name: &str, signature_parts: &[String]) -> String {
+    pub(crate) fn specialized_function_name(&self, callee_name: &str, signature_parts: &[String]) -> String {
         let mut hash = 0xcbf29ce484222325u64;
         let signature = signature_parts.join("|");
         for byte in signature.as_bytes() {
@@ -1336,7 +1336,7 @@ impl Optimizer {
         format!("{}$spec${:016x}", callee_name, hash)
     }
 
-    fn argument_has_concrete_layout(
+    pub(crate) fn argument_has_concrete_layout(
         &self,
         program: &LirProgram,
         id: LirNodeId,
@@ -1363,7 +1363,7 @@ impl Optimizer {
         false
     }
 
-    fn argument_has_concrete_shape(&self, program: &LirProgram, id: LirNodeId) -> bool {
+    pub(crate) fn argument_has_concrete_shape(&self, program: &LirProgram, id: LirNodeId) -> bool {
         let Some(node) = program.nodes.get(id.0 as usize) else {
             return false;
         };
@@ -1386,7 +1386,7 @@ impl Optimizer {
         false
     }
 
-    fn specialization_signature_with_mir(
+    pub(crate) fn specialization_signature_with_mir(
         &self,
         program: &LirProgram,
         id: LirNodeId,
@@ -1439,7 +1439,7 @@ impl Optimizer {
         signature
     }
 
-    fn object_literal_signature(
+    pub(crate) fn object_literal_signature(
         &self,
         program: &LirProgram,
         id: LirNodeId,
@@ -1467,7 +1467,7 @@ impl Optimizer {
         signature
     }
 
-    fn array_literal_signature(
+    pub(crate) fn array_literal_signature(
         &self,
         program: &LirProgram,
         id: LirNodeId,
@@ -1490,7 +1490,7 @@ impl Optimizer {
         signature
     }
 
-    fn object_property_signature(
+    pub(crate) fn object_property_signature(
         &self,
         program: &LirProgram,
         id: LirNodeId,
@@ -1521,14 +1521,14 @@ impl Optimizer {
         self.specialization_signature_with_mir(program, id, mir_plan, scope)
     }
 
-    fn build_specialization_plan(&self, program: &LirProgram) -> SpecializationPlan {
+    pub(crate) fn build_specialization_plan(&self, program: &LirProgram) -> SpecializationPlan {
         let mut plan = SpecializationPlan::default();
         let mut visited = HashSet::new();
         self.collect_specialization_plan(program, program.root, &mut visited, &mut plan);
         plan
     }
 
-    fn collect_specialization_plan(
+    pub(crate) fn collect_specialization_plan(
         &self,
         program: &LirProgram,
         id: LirNodeId,
@@ -1553,7 +1553,7 @@ impl Optimizer {
         }
     }
 
-    fn function_summary(&self, program: &LirProgram, id: LirNodeId) -> Option<FunctionSummary> {
+    pub(crate) fn function_summary(&self, program: &LirProgram, id: LirNodeId) -> Option<FunctionSummary> {
         let node = program.nodes.get(id.0 as usize)?;
         if node.kind != LirNodeKind::Instruction {
             return None;
@@ -1597,7 +1597,7 @@ impl Optimizer {
         })
     }
 
-    fn extract_inline_body(&self, program: &LirProgram, block_id: LirNodeId) -> Option<LirNodeId> {
+    pub(crate) fn extract_inline_body(&self, program: &LirProgram, block_id: LirNodeId) -> Option<LirNodeId> {
         let block = program.nodes.get(block_id.0 as usize)?;
         if block.kind != LirNodeKind::Block || block.children.len() != 1 {
             return None;
@@ -1616,7 +1616,7 @@ impl Optimizer {
         }
     }
 
-    fn count_subtree_nodes(&self, program: &LirProgram, id: LirNodeId) -> usize {
+    pub(crate) fn count_subtree_nodes(&self, program: &LirProgram, id: LirNodeId) -> usize {
         let Some(node) = program.nodes.get(id.0 as usize) else {
             return 0;
         };
@@ -1628,13 +1628,13 @@ impl Optimizer {
         count
     }
 
-    fn contains_call_target(&self, program: &LirProgram, id: LirNodeId, target: &str) -> bool {
+    pub(crate) fn contains_call_target(&self, program: &LirProgram, id: LirNodeId, target: &str) -> bool {
         let mut targets = BTreeSet::new();
         self.collect_call_targets(program, id, &mut targets);
         targets.contains(target)
     }
 
-    fn collect_call_targets(
+    pub(crate) fn collect_call_targets(
         &self,
         program: &LirProgram,
         id: LirNodeId,
@@ -1659,7 +1659,7 @@ impl Optimizer {
         }
     }
 
-    fn prune_dead_top_level_functions(&self, program: &mut LirProgram) {
+    pub(crate) fn prune_dead_top_level_functions(&self, program: &mut LirProgram) {
         let root_id = program.root;
         let root_children = program.nodes[root_id.0 as usize].children.clone();
         let mut top_level_functions = BTreeMap::<String, FunctionSummary>::new();
@@ -1714,7 +1714,7 @@ impl Optimizer {
         program.nodes[root_id.0 as usize].children = filtered;
     }
 
-    fn inline_call_site(
+    pub(crate) fn inline_call_site(
         &self,
         program: &mut LirProgram,
         body_root: LirNodeId,
@@ -1727,7 +1727,7 @@ impl Optimizer {
         self.clone_subtree_with_substitution(program, body_root, &substitutions, &mut memo)
     }
 
-    fn clone_subtree_with_substitution(
+    pub(crate) fn clone_subtree_with_substitution(
         &self,
         program: &mut LirProgram,
         id: LirNodeId,
@@ -1768,7 +1768,7 @@ impl Optimizer {
         new_id
     }
 
-    fn fold_object_has_own_call(
+    pub(crate) fn fold_object_has_own_call(
         &self,
         program: &mut LirProgram,
         snapshot: &LirNode,
@@ -1804,7 +1804,7 @@ impl Optimizer {
         Some(self.clone_boolean_literal(program, has_own))
     }
 
-    fn fold_object_enumeration_call(
+    pub(crate) fn fold_object_enumeration_call(
         &self,
         program: &mut LirProgram,
         snapshot: &LirNode,
@@ -1917,7 +1917,7 @@ impl Optimizer {
         }
     }
 
-    fn fold_object_from_entries_call(
+    pub(crate) fn fold_object_from_entries_call(
         &self,
         program: &mut LirProgram,
         snapshot: &LirNode,
@@ -1974,7 +1974,7 @@ impl Optimizer {
         Some(self.push_object_literal(program, object_properties))
     }
 
-    fn fold_object_enumeration_calls(
+    pub(crate) fn fold_object_enumeration_calls(
         &self,
         program: &mut LirProgram,
         id: LirNodeId,
@@ -2002,7 +2002,7 @@ impl Optimizer {
         }
     }
 
-    fn ordered_object_literal_properties(
+    pub(crate) fn ordered_object_literal_properties(
         &self,
         program: &LirProgram,
         id: LirNodeId,
@@ -2045,7 +2045,7 @@ impl Optimizer {
         )
     }
 
-    fn resolve_constant_binding(
+    pub(crate) fn resolve_constant_binding(
         &self,
         program: &LirProgram,
         mut id: LirNodeId,
@@ -2086,7 +2086,7 @@ impl Optimizer {
         }
     }
 
-    fn is_object_freeze_call(&self, program: &LirProgram, node: &LirNode) -> bool {
+    pub(crate) fn is_object_freeze_call(&self, program: &LirProgram, node: &LirNode) -> bool {
         if node.kind != LirNodeKind::Call || node.children.len() < 2 {
             return false;
         }
@@ -2104,13 +2104,13 @@ impl Optimizer {
         )
     }
 
-    fn collect_constant_bindings(&self, program: &LirProgram, id: LirNodeId) -> BindingEnv {
+    pub(crate) fn collect_constant_bindings(&self, program: &LirProgram, id: LirNodeId) -> BindingEnv {
         let mut env = BindingEnv::default();
         self.collect_constant_bindings_into(program, id, &mut env);
         env
     }
 
-    fn collect_constant_bindings_into(
+    pub(crate) fn collect_constant_bindings_into(
         &self,
         program: &LirProgram,
         id: LirNodeId,
@@ -2131,7 +2131,7 @@ impl Optimizer {
         }
     }
 
-    fn clone_boolean_literal(&self, program: &mut LirProgram, value: bool) -> LirNodeId {
+    pub(crate) fn clone_boolean_literal(&self, program: &mut LirProgram, value: bool) -> LirNodeId {
         let node = LirNode {
             kind: LirNodeKind::Literal,
             text: Some(value.to_string()),
@@ -2143,7 +2143,7 @@ impl Optimizer {
         new_id
     }
 
-    fn member_access_name(&self, program: &LirProgram, node: &LirNode) -> Option<String> {
+    pub(crate) fn member_access_name(&self, program: &LirProgram, node: &LirNode) -> Option<String> {
         if self.is_object_freeze_call(program, node) {
             let inner = node.children.get(1).copied()?;
             let inner = program.nodes.get(inner.0 as usize)?;
@@ -2160,7 +2160,7 @@ impl Optimizer {
         Some(format!("{}.{}", object_name, node.text.as_deref()?))
     }
 
-    fn normalized_member_access_name(
+    pub(crate) fn normalized_member_access_name(
         &self,
         program: &LirProgram,
         node: &LirNode,
@@ -2171,11 +2171,11 @@ impl Optimizer {
         ))
     }
 
-    fn canonicalize_optional_chain_member_access_name(name: &str) -> String {
+    pub(crate) fn canonicalize_optional_chain_member_access_name(name: &str) -> String {
         name.replace("globalThis?.", "globalThis.")
     }
 
-    fn canonicalize_bracketed_member_access_name(name: &str) -> String {
+    pub(crate) fn canonicalize_bracketed_member_access_name(name: &str) -> String {
         let mut canonical = String::with_capacity(name.len());
         let bytes = name.as_bytes();
         let mut index = 0;
@@ -2207,11 +2207,11 @@ impl Optimizer {
         canonical
     }
 
-    fn constant_property_key(&self, program: &LirProgram, id: LirNodeId) -> Option<String> {
+    pub(crate) fn constant_property_key(&self, program: &LirProgram, id: LirNodeId) -> Option<String> {
         Some(literal_text(literal_value(program, id)?))
     }
 
-    fn clone_string_literal(&self, program: &mut LirProgram, text: String) -> LirNodeId {
+    pub(crate) fn clone_string_literal(&self, program: &mut LirProgram, text: String) -> LirNodeId {
         let node = LirNode {
             kind: LirNodeKind::Literal,
             text: Some(text),
@@ -2223,7 +2223,7 @@ impl Optimizer {
         new_id
     }
 
-    fn push_array_literal(&self, program: &mut LirProgram, elements: Vec<LirNodeId>) -> LirNodeId {
+    pub(crate) fn push_array_literal(&self, program: &mut LirProgram, elements: Vec<LirNodeId>) -> LirNodeId {
         let new_id = LirNodeId(program.nodes.len() as u32);
         program.nodes.push(LirNode {
             kind: LirNodeKind::Value,
@@ -2234,7 +2234,7 @@ impl Optimizer {
         new_id
     }
 
-    fn push_object_literal(
+    pub(crate) fn push_object_literal(
         &self,
         program: &mut LirProgram,
         properties: Vec<(String, LirNodeId)>,
@@ -2262,7 +2262,7 @@ impl Optimizer {
         new_id
     }
 
-    fn object_property_order_key(key: &str) -> Option<u64> {
+    pub(crate) fn object_property_order_key(key: &str) -> Option<u64> {
         let normalized = key.trim_matches('"');
         if normalized.is_empty() || (normalized.len() > 1 && normalized.starts_with('0')) {
             return None;
@@ -2272,7 +2272,7 @@ impl Optimizer {
         (value < u32::MAX as u64).then_some(value)
     }
 
-    fn inline_threshold_for_function(&self, callee_name: &str) -> usize {
+    pub(crate) fn inline_threshold_for_function(&self, callee_name: &str) -> usize {
         let base_threshold: usize = match self.level {
             OptimizationLevel::Release => 12,
             OptimizationLevel::ReleaseAdvanced => 24,
@@ -2290,14 +2290,14 @@ impl Optimizer {
         }
     }
 
-    fn is_hot_function(&self, callee_name: &str) -> bool {
+    pub(crate) fn is_hot_function(&self, callee_name: &str) -> bool {
         self.profile_data
             .as_ref()
             .and_then(|profile| profile.sample_weight(ProfileSampleKind::Function, callee_name))
             .is_some_and(|weight| weight >= HOT_FUNCTION_MINIMUM_WEIGHT)
     }
 
-    fn profile_has_hot_branch_or_layout_hints(&self) -> bool {
+    pub(crate) fn profile_has_hot_branch_or_layout_hints(&self) -> bool {
         self.profile_data.as_ref().is_some_and(|profile| {
             !profile
                 .hot_keys(ProfileSampleKind::Branch, HOT_FUNCTION_MINIMUM_WEIGHT)
@@ -2308,7 +2308,7 @@ impl Optimizer {
         })
     }
 
-    fn call_signature(&self, program: &LirProgram, node: &LirNode) -> String {
+    pub(crate) fn call_signature(&self, program: &LirProgram, node: &LirNode) -> String {
         let callee = node
             .children
             .first()
@@ -2326,7 +2326,7 @@ impl Optimizer {
         signature
     }
 
-    fn specialization_signature(&self, program: &LirProgram, id: LirNodeId) -> String {
+    pub(crate) fn specialization_signature(&self, program: &LirProgram, id: LirNodeId) -> String {
         let Some(node) = program.nodes.get(id.0 as usize) else {
             return "<missing>".to_string();
         };
@@ -2355,7 +2355,7 @@ impl Optimizer {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum MirLayoutClass {
+pub(crate) enum MirLayoutClass {
     Scalar,
     Struct,
     Array,
@@ -2364,7 +2364,7 @@ enum MirLayoutClass {
 }
 
 impl MirLayoutClass {
-    fn as_str(self) -> &'static str {
+    pub(crate) fn as_str(self) -> &'static str {
         match self {
             MirLayoutClass::Scalar => "scalar",
             MirLayoutClass::Struct => "struct",
@@ -2376,32 +2376,32 @@ impl MirLayoutClass {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct MirLayoutSignature {
-    kind: MirLayoutClass,
-    fingerprint: String,
+pub(crate) struct MirLayoutSignature {
+    pub(crate) kind: MirLayoutClass,
+    pub(crate) fingerprint: String,
 }
 
 impl MirLayoutSignature {
-    fn from_descriptor(descriptor: &LayoutDescriptor) -> Self {
+    pub(crate) fn from_descriptor(descriptor: &LayoutDescriptor) -> Self {
         Self {
             kind: MirLayoutClass::from_descriptor(descriptor),
             fingerprint: descriptor.fingerprint(),
         }
     }
 
-    fn key(&self) -> String {
+    pub(crate) fn key(&self) -> String {
         format!("{}:{}", self.kind.as_str(), self.fingerprint)
     }
 }
 
 #[derive(Clone, Debug, Default)]
-struct MirSpecializationPlan {
-    scoped_binding_layouts: BTreeMap<String, BTreeMap<String, MirLayoutSignature>>,
-    parameter_layouts: BTreeMap<String, Vec<MirLayoutSignature>>,
+pub(crate) struct MirSpecializationPlan {
+    pub(crate) scoped_binding_layouts: BTreeMap<String, BTreeMap<String, MirLayoutSignature>>,
+    pub(crate) parameter_layouts: BTreeMap<String, Vec<MirLayoutSignature>>,
 }
 
 impl MirSpecializationPlan {
-    fn from_program(mir: &MirAnalysisProgram) -> Self {
+    pub(crate) fn from_program(mir: &MirAnalysisProgram) -> Self {
         let mut scoped_binding_layouts = BTreeMap::new();
         let mut parameter_layouts = BTreeMap::new();
 
@@ -2430,7 +2430,7 @@ impl MirSpecializationPlan {
         }
     }
 
-    fn binding_layout(&self, scope: &str, name: &str) -> Option<MirLayoutSignature> {
+    pub(crate) fn binding_layout(&self, scope: &str, name: &str) -> Option<MirLayoutSignature> {
         self.scoped_binding_layouts
             .get(scope)
             .and_then(|bindings| bindings.get(name))
@@ -2443,13 +2443,13 @@ impl MirSpecializationPlan {
             })
     }
 
-    fn parameter_layout_any(&self, function: &str, index: usize) -> Option<MirLayoutSignature> {
+    pub(crate) fn parameter_layout_any(&self, function: &str, index: usize) -> Option<MirLayoutSignature> {
         self.parameter_layouts
             .get(function)
             .and_then(|layouts| layouts.get(index).cloned())
     }
 
-    fn record_layout(
+    pub(crate) fn record_layout(
         binding_layouts: &mut BTreeMap<String, MirLayoutSignature>,
         binding_name: &str,
         layout: MirLayoutSignature,
@@ -2464,7 +2464,7 @@ impl MirSpecializationPlan {
             .or_insert(layout);
     }
 
-    fn tagged_layout_signature() -> MirLayoutSignature {
+    pub(crate) fn tagged_layout_signature() -> MirLayoutSignature {
         MirLayoutSignature {
             kind: MirLayoutClass::TaggedVal,
             fingerprint: LayoutDescriptor::TaggedVal.fingerprint(),
@@ -2473,7 +2473,7 @@ impl MirSpecializationPlan {
 }
 
 impl MirLayoutClass {
-    fn from_descriptor(descriptor: &LayoutDescriptor) -> Self {
+    pub(crate) fn from_descriptor(descriptor: &LayoutDescriptor) -> Self {
         match descriptor {
             LayoutDescriptor::Scalar(_) => MirLayoutClass::Scalar,
             LayoutDescriptor::Struct { .. } => MirLayoutClass::Struct,
@@ -2485,28 +2485,28 @@ impl MirLayoutClass {
 }
 
 #[derive(Clone, Debug, Default)]
-struct SpecializationPlan {
-    functions: BTreeMap<String, FunctionSummary>,
+pub(crate) struct SpecializationPlan {
+    pub(crate) functions: BTreeMap<String, FunctionSummary>,
 }
 
 #[derive(Clone, Debug, Default)]
-struct BindingEnv {
-    bindings: BTreeMap<String, LirNodeId>,
+pub(crate) struct BindingEnv {
+    pub(crate) bindings: BTreeMap<String, LirNodeId>,
 }
 
 #[derive(Clone, Debug)]
-struct FunctionSummary {
-    node_id: LirNodeId,
-    name: String,
-    params: Vec<String>,
-    body_block: LirNodeId,
-    inline_body: Option<LirNodeId>,
-    node_count: usize,
-    recursive: bool,
+pub(crate) struct FunctionSummary {
+    pub(crate) node_id: LirNodeId,
+    pub(crate) name: String,
+    pub(crate) params: Vec<String>,
+    pub(crate) body_block: LirNodeId,
+    pub(crate) inline_body: Option<LirNodeId>,
+    pub(crate) node_count: usize,
+    pub(crate) recursive: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-enum ConstantValue {
+pub(crate) enum ConstantValue {
     Number(i64),
     BigInt(i64),
     Boolean(bool),
@@ -2521,20 +2521,20 @@ enum ConstantValue {
 }
 
 #[derive(Debug)]
-struct SpecializationTracker {
-    max_specializations: usize,
-    seen: BTreeMap<String, BTreeSet<String>>,
+pub(crate) struct SpecializationTracker {
+    pub(crate) max_specializations: usize,
+    pub(crate) seen: BTreeMap<String, BTreeSet<String>>,
 }
 
 impl SpecializationTracker {
-    fn new(max_specializations: usize) -> Self {
+    pub(crate) fn new(max_specializations: usize) -> Self {
         Self {
             max_specializations,
             seen: BTreeMap::new(),
         }
     }
 
-    fn allow(&mut self, owner: impl Into<String>, key: String) -> bool {
+    pub(crate) fn allow(&mut self, owner: impl Into<String>, key: String) -> bool {
         let owner = owner.into();
         let seen = self.seen.entry(owner).or_default();
         if seen.contains(&key) {
@@ -2551,7 +2551,7 @@ impl SpecializationTracker {
 }
 
 impl ConstantValue {
-    fn truthy(self) -> bool {
+    pub(crate) fn truthy(self) -> bool {
         match self {
             ConstantValue::Number(value) | ConstantValue::BigInt(value) => value != 0,
             ConstantValue::Boolean(value) => value,
@@ -2566,21 +2566,21 @@ impl ConstantValue {
     }
 }
 
-fn is_zero_constant(value: Option<ConstantValue>) -> bool {
+pub(crate) fn is_zero_constant(value: Option<ConstantValue>) -> bool {
     matches!(
         value,
         Some(ConstantValue::Number(0) | ConstantValue::BigInt(0) | ConstantValue::NegativeZero)
     )
 }
 
-fn is_one_constant(value: Option<ConstantValue>) -> bool {
+pub(crate) fn is_one_constant(value: Option<ConstantValue>) -> bool {
     matches!(
         value,
         Some(ConstantValue::Number(1) | ConstantValue::BigInt(1))
     )
 }
 
-fn literal_value(program: &LirProgram, id: LirNodeId) -> Option<ConstantValue> {
+pub(crate) fn literal_value(program: &LirProgram, id: LirNodeId) -> Option<ConstantValue> {
     let node = program.nodes.get(id.0 as usize)?;
     match node.kind {
         LirNodeKind::Literal => parse_literal_text(node.text.as_deref()),
@@ -2589,7 +2589,7 @@ fn literal_value(program: &LirProgram, id: LirNodeId) -> Option<ConstantValue> {
     }
 }
 
-fn node_signature(program: &LirProgram, id: LirNodeId) -> String {
+pub(crate) fn node_signature(program: &LirProgram, id: LirNodeId) -> String {
     let Some(node) = program.nodes.get(id.0 as usize) else {
         return "<missing>".to_string();
     };
@@ -2606,7 +2606,7 @@ fn node_signature(program: &LirProgram, id: LirNodeId) -> String {
     signature
 }
 
-fn parse_literal_text(text: Option<&str>) -> Option<ConstantValue> {
+pub(crate) fn parse_literal_text(text: Option<&str>) -> Option<ConstantValue> {
     let text = text?;
     match text {
         "true" => Some(ConstantValue::Boolean(true)),
@@ -2630,7 +2630,7 @@ fn parse_literal_text(text: Option<&str>) -> Option<ConstantValue> {
     }
 }
 
-fn literal_signature(prefix: &str, kind: LirNodeKind, text: Option<&str>) -> String {
+pub(crate) fn literal_signature(prefix: &str, kind: LirNodeKind, text: Option<&str>) -> String {
     match parse_literal_text(text) {
         Some(ConstantValue::Number(value)) => format!(
             "{prefix}:number:{}",
@@ -2656,7 +2656,7 @@ fn literal_signature(prefix: &str, kind: LirNodeKind, text: Option<&str>) -> Str
     }
 }
 
-fn string_literal_signature(prefix: &str, text: &str) -> Option<String> {
+pub(crate) fn string_literal_signature(prefix: &str, text: &str) -> Option<String> {
     let value = parse_string_literal(text)?;
     let literal_kind = if text.starts_with('`') {
         "template"
@@ -2666,7 +2666,7 @@ fn string_literal_signature(prefix: &str, text: &str) -> Option<String> {
     Some(format!("{prefix}:string:{literal_kind}:{value}"))
 }
 
-fn fold_unary(op: &str, value: ConstantValue) -> Option<ConstantValue> {
+pub(crate) fn fold_unary(op: &str, value: ConstantValue) -> Option<ConstantValue> {
     match (op, value) {
         ("-", ConstantValue::Number(0)) => Some(ConstantValue::NegativeZero),
         ("-", ConstantValue::NegativeZero) => Some(ConstantValue::Number(0)),
@@ -2680,8 +2680,8 @@ fn fold_unary(op: &str, value: ConstantValue) -> Option<ConstantValue> {
     }
 }
 
-fn fold_binary(op: &str, left: ConstantValue, right: ConstantValue) -> Option<ConstantValue> {
-    fn as_number(value: ConstantValue) -> Option<i64> {
+pub(crate) fn fold_binary(op: &str, left: ConstantValue, right: ConstantValue) -> Option<ConstantValue> {
+    pub(crate) fn as_number(value: ConstantValue) -> Option<i64> {
         match value {
             ConstantValue::Number(value) => Some(value),
             ConstantValue::NegativeZero => Some(0),
@@ -2780,7 +2780,7 @@ fn fold_binary(op: &str, left: ConstantValue, right: ConstantValue) -> Option<Co
     }
 }
 
-fn literal_text(value: ConstantValue) -> String {
+pub(crate) fn literal_text(value: ConstantValue) -> String {
     match value {
         ConstantValue::Number(value) => value.to_string(),
         ConstantValue::BigInt(value) => format!("{value}n"),
@@ -2798,14 +2798,14 @@ fn literal_text(value: ConstantValue) -> String {
     }
 }
 
-fn parse_number_literal(text: &str) -> Option<i64> {
+pub(crate) fn parse_number_literal(text: &str) -> Option<i64> {
     if let Some(stripped) = text.strip_suffix('n') {
         return stripped.parse::<i64>().ok();
     }
     text.parse::<i64>().ok()
 }
 
-fn parse_string_literal(text: &str) -> Option<String> {
+pub(crate) fn parse_string_literal(text: &str) -> Option<String> {
     let (inner, is_template) = text
         .strip_prefix('"')
         .and_then(|value| value.strip_suffix('"'))
@@ -2830,7 +2830,7 @@ fn parse_string_literal(text: &str) -> Option<String> {
     Some(value)
 }
 
-fn parse_regex_literal(text: &str) -> Option<(String, String)> {
+pub(crate) fn parse_regex_literal(text: &str) -> Option<(String, String)> {
     if !text.starts_with('/') {
         return None;
     }
