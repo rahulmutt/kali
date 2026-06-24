@@ -281,3 +281,7 @@ pub(crate) fn browser_harness_uses_html_entrypoint(executable: &str) -> bool {
 pub fn browser_harness_command_parts() -> Vec<String> {
     browser_harness_command_parts_for(std::env::var(BROWSER_HARNESS_COMMAND_ENV).ok().as_deref())
 }
+
+#[cfg(test)]
+#[path = "command_tests.rs"]
+mod command_tests;
