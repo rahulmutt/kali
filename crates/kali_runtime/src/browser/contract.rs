@@ -200,3 +200,7 @@ pub fn browser_runtime_request_context(origin: DiagnosticContextOrigin) -> Diagn
         .with_requested_value("browser")
         .with_effective_value("browser")
 }
+
+#[cfg(test)]
+#[path = "contract_tests.rs"]
+mod contract_tests;
