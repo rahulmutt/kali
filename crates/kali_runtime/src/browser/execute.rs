@@ -389,3 +389,7 @@ pub fn browser_harness_run_checked_with_env(
     browser_harness_invocation_checked(command, script, args, current_dir)?
         .launch_with_env(extra_env)
 }
+
+#[cfg(test)]
+#[path = "execute_tests.rs"]
+mod execute_tests;
