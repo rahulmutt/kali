@@ -326,3 +326,7 @@ impl Optimizer {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "driver_tests.rs"]
+mod driver_tests;
