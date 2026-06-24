@@ -222,3 +222,7 @@ pub(crate) fn env_snapshot_value(env: &BTreeMap<String, String>) -> serde_json::
             .collect(),
     )
 }
+
+#[cfg(test)]
+#[path = "ctx_tests.rs"]
+mod ctx_tests;
