@@ -397,3 +397,7 @@ impl KaliHostState {
         self.pending_exit_code.take()
     }
 }
+
+#[cfg(test)]
+#[path = "state_tests.rs"]
+mod state_tests;
