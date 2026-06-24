@@ -204,3 +204,7 @@ pub(crate) fn browser_runtime_summary_for_outcome(
         Err(_) => stdout_summary,
     }
 }
+
+#[cfg(test)]
+#[path = "summary_tests.rs"]
+mod summary_tests;
