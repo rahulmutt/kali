@@ -351,3 +351,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "literal_tests.rs"]
+mod literal_tests;

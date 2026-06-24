@@ -407,3 +407,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "control_flow_tests.rs"]
+mod control_flow_tests;
