@@ -185,3 +185,7 @@ impl Optimizer {
         !self.is_object_literal(program, id)
     }
 }
+
+#[cfg(test)]
+#[path = "layout_tests.rs"]
+mod layout_tests;
