@@ -43,7 +43,7 @@ const ENV_GET_BUFFER_RESERVED: u32 = 4096;
 const STRING_HANDLE_TAG: u64 = 0x8000_0000_0000_0000;
 
 #[derive(Clone, Debug, PartialEq)]
-enum StaticObjectIdentityValue {
+pub(crate) enum StaticObjectIdentityValue {
     Boolean(bool),
     Number(f64),
     String(String),
@@ -53,32 +53,32 @@ enum StaticObjectIdentityValue {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-enum StaticArraySearchResult {
+pub(crate) enum StaticArraySearchResult {
     Value(LirNodeId),
     Index(i64),
 }
 
 #[derive(Clone, Debug, PartialEq)]
-enum StaticArrayAtResult {
+pub(crate) enum StaticArrayAtResult {
     Value(LirNodeId),
     OutOfRange,
 }
 
 #[derive(Clone, Debug, PartialEq)]
-enum StaticStringAtResult {
+pub(crate) enum StaticStringAtResult {
     Value(String),
     OutOfRange,
 }
 
 #[derive(Clone, Debug, PartialEq)]
-enum StaticIndexMemberResult {
+pub(crate) enum StaticIndexMemberResult {
     Node(LirNodeId),
     String(String),
     Undefined,
 }
 
 impl StaticObjectIdentityValue {
-    fn same_value(&self, other: &Self) -> bool {
+    pub(crate) fn same_value(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Boolean(left), Self::Boolean(right)) => left == right,
             (Self::String(left), Self::String(right)) => left == right,
@@ -93,7 +93,7 @@ impl StaticObjectIdentityValue {
         }
     }
 
-    fn strict_eq(&self, other: &Self) -> bool {
+    pub(crate) fn strict_eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Boolean(left), Self::Boolean(right)) => left == right,
             (Self::String(left), Self::String(right)) => left == right,
@@ -106,7 +106,7 @@ impl StaticObjectIdentityValue {
         }
     }
 
-    fn same_value_zero(&self, other: &Self) -> bool {
+    pub(crate) fn same_value_zero(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Number(left), Self::Number(right)) => {
                 (left.is_nan() && right.is_nan()) || left == right
@@ -115,11 +115,11 @@ impl StaticObjectIdentityValue {
         }
     }
 
-    fn is_nullish(&self) -> bool {
+    pub(crate) fn is_nullish(&self) -> bool {
         matches!(self, Self::Null | Self::Undefined)
     }
 
-    fn truthiness(&self) -> Option<bool> {
+    pub(crate) fn truthiness(&self) -> Option<bool> {
         match self {
             Self::Boolean(value) => Some(*value),
             Self::Number(value) => Some(!value.is_nan() && *value != 0.0),
@@ -178,25 +178,25 @@ pub struct CodegenResult {
 }
 
 #[derive(Clone, Debug)]
-struct FunctionPlan {
-    name: String,
-    params: Vec<String>,
-    locals: Vec<String>,
-    body: LirNodeId,
-    result: bool,
-    is_entry: bool,
-    flavor: Option<FunctionFlavor>,
+pub(crate) struct FunctionPlan {
+    pub(crate) name: String,
+    pub(crate) params: Vec<String>,
+    pub(crate) locals: Vec<String>,
+    pub(crate) body: LirNodeId,
+    pub(crate) result: bool,
+    pub(crate) is_entry: bool,
+    pub(crate) flavor: Option<FunctionFlavor>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum ValueShape {
+pub(crate) enum ValueShape {
     Unknown,
     Scalar,
     Boolean,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum ObjectEnumerationMode {
+pub(crate) enum ObjectEnumerationMode {
     Keys,
     Values,
     Entries,
@@ -204,32 +204,32 @@ enum ObjectEnumerationMode {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum ControlFlowLabelKind {
+pub(crate) enum ControlFlowLabelKind {
     If,
     LoopBreak,
     LoopContinue,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct LoopFrame {
-    break_index: usize,
-    continue_index: usize,
+pub(crate) struct LoopFrame {
+    pub(crate) break_index: usize,
+    pub(crate) continue_index: usize,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct EmittedValue {
-    produced: bool,
-    shape: ValueShape,
+pub(crate) struct EmittedValue {
+    pub(crate) produced: bool,
+    pub(crate) shape: ValueShape,
 }
 
-struct StringPool {
-    entries: Vec<(u32, String)>,
-    offsets: BTreeMap<String, u32>,
-    next_offset: u32,
+pub(crate) struct StringPool {
+    pub(crate) entries: Vec<(u32, String)>,
+    pub(crate) offsets: BTreeMap<String, u32>,
+    pub(crate) next_offset: u32,
 }
 
 impl StringPool {
-    fn new(reserved_prefix: u32) -> Self {
+    pub(crate) fn new(reserved_prefix: u32) -> Self {
         Self {
             entries: Vec::new(),
             offsets: BTreeMap::new(),
@@ -237,7 +237,7 @@ impl StringPool {
         }
     }
 
-    fn intern(&mut self, text: &str) -> (u32, u32) {
+    pub(crate) fn intern(&mut self, text: &str) -> (u32, u32) {
         if let Some(&offset) = self.offsets.get(text) {
             return (offset, text.len() as u32);
         }
@@ -251,31 +251,31 @@ impl StringPool {
     }
 }
 
-struct FunctionEmitter<'a> {
-    program: &'a LirProgram,
-    node_lookup: &'a [LirNode],
-    scratch_nodes: Vec<LirNode>,
-    functions: &'a BTreeMap<String, u32>,
-    env_set_import_index: Option<u32>,
-    env_delete_import_index: Option<u32>,
-    env_get_import_index: Option<u32>,
-    env_has_import_index: Option<u32>,
-    cwd_set_import_index: Option<u32>,
-    process_exit_import_index: Option<u32>,
-    diagnostics: &'a mut Vec<Diagnostic>,
-    strings: &'a mut StringPool,
-    source_path: Option<PathBuf>,
-    current_function_flavor: Option<FunctionFlavor>,
-    locals: BTreeMap<String, u32>,
-    bindings: BTreeMap<String, LirNodeId>,
-    reported_placeholder_fallbacks: HashSet<String>,
-    control_frames: Vec<ControlFlowLabelKind>,
-    loop_frames: Vec<LoopFrame>,
+pub(crate) struct FunctionEmitter<'a> {
+    pub(crate) program: &'a LirProgram,
+    pub(crate) node_lookup: &'a [LirNode],
+    pub(crate) scratch_nodes: Vec<LirNode>,
+    pub(crate) functions: &'a BTreeMap<String, u32>,
+    pub(crate) env_set_import_index: Option<u32>,
+    pub(crate) env_delete_import_index: Option<u32>,
+    pub(crate) env_get_import_index: Option<u32>,
+    pub(crate) env_has_import_index: Option<u32>,
+    pub(crate) cwd_set_import_index: Option<u32>,
+    pub(crate) process_exit_import_index: Option<u32>,
+    pub(crate) diagnostics: &'a mut Vec<Diagnostic>,
+    pub(crate) strings: &'a mut StringPool,
+    pub(crate) source_path: Option<PathBuf>,
+    pub(crate) current_function_flavor: Option<FunctionFlavor>,
+    pub(crate) locals: BTreeMap<String, u32>,
+    pub(crate) bindings: BTreeMap<String, LirNodeId>,
+    pub(crate) reported_placeholder_fallbacks: HashSet<String>,
+    pub(crate) control_frames: Vec<ControlFlowLabelKind>,
+    pub(crate) loop_frames: Vec<LoopFrame>,
 }
 
 impl<'a> FunctionEmitter<'a> {
     #[allow(clippy::too_many_arguments)]
-    fn new(
+    pub(crate) fn new(
         program: &'a LirProgram,
         functions: &'a BTreeMap<String, u32>,
         env_set_import_index: Option<u32>,
@@ -322,22 +322,22 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn push_control_frame(&mut self, kind: ControlFlowLabelKind) -> usize {
+    pub(crate) fn push_control_frame(&mut self, kind: ControlFlowLabelKind) -> usize {
         self.control_frames.push(kind);
         self.control_frames.len() - 1
     }
 
-    fn pop_control_frame(&mut self, kind: ControlFlowLabelKind) {
+    pub(crate) fn pop_control_frame(&mut self, kind: ControlFlowLabelKind) {
         let popped = self.control_frames.pop();
         debug_assert_eq!(popped, Some(kind));
     }
 
-    fn control_frame_depth(&self, target_index: usize) -> u32 {
+    pub(crate) fn control_frame_depth(&self, target_index: usize) -> u32 {
         debug_assert!(target_index < self.control_frames.len());
         (self.control_frames.len() - 1 - target_index) as u32
     }
 
-    fn emit_break_or_continue(
+    pub(crate) fn emit_break_or_continue(
         &mut self,
         function: &mut Function,
         is_continue: bool,
@@ -395,7 +395,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn node(&self, id: LirNodeId) -> &LirNode {
+    pub(crate) fn node(&self, id: LirNodeId) -> &LirNode {
         let index = id.0 as usize;
         if index < self.node_lookup.len() {
             &self.node_lookup[index]
@@ -404,7 +404,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn alloc_scratch_node(
+    pub(crate) fn alloc_scratch_node(
         &mut self,
         kind: LirNodeKind,
         text: Option<String>,
@@ -420,7 +420,7 @@ impl<'a> FunctionEmitter<'a> {
         id
     }
 
-    fn push_placeholder_fallback_diagnostic(&mut self, kind: &str, name: &str) {
+    pub(crate) fn push_placeholder_fallback_diagnostic(&mut self, kind: &str, name: &str) {
         let fallback_key = format!("{kind}:{name}");
         if !self.reported_placeholder_fallbacks.insert(fallback_key) {
             return;
@@ -456,14 +456,14 @@ impl<'a> FunctionEmitter<'a> {
         self.diagnostics.push(diagnostic);
     }
 
-    fn emit_coverage_hit(&mut self, function: &mut Function, coverage_id: Option<u32>) {
+    pub(crate) fn emit_coverage_hit(&mut self, function: &mut Function, coverage_id: Option<u32>) {
         if let Some(coverage_id) = coverage_id {
             function.instruction(&Instruction::I32Const(coverage_id as i32));
             function.instruction(&Instruction::Call(COVERAGE_HIT_IMPORT_INDEX));
         }
     }
 
-    fn emit_function_body(
+    pub(crate) fn emit_function_body(
         &mut self,
         function: &mut Function,
         body: LirNodeId,
@@ -479,7 +479,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn emit_sequence(
+    pub(crate) fn emit_sequence(
         &mut self,
         function: &mut Function,
         children: &[LirNodeId],
@@ -510,7 +510,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn emit_node(
+    pub(crate) fn emit_node(
         &mut self,
         function: &mut Function,
         id: LirNodeId,
@@ -586,7 +586,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn emit_value(
+    pub(crate) fn emit_value(
         &mut self,
         function: &mut Function,
         node: &LirNode,
@@ -713,7 +713,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn emit_update_expression(
+    pub(crate) fn emit_update_expression(
         &mut self,
         function: &mut Function,
         node: &LirNode,
@@ -776,7 +776,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn emit_unary(&mut self, function: &mut Function, node: &LirNode) -> EmittedValue {
+    pub(crate) fn emit_unary(&mut self, function: &mut Function, node: &LirNode) -> EmittedValue {
         let op = node.text.as_deref().unwrap_or_default();
         let arg = node.children[0];
         match op {
@@ -1060,7 +1060,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn emit_aggregate_literal(
+    pub(crate) fn emit_aggregate_literal(
         &mut self,
         function: &mut Function,
         node: &LirNode,
@@ -1094,7 +1094,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn resolve_literal_aggregate(&self, mut id: LirNodeId) -> Option<LirNodeId> {
+    pub(crate) fn resolve_literal_aggregate(&self, mut id: LirNodeId) -> Option<LirNodeId> {
         let mut seen = HashSet::new();
         loop {
             if !seen.insert(id.0) {
@@ -1209,7 +1209,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn is_object_literal(&self, node: &LirNode) -> bool {
+    pub(crate) fn is_object_literal(&self, node: &LirNode) -> bool {
         if node.kind != LirNodeKind::Value || node.text.is_some() || node.children.is_empty() {
             return false;
         }
@@ -1225,11 +1225,11 @@ impl<'a> FunctionEmitter<'a> {
         })
     }
 
-    fn is_array_literal(&self, node: &LirNode) -> bool {
+    pub(crate) fn is_array_literal(&self, node: &LirNode) -> bool {
         node.kind == LirNodeKind::Value && node.text.is_none() && !self.is_object_literal(node)
     }
 
-    fn is_truthy_array_literal(&self, node: &LirNode) -> bool {
+    pub(crate) fn is_truthy_array_literal(&self, node: &LirNode) -> bool {
         self.is_array_literal(node)
             && node.children.iter().all(|child| {
                 self.resolve_static_object_identity_value(*child)
@@ -1238,7 +1238,7 @@ impl<'a> FunctionEmitter<'a> {
             })
     }
 
-    fn assignment_target_name(&self, _node: &LirNode, id: LirNodeId) -> Option<String> {
+    pub(crate) fn assignment_target_name(&self, _node: &LirNode, id: LirNodeId) -> Option<String> {
         let mut current = id;
         loop {
             let current_node = self.node(current);
@@ -1258,7 +1258,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn emit_assignment(
+    pub(crate) fn emit_assignment(
         &mut self,
         function: &mut Function,
         node: &LirNode,
@@ -1439,7 +1439,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn object_literal_field(&self, node: &LirNode, field: &str) -> Option<LirNodeId> {
+    pub(crate) fn object_literal_field(&self, node: &LirNode, field: &str) -> Option<LirNodeId> {
         if !self.is_object_literal(node) {
             return None;
         }
@@ -1463,7 +1463,7 @@ impl<'a> FunctionEmitter<'a> {
         None
     }
 
-    fn static_ascii_string_relational_result(
+    pub(crate) fn static_ascii_string_relational_result(
         &self,
         left: LirNodeId,
         right: LirNodeId,
@@ -1487,7 +1487,7 @@ impl<'a> FunctionEmitter<'a> {
         })
     }
 
-    fn emit_binary(&mut self, function: &mut Function, node: &LirNode) -> EmittedValue {
+    pub(crate) fn emit_binary(&mut self, function: &mut Function, node: &LirNode) -> EmittedValue {
         let op = node.text.as_deref().unwrap_or_default();
         let left = node.children[0];
         let right = node.children[1];
@@ -1643,7 +1643,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn emit_call(&mut self, function: &mut Function, node: &LirNode) -> EmittedValue {
+    pub(crate) fn emit_call(&mut self, function: &mut Function, node: &LirNode) -> EmittedValue {
         let Some(callee) = node.children.first().copied() else {
             function.instruction(&Instruction::I64Const(0));
             return EmittedValue {
@@ -3803,7 +3803,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn console_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+    pub(crate) fn console_import_index(&self, callee_node: &LirNode) -> Option<u32> {
         let method = callee_node.text.as_deref()?;
         let object = callee_node.children.first().copied()?;
         let object_name = self.node(object).text.as_deref()?;
@@ -3821,7 +3821,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn is_console_assert(&self, callee_node: &LirNode) -> bool {
+    pub(crate) fn is_console_assert(&self, callee_node: &LirNode) -> bool {
         let Some(method) = callee_node.text.as_deref() else {
             return false;
         };
@@ -3831,7 +3831,7 @@ impl<'a> FunctionEmitter<'a> {
         self.node(object).text.as_deref() == Some("console") && method == "assert"
     }
 
-    fn resolve_transparent_object_root_node(&self, id: LirNodeId) -> Option<LirNodeId> {
+    pub(crate) fn resolve_transparent_object_root_node(&self, id: LirNodeId) -> Option<LirNodeId> {
         let mut id = self.resolve_bound_node(id);
         let mut seen = HashSet::new();
 
@@ -3858,7 +3858,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn is_math_object(&self, callee_node: &LirNode) -> bool {
+    pub(crate) fn is_math_object(&self, callee_node: &LirNode) -> bool {
         let Some(object) = callee_node.children.first().copied() else {
             return false;
         };
@@ -3874,7 +3874,7 @@ impl<'a> FunctionEmitter<'a> {
         )
     }
 
-    fn is_object_identity_object(&self, callee_node: &LirNode) -> bool {
+    pub(crate) fn is_object_identity_object(&self, callee_node: &LirNode) -> bool {
         let Some(object) = callee_node.children.first().copied() else {
             return false;
         };
@@ -3890,7 +3890,7 @@ impl<'a> FunctionEmitter<'a> {
         )
     }
 
-    fn is_number_object(&self, callee_node: &LirNode) -> bool {
+    pub(crate) fn is_number_object(&self, callee_node: &LirNode) -> bool {
         let Some(object) = callee_node.children.first().copied() else {
             return false;
         };
@@ -3906,7 +3906,7 @@ impl<'a> FunctionEmitter<'a> {
         )
     }
 
-    fn is_array_object(&self, callee_node: &LirNode) -> bool {
+    pub(crate) fn is_array_object(&self, callee_node: &LirNode) -> bool {
         let Some(object) = callee_node.children.first().copied() else {
             return false;
         };
@@ -3922,7 +3922,7 @@ impl<'a> FunctionEmitter<'a> {
         )
     }
 
-    fn is_array_is_array_call(&self, callee_node: &LirNode) -> bool {
+    pub(crate) fn is_array_is_array_call(&self, callee_node: &LirNode) -> bool {
         let Some(text) = callee_node.text.as_deref() else {
             return false;
         };
@@ -3930,7 +3930,7 @@ impl<'a> FunctionEmitter<'a> {
             && self.is_array_object(callee_node)
     }
 
-    fn static_array_is_array_result(&self, id: LirNodeId) -> Option<bool> {
+    pub(crate) fn static_array_is_array_result(&self, id: LirNodeId) -> Option<bool> {
         let node = self.node(id);
         if self.resolve_set_constructor_call(node).is_some()
             || self.resolve_map_constructor_call(node).is_some()
@@ -3951,7 +3951,7 @@ impl<'a> FunctionEmitter<'a> {
         self.resolve_static_object_identity_value(id).map(|_| false)
     }
 
-    fn resolve_static_global_number_predicate_call(
+    pub(crate) fn resolve_static_global_number_predicate_call(
         &self,
         node: &LirNode,
         callee_node: &LirNode,
@@ -3979,7 +3979,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn resolve_static_parse_int_call(&self, node: &LirNode, callee_node: &LirNode) -> Option<i64> {
+    pub(crate) fn resolve_static_parse_int_call(&self, node: &LirNode, callee_node: &LirNode) -> Option<i64> {
         if node.kind != LirNodeKind::Call || !(2..=3).contains(&node.children.len()) {
             return None;
         }
@@ -4010,7 +4010,7 @@ impl<'a> FunctionEmitter<'a> {
         static_parse_int_ascii(&source, radix)
     }
 
-    fn resolve_static_parse_float_call(
+    pub(crate) fn resolve_static_parse_float_call(
         &self,
         node: &LirNode,
         callee_node: &LirNode,
@@ -4035,7 +4035,7 @@ impl<'a> FunctionEmitter<'a> {
         static_parse_float_ascii_integer(&source)
     }
 
-    fn resolve_static_string_from_char_code_call(
+    pub(crate) fn resolve_static_string_from_char_code_call(
         &self,
         node: &LirNode,
         callee_node: &LirNode,
@@ -4064,7 +4064,7 @@ impl<'a> FunctionEmitter<'a> {
         Some(rendered)
     }
 
-    fn global_number_predicate_callable_method<'b>(
+    pub(crate) fn global_number_predicate_callable_method<'b>(
         &self,
         callee_node: &'b LirNode,
     ) -> Option<&'b str> {
@@ -4084,15 +4084,15 @@ impl<'a> FunctionEmitter<'a> {
         None
     }
 
-    fn is_parse_int_callable(&self, callee_node: &LirNode) -> bool {
+    pub(crate) fn is_parse_int_callable(&self, callee_node: &LirNode) -> bool {
         self.is_number_parse_callable(callee_node, "parseInt")
     }
 
-    fn is_parse_float_callable(&self, callee_node: &LirNode) -> bool {
+    pub(crate) fn is_parse_float_callable(&self, callee_node: &LirNode) -> bool {
         self.is_number_parse_callable(callee_node, "parseFloat")
     }
 
-    fn is_string_from_char_code_callable(&self, callee_node: &LirNode) -> bool {
+    pub(crate) fn is_string_from_char_code_callable(&self, callee_node: &LirNode) -> bool {
         let Some(method) = callee_node.text.as_deref() else {
             return false;
         };
@@ -4116,7 +4116,7 @@ impl<'a> FunctionEmitter<'a> {
         )
     }
 
-    fn is_number_parse_callable(&self, callee_node: &LirNode, expected: &str) -> bool {
+    pub(crate) fn is_number_parse_callable(&self, callee_node: &LirNode, expected: &str) -> bool {
         let Some(method) = callee_node.text.as_deref() else {
             return false;
         };
@@ -4145,7 +4145,7 @@ impl<'a> FunctionEmitter<'a> {
         )
     }
 
-    fn is_object_freeze_call(&self, node: &LirNode) -> bool {
+    pub(crate) fn is_object_freeze_call(&self, node: &LirNode) -> bool {
         if node.kind != LirNodeKind::Call {
             return false;
         }
@@ -4174,7 +4174,7 @@ impl<'a> FunctionEmitter<'a> {
         )
     }
 
-    fn is_array_from_call(&self, node: &LirNode) -> bool {
+    pub(crate) fn is_array_from_call(&self, node: &LirNode) -> bool {
         if node.kind != LirNodeKind::Call || node.children.len() != 2 {
             return false;
         }
@@ -4204,7 +4204,7 @@ impl<'a> FunctionEmitter<'a> {
         )
     }
 
-    fn is_array_callback_iteration_call(&self, node: &LirNode) -> bool {
+    pub(crate) fn is_array_callback_iteration_call(&self, node: &LirNode) -> bool {
         let mut current = node;
         while current.kind == LirNodeKind::Value
             && current.children.len() == 1
@@ -4264,7 +4264,7 @@ impl<'a> FunctionEmitter<'a> {
         matches_callback_iterable_method(callee_text)
     }
 
-    fn is_identity_array_map_callback(&self, id: LirNodeId) -> bool {
+    pub(crate) fn is_identity_array_map_callback(&self, id: LirNodeId) -> bool {
         let id = self.resolve_transparent_callable_node(id).unwrap_or(id);
         let node = self.node(id);
         if node.function_flavor != Some(FunctionFlavor::Sync)
@@ -4287,7 +4287,7 @@ impl<'a> FunctionEmitter<'a> {
         self.node(body_expr).text.as_deref() == Some(param_name)
     }
 
-    fn is_identity_array_flat_map_callback(&self, id: LirNodeId) -> bool {
+    pub(crate) fn is_identity_array_flat_map_callback(&self, id: LirNodeId) -> bool {
         let id = self.resolve_transparent_callable_node(id).unwrap_or(id);
         let node = self.node(id);
         if node.function_flavor != Some(FunctionFlavor::Sync)
@@ -4307,7 +4307,7 @@ impl<'a> FunctionEmitter<'a> {
         self.is_identity_array_flat_map_expression(body_expr, param_name)
     }
 
-    fn is_identity_array_flat_map_expression(&self, id: LirNodeId, param_name: &str) -> bool {
+    pub(crate) fn is_identity_array_flat_map_expression(&self, id: LirNodeId, param_name: &str) -> bool {
         let node = self.node(id);
         if node.kind != LirNodeKind::Value
             || node.text.as_deref().is_some_and(|text| !text.is_empty())
@@ -4324,7 +4324,7 @@ impl<'a> FunctionEmitter<'a> {
         self.is_identity_array_flat_map_expression(child, param_name)
     }
 
-    fn resolve_identity_array_callback_source(&self, node: &LirNode) -> Option<LirNodeId> {
+    pub(crate) fn resolve_identity_array_callback_source(&self, node: &LirNode) -> Option<LirNodeId> {
         if node.kind != LirNodeKind::Call || node.children.len() != 2 {
             return None;
         }
@@ -4348,7 +4348,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn resolve_static_array_callback_truthiness(
+    pub(crate) fn resolve_static_array_callback_truthiness(
         &self,
         callback: LirNodeId,
         value: LirNodeId,
@@ -4368,7 +4368,7 @@ impl<'a> FunctionEmitter<'a> {
         self.resolve_static_array_callback_truthiness_expr(body_expr, param_name, value)
     }
 
-    fn resolve_static_array_callback_truthiness_expr(
+    pub(crate) fn resolve_static_array_callback_truthiness_expr(
         &self,
         id: LirNodeId,
         param_name: &str,
@@ -4499,7 +4499,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn resolve_static_array_callback_identity_operand(
+    pub(crate) fn resolve_static_array_callback_identity_operand(
         &self,
         id: LirNodeId,
         param_name: &str,
@@ -4527,7 +4527,7 @@ impl<'a> FunctionEmitter<'a> {
         self.resolve_static_object_identity_value(id)
     }
 
-    fn resolve_static_array_callback_numeric_operand(
+    pub(crate) fn resolve_static_array_callback_numeric_operand(
         &self,
         id: LirNodeId,
         param_name: &str,
@@ -4573,7 +4573,7 @@ impl<'a> FunctionEmitter<'a> {
         self.resolve_static_numeric_value(id)
     }
 
-    fn resolve_static_array_some_every_call(&self, node: &LirNode, method: &str) -> Option<bool> {
+    pub(crate) fn resolve_static_array_some_every_call(&self, node: &LirNode, method: &str) -> Option<bool> {
         if node.kind != LirNodeKind::Call || node.children.len() != 2 {
             return None;
         }
@@ -4622,7 +4622,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn resolve_static_array_find_call(
+    pub(crate) fn resolve_static_array_find_call(
         &mut self,
         node: &LirNode,
         method: &str,
@@ -4699,7 +4699,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn resolve_static_array_search_call(&self, node: &LirNode, method: &str) -> Option<i64> {
+    pub(crate) fn resolve_static_array_search_call(&self, node: &LirNode, method: &str) -> Option<i64> {
         if node.kind != LirNodeKind::Call || !(2..=3).contains(&node.children.len()) {
             return None;
         }
@@ -4785,7 +4785,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn resolve_static_array_slice_bounds(
+    pub(crate) fn resolve_static_array_slice_bounds(
         &self,
         node: &LirNode,
     ) -> Option<(LirNodeId, usize, usize)> {
@@ -4839,7 +4839,7 @@ impl<'a> FunctionEmitter<'a> {
         Some((source, start as usize, end as usize))
     }
 
-    fn resolve_static_array_slice_element(&self, id: LirNodeId, index: usize) -> Option<LirNodeId> {
+    pub(crate) fn resolve_static_array_slice_element(&self, id: LirNodeId, index: usize) -> Option<LirNodeId> {
         let (source, start, end) = self.resolve_static_array_slice_bounds(self.node(id))?;
         let absolute_index = start.checked_add(index)?;
         if absolute_index >= end {
@@ -4848,7 +4848,7 @@ impl<'a> FunctionEmitter<'a> {
         self.node(source).children.get(absolute_index).copied()
     }
 
-    fn resolve_static_string_search_call(&self, node: &LirNode, method: &str) -> Option<i64> {
+    pub(crate) fn resolve_static_string_search_call(&self, node: &LirNode, method: &str) -> Option<i64> {
         if node.kind != LirNodeKind::Call || !(1..=3).contains(&node.children.len()) {
             return None;
         }
@@ -4924,7 +4924,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn resolve_static_string_identity_call(&self, node: &LirNode) -> Option<String> {
+    pub(crate) fn resolve_static_string_identity_call(&self, node: &LirNode) -> Option<String> {
         if node.kind != LirNodeKind::Call || node.children.len() != 1 {
             return None;
         }
@@ -4943,7 +4943,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn string_identity_call_method_with_literal_receiver(&self, node: &LirNode) -> Option<String> {
+    pub(crate) fn string_identity_call_method_with_literal_receiver(&self, node: &LirNode) -> Option<String> {
         if node.kind != LirNodeKind::Call || node.children.len() <= 1 {
             return None;
         }
@@ -4962,7 +4962,7 @@ impl<'a> FunctionEmitter<'a> {
             .then(|| method.to_string())
     }
 
-    fn resolve_static_string_slice_call(&self, node: &LirNode) -> Option<String> {
+    pub(crate) fn resolve_static_string_slice_call(&self, node: &LirNode) -> Option<String> {
         if node.kind != LirNodeKind::Call || !(1..=3).contains(&node.children.len()) {
             return None;
         }
@@ -5018,7 +5018,7 @@ impl<'a> FunctionEmitter<'a> {
             .map(ToString::to_string)
     }
 
-    fn resolve_static_string_substring_call(&self, node: &LirNode) -> Option<String> {
+    pub(crate) fn resolve_static_string_substring_call(&self, node: &LirNode) -> Option<String> {
         if node.kind != LirNodeKind::Call || !(1..=3).contains(&node.children.len()) {
             return None;
         }
@@ -5068,7 +5068,7 @@ impl<'a> FunctionEmitter<'a> {
             .map(ToString::to_string)
     }
 
-    fn resolve_static_string_repeat_call(&self, node: &LirNode) -> Option<String> {
+    pub(crate) fn resolve_static_string_repeat_call(&self, node: &LirNode) -> Option<String> {
         if node.kind != LirNodeKind::Call || node.children.len() != 2 {
             return None;
         }
@@ -5093,7 +5093,7 @@ impl<'a> FunctionEmitter<'a> {
         Some(source.repeat(count as usize))
     }
 
-    fn is_string_repeat_call_with_literal_receiver(&self, node: &LirNode) -> bool {
+    pub(crate) fn is_string_repeat_call_with_literal_receiver(&self, node: &LirNode) -> bool {
         if node.kind != LirNodeKind::Call {
             return false;
         }
@@ -5114,7 +5114,7 @@ impl<'a> FunctionEmitter<'a> {
                 .is_some_and(|value| matches!(value, StaticObjectIdentityValue::String(_)))
     }
 
-    fn resolve_static_string_concat_call(&self, node: &LirNode) -> Option<String> {
+    pub(crate) fn resolve_static_string_concat_call(&self, node: &LirNode) -> Option<String> {
         if node.kind != LirNodeKind::Call || node.children.is_empty() {
             return None;
         }
@@ -5144,7 +5144,7 @@ impl<'a> FunctionEmitter<'a> {
         Some(result)
     }
 
-    fn is_string_concat_call_with_literal_receiver(&self, node: &LirNode) -> bool {
+    pub(crate) fn is_string_concat_call_with_literal_receiver(&self, node: &LirNode) -> bool {
         if node.kind != LirNodeKind::Call {
             return false;
         }
@@ -5165,7 +5165,7 @@ impl<'a> FunctionEmitter<'a> {
                 .is_some_and(|value| matches!(value, StaticObjectIdentityValue::String(_)))
     }
 
-    fn resolve_static_string_pad_call(&self, node: &LirNode) -> Option<String> {
+    pub(crate) fn resolve_static_string_pad_call(&self, node: &LirNode) -> Option<String> {
         if node.kind != LirNodeKind::Call || !matches!(node.children.len(), 2 | 3) {
             return None;
         }
@@ -5213,7 +5213,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn string_pad_call_method(&self, node: &LirNode) -> Option<String> {
+    pub(crate) fn string_pad_call_method(&self, node: &LirNode) -> Option<String> {
         if node.kind != LirNodeKind::Call {
             return None;
         }
@@ -5224,7 +5224,7 @@ impl<'a> FunctionEmitter<'a> {
         matches!(method, "padStart" | "padEnd").then(|| method.to_string())
     }
 
-    fn resolve_static_string_at_call(&self, node: &LirNode) -> Option<StaticStringAtResult> {
+    pub(crate) fn resolve_static_string_at_call(&self, node: &LirNode) -> Option<StaticStringAtResult> {
         if node.kind != LirNodeKind::Call || !matches!(node.children.len(), 1 | 2) {
             return None;
         }
@@ -5271,7 +5271,7 @@ impl<'a> FunctionEmitter<'a> {
         ))
     }
 
-    fn is_string_at_call_with_literal_receiver(&self, node: &LirNode) -> bool {
+    pub(crate) fn is_string_at_call_with_literal_receiver(&self, node: &LirNode) -> bool {
         if node.kind != LirNodeKind::Call {
             return false;
         }
@@ -5294,7 +5294,7 @@ impl<'a> FunctionEmitter<'a> {
                 })
     }
 
-    fn resolve_static_string_char_at_call(&self, node: &LirNode) -> Option<String> {
+    pub(crate) fn resolve_static_string_char_at_call(&self, node: &LirNode) -> Option<String> {
         if node.kind != LirNodeKind::Call || !matches!(node.children.len(), 1 | 2) {
             return None;
         }
@@ -5335,7 +5335,7 @@ impl<'a> FunctionEmitter<'a> {
         )
     }
 
-    fn is_string_char_at_call_with_literal_receiver(&self, node: &LirNode) -> bool {
+    pub(crate) fn is_string_char_at_call_with_literal_receiver(&self, node: &LirNode) -> bool {
         if node.kind != LirNodeKind::Call {
             return false;
         }
@@ -5356,7 +5356,7 @@ impl<'a> FunctionEmitter<'a> {
                 .is_some_and(|value| matches!(value, StaticObjectIdentityValue::String(_)))
     }
 
-    fn resolve_static_string_char_code_at_call(&self, node: &LirNode) -> Option<String> {
+    pub(crate) fn resolve_static_string_char_code_at_call(&self, node: &LirNode) -> Option<String> {
         if node.kind != LirNodeKind::Call || !matches!(node.children.len(), 1 | 2) {
             return None;
         }
@@ -5397,7 +5397,7 @@ impl<'a> FunctionEmitter<'a> {
         )
     }
 
-    fn is_string_char_code_at_call_with_literal_receiver(&self, node: &LirNode) -> bool {
+    pub(crate) fn is_string_char_code_at_call_with_literal_receiver(&self, node: &LirNode) -> bool {
         if node.kind != LirNodeKind::Call {
             return false;
         }
@@ -5418,7 +5418,7 @@ impl<'a> FunctionEmitter<'a> {
                 .is_some_and(|value| matches!(value, StaticObjectIdentityValue::String(_)))
     }
 
-    fn resolve_static_string_code_point_at_call(
+    pub(crate) fn resolve_static_string_code_point_at_call(
         &self,
         node: &LirNode,
     ) -> Option<StaticStringAtResult> {
@@ -5459,7 +5459,7 @@ impl<'a> FunctionEmitter<'a> {
         })
     }
 
-    fn is_string_code_point_at_call_with_literal_receiver(&self, node: &LirNode) -> bool {
+    pub(crate) fn is_string_code_point_at_call_with_literal_receiver(&self, node: &LirNode) -> bool {
         if node.kind != LirNodeKind::Call {
             return false;
         }
@@ -5480,7 +5480,7 @@ impl<'a> FunctionEmitter<'a> {
                 .is_some_and(|value| matches!(value, StaticObjectIdentityValue::String(_)))
     }
 
-    fn resolve_static_string_trim_call(&self, node: &LirNode) -> Option<String> {
+    pub(crate) fn resolve_static_string_trim_call(&self, node: &LirNode) -> Option<String> {
         if node.kind != LirNodeKind::Call || node.children.len() != 1 {
             return None;
         }
@@ -5511,7 +5511,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn resolve_static_string_case_call(&self, node: &LirNode) -> Option<String> {
+    pub(crate) fn resolve_static_string_case_call(&self, node: &LirNode) -> Option<String> {
         if node.kind != LirNodeKind::Call || node.children.len() != 1 {
             return None;
         }
@@ -5534,7 +5534,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn resolve_static_string_normalize_call(&self, node: &LirNode) -> Option<String> {
+    pub(crate) fn resolve_static_string_normalize_call(&self, node: &LirNode) -> Option<String> {
         if node.kind != LirNodeKind::Call || !matches!(node.children.len(), 1 | 2) {
             return None;
         }
@@ -5566,7 +5566,7 @@ impl<'a> FunctionEmitter<'a> {
         matches!(form.as_str(), "NFC" | "NFD" | "NFKC" | "NFKD").then_some(source)
     }
 
-    fn is_string_normalize_call_with_literal_receiver(&self, node: &LirNode) -> bool {
+    pub(crate) fn is_string_normalize_call_with_literal_receiver(&self, node: &LirNode) -> bool {
         if node.kind != LirNodeKind::Call {
             return false;
         }
@@ -5587,7 +5587,7 @@ impl<'a> FunctionEmitter<'a> {
                 .is_some_and(|value| matches!(value, StaticObjectIdentityValue::String(_)))
     }
 
-    fn resolve_static_string_replace_call(&self, node: &LirNode, method: &str) -> Option<String> {
+    pub(crate) fn resolve_static_string_replace_call(&self, node: &LirNode, method: &str) -> Option<String> {
         if node.kind != LirNodeKind::Call || node.children.len() != 3 {
             return None;
         }
@@ -5624,7 +5624,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn string_replace_call_method_with_literal_receiver(&self, node: &LirNode) -> Option<String> {
+    pub(crate) fn string_replace_call_method_with_literal_receiver(&self, node: &LirNode) -> Option<String> {
         if node.kind != LirNodeKind::Call {
             return None;
         }
@@ -5645,7 +5645,7 @@ impl<'a> FunctionEmitter<'a> {
             .then(|| method.to_string())
     }
 
-    fn resolve_static_index_member(&self, node: &LirNode) -> Option<StaticIndexMemberResult> {
+    pub(crate) fn resolve_static_index_member(&self, node: &LirNode) -> Option<StaticIndexMemberResult> {
         if node.kind != LirNodeKind::Value || node.children.len() != 1 {
             return None;
         }
@@ -5683,12 +5683,12 @@ impl<'a> FunctionEmitter<'a> {
         None
     }
 
-    fn static_member_index(&self, text: &str) -> Option<usize> {
+    pub(crate) fn static_member_index(&self, text: &str) -> Option<usize> {
         let index = parse_number_literal(text)?;
         (index >= 0 && text.chars().all(|ch| ch.is_ascii_digit())).then_some(index as usize)
     }
 
-    fn resolve_static_array_concat_element(
+    pub(crate) fn resolve_static_array_concat_element(
         &self,
         id: LirNodeId,
         index: usize,
@@ -5720,7 +5720,7 @@ impl<'a> FunctionEmitter<'a> {
         )
     }
 
-    fn collect_static_array_concat_operand(
+    pub(crate) fn collect_static_array_concat_operand(
         &self,
         id: LirNodeId,
         require_array: bool,
@@ -5751,7 +5751,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn resolve_static_string_split_parts_from_id(&self, mut id: LirNodeId) -> Option<Vec<String>> {
+    pub(crate) fn resolve_static_string_split_parts_from_id(&self, mut id: LirNodeId) -> Option<Vec<String>> {
         let mut seen = HashSet::new();
         loop {
             if !seen.insert(id.0) {
@@ -5791,7 +5791,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn resolve_static_string_split_call(&self, node: &LirNode) -> Option<Vec<String>> {
+    pub(crate) fn resolve_static_string_split_call(&self, node: &LirNode) -> Option<Vec<String>> {
         if node.kind != LirNodeKind::Call || !matches!(node.children.len(), 1..=3) {
             return None;
         }
@@ -5842,7 +5842,7 @@ impl<'a> FunctionEmitter<'a> {
         Some(parts)
     }
 
-    fn is_string_split_call_with_literal_receiver(&self, node: &LirNode) -> bool {
+    pub(crate) fn is_string_split_call_with_literal_receiver(&self, node: &LirNode) -> bool {
         if node.kind != LirNodeKind::Call {
             return false;
         }
@@ -5863,7 +5863,7 @@ impl<'a> FunctionEmitter<'a> {
                 .is_some_and(|value| matches!(value, StaticObjectIdentityValue::String(_)))
     }
 
-    fn string_case_call_method(&self, node: &LirNode) -> Option<String> {
+    pub(crate) fn string_case_call_method(&self, node: &LirNode) -> Option<String> {
         if node.kind != LirNodeKind::Call {
             return None;
         }
@@ -5878,7 +5878,7 @@ impl<'a> FunctionEmitter<'a> {
         .then(|| method.to_string())
     }
 
-    fn resolve_static_array_at_call(&self, node: &LirNode) -> Option<StaticArrayAtResult> {
+    pub(crate) fn resolve_static_array_at_call(&self, node: &LirNode) -> Option<StaticArrayAtResult> {
         if node.kind != LirNodeKind::Call || node.children.len() != 2 {
             return None;
         }
@@ -5900,11 +5900,11 @@ impl<'a> FunctionEmitter<'a> {
             .map(StaticArrayAtResult::Value)
     }
 
-    fn is_array_at_call_with_literal_receiver(&self, node: &LirNode) -> bool {
+    pub(crate) fn is_array_at_call_with_literal_receiver(&self, node: &LirNode) -> bool {
         self.static_array_at_literal_receiver(node).is_some()
     }
 
-    fn resolve_static_array_join_call(&self, node: &LirNode) -> Option<String> {
+    pub(crate) fn resolve_static_array_join_call(&self, node: &LirNode) -> Option<String> {
         if node.kind != LirNodeKind::Call || !(1..=2).contains(&node.children.len()) {
             return None;
         }
@@ -5927,7 +5927,7 @@ impl<'a> FunctionEmitter<'a> {
         self.resolve_static_array_join_receiver(callee_node, &separator)
     }
 
-    fn resolve_static_array_to_string_call(&self, node: &LirNode) -> Option<String> {
+    pub(crate) fn resolve_static_array_to_string_call(&self, node: &LirNode) -> Option<String> {
         if node.kind != LirNodeKind::Call || node.children.len() != 1 {
             return None;
         }
@@ -5942,7 +5942,7 @@ impl<'a> FunctionEmitter<'a> {
         self.resolve_static_array_join_receiver(callee_node, ",")
     }
 
-    fn resolve_static_array_join_receiver(
+    pub(crate) fn resolve_static_array_join_receiver(
         &self,
         callee_node: &LirNode,
         separator: &str,
@@ -5969,7 +5969,7 @@ impl<'a> FunctionEmitter<'a> {
         Some(rendered.join(separator))
     }
 
-    fn static_array_join_element_to_string(&self, id: LirNodeId) -> Option<String> {
+    pub(crate) fn static_array_join_element_to_string(&self, id: LirNodeId) -> Option<String> {
         match self.resolve_static_object_identity_value(id)? {
             StaticObjectIdentityValue::String(value) => Some(value),
             StaticObjectIdentityValue::Boolean(value) => Some(value.to_string()),
@@ -5997,7 +5997,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn static_array_at_literal_receiver(&self, node: &LirNode) -> Option<&LirNode> {
+    pub(crate) fn static_array_at_literal_receiver(&self, node: &LirNode) -> Option<&LirNode> {
         if node.kind != LirNodeKind::Call || node.children.len() != 2 {
             return None;
         }
@@ -6029,7 +6029,7 @@ impl<'a> FunctionEmitter<'a> {
         self.is_array_literal(source_node).then_some(source_node)
     }
 
-    fn resolve_static_array_filter_items(&self, node: &LirNode) -> Option<Vec<LirNodeId>> {
+    pub(crate) fn resolve_static_array_filter_items(&self, node: &LirNode) -> Option<Vec<LirNodeId>> {
         let mut current = node;
         while current.kind == LirNodeKind::Value
             && current.children.len() == 1
@@ -6079,7 +6079,7 @@ impl<'a> FunctionEmitter<'a> {
         Some(items)
     }
 
-    fn resolve_static_array_reduce_call(&self, node: &LirNode, method: &str) -> Option<i64> {
+    pub(crate) fn resolve_static_array_reduce_call(&self, node: &LirNode, method: &str) -> Option<i64> {
         if node.kind != LirNodeKind::Call || !matches!(node.children.len(), 2 | 3) {
             return None;
         }
@@ -6135,7 +6135,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn resolve_static_numeric_reducer_callback(
+    pub(crate) fn resolve_static_numeric_reducer_callback(
         &self,
         callback: LirNodeId,
         accumulator: f64,
@@ -6163,7 +6163,7 @@ impl<'a> FunctionEmitter<'a> {
         )
     }
 
-    fn resolve_static_numeric_reducer_expr(
+    pub(crate) fn resolve_static_numeric_reducer_expr(
         &self,
         id: LirNodeId,
         accumulator_name: &str,
@@ -6237,7 +6237,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn resolve_truthy_identity_array_filter_source(&self, node: &LirNode) -> Option<LirNodeId> {
+    pub(crate) fn resolve_truthy_identity_array_filter_source(&self, node: &LirNode) -> Option<LirNodeId> {
         if node.kind != LirNodeKind::Call || node.children.len() != 2 {
             return None;
         }
@@ -6272,7 +6272,7 @@ impl<'a> FunctionEmitter<'a> {
         Some(source)
     }
 
-    fn is_frozen_array_from_call(&self, node: &LirNode) -> bool {
+    pub(crate) fn is_frozen_array_from_call(&self, node: &LirNode) -> bool {
         if node.kind != LirNodeKind::Call || node.children.len() != 2 {
             return false;
         }
@@ -6287,7 +6287,7 @@ impl<'a> FunctionEmitter<'a> {
         self.is_array_from_callable_node(self.node(resolved_callee))
     }
 
-    fn is_array_from_callable_node(&self, node: &LirNode) -> bool {
+    pub(crate) fn is_array_from_callable_node(&self, node: &LirNode) -> bool {
         match node.text.as_deref() {
             Some(text) if kali_common::array_from_aliases().contains(&text) => true,
             Some("from") => {
@@ -6307,7 +6307,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn resolve_static_object_identity_value(
+    pub(crate) fn resolve_static_object_identity_value(
         &self,
         id: LirNodeId,
     ) -> Option<StaticObjectIdentityValue> {
@@ -6423,7 +6423,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn resolve_static_reference_root_name(&self, id: LirNodeId) -> Option<String> {
+    pub(crate) fn resolve_static_reference_root_name(&self, id: LirNodeId) -> Option<String> {
         let id = self.resolve_bound_node(id);
         let id = self.unwrap_transparent_value_node(id);
         let node = self.node(id);
@@ -6507,7 +6507,7 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     #[allow(dead_code)]
-    fn resolve_static_numeric_value(&self, id: LirNodeId) -> Option<f64> {
+    pub(crate) fn resolve_static_numeric_value(&self, id: LirNodeId) -> Option<f64> {
         let node = self.node(id);
         if self.is_object_freeze_call(node) {
             return node
@@ -6537,7 +6537,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn math_max_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+    pub(crate) fn math_max_import_index(&self, callee_node: &LirNode) -> Option<u32> {
         let method = callee_node.text.as_deref()?;
         if self.is_math_object(callee_node) && method == "max" {
             Some(MATH_MAX_IMPORT_INDEX)
@@ -6546,7 +6546,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn math_min_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+    pub(crate) fn math_min_import_index(&self, callee_node: &LirNode) -> Option<u32> {
         let method = callee_node.text.as_deref()?;
         if self.is_math_object(callee_node) && method == "min" {
             Some(MATH_MIN_IMPORT_INDEX)
@@ -6555,7 +6555,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn math_abs_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+    pub(crate) fn math_abs_import_index(&self, callee_node: &LirNode) -> Option<u32> {
         let method = callee_node.text.as_deref()?;
         if self.is_math_object(callee_node) && method == "abs" {
             Some(MATH_ABS_IMPORT_INDEX)
@@ -6564,7 +6564,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn math_sign_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+    pub(crate) fn math_sign_import_index(&self, callee_node: &LirNode) -> Option<u32> {
         let method = callee_node.text.as_deref()?;
         if self.is_math_object(callee_node) && method == "sign" {
             Some(MATH_SIGN_IMPORT_INDEX)
@@ -6573,7 +6573,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn math_imul_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+    pub(crate) fn math_imul_import_index(&self, callee_node: &LirNode) -> Option<u32> {
         let method = callee_node.text.as_deref()?;
         if self.is_math_object(callee_node) && method == "imul" {
             Some(MATH_IMUL_IMPORT_INDEX)
@@ -6582,7 +6582,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn math_round_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+    pub(crate) fn math_round_import_index(&self, callee_node: &LirNode) -> Option<u32> {
         let method = callee_node.text.as_deref()?;
         if self.is_math_object(callee_node) && method == "round" {
             Some(MATH_ROUND_IMPORT_INDEX)
@@ -6591,7 +6591,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn math_clz32_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+    pub(crate) fn math_clz32_import_index(&self, callee_node: &LirNode) -> Option<u32> {
         let method = callee_node.text.as_deref()?;
         if self.is_math_object(callee_node) && method == "clz32" {
             Some(MATH_CLZ32_IMPORT_INDEX)
@@ -6600,7 +6600,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn emit_exponentiation_expression(
+    pub(crate) fn emit_exponentiation_expression(
         &mut self,
         function: &mut Function,
         operands: &[LirNodeId],
@@ -6823,7 +6823,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn math_pow_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+    pub(crate) fn math_pow_import_index(&self, callee_node: &LirNode) -> Option<u32> {
         let method = callee_node.text.as_deref()?;
         if self.is_math_object(callee_node) && method == "pow" {
             Some(MATH_POW_IMPORT_INDEX)
@@ -6832,7 +6832,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn math_member_method<'b>(&self, callee_node: &'b LirNode) -> Option<&'b str> {
+    pub(crate) fn math_member_method<'b>(&self, callee_node: &'b LirNode) -> Option<&'b str> {
         let method = callee_node.text.as_deref()?;
         if self.is_math_object(callee_node) {
             Some(method)
@@ -6841,7 +6841,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn emit_integer_math_arg(
+    pub(crate) fn emit_integer_math_arg(
         &mut self,
         function: &mut Function,
         arg: LirNodeId,
@@ -6862,7 +6862,7 @@ impl<'a> FunctionEmitter<'a> {
         true
     }
 
-    fn math_exp_constant_value(&self, arg: LirNodeId) -> Option<i64> {
+    pub(crate) fn math_exp_constant_value(&self, arg: LirNodeId) -> Option<i64> {
         let rendered = self.render_static_value(arg)?;
         let value = parse_number_literal(&rendered)?;
         if value == 0 {
@@ -6872,7 +6872,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn math_log_constant_value(&self, arg: LirNodeId) -> Option<i64> {
+    pub(crate) fn math_log_constant_value(&self, arg: LirNodeId) -> Option<i64> {
         let rendered = self.render_static_value(arg)?;
         let value = parse_number_literal(&rendered)?;
         if value == 1 {
@@ -6882,7 +6882,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn math_exp2_constant_value(&self, arg: LirNodeId) -> Option<i64> {
+    pub(crate) fn math_exp2_constant_value(&self, arg: LirNodeId) -> Option<i64> {
         let rendered = self.render_static_value(arg)?;
         let value = parse_number_literal(&rendered)?;
         if !(0..=62).contains(&value) {
@@ -6892,7 +6892,7 @@ impl<'a> FunctionEmitter<'a> {
         Some(1_i64 << (value as u32))
     }
 
-    fn math_expm1_constant_value(&self, arg: LirNodeId) -> Option<i64> {
+    pub(crate) fn math_expm1_constant_value(&self, arg: LirNodeId) -> Option<i64> {
         let rendered = self.render_static_value(arg)?;
         let value = parse_number_literal(&rendered)?;
         if value == 0 {
@@ -6902,7 +6902,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn math_log1p_constant_value(&self, arg: LirNodeId) -> Option<i64> {
+    pub(crate) fn math_log1p_constant_value(&self, arg: LirNodeId) -> Option<i64> {
         let rendered = self.render_static_value(arg)?;
         let value = parse_number_literal(&rendered)?;
         if value == 0 {
@@ -6912,7 +6912,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn math_fround_zero_constant_value(&self, arg: LirNodeId) -> Option<i64> {
+    pub(crate) fn math_fround_zero_constant_value(&self, arg: LirNodeId) -> Option<i64> {
         let rendered = self.render_static_value(arg)?;
         let value = parse_numeric_literal_value(&rendered)?;
         if value == 0.0 {
@@ -6922,7 +6922,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn math_sin_cos_zero_constant_value(&self, method: &str, arg: LirNodeId) -> Option<i64> {
+    pub(crate) fn math_sin_cos_zero_constant_value(&self, method: &str, arg: LirNodeId) -> Option<i64> {
         let rendered = self.render_static_value(arg)?;
         let value = parse_numeric_literal_value(&rendered)?;
         if value != 0.0 {
@@ -6932,7 +6932,7 @@ impl<'a> FunctionEmitter<'a> {
         Some(if method == "cos" { 1 } else { 0 })
     }
 
-    fn math_hyperbolic_zero_constant_value(&self, method: &str, arg: LirNodeId) -> Option<i64> {
+    pub(crate) fn math_hyperbolic_zero_constant_value(&self, method: &str, arg: LirNodeId) -> Option<i64> {
         let rendered = self.render_static_value(arg)?;
         let value = parse_numeric_literal_value(&rendered)?;
         if value != 0.0 {
@@ -6942,7 +6942,7 @@ impl<'a> FunctionEmitter<'a> {
         Some(if method == "cosh" { 1 } else { 0 })
     }
 
-    fn math_inverse_trig_constant_value(&self, method: &str, arg: LirNodeId) -> Option<i64> {
+    pub(crate) fn math_inverse_trig_constant_value(&self, method: &str, arg: LirNodeId) -> Option<i64> {
         let rendered = self.render_static_value(arg)?;
         let value = parse_numeric_literal_value(&rendered)?;
 
@@ -6953,7 +6953,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn math_atan2_zero_slice_value(&self, y: LirNodeId, x: LirNodeId) -> Option<i64> {
+    pub(crate) fn math_atan2_zero_slice_value(&self, y: LirNodeId, x: LirNodeId) -> Option<i64> {
         let y = self.render_static_value(y)?;
         let x = self.render_static_value(x)?;
         let y = parse_numeric_literal_value(&y)?;
@@ -6965,7 +6965,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn math_inverse_hyperbolic_constant_value(&self, method: &str, arg: LirNodeId) -> Option<i64> {
+    pub(crate) fn math_inverse_hyperbolic_constant_value(&self, method: &str, arg: LirNodeId) -> Option<i64> {
         let rendered = self.render_static_value(arg)?;
         let value = parse_numeric_literal_value(&rendered)?;
 
@@ -6976,7 +6976,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn math_sqrt_constant_root(&self, arg: LirNodeId) -> Option<i64> {
+    pub(crate) fn math_sqrt_constant_root(&self, arg: LirNodeId) -> Option<i64> {
         let rendered = self.render_static_value(arg)?;
         let value = parse_number_literal(&rendered)?;
         if value < 0 {
@@ -6991,7 +6991,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn math_cbrt_constant_root(&self, arg: LirNodeId) -> Option<i64> {
+    pub(crate) fn math_cbrt_constant_root(&self, arg: LirNodeId) -> Option<i64> {
         let rendered = self.render_static_value(arg)?;
         let value = parse_number_literal(&rendered)?;
         let root = (value as f64).cbrt().round() as i64;
@@ -7002,7 +7002,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn math_log2_constant_exponent(&self, arg: LirNodeId) -> Option<i64> {
+    pub(crate) fn math_log2_constant_exponent(&self, arg: LirNodeId) -> Option<i64> {
         let rendered = self.render_static_value(arg)?;
         let value = parse_number_literal(&rendered)?;
         if value <= 0 {
@@ -7017,7 +7017,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn math_log10_constant_exponent(&self, arg: LirNodeId) -> Option<i64> {
+    pub(crate) fn math_log10_constant_exponent(&self, arg: LirNodeId) -> Option<i64> {
         let rendered = self.render_static_value(arg)?;
         let mut value = parse_number_literal(&rendered)?;
         if value <= 0 {
@@ -7037,7 +7037,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn math_hypot_constant_root(&self, args: &[LirNodeId]) -> Option<i64> {
+    pub(crate) fn math_hypot_constant_root(&self, args: &[LirNodeId]) -> Option<i64> {
         if args.is_empty() {
             return Some(0);
         }
@@ -7061,7 +7061,7 @@ impl<'a> FunctionEmitter<'a> {
         self.perfect_square_root_i128(sum)
     }
 
-    fn perfect_square_root_i128(&self, value: i128) -> Option<i64> {
+    pub(crate) fn perfect_square_root_i128(&self, value: i128) -> Option<i64> {
         if value < 0 {
             return None;
         }
@@ -7084,7 +7084,7 @@ impl<'a> FunctionEmitter<'a> {
         None
     }
 
-    fn math_round_like_static_literal_value(&self, method: &str, arg: LirNodeId) -> Option<i64> {
+    pub(crate) fn math_round_like_static_literal_value(&self, method: &str, arg: LirNodeId) -> Option<i64> {
         let rendered = self.render_static_value(arg)?;
         let value = parse_numeric_literal_value(&rendered)?;
         let folded = match method {
@@ -7108,7 +7108,7 @@ impl<'a> FunctionEmitter<'a> {
         Some(folded as i64)
     }
 
-    fn math_extrema_static_literal_value(&self, method: &str, args: &[LirNodeId]) -> Option<i64> {
+    pub(crate) fn math_extrema_static_literal_value(&self, method: &str, args: &[LirNodeId]) -> Option<i64> {
         let mut values = args.iter().map(|arg| {
             let rendered = self.render_static_value(*arg)?;
             let value = parse_numeric_literal_value(&rendered)?;
@@ -7135,12 +7135,12 @@ impl<'a> FunctionEmitter<'a> {
         Some(folded)
     }
 
-    fn math_abs_static_literal_value(&self, arg: LirNodeId) -> Option<i64> {
+    pub(crate) fn math_abs_static_literal_value(&self, arg: LirNodeId) -> Option<i64> {
         let rendered = self.render_static_value(arg)?;
         parse_number_literal(&rendered)?.checked_abs()
     }
 
-    fn math_imul_static_literal_value(&self, left: LirNodeId, right: LirNodeId) -> Option<i64> {
+    pub(crate) fn math_imul_static_literal_value(&self, left: LirNodeId, right: LirNodeId) -> Option<i64> {
         let rendered_left = self.render_static_value(left)?;
         let rendered_right = self.render_static_value(right)?;
         let left = parse_number_literal(&rendered_left)? as i32;
@@ -7148,14 +7148,14 @@ impl<'a> FunctionEmitter<'a> {
         Some(i64::from(left.wrapping_mul(right)))
     }
 
-    fn math_clz32_static_literal_value(&self, arg: LirNodeId) -> Option<i64> {
+    pub(crate) fn math_clz32_static_literal_value(&self, arg: LirNodeId) -> Option<i64> {
         let rendered = self.render_static_value(arg)?;
         let value = parse_numeric_literal_value(&rendered)?;
         let uint32 = self.to_uint32_literal_value(value)?;
         Some(i64::from(uint32.leading_zeros()))
     }
 
-    fn static_bigint_literal_value(&self, id: LirNodeId) -> Option<i64> {
+    pub(crate) fn static_bigint_literal_value(&self, id: LirNodeId) -> Option<i64> {
         let id = self.resolve_bound_node(id);
         let node = self.node(id);
         if node.kind != LirNodeKind::Literal {
@@ -7165,7 +7165,7 @@ impl<'a> FunctionEmitter<'a> {
         parse_number_literal(node.text.as_deref()?)
     }
 
-    fn math_sign_static_literal_value(&self, arg: LirNodeId) -> Option<i64> {
+    pub(crate) fn math_sign_static_literal_value(&self, arg: LirNodeId) -> Option<i64> {
         let rendered = self.render_static_value(arg)?;
         let value = parse_numeric_literal_value(&rendered)?;
         Some(if value == 0.0 {
@@ -7177,13 +7177,13 @@ impl<'a> FunctionEmitter<'a> {
         })
     }
 
-    fn contains_negative_numeric_literal(&self, id: LirNodeId) -> bool {
+    pub(crate) fn contains_negative_numeric_literal(&self, id: LirNodeId) -> bool {
         self.render_static_value(id)
             .and_then(|rendered| parse_number_literal(&rendered))
             .is_some_and(|value| value < 0)
     }
 
-    fn to_uint32_literal_value(&self, value: f64) -> Option<u32> {
+    pub(crate) fn to_uint32_literal_value(&self, value: f64) -> Option<u32> {
         if !value.is_finite() {
             return Some(0);
         }
@@ -7193,13 +7193,13 @@ impl<'a> FunctionEmitter<'a> {
         Some(modulo as u32)
     }
 
-    fn contains_non_integer_numeric_literal(&self, arg: LirNodeId) -> bool {
+    pub(crate) fn contains_non_integer_numeric_literal(&self, arg: LirNodeId) -> bool {
         self.render_static_value(arg)
             .and_then(|rendered| parse_numeric_literal_value(&rendered))
             .is_some_and(|value| value.fract() != 0.0)
     }
 
-    fn env_set_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+    pub(crate) fn env_set_import_index(&self, callee_node: &LirNode) -> Option<u32> {
         let method = callee_node.text.as_deref()?;
         if method != "set" {
             return None;
@@ -7219,7 +7219,7 @@ impl<'a> FunctionEmitter<'a> {
         self.env_set_import_index
     }
 
-    fn env_delete_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+    pub(crate) fn env_delete_import_index(&self, callee_node: &LirNode) -> Option<u32> {
         let method = callee_node.text.as_deref()?;
         if method != "delete" {
             return None;
@@ -7239,7 +7239,7 @@ impl<'a> FunctionEmitter<'a> {
         self.env_delete_import_index
     }
 
-    fn env_get_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+    pub(crate) fn env_get_import_index(&self, callee_node: &LirNode) -> Option<u32> {
         let method = callee_node.text.as_deref()?;
         if method != "get" {
             return None;
@@ -7259,7 +7259,7 @@ impl<'a> FunctionEmitter<'a> {
         self.env_get_import_index
     }
 
-    fn env_has_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+    pub(crate) fn env_has_import_index(&self, callee_node: &LirNode) -> Option<u32> {
         let method = callee_node.text.as_deref()?;
         if method != "has" {
             return None;
@@ -7279,7 +7279,7 @@ impl<'a> FunctionEmitter<'a> {
         self.env_has_import_index
     }
 
-    fn cwd_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+    pub(crate) fn cwd_import_index(&self, callee_node: &LirNode) -> Option<u32> {
         let method = callee_node.text.as_deref()?;
         if method != "cwd" {
             return None;
@@ -7293,7 +7293,7 @@ impl<'a> FunctionEmitter<'a> {
         Some(CWD_IMPORT_INDEX)
     }
 
-    fn cwd_set_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+    pub(crate) fn cwd_set_import_index(&self, callee_node: &LirNode) -> Option<u32> {
         let method = callee_node.text.as_deref()?;
         if method != "chdir" {
             return None;
@@ -7307,7 +7307,7 @@ impl<'a> FunctionEmitter<'a> {
         self.cwd_set_import_index
     }
 
-    fn process_exit_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+    pub(crate) fn process_exit_import_index(&self, callee_node: &LirNode) -> Option<u32> {
         let method = callee_node.text.as_deref()?;
         if method != "exit" {
             return None;
@@ -7321,12 +7321,12 @@ impl<'a> FunctionEmitter<'a> {
         self.process_exit_import_index
     }
 
-    fn render_console_call(&self, node: &LirNode) -> Option<String> {
+    pub(crate) fn render_console_call(&self, node: &LirNode) -> Option<String> {
         let args = node.children.iter().skip(1).copied().collect::<Vec<_>>();
         self.render_console_arguments(&args)
     }
 
-    fn render_console_arguments(&self, args: &[LirNodeId]) -> Option<String> {
+    pub(crate) fn render_console_arguments(&self, args: &[LirNodeId]) -> Option<String> {
         let mut rendered = Vec::new();
         for arg in args {
             rendered.push(self.render_static_value(*arg)?);
@@ -7334,7 +7334,7 @@ impl<'a> FunctionEmitter<'a> {
         Some(rendered.join(" "))
     }
 
-    fn render_static_value(&self, id: LirNodeId) -> Option<String> {
+    pub(crate) fn render_static_value(&self, id: LirNodeId) -> Option<String> {
         let node = self.node(id);
         match node.kind {
             LirNodeKind::Literal => match node.text.as_deref() {
@@ -7452,14 +7452,14 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn has_semver_import(&self) -> bool {
+    pub(crate) fn has_semver_import(&self) -> bool {
         self.program
             .nodes
             .iter()
             .any(|node| node.text.as_deref() == Some("semver"))
     }
 
-    fn render_semver_intrinsic(&self, callee_name: &str, node: &LirNode) -> Option<String> {
+    pub(crate) fn render_semver_intrinsic(&self, callee_name: &str, node: &LirNode) -> Option<String> {
         if !self.has_semver_import() {
             return None;
         }
@@ -7487,7 +7487,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn render_package_json_version(&self, specifier: &str) -> Option<String> {
+    pub(crate) fn render_package_json_version(&self, specifier: &str) -> Option<String> {
         let source_path = self.source_path.as_ref()?;
         let package_json_path = source_path
             .parent()?
@@ -7504,7 +7504,7 @@ impl<'a> FunctionEmitter<'a> {
             .map(|value| value.to_string())
     }
 
-    fn render_package_json_version_access(&self, id: LirNodeId) -> Option<String> {
+    pub(crate) fn render_package_json_version_access(&self, id: LirNodeId) -> Option<String> {
         let node = self.node(id);
         if node.kind != LirNodeKind::Call {
             return None;
@@ -7519,7 +7519,7 @@ impl<'a> FunctionEmitter<'a> {
         self.render_package_json_version(&specifier)
     }
 
-    fn is_deno_pid(&self, id: LirNodeId) -> bool {
+    pub(crate) fn is_deno_pid(&self, id: LirNodeId) -> bool {
         let node = self.node(id);
         if node.text.as_deref() == Some("Deno") {
             return true;
@@ -7532,11 +7532,11 @@ impl<'a> FunctionEmitter<'a> {
                 .is_some_and(|child| self.node(*child).text.as_deref() == Some("Deno"))
     }
 
-    fn is_deno_exit(&self, id: LirNodeId) -> bool {
+    pub(crate) fn is_deno_exit(&self, id: LirNodeId) -> bool {
         self.is_deno_pid(id)
     }
 
-    fn is_process_pid(&self, id: LirNodeId) -> bool {
+    pub(crate) fn is_process_pid(&self, id: LirNodeId) -> bool {
         let node = self.node(id);
         if node.text.as_deref() == Some("process") {
             return true;
@@ -7549,7 +7549,7 @@ impl<'a> FunctionEmitter<'a> {
                 .is_some_and(|child| self.node(*child).text.as_deref() == Some("process"))
     }
 
-    fn unwrap_transparent_value_node(&self, mut id: LirNodeId) -> LirNodeId {
+    pub(crate) fn unwrap_transparent_value_node(&self, mut id: LirNodeId) -> LirNodeId {
         loop {
             let node = self.node(id);
             if node.kind == LirNodeKind::Value
@@ -7564,7 +7564,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn is_process_cwd(&self, id: LirNodeId) -> bool {
+    pub(crate) fn is_process_cwd(&self, id: LirNodeId) -> bool {
         let id = self.unwrap_transparent_value_node(id);
         let node = self.node(id);
         if node.text.as_deref() == Some("process") {
@@ -7578,7 +7578,7 @@ impl<'a> FunctionEmitter<'a> {
                 .is_some_and(|child| self.node(*child).text.as_deref() == Some("process"))
     }
 
-    fn is_process_exit(&self, id: LirNodeId) -> bool {
+    pub(crate) fn is_process_exit(&self, id: LirNodeId) -> bool {
         let id = self.unwrap_transparent_value_node(id);
         let node = self.node(id);
         if self.is_object_freeze_call(node) {
@@ -7600,7 +7600,7 @@ impl<'a> FunctionEmitter<'a> {
                 .is_some_and(|child| self.node(*child).text.as_deref() == Some("process"))
     }
 
-    fn is_process_kill(&self, callee_node: &LirNode) -> bool {
+    pub(crate) fn is_process_kill(&self, callee_node: &LirNode) -> bool {
         let Some(method) = callee_node.text.as_deref() else {
             return false;
         };
@@ -7618,7 +7618,7 @@ impl<'a> FunctionEmitter<'a> {
         true
     }
 
-    fn is_process_argv(&self, id: LirNodeId) -> bool {
+    pub(crate) fn is_process_argv(&self, id: LirNodeId) -> bool {
         let id = self.unwrap_transparent_value_node(id);
         let node = self.node(id);
         if node.text.as_deref() != Some("argv") || node.children.len() != 1 {
@@ -7638,7 +7638,7 @@ impl<'a> FunctionEmitter<'a> {
                 .is_some_and(|child| self.node(*child).text.as_deref() == Some("process"))
     }
 
-    fn is_deno_args(&self, id: LirNodeId) -> bool {
+    pub(crate) fn is_deno_args(&self, id: LirNodeId) -> bool {
         let id = self.unwrap_transparent_value_node(id);
         let node = self.node(id);
         if node.text.as_deref() != Some("args") || node.children.len() != 1 {
@@ -7658,7 +7658,7 @@ impl<'a> FunctionEmitter<'a> {
                 .is_some_and(|child| self.node(*child).text.as_deref() == Some("Deno"))
     }
 
-    fn is_supported_callable_reference(&self, node: &LirNode) -> bool {
+    pub(crate) fn is_supported_callable_reference(&self, node: &LirNode) -> bool {
         if node.kind != LirNodeKind::Value || node.children.len() != 1 {
             return false;
         }
@@ -7672,7 +7672,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn resolve_bound_node(&self, mut id: LirNodeId) -> LirNodeId {
+    pub(crate) fn resolve_bound_node(&self, mut id: LirNodeId) -> LirNodeId {
         let mut seen = HashSet::new();
 
         loop {
@@ -7694,7 +7694,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn resolve_bound_member_callable_node(&self, id: LirNodeId) -> Option<LirNodeId> {
+    pub(crate) fn resolve_bound_member_callable_node(&self, id: LirNodeId) -> Option<LirNodeId> {
         let bound = self.resolve_bound_node(id);
         let bound = self.unwrap_transparent_value_node(bound);
         let node = self.node(bound);
@@ -7771,7 +7771,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn resolve_transparent_callable_node(&self, id: LirNodeId) -> Option<LirNodeId> {
+    pub(crate) fn resolve_transparent_callable_node(&self, id: LirNodeId) -> Option<LirNodeId> {
         let mut id = self.resolve_bound_node(id);
         let mut seen = HashSet::new();
 
@@ -7870,7 +7870,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn process_argv_slice_start(&self, id: LirNodeId) -> Option<i64> {
+    pub(crate) fn process_argv_slice_start(&self, id: LirNodeId) -> Option<i64> {
         let id = self.resolve_bound_node(id);
         let node = self.node(id);
         if node.kind != LirNodeKind::Call {
@@ -7894,7 +7894,7 @@ impl<'a> FunctionEmitter<'a> {
         parse_number_literal(start_node.text.as_deref()?)
     }
 
-    fn render_length(&self, id: &LirNodeId) -> Option<String> {
+    pub(crate) fn render_length(&self, id: &LirNodeId) -> Option<String> {
         if self.process_argv_slice_start(*id).is_some() {
             return None;
         }
@@ -7930,7 +7930,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn is_kali_test_call(&self, callee_node: &LirNode) -> bool {
+    pub(crate) fn is_kali_test_call(&self, callee_node: &LirNode) -> bool {
         if callee_node.text.as_deref() != Some("test") {
             return false;
         }
@@ -7941,13 +7941,13 @@ impl<'a> FunctionEmitter<'a> {
         self.node(object).text.as_deref() == Some("Kali")
     }
 
-    fn kali_test_callback_index(&self, node: &LirNode) -> Option<u32> {
+    pub(crate) fn kali_test_callback_index(&self, node: &LirNode) -> Option<u32> {
         let callback_node = node.children.get(2).copied()?;
         let callback_name = self.node(callback_node).text.as_deref()?;
         self.functions.get(callback_name).copied()
     }
 
-    fn emit_for_of_array_iteration(
+    pub(crate) fn emit_for_of_array_iteration(
         &mut self,
         function: &mut Function,
         node: &LirNode,
@@ -8363,7 +8363,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn is_object_has_own_call(&self, node: &LirNode, callee_node: &LirNode) -> bool {
+    pub(crate) fn is_object_has_own_call(&self, node: &LirNode, callee_node: &LirNode) -> bool {
         if node.kind != LirNodeKind::Call {
             return false;
         }
@@ -8399,7 +8399,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn is_object_from_entries_call(&self, node: &LirNode) -> bool {
+    pub(crate) fn is_object_from_entries_call(&self, node: &LirNode) -> bool {
         if node.kind != LirNodeKind::Call {
             return false;
         }
@@ -8427,7 +8427,7 @@ impl<'a> FunctionEmitter<'a> {
         )
     }
 
-    fn static_object_has_own(&self, object_id: LirNodeId, key: &str) -> Option<bool> {
+    pub(crate) fn static_object_has_own(&self, object_id: LirNodeId, key: &str) -> Option<bool> {
         let object_id = self.resolve_literal_aggregate(object_id)?;
         let object = self.node(object_id);
         if self.is_object_literal(object) {
@@ -8441,7 +8441,7 @@ impl<'a> FunctionEmitter<'a> {
         None
     }
 
-    fn static_object_from_entries_has_key(&self, call: &LirNode, key: &str) -> Option<bool> {
+    pub(crate) fn static_object_from_entries_has_key(&self, call: &LirNode, key: &str) -> Option<bool> {
         let entries_id = call.children.get(1).copied()?;
         let entries_id = self.resolve_literal_aggregate(entries_id)?;
         let entries_node = self.node(entries_id);
@@ -8465,7 +8465,7 @@ impl<'a> FunctionEmitter<'a> {
         Some(false)
     }
 
-    fn is_object_enumeration_call(&self, node: &LirNode) -> Option<ObjectEnumerationMode> {
+    pub(crate) fn is_object_enumeration_call(&self, node: &LirNode) -> Option<ObjectEnumerationMode> {
         let node = if node.kind == LirNodeKind::Value && node.children.len() == 1 {
             self.node(node.children[0])
         } else {
@@ -8575,7 +8575,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn collect_object_enumeration_iteration_items(
+    pub(crate) fn collect_object_enumeration_iteration_items(
         &mut self,
         node: &LirNode,
         mode: ObjectEnumerationMode,
@@ -8651,7 +8651,7 @@ impl<'a> FunctionEmitter<'a> {
         false
     }
 
-    fn render_static_string_value(&self, node: &LirNode) -> Option<String> {
+    pub(crate) fn render_static_string_value(&self, node: &LirNode) -> Option<String> {
         let node = if node.kind == LirNodeKind::Value
             && node.text.as_deref().is_some_and(|text| text.is_empty())
             && node.children.len() == 1
@@ -8697,7 +8697,7 @@ impl<'a> FunctionEmitter<'a> {
         Some(strip_string_delimiters(text).to_string())
     }
 
-    fn collect_object_from_entries_iteration_items(
+    pub(crate) fn collect_object_from_entries_iteration_items(
         &mut self,
         node: &LirNode,
         mode: ObjectEnumerationMode,
@@ -8764,7 +8764,7 @@ impl<'a> FunctionEmitter<'a> {
         true
     }
 
-    fn collect_for_of_array_iteration_items(
+    pub(crate) fn collect_for_of_array_iteration_items(
         &mut self,
         id: LirNodeId,
         items: &mut Vec<LirNodeId>,
@@ -8847,7 +8847,7 @@ impl<'a> FunctionEmitter<'a> {
         false
     }
 
-    fn is_set_constructor_call(&self, node: &LirNode) -> bool {
+    pub(crate) fn is_set_constructor_call(&self, node: &LirNode) -> bool {
         if node.kind != LirNodeKind::Call || node.children.len() != 2 {
             return false;
         }
@@ -8867,7 +8867,7 @@ impl<'a> FunctionEmitter<'a> {
         )
     }
 
-    fn resolve_set_constructor_call<'b>(&'b self, node: &'b LirNode) -> Option<&'b LirNode> {
+    pub(crate) fn resolve_set_constructor_call<'b>(&'b self, node: &'b LirNode) -> Option<&'b LirNode> {
         if self.is_set_constructor_call(node) {
             return Some(node);
         }
@@ -8956,7 +8956,7 @@ impl<'a> FunctionEmitter<'a> {
         None
     }
 
-    fn collect_set_constructor_iteration_items(
+    pub(crate) fn collect_set_constructor_iteration_items(
         &mut self,
         node: &LirNode,
         items: &mut Vec<LirNodeId>,
@@ -9052,7 +9052,7 @@ impl<'a> FunctionEmitter<'a> {
         false
     }
 
-    fn is_map_constructor_call(&self, node: &LirNode) -> bool {
+    pub(crate) fn is_map_constructor_call(&self, node: &LirNode) -> bool {
         if node.kind != LirNodeKind::Call || node.children.len() != 2 {
             return false;
         }
@@ -9072,7 +9072,7 @@ impl<'a> FunctionEmitter<'a> {
         )
     }
 
-    fn resolve_map_constructor_call<'b>(&'b self, node: &'b LirNode) -> Option<&'b LirNode> {
+    pub(crate) fn resolve_map_constructor_call<'b>(&'b self, node: &'b LirNode) -> Option<&'b LirNode> {
         if self.is_map_constructor_call(node) {
             return Some(node);
         }
@@ -9161,7 +9161,7 @@ impl<'a> FunctionEmitter<'a> {
         None
     }
 
-    fn collect_map_constructor_iteration_items(
+    pub(crate) fn collect_map_constructor_iteration_items(
         &mut self,
         node: &LirNode,
         items: &mut Vec<LirNodeId>,
@@ -9215,7 +9215,7 @@ impl<'a> FunctionEmitter<'a> {
         false
     }
 
-    fn static_map_entry_key(&self, id: LirNodeId) -> Option<String> {
+    pub(crate) fn static_map_entry_key(&self, id: LirNodeId) -> Option<String> {
         let resolved_id = self.resolve_literal_aggregate(id)?;
         let node = self.node(resolved_id);
         if !self.is_array_literal(node) {
@@ -9226,7 +9226,7 @@ impl<'a> FunctionEmitter<'a> {
         self.render_static_value(resolved_key)
     }
 
-    fn static_set_item_key(&self, id: LirNodeId) -> Option<String> {
+    pub(crate) fn static_set_item_key(&self, id: LirNodeId) -> Option<String> {
         let resolved_id = self.resolve_literal_aggregate(id)?;
         let node = self.node(resolved_id);
         if node.kind == LirNodeKind::Value && !node.children.is_empty() {
@@ -9235,7 +9235,7 @@ impl<'a> FunctionEmitter<'a> {
         self.render_static_value(resolved_id)
     }
 
-    fn is_supported_for_of_array_iteration_item(&mut self, id: LirNodeId) -> bool {
+    pub(crate) fn is_supported_for_of_array_iteration_item(&mut self, id: LirNodeId) -> bool {
         let Some(resolved_id) = self.resolve_literal_aggregate(id) else {
             return false;
         };
@@ -9255,12 +9255,12 @@ impl<'a> FunctionEmitter<'a> {
         false
     }
 
-    fn for_of_binding_name(&self, node: &LirNode) -> Option<String> {
+    pub(crate) fn for_of_binding_name(&self, node: &LirNode) -> Option<String> {
         let left = node.children.first().copied()?;
         self.for_of_binding_name_from_node(left)
     }
 
-    fn for_of_binding_name_from_node(&self, id: LirNodeId) -> Option<String> {
+    pub(crate) fn for_of_binding_name_from_node(&self, id: LirNodeId) -> Option<String> {
         let node = self.node(id);
         if node.children.is_empty() {
             return node.text.clone();
@@ -9283,7 +9283,7 @@ impl<'a> FunctionEmitter<'a> {
         None
     }
 
-    fn emit_branch(
+    pub(crate) fn emit_branch(
         &mut self,
         function: &mut Function,
         node: &LirNode,
@@ -9354,7 +9354,7 @@ impl<'a> FunctionEmitter<'a> {
     }
 }
 
-fn generator_lowering_unavailable_message(function_plans: &[FunctionPlan]) -> &'static str {
+pub(crate) fn generator_lowering_unavailable_message(function_plans: &[FunctionPlan]) -> &'static str {
     let has_generator = function_plans
         .iter()
         .any(|plan| matches!(plan.flavor, Some(FunctionFlavor::Generator)));
@@ -9679,14 +9679,14 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     }
 }
 
-fn collect_functions(lir: &LirProgram) -> Vec<FunctionPlan> {
+pub(crate) fn collect_functions(lir: &LirProgram) -> Vec<FunctionPlan> {
     let mut plans = Vec::new();
     let mut visited = HashSet::new();
     collect_functions_from_node(lir, lir.root, &mut visited, &mut plans);
     plans
 }
 
-fn program_uses_env_get(lir: &LirProgram) -> bool {
+pub(crate) fn program_uses_env_get(lir: &LirProgram) -> bool {
     lir.nodes.iter().any(|node| {
         if node.kind != LirNodeKind::Call {
             return false;
@@ -9729,7 +9729,7 @@ fn program_uses_env_get(lir: &LirProgram) -> bool {
     })
 }
 
-fn program_uses_env_has(lir: &LirProgram) -> bool {
+pub(crate) fn program_uses_env_has(lir: &LirProgram) -> bool {
     lir.nodes.iter().any(|node| {
         if node.kind != LirNodeKind::Call {
             return false;
@@ -9772,7 +9772,7 @@ fn program_uses_env_has(lir: &LirProgram) -> bool {
     })
 }
 
-fn is_process_root(nodes: &[LirNode], id: LirNodeId) -> bool {
+pub(crate) fn is_process_root(nodes: &[LirNode], id: LirNodeId) -> bool {
     let Some(node) = nodes.get(id.0 as usize) else {
         return false;
     };
@@ -9789,7 +9789,7 @@ fn is_process_root(nodes: &[LirNode], id: LirNodeId) -> bool {
         })
 }
 
-fn process_env_property_key(nodes: &[LirNode], id: LirNodeId) -> Option<String> {
+pub(crate) fn process_env_property_key(nodes: &[LirNode], id: LirNodeId) -> Option<String> {
     let node = nodes.get(id.0 as usize)?;
     let key = node.text.as_deref()?;
     let object = node.children.first().copied()?;
@@ -9805,7 +9805,7 @@ fn process_env_property_key(nodes: &[LirNode], id: LirNodeId) -> Option<String> 
     Some(key.to_string())
 }
 
-fn program_uses_env_set(lir: &LirProgram) -> bool {
+pub(crate) fn program_uses_env_set(lir: &LirProgram) -> bool {
     lir.nodes.iter().any(|node| {
         if node.kind == LirNodeKind::Value
             && node.text.as_deref() == Some("=")
@@ -9856,7 +9856,7 @@ fn program_uses_env_set(lir: &LirProgram) -> bool {
     })
 }
 
-fn program_uses_env_delete(lir: &LirProgram) -> bool {
+pub(crate) fn program_uses_env_delete(lir: &LirProgram) -> bool {
     lir.nodes.iter().any(|node| {
         if node.kind == LirNodeKind::Value
             && node.text.as_deref() == Some("delete")
@@ -9907,7 +9907,7 @@ fn program_uses_env_delete(lir: &LirProgram) -> bool {
     })
 }
 
-fn program_uses_cwd_set(lir: &LirProgram) -> bool {
+pub(crate) fn program_uses_cwd_set(lir: &LirProgram) -> bool {
     lir.nodes.iter().any(|node| {
         if node.kind != LirNodeKind::Call {
             return false;
@@ -9940,7 +9940,7 @@ fn program_uses_cwd_set(lir: &LirProgram) -> bool {
     })
 }
 
-fn program_uses_process_exit(lir: &LirProgram) -> bool {
+pub(crate) fn program_uses_process_exit(lir: &LirProgram) -> bool {
     lir.nodes.iter().any(|node| {
         if node.kind != LirNodeKind::Call {
             return false;
@@ -9974,7 +9974,7 @@ fn program_uses_process_exit(lir: &LirProgram) -> bool {
     })
 }
 
-fn collect_functions_from_node(
+pub(crate) fn collect_functions_from_node(
     lir: &LirProgram,
     id: LirNodeId,
     visited: &mut HashSet<LirNodeId>,
@@ -9997,7 +9997,7 @@ fn collect_functions_from_node(
     }
 }
 
-fn function_plan(nodes: &[LirNode], id: LirNodeId) -> Option<FunctionPlan> {
+pub(crate) fn function_plan(nodes: &[LirNode], id: LirNodeId) -> Option<FunctionPlan> {
     let node = nodes.get(id.0 as usize)?;
     if node.kind != LirNodeKind::Instruction {
         return None;
@@ -10033,18 +10033,18 @@ fn function_plan(nodes: &[LirNode], id: LirNodeId) -> Option<FunctionPlan> {
     })
 }
 
-fn is_function_like(nodes: &[LirNode], id: LirNodeId) -> bool {
+pub(crate) fn is_function_like(nodes: &[LirNode], id: LirNodeId) -> bool {
     function_plan(nodes, id).is_some()
 }
 
-fn collect_function_locals(nodes: &[LirNode], body_id: LirNodeId) -> Vec<String> {
+pub(crate) fn collect_function_locals(nodes: &[LirNode], body_id: LirNodeId) -> Vec<String> {
     let mut locals = Vec::new();
     let mut seen = HashSet::new();
     collect_function_locals_from_node(nodes, body_id, &mut seen, &mut locals);
     locals
 }
 
-fn collect_function_locals_from_node(
+pub(crate) fn collect_function_locals_from_node(
     nodes: &[LirNode],
     id: LirNodeId,
     seen: &mut HashSet<LirNodeId>,
@@ -10080,7 +10080,7 @@ fn collect_function_locals_from_node(
     }
 }
 
-fn top_level_children(lir: &LirProgram) -> Vec<LirNodeId> {
+pub(crate) fn top_level_children(lir: &LirProgram) -> Vec<LirNodeId> {
     let mut children = Vec::new();
     if let Some(root) = lir.nodes.get(lir.root.0 as usize) {
         for child in &root.children {
@@ -10092,7 +10092,7 @@ fn top_level_children(lir: &LirProgram) -> Vec<LirNodeId> {
     children
 }
 
-fn emit_literal(
+pub(crate) fn emit_literal(
     function: &mut Function,
     text: Option<&str>,
     strings: &mut StringPool,
@@ -10142,11 +10142,11 @@ fn emit_literal(
     }
 }
 
-fn encode_string_handle(offset: u32, len: u32) -> i64 {
+pub(crate) fn encode_string_handle(offset: u32, len: u32) -> i64 {
     (STRING_HANDLE_TAG | ((offset as u64) << 32) | u64::from(len)) as i64
 }
 
-fn quote_string_literal(value: &str) -> String {
+pub(crate) fn quote_string_literal(value: &str) -> String {
     let mut quoted = String::with_capacity(value.len() + 2);
     quoted.push('"');
     for ch in value.chars() {
@@ -10163,7 +10163,7 @@ fn quote_string_literal(value: &str) -> String {
     quoted
 }
 
-fn semver_min_version(range: &str) -> Option<String> {
+pub(crate) fn semver_min_version(range: &str) -> Option<String> {
     let trimmed = range.trim();
     let candidate = trimmed
         .trim_start_matches(|c: char| {
@@ -10176,7 +10176,7 @@ fn semver_min_version(range: &str) -> Option<String> {
         .map(|version| version.to_string())
 }
 
-fn strip_string_delimiters(text: &str) -> &str {
+pub(crate) fn strip_string_delimiters(text: &str) -> &str {
     let trimmed = text.trim();
     let Some(first) = trimmed.chars().next() else {
         return trimmed;
@@ -10195,25 +10195,25 @@ fn strip_string_delimiters(text: &str) -> &str {
     }
 }
 
-fn parse_number_literal(text: &str) -> Option<i64> {
+pub(crate) fn parse_number_literal(text: &str) -> Option<i64> {
     if let Some(stripped) = text.strip_suffix('n') {
         return stripped.parse::<i64>().ok();
     }
     text.parse::<i64>().ok()
 }
 
-fn parse_numeric_literal_value(text: &str) -> Option<f64> {
+pub(crate) fn parse_numeric_literal_value(text: &str) -> Option<f64> {
     if let Some(stripped) = text.strip_suffix('n') {
         return stripped.parse::<f64>().ok();
     }
     text.parse::<f64>().ok()
 }
 
-fn is_supported_static_ascii_char_code(value: f64) -> bool {
+pub(crate) fn is_supported_static_ascii_char_code(value: f64) -> bool {
     value.is_finite() && value.fract() == 0.0 && (0.0..=127.0).contains(&value)
 }
 
-fn static_parse_float_ascii_integer(source: &str) -> Option<i64> {
+pub(crate) fn static_parse_float_ascii_integer(source: &str) -> Option<i64> {
     if !source.is_ascii() {
         return None;
     }
@@ -10274,7 +10274,7 @@ fn static_parse_float_ascii_integer(source: &str) -> Option<i64> {
     Some(value as i64)
 }
 
-fn static_parse_int_ascii(source: &str, radix: u32) -> Option<i64> {
+pub(crate) fn static_parse_int_ascii(source: &str, radix: u32) -> Option<i64> {
     if !source.is_ascii() || !(radix == 0 || (2..=36).contains(&radix)) {
         return None;
     }
