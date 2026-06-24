@@ -2681,7 +2681,7 @@ pub(crate) fn fold_unary(op: &str, value: ConstantValue) -> Option<ConstantValue
 }
 
 pub(crate) fn fold_binary(op: &str, left: ConstantValue, right: ConstantValue) -> Option<ConstantValue> {
-    pub(crate) fn as_number(value: ConstantValue) -> Option<i64> {
+    fn as_number(value: ConstantValue) -> Option<i64> {
         match value {
             ConstantValue::Number(value) => Some(value),
             ConstantValue::NegativeZero => Some(0),
