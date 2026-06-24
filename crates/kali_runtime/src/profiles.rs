@@ -90,3 +90,7 @@ pub(crate) fn parse_optional_runtime_backend_label(
 
     parse_runtime_backend_label(label)
 }
+
+#[cfg(test)]
+#[path = "profiles_tests.rs"]
+mod profiles_tests;
