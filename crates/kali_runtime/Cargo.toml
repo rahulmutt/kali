@@ -18,5 +18,6 @@ url = { workspace = true }
 tempfile = "3.10"
 
 [dev-dependencies]
+kali_test_support = { workspace = true }
 wat = "1"
 tempfile = "3.10"
