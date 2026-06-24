@@ -1,9 +1,8 @@
-use crate::*;
 use crate::lower::collect_functions;
 use crate::test_support::*;
-use wasmparser::Validator;
-use kali_mir;
+use crate::*;
 use kali_test_support::fixtures::{tempdir, write_file};
+use wasmparser::Validator;
 
 #[test]
 fn generates_valid_wasm_for_simple_programs() {
@@ -2937,7 +2936,11 @@ fn source_path_in_temp_dir_attaches_to_unresolved_identifier_diagnostics() {
     // through to diagnostics so downstream tooling knows where the file lives.
     let dir = tempdir();
     let src = write_file(dir.path(), "index.ts", "missing_var;");
-    let _pkg = write_file(dir.path(), "package.json", r#"{"name":"smoke","version":"1.2.3"}"#);
+    let _pkg = write_file(
+        dir.path(),
+        "package.json",
+        r#"{"name":"smoke","version":"1.2.3"}"#,
+    );
 
     let program = parse_and_lower_lir("missing_var;");
     let mut ctx = CodegenCtx::new(TargetConfig {
@@ -2952,9 +2955,10 @@ fn source_path_in_temp_dir_attaches_to_unresolved_identifier_diagnostics() {
     // source path from the temp directory.
     let src_str = src.to_string_lossy();
     assert!(
-        result.diagnostics.iter().any(|d| {
-            d.notes.iter().any(|note| note.contains(src_str.as_ref()))
-        }),
+        result
+            .diagnostics
+            .iter()
+            .any(|d| { d.notes.iter().any(|note| note.contains(src_str.as_ref())) }),
         "expected a diagnostic containing the tempdir source path {:?}; got: {:?}",
         src,
         result.diagnostics

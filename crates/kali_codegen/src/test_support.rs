@@ -151,8 +151,12 @@ pub(crate) fn wasm_instruction_count(bytes: &[u8]) -> usize {
 /// `lir!(root: 0, nodes: [ (LirNodeKind::Program, None, vec![1]), (LirNodeKind::Value, Some("a"), vec![]) ])`
 macro_rules! lir {
     (root: $root:expr, nodes: [ $( ($kind:expr, $text:expr, $children:expr) ),* $(,)? ]) => {{
-        let mut nodes = Vec::new();
-        $( nodes.push($crate::test_support::node($kind, $text, $children)); )*
+        #[allow(clippy::vec_init_then_push)]
+        let nodes = {
+            let mut nodes = Vec::new();
+            $( nodes.push($crate::test_support::node($kind, $text, $children)); )*
+            nodes
+        };
         $crate::LirProgram { root: $crate::LirNodeId($root), nodes }
     }};
 }
