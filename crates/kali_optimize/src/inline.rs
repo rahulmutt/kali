@@ -175,7 +175,11 @@ impl Optimizer {
         true
     }
 
-    pub(crate) fn function_summary(&self, program: &LirProgram, id: LirNodeId) -> Option<FunctionSummary> {
+    pub(crate) fn function_summary(
+        &self,
+        program: &LirProgram,
+        id: LirNodeId,
+    ) -> Option<FunctionSummary> {
         let node = program.nodes.get(id.0 as usize)?;
         if node.kind != LirNodeKind::Instruction {
             return None;
@@ -219,7 +223,11 @@ impl Optimizer {
         })
     }
 
-    pub(crate) fn extract_inline_body(&self, program: &LirProgram, block_id: LirNodeId) -> Option<LirNodeId> {
+    pub(crate) fn extract_inline_body(
+        &self,
+        program: &LirProgram,
+        block_id: LirNodeId,
+    ) -> Option<LirNodeId> {
         let block = program.nodes.get(block_id.0 as usize)?;
         if block.kind != LirNodeKind::Block || block.children.len() != 1 {
             return None;
@@ -250,7 +258,12 @@ impl Optimizer {
         count
     }
 
-    pub(crate) fn contains_call_target(&self, program: &LirProgram, id: LirNodeId, target: &str) -> bool {
+    pub(crate) fn contains_call_target(
+        &self,
+        program: &LirProgram,
+        id: LirNodeId,
+        target: &str,
+    ) -> bool {
         let mut targets = BTreeSet::new();
         self.collect_call_targets(program, id, &mut targets);
         targets.contains(target)
@@ -425,7 +438,6 @@ impl Optimizer {
                     .is_empty()
         })
     }
-
 }
 
 #[derive(Clone, Debug)]

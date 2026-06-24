@@ -13,7 +13,11 @@ impl Optimizer {
         new_id
     }
 
-    pub(crate) fn member_access_name(&self, program: &LirProgram, node: &LirNode) -> Option<String> {
+    pub(crate) fn member_access_name(
+        &self,
+        program: &LirProgram,
+        node: &LirNode,
+    ) -> Option<String> {
         if self.is_object_freeze_call(program, node) {
             let inner = node.children.get(1).copied()?;
             let inner = program.nodes.get(inner.0 as usize)?;
@@ -77,7 +81,11 @@ impl Optimizer {
         canonical
     }
 
-    pub(crate) fn constant_property_key(&self, program: &LirProgram, id: LirNodeId) -> Option<String> {
+    pub(crate) fn constant_property_key(
+        &self,
+        program: &LirProgram,
+        id: LirNodeId,
+    ) -> Option<String> {
         Some(literal_text(literal_value(program, id)?))
     }
 
@@ -93,7 +101,11 @@ impl Optimizer {
         new_id
     }
 
-    pub(crate) fn push_array_literal(&self, program: &mut LirProgram, elements: Vec<LirNodeId>) -> LirNodeId {
+    pub(crate) fn push_array_literal(
+        &self,
+        program: &mut LirProgram,
+        elements: Vec<LirNodeId>,
+    ) -> LirNodeId {
         let new_id = LirNodeId(program.nodes.len() as u32);
         program.nodes.push(LirNode {
             kind: LirNodeKind::Value,
@@ -141,7 +153,6 @@ impl Optimizer {
         let value = normalized.parse::<u64>().ok()?;
         (value < u32::MAX as u64).then_some(value)
     }
-
 }
 
 pub(crate) fn node_signature(program: &LirProgram, id: LirNodeId) -> String {

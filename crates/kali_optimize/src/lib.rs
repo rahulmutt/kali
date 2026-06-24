@@ -26,8 +26,8 @@ pub(crate) use inline::*;
 mod object_fold;
 pub(crate) use object_fold::*;
 
-mod layout;
 mod helpers;
+mod layout;
 pub(crate) use helpers::*;
 
 use kali_lir::{LirNode, LirNodeId, LirNodeKind, LirProgram};

@@ -342,7 +342,11 @@ impl Optimizer {
         )
     }
 
-    pub(crate) fn collect_constant_bindings(&self, program: &LirProgram, id: LirNodeId) -> BindingEnv {
+    pub(crate) fn collect_constant_bindings(
+        &self,
+        program: &LirProgram,
+        id: LirNodeId,
+    ) -> BindingEnv {
         let mut env = BindingEnv::default();
         self.collect_constant_bindings_into(program, id, &mut env);
         env

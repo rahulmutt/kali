@@ -381,7 +381,11 @@ impl Optimizer {
         new_id
     }
 
-    pub(crate) fn specialized_function_name(&self, callee_name: &str, signature_parts: &[String]) -> String {
+    pub(crate) fn specialized_function_name(
+        &self,
+        callee_name: &str,
+        signature_parts: &[String],
+    ) -> String {
         let mut hash = 0xcbf29ce484222325u64;
         let signature = signature_parts.join("|");
         for byte in signature.as_bytes() {
@@ -743,7 +747,11 @@ impl MirSpecializationPlan {
             })
     }
 
-    pub(crate) fn parameter_layout_any(&self, function: &str, index: usize) -> Option<MirLayoutSignature> {
+    pub(crate) fn parameter_layout_any(
+        &self,
+        function: &str,
+        index: usize,
+    ) -> Option<MirLayoutSignature> {
         self.parameter_layouts
             .get(function)
             .and_then(|layouts| layouts.get(index).cloned())

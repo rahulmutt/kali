@@ -117,7 +117,11 @@ impl Optimizer {
         node.children.get(index).copied()
     }
 
-    pub(crate) fn array_literal_length(&self, program: &LirProgram, id: LirNodeId) -> Option<usize> {
+    pub(crate) fn array_literal_length(
+        &self,
+        program: &LirProgram,
+        id: LirNodeId,
+    ) -> Option<usize> {
         if !self.is_array_literal(program, id) {
             return None;
         }
