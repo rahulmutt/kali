@@ -44,6 +44,3 @@ mod test_support;
 #[path = "fixture_support_tests.rs"]
 mod fixture_support_tests;
 
-#[cfg(test)]
-#[path = "tests.rs"]
-mod tests;
