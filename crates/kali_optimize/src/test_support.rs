@@ -41,7 +41,11 @@ pub(crate) fn build_hot_add_program() -> (LirProgram, LirNodeId) {
     )
 }
 
-pub(crate) fn build_short_circuit_program(operator: &str, left: &str, right: &str) -> (LirProgram, LirNodeId) {
+pub(crate) fn build_short_circuit_program(
+    operator: &str,
+    left: &str,
+    right: &str,
+) -> (LirProgram, LirNodeId) {
     let mut builder = LirBuilder::new();
     let root = builder.alloc(LirNodeKind::Program);
     let node = builder.alloc_text(LirNodeKind::Value, operator);
@@ -59,7 +63,10 @@ pub(crate) fn build_short_circuit_program(operator: &str, left: &str, right: &st
     )
 }
 
-pub(crate) fn build_object_enumeration_call(builder: &mut LirBuilder, callee_name: &str) -> LirNodeId {
+pub(crate) fn build_object_enumeration_call(
+    builder: &mut LirBuilder,
+    callee_name: &str,
+) -> LirNodeId {
     let call = builder.alloc(LirNodeKind::Call);
     let callee = builder.alloc_text(LirNodeKind::Value, callee_name);
     let object_object = builder.alloc_text(LirNodeKind::Value, "Object");
@@ -282,7 +289,10 @@ pub(crate) fn build_reflect_own_keys_call(builder: &mut LirBuilder) -> LirNodeId
     call
 }
 
-pub(crate) fn build_bracketed_reflect_own_keys_call(builder: &mut LirBuilder, callee_name: &str) -> LirNodeId {
+pub(crate) fn build_bracketed_reflect_own_keys_call(
+    builder: &mut LirBuilder,
+    callee_name: &str,
+) -> LirNodeId {
     let call = builder.alloc(LirNodeKind::Call);
     let callee = builder.alloc_text(LirNodeKind::Value, callee_name);
     let reflect = builder.alloc_text(LirNodeKind::Value, r#"["Reflect"]"#);
@@ -352,7 +362,10 @@ pub(crate) fn build_object_freeze_call(builder: &mut LirBuilder, argument: LirNo
     call
 }
 
-pub(crate) fn build_object_has_own_callee(builder: &mut LirBuilder, callee_name: &str) -> LirNodeId {
+pub(crate) fn build_object_has_own_callee(
+    builder: &mut LirBuilder,
+    callee_name: &str,
+) -> LirNodeId {
     let callee = builder.alloc_text(LirNodeKind::Value, callee_name);
     let object_object = builder.alloc_text(LirNodeKind::Value, "Object");
     builder.node_mut(callee).unwrap().children = vec![object_object];
@@ -387,7 +400,10 @@ pub(crate) fn build_object_has_own_call(builder: &mut LirBuilder, callee_name: &
     call
 }
 
-pub(crate) fn build_bracketed_object_has_own_call(builder: &mut LirBuilder, callee_name: &str) -> LirNodeId {
+pub(crate) fn build_bracketed_object_has_own_call(
+    builder: &mut LirBuilder,
+    callee_name: &str,
+) -> LirNodeId {
     let call = builder.alloc(LirNodeKind::Call);
     let callee = builder.alloc_text(LirNodeKind::Value, callee_name);
     let object_object = builder.alloc_text(LirNodeKind::Value, r#"["Object"]"#);
@@ -461,7 +477,9 @@ pub(crate) fn build_const_bound_object_has_own_call(
     (const_decl, alias_decl, call)
 }
 
-pub(crate) fn build_const_bound_reflect_own_keys_call(builder: &mut LirBuilder) -> (LirNodeId, LirNodeId) {
+pub(crate) fn build_const_bound_reflect_own_keys_call(
+    builder: &mut LirBuilder,
+) -> (LirNodeId, LirNodeId) {
     let const_decl = builder.alloc_text(LirNodeKind::Instruction, "const");
     let declarator = builder.alloc_text(LirNodeKind::Instruction, "point");
     let binding_name = builder.alloc_text(LirNodeKind::Value, "point");
