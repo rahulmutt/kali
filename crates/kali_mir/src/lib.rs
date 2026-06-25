@@ -42,7 +42,7 @@ pub struct ThreadBoundaryProfile {
 }
 
 impl ThreadBoundaryProfile {
-    fn push_binding(&mut self, scope: impl Into<String>, binding: &MirBinding) {
+    pub(crate) fn push_binding(&mut self, scope: impl Into<String>, binding: &MirBinding) {
         self.bindings.push(ThreadBoundaryBinding {
             scope: scope.into(),
             name: binding.name.clone(),
@@ -50,7 +50,7 @@ impl ThreadBoundaryProfile {
         });
     }
 
-    fn finalize(self) -> Self {
+    pub(crate) fn finalize(self) -> Self {
         let mut merged: BTreeMap<(String, String), ThreadBoundaryDisposition> = BTreeMap::new();
         for binding in self.bindings {
             let key = (binding.scope, binding.name);
@@ -142,7 +142,7 @@ pub enum LayoutDescriptor {
 }
 
 impl LayoutDescriptor {
-    fn scalar(name: impl Into<String>) -> Self {
+    pub(crate) fn scalar(name: impl Into<String>) -> Self {
         Self::Scalar(name.into())
     }
 
@@ -372,7 +372,7 @@ impl MirNode {
 /// MIR builder.
 #[derive(Default)]
 pub struct MirBuilder {
-    nodes: Vec<MirNode>,
+    pub(crate) nodes: Vec<MirNode>,
 }
 
 impl MirBuilder {
@@ -662,25 +662,25 @@ fn map_kind(kind: &HirNodeKind) -> MirNodeKind {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum UseContext {
+pub(crate) enum UseContext {
     Normal,
     Return,
     Escape,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct BindingState {
-    name: String,
-    kind: MirBindingKind,
-    ownership: OwnershipClass,
-    layout: LayoutDescriptor,
-    returned: bool,
-    escaped_via_flow: bool,
-    captured_by: BTreeSet<String>,
+pub(crate) struct BindingState {
+    pub(crate) name: String,
+    pub(crate) kind: MirBindingKind,
+    pub(crate) ownership: OwnershipClass,
+    pub(crate) layout: LayoutDescriptor,
+    pub(crate) returned: bool,
+    pub(crate) escaped_via_flow: bool,
+    pub(crate) captured_by: BTreeSet<String>,
 }
 
 impl BindingState {
-    fn new(name: impl Into<String>, kind: MirBindingKind, layout: LayoutDescriptor) -> Self {
+    pub(crate) fn new(name: impl Into<String>, kind: MirBindingKind, layout: LayoutDescriptor) -> Self {
         Self {
             name: name.into(),
             kind,
@@ -693,7 +693,7 @@ impl BindingState {
     }
 }
 
-fn default_ownership(kind: MirBindingKind) -> OwnershipClass {
+pub(crate) fn default_ownership(kind: MirBindingKind) -> OwnershipClass {
     match kind {
         MirBindingKind::Parameter => OwnershipClass::Borrowed,
         MirBindingKind::Function => OwnershipClass::Stack,
@@ -702,7 +702,7 @@ fn default_ownership(kind: MirBindingKind) -> OwnershipClass {
     }
 }
 
-fn parameter_escape_flags(function: &MirFunction) -> Vec<bool> {
+pub(crate) fn parameter_escape_flags(function: &MirFunction) -> Vec<bool> {
     function
         .bindings
         .iter()
@@ -711,7 +711,7 @@ fn parameter_escape_flags(function: &MirFunction) -> Vec<bool> {
         .collect()
 }
 
-fn function_binding_escapes(
+pub(crate) fn function_binding_escapes(
     bindings: &[BindingState],
     name: &str,
     cache: &mut BTreeMap<String, bool>,
@@ -743,7 +743,7 @@ fn function_binding_escapes(
     escapes
 }
 
-fn finalise_binding(
+pub(crate) fn finalise_binding(
     binding: BindingState,
     scope_bindings: &[BindingState],
     capture_escape_cache: &mut BTreeMap<String, bool>,
@@ -786,18 +786,18 @@ fn finalise_binding(
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct ScopeState {
-    label: String,
-    kind: MirFunctionKind,
-    function_flavor: Option<FunctionFlavor>,
-    bindings: Vec<BindingState>,
-    binding_index: BTreeMap<String, usize>,
-    function_aliases: BTreeMap<String, String>,
-    captured_bindings: BTreeSet<String>,
+pub(crate) struct ScopeState {
+    pub(crate) label: String,
+    pub(crate) kind: MirFunctionKind,
+    pub(crate) function_flavor: Option<FunctionFlavor>,
+    pub(crate) bindings: Vec<BindingState>,
+    pub(crate) binding_index: BTreeMap<String, usize>,
+    pub(crate) function_aliases: BTreeMap<String, String>,
+    pub(crate) captured_bindings: BTreeSet<String>,
 }
 
 impl ScopeState {
-    fn new(
+    pub(crate) fn new(
         label: impl Into<String>,
         kind: MirFunctionKind,
         function_flavor: Option<FunctionFlavor>,
@@ -813,7 +813,7 @@ impl ScopeState {
         }
     }
 
-    fn define(&mut self, name: impl Into<String>, kind: MirBindingKind, layout: LayoutDescriptor) {
+    pub(crate) fn define(&mut self, name: impl Into<String>, kind: MirBindingKind, layout: LayoutDescriptor) {
         let name = name.into();
         let binding = BindingState::new(name.clone(), kind, layout);
         if let Some(index) = self.binding_index.get(&name).copied() {
@@ -825,16 +825,16 @@ impl ScopeState {
         }
     }
 
-    fn get_binding_index(&self, name: &str) -> Option<usize> {
+    pub(crate) fn get_binding_index(&self, name: &str) -> Option<usize> {
         self.binding_index.get(name).copied()
     }
 
-    fn get_binding_mut(&mut self, name: &str) -> Option<&mut BindingState> {
+    pub(crate) fn get_binding_mut(&mut self, name: &str) -> Option<&mut BindingState> {
         let index = self.get_binding_index(name)?;
         self.bindings.get_mut(index)
     }
 
-    fn alias_function(
+    pub(crate) fn alias_function(
         &mut self,
         binding_name: impl Into<String>,
         function_name: impl Into<String>,
@@ -843,11 +843,11 @@ impl ScopeState {
             .insert(binding_name.into(), function_name.into());
     }
 
-    fn capture_binding(&mut self, name: impl Into<String>) {
+    pub(crate) fn capture_binding(&mut self, name: impl Into<String>) {
         self.captured_bindings.insert(name.into());
     }
 
-    fn finalize(self) -> MirFunction {
+    pub(crate) fn finalize(self) -> MirFunction {
         let ScopeState {
             label,
             kind,
@@ -894,16 +894,16 @@ impl ScopeState {
     }
 }
 
-struct OwnershipAnalyzer<'a> {
-    nodes: &'a [HirNode],
-    function_flavors: &'a [(HirNodeId, FunctionFlavor)],
-    functions: Vec<MirFunction>,
-    scope_stack: Vec<ScopeState>,
-    synthetic_function_counter: usize,
+pub(crate) struct OwnershipAnalyzer<'a> {
+    pub(crate) nodes: &'a [HirNode],
+    pub(crate) function_flavors: &'a [(HirNodeId, FunctionFlavor)],
+    pub(crate) functions: Vec<MirFunction>,
+    pub(crate) scope_stack: Vec<ScopeState>,
+    pub(crate) synthetic_function_counter: usize,
 }
 
 impl<'a> OwnershipAnalyzer<'a> {
-    fn new(nodes: &'a [HirNode], function_flavors: &'a [(HirNodeId, FunctionFlavor)]) -> Self {
+    pub(crate) fn new(nodes: &'a [HirNode], function_flavors: &'a [(HirNodeId, FunctionFlavor)]) -> Self {
         Self {
             nodes,
             function_flavors,
@@ -913,7 +913,7 @@ impl<'a> OwnershipAnalyzer<'a> {
         }
     }
 
-    fn analyze_program(mut self, root: HirNodeId) -> Vec<MirFunction> {
+    pub(crate) fn analyze_program(mut self, root: HirNodeId) -> Vec<MirFunction> {
         self.push_scope("<module>", MirFunctionKind::Module, None);
         self.precollect_scope_bindings(root);
         self.walk_scope_node(root, UseContext::Normal);
@@ -921,7 +921,7 @@ impl<'a> OwnershipAnalyzer<'a> {
         self.functions
     }
 
-    fn push_scope(
+    pub(crate) fn push_scope(
         &mut self,
         label: impl Into<String>,
         kind: MirFunctionKind,
@@ -931,35 +931,35 @@ impl<'a> OwnershipAnalyzer<'a> {
             .push(ScopeState::new(label, kind, function_flavor));
     }
 
-    fn pop_scope_and_record(&mut self) {
+    pub(crate) fn pop_scope_and_record(&mut self) {
         if let Some(scope) = self.scope_stack.pop() {
             self.functions.push(scope.finalize());
         }
     }
 
-    fn current_scope_label(&self) -> String {
+    pub(crate) fn current_scope_label(&self) -> String {
         self.scope_stack
             .last()
             .map(|scope| scope.label.clone())
             .unwrap_or_else(|| "<module>".to_string())
     }
 
-    fn current_scope_index(&self) -> usize {
+    pub(crate) fn current_scope_index(&self) -> usize {
         self.scope_stack.len().saturating_sub(1)
     }
 
-    fn current_scope_mut(&mut self) -> Option<&mut ScopeState> {
+    pub(crate) fn current_scope_mut(&mut self) -> Option<&mut ScopeState> {
         self.scope_stack.last_mut()
     }
 
-    fn function_flavor(&self, node_id: HirNodeId) -> Option<FunctionFlavor> {
+    pub(crate) fn function_flavor(&self, node_id: HirNodeId) -> Option<FunctionFlavor> {
         self.function_flavors
             .iter()
             .find(|(id, _)| *id == node_id)
             .map(|(_, flavor)| *flavor)
     }
 
-    fn precollect_scope_bindings(&mut self, node_id: HirNodeId) {
+    pub(crate) fn precollect_scope_bindings(&mut self, node_id: HirNodeId) {
         let node = &self.nodes[node_id.0 as usize];
         match node.kind {
             HirNodeKind::Program | HirNodeKind::Block => {
@@ -1025,13 +1025,13 @@ impl<'a> OwnershipAnalyzer<'a> {
         }
     }
 
-    fn define_binding(&mut self, name: String, kind: MirBindingKind, layout: LayoutDescriptor) {
+    pub(crate) fn define_binding(&mut self, name: String, kind: MirBindingKind, layout: LayoutDescriptor) {
         if let Some(scope) = self.current_scope_mut() {
             scope.define(name, kind, layout);
         }
     }
 
-    fn collect_import_bindings(&mut self, node_id: HirNodeId) {
+    pub(crate) fn collect_import_bindings(&mut self, node_id: HirNodeId) {
         let node = &self.nodes[node_id.0 as usize];
         match node.kind {
             HirNodeKind::Ident => {
@@ -1052,7 +1052,7 @@ impl<'a> OwnershipAnalyzer<'a> {
         }
     }
 
-    fn walk_scope_node(&mut self, node_id: HirNodeId, context: UseContext) {
+    pub(crate) fn walk_scope_node(&mut self, node_id: HirNodeId, context: UseContext) {
         let node = &self.nodes[node_id.0 as usize];
         let kind = node.kind.clone();
         let text = node.text.clone();
@@ -1303,7 +1303,7 @@ impl<'a> OwnershipAnalyzer<'a> {
         }
     }
 
-    fn resolve_use(&mut self, name: &str, context: UseContext) {
+    pub(crate) fn resolve_use(&mut self, name: &str, context: UseContext) {
         let Some((scope_index, binding_index)) = self.resolve_binding(name) else {
             return;
         };
@@ -1347,7 +1347,7 @@ impl<'a> OwnershipAnalyzer<'a> {
         }
     }
 
-    fn resolve_binding(&self, name: &str) -> Option<(usize, usize)> {
+    pub(crate) fn resolve_binding(&self, name: &str) -> Option<(usize, usize)> {
         for (scope_index, scope) in self.scope_stack.iter().enumerate().rev() {
             if let Some(binding_index) = scope.get_binding_index(name) {
                 return Some((scope_index, binding_index));
@@ -1356,7 +1356,7 @@ impl<'a> OwnershipAnalyzer<'a> {
         None
     }
 
-    fn infer_layout(&self, node_id: HirNodeId) -> LayoutDescriptor {
+    pub(crate) fn infer_layout(&self, node_id: HirNodeId) -> LayoutDescriptor {
         let node = &self.nodes[node_id.0 as usize];
         match node.kind {
             HirNodeKind::Literal => match node.text.as_deref() {
@@ -1437,7 +1437,7 @@ impl<'a> OwnershipAnalyzer<'a> {
         }
     }
 
-    fn infer_binary_layout(&self, node: &HirNode) -> LayoutDescriptor {
+    pub(crate) fn infer_binary_layout(&self, node: &HirNode) -> LayoutDescriptor {
         let op = node.text.as_deref().unwrap_or_default();
         match op {
             "+" | "-" | "*" | "/" | "%" | "**" => LayoutDescriptor::scalar("number"),
@@ -1448,7 +1448,7 @@ impl<'a> OwnershipAnalyzer<'a> {
         }
     }
 
-    fn infer_unary_layout(&self, node: &HirNode) -> LayoutDescriptor {
+    pub(crate) fn infer_unary_layout(&self, node: &HirNode) -> LayoutDescriptor {
         match node.text.as_deref().unwrap_or_default() {
             "!" => LayoutDescriptor::scalar("bool"),
             "-" | "+" | "~" => LayoutDescriptor::scalar("number"),
@@ -1456,7 +1456,7 @@ impl<'a> OwnershipAnalyzer<'a> {
         }
     }
 
-    fn resolve_binding_layout(&self, name: &str) -> Option<LayoutDescriptor> {
+    pub(crate) fn resolve_binding_layout(&self, name: &str) -> Option<LayoutDescriptor> {
         for scope in self.scope_stack.iter().rev() {
             if let Some(index) = scope.get_binding_index(name) {
                 return scope
@@ -1468,7 +1468,7 @@ impl<'a> OwnershipAnalyzer<'a> {
         None
     }
 
-    fn function_parameter_escape_flags(&self, name: &str) -> Option<Vec<bool>> {
+    pub(crate) fn function_parameter_escape_flags(&self, name: &str) -> Option<Vec<bool>> {
         self.functions
             .iter()
             .rev()
@@ -1476,7 +1476,7 @@ impl<'a> OwnershipAnalyzer<'a> {
             .map(parameter_escape_flags)
     }
 
-    fn resolve_function_target(&self, name: &str) -> Option<String> {
+    pub(crate) fn resolve_function_target(&self, name: &str) -> Option<String> {
         let mut current = name.to_string();
         let mut seen = BTreeSet::new();
 
@@ -1509,7 +1509,7 @@ impl<'a> OwnershipAnalyzer<'a> {
         }
     }
 
-    fn function_target_from_node(&self, node_id: HirNodeId) -> Option<String> {
+    pub(crate) fn function_target_from_node(&self, node_id: HirNodeId) -> Option<String> {
         let node = &self.nodes[node_id.0 as usize];
         match node.kind {
             HirNodeKind::Ident => node
@@ -1520,14 +1520,14 @@ impl<'a> OwnershipAnalyzer<'a> {
         }
     }
 
-    fn function_name_from_recent_functions(&self, functions_before: usize) -> Option<String> {
+    pub(crate) fn function_name_from_recent_functions(&self, functions_before: usize) -> Option<String> {
         self.functions
             .get(functions_before..)
             .and_then(|functions| functions.last())
             .and_then(|function| function.name.clone())
     }
 
-    fn layout_field_name(&self, node: &HirNode) -> String {
+    pub(crate) fn layout_field_name(&self, node: &HirNode) -> String {
         if let Some(key) = node.children.first() {
             let key_node = &self.nodes[key.0 as usize];
             if let Some(text) = key_node.text.as_ref() {
@@ -1540,7 +1540,7 @@ impl<'a> OwnershipAnalyzer<'a> {
             .unwrap_or_else(|| format!("field_{}", node.children.len()))
     }
 
-    fn object_property_order_key(key: &str) -> Option<u64> {
+    pub(crate) fn object_property_order_key(key: &str) -> Option<u64> {
         let normalized = key.trim_matches('"');
         if normalized.is_empty() || (normalized.len() > 1 && normalized.starts_with('0')) {
             return None;
@@ -1550,13 +1550,13 @@ impl<'a> OwnershipAnalyzer<'a> {
         (value < u32::MAX as u64).then_some(value)
     }
 
-    fn next_function_name(&mut self) -> String {
+    pub(crate) fn next_function_name(&mut self) -> String {
         let name = format!("__kali_fn_{}", self.synthetic_function_counter);
         self.synthetic_function_counter += 1;
         name
     }
 
-    fn is_heap_store_target(&self, node_id: HirNodeId) -> bool {
+    pub(crate) fn is_heap_store_target(&self, node_id: HirNodeId) -> bool {
         matches!(
             self.nodes[node_id.0 as usize].kind,
             HirNodeKind::MemberExpr | HirNodeKind::OptionalChain | HirNodeKind::ChainExpr
