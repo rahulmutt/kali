@@ -71,3 +71,7 @@ impl HirLowerer {
         id
     }
 }
+
+#[cfg(test)]
+#[path = "function_tests.rs"]
+mod function_tests;

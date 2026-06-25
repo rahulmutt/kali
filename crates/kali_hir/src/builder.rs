@@ -46,3 +46,7 @@ impl Default for HirBuilder {
         Self::new()
     }
 }
+
+#[cfg(test)]
+#[path = "builder_tests.rs"]
+mod builder_tests;

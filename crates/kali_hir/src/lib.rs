@@ -17,5 +17,4 @@ pub use node::{HirNode, HirNodeId, HirNodeKind};
 pub use result::{FunctionFlavor, LoweringResult};
 
 #[cfg(test)]
-#[path = "tests.rs"]
-mod tests;
+mod test_support;

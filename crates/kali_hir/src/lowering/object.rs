@@ -42,3 +42,7 @@ impl HirLowerer {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "object_tests.rs"]
+mod object_tests;

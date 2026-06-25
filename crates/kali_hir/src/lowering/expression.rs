@@ -254,3 +254,7 @@ impl HirLowerer {
         id
     }
 }
+
+#[cfg(test)]
+#[path = "expression_tests.rs"]
+mod expression_tests;

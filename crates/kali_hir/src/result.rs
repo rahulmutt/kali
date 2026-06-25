@@ -92,3 +92,7 @@ where
 
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "result_tests.rs"]
+mod result_tests;
