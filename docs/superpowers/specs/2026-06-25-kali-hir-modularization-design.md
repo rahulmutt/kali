@@ -138,6 +138,12 @@ live in a different module after the split:
 - `HirBuilder.nodes` — read directly as `self.builder.nodes.clone()` in
   `lower_statements` (lib.rs:290), which stays in `lowering/mod.rs` while
   `HirBuilder` moves to `builder.rs`. Widens to `pub(crate)`.
+- `HirBuilder.next_id` — read directly as `builder.next_id.0` by the existing
+  `test_hir_builder` (tests.rs:19). `tests.rs` stays wired at the crate root
+  until the final test-relocation step, so once `HirBuilder` moves to
+  `builder.rs` (a crate-root sibling of the test module), the test can no longer
+  reach a private `next_id`. Widens to `pub(crate)` for the duration. (Both
+  `HirBuilder` fields widening is also consistent with the blanket-widen step.)
 
 Per the blanket-widen step, all 4 `HirLowerer` fields (`builder`,
 `diagnostics`, `function_flavors`, `synthetic_function_counter`) widen to
