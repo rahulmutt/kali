@@ -8,12 +8,14 @@ mod builder;
 mod statement;
 mod declaration;
 mod module;
+mod literal;
 
 pub use node::*;
 pub use builder::*;
 pub use statement::*;
 pub use declaration::*;
 pub use module::*;
+pub use literal::*;
 
 // Expression types
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -124,52 +126,6 @@ pub struct MemberExpression {
 }
 
 // ============== MISSING TYPES TO ADD ==============
-
-/// Literal value types for Literal expression
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub enum LiteralValue {
-    Boolean(bool),
-    Number(f64),
-    String(String),
-    Regex { pattern: String, flags: String },
-    Null,
-}
-
-/// Array expression
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct ArrayExpression {
-    pub elements: Vec<Option<ExpressionOrSpread>>,
-}
-
-/// Object expression  
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct ObjectExpression {
-    pub properties: Vec<ObjectProperty>,
-}
-
-/// Object property
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct ObjectProperty {
-    pub key: PropertyName,
-    pub value: Expression,
-    pub kind: ObjectPropertyKind,
-}
-
-/// Property name
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub enum PropertyName {
-    Identifier(String),
-    Number(f64),
-    String(String),
-}
-
-/// Object property kind
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub enum ObjectPropertyKind {
-    Init,
-    Get,
-    Set,
-}
 
 /// Function expression
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -457,15 +413,6 @@ pub struct SatisfiesExpression {
 }
 
 // ============== END OF NEW TYPES ==============
-
-// ============== MISSING TYPE: ExpressionOrSpread ==============
-
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub enum ExpressionOrSpread {
-    Expression(Expression),
-    Spread(SpreadElement),
-    Empty,
-}
 
 // ============== MISSING TYPE: BinaryOperatorExpression (duplicate that was mentioned) ==============
 // Note: This is intentionally removed - use BinaryExpression instead
