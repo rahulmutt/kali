@@ -1,5 +1,5 @@
-use crate::*;
 use crate::test_support::*;
+use crate::*;
 
 #[test]
 fn test_layout_fingerprints_are_deterministic_and_reusable() {

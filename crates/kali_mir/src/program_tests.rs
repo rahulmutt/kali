@@ -1,5 +1,5 @@
-use crate::*;
 use crate::test_support::*;
+use crate::*;
 
 #[test]
 fn test_borrowed_lifetime_reports_are_deterministic() {

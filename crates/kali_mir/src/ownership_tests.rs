@@ -1,5 +1,5 @@
-use crate::*;
 use crate::test_support::*;
+use crate::*;
 
 #[test]
 fn test_ownership_classes_define_thread_boundary_rules() {

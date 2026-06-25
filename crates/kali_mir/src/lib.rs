@@ -17,10 +17,12 @@ pub use function::{MirFunction, MirFunctionKind};
 pub use layout::LayoutDescriptor;
 pub use lower::MirLowerer;
 pub use node::{MirBuilder, MirNode, MirNodeId, MirNodeKind, PlaceRef, PlaceValue};
-pub use ownership::{OwnershipClass, ThreadBoundaryBinding, ThreadBoundaryDisposition, ThreadBoundaryProfile};
+pub use ownership::{
+    OwnershipClass, ThreadBoundaryBinding, ThreadBoundaryDisposition, ThreadBoundaryProfile,
+};
 pub use program::MirProgram;
 
-pub(crate) use analysis::{OwnershipAnalyzer, ScopeState, UseContext, parameter_escape_flags};
+pub(crate) use analysis::{parameter_escape_flags, OwnershipAnalyzer, ScopeState, UseContext};
 
 #[cfg(test)]
 mod test_support;

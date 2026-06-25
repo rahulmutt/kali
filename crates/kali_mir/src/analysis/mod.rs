@@ -4,7 +4,9 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use kali_hir::{FunctionFlavor, HirNode, HirNodeId};
 
-use crate::{LayoutDescriptor, MirBinding, MirBindingKind, MirFunction, MirFunctionKind, OwnershipClass};
+use crate::{
+    LayoutDescriptor, MirBinding, MirBindingKind, MirFunction, MirFunctionKind, OwnershipClass,
+};
 
 mod infer;
 mod resolve;
@@ -30,7 +32,11 @@ pub(crate) struct BindingState {
 }
 
 impl BindingState {
-    pub(crate) fn new(name: impl Into<String>, kind: MirBindingKind, layout: LayoutDescriptor) -> Self {
+    pub(crate) fn new(
+        name: impl Into<String>,
+        kind: MirBindingKind,
+        layout: LayoutDescriptor,
+    ) -> Self {
         Self {
             name: name.into(),
             kind,
@@ -163,7 +169,12 @@ impl ScopeState {
         }
     }
 
-    pub(crate) fn define(&mut self, name: impl Into<String>, kind: MirBindingKind, layout: LayoutDescriptor) {
+    pub(crate) fn define(
+        &mut self,
+        name: impl Into<String>,
+        kind: MirBindingKind,
+        layout: LayoutDescriptor,
+    ) {
         let name = name.into();
         let binding = BindingState::new(name.clone(), kind, layout);
         if let Some(index) = self.binding_index.get(&name).copied() {
@@ -253,7 +264,10 @@ pub(crate) struct OwnershipAnalyzer<'a> {
 }
 
 impl<'a> OwnershipAnalyzer<'a> {
-    pub(crate) fn new(nodes: &'a [HirNode], function_flavors: &'a [(HirNodeId, FunctionFlavor)]) -> Self {
+    pub(crate) fn new(
+        nodes: &'a [HirNode],
+        function_flavors: &'a [(HirNodeId, FunctionFlavor)],
+    ) -> Self {
         Self {
             nodes,
             function_flavors,
@@ -277,7 +291,6 @@ impl<'a> OwnershipAnalyzer<'a> {
             .find(|(id, _)| *id == node_id)
             .map(|(_, flavor)| *flavor)
     }
-
 }
 
 #[cfg(test)]

@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 
 use kali_hir::{HirNodeId, HirNodeKind};
 
-use crate::{MirBindingKind, OwnershipAnalyzer, parameter_escape_flags};
+use crate::{parameter_escape_flags, MirBindingKind, OwnershipAnalyzer};
 
 impl<'a> OwnershipAnalyzer<'a> {
     pub(crate) fn function_parameter_escape_flags(&self, name: &str) -> Option<Vec<bool>> {
@@ -59,7 +59,10 @@ impl<'a> OwnershipAnalyzer<'a> {
         }
     }
 
-    pub(crate) fn function_name_from_recent_functions(&self, functions_before: usize) -> Option<String> {
+    pub(crate) fn function_name_from_recent_functions(
+        &self,
+        functions_before: usize,
+    ) -> Option<String> {
         self.functions
             .get(functions_before..)
             .and_then(|functions| functions.last())
@@ -71,5 +74,4 @@ impl<'a> OwnershipAnalyzer<'a> {
         self.synthetic_function_counter += 1;
         name
     }
-
 }

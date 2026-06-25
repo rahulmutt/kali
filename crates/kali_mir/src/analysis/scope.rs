@@ -102,7 +102,12 @@ impl<'a> OwnershipAnalyzer<'a> {
         }
     }
 
-    pub(crate) fn define_binding(&mut self, name: String, kind: MirBindingKind, layout: LayoutDescriptor) {
+    pub(crate) fn define_binding(
+        &mut self,
+        name: String,
+        kind: MirBindingKind,
+        layout: LayoutDescriptor,
+    ) {
         if let Some(scope) = self.current_scope_mut() {
             scope.define(name, kind, layout);
         }

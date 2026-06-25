@@ -3,8 +3,8 @@
 use kali_hir::{HirNodeId, HirNodeKind};
 
 use crate::{
-    LayoutDescriptor, MirBindingKind, MirFunctionKind, OwnershipAnalyzer, UseContext,
-    parameter_escape_flags,
+    parameter_escape_flags, LayoutDescriptor, MirBindingKind, MirFunctionKind, OwnershipAnalyzer,
+    UseContext,
 };
 
 impl<'a> OwnershipAnalyzer<'a> {

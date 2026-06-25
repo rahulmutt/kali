@@ -1,6 +1,8 @@
 //! Structural HIR→MIR lowering.
 
-use kali_hir::{FunctionFlavor, HirNode, HirNodeId, HirNodeKind, LoweringResult as HirLoweringResult};
+use kali_hir::{
+    FunctionFlavor, HirNode, HirNodeId, HirNodeKind, LoweringResult as HirLoweringResult,
+};
 
 use crate::{MirBuilder, MirNodeId, MirNodeKind, MirProgram, OwnershipAnalyzer};
 

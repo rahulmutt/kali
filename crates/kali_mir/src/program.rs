@@ -2,7 +2,9 @@
 
 use std::collections::BTreeSet;
 
-use crate::{BorrowedLifetime, MirFunction, MirFunctionKind, MirNode, MirNodeId, ThreadBoundaryProfile};
+use crate::{
+    BorrowedLifetime, MirFunction, MirFunctionKind, MirNode, MirNodeId, ThreadBoundaryProfile,
+};
 
 /// MIR lowering result.
 #[derive(Debug, Clone, PartialEq, Eq)]
