@@ -89,7 +89,7 @@ impl ProjectManifest {
     }
 }
 
-fn package_host_fit_context_for_manifest(manifest: &ProjectManifest) -> PackageHostFitContext {
+pub(crate) fn package_host_fit_context_for_manifest(manifest: &ProjectManifest) -> PackageHostFitContext {
     let Some(options) = manifest.compiler_options.as_ref() else {
         return PackageHostFitContext::DefaultStandalone;
     };
@@ -161,7 +161,7 @@ pub struct InstallOptions {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum PackageHostFitContext {
+pub(crate) enum PackageHostFitContext {
     DefaultStandalone,
     Node,
 }
@@ -387,7 +387,7 @@ pub fn ensure_project_ready(root: impl AsRef<Path>) -> Result<(), Diagnostic> {
     Ok(())
 }
 
-fn manifest_registry_package_keys(manifest: &ProjectManifest) -> Vec<String> {
+pub(crate) fn manifest_registry_package_keys(manifest: &ProjectManifest) -> Vec<String> {
     manifest
         .dependencies
         .iter()
@@ -396,11 +396,11 @@ fn manifest_registry_package_keys(manifest: &ProjectManifest) -> Vec<String> {
         .collect()
 }
 
-fn split_package_key(key: &str) -> Option<(&str, &str)> {
+pub(crate) fn split_package_key(key: &str) -> Option<(&str, &str)> {
     key.rsplit_once('@')
 }
 
-fn ensure_lock_install_name_unique(
+pub(crate) fn ensure_lock_install_name_unique(
     install_names: &mut BTreeMap<String, String>,
     key: &str,
 ) -> Result<(), Diagnostic> {
@@ -430,7 +430,7 @@ fn ensure_lock_install_name_unique(
     }
 }
 
-fn collect_reachable_registry_packages(
+pub(crate) fn collect_reachable_registry_packages(
     lock: &LockFile,
     root_keys: &[String],
 ) -> Result<BTreeSet<String>, Diagnostic> {
@@ -463,7 +463,7 @@ fn collect_reachable_registry_packages(
     Ok(reachable)
 }
 
-fn prune_unreachable_registry_packages(
+pub(crate) fn prune_unreachable_registry_packages(
     root: &Path,
     lock: &mut LockFile,
     reachable: &BTreeSet<String>,
@@ -530,14 +530,14 @@ fn prune_unreachable_registry_packages(
     Ok(removed)
 }
 
-fn discover_install_source_files(root: &Path) -> Result<Vec<PathBuf>, Diagnostic> {
+pub(crate) fn discover_install_source_files(root: &Path) -> Result<Vec<PathBuf>, Diagnostic> {
     let mut files = Vec::new();
     collect_install_source_files(root, root, &mut files)?;
     files.sort();
     Ok(files)
 }
 
-fn collect_install_source_files(
+pub(crate) fn collect_install_source_files(
     root: &Path,
     current: &Path,
     files: &mut Vec<PathBuf>,
@@ -584,7 +584,7 @@ fn collect_install_source_files(
     Ok(())
 }
 
-fn is_install_source_file(path: &Path) -> bool {
+pub(crate) fn is_install_source_file(path: &Path) -> bool {
     let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
         return false;
     };
@@ -614,7 +614,7 @@ fn is_install_source_file(path: &Path) -> bool {
         || name.ends_with(".d.cts")
 }
 
-fn collect_source_module_specifiers(source: &str) -> BTreeSet<String> {
+pub(crate) fn collect_source_module_specifiers(source: &str) -> BTreeSet<String> {
     let mut specifiers = BTreeSet::new();
 
     for quote in ['"', '\'', '`'] {
@@ -650,7 +650,7 @@ fn collect_source_module_specifiers(source: &str) -> BTreeSet<String> {
     specifiers
 }
 
-fn resolve_import_map_specifier(
+pub(crate) fn resolve_import_map_specifier(
     specifier: &str,
     imports: &BTreeMap<String, String>,
 ) -> Option<String> {
@@ -680,11 +680,11 @@ fn resolve_import_map_specifier(
     }
 }
 
-fn is_raw_url(specifier: &str) -> bool {
+pub(crate) fn is_raw_url(specifier: &str) -> bool {
     specifier.starts_with("https://") || specifier.starts_with("http://")
 }
 
-fn discover_install_time_raw_urls(
+pub(crate) fn discover_install_time_raw_urls(
     root: &Path,
     manifest: &ProjectManifest,
 ) -> Result<BTreeSet<String>, Diagnostic> {
@@ -720,7 +720,7 @@ fn discover_install_time_raw_urls(
     Ok(urls)
 }
 
-fn prune_unreachable_raw_urls(
+pub(crate) fn prune_unreachable_raw_urls(
     root: &Path,
     lock: &mut LockFile,
     reachable: &BTreeSet<String>,
@@ -743,7 +743,7 @@ fn prune_unreachable_raw_urls(
     Ok(removed)
 }
 
-fn remove_cached_raw_url_entry(root: &Path, cached: &str) -> Result<(), Vec<Diagnostic>> {
+pub(crate) fn remove_cached_raw_url_entry(root: &Path, cached: &str) -> Result<(), Vec<Diagnostic>> {
     let cached_path = Path::new(cached);
     if cached_path.exists() {
         if cached_path.is_dir() {
@@ -801,7 +801,7 @@ fn remove_cached_raw_url_entry(root: &Path, cached: &str) -> Result<(), Vec<Diag
     Ok(())
 }
 
-fn reconcile_raw_urls(
+pub(crate) fn reconcile_raw_urls(
     root: &Path,
     lock: &mut LockFile,
     declared_raw_urls: &BTreeSet<String>,
@@ -823,7 +823,7 @@ fn reconcile_raw_urls(
     prune_unreachable_raw_urls(root, lock, declared_raw_urls)
 }
 
-fn has_effective_npm_scriptable_install_work(
+pub(crate) fn has_effective_npm_scriptable_install_work(
     manifest: &ProjectManifest,
     target: Option<&PackageTarget>,
 ) -> bool {
@@ -1074,7 +1074,7 @@ pub fn install_project(
     })
 }
 
-fn record_install_path(
+pub(crate) fn record_install_path(
     installed_paths: &mut BTreeMap<String, String>,
     install_name: &str,
     key: &str,
@@ -1098,7 +1098,7 @@ fn record_install_path(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn install_registry_package(
+pub(crate) fn install_registry_package(
     root: &Path,
     lock: &mut LockFile,
     resolved: &ResolvedRegistryPackage,
@@ -1363,7 +1363,7 @@ fn install_registry_package(
     Ok(())
 }
 
-fn install_raw_url(
+pub(crate) fn install_raw_url(
     root: &Path,
     lock: &mut LockFile,
     url: &str,
@@ -1411,7 +1411,7 @@ fn install_raw_url(
 }
 
 #[derive(Debug, Clone)]
-struct ResolvedRegistryPackage {
+pub(crate) struct ResolvedRegistryPackage {
     registry: String,
     name: String,
     install_name: String,
@@ -1420,7 +1420,7 @@ struct ResolvedRegistryPackage {
     integrity: Option<String>,
 }
 
-fn resolve_registry_package(
+pub(crate) fn resolve_registry_package(
     registry: &str,
     name: &str,
     requested_version: Option<&str>,
@@ -1435,7 +1435,7 @@ fn resolve_registry_package(
     }
 }
 
-fn resolve_npm_package(
+pub(crate) fn resolve_npm_package(
     name: &str,
     requested_version: Option<&str>,
 ) -> Result<ResolvedRegistryPackage, Diagnostic> {
@@ -1443,21 +1443,21 @@ fn resolve_npm_package(
     resolve_npm_like_package("npm", name, name, &metadata_url, requested_version)
 }
 
-fn npm_registry_base_url() -> String {
+pub(crate) fn npm_registry_base_url() -> String {
     std::env::var("KALI_REGISTRY").unwrap_or_else(|_| DEFAULT_NPM_REGISTRY.to_string())
 }
 
-fn npm_registry_metadata_url(name: &str) -> String {
+pub(crate) fn npm_registry_metadata_url(name: &str) -> String {
     format!("{}/{}", npm_registry_base_url(), encode_package_name(name))
 }
 
-fn jsr_registry_metadata_url(name: &str) -> String {
+pub(crate) fn jsr_registry_metadata_url(name: &str) -> String {
     let raw_name = name.trim_start_matches("jsr:");
     let compat_name = jsr_compat_name(raw_name);
     format!("https://npm.jsr.io/{}", encode_package_name(&compat_name))
 }
 
-fn fetch_registry_metadata(
+pub(crate) fn fetch_registry_metadata(
     registry: &str,
     display_name: &str,
     metadata_url: &str,
@@ -1527,7 +1527,7 @@ fn fetch_registry_metadata(
     Ok(metadata)
 }
 
-fn resolve_jsr_package(
+pub(crate) fn resolve_jsr_package(
     name: &str,
     requested_version: Option<&str>,
 ) -> Result<ResolvedRegistryPackage, Diagnostic> {
@@ -1536,7 +1536,7 @@ fn resolve_jsr_package(
     resolve_npm_like_package("jsr", name, raw_name, &metadata_url, requested_version)
 }
 
-fn resolve_npm_like_package(
+pub(crate) fn resolve_npm_like_package(
     registry: &str,
     display_name: &str,
     install_name_source: &str,
@@ -1604,7 +1604,7 @@ fn resolve_npm_like_package(
     })
 }
 
-fn audit_package_version_metadata(
+pub(crate) fn audit_package_version_metadata(
     registry: &str,
     package_name: &str,
     version: &str,
@@ -1753,7 +1753,7 @@ pub fn audit_registry_package(
     })
 }
 
-fn select_registry_version(
+pub(crate) fn select_registry_version(
     display_name: &str,
     versions: &serde_json::Map<String, serde_json::Value>,
     requested_version: Option<&str>,
@@ -1832,7 +1832,7 @@ fn select_registry_version(
     Ok(latest.to_string())
 }
 
-fn parse_package_target(target: &str) -> Result<PackageTarget, Diagnostic> {
+pub(crate) fn parse_package_target(target: &str) -> Result<PackageTarget, Diagnostic> {
     if target.starts_with("http://") || target.starts_with("https://") {
         return Ok(PackageTarget::RawUrl(target.to_string()));
     }
@@ -1855,7 +1855,7 @@ fn parse_package_target(target: &str) -> Result<PackageTarget, Diagnostic> {
     })
 }
 
-fn split_package_name_and_version(spec: &str) -> Result<(String, Option<String>), Diagnostic> {
+pub(crate) fn split_package_name_and_version(spec: &str) -> Result<(String, Option<String>), Diagnostic> {
     if spec.is_empty() {
         return Err(Diagnostic::error(
             e6::INVALID_PACKAGE_SPECIFIER as u32,
@@ -1896,19 +1896,19 @@ fn split_package_name_and_version(spec: &str) -> Result<(String, Option<String>)
     Ok((spec.to_string(), None))
 }
 
-fn encode_package_name(name: &str) -> String {
+pub(crate) fn encode_package_name(name: &str) -> String {
     urlencoding::encode(name).into_owned()
 }
 
-fn package_key(name: &str, version: &str) -> String {
+pub(crate) fn package_key(name: &str, version: &str) -> String {
     format!("{}@{}", name, version)
 }
 
-fn install_name_from_package(name: &str) -> String {
+pub(crate) fn install_name_from_package(name: &str) -> String {
     name.trim_start_matches("jsr:").to_string()
 }
 
-fn validate_manifest_registry_collisions(
+pub(crate) fn validate_manifest_registry_collisions(
     manifest: &ProjectManifest,
 ) -> Result<(), Vec<Diagnostic>> {
     let mut occupied_paths = BTreeMap::new();
@@ -1943,7 +1943,7 @@ fn validate_manifest_registry_collisions(
     Ok(())
 }
 
-fn jsr_compat_name(name: &str) -> String {
+pub(crate) fn jsr_compat_name(name: &str) -> String {
     let raw = name.trim_start_matches("jsr:");
     let raw = raw.strip_prefix('@').unwrap_or(raw);
     let mut parts = raw.splitn(2, '/');
@@ -1956,7 +1956,7 @@ fn jsr_compat_name(name: &str) -> String {
     }
 }
 
-fn read_package_json(package_dir: &Path) -> Result<PackageJson, Vec<Diagnostic>> {
+pub(crate) fn read_package_json(package_dir: &Path) -> Result<PackageJson, Vec<Diagnostic>> {
     let path = package_dir.join("package.json");
     let contents = fs::read_to_string(&path).map_err(|error| {
         vec![Diagnostic::error(
@@ -1981,7 +1981,7 @@ fn read_package_json(package_dir: &Path) -> Result<PackageJson, Vec<Diagnostic>>
     Ok(package_json)
 }
 
-fn value_contains_native_addon_path(value: &serde_json::Value) -> bool {
+pub(crate) fn value_contains_native_addon_path(value: &serde_json::Value) -> bool {
     match value {
         serde_json::Value::String(path) => path.ends_with(".node"),
         serde_json::Value::Array(values) => values.iter().any(value_contains_native_addon_path),
@@ -1990,7 +1990,7 @@ fn value_contains_native_addon_path(value: &serde_json::Value) -> bool {
     }
 }
 
-fn validate_package_shape(
+pub(crate) fn validate_package_shape(
     package_json: &PackageJson,
     allow_scripts: bool,
 ) -> Result<(), Vec<Diagnostic>> {
@@ -2082,7 +2082,7 @@ fn validate_package_shape(
     Ok(())
 }
 
-fn script_uses_native_bootstrap_tool(script: &str) -> bool {
+pub(crate) fn script_uses_native_bootstrap_tool(script: &str) -> bool {
     let script = script.to_ascii_lowercase();
     [
         "node-gyp",
@@ -2095,7 +2095,7 @@ fn script_uses_native_bootstrap_tool(script: &str) -> bool {
     .any(|needle| script.contains(needle))
 }
 
-fn run_package_lifecycle_hooks(
+pub(crate) fn run_package_lifecycle_hooks(
     package_dir: &Path,
     package_json: &PackageJson,
     allow_scripts: bool,
@@ -2119,7 +2119,7 @@ fn run_package_lifecycle_hooks(
     Ok(())
 }
 
-fn run_package_lifecycle_hook(
+pub(crate) fn run_package_lifecycle_hook(
     package_dir: &Path,
     phase: &str,
     script: &str,
@@ -2168,7 +2168,7 @@ fn run_package_lifecycle_hook(
     Ok(())
 }
 
-fn validate_package_host_fit(
+pub(crate) fn validate_package_host_fit(
     package_dir: &Path,
     host_fit_context: PackageHostFitContext,
 ) -> Result<(), Diagnostic> {
@@ -2190,7 +2190,7 @@ fn validate_package_host_fit(
     Ok(())
 }
 
-fn scan_for_node_only_host_api(root: &Path) -> Result<Option<(PathBuf, &'static str)>, Diagnostic> {
+pub(crate) fn scan_for_node_only_host_api(root: &Path) -> Result<Option<(PathBuf, &'static str)>, Diagnostic> {
     let mut stack = vec![root.to_path_buf()];
 
     while let Some(dir) = stack.pop() {
@@ -2232,14 +2232,14 @@ fn scan_for_node_only_host_api(root: &Path) -> Result<Option<(PathBuf, &'static 
     Ok(None)
 }
 
-fn is_scannable_package_source(path: &Path) -> bool {
+pub(crate) fn is_scannable_package_source(path: &Path) -> bool {
     matches!(
         path.extension().and_then(|ext| ext.to_str()),
         Some("ts" | "tsx" | "js" | "jsx" | "mts" | "cts" | "mjs" | "cjs")
     )
 }
 
-fn should_skip_package_scan_dir(path: &Path) -> bool {
+pub(crate) fn should_skip_package_scan_dir(path: &Path) -> bool {
     matches!(
         path.file_name().and_then(|name| name.to_str()),
         Some("node_modules" | ".git" | ".kali-cache" | "target")
@@ -2268,7 +2268,7 @@ pub fn source_mentions_node_only_host_api(contents: &str) -> Option<&'static str
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
-struct PackageJson {
+pub(crate) struct PackageJson {
     pub name: Option<String>,
     pub version: Option<String>,
     pub main: Option<String>,
@@ -2294,7 +2294,7 @@ struct PackageJson {
     pub optional_dependencies: BTreeMap<String, String>,
 }
 
-fn download_bytes(url: &str) -> Result<Vec<u8>, Diagnostic> {
+pub(crate) fn download_bytes(url: &str) -> Result<Vec<u8>, Diagnostic> {
     let client = Client::builder()
         .user_agent("kali/0.1.0")
         .build()
@@ -2324,7 +2324,7 @@ fn download_bytes(url: &str) -> Result<Vec<u8>, Diagnostic> {
     Ok(bytes.to_vec())
 }
 
-fn verify_tarball_integrity(
+pub(crate) fn verify_tarball_integrity(
     bytes: &[u8],
     integrity: Option<&str>,
 ) -> Result<String, Vec<Diagnostic>> {
@@ -2343,7 +2343,7 @@ fn verify_tarball_integrity(
     Ok(format!("sha512-{}", actual))
 }
 
-fn integrity_matches(expected: &str, bytes: &[u8]) -> bool {
+pub(crate) fn integrity_matches(expected: &str, bytes: &[u8]) -> bool {
     if let Some(encoded) = expected.strip_prefix("sha512-") {
         if let Ok(decoded) = base64::engine::general_purpose::STANDARD.decode(encoded) {
             return decoded == Sha512::digest(bytes).to_vec();
@@ -2352,17 +2352,17 @@ fn integrity_matches(expected: &str, bytes: &[u8]) -> bool {
     false
 }
 
-fn format_sha512(bytes: &[u8]) -> String {
+pub(crate) fn format_sha512(bytes: &[u8]) -> String {
     let digest = Sha512::digest(bytes);
     base64::engine::general_purpose::STANDARD.encode(digest)
 }
 
-fn sha256_hex(bytes: &[u8]) -> String {
+pub(crate) fn sha256_hex(bytes: &[u8]) -> String {
     let digest = Sha256::digest(bytes);
     format!("{:x}", digest)
 }
 
-fn extract_tarball(bytes: &[u8], package_dir: &Path) -> Result<(), Vec<Diagnostic>> {
+pub(crate) fn extract_tarball(bytes: &[u8], package_dir: &Path) -> Result<(), Vec<Diagnostic>> {
     let mut archive = Archive::new(GzDecoder::new(io::Cursor::new(bytes)));
     archive.unpack(package_dir).map_err(|error| {
         vec![Diagnostic::error(
@@ -2376,7 +2376,7 @@ fn extract_tarball(bytes: &[u8], package_dir: &Path) -> Result<(), Vec<Diagnosti
     })
 }
 
-fn copy_tree(source: &Path, target: &Path) -> Result<(), Vec<Diagnostic>> {
+pub(crate) fn copy_tree(source: &Path, target: &Path) -> Result<(), Vec<Diagnostic>> {
     if target.exists() {
         fs::remove_dir_all(target).map_err(|error| {
             vec![Diagnostic::error(
@@ -2402,7 +2402,7 @@ fn copy_tree(source: &Path, target: &Path) -> Result<(), Vec<Diagnostic>> {
     recursive_copy(source, target)
 }
 
-fn recursive_copy(source: &Path, target: &Path) -> Result<(), Vec<Diagnostic>> {
+pub(crate) fn recursive_copy(source: &Path, target: &Path) -> Result<(), Vec<Diagnostic>> {
     fs::create_dir_all(target).map_err(|error| {
         vec![Diagnostic::error(
             e6::INSTALL_FAILED as u32,
@@ -2443,7 +2443,7 @@ fn recursive_copy(source: &Path, target: &Path) -> Result<(), Vec<Diagnostic>> {
     Ok(())
 }
 
-fn raw_url_file_name(url: &str) -> Option<String> {
+pub(crate) fn raw_url_file_name(url: &str) -> Option<String> {
     url::Url::parse(url)
         .ok()
         .and_then(|parsed| {
@@ -2509,7 +2509,7 @@ pub fn resolve_materialized_import_with_browser_context(
     resolve_types_package_import(root, &package_name, subpath, browser_context)
 }
 
-fn resolve_types_package_import(
+pub(crate) fn resolve_types_package_import(
     root: &Path,
     package_name: &str,
     subpath: Option<&str>,
@@ -2554,7 +2554,7 @@ fn resolve_types_package_import(
     }
 }
 
-fn resolve_package_types_entry(package_dir: &Path, package_json: &PackageJson) -> Option<PathBuf> {
+pub(crate) fn resolve_package_types_entry(package_dir: &Path, package_json: &PackageJson) -> Option<PathBuf> {
     if let Some(types) = &package_json.types {
         if let Some(path) = resolve_package_file(package_dir, types) {
             return Some(path);
@@ -2572,7 +2572,7 @@ fn resolve_package_types_entry(package_dir: &Path, package_json: &PackageJson) -
         .or_else(|| resolve_package_file(package_dir, "index.d.cts"))
 }
 
-fn types_package_name(name: &str) -> String {
+pub(crate) fn types_package_name(name: &str) -> String {
     if let Some(rest) = name.strip_prefix('@') {
         let mut parts = rest.splitn(2, '/');
         let scope = parts.next().unwrap_or(rest);
@@ -2586,7 +2586,7 @@ fn types_package_name(name: &str) -> String {
     format!("@types/{}", name)
 }
 
-fn split_bare_package_source(source: &str) -> Option<(String, Option<&str>)> {
+pub(crate) fn split_bare_package_source(source: &str) -> Option<(String, Option<&str>)> {
     if source.starts_with('.') || source.starts_with('/') || source.contains("://") {
         return None;
     }
@@ -2606,12 +2606,12 @@ fn split_bare_package_source(source: &str) -> Option<(String, Option<&str>)> {
     Some((package, remainder))
 }
 
-enum PackageResolutionOutcome {
+pub(crate) enum PackageResolutionOutcome {
     Resolved(PathBuf),
     BrowserBlocked,
 }
 
-fn resolve_package_entry(
+pub(crate) fn resolve_package_entry(
     package_dir: &Path,
     package_json: &PackageJson,
     browser_context: bool,
@@ -2658,7 +2658,7 @@ fn resolve_package_entry(
         .map(|path| apply_browser_rewrite(package_dir, package_json, path, true, browser_context))
 }
 
-fn resolve_package_subpath(
+pub(crate) fn resolve_package_subpath(
     package_dir: &Path,
     package_json: &PackageJson,
     subpath: &str,
@@ -2700,7 +2700,7 @@ fn resolve_package_subpath(
     None
 }
 
-fn apply_browser_rewrite(
+pub(crate) fn apply_browser_rewrite(
     package_dir: &Path,
     package_json: &PackageJson,
     resolved_path: PathBuf,
@@ -2739,7 +2739,7 @@ fn apply_browser_rewrite(
     }
 }
 
-fn resolve_package_exports(
+pub(crate) fn resolve_package_exports(
     package_dir: &Path,
     exports: &serde_json::Value,
     subpath: &str,
@@ -2796,7 +2796,7 @@ fn resolve_package_exports(
     }
 }
 
-fn resolve_package_exports_target(
+pub(crate) fn resolve_package_exports_target(
     package_dir: &Path,
     value: &serde_json::Value,
     capture: Option<&str>,
@@ -2831,14 +2831,14 @@ fn resolve_package_exports_target(
     }
 }
 
-fn substitute_export_pattern(path: &str, capture: Option<&str>) -> String {
+pub(crate) fn substitute_export_pattern(path: &str, capture: Option<&str>) -> String {
     match capture {
         Some(capture) => path.replace('*', capture),
         None => path.to_string(),
     }
 }
 
-fn match_export_pattern<'a>(pattern: &'a str, requested_key: &'a str) -> Option<&'a str> {
+pub(crate) fn match_export_pattern<'a>(pattern: &'a str, requested_key: &'a str) -> Option<&'a str> {
     let (prefix, suffix) = pattern.split_once('*')?;
     if requested_key.len() < prefix.len() + suffix.len() {
         return None;
@@ -2850,7 +2850,7 @@ fn match_export_pattern<'a>(pattern: &'a str, requested_key: &'a str) -> Option<
     Some(&requested_key[prefix.len()..requested_key.len() - suffix.len()])
 }
 
-fn resolve_package_file(package_dir: &Path, candidate: &str) -> Option<PathBuf> {
+pub(crate) fn resolve_package_file(package_dir: &Path, candidate: &str) -> Option<PathBuf> {
     let path = package_dir.join(candidate);
     if path.is_file() {
         return Some(path);
