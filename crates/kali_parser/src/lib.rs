@@ -19,35 +19,35 @@ use kali_lexer::{Token, TokenType};
 use std::boxed::Box;
 
 pub struct TokenStream {
-    tokens: Vec<Token>,
-    position: usize,
+    pub(crate) tokens: Vec<Token>,
+    pub(crate) position: usize,
 }
 
 impl TokenStream {
-    fn new(tokens: Vec<Token>) -> Self {
+    pub(crate) fn new(tokens: Vec<Token>) -> Self {
         Self {
             tokens,
             position: 0,
         }
     }
 
-    fn current(&self) -> Option<&Token> {
+    pub(crate) fn current(&self) -> Option<&Token> {
         self.tokens.get(self.position)
     }
 
-    fn current_kind(&self) -> Option<&TokenType> {
+    pub(crate) fn current_kind(&self) -> Option<&TokenType> {
         self.tokens.get(self.position).map(|t| &t.kind)
     }
 
-    fn peek_next_kind(&self) -> Option<&TokenType> {
+    pub(crate) fn peek_next_kind(&self) -> Option<&TokenType> {
         self.tokens.get(self.position + 1).map(|t| &t.kind)
     }
 
-    fn eof(&self) -> bool {
+    pub(crate) fn eof(&self) -> bool {
         self.tokens.is_empty() || self.position >= self.tokens.len()
     }
 
-    fn advance(&mut self) -> Option<Token> {
+    pub(crate) fn advance(&mut self) -> Option<Token> {
         if self.position < self.tokens.len() {
             let tok = self.tokens[self.position].clone();
             self.position += 1;
@@ -57,7 +57,7 @@ impl TokenStream {
         }
     }
 
-    fn advance_if(&mut self, expected: TokenType) -> bool {
+    pub(crate) fn advance_if(&mut self, expected: TokenType) -> bool {
         if self.current_kind() == Some(&expected) {
             self.position += 1;
             true
@@ -66,11 +66,11 @@ impl TokenStream {
         }
     }
 
-    fn accept(&mut self, k: TokenType) -> bool {
+    pub(crate) fn accept(&mut self, k: TokenType) -> bool {
         self.advance_if(k)
     }
 
-    fn skip(&mut self) {
+    pub(crate) fn skip(&mut self) {
         if self.position < self.tokens.len() {
             self.position += 1;
         }
@@ -78,12 +78,12 @@ impl TokenStream {
 }
 
 pub struct Parser {
-    file_id: FileId,
-    stream: TokenStream,
-    diagnostics: Vec<Diagnostic>,
-    jsx_mode: bool,
-    in_generator_function: bool,
-    in_async_function: bool,
+    pub(crate) file_id: FileId,
+    pub(crate) stream: TokenStream,
+    pub(crate) diagnostics: Vec<Diagnostic>,
+    pub(crate) jsx_mode: bool,
+    pub(crate) in_generator_function: bool,
+    pub(crate) in_async_function: bool,
 }
 
 impl Parser {
@@ -98,21 +98,21 @@ impl Parser {
         }
     }
 
-    fn wrap_statement_as_block(stmt: Statement) -> BlockStatement {
+    pub(crate) fn wrap_statement_as_block(stmt: Statement) -> BlockStatement {
         match stmt {
             Statement::BlockStatement(block) => block,
             other => BlockStatement { body: vec![other] },
         }
     }
 
-    fn push_feature_unavailable(&mut self, message: impl Into<String>) {
+    pub(crate) fn push_feature_unavailable(&mut self, message: impl Into<String>) {
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
             message.into(),
         ));
     }
 
-    fn skip_class_body(&mut self) {
+    pub(crate) fn skip_class_body(&mut self) {
         let mut brace_depth = 0usize;
 
         while !self.stream.eof() {
@@ -135,7 +135,7 @@ impl Parser {
         }
     }
 
-    fn parse_parameter_list(&mut self) -> Vec<String> {
+    pub(crate) fn parse_parameter_list(&mut self) -> Vec<String> {
         let mut params = Vec::new();
         if self.stream.accept(TokenType::RightParen) {
             return params;
@@ -178,7 +178,7 @@ impl Parser {
         }
     }
 
-    fn parse_statement(&mut self) -> Option<Statement> {
+    pub(crate) fn parse_statement(&mut self) -> Option<Statement> {
         let kind = self
             .stream
             .current_kind()
@@ -244,7 +244,7 @@ impl Parser {
         }
     }
 
-    fn parse_variable_declaration(&mut self) -> Option<Statement> {
+    pub(crate) fn parse_variable_declaration(&mut self) -> Option<Statement> {
         let kind: String = match self.stream.current_kind() {
             Some(&TokenType::Var) => "var".to_string(),
             Some(&TokenType::Let) => "let".to_string(),
@@ -272,7 +272,7 @@ impl Parser {
         }))
     }
 
-    fn parse_block_statement(&mut self) -> Option<Statement> {
+    pub(crate) fn parse_block_statement(&mut self) -> Option<Statement> {
         let _ = self.stream.advance();
         let mut statements = Vec::new();
         loop {
@@ -293,11 +293,11 @@ impl Parser {
         }))
     }
 
-    fn parse_function_declaration(&mut self) -> Option<Statement> {
+    pub(crate) fn parse_function_declaration(&mut self) -> Option<Statement> {
         self.parse_function_declaration_with_async(false, false)
     }
 
-    fn parse_function_declaration_with_async(
+    pub(crate) fn parse_function_declaration_with_async(
         &mut self,
         is_async: bool,
         allow_anonymous: bool,
@@ -356,7 +356,7 @@ impl Parser {
         }))
     }
 
-    fn parse_class_body(&mut self) -> kali_ast::ClassBody {
+    pub(crate) fn parse_class_body(&mut self) -> kali_ast::ClassBody {
         let _ = self.stream.accept(TokenType::LeftBrace);
 
         let mut methods = Vec::new();
@@ -417,7 +417,7 @@ impl Parser {
         kali_ast::ClassBody { methods }
     }
 
-    fn parse_class_declaration(&mut self) -> Option<Statement> {
+    pub(crate) fn parse_class_declaration(&mut self) -> Option<Statement> {
         let _ = self.stream.advance();
         let name_token = self.stream.advance()?;
         let name = name_token.value;
@@ -429,7 +429,7 @@ impl Parser {
         }))
     }
 
-    fn parse_class_expression(&mut self) -> Expression {
+    pub(crate) fn parse_class_expression(&mut self) -> Expression {
         let _ = self.stream.advance();
         let id = if self.stream.current_kind() == Some(&TokenType::Identifier) {
             self.stream.advance().map(|token| token.value)
@@ -444,7 +444,7 @@ impl Parser {
         }))
     }
 
-    fn parse_if_statement(&mut self) -> Option<Statement> {
+    pub(crate) fn parse_if_statement(&mut self) -> Option<Statement> {
         let _ = self.stream.advance();
         let _ = self.stream.accept(TokenType::LeftParen);
 
@@ -474,7 +474,7 @@ impl Parser {
         }))
     }
 
-    fn parse_while_statement(&mut self) -> Option<Statement> {
+    pub(crate) fn parse_while_statement(&mut self) -> Option<Statement> {
         let _ = self.stream.advance();
         let _ = self.stream.accept(TokenType::LeftParen);
 
@@ -490,7 +490,7 @@ impl Parser {
         Some(Statement::WhileStatement(WhileStatement { test, body }))
     }
 
-    fn parse_for_statement(&mut self) -> Option<Statement> {
+    pub(crate) fn parse_for_statement(&mut self) -> Option<Statement> {
         let _ = self.stream.advance();
         let is_await = self.stream.accept(TokenType::Await);
         let _ = self.stream.accept(TokenType::LeftParen);
@@ -682,7 +682,7 @@ impl Parser {
         }))
     }
 
-    fn parse_do_while_statement(&mut self) -> Option<Statement> {
+    pub(crate) fn parse_do_while_statement(&mut self) -> Option<Statement> {
         let _ = self.stream.advance();
         let body_stmt = self
             .parse_statement()
@@ -698,7 +698,7 @@ impl Parser {
         Some(Statement::DoWhileStatement(DoWhileStatement { body, test }))
     }
 
-    fn parse_switch_statement(&mut self) -> Option<Statement> {
+    pub(crate) fn parse_switch_statement(&mut self) -> Option<Statement> {
         let _ = self.stream.advance();
         let _ = self.stream.advance();
 
@@ -774,7 +774,7 @@ impl Parser {
         }))
     }
 
-    fn parse_break_statement(&mut self) -> Option<Statement> {
+    pub(crate) fn parse_break_statement(&mut self) -> Option<Statement> {
         let _ = self.stream.advance();
 
         let label = if self.stream.current_kind() == Some(&TokenType::Identifier) {
@@ -788,7 +788,7 @@ impl Parser {
         Some(Statement::BreakStatement(BreakStatement { label }))
     }
 
-    fn parse_continue_statement(&mut self) -> Option<Statement> {
+    pub(crate) fn parse_continue_statement(&mut self) -> Option<Statement> {
         let _ = self.stream.advance();
 
         let label = if self.stream.current_kind() == Some(&TokenType::Identifier) {
@@ -802,7 +802,7 @@ impl Parser {
         Some(Statement::ContinueStatement(ContinueStatement { label }))
     }
 
-    fn parse_throw_statement(&mut self) -> Option<Statement> {
+    pub(crate) fn parse_throw_statement(&mut self) -> Option<Statement> {
         let _ = self.stream.advance();
         let argument = self.parse_expression();
         let _ = self.stream.accept(TokenType::Semicolon);
@@ -810,14 +810,14 @@ impl Parser {
         Some(Statement::ThrowStatement(ThrowStatement { argument }))
     }
 
-    fn parse_debugger_statement(&mut self) -> Option<Statement> {
+    pub(crate) fn parse_debugger_statement(&mut self) -> Option<Statement> {
         let _ = self.stream.advance();
         let _ = self.stream.accept(TokenType::Semicolon);
 
         Some(Statement::DebuggerStatement(DebuggerStatement {}))
     }
 
-    fn parse_try_statement(&mut self) -> Option<Statement> {
+    pub(crate) fn parse_try_statement(&mut self) -> Option<Statement> {
         let _ = self.stream.advance();
 
         let block = self
@@ -870,7 +870,7 @@ impl Parser {
         }))
     }
 
-    fn parse_return_statement(&mut self) -> Option<Statement> {
+    pub(crate) fn parse_return_statement(&mut self) -> Option<Statement> {
         let _ = self.stream.advance();
 
         let argument = if !matches!(
@@ -887,7 +887,7 @@ impl Parser {
         Some(Statement::ReturnStatement(ReturnStatement { argument }))
     }
 
-    fn parse_expression_statement(&mut self) -> Option<Statement> {
+    pub(crate) fn parse_expression_statement(&mut self) -> Option<Statement> {
         let expr = self.parse_expression();
         let _ = self.stream.accept(TokenType::Semicolon);
 
@@ -896,7 +896,7 @@ impl Parser {
         }))
     }
 
-    fn parse_import_declaration(&mut self) -> Option<Statement> {
+    pub(crate) fn parse_import_declaration(&mut self) -> Option<Statement> {
         let _ = self.stream.advance();
 
         if self.stream.current_kind() == Some(&TokenType::StringLiteral) {
@@ -972,7 +972,7 @@ impl Parser {
         }))
     }
 
-    fn parse_export_declaration(&mut self) -> Option<Statement> {
+    pub(crate) fn parse_export_declaration(&mut self) -> Option<Statement> {
         let _ = self.stream.advance();
 
         if self.stream.current_kind() == Some(&TokenType::Default) {
@@ -1069,7 +1069,7 @@ impl Parser {
         self.parse_expression_statement()
     }
 
-    fn parse_export_named_specifiers(&mut self) -> Vec<ExportSpecifier> {
+    pub(crate) fn parse_export_named_specifiers(&mut self) -> Vec<ExportSpecifier> {
         let mut specifiers = Vec::new();
         if self.stream.current_kind() != Some(&TokenType::LeftBrace) {
             return specifiers;
@@ -1116,7 +1116,7 @@ impl Parser {
         specifiers
     }
 
-    fn parse_import_named_specifiers(&mut self) -> Vec<ImportNamedSpecifier> {
+    pub(crate) fn parse_import_named_specifiers(&mut self) -> Vec<ImportNamedSpecifier> {
         let mut specifiers = Vec::new();
         if self.stream.current_kind() != Some(&TokenType::LeftBrace) {
             return specifiers;
@@ -1165,7 +1165,7 @@ impl Parser {
         specifiers
     }
 
-    fn parse_import_namespace_specifier(&mut self) -> Option<ImportSpecifier> {
+    pub(crate) fn parse_import_namespace_specifier(&mut self) -> Option<ImportSpecifier> {
         if self.stream.current_kind() != Some(&TokenType::Star) {
             return None;
         }
@@ -1186,11 +1186,11 @@ impl Parser {
         None
     }
 
-    fn parse_expression(&mut self) -> Expression {
+    pub(crate) fn parse_expression(&mut self) -> Expression {
         self.parse_assignment_expression()
     }
 
-    fn parse_assignment_expression(&mut self) -> Expression {
+    pub(crate) fn parse_assignment_expression(&mut self) -> Expression {
         let left = self.parse_binary_expression(0);
 
         let Some(operator) = self.parse_assignment_operator() else {
@@ -1206,7 +1206,7 @@ impl Parser {
         }))
     }
 
-    fn parse_assignment_operator(&self) -> Option<AssignmentOperator> {
+    pub(crate) fn parse_assignment_operator(&self) -> Option<AssignmentOperator> {
         match self.stream.current_kind().copied()? {
             TokenType::Eq => Some(AssignmentOperator::Assign),
             TokenType::PlusEq => Some(AssignmentOperator::AddAssign),
@@ -1222,13 +1222,13 @@ impl Parser {
         }
     }
 
-    fn current_token_value_is(&self, value: &str) -> bool {
+    pub(crate) fn current_token_value_is(&self, value: &str) -> bool {
         self.stream
             .current()
             .is_some_and(|token| token.value == value)
     }
 
-    fn parse_unary_expression(&mut self) -> Expression {
+    pub(crate) fn parse_unary_expression(&mut self) -> Expression {
         match self.stream.current_kind() {
             Some(TokenType::Not) => {
                 let _ = self.stream.advance();
@@ -1302,7 +1302,7 @@ impl Parser {
         }
     }
 
-    fn parse_binary_expression(&mut self, min_prec: usize) -> Expression {
+    pub(crate) fn parse_binary_expression(&mut self, min_prec: usize) -> Expression {
         let mut left = self.parse_unary_expression();
 
         let mut iterations = 0;
@@ -1391,7 +1391,7 @@ impl Parser {
         left
     }
 
-    fn parse_yield_expression(&mut self) -> Expression {
+    pub(crate) fn parse_yield_expression(&mut self) -> Expression {
         let _ = self.stream.advance();
         let delegate = self.stream.accept(TokenType::Star);
         let argument = match self.stream.current_kind() {
@@ -1407,13 +1407,13 @@ impl Parser {
         Expression::YieldExpression(Box::new(YieldExpression { delegate, argument }))
     }
 
-    fn parse_await_expression(&mut self) -> Expression {
+    pub(crate) fn parse_await_expression(&mut self) -> Expression {
         let _ = self.stream.advance();
         let argument = self.parse_call_expression();
         Expression::AwaitExpression(Box::new(kali_ast::AwaitExpression { argument }))
     }
 
-    fn parse_call_expression(&mut self) -> Expression {
+    pub(crate) fn parse_call_expression(&mut self) -> Expression {
         let mut expr = self.parse_primary_expression();
 
         let mut iterations = 0;
@@ -1534,7 +1534,7 @@ impl Parser {
         expr
     }
 
-    fn expression_to_property_name(expr: &Expression) -> String {
+    pub(crate) fn expression_to_property_name(expr: &Expression) -> String {
         match expr {
             Expression::ParenthesizedExpression(parenthesized) => {
                 Self::expression_to_property_name(&parenthesized.expression)
@@ -1574,7 +1574,7 @@ impl Parser {
         }
     }
 
-    fn normalize_string_literal(value: &str) -> String {
+    pub(crate) fn normalize_string_literal(value: &str) -> String {
         let Some(first) = value.chars().next() else {
             return value.to_string();
         };
@@ -1589,7 +1589,7 @@ impl Parser {
         }
     }
 
-    fn parse_type_reference_text(&mut self) -> String {
+    pub(crate) fn parse_type_reference_text(&mut self) -> String {
         let mut rendered = String::new();
         let mut paren_depth = 0usize;
         let mut bracket_depth = 0usize;
@@ -1655,7 +1655,7 @@ impl Parser {
         rendered.trim().to_string()
     }
 
-    fn parse_optional_chain_expression(&mut self, object: Expression) -> Expression {
+    pub(crate) fn parse_optional_chain_expression(&mut self, object: Expression) -> Expression {
         match self.stream.current_kind() {
             Some(TokenType::Identifier) => {
                 let _ = self.stream.advance();
@@ -1689,11 +1689,11 @@ impl Parser {
         }))
     }
 
-    fn try_parse_arrow_function_expression(&mut self) -> Option<Expression> {
+    pub(crate) fn try_parse_arrow_function_expression(&mut self) -> Option<Expression> {
         self.try_parse_arrow_function_expression_from(self.stream.position, false)
     }
 
-    fn try_parse_arrow_function_expression_from(
+    pub(crate) fn try_parse_arrow_function_expression_from(
         &mut self,
         start: usize,
         is_async: bool,
@@ -1775,7 +1775,7 @@ impl Parser {
         )))
     }
 
-    fn parse_arrow_function_body_expression(&mut self) -> Expression {
+    pub(crate) fn parse_arrow_function_body_expression(&mut self) -> Expression {
         if self.stream.current_kind() == Some(&TokenType::LeftBrace) {
             let _ = self.stream.advance();
             let mut expressions = Vec::new();
@@ -1804,11 +1804,11 @@ impl Parser {
         }
     }
 
-    fn parse_function_expression(&mut self) -> Expression {
+    pub(crate) fn parse_function_expression(&mut self) -> Expression {
         self.parse_function_expression_with_async(false)
     }
 
-    fn parse_function_expression_with_async(&mut self, is_async: bool) -> Expression {
+    pub(crate) fn parse_function_expression_with_async(&mut self, is_async: bool) -> Expression {
         if is_async {
             let _ = self.stream.advance();
         }
@@ -1860,7 +1860,7 @@ impl Parser {
         }))
     }
 
-    fn parse_object_expression(&mut self) -> Expression {
+    pub(crate) fn parse_object_expression(&mut self) -> Expression {
         let _ = self.stream.advance();
         let mut properties = Vec::new();
 
@@ -1941,7 +1941,7 @@ impl Parser {
         Expression::ObjectExpression(ObjectExpression { properties })
     }
 
-    fn unwrap_await_literal_array_expression(&self, expression: Expression) -> Option<Expression> {
+    pub(crate) fn unwrap_await_literal_array_expression(&self, expression: Expression) -> Option<Expression> {
         match expression {
             Expression::AwaitExpression(await_expr) => {
                 self.unwrap_await_literal_array_expression(await_expr.argument)
@@ -1971,7 +1971,7 @@ impl Parser {
         }
     }
 
-    fn computed_object_property_name(&self, expression: Expression) -> Option<PropertyName> {
+    pub(crate) fn computed_object_property_name(&self, expression: Expression) -> Option<PropertyName> {
         match expression {
             Expression::ParenthesizedExpression(parenthesized) => {
                 self.computed_object_property_name(*parenthesized.expression)
@@ -2032,7 +2032,7 @@ impl Parser {
         }
     }
 
-    fn is_object_freeze_call(call: &CallExpression) -> bool {
+    pub(crate) fn is_object_freeze_call(call: &CallExpression) -> bool {
         matches!(
             Self::call_member_access_name(&call.callee).as_deref(),
             Some("Object.freeze")
@@ -2048,7 +2048,7 @@ impl Parser {
         ) && call.args.len() == 1
     }
 
-    fn call_member_access_name(expression: &Expression) -> Option<String> {
+    pub(crate) fn call_member_access_name(expression: &Expression) -> Option<String> {
         match expression {
             Expression::MemberExpression(member) => Self::member_access_name(member),
             Expression::ParenthesizedExpression(expr) => {
@@ -2077,12 +2077,12 @@ impl Parser {
         }
     }
 
-    fn member_access_name(member: &MemberExpression) -> Option<String> {
+    pub(crate) fn member_access_name(member: &MemberExpression) -> Option<String> {
         let object = Self::call_member_access_name(&member.object)?;
         Some(format!("{object}.{}", member.property))
     }
 
-    fn parse_primary_expression(&mut self) -> Expression {
+    pub(crate) fn parse_primary_expression(&mut self) -> Expression {
         let kind = self
             .stream
             .current_kind()
@@ -2271,7 +2271,7 @@ pub struct ParserOutput {
     pub diagnostics: Vec<Diagnostic>,
 }
 
-fn unquote_string_literal(value: &str) -> String {
+pub(crate) fn unquote_string_literal(value: &str) -> String {
     let trimmed = value.trim();
     let Some(first) = trimmed.chars().next() else {
         return trimmed.to_string();
