@@ -279,3 +279,7 @@ impl<'a> OwnershipAnalyzer<'a> {
     }
 
 }
+
+#[cfg(test)]
+#[path = "ownership_analysis_tests.rs"]
+mod ownership_analysis_tests;

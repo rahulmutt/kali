@@ -144,3 +144,7 @@ fn function_scope_name(function: &MirFunction) -> String {
         .clone()
         .unwrap_or_else(|| "module".to_string())
 }
+
+#[cfg(test)]
+#[path = "program_tests.rs"]
+mod program_tests;

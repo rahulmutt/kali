@@ -118,3 +118,7 @@ impl OwnershipClass {
         !self.is_thread_shareable()
     }
 }
+
+#[cfg(test)]
+#[path = "ownership_tests.rs"]
+mod ownership_tests;

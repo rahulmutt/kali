@@ -126,3 +126,7 @@ fn map_kind(kind: &HirNodeKind) -> MirNodeKind {
         HirNodeKind::Unknown => MirNodeKind::Unknown,
     }
 }
+
+#[cfg(test)]
+#[path = "lower_tests.rs"]
+mod lower_tests;

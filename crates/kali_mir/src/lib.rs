@@ -23,5 +23,4 @@ pub use program::MirProgram;
 pub(crate) use analysis::{OwnershipAnalyzer, ScopeState, UseContext, parameter_escape_flags};
 
 #[cfg(test)]
-#[path = "tests.rs"]
-mod tests;
+mod test_support;
