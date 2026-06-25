@@ -1,6 +1,7 @@
 //! Module parsing: import/export declarations and specifiers.
 
-use crate::{unquote_string_literal, Parser};
+use crate::literal::unquote_string_literal;
+use crate::Parser;
 use kali_ast::{
     ExportAllDeclaration, ExportDefaultDeclaration, ExportNamedDeclaration, ExportSpecifier,
     ImportDeclaration, ImportName, ImportNamedSpecifier, ImportSpecifier, Statement,

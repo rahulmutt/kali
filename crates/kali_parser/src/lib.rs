@@ -1,9 +1,12 @@
 #![allow(dead_code)]
 mod declaration;
+mod literal;
 mod module;
 mod statement;
 mod token_stream;
+mod types;
 pub use token_stream::TokenStream;
+use crate::literal::unquote_string_literal;
 use kali_ast::{
     ASTBuilder, ArrayExpression, ArrowFunctionExpression, AssignmentExpression, AssignmentOperator,
     BinaryExpression, BlockStatement, CallExpression, Expression, ExpressionOrSpread, FunctionParam,
@@ -440,127 +443,6 @@ impl Parser {
         }
 
         expr
-    }
-
-    pub(crate) fn expression_to_property_name(expr: &Expression) -> String {
-        match expr {
-            Expression::ParenthesizedExpression(parenthesized) => {
-                Self::expression_to_property_name(&parenthesized.expression)
-            }
-            Expression::SequenceExpression(sequence) => sequence
-                .expressions
-                .last()
-                .map(Self::expression_to_property_name)
-                .unwrap_or_else(|| "index".to_string()),
-            Expression::UnaryExpression(unary)
-                if unary.operator == "+" || unary.operator == "-" =>
-            {
-                let inner = Self::expression_to_property_name(&unary.argument);
-                let Some(value) = inner.parse::<f64>().ok() else {
-                    return "index".to_string();
-                };
-                let value = if unary.operator == "+" { value } else { -value };
-                if value == 0.0 {
-                    "0".to_string()
-                } else if value.fract() == 0.0 {
-                    format!("{value:.0}")
-                } else {
-                    value.to_string()
-                }
-            }
-            Expression::Identifier(s) => s.clone(),
-            Expression::Literal(LiteralValue::String(s)) => Self::normalize_string_literal(s),
-            Expression::Literal(LiteralValue::Number(n)) if n.fract() == 0.0 => {
-                if *n == 0.0 {
-                    "0".to_string()
-                } else {
-                    format!("{n:.0}")
-                }
-            }
-            Expression::Literal(LiteralValue::Number(n)) => n.to_string(),
-            _ => "index".to_string(),
-        }
-    }
-
-    pub(crate) fn normalize_string_literal(value: &str) -> String {
-        let Some(first) = value.chars().next() else {
-            return value.to_string();
-        };
-        let Some(last) = value.chars().last() else {
-            return value.to_string();
-        };
-
-        if value.len() >= 2 && matches!((first, last), ('"', '"') | ('\'', '\'') | ('`', '`')) {
-            value[1..value.len() - 1].to_string()
-        } else {
-            value.to_string()
-        }
-    }
-
-    pub(crate) fn parse_type_reference_text(&mut self) -> String {
-        let mut rendered = String::new();
-        let mut paren_depth = 0usize;
-        let mut bracket_depth = 0usize;
-        let mut angle_depth = 0usize;
-
-        while let Some(kind) = self.stream.current_kind().copied() {
-            let top_level_terminator = paren_depth == 0
-                && bracket_depth == 0
-                && angle_depth == 0
-                && matches!(
-                    kind,
-                    TokenType::Semicolon
-                        | TokenType::Comma
-                        | TokenType::RightParen
-                        | TokenType::RightBracket
-                        | TokenType::RightBrace
-                        | TokenType::Eof
-                        | TokenType::Plus
-                        | TokenType::Minus
-                        | TokenType::Star
-                        | TokenType::Slash
-                        | TokenType::Percent
-                        | TokenType::AndAnd
-                        | TokenType::OrOr
-                        | TokenType::Eq
-                        | TokenType::EqEquals
-                        | TokenType::EqEqEq
-                        | TokenType::Neq
-                        | TokenType::NeqNeq
-                        | TokenType::LtEq
-                        | TokenType::GtEq
-                        | TokenType::LtLt
-                        | TokenType::GtGt
-                        | TokenType::Question
-                        | TokenType::QuestionDot
-                        | TokenType::NullCoalesce
-                        | TokenType::InstanceOf
-                        | TokenType::In
-                        | TokenType::Arrow
-                );
-
-            if top_level_terminator {
-                break;
-            }
-
-            match kind {
-                TokenType::LeftParen => paren_depth += 1,
-                TokenType::RightParen if paren_depth > 0 => paren_depth -= 1,
-                TokenType::LeftBracket => bracket_depth += 1,
-                TokenType::RightBracket if bracket_depth > 0 => bracket_depth -= 1,
-                TokenType::Lt => angle_depth += 1,
-                TokenType::Gt if angle_depth > 0 => angle_depth -= 1,
-                _ => {}
-            }
-
-            if let Some(token) = self.stream.advance() {
-                rendered.push_str(&token.value);
-            } else {
-                break;
-            }
-        }
-
-        rendered.trim().to_string()
     }
 
     pub(crate) fn parse_optional_chain_expression(&mut self, object: Expression) -> Expression {
@@ -1006,25 +888,6 @@ pub struct ParserOutput {
     pub root: AST,
     pub statements: Vec<Statement>,
     pub diagnostics: Vec<Diagnostic>,
-}
-
-pub(crate) fn unquote_string_literal(value: &str) -> String {
-    let trimmed = value.trim();
-    let Some(first) = trimmed.chars().next() else {
-        return trimmed.to_string();
-    };
-    let Some(last) = trimmed.chars().last() else {
-        return trimmed.to_string();
-    };
-
-    if (first == '"' && last == '"')
-        || (first == '\'' && last == '\'')
-        || (first == '`' && last == '`')
-    {
-        trimmed[1..trimmed.len().saturating_sub(1)].to_string()
-    } else {
-        trimmed.to_string()
-    }
 }
 
 #[cfg(test)]
