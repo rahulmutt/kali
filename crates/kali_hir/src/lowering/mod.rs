@@ -2,4 +2,6 @@
 
 mod expression;
 mod function;
+mod module;
+mod object;
 mod statement;

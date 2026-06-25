@@ -31,8 +31,6 @@ use kali_ast::{
 };
 use kali_error::diagnostic::Diagnostic;
 
-use crate::helpers::object_property_kind_text;
-
 mod builder;
 mod helpers;
 mod lowering;
@@ -126,99 +124,6 @@ impl HirLowerer {
         let name = format!("__kali_fn_{}", self.synthetic_function_counter);
         self.synthetic_function_counter += 1;
         name
-    }
-
-    pub(crate) fn lower_object_property(&mut self, property: &ObjectProperty) -> HirNodeId {
-        let id = self.builder.alloc_text(
-            HirNodeKind::ObjectProperty,
-            None,
-            object_property_kind_text(&property.kind),
-        );
-        push_child!(self, id, self.lower_property_name(&property.key));
-        push_child!(self, id, self.lower_expression(&property.value));
-        id
-    }
-
-    pub(crate) fn lower_property_name(&mut self, name: &PropertyName) -> HirNodeId {
-        match name {
-            PropertyName::Identifier(value) => {
-                self.builder
-                    .alloc_text(HirNodeKind::Literal, None, value.clone())
-            }
-            PropertyName::Number(value) => {
-                // Preserve numeric property names as strings so object-literal lowering
-                // keeps JavaScript's property-key semantics instead of treating them as
-                // arithmetic literals during code generation.
-                let key = if *value == 0.0 {
-                    "0".to_string()
-                } else {
-                    value.to_string()
-                };
-                self.builder
-                    .alloc_text(HirNodeKind::Literal, None, format!("\"{}\"", key))
-            }
-            PropertyName::String(value) => {
-                self.builder
-                    .alloc_text(HirNodeKind::Literal, None, value.clone())
-            }
-        }
-    }
-
-    pub(crate) fn lower_import_specifier(&mut self, specifier: &ImportSpecifier) -> HirNodeId {
-        match specifier {
-            ImportSpecifier::Default(name) | ImportSpecifier::Namespace(name) => self
-                .builder
-                .alloc_text(HirNodeKind::Ident, None, name.clone()),
-            ImportSpecifier::Named(specifiers) | ImportSpecifier::Type(specifiers) => {
-                let id = self.builder.alloc(HirNodeKind::ImportDecl, None);
-                for spec in specifiers {
-                    push_child!(
-                        self,
-                        id,
-                        self.builder
-                            .alloc_text(HirNodeKind::Ident, None, spec.local.clone())
-                    );
-                }
-                id
-            }
-            ImportSpecifier::SideEffect => {
-                self.builder
-                    .alloc_text(HirNodeKind::Literal, None, "side-effect")
-            }
-        }
-    }
-
-    pub(crate) fn lower_export_specifier(&mut self, specifier: &ExportSpecifier) -> HirNodeId {
-        let id = self
-            .builder
-            .alloc_text(HirNodeKind::Ident, None, specifier.exported.clone());
-        push_child!(
-            self,
-            id,
-            self.builder
-                .alloc_text(HirNodeKind::Ident, None, specifier.local.clone())
-        );
-        id
-    }
-
-    pub(crate) fn lower_export_default(&mut self, default_decl: &ExportDefaultDeclaration) -> HirNodeId {
-        let id = self.builder.alloc(HirNodeKind::ExportDecl, None);
-        match default_decl {
-            ExportDefaultDeclaration::Expression(expr) => {
-                push_child!(self, id, self.lower_expression(expr))
-            }
-            ExportDefaultDeclaration::FunctionDeclaration(func) => push_child!(
-                self,
-                id,
-                self.lower_statement(&Statement::FunctionDeclaration(func.clone()))
-            ),
-            ExportDefaultDeclaration::ClassDeclaration(class) => push_child!(
-                self,
-                id,
-                self.lower_statement(&Statement::ClassDeclaration(class.clone()))
-            ),
-        }
-        id
     }
 
     pub(crate) fn record_function_flavor(&mut self, node_id: HirNodeId, flavor: FunctionFlavor) {
