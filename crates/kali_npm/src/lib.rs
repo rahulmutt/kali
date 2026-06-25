@@ -2888,5 +2888,8 @@ pub fn project_requires_install(root: impl AsRef<Path>) -> bool {
 }
 
 #[cfg(test)]
+mod test_support;
+
+#[cfg(test)]
 #[path = "tests.rs"]
 mod tests;
