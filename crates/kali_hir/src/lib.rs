@@ -141,8 +141,8 @@ impl HirNode {
 
 /// HIR builder.
 pub struct HirBuilder {
-    nodes: Vec<HirNode>,
-    next_id: HirNodeId,
+    pub(crate) nodes: Vec<HirNode>,
+    pub(crate) next_id: HirNodeId,
 }
 
 impl HirBuilder {
@@ -238,10 +238,10 @@ impl LoweringResult {
 
 /// HIR lowering from AST.
 pub struct HirLowerer {
-    builder: HirBuilder,
-    diagnostics: Vec<Diagnostic>,
-    function_flavors: Vec<(HirNodeId, FunctionFlavor)>,
-    synthetic_function_counter: usize,
+    pub(crate) builder: HirBuilder,
+    pub(crate) diagnostics: Vec<Diagnostic>,
+    pub(crate) function_flavors: Vec<(HirNodeId, FunctionFlavor)>,
+    pub(crate) synthetic_function_counter: usize,
 }
 
 macro_rules! push_child {
@@ -250,6 +250,7 @@ macro_rules! push_child {
         $this.push_child($parent, child);
     }};
 }
+pub(crate) use push_child;
 
 impl HirLowerer {
     pub fn new() -> Self {
@@ -315,7 +316,7 @@ impl HirLowerer {
         )
     }
 
-    fn lower_statement(&mut self, statement: &Statement) -> HirNodeId {
+    pub(crate) fn lower_statement(&mut self, statement: &Statement) -> HirNodeId {
         match statement {
             Statement::ExpressionStatement(ExpressionStatement { expression }) => {
                 let id = self.builder.alloc(HirNodeKind::ExprStmt, None);
@@ -673,7 +674,7 @@ impl HirLowerer {
         }
     }
 
-    fn lower_class_body(&mut self, body: &ClassBody) -> HirNodeId {
+    pub(crate) fn lower_class_body(&mut self, body: &ClassBody) -> HirNodeId {
         let id = self.builder.alloc(HirNodeKind::Block, None);
         for method in &body.methods {
             push_child!(self, id, self.lower_method_definition(method));
@@ -681,7 +682,7 @@ impl HirLowerer {
         id
     }
 
-    fn lower_method_definition(&mut self, method: &MethodDefinition) -> HirNodeId {
+    pub(crate) fn lower_method_definition(&mut self, method: &MethodDefinition) -> HirNodeId {
         let id = self
             .builder
             .alloc_text(HirNodeKind::FunctionDecl, None, method.name.clone());
@@ -707,7 +708,7 @@ impl HirLowerer {
         id
     }
 
-    fn lower_block(&mut self, block: &BlockStatement) -> HirNodeId {
+    pub(crate) fn lower_block(&mut self, block: &BlockStatement) -> HirNodeId {
         let id = self.builder.alloc(HirNodeKind::Block, None);
         for stmt in &block.body {
             push_child!(self, id, self.lower_statement(stmt));
@@ -715,7 +716,7 @@ impl HirLowerer {
         id
     }
 
-    fn lower_variable_declarator(&mut self, declarator: &VariableDeclarator) -> HirNodeId {
+    pub(crate) fn lower_variable_declarator(&mut self, declarator: &VariableDeclarator) -> HirNodeId {
         let id = self
             .builder
             .alloc_text(HirNodeKind::VarDeclarator, None, declarator.id.clone());
@@ -731,7 +732,7 @@ impl HirLowerer {
         id
     }
 
-    fn lower_expression(&mut self, expression: &Expression) -> HirNodeId {
+    pub(crate) fn lower_expression(&mut self, expression: &Expression) -> HirNodeId {
         match expression {
             Expression::Identifier(name) => {
                 self.builder
@@ -925,7 +926,7 @@ impl HirLowerer {
         }
     }
 
-    fn lower_template_literal(&mut self, template: &TemplateLiteral) -> HirNodeId {
+    pub(crate) fn lower_template_literal(&mut self, template: &TemplateLiteral) -> HirNodeId {
         let id = self.builder.alloc(HirNodeKind::TemplateLiteral, None);
         for quasi in &template.quasis {
             push_child!(
@@ -941,7 +942,7 @@ impl HirLowerer {
         id
     }
 
-    fn lower_function_expression(&mut self, expr: &FunctionExpression) -> HirNodeId {
+    pub(crate) fn lower_function_expression(&mut self, expr: &FunctionExpression) -> HirNodeId {
         let name = expr
             .id
             .clone()
@@ -972,7 +973,7 @@ impl HirLowerer {
         id
     }
 
-    fn lower_arrow_function_expression(&mut self, expr: &ArrowFunctionExpression) -> HirNodeId {
+    pub(crate) fn lower_arrow_function_expression(&mut self, expr: &ArrowFunctionExpression) -> HirNodeId {
         let name = self.next_synthetic_function_name();
         let id = self
             .builder
@@ -996,13 +997,13 @@ impl HirLowerer {
         id
     }
 
-    fn next_synthetic_function_name(&mut self) -> String {
+    pub(crate) fn next_synthetic_function_name(&mut self) -> String {
         let name = format!("__kali_fn_{}", self.synthetic_function_counter);
         self.synthetic_function_counter += 1;
         name
     }
 
-    fn lower_class_expression(&mut self, expr: &ClassExpression) -> HirNodeId {
+    pub(crate) fn lower_class_expression(&mut self, expr: &ClassExpression) -> HirNodeId {
         let id = self.builder.alloc_text(
             HirNodeKind::ClassExpr,
             None,
@@ -1012,7 +1013,7 @@ impl HirLowerer {
         id
     }
 
-    fn lower_optional_chain(&mut self, expr: &OptionalChainExpression) -> HirNodeId {
+    pub(crate) fn lower_optional_chain(&mut self, expr: &OptionalChainExpression) -> HirNodeId {
         let id = self.builder.alloc(HirNodeKind::OptionalChain, None);
         match expr.inner.as_ref() {
             OptionalChainInner::NonNull {
@@ -1025,7 +1026,7 @@ impl HirLowerer {
         id
     }
 
-    fn lower_update_expression(&mut self, expr: &UpdateExpression) -> HirNodeId {
+    pub(crate) fn lower_update_expression(&mut self, expr: &UpdateExpression) -> HirNodeId {
         let id = self.builder.alloc_text(
             HirNodeKind::UpdateExpr,
             None,
@@ -1035,7 +1036,7 @@ impl HirLowerer {
         id
     }
 
-    fn lower_assignment_expression(&mut self, expr: &AssignmentExpression) -> HirNodeId {
+    pub(crate) fn lower_assignment_expression(&mut self, expr: &AssignmentExpression) -> HirNodeId {
         let id = self.builder.alloc_text(
             HirNodeKind::AssignmentExpr,
             None,
@@ -1046,7 +1047,7 @@ impl HirLowerer {
         id
     }
 
-    fn lower_object_property(&mut self, property: &ObjectProperty) -> HirNodeId {
+    pub(crate) fn lower_object_property(&mut self, property: &ObjectProperty) -> HirNodeId {
         let id = self.builder.alloc_text(
             HirNodeKind::ObjectProperty,
             None,
@@ -1057,7 +1058,7 @@ impl HirLowerer {
         id
     }
 
-    fn lower_property_name(&mut self, name: &PropertyName) -> HirNodeId {
+    pub(crate) fn lower_property_name(&mut self, name: &PropertyName) -> HirNodeId {
         match name {
             PropertyName::Identifier(value) => {
                 self.builder
@@ -1082,7 +1083,7 @@ impl HirLowerer {
         }
     }
 
-    fn lower_import_specifier(&mut self, specifier: &ImportSpecifier) -> HirNodeId {
+    pub(crate) fn lower_import_specifier(&mut self, specifier: &ImportSpecifier) -> HirNodeId {
         match specifier {
             ImportSpecifier::Default(name) | ImportSpecifier::Namespace(name) => self
                 .builder
@@ -1106,7 +1107,7 @@ impl HirLowerer {
         }
     }
 
-    fn lower_export_specifier(&mut self, specifier: &ExportSpecifier) -> HirNodeId {
+    pub(crate) fn lower_export_specifier(&mut self, specifier: &ExportSpecifier) -> HirNodeId {
         let id = self
             .builder
             .alloc_text(HirNodeKind::Ident, None, specifier.exported.clone());
@@ -1119,7 +1120,7 @@ impl HirLowerer {
         id
     }
 
-    fn lower_export_default(&mut self, default_decl: &ExportDefaultDeclaration) -> HirNodeId {
+    pub(crate) fn lower_export_default(&mut self, default_decl: &ExportDefaultDeclaration) -> HirNodeId {
         let id = self.builder.alloc(HirNodeKind::ExportDecl, None);
         match default_decl {
             ExportDefaultDeclaration::Expression(expr) => {
@@ -1139,11 +1140,11 @@ impl HirLowerer {
         id
     }
 
-    fn record_function_flavor(&mut self, node_id: HirNodeId, flavor: FunctionFlavor) {
+    pub(crate) fn record_function_flavor(&mut self, node_id: HirNodeId, flavor: FunctionFlavor) {
         self.function_flavors.push((node_id, flavor));
     }
 
-    fn push_child(&mut self, parent: HirNodeId, child: HirNodeId) {
+    pub(crate) fn push_child(&mut self, parent: HirNodeId, child: HirNodeId) {
         if let Some(node) = self.builder.node_mut(parent) {
             node.children.push(child);
         }
@@ -1156,7 +1157,7 @@ impl Default for HirLowerer {
     }
 }
 
-fn lower_literal_value(value: &LiteralValue) -> String {
+pub(crate) fn lower_literal_value(value: &LiteralValue) -> String {
     match value {
         LiteralValue::Boolean(v) => v.to_string(),
         LiteralValue::Number(v) => v.to_string(),
@@ -1166,7 +1167,7 @@ fn lower_literal_value(value: &LiteralValue) -> String {
     }
 }
 
-fn logical_op_text(op: &kali_ast::LogicalOperator) -> &'static str {
+pub(crate) fn logical_op_text(op: &kali_ast::LogicalOperator) -> &'static str {
     match op {
         kali_ast::LogicalOperator::And => "&&",
         kali_ast::LogicalOperator::Or => "||",
@@ -1174,7 +1175,7 @@ fn logical_op_text(op: &kali_ast::LogicalOperator) -> &'static str {
     }
 }
 
-fn update_op_text(op: &kali_ast::UpdateOperator, prefix: bool) -> &'static str {
+pub(crate) fn update_op_text(op: &kali_ast::UpdateOperator, prefix: bool) -> &'static str {
     match (op, prefix) {
         (kali_ast::UpdateOperator::Increment, true) => "prefix++",
         (kali_ast::UpdateOperator::Increment, false) => "postfix++",
@@ -1183,7 +1184,7 @@ fn update_op_text(op: &kali_ast::UpdateOperator, prefix: bool) -> &'static str {
     }
 }
 
-fn assignment_op_text(op: &AssignmentOperator) -> &'static str {
+pub(crate) fn assignment_op_text(op: &AssignmentOperator) -> &'static str {
     match op {
         AssignmentOperator::Assign => "=",
         AssignmentOperator::AddAssign => "+=",
@@ -1198,7 +1199,7 @@ fn assignment_op_text(op: &AssignmentOperator) -> &'static str {
     }
 }
 
-fn object_property_kind_text(kind: &ObjectPropertyKind) -> &'static str {
+pub(crate) fn object_property_kind_text(kind: &ObjectPropertyKind) -> &'static str {
     match kind {
         ObjectPropertyKind::Init => "init",
         ObjectPropertyKind::Get => "get",
