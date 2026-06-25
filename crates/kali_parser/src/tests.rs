@@ -1,9 +1,10 @@
 use super::*;
 use kali_ast::{
     AssignmentOperator, Expression, ExpressionOrSpread, ImportSpecifier, ObjectExpression,
-    ObjectPropertyKind, PropertyName, UpdateOperator,
+    ObjectPropertyKind, PropertyName, Statement, UpdateOperator,
 };
-use kali_lexer::Lexer;
+use kali_common::FileId;
+use kali_lexer::{Lexer, Token};
 
 fn lex(source: &str) -> Vec<Token> {
     let lexer = Lexer::new(FileId::new(0), source.to_string());
