@@ -1,6 +1,4 @@
 use crate::*;
-use std::fs;
-use tempfile::tempdir;
 
 #[test]
 fn validate_package_shape_rejects_install_time_scripts_without_allow_scripts() {
@@ -153,14 +151,14 @@ fn validate_package_shape_allows_harmless_scripts_when_allowed() {
 
 #[test]
 fn validate_package_host_fit_rejects_node_builtin_imports() {
-    let dir = tempdir().unwrap();
-    fs::write(
-        dir.path().join("index.js"),
+    let dir = kali_test_support::fixtures::tempdir();
+    kali_test_support::fixtures::write_file(
+        dir.path(),
+        "index.js",
         r#"import fs from "node:fs";
 export default fs;
 "#,
-    )
-    .unwrap();
+    );
 
     let error = validate_package_host_fit(dir.path(), PackageHostFitContext::DefaultStandalone)
         .unwrap_err();
@@ -171,14 +169,14 @@ export default fs;
 
 #[test]
 fn validate_package_host_fit_rejects_node_timers_imports() {
-    let dir = tempdir().unwrap();
-    fs::write(
-        dir.path().join("index.js"),
+    let dir = kali_test_support::fixtures::tempdir();
+    kali_test_support::fixtures::write_file(
+        dir.path(),
+        "index.js",
         r#"import timers from "node:timers";
 export default timers;
 "#,
-    )
-    .unwrap();
+    );
 
     let error = validate_package_host_fit(dir.path(), PackageHostFitContext::DefaultStandalone)
         .unwrap_err();
@@ -189,14 +187,14 @@ export default timers;
 
 #[test]
 fn validate_package_host_fit_rejects_node_timers_promises_imports() {
-    let dir = tempdir().unwrap();
-    fs::write(
-        dir.path().join("index.js"),
+    let dir = kali_test_support::fixtures::tempdir();
+    kali_test_support::fixtures::write_file(
+        dir.path(),
+        "index.js",
         r#"import timers from "node:timers/promises";
 export default timers;
 "#,
-    )
-    .unwrap();
+    );
 
     let error = validate_package_host_fit(dir.path(), PackageHostFitContext::DefaultStandalone)
         .unwrap_err();
@@ -207,14 +205,14 @@ export default timers;
 
 #[test]
 fn validate_package_host_fit_allows_node_builtin_imports_in_node_context() {
-    let dir = tempdir().unwrap();
-    fs::write(
-        dir.path().join("index.js"),
+    let dir = kali_test_support::fixtures::tempdir();
+    kali_test_support::fixtures::write_file(
+        dir.path(),
+        "index.js",
         r#"import crypto from "node:crypto";
 export default crypto;
 "#,
-    )
-    .unwrap();
+    );
 
     validate_package_host_fit(dir.path(), PackageHostFitContext::Node)
         .expect("node host fit should allow Node builtins");
@@ -222,14 +220,14 @@ export default crypto;
 
 #[test]
 fn validate_package_host_fit_rejects_node_builtin_requires() {
-    let dir = tempdir().unwrap();
-    fs::write(
-        dir.path().join("index.cjs"),
+    let dir = kali_test_support::fixtures::tempdir();
+    kali_test_support::fixtures::write_file(
+        dir.path(),
+        "index.cjs",
         r#"const childProcess = require("child_process");
 module.exports = childProcess;
 "#,
-    )
-    .unwrap();
+    );
 
     let error = validate_package_host_fit(dir.path(), PackageHostFitContext::DefaultStandalone)
         .unwrap_err();

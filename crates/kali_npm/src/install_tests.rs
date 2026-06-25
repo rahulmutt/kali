@@ -3,14 +3,13 @@ use crate::test_support::*;
 use crate::LOCK_VERSION;
 use std::fs;
 use std::sync::atomic::Ordering;
-use tempfile::tempdir;
 
 use serde_json::json;
 
 
 #[test]
 fn lifecycle_hooks_run_in_order_when_allowed() {
-    let dir = tempdir().unwrap();
+    let dir = kali_test_support::fixtures::tempdir();
     let marker = dir.path().join("hook-order.txt");
     let package = PackageJson {
         scripts: BTreeMap::from([
@@ -38,7 +37,7 @@ fn lifecycle_hooks_run_in_order_when_allowed() {
 
 #[test]
 fn lifecycle_hooks_skip_blank_entries() {
-    let dir = tempdir().unwrap();
+    let dir = kali_test_support::fixtures::tempdir();
     let marker = dir.path().join("hook-skip.txt");
     let package = PackageJson {
         scripts: BTreeMap::from([("install".to_string(), "   ".to_string())]),
@@ -91,12 +90,12 @@ fn collect_reachable_registry_packages_rejects_install_path_conflicts() {
 
 #[test]
 fn install_reconciles_raw_urls_from_source_import_map_rewrites() {
-    let dir = tempdir().unwrap();
+    let dir = kali_test_support::fixtures::tempdir();
     let raw_url = start_raw_url_server("export default 1;");
     let raw_prefix = raw_url.trim_end_matches("mod.ts").to_string();
-    fs::write(
-        dir.path().join("kali.json"),
-        format!(
+    kali_test_support::fixtures::write_manifest(
+        dir.path(),
+        &format!(
             r#"{{
   "schemaVersion": 1,
   "imports": {{
@@ -105,9 +104,8 @@ fn install_reconciles_raw_urls_from_source_import_map_rewrites() {
 }}"#,
             raw_prefix
         ),
-    )
-    .unwrap();
-    fs::write(dir.path().join("main.ts"), "import 'raw/mod.ts';\n").unwrap();
+    );
+    kali_test_support::fixtures::write_file(dir.path(), "main.ts", "import 'raw/mod.ts';\n");
 
     let summary = install_project(dir.path(), InstallOptions::default()).unwrap();
     assert!(summary.lock_path.is_some());
@@ -117,7 +115,7 @@ fn install_reconciles_raw_urls_from_source_import_map_rewrites() {
     let cached = Path::new(&lock.raw_urls.get(&raw_url).unwrap().cached).to_path_buf();
     assert!(cached.exists(), "cached raw url was not materialized");
 
-    fs::write(dir.path().join("main.ts"), "export {};\n").unwrap();
+    kali_test_support::fixtures::write_file(dir.path(), "main.ts", "export {};\n");
     let manifest = load_manifest(dir.path()).unwrap().unwrap();
     let discovered = discover_install_time_raw_urls(dir.path(), &manifest).unwrap();
     assert!(
@@ -133,12 +131,12 @@ fn install_reconciles_raw_urls_from_source_import_map_rewrites() {
 
 #[test]
 fn install_is_idempotent_for_unchanged_raw_url_graph() {
-    let dir = tempdir().unwrap();
+    let dir = kali_test_support::fixtures::tempdir();
     let raw_url = start_raw_url_server("export default 1;");
     let raw_prefix = raw_url.trim_end_matches("mod.ts").to_string();
-    fs::write(
-        dir.path().join("kali.json"),
-        format!(
+    kali_test_support::fixtures::write_manifest(
+        dir.path(),
+        &format!(
             r#"{{
   "schemaVersion": 1,
   "imports": {{
@@ -147,9 +145,8 @@ fn install_is_idempotent_for_unchanged_raw_url_graph() {
 }}"#,
             raw_prefix
         ),
-    )
-    .unwrap();
-    fs::write(dir.path().join("main.ts"), "import 'raw/mod.ts';\n").unwrap();
+    );
+    kali_test_support::fixtures::write_file(dir.path(), "main.ts", "import 'raw/mod.ts';\n");
 
     install_project(dir.path(), InstallOptions::default()).unwrap();
     let first_lock = fs::read(dir.path().join("kali.lock")).unwrap();
@@ -165,7 +162,7 @@ fn install_is_idempotent_for_unchanged_raw_url_graph() {
 
 #[test]
 fn install_noops_without_manifest_or_dependencies() {
-    let dir = tempdir().unwrap();
+    let dir = kali_test_support::fixtures::tempdir();
 
     let summary = install_project(dir.path(), InstallOptions::default()).unwrap();
 
@@ -178,31 +175,30 @@ fn install_noops_without_manifest_or_dependencies() {
 
 #[test]
 fn install_stops_at_nested_child_project_roots() {
-    let dir = tempdir().unwrap();
+    let dir = kali_test_support::fixtures::tempdir();
     let root_raw_url = start_raw_url_server("export default 'root';\n");
     let child_raw_url = start_raw_url_server("export default 'child';\n");
 
-    fs::write(
-        dir.path().join("kali.json"),
+    kali_test_support::fixtures::write_manifest(
+        dir.path(),
         r#"{
   "schemaVersion": 1
 }"#,
-    )
-    .unwrap();
-    fs::write(
-        dir.path().join("main.ts"),
-        format!("import '{}';\n", root_raw_url),
-    )
-    .unwrap();
+    );
+    kali_test_support::fixtures::write_file(
+        dir.path(),
+        "main.ts",
+        &format!("import '{}';\n", root_raw_url),
+    );
 
     let child_dir = dir.path().join("child");
     fs::create_dir(&child_dir).unwrap();
-    fs::write(child_dir.join("kali.json"), r#"{"schemaVersion":1}"#).unwrap();
-    fs::write(
-        child_dir.join("main.ts"),
-        format!("import '{}';\n", child_raw_url),
-    )
-    .unwrap();
+    kali_test_support::fixtures::write_file(dir.path(), "child/kali.json", r#"{"schemaVersion":1}"#);
+    kali_test_support::fixtures::write_file(
+        dir.path(),
+        "child/main.ts",
+        &format!("import '{}';\n", child_raw_url),
+    );
 
     let manifest = load_manifest(dir.path()).unwrap().unwrap();
     let discovered = discover_install_time_raw_urls(dir.path(), &manifest).unwrap();
@@ -228,8 +224,8 @@ fn install_stops_at_nested_child_project_roots() {
 
 #[test]
 fn install_rejects_allow_scripts_without_effective_npm_work() {
-    let dir = tempdir().unwrap();
-    fs::write(dir.path().join("kali.json"), r#"{"schemaVersion":1}"#).unwrap();
+    let dir = kali_test_support::fixtures::tempdir();
+    kali_test_support::fixtures::write_manifest(dir.path(), r#"{"schemaVersion":1}"#);
 
     let error = install_project(
         dir.path(),
@@ -248,7 +244,7 @@ fn install_rejects_allow_scripts_without_effective_npm_work() {
 
 #[test]
 fn install_rejects_allow_scripts_for_jsr_targets() {
-    let dir = tempdir().unwrap();
+    let dir = kali_test_support::fixtures::tempdir();
 
     let error = install_project(
         dir.path(),
@@ -266,7 +262,7 @@ fn install_rejects_allow_scripts_for_jsr_targets() {
 
 #[test]
 fn install_rejects_allow_scripts_for_raw_url_targets() {
-    let dir = tempdir().unwrap();
+    let dir = kali_test_support::fixtures::tempdir();
 
     let error = install_project(
         dir.path(),
@@ -284,7 +280,7 @@ fn install_rejects_allow_scripts_for_raw_url_targets() {
 
 #[test]
 fn install_rejects_dev_without_explicit_target() {
-    let dir = tempdir().unwrap();
+    let dir = kali_test_support::fixtures::tempdir();
 
     let error = install_project(
         dir.path(),
@@ -303,7 +299,7 @@ fn install_rejects_dev_without_explicit_target() {
 
 #[test]
 fn install_rejects_dev_for_raw_url_targets() {
-    let dir = tempdir().unwrap();
+    let dir = kali_test_support::fixtures::tempdir();
 
     let error = install_project(
         dir.path(),
@@ -322,7 +318,7 @@ fn install_rejects_dev_for_raw_url_targets() {
 #[test]
 fn install_rejects_versioned_registry_targets() {
     for target in ["lodash@1.2.3", "jsr:@std/path@1.0.0"] {
-        let dir = tempdir().unwrap();
+        let dir = kali_test_support::fixtures::tempdir();
 
         let error = install_project(
             dir.path(),
@@ -352,7 +348,7 @@ fn install_rejects_versioned_registry_targets() {
 #[test]
 fn install_reconciles_semver_style_package_without_allow_scripts() {
     let _guard = kali_registry_lock().lock().unwrap();
-    let dir = tempdir().unwrap();
+    let dir = kali_test_support::fixtures::tempdir();
 
     let package_json = json!({
         "name": "semver",
@@ -394,11 +390,10 @@ fn install_reconciles_semver_style_package_without_allow_scripts() {
     let previous_registry = std::env::var_os("KALI_REGISTRY");
     std::env::set_var("KALI_REGISTRY", &registry_base);
 
-    fs::write(
-        dir.path().join("kali.json"),
+    kali_test_support::fixtures::write_manifest(
+        dir.path(),
         r#"{"schemaVersion":1,"dependencies":{"semver":"7.7.4"}}"#,
-    )
-    .unwrap();
+    );
 
     let summary = install_project(dir.path(), InstallOptions::default()).unwrap();
 
@@ -434,7 +429,7 @@ fn install_reconciles_semver_style_package_without_allow_scripts() {
 #[test]
 fn install_reconciles_semver_style_package_with_allow_scripts_noop() {
     let _guard = kali_registry_lock().lock().unwrap();
-    let dir = tempdir().unwrap();
+    let dir = kali_test_support::fixtures::tempdir();
 
     let package_json = json!({
         "name": "semver",
@@ -476,11 +471,10 @@ fn install_reconciles_semver_style_package_with_allow_scripts_noop() {
     let previous_registry = std::env::var_os("KALI_REGISTRY");
     std::env::set_var("KALI_REGISTRY", &registry_base);
 
-    fs::write(
-        dir.path().join("kali.json"),
+    kali_test_support::fixtures::write_manifest(
+        dir.path(),
         r#"{"schemaVersion":1,"dependencies":{"semver":"7.7.4"}}"#,
-    )
-    .unwrap();
+    );
 
     let summary = install_project(
         dir.path(),

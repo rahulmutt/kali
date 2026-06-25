@@ -1,18 +1,21 @@
 use crate::*;
 use std::fs;
-use tempfile::tempdir;
 
 #[test]
 fn bare_import_resolves_from_materialized_package() {
-    let dir = tempdir().unwrap();
+    let dir = kali_test_support::fixtures::tempdir();
     let package_dir = dir.path().join("node_modules/lodash");
     fs::create_dir_all(&package_dir).unwrap();
-    fs::write(
-        package_dir.join("package.json"),
+    kali_test_support::fixtures::write_file(
+        dir.path(),
+        "node_modules/lodash/package.json",
         r#"{"name":"lodash","main":"lodash.js"}"#,
-    )
-    .unwrap();
-    fs::write(package_dir.join("lodash.js"), "export default 1;").unwrap();
+    );
+    kali_test_support::fixtures::write_file(
+        dir.path(),
+        "node_modules/lodash/lodash.js",
+        "export default 1;",
+    );
 
     let resolved = resolve_materialized_import(dir.path(), "lodash");
     assert_eq!(resolved.unwrap(), package_dir.join("lodash.js"));
@@ -20,26 +23,30 @@ fn bare_import_resolves_from_materialized_package() {
 
 #[test]
 fn bare_import_resolves_via_types_package_dependency() {
-    let dir = tempdir().unwrap();
-    fs::write(
-        dir.path().join("kali.json"),
+    let dir = kali_test_support::fixtures::tempdir();
+    kali_test_support::fixtures::write_file(
+        dir.path(),
+        "kali.json",
         r#"{
   "schemaVersion": 1,
   "devDependencies": {
     "@types/lodash": "1.0.0"
   }
 }"#,
-    )
-    .unwrap();
+    );
 
     let types_dir = dir.path().join("node_modules/@types/lodash");
     fs::create_dir_all(&types_dir).unwrap();
-    fs::write(
-        types_dir.join("package.json"),
+    kali_test_support::fixtures::write_file(
+        dir.path(),
+        "node_modules/@types/lodash/package.json",
         r#"{"name":"@types/lodash","types":"index.d.ts"}"#,
-    )
-    .unwrap();
-    fs::write(types_dir.join("index.d.ts"), "declare const _: number;").unwrap();
+    );
+    kali_test_support::fixtures::write_file(
+        dir.path(),
+        "node_modules/@types/lodash/index.d.ts",
+        "declare const _: number;",
+    );
 
     let resolved = resolve_materialized_import(dir.path(), "lodash");
     assert_eq!(resolved.unwrap(), types_dir.join("index.d.ts"));
@@ -47,22 +54,23 @@ fn bare_import_resolves_via_types_package_dependency() {
 
 #[test]
 fn browser_replacement_maps_rewrite_selected_root_entries() {
-    let dir = tempdir().unwrap();
-    fs::write(
-        dir.path().join("kali.json"),
+    let dir = kali_test_support::fixtures::tempdir();
+    kali_test_support::fixtures::write_file(
+        dir.path(),
+        "kali.json",
         r#"{
   "schemaVersion": 1,
   "compilerOptions": {
     "apiSurface": "browser"
   }
 }"#,
-    )
-    .unwrap();
+    );
 
     let package_dir = dir.path().join("node_modules/widget");
     fs::create_dir_all(&package_dir).unwrap();
-    fs::write(
-        package_dir.join("package.json"),
+    kali_test_support::fixtures::write_file(
+        dir.path(),
+        "node_modules/widget/package.json",
         r#"{
   "name": "widget",
   "main": "index.js",
@@ -70,14 +78,17 @@ fn browser_replacement_maps_rewrite_selected_root_entries() {
     "./index.js": "./index.browser.js"
   }
 }"#,
-    )
-    .unwrap();
-    fs::write(package_dir.join("index.js"), "export default 'node';").unwrap();
-    fs::write(
-        package_dir.join("index.browser.js"),
+    );
+    kali_test_support::fixtures::write_file(
+        dir.path(),
+        "node_modules/widget/index.js",
+        "export default 'node';",
+    );
+    kali_test_support::fixtures::write_file(
+        dir.path(),
+        "node_modules/widget/index.browser.js",
         "export default 'browser';",
-    )
-    .unwrap();
+    );
 
     let resolved = resolve_materialized_import(dir.path(), "widget");
     assert_eq!(resolved.unwrap(), package_dir.join("index.browser.js"));
@@ -85,12 +96,13 @@ fn browser_replacement_maps_rewrite_selected_root_entries() {
 
 #[test]
 fn browser_replacement_maps_rewrite_selected_root_entries_from_explicit_context() {
-    let dir = tempdir().unwrap();
+    let dir = kali_test_support::fixtures::tempdir();
 
     let package_dir = dir.path().join("node_modules/widget");
     fs::create_dir_all(&package_dir).unwrap();
-    fs::write(
-        package_dir.join("package.json"),
+    kali_test_support::fixtures::write_file(
+        dir.path(),
+        "node_modules/widget/package.json",
         r#"{
   "name": "widget",
   "main": "index.js",
@@ -98,14 +110,17 @@ fn browser_replacement_maps_rewrite_selected_root_entries_from_explicit_context(
     "./index.js": "./index.browser.js"
   }
 }"#,
-    )
-    .unwrap();
-    fs::write(package_dir.join("index.js"), "export default 'node';").unwrap();
-    fs::write(
-        package_dir.join("index.browser.js"),
+    );
+    kali_test_support::fixtures::write_file(
+        dir.path(),
+        "node_modules/widget/index.js",
+        "export default 'node';",
+    );
+    kali_test_support::fixtures::write_file(
+        dir.path(),
+        "node_modules/widget/index.browser.js",
         "export default 'browser';",
-    )
-    .unwrap();
+    );
 
     let resolved = resolve_materialized_import_with_browser_context(dir.path(), "widget", true);
     assert_eq!(resolved.unwrap(), package_dir.join("index.browser.js"));
@@ -113,22 +128,23 @@ fn browser_replacement_maps_rewrite_selected_root_entries_from_explicit_context(
 
 #[test]
 fn browser_replacement_maps_can_block_selected_root_entries() {
-    let dir = tempdir().unwrap();
-    fs::write(
-        dir.path().join("kali.json"),
+    let dir = kali_test_support::fixtures::tempdir();
+    kali_test_support::fixtures::write_file(
+        dir.path(),
+        "kali.json",
         r#"{
   "schemaVersion": 1,
   "compilerOptions": {
     "apiSurface": "browser"
   }
 }"#,
-    )
-    .unwrap();
+    );
 
     let package_dir = dir.path().join("node_modules/widget");
     fs::create_dir_all(&package_dir).unwrap();
-    fs::write(
-        package_dir.join("package.json"),
+    kali_test_support::fixtures::write_file(
+        dir.path(),
+        "node_modules/widget/package.json",
         r#"{
   "name": "widget",
   "main": "index.js",
@@ -136,9 +152,12 @@ fn browser_replacement_maps_can_block_selected_root_entries() {
     "./index.js": false
   }
 }"#,
-    )
-    .unwrap();
-    fs::write(package_dir.join("index.js"), "export default 'node';").unwrap();
+    );
+    kali_test_support::fixtures::write_file(
+        dir.path(),
+        "node_modules/widget/index.js",
+        "export default 'node';",
+    );
 
     let resolved = resolve_materialized_import(dir.path(), "widget");
     assert!(
@@ -149,36 +168,40 @@ fn browser_replacement_maps_can_block_selected_root_entries() {
 
 #[test]
 fn browser_replacement_maps_rewrite_selected_subpaths() {
-    let dir = tempdir().unwrap();
-    fs::write(
-        dir.path().join("kali.json"),
+    let dir = kali_test_support::fixtures::tempdir();
+    kali_test_support::fixtures::write_file(
+        dir.path(),
+        "kali.json",
         r#"{
   "schemaVersion": 1,
   "compilerOptions": {
     "apiSurface": "browser"
   }
 }"#,
-    )
-    .unwrap();
+    );
 
     let package_dir = dir.path().join("node_modules/widget");
     fs::create_dir_all(&package_dir).unwrap();
-    fs::write(
-        package_dir.join("package.json"),
+    kali_test_support::fixtures::write_file(
+        dir.path(),
+        "node_modules/widget/package.json",
         r#"{
   "name": "widget",
   "browser": {
     "./feature.js": "./feature.browser.js"
   }
 }"#,
-    )
-    .unwrap();
-    fs::write(package_dir.join("feature.js"), "export default 'node';").unwrap();
-    fs::write(
-        package_dir.join("feature.browser.js"),
+    );
+    kali_test_support::fixtures::write_file(
+        dir.path(),
+        "node_modules/widget/feature.js",
+        "export default 'node';",
+    );
+    kali_test_support::fixtures::write_file(
+        dir.path(),
+        "node_modules/widget/feature.browser.js",
         "export default 'browser';",
-    )
-    .unwrap();
+    );
 
     let resolved = resolve_materialized_import(dir.path(), "widget/feature");
     assert_eq!(resolved.unwrap(), package_dir.join("feature.browser.js"));
@@ -186,11 +209,12 @@ fn browser_replacement_maps_rewrite_selected_subpaths() {
 
 #[test]
 fn exports_take_precedence_over_legacy_entry_fields_and_respect_browser_conditions() {
-    let dir = tempdir().unwrap();
+    let dir = kali_test_support::fixtures::tempdir();
     let package_dir = dir.path().join("node_modules/widget");
     fs::create_dir_all(&package_dir).unwrap();
-    fs::write(
-        package_dir.join("package.json"),
+    kali_test_support::fixtures::write_file(
+        dir.path(),
+        "node_modules/widget/package.json",
         r#"{
   "name": "widget",
   "main": "legacy.js",
@@ -202,20 +226,27 @@ fn exports_take_precedence_over_legacy_entry_fields_and_respect_browser_conditio
     }
   }
 }"#,
-    )
-    .unwrap();
-    fs::write(package_dir.join("legacy.js"), "export default 'legacy';").unwrap();
-    fs::write(package_dir.join("entry.deno.js"), "export default 'deno';").unwrap();
-    fs::write(
-        package_dir.join("entry.browser.js"),
+    );
+    kali_test_support::fixtures::write_file(
+        dir.path(),
+        "node_modules/widget/legacy.js",
+        "export default 'legacy';",
+    );
+    kali_test_support::fixtures::write_file(
+        dir.path(),
+        "node_modules/widget/entry.deno.js",
+        "export default 'deno';",
+    );
+    kali_test_support::fixtures::write_file(
+        dir.path(),
+        "node_modules/widget/entry.browser.js",
         "export default 'browser';",
-    )
-    .unwrap();
-    fs::write(
-        package_dir.join("entry.default.js"),
+    );
+    kali_test_support::fixtures::write_file(
+        dir.path(),
+        "node_modules/widget/entry.default.js",
         "export default 'default';",
-    )
-    .unwrap();
+    );
 
     let resolved_deno = resolve_materialized_import(dir.path(), "widget");
     assert_eq!(resolved_deno.unwrap(), package_dir.join("entry.deno.js"));

@@ -1,7 +1,6 @@
 use crate::*;
 use crate::test_support::*;
 use std::fs;
-use tempfile::tempdir;
 
 #[test]
 fn manifest_round_trip_is_deterministic() {
@@ -67,8 +66,8 @@ fn manifest_registry_collisions_allow_identical_identity_spelling() {
 
 #[test]
 fn ensure_project_ready_rejects_stale_lock_entries() {
-    let dir = tempdir().unwrap();
-    fs::write(dir.path().join("kali.json"), r#"{"schemaVersion":1}"#).unwrap();
+    let dir = kali_test_support::fixtures::tempdir();
+    kali_test_support::fixtures::write_manifest(dir.path(), r#"{"schemaVersion":1}"#);
     let lock = LockFile {
         version: crate::LOCK_VERSION,
         packages: BTreeMap::from([(
@@ -82,11 +81,11 @@ fn ensure_project_ready_rejects_stale_lock_entries() {
         )]),
         ..LockFile::default()
     };
-    fs::write(
-        dir.path().join("kali.lock"),
-        serde_json::to_string_pretty(&lock).unwrap(),
-    )
-    .unwrap();
+    kali_test_support::fixtures::write_file(
+        dir.path(),
+        "kali.lock",
+        &serde_json::to_string_pretty(&lock).unwrap(),
+    );
 
     let error = ensure_project_ready(dir.path()).unwrap_err();
     assert_eq!(error.code, Some(e6::INSTALL_REQUIRED as u32));
@@ -94,12 +93,12 @@ fn ensure_project_ready_rejects_stale_lock_entries() {
 
 #[test]
 fn ensure_project_ready_rejects_missing_raw_url_cache() {
-    let dir = tempdir().unwrap();
+    let dir = kali_test_support::fixtures::tempdir();
     let raw_url = start_raw_url_server("export default 1;");
     let raw_prefix = raw_url.trim_end_matches("mod.ts").to_string();
-    fs::write(
-        dir.path().join("kali.json"),
-        format!(
+    kali_test_support::fixtures::write_manifest(
+        dir.path(),
+        &format!(
             r#"{{
   "schemaVersion": 1,
   "imports": {{
@@ -108,9 +107,8 @@ fn ensure_project_ready_rejects_missing_raw_url_cache() {
 }}"#,
             raw_prefix
         ),
-    )
-    .unwrap();
-    fs::write(dir.path().join("main.ts"), "import 'raw/mod.ts';\n").unwrap();
+    );
+    kali_test_support::fixtures::write_file(dir.path(), "main.ts", "import 'raw/mod.ts';\n");
 
     install_project(dir.path(), InstallOptions::default()).unwrap();
     let lock = load_lock(dir.path()).unwrap().unwrap();
