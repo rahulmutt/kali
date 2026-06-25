@@ -1,4 +1,4 @@
-use super::*;
+use crate::*;
 
 #[test]
 fn test_function_kind_metadata_survives_serde_roundtrip() {
