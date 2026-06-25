@@ -4,10 +4,12 @@
 //! shape while providing a stable bridge for later memory/ownership analysis.
 
 mod binding;
+mod function;
 mod layout;
 mod ownership;
 
 pub use binding::{BorrowedLifetime, MirBinding, MirBindingKind};
+pub use function::{MirFunction, MirFunctionKind};
 pub use layout::LayoutDescriptor;
 pub use ownership::{OwnershipClass, ThreadBoundaryBinding, ThreadBoundaryDisposition, ThreadBoundaryProfile};
 
@@ -16,50 +18,6 @@ use std::collections::{BTreeMap, BTreeSet};
 use kali_hir::{
     FunctionFlavor, HirNode, HirNodeId, HirNodeKind, LoweringResult as HirLoweringResult,
 };
-
-/// MIR function/module scope metadata.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum MirFunctionKind {
-    Module,
-    Function,
-    Closure,
-}
-
-/// MIR function/module scope analysis.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MirFunction {
-    pub name: Option<String>,
-    pub kind: MirFunctionKind,
-    pub function_flavor: Option<FunctionFlavor>,
-    pub bindings: Vec<MirBinding>,
-}
-
-impl MirFunction {
-    pub fn binding(&self, name: &str) -> Option<&MirBinding> {
-        self.bindings.iter().find(|binding| binding.name == name)
-    }
-
-    /// Return borrowed-lifetime summaries for the borrowed bindings in this scope.
-    pub fn borrowed_lifetimes(&self, scope: impl Into<String>) -> Vec<BorrowedLifetime> {
-        let scope = scope.into();
-        let borrowed = self
-            .bindings
-            .iter()
-            .filter_map(|binding| binding.borrowed_lifetime(scope.clone()))
-            .collect::<BTreeSet<_>>();
-        borrowed.into_iter().collect()
-    }
-
-    /// Return the thread-boundary profile for this function scope.
-    pub fn thread_boundary_profile(&self, scope: impl Into<String>) -> ThreadBoundaryProfile {
-        let scope = scope.into();
-        let mut profile = ThreadBoundaryProfile::default();
-        for binding in &self.bindings {
-            profile.push_binding(scope.clone(), binding);
-        }
-        profile.finalize()
-    }
-}
 
 /// MIR node kind.
 #[derive(Debug, Clone, PartialEq, Eq)]
