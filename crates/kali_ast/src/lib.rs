@@ -9,6 +9,7 @@ mod statement;
 mod declaration;
 mod module;
 mod literal;
+mod jsx;
 
 pub use node::*;
 pub use builder::*;
@@ -16,6 +17,7 @@ pub use statement::*;
 pub use declaration::*;
 pub use module::*;
 pub use literal::*;
+pub use jsx::*;
 
 // Expression types
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -327,77 +329,6 @@ pub struct DecoratedExpression {
     pub expression: Box<Expression>,
 }
 
-/// JSX element
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct JsxElement {
-    pub opening_element: JsxOpeningElement,
-    pub children: Vec<JsxChild>,
-    pub closing_element: Option<JsxClosingElement>,
-}
-
-/// JSX opening element
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct JsxOpeningElement {
-    pub name: JsxName,
-    pub attributes: Vec<JsxAttributeItem>,
-}
-
-/// JSX child
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub enum JsxChild {
-    JsxText(String),
-    JsxExpression(JsxExpressionContainer),
-    JsxElement(Box<JsxElement>),
-    JsxFragment(Box<JsxFragment>),
-}
-
-/// JSX expression container
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct JsxExpressionContainer {
-    pub expression: Option<Expression>,
-}
-
-/// JSX fragment
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct JsxFragment {
-    pub children: Vec<JsxChild>,
-}
-
-/// JSX name
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub enum JsxName {
-    Identifier(String),
-    JsxClosedElement(Box<JsxClosingElement>),
-}
-
-/// JSX attribute item
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub enum JsxAttributeItem {
-    JsxAttribute(JsxAttribute),
-    JsxSpreadAttribute(Box<JsxSpreadAttribute>),
-}
-
-/// JSX attribute
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct JsxAttribute {
-    pub name: JsxName,
-    pub value: JsxAttributeValue,
-}
-
-/// JSX attribute value
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub enum JsxAttributeValue {
-    String(String),
-    JsxElement(Box<JsxElement>),
-    JsxExpression(JsxExpressionContainer),
-}
-
-/// JSX spread attribute
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct JsxSpreadAttribute {
-    pub argument: Expression,
-}
-
 /// Type assertion
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct TypeAssertion {
@@ -420,17 +351,3 @@ pub struct SatisfiesExpression {
 // ============== MISSING TYPE: UnaryOperatorExpression (duplicate) ==============
 // Note: This is intentionally removed - use UnaryExpression instead
 
-// ============== MISSING TYPE ==============
-
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct JsxSelfClosingElement {
-    pub name: JsxName,
-    pub attributes: Vec<JsxAttributeItem>,
-}
-
-// END OF MISSING TYPES
-// Add this type after JsxSelfClosingElement definition
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct JsxClosingElement {
-    pub name: JsxName,
-}
