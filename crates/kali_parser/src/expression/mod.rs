@@ -234,3 +234,7 @@ impl Parser {
         Expression::AwaitExpression(Box::new(kali_ast::AwaitExpression { argument }))
     }
 }
+
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod mod_tests;

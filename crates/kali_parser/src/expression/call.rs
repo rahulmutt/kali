@@ -214,3 +214,7 @@ impl Parser {
         Some(format!("{object}.{}", member.property))
     }
 }
+
+#[cfg(test)]
+#[path = "call_tests.rs"]
+mod call_tests;

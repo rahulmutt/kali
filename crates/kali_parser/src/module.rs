@@ -299,3 +299,7 @@ impl Parser {
         None
     }
 }
+
+#[cfg(test)]
+#[path = "module_tests.rs"]
+mod module_tests;

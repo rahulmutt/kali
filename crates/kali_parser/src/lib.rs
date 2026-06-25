@@ -13,5 +13,4 @@ pub use parser::{Parser, ParserOutput};
 pub use token_stream::TokenStream;
 
 #[cfg(test)]
-#[path = "tests.rs"]
-mod tests;
+mod test_support;

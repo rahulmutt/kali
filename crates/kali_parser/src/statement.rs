@@ -578,3 +578,7 @@ impl Parser {
         }))
     }
 }
+
+#[cfg(test)]
+#[path = "statement_tests.rs"]
+mod statement_tests;

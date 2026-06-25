@@ -191,3 +191,7 @@ impl Parser {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "primary_tests.rs"]
+mod primary_tests;
