@@ -1,5 +1,6 @@
-use super::*;
+use crate::*;
 use crate::test_support::*;
+use crate::LOCK_VERSION;
 use std::fs;
 use std::sync::atomic::Ordering;
 use tempfile::tempdir;
@@ -518,5 +519,3 @@ fn install_reconciles_semver_style_package_with_allow_scripts_noop() {
     assert_eq!(tarball_hits.load(Ordering::SeqCst), 1);
     assert_eq!(registry_hits.load(Ordering::SeqCst), 1);
 }
-
-
