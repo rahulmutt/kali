@@ -2,7 +2,7 @@
 
 use crate::Parser;
 use kali_ast::{
-    ArrowFunctionExpression, ArrayExpression, Expression, ExpressionOrSpread, FunctionParam,
+    ArrayExpression, ArrowFunctionExpression, Expression, ExpressionOrSpread, FunctionParam,
     ImportExpression, ParenthesizedExpression, SpreadElement,
 };
 use kali_lexer::TokenType;

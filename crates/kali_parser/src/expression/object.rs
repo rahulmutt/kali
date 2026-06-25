@@ -89,7 +89,10 @@ impl Parser {
         Expression::ObjectExpression(ObjectExpression { properties })
     }
 
-    pub(crate) fn unwrap_await_literal_array_expression(&self, expression: Expression) -> Option<Expression> {
+    pub(crate) fn unwrap_await_literal_array_expression(
+        &self,
+        expression: Expression,
+    ) -> Option<Expression> {
         match expression {
             Expression::AwaitExpression(await_expr) => {
                 self.unwrap_await_literal_array_expression(await_expr.argument)
@@ -119,7 +122,10 @@ impl Parser {
         }
     }
 
-    pub(crate) fn computed_object_property_name(&self, expression: Expression) -> Option<PropertyName> {
+    pub(crate) fn computed_object_property_name(
+        &self,
+        expression: Expression,
+    ) -> Option<PropertyName> {
         match expression {
             Expression::ParenthesizedExpression(parenthesized) => {
                 self.computed_object_property_name(*parenthesized.expression)

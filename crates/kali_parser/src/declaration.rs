@@ -291,9 +291,7 @@ impl Parser {
             match expressions.len() {
                 0 => Expression::Literal(kali_ast::LiteralValue::Null),
                 1 => expressions.pop().unwrap(),
-                _ => Expression::SequenceExpression(Box::new(SequenceExpression {
-                    expressions,
-                })),
+                _ => Expression::SequenceExpression(Box::new(SequenceExpression { expressions })),
             }
         } else {
             self.parse_expression()
