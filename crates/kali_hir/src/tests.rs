@@ -1,5 +1,8 @@
 use super::*;
-use kali_ast::{UpdateExpression, UpdateOperator, AST};
+use kali_ast::{
+    Expression, ObjectExpression, ObjectProperty, ObjectPropertyKind, PropertyName, Statement,
+    UpdateExpression, UpdateOperator, AST,
+};
 use kali_common::FileId;
 use kali_lexer::Lexer;
 use kali_parser::Parser;

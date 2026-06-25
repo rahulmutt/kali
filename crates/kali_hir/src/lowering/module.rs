@@ -1,7 +1,7 @@
 //! Import/export specifier and default-export lowering.
 
 use crate::node::{HirNodeId, HirNodeKind};
-use crate::{push_child, HirLowerer};
+use crate::HirLowerer;
 use kali_ast::{ExportDefaultDeclaration, ExportSpecifier, ImportSpecifier, Statement};
 
 impl HirLowerer {

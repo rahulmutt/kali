@@ -2,7 +2,7 @@
 
 use crate::helpers::{assignment_op_text, logical_op_text, lower_literal_value, update_op_text};
 use crate::node::{HirNodeId, HirNodeKind};
-use crate::{push_child, HirLowerer};
+use crate::HirLowerer;
 use kali_ast::{
     ArrayExpression, AssignmentExpression, Expression, ExpressionOrSpread, MetaProperty,
     ObjectExpression, OptionalChainExpression, OptionalChainInner, TemplateLiteral,

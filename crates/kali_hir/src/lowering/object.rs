@@ -2,7 +2,7 @@
 
 use crate::helpers::object_property_kind_text;
 use crate::node::{HirNodeId, HirNodeKind};
-use crate::{push_child, HirLowerer};
+use crate::HirLowerer;
 use kali_ast::{ObjectProperty, PropertyName};
 
 impl HirLowerer {

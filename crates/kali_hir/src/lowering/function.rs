@@ -2,7 +2,7 @@
 
 use crate::node::{HirNodeId, HirNodeKind};
 use crate::result::FunctionFlavor;
-use crate::{push_child, HirLowerer};
+use crate::HirLowerer;
 use kali_ast::{ArrowFunctionExpression, ClassExpression, FunctionExpression, ReturnStatement, Statement};
 
 impl HirLowerer {
