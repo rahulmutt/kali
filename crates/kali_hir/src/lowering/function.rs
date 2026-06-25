@@ -3,7 +3,9 @@
 use crate::node::{HirNodeId, HirNodeKind};
 use crate::result::FunctionFlavor;
 use crate::HirLowerer;
-use kali_ast::{ArrowFunctionExpression, ClassExpression, FunctionExpression, ReturnStatement, Statement};
+use kali_ast::{
+    ArrowFunctionExpression, ClassExpression, FunctionExpression, ReturnStatement, Statement,
+};
 
 impl HirLowerer {
     pub(crate) fn lower_function_expression(&mut self, expr: &FunctionExpression) -> HirNodeId {
@@ -37,7 +39,10 @@ impl HirLowerer {
         id
     }
 
-    pub(crate) fn lower_arrow_function_expression(&mut self, expr: &ArrowFunctionExpression) -> HirNodeId {
+    pub(crate) fn lower_arrow_function_expression(
+        &mut self,
+        expr: &ArrowFunctionExpression,
+    ) -> HirNodeId {
         let name = self.next_synthetic_function_name();
         let id = self
             .builder

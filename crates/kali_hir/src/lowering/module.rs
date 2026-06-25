@@ -42,7 +42,10 @@ impl HirLowerer {
         id
     }
 
-    pub(crate) fn lower_export_default(&mut self, default_decl: &ExportDefaultDeclaration) -> HirNodeId {
+    pub(crate) fn lower_export_default(
+        &mut self,
+        default_decl: &ExportDefaultDeclaration,
+    ) -> HirNodeId {
         let id = self.builder.alloc(HirNodeKind::ExportDecl, None);
         match default_decl {
             ExportDefaultDeclaration::Expression(expr) => {

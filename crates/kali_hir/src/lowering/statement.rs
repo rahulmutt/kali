@@ -414,7 +414,10 @@ impl HirLowerer {
         id
     }
 
-    pub(crate) fn lower_variable_declarator(&mut self, declarator: &VariableDeclarator) -> HirNodeId {
+    pub(crate) fn lower_variable_declarator(
+        &mut self,
+        declarator: &VariableDeclarator,
+    ) -> HirNodeId {
         let id = self
             .builder
             .alloc_text(HirNodeKind::VarDeclarator, None, declarator.id.clone());

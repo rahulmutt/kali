@@ -3,7 +3,7 @@
 use crate::builder::HirBuilder;
 use crate::node::{HirNodeId, HirNodeKind};
 use crate::result::{FunctionFlavor, LoweringResult};
-use kali_ast::{Statement, AST, NodeId};
+use kali_ast::{NodeId, Statement, AST};
 use kali_error::diagnostic::Diagnostic;
 
 /// HIR lowering from AST.
