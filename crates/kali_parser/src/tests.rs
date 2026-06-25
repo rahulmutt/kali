@@ -1,6 +1,7 @@
 use super::*;
 use kali_ast::{
-    AssignmentOperator, ObjectExpression, ObjectPropertyKind, PropertyName, UpdateOperator,
+    AssignmentOperator, ImportSpecifier, ObjectExpression, ObjectPropertyKind, PropertyName,
+    UpdateOperator,
 };
 use kali_lexer::Lexer;
 
