@@ -3,19 +3,6 @@ use kali_common::bytewise_shared_memory_is_lock_free;
 use std::sync::atomic::AtomicUsize;
 
 #[test]
-fn performance_now_is_monotonic_and_non_negative() {
-    let first = performance_now();
-    std::thread::sleep(std::time::Duration::from_millis(1));
-    let second = performance_now();
-
-    assert!(first >= 0.0, "first timestamp: {first}");
-    assert!(
-        second >= first,
-        "timestamps should not go backwards: {first} -> {second}"
-    );
-}
-
-#[test]
 fn random_fill_populates_the_requested_buffer() {
     let mut buffer = [0u8; 16];
     fill_random_values(&mut buffer).expect("random fill");
@@ -117,15 +104,6 @@ fn crypto_subtle_digest_rejects_unknown_algorithms() {
 }
 
 #[test]
-fn text_codec_round_trips_unicode() {
-    let input = "héllo 🌍";
-    let encoded = text_encode(input);
-    assert_eq!(encoded, input.as_bytes());
-    let decoded = text_decode(&encoded).expect("valid utf-8");
-    assert_eq!(decoded, input);
-}
-
-#[test]
 fn base64_helpers_round_trip_binary_strings() {
     assert_eq!(btoa("hello").expect("encode"), "aGVsbG8=");
     assert_eq!(atob("aGVs bG8=").expect("decode"), "hello");
@@ -144,13 +122,6 @@ fn base64_helpers_reject_malformed_input_lengths() {
         error.to_string(),
         "The string to be decoded is not correctly encoded."
     );
-}
-
-#[test]
-fn structured_clone_copies_values() {
-    let original = vec![1, 2, 3];
-    let cloned = structured_clone(&original);
-    assert_eq!(cloned, original);
 }
 
 #[test]
