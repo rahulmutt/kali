@@ -1,4 +1,5 @@
-use super::*;
+use crate::*;
+use kali_error::_error_codes::w2;
 
 #[test]
 fn reports_basic_lint_issues() {
