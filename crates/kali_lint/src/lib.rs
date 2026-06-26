@@ -56,19 +56,19 @@ pub struct LintResult {
 }
 
 #[derive(Default)]
-struct FixPlan {
-    var_tokens: HashSet<usize>,
-    let_to_const_tokens: HashSet<usize>,
-    eqeqeq_tokens: HashMap<usize, &'static str>,
-    debugger_tokens: HashSet<usize>,
-    unused_import_ranges: Vec<(usize, usize)>,
+pub(crate) struct FixPlan {
+    pub(crate) var_tokens: HashSet<usize>,
+    pub(crate) let_to_const_tokens: HashSet<usize>,
+    pub(crate) eqeqeq_tokens: HashMap<usize, &'static str>,
+    pub(crate) debugger_tokens: HashSet<usize>,
+    pub(crate) unused_import_ranges: Vec<(usize, usize)>,
 }
 
-struct Analyzer {
-    tokens: Vec<Token>,
-    statements: Vec<Statement>,
-    diagnostics: Vec<Diagnostic>,
-    fix_plan: FixPlan,
+pub(crate) struct Analyzer {
+    pub(crate) tokens: Vec<Token>,
+    pub(crate) statements: Vec<Statement>,
+    pub(crate) diagnostics: Vec<Diagnostic>,
+    pub(crate) fix_plan: FixPlan,
 }
 
 impl Analyzer {
@@ -111,7 +111,7 @@ impl Analyzer {
         counts
     }
 
-    fn check_no_var_and_prefer_const(&mut self) {
+    pub(crate) fn check_no_var_and_prefer_const(&mut self) {
         let mut let_tokens = self
             .tokens
             .iter()
@@ -136,7 +136,7 @@ impl Analyzer {
         }
     }
 
-    fn check_explicit_any(&mut self) {
+    pub(crate) fn check_explicit_any(&mut self) {
         for (idx, window) in self.tokens.windows(2).enumerate() {
             let first = &window[0];
             let second = &window[1];
@@ -154,7 +154,7 @@ impl Analyzer {
         }
     }
 
-    fn check_no_console(&mut self) {
+    pub(crate) fn check_no_console(&mut self) {
         for window in self.tokens.windows(3) {
             if window[0].kind == TokenType::Identifier
                 && window[0].value == "console"
@@ -173,13 +173,13 @@ impl Analyzer {
         }
     }
 
-    fn check_no_empty_and_unreachable(&mut self) {
+    pub(crate) fn check_no_empty_and_unreachable(&mut self) {
         for statement in &self.statements {
             check_statement_for_empty_and_unreachable(statement, &mut self.diagnostics);
         }
     }
 
-    fn check_debugger(&mut self) {
+    pub(crate) fn check_debugger(&mut self) {
         for (index, token) in self.tokens.iter().enumerate() {
             if token.kind == TokenType::Debugger {
                 self.diagnostics.push(
@@ -196,7 +196,7 @@ impl Analyzer {
         }
     }
 
-    fn check_eqeqeq(&mut self) {
+    pub(crate) fn check_eqeqeq(&mut self) {
         for (index, token) in self.tokens.iter().enumerate() {
             match token.kind {
                 TokenType::EqEquals => {
@@ -218,7 +218,7 @@ impl Analyzer {
         }
     }
 
-    fn check_no_unused_vars(
+    pub(crate) fn check_no_unused_vars(
         &mut self,
         declared: &HashMap<String, usize>,
         identifier_counts: &HashMap<String, usize>,
@@ -234,7 +234,7 @@ impl Analyzer {
         }
     }
 
-    fn check_no_unused_imports(&mut self, identifier_counts: &HashMap<String, usize>) {
+    pub(crate) fn check_no_unused_imports(&mut self, identifier_counts: &HashMap<String, usize>) {
         let import_ranges = collect_import_ranges(&self.tokens);
         for import_range in import_ranges {
             let mut names = HashSet::new();
@@ -257,7 +257,7 @@ impl Analyzer {
         }
     }
 
-    fn check_no_undef(&mut self, declared: &HashMap<String, usize>) {
+    pub(crate) fn check_no_undef(&mut self, declared: &HashMap<String, usize>) {
         let builtins = builtin_globals();
         for (index, token) in self.tokens.iter().enumerate() {
             if token.kind != TokenType::Identifier {
@@ -309,7 +309,7 @@ impl Analyzer {
     }
 }
 
-fn collect_statements_declarations(statements: &[Statement], counts: &mut HashMap<String, usize>) {
+pub(crate) fn collect_statements_declarations(statements: &[Statement], counts: &mut HashMap<String, usize>) {
     for statement in statements {
         collect_statement_declarations(statement, counts);
     }
@@ -831,7 +831,7 @@ fn builtin_globals() -> HashSet<&'static str> {
     .collect()
 }
 
-fn apply_fixes(source: &str, plan: &FixPlan) -> String {
+pub(crate) fn apply_fixes(source: &str, plan: &FixPlan) -> String {
     let mut rewritten = source.to_string();
 
     if !plan.unused_import_ranges.is_empty() {
