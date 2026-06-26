@@ -1,10 +1,5 @@
 //! Web API compatibility surface for Kali runtime.
 
-#[cfg(test)]
-pub(crate) use serde_json::Value;
-#[cfg(test)]
-pub(crate) use std::sync::Arc;
-
 mod base64;
 pub use base64::*;
 
