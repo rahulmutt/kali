@@ -1,5 +1,7 @@
 //! Linter for Kali source files.
 
+mod fixes;
+
 use std::collections::{HashMap, HashSet};
 
 use kali_ast::{BlockStatement, Statement};
@@ -8,6 +10,8 @@ use kali_error::{_error_codes::w2, Diagnostic};
 use kali_fmt::format_source;
 use kali_lexer::{Lexer, Token, TokenType};
 use kali_parser::Parser;
+
+use crate::fixes::apply_fixes;
 
 /// Lint the given source text.
 pub fn lint(source: &str) -> Vec<Diagnostic> {
@@ -831,47 +835,6 @@ fn builtin_globals() -> HashSet<&'static str> {
     .collect()
 }
 
-pub(crate) fn apply_fixes(source: &str, plan: &FixPlan) -> String {
-    let mut rewritten = source.to_string();
-
-    if !plan.unused_import_ranges.is_empty() {
-        rewritten = rewritten
-            .lines()
-            .filter(|line| {
-                let trimmed = line.trim_start();
-                !(trimmed.starts_with("import ") || trimmed.starts_with("import{"))
-            })
-            .collect::<Vec<_>>()
-            .join("\n");
-    }
-
-    if !plan.debugger_tokens.is_empty() {
-        rewritten = rewritten.replace("debugger;", "");
-        rewritten = rewritten.replace("debugger", "");
-    }
-
-    if !plan.var_tokens.is_empty() {
-        rewritten = rewritten.replace("var ", "let ");
-    }
-
-    if !plan.let_to_const_tokens.is_empty() {
-        rewritten = rewritten.replace("let ", "const ");
-    }
-
-    for replacement in plan.eqeqeq_tokens.values() {
-        match *replacement {
-            "===" => {
-                rewritten = rewritten.replace("==", "===");
-            }
-            "!==" => {
-                rewritten = rewritten.replace("!=", "!==");
-            }
-            _ => {}
-        }
-    }
-
-    format_source(&rewritten)
-}
 
 #[cfg(test)]
 #[path = "tests.rs"]
