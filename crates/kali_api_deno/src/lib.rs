@@ -27,6 +27,9 @@ use std::{
 
 use serde_json::Value;
 
+mod args;
+pub use args::*;
+
 mod env;
 pub use env::*;
 
@@ -36,27 +39,6 @@ use crate::path::{normalize_path, resolve_path};
 /// Initialize the Deno API compatibility surface.
 pub fn deno_api_init() {
     kali_api_web::web_api_init();
-}
-
-/// Light-weight `Deno.args` projection.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct DenoArgs(Vec<String>);
-
-impl DenoArgs {
-    /// Create an argument view from a host-provided vector.
-    pub fn new(values: Vec<String>) -> Self {
-        Self(values)
-    }
-
-    /// Return the recorded arguments.
-    pub fn as_slice(&self) -> &[String] {
-        &self.0
-    }
-
-    /// Return the recorded arguments as an owned vector.
-    pub fn to_vec(&self) -> Vec<String> {
-        self.0.clone()
-    }
 }
 
 /// Canonical Deno permission descriptor subset used by the Phase-1 compatibility facade.

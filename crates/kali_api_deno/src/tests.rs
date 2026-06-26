@@ -2,19 +2,6 @@ use super::*;
 use tempfile::tempdir;
 
 #[test]
-fn args_view_round_trips_host_arguments() {
-    let args = DenoArgs::new(vec![String::from("kali"), String::from("run")]);
-    assert_eq!(
-        args.as_slice(),
-        &[String::from("kali"), String::from("run")]
-    );
-    assert_eq!(
-        args.to_vec(),
-        vec![String::from("kali"), String::from("run")]
-    );
-}
-
-#[test]
 fn navigator_baseline_is_reexported() {
     let navigator = navigator();
     assert_eq!(navigator.user_agent(), "Kali/1.0 (Web)");
