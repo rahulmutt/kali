@@ -3,6 +3,8 @@
 mod cursor;
 mod identifier;
 mod number;
+mod string;
+mod template;
 mod token;
 
 pub use token::{LexerResult, Token, TokenType};
@@ -53,81 +55,6 @@ impl Lexer {
             return Some(self.lex_division_or_comment());
         }
         self.lex_punct(c)
-    }
-
-    pub(crate) fn lex_string(&mut self, quote: char) -> Token {
-        let _start = self.position;
-        self.position += 1; // skip quote
-        let mut value = String::new();
-        value.push(quote);
-
-        loop {
-            match self.source.get(self.position) {
-                Some(&c) if c == quote => {
-                    value.push(c);
-                    self.position += 1;
-                    break;
-                }
-                Some(&c) if c == '\\' => {
-                    value.push(c);
-                    self.position += 1;
-                    if let Some(next) = self.source.get(self.position).copied() {
-                        value.push(next);
-                        self.position += 1;
-                    }
-                }
-                Some(&'\n') => {
-                    self.emit_error(e1::UNTERMINATED_STRING, "Unterminated string");
-                    return Token::new(TokenType::StringLiteral, value, self.span());
-                }
-                Some(&c) => {
-                    value.push(c);
-                    self.position += 1;
-                }
-                None => {
-                    self.emit_error(e1::UNTERMINATED_STRING, "Unterminated string");
-                    return Token::new(TokenType::StringLiteral, value, self.span());
-                }
-            }
-        }
-        Token::new(TokenType::StringLiteral, value, self.span())
-    }
-
-    pub(crate) fn lex_template(&mut self) -> Token {
-        let _start = self.position;
-        self.position += 1; // skip backtick
-        let mut value = String::new();
-        value.push('`');
-
-        loop {
-            match self.source.get(self.position) {
-                Some(&'`') => {
-                    value.push('`');
-                    self.position += 1;
-                    return Token::new(TokenType::Template, value, self.span());
-                }
-                Some(&'$') => {
-                    value.push('$');
-                    self.position += 1;
-                    if let Some(&'{') = self.source.get(self.position) {
-                        value.push('{');
-                        self.position += 1;
-                    }
-                }
-                Some(&'\n') => {
-                    value.push('\n');
-                    self.position += 1;
-                }
-                Some(&c) => {
-                    value.push(c);
-                    self.position += 1;
-                }
-                None => {
-                    self.emit_error(e1::UNTERMINATED_TEMPLATE, "Unterminated template");
-                    return Token::new(TokenType::Template, value, self.span());
-                }
-            }
-        }
     }
 
     pub(crate) fn lex_division_or_comment(&mut self) -> Token {
