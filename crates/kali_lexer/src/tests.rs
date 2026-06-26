@@ -1,4 +1,5 @@
 use super::*;
+use kali_common::FileId;
 
 #[test]
 fn test_lexer_eof() {
