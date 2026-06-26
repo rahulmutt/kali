@@ -1,4 +1,4 @@
-use super::*;
+use crate::*;
 
 #[test]
 fn indexed_db_stub_persists_values() {
