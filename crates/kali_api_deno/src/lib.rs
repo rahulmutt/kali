@@ -27,6 +27,9 @@ use std::{
 
 use serde_json::Value;
 
+mod path;
+use crate::path::{normalize_path, resolve_path};
+
 /// Initialize the Deno API compatibility surface.
 pub fn deno_api_init() {
     kali_api_web::web_api_init();
@@ -974,40 +977,6 @@ impl DenoRuntimeProjection {
     }
 }
 
-fn normalize_path(path: impl AsRef<Path>) -> PathBuf {
-    let path = path.as_ref();
-    let mut normalized = PathBuf::new();
-
-    for component in path.components() {
-        match component {
-            Component::CurDir => {}
-            Component::ParentDir => {
-                if !normalized.pop() {
-                    normalized.push("..");
-                }
-            }
-            Component::RootDir | Component::Prefix(_) => {
-                normalized.push(component.as_os_str());
-            }
-            Component::Normal(part) => normalized.push(part),
-        }
-    }
-
-    if normalized.as_os_str().is_empty() {
-        PathBuf::from(".")
-    } else {
-        normalized
-    }
-}
-
-fn resolve_path(base: impl AsRef<Path>, input: impl AsRef<Path>) -> PathBuf {
-    let input = input.as_ref();
-    if input.is_absolute() {
-        normalize_path(input)
-    } else {
-        normalize_path(PathBuf::from(base.as_ref()).join(input))
-    }
-}
 
 #[cfg(test)]
 #[path = "tests.rs"]
