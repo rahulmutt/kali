@@ -76,7 +76,20 @@ Module names `header`, `metadata`, `manifest`, `bundle`, `validate` do **not** c
 
 ## Tests
 
-`src/tests.rs` (37 `#[test]` fns, 53 KB) splits into co-located sibling `*_tests.rs` files, one per public module: `header_tests.rs`, `metadata_tests.rs`, `manifest_tests.rs`, `bundle_tests.rs`. Each is wired with `#[cfg(test)] mod <name>_tests;` from its module file (series pattern). Tests for the internal `validate` module, if any exist standalone, ride with whichever family exercises them (validators are tested through `parse_*` paths).
+`src/tests.rs` (37 `#[test]` fns, 53 KB) splits into co-located sibling `*_tests.rs` files. The split does **not** map 1:1 onto the 4 public modules — verified by reading every test:
+
+| test file | count | wired from | tests |
+|---|---|---|---|
+| `header_tests.rs` | 2 | `header.rs` | `header_generation_*`, `identifier_sanitization_*` |
+| `metadata_tests.rs` | 9 | `metadata.rs` | `metadata_generation_*` (2), `cabi_metadata_*` (7) |
+| `manifest_tests.rs` | 19 (+1 helper) | `manifest.rs` | `binding_package_manifest_*` (incl. the `*_summary_*` and parsing/rejection tests) + the `valid_binding_package_manifest()` helper fn |
+| `binding_tests.rs` | 7 | **facade (`lib.rs`)** | the cross-cutting end-to-end `python_binding_*` (4), `python_unittest_smoke_*`, `javascript_binding_package_metadata_is_present`, `javascript_node_test_smoke_*` |
+
+**`bundle` has no standalone tests.** Its four fns are exercised inside the manifest test `binding_package_manifest_helpers_load_discover_and_summarize_manifests` (which calls `load_binding_package_bundle_summary*`), so bundle coverage rides in `manifest_tests.rs`. This is a divergence from a naive "one test file per module" expectation, recorded honestly.
+
+**`binding_tests.rs` is crate-level.** The 7 end-to-end tests spawn `python3`/`node` subprocesses (returning early if the toolchain is absent), read `bindings/python` and `bindings/node` fixtures, and exercise header+metadata+manifest together. They belong to no single module → declared from the facade with `#[cfg(test)] #[path = "binding_tests.rs"] mod binding_tests;`. (The two `*_package_metadata_is_present` tests call no capi fn at all — they only read `bindings/` files — confirming they are integration, not unit, tests.)
+
+Each module file ends with `#[cfg(test)] #[path = "<name>_tests.rs"] mod <name>_tests;`. The internal `validate` module is tested through the `parse_*`/`*_summary` paths in `metadata_tests.rs` and `manifest_tests.rs`; it gets no standalone test file.
 
 **Self-sufficiency rule (series lesson from deno `net_tests`):** each `*_tests.rs` must `use` everything it needs explicitly. Do not rely on test-glob freeloading through a crate-root glob. Because `cargo build` skips `cfg(test)`, a freeloading test compiles under build but fails under `cargo test` — so verification for each test-split task must run `cargo test -p kali_capi`, not just `cargo build`.
 
@@ -87,7 +100,7 @@ Module names `header`, `metadata`, `manifest`, `bundle`, `validate` do **not** c
 3. `metadata` (depends on `validate` + `crate::HOST_ABI_VERSION`).
 4. `manifest` (depends on `validate` + `crate::HOST_ABI_VERSION`).
 5. `bundle` (depends on metadata + manifest public surface).
-6. Facade finalization: confirm `lib.rs` is `HOST_ABI_VERSION` + 5 `mod` + 4 globs + `#[cfg(test)]` wiring; co-locate the four `*_tests.rs` splits; delete `tests.rs`.
+6. Facade finalization: confirm `lib.rs` is `HOST_ABI_VERSION` + 5 `mod` + 4 globs + crate-level `mod binding_tests` wiring; co-locate the five `*_tests.rs` splits (`header`/`metadata`/`manifest` from their modules, `binding_tests` from the facade); delete `tests.rs`.
 
 Each task: extract → `cargo build -p kali_capi` → `cargo test -p kali_capi` → commit.
 
