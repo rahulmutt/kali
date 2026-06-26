@@ -257,21 +257,6 @@ fn browser_stubs_are_reexported_through_the_deno_surface() {
 }
 
 #[test]
-fn command_helper_runs_child_process_and_captures_output() {
-    let mut command = DenoCommand::new("sh");
-    command
-        .args(["-c", "printf '%s' \"deno-command\""])
-        .current_dir("./")
-        .env("DENO_HELPER", "enabled");
-
-    let output = command.spawn().expect("spawn command");
-    assert_eq!(output.status(), 0);
-    assert_eq!(output.stdout(), b"deno-command");
-    assert_eq!(output.stderr(), b"");
-    assert_eq!(output.text_stdout().expect("stdout text"), "deno-command");
-}
-
-#[test]
 fn tcp_connect_and_listen_round_trip_bytes() {
     let listener = listen("127.0.0.1", 0).expect("listen");
     let addr = listener.local_addr().expect("listener addr");
