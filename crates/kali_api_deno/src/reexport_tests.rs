@@ -1,5 +1,4 @@
-use super::*;
-use std::path::Path;
+use crate::*;
 
 #[test]
 fn navigator_baseline_is_reexported() {

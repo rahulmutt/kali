@@ -14,18 +14,6 @@ pub use kali_api_web::{
     WritableStream, URL,
 };
 
-use std::{
-    collections::BTreeMap,
-    io::{BufRead, BufReader, Read, Write},
-    net::{Shutdown, SocketAddr, TcpListener, TcpStream},
-    path::PathBuf,
-    process::{Command, Stdio},
-    sync::Arc,
-    thread::{self, JoinHandle},
-};
-
-use serde_json::Value;
-
 mod args;
 pub use args::*;
 
@@ -41,8 +29,7 @@ pub use fs::*;
 mod net;
 pub use net::*;
 
-mod path;
-use crate::path::{normalize_path, resolve_path};
+mod path; // internal — no glob re-export
 
 mod permissions;
 pub use permissions::*;
@@ -56,5 +43,5 @@ pub fn deno_api_init() {
 }
 
 #[cfg(test)]
-#[path = "tests.rs"]
-mod tests;
+#[path = "reexport_tests.rs"]
+mod reexport_tests;
