@@ -134,10 +134,10 @@ pub struct LexerResult {
 }
 
 pub struct Lexer {
-    source: Vec<char>,
-    file_id: FileId,
-    position: usize,
-    diagnostics: Vec<Diagnostic>,
+    pub(crate) source: Vec<char>,
+    pub(crate) file_id: FileId,
+    pub(crate) position: usize,
+    pub(crate) diagnostics: Vec<Diagnostic>,
 }
 
 impl Lexer {
@@ -177,7 +177,7 @@ impl Lexer {
         self.collect_token()
     }
 
-    fn skip_whitespace(&mut self) {
+    pub(crate) fn skip_whitespace(&mut self) {
         while let Some(&c) = self.source.get(self.position) {
             if c.is_whitespace() {
                 self.position += 1;
@@ -208,7 +208,7 @@ impl Lexer {
         self.lex_punct(c)
     }
 
-    fn lex_identifier(&mut self) -> Token {
+    pub(crate) fn lex_identifier(&mut self) -> Token {
         let _start = self.position;
         while let Some(&c) = self.source.get(self.position) {
             if c.is_ascii_alphanumeric() || c == '_' || c == '$' {
@@ -270,7 +270,7 @@ impl Lexer {
         Token::new(kind, self.slice(_start), self.span())
     }
 
-    fn lex_number(&mut self) -> Token {
+    pub(crate) fn lex_number(&mut self) -> Token {
         let _start = self.position;
         while let Some(&c) = self.source.get(self.position) {
             if c.is_ascii_digit() {
@@ -303,7 +303,7 @@ impl Lexer {
         Token::new(TokenType::NumericLiteral, self.slice(_start), self.span())
     }
 
-    fn lex_string(&mut self, quote: char) -> Token {
+    pub(crate) fn lex_string(&mut self, quote: char) -> Token {
         let _start = self.position;
         self.position += 1; // skip quote
         let mut value = String::new();
@@ -341,7 +341,7 @@ impl Lexer {
         Token::new(TokenType::StringLiteral, value, self.span())
     }
 
-    fn lex_template(&mut self) -> Token {
+    pub(crate) fn lex_template(&mut self) -> Token {
         let _start = self.position;
         self.position += 1; // skip backtick
         let mut value = String::new();
@@ -378,7 +378,7 @@ impl Lexer {
         }
     }
 
-    fn lex_division_or_comment(&mut self) -> Token {
+    pub(crate) fn lex_division_or_comment(&mut self) -> Token {
         self.position += 1;
         match self.source.get(self.position) {
             Some(&'=') => {
@@ -441,7 +441,7 @@ impl Lexer {
         }
     }
 
-    fn lex_punct(&mut self, initial: char) -> Option<Token> {
+    pub(crate) fn lex_punct(&mut self, initial: char) -> Option<Token> {
         let (kind, lexeme, len) = match initial {
             '&' if self.nth(1) == Some('&') && self.nth(2) == Some('=') => {
                 (TokenType::AndAndEq, "&&=".to_string(), 3)
@@ -519,30 +519,30 @@ impl Lexer {
         Some(Token::new(kind, lexeme, self.span()))
     }
 
-    fn peek(&self) -> Option<char> {
+    pub(crate) fn peek(&self) -> Option<char> {
         self.source.get(self.position).copied()
     }
 
-    fn nth(&self, n: usize) -> Option<char> {
+    pub(crate) fn nth(&self, n: usize) -> Option<char> {
         self.source.get(self.position + n).copied()
     }
 
-    fn is_eof(&self) -> bool {
+    pub(crate) fn is_eof(&self) -> bool {
         self.position >= self.source.len()
     }
 
-    fn span(&self) -> Span {
+    pub(crate) fn span(&self) -> Span {
         Span::new(self.file_id, self.position as u32, self.position as u32)
     }
 
-    fn emit_error(&mut self, code: u16, message: &str) {
+    pub(crate) fn emit_error(&mut self, code: u16, message: &str) {
         self.diagnostics.push(Diagnostic::error(
             code as u32,
             format!("{} at position {}", message, self.position),
         ));
     }
 
-    fn slice(&self, start: usize) -> String {
+    pub(crate) fn slice(&self, start: usize) -> String {
         self.source[start..self.position].iter().collect()
     }
 }
