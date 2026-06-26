@@ -1,5 +1,6 @@
 use super::*;
 use kali_common::FileId;
+use kali_error::_error_codes::e1;
 
 #[test]
 fn test_lexer_eof() {
