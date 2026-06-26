@@ -1,6 +1,6 @@
 //! Web `fetch` API family: `Headers`, `Request`, `Response`, and `fetch`.
 
-use ::url::{ParseError as UrlParseError, Url};
+use ::url::{ParseError as UrlParseError, Url}; // external `url` crate; `url` name is shadowed by our local module
 use std::sync::{Arc, Mutex};
 
 fn normalize_header_name(name: &str) -> String {

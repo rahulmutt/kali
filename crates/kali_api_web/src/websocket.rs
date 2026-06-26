@@ -1,6 +1,6 @@
 //! WebSocket family — stub WebSocket implementation.
 
-use ::url::{ParseError as UrlParseError, Url};
+use ::url::{ParseError as UrlParseError, Url}; // external `url` crate; `url` name is shadowed by our local module
 use std::sync::{Arc, Mutex};
 
 /// A stub WebSocket implementation that keeps the browser baseline deterministic.
