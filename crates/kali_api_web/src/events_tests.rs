@@ -1,5 +1,5 @@
 use crate::*;
-use std::sync::atomic::{AtomicBool, AtomicUsize};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 #[test]
 fn abort_controller_flips_the_signal() {
