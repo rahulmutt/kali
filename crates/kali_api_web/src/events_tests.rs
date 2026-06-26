@@ -1,7 +1,7 @@
 use crate::*;
 use serde_json::Value;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::Arc;
 
 #[test]
 fn abort_controller_flips_the_signal() {

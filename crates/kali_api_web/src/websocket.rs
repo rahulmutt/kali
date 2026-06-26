@@ -1,7 +1,7 @@
 //! WebSocket family — stub WebSocket implementation.
 
-use std::sync::{Arc, Mutex};
 use ::url::{ParseError as UrlParseError, Url};
+use std::sync::{Arc, Mutex};
 
 /// A stub WebSocket implementation that keeps the browser baseline deterministic.
 #[derive(Clone, Debug)]

@@ -1,15 +1,13 @@
 //! Worker and BroadcastChannel stub implementations.
 
 use serde_json::Value;
-use std::{
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
-    },
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
 };
 
-use ::url::{ParseError as UrlParseError, Url}; // external `url` crate; `url` name is shadowed by our local module
 use crate::SharedArrayBuffer;
+use ::url::{ParseError as UrlParseError, Url}; // external `url` crate; `url` name is shadowed by our local module
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum PostedItem {

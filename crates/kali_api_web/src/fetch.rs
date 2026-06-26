@@ -1,7 +1,7 @@
 //! Web `fetch` API family: `Headers`, `Request`, `Response`, and `fetch`.
 
-use std::sync::{Arc, Mutex};
 use ::url::{ParseError as UrlParseError, Url};
+use std::sync::{Arc, Mutex};
 
 fn normalize_header_name(name: &str) -> String {
     name.trim().to_ascii_lowercase()

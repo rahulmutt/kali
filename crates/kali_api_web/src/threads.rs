@@ -9,8 +9,8 @@ use std::{
     },
 };
 
-use kali_common::bytewise_shared_memory_is_lock_free;
 use ::url::ParseError as UrlParseError; // external `url` crate; `url` name is shadowed by our local module
+use kali_common::bytewise_shared_memory_is_lock_free;
 
 use crate::{PostedItem, Worker};
 
