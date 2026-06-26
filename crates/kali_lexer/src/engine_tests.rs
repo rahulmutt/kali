@@ -1,4 +1,4 @@
-use super::*;
+use crate::{Lexer, TokenType};
 use kali_common::FileId;
 use kali_error::_error_codes::e1;
 
