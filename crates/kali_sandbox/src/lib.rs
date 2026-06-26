@@ -335,7 +335,7 @@ impl PolicyPredicateRegistry {
         self
     }
 
-    fn evaluate(&self, context: &PolicyPredicateContext) -> Result<(), Diagnostic> {
+    pub(crate) fn evaluate(&self, context: &PolicyPredicateContext) -> Result<(), Diagnostic> {
         if !self.enabled {
             return Err(unavailable_capability("host-registered sandbox predicates"));
         }
@@ -749,7 +749,7 @@ impl SandboxPolicy {
         }
     }
 
-    fn network_max_connections(&self) -> Option<u64> {
+    pub(crate) fn network_max_connections(&self) -> Option<u64> {
         self.effects.network.max_connections
     }
 }
@@ -763,7 +763,7 @@ impl AccessRule {
         }
     }
 
-    fn allows_path(&self, candidate: &Path, base_dir: &Path) -> bool {
+    pub(crate) fn allows_path(&self, candidate: &Path, base_dir: &Path) -> bool {
         self.allows_candidate(&candidate.to_string_lossy(), base_dir, PatternKind::Path)
     }
 
