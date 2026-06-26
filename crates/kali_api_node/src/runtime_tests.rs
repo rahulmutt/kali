@@ -1,6 +1,6 @@
 use crate::*;
+use kali_test_support::fixtures;
 use std::{collections::BTreeMap, path::PathBuf};
-use tempfile::tempdir;
 
 #[test]
 fn runtime_projection_preserves_host_argv0_projection() {
@@ -104,7 +104,7 @@ fn runtime_projection_exposes_deterministic_env_snapshot() {
 
 #[test]
 fn runtime_projection_bundles_common_node_surfaces() {
-    let dir = tempdir().expect("tempdir");
+    let dir = fixtures::tempdir();
     let nested = dir.path().join("nested");
     std::fs::create_dir(&nested).expect("create nested dir");
 

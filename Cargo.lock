@@ -1158,10 +1158,10 @@ dependencies = [
  "hmac",
  "kali_common",
  "kali_error",
+ "kali_test_support",
  "reqwest",
  "serde_json",
  "sha2",
- "tempfile",
  "url",
 ]
 

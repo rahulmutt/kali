@@ -1,9 +1,9 @@
-use super::*;
-use tempfile::tempdir;
+use crate::*;
+use kali_test_support::fixtures;
 
 #[test]
 fn fs_helpers_round_trip_files_and_directories() {
-    let dir = tempdir().expect("tempdir");
+    let dir = fixtures::tempdir();
     let fs = NodeFs::new(dir.path());
 
     fs.mkdir("nested", false).expect("mkdir");
@@ -45,7 +45,7 @@ fn fs_helpers_round_trip_files_and_directories() {
 
 #[test]
 fn fs_promises_helpers_match_sync_helpers() {
-    let dir = tempdir().expect("tempdir");
+    let dir = fixtures::tempdir();
     let fs = NodeFsPromises::new(dir.path());
 
     fs.mkdir("nested", false).expect("mkdir");

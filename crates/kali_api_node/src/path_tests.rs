@@ -1,4 +1,5 @@
 use crate::*;
+use std::path::PathBuf;
 
 #[test]
 fn path_helpers_are_lexical_and_deterministic() {

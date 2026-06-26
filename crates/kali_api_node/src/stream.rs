@@ -1,3 +1,5 @@
+//! Node-style stream byte helpers.
+
 /// A minimal namespace of stream-style byte helpers for Node compatibility.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct NodeStream;
