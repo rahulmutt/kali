@@ -1,5 +1,6 @@
-use super::*;
+use crate::{Lexer, TokenType};
 use kali_common::FileId;
+
 #[test]
 fn test_peek_and_and() {
     let lexer = Lexer::new(FileId::new(0), "x && y;".to_string());
