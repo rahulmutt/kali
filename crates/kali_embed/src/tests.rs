@@ -1,4 +1,5 @@
 use super::*;
+use crate::compiler::temporary_source_path;
 use std::{
     fs,
     sync::{Arc, Mutex},
