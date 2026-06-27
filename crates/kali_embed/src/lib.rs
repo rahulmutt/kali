@@ -25,6 +25,10 @@ pub use kali_sandbox::{
     HostOperation, HostPredicate, PolicyPredicateContext, PolicyPredicateRegistry, SandboxPolicy,
 };
 
+mod error;
+
+pub use error::CompileError;
+
 /// Compiler configuration for the embedding API.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompilerConfig {
@@ -316,36 +320,6 @@ impl LibArtifact {
         &self.metadata
     }
 }
-
-/// Compile error wrapper for embedding callers.
-#[derive(Debug, Clone)]
-pub struct CompileError {
-    diagnostics: Vec<Diagnostic>,
-}
-
-impl CompileError {
-    /// Access the underlying diagnostics.
-    pub fn diagnostics(&self) -> &[Diagnostic] {
-        &self.diagnostics
-    }
-}
-
-impl From<Vec<Diagnostic>> for CompileError {
-    fn from(diagnostics: Vec<Diagnostic>) -> Self {
-        Self { diagnostics }
-    }
-}
-
-impl std::fmt::Display for CompileError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.diagnostics.first() {
-            Some(diagnostic) => write!(f, "{diagnostic}"),
-            None => f.write_str("embedding compile error"),
-        }
-    }
-}
-
-impl std::error::Error for CompileError {}
 
 #[derive(Clone)]
 struct RegisteredPredicate {
