@@ -27,9 +27,21 @@ mod operation;
 pub use operation::{HostOperation, PolicyPredicateContext};
 
 use kali_error::{
-    _error_codes::{e4, e5},
+    _error_codes::e5,
     Diagnostic,
 };
+
+mod diagnostics;
+mod matching;
+
+pub(crate) use matching::PatternKind;
+
+use crate::diagnostics::{
+    host_predicate_violation, resource_limit_violation, sandbox_violation, unavailable_capability,
+};
+
+#[cfg(test)]
+use kali_error::_error_codes::e4;
 
 /// Deterministic host-registered narrowing predicate registry.
 #[derive(Clone)]
@@ -510,50 +522,6 @@ impl SandboxPolicy {
     }
 }
 
-impl AccessRule {
-    pub fn is_enabled(&self) -> bool {
-        match self {
-            AccessRule::Deny(false) => false,
-            AccessRule::Deny(true) => true,
-            AccessRule::AllowList(entries) => !entries.is_empty(),
-        }
-    }
-
-    pub(crate) fn allows_path(&self, candidate: &Path, base_dir: &Path) -> bool {
-        self.allows_candidate(&candidate.to_string_lossy(), base_dir, PatternKind::Path)
-    }
-
-    pub(crate) fn allows_candidate(
-        &self,
-        candidate: &str,
-        base_dir: &Path,
-        kind: PatternKind,
-    ) -> bool {
-        match self {
-            AccessRule::Deny(false) => false,
-            AccessRule::Deny(true) => true,
-            AccessRule::AllowList(patterns) => {
-                if patterns.is_empty() {
-                    return false;
-                }
-
-                let candidate = normalize_text(candidate);
-                patterns.iter().any(|pattern| {
-                    let resolved = resolve_pattern(pattern, base_dir, kind);
-                    glob_match(&resolved, &candidate)
-                })
-            }
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug)]
-pub(crate) enum PatternKind {
-    Path,
-    Url,
-    Exact,
-}
-
 fn validate_positive_u64(diagnostics: &mut Vec<Diagnostic>, value: Option<u64>, name: &str) {
     if let Some(value) = value {
         if value == 0 {
@@ -568,115 +536,6 @@ fn validate_positive_u64(diagnostics: &mut Vec<Diagnostic>, value: Option<u64>, 
 fn validate_zero_capable_u64(_diagnostics: &mut Vec<Diagnostic>, _value: Option<u64>, _name: &str) {
     // The policy shape is numeric; any value is syntactically valid here. Phase-gating is
     // handled separately by the availability check below.
-}
-
-fn unavailable_capability(name: &str) -> Diagnostic {
-    Diagnostic::error(
-        e5::FEATURE_UNAVAILABLE as u32,
-        format!(
-            "{} is unavailable in the current phase or availability context",
-            name
-        ),
-    )
-}
-
-fn host_predicate_violation(
-    message: impl Into<String>,
-    context: &PolicyPredicateContext,
-) -> Diagnostic {
-    let mut diagnostic = Diagnostic::error(e4::EFFECT_NOT_PERMITTED as u32, message.into())
-        .note(format!("capability: {}", context.capability))
-        .note(format!("subject: {}", context.subject));
-
-    for (key, value) in &context.details {
-        diagnostic = diagnostic.note(format!("detail {}: {}", key, value));
-    }
-
-    diagnostic
-}
-
-fn sandbox_violation(message: impl Into<String>) -> Diagnostic {
-    Diagnostic::error(e4::EFFECT_NOT_PERMITTED as u32, message.into())
-}
-
-fn resource_limit_violation(message: impl Into<String>) -> Diagnostic {
-    Diagnostic::error(e4::RESOURCE_LIMIT_EXCEEDED as u32, message.into())
-}
-
-fn resolve_pattern(pattern: &str, base_dir: &Path, kind: PatternKind) -> String {
-    match kind {
-        PatternKind::Exact => normalize_text(pattern),
-        PatternKind::Url => normalize_text(pattern),
-        PatternKind::Path => {
-            let candidate = Path::new(pattern);
-            let resolved = if candidate.is_absolute() || pattern.contains("://") {
-                candidate.to_path_buf()
-            } else {
-                base_dir.join(candidate)
-            };
-            normalize_text(&resolved.to_string_lossy())
-        }
-    }
-}
-
-fn normalize_text(text: &str) -> String {
-    text.replace('\\', "/")
-}
-
-fn glob_match(pattern: &str, text: &str) -> bool {
-    let pattern = normalize_text(pattern);
-    let text = normalize_text(text);
-    glob_match_inner(pattern.as_bytes(), text.as_bytes())
-}
-
-fn glob_match_inner(pattern: &[u8], text: &[u8]) -> bool {
-    let mut pi = 0usize;
-    let mut ti = 0usize;
-    let mut star: Option<(usize, usize, bool)> = None;
-
-    while ti < text.len() {
-        if pi < pattern.len() {
-            match pattern[pi] {
-                b'*' => {
-                    let is_double = pi + 1 < pattern.len() && pattern[pi + 1] == b'*';
-                    let next_pi = if is_double { pi + 2 } else { pi + 1 };
-                    star = Some((next_pi, ti, is_double));
-                    pi = next_pi;
-                    continue;
-                }
-                ch if ch == text[ti] => {
-                    pi += 1;
-                    ti += 1;
-                    continue;
-                }
-                _ => {}
-            }
-        }
-
-        if let Some((next_pi, star_text, is_double)) = star {
-            if !is_double && text[star_text] == b'/' {
-                return false;
-            }
-            if star_text < text.len() {
-                star = Some((next_pi, star_text + 1, is_double));
-                ti = star_text + 1;
-                pi = next_pi;
-                continue;
-            }
-        }
-
-        return false;
-    }
-
-    while pi < pattern.len() && pattern[pi] == b'*' {
-        if pi + 1 < pattern.len() && pattern[pi + 1] == b'*' {
-            pi += 2;
-        } else {
-            pi += 1;
-        }
-    }
-
-    pi == pattern.len()
 }
 
 #[cfg(test)]
