@@ -26,7 +26,9 @@ pub use kali_sandbox::{
 };
 
 mod error;
+mod artifact;
 
+pub use artifact::{CompiledArtifact, LibArtifact};
 pub use error::CompileError;
 
 /// Compiler configuration for the embedding API.
@@ -274,50 +276,6 @@ impl KaliCompiler {
         }
 
         Ok(runtime_profiles)
-    }
-}
-
-/// Compiled standalone artifact.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CompiledArtifact {
-    wasm_bytes: Vec<u8>,
-    metadata: ArtifactMetadata,
-}
-
-impl CompiledArtifact {
-    /// Get the compiled WASM bytes.
-    pub fn wasm_bytes(&self) -> &[u8] {
-        &self.wasm_bytes
-    }
-
-    /// Get the associated artifact metadata.
-    pub fn metadata(&self) -> &ArtifactMetadata {
-        &self.metadata
-    }
-}
-
-/// Compiled library artifact with a WIT sidecar.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LibArtifact {
-    wasm_bytes: Vec<u8>,
-    wit: String,
-    metadata: ArtifactMetadata,
-}
-
-impl LibArtifact {
-    /// Get the compiled WASM bytes.
-    pub fn wasm_bytes(&self) -> &[u8] {
-        &self.wasm_bytes
-    }
-
-    /// Get the generated WIT interface description.
-    pub fn wit(&self) -> &str {
-        &self.wit
-    }
-
-    /// Get the associated artifact metadata.
-    pub fn metadata(&self) -> &ArtifactMetadata {
-        &self.metadata
     }
 }
 
