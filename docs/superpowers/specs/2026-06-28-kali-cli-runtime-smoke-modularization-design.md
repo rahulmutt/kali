@@ -9,6 +9,8 @@ Scope: **sub-project 2 of 3** for kali_cli. This spec covers splitting the `test
 
 Pure code-motion. Decompose `tests/runtime_smoke.rs` into a thin-ish root (shared helpers + `use` block + `mod` decls) plus per-command submodules, with **zero behavior change**: identical test count (1,816), identical pass/fail, identical scheduling/serialization scope. The file stays a **single integration-test binary** — no new test binaries, no N× link cost, no change to shared-state semantics.
 
+**`--list` invariant (note):** the tests are top-level today (bare names in `cargo test --test runtime_smoke -- --list`); nesting them in `mod run`/`mod test`/… adds a module-path prefix (`run_supports_x` → `run::run_supports_x`). So the literal `--list` diff is **not** empty — it is a systematic prefix change. The invariant is: count unchanged, fn-name set unchanged (modulo the prefix), pass/fail unchanged. This is behavior-neutral: `cargo test --test runtime_smoke -- <filter>` substring-matches the full path, so `run_supports_x` still matches `run::run_supports_x`. (Phase-1's "diff EMPTY" held only because `build_tests`/`output_tests` were already nested in `mod tests` before and after.)
+
 Allowed changes only: `mod`/`#[path]` declarations, `use super::*;` at the head of each submodule, and verbatim relocation of `#[test]` fn bodies (attributes intact). Do **not** run `cargo fmt` (verbatim moves + the root's existing >100-col lines are already red on baseline, so not regressions; running fmt would violate the verbatim mandate).
 
 ## Baseline (branch base)
@@ -135,13 +137,14 @@ No test straddles two modules under this rule — every test name has exactly on
 
 **Single task** (one file, one mechanism). Move test fns by the assignment rule in size order so the biggest payoff lands first: `run` → `test` → `build` → `check` → `package` → `effects` → `install` → `misc`. Helpers and `use` block stay in root untouched. Wire root `mod` decls + `#[path]`, add `use super::*;` to each submod.
 
-**Verification after the task:**
+**Verification after the task** (`--list` invariant corrected — see "Goal & invariant"):
 - `cargo build -p kali_cli --tests` (0 warnings).
-- `cargo test -p kali_cli --test runtime_smoke -- --list` → **diff vs baseline = EMPTY** (same 1,816 tests, same names — provably zero behavior/test change).
-- `cargo test -p kali_cli --test runtime_smoke` → same pass/fail as baseline.
-- Spot-run a couple of `runtime_smoke` tests by filter name to confirm they still resolve after the move.
+- `cargo test -p kali_cli --test runtime_smoke -- --list` count = 1,816 (unchanged).
+- `cargo test -p kali_cli --test runtime_smoke -- --list | sed -E 's/^.*:://; s/: test$//' | sort` → **diff vs the baseline name-set = EMPTY** (the `sed` strips the new module prefix `run::`/`test::`/… so the bare fn-name set is comparable; the literal unstripped `--list` diff is NOT empty — every moved test gains a module prefix, which is expected and behavior-neutral).
+- `cargo test -p kali_cli --test runtime_smoke` → same pass/fail as baseline (fully green — the 2 pre-existing `build_bundles_*` failures live in `tests/array_from_bracketed_root_wrappers.rs`, a different binary).
+- Spot-run a couple of `runtime_smoke` tests by filter name (e.g. `-- run_supports_…`, `-- json_run_`) to confirm they still resolve after the move (substring filter matches the prefixed path).
 
-After the task: `cargo build -p kali_cli` 0 warnings; full `cargo test -p kali_cli` matches baseline; `--list` diff vs baseline = EMPTY.
+After the task: `cargo build -p kali_cli` 0 warnings; full `cargo test -p kali_cli` matches baseline; `--list` count + stripped name-set unchanged.
 
 Integration is **local-main ff-merge only — NEVER push to origin** (origin/main intentionally lags). Re-verify build + `--list` + test on merged main, then delete the branch. SDD ledger at `.superpowers/sdd/progress.md` (git-ignored scratch, overwrite per sub-project).
 
