@@ -13,12 +13,11 @@ use kali_capi::{
     parse_metadata, Export as CApiExport,
 };
 use kali_cli::{
-    build, discover_source_files, discover_test_files, init, is_declaration_only_source_file,
+    build, discover_source_files, discover_test_files, init,
     output::{
         self, validate_check_payload_value, validate_doctor_payload_value,
-        validate_effects_payload_value, validate_fmt_payload_value, validate_init_payload_value,
+        validate_fmt_payload_value, validate_init_payload_value,
         validate_install_payload_value, validate_lint_payload_value,
-        validate_package_audit_payload_value, validate_package_effects_payload_value,
         validate_run_payload_value, validate_test_payload_value, CliOutputOptions,
     },
     Args, BundleFormat, Commands,
@@ -30,14 +29,13 @@ use kali_error::{
 use kali_fmt::format_source;
 use kali_lint::lint_with_options;
 use kali_npm::{
-    audit_registry_package, discover_project_root, ensure_project_ready, install_project,
-    load_manifest, resolve_materialized_import, InstallOptions, ProjectManifest,
+    audit_registry_package, discover_project_root, install_project,
+    resolve_materialized_import, InstallOptions,
 };
 use kali_optimize::ProfileData;
 use kali_runtime::{
     browser_harness_command_parts_checked, browser_runtime_contract_value,
-    browser_runtime_request_context, browser_runtime_unavailable_diagnostic,
-    normalize_runtime_profiles, BrowserRuntimeContract, RuntimeBackend, RuntimeCtx,
+    browser_runtime_request_context, BrowserRuntimeContract, RuntimeBackend, RuntimeCtx,
     RuntimeHostContract, BROWSER_HARNESS_COMMAND_ENV,
 };
 use kali_sandbox::{
@@ -46,8 +44,7 @@ use kali_sandbox::{
 };
 use serde_json::{json, Value};
 use std::{
-    collections::{BTreeMap, BTreeSet},
-    convert::TryFrom,
+    collections::BTreeMap,
     env, fs,
     path::{Component as PathComponent, Path, PathBuf},
     process::Command as ProcessCommand,
@@ -55,6 +52,11 @@ use std::{
 };
 use wasm_encoder::{Component, ComponentSectionId, CustomSection, RawSection, Section};
 use wasmparser::{Parser as WasmParser, Payload};
+#[cfg(test)]
+use kali_cli::output::validate_package_effects_payload_value;
+
+mod config;
+mod shared;
 
 fn main() {
     let args = Args::parse();
@@ -67,7 +69,7 @@ fn main() {
     };
     set_verbose_diagnostics(output.verbose);
 
-    let pretty_allowed_without_json = command_allows_pretty_without_json(args.command.as_ref());
+    let pretty_allowed_without_json = shared::command_allows_pretty_without_json(args.command.as_ref());
     if output.pretty && !output.is_json() && !pretty_allowed_without_json {
         let diagnostic = Diagnostic::error(
             e5::INVALID_CLI_USAGE as u32,
@@ -199,7 +201,7 @@ fn main() {
             }
         }
         Commands::Init { lib, api, sandbox } => {
-            if let Err(exit_code) = reject_workflow_context_flags("init", api, sandbox, &output) {
+            if let Err(exit_code) = shared::reject_workflow_context_flags("init", api, sandbox, &output) {
                 std::process::exit(exit_code);
             }
             match init::init_current_directory(lib) {
@@ -213,7 +215,7 @@ fn main() {
                         });
                         validate_init_payload_value(&payload)
                             .expect("constructed init payload must satisfy schema-v1 shape");
-                        print_envelope(
+                        shared::print_envelope(
                             "init",
                             true,
                             vec![],
@@ -238,11 +240,11 @@ fn main() {
                     }
                 }
                 Err(diagnostic) => {
-                    let exit_code = diagnostics_exit_code(std::slice::from_ref(&diagnostic));
+                    let exit_code = shared::diagnostics_exit_code(std::slice::from_ref(&diagnostic));
                     if output.is_json() {
                         let (errors, warnings) =
-                            single_diagnostic_to_values(diagnostic, None, None);
-                        print_envelope(
+                            shared::single_diagnostic_to_values(diagnostic, None, None);
+                        shared::print_envelope(
                             "init",
                             false,
                             errors,
@@ -279,7 +281,7 @@ fn main() {
             sandbox,
             files,
         } => {
-            if let Err(exit_code) = reject_workflow_context_flags("fmt", api, sandbox, &output) {
+            if let Err(exit_code) = shared::reject_workflow_context_flags("fmt", api, sandbox, &output) {
                 std::process::exit(exit_code);
             }
             if let Err(exit_code) = fmt_command(files, check, &output) {
@@ -292,7 +294,7 @@ fn main() {
             sandbox,
             files,
         } => {
-            if let Err(exit_code) = reject_workflow_context_flags("lint", api, sandbox, &output) {
+            if let Err(exit_code) = shared::reject_workflow_context_flags("lint", api, sandbox, &output) {
                 std::process::exit(exit_code);
             }
             if let Err(exit_code) = lint_command(files, fix, &output) {
@@ -353,7 +355,7 @@ fn doctor_command(output: &CliOutputOptions) -> Result<(), i32> {
         Ok(parts) => parts,
         Err(message) => {
             let diagnostic = Diagnostic::error(e5::INVALID_CLI_USAGE as u32, message);
-            return emit_diagnostics_and_exit("doctor", vec![diagnostic], 5, output, None, None);
+            return shared::emit_diagnostics_and_exit("doctor", vec![diagnostic], 5, output, None, None);
         }
     };
     let executable = command_parts.first().cloned().unwrap_or_default();
@@ -381,7 +383,7 @@ fn doctor_command(output: &CliOutputOptions) -> Result<(), i32> {
         .expect("constructed doctor payload must satisfy schema-v1 shape");
 
     if output.is_json() {
-        print_envelope(
+        shared::print_envelope(
             "doctor",
             true,
             vec![],
@@ -437,10 +439,10 @@ fn check_command(
     fix: bool,
     output: &CliOutputOptions,
 ) -> Result<(), i32> {
-    let effective_api = match resolve_effective_api_surface(api) {
+    let effective_api = match config::resolve_effective_api_surface(api) {
         Ok(api) => api,
         Err(diagnostics) => {
-            return emit_diagnostics_and_exit("check", diagnostics, 5, output, None, None)
+            return shared::emit_diagnostics_and_exit("check", diagnostics, 5, output, None, None)
         }
     };
 
@@ -450,28 +452,28 @@ fn check_command(
             "kali check --fix is unavailable in this phase; use kali lint --fix for autofix"
                 .to_string(),
         );
-        return emit_diagnostics_and_exit("check", vec![diagnostic], 1, output, None, None);
+        return shared::emit_diagnostics_and_exit("check", vec![diagnostic], 1, output, None, None);
     }
 
-    ensure_project_ready_or_exit(output)?;
-    let effective_compat = match resolve_effective_compat_features(compat) {
+    shared::ensure_project_ready_or_exit(output)?;
+    let effective_compat = match config::resolve_effective_compat_features(compat) {
         Ok(features) => features,
         Err(diagnostics) => {
-            return emit_diagnostics_and_exit("check", diagnostics, 5, output, None, None)
+            return shared::emit_diagnostics_and_exit("check", diagnostics, 5, output, None, None)
         }
     };
     if let Err(exit_code) =
-        reject_unavailable_compat_features("check", &effective_compat, output, None, None)
+        config::reject_unavailable_compat_features("check", &effective_compat, output, None, None)
     {
         return Err(exit_code);
     }
-    let effective_runtime_profiles = match resolve_effective_runtime_profiles(wasm_threads) {
+    let effective_runtime_profiles = match config::resolve_effective_runtime_profiles(wasm_threads) {
         Ok(profiles) => profiles,
         Err(diagnostics) => {
-            return emit_diagnostics_and_exit("check", diagnostics, 5, output, None, None)
+            return shared::emit_diagnostics_and_exit("check", diagnostics, 5, output, None, None)
         }
     };
-    if let Err(exit_code) = reject_unavailable_runtime_profiles(
+    if let Err(exit_code) = config::reject_unavailable_runtime_profiles(
         "check",
         &effective_runtime_profiles,
         !matches!(effective_api, kali_cli::ApiSurface::Browser),
@@ -481,7 +483,7 @@ fn check_command(
     ) {
         return Err(exit_code);
     }
-    let policy = load_policy_or_exit(sandbox, &effective_runtime_profiles, output)?;
+    let policy = shared::load_policy_or_exit(sandbox, &effective_runtime_profiles, output)?;
     let compat_eval = effective_compat.iter().any(|feature| feature == "eval");
 
     let selected_files = if files.is_empty() {
@@ -514,7 +516,7 @@ fn check_command(
             }
             Err(diagnostics) => {
                 let source = fs::read_to_string(&file).ok();
-                let (file_errors, file_warnings) = split_and_convert_diagnostics(
+                let (file_errors, file_warnings) = shared::split_and_convert_diagnostics(
                     &diagnostics,
                     Some(Path::new(&file)),
                     source.as_deref(),
@@ -538,7 +540,7 @@ fn check_command(
                 effective_api,
             ) {
                 let (file_errors, file_warnings) =
-                    split_and_convert_diagnostics(&diagnostics, None, None);
+                    shared::split_and_convert_diagnostics(&diagnostics, None, None);
                 errors.extend(file_errors);
                 warnings.extend(file_warnings);
                 if !output.is_json() {
@@ -559,7 +561,7 @@ fn check_command(
         });
         validate_check_payload_value(&payload)
             .expect("constructed check payload must satisfy schema-v1 shape");
-        print_envelope(
+        shared::print_envelope(
             "check",
             success,
             errors,
@@ -602,30 +604,30 @@ fn build_command(
     out_dir: Option<PathBuf>,
     output: &CliOutputOptions,
 ) -> Result<(), i32> {
-    ensure_project_ready_or_exit(output)?;
-    let effective_compat = match resolve_effective_compat_features(compat) {
+    shared::ensure_project_ready_or_exit(output)?;
+    let effective_compat = match config::resolve_effective_compat_features(compat) {
         Ok(features) => features,
         Err(diagnostics) => {
-            return emit_diagnostics_and_exit("build", diagnostics, 5, output, None, None)
+            return shared::emit_diagnostics_and_exit("build", diagnostics, 5, output, None, None)
         }
     };
     if let Err(exit_code) =
-        reject_unavailable_compat_features("build", &effective_compat, output, None, None)
+        config::reject_unavailable_compat_features("build", &effective_compat, output, None, None)
     {
         return Err(exit_code);
     }
     let compat_eval = effective_compat.iter().any(|feature| feature == "eval");
-    let profile_data = match resolve_profile_data(profile) {
+    let profile_data = match config::resolve_profile_data(profile) {
         Ok(profile_data) => profile_data,
         Err(diagnostics) => {
-            return emit_diagnostics_and_exit("build", diagnostics, 5, output, None, None)
+            return shared::emit_diagnostics_and_exit("build", diagnostics, 5, output, None, None)
         }
     };
 
-    let effective_api = match resolve_effective_api_surface(api) {
+    let effective_api = match config::resolve_effective_api_surface(api) {
         Ok(api) => api,
         Err(diagnostics) => {
-            return emit_diagnostics_and_exit("build", diagnostics, 5, output, None, None)
+            return shared::emit_diagnostics_and_exit("build", diagnostics, 5, output, None, None)
         }
     };
     if format.is_some() && !bundle {
@@ -633,7 +635,7 @@ fn build_command(
             e5::INVALID_CLI_USAGE as u32,
             "`--format` is only meaningful when `--bundle` is selected",
         );
-        return emit_diagnostics_and_exit("build", vec![diagnostic], 5, output, None, None);
+        return shared::emit_diagnostics_and_exit("build", vec![diagnostic], 5, output, None, None);
     }
 
     if bundle {
@@ -642,23 +644,23 @@ fn build_command(
                 e5::INVALID_CLI_USAGE as u32,
                 "`kali build --bundle` requires the effective browser API surface",
             );
-            return emit_diagnostics_and_exit("build", vec![diagnostic], 5, output, None, None);
+            return shared::emit_diagnostics_and_exit("build", vec![diagnostic], 5, output, None, None);
         }
     } else if matches!(effective_api, kali_cli::ApiSurface::Browser) {
         let diagnostic = Diagnostic::error(
             e5::INVALID_CLI_USAGE as u32,
             "`kali build` without `--bundle` is not valid for the browser API surface",
         );
-        return emit_diagnostics_and_exit("build", vec![diagnostic], 5, output, None, None);
+        return shared::emit_diagnostics_and_exit("build", vec![diagnostic], 5, output, None, None);
     }
 
-    let effective_runtime_profiles = match resolve_effective_runtime_profiles(wasm_threads) {
+    let effective_runtime_profiles = match config::resolve_effective_runtime_profiles(wasm_threads) {
         Ok(profiles) => profiles,
         Err(diagnostics) => {
-            return emit_diagnostics_and_exit("build", diagnostics, 5, output, None, None)
+            return shared::emit_diagnostics_and_exit("build", diagnostics, 5, output, None, None)
         }
     };
-    if let Err(exit_code) = reject_unavailable_runtime_profiles(
+    if let Err(exit_code) = config::reject_unavailable_runtime_profiles(
         "build",
         &effective_runtime_profiles,
         !matches!(effective_api, kali_cli::ApiSurface::Browser),
@@ -668,18 +670,18 @@ fn build_command(
     ) {
         return Err(exit_code);
     }
-    let policy = load_policy_or_exit(sandbox, &effective_runtime_profiles, output)?;
+    let policy = shared::load_policy_or_exit(sandbox, &effective_runtime_profiles, output)?;
 
-    let Some(source) = single_or_error(files, "build", output)? else {
+    let Some(source) = shared::single_or_error(files, "build", output)? else {
         return Err(1);
     };
 
     let source = source.to_string_lossy().to_string();
     let mode = build::build_mode_from_flags(fast, release, release_advanced);
-    let max_specializations = match resolve_effective_max_specializations(max_specializations) {
+    let max_specializations = match config::resolve_effective_max_specializations(max_specializations) {
         Ok(max_specializations) => max_specializations,
         Err(diagnostics) => {
-            return emit_diagnostics_and_exit("build", diagnostics, 5, output, None, None)
+            return shared::emit_diagnostics_and_exit("build", diagnostics, 5, output, None, None)
         }
     };
     let out_dir_path = out_dir.as_deref();
@@ -764,7 +766,7 @@ fn build_command(
         Ok(build_result) => {
             if output.is_json() {
                 let payload = build_result.artifact_json();
-                print_envelope(
+                shared::print_envelope(
                     "build",
                     true,
                     vec![],
@@ -780,7 +782,7 @@ fn build_command(
             }
             Ok(())
         }
-        Err(diagnostics) => emit_diagnostics_and_exit(
+        Err(diagnostics) => shared::emit_diagnostics_and_exit(
             "build",
             diagnostics,
             1,
@@ -789,491 +791,6 @@ fn build_command(
             fs::read_to_string(&source).ok().as_deref(),
         ),
     }
-}
-
-fn resolve_effective_api_surface(
-    explicit_api: Option<kali_cli::ApiSurface>,
-) -> Result<kali_cli::ApiSurface, Vec<Diagnostic>> {
-    if let Some(api) = explicit_api {
-        return Ok(api);
-    }
-
-    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    let project_root = discover_project_root(&cwd).unwrap_or(cwd);
-    let Some(manifest) = load_manifest(&project_root).map_err(|diagnostic| vec![diagnostic])?
-    else {
-        return Ok(kali_cli::ApiSurface::Deno);
-    };
-
-    manifest_api_surface(&manifest).map(|surface| surface.unwrap_or(kali_cli::ApiSurface::Deno))
-}
-
-fn config_diagnostic_context(config_path: &str) -> DiagnosticContext {
-    DiagnosticContext::new(DiagnosticContextOrigin::Config).with_config_path(config_path)
-}
-
-fn config_diagnostic_context_with_value(
-    config_path: &str,
-    value: impl Into<String>,
-) -> DiagnosticContext {
-    config_diagnostic_context(config_path).with_effective_value(value)
-}
-
-fn manifest_api_surface(
-    manifest: &ProjectManifest,
-) -> Result<Option<kali_cli::ApiSurface>, Vec<Diagnostic>> {
-    let Some(options) = manifest.compiler_options.as_ref() else {
-        return Ok(None);
-    };
-
-    let Some(options) = options.as_object() else {
-        return Err(vec![Diagnostic::error(
-            e5::INVALID_CONFIG as u32,
-            "`compilerOptions` must be a JSON object",
-        )
-        .with_context(config_diagnostic_context("compilerOptions"))]);
-    };
-
-    let Some(value) = options.get("apiSurface") else {
-        return Ok(None);
-    };
-
-    let Some(api_surface) = value.as_str() else {
-        return Err(vec![Diagnostic::error(
-            e5::INVALID_CONFIG as u32,
-            "`compilerOptions.apiSurface` must be a string",
-        )
-        .with_context(config_diagnostic_context("compilerOptions.apiSurface"))]);
-    };
-
-    match api_surface {
-        "deno" => Ok(Some(kali_cli::ApiSurface::Deno)),
-        "node" => Ok(Some(kali_cli::ApiSurface::Node)),
-        "browser" => Ok(Some(kali_cli::ApiSurface::Browser)),
-        _ => Err(vec![Diagnostic::error(
-            e5::INVALID_CONFIG as u32,
-            format!("unsupported apiSurface '{}' in kali.json", api_surface),
-        )
-        .with_context(config_diagnostic_context_with_value(
-            "compilerOptions.apiSurface",
-            api_surface,
-        ))]),
-    }
-}
-
-fn resolve_effective_compat_features(
-    explicit_compat: Vec<String>,
-) -> Result<Vec<String>, Vec<Diagnostic>> {
-    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    let project_root = discover_project_root(&cwd).unwrap_or(cwd);
-    let Some(manifest) = load_manifest(&project_root).map_err(|diagnostic| vec![diagnostic])?
-    else {
-        return Ok(normalize_compat_features(explicit_compat));
-    };
-
-    let mut features = normalize_compat_features(explicit_compat);
-    features.extend(manifest_compat_features(&manifest)?);
-    Ok(normalize_compat_features(features))
-}
-
-fn resolve_effective_runtime_profiles(
-    explicit_wasm_threads: bool,
-) -> Result<Vec<String>, Vec<Diagnostic>> {
-    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    let project_root = discover_project_root(&cwd).unwrap_or(cwd);
-    let Some(manifest) = load_manifest(&project_root).map_err(|diagnostic| vec![diagnostic])?
-    else {
-        return Ok(normalize_runtime_profiles(if explicit_wasm_threads {
-            vec!["wasm-threads".to_string()]
-        } else {
-            Vec::new()
-        }));
-    };
-
-    let mut profiles = normalize_runtime_profiles(if explicit_wasm_threads {
-        vec!["wasm-threads".to_string()]
-    } else {
-        Vec::new()
-    });
-    profiles.extend(manifest_runtime_profiles(&manifest)?);
-    Ok(normalize_runtime_profiles(profiles))
-}
-
-fn resolve_effective_max_specializations(
-    explicit_max_specializations: Option<usize>,
-) -> Result<usize, Vec<Diagnostic>> {
-    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    let project_root = discover_project_root(&cwd).unwrap_or(cwd);
-    let Some(manifest) = load_manifest(&project_root).map_err(|diagnostic| vec![diagnostic])?
-    else {
-        return Ok(explicit_max_specializations.unwrap_or(16));
-    };
-
-    let manifest_max_specializations = manifest_max_specializations(&manifest)?;
-    Ok(explicit_max_specializations
-        .or(manifest_max_specializations)
-        .unwrap_or(16))
-}
-
-fn resolve_profile_data(profile: Option<PathBuf>) -> Result<Option<ProfileData>, Vec<Diagnostic>> {
-    match profile {
-        Some(profile_path) => build::load_profile_data_file(profile_path).map(Some),
-        None => Ok(None),
-    }
-}
-
-fn manifest_compat_features(manifest: &ProjectManifest) -> Result<Vec<String>, Vec<Diagnostic>> {
-    let Some(compat) = manifest.compat.as_ref() else {
-        return Ok(Vec::new());
-    };
-
-    let Some(compat) = compat.as_object() else {
-        return Err(vec![Diagnostic::error(
-            e5::INVALID_CONFIG as u32,
-            "`compat` must be a JSON object",
-        )
-        .with_context(config_diagnostic_context("compat"))]);
-    };
-
-    let Some(features) = compat.get("features") else {
-        return Ok(Vec::new());
-    };
-
-    let Some(features) = features.as_array() else {
-        return Err(vec![Diagnostic::error(
-            e5::INVALID_CONFIG as u32,
-            "`compat.features` must be an array of strings",
-        )
-        .with_context(config_diagnostic_context("compat.features"))]);
-    };
-
-    let mut normalized = BTreeSet::new();
-    for feature in features {
-        let Some(feature) = feature.as_str() else {
-            return Err(vec![Diagnostic::error(
-                e5::INVALID_CONFIG as u32,
-                "`compat.features` entries must be strings",
-            )
-            .with_context(config_diagnostic_context("compat.features"))]);
-        };
-
-        let feature = feature.trim();
-        if feature.is_empty() {
-            continue;
-        }
-
-        if !matches!(feature, "eval") {
-            return Err(vec![Diagnostic::error(
-                e5::INVALID_CONFIG as u32,
-                format!("unsupported compat.feature '{}' in kali.json", feature),
-            )
-            .with_context(config_diagnostic_context_with_value(
-                "compat.features",
-                feature,
-            ))]);
-        }
-
-        if !normalized.insert(feature.to_string()) {
-            return Err(vec![Diagnostic::error(
-                e5::INVALID_CONFIG as u32,
-                format!("duplicate compat.feature '{}' in kali.json", feature),
-            )
-            .with_context(config_diagnostic_context_with_value(
-                "compat.features",
-                feature,
-            ))]);
-        }
-    }
-
-    Ok(normalized.into_iter().collect())
-}
-
-fn manifest_runtime_profiles(manifest: &ProjectManifest) -> Result<Vec<String>, Vec<Diagnostic>> {
-    let Some(options) = manifest.compiler_options.as_ref() else {
-        return Ok(Vec::new());
-    };
-
-    let Some(options) = options.as_object() else {
-        return Err(vec![Diagnostic::error(
-            e5::INVALID_CONFIG as u32,
-            "`compilerOptions` must be a JSON object",
-        )
-        .with_context(config_diagnostic_context("compilerOptions"))]);
-    };
-
-    let Some(profiles) = options.get("runtimeProfiles") else {
-        return Ok(Vec::new());
-    };
-
-    let Some(profiles) = profiles.as_array() else {
-        return Err(vec![Diagnostic::error(
-            e5::INVALID_CONFIG as u32,
-            "`compilerOptions.runtimeProfiles` must be an array of strings",
-        )
-        .with_context(config_diagnostic_context(
-            "compilerOptions.runtimeProfiles",
-        ))]);
-    };
-
-    let mut raw_profiles = Vec::new();
-    for profile in profiles {
-        let Some(profile) = profile.as_str() else {
-            return Err(vec![Diagnostic::error(
-                e5::INVALID_CONFIG as u32,
-                "`compilerOptions.runtimeProfiles` entries must be strings",
-            )
-            .with_context(config_diagnostic_context(
-                "compilerOptions.runtimeProfiles",
-            ))]);
-        };
-        raw_profiles.push(profile.to_string());
-    }
-
-    build::validate_runtime_profiles(&raw_profiles, "kali.json").map_err(|diagnostics| {
-        diagnostics
-            .into_iter()
-            .map(|diagnostic| {
-                diagnostic
-                    .with_context(config_diagnostic_context("compilerOptions.runtimeProfiles"))
-            })
-            .collect()
-    })
-}
-
-fn manifest_max_specializations(
-    manifest: &ProjectManifest,
-) -> Result<Option<usize>, Vec<Diagnostic>> {
-    let Some(options) = manifest.compiler_options.as_ref() else {
-        return Ok(None);
-    };
-
-    let Some(options) = options.as_object() else {
-        return Err(vec![Diagnostic::error(
-            e5::INVALID_CONFIG as u32,
-            "`compilerOptions` must be a JSON object",
-        )]);
-    };
-
-    let Some(value) = options.get("maxSpecializations") else {
-        return Ok(None);
-    };
-
-    let Some(max_specializations) = value.as_u64() else {
-        return Err(vec![Diagnostic::error(
-            e5::INVALID_CONFIG as u32,
-            "`compilerOptions.maxSpecializations` must be a non-negative integer",
-        )]);
-    };
-
-    let max_specializations = usize::try_from(max_specializations).map_err(|_| {
-        vec![Diagnostic::error(
-            e5::INVALID_CONFIG as u32,
-            "`compilerOptions.maxSpecializations` is too large for this host",
-        )]
-    })?;
-
-    Ok(Some(max_specializations))
-}
-
-fn normalize_compat_features(features: Vec<String>) -> Vec<String> {
-    let mut normalized = BTreeSet::new();
-    for feature in features {
-        let feature = feature.trim();
-        if !feature.is_empty() {
-            normalized.insert(feature.to_string());
-        }
-    }
-    normalized.into_iter().collect()
-}
-
-fn reject_unavailable_compat_features(
-    command: &str,
-    compat_features: &[String],
-    output: &CliOutputOptions,
-    source_path: Option<&Path>,
-    source_contents: Option<&str>,
-) -> Result<(), i32> {
-    let unavailable: Vec<String> = compat_features
-        .iter()
-        .filter(|feature| feature.as_str() != "eval")
-        .cloned()
-        .collect();
-
-    if unavailable.is_empty() {
-        return Ok(());
-    }
-
-    let diagnostic = Diagnostic::error(
-        e5::FEATURE_UNAVAILABLE as u32,
-        format!(
-            "selected compatibility feature(s) {:?} are unavailable in this phase",
-            unavailable
-        ),
-    )
-    .note("canonical CLI flag: --compat")
-    .note("canonical config path: compat.features");
-    emit_diagnostics_and_exit(
-        command,
-        vec![diagnostic],
-        5,
-        output,
-        source_path,
-        source_contents,
-    )
-}
-
-fn reject_unavailable_runtime_profiles(
-    command: &str,
-    runtime_profiles: &[String],
-    allow_threaded_profile: bool,
-    output: &CliOutputOptions,
-    source_path: Option<&Path>,
-    source_contents: Option<&str>,
-) -> Result<(), i32> {
-    let unavailable: Vec<String> = runtime_profiles
-        .iter()
-        .filter(|profile| profile.as_str() == "wasm-threads" && !allow_threaded_profile)
-        .cloned()
-        .collect();
-
-    if unavailable.is_empty() {
-        return Ok(());
-    }
-
-    let diagnostic = Diagnostic::error(
-        e5::FEATURE_UNAVAILABLE as u32,
-        format!(
-            "selected runtime profile(s) {:?} are unavailable in this phase",
-            unavailable
-        ),
-    )
-    .note("canonical CLI flag: --wasm-threads")
-    .note("canonical config path: compilerOptions.runtimeProfiles");
-    emit_diagnostics_and_exit(
-        command,
-        vec![diagnostic],
-        5,
-        output,
-        source_path,
-        source_contents,
-    )
-}
-
-fn browser_runtime_harness_command_available() -> bool {
-    std::env::var(BROWSER_HARNESS_COMMAND_ENV)
-        .ok()
-        .as_deref()
-        .is_some_and(|command| browser_harness_command_parts_checked(Some(command)).is_ok())
-}
-
-fn reject_unavailable_browser_runtime(
-    command: &str,
-    api_surface: kali_cli::ApiSurface,
-    browser_runtime_available: bool,
-    browser_context: Option<DiagnosticContext>,
-    output: &CliOutputOptions,
-    source_path: Option<&Path>,
-    source_contents: Option<&str>,
-) -> Result<(), i32> {
-    if !matches!(api_surface, kali_cli::ApiSurface::Browser) || browser_runtime_available {
-        return Ok(());
-    }
-
-    let diagnostic = browser_runtime_unavailable_diagnostic(Some(command), browser_context);
-    emit_diagnostics_and_exit(
-        command,
-        vec![diagnostic],
-        1,
-        output,
-        source_path,
-        source_contents,
-    )
-}
-
-fn reject_unavailable_spawned_process_budget(
-    command: &str,
-    max_spawned_processes: Option<u64>,
-    output: &CliOutputOptions,
-    source_path: Option<&Path>,
-    source_contents: Option<&str>,
-) -> Result<(), i32> {
-    if max_spawned_processes.is_none_or(|count| count == 0) {
-        return Ok(());
-    }
-
-    let mut diagnostic = Diagnostic::error(
-        e5::FEATURE_UNAVAILABLE as u32,
-        "selected resource budget(s) [\"resources.maxSpawnedProcesses\"] are unavailable in this phase",
-    )
-    .note("canonical CLI flag: --max-spawned-processes")
-    .note("canonical config path: resources.maxSpawnedProcesses");
-
-    if let Some(count) = max_spawned_processes {
-        diagnostic = diagnostic.with_context(
-            DiagnosticContext::new(DiagnosticContextOrigin::Cli)
-                .with_flag("--max-spawned-processes")
-                .with_requested_value(count.to_string())
-                .with_effective_value(count.to_string()),
-        );
-    }
-
-    emit_diagnostics_and_exit(
-        command,
-        vec![diagnostic],
-        5,
-        output,
-        source_path,
-        source_contents,
-    )
-}
-
-fn reject_unavailable_zero_capable_budgets(
-    command: &str,
-    runtime_profiles: &[String],
-    max_threads: Option<u64>,
-    output: &CliOutputOptions,
-    source_path: Option<&Path>,
-    source_contents: Option<&str>,
-) -> Result<(), i32> {
-    let mut unavailable = Vec::new();
-    let has_threaded_profile = runtime_profiles
-        .iter()
-        .any(|profile| profile.as_str() == "wasm-threads");
-    if max_threads.is_some_and(|count| count > 0) && !has_threaded_profile {
-        unavailable.push("resources.maxThreads");
-    }
-
-    if unavailable.is_empty() {
-        return Ok(());
-    }
-
-    let mut diagnostic = Diagnostic::error(
-        e5::FEATURE_UNAVAILABLE as u32,
-        format!(
-            "selected resource budget(s) {:?} are unavailable in this phase",
-            unavailable
-        ),
-    )
-    .note("canonical CLI flag: --max-threads")
-    .note("canonical config path: resources.maxThreads")
-    .note("threaded runtime profile config path: compilerOptions.runtimeProfiles");
-
-    if let Some(count) = max_threads {
-        diagnostic = diagnostic.with_context(
-            DiagnosticContext::new(DiagnosticContextOrigin::Cli)
-                .with_flag("--max-threads")
-                .with_requested_value(count.to_string())
-                .with_effective_value(count.to_string()),
-        );
-    }
-    emit_diagnostics_and_exit(
-        command,
-        vec![diagnostic],
-        5,
-        output,
-        source_path,
-        source_contents,
-    )
 }
 
 enum BuildArtifactSelection {
@@ -2984,10 +2501,10 @@ fn run_command(
     sandbox: Option<PathBuf>,
     output: &CliOutputOptions,
 ) -> Result<(), i32> {
-    let effective_api = match resolve_effective_api_surface(api) {
+    let effective_api = match config::resolve_effective_api_surface(api) {
         Ok(api) => api,
         Err(diagnostics) => {
-            return emit_diagnostics_and_exit("run", diagnostics, 5, output, None, None)
+            return shared::emit_diagnostics_and_exit("run", diagnostics, 5, output, None, None)
         }
     };
 
@@ -3012,8 +2529,8 @@ fn run_command(
     // on the browser-runtime availability gate instead of silently dropping policy
     // enforcement when a harness override is present.
     let browser_runtime_available =
-        browser_runtime_harness_command_available() && sandbox.is_none();
-    if let Err(exit_code) = reject_unavailable_browser_runtime(
+        config::browser_runtime_harness_command_available() && sandbox.is_none();
+    if let Err(exit_code) = config::reject_unavailable_browser_runtime(
         "run",
         effective_api,
         browser_runtime_available,
@@ -3025,25 +2542,25 @@ fn run_command(
         return Err(exit_code);
     }
 
-    ensure_project_ready_or_exit(output)?;
-    let effective_compat = match resolve_effective_compat_features(compat) {
+    shared::ensure_project_ready_or_exit(output)?;
+    let effective_compat = match config::resolve_effective_compat_features(compat) {
         Ok(features) => features,
         Err(diagnostics) => {
-            return emit_diagnostics_and_exit("run", diagnostics, 5, output, None, None)
+            return shared::emit_diagnostics_and_exit("run", diagnostics, 5, output, None, None)
         }
     };
     if let Err(exit_code) =
-        reject_unavailable_compat_features("run", &effective_compat, output, None, None)
+        config::reject_unavailable_compat_features("run", &effective_compat, output, None, None)
     {
         return Err(exit_code);
     }
-    let effective_runtime_profiles = match resolve_effective_runtime_profiles(wasm_threads) {
+    let effective_runtime_profiles = match config::resolve_effective_runtime_profiles(wasm_threads) {
         Ok(profiles) => profiles,
         Err(diagnostics) => {
-            return emit_diagnostics_and_exit("run", diagnostics, 5, output, None, None)
+            return shared::emit_diagnostics_and_exit("run", diagnostics, 5, output, None, None)
         }
     };
-    if let Err(exit_code) = reject_unavailable_runtime_profiles(
+    if let Err(exit_code) = config::reject_unavailable_runtime_profiles(
         "run",
         &effective_runtime_profiles,
         true,
@@ -3053,13 +2570,13 @@ fn run_command(
     ) {
         return Err(exit_code);
     }
-    let policy = load_policy_or_exit(sandbox, &effective_runtime_profiles, output)?;
+    let policy = shared::load_policy_or_exit(sandbox, &effective_runtime_profiles, output)?;
     if let Err(exit_code) =
-        reject_unavailable_spawned_process_budget("run", max_spawned_processes, output, None, None)
+        config::reject_unavailable_spawned_process_budget("run", max_spawned_processes, output, None, None)
     {
         return Err(exit_code);
     }
-    if let Err(exit_code) = reject_unavailable_zero_capable_budgets(
+    if let Err(exit_code) = config::reject_unavailable_zero_capable_budgets(
         "run",
         &effective_runtime_profiles,
         max_threads,
@@ -3069,10 +2586,10 @@ fn run_command(
     ) {
         return Err(exit_code);
     }
-    let max_specializations = match resolve_effective_max_specializations(max_specializations) {
+    let max_specializations = match config::resolve_effective_max_specializations(max_specializations) {
         Ok(max_specializations) => max_specializations,
         Err(diagnostics) => {
-            return emit_diagnostics_and_exit("run", diagnostics, 5, output, None, None)
+            return shared::emit_diagnostics_and_exit("run", diagnostics, 5, output, None, None)
         }
     };
     let compat_eval = effective_compat.iter().any(|feature| feature == "eval");
@@ -3082,7 +2599,7 @@ fn run_command(
         if let Err(diagnostics) =
             validate_source_effects_against_policy(&source, policy, effective_api)
         {
-            return emit_diagnostics_and_exit(
+            return shared::emit_diagnostics_and_exit(
                 "run",
                 diagnostics,
                 5,
@@ -3093,13 +2610,13 @@ fn run_command(
         }
     }
 
-    if let Err(diagnostic) = validate_runtime_entrypoint(&source, effective_api) {
-        return emit_diagnostics_and_exit("run", vec![diagnostic], 5, output, None, None);
+    if let Err(diagnostic) = shared::validate_runtime_entrypoint(&source, effective_api) {
+        return shared::emit_diagnostics_and_exit("run", vec![diagnostic], 5, output, None, None);
     }
     if let Err(diagnostics) =
         build::reject_async_and_generator_class_methods_in_runtime_entrypoint(&source)
     {
-        return emit_diagnostics_and_exit(
+        return shared::emit_diagnostics_and_exit(
             "run",
             diagnostics,
             1,
@@ -3121,7 +2638,7 @@ fn run_command(
     ) {
         Ok(bytes) => bytes,
         Err(diagnostics) => {
-            return emit_diagnostics_and_exit(
+            return shared::emit_diagnostics_and_exit(
                 "run",
                 diagnostics,
                 1,
@@ -3182,7 +2699,7 @@ fn run_command(
                 });
                 validate_run_payload_value(&payload)
                     .expect("constructed run payload must satisfy schema-v1 shape");
-                print_envelope(
+                shared::print_envelope(
                     "run",
                     outcome.exit_code == 0,
                     vec![],
@@ -3209,7 +2726,7 @@ fn run_command(
                 Err(outcome.exit_code)
             }
         }
-        Err(diagnostics) => emit_diagnostics_and_exit(
+        Err(diagnostics) => shared::emit_diagnostics_and_exit(
             "run",
             diagnostics,
             1,
@@ -3233,10 +2750,10 @@ fn test_command(
     sandbox: Option<PathBuf>,
     output: &CliOutputOptions,
 ) -> Result<(), i32> {
-    let effective_api = match resolve_effective_api_surface(api) {
+    let effective_api = match config::resolve_effective_api_surface(api) {
         Ok(api) => api,
         Err(diagnostics) => {
-            return emit_diagnostics_and_exit("test", diagnostics, 5, output, None, None)
+            return shared::emit_diagnostics_and_exit("test", diagnostics, 5, output, None, None)
         }
     };
 
@@ -3261,8 +2778,8 @@ fn test_command(
     // on the browser-runtime availability gate instead of silently dropping policy
     // enforcement when a harness override is present.
     let browser_runtime_available =
-        browser_runtime_harness_command_available() && sandbox.is_none();
-    if let Err(exit_code) = reject_unavailable_browser_runtime(
+        config::browser_runtime_harness_command_available() && sandbox.is_none();
+    if let Err(exit_code) = config::reject_unavailable_browser_runtime(
         "test",
         effective_api,
         browser_runtime_available,
@@ -3274,25 +2791,25 @@ fn test_command(
         return Err(exit_code);
     }
 
-    ensure_project_ready_or_exit(output)?;
-    let effective_compat = match resolve_effective_compat_features(compat) {
+    shared::ensure_project_ready_or_exit(output)?;
+    let effective_compat = match config::resolve_effective_compat_features(compat) {
         Ok(features) => features,
         Err(diagnostics) => {
-            return emit_diagnostics_and_exit("test", diagnostics, 5, output, None, None)
+            return shared::emit_diagnostics_and_exit("test", diagnostics, 5, output, None, None)
         }
     };
     if let Err(exit_code) =
-        reject_unavailable_compat_features("test", &effective_compat, output, None, None)
+        config::reject_unavailable_compat_features("test", &effective_compat, output, None, None)
     {
         return Err(exit_code);
     }
-    let effective_runtime_profiles = match resolve_effective_runtime_profiles(wasm_threads) {
+    let effective_runtime_profiles = match config::resolve_effective_runtime_profiles(wasm_threads) {
         Ok(profiles) => profiles,
         Err(diagnostics) => {
-            return emit_diagnostics_and_exit("test", diagnostics, 5, output, None, None)
+            return shared::emit_diagnostics_and_exit("test", diagnostics, 5, output, None, None)
         }
     };
-    if let Err(exit_code) = reject_unavailable_runtime_profiles(
+    if let Err(exit_code) = config::reject_unavailable_runtime_profiles(
         "test",
         &effective_runtime_profiles,
         true,
@@ -3302,13 +2819,13 @@ fn test_command(
     ) {
         return Err(exit_code);
     }
-    let policy = load_policy_or_exit(sandbox, &effective_runtime_profiles, output)?;
+    let policy = shared::load_policy_or_exit(sandbox, &effective_runtime_profiles, output)?;
     if let Err(exit_code) =
-        reject_unavailable_spawned_process_budget("test", max_spawned_processes, output, None, None)
+        config::reject_unavailable_spawned_process_budget("test", max_spawned_processes, output, None, None)
     {
         return Err(exit_code);
     }
-    if let Err(exit_code) = reject_unavailable_zero_capable_budgets(
+    if let Err(exit_code) = config::reject_unavailable_zero_capable_budgets(
         "test",
         &effective_runtime_profiles,
         max_threads,
@@ -3318,10 +2835,10 @@ fn test_command(
     ) {
         return Err(exit_code);
     }
-    let max_specializations = match resolve_effective_max_specializations(max_specializations) {
+    let max_specializations = match config::resolve_effective_max_specializations(max_specializations) {
         Ok(max_specializations) => max_specializations,
         Err(diagnostics) => {
-            return emit_diagnostics_and_exit("test", diagnostics, 5, output, None, None)
+            return shared::emit_diagnostics_and_exit("test", diagnostics, 5, output, None, None)
         }
     };
     let compat_eval = effective_compat.iter().any(|feature| feature == "eval");
@@ -3338,8 +2855,8 @@ fn test_command(
     let mut valid_files = Vec::new();
     for file in selected_files {
         let source = PathBuf::from(&file);
-        if let Err(diagnostic) = validate_runtime_entrypoint(&source, effective_api) {
-            return emit_diagnostics_and_exit(
+        if let Err(diagnostic) = shared::validate_runtime_entrypoint(&source, effective_api) {
+            return shared::emit_diagnostics_and_exit(
                 "test",
                 vec![diagnostic],
                 5,
@@ -3351,7 +2868,7 @@ fn test_command(
         if let Err(diagnostics) =
             build::reject_async_and_generator_class_methods_in_runtime_entrypoint(&source)
         {
-            return emit_diagnostics_and_exit(
+            return shared::emit_diagnostics_and_exit(
                 "test",
                 diagnostics,
                 1,
@@ -3366,7 +2883,7 @@ fn test_command(
     let filtered_files = if let Some(pattern) = filter.as_deref() {
         valid_files
             .into_iter()
-            .filter(|file| matches_test_filter(file, pattern))
+            .filter(|file| shared::matches_test_filter(file, pattern))
             .collect::<Vec<_>>()
     } else {
         valid_files
@@ -3395,7 +2912,7 @@ fn test_command(
             } else {
                 json!({ "total": 0, "passed": 0, "failed": 0, "skipped": 0, "runtimeMs": 0 })
             };
-            print_envelope(
+            shared::print_envelope(
                 "test",
                 true,
                 vec![],
@@ -3417,7 +2934,7 @@ fn test_command(
         if let Err(diagnostics) =
             validate_source_effects_against_policy_for_roots(&roots, policy, effective_api)
         {
-            return emit_diagnostics_and_exit("test", diagnostics, 5, output, None, None);
+            return shared::emit_diagnostics_and_exit("test", diagnostics, 5, output, None, None);
         }
     }
 
@@ -3571,10 +3088,10 @@ fn test_command(
             })
         };
         let success = diagnostics.is_empty();
-        let (errors, warnings) = split_and_convert_diagnostics(&diagnostics, None, None);
+        let (errors, warnings) = shared::split_and_convert_diagnostics(&diagnostics, None, None);
         validate_test_payload_value(&payload)
             .expect("constructed test payload must satisfy schema-v1 shape");
-        print_envelope(
+        shared::print_envelope(
             "test",
             success,
             errors,
@@ -3671,14 +3188,14 @@ fn coverage_percent(covered: usize, total: usize) -> f64 {
 }
 
 fn fmt_command(files: Vec<String>, check: bool, output: &CliOutputOptions) -> Result<(), i32> {
-    ensure_project_ready_or_exit(output)?;
-    let selected_files = selected_source_files(files, true);
+    shared::ensure_project_ready_or_exit(output)?;
+    let selected_files = shared::selected_source_files(files, true);
     if selected_files.is_empty() {
         if output.is_json() {
             let payload = json!({"filesFormatted": 0, "filesChecked": 0});
             validate_fmt_payload_value(&payload)
                 .expect("constructed fmt payload must satisfy schema-v1 shape");
-            print_envelope("fmt", true, vec![], vec![], payload, None, None, 0, output);
+            shared::print_envelope("fmt", true, vec![], vec![], payload, None, None, 0, output);
         } else if !output.quiet {
             println!("{} 0 file(s)", if check { "Checked" } else { "Formatted" });
         }
@@ -3697,7 +3214,7 @@ fn fmt_command(files: Vec<String>, check: bool, output: &CliOutputOptions) -> Re
                     e5::OUTPUT_ERROR as u32,
                     format!("failed to read source file '{}': {}", path.display(), error),
                 );
-                return emit_diagnostics_and_exit(
+                return shared::emit_diagnostics_and_exit(
                     "fmt",
                     vec![diagnostic],
                     1,
@@ -3720,7 +3237,7 @@ fn fmt_command(files: Vec<String>, check: bool, output: &CliOutputOptions) -> Re
                             error
                         ),
                     );
-                    return emit_diagnostics_and_exit(
+                    return shared::emit_diagnostics_and_exit(
                         "fmt",
                         vec![diagnostic],
                         1,
@@ -3738,7 +3255,7 @@ fn fmt_command(files: Vec<String>, check: bool, output: &CliOutputOptions) -> Re
         validate_fmt_payload_value(&payload)
             .expect("constructed fmt payload must satisfy schema-v1 shape");
         let success = !check || changed == 0;
-        print_envelope(
+        shared::print_envelope(
             "fmt",
             success,
             vec![],
@@ -3769,15 +3286,15 @@ fn fmt_command(files: Vec<String>, check: bool, output: &CliOutputOptions) -> Re
 }
 
 fn lint_command(files: Vec<String>, fix: bool, output: &CliOutputOptions) -> Result<(), i32> {
-    ensure_project_ready_or_exit(output)?;
-    let selected_files = selected_source_files(files, true);
+    shared::ensure_project_ready_or_exit(output)?;
+    let selected_files = shared::selected_source_files(files, true);
     if selected_files.is_empty() {
         if output.is_json() {
             let payload =
                 json!({"filesLinted": 0, "errorCount": 0, "warningCount": 0, "fixedCount": 0});
             validate_lint_payload_value(&payload)
                 .expect("constructed lint payload must satisfy schema-v1 shape");
-            print_envelope("lint", true, vec![], vec![], payload, None, None, 0, output);
+            shared::print_envelope("lint", true, vec![], vec![], payload, None, None, 0, output);
         } else if !output.quiet {
             println!("Linted 0 file(s)");
         }
@@ -3800,7 +3317,7 @@ fn lint_command(files: Vec<String>, fix: bool, output: &CliOutputOptions) -> Res
                     e5::OUTPUT_ERROR as u32,
                     format!("failed to read source file '{}': {}", path.display(), error),
                 );
-                return emit_diagnostics_and_exit(
+                return shared::emit_diagnostics_and_exit(
                     "lint",
                     vec![diagnostic],
                     1,
@@ -3813,7 +3330,7 @@ fn lint_command(files: Vec<String>, fix: bool, output: &CliOutputOptions) -> Res
 
         let result = lint_with_options(&source, fix);
         let (file_errors, file_warnings) =
-            split_and_convert_diagnostics(&result.diagnostics, Some(&path), Some(&source));
+            shared::split_and_convert_diagnostics(&result.diagnostics, Some(&path), Some(&source));
         had_error |= !file_errors.is_empty();
         errors.extend(file_errors);
         warnings.extend(file_warnings);
@@ -3825,7 +3342,7 @@ fn lint_command(files: Vec<String>, fix: bool, output: &CliOutputOptions) -> Res
                         e5::OUTPUT_ERROR as u32,
                         format!("failed to write fixed file '{}': {}", path.display(), error),
                     );
-                    return emit_diagnostics_and_exit(
+                    return shared::emit_diagnostics_and_exit(
                         "lint",
                         vec![diagnostic],
                         1,
@@ -3848,7 +3365,7 @@ fn lint_command(files: Vec<String>, fix: bool, output: &CliOutputOptions) -> Res
         });
         validate_lint_payload_value(&payload)
             .expect("constructed lint payload must satisfy schema-v1 shape");
-        print_envelope(
+        shared::print_envelope(
             "lint",
             !had_error,
             errors,
@@ -3887,17 +3404,17 @@ fn effects_command(
             "`effects` does not accept `--sandbox`; use `check` or `build --sandbox` for policy validation"
                 .to_string(),
         );
-        return emit_diagnostics_and_exit("effects", vec![diagnostic], 5, output, None, None);
+        return shared::emit_diagnostics_and_exit("effects", vec![diagnostic], 5, output, None, None);
     }
 
-    let Some(source) = single_or_error(files, "effects", output)? else {
+    let Some(source) = shared::single_or_error(files, "effects", output)? else {
         return Err(1);
     };
 
-    let effective_api = match resolve_effective_api_surface(api) {
+    let effective_api = match config::resolve_effective_api_surface(api) {
         Ok(api) => api,
         Err(diagnostics) => {
-            return emit_diagnostics_and_exit(
+            return shared::emit_diagnostics_and_exit(
                 "effects",
                 diagnostics,
                 5,
@@ -3907,8 +3424,8 @@ fn effects_command(
             );
         }
     };
-    if let Err(diagnostic) = validate_runtime_entrypoint(&source, effective_api) {
-        return emit_diagnostics_and_exit(
+    if let Err(diagnostic) = shared::validate_runtime_entrypoint(&source, effective_api) {
+        return shared::emit_diagnostics_and_exit(
             "effects",
             vec![diagnostic],
             5,
@@ -3917,10 +3434,10 @@ fn effects_command(
             fs::read_to_string(&source).ok().as_deref(),
         );
     }
-    let effective_compat = match resolve_effective_compat_features(compat) {
+    let effective_compat = match config::resolve_effective_compat_features(compat) {
         Ok(features) => features,
         Err(diagnostics) => {
-            return emit_diagnostics_and_exit(
+            return shared::emit_diagnostics_and_exit(
                 "effects",
                 diagnostics,
                 5,
@@ -3930,7 +3447,7 @@ fn effects_command(
             );
         }
     };
-    if let Err(exit_code) = reject_unavailable_compat_features(
+    if let Err(exit_code) = config::reject_unavailable_compat_features(
         "effects",
         &effective_compat,
         output,
@@ -3939,10 +3456,10 @@ fn effects_command(
     ) {
         return Err(exit_code);
     }
-    let effective_runtime_profiles = match resolve_effective_runtime_profiles(wasm_threads) {
+    let effective_runtime_profiles = match config::resolve_effective_runtime_profiles(wasm_threads) {
         Ok(profiles) => profiles,
         Err(diagnostics) => {
-            return emit_diagnostics_and_exit(
+            return shared::emit_diagnostics_and_exit(
                 "effects",
                 diagnostics,
                 5,
@@ -3952,7 +3469,7 @@ fn effects_command(
             );
         }
     };
-    if let Err(exit_code) = reject_unavailable_runtime_profiles(
+    if let Err(exit_code) = config::reject_unavailable_runtime_profiles(
         "effects",
         &effective_runtime_profiles,
         !matches!(effective_api, kali_cli::ApiSurface::Browser),
@@ -3970,7 +3487,7 @@ fn effects_command(
     let inference = match infer_effects_from_roots(&[source.clone()], context.clone()) {
         Ok(inference) => inference,
         Err(diagnostics) => {
-            return emit_diagnostics_and_exit(
+            return shared::emit_diagnostics_and_exit(
                 "effects",
                 diagnostics,
                 1,
@@ -3986,7 +3503,7 @@ fn effects_command(
         context,
         inference,
     );
-    emit_native_json_payload("effects", &report, output)
+    shared::emit_native_json_payload("effects", &report, output)
 }
 
 fn package_analysis_specific_flag_context(
@@ -4057,7 +3574,7 @@ fn reject_package_analysis_specific_flags(
         {
             diagnostic = diagnostic.with_context(context);
         }
-        return emit_diagnostics_and_exit(command, vec![diagnostic], 5, output, None, None);
+        return shared::emit_diagnostics_and_exit(command, vec![diagnostic], 5, output, None, None);
     }
 
     Ok(())
@@ -4108,7 +3625,7 @@ fn require_single_registry_package_target(
         diagnostic = diagnostic.with_context(context);
     }
     if output.is_json() {
-        print_envelope(
+        shared::print_envelope(
             command,
             false,
             vec![output::diagnostic_to_json(&diagnostic, None, None, "error")],
@@ -4146,7 +3663,7 @@ fn package_effects_command(
     let parsed = match parse_registry_package_target("package-effects", &target) {
         Ok(parsed) => parsed,
         Err(diagnostic) => {
-            return emit_diagnostics_and_exit(
+            return shared::emit_diagnostics_and_exit(
                 "package-effects",
                 vec![diagnostic],
                 5,
@@ -4164,7 +3681,7 @@ fn package_effects_command(
                 e5::INVALID_CLI_USAGE as u32,
                 format!("failed to read current directory: {}", error),
             );
-            return emit_diagnostics_and_exit(
+            return shared::emit_diagnostics_and_exit(
                 "package-effects",
                 vec![diagnostic],
                 1,
@@ -4185,7 +3702,7 @@ fn package_effects_command(
                     target
                 ),
             );
-            return emit_diagnostics_and_exit(
+            return shared::emit_diagnostics_and_exit(
                 "package-effects",
                 vec![diagnostic],
                 1,
@@ -4203,7 +3720,7 @@ fn package_effects_command(
                 e6::DEPENDENCY_STATE_MISSING as u32,
                 format!("unable to locate package root for '{}'", target),
             );
-            return emit_diagnostics_and_exit(
+            return shared::emit_diagnostics_and_exit(
                 "package-effects",
                 vec![diagnostic],
                 1,
@@ -4217,7 +3734,7 @@ fn package_effects_command(
     let package_version = match read_package_version(&package_root) {
         Ok(version) => version,
         Err(diagnostic) => {
-            return emit_diagnostics_and_exit(
+            return shared::emit_diagnostics_and_exit(
                 "package-effects",
                 vec![diagnostic],
                 1,
@@ -4228,10 +3745,10 @@ fn package_effects_command(
         }
     };
 
-    let effective_api = match resolve_effective_api_surface(None) {
+    let effective_api = match config::resolve_effective_api_surface(None) {
         Ok(api) => api,
         Err(diagnostics) => {
-            return emit_diagnostics_and_exit(
+            return shared::emit_diagnostics_and_exit(
                 "package-effects",
                 diagnostics,
                 5,
@@ -4241,10 +3758,10 @@ fn package_effects_command(
             );
         }
     };
-    let effective_runtime_profiles = match resolve_effective_runtime_profiles(false) {
+    let effective_runtime_profiles = match config::resolve_effective_runtime_profiles(false) {
         Ok(profiles) => profiles,
         Err(diagnostics) => {
-            return emit_diagnostics_and_exit(
+            return shared::emit_diagnostics_and_exit(
                 "package-effects",
                 diagnostics,
                 5,
@@ -4257,7 +3774,7 @@ fn package_effects_command(
     // Registry-analysis inherits semantic analysis context, including the threaded profile.
     // The command still rejects explicit package-analysis flags, but inherited runtime profile
     // state is part of the stable report contract.
-    if let Err(exit_code) = reject_unavailable_runtime_profiles(
+    if let Err(exit_code) = config::reject_unavailable_runtime_profiles(
         "package-effects",
         &effective_runtime_profiles,
         true,
@@ -4267,10 +3784,10 @@ fn package_effects_command(
     ) {
         return Err(exit_code);
     }
-    let effective_compat = match resolve_effective_compat_features(Vec::new()) {
+    let effective_compat = match config::resolve_effective_compat_features(Vec::new()) {
         Ok(features) => features,
         Err(diagnostics) => {
-            return emit_diagnostics_and_exit(
+            return shared::emit_diagnostics_and_exit(
                 "package-effects",
                 diagnostics,
                 5,
@@ -4281,7 +3798,7 @@ fn package_effects_command(
         }
     };
     if let Err(exit_code) =
-        reject_unavailable_compat_features("package-effects", &effective_compat, output, None, None)
+        config::reject_unavailable_compat_features("package-effects", &effective_compat, output, None, None)
     {
         return Err(exit_code);
     }
@@ -4290,7 +3807,7 @@ fn package_effects_command(
     let inference = match infer_effects_from_roots(&[entry_path.clone()], context.clone()) {
         Ok(inference) => inference,
         Err(diagnostics) => {
-            return emit_diagnostics_and_exit(
+            return shared::emit_diagnostics_and_exit(
                 "package-effects",
                 diagnostics,
                 1,
@@ -4310,7 +3827,7 @@ fn package_effects_command(
         },
         report,
     );
-    emit_native_json_payload("package-effects", &payload, output)
+    shared::emit_native_json_payload("package-effects", &payload, output)
 }
 
 fn sort_package_audit_findings(findings: &mut [Diagnostic]) {
@@ -4348,13 +3865,6 @@ fn diagnostic_span_sort_key(diagnostic: &Diagnostic) -> (u32, u32, u32, bool) {
     (span.file_id.as_u32(), span.start, span.end, false)
 }
 
-fn command_allows_pretty_without_json(command: Option<&Commands>) -> bool {
-    matches!(
-        command,
-        Some(Commands::Effects { .. }) | Some(Commands::PackageEffects { .. })
-    )
-}
-
 const PACKAGE_AUDIT_PREVIEW_MESSAGE: &str =
     "legacy `--preview` compatibility shim is not part of the schema-v1 package-audit command shape";
 
@@ -4378,7 +3888,7 @@ fn package_audit_command(
 ) -> Result<(), i32> {
     if preview {
         let diagnostic = package_audit_preview_diagnostic();
-        return emit_diagnostics_and_exit("package-audit", vec![diagnostic], 5, output, None, None);
+        return shared::emit_diagnostics_and_exit("package-audit", vec![diagnostic], 5, output, None, None);
     }
 
     reject_package_analysis_specific_flags(
@@ -4394,7 +3904,7 @@ fn package_audit_command(
     let parsed = match parse_registry_package_target("package-audit", &target) {
         Ok(parsed) => parsed,
         Err(diagnostic) => {
-            return emit_diagnostics_and_exit(
+            return shared::emit_diagnostics_and_exit(
                 "package-audit",
                 vec![diagnostic],
                 5,
@@ -4408,7 +3918,7 @@ fn package_audit_command(
     let audit = match audit_registry_package(&parsed.registry, &parsed.package_name) {
         Ok(audit) => audit,
         Err(diagnostic) => {
-            return emit_diagnostics_and_exit(
+            return shared::emit_diagnostics_and_exit(
                 "package-audit",
                 vec![diagnostic],
                 1,
@@ -4445,8 +3955,8 @@ fn package_audit_command(
     };
 
     if output.is_json() {
-        let (errors, warnings) = split_and_convert_diagnostics(&findings, None, None);
-        print_envelope(
+        let (errors, warnings) = shared::split_and_convert_diagnostics(&findings, None, None);
+        shared::print_envelope(
             "package-audit",
             errors.is_empty(),
             errors,
@@ -4471,43 +3981,6 @@ fn package_audit_command(
     }
 }
 
-fn reject_workflow_context_flags(
-    command: &str,
-    api: Option<kali_cli::ApiSurface>,
-    sandbox: Option<PathBuf>,
-    output: &CliOutputOptions,
-) -> Result<(), i32> {
-    if api.is_some() || sandbox.is_some() {
-        let diagnostic = Diagnostic::error(
-            e5::INVALID_CLI_USAGE as u32,
-            format!(
-                "`{}` does not accept `--api` or `--sandbox` in early phases",
-                command
-            ),
-        );
-        return emit_diagnostics_and_exit(command, vec![diagnostic], 5, output, None, None);
-    }
-
-    Ok(())
-}
-
-fn reject_install_context_flags(
-    api: Option<kali_cli::ApiSurface>,
-    sandbox: Option<PathBuf>,
-    output: &CliOutputOptions,
-) -> Result<(), i32> {
-    if api.is_some() || sandbox.is_some() {
-        let diagnostic = Diagnostic::error(
-            e5::INVALID_CLI_USAGE as u32,
-            "`install` does not accept `--api` or `--sandbox` in early phases; use the project manifest instead"
-                .to_string(),
-        );
-        return emit_diagnostics_and_exit("install", vec![diagnostic], 5, output, None, None);
-    }
-
-    Ok(())
-}
-
 fn install_command(
     target: Option<String>,
     dev: bool,
@@ -4516,7 +3989,7 @@ fn install_command(
     allow_scripts: bool,
     output: &CliOutputOptions,
 ) -> Result<(), i32> {
-    reject_install_context_flags(api, sandbox, output)?;
+    shared::reject_install_context_flags(api, sandbox, output)?;
     let cwd = match std::env::current_dir() {
         Ok(path) => path,
         Err(error) => {
@@ -4524,7 +3997,7 @@ fn install_command(
                 e5::INVALID_CLI_USAGE as u32,
                 format!("failed to read current directory: {}", error),
             );
-            return emit_diagnostics_and_exit("install", vec![diagnostic], 1, output, None, None);
+            return shared::emit_diagnostics_and_exit("install", vec![diagnostic], 1, output, None, None);
         }
     };
     let project_root = discover_project_root(&cwd).unwrap_or(cwd);
@@ -4549,7 +4022,7 @@ fn install_command(
                 });
                 validate_install_payload_value(&payload)
                     .expect("constructed install payload must satisfy schema-v1 shape");
-                print_envelope(
+                shared::print_envelope(
                     "install",
                     true,
                     vec![],
@@ -4566,111 +4039,9 @@ fn install_command(
             Ok(())
         }
         Err(diagnostics) => {
-            let exit_code = diagnostics_exit_code(&diagnostics);
-            emit_diagnostics_and_exit("install", diagnostics, exit_code, output, None, None)
+            let exit_code = shared::diagnostics_exit_code(&diagnostics);
+            shared::emit_diagnostics_and_exit("install", diagnostics, exit_code, output, None, None)
         }
-    }
-}
-
-fn load_policy_or_exit(
-    sandbox: Option<PathBuf>,
-    runtime_profiles: &[String],
-    output: &CliOutputOptions,
-) -> Result<Option<SandboxPolicy>, i32> {
-    match sandbox {
-        Some(path) => match kali_sandbox::SandboxPolicy::from_file_with_runtime_profiles(
-            &path,
-            runtime_profiles,
-        ) {
-            Ok(policy) => Ok(Some(policy)),
-            Err(diagnostics) => {
-                emit_diagnostics_and_exit("policy", diagnostics, 5, output, Some(&path), None)
-                    .map(|_| None)
-            }
-        },
-        None => Ok(None),
-    }
-}
-
-fn ensure_project_ready_or_exit(output: &CliOutputOptions) -> Result<(), i32> {
-    let cwd = match std::env::current_dir() {
-        Ok(path) => path,
-        Err(error) => {
-            let diagnostic = Diagnostic::error(
-                e5::INVALID_CLI_USAGE as u32,
-                format!("failed to read current directory: {}", error),
-            );
-            return emit_diagnostics_and_exit("cli", vec![diagnostic], 1, output, None, None);
-        }
-    };
-    let project_root = discover_project_root(&cwd).unwrap_or(cwd);
-    match ensure_project_ready(project_root) {
-        Ok(()) => Ok(()),
-        Err(diagnostic) => {
-            emit_diagnostics_and_exit("cli", vec![diagnostic], 1, output, None, None)
-        }
-    }
-}
-
-fn selected_source_files(files: Vec<String>, discover: bool) -> Vec<String> {
-    if files.is_empty() && discover {
-        let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-        let project_root = discover_project_root(&cwd).unwrap_or(cwd);
-        discover_source_files(&project_root)
-            .into_iter()
-            .map(|path| path.to_string_lossy().to_string())
-            .collect()
-    } else {
-        files
-    }
-}
-
-fn single_or_error(
-    files: Vec<String>,
-    command: &str,
-    output: &CliOutputOptions,
-) -> Result<Option<PathBuf>, i32> {
-    match files.as_slice() {
-        [] => {
-            let diagnostic = Diagnostic::error(
-                e5::MISSING_REQUIRED_ARGUMENT as u32,
-                format!("{} requires at least one source file", command),
-            );
-            emit_diagnostics_and_exit(command, vec![diagnostic], 5, output, None, None)
-                .map(|_| None)
-        }
-        [file] => Ok(Some(PathBuf::from(file))),
-        _ => {
-            let diagnostic = Diagnostic::error(
-                e5::INVALID_CLI_USAGE as u32,
-                format!(
-                    "{} accepts only one primary source file in this stage",
-                    command
-                ),
-            );
-            emit_diagnostics_and_exit(command, vec![diagnostic], 5, output, None, None)
-                .map(|_| None)
-        }
-    }
-}
-
-fn validate_runtime_entrypoint(
-    source: &PathBuf,
-    api_surface: kali_cli::ApiSurface,
-) -> Result<(), Diagnostic> {
-    if is_declaration_only_source_file(source) {
-        Err(Diagnostic::error(
-            e5::INVALID_PRIMARY_INPUT_KIND as u32,
-            format!(
-                "declaration-only file '{}' cannot be used as a runtime entrypoint",
-                source.display()
-            ),
-        )
-        .with_suggestion("use `kali check` for declaration-only files"))
-    } else if let Some(diagnostic) = validate_package_bin_runtime_entrypoint(source, api_surface) {
-        Err(diagnostic)
-    } else {
-        Ok(())
     }
 }
 
@@ -4999,159 +4370,16 @@ fn validate_source_effects_against_policy_for_roots(
     }
 }
 
-fn emit_native_json_payload<T: serde::Serialize>(
-    command: &str,
-    payload: &T,
-    output: &CliOutputOptions,
-) -> Result<(), i32> {
-    let value = serde_json::to_value(payload).expect("serialize native json payload");
-    match command {
-        "effects" => validate_effects_payload_value(&value),
-        "package-effects" => validate_package_effects_payload_value(&value),
-        "package-audit" => validate_package_audit_payload_value(&value),
-        _ => Ok(()),
-    }
-    .expect("constructed native json payload must satisfy schema-v1 shape");
-
-    if output.is_json() {
-        print_envelope(command, true, vec![], vec![], value, None, None, 0, output);
-    } else if output.pretty {
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&value).expect("serialize native json payload")
-        );
-    } else {
-        println!(
-            "{}",
-            serde_json::to_string(&value).expect("serialize native json payload")
-        );
-    }
-    Ok(())
-}
-
-fn diagnostics_exit_code(diagnostics: &[Diagnostic]) -> i32 {
-    if diagnostics.iter().any(|diagnostic| {
-        matches!(
-            diagnostic.code,
-            Some(code) if matches!(code, 5001 | 5506 | 5507 | 5508 | 5509 | 5510 | 5511)
-        )
-    }) {
-        5
-    } else {
-        1
-    }
-}
-
-fn matches_test_filter(file: &str, pattern: &str) -> bool {
-    let path = PathBuf::from(file);
-    let name = path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or(file);
-    file.contains(pattern) || name.contains(pattern)
-}
-
-#[allow(clippy::too_many_arguments)]
-fn print_envelope(
-    command: &str,
-    success: bool,
-    errors: Vec<Value>,
-    warnings: Vec<Value>,
-    payload: Value,
-    stdout: Option<String>,
-    stderr: Option<String>,
-    exit_code: i32,
-    output: &CliOutputOptions,
-) {
-    let value = output::emit_envelope_value(
-        command,
-        success,
-        Value::Array(errors),
-        Value::Array(warnings),
-        payload,
-        stdout,
-        stderr,
-        exit_code,
-    );
-    if output.pretty {
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&value).expect("serialize json envelope")
-        );
-    } else {
-        println!(
-            "{}",
-            serde_json::to_string(&value).expect("serialize json envelope")
-        );
-    }
-}
-
-fn emit_diagnostics_and_exit(
-    command: &str,
-    diagnostics: Vec<Diagnostic>,
-    exit_code: i32,
-    output: &CliOutputOptions,
-    source_path: Option<&Path>,
-    source_text: Option<&str>,
-) -> Result<(), i32> {
-    if output.is_json() {
-        let (errors, warnings) =
-            split_and_convert_diagnostics(&diagnostics, source_path, source_text);
-        print_envelope(
-            command,
-            errors.is_empty(),
-            errors,
-            warnings,
-            Value::Null,
-            None,
-            None,
-            exit_code,
-            output,
-        );
-    } else {
-        for diagnostic in diagnostics {
-            eprintln!("{}", diagnostic);
-        }
-    }
-    Err(exit_code)
-}
-
-fn split_and_convert_diagnostics(
-    diagnostics: &[Diagnostic],
-    source_path: Option<&Path>,
-    source_text: Option<&str>,
-) -> (Vec<Value>, Vec<Value>) {
-    let mut errors = Vec::new();
-    let mut warnings = Vec::new();
-    for diagnostic in diagnostics {
-        let value = output::diagnostic_to_json(diagnostic, source_path, source_text, "error");
-        if diagnostic.is_error() {
-            errors.push(value);
-        } else {
-            warnings.push(value);
-        }
-    }
-    (errors, warnings)
-}
-
-fn single_diagnostic_to_values(
-    diagnostic: Diagnostic,
-    source_path: Option<&Path>,
-    source_text: Option<&str>,
-) -> (Vec<Value>, Vec<Value>) {
-    let diagnostics = vec![diagnostic];
-    split_and_convert_diagnostics(&diagnostics, source_path, source_text)
-}
-
 #[cfg(test)]
 mod tests {
     use super::{
-        analysis_context_for_api, command_allows_pretty_without_json, emit_native_json_payload,
-        manifest_compat_features, manifest_max_specializations, manifest_runtime_profiles,
-        package_analysis_specific_flag_context, package_audit_command,
-        package_audit_preview_diagnostic, package_effects_command, package_effects_report,
-        sort_package_audit_findings, CliOutputOptions, PACKAGE_AUDIT_PREVIEW_MESSAGE,
+        analysis_context_for_api, package_analysis_specific_flag_context,
+        package_audit_command, package_audit_preview_diagnostic, package_effects_command,
+        package_effects_report, sort_package_audit_findings, CliOutputOptions,
+        PACKAGE_AUDIT_PREVIEW_MESSAGE,
     };
+    use super::config::{manifest_compat_features, manifest_max_specializations, manifest_runtime_profiles};
+    use super::shared::{command_allows_pretty_without_json, emit_native_json_payload};
     use kali_cli::{ColorChoice, OutputFormat};
     use kali_common::{FileId, Span};
     use kali_error::{_error_codes::e5, Diagnostic, DiagnosticContextOrigin};
@@ -5198,7 +4426,7 @@ mod tests {
     fn diagnostics_exit_code_treats_feature_availability_as_usage_error() {
         let diagnostic = Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, "feature unavailable");
 
-        assert_eq!(super::diagnostics_exit_code(&[diagnostic]), 5);
+        assert_eq!(super::shared::diagnostics_exit_code(&[diagnostic]), 5);
     }
 
     #[test]
