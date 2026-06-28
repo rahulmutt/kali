@@ -13,31 +13,17 @@ use kali_capi::{
     parse_metadata, Export as CApiExport,
 };
 use kali_cli::{
-    build, discover_source_files, discover_test_files, init,
-    output::{
-        self, validate_check_payload_value, validate_doctor_payload_value,
-        validate_fmt_payload_value, validate_init_payload_value,
-        validate_install_payload_value, validate_lint_payload_value,
-        validate_run_payload_value, validate_test_payload_value, CliOutputOptions,
-    },
+    build, init,
+    output::{self, validate_init_payload_value, CliOutputOptions},
     Args, BundleFormat, Commands,
 };
 use kali_error::{
     _error_codes::{e5, e6},
     set_verbose_diagnostics, Diagnostic, DiagnosticContext, DiagnosticContextOrigin,
 };
-use kali_fmt::format_source;
-use kali_lint::lint_with_options;
-use kali_npm::{
-    audit_registry_package, discover_project_root, install_project,
-    resolve_materialized_import, InstallOptions,
-};
+use kali_npm::{audit_registry_package, discover_project_root, resolve_materialized_import};
 use kali_optimize::ProfileData;
-use kali_runtime::{
-    browser_harness_command_parts_checked, browser_runtime_contract_value,
-    browser_runtime_request_context, BrowserRuntimeContract, RuntimeBackend, RuntimeCtx,
-    RuntimeHostContract, BROWSER_HARNESS_COMMAND_ENV,
-};
+use kali_runtime::{RuntimeBackend, RuntimeHostContract};
 use kali_sandbox::{
     compare_effects_to_policy, effect_report_from_inference, infer_effects_from_roots,
     package_effects_report, EffectAnalysisContext, PackageCoordinate, SandboxPolicy,
@@ -45,18 +31,24 @@ use kali_sandbox::{
 use serde_json::{json, Value};
 use std::{
     collections::BTreeMap,
-    env, fs,
+    fs,
     path::{Component as PathComponent, Path, PathBuf},
-    process::Command as ProcessCommand,
-    time::Instant,
 };
 use wasm_encoder::{Component, ComponentSectionId, CustomSection, RawSection, Section};
-use wasmparser::{Parser as WasmParser, Payload};
 #[cfg(test)]
 use kali_cli::output::validate_package_effects_payload_value;
 
 mod config;
 mod shared;
+mod cmd_check;
+mod cmd_doctor;
+mod cmd_effects;
+mod cmd_fmt;
+mod cmd_install;
+mod cmd_lint;
+mod cmd_run;
+mod cmd_test;
+
 
 fn main() {
     let args = Args::parse();
@@ -94,7 +86,7 @@ fn main() {
             files,
         } => {
             if let Err(exit_code) =
-                check_command(files, sandbox, api, compat, wasm_threads, fix, &output)
+                cmd_check::check_command(files, sandbox, api, compat, wasm_threads, fix, &output)
             {
                 std::process::exit(exit_code);
             }
@@ -152,7 +144,7 @@ fn main() {
             file,
             guest_args,
         } => {
-            if let Err(exit_code) = run_command(
+            if let Err(exit_code) = cmd_run::run_command(
                 file,
                 guest_args,
                 api,
@@ -179,7 +171,7 @@ fn main() {
             filter,
             coverage,
         } => {
-            if let Err(exit_code) = test_command(
+            if let Err(exit_code) = cmd_test::test_command(
                 files,
                 api,
                 compat,
@@ -196,7 +188,7 @@ fn main() {
             }
         }
         Commands::Doctor => {
-            if let Err(exit_code) = doctor_command(&output) {
+            if let Err(exit_code) = cmd_doctor::doctor_command(&output) {
                 std::process::exit(exit_code);
             }
         }
@@ -270,7 +262,7 @@ fn main() {
             allow_scripts,
         } => {
             if let Err(exit_code) =
-                install_command(target, dev, api, sandbox, allow_scripts, &output)
+                cmd_install::install_command(target, dev, api, sandbox, allow_scripts, &output)
             {
                 std::process::exit(exit_code);
             }
@@ -284,7 +276,7 @@ fn main() {
             if let Err(exit_code) = shared::reject_workflow_context_flags("fmt", api, sandbox, &output) {
                 std::process::exit(exit_code);
             }
-            if let Err(exit_code) = fmt_command(files, check, &output) {
+            if let Err(exit_code) = cmd_fmt::fmt_command(files, check, &output) {
                 std::process::exit(exit_code);
             }
         }
@@ -297,7 +289,7 @@ fn main() {
             if let Err(exit_code) = shared::reject_workflow_context_flags("lint", api, sandbox, &output) {
                 std::process::exit(exit_code);
             }
-            if let Err(exit_code) = lint_command(files, fix, &output) {
+            if let Err(exit_code) = cmd_lint::lint_command(files, fix, &output) {
                 std::process::exit(exit_code);
             }
         }
@@ -309,7 +301,7 @@ fn main() {
             files,
         } => {
             if let Err(exit_code) =
-                effects_command(api, files, compat, wasm_threads, sandbox, &output)
+                cmd_effects::effects_command(api, files, compat, wasm_threads, sandbox, &output)
             {
                 std::process::exit(exit_code);
             }
@@ -341,245 +333,6 @@ fn main() {
                 std::process::exit(exit_code);
             }
         }
-    }
-}
-
-fn doctor_command(output: &CliOutputOptions) -> Result<(), i32> {
-    let override_value = env::var(BROWSER_HARNESS_COMMAND_ENV).ok();
-    let source = if override_value.is_some() {
-        "env"
-    } else {
-        "auto"
-    };
-    let command_parts = match browser_harness_command_parts_checked(override_value.as_deref()) {
-        Ok(parts) => parts,
-        Err(message) => {
-            let diagnostic = Diagnostic::error(e5::INVALID_CLI_USAGE as u32, message);
-            return shared::emit_diagnostics_and_exit("doctor", vec![diagnostic], 5, output, None, None);
-        }
-    };
-    let executable = command_parts.first().cloned().unwrap_or_default();
-    let args: Vec<String> = command_parts.iter().skip(1).cloned().collect();
-    let executable_available = !executable.is_empty()
-        && ProcessCommand::new(&executable)
-            .arg("--version")
-            .output()
-            .is_ok();
-    let browser_runtime_contract_json = browser_runtime_contract_value();
-    let browser_runtime_contract = BrowserRuntimeContract::descriptor();
-    let payload = json!({
-        "browserHarness": {
-            "envVar": BROWSER_HARNESS_COMMAND_ENV,
-            "source": source,
-            "override": override_value.clone(),
-            "command": command_parts.clone(),
-            "executable": executable,
-            "args": args,
-            "executableAvailable": executable_available,
-        },
-        "browserRuntimeContract": browser_runtime_contract_json,
-    });
-    validate_doctor_payload_value(&payload)
-        .expect("constructed doctor payload must satisfy schema-v1 shape");
-
-    if output.is_json() {
-        shared::print_envelope(
-            "doctor",
-            true,
-            vec![],
-            vec![],
-            payload,
-            None,
-            None,
-            0,
-            output,
-        );
-    } else if !output.quiet {
-        let harness = &payload["browserHarness"];
-        println!("Browser harness:");
-        println!("  env var: {}", BROWSER_HARNESS_COMMAND_ENV);
-        println!("  source: {}", harness["source"].as_str().unwrap_or(source));
-        if let Some(value) = override_value.as_deref() {
-            println!("  override: {value}");
-        }
-        println!("  command: {}", command_parts.join(" "));
-        println!("  executable available: {}", executable_available);
-        println!("Browser runtime contract:");
-        println!("  host label: {}", browser_runtime_contract.host_label);
-        println!(
-            "  host description: {}",
-            browser_runtime_contract.host_description
-        );
-        println!(
-            "  host description note: {}",
-            browser_runtime_contract.host_description_note
-        );
-        println!(
-            "  supported commands: {}",
-            browser_runtime_contract.supported_commands.join(", ")
-        );
-        println!(
-            "  diagnostic hint: {}",
-            browser_runtime_contract.diagnostic_hint
-        );
-        for note in BrowserRuntimeContract::diagnostic_notes() {
-            println!("  note: {note}");
-        }
-    }
-
-    Ok(())
-}
-
-fn check_command(
-    files: Vec<String>,
-    sandbox: Option<PathBuf>,
-    api: Option<kali_cli::ApiSurface>,
-    compat: Vec<String>,
-    wasm_threads: bool,
-    fix: bool,
-    output: &CliOutputOptions,
-) -> Result<(), i32> {
-    let effective_api = match config::resolve_effective_api_surface(api) {
-        Ok(api) => api,
-        Err(diagnostics) => {
-            return shared::emit_diagnostics_and_exit("check", diagnostics, 5, output, None, None)
-        }
-    };
-
-    if fix {
-        let diagnostic = Diagnostic::error(
-            e5::FEATURE_UNAVAILABLE as u32,
-            "kali check --fix is unavailable in this phase; use kali lint --fix for autofix"
-                .to_string(),
-        );
-        return shared::emit_diagnostics_and_exit("check", vec![diagnostic], 1, output, None, None);
-    }
-
-    shared::ensure_project_ready_or_exit(output)?;
-    let effective_compat = match config::resolve_effective_compat_features(compat) {
-        Ok(features) => features,
-        Err(diagnostics) => {
-            return shared::emit_diagnostics_and_exit("check", diagnostics, 5, output, None, None)
-        }
-    };
-    if let Err(exit_code) =
-        config::reject_unavailable_compat_features("check", &effective_compat, output, None, None)
-    {
-        return Err(exit_code);
-    }
-    let effective_runtime_profiles = match config::resolve_effective_runtime_profiles(wasm_threads) {
-        Ok(profiles) => profiles,
-        Err(diagnostics) => {
-            return shared::emit_diagnostics_and_exit("check", diagnostics, 5, output, None, None)
-        }
-    };
-    if let Err(exit_code) = config::reject_unavailable_runtime_profiles(
-        "check",
-        &effective_runtime_profiles,
-        !matches!(effective_api, kali_cli::ApiSurface::Browser),
-        output,
-        None,
-        None,
-    ) {
-        return Err(exit_code);
-    }
-    let policy = shared::load_policy_or_exit(sandbox, &effective_runtime_profiles, output)?;
-    let compat_eval = effective_compat.iter().any(|feature| feature == "eval");
-
-    let selected_files = if files.is_empty() {
-        let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-        let project_root = discover_project_root(&cwd).unwrap_or(cwd);
-        discover_source_files(&project_root)
-            .into_iter()
-            .map(|path| path.to_string_lossy().to_string())
-            .collect::<Vec<_>>()
-    } else {
-        files
-    };
-
-    let mut checked = 0usize;
-    let mut errors = Vec::new();
-    let mut warnings = Vec::new();
-    let mut successful_files = Vec::new();
-
-    for file in selected_files {
-        checked += 1;
-        match build::check_source_file(
-            &file,
-            effective_api,
-            &effective_runtime_profiles,
-            compat_eval,
-            policy.is_some(),
-        ) {
-            Ok(()) => {
-                successful_files.push(PathBuf::from(&file));
-            }
-            Err(diagnostics) => {
-                let source = fs::read_to_string(&file).ok();
-                let (file_errors, file_warnings) = shared::split_and_convert_diagnostics(
-                    &diagnostics,
-                    Some(Path::new(&file)),
-                    source.as_deref(),
-                );
-                errors.extend(file_errors);
-                warnings.extend(file_warnings);
-                if !output.is_json() {
-                    for diagnostic in diagnostics {
-                        eprintln!("{}", diagnostic);
-                    }
-                }
-            }
-        }
-    }
-
-    if errors.is_empty() {
-        if let Some(policy) = policy.as_ref() {
-            if let Err(diagnostics) = validate_source_effects_against_policy_for_roots(
-                &successful_files,
-                policy,
-                effective_api,
-            ) {
-                let (file_errors, file_warnings) =
-                    shared::split_and_convert_diagnostics(&diagnostics, None, None);
-                errors.extend(file_errors);
-                warnings.extend(file_warnings);
-                if !output.is_json() {
-                    for diagnostic in diagnostics {
-                        eprintln!("{}", diagnostic);
-                    }
-                }
-            }
-        }
-    }
-
-    let success = errors.is_empty();
-    if output.is_json() {
-        let payload = json!({
-            "filesChecked": checked,
-            "errorCount": errors.len(),
-            "warningCount": warnings.len(),
-        });
-        validate_check_payload_value(&payload)
-            .expect("constructed check payload must satisfy schema-v1 shape");
-        shared::print_envelope(
-            "check",
-            success,
-            errors,
-            warnings,
-            payload,
-            None,
-            None,
-            if success { 0 } else { 1 },
-            output,
-        );
-    } else if success && !output.quiet {
-        println!("Checked {} file(s)", checked);
-    }
-
-    if success {
-        Ok(())
-    } else {
-        Err(1)
     }
 }
 
@@ -2477,1035 +2230,6 @@ const exported = {{ load, loadWithImports, loadDynamicImport }};
     content
 }
 
-fn browser_stdout_thread_topology_snapshot_value(stdout: &str) -> Option<Value> {
-    stdout.lines().rev().find_map(|line| {
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            return None;
-        }
-
-        let value = serde_json::from_str::<Value>(trimmed).ok()?;
-        value.get("threadTopology").cloned()
-    })
-}
-
-fn run_command(
-    file: String,
-    guest_args: Vec<String>,
-    api: Option<kali_cli::ApiSurface>,
-    compat: Vec<String>,
-    wasm_threads: bool,
-    max_specializations: Option<usize>,
-    max_spawned_processes: Option<u64>,
-    max_threads: Option<u64>,
-    sandbox: Option<PathBuf>,
-    output: &CliOutputOptions,
-) -> Result<(), i32> {
-    let effective_api = match config::resolve_effective_api_surface(api) {
-        Ok(api) => api,
-        Err(diagnostics) => {
-            return shared::emit_diagnostics_and_exit("run", diagnostics, 5, output, None, None)
-        }
-    };
-
-    let browser_context = if matches!(effective_api, kali_cli::ApiSurface::Browser) {
-        let origin = if api.is_some() {
-            DiagnosticContextOrigin::Cli
-        } else {
-            DiagnosticContextOrigin::Config
-        };
-        let context = browser_runtime_request_context(origin);
-        Some(if api.is_some() {
-            context.with_flag("--api")
-        } else {
-            context.with_config_path("compilerOptions.apiSurface")
-        })
-    } else {
-        None
-    };
-
-    // The opt-in browser harness can execute standalone browser-requested programs,
-    // but it is not a Kali-hosted runtime sandbox. Keep `run --api browser --sandbox`
-    // on the browser-runtime availability gate instead of silently dropping policy
-    // enforcement when a harness override is present.
-    let browser_runtime_available =
-        config::browser_runtime_harness_command_available() && sandbox.is_none();
-    if let Err(exit_code) = config::reject_unavailable_browser_runtime(
-        "run",
-        effective_api,
-        browser_runtime_available,
-        browser_context,
-        output,
-        None,
-        None,
-    ) {
-        return Err(exit_code);
-    }
-
-    shared::ensure_project_ready_or_exit(output)?;
-    let effective_compat = match config::resolve_effective_compat_features(compat) {
-        Ok(features) => features,
-        Err(diagnostics) => {
-            return shared::emit_diagnostics_and_exit("run", diagnostics, 5, output, None, None)
-        }
-    };
-    if let Err(exit_code) =
-        config::reject_unavailable_compat_features("run", &effective_compat, output, None, None)
-    {
-        return Err(exit_code);
-    }
-    let effective_runtime_profiles = match config::resolve_effective_runtime_profiles(wasm_threads) {
-        Ok(profiles) => profiles,
-        Err(diagnostics) => {
-            return shared::emit_diagnostics_and_exit("run", diagnostics, 5, output, None, None)
-        }
-    };
-    if let Err(exit_code) = config::reject_unavailable_runtime_profiles(
-        "run",
-        &effective_runtime_profiles,
-        true,
-        output,
-        None,
-        None,
-    ) {
-        return Err(exit_code);
-    }
-    let policy = shared::load_policy_or_exit(sandbox, &effective_runtime_profiles, output)?;
-    if let Err(exit_code) =
-        config::reject_unavailable_spawned_process_budget("run", max_spawned_processes, output, None, None)
-    {
-        return Err(exit_code);
-    }
-    if let Err(exit_code) = config::reject_unavailable_zero_capable_budgets(
-        "run",
-        &effective_runtime_profiles,
-        max_threads,
-        output,
-        None,
-        None,
-    ) {
-        return Err(exit_code);
-    }
-    let max_specializations = match config::resolve_effective_max_specializations(max_specializations) {
-        Ok(max_specializations) => max_specializations,
-        Err(diagnostics) => {
-            return shared::emit_diagnostics_and_exit("run", diagnostics, 5, output, None, None)
-        }
-    };
-    let compat_eval = effective_compat.iter().any(|feature| feature == "eval");
-    let source = PathBuf::from(file);
-
-    if let Some(policy) = policy.as_ref() {
-        if let Err(diagnostics) =
-            validate_source_effects_against_policy(&source, policy, effective_api)
-        {
-            return shared::emit_diagnostics_and_exit(
-                "run",
-                diagnostics,
-                5,
-                output,
-                Some(&source),
-                fs::read_to_string(&source).ok().as_deref(),
-            );
-        }
-    }
-
-    if let Err(diagnostic) = shared::validate_runtime_entrypoint(&source, effective_api) {
-        return shared::emit_diagnostics_and_exit("run", vec![diagnostic], 5, output, None, None);
-    }
-    if let Err(diagnostics) =
-        build::reject_async_and_generator_class_methods_in_runtime_entrypoint(&source)
-    {
-        return shared::emit_diagnostics_and_exit(
-            "run",
-            diagnostics,
-            1,
-            output,
-            Some(&source),
-            fs::read_to_string(&source).ok().as_deref(),
-        );
-    }
-
-    let wasm_bytes = match build::compile_source_file_with_specialization_cap_and_validation(
-        &source,
-        build::BuildMode::Fast,
-        max_specializations,
-        effective_api,
-        &effective_runtime_profiles,
-        compat_eval,
-        false,
-        false,
-    ) {
-        Ok(bytes) => bytes,
-        Err(diagnostics) => {
-            return shared::emit_diagnostics_and_exit(
-                "run",
-                diagnostics,
-                1,
-                output,
-                Some(&source),
-                fs::read_to_string(&source).ok().as_deref(),
-            )
-        }
-    };
-
-    let runtime_args = if effective_api == kali_cli::ApiSurface::Node {
-        let mut argv = vec!["node".to_string(), source.display().to_string()];
-        let mut guest_args = guest_args;
-        if guest_args.first().is_some_and(|arg| arg == "--") {
-            guest_args.remove(0);
-        }
-        argv.extend(guest_args);
-        argv
-    } else {
-        guest_args
-    };
-    let cwd = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    let runtime = RuntimeCtx::with_host_context_with_api_surface(
-        policy.clone(),
-        runtime_args,
-        env::vars().collect::<BTreeMap<_, _>>(),
-        cwd,
-        effective_api.to_string(),
-    )
-    .with_runtime_profiles(effective_runtime_profiles.clone())
-    .with_max_threads(max_threads)
-    .with_max_spawned_processes(max_spawned_processes);
-    let start = Instant::now();
-    match runtime.execute(&wasm_bytes) {
-        Ok(outcome) => {
-            if output.is_json() {
-                let mut thread_topology = outcome.thread_topology.thread_topology_snapshot_value();
-                if matches!(effective_api, kali_cli::ApiSurface::Browser)
-                    && outcome.thread_topology.total_instances == 0
-                    && outcome.thread_topology.terminated_instances == 0
-                    && outcome.thread_topology.live_instances.is_empty()
-                {
-                    if let Some(stdout_thread_topology) =
-                        browser_stdout_thread_topology_snapshot_value(&outcome.stdout)
-                    {
-                        output::merge_thread_topology_snapshot_values(
-                            &mut thread_topology,
-                            &stdout_thread_topology,
-                        );
-                    }
-                }
-                let payload = json!({
-                    "exitCode": outcome.exit_code,
-                    "runtimeMs": start.elapsed().as_millis(),
-                    "hostContract": runtime.host_contract().canonical_label(),
-                    "runtimeBackend": runtime.runtime_backend().canonical_label(),
-                    "threadTopology": thread_topology,
-                });
-                validate_run_payload_value(&payload)
-                    .expect("constructed run payload must satisfy schema-v1 shape");
-                shared::print_envelope(
-                    "run",
-                    outcome.exit_code == 0,
-                    vec![],
-                    vec![],
-                    payload,
-                    Some(outcome.stdout),
-                    Some(outcome.stderr),
-                    outcome.exit_code,
-                    output,
-                );
-            } else {
-                if !output.quiet {
-                    if !outcome.stdout.is_empty() {
-                        print!("{}", outcome.stdout);
-                    }
-                    if !outcome.stderr.is_empty() {
-                        eprint!("{}", outcome.stderr);
-                    }
-                }
-            }
-            if outcome.exit_code == 0 {
-                Ok(())
-            } else {
-                Err(outcome.exit_code)
-            }
-        }
-        Err(diagnostics) => shared::emit_diagnostics_and_exit(
-            "run",
-            diagnostics,
-            1,
-            output,
-            Some(&source),
-            fs::read_to_string(&source).ok().as_deref(),
-        ),
-    }
-}
-
-fn test_command(
-    files: Vec<String>,
-    api: Option<kali_cli::ApiSurface>,
-    compat: Vec<String>,
-    wasm_threads: bool,
-    max_specializations: Option<usize>,
-    max_spawned_processes: Option<u64>,
-    max_threads: Option<u64>,
-    filter: Option<String>,
-    coverage: bool,
-    sandbox: Option<PathBuf>,
-    output: &CliOutputOptions,
-) -> Result<(), i32> {
-    let effective_api = match config::resolve_effective_api_surface(api) {
-        Ok(api) => api,
-        Err(diagnostics) => {
-            return shared::emit_diagnostics_and_exit("test", diagnostics, 5, output, None, None)
-        }
-    };
-
-    let browser_context = if matches!(effective_api, kali_cli::ApiSurface::Browser) {
-        let origin = if api.is_some() {
-            DiagnosticContextOrigin::Cli
-        } else {
-            DiagnosticContextOrigin::Config
-        };
-        let context = browser_runtime_request_context(origin);
-        Some(if api.is_some() {
-            context.with_flag("--api")
-        } else {
-            context.with_config_path("compilerOptions.apiSurface")
-        })
-    } else {
-        None
-    };
-
-    // The opt-in browser harness can execute standalone browser-requested tests,
-    // but it is not a Kali-hosted runtime sandbox. Keep `test --api browser --sandbox`
-    // on the browser-runtime availability gate instead of silently dropping policy
-    // enforcement when a harness override is present.
-    let browser_runtime_available =
-        config::browser_runtime_harness_command_available() && sandbox.is_none();
-    if let Err(exit_code) = config::reject_unavailable_browser_runtime(
-        "test",
-        effective_api,
-        browser_runtime_available,
-        browser_context,
-        output,
-        None,
-        None,
-    ) {
-        return Err(exit_code);
-    }
-
-    shared::ensure_project_ready_or_exit(output)?;
-    let effective_compat = match config::resolve_effective_compat_features(compat) {
-        Ok(features) => features,
-        Err(diagnostics) => {
-            return shared::emit_diagnostics_and_exit("test", diagnostics, 5, output, None, None)
-        }
-    };
-    if let Err(exit_code) =
-        config::reject_unavailable_compat_features("test", &effective_compat, output, None, None)
-    {
-        return Err(exit_code);
-    }
-    let effective_runtime_profiles = match config::resolve_effective_runtime_profiles(wasm_threads) {
-        Ok(profiles) => profiles,
-        Err(diagnostics) => {
-            return shared::emit_diagnostics_and_exit("test", diagnostics, 5, output, None, None)
-        }
-    };
-    if let Err(exit_code) = config::reject_unavailable_runtime_profiles(
-        "test",
-        &effective_runtime_profiles,
-        true,
-        output,
-        None,
-        None,
-    ) {
-        return Err(exit_code);
-    }
-    let policy = shared::load_policy_or_exit(sandbox, &effective_runtime_profiles, output)?;
-    if let Err(exit_code) =
-        config::reject_unavailable_spawned_process_budget("test", max_spawned_processes, output, None, None)
-    {
-        return Err(exit_code);
-    }
-    if let Err(exit_code) = config::reject_unavailable_zero_capable_budgets(
-        "test",
-        &effective_runtime_profiles,
-        max_threads,
-        output,
-        None,
-        None,
-    ) {
-        return Err(exit_code);
-    }
-    let max_specializations = match config::resolve_effective_max_specializations(max_specializations) {
-        Ok(max_specializations) => max_specializations,
-        Err(diagnostics) => {
-            return shared::emit_diagnostics_and_exit("test", diagnostics, 5, output, None, None)
-        }
-    };
-    let compat_eval = effective_compat.iter().any(|feature| feature == "eval");
-
-    let selected_files = if files.is_empty() {
-        discover_test_files(".")
-            .into_iter()
-            .map(|path| path.to_string_lossy().to_string())
-            .collect::<Vec<_>>()
-    } else {
-        files
-    };
-
-    let mut valid_files = Vec::new();
-    for file in selected_files {
-        let source = PathBuf::from(&file);
-        if let Err(diagnostic) = shared::validate_runtime_entrypoint(&source, effective_api) {
-            return shared::emit_diagnostics_and_exit(
-                "test",
-                vec![diagnostic],
-                5,
-                output,
-                Some(&source),
-                fs::read_to_string(&source).ok().as_deref(),
-            );
-        }
-        if let Err(diagnostics) =
-            build::reject_async_and_generator_class_methods_in_runtime_entrypoint(&source)
-        {
-            return shared::emit_diagnostics_and_exit(
-                "test",
-                diagnostics,
-                1,
-                output,
-                Some(&source),
-                fs::read_to_string(&source).ok().as_deref(),
-            );
-        }
-        valid_files.push(file);
-    }
-
-    let filtered_files = if let Some(pattern) = filter.as_deref() {
-        valid_files
-            .into_iter()
-            .filter(|file| shared::matches_test_filter(file, pattern))
-            .collect::<Vec<_>>()
-    } else {
-        valid_files
-    };
-
-    if filtered_files.is_empty() {
-        if output.is_json() {
-            let payload = if coverage {
-                json!({
-                    "total": 0,
-                    "passed": 0,
-                    "failed": 0,
-                    "skipped": 0,
-                    "runtimeMs": 0,
-                    "coverage": {
-                        "mode": "function",
-                        "files": [],
-                        "summary": {
-                            "functionsTotal": 0,
-                            "functionsCovered": 0,
-                            "functionsMissed": 0,
-                            "coveragePercent": 100.0,
-                        },
-                    },
-                })
-            } else {
-                json!({ "total": 0, "passed": 0, "failed": 0, "skipped": 0, "runtimeMs": 0 })
-            };
-            shared::print_envelope(
-                "test",
-                true,
-                vec![],
-                vec![],
-                payload,
-                Some(String::new()),
-                Some(String::new()),
-                0,
-                output,
-            );
-        } else if !output.quiet {
-            println!("ok 0");
-        }
-        return Ok(());
-    }
-
-    if let Some(policy) = policy.as_ref() {
-        let roots = filtered_files.iter().map(PathBuf::from).collect::<Vec<_>>();
-        if let Err(diagnostics) =
-            validate_source_effects_against_policy_for_roots(&roots, policy, effective_api)
-        {
-            return shared::emit_diagnostics_and_exit("test", diagnostics, 5, output, None, None);
-        }
-    }
-
-    let runtime = RuntimeCtx::with_api_surface(policy.clone(), effective_api.to_string())
-        .with_runtime_profiles(effective_runtime_profiles.clone())
-        .with_max_threads(max_threads)
-        .with_max_spawned_processes(max_spawned_processes);
-    let mut total = 0usize;
-    let mut passed = 0usize;
-    let mut failed = 0usize;
-    let mut captured_stdout = String::new();
-    let mut captured_stderr = String::new();
-    let mut thread_topology = json!({
-        "totalInstances": 0,
-        "terminatedInstances": 0,
-        "liveInstances": [],
-    });
-    let mut diagnostics = Vec::new();
-    let mut coverage_reports = Vec::new();
-    let project_root =
-        discover_project_root(&env::current_dir().unwrap_or_else(|_| PathBuf::from(".")))
-            .or_else(|| env::current_dir().ok())
-            .unwrap_or_else(|| PathBuf::from("."));
-    let start = Instant::now();
-
-    for file in filtered_files {
-        let source = PathBuf::from(&file);
-        let wasm_bytes = match build::compile_source_file_with_specialization_cap_and_validation(
-            &source,
-            build::BuildMode::Fast,
-            max_specializations,
-            effective_api,
-            &effective_runtime_profiles,
-            compat_eval,
-            false,
-            coverage,
-        ) {
-            Ok(bytes) => bytes,
-            Err(errs) => {
-                diagnostics.extend(errs.clone());
-                if !output.is_json() {
-                    for diagnostic in errs {
-                        eprintln!("{}", diagnostic);
-                    }
-                }
-                failed += 1;
-                continue;
-            }
-        };
-
-        let coverage_total = if coverage {
-            coverage_function_count_from_wasm(&wasm_bytes).unwrap_or(0)
-        } else {
-            0
-        };
-
-        match runtime.execute_tests(&wasm_bytes) {
-            Ok(outcome) => {
-                total += outcome.tests_run;
-                passed += outcome.tests_run.saturating_sub(outcome.tests_failed);
-                failed += outcome.tests_failed;
-                captured_stdout.push_str(&outcome.stdout);
-                captured_stderr.push_str(&outcome.stderr);
-                let mut outcome_thread_topology =
-                    outcome.thread_topology.thread_topology_snapshot_value();
-                if matches!(effective_api, kali_cli::ApiSurface::Browser)
-                    && outcome.thread_topology.total_instances == 0
-                    && outcome.thread_topology.terminated_instances == 0
-                    && outcome.thread_topology.live_instances.is_empty()
-                {
-                    if let Some(stdout_thread_topology) =
-                        browser_stdout_thread_topology_snapshot_value(&outcome.stdout)
-                    {
-                        output::merge_thread_topology_snapshot_values(
-                            &mut outcome_thread_topology,
-                            &stdout_thread_topology,
-                        );
-                    }
-                }
-                output::merge_thread_topology_snapshot_values(
-                    &mut thread_topology,
-                    &outcome_thread_topology,
-                );
-                if coverage {
-                    let covered = outcome.coverage_hits.len().min(coverage_total);
-                    coverage_reports.push(json!({
-                        "file": normalize_coverage_report_path(&file, &project_root),
-                        "functionsTotal": coverage_total,
-                        "functionsCovered": covered,
-                        "functionsMissed": coverage_total.saturating_sub(covered),
-                    }));
-                }
-            }
-            Err(errs) => {
-                diagnostics.extend(errs.clone());
-                if !output.is_json() {
-                    for diagnostic in errs {
-                        eprintln!("{}", diagnostic);
-                    }
-                }
-                failed += 1;
-            }
-        }
-    }
-
-    if coverage {
-        sort_coverage_reports(&mut coverage_reports);
-    }
-
-    if output.is_json() {
-        let payload = if coverage {
-            let functions_total = coverage_reports
-                .iter()
-                .map(|report| report["functionsTotal"].as_u64().unwrap_or(0) as usize)
-                .sum::<usize>();
-            let functions_covered = coverage_reports
-                .iter()
-                .map(|report| report["functionsCovered"].as_u64().unwrap_or(0) as usize)
-                .sum::<usize>();
-            let functions_missed = functions_total.saturating_sub(functions_covered);
-            json!({
-                "total": total,
-                "passed": passed,
-                "failed": failed,
-                "skipped": 0,
-                "runtimeMs": start.elapsed().as_millis(),
-                "hostContract": runtime.host_contract().canonical_label(),
-                "runtimeBackend": runtime.runtime_backend().canonical_label(),
-                "threadTopology": thread_topology,
-                "coverage": {
-                    "mode": "function",
-                    "files": coverage_reports,
-                    "summary": {
-                        "functionsTotal": functions_total,
-                        "functionsCovered": functions_covered,
-                        "functionsMissed": functions_missed,
-                        "coveragePercent": coverage_percent(functions_covered, functions_total),
-                    },
-                },
-            })
-        } else {
-            json!({
-                "total": total,
-                "passed": passed,
-                "failed": failed,
-                "skipped": 0,
-                "runtimeMs": start.elapsed().as_millis(),
-                "hostContract": runtime.host_contract().canonical_label(),
-                "runtimeBackend": runtime.runtime_backend().canonical_label(),
-                "threadTopology": thread_topology,
-            })
-        };
-        let success = diagnostics.is_empty();
-        let (errors, warnings) = shared::split_and_convert_diagnostics(&diagnostics, None, None);
-        validate_test_payload_value(&payload)
-            .expect("constructed test payload must satisfy schema-v1 shape");
-        shared::print_envelope(
-            "test",
-            success,
-            errors,
-            warnings,
-            payload,
-            Some(captured_stdout),
-            Some(captured_stderr),
-            if success { 0 } else { 1 },
-            output,
-        );
-    } else if !output.quiet {
-        if !captured_stdout.is_empty() {
-            print!("{}", captured_stdout);
-        }
-        if !captured_stderr.is_empty() {
-            eprint!("{}", captured_stderr);
-        }
-        if diagnostics.is_empty() {
-            if coverage {
-                let functions_total = coverage_reports
-                    .iter()
-                    .map(|report| report["functionsTotal"].as_u64().unwrap_or(0) as usize)
-                    .sum::<usize>();
-                let functions_covered = coverage_reports
-                    .iter()
-                    .map(|report| report["functionsCovered"].as_u64().unwrap_or(0) as usize)
-                    .sum::<usize>();
-                println!(
-                    "ok {} (coverage: {}/{} functions, {:.1}%)",
-                    passed,
-                    functions_covered,
-                    functions_total,
-                    coverage_percent(functions_covered, functions_total)
-                );
-            } else {
-                println!("ok {}", passed);
-            }
-        } else {
-            println!("FAILED {}", failed);
-        }
-    }
-
-    if diagnostics.is_empty() {
-        Ok(())
-    } else {
-        Err(1)
-    }
-}
-
-fn coverage_function_count_from_wasm(bytes: &[u8]) -> Option<usize> {
-    for payload in WasmParser::new(0).parse_all(bytes) {
-        if let Ok(Payload::CustomSection(section)) = payload {
-            if section.name() == "kali:coverage" && section.data().len() >= 4 {
-                let mut raw = [0u8; 4];
-                raw.copy_from_slice(&section.data()[..4]);
-                return Some(u32::from_le_bytes(raw) as usize);
-            }
-        }
-    }
-    None
-}
-
-fn normalize_coverage_report_path(file: &str, project_root: &Path) -> String {
-    let source = PathBuf::from(file);
-    let candidate = if source.is_absolute() {
-        source
-    } else {
-        env::current_dir()
-            .ok()
-            .map(|cwd| cwd.join(&source))
-            .unwrap_or(source)
-    };
-    let canonical = fs::canonicalize(&candidate).unwrap_or(candidate);
-    canonical
-        .strip_prefix(project_root)
-        .map(|relative| relative.to_string_lossy().replace('\\', "/"))
-        .unwrap_or_else(|_| canonical.to_string_lossy().replace('\\', "/"))
-}
-
-fn sort_coverage_reports(reports: &mut [Value]) {
-    reports.sort_by(|left, right| {
-        let left_file = left.get("file").and_then(Value::as_str).unwrap_or("");
-        let right_file = right.get("file").and_then(Value::as_str).unwrap_or("");
-        left_file.cmp(right_file)
-    });
-}
-
-fn coverage_percent(covered: usize, total: usize) -> f64 {
-    if total == 0 {
-        100.0
-    } else {
-        (covered as f64 / total as f64) * 100.0
-    }
-}
-
-fn fmt_command(files: Vec<String>, check: bool, output: &CliOutputOptions) -> Result<(), i32> {
-    shared::ensure_project_ready_or_exit(output)?;
-    let selected_files = shared::selected_source_files(files, true);
-    if selected_files.is_empty() {
-        if output.is_json() {
-            let payload = json!({"filesFormatted": 0, "filesChecked": 0});
-            validate_fmt_payload_value(&payload)
-                .expect("constructed fmt payload must satisfy schema-v1 shape");
-            shared::print_envelope("fmt", true, vec![], vec![], payload, None, None, 0, output);
-        } else if !output.quiet {
-            println!("{} 0 file(s)", if check { "Checked" } else { "Formatted" });
-        }
-        return Ok(());
-    }
-
-    let mut changed = 0usize;
-    let mut processed = 0usize;
-    for file in selected_files {
-        processed += 1;
-        let path = PathBuf::from(&file);
-        let source = match fs::read_to_string(&path) {
-            Ok(source) => source,
-            Err(error) => {
-                let diagnostic = Diagnostic::error(
-                    e5::OUTPUT_ERROR as u32,
-                    format!("failed to read source file '{}': {}", path.display(), error),
-                );
-                return shared::emit_diagnostics_and_exit(
-                    "fmt",
-                    vec![diagnostic],
-                    1,
-                    output,
-                    Some(&path),
-                    None,
-                );
-            }
-        };
-        let formatted = format_source(&source);
-        if formatted != source {
-            changed += 1;
-            if !check {
-                if let Err(error) = fs::write(&path, formatted) {
-                    let diagnostic = Diagnostic::error(
-                        e5::OUTPUT_ERROR as u32,
-                        format!(
-                            "failed to write formatted file '{}': {}",
-                            path.display(),
-                            error
-                        ),
-                    );
-                    return shared::emit_diagnostics_and_exit(
-                        "fmt",
-                        vec![diagnostic],
-                        1,
-                        output,
-                        Some(&path),
-                        Some(&source),
-                    );
-                }
-            }
-        }
-    }
-
-    if output.is_json() {
-        let payload = json!({"filesFormatted": changed, "filesChecked": processed});
-        validate_fmt_payload_value(&payload)
-            .expect("constructed fmt payload must satisfy schema-v1 shape");
-        let success = !check || changed == 0;
-        shared::print_envelope(
-            "fmt",
-            success,
-            vec![],
-            vec![],
-            payload,
-            None,
-            None,
-            if check && changed > 0 { 1 } else { 0 },
-            output,
-        );
-    } else if !output.quiet {
-        if check {
-            if changed == 0 {
-                println!("Checked {} file(s)", processed);
-            } else {
-                println!("Would format {} file(s)", changed);
-            }
-        } else {
-            println!("Formatted {} file(s)", changed);
-        }
-    }
-
-    if check && changed > 0 {
-        Err(1)
-    } else {
-        Ok(())
-    }
-}
-
-fn lint_command(files: Vec<String>, fix: bool, output: &CliOutputOptions) -> Result<(), i32> {
-    shared::ensure_project_ready_or_exit(output)?;
-    let selected_files = shared::selected_source_files(files, true);
-    if selected_files.is_empty() {
-        if output.is_json() {
-            let payload =
-                json!({"filesLinted": 0, "errorCount": 0, "warningCount": 0, "fixedCount": 0});
-            validate_lint_payload_value(&payload)
-                .expect("constructed lint payload must satisfy schema-v1 shape");
-            shared::print_envelope("lint", true, vec![], vec![], payload, None, None, 0, output);
-        } else if !output.quiet {
-            println!("Linted 0 file(s)");
-        }
-        return Ok(());
-    }
-
-    let mut processed = 0usize;
-    let mut had_error = false;
-    let mut fixed = 0usize;
-    let mut errors = Vec::new();
-    let mut warnings = Vec::new();
-
-    for file in selected_files {
-        processed += 1;
-        let path = PathBuf::from(&file);
-        let source = match fs::read_to_string(&path) {
-            Ok(source) => source,
-            Err(error) => {
-                let diagnostic = Diagnostic::error(
-                    e5::OUTPUT_ERROR as u32,
-                    format!("failed to read source file '{}': {}", path.display(), error),
-                );
-                return shared::emit_diagnostics_and_exit(
-                    "lint",
-                    vec![diagnostic],
-                    1,
-                    output,
-                    Some(&path),
-                    None,
-                );
-            }
-        };
-
-        let result = lint_with_options(&source, fix);
-        let (file_errors, file_warnings) =
-            shared::split_and_convert_diagnostics(&result.diagnostics, Some(&path), Some(&source));
-        had_error |= !file_errors.is_empty();
-        errors.extend(file_errors);
-        warnings.extend(file_warnings);
-
-        if let Some(fixed_source) = result.fixed_source {
-            if fix && fixed_source != source {
-                if let Err(error) = fs::write(&path, fixed_source) {
-                    let diagnostic = Diagnostic::error(
-                        e5::OUTPUT_ERROR as u32,
-                        format!("failed to write fixed file '{}': {}", path.display(), error),
-                    );
-                    return shared::emit_diagnostics_and_exit(
-                        "lint",
-                        vec![diagnostic],
-                        1,
-                        output,
-                        Some(&path),
-                        Some(&source),
-                    );
-                }
-                fixed += 1;
-            }
-        }
-    }
-
-    if output.is_json() {
-        let payload = json!({
-            "filesLinted": processed,
-            "errorCount": errors.len(),
-            "warningCount": warnings.len(),
-            "fixedCount": fixed,
-        });
-        validate_lint_payload_value(&payload)
-            .expect("constructed lint payload must satisfy schema-v1 shape");
-        shared::print_envelope(
-            "lint",
-            !had_error,
-            errors,
-            warnings,
-            payload,
-            None,
-            None,
-            if had_error { 1 } else { 0 },
-            output,
-        );
-    } else if !output.quiet {
-        if fix {
-            println!("Fixed {} file(s)", fixed);
-        }
-        println!("Linted {} file(s)", processed);
-    }
-
-    if had_error {
-        Err(1)
-    } else {
-        Ok(())
-    }
-}
-
-fn effects_command(
-    api: Option<kali_cli::ApiSurface>,
-    files: Vec<String>,
-    compat: Vec<String>,
-    wasm_threads: bool,
-    sandbox: Option<PathBuf>,
-    output: &CliOutputOptions,
-) -> Result<(), i32> {
-    if sandbox.is_some() {
-        let diagnostic = Diagnostic::error(
-            e5::INVALID_CLI_USAGE as u32,
-            "`effects` does not accept `--sandbox`; use `check` or `build --sandbox` for policy validation"
-                .to_string(),
-        );
-        return shared::emit_diagnostics_and_exit("effects", vec![diagnostic], 5, output, None, None);
-    }
-
-    let Some(source) = shared::single_or_error(files, "effects", output)? else {
-        return Err(1);
-    };
-
-    let effective_api = match config::resolve_effective_api_surface(api) {
-        Ok(api) => api,
-        Err(diagnostics) => {
-            return shared::emit_diagnostics_and_exit(
-                "effects",
-                diagnostics,
-                5,
-                output,
-                Some(&source),
-                fs::read_to_string(&source).ok().as_deref(),
-            );
-        }
-    };
-    if let Err(diagnostic) = shared::validate_runtime_entrypoint(&source, effective_api) {
-        return shared::emit_diagnostics_and_exit(
-            "effects",
-            vec![diagnostic],
-            5,
-            output,
-            Some(&source),
-            fs::read_to_string(&source).ok().as_deref(),
-        );
-    }
-    let effective_compat = match config::resolve_effective_compat_features(compat) {
-        Ok(features) => features,
-        Err(diagnostics) => {
-            return shared::emit_diagnostics_and_exit(
-                "effects",
-                diagnostics,
-                5,
-                output,
-                Some(&source),
-                fs::read_to_string(&source).ok().as_deref(),
-            );
-        }
-    };
-    if let Err(exit_code) = config::reject_unavailable_compat_features(
-        "effects",
-        &effective_compat,
-        output,
-        Some(&source),
-        fs::read_to_string(&source).ok().as_deref(),
-    ) {
-        return Err(exit_code);
-    }
-    let effective_runtime_profiles = match config::resolve_effective_runtime_profiles(wasm_threads) {
-        Ok(profiles) => profiles,
-        Err(diagnostics) => {
-            return shared::emit_diagnostics_and_exit(
-                "effects",
-                diagnostics,
-                5,
-                output,
-                Some(&source),
-                fs::read_to_string(&source).ok().as_deref(),
-            );
-        }
-    };
-    if let Err(exit_code) = config::reject_unavailable_runtime_profiles(
-        "effects",
-        &effective_runtime_profiles,
-        !matches!(effective_api, kali_cli::ApiSurface::Browser),
-        output,
-        Some(&source),
-        fs::read_to_string(&source).ok().as_deref(),
-    ) {
-        return Err(exit_code);
-    }
-    let context = analysis_context_for_api(
-        effective_api,
-        effective_runtime_profiles,
-        effective_compat.clone(),
-    );
-    let inference = match infer_effects_from_roots(&[source.clone()], context.clone()) {
-        Ok(inference) => inference,
-        Err(diagnostics) => {
-            return shared::emit_diagnostics_and_exit(
-                "effects",
-                diagnostics,
-                1,
-                output,
-                Some(&source),
-                fs::read_to_string(&source).ok().as_deref(),
-            );
-        }
-    };
-
-    let report = effect_report_from_inference(
-        vec![source.to_string_lossy().to_string()],
-        context,
-        inference,
-    );
-    shared::emit_native_json_payload("effects", &report, output)
-}
-
 fn package_analysis_specific_flag_context(
     api: Option<kali_cli::ApiSurface>,
     compat: &[String],
@@ -3981,70 +2705,6 @@ fn package_audit_command(
     }
 }
 
-fn install_command(
-    target: Option<String>,
-    dev: bool,
-    api: Option<kali_cli::ApiSurface>,
-    sandbox: Option<PathBuf>,
-    allow_scripts: bool,
-    output: &CliOutputOptions,
-) -> Result<(), i32> {
-    shared::reject_install_context_flags(api, sandbox, output)?;
-    let cwd = match std::env::current_dir() {
-        Ok(path) => path,
-        Err(error) => {
-            let diagnostic = Diagnostic::error(
-                e5::INVALID_CLI_USAGE as u32,
-                format!("failed to read current directory: {}", error),
-            );
-            return shared::emit_diagnostics_and_exit("install", vec![diagnostic], 1, output, None, None);
-        }
-    };
-    let project_root = discover_project_root(&cwd).unwrap_or(cwd);
-    let result = install_project(
-        project_root,
-        InstallOptions {
-            target,
-            dev,
-            allow_scripts,
-            suppress_script_output: output.is_json() || output.quiet,
-        },
-    );
-    match result {
-        Ok(summary) => {
-            if output.is_json() {
-                let payload = json!({
-                    "manifestPath": summary.manifest_path,
-                    "lockPath": summary.lock_path,
-                    "installed": summary.installed,
-                    "updated": [],
-                    "removed": summary.removed,
-                });
-                validate_install_payload_value(&payload)
-                    .expect("constructed install payload must satisfy schema-v1 shape");
-                shared::print_envelope(
-                    "install",
-                    true,
-                    vec![],
-                    vec![],
-                    payload,
-                    None,
-                    None,
-                    0,
-                    output,
-                );
-            } else if !output.quiet {
-                println!("Installed {} package(s)", summary.installed.len());
-            }
-            Ok(())
-        }
-        Err(diagnostics) => {
-            let exit_code = shared::diagnostics_exit_code(&diagnostics);
-            shared::emit_diagnostics_and_exit("install", diagnostics, exit_code, output, None, None)
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 struct PackageBinEntrypoint {
     package_name: String,
@@ -4336,7 +2996,7 @@ fn read_package_version(package_root: &Path) -> Result<String, Diagnostic> {
         })
 }
 
-fn analysis_context_for_api(
+pub(crate) fn analysis_context_for_api(
     api: kali_cli::ApiSurface,
     runtime_profiles: Vec<String>,
     compat_features: Vec<String>,
@@ -4347,7 +3007,7 @@ fn analysis_context_for_api(
     context.normalized()
 }
 
-fn validate_source_effects_against_policy(
+pub(crate) fn validate_source_effects_against_policy(
     source: &Path,
     policy: &SandboxPolicy,
     api: kali_cli::ApiSurface,
@@ -4355,7 +3015,7 @@ fn validate_source_effects_against_policy(
     validate_source_effects_against_policy_for_roots(&[source.to_path_buf()], policy, api)
 }
 
-fn validate_source_effects_against_policy_for_roots(
+pub(crate) fn validate_source_effects_against_policy_for_roots(
     roots: &[PathBuf],
     policy: &SandboxPolicy,
     api: kali_cli::ApiSurface,
