@@ -1,0 +1,140 @@
+//! Diagnostic → JSON/text serialization.
+
+use kali_error::Diagnostic;
+use serde_json::{json, Map, Value};
+use std::path::Path;
+
+pub fn diagnostic_to_text(diagnostic: &Diagnostic) -> String {
+    diagnostic.to_string()
+}
+
+pub(crate) fn diagnostics_to_json(
+    diagnostics: &[Diagnostic],
+    source_path: Option<&Path>,
+    source_text: Option<&str>,
+    severity_fallback: &str,
+) -> Vec<Value> {
+    diagnostics
+        .iter()
+        .map(|diagnostic| {
+            diagnostic_to_json(diagnostic, source_path, source_text, severity_fallback)
+        })
+        .collect()
+}
+
+pub fn diagnostic_to_json(
+    diagnostic: &Diagnostic,
+    source_path: Option<&Path>,
+    source_text: Option<&str>,
+    severity_fallback: &str,
+) -> Value {
+    let severity = match diagnostic.severity {
+        kali_error::Severity::Error => "error",
+        kali_error::Severity::Warning => "warning",
+        kali_error::Severity::Info => "info",
+    };
+
+    let code = diagnostic
+        .code
+        .map(|code| format!("{}{:04}", code_prefix(severity), code))
+        .unwrap_or_else(|| format!("{}0000", code_prefix(severity_fallback)));
+
+    let span = diagnostic
+        .span
+        .and_then(|span| source_path.and_then(|path| source_text.map(|text| (path, text, span))))
+        .map(|(path, text, span)| span_to_json(path, text, span))
+        .unwrap_or_else(|| synthetic_span(source_path));
+    let file = span
+        .get("file")
+        .and_then(Value::as_str)
+        .map(|file| json!(file));
+
+    let mut diagnostic_json = Map::new();
+    diagnostic_json.insert("severity".to_string(), json!(severity));
+    diagnostic_json.insert("code".to_string(), json!(code));
+    diagnostic_json.insert("message".to_string(), json!(diagnostic.message));
+    if let Some(file) = file {
+        diagnostic_json.insert("file".to_string(), file);
+    }
+    diagnostic_json.insert("span".to_string(), span);
+    diagnostic_json.insert("labels".to_string(), Value::Array(Vec::new()));
+    diagnostic_json.insert("help".to_string(), json!(diagnostic.suggestion));
+    diagnostic_json.insert("related".to_string(), Value::Array(Vec::new()));
+    diagnostic_json.insert("fix".to_string(), Value::Null);
+    diagnostic_json.insert("notes".to_string(), json!(diagnostic.notes));
+    if let Some(context) = &diagnostic.context {
+        diagnostic_json.insert(
+            "context".to_string(),
+            serde_json::to_value(context).expect("serialize diagnostic context"),
+        );
+    }
+
+    Value::Object(diagnostic_json)
+}
+
+fn synthetic_span(source_path: Option<&Path>) -> Value {
+    json!({
+        "file": source_path
+            .map(|path| path.display().to_string())
+            .unwrap_or_else(|| "<cli>".to_string()),
+        "line": 1,
+        "column": 1,
+        "endLine": 1,
+        "endColumn": 1,
+    })
+}
+
+fn span_to_json(path: &Path, source: &str, span: kali_common::Span) -> Value {
+    let (line, column) = byte_offset_to_line_col(source, span.start as usize);
+    let (end_line, end_column) = byte_offset_to_line_col(source, span.end as usize);
+    json!({
+        "file": path.display().to_string(),
+        "line": line,
+        "column": column,
+        "endLine": end_line,
+        "endColumn": end_column,
+    })
+}
+
+fn byte_offset_to_line_col(source: &str, offset: usize) -> (usize, usize) {
+    let mut line = 1usize;
+    let mut column = 1usize;
+    let mut consumed = 0usize;
+
+    for ch in source.chars() {
+        if consumed >= offset {
+            break;
+        }
+        let len = ch.len_utf8();
+        consumed += len;
+        if ch == '\n' {
+            line += 1;
+            column = 1;
+        } else {
+            column += 1;
+        }
+    }
+
+    (line, column)
+}
+
+fn code_prefix(severity: &str) -> char {
+    match severity {
+        "warning" => 'W',
+        "info" => 'I',
+        _ => 'E',
+    }
+}
+
+pub fn json_source_path(path: impl AsRef<Path>) -> String {
+    path.as_ref().display().to_string()
+}
+
+pub fn json_string_list(values: impl IntoIterator<Item = impl ToString>) -> Value {
+    Value::Array(
+        values
+            .into_iter()
+            .map(|value| Value::String(value.to_string()))
+            .collect(),
+    )
+}
