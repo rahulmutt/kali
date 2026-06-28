@@ -11,7 +11,7 @@ use std::{collections::BTreeMap, env, fs, path::PathBuf, time::Instant};
 
 use super::shared;
 use super::config;
-use super::validate_source_effects_against_policy;
+use super::cmd_package::validate_source_effects_against_policy;
 
 pub(crate) fn browser_stdout_thread_topology_snapshot_value(stdout: &str) -> Option<Value> {
     stdout.lines().rev().find_map(|line| {

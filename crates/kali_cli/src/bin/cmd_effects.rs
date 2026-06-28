@@ -7,7 +7,7 @@ use std::{fs, path::PathBuf};
 
 use super::shared;
 use super::config;
-use super::analysis_context_for_api;
+use super::cmd_package::analysis_context_for_api;
 
 pub(crate) fn effects_command(
     api: Option<kali_cli::ApiSurface>,

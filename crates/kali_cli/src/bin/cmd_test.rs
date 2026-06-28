@@ -14,7 +14,7 @@ use wasmparser::{Parser as WasmParser, Payload};
 use super::cmd_run::browser_stdout_thread_topology_snapshot_value;
 use super::shared;
 use super::config;
-use super::validate_source_effects_against_policy_for_roots;
+use super::cmd_package::validate_source_effects_against_policy_for_roots;
 
 pub(crate) fn test_command(
     files: Vec<String>,

@@ -10,7 +10,7 @@ use serde_json::json;
 use std::{fs, path::{Path, PathBuf}};
 
 use super::shared;
-use super::validate_source_effects_against_policy_for_roots;
+use super::cmd_package::validate_source_effects_against_policy_for_roots;
 use super::config;
 
 pub(crate) fn check_command(

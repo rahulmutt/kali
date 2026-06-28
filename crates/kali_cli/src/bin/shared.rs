@@ -252,7 +252,7 @@ pub(crate) fn validate_runtime_entrypoint(
             ),
         )
         .with_suggestion("use `kali check` for declaration-only files"))
-    } else if let Some(diagnostic) = super::validate_package_bin_runtime_entrypoint(source, api_surface) {
+    } else if let Some(diagnostic) = super::cmd_package::validate_package_bin_runtime_entrypoint(source, api_surface) {
         Err(diagnostic)
     } else {
         Ok(())
