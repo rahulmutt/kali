@@ -1,3 +1,15 @@
+mod helpers;
+mod paths;
+mod wit;
+
+pub use paths::{
+    binding_package_manifest_output_path_for, bundle_chunk_output_dir_for, bundle_output_paths_for,
+    capi_output_paths_for, component_output_paths_for, executable_output_path_for,
+    library_output_paths_for,
+};
+pub use wit::{browser_bundle_source_map, library_wit_for, LibraryExport};
+pub(crate) use helpers::*; // parse_source_file, source_stem, has_errors, etc. for sibling modules
+
 use sha2::{Digest, Sha256};
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
@@ -13,9 +25,7 @@ use kali_common::{
     generator_class_method_yield_lowering_unavailable_message_for_flavors,
     template::resolve_interpolated_template_literal, FileId,
 };
-use kali_error::{
-    _error_codes::e5, _error_codes::e8, Diagnostic, DiagnosticContext, DiagnosticContextOrigin,
-};
+use kali_error::{_error_codes::e5, _error_codes::e8, Diagnostic};
 use kali_hir::HirLowerer;
 use kali_lexer::{Lexer, Token, TokenType};
 use kali_lir::LirLowerer;
@@ -26,12 +36,11 @@ use kali_runtime::{normalize_runtime_profiles, RuntimeBackend, RuntimeHostContra
 use kali_sandbox::SandboxPolicy;
 use kali_types::TypeContext;
 use serde::Serialize;
-use serde_json::{json, Value};
+use serde_json::Value;
 use wasm_encoder::{CustomSection, Section};
 
 use crate::{
     is_declaration_only_source_file, output::validate_sorted_string_array_value, ApiSurface,
-    BundleFormat,
 };
 
 fn block_contains_yield_delegation(block: &BlockStatement) -> bool {
@@ -388,12 +397,6 @@ pub struct BuildOutput {
 pub struct DynamicImportTarget {
     pub specifier: String,
     pub target: PathBuf,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct LibraryExport {
-    pub name: String,
-    pub signature: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -1883,137 +1886,6 @@ pub fn build_source_file(
     })
 }
 
-pub fn executable_output_path_for(source_path: &Path, out_dir: Option<&Path>) -> PathBuf {
-    let stem = source_stem(source_path);
-    let file_name = format!("{}.wasm", stem);
-    match out_dir {
-        Some(dir) => dir.join(file_name),
-        None => source_path.with_file_name(file_name),
-    }
-}
-
-pub fn library_output_paths_for(
-    source_path: &Path,
-    out_dir: Option<&Path>,
-) -> (PathBuf, PathBuf, PathBuf) {
-    let stem = source_stem(source_path);
-    let wasm_name = format!("{}.lib.wasm", stem);
-    let wit_name = format!("{}.lib.wit", stem);
-    let meta_name = format!("{}.lib.meta.json", stem);
-    match out_dir {
-        Some(dir) => (
-            dir.join(&wasm_name),
-            dir.join(&wit_name),
-            dir.join(&meta_name),
-        ),
-        None => (
-            source_path.with_file_name(wasm_name),
-            source_path.with_file_name(wit_name),
-            source_path.with_file_name(meta_name),
-        ),
-    }
-}
-
-pub fn bundle_output_paths_for(
-    source_path: &Path,
-    out_dir: Option<&Path>,
-    format: BundleFormat,
-) -> (PathBuf, PathBuf, PathBuf, PathBuf) {
-    let stem = source_stem(source_path);
-    let root = match out_dir {
-        Some(dir) => dir.join(&stem),
-        None => source_path.with_file_name(&stem),
-    };
-    let js_extension = match format {
-        BundleFormat::Esm => "js",
-        BundleFormat::Cjs => "cjs",
-    };
-    (
-        root.join(format!("{}.wasm", stem)),
-        root.join(format!("{}.{}", stem, js_extension)),
-        root.join(format!("{}.{}.map", stem, js_extension)),
-        root.join(format!("{}.meta.json", stem)),
-    )
-}
-
-pub fn bundle_chunk_output_dir_for(source_path: &Path, out_dir: Option<&Path>) -> PathBuf {
-    let stem = source_stem(source_path);
-    let mut hasher = Sha256::new();
-    hasher.update(source_path.to_string_lossy().as_bytes());
-    let digest = hasher.finalize();
-    let suffix = u32::from_be_bytes([digest[0], digest[1], digest[2], digest[3]]);
-    let chunk_label = format!("{}-{:08x}", stem, suffix);
-    match out_dir {
-        Some(dir) => dir.join("chunks").join(chunk_label),
-        None => source_path
-            .with_file_name(stem)
-            .join("chunks")
-            .join(chunk_label),
-    }
-}
-
-pub fn capi_output_paths_for(
-    source_path: &Path,
-    out_dir: Option<&Path>,
-) -> (PathBuf, PathBuf, PathBuf, PathBuf) {
-    let stem = source_stem(source_path);
-    let wasm_name = format!("{}.capi.wasm", stem);
-    let wit_name = format!("{}.wit", stem);
-    let header_name = format!("{}.h", stem);
-    let meta_name = format!("{}.capi.meta.json", stem);
-    match out_dir {
-        Some(dir) => (
-            dir.join(&wasm_name),
-            dir.join(&wit_name),
-            dir.join(&header_name),
-            dir.join(&meta_name),
-        ),
-        None => (
-            source_path.with_file_name(wasm_name),
-            source_path.with_file_name(wit_name),
-            source_path.with_file_name(header_name),
-            source_path.with_file_name(meta_name),
-        ),
-    }
-}
-
-pub fn binding_package_manifest_output_path_for(
-    source_path: &Path,
-    out_dir: Option<&Path>,
-) -> PathBuf {
-    let stem = source_stem(source_path);
-    let manifest_name = format!("{}.binding-package.json", stem);
-    match out_dir {
-        Some(dir) => dir.join(manifest_name),
-        None => source_path.with_file_name(manifest_name),
-    }
-}
-
-pub fn component_output_paths_for(
-    source_path: &Path,
-    out_dir: Option<&Path>,
-) -> (PathBuf, PathBuf, PathBuf, PathBuf) {
-    let stem = source_stem(source_path);
-    let wasm_name = format!("{}.component.wasm", stem);
-    let wit_name = format!("{}.wit", stem);
-    let meta_name = format!("{}.component.meta.json", stem);
-    let binding_package_name = format!("{}.binding-package.json", stem);
-    match out_dir {
-        Some(dir) => (
-            dir.join(&wasm_name),
-            dir.join(&wit_name),
-            dir.join(&meta_name),
-            dir.join(&binding_package_name),
-        ),
-        None => (
-            source_path.with_file_name(wasm_name),
-            source_path.with_file_name(wit_name),
-            source_path.with_file_name(meta_name),
-            source_path.with_file_name(binding_package_name),
-        ),
-    }
-}
-
 pub fn build_mode_from_flags(fast: bool, release: bool, release_advanced: bool) -> BuildMode {
     if release_advanced {
         BuildMode::ReleaseAdvanced
@@ -2868,49 +2740,6 @@ pub fn append_metadata_section(
     Ok(())
 }
 
-pub fn browser_bundle_source_map(
-    source_path: &Path,
-    js_path: &Path,
-    source_contents: &str,
-    exports: &[LibraryExport],
-) -> String {
-    let source_name = source_path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or("input.ts")
-        .to_string();
-    let js_name = js_path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or("bundle.js")
-        .to_string();
-    let names: Vec<String> = exports.iter().map(|export| export.name.clone()).collect();
-    json!({
-        "version": 3,
-        "file": js_name,
-        "sourceRoot": "",
-        "sources": [source_name],
-        "sourcesContent": [source_contents],
-        "names": names,
-        "mappings": "",
-    })
-    .to_string()
-}
-
-pub fn library_wit_for(module_name: &str, exports: &[LibraryExport]) -> String {
-    let mut wit = String::from("package kali:embed;\n\nworld library {\n");
-    wit.push_str(&format!("  // module: {}\n", module_name));
-    for export in exports {
-        wit.push_str(&format!(
-            "  // signature: {}\n  export {}: func();\n",
-            export.signature,
-            sanitize_wit_identifier(&export.name)
-        ));
-    }
-    wit.push_str("}\n");
-    wit
-}
-
 pub fn collect_library_exports(
     source_path: impl AsRef<Path>,
     api_surface: ApiSurface,
@@ -3317,22 +3146,6 @@ pub fn collect_browser_bundle_exports(
         .collect::<Vec<_>>();
 
     Ok(filtered)
-}
-
-fn parse_source_file(source_path: &Path) -> Result<Vec<Statement>, Vec<Diagnostic>> {
-    let source = read_compiler_source_file(source_path)?;
-
-    let lexer = Lexer::new(FileId::new(0), source);
-    let tokens = lexer.lex_all().tokens;
-    let mut parser = Parser::new(FileId::new(0), tokens);
-    let parsed = parser.parse(Some(source_path.to_string_lossy().to_string()));
-    let diagnostics = parsed.diagnostics;
-
-    if has_errors(&diagnostics) {
-        return Err(diagnostics);
-    }
-
-    Ok(parsed.statements)
 }
 
 pub fn reject_async_and_generator_class_methods_in_runtime_entrypoint(
@@ -5074,55 +4887,6 @@ fn infer_literal_type(value: &LiteralValue) -> Option<&'static str> {
     }
 }
 
-fn signature_from_export_specifier(local: &str) -> String {
-    format!("({}) => unknown", local)
-}
-
-fn invalid_export_surface(source_path: &Path, message: &str) -> Diagnostic {
-    Diagnostic::error(
-        e5::INVALID_EXPORT_SURFACE as u32,
-        format!(
-            "cannot build library artifact from '{}': {}",
-            source_path.display(),
-            message
-        ),
-    )
-    .with_context(DiagnosticContext::new(DiagnosticContextOrigin::Source))
-}
-
-fn source_stem(source_path: &Path) -> String {
-    source_path
-        .file_stem()
-        .and_then(|stem| stem.to_str())
-        .unwrap_or("main")
-        .to_string()
-}
-
-fn sanitize_wit_identifier(name: &str) -> String {
-    let mut out = String::new();
-    for (index, ch) in name.chars().enumerate() {
-        let keep = ch.is_ascii_alphanumeric() || ch == '_';
-        if index == 0 && ch.is_ascii_digit() {
-            out.push('_');
-            out.push(ch);
-        } else if keep {
-            out.push(ch);
-        } else {
-            out.push('_');
-        }
-    }
-
-    if out.is_empty() {
-        "_".to_string()
-    } else {
-        out
-    }
-}
-
-fn has_errors(diagnostics: &[Diagnostic]) -> bool {
-    diagnostics.iter().any(|diagnostic| diagnostic.is_error())
-}
-
 #[cfg(test)]
-#[path = "build_tests.rs"]
+#[path = "../build_tests.rs"]
 mod tests;
