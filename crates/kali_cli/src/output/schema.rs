@@ -5,7 +5,7 @@ use serde_json::Value;
 use std::collections::HashSet;
 use url::Url;
 
-use super::is_positive_integer;
+use super::diagnostic::is_positive_integer;
 
 pub(crate) fn reject_unexpected_keys(
     object: &serde_json::Map<String, Value>,
