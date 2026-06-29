@@ -48,6 +48,26 @@ For each file `F` (`build_tests` / `output_tests`):
 - The `mod` decls at `src/build/mod.rs:57` and `src/lib.rs:559` stay unchanged — they
   still point at the facade file, which now re-exports its children.
 
+### File-relative `include_*!` gotcha (empirically verified)
+
+`include_str!` / `include_bytes!` / `include!` resolve paths **relative to the source
+file containing the macro**. Moving such a fn into `src/<stem>/<mod>.rs` adds one
+directory level, so a file-relative path resolves one level short and fails to compile.
+Rewriting the path would violate the verbatim mandate. **Resolution: pin any `#[test]`
+fn whose body contains a file-relative `include_*!` to the facade** (the mover's 3rd
+arg) — it stays in `src/<stem>.rs` at the original depth, verbatim and compiling.
+
+- `build_tests.rs`: **no** `include_*!` macros → facade fully drains to 0 `#[test]`.
+- `output_tests.rs`: exactly **two** `#[test]` fns embed
+  `include_str!("../../../schemas/{envelope,diagnostic}/v1.json")` —
+  `published_cli_envelope_schema_matches_fixed_shape_validator_posture` and
+  `published_diagnostic_schema_matches_fixed_shape_validator_posture`. Both are pinned;
+  the facade retains **exactly these two** `#[test]` fns.
+
+This was verified end-to-end: applying the split to both files, `cargo build -p kali_cli
+--tests` compiled clean (warnings == baseline 2), and the lib `--list` multiset was
+preserved at 716 / 229.
+
 ## Module groupings (Balanced, ~10 + ~8)
 
 Grouping is the mover's only partition axis: leading-prefix of the `#[test]` fn name,
@@ -87,7 +107,10 @@ specific clusters bind first; `build_source_file_writes` and the `build_artifact
 | `effects` | `validate_effects` | 13 |
 | `test` | `validate_test` | 11 |
 | `payloads_misc` | `validate_install`, `validate_init`, `validate_lint`, `validate_fmt`, `validate_check` | 18 |
-| `emit` | `*` (emitted_cli/published/ordinary_cli/merge_thread/diagnostic_json) | ~26 |
+| `emit` | `*` (emitted_cli/ordinary_cli/merge_thread/diagnostic_json) | 24 |
+
+The 2 `published_*_schema_*` fns that would land in `emit` are pinned to the facade
+(see the `include_*!` gotcha above), so `emit` holds 24, not 26; facade retains 2.
 
 Final per-module counts are whatever the mover's `--list` baseline diff proves; the
 tables above are the intent. Counts that shift between adjacent groups due to the
@@ -108,14 +131,17 @@ the input file's own directory** (`src/build_tests/<mod>.rs`), not hardcoded und
 `tests/`. Only the path-derivation, docstring, ROOT/GROUPS/main() change; the lexer is
 untouched.
 
-CLI: `python3 move_fns.py <root_rs_relpath> "<groups-spec>"` run from `crates/kali_cli`.
+CLI: `python3 move_fns.py <root_rs_relpath> "<groups-spec>" ["<pin1,pin2>"]` run from
+`crates/kali_cli`. The optional 3rd arg is a comma-separated list of `#[test]` fn names
+to pin in the facade (for the `include_*!` gotcha above).
 
 ## Verification gates (this sandbox)
 
 Literal "0 warnings / fully green" does **not** hold here; use the corrected gates
 established in sub-projects 2 & 3:
 
-- **G1 — facade drained:** `grep -c '#\[test\]' src/F.rs` == 0; facade ends with one
+- **G1 — facade drained:** `grep -c '#\[test\]' src/F.rs` == 0 for `build_tests`, == 2
+  for `output_tests` (the two pinned `published_*_schema_*` fns); facade ends with one
   `#[path] mod` decl per non-empty group.
 - **G2 — submodule headers:** each `src/F/<mod>.rs` begins with exactly `use super::*;`.
 - **G3 — no-new-warnings:** `cargo build -p kali_cli --tests 2>&1 | grep -c '^warning'`
@@ -145,8 +171,9 @@ established in sub-projects 2 & 3:
   byte-for-byte.
 - Submodule header is exactly `use super::*;`. Facade keeps every original `use`. No
   per-submodule extern `use`s.
-- Facade ends with **zero** `#[test]` fns. Non-`#[test]` helpers (incl. `#[cfg]`-gated
-  helpers lacking `#[test]`) stay in the facade.
+- Facade ends with **zero** `#[test]` fns, **except** fns pinned for the `include_*!`
+  gotcha (output_tests keeps exactly 2). Non-`#[test]` helpers (incl. `#[cfg]`-gated
+  helpers lacking `#[test]`) always stay in the facade.
 - No `pub`/`pub(crate)` widening (these are intra-crate child modules reaching parent
   scope via `use super::*`; no visibility change needed).
 - Do **not** run `cargo fmt` (repo fmt gate already red on baseline; accepted cosmetic
