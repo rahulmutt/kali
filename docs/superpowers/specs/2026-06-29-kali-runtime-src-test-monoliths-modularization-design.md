@@ -88,31 +88,30 @@ grouping applies directly (no exact-name set needed):
 
 | module | ~count | leading prefix |
 |---|---|---|
-| `runtime_summary` | ~24 | `browser_runtime_summary_*` (base summary fallback/labels/json-line behaviors) |
-| `bundle` | ~14 | `browser_bundle_*` (bundle-runtime summary: thread topology, tests-failed merge, fallbacks) |
-| `requested` | ~22 | `browser_requested_*` (requested-runtime summary + thread-spawn topology/reject) |
+| `runtime_summary` | 24 | `browser_runtime_summary_*` (base summary fallback/labels/json-line behaviors) |
+| `bundle` | 13 | `browser_bundle_*` (bundle-runtime summary: thread topology, tests-failed merge, fallbacks) |
+| `requested` | 23 | `browser_requested_*` (requested-runtime summary + thread-spawn topology/reject) |
 
 ### execute_tests.rs (35) → `src/execute_tests/` — exact-name set (mid-name)
 
 Every fn shares the `runtime_` prefix with the discriminator mid-name, so grouping is by explicit
 `#[test]`-name set membership (the kali_optimize/kali_types exact-name-partition variant):
 
-| module | ~count | members (by intent) |
+| module | count | members (by intent) |
 |---|---|---|
-| `node_imports` | ~10 | `runtime_executes_node_*` / `runtime_enforces_node_*` / `runtime_rejects_node_*` host-import suites (fs/stream/http/process/child_process/util/event_emitter/path/url/crypto/os + budget enforcement) |
-| `host_env` | ~12 | console/arguments/exit-code/env-var get/set/delete/presence, cwd, file writes, http fetch + mocked failure, math-pow guard |
-| `timers` | ~6 | microtask drain order, repeating/clearable intervals, trap reporting, clear scheduled timers, negative timer/interval delay rejection |
-| `crypto_random` | ~3 | `performance.now`, random fill, crypto random UUID |
-| `test_runner` | ~2 | registered-test collection + failed-registered-test reporting |
-| `misc` | ~2 | anything not captured above (e.g. console-policy denial) — catch-all, empty groups auto-skip |
+| `node_imports` | 12 | `runtime_executes_node_*` / `runtime_enforces_node_*` / `runtime_rejects_node_*` host-import suites (fs/stream/http/process/child_process/util/event_emitter/path/url/crypto/os + budget enforcement) — every name containing `node` |
+| `host_env` | 12 | console/arguments/exit-code/env-var get/set/delete/presence, cwd, file writes, http fetch + mocked failure, math-pow guard, console-policy denial — the catch-all remainder |
+| `timers` | 6 | microtask drain order, repeating/clearable intervals, trap reporting, clear scheduled timers, negative timer/interval delay rejection |
+| `crypto_random` | 3 | `performance.now`, random fill, crypto random UUID |
+| `test_runner` | 2 | registered-test collection + failed-registered-test reporting |
 
 ### state_tests.rs (13) → `src/state_tests/` — exact-name set
 
-| module | ~count | members (by intent) |
+| module | count | members (by intent) |
 |---|---|---|
-| `host_state` | ~7 | `runtime_host_state_*` budget bookkeeping, spawn/release, rollback, whitespace trimming, profile acceptance, whitespace-only rejection |
-| `summary_parser` | ~2 | `runtime_summary_parser_rejects_*` (whitespace-padded / relative thread script URLs) |
-| `thread_exec` | ~4 | thread-topology snapshot reporting, thread-spawn host-import execute/reject (budget zero / exhausted), execute-tests topology |
+| `host_state` | 6 | `runtime_host_state_*` budget bookkeeping, spawn/release, rollback, whitespace trimming, profile acceptance, whitespace-only rejection |
+| `summary_parser` | 2 | `runtime_summary_parser_rejects_*` (whitespace-padded / relative thread script URLs) |
+| `thread_exec` | 5 | thread-topology snapshot reporting, thread-spawn host-import execute/reject (budget zero / exhausted), execute-tests topology |
 
 ### profiles_tests.rs (12) → `src/profiles_tests/` — exact-name set
 
