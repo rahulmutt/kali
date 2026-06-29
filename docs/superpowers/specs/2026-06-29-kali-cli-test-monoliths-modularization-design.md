@@ -54,15 +54,18 @@ helpers.
 
 ### Submodules — `tests/F/<mod>.rs`
 
-Each holds the verbatim-moved `#[test]` fns for one concern, prefixed with:
+Each holds the verbatim-moved `#[test]` fns for one concern, prefixed with a
+single line:
 
-- `use super::*;` — to reach the root's private helper fns (items visible to
-  descendants).
-- Each module's own extern `use`s (e.g. `serde_json::{json, Value}`,
-  `tempfile::tempdir`) — because `use super::*` only re-exports the root's
-  **public** items, and the root's `use`-imports are private. Each submodule
-  re-declares exactly the externs its moved fns reference, matching the
-  runtime_smoke submodule precedent.
+- `use super::*;` — and **nothing else**. A child module can see all of its
+  parent's items, *including the parent's private `use` imports* (Rust
+  visibility: a module's private items are accessible to its descendants), so
+  the glob pulls in both the root's helper fns and the root's extern imports
+  (`serde_json::{json, Value}`, `tempfile::tempdir`, `std::process::Command`,
+  …). No per-submodule extern `use`s are needed — this matches the
+  runtime_smoke submodules verbatim (each is exactly `use super::*;` + moved
+  fns). Because the root facade keeps every original `use`, there is zero
+  import churn.
 
 ### Binary topology
 
@@ -82,16 +85,22 @@ these files contain raw-string `r#"..."#` JS/TS templates with `}` at column 0.
 
 ## Grouping rule & per-file scheme
 
-**Rule.** Primary axis = command verb (`build` / `check` / `run` / `test` /
-`package`). Each `json_<cmd>` output-variant test folds into its base-command
-module. When a *single* command dominates (≥~90% of the file's tests), sub-split
-by output mode instead (`<cmd>` plain vs `<cmd>_json`). Files with no command
-axis use their dominant semantic prefix. Command-less stragglers collect in a
-`misc` module.
+**Rule.** Grouping is performed by the **leading prefix of the `#[test]` fn
+name** (the only axis the `move_fns.py` mover can partition deterministically —
+it matches `name.startswith(<prefix-tuple>)`). For most files this leading
+prefix *is* the command verb (`build` / `check` / `run` / `test` / `package`),
+so each module's prefix-tuple pairs the command with its `json_<cmd>`
+output-variant (e.g. `("run", "json_run")`) — folding JSON variants into the
+base-command module. When a *single* command dominates (≥~90% of the file's
+tests), sub-split by output mode instead (`<cmd>` plain vs `<cmd>_json`). Files
+whose `#[test]` names do **not** lead with a command verb group by their
+dominant leading semantic prefix instead. A final `misc` module is the
+catch-all (matches everything not claimed by an earlier group); the mover skips
+emitting it when it captures zero fns.
 
 | File | tests | modules |
 |---|---|---|
-| `package_corpus.rs` | 206 | run, check, package, build, test |
+| `package_corpus.rs` | 206 | *(corpus-kind; names don't lead with a command verb)* browser_runtime, browser_corpus, utility, node, misc |
 | `late_compat_browser_js_input.rs` | 118 | run, build, check, test, misc |
 | `browser_non_literal_iterator_sources.rs` | 90 | build, check, misc |
 | `node_api_surface.rs` | 45 | *(semantic)* core, explicit, inherited, process |
@@ -159,9 +168,11 @@ sandbox. Use the human-approved corrected gates established in sub-project 2:
 - **Single-command files** (`browser_object_keys_iteration.rs`) split by output
   mode (`build` / `build_json`), not by command, since one command verb covers
   ~all tests.
-- **`use super::*` extern cutoff** — submodules must re-declare the externs their
-  moved fns reference; `use super::*` does not bring the root's private
-  `use`-imports into scope. Same handling as runtime_smoke submodules.
+- **No extern cutoff** — submodules need only `use super::*;`; the root facade
+  keeps every original `use`, and descendant visibility makes those (private)
+  imports reachable through the glob. No per-submodule extern `use`s, no import
+  churn (unlike the `src/` lib modularization, which used `use crate::*` and
+  needed compiler-driven fixups).
 - **Raw-string `}` at column 0** — already handled by `move_fns.py`'s
   string/comment-aware lexer; must not regress to the naive brace scan.
 - **`array_from_bracketed_root_wrappers`** — has 2 pre-existing
