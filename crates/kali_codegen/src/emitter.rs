@@ -64,6 +64,8 @@ pub(crate) struct FunctionEmitter<'a> {
     pub(crate) current_function_flavor: Option<FunctionFlavor>,
     pub(crate) locals: BTreeMap<String, u32>,
     pub(crate) bindings: BTreeMap<String, LirNodeId>,
+    /// Names of locals that hold a linear-memory array handle (`new Array(n)`).
+    pub(crate) array_bindings: HashSet<String>,
     pub(crate) reported_placeholder_fallbacks: HashSet<String>,
     pub(crate) control_frames: Vec<ControlFlowLabelKind>,
     pub(crate) loop_frames: Vec<LoopFrame>,
@@ -112,6 +114,7 @@ impl<'a> FunctionEmitter<'a> {
             current_function_flavor,
             locals,
             bindings: BTreeMap::new(),
+            array_bindings: HashSet::new(),
             reported_placeholder_fallbacks: HashSet::new(),
             control_frames: Vec::new(),
             loop_frames: Vec::new(),

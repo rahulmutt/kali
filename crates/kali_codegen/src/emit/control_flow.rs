@@ -261,16 +261,38 @@ impl<'a> FunctionEmitter<'a> {
                             continue;
                         }
                         let init = declarator.children[1];
+
+                        // `new Array(n)` allocations need a stable handle held in a
+                        // local slot regardless of `const`/`let`, so the binding can be
+                        // read and written through linear memory.
+                        if let Some(size_arg) = self.resolve_array_alloc_call(init) {
+                            let allocated = self.emit_array_allocation(function, size_arg);
+                            if !allocated.produced {
+                                function.instruction(&Instruction::I64Const(0));
+                            }
+                            if let Some(name) = declarator.text.clone() {
+                                if let Some(index) = self.locals.get(&name).copied() {
+                                    function.instruction(&Instruction::LocalSet(index));
+                                    self.array_bindings.insert(name);
+                                    continue;
+                                }
+                            }
+                            function.instruction(&Instruction::Drop);
+                            continue;
+                        }
+
                         let init_result = self.emit_node(function, init, true);
                         if !init_result.produced {
                             function.instruction(&Instruction::I64Const(0));
                         }
                         if let Some(name) = declarator.text.clone() {
-                            if is_const {
+                            if let Some(index) = self.locals.get(&name).copied() {
+                                // `let`/`var`, or a `const` promoted to a local slot
+                                // (array allocation / array read) — store eagerly.
+                                function.instruction(&Instruction::LocalSet(index));
+                            } else if is_const {
                                 self.bindings.insert(name, declarator.children[1]);
                                 function.instruction(&Instruction::Drop);
-                            } else if let Some(index) = self.locals.get(&name).copied() {
-                                function.instruction(&Instruction::LocalSet(index));
                             } else {
                                 function.instruction(&Instruction::Drop);
                             }
@@ -423,6 +445,18 @@ impl<'a> FunctionEmitter<'a> {
                             }
                         }
                     };
+                }
+
+                // Dynamic array element read: `a[i]` where `a` is a linear-memory array.
+                if let Some(index_text) = node.text.as_deref() {
+                    if !index_text.is_empty() {
+                        let base_id = node.children[0];
+                        if let Some(base_name) = self.assignment_target_name(node, base_id) {
+                            if self.array_bindings.contains(&base_name) {
+                                return self.emit_dynamic_array_read(function, base_id, index_text);
+                            }
+                        }
+                    }
                 }
 
                 if node.text.as_deref().unwrap_or_default().is_empty() {

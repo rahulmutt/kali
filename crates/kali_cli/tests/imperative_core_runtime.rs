@@ -98,6 +98,24 @@ fn loops_iterate() {
 }
 
 #[test]
+fn integer_arrays_read_write() {
+    assert_eq!(
+        run_js("const a = new Array(3);\na[0] = 10;\na[1] = 20;\na[2] = a[0] + a[1];\nconsole.log(a[2]);\n"),
+        "30\n"
+    );
+    // dynamic index from a loop variable
+    assert_eq!(
+        run_js("const a = new Array(5);\nfor (let i = 0; i < 5; i = i + 1) { a[i] = i * i; }\nlet s = 0;\nfor (let i = 0; i < 5; i = i + 1) { s = s + a[i]; }\nconsole.log(s);\n"),
+        "30\n"
+    );
+    // swap via a temp (the fannkuch inner idiom)
+    assert_eq!(
+        run_js("const a = new Array(2);\na[0] = 7;\na[1] = 9;\nconst t = a[0];\na[0] = a[1];\na[1] = t;\nconsole.log(a[0]);\nconsole.log(a[1]);\n"),
+        "9\n7\n"
+    );
+}
+
+#[test]
 fn strict_equality_operators_parse_and_compute() {
     // constant-fold path
     assert_eq!(run_js("console.log(4 === 4);\n"), "1\n");

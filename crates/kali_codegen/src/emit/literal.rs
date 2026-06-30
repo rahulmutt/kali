@@ -234,6 +234,37 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
 
+        // Dynamic array element write: `a[i] = v` where `a` is a linear-memory array.
+        if op == "=" {
+            let left_node = self.node(left).clone();
+            if left_node.kind == LirNodeKind::Value && left_node.children.len() == 1 {
+                if let Some(index_text) = left_node.text.clone() {
+                    if !index_text.is_empty() {
+                        let base_id = left_node.children[0];
+                        if let Some(base_name) = self.assignment_target_name(node, base_id) {
+                            if self.array_bindings.contains(&base_name) {
+                                let scratch = self.locals.len() as u32;
+                                self.emit_array_element_address(function, base_id, &index_text);
+                                let rhs = self.emit_node(function, right, true);
+                                if !rhs.produced {
+                                    function.instruction(&Instruction::I64Const(0));
+                                }
+                                function.instruction(&Instruction::LocalTee(scratch));
+                                function.instruction(&Instruction::I64Store(MemArg {
+                                    offset: 8,
+                                    align: 3,
+                                    memory_index: 0,
+                                }));
+                                // Assignment expression result is the stored value.
+                                function.instruction(&Instruction::LocalGet(scratch));
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         let Some(name) = self.assignment_target_name(node, left) else {
             if op == "=" {
                 return false;

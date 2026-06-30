@@ -243,7 +243,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
 
     let mut memory_section = MemorySection::new();
     memory_section.memory(MemoryType {
-        minimum: 1,
+        minimum: 16,
         maximum: None,
         memory64: false,
         shared: false,
@@ -252,6 +252,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
 
     let mut export_section = ExportSection::new();
     export_section.export("memory", ExportKind::Memory, 0);
+    export_section.export("__heap", ExportKind::Global, 0);
     for function in &all_functions {
         if function.is_entry {
             export_section.export("_start", ExportKind::Func, function_name_to_index["_start"]);
@@ -303,11 +304,26 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         );
     }
 
+    // Heap base: first 8-aligned byte after interned string data. The `__heap` bump
+    // pointer starts here and grows upward as `new Array(n)` allocations are made.
+    let heap_base = (string_pool.next_offset + 7) & !7;
+    let mut global_section = GlobalSection::new();
+    global_section.global(
+        GlobalType {
+            val_type: ValType::I32,
+            mutable: true,
+            shared: false,
+        },
+        &ConstExpr::i32_const(heap_base as i32),
+    );
+
     let mut module = Module::new();
     module.section(&type_section);
     module.section(&import_section);
     module.section(&function_section);
     module.section(&memory_section);
+    // Globals come after memory and before exports per the wasm section ordering.
+    module.section(&global_section);
     module.section(&export_section);
     module.section(&code_section);
     if ctx.target.coverage {
@@ -687,15 +703,62 @@ pub(crate) fn is_function_like(nodes: &[LirNode], id: LirNodeId) -> bool {
 }
 
 pub(crate) fn collect_function_locals(nodes: &[LirNode], body_id: LirNodeId) -> Vec<String> {
+    // First identify every binding that holds a linear-memory array handle, so that
+    // `const` reads of those arrays can be promoted to eagerly-evaluated locals.
+    let mut array_names = HashSet::new();
+    let mut array_seen = HashSet::new();
+    collect_array_binding_names(nodes, body_id, &mut array_seen, &mut array_names);
+
     let mut locals = Vec::new();
     let mut seen = HashSet::new();
-    collect_function_locals_from_node(nodes, body_id, &mut seen, &mut locals);
+    collect_function_locals_from_node(nodes, body_id, &array_names, &mut seen, &mut locals);
     locals
+}
+
+pub(crate) fn collect_array_binding_names(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    seen: &mut HashSet<LirNodeId>,
+    array_names: &mut HashSet<String>,
+) {
+    if !seen.insert(id) {
+        return;
+    }
+
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return;
+    };
+
+    if node.kind == LirNodeKind::Instruction
+        && matches!(node.text.as_deref(), Some("let" | "var" | "const"))
+    {
+        for declarator in &node.children {
+            let Some(declarator_node) = nodes.get(declarator.0 as usize) else {
+                continue;
+            };
+            let Some(init) = declarator_node.children.get(1).copied() else {
+                continue;
+            };
+            if declarator_init_is_array_alloc(nodes, init) {
+                if let Some(name) = declarator_node.text.clone() {
+                    array_names.insert(name);
+                }
+            }
+        }
+    }
+
+    for child in &node.children {
+        if is_function_like(nodes, *child) {
+            continue;
+        }
+        collect_array_binding_names(nodes, *child, seen, array_names);
+    }
 }
 
 pub(crate) fn collect_function_locals_from_node(
     nodes: &[LirNode],
     id: LirNodeId,
+    array_names: &HashSet<String>,
     seen: &mut HashSet<LirNodeId>,
     locals: &mut Vec<String>,
 ) {
@@ -721,11 +784,123 @@ pub(crate) fn collect_function_locals_from_node(
         }
     }
 
+    // `const` bindings normally inline their initializer, but an allocation
+    // (`new Array(n)`) needs a stable handle and a read of a mutable array
+    // (`const t = a[i]`) must be evaluated eagerly; both are promoted to locals.
+    if node.kind == LirNodeKind::Instruction && node.text.as_deref() == Some("const") {
+        for declarator in &node.children {
+            let Some(declarator_node) = nodes.get(declarator.0 as usize) else {
+                continue;
+            };
+            let Some(init) = declarator_node.children.get(1).copied() else {
+                continue;
+            };
+            if !declarator_init_is_array_alloc(nodes, init)
+                && !declarator_init_is_array_read(nodes, init, array_names)
+            {
+                continue;
+            }
+            if let Some(name) = declarator_node.text.clone() {
+                if !locals.contains(&name) {
+                    locals.push(name);
+                }
+            }
+        }
+    }
+
     for child in &node.children {
         if is_function_like(nodes, *child) {
             continue;
         }
-        collect_function_locals_from_node(nodes, *child, seen, locals);
+        collect_function_locals_from_node(nodes, *child, array_names, seen, locals);
+    }
+}
+
+/// Returns true if `init_id` unwraps to a dynamic array element read `base[index]`
+/// whose `base` identifier is a known linear-memory array binding.
+pub(crate) fn declarator_init_is_array_read(
+    nodes: &[LirNode],
+    init_id: LirNodeId,
+    array_names: &HashSet<String>,
+) -> bool {
+    let member = unwrap_transparent_value(nodes, init_id);
+    let Some(member_node) = nodes.get(member.0 as usize) else {
+        return false;
+    };
+    if member_node.kind != LirNodeKind::Value || member_node.children.len() != 1 {
+        return false;
+    }
+    if member_node
+        .text
+        .as_deref()
+        .is_none_or(|text| text.is_empty())
+    {
+        return false;
+    }
+    let base = unwrap_transparent_value(nodes, member_node.children[0]);
+    let Some(base_node) = nodes.get(base.0 as usize) else {
+        return false;
+    };
+    base_node.kind == LirNodeKind::Value
+        && base_node.children.is_empty()
+        && base_node
+            .text
+            .as_deref()
+            .is_some_and(|name| array_names.contains(name))
+}
+
+fn unwrap_transparent_value(nodes: &[LirNode], mut id: LirNodeId) -> LirNodeId {
+    let mut guard = 0;
+    loop {
+        let Some(node) = nodes.get(id.0 as usize) else {
+            return id;
+        };
+        if node.kind == LirNodeKind::Value
+            && node.children.len() == 1
+            && node.text.as_deref().is_none_or(|text| text.is_empty())
+        {
+            id = node.children[0];
+            guard += 1;
+            if guard > 64 {
+                return id;
+            }
+            continue;
+        }
+        return id;
+    }
+}
+
+/// Returns true if `init_id` (after unwrapping transparent value wrappers) is a
+/// `new Array(n)` / `Array(n)` allocation call (callee identifier `Array`, 0 or 1 arg).
+pub(crate) fn declarator_init_is_array_alloc(nodes: &[LirNode], init_id: LirNodeId) -> bool {
+    let mut id = init_id;
+    let mut guard = 0;
+    loop {
+        let Some(node) = nodes.get(id.0 as usize) else {
+            return false;
+        };
+        if node.kind == LirNodeKind::Value
+            && node.children.len() == 1
+            && node.text.as_deref().is_none_or(|text| text.is_empty())
+        {
+            id = node.children[0];
+            guard += 1;
+            if guard > 64 {
+                return false;
+            }
+            continue;
+        }
+
+        if node.kind != LirNodeKind::Call || node.children.len() > 2 {
+            return false;
+        }
+        let Some(callee) = node.children.first().copied() else {
+            return false;
+        };
+        let Some(callee_node) = nodes.get(callee.0 as usize) else {
+            return false;
+        };
+        return callee_node.text.as_deref() == Some("Array") && callee_node.children.is_empty();
     }
 }
 

@@ -2161,6 +2161,121 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// If `id` (after unwrapping transparent value wrappers) is a `new Array(n)` /
+    /// `Array(n)` allocation call, returns `Some(size_arg)` where `size_arg` is the
+    /// length argument node (or `None` for the zero-length `new Array()` form).
+    pub(crate) fn resolve_array_alloc_call(&self, id: LirNodeId) -> Option<Option<LirNodeId>> {
+        let target = self.unwrap_transparent_value_node(id);
+        let node = self.node(target);
+        if node.kind != LirNodeKind::Call || node.children.len() > 2 {
+            return None;
+        }
+        let callee = node.children.first().copied()?;
+        let callee_node = self.node(callee);
+        if callee_node.text.as_deref() != Some("Array") || !callee_node.children.is_empty() {
+            return None;
+        }
+        Some(node.children.get(1).copied())
+    }
+
+    /// Bump-allocate an array of `size_arg` i64 elements in linear memory, storing the
+    /// length at `+0`, advancing the `__heap` global, and leaving the i64 base handle on
+    /// the stack. Layout: `[ length:i64 @ +0 ][ elem0 @ +8 ][ elem1 @ +16 ]…`.
+    pub(crate) fn emit_array_allocation(
+        &mut self,
+        function: &mut Function,
+        size_arg: Option<LirNodeId>,
+    ) -> EmittedValue {
+        let scratch = self.locals.len() as u32;
+
+        // base = __heap (saved as i64 in the scratch local).
+        function.instruction(&Instruction::GlobalGet(0));
+        function.instruction(&Instruction::I64ExtendI32U);
+        function.instruction(&Instruction::LocalSet(scratch));
+
+        // mem[base + 0] = length
+        function.instruction(&Instruction::LocalGet(scratch));
+        function.instruction(&Instruction::I32WrapI64);
+        self.emit_array_length_value(function, size_arg);
+        function.instruction(&Instruction::I64Store(MemArg {
+            offset: 0,
+            align: 3,
+            memory_index: 0,
+        }));
+
+        // __heap = base + (length + 1) * 8
+        function.instruction(&Instruction::LocalGet(scratch));
+        function.instruction(&Instruction::I32WrapI64);
+        self.emit_array_length_value(function, size_arg);
+        function.instruction(&Instruction::I64Const(1));
+        function.instruction(&Instruction::I64Add);
+        function.instruction(&Instruction::I64Const(8));
+        function.instruction(&Instruction::I64Mul);
+        function.instruction(&Instruction::I32WrapI64);
+        function.instruction(&Instruction::I32Add);
+        function.instruction(&Instruction::GlobalSet(0));
+
+        // Result: the i64 base handle.
+        function.instruction(&Instruction::LocalGet(scratch));
+        EmittedValue {
+            produced: true,
+            shape: ValueShape::Scalar,
+        }
+    }
+
+    fn emit_array_length_value(&mut self, function: &mut Function, size_arg: Option<LirNodeId>) {
+        match size_arg {
+            Some(arg) => {
+                let produced = self.emit_node(function, arg, true);
+                if !produced.produced {
+                    function.instruction(&Instruction::I64Const(0));
+                }
+            }
+            None => {
+                function.instruction(&Instruction::I64Const(0));
+            }
+        }
+    }
+
+    /// Emit `base[index_text]` as a dynamic linear-memory load. `base_id` is the array
+    /// handle expression and `index_text` is the (literal or identifier) index.
+    pub(crate) fn emit_dynamic_array_read(
+        &mut self,
+        function: &mut Function,
+        base_id: LirNodeId,
+        index_text: &str,
+    ) -> EmittedValue {
+        self.emit_array_element_address(function, base_id, index_text);
+        function.instruction(&Instruction::I64Load(MemArg {
+            offset: 8,
+            align: 3,
+            memory_index: 0,
+        }));
+        EmittedValue {
+            produced: true,
+            shape: ValueShape::Scalar,
+        }
+    }
+
+    /// Push the i32 element address `base + index * 8` (the `+8` length header is applied
+    /// via the load/store `offset` immediate).
+    pub(crate) fn emit_array_element_address(
+        &mut self,
+        function: &mut Function,
+        base_id: LirNodeId,
+        index_text: &str,
+    ) {
+        let _ = self.emit_node(function, base_id, true);
+        function.instruction(&Instruction::I32WrapI64);
+        let index_node =
+            self.alloc_scratch_node(LirNodeKind::Value, Some(index_text.to_string()), vec![]);
+        let _ = self.emit_node(function, index_node, true);
+        function.instruction(&Instruction::I32WrapI64);
+        function.instruction(&Instruction::I32Const(8));
+        function.instruction(&Instruction::I32Mul);
+        function.instruction(&Instruction::I32Add);
+    }
+
     pub(crate) fn resolve_static_index_member(
         &self,
         node: &LirNode,

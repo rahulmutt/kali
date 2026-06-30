@@ -35,8 +35,8 @@ use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
 use wasm_encoder::{
     BlockType, CodeSection, ConstExpr, CustomSection, DataSection, EntityType, ExportKind,
-    ExportSection, Function, FunctionSection, ImportSection, Instruction, MemorySection,
-    MemoryType, Module, TypeSection, ValType,
+    ExportSection, Function, FunctionSection, GlobalSection, GlobalType, ImportSection,
+    Instruction, MemArg, MemorySection, MemoryType, Module, TypeSection, ValType,
 };
 
 const TEST_REGISTER_IMPORT_INDEX: u32 = 0;
