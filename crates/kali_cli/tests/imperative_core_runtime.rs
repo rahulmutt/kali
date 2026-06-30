@@ -96,3 +96,23 @@ fn loops_iterate() {
         "15\n"
     );
 }
+
+#[test]
+fn strict_equality_operators_parse_and_compute() {
+    // constant-fold path
+    assert_eq!(run_js("console.log(4 === 4);\n"), "1\n");
+    assert_eq!(run_js("console.log(4 === 5);\n"), "0\n");
+    assert_eq!(run_js("console.log(4 !== 5);\n"), "1\n");
+    // dynamic path
+    assert_eq!(run_js("let r = 4;\nconsole.log(r === 4);\n"), "1\n");
+    assert_eq!(run_js("let r = 4;\nconsole.log(r === 5);\n"), "0\n");
+    // === inside a loop condition / if (the fannkuch shape)
+    assert_eq!(
+        run_js("let r = 0;\nwhile (r !== 4) { r = r + 1; }\nconsole.log(r);\n"),
+        "4\n"
+    );
+    assert_eq!(
+        run_js("let s = 0;\nlet i = 0;\nwhile (i < 6) { i = i + 1; if (i === 3) { continue; } s = s + i; }\nconsole.log(s);\n"),
+        "18\n"
+    );
+}
