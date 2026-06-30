@@ -447,6 +447,38 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::Boolean,
                 }
             }
+            "<" => {
+                function.instruction(&Instruction::I64LtS);
+                function.instruction(&Instruction::I64ExtendI32U);
+                EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Boolean,
+                }
+            }
+            "<=" => {
+                function.instruction(&Instruction::I64LeS);
+                function.instruction(&Instruction::I64ExtendI32U);
+                EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Boolean,
+                }
+            }
+            ">" => {
+                function.instruction(&Instruction::I64GtS);
+                function.instruction(&Instruction::I64ExtendI32U);
+                EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Boolean,
+                }
+            }
+            ">=" => {
+                function.instruction(&Instruction::I64GeS);
+                function.instruction(&Instruction::I64ExtendI32U);
+                EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Boolean,
+                }
+            }
             "&&" => {
                 function.instruction(&Instruction::I64And);
                 EmittedValue {
