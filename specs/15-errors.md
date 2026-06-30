@@ -449,7 +449,7 @@ No ASCII art, progress bars, or decorative elements in default mode.
 
 For programmatic consumption, the canonical AI-parsable channel is `--output json` (the versioned command envelope and diagnostic shapes owned by [specs/18-schemas.md](18-schemas.md)); agents should consume that versioned envelope rather than scraping the human format. This — not an unmeasurable "minimal tokens" target — is the concrete token-efficiency contract for the failure side.
 
-This failure-side contract ("just what is needed to fix") is the other half of R24's token-efficiency story; its success-side counterpart ("one line or nothing") is owned by [12 — CLI](12-cli.md#success-output-default).
+This failure-side contract ("just what is needed to fix") is the other half of the token-efficiency story; its success-side counterpart ("one line or nothing") is owned by [12 — CLI](12-cli.md#success-output-default).
 
 For unsupported features, prefer one stable code (`E5506`) with a short note naming the required phase/status from [specs/19-feature-maturity.md](19-feature-maturity.md).
 
