@@ -21,6 +21,8 @@ Simplification rule:
 - **Polymorphic call sites**: if a function is called with 3 materially different fingerprint combinations, 3 specialized versions are emitted
 - **Closures**: specialized for materially different capture-layout fingerprints rather than for cosmetic source-type differences alone
 
+These outcomes describe the modes that actively specialize (`--release` / `--release-advanced`); under `--fast` most user-authored generic specialization is skipped (see [### Specialization Limits](#specialization-limits)), so the "3 specialized versions are emitted" example applies to the specializing modes rather than to every build mode.
+
 ### Specialization Process
 1. Collect all call sites for each generic function
 2. Lower each candidate call into a provisional specialization key built from parameter/result **layout/representation fingerprints** plus any remaining semantic distinctions that still affect correctness
@@ -64,6 +66,7 @@ Important simplification:
 - In `--fast` mode (the default), skip most user-authored generic specialization entirely (effectively treating the user-authored generic budget as `0` unless a later documented heuristic says otherwise)
 - In `--release` and `--release-advanced`, the configured cap becomes the main user-visible ceiling for the generic/layout-driven specialization pipeline
 - `--release-advanced` may use more of that configured budget more aggressively than `--release`, but it must still respect the explicit user/configured cap rather than silently removing it
+- When the set of materially-distinct fingerprints exceeds the cap, which specializations are kept (versus dropped to the tagged fallback) is **profitability/heuristic-driven** rather than fixed; the chosen subset may differ between `--release` and `--release-advanced`, with the remaining fingerprints using the boxed/tagged representation
 
 ## Optimization Passes
 
@@ -72,6 +75,18 @@ Build-mode clarification:
 - What changes across phases is **how much optimizer/compiler machinery exists behind those stable mode names**, not whether the flags themselves exist.
 - Therefore early `--release` / `--release-advanced` builds may start with a modest subset of the long-term optimizations described below and grow stronger as MIR, specialization, and later LIR passes mature.
 - The phase-labeled sections below describe when major optimization families become available; they do **not** mean the corresponding build-mode flag first appears in that phase.
+
+Passes active per build mode (Phase-1 HIR floor):
+
+| Pass | `--fast` | `--release` / `--release-advanced` |
+| --- | --- | --- |
+| Constant folding | yes | yes |
+| Dead code elimination | yes | yes |
+| Constant propagation | yes | yes |
+| Inlining (small functions) | no | yes |
+| User-authored generic specialization | no | yes (up to the configured cap) |
+
+This is the precise referent for [12 — CLI](12-cli.md)'s "minimal optimization" in `--fast`: the always-on HIR floor still runs the correctness-preserving simplifications above, but inlining and user-authored generic specialization are reserved for `--release` and `--release-advanced`. Phase 2/3 families below layer on top of the specializing modes only.
 
 ### Phase 1 floor: HIR Optimizations (always applied)
 - **Constant folding**: `1 + 2` → `3`, `"a" + "b"` → `"ab"`
@@ -108,6 +123,7 @@ Rules:
 - the canonical benchmark lane belongs to the testing/evidence program: adapted Computer Language Benchmarks Game workloads and representative real-world regressions should be version-pinned and rerunnable
 - public performance wording should stay phase-correct: Phase 1 may claim stable build-mode vocabulary and deterministic benchmarking hooks, while stronger throughput/latency claims belong to later optimization phases once evidence exists
 - package-oriented benchmark anecdotes must not be used to widen host/API compatibility claims
+- the headline "on par with Rust" / "Rust-competitive" claim is gated, not implementer-defined: before publication it must (a) pin a single named build mode for the comparison (normally `--release-advanced`) and (b) state the quantitative bar it must clear (for example, geometric mean within N% of the named Rust baseline on the pinned benchmark lane). A claim that names neither the mode nor the numeric bar does not satisfy the on-par gate
 
 ## Dynamic Fallback
 

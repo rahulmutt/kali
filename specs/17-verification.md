@@ -107,6 +107,7 @@ Lean proves properties of the model. The implementation is kept aligned through:
 2. prove the target properties
 3. align the implementation with the model
 4. add or update evidence showing the covered behavior matches the claim
+5. when the model or boundary changes, update the owning spec chapter wording and [`proofs/BOUNDARY.md`](../proofs/BOUNDARY.md) together so public claims never lead the proved boundary — the proof loop is part of the bootstrap "while iterating on the Spec" cycle
 
 ## CI discipline
 

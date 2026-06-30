@@ -222,6 +222,7 @@ Phase-1 capability snapshot for supported surfaces:
 Interpretation note:
 - this snapshot focuses on capability families and the resource fields whose availability is phase-gated
 - always-valid positive-budget fields for **Kali-hosted execution** — `resources.maxMemoryMB`, `resources.maxCpuTimeMs`, and `resources.maxOpenFiles` — are intentionally omitted from the table because they are already part of the Phase 1 runtime-budget contract rather than separate later-phase capability gates
+- their availability is owned by the Execution/Effects-sandbox rows in [19 — Feature Maturity](19-feature-maturity.md), so this deliberate omission from a phase-gated table must not be read as a missing maturity row
 
 From the Phase 2 target onward, when a policy is provided at build or check time:
 1. Inferred effects are checked against allowed effects
@@ -255,7 +256,7 @@ For dynamic effects that can't be checked at compile time:
 ### Enforcement Domains
 To keep the sandbox story precise across commands and deployment targets:
 - **Kali-hosted runtime enforcement** applies to `kali run`, `kali test`, and embedding hosts that instantiate Kali-controlled host imports.
-- For embedding, that same rule covers both executable-style helpers and library-oriented instantiation/calls: creating an instance from a `--lib`-style module and invoking its **statically known export surface** is still **Kali-hosted execution**, not a second unsandboxed host path.
+- For embedding, that same rule covers both executable-style helpers and library-oriented instantiation/calls: creating an instance from a `--lib`-style or `--component`-style module and invoking its **statically known export surface** is still **Kali-hosted execution**, not a second unsandboxed host path.
 - **`check` / `build` with `--sandbox`** provide static validation only: policy-schema/config validation in Phase 1, plus effect-vs-policy validation starting in the Phase 2 target window.
 - on `build`, the shared **sandbox-attachment orthogonality** rule keeps that same static validation workflow independent of artifact mode: default executable builds, browser bundles, and library-oriented build modes all reuse it once the underlying build shape is otherwise valid in the current phase/context.
 - **Browser-targeted builds** in the shared **Phase-1 browser-targeted command set** (that is, `kali build --bundle <file>` when the effective `apiSurface` is `browser`, including inherited-config forms) follow the **browser-targeted static sandbox contract** from [SPEC.md](../SPEC.md): they may be checked against a policy at build time for the documented mediated subset, but the emitted artifact running inside a real browser does not automatically inherit Kali runtime enforcement after deployment.
@@ -351,6 +352,8 @@ The canonical maturity decision for this feature lives in [specs/19-feature-matu
 Phase 1-2 policies are limited to path globs, URL patterns, booleans, and numeric resource limits. This keeps policy evaluation simple, auditable, portable, and easy to validate before any untrusted code runs.
 
 Longer-term, Kali may support **host-registered sandbox policy predicates** for embedding scenarios where declarative allowlists are not expressive enough. This is the canonical interpretation of the bootstrap's programmable-policy idea: trusted hosts may register pure predicates, but `kali.policy.json` itself stays declarative data rather than becoming executable project code.
+
+Unlike the bootstrap's "determine when valid" phrasing, a predicate returning `true` does **not** by itself make an operation valid — it only narrows; validity is still gated first by the declarative policy, the command profile, and the maturity gate.
 
 If policy predicates are added, they must:
 - Be explicitly opt-in

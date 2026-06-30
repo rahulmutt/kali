@@ -183,6 +183,7 @@ Node compatibility is a **Phase 3 ecosystem target**, not a Phase 1 promise. The
 Canonical gating rule:
 - `kali check --api node`, `kali effects --api node`, `kali build --api node`, `kali run --api node`, and `kali test --api node` are all phase-gated until the documented Node subset exists
 - early phases must reject these modes with the canonical `E5506` diagnostic instead of exposing a partial ambient `process`/built-ins surface
+- current per-command availability of the documented Node subset is owned by the Node API surface row in [specs/19-feature-maturity.md](19-feature-maturity.md); this rule describes the default early-phase rejection contract, not a claim that no documented Node subset has been enabled in the current repository snapshot
 
 **Phase 3 target subset**
 - `fs`, `fs/promises` — file system operations

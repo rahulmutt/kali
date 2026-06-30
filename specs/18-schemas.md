@@ -467,6 +467,42 @@ Interpretation rules:
 - in component-oriented outputs, the wrapped core `wasm-module` normally keeps role `primary-library` while the outer `wasm-component` carries role `primary-component`; this avoids making tools guess which artifact is the deployable wrapper versus the linked core payload
 - adding a new stable `role` value is a schema-contract change and should get the same review discipline as new artifact `kind` values
 
+## Runtime Stack Trace Schema
+
+Runtime `E8xxx` failures attach a structured **StackTrace** so runtime failures stay as machine-parseable as compile-time diagnostics. [specs/10-runtime.md](10-runtime.md) "Stack Traces" owns the runtime-behavior contract and [specs/15-errors.md](15-errors.md) owns the `E8xxx` diagnostic-code meaning; both cross-link this shape so there is one canonical stack-trace payload.
+
+```json
+{
+  "frames": [
+    {
+      "functionName": "processFile",
+      "location": { "file": "src/main.ts", "line": 2, "column": 18 }
+    }
+  ]
+}
+```
+
+### Required fields
+- `frames: StackFrame[]` — ordered call frames captured at failure time, innermost (failure site) first
+
+### `StackFrame`
+
+```json
+{
+  "functionName": "processFile",
+  "location": { "file": "src/main.ts", "line": 2, "column": 18 }
+}
+```
+
+Required fields:
+- `functionName: non-empty, non-whitespace string` — nearest enclosing function or method name for the frame
+- `location: SourceLocation` — 1-based `file` / `line` / `column` position using the shared `SourceLocation` shape, so runtime frames and compile-time diagnostics share one coordinate system
+
+Interpretation rules:
+- `StackTrace` and `StackFrame` objects are fixed-shape in schema v1; unexpected keys are rejected
+- frames are emitted in deterministic innermost-first order so repeated runtime failures serialize identically
+- this dedicated `StackTrace` payload is the canonical ordered `SourceLocation` frame list for `E8xxx` runtime failures; it is distinct from a diagnostic's `related` array (which carries `SourceSpan`-shaped `RelatedInfo` rather than point frames), so producers must not split one failure's frames across both forms
+
 ## Effect Report Schema
 
 This section defines the reusable schema-v1 **EffectReport** payload.
@@ -583,9 +619,10 @@ Simplification rule:
 - the separate `eval` and `function-constructor` reason codes do **not** imply separate compatibility-feature names; both still map to the single schema-v1 compatibility switch `eval`
 - Because `dynamicReasons` is a stable machine contract, adding new canonical reason strings requires a schema-version bump
 - `dynamicReasons` must be empty when `dynamicEffects` is `false`
-- If `dynamicReasons` contains `eval` or `function-constructor`, the report should also include the built-in `Eval` effect in `effects`
+- If `dynamicReasons` contains `eval` or `function-constructor`, the report must also include the built-in `Eval` effect in `effects`
 - Effect `kind` names must match the canonical built-in names derived from the type system and sandbox policy model
 - the reserved public effect-report schemas that start in the Phase 2 target window, together with the Phase-1/2 policy/config machine contracts, are limited to built-in sandbox-relevant effect kinds; later user-defined/algebraic effects, if exposed, should use a reserved `Custom.<name>` namespace rather than overloading built-in policy keys
+- this bounds the no-under-report invariant above: the "all potential effects" the report must not under-report are the canonical built-in effect names from the **Canonical Built-in Effect Names** table, not user-defined/algebraic `Custom.*` effects, so a missing `Custom.*` entry is never an under-report violation of this schema
 - Effect locations use `SourceLocation` fields and the same 1-based `line` / `column` convention as diagnostics so tools do not need separate coordinate systems for errors vs effect reports
 - If a consumer needs a full range instead of a point location, it should use the same `SourceSpan` shape rather than inventing a command-specific span format
 - To keep reports diff-friendly and AI-friendly, producers should emit a deterministic order: sort `effects` by `kind`, then sort each occurrence list by normalized `file`, `line`, `column`, and `function` when present

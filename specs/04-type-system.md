@@ -9,7 +9,8 @@ Kali's type system is a superset of TypeScript's, combining:
 4. **Budgeted constraint solving** — for advanced generic inference where compile-time cost stays predictable
 
 Bootstrap-normalization note:
-- the bootstrap's references to Haskell, Idris, Agda, Lean, and Rust are interpreted here as **design guidance**, not as an immediate promise of dependent types, totality checking, proof terms, or theorem-prover-style user workflows in Phase 1
+- the bootstrap's references to Haskell, Idris, Agda, Lean, and Rust are interpreted here as **design guidance**, not as a promise of dependent types, totality checking, proof terms, or theorem-prover-style user workflows in any currently specced phase; any future exploration of those directions needs its own [specs/19](19-feature-maturity.md) maturity row first
+- the Rust reference specifically means "pragmatic/ergonomic like Rust" in the sense of predictable, explicit, low-surprise developer ergonomics plus the pure-Rust implementation contract — it does **not** mean adopting Rust's surface type syntax or ownership types into the guest language
 - in practice, early Kali should borrow principled ideas about inference, purity, effects, and constraints while still behaving like a pragmatic TypeScript superset with explicit annotation boundaries and predictable compile costs
 
 Implementation order matters:
@@ -122,6 +123,13 @@ For the type checker, that means:
 - the fallback remains the canonical JavaScript/TypeScript-safe set: explicit annotation requirement, `unknown`, unions, or a dynamic/layout-conservative representation
 - the checker must not invent fresh `any` merely to keep inference moving
 
+Minimum beyond-`tsc` inference set for Phase 1 — so "improves on TypeScript" is testable against the inference fixtures in [specs/16](16-testing.md), Kali infers at least the following where plain `tsc` local contextual typing would fall back to `any`/no-conclusion:
+- return types of un-annotated functions and arrow functions whose body stays in the cheap local-inference fragment
+- types of un-annotated parameters when the call site or surrounding context makes the argument shape obvious intra-module
+- stable object/record layouts for object literals that are constructed and consumed without statically destabilizing key/prototype mutation
+- bounded union conclusions from intra-module control flow (for example narrowing a value to `string | number` rather than widening to `any`)
+- useful types for un-annotated `.js` locals and intra-module values rather than immediate `any`
+
 This is the main simplification that keeps stronger-than-`tsc` inference compatible with blazing-fast compilation: Kali supports a strong bounded fragment early and grows outward only where cost remains measurable and testable.
 
 ### Constraint-Solving Budget Rule
@@ -136,6 +144,7 @@ Phase-normalized rule:
 Operational requirements:
 - solve constraints with a deterministic worklist/fixed-point algorithm rather than unbounded backtracking
 - keep explicit per-binding / per-function budgets on solver iterations, speculative instantiations, and deferred obligations
+- the chosen per-binding / per-function budget values must themselves be documented and version-pinned — surfaced in a build/diagnostics manifest — so the "explicit and evidence-backed" promise has a concrete disclosure owner and the type-check frontier is reproducible across versions (the pinned-value disclosure is itself a maturity-tracked surface; see [specs/19](19-feature-maturity.md))
 - when the budget is exceeded, stop the advanced path early and fall back conservatively: require an annotation, keep `unknown`, preserve a wider union, or reject the unsupported precision claim rather than guessing
 - unsolved constraints at a public API boundary should prefer an explicit annotation or conservative exported type over a phase-dependent inferred signature
 - compiler diagnostics may explain that a more precise inferred type was abandoned due to the bounded solver budget, but the checker must not silently invent fresh `any`
@@ -294,7 +303,7 @@ Target feature families include:
 
 1. **Name resolution**: Build symbol table, resolve imports/exports
 2. **Declaration processing**: Process type aliases, interfaces, class declarations
-3. **Inference**: Walk function bodies, generate constraints, run unification
+3. **Inference**: Walk function bodies and collect per-variable usage constraints (the bootstrap "behavior of each variable" analysis), then run bounded unification
 4. **Narrowing**: Apply flow-sensitive narrowing at each CFG node
 5. **Effect analysis**: Infer capability effects and, once Phase 2 support is enabled, check explicit effect annotations / `pure`
 6. **Validation**: Check all constraints are satisfied, report errors

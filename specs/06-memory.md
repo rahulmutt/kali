@@ -2,7 +2,7 @@
 
 ## Principle
 
-Kali has **no tracing garbage collector**. Allocation class and ownership strategy are chosen statically where possible through ownership analysis, lifetime inference, and escape analysis. The compiler may still insert deterministic runtime bookkeeping such as reference-count increments/decrements when sharing cannot be eliminated. This is inspired by Rust's ownership model, adapted for TypeScript/JavaScript semantics.
+Kali has **no tracing garbage collector**. Allocation class and ownership strategy are chosen statically where possible through ownership analysis, lifetime inference, and escape analysis. The compiler may still insert deterministic runtime bookkeeping such as reference-count increments/decrements when sharing cannot be eliminated. This is inspired by Rust's ownership model, adapted for TypeScript/JavaScript semantics. The ownership class is always selected at compile time per the [Compile-Time Ownership-Class Rule](#compile-time-ownership-class-rule); "where possible" governs only **which** class is chosen, never whether the decision is deferred to runtime.
 
 For compatibility-heavy APIs and dynamic features mentioned in this document, the canonical maturity/status matrix lives in [specs/19-feature-maturity.md](19-feature-maturity.md). This section focuses on memory strategy, not on redefining feature phase decisions.
 

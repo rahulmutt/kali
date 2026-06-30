@@ -4,7 +4,7 @@
 
 ### Engine Choice: wasmtime
 **Early-phase default:** standardize the runtime on `wasmtime` first.
-- Follows the shared **Pure-Rust implementation contract** from [SPEC.md](../SPEC.md)
+- Follows the shared **Pure-Rust implementation contract** from [SPEC.md](../SPEC.md): Kali consumes wasmtime in its pure-Rust (Cranelift) configuration and must not enable optional C-backed engine features, so the Pure-Rust invariant does not silently depend on an unstated build configuration
 - Fuel-based metering for CPU limits
 - Configurable memory limits
 - Mature, well-maintained, WASI support
@@ -19,7 +19,7 @@ Preferred execution modes:
 - **Production/embedding**: prefer wasmtime's precompiled/serialized module support where available when avoiding launch-time translation matters, but treat those cached/precompiled blobs as an implementation/deployment optimization rather than as a stable Phase-1 public artifact contract; in Phase 1 this is an internal/exact-version-consumer deployment story only, and cross-version/public loading guarantees still belong to the later **public embedding surface**
 
 ### Optional Alternative Backend (Later Phase)
-An engine abstraction may be added later to support backends such as `wasmer` when there is a demonstrated embedding or platform need. This must not complicate the initial runtime design, and any added backend must preserve the same externally visible sandbox/resource/diagnostic contracts rather than introducing backend-specific semantics into user-facing behavior.
+An engine abstraction may be added later to support backends such as `wasmer` (one of the **alternative pure-Rust engines** held open in the [SPEC.md](../SPEC.md) acceptance snapshot) when there is a demonstrated embedding or platform need. This must not complicate the initial runtime design, and any added backend must preserve the same externally visible sandbox/resource/diagnostic contracts rather than introducing backend-specific semantics into user-facing behavior. If/when `wasmer` is adopted it must be configured with a Rust-only compiler backend (e.g. Cranelift or Singlepass) rather than its LLVM backend, so the **Pure-Rust implementation contract** is preserved.
 
 Engine-choice simplification rule:
 - internal backend experiments or comparisons must not change the public early-phase contract: it is standardized on `wasmtime`
@@ -241,3 +241,4 @@ This deliberately avoids depending on the WebAssembly module-linking proposal in
 - Each function entry pushes (function name, source location)
 - On error, serialize the shadow stack for the error message
 - Minimal overhead (one i32 store per function call)
+- Runtime `E8xxx` failure frames are exposed through the [specs/18-schemas.md](18-schemas.md) `StackTrace` schema (`StackTrace { frames: [{ functionName, location: SourceLocation }] }`), so runtime failures stay as AI-parseable as compile-time diagnostics

@@ -3,7 +3,7 @@
 ## Design Principles
 
 1. **AI-agent optimized**: Concise output by default, verbose with `--verbose`
-2. **Deno-inspired**: Familiar subcommand structure and workflow vocabulary (`doctor`, `init`, `install`, `fmt`, `lint`, `check`, `build`, `run`, `test`), without implying flag-for-flag Deno parity or that every Deno command shape automatically exists in the same phase
+2. **Deno-inspired**: Familiar subcommand structure and workflow vocabulary (`doctor`, `init`, `install`, `fmt`, `lint`, `check`, `build`, `run`, `test`), without implying flag-for-flag Deno parity or that every Deno command shape automatically exists in the same phase. Deno commands outside this schema-v1 vocabulary (for example `bench`, `repl`, `compile`, `task`) are intentionally out of scope for now and are neither implied nor reserved, so "familiar workflow vocabulary" must not be read as a promise of the full Deno command surface
 3. **Single binary**: `kali` is distributed as one primary executable; static linking is preferred where practical but not required on every target
 4. **Zero config**: Sensible defaults, explicit configuration when needed
 5. **Stable machine contract**: JSON output is versioned and remains backward-compatible across minor releases
@@ -753,7 +753,7 @@ Found 1 error.
 ```
 
 ### Verbose Mode (`--verbose`)
-Adds: timing per phase, IR dumps, optimization decisions, memory layout choices, and canonical error-doc links in human-readable diagnostics.
+Adds: timing per phase, IR dumps, optimization decisions, memory layout choices, and canonical error-doc links in human-readable diagnostics. `--verbose` adds detail only to human-readable text output; it does **not** change the `--output json` command-envelope or native-JSON payload schemas, which stay stable per the versioned machine contract (Design Principle #5).
 
 ### JSON Output (`--output json`)
 Machine-parseable output for commands that normally print human-oriented text. The canonical command-envelope schema lives in [specs/18-schemas.md](18-schemas.md).

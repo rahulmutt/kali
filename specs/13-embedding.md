@@ -60,6 +60,7 @@ Reading rule:
 Bootstrap-alignment shortcut:
 - the bootstrap brief asks for embeddability, a C API, and WIT / Component Model integration
 - this chapter preserves that ask by phasing it into one exported-library contract: Phase 1 establishes the base `--lib` artifact, and the current repo has already opened the later stable public `--lib` + WIT, `--capi`, and `--component` flows documented by the maturity matrix
+- on the "default if sensible" decision: WIT is the default interface sidecar for the public `--lib` contract, while Component Model packaging stays an explicit `--component` opt-in rather than an implicit default (see [19 — Feature Maturity](19-feature-maturity.md) "Implicit Component Model packaging for every public library build = Rejected by default")
 
 ## Phase 1 — Base library artifact
 
@@ -199,6 +200,10 @@ Canonical embedding-alignment rule:
 - if a host calls an executable helper on a library-intent module, or tries to treat an executable-intent module as a library without the required **statically known export surface**, that mismatch should fail explicitly rather than being repaired by fallback heuristics
 - export-oriented embedding calls require the same **statically known export surface** as the CLI's library-oriented artifact modes; if Kali cannot determine one fixed host-callable export set after frontend lowering, embedding-facing compile/instantiate flows must fail with the same canonical `E5511` path rather than exposing reflection-based export discovery
 - if a CLI/config/runtime feature is phase-gated (for example `ApiSurface::Node`, `RuntimeProfile::WasmThreads`, or `CompatFeature::Eval`), the embedding API should surface the same canonical `E5506`-style availability failure rather than silently ignoring the request
+
+Value marshaling scope:
+- the Phase 2 **minimum** embedding contract exchanges scalar `Value` kinds only (number, string, bool, null, undefined) across the embedding boundary
+- structured/object/array marshaling is a **later convenience layer** over that minimum (the same framing as **Optional Runtime-Control Conveniences** below), not part of the minimum embedding guarantee, so implementers should not invent an ad hoc object-passing ABI on top of the scalar surface
 
 ### Custom Host Functions
 ```rust
@@ -372,6 +377,9 @@ KaliValue* kali_value_new_number(double n);
 KaliValue* kali_value_new_string(const char* s);
 KaliValue* kali_value_new_bool(bool b);
 KaliValue* kali_value_new_null(void);
+// Intentionally no kali_value_new_undefined(): KALI_VALUE_UNDEFINED is an
+// observable result kind only, so hosts construct the canonical absent value via
+// kali_value_new_null(...). This value-constructor asymmetry is deliberate.
 void kali_value_free(KaliValue* value);
 
 // Error handling
@@ -394,6 +402,10 @@ bool kali_register_host_function(KaliRuntime* runtime, const char* module,
 
 #endif // KALI_H
 ```
+
+Value marshaling scope (C ABI):
+- mirroring the Rust surface, the Phase 2 **minimum** C ABI exchanges scalar `KaliValue` kinds only (`KALI_VALUE_NUMBER`, `KALI_VALUE_STRING`, `KALI_VALUE_BOOL`, `KALI_VALUE_NULL`, `KALI_VALUE_UNDEFINED`)
+- structured/object/array marshaling across the embedding boundary is a **later convenience layer** rather than part of the minimum embedding guarantee, so embedders must not assume an ad hoc object-passing ABI already exists on top of the scalar value surface
 
 ### Memory Management
 - All `kali_*_new` / `kali_*_free` pairs — caller manages lifetime
@@ -489,6 +501,13 @@ Typical component flow:
 1. Compile Kali/TypeScript library code with `kali build --component lib.ts`.
 2. Use the emitted WIT sidecar — illustratively `lib.wit` — as the canonical interface description for tooling/review.
 3. Load the emitted component wrapper — illustratively `lib.component.wasm` — in a Component Model host that matches the documented runtime/profile constraints.
+
+Component-host sandbox caveat:
+- Kali runtime sandbox enforcement applies only when the component is instantiated through Kali-controlled host imports (see [09 — Sandboxing & Effects](./09-sandboxing.md) "Enforcement Domains"); a `lib.component.wasm` loaded into an arbitrary external Component Model host that does **not** wire Kali-controlled imports does not automatically inherit Kali runtime enforcement, the same way a raw guest module loaded outside the Kali host loses that guarantee
+
+Documented runtime/profile constraints (step 3) resolve to concrete text rather than an open forward-reference:
+- a Kali component wrapper targets the Component Model host/runtime profile described by the shared WASM execution + host-guest interface model in [10 — Runtime](./10-runtime.md), gated by the **Host and Runtime Profiles** rows in [19 — Feature Maturity](./19-feature-maturity.md)
+- a host outside that documented profile (missing the expected Component Model support, or not wiring Kali-controlled imports) is out of contract for the emitted `lib.component.wasm`, and the runtime enforcement caveat above applies
 
 The shared library exports only `kali_*` symbols. All Rust internals are hidden.
 

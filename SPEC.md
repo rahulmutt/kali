@@ -94,7 +94,7 @@ This is the normalized Phase-1 product contract.
 | Effects | internal bookkeeping may exist in Phase 1; the stable public effect-report surface opens later |
 | Packaging | one lock/install state; registry and raw-URL support within the **pure JS/TS package contract**; no implicit dependency repair outside `kali install`; lifecycle scripts are opt-in; native/binary/bootstrap-heavy packages are rejected by default |
 | Embedding | Phase-1 **base library artifact** via `kali build --lib` for exact-version consumers when the export surface is statically known; the stable public embedding surface is later |
-| Verification | Phase-1 **proof-ready** baseline: published boundary manifest plus proof-CI trigger policy; proof-backed claims require a non-empty published boundary |
+| Verification | Phase-1 **proof-ready** baseline: published boundary manifest plus proof-CI trigger policy; proof-backed claims require a non-empty published boundary, and the current proof-ready-vs-proof-backed repository state is always read from [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) and the [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) Verification row |
 | Tooling | Deno-inspired CLI workflow, concise diagnostics, versioned JSON outputs, deterministic artifacts/reports, minimal `init` / `init --lib` scaffolds |
 
 Use the table as a reading aid only. Detailed behavior belongs to the owning chapters and the maturity matrix.
@@ -129,7 +129,7 @@ Phase 1 does **not** claim:
 - executable `eval` / `Function()` compatibility;
 - threaded runtime support.
 
-Phase-1 docs may still define later command or artifact shapes for vocabulary stability, but that does not promote them into the shipped Phase-1 surface.
+Phase-1 docs may still define later command or artifact shapes for vocabulary stability, but that does not promote them into the shipped Phase-1 surface. (These non-goals describe the Phase-1 contract floor, not the current checked-in state: the actual shipped status of the effect-report surface is owned by the [current-repository-state vs target-contract reading](#current-repository-state-vs-target-contract-reading) and the effect rows in [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md), so a `SPEC.md`-only reader should not infer the effect report is permanently unshipped.)
 
 ## Guardrail splits
 
@@ -164,15 +164,15 @@ This section is the short answer to “did the derived spec set actually preserv
 | Bootstrap ask | Normalized answer in the spec set |
 |---|---|
 | AOT-only TS/JS → WASM compiler, no JIT | preserved as a hard invariant across all phases |
-| Rust-only implementation, no embedded C/C++ | preserved as a hard invariant across all phases |
+| Rust-only implementation, no embedded C/C++ | preserved as a hard invariant across all phases; the bootstrap's "standard best practices" qualifier is normalized into concrete engineering contracts — goal precedence, query-based architecture, error-resilient diagnostics, and library-first crate decomposition (see [`specs/01-architecture.md`](./specs/01-architecture.md)) |
 | No tracing/background GC; compile-time memory/ownership decisions | preserved as a hard invariant, with concrete memory-model ownership in [`specs/06-memory.md`](./specs/06-memory.md) |
 | Latest published ECMA-262 support | preserved as the grammar/semantics target for supported features, while draft proposals remain explicitly gated |
 | Sandboxing first, policy-controlled execution | preserved, but split honestly into static policy validation, runtime enforcement, and later effect reporting |
 | Static JSON effect visibility | preserved, but normalized into later explicit reporting commands plus policy-comparison workflows rather than a `run --dry` shadow mode |
 | TypeScript superset / stronger inference | preserved under the bounded-inference contract and annotation-required boundary |
 | Upstream-inspired conformance and checker baselines | preserved as an explicit testing/evidence requirement: `test262` coverage, `tsc`-style checker baselines, and dedicated `.js` / inference fixtures live in [`specs/16-testing.md`](./specs/16-testing.md) |
-| Aggressive specialization and layout-aware IR | preserved as optimization-direction guidance, with phase-gated delivery |
-| Fast-path vs advanced-optimization modes | preserved through the stable build-mode vocabulary (`fast`, `release`, `release-advanced`) plus later evidence-backed optimization depth, rather than as an unconditional same-phase throughput promise |
+| Aggressive specialization and layout-aware IR | preserved as optimization-direction guidance, with phase-gated delivery; phase-gating the deeper passes is not the same as deferring all type-directed codegen, because types still drive efficient baseline code in `--fast` via the representation-downgrade ladder and the [`specs/07-specialization.md` Dynamic Fallback](./specs/07-specialization.md#dynamic-fallback) contract |
+| Fast-path vs advanced-optimization modes | preserved through the stable build-mode vocabulary (`fast`, `release`, `release-advanced`) plus later evidence-backed optimization depth, rather than as an unconditional same-phase throughput promise; the "fast pipeline / blazing fast" clause is owned by both [`specs/02-lexer-parser.md`](./specs/02-lexer-parser.md) frontend-throughput goals and [`specs/07-specialization.md`](./specs/07-specialization.md) build-mode depth, with any chapter-02 numbers read as directional goals rather than same-phase guarantees |
 | Benchmark suite / Rust-competitive performance aspiration | preserved as a later optimization-evidence lane and benchmarking program, not as a Phase-1 performance guarantee |
 | Runtime engine choice (`wasmtime` / `wasmer`) | preserved as a Phase-1 standardized `wasmtime` baseline with later room for alternative pure-Rust engines once they can preserve the same public contract |
 | Deno / browser / Node API support | preserved, but split by context and maturity; Phase 1 is Deno-oriented plus the browser-targeted command set, while Node is later |
@@ -201,8 +201,9 @@ Examples:
 - **“Support Node, Deno, and browser APIs”** → Phase 1 centers on the Default standalone context plus the Phase-1 browser-targeted command set; broad Node compatibility is later.
 - **“Support all features including eval”** → executable `eval` / `Function()` is phase-gated and must still preserve the AOT-only invariant.
 - **“Statically get JSON output of all potential effects”** → Phase 1 may keep internal effect bookkeeping, but the stable public effect-report surface is later and remains distinct from runtime enforcement.
-- **“Latest ECMA-262”** → latest published grammar is in scope; draft/proposal semantics remain gated.
+- **“Latest ECMA-262”** → latest published grammar is in scope (as of authoring, the 16th edition / ES2025 = ECMA-262 16.0; the in-scope target tracks the latest published edition as it advances); draft/proposal semantics remain gated.
 - **“Programmable sandbox policy conditions”** → early policy files remain declarative; executable project policy code is not part of the early contract.
+- **“Take inspiration / best practices from existing JS engines”** → inspiration from JIT/GC engines is bounded by the hard No-JIT/No-GC invariants: only their AOT- and static-memory-compatible techniques (such as object shape/layout analysis) are in scope, and "take inspiration" is not license for JIT tiers, inline caches, or tracing GC.
 
 ## Bootstrap Traceability Matrix
 
@@ -212,13 +213,18 @@ Use this table when a bootstrap sentence sounds broader than the normalized spec
 |---|---|---|
 | “support Deno API, Node.js API, and browser API” | support is phase- and command-context-specific rather than one blanket claim | [`specs/11-standard-apis.md`](./specs/11-standard-apis.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | “sandboxing policy passed in when running” | runtime enforcement on `run/test --sandbox`; static validation on `check/build --sandbox` | [`specs/09-sandboxing.md`](./specs/09-sandboxing.md), [`specs/12-cli.md`](./specs/12-cli.md) |
+| “users declare functions that decide when a core API/syscall is valid” | early policies are declarative data only; the programmable path is a later, opt-in, host-registered, narrowing-only predicate extension that cannot widen a declarative deny | [`specs/09-sandboxing.md` Host-Registered Sandbox Policy Predicates](./specs/09-sandboxing.md#host-registered-sandbox-policy-predicates-later-compatibility), [`specs/13-embedding.md` Host-Registered Sandbox Predicates](./specs/13-embedding.md#host-registered-sandbox-predicates-later-compatibility), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | “statically run a command and get JSON output of all potential effects” | later explicit effect-report commands and policy comparison, not a hidden `run/test` dry-run lane | [`specs/09-sandboxing.md`](./specs/09-sandboxing.md), [`specs/12-cli.md`](./specs/12-cli.md), [`specs/18-schemas.md`](./specs/18-schemas.md) |
+| “CLI usage clean and similar to Deno — formatting, linting, typechecking, running” | Deno-inspired subcommand vocabulary and ergonomics without flag-for-flag parity; each verb is owned by a concrete command contract | [`specs/12-cli.md`](./specs/12-cli.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | “support non node-gyp packages from npm” | support is determined by package shape, host/API fit, command maturity, and support rung | [`specs/14-packages.md`](./specs/14-packages.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | “must be embeddable / expose a C API / support WIT” | Phase 1 ships only the base library artifact; stable embedding surfaces are later | [`specs/13-embedding.md`](./specs/13-embedding.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
-| “have a comprehensive test suite inspired by upstream `tsc`” | normalized into explicit evidence lanes rather than vague quality prose: `test262`, `tsc`-style baselines, JS/inference fixtures, and package/browser/determinism tracks | [`specs/16-testing.md`](./specs/16-testing.md) |
+| “make it easy to use Kali as a Rust library and expose a nice API” | Phase 1 delivers library-first internal decomposition plus the base `--lib` artifact; the ergonomic public Rust embedding API (`kali_embed`) is the Phase-2 public embedding surface | [`specs/13-embedding.md` Phase 2 target — Rust Library API](./specs/13-embedding.md#phase-2-target--rust-library-api-kali_embed), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
+| “have a comprehensive test suite inspired by upstream `tsc`” | normalized into explicit evidence lanes rather than vague quality prose: `test262`, `tsc`-style baselines, JS/inference fixtures, and package/browser/determinism tracks; the “extend `tsc` inference with HM” half is owned secondarily by the type-system chapter | [`specs/16-testing.md`](./specs/16-testing.md), [`specs/04-type-system.md`](./specs/04-type-system.md) |
 | “benchmark against Rust / Benchmarks Game style workloads” | normalized into a version-pinned benchmark evidence lane rather than a blanket Phase-1 speed claim | [`specs/16-testing.md`](./specs/16-testing.md), [`specs/07-specialization.md`](./specs/07-specialization.md) |
+| “take inspiration / best practices from Boa, V8, JavaScriptCore, SpiderMonkey, Deno, `tsc`, Porffor, Hermes, Bun” | directional architectural influence only, concretely owned where it becomes a contract (`tsc` → [`04`](./specs/04-type-system.md) + [`16`](./specs/16-testing.md); Deno → [`10`](./specs/10-runtime.md)/[`11`](./specs/11-standard-apis.md)/[`12`](./specs/12-cli.md)/[`13`](./specs/13-embedding.md); wasmtime/wasmer → the engine-choice Acceptance Snapshot row; Rust ownership → [`06`](./specs/06-memory.md)); remaining engines are selective architectural influences carrying no standalone feature contract, bounded by the No-JIT/No-GC hard invariants | [`specs/01-architecture.md`](./specs/01-architecture.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | “support all features including eval” | parser acceptance/planning does not imply executable support; runtime `eval` stays later compatibility | [`specs/10-runtime.md`](./specs/10-runtime.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 | “formally verify implementation details with Lean” | repository claims are limited by the published proof boundary | [`specs/17-verification.md`](./specs/17-verification.md), [`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md) |
+| “type-system design inspiration from Haskell/Idris/Agda/Lean while staying pragmatic like Rust” | normalized as design guidance (inference, purity, effects, constraints) realized as a pragmatic TypeScript superset, not a Phase-1 promise of dependent types, totality, or proof terms | [`specs/04-type-system.md`](./specs/04-type-system.md), [`specs/17-verification.md`](./specs/17-verification.md), [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) |
 
 ## Support-claim authoring rule
 
@@ -264,6 +270,22 @@ Each detailed spec chapter owns one primary slice of the design:
 ## Canonical terminology
 
 Only the most reused cross-spec terms are defined here. Lower-level detail belongs in the owning chapter.
+
+### Representation-downgrade ladder
+
+Kali normalizes one canonical **representation-downgrade ladder**: a value's representation may fall back, in order, through
+
+1. unboxed/scalar,
+2. struct/static-layout (`ObjectLayout::Static`),
+3. tagged/boxed (`ValueRepr` tagged),
+4. dynamic (`ObjectLayout::Dynamic`),
+5. hash-map (`ObjectLayout::HashMap`).
+
+This is a **semantic** fallback ladder, not a synonym for heap allocation: a dynamic layout is a representation fallback, not merely "allocated on the heap". The related **layout/representation fingerprint** is the normalization-level identity a value carries as it moves down this ladder.
+
+Concrete ownership:
+- the type-level fallback rungs live in [`specs/04-type-system.md` Canonical JavaScript Fallback Contract](./specs/04-type-system.md#canonical-javascript-fallback-contract);
+- the IR-level fingerprint plus the MIR `ObjectLayout` / `ValueRepr` definitions live in [`specs/05-ir.md` Layout/Representation Fingerprints](./specs/05-ir.md#layoutrepresentation-fingerprints).
 
 ### AOT-only guest-language compilation
 

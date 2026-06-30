@@ -3,7 +3,7 @@
 ## Lexer
 
 ### Requirements
-- Full lexical grammar support for the latest published ECMA-262 edition
+- Full lexical grammar support for the latest published ECMA-262 edition — currently the 16th edition (ES2025); bumping the targeted edition is a deliberate, recorded change so parser-breadth tests have a fixed baseline to assert against
 - TypeScript syntax extensions (type annotations, generics, enums, etc.)
 - Grammar tracking and semantic support are intentionally separate: Phase 1 tracks the latest **published** grammar, while current-edition non-Annex-B semantics apply only to the features Kali marks as supported in the current command/profile; Annex B corners and Stage-3+/draft proposals remain explicitly gated by [specs/19-feature-maturity.md](19-feature-maturity.md)
 - Kali-specific syntax extensions, kept intentionally small in early phases (effect annotations first; advanced algebraic-effect syntax reserved for a later explicit parser experiment and still phase-gated semantically)
@@ -37,10 +37,12 @@ struct Token {
 - Numeric literals (all formats: decimal, hex, octal, binary, bigint, separators)
 - String literals (single, double, template)
 
-### Performance Targets
+### Performance Targets (optimization-evidence goals)
 - Lexing throughput: ≥ 500 MB/s on modern hardware
 - Use `memchr` or SIMD for fast scanning of common delimiters
 - Lookup tables for keyword recognition (pre-hashed, perfect hash or trie)
+
+> Note: the throughput figure above is a long-term target / Phase-1 directional goal, not a same-phase acceptance threshold, per the SPEC.md no-unconditional-same-phase-throughput rule. See [specs/07-specialization.md](07-specialization.md) performance-claim discipline and the phase gating in [specs/19-feature-maturity.md](19-feature-maturity.md).
 
 ### Error Recovery
 - On invalid characters: emit `TokenKind::Error`, record diagnostic, continue
@@ -87,10 +89,12 @@ struct Token {
 - **Extra tokens**: Skip unexpected tokens with diagnostic
 - Goal: Parse the entire file and produce a (partial) AST even with errors
 
-### Performance Targets
+### Performance Targets (optimization-evidence goals)
 - Parsing throughput: ≥ 200 MB/s
 - Single-pass, no backtracking (use 1-token lookahead, 2-token where needed)
 - Arena allocation for all AST nodes
+
+> Note: the throughput figure above is a long-term target / Phase-1 directional goal, not a same-phase acceptance threshold, per the SPEC.md no-unconditional-same-phase-throughput rule. See [specs/07-specialization.md](07-specialization.md) performance-claim discipline and the phase gating in [specs/19-feature-maturity.md](19-feature-maturity.md).
 
 ### Source Preservation
 - All comments and whitespace positions are recoverable from spans (for formatting tool)

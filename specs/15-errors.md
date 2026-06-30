@@ -26,6 +26,8 @@ error[E5101]: Type 'string' is not assignable to type 'number'
   = help: Remove the type annotation or change the value
 ```
 
+The multi-line caret/pipe source-context block shown above **is** part of default human rendering — it is emitted whenever the failing span has source text, not gated behind `--verbose` or an interactive terminal. The [Rich for Humans](#rich-for-humans) mode does not add the context block itself; it layers presentation on top of it (color-coded severity, related "declared here"/"first used here" locations, diff-like suggested fixes, and docs links).
+
 ### JSON (`--output json`)
 Diagnostics are emitted inside the CLI's versioned command envelope. The canonical JSON schemas for both the envelope and individual diagnostics live in [specs/18-schemas.md](18-schemas.md).
 
@@ -403,6 +405,8 @@ Clarification:
 - `E8003`: Out of memory
 - `E8100`: Internal compiler/runtime invariant failure, including failed IR structural validation in developer-debug mode
 
+Under `--output json`, runtime failures carry the same versioned command envelope and [Diagnostic Schema](18-schemas.md#diagnostic-schema) as compile-time diagnostics, and attach their backtrace as the dedicated [`StackTrace`](18-schemas.md#runtime-stack-trace-schema) payload from [specs/18-schemas.md](18-schemas.md) — an ordered, innermost-first `StackFrame` list whose per-frame `location` uses the shared `SourceLocation` coordinate system. That `StackTrace` payload is the canonical machine-readable backtrace for `E8xxx` failures and is distinct from a diagnostic's `related` array; agents should parse it rather than scraping the human-formatted backtrace so runtime failures stay as machine-parseable as compile-time diagnostics.
+
 ### Memory/Ownership Errors (E7xxx)
 - `E7001`: Value used after move
 - `E7002`: Cannot prove lifetime safety (escaping reference)
@@ -442,6 +446,10 @@ Default output shows just what's needed to fix the issue:
 - Fix suggestion when available
 
 No ASCII art, progress bars, or decorative elements in default mode.
+
+For programmatic consumption, the canonical AI-parsable channel is `--output json` (the versioned command envelope and diagnostic shapes owned by [specs/18-schemas.md](18-schemas.md)); agents should consume that versioned envelope rather than scraping the human format. This — not an unmeasurable "minimal tokens" target — is the concrete token-efficiency contract for the failure side.
+
+This failure-side contract ("just what is needed to fix") is the other half of R24's token-efficiency story; its success-side counterpart ("one line or nothing") is owned by [12 — CLI](12-cli.md#success-output-default).
 
 For unsupported features, prefer one stable code (`E5506`) with a short note naming the required phase/status from [specs/19-feature-maturity.md](19-feature-maturity.md).
 

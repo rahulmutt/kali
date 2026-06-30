@@ -102,8 +102,21 @@ Concretely:
 - Kali implementation crates and shipped dependencies remain Rust-only from the project/toolchain point of view.
 - ordinary platform runtime/system libraries reached through the Rust toolchain or OS bindings do not, by themselves, violate that contract.
 - bundling or requiring project-specific C/C++ implementation dependencies still violates it.
+- a Rust dependency that vendors and compiles C/C++/asm at build time (a `-sys` crate, a `cc`/`build.rs` compilation path, or any other non-Rust compiled translation unit) **counts as** an embedded C/C++ implementation dependency and is **disallowed** in Kali's default toolchain; only dynamically-resolved standard OS/platform libraries reached through Rust bindings are permitted.
 - early-phase external WASM execution is standardized on `wasmtime` (pure Rust), but that is an implementation default rather than a forever-exclusive backend choice; follow the shared **guest AOT vs host-engine translation split** from [SPEC.md](../SPEC.md) when reasoning about the bootstrap's no-JIT requirement.
 - external crate dependencies should therefore stay in the pure-Rust lane (for example `wasmtime`, `rayon`, `regex-automata`).
+
+### AOT-only / no language-level JIT
+Kali compiles guest TypeScript/JavaScript **ahead of time** to a WASM artifact. There is **no language-level JIT**: the compiler never emits a runtime code generator for guest programs, and guest source is never JIT-compiled at execution time. This is a hard invariant, not a phase-gated optimization.
+
+This is distinct from the host WASM engine's own behavior: the embedded engine (e.g. `wasmtime`) may internally JIT-translate the already-compiled WASM module to host machine code as a host-engine implementation detail. That host-side translation is permitted and does not make Kali a JIT for the guest language. See the **guest AOT vs host-engine translation split** in [specs/10-runtime.md](10-runtime.md) for the engine-side distinction.
+
+### Implementation engineering conventions
+These conventions govern Kali's **own** Rust implementation crates. They are distinct from the guest-facing [`kali_fmt`](#crate-structure) / [`kali_lint`](#crate-structure) tooling, which formats and lints **user** TS/JS code rather than Kali's Rust sources.
+
+- **Reference baseline**: follow the [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/) for public crate surfaces, with `clippy` (warnings-as-errors at the project's agreed lint level) and `rustfmt` enforced as CI gates rather than advisory checks.
+- **Unsafe-code policy**: `unsafe` is **forbidden by default** in Kali's own crates; any exception must be **audited and justified** in-place (a documented invariant comment plus a localized, reviewed `unsafe` block) rather than introduced ad hoc. Crates with no justified need should keep `unsafe` denied.
+- **Edition / MSRV stance**: implementation crates pin a single workspace-wide Rust edition and declare an explicit minimum supported Rust version (MSRV); bumping either is a deliberate, recorded decision, not an incidental drift.
 
 ### Query-Based Architecture
 Follow a demand-driven (query-based) compilation model similar to rustc and Salsa. This enables:
