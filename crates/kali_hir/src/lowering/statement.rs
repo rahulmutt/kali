@@ -164,7 +164,7 @@ impl HirLowerer {
                 update,
                 body,
             }) => {
-                let id = self.builder.alloc(HirNodeKind::ForStmt, None);
+                let id = self.builder.alloc_text(HirNodeKind::ForStmt, None, "for");
                 if let Some(init) = init {
                     match init {
                         ForInit::VariableDeclaration(v) => push_child!(
@@ -227,7 +227,9 @@ impl HirLowerer {
                 id
             }
             Statement::WhileStatement(WhileStatement { test, body }) => {
-                let id = self.builder.alloc(HirNodeKind::WhileStmt, None);
+                let id = self
+                    .builder
+                    .alloc_text(HirNodeKind::WhileStmt, None, "while");
                 push_child!(self, id, self.lower_expression(test));
                 push_child!(
                     self,
@@ -237,7 +239,9 @@ impl HirLowerer {
                 id
             }
             Statement::DoWhileStatement(DoWhileStatement { body, test }) => {
-                let id = self.builder.alloc(HirNodeKind::DoWhileStmt, None);
+                let id = self
+                    .builder
+                    .alloc_text(HirNodeKind::DoWhileStmt, None, "do-while");
                 push_child!(
                     self,
                     id,

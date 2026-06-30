@@ -75,6 +75,125 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// Lowers `while` / `do-while` / `for` to a real wasm `block { loop { ... } }`
+    /// with a back-edge, so the body can run more than once and `break`/`continue`
+    /// resolve via the loop-frame stack.
+    ///
+    /// Known limitation: in a `for` loop, `update` is emitted at the tail of the
+    /// body (since wasm's `loop` has no native init/update clause), so a
+    /// `continue` re-enters the loop *without* running `update`. `while` /
+    /// `do-while` re-test correctly on `continue` since they have no `update`.
+    pub(crate) fn emit_loop(&mut self, function: &mut Function, node: &LirNode) -> EmittedValue {
+        let kind = node.text.as_deref().unwrap_or_default();
+
+        // Resolve clauses by loop kind.
+        let (init, test, update, body) = match kind {
+            "while" => (
+                None,
+                node.children.first().copied(),
+                None,
+                node.children.get(1).copied(),
+            ),
+            "do-while" => (
+                None,
+                node.children.get(1).copied(),
+                None,
+                node.children.first().copied(),
+            ),
+            _ /* "for" */ => {
+                // [init?, test?, update?, body] — body is always last; classify by count.
+                let n = node.children.len();
+                let body = node.children.last().copied();
+                let (init, test, update) = match n {
+                    1 => (None, None, None),
+                    2 => (None, node.children.first().copied(), None),
+                    3 => (
+                        node.children.first().copied(),
+                        node.children.get(1).copied(),
+                        None,
+                    ),
+                    _ => (
+                        node.children.first().copied(),
+                        node.children.get(1).copied(),
+                        node.children.get(2).copied(),
+                    ),
+                };
+                (init, test, update, body)
+            }
+        };
+
+        // for-init runs once, before the loop.
+        if let Some(init) = init {
+            let produced = self.emit_node(function, init, false);
+            if produced.produced {
+                function.instruction(&Instruction::Drop);
+            }
+        }
+
+        let break_index = self.push_control_frame(ControlFlowLabelKind::LoopBreak);
+        function.instruction(&Instruction::Block(BlockType::Empty));
+        let continue_index = self.push_control_frame(ControlFlowLabelKind::LoopContinue);
+        function.instruction(&Instruction::Loop(BlockType::Empty));
+        self.loop_frames.push(LoopFrame {
+            break_index,
+            continue_index,
+        });
+
+        let emit_body_and_update = |emitter: &mut Self, function: &mut Function| {
+            if let Some(body) = body {
+                let produced = emitter.emit_node(function, body, false);
+                if produced.produced {
+                    function.instruction(&Instruction::Drop);
+                }
+            }
+            if let Some(update) = update {
+                let produced = emitter.emit_node(function, update, false);
+                if produced.produced {
+                    function.instruction(&Instruction::Drop);
+                }
+            }
+        };
+
+        if kind == "do-while" {
+            // body first, then test at the bottom.
+            emit_body_and_update(self, function);
+            if let Some(test) = test {
+                let cond = self.emit_node(function, test, true);
+                if !cond.produced {
+                    function.instruction(&Instruction::I64Const(0));
+                }
+            } else {
+                function.instruction(&Instruction::I64Const(1));
+            }
+            function.instruction(&Instruction::I64Eqz); // 1 if falsy
+            function.instruction(&Instruction::I32Eqz); // invert: 1 if truthy
+            function.instruction(&Instruction::BrIf(0)); // continue if truthy
+        } else {
+            // test at the top; exit (break) when falsy.
+            if let Some(test) = test {
+                let cond = self.emit_node(function, test, true);
+                if !cond.produced {
+                    function.instruction(&Instruction::I64Const(0));
+                }
+                function.instruction(&Instruction::I64Eqz); // 1 if falsy
+                function.instruction(&Instruction::BrIf(1)); // break out of `block` when falsy
+            }
+            emit_body_and_update(self, function);
+            function.instruction(&Instruction::Br(0)); // back to loop top
+        }
+
+        function.instruction(&Instruction::End); // end loop
+        self.loop_frames.pop();
+        self.pop_control_frame(ControlFlowLabelKind::LoopContinue);
+        function.instruction(&Instruction::End); // end block
+        self.pop_control_frame(ControlFlowLabelKind::LoopBreak);
+
+        EmittedValue {
+            produced: false,
+            shape: ValueShape::Unknown,
+        }
+    }
+
     pub(crate) fn emit_function_body(
         &mut self,
         function: &mut Function,
@@ -187,6 +306,7 @@ impl<'a> FunctionEmitter<'a> {
                     self.emit_for_of_array_iteration(function, &node)
                 }
                 Some("return") => self.emit_return(function, &node),
+                Some("while") | Some("do-while") | Some("for") => self.emit_loop(function, &node),
                 _ => self.emit_branch(function, &node, want_value),
             },
             LirNodeKind::Unknown => {

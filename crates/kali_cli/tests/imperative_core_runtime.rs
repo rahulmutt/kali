@@ -63,3 +63,36 @@ fn mutable_locals_round_trip() {
         "6\n"
     );
 }
+
+#[test]
+fn loops_iterate() {
+    // while with a counter and accumulator
+    assert_eq!(
+        run_js(
+            "let s = 0;\nlet i = 0;\nwhile (i < 5) { s = s + i; i = i + 1; }\nconsole.log(s);\n"
+        ),
+        "10\n"
+    );
+    // for loop
+    assert_eq!(
+        run_js("let s = 0;\nfor (let i = 0; i < 5; i = i + 1) { s = s + i; }\nconsole.log(s);\n"),
+        "10\n"
+    );
+    // break out of while(true)
+    assert_eq!(
+        run_js("let i = 0;\nwhile (true) { if (i >= 3) { break; } i = i + 1; }\nconsole.log(i);\n"),
+        "3\n"
+    );
+    // do-while runs body first
+    assert_eq!(
+        run_js("let i = 0;\nlet n = 0;\ndo { n = n + 1; i = i + 1; } while (i < 4);\nconsole.log(n);\n"),
+        "4\n"
+    );
+    // recursion now terminates (relational base case + real calls)
+    assert_eq!(
+        run_js(
+            "function s(n) { if (n < 1) { return 0; } return n + s(n - 1); }\nconsole.log(s(5));\n"
+        ),
+        "15\n"
+    );
+}
