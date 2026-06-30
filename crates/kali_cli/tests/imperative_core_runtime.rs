@@ -36,3 +36,19 @@ fn relational_operators_compute_booleans() {
     assert_eq!(run_js("console.log(3 >= 3);\n"), "1\n");
     assert_eq!(run_js("console.log(2 <= 1);\n"), "0\n");
 }
+
+#[test]
+fn functions_return_computed_values() {
+    assert_eq!(
+        run_js("function id(x) { return x; }\nconsole.log(id(42));\n"),
+        "42\n"
+    );
+    assert_eq!(
+        run_js("function add(a, b) { return a + b; }\nconsole.log(add(40, 2));\n"),
+        "42\n"
+    );
+    assert_eq!(
+        run_js("function dbl(x) { return x * 2; }\nconsole.log(dbl(21));\n"),
+        "42\n"
+    );
+}

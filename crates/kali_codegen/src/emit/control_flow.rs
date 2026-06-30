@@ -59,6 +59,22 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    pub(crate) fn emit_return(&mut self, function: &mut Function, node: &LirNode) -> EmittedValue {
+        if let Some(arg) = node.children.first().copied() {
+            let produced = self.emit_node(function, arg, true);
+            if !produced.produced {
+                function.instruction(&Instruction::I64Const(0));
+            }
+        } else {
+            function.instruction(&Instruction::I64Const(0));
+        }
+        function.instruction(&Instruction::Return);
+        EmittedValue {
+            produced: false,
+            shape: ValueShape::Unknown,
+        }
+    }
+
     pub(crate) fn emit_function_body(
         &mut self,
         function: &mut Function,
@@ -170,6 +186,7 @@ impl<'a> FunctionEmitter<'a> {
                 Some("for-of") | Some("for-await-of") => {
                     self.emit_for_of_array_iteration(function, &node)
                 }
+                Some("return") => self.emit_return(function, &node),
                 _ => self.emit_branch(function, &node, want_value),
             },
             LirNodeKind::Unknown => {

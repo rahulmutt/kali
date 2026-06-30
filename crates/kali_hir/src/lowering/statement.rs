@@ -45,7 +45,9 @@ impl HirLowerer {
                 id
             }
             Statement::ReturnStatement(ReturnStatement { argument }) => {
-                let id = self.builder.alloc(HirNodeKind::ReturnStmt, None);
+                let id = self
+                    .builder
+                    .alloc_text(HirNodeKind::ReturnStmt, None, "return");
                 if let Some(arg) = argument {
                     push_child!(self, id, self.lower_expression(arg));
                 }
