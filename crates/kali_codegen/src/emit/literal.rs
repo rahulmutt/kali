@@ -277,8 +277,7 @@ impl<'a> FunctionEmitter<'a> {
                 if !rhs.produced {
                     function.instruction(&Instruction::I64Const(0));
                 }
-                function.instruction(&Instruction::LocalSet(index));
-                function.instruction(&Instruction::LocalGet(index));
+                function.instruction(&Instruction::LocalTee(index));
                 true
             }
             "??=" => {

@@ -52,3 +52,14 @@ fn functions_return_computed_values() {
         "42\n"
     );
 }
+
+#[test]
+fn mutable_locals_round_trip() {
+    assert_eq!(run_js("let x = 5;\nconsole.log(x);\n"), "5\n");
+    assert_eq!(run_js("let x = 5;\nx = x + 1;\nconsole.log(x);\n"), "6\n");
+    assert_eq!(run_js("let x = 0;\nx = 9;\nconsole.log(x);\n"), "9\n");
+    assert_eq!(
+        run_js("function f() { let x = 5; x = x + 1; return x; }\nconsole.log(f());\n"),
+        "6\n"
+    );
+}

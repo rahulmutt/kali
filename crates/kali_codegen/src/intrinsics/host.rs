@@ -246,8 +246,11 @@ impl<'a> FunctionEmitter<'a> {
                     if let Some(bound) = self.bindings.get(text).copied() {
                         return self.render_static_value(bound);
                     }
-                    if let Some(index) = self.locals.get(text).copied() {
-                        return Some(index.to_string());
+                    if self.locals.contains_key(text) {
+                        // Mutable `let`/`var` locals are runtime values, not statically
+                        // known; bail out so the caller falls back to dynamic emission
+                        // (`emit_node` -> `LocalGet`) instead of baking in a wrong constant.
+                        return None;
                     }
                     if let Some(number) = parse_number_literal(text) {
                         return Some(number.to_string());
