@@ -146,11 +146,23 @@ subexpression all f64, while `i`, `j`, `n`, `10`, and the length header stay i64
 **fannkuch has zero float seeds**, so every fannkuch node defaults to i64 and its lowering is
 byte-identical — the slice is provably additive.
 
-**Placement.** A focused analysis producing a representation table keyed by program point,
-living where the type information already is (HIR / `kali_types`, which already knows
-`number`/`string`/array at each use site), consumed by codegen. Promoting this to a general
-MIR representation/layout pass (alongside the existing `ObjectLayout` classification) is an
-explicit **future follow-up**, not built here — the bounded slice does not need it.
+**Placement.** The inference is **computed in `kali_types`** (during the existing single
+whole-program resolve walk, which already visits every function body and call site) and its
+result — a representation table keyed by `(function name, binding name)` plus per-parameter,
+return, and array-element reprs — is **threaded to codegen as a side table**, not carried on
+IR nodes. Concretely (confirmed by reading the pipeline): the shared `Repr`/`ReprTable` types
+live in `kali_common` (already depended on by both `kali_types` and `kali_codegen`, so no new
+dependency edge or cycle); `kali_types` returns the table on its `ResolutionResult`; the driver
+(`crates/kali_cli/src/build/compile.rs`) carries it out of `analyze_source_file` onto
+`AnalyzedSource`, into `CodegenCtx`, and `FunctionEmitter`/`lower.rs` consume a per-function
+slice. This mirrors the existing `TargetConfig`/`source_path`-on-`CodegenCtx` pattern and needs
+no IR schema change. (Note: codegen today receives *no* type table and re-derives string/array
+shape structurally from the LIR; this slice adds the first analysis result plumbed across the
+`kali_types` → codegen boundary. Because codegen currently emits every wasm param/result/local
+as `i64`, the table must also drive **wasm signature and local-declaration generation**, not
+only instruction selection.) Promoting this to a general MIR representation/layout pass
+(alongside the existing `ObjectLayout` classification) is an explicit **future follow-up**, not
+built here — the bounded slice does not need it.
 
 ### 4.2 Codegen lowering (all type-directed off the repr table)
 
