@@ -548,3 +548,20 @@ fn math_sqrt_runtime_f64() {
         "1\n"
     ); // 0.5 < 1
 }
+
+#[test]
+fn to_fixed_formats_floats() {
+    assert_eq!(run_js("console.log((1.5).toFixed(1));\n"), "1.5\n");
+    assert_eq!(run_js("console.log((1 / 3).toFixed(6));\n"), "0.333333\n");
+    assert_eq!(
+        run_js("console.log((1 / 2).toFixed(9));\n"),
+        "0.500000000\n"
+    );
+    // integer value formatted to fixed decimals.
+    assert_eq!(run_js("console.log((2 / 1).toFixed(3));\n"), "2.000\n");
+    // sqrt then format (spectral-norm output shape).
+    assert_eq!(
+        run_js("console.log(Math.sqrt(2).toFixed(9));\n"),
+        "1.414213562\n"
+    );
+}

@@ -164,6 +164,10 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     type_section
         .ty()
         .function(vec![ValType::I32, ValType::I32], vec![ValType::I32]);
+    // Type 8: float_to_fixed `(f64, i32) -> i64` (value, digit count -> string handle).
+    type_section
+        .ty()
+        .function(vec![ValType::F64, ValType::I32], vec![ValType::I64]);
     let mut import_section = ImportSection::new();
     import_section.import("kali:rt", "test_register", EntityType::Function(0));
     import_section.import("kali:rt", "console_log", EntityType::Function(1));
@@ -182,14 +186,16 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     import_section.import("kali:rt", "cwd", EntityType::Function(6));
     import_section.import("kali:rt", "math_clz32", EntityType::Function(4));
     import_section.import("kali:rt", "math_pow", EntityType::Function(3));
-    // Two unconditional runtime string helpers occupy fixed import indices 17 and 18
-    // (see INT_TO_STRING_IMPORT_INDEX / STRING_CONCAT_IMPORT_INDEX). They are registered
-    // here, before the conditional coverage/env/process imports, so the relative
-    // bookkeeping below (all expressed against COVERAGE_HIT_IMPORT_INDEX = 19) stays
-    // consistent. int_to_string is (i64) -> i64 (type 4); string_concat is
-    // (i64, i64) -> i64 (type 3).
+    // Three unconditional runtime helpers occupy fixed import indices 17, 18 and 19
+    // (see INT_TO_STRING_IMPORT_INDEX / STRING_CONCAT_IMPORT_INDEX /
+    // FLOAT_TO_FIXED_IMPORT_INDEX). They are registered here, before the conditional
+    // coverage/env/process imports, so the relative bookkeeping below (all expressed
+    // against COVERAGE_HIT_IMPORT_INDEX = 20) stays consistent. int_to_string is
+    // (i64) -> i64 (type 4); string_concat is (i64, i64) -> i64 (type 3);
+    // float_to_fixed is (f64, i32) -> i64 (type 8).
     import_section.import("kali:rt", "int_to_string", EntityType::Function(4));
     import_section.import("kali:rt", "string_concat", EntityType::Function(3));
+    import_section.import("kali:rt", "float_to_fixed", EntityType::Function(8));
     if ctx.target.coverage {
         import_section.import("kali:rt", "coverage_hit", EntityType::Function(0));
     }
@@ -253,7 +259,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         let type_index = if let Some(&idx) = function_types.get(&key) {
             idx
         } else {
-            let idx = function_types.len() as u32 + 8;
+            let idx = function_types.len() as u32 + 9;
             type_section.ty().function(params, results);
             function_types.insert(key, idx);
             idx

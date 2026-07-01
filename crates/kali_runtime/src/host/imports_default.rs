@@ -646,6 +646,18 @@ pub(crate) fn register_default_host_imports(
     linker
         .func_wrap(
             "kali:rt",
+            "float_to_fixed",
+            |mut caller: Caller<'_, KaliHostState>, value: f64, digits: i32| -> i64 {
+                let d = digits.clamp(0, 100) as usize;
+                let s = format!("{:.*}", d, value);
+                alloc_guest_string(&mut caller, s.as_bytes()).unwrap_or(0)
+            },
+        )
+        .map_err(|error| host_import_error("float_to_fixed", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
             "args_get",
             |mut caller: Caller<'_, KaliHostState>,
              index: i32,

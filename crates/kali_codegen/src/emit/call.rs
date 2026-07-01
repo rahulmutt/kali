@@ -140,6 +140,14 @@ impl<'a> FunctionEmitter<'a> {
             return self.emit_array_fill(function, receiver, value, &binding_name);
         }
 
+        // `<recv>.toFixed(<digits>)`: format a float as a fixed-decimal string via the
+        // `kali:rt float_to_fixed` host import. The receiver is emitted as an f64
+        // (promoting an integer-valued receiver), the digit count is a static integer
+        // literal, and the result is a string handle.
+        if let Some((receiver, digits)) = self.to_fixed_call_parts(node) {
+            return self.emit_to_fixed(function, receiver, digits);
+        }
+
         if self.is_object_freeze_call(node) {
             let mut args = node.children.iter().skip(1);
             let Some(value) = args.next() else {
@@ -2325,6 +2333,51 @@ impl<'a> FunctionEmitter<'a> {
             return None;
         }
         Some((receiver, node.children[1]))
+    }
+
+    /// Recognize a `<recv>.toFixed(<digits>)` member call, returning the receiver and
+    /// the digit-count argument node ids. Requires exactly one argument (the digit
+    /// count); the receiver is `toFixed`'s member base.
+    pub(crate) fn to_fixed_call_parts(&self, node: &LirNode) -> Option<(LirNodeId, LirNodeId)> {
+        if node.kind != LirNodeKind::Call || node.children.len() != 2 {
+            return None;
+        }
+        let callee = node.children.first().copied()?;
+        let callee = self.resolve_transparent_callable_node(callee)?;
+        let callee_node = self.node(callee);
+        if callee_node.text.as_deref() != Some("toFixed") {
+            return None;
+        }
+        let receiver = callee_node.children.first().copied()?;
+        Some((receiver, node.children[1]))
+    }
+
+    /// Lower `<recv>.toFixed(<digits>)` to `<recv as f64>; I32Const(digits);
+    /// Call(float_to_fixed)`. The receiver is promoted to f64 when it is not already
+    /// float-valued; the digit count is read from the static integer literal argument
+    /// and clamped to the host's supported `0..=100` range. The result is a string
+    /// handle (`ValueShape::String`) that prints via the existing string-handle path.
+    pub(crate) fn emit_to_fixed(
+        &mut self,
+        function: &mut Function,
+        receiver: LirNodeId,
+        digits: LirNodeId,
+    ) -> EmittedValue {
+        self.emit_node(function, receiver, true);
+        if !self.is_float_valued(receiver) {
+            function.instruction(&Instruction::F64ConvertI64S);
+        }
+        let digit_count = self
+            .render_static_value(digits)
+            .and_then(|rendered| parse_number_literal(&rendered))
+            .unwrap_or(0)
+            .clamp(0, 100) as i32;
+        function.instruction(&Instruction::I32Const(digit_count));
+        function.instruction(&Instruction::Call(FLOAT_TO_FIXED_IMPORT_INDEX));
+        EmittedValue {
+            produced: true,
+            shape: ValueShape::String,
+        }
     }
 
     /// Emit `receiver.fill(value)` as a repr-directed init loop that writes `value`
