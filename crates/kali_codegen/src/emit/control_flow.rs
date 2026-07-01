@@ -288,6 +288,26 @@ impl<'a> FunctionEmitter<'a> {
                             continue;
                         }
 
+                        // `const u = new Array(n).fill(v)` (or `u = a.fill(v)`):
+                        // register `u` as an array binding — so its element repr and
+                        // subsequent reads resolve — and run the repr-directed fill
+                        // loop at initialization, binding `u` to the filled array's
+                        // base handle.
+                        if let Some((receiver, value)) = self.resolve_array_fill_call(init) {
+                            if let Some(name) = declarator.text.clone() {
+                                if let Some(index) = self.locals.get(&name).copied() {
+                                    self.array_bindings.insert(name.clone());
+                                    let filled =
+                                        self.emit_array_fill(function, receiver, value, &name);
+                                    if !filled.produced {
+                                        function.instruction(&Instruction::I64Const(0));
+                                    }
+                                    function.instruction(&Instruction::LocalSet(index));
+                                    continue;
+                                }
+                            }
+                        }
+
                         let init_result = self.emit_node(function, init, true);
                         // A named scalar local whose chosen repr is F64 must receive an
                         // f64 on the stack; promote an integer-valued init before the store.

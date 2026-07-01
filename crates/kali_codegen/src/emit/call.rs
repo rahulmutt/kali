@@ -131,6 +131,15 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        // `receiver.fill(v)` on an array receiver: emit a repr-directed init loop
+        // that writes `v` into every slot and leaves the array handle on the stack.
+        if let Some((receiver, value)) = self.array_fill_call_parts(node) {
+            let binding_name = self
+                .assignment_target_name(node, receiver)
+                .unwrap_or_default();
+            return self.emit_array_fill(function, receiver, value, &binding_name);
+        }
+
         if self.is_object_freeze_call(node) {
             let mut args = node.children.iter().skip(1);
             let Some(value) = args.next() else {
@@ -2264,6 +2273,152 @@ impl<'a> FunctionEmitter<'a> {
             None => {
                 function.instruction(&Instruction::I64Const(0));
             }
+        }
+    }
+
+    /// If `id` (after unwrapping transparent value wrappers) is a `receiver.fill(v)`
+    /// member call whose receiver is an array handle — either a fresh `new Array(n)`
+    /// allocation or an existing array binding — returns `(receiver_id, value_id)`.
+    /// Non-array receivers (so `.fill` on other objects is left untouched) and the
+    /// zero-argument `fill()` form return `None`.
+    pub(crate) fn resolve_array_fill_call(&self, id: LirNodeId) -> Option<(LirNodeId, LirNodeId)> {
+        let target = self.unwrap_transparent_value_node(id);
+        self.array_fill_call_parts(self.node(target))
+    }
+
+    /// Node-based counterpart to [`resolve_array_fill_call`], for callers (e.g.
+    /// `emit_call`) that already hold the call node.
+    pub(crate) fn array_fill_call_parts(&self, node: &LirNode) -> Option<(LirNodeId, LirNodeId)> {
+        if node.kind != LirNodeKind::Call || node.children.len() != 2 {
+            return None;
+        }
+        let callee = node.children.first().copied()?;
+        let callee = self.resolve_transparent_callable_node(callee)?;
+        let callee_node = self.node(callee);
+        if callee_node.text.as_deref() != Some("fill") {
+            return None;
+        }
+        let receiver = callee_node.children.first().copied()?;
+        let receiver_is_array = self.resolve_array_alloc_call(receiver).is_some()
+            || self
+                .assignment_target_name(node, receiver)
+                .is_some_and(|name| self.array_bindings.contains(&name));
+        if !receiver_is_array {
+            return None;
+        }
+        Some((receiver, node.children[1]))
+    }
+
+    /// Emit `receiver.fill(value)` as a repr-directed init loop that writes `value`
+    /// into every element slot `0..len`, then leaves the array's i64 base handle on
+    /// the stack as the expression result (so the call is bindable/chainable).
+    ///
+    /// Mirrors the `block { loop { <test ⇒ br out>; body; br loop } }` idiom used by
+    /// [`Self::emit_loop`]. Uses the two trailing i64 scratch locals reserved in
+    /// `lower.rs`: `base_local` holds the array base handle (also the result) and
+    /// `counter_local` the loop counter `i`. The length bound is re-read each pass
+    /// from the i64 header at `offset: 0`, so no third local is needed.
+    ///
+    /// `binding_name` selects the element repr (F64 vs I64) and hence the store
+    /// width: an f64 array filled with an integer literal stores it as `1.0` via a
+    /// `f64.convert_i64_s` promotion and `F64Store`; an i64 array uses `I64Store`.
+    pub(crate) fn emit_array_fill(
+        &mut self,
+        function: &mut Function,
+        receiver: LirNodeId,
+        value: LirNodeId,
+        binding_name: &str,
+    ) -> EmittedValue {
+        let base_local = self.locals.len() as u32;
+        let counter_local = base_local + 1;
+
+        // Materialize the array base handle (i64) into `base_local`. A fresh
+        // `new Array(n)` receiver allocates (writing its length header); an existing
+        // binding just loads its handle.
+        if let Some(size_arg) = self.resolve_array_alloc_call(receiver) {
+            let allocated = self.emit_array_allocation(function, size_arg);
+            if !allocated.produced {
+                function.instruction(&Instruction::I64Const(0));
+            }
+        } else {
+            let base = self.emit_node(function, receiver, true);
+            if !base.produced {
+                function.instruction(&Instruction::I64Const(0));
+            }
+        }
+        function.instruction(&Instruction::LocalSet(base_local));
+
+        // i = 0
+        function.instruction(&Instruction::I64Const(0));
+        function.instruction(&Instruction::LocalSet(counter_local));
+
+        let elem_is_float = self.array_elem_repr(binding_name) == kali_common::Repr::F64;
+        let value_is_float = self.is_float_valued(value);
+
+        function.instruction(&Instruction::Block(BlockType::Empty));
+        function.instruction(&Instruction::Loop(BlockType::Empty));
+
+        // Exit test: `i >= len` breaks out of the enclosing `block` (depth 1). The
+        // length is the i64 header at `offset: 0` of the base handle.
+        function.instruction(&Instruction::LocalGet(counter_local));
+        function.instruction(&Instruction::LocalGet(base_local));
+        function.instruction(&Instruction::I32WrapI64);
+        function.instruction(&Instruction::I64Load(MemArg {
+            offset: 0,
+            align: 3,
+            memory_index: 0,
+        }));
+        function.instruction(&Instruction::I64GeS);
+        function.instruction(&Instruction::BrIf(1));
+
+        // addr = base + i*8 (the `+8` element header offset is applied via the store
+        // immediate, matching the element read/write paths).
+        function.instruction(&Instruction::LocalGet(base_local));
+        function.instruction(&Instruction::I32WrapI64);
+        function.instruction(&Instruction::LocalGet(counter_local));
+        function.instruction(&Instruction::I32WrapI64);
+        function.instruction(&Instruction::I32Const(8));
+        function.instruction(&Instruction::I32Mul);
+        function.instruction(&Instruction::I32Add);
+
+        // Push `value` at the array's element width. An integer literal/expr stored
+        // into an f64 array is promoted to f64 first.
+        let produced = self.emit_node(function, value, true);
+        if !produced.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
+        if elem_is_float {
+            if !produced.produced || !value_is_float {
+                function.instruction(&Instruction::F64ConvertI64S);
+            }
+            function.instruction(&Instruction::F64Store(MemArg {
+                offset: 8,
+                align: 3,
+                memory_index: 0,
+            }));
+        } else {
+            function.instruction(&Instruction::I64Store(MemArg {
+                offset: 8,
+                align: 3,
+                memory_index: 0,
+            }));
+        }
+
+        // i += 1
+        function.instruction(&Instruction::LocalGet(counter_local));
+        function.instruction(&Instruction::I64Const(1));
+        function.instruction(&Instruction::I64Add);
+        function.instruction(&Instruction::LocalSet(counter_local));
+
+        function.instruction(&Instruction::Br(0)); // back to loop top
+        function.instruction(&Instruction::End); // end loop
+        function.instruction(&Instruction::End); // end block
+
+        // Result: the array's i64 base handle.
+        function.instruction(&Instruction::LocalGet(base_local));
+        EmittedValue {
+            produced: true,
+            shape: ValueShape::Scalar,
         }
     }
 

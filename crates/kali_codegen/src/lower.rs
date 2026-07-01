@@ -790,7 +790,9 @@ pub(crate) fn collect_array_binding_names(
             let Some(init) = declarator_node.children.get(1).copied() else {
                 continue;
             };
-            if declarator_init_is_array_alloc(nodes, init) {
+            if declarator_init_is_array_alloc(nodes, init)
+                || declarator_init_is_array_fill(nodes, init)
+            {
                 if let Some(name) = declarator_node.text.clone() {
                     array_names.insert(name);
                 }
@@ -847,6 +849,7 @@ pub(crate) fn collect_function_locals_from_node(
                 continue;
             };
             if !declarator_init_is_array_alloc(nodes, init)
+                && !declarator_init_is_array_fill(nodes, init)
                 && !declarator_init_is_array_read(nodes, init, array_names)
             {
                 continue;
@@ -1023,6 +1026,51 @@ pub(crate) fn declarator_init_is_array_alloc(nodes: &[LirNode], init_id: LirNode
         };
         return callee_node.text.as_deref() == Some("Array") && callee_node.children.is_empty();
     }
+}
+
+/// `<array-alloc>.fill(v)` — a `.fill(v)` member call whose receiver is a
+/// `new Array(n)` / `Array(n)` allocation. Like a bare allocation, this both
+/// produces a fresh linear-memory array (so the binding needs a stable local
+/// handle) and registers an array binding, so it is collected the same way.
+pub(crate) fn declarator_init_is_array_fill(nodes: &[LirNode], init_id: LirNodeId) -> bool {
+    let mut id = init_id;
+    let mut guard = 0;
+    let node = loop {
+        let Some(node) = nodes.get(id.0 as usize) else {
+            return false;
+        };
+        if node.kind == LirNodeKind::Value
+            && node.children.len() == 1
+            && node.text.as_deref().is_none_or(|text| text.is_empty())
+        {
+            id = node.children[0];
+            guard += 1;
+            if guard > 64 {
+                return false;
+            }
+            continue;
+        }
+        break node;
+    };
+
+    if node.kind != LirNodeKind::Call || node.children.len() != 2 {
+        return false;
+    }
+    let Some(callee) = node.children.first().copied() else {
+        return false;
+    };
+    let Some(callee_node) = nodes.get(callee.0 as usize) else {
+        return false;
+    };
+    // The callee is the member expression `<receiver>.fill`: `text` is the method
+    // name and `children[0]` is the receiver.
+    if callee_node.text.as_deref() != Some("fill") {
+        return false;
+    }
+    let Some(receiver) = callee_node.children.first().copied() else {
+        return false;
+    };
+    declarator_init_is_array_alloc(nodes, receiver)
 }
 
 pub(crate) fn top_level_children(lir: &LirProgram) -> Vec<LirNodeId> {

@@ -385,3 +385,17 @@ fn array_length_reads_header() {
         "4\n"
     );
 }
+
+#[test]
+fn array_fill_initializes_all_elements() {
+    // integer fill
+    assert_eq!(
+        run_js("const a = new Array(3).fill(7);\nconsole.log(a[0] + a[1] + a[2]);\n"),
+        "21\n"
+    );
+    // float fill: a is a float array (used in a float add), fill(1) stores 1.0.
+    assert_eq!(
+        run_js("const a = new Array(2).fill(1);\nconsole.log((a[0] + 1 / 2) < 2);\n"),
+        "1\n" // 1.0 + 0.5 = 1.5 < 2
+    );
+}
