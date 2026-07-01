@@ -37,6 +37,69 @@ impl TypeContext {
         }
     }
 
+    /// A `+` operand that is a *string-typed variable*: an identifier bound to a
+    /// known static string value (transparent parenthesized/assertion wrappers are
+    /// unwrapped). String *literals* are deliberately excluded — codegen already
+    /// concatenates literal-rooted `+` correctly. Codegen's `is_string_valued`
+    /// recognizes only literals, so a bare string variable operand is not seen as
+    /// a concatenation and would be miscompiled as integer addition on a string
+    /// handle; this predicate identifies exactly that operand shape.
+    fn plus_operand_is_string_variable(&self, expression: &Expression) -> bool {
+        match expression {
+            Expression::Identifier(name) => matches!(
+                self.resolve_static_object_identity_binding(name),
+                Some(StaticObjectIdentityValue::String(_))
+            ),
+            Expression::ParenthesizedExpression(expr) => {
+                self.plus_operand_is_string_variable(&expr.expression)
+            }
+            Expression::TypeAssertion(expr) => {
+                self.plus_operand_is_string_variable(&expr.expression)
+            }
+            Expression::SatisfiesExpression(expr) => {
+                self.plus_operand_is_string_variable(&expr.expression)
+            }
+            _ => false,
+        }
+    }
+
+    /// A `+` operand that is definitely numeric: a numeric literal or an identifier
+    /// bound to a known static numeric value (numeric bindings are never recorded
+    /// for string-valued names, so this cannot alias a string variable).
+    fn plus_operand_is_number(&self, expression: &Expression) -> bool {
+        self.resolve_static_numeric_literal_value(expression)
+            .is_some()
+    }
+
+    /// Rejects a mixed `string-variable + number` (or `number + string-variable`)
+    /// addition with `E3200`. The direct-runtime codegen path only lowers string
+    /// concatenation that is rooted in a string/template literal (e.g. `"x" + 3`);
+    /// a string-typed *variable* added to a number is not recognized as
+    /// concatenation and would otherwise be silently miscompiled as integer
+    /// addition on a string handle. Rejecting it keeps the outcome sound (a clear
+    /// compile-time error instead of garbage) without touching the supported
+    /// literal-rooted concatenation.
+    fn reject_mixed_string_number_addition(&mut self, expr: &BinaryExpression) {
+        if expr.operator != "+" {
+            return;
+        }
+        let left_string = self.plus_operand_is_string_variable(&expr.left);
+        let right_string = self.plus_operand_is_string_variable(&expr.right);
+        let left_number = self.plus_operand_is_number(&expr.left);
+        let right_number = self.plus_operand_is_number(&expr.right);
+        if (left_string && right_number) || (right_string && left_number) {
+            self.diagnostics.push(
+                Diagnostic::error(
+                    e3::TYPE_MISMATCH as u32,
+                    "mixed string/number '+' with a string-typed variable operand is unavailable in the current direct-runtime path: only string concatenation rooted in a string or template literal (for example \"x\" + 3) is lowered to runtime concatenation".to_string(),
+                )
+                .with_suggestion(
+                    "root the concatenation in a string literal (\"\" + value), or convert the number to a string before joining, or use the later compatibility path",
+                ),
+            );
+        }
+    }
+
     pub(crate) fn resolve_expression(&mut self, expression: &Expression) {
         match expression {
             Expression::Identifier(name) => self.resolve_identifier(name),
@@ -44,6 +107,7 @@ impl TypeContext {
             Expression::BinaryExpression(expr) => {
                 self.resolve_expression(&expr.left);
                 self.resolve_expression(&expr.right);
+                self.reject_mixed_string_number_addition(expr);
             }
             Expression::UnaryExpression(expr) => {
                 if expr.operator == "delete" {

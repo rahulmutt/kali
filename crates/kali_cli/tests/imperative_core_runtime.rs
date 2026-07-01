@@ -28,6 +28,56 @@ fn run_js(source: &str) -> String {
     String::from_utf8_lossy(&output.stdout).into_owned()
 }
 
+/// Runs `source` and asserts the compiler REJECTS it (non-zero exit), returning
+/// combined stdout+stderr so tests can assert on the diagnostic. Used for shapes
+/// the direct-runtime path cannot lower and must refuse rather than miscompile.
+fn run_js_expect_failure(source: &str) -> String {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, source).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        !output.status.success(),
+        "expected compilation to be rejected, but it succeeded\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let mut combined = String::from_utf8_lossy(&output.stdout).into_owned();
+    combined.push_str(&String::from_utf8_lossy(&output.stderr));
+    combined
+}
+
+#[test]
+fn mixed_string_variable_plus_number_is_rejected() {
+    // A string-typed variable `+` an integer is not literal-rooted, so codegen
+    // cannot recognize it as concatenation. Rather than silently emitting integer
+    // addition on a string handle (garbage), the checker must reject it (E3200).
+    let diag = run_js_expect_failure("let s = \"x\";\nconsole.log(s + 3);\n");
+    assert!(
+        diag.contains("E3200"),
+        "expected E3200 type-mismatch diagnostic, got: {diag}"
+    );
+    let diag = run_js_expect_failure("let s = \"x\";\nconsole.log(3 + s);\n");
+    assert!(
+        diag.contains("E3200"),
+        "expected E3200 type-mismatch diagnostic, got: {diag}"
+    );
+    // String variable + numeric variable is the same miscompiling shape.
+    run_js_expect_failure("let s = \"x\";\nlet n = 3;\nconsole.log(s + n);\n");
+
+    // Literal-rooted concatenation stays supported and correct.
+    assert_eq!(run_js("console.log(\"x\" + 3);\n"), "x3\n");
+    assert_eq!(run_js("let n = 7;\nconsole.log(\"n=\" + n);\n"), "n=7\n");
+}
+
 #[test]
 fn relational_operators_compute_booleans() {
     assert_eq!(run_js("console.log(3 < 5);\n"), "1\n");

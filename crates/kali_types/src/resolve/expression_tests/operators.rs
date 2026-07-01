@@ -270,3 +270,139 @@ fn test_resolution_accepts_decorated_wrappers_for_update_targets() {
     let result = ctx.resolve_statements(&statements);
     assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
 }
+
+// Helper: `<lhs> + <rhs>` as a top-level expression statement.
+#[cfg(test)]
+fn plus_statement(lhs: Expression, rhs: Expression) -> Statement {
+    Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::BinaryExpression(Box::new(BinaryExpression {
+            operator: "+".to_string(),
+            left: lhs,
+            right: rhs,
+        }))),
+    })
+}
+
+#[cfg(test)]
+fn let_string(name: &str, value: &str) -> Statement {
+    Statement::VariableDeclaration(VariableDeclaration {
+        kind: "let".to_string(),
+        declarations: vec![VariableDeclarator {
+            id: name.to_string(),
+            init: Some(Expression::Literal(LiteralValue::String(value.to_string()))),
+        }],
+    })
+}
+
+#[cfg(test)]
+fn let_number(name: &str, value: f64) -> Statement {
+    Statement::VariableDeclaration(VariableDeclaration {
+        kind: "let".to_string(),
+        declarations: vec![VariableDeclarator {
+            id: name.to_string(),
+            init: Some(Expression::Literal(LiteralValue::Number(value))),
+        }],
+    })
+}
+
+#[test]
+fn test_resolution_rejects_string_variable_plus_number() {
+    // `let s = "x"; s + 3` — string-typed variable added to an integer.
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        let_string("s", "x"),
+        plus_statement(
+            Expression::Identifier("s".to_string()),
+            Expression::Literal(LiteralValue::Number(3.0)),
+        ),
+    ];
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 1, "{:?}", result.diagnostics);
+    assert_eq!(result.diagnostics[0].code, Some(e3::TYPE_MISMATCH as u32));
+
+    // `let s = "x"; 3 + s` — operand order is symmetric.
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        let_string("s", "x"),
+        plus_statement(
+            Expression::Literal(LiteralValue::Number(3.0)),
+            Expression::Identifier("s".to_string()),
+        ),
+    ];
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 1, "{:?}", result.diagnostics);
+    assert_eq!(result.diagnostics[0].code, Some(e3::TYPE_MISMATCH as u32));
+
+    // `let s = "x"; let n = 3; s + n` — string variable + numeric variable.
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        let_string("s", "x"),
+        let_number("n", 3.0),
+        plus_statement(
+            Expression::Identifier("s".to_string()),
+            Expression::Identifier("n".to_string()),
+        ),
+    ];
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 1, "{:?}", result.diagnostics);
+    assert_eq!(result.diagnostics[0].code, Some(e3::TYPE_MISMATCH as u32));
+}
+
+#[test]
+fn test_resolution_accepts_supported_addition_shapes() {
+    // Literal-rooted concatenation `"x" + 3` stays supported (codegen concatenates).
+    let mut ctx = TypeContext::new();
+    let statements = vec![plus_statement(
+        Expression::Literal(LiteralValue::String("x".to_string())),
+        Expression::Literal(LiteralValue::Number(3.0)),
+    )];
+    let result = ctx.resolve_statements(&statements);
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+
+    // Literal-rooted concatenation with a numeric variable `"n=" + n`.
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        let_number("n", 7.0),
+        plus_statement(
+            Expression::Literal(LiteralValue::String("n=".to_string())),
+            Expression::Identifier("n".to_string()),
+        ),
+    ];
+    let result = ctx.resolve_statements(&statements);
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+
+    // Pure integer arithmetic `let a = 1; let b = 2; a + b` is untouched.
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        let_number("a", 1.0),
+        let_number("b", 2.0),
+        plus_statement(
+            Expression::Identifier("a".to_string()),
+            Expression::Identifier("b".to_string()),
+        ),
+    ];
+    let result = ctx.resolve_statements(&statements);
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+
+    // Reassigning the string variable to a number clears its static string type,
+    // so `let s = "x"; s = 5; s + 1` is NOT rejected (and stays correct at runtime).
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        let_string("s", "x"),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::AssignmentExpression(Box::new(
+                AssignmentExpression {
+                    operator: AssignmentOperator::Assign,
+                    left: Expression::Identifier("s".to_string()),
+                    right: Expression::Literal(LiteralValue::Number(5.0)),
+                },
+            ))),
+        }),
+        plus_statement(
+            Expression::Identifier("s".to_string()),
+            Expression::Literal(LiteralValue::Number(1.0)),
+        ),
+    ];
+    let result = ctx.resolve_statements(&statements);
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+}
