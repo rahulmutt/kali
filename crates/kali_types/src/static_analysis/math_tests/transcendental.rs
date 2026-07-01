@@ -6,6 +6,7 @@ fn test_resolution_reports_math_sqrt_as_available_for_perfect_square_integer_lit
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
                 property: "sqrt".to_string(),
             })),
@@ -29,10 +30,12 @@ fn test_resolution_supports_math_max_and_min_member_calls_through_object_freeze_
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::CallExpression(Box::new(CallExpression {
                     callee: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("Object".to_string()),
                         property: "freeze".to_string(),
                     })),
                     args: vec![Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("Math".to_string()),
                         property: "max".to_string(),
                     }))],
@@ -48,11 +51,14 @@ fn test_resolution_supports_math_max_and_min_member_calls_through_object_freeze_
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::CallExpression(Box::new(CallExpression {
                     callee: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("Object".to_string()),
                         property: "freeze".to_string(),
                     })),
                     args: vec![Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::MemberExpression(Box::new(MemberExpression {
+                            computed_index: None,
                             object: Expression::Identifier("globalThis".to_string()),
                             property: "Math".to_string(),
                         })),
@@ -82,6 +88,7 @@ fn test_resolution_supports_math_cbrt_member_calls_for_perfect_cube_integer_lite
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
                 property: "cbrt".to_string(),
             })),
@@ -103,6 +110,7 @@ fn test_resolution_supports_math_log2_member_calls_for_positive_power_of_two_int
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
                 property: "log2".to_string(),
             })),
@@ -124,6 +132,7 @@ fn test_resolution_supports_math_log10_member_calls_for_positive_power_of_ten_in
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
                 property: "log10".to_string(),
             })),
@@ -160,6 +169,7 @@ fn test_resolution_supports_math_hypot_member_calls_with_const_numeric_alias_cha
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "hypot".to_string(),
                 })),
@@ -185,6 +195,7 @@ fn test_resolution_supports_math_hypot_member_calls_with_empty_argument_list() {
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
                 property: "hypot".to_string(),
             })),
@@ -207,6 +218,7 @@ fn test_resolution_supports_math_imul_with_omitted_operands() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "imul".to_string(),
                 })),
@@ -216,6 +228,7 @@ fn test_resolution_supports_math_imul_with_omitted_operands() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "imul".to_string(),
                 })),
@@ -238,6 +251,7 @@ fn test_resolution_reports_unsupported_math_cbrt_member_calls_as_unavailable() {
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
                 property: "cbrt".to_string(),
             })),
@@ -263,6 +277,7 @@ fn test_resolution_reports_unsupported_math_hypot_member_calls_as_unavailable() 
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
                 property: "hypot".to_string(),
             })),
@@ -292,6 +307,7 @@ fn test_resolution_reports_unsupported_math_log2_member_calls_as_unavailable() {
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
                 property: "log2".to_string(),
             })),
@@ -318,6 +334,7 @@ fn test_resolution_reports_unsupported_math_log10_member_calls_as_unavailable() 
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
                 property: "log10".to_string(),
             })),
@@ -359,6 +376,7 @@ fn test_resolution_supports_math_exp_and_log_exact_identity_literals() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "exp".to_string(),
                 })),
@@ -368,6 +386,7 @@ fn test_resolution_supports_math_exp_and_log_exact_identity_literals() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "log".to_string(),
                 })),
@@ -405,6 +424,7 @@ fn test_resolution_supports_math_exp2_exact_identity_literals() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "exp2".to_string(),
                 })),
@@ -442,6 +462,7 @@ fn test_resolution_supports_math_exp2_non_negative_integer_literals() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "exp2".to_string(),
                 })),
@@ -464,6 +485,7 @@ fn test_resolution_rejects_math_exp2_non_integer_literals_as_unavailable() {
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
                 property: "exp2".to_string(),
             })),
@@ -505,6 +527,7 @@ fn test_resolution_supports_math_atan2_zero_numerator_and_non_negative_denominat
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "atan2".to_string(),
                 })),
@@ -545,6 +568,7 @@ fn test_resolution_traverses_extra_math_atan2_arguments_after_the_supported_slic
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "atan2".to_string(),
                 })),
@@ -590,6 +614,7 @@ fn test_resolution_traverses_extra_math_tan_arguments_after_the_supported_slice(
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "tan".to_string(),
                 })),
@@ -634,6 +659,7 @@ fn test_resolution_supports_math_expm1_log1p_and_fround_exact_zero_literals() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "expm1".to_string(),
                 })),
@@ -643,6 +669,7 @@ fn test_resolution_supports_math_expm1_log1p_and_fround_exact_zero_literals() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "log1p".to_string(),
                 })),
@@ -652,6 +679,7 @@ fn test_resolution_supports_math_expm1_log1p_and_fround_exact_zero_literals() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "fround".to_string(),
                 })),
@@ -689,6 +717,7 @@ fn test_resolution_supports_math_expm1_log1p_and_fround_const_numeric_alias_chai
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "expm1".to_string(),
                 })),
@@ -698,6 +727,7 @@ fn test_resolution_supports_math_expm1_log1p_and_fround_const_numeric_alias_chai
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "log1p".to_string(),
                 })),
@@ -707,6 +737,7 @@ fn test_resolution_supports_math_expm1_log1p_and_fround_const_numeric_alias_chai
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "fround".to_string(),
                 })),
@@ -730,6 +761,7 @@ fn test_resolution_reports_math_expm1_log1p_and_fround_non_identity_literals_as_
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "expm1".to_string(),
                 })),
@@ -739,6 +771,7 @@ fn test_resolution_reports_math_expm1_log1p_and_fround_non_identity_literals_as_
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "log1p".to_string(),
                 })),
@@ -748,6 +781,7 @@ fn test_resolution_reports_math_expm1_log1p_and_fround_non_identity_literals_as_
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "fround".to_string(),
                 })),
@@ -800,6 +834,7 @@ fn test_resolution_supports_math_asin_acos_atan_exact_identity_literals() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "asin".to_string(),
                 })),
@@ -809,6 +844,7 @@ fn test_resolution_supports_math_asin_acos_atan_exact_identity_literals() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "acos".to_string(),
                 })),
@@ -818,6 +854,7 @@ fn test_resolution_supports_math_asin_acos_atan_exact_identity_literals() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "atan".to_string(),
                 })),
@@ -855,6 +892,7 @@ fn test_resolution_supports_math_asinh_acosh_atanh_exact_identity_literals() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "asinh".to_string(),
                 })),
@@ -864,6 +902,7 @@ fn test_resolution_supports_math_asinh_acosh_atanh_exact_identity_literals() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "acosh".to_string(),
                 })),
@@ -873,6 +912,7 @@ fn test_resolution_supports_math_asinh_acosh_atanh_exact_identity_literals() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "atanh".to_string(),
                 })),
@@ -903,6 +943,7 @@ fn test_resolution_supports_math_sinh_cosh_tanh_exact_identity_literals() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "sinh".to_string(),
                 })),
@@ -912,6 +953,7 @@ fn test_resolution_supports_math_sinh_cosh_tanh_exact_identity_literals() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "cosh".to_string(),
                 })),
@@ -921,6 +963,7 @@ fn test_resolution_supports_math_sinh_cosh_tanh_exact_identity_literals() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "tanh".to_string(),
                 })),
@@ -944,6 +987,7 @@ fn test_resolution_reports_math_sinh_cosh_tanh_non_identity_literals_as_unavaila
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "sinh".to_string(),
                 })),
@@ -953,6 +997,7 @@ fn test_resolution_reports_math_sinh_cosh_tanh_non_identity_literals_as_unavaila
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "cosh".to_string(),
                 })),
@@ -962,6 +1007,7 @@ fn test_resolution_reports_math_sinh_cosh_tanh_non_identity_literals_as_unavaila
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "tanh".to_string(),
                 })),
@@ -1000,6 +1046,7 @@ fn test_resolution_reports_math_asinh_acosh_atanh_non_identity_literals_as_unava
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "asinh".to_string(),
                 })),
@@ -1009,6 +1056,7 @@ fn test_resolution_reports_math_asinh_acosh_atanh_non_identity_literals_as_unava
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "acosh".to_string(),
                 })),
@@ -1018,6 +1066,7 @@ fn test_resolution_reports_math_asinh_acosh_atanh_non_identity_literals_as_unava
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "atanh".to_string(),
                 })),
@@ -1055,6 +1104,7 @@ fn test_resolution_reports_math_atan2_non_matching_literals_as_unavailable() {
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
                 property: "atan2".to_string(),
             })),
@@ -1112,6 +1162,7 @@ fn test_resolution_supports_math_atan2_member_calls_with_const_numeric_alias_cha
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "atan2".to_string(),
                 })),
@@ -1137,6 +1188,7 @@ fn test_resolution_reports_math_max_without_arguments_as_unavailable() {
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
                 property: "max".to_string(),
             })),
@@ -1176,6 +1228,7 @@ fn test_resolution_supports_math_sqrt_member_calls_with_const_numeric_alias_chai
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "sqrt".to_string(),
                 })),
@@ -1218,6 +1271,7 @@ fn test_resolution_supports_math_cbrt_member_calls_with_negative_const_numeric_a
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "cbrt".to_string(),
                 })),
@@ -1240,6 +1294,7 @@ fn test_resolution_supports_math_tan_zero_literal_member_calls() {
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
                 property: "tan".to_string(),
             })),
@@ -1262,6 +1317,7 @@ fn test_resolution_supports_math_sin_cos_zero_literal_member_calls() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "sin".to_string(),
                 })),
@@ -1271,6 +1327,7 @@ fn test_resolution_supports_math_sin_cos_zero_literal_member_calls() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "cos".to_string(),
                 })),
@@ -1293,6 +1350,7 @@ fn test_resolution_rejects_non_zero_literals_in_math_tan_member_calls_as_unavail
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
                 property: "tan".to_string(),
             })),
@@ -1316,6 +1374,7 @@ fn test_resolution_rejects_non_zero_literals_in_math_sin_cos_member_calls_as_una
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "sin".to_string(),
                 })),
@@ -1325,6 +1384,7 @@ fn test_resolution_rejects_non_zero_literals_in_math_sin_cos_member_calls_as_una
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "cos".to_string(),
                 })),
@@ -1359,6 +1419,7 @@ fn test_resolution_reports_non_identity_literals_in_math_asin_acos_atan_member_c
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "asin".to_string(),
                 })),
@@ -1368,6 +1429,7 @@ fn test_resolution_reports_non_identity_literals_in_math_asin_acos_atan_member_c
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "acos".to_string(),
                 })),
@@ -1377,6 +1439,7 @@ fn test_resolution_reports_non_identity_literals_in_math_asin_acos_atan_member_c
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "atan".to_string(),
                 })),

@@ -824,6 +824,57 @@ pub(crate) fn collect_function_locals_from_node(
 
 /// Returns true if `init_id` unwraps to a dynamic array element read `base[index]`
 /// whose `base` identifier is a known linear-memory array binding.
+/// A two-child `LirNodeKind::Value` node is a binary expression when its text is
+/// an operator, and a computed member access (`a[<expr>]`) otherwise — computed
+/// indices never stringify to a bare operator, so `text` cleanly separates the
+/// two shapes that both lower to a two-child `Value` node.
+pub(crate) fn is_binary_operator_text(text: &str) -> bool {
+    matches!(
+        text,
+        "+" | "-"
+            | "*"
+            | "/"
+            | "%"
+            | "**"
+            | "=="
+            | "==="
+            | "!="
+            | "!=="
+            | "<"
+            | "<="
+            | ">"
+            | ">="
+            | "<<"
+            | ">>"
+            | ">>>"
+            | "&"
+            | "|"
+            | "^"
+            | "&&"
+            | "||"
+            | "??"
+            | ","
+            | "in"
+            | "instanceof"
+            | "="
+            | "+="
+            | "-="
+            | "*="
+            | "/="
+            | "%="
+            | "**="
+            | "<<="
+            | ">>="
+            | ">>>="
+            | "&="
+            | "|="
+            | "^="
+            | "&&="
+            | "||="
+            | "??="
+    )
+}
+
 pub(crate) fn declarator_init_is_array_read(
     nodes: &[LirNode],
     init_id: LirNodeId,
@@ -833,7 +884,19 @@ pub(crate) fn declarator_init_is_array_read(
     let Some(member_node) = nodes.get(member.0 as usize) else {
         return false;
     };
-    if member_node.kind != LirNodeKind::Value || member_node.children.len() != 1 {
+    // Literal/identifier index reads lower to a 1-child member node (`[base]`)
+    // with the index in `text`; computed reads (`a[i + 1]`) lower to a 2-child
+    // member node (`[base, index]`). Both must be promoted to an eager local.
+    if member_node.kind != LirNodeKind::Value
+        || !(member_node.children.len() == 1 || member_node.children.len() == 2)
+    {
+        return false;
+    }
+    // A two-child node whose text is an operator is a binary expression
+    // (`const t = a + b`), not a computed member read.
+    if member_node.children.len() == 2
+        && is_binary_operator_text(member_node.text.as_deref().unwrap_or_default())
+    {
         return false;
     }
     if member_node

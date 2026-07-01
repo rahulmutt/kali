@@ -192,6 +192,7 @@ fn test_resolution_rejects_compound_assignment_on_non_local_targets_as_unavailab
                 AssignmentExpression {
                     operator: AssignmentOperator::AddAssign,
                     left: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("target".to_string()),
                         property: "value".to_string(),
                     })),

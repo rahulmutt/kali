@@ -11,6 +11,7 @@ fn test_resolution_supports_wrapped_call_targets_for_object_model_and_math_helpe
                         ParenthesizedExpression {
                             expression: Box::new(Expression::MemberExpression(Box::new(
                                 MemberExpression {
+                                    computed_index: None,
                                     object: Expression::Identifier("Object".to_string()),
                                     property: "hasOwn".to_string(),
                                 },
@@ -37,6 +38,7 @@ fn test_resolution_supports_wrapped_call_targets_for_object_model_and_math_helpe
                         ParenthesizedExpression {
                             expression: Box::new(Expression::MemberExpression(Box::new(
                                 MemberExpression {
+                                    computed_index: None,
                                     object: Expression::Identifier("Math".to_string()),
                                     property: "floor".to_string(),
                                 },
@@ -64,7 +66,9 @@ fn test_resolution_supports_global_this_math_builtin_slices_for_supported_method
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Math".to_string(),
                     })),
@@ -80,7 +84,9 @@ fn test_resolution_supports_global_this_math_builtin_slices_for_supported_method
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Math".to_string(),
                     })),
@@ -97,7 +103,9 @@ fn test_resolution_supports_global_this_math_builtin_slices_for_supported_method
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Math".to_string(),
                     })),
@@ -122,7 +130,9 @@ fn test_resolution_supports_global_this_math_hypot_member_calls_with_empty_argum
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
+                computed_index: None,
                 object: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("globalThis".to_string()),
                     property: "Math".to_string(),
                 })),

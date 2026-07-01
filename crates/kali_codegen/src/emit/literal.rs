@@ -1,5 +1,12 @@
 use crate::*;
 
+/// Source of a dynamic array element index for `a[...] = v` writes: either a
+/// stringified literal/identifier (`text`) or a structured computed-index node.
+enum ArrayWriteIndex {
+    Text(String),
+    Node(LirNodeId),
+}
+
 impl<'a> FunctionEmitter<'a> {
     pub(crate) fn emit_aggregate_literal(
         &mut self,
@@ -234,31 +241,57 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
 
-        // Dynamic array element write: `a[i] = v` where `a` is a linear-memory array.
+        // Dynamic array element write: `a[i] = v` where `a` is a linear-memory
+        // array. Literal/identifier indices lower to a 1-child member node with
+        // the index in `text`; computed indices (`a[r - 1] = v`) lower to a
+        // 2-child member node with the index expression in `children[1]`.
         if op == "=" {
             let left_node = self.node(left).clone();
-            if left_node.kind == LirNodeKind::Value && left_node.children.len() == 1 {
-                if let Some(index_text) = left_node.text.clone() {
-                    if !index_text.is_empty() {
-                        let base_id = left_node.children[0];
-                        if let Some(base_name) = self.assignment_target_name(node, base_id) {
-                            if self.array_bindings.contains(&base_name) {
-                                let scratch = self.locals.len() as u32;
-                                self.emit_array_element_address(function, base_id, &index_text);
-                                let rhs = self.emit_node(function, right, true);
-                                if !rhs.produced {
-                                    function.instruction(&Instruction::I64Const(0));
+            if left_node.kind == LirNodeKind::Value {
+                let target = match left_node.children.len() {
+                    1 => left_node
+                        .text
+                        .clone()
+                        .filter(|index_text| !index_text.is_empty())
+                        .map(|index_text| {
+                            (left_node.children[0], ArrayWriteIndex::Text(index_text))
+                        }),
+                    2 if !is_binary_operator_text(
+                        left_node.text.as_deref().unwrap_or_default(),
+                    ) =>
+                    {
+                        Some((
+                            left_node.children[0],
+                            ArrayWriteIndex::Node(left_node.children[1]),
+                        ))
+                    }
+                    _ => None,
+                };
+
+                if let Some((base_id, index)) = target {
+                    if let Some(base_name) = self.assignment_target_name(node, base_id) {
+                        if self.array_bindings.contains(&base_name) {
+                            let scratch = self.locals.len() as u32;
+                            match index {
+                                ArrayWriteIndex::Text(index_text) => {
+                                    self.emit_array_element_address(function, base_id, &index_text)
                                 }
-                                function.instruction(&Instruction::LocalTee(scratch));
-                                function.instruction(&Instruction::I64Store(MemArg {
-                                    offset: 8,
-                                    align: 3,
-                                    memory_index: 0,
-                                }));
-                                // Assignment expression result is the stored value.
-                                function.instruction(&Instruction::LocalGet(scratch));
-                                return true;
+                                ArrayWriteIndex::Node(index_id) => self
+                                    .emit_array_element_address_node(function, base_id, index_id),
                             }
+                            let rhs = self.emit_node(function, right, true);
+                            if !rhs.produced {
+                                function.instruction(&Instruction::I64Const(0));
+                            }
+                            function.instruction(&Instruction::LocalTee(scratch));
+                            function.instruction(&Instruction::I64Store(MemArg {
+                                offset: 8,
+                                align: 3,
+                                memory_index: 0,
+                            }));
+                            // Assignment expression result is the stored value.
+                            function.instruction(&Instruction::LocalGet(scratch));
+                            return true;
                         }
                     }
                 }

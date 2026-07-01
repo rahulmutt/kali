@@ -1,6 +1,6 @@
 use crate::*;
-use kali_test_support::fixtures;
 use kali_ast::{CallExpression, Expression, ExpressionStatement, LiteralValue, MemberExpression};
+use kali_test_support::fixtures;
 use std::fs;
 
 #[test]
@@ -10,6 +10,7 @@ fn test_resolution_supports_promise_all_settled_member_calls() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Promise".to_string()),
                     property: "allSettled".to_string(),
                 })),
@@ -19,7 +20,9 @@ fn test_resolution_supports_promise_all_settled_member_calls() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Promise".to_string(),
                     })),
@@ -45,6 +48,7 @@ fn test_resolution_supports_promise_any_member_calls() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Promise".to_string()),
                     property: "any".to_string(),
                 })),
@@ -54,7 +58,9 @@ fn test_resolution_supports_promise_any_member_calls() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Promise".to_string(),
                     })),

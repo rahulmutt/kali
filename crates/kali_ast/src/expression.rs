@@ -111,6 +111,14 @@ pub struct CallExpression {
 pub struct MemberExpression {
     pub object: Expression,
     pub property: String,
+    /// Structured index expression for computed access `a[<expr>]`.
+    ///
+    /// `None` for dot access (`a.b`) and for constructions that only need the
+    /// stringified `property`. `Some(expr)` for bracket access, so codegen can
+    /// evaluate arithmetic/dynamic indices (e.g. `a[i + 1]`) at runtime rather
+    /// than relying on the stringified `property`.
+    #[serde(default)]
+    pub computed_index: Option<Box<Expression>>,
 }
 
 // ============== MISSING TYPES TO ADD ==============

@@ -160,6 +160,7 @@ fn test_resolution_reports_threaded_runtime_globals_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("globalThis".to_string()),
                     property: "SharedArrayBuffer".to_string(),
                 },
@@ -168,6 +169,7 @@ fn test_resolution_reports_threaded_runtime_globals_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("globalThis".to_string()),
                     property: "Atomics".to_string(),
                 },
@@ -199,6 +201,7 @@ fn test_resolution_accepts_threaded_runtime_globals_when_profile_is_enabled() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("globalThis".to_string()),
                     property: "SharedArrayBuffer".to_string(),
                 },
@@ -207,6 +210,7 @@ fn test_resolution_accepts_threaded_runtime_globals_when_profile_is_enabled() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("globalThis".to_string()),
                     property: "Atomics".to_string(),
                 },
@@ -229,6 +233,7 @@ fn test_resolution_reports_late_host_control_globals_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Deno".to_string()),
                     property: "pid".to_string(),
                 },
@@ -237,7 +242,9 @@ fn test_resolution_reports_late_host_control_globals_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Deno".to_string(),
                     })),
@@ -248,7 +255,9 @@ fn test_resolution_reports_late_host_control_globals_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Deno".to_string(),
                     })),
@@ -259,6 +268,7 @@ fn test_resolution_reports_late_host_control_globals_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Deno".to_string()),
                     property: "chdir".to_string(),
                 },
@@ -267,7 +277,9 @@ fn test_resolution_reports_late_host_control_globals_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Deno".to_string(),
                     })),
@@ -278,7 +290,9 @@ fn test_resolution_reports_late_host_control_globals_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Deno".to_string(),
                     })),
@@ -289,6 +303,7 @@ fn test_resolution_reports_late_host_control_globals_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("process".to_string()),
                     property: "pid".to_string(),
                 },
@@ -297,7 +312,9 @@ fn test_resolution_reports_late_host_control_globals_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "process".to_string(),
                     })),
@@ -308,7 +325,9 @@ fn test_resolution_reports_late_host_control_globals_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "process".to_string(),
                     })),
@@ -319,6 +338,7 @@ fn test_resolution_reports_late_host_control_globals_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("process".to_string()),
                     property: "chdir".to_string(),
                 },
@@ -327,7 +347,9 @@ fn test_resolution_reports_late_host_control_globals_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "process".to_string(),
                     })),
@@ -338,7 +360,9 @@ fn test_resolution_reports_late_host_control_globals_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "process".to_string(),
                     })),
@@ -375,8 +399,10 @@ fn test_resolution_reports_late_host_control_globals_through_await_wrapped_recei
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::MemberExpression(Box::new(
             kali_ast::MemberExpression {
+                computed_index: None,
                 object: Expression::AwaitExpression(Box::new(AwaitExpression {
                     argument: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "process".to_string(),
                     })),
@@ -408,6 +434,7 @@ fn test_resolution_reports_late_subprocess_and_network_globals_as_unavailable() 
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Deno".to_string()),
                     property: "connect".to_string(),
                 },
@@ -416,7 +443,9 @@ fn test_resolution_reports_late_subprocess_and_network_globals_as_unavailable() 
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Deno".to_string(),
                     })),
@@ -427,6 +456,7 @@ fn test_resolution_reports_late_subprocess_and_network_globals_as_unavailable() 
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Deno".to_string()),
                     property: "listen".to_string(),
                 },
@@ -435,7 +465,9 @@ fn test_resolution_reports_late_subprocess_and_network_globals_as_unavailable() 
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Deno".to_string(),
                     })),
@@ -446,6 +478,7 @@ fn test_resolution_reports_late_subprocess_and_network_globals_as_unavailable() 
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Deno".to_string()),
                     property: "serve".to_string(),
                 },
@@ -454,7 +487,9 @@ fn test_resolution_reports_late_subprocess_and_network_globals_as_unavailable() 
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Deno".to_string(),
                     })),
@@ -466,6 +501,7 @@ fn test_resolution_reports_late_subprocess_and_network_globals_as_unavailable() 
             expression: Box::new(Expression::NewExpression(Box::new(
                 kali_ast::NewExpression {
                     callee: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("Deno".to_string()),
                         property: "Command".to_string(),
                     })),
@@ -508,7 +544,9 @@ fn test_resolution_reports_bracketed_late_network_aliases_as_unavailable_in_brow
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Deno".to_string(),
                     })),
@@ -519,7 +557,9 @@ fn test_resolution_reports_bracketed_late_network_aliases_as_unavailable_in_brow
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Deno".to_string(),
                     })),
@@ -530,7 +570,9 @@ fn test_resolution_reports_bracketed_late_network_aliases_as_unavailable_in_brow
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Deno".to_string(),
                     })),

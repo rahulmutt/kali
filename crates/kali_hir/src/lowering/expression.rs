@@ -48,6 +48,12 @@ impl HirLowerer {
                     self.builder
                         .alloc_text(HirNodeKind::MemberExpr, None, expr.property.clone());
                 push_child!(self, id, self.lower_expression(&expr.object));
+                // Computed access `a[<expr>]` carries the structured index as a
+                // second child so codegen can evaluate arithmetic/dynamic indices
+                // at runtime; dot access (`a.b`) keeps a single `[object]` child.
+                if let Some(index) = &expr.computed_index {
+                    push_child!(self, id, self.lower_expression(index));
+                }
                 id
             }
             Expression::ArrayExpression(ArrayExpression { elements }) => {

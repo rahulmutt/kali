@@ -8,6 +8,7 @@ fn test_resolution_reports_deno_args_as_unavailable_on_browser_surface() {
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::MemberExpression(Box::new(
             kali_ast::MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("Deno".to_string()),
                 property: "args".to_string(),
             },
@@ -34,6 +35,7 @@ fn test_resolution_allows_process_pid_query_in_node_api_surface() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("process".to_string()),
                     property: "pid".to_string(),
                 },
@@ -42,7 +44,9 @@ fn test_resolution_allows_process_pid_query_in_node_api_surface() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "process".to_string(),
                     })),
@@ -63,6 +67,7 @@ fn test_resolution_allows_process_cwd_query_in_node_api_surface() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("process".to_string()),
                     property: "cwd".to_string(),
                 },
@@ -71,7 +76,9 @@ fn test_resolution_allows_process_cwd_query_in_node_api_surface() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "process".to_string(),
                     })),
@@ -92,6 +99,7 @@ fn test_resolution_allows_process_chdir_mutation_in_node_api_surface() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("process".to_string()),
                     property: "chdir".to_string(),
                 },
@@ -100,7 +108,9 @@ fn test_resolution_allows_process_chdir_mutation_in_node_api_surface() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "process".to_string(),
                     })),
@@ -121,6 +131,7 @@ fn test_resolution_allows_deno_cwd_query_in_default_standalone_surface() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Deno".to_string()),
                     property: "cwd".to_string(),
                 },
@@ -129,7 +140,9 @@ fn test_resolution_allows_deno_cwd_query_in_default_standalone_surface() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Deno".to_string(),
                     })),
@@ -150,6 +163,7 @@ fn test_resolution_allows_deno_chdir_mutation_in_default_standalone_surface() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Deno".to_string()),
                     property: "chdir".to_string(),
                 },
@@ -158,7 +172,9 @@ fn test_resolution_allows_deno_chdir_mutation_in_default_standalone_surface() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Deno".to_string(),
                     })),
@@ -179,6 +195,7 @@ fn test_resolution_allows_deno_exit_termination_in_default_standalone_surface() 
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Deno".to_string()),
                     property: "exit".to_string(),
                 },
@@ -187,7 +204,9 @@ fn test_resolution_allows_deno_exit_termination_in_default_standalone_surface() 
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Deno".to_string(),
                     })),
@@ -208,7 +227,9 @@ fn test_resolution_supports_env_snapshot_materialization_on_default_surface() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("Deno".to_string()),
                         property: "env".to_string(),
                     })),
@@ -219,11 +240,14 @@ fn test_resolution_supports_env_snapshot_materialization_on_default_surface() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: sequence_expression(vec![
                         Expression::Literal(LiteralValue::Number(0.0)),
                         Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                            computed_index: None,
                             object: Expression::MemberExpression(Box::new(
                                 kali_ast::MemberExpression {
+                                    computed_index: None,
                                     object: Expression::Identifier("globalThis".to_string()),
                                     property: "Deno".to_string(),
                                 },
@@ -238,7 +262,9 @@ fn test_resolution_supports_env_snapshot_materialization_on_default_surface() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("Deno".to_string()),
                         property: "env".to_string(),
                     })),
@@ -250,8 +276,11 @@ fn test_resolution_supports_env_snapshot_materialization_on_default_surface() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::MemberExpression(Box::new(MemberExpression {
+                            computed_index: None,
                             object: Expression::Identifier("globalThis".to_string()),
                             property: "Deno".to_string(),
                         })),
@@ -277,6 +306,7 @@ fn test_resolution_rejects_process_env_assignment_as_unavailable_in_node_api_sur
                 AssignmentExpression {
                     operator: AssignmentOperator::Assign,
                     left: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("process".to_string()),
                         property: "env".to_string(),
                     })),
@@ -289,7 +319,9 @@ fn test_resolution_rejects_process_env_assignment_as_unavailable_in_node_api_sur
                 AssignmentExpression {
                     operator: AssignmentOperator::Assign,
                     left: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::MemberExpression(Box::new(MemberExpression {
+                            computed_index: None,
                             object: Expression::Identifier("globalThis".to_string()),
                             property: "process".to_string(),
                         })),
@@ -328,7 +360,9 @@ fn test_resolution_allows_bracketed_deno_env_mutation_in_default_standalone_surf
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("Deno".to_string()),
                         property: "env".to_string(),
                     })),
@@ -343,8 +377,11 @@ fn test_resolution_allows_bracketed_deno_env_mutation_in_default_standalone_surf
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::MemberExpression(Box::new(MemberExpression {
+                            computed_index: None,
                             object: Expression::Identifier("globalThis".to_string()),
                             property: "Deno".to_string(),
                         })),
@@ -370,7 +407,9 @@ fn test_resolution_rejects_bracketed_env_mutation_as_unavailable_in_browser_api_
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("Deno".to_string()),
                         property: "env".to_string(),
                     })),
@@ -385,8 +424,11 @@ fn test_resolution_rejects_bracketed_env_mutation_as_unavailable_in_browser_api_
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::MemberExpression(Box::new(MemberExpression {
+                            computed_index: None,
                             object: Expression::Identifier("globalThis".to_string()),
                             property: "Deno".to_string(),
                         })),
@@ -429,8 +471,11 @@ fn test_resolution_rejects_process_env_property_mutation_as_unavailable_in_brows
                 AssignmentExpression {
                     operator: AssignmentOperator::Assign,
                     left: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::MemberExpression(Box::new(MemberExpression {
+                            computed_index: None,
                             object: Expression::MemberExpression(Box::new(MemberExpression {
+                                computed_index: None,
                                 object: Expression::Identifier("globalThis".to_string()),
                                 property: "process".to_string(),
                             })),
@@ -446,8 +491,11 @@ fn test_resolution_rejects_process_env_property_mutation_as_unavailable_in_brows
             expression: Box::new(Expression::UnaryExpression(Box::new(UnaryExpression {
                 operator: "delete".to_string(),
                 argument: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::MemberExpression(Box::new(MemberExpression {
+                            computed_index: None,
                             object: Expression::Identifier("globalThis".to_string()),
                             property: "process".to_string(),
                         })),

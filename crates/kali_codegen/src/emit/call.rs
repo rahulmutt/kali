@@ -2275,22 +2275,60 @@ impl<'a> FunctionEmitter<'a> {
         base_id: LirNodeId,
         index_text: &str,
     ) {
-        let _ = self.emit_node(function, base_id, true);
-        function.instruction(&Instruction::I32WrapI64);
         let index_node =
             self.alloc_scratch_node(LirNodeKind::Value, Some(index_text.to_string()), vec![]);
-        let _ = self.emit_node(function, index_node, true);
+        self.emit_array_element_address_node(function, base_id, index_node);
+    }
+
+    /// Like [`emit_array_element_address`], but the index comes from an existing
+    /// node (a computed subscript expression such as `i + 1`) rather than a
+    /// stringified literal/identifier.
+    pub(crate) fn emit_array_element_address_node(
+        &mut self,
+        function: &mut Function,
+        base_id: LirNodeId,
+        index_id: LirNodeId,
+    ) {
+        let _ = self.emit_node(function, base_id, true);
+        function.instruction(&Instruction::I32WrapI64);
+        let _ = self.emit_node(function, index_id, true);
         function.instruction(&Instruction::I32WrapI64);
         function.instruction(&Instruction::I32Const(8));
         function.instruction(&Instruction::I32Mul);
         function.instruction(&Instruction::I32Add);
     }
 
+    /// Emit a computed array read `base[index_expr]` sourcing the index from a
+    /// node instead of stringified text.
+    pub(crate) fn emit_dynamic_array_read_node(
+        &mut self,
+        function: &mut Function,
+        base_id: LirNodeId,
+        index_id: LirNodeId,
+    ) -> EmittedValue {
+        self.emit_array_element_address_node(function, base_id, index_id);
+        function.instruction(&Instruction::I64Load(MemArg {
+            offset: 8,
+            align: 3,
+            memory_index: 0,
+        }));
+        EmittedValue {
+            produced: true,
+            shape: ValueShape::Scalar,
+        }
+    }
+
     pub(crate) fn resolve_static_index_member(
         &self,
         node: &LirNode,
     ) -> Option<StaticIndexMemberResult> {
-        if node.kind != LirNodeKind::Value || node.children.len() != 1 {
+        // Dot/literal-index access lowers to `[object]` (1 child); computed
+        // access `a[<expr>]` lowers to `[object, index]` (2 children). Either
+        // shape can still fold when the index is a statically-known integer,
+        // recovered from the stringified `text` (populated in both shapes).
+        if node.kind != LirNodeKind::Value
+            || !(node.children.len() == 1 || node.children.len() == 2)
+        {
             return None;
         }
 

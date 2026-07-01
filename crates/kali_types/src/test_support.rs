@@ -11,6 +11,7 @@ pub(crate) fn optional_chain_global_this_math() -> Expression {
     Expression::OptionalChainExpression(Box::new(OptionalChainExpression {
         inner: Box::new(OptionalChainInner::NonNull {
             object: Box::new(Expression::MemberExpression(Box::new(MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("globalThis".to_string()),
                 property: "Math".to_string(),
             }))),
@@ -23,7 +24,9 @@ pub(crate) fn optional_chain_global_this_math_pow() -> Expression {
     Expression::OptionalChainExpression(Box::new(OptionalChainExpression {
         inner: Box::new(OptionalChainInner::NonNull {
             object: Box::new(Expression::MemberExpression(Box::new(MemberExpression {
+                computed_index: None,
                 object: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("globalThis".to_string()),
                     property: "Math".to_string(),
                 })),
@@ -66,6 +69,7 @@ pub(crate) use ident;
 macro_rules! member {
     ($obj:expr, $prop:expr) => {
         kali_ast::Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+            computed_index: None,
             object: $obj,
             property: $prop.to_string(),
         }))

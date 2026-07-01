@@ -423,28 +423,7 @@ impl<'a> FunctionEmitter<'a> {
             }
             1 => {
                 if let Some(result) = self.resolve_static_index_member(node) {
-                    return match result {
-                        StaticIndexMemberResult::Node(value) => {
-                            self.emit_node(function, value, true)
-                        }
-                        StaticIndexMemberResult::String(value) => {
-                            let (offset, len) = self.strings.intern(&value);
-                            function.instruction(&Instruction::I64Const(encode_string_handle(
-                                offset, len,
-                            )));
-                            EmittedValue {
-                                produced: true,
-                                shape: ValueShape::Scalar,
-                            }
-                        }
-                        StaticIndexMemberResult::Undefined => {
-                            function.instruction(&Instruction::I64Const(0));
-                            EmittedValue {
-                                produced: true,
-                                shape: ValueShape::Boolean,
-                            }
-                        }
-                    };
+                    return self.emit_static_index_member_result(function, result);
                 }
 
                 // Dynamic array element read: `a[i]` where `a` is a linear-memory array.
@@ -465,7 +444,34 @@ impl<'a> FunctionEmitter<'a> {
                     self.emit_unary(function, node)
                 }
             }
-            2 => self.emit_binary(function, node),
+            2 => {
+                // A computed member access `a[<expr>]` also lowers to a two-child
+                // `Value` node (`[object, index]`). A binary expression always
+                // carries an operator `text`, while a computed index never
+                // stringifies to a bare operator, so `text` cleanly separates the
+                // two shapes.
+                if is_binary_operator_text(node.text.as_deref().unwrap_or_default()) {
+                    return self.emit_binary(function, node);
+                }
+
+                if let Some(result) = self.resolve_static_index_member(node) {
+                    return self.emit_static_index_member_result(function, result);
+                }
+
+                // Dynamic linear-memory read `a[<expr>]` when the base is an array
+                // binding; otherwise fall back to member handling (e.g. host
+                // member chains such as `globalThis["process"]["pid"]`), matching
+                // the single-child member path.
+                let base_id = node.children[0];
+                let index_id = node.children[1];
+                if let Some(base_name) = self.assignment_target_name(node, base_id) {
+                    if self.array_bindings.contains(&base_name) {
+                        return self.emit_dynamic_array_read_node(function, base_id, index_id);
+                    }
+                }
+
+                self.emit_unary(function, node)
+            }
             _ => {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
@@ -475,6 +481,31 @@ impl<'a> FunctionEmitter<'a> {
                 EmittedValue {
                     produced: false,
                     shape: ValueShape::Unknown,
+                }
+            }
+        }
+    }
+
+    pub(crate) fn emit_static_index_member_result(
+        &mut self,
+        function: &mut Function,
+        result: StaticIndexMemberResult,
+    ) -> EmittedValue {
+        match result {
+            StaticIndexMemberResult::Node(value) => self.emit_node(function, value, true),
+            StaticIndexMemberResult::String(value) => {
+                let (offset, len) = self.strings.intern(&value);
+                function.instruction(&Instruction::I64Const(encode_string_handle(offset, len)));
+                EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                }
+            }
+            StaticIndexMemberResult::Undefined => {
+                function.instruction(&Instruction::I64Const(0));
+                EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Boolean,
                 }
             }
         }

@@ -5,6 +5,7 @@ fn test_static_object_enumeration_iteration_target_accepts_object_entries() {
     let ctx = TypeContext::new();
     let call = CallExpression {
         callee: Expression::MemberExpression(Box::new(MemberExpression {
+            computed_index: None,
             object: Expression::Identifier("Object".to_string()),
             property: "entries".to_string(),
         })),
@@ -40,6 +41,7 @@ fn test_resolution_supports_for_of_object_entries_iteration() {
         }),
         right: Expression::CallExpression(Box::new(CallExpression {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("Object".to_string()),
                 property: "entries".to_string(),
             })),
@@ -55,6 +57,7 @@ fn test_resolution_supports_for_of_object_entries_iteration() {
             body: vec![Statement::ExpressionStatement(ExpressionStatement {
                 expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                     callee: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("console".to_string()),
                         property: "log".to_string(),
                     })),
@@ -275,6 +278,7 @@ fn test_resolution_supports_object_keys_iteration_with_let_binding_in_js_input()
             }),
             right: Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "keys".to_string(),
                 })),
@@ -284,6 +288,7 @@ fn test_resolution_supports_object_keys_iteration_with_let_binding_in_js_input()
                 body: vec![Statement::ExpressionStatement(ExpressionStatement {
                     expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                         callee: Expression::MemberExpression(Box::new(MemberExpression {
+                            computed_index: None,
                             object: Expression::Identifier("console".to_string()),
                             property: "log".to_string(),
                         })),
@@ -353,6 +358,7 @@ fn test_resolution_rejects_object_keys_iteration_with_let_binding_rebound_before
             }),
             right: Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "keys".to_string(),
                 })),
@@ -362,6 +368,7 @@ fn test_resolution_rejects_object_keys_iteration_with_let_binding_rebound_before
                 body: vec![Statement::ExpressionStatement(ExpressionStatement {
                     expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                         callee: Expression::MemberExpression(Box::new(MemberExpression {
+                            computed_index: None,
                             object: Expression::Identifier("console".to_string()),
                             property: "log".to_string(),
                         })),

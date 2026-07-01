@@ -6,6 +6,7 @@ fn test_resolution_reports_math_floor_as_available_for_integer_inputs() {
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
                 property: "floor".to_string(),
             })),
@@ -28,6 +29,7 @@ fn test_resolution_supports_math_round_member_calls_for_non_integer_numeric_lite
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "round".to_string(),
                 })),
@@ -37,6 +39,7 @@ fn test_resolution_supports_math_round_member_calls_for_non_integer_numeric_lite
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "round".to_string(),
                 })),
@@ -64,6 +67,7 @@ fn test_resolution_supports_math_round_member_calls_through_optional_chain_wrapp
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
                 property: "round".to_string(),
             })),
@@ -92,6 +96,7 @@ fn test_resolution_supports_math_round_member_calls_through_sequence_wrappers() 
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
                 property: "round".to_string(),
             })),
@@ -118,15 +123,18 @@ fn test_resolution_supports_math_round_member_calls_through_conditional_callable
             callee: Expression::ConditionalExpression(Box::new(ConditionalExpression {
                 test: Box::new(Expression::Literal(LiteralValue::Boolean(true))),
                 consequent: Box::new(Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "round".to_string(),
                 }))),
                 alternate: Box::new(Expression::CallExpression(Box::new(CallExpression {
                     callee: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("Object".to_string()),
                         property: "freeze".to_string(),
                     })),
                     args: vec![Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("Math".to_string()),
                         property: "round".to_string(),
                     }))],
@@ -150,6 +158,7 @@ fn test_resolution_supports_math_clz32_zero_argument_member_calls() {
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
                 property: "clz32".to_string(),
             })),
@@ -171,6 +180,7 @@ fn test_resolution_supports_math_clz32_non_integer_literal_member_calls() {
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
                 property: "clz32".to_string(),
             })),
@@ -192,6 +202,7 @@ fn test_resolution_supports_non_integer_numeric_literals_in_math_ceil_member_cal
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
                 property: "ceil".to_string(),
             })),
@@ -213,6 +224,7 @@ fn test_resolution_supports_non_integer_numeric_literals_in_math_trunc_member_ca
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
                 property: "trunc".to_string(),
             })),
@@ -234,6 +246,7 @@ fn test_resolution_supports_non_integer_numeric_literals_in_math_sign_member_cal
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("Math".to_string()),
                 property: "sign".to_string(),
             })),

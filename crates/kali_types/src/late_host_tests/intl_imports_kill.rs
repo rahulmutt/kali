@@ -10,6 +10,7 @@ fn test_resolution_reports_broader_intl_support_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Intl".to_string()),
                     property: "NumberFormat".to_string(),
                 },
@@ -18,6 +19,7 @@ fn test_resolution_reports_broader_intl_support_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Intl".to_string()),
                     property: "DisplayNames".to_string(),
                 },
@@ -26,6 +28,7 @@ fn test_resolution_reports_broader_intl_support_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Intl".to_string()),
                     property: "Locale".to_string(),
                 },
@@ -34,7 +37,9 @@ fn test_resolution_reports_broader_intl_support_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Intl".to_string(),
                     })),
@@ -45,7 +50,9 @@ fn test_resolution_reports_broader_intl_support_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Intl".to_string(),
                     })),
@@ -56,7 +63,9 @@ fn test_resolution_reports_broader_intl_support_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Intl".to_string(),
                     })),
@@ -67,6 +76,7 @@ fn test_resolution_reports_broader_intl_support_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("globalThis".to_string()),
                     property: "Intl".to_string(),
                 },
@@ -103,6 +113,7 @@ fn test_resolution_reports_global_this_intl_root_as_unavailable() {
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::MemberExpression(Box::new(
             kali_ast::MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("globalThis".to_string()),
                 property: "Intl".to_string(),
             },
@@ -125,6 +136,7 @@ fn test_resolution_reports_late_intl_member_access_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Intl".to_string()),
                     property: "NumberFormat".to_string(),
                 },
@@ -133,6 +145,7 @@ fn test_resolution_reports_late_intl_member_access_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Intl".to_string()),
                     property: "RelativeTimeFormat".to_string(),
                 },
@@ -141,6 +154,7 @@ fn test_resolution_reports_late_intl_member_access_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Intl".to_string()),
                     property: "Collator".to_string(),
                 },
@@ -149,6 +163,7 @@ fn test_resolution_reports_late_intl_member_access_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Intl".to_string()),
                     property: "DisplayNames".to_string(),
                 },
@@ -157,6 +172,7 @@ fn test_resolution_reports_late_intl_member_access_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Intl".to_string()),
                     property: "Segmenter".to_string(),
                 },
@@ -165,6 +181,7 @@ fn test_resolution_reports_late_intl_member_access_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Intl".to_string()),
                     property: "Locale".to_string(),
                 },
@@ -173,7 +190,9 @@ fn test_resolution_reports_late_intl_member_access_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Intl".to_string(),
                     })),
@@ -184,7 +203,9 @@ fn test_resolution_reports_late_intl_member_access_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Intl".to_string(),
                     })),
@@ -282,6 +303,7 @@ fn test_resolution_supports_process_kill_zero_probe_wrappers_on_node_surface() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("process".to_string()),
                     property: "kill".to_string(),
                 })),
@@ -295,7 +317,9 @@ fn test_resolution_supports_process_kill_zero_probe_wrappers_on_node_surface() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "process".to_string(),
                     })),
@@ -310,6 +334,7 @@ fn test_resolution_supports_process_kill_zero_probe_wrappers_on_node_surface() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("process".to_string()),
                     property: "kill".to_string(),
                 })),
@@ -323,7 +348,9 @@ fn test_resolution_supports_process_kill_zero_probe_wrappers_on_node_surface() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "process".to_string(),
                     })),
@@ -340,7 +367,9 @@ fn test_resolution_supports_process_kill_zero_probe_wrappers_on_node_surface() {
                 callee: Expression::ParenthesizedExpression(Box::new(ParenthesizedExpression {
                     expression: Box::new(Expression::MemberExpression(Box::new(
                         MemberExpression {
+                            computed_index: None,
                             object: Expression::MemberExpression(Box::new(MemberExpression {
+                                computed_index: None,
                                 object: Expression::Identifier("globalThis".to_string()),
                                 property: "process".to_string(),
                             })),
@@ -354,7 +383,9 @@ fn test_resolution_supports_process_kill_zero_probe_wrappers_on_node_surface() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "process".to_string(),
                     })),
@@ -423,6 +454,7 @@ fn test_resolution_supports_process_kill_zero_probe_through_static_zero_aliases_
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("process".to_string()),
                     property: "kill".to_string(),
                 })),
@@ -432,7 +464,9 @@ fn test_resolution_supports_process_kill_zero_probe_through_static_zero_aliases_
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "process".to_string(),
                     })),
@@ -473,6 +507,7 @@ fn test_resolution_supports_process_kill_zero_probe_satisfies_wrappers_on_node_s
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("process".to_string()),
                     property: "kill".to_string(),
                 })),
@@ -482,7 +517,9 @@ fn test_resolution_supports_process_kill_zero_probe_satisfies_wrappers_on_node_s
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "process".to_string(),
                     })),
@@ -494,7 +531,9 @@ fn test_resolution_supports_process_kill_zero_probe_satisfies_wrappers_on_node_s
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "process".to_string(),
                     })),
@@ -511,7 +550,9 @@ fn test_resolution_supports_process_kill_zero_probe_satisfies_wrappers_on_node_s
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "process".to_string(),
                     })),
@@ -545,6 +586,7 @@ fn test_resolution_rejects_process_kill_non_zero_literal_on_node_surface() {
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("process".to_string()),
                 property: "kill".to_string(),
             })),

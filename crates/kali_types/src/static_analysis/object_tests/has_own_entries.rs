@@ -23,6 +23,7 @@ fn test_resolution_supports_object_has_own_as_static_object_model_callable_in_br
             declarations: vec![VariableDeclarator {
                 id: "has_own".to_string(),
                 init: Some(Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "hasOwn".to_string(),
                 }))),
@@ -33,8 +34,11 @@ fn test_resolution_supports_object_has_own_as_static_object_model_callable_in_br
             declarations: vec![VariableDeclarator {
                 id: "has_own_property_call".to_string(),
                 init: Some(Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::MemberExpression(Box::new(MemberExpression {
+                            computed_index: None,
                             object: Expression::Identifier("Object".to_string()),
                             property: "prototype".to_string(),
                         })),
@@ -154,6 +158,7 @@ Object.prototype.hasOwnProperty.call(alias, "a");
             declarations: vec![VariableDeclarator {
                 id: "has_own".to_string(),
                 init: Some(Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "hasOwn".to_string(),
                 }))),
@@ -164,8 +169,11 @@ Object.prototype.hasOwnProperty.call(alias, "a");
             declarations: vec![VariableDeclarator {
                 id: "has_own_property_call".to_string(),
                 init: Some(Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::MemberExpression(Box::new(MemberExpression {
+                            computed_index: None,
                             object: Expression::Identifier("Object".to_string()),
                             property: "prototype".to_string(),
                         })),
@@ -333,6 +341,7 @@ fn test_resolution_supports_object_from_entries_with_satisfies_wrapper_in_ts_inp
                 id: "fromEntries".to_string(),
                 init: Some(Expression::CallExpression(Box::new(CallExpression {
                     callee: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("Object".to_string()),
                         property: "fromEntries".to_string(),
                     })),
@@ -385,6 +394,7 @@ fn test_resolution_supports_same_branch_conditional_string_keys_for_object_has_o
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("Object".to_string()),
                 property: "hasOwn".to_string(),
             })),
@@ -438,6 +448,7 @@ fn test_resolution_supports_object_has_own_helpers_for_static_object_literals_an
                 id: "has_own".to_string(),
                 init: Some(Expression::MemberExpression(Box::new(
                     kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("Object".to_string()),
                         property: "hasOwn".to_string(),
                     },
@@ -450,10 +461,13 @@ fn test_resolution_supports_object_has_own_helpers_for_static_object_literals_an
                 id: "has_own_property_call".to_string(),
                 init: Some(Expression::MemberExpression(Box::new(
                     kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::MemberExpression(Box::new(
                             kali_ast::MemberExpression {
+                                computed_index: None,
                                 object: Expression::MemberExpression(Box::new(
                                     kali_ast::MemberExpression {
+                                        computed_index: None,
                                         object: Expression::Identifier("Object".to_string()),
                                         property: "prototype".to_string(),
                                     },

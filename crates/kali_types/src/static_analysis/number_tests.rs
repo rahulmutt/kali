@@ -1,10 +1,10 @@
 use crate::*;
-use kali_test_support::fixtures;
 use kali_ast::{
     CallExpression, Expression, ExpressionStatement, LiteralValue, MemberExpression,
     VariableDeclaration, VariableDeclarator,
 };
 use kali_error::_error_codes::e5;
+use kali_test_support::fixtures;
 use std::fs;
 
 #[test]
@@ -21,6 +21,7 @@ fn test_resolution_accepts_number_is_finite_is_integer_and_is_nan_static_values(
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Number".to_string()),
                     property: "isFinite".to_string(),
                 })),
@@ -30,6 +31,7 @@ fn test_resolution_accepts_number_is_finite_is_integer_and_is_nan_static_values(
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Number".to_string()),
                     property: "isInteger".to_string(),
                 })),
@@ -39,6 +41,7 @@ fn test_resolution_accepts_number_is_finite_is_integer_and_is_nan_static_values(
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Number".to_string()),
                     property: "isSafeInteger".to_string(),
                 })),
@@ -48,6 +51,7 @@ fn test_resolution_accepts_number_is_finite_is_integer_and_is_nan_static_values(
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Number".to_string()),
                     property: "isSafeInteger".to_string(),
                 })),
@@ -57,7 +61,9 @@ fn test_resolution_accepts_number_is_finite_is_integer_and_is_nan_static_values(
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Number".to_string(),
                     })),
@@ -69,7 +75,9 @@ fn test_resolution_accepts_number_is_finite_is_integer_and_is_nan_static_values(
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Number".to_string(),
                     })),
@@ -81,7 +89,9 @@ fn test_resolution_accepts_number_is_finite_is_integer_and_is_nan_static_values(
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Number".to_string(),
                     })),
@@ -114,7 +124,9 @@ fn test_resolution_accepts_number_is_alias_spellings() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Number".to_string(),
                     })),
@@ -126,7 +138,9 @@ fn test_resolution_accepts_number_is_alias_spellings() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Number".to_string(),
                     })),
@@ -138,7 +152,9 @@ fn test_resolution_accepts_number_is_alias_spellings() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Number".to_string(),
                     })),
@@ -163,6 +179,7 @@ fn test_resolution_rejects_number_is_integer_with_dynamic_values_as_unavailable(
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("Number".to_string()),
                 property: "isInteger".to_string(),
             })),
@@ -187,6 +204,7 @@ fn test_resolution_rejects_number_is_safe_integer_with_dynamic_values_as_unavail
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("Number".to_string()),
                 property: "isSafeInteger".to_string(),
             })),

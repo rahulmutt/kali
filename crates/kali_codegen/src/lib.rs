@@ -63,7 +63,8 @@ const STRING_HANDLE_TAG: u64 = 0x8000_0000_0000_0000;
 
 pub use lower::lower_lir_to_wasm;
 pub(crate) use lower::{
-    emit_literal, encode_string_handle, is_function_like, process_env_property_key,
+    emit_literal, encode_string_handle, is_binary_operator_text, is_function_like,
+    process_env_property_key,
 };
 
 #[cfg(test)]

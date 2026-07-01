@@ -1,5 +1,4 @@
 use crate::test_support::*;
-use kali_test_support::fixtures;
 use crate::*;
 use kali_ast::{
     ArrayExpression, AssignmentExpression, AssignmentOperator, AwaitExpression, BlockStatement,
@@ -10,6 +9,7 @@ use kali_ast::{
     VariableDeclarator,
 };
 use kali_error::_error_codes::e5;
+use kali_test_support::fixtures;
 use std::fs;
 
 fn assert_object_helper_iteration_with_let_binding_in_js_input(helper: &str, rebound: bool) {
@@ -70,6 +70,7 @@ fn assert_object_helper_iteration_with_let_binding_in_js_input(helper: &str, reb
         }),
         right: Expression::CallExpression(Box::new(CallExpression {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("Object".to_string()),
                 property: helper.to_string(),
             })),
@@ -79,6 +80,7 @@ fn assert_object_helper_iteration_with_let_binding_in_js_input(helper: &str, reb
             body: vec![Statement::ExpressionStatement(ExpressionStatement {
                 expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                     callee: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("console".to_string()),
                         property: "log".to_string(),
                     })),

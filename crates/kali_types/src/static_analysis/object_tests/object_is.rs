@@ -81,6 +81,7 @@ fn test_resolution_supports_object_is_numeric_literal_member_calls() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "is".to_string(),
                 })),
@@ -96,7 +97,9 @@ fn test_resolution_supports_object_is_numeric_literal_member_calls() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Object".to_string(),
                     })),
@@ -113,6 +116,7 @@ fn test_resolution_supports_object_is_numeric_literal_member_calls() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "is".to_string(),
                 })),
@@ -158,6 +162,7 @@ fn test_resolution_supports_object_is_through_object_freeze_same_reference() {
                 id: "frozen".to_string(),
                 init: Some(Expression::CallExpression(Box::new(CallExpression {
                     callee: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("Object".to_string()),
                         property: "freeze".to_string(),
                     })),
@@ -168,6 +173,7 @@ fn test_resolution_supports_object_is_through_object_freeze_same_reference() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "is".to_string(),
                 })),
@@ -180,12 +186,14 @@ fn test_resolution_supports_object_is_through_object_freeze_same_reference() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "is".to_string(),
                 })),
                 args: vec![
                     Expression::CallExpression(Box::new(CallExpression {
                         callee: Expression::MemberExpression(Box::new(MemberExpression {
+                            computed_index: None,
                             object: Expression::Identifier("Object".to_string()),
                             property: "freeze".to_string(),
                         })),
@@ -239,7 +247,9 @@ fn test_resolution_accepts_object_is_alias_spellings_for_primitive_literals() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Object".to_string(),
                     })),
@@ -254,7 +264,9 @@ fn test_resolution_accepts_object_is_alias_spellings_for_primitive_literals() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Object".to_string(),
                     })),
@@ -269,6 +281,7 @@ fn test_resolution_accepts_object_is_alias_spellings_for_primitive_literals() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "is".to_string(),
                 })),
@@ -306,6 +319,7 @@ fn test_resolution_rejects_object_is_with_non_primitive_literals_as_unavailable(
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("Object".to_string()),
                 property: "is".to_string(),
             })),
@@ -344,6 +358,7 @@ fn test_resolution_accepts_object_is_with_void_undefined_literals() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "is".to_string(),
                 })),
@@ -386,7 +401,9 @@ fn test_resolution_accepts_object_is_alias_spellings() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Object".to_string(),
                     })),
@@ -401,7 +418,9 @@ fn test_resolution_accepts_object_is_alias_spellings() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Object".to_string(),
                     })),
@@ -434,6 +453,7 @@ fn test_resolution_accepts_object_is_for_distinct_object_and_array_literals() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "is".to_string(),
                 })),
@@ -458,6 +478,7 @@ fn test_resolution_accepts_object_is_for_distinct_object_and_array_literals() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "is".to_string(),
                 })),
@@ -529,6 +550,7 @@ fn test_resolution_accepts_object_is_with_static_primitive_literals() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "is".to_string(),
                 })),
@@ -541,6 +563,7 @@ fn test_resolution_accepts_object_is_with_static_primitive_literals() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "is".to_string(),
                 })),
@@ -553,6 +576,7 @@ fn test_resolution_accepts_object_is_with_static_primitive_literals() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "is".to_string(),
                 })),
@@ -565,6 +589,7 @@ fn test_resolution_accepts_object_is_with_static_primitive_literals() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "is".to_string(),
                 })),
@@ -577,6 +602,7 @@ fn test_resolution_accepts_object_is_with_static_primitive_literals() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "is".to_string(),
                 })),
@@ -589,6 +615,7 @@ fn test_resolution_accepts_object_is_with_static_primitive_literals() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "is".to_string(),
                 })),
@@ -615,6 +642,7 @@ fn test_resolution_accepts_object_is_signed_zero_literal_pairs() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "is".to_string(),
                 })),
@@ -633,6 +661,7 @@ fn test_resolution_accepts_object_is_signed_zero_literal_pairs() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "is".to_string(),
                 })),
@@ -685,6 +714,7 @@ fn test_resolution_accepts_object_is_with_same_static_reference() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "is".to_string(),
                 })),
@@ -697,6 +727,7 @@ fn test_resolution_accepts_object_is_with_same_static_reference() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "is".to_string(),
                 })),
@@ -729,6 +760,7 @@ fn test_resolution_accepts_object_is_with_optional_chain_wrapped_static_referenc
                         inner: Box::new(OptionalChainInner::NonNull {
                             object: Box::new(Expression::MemberExpression(Box::new(
                                 MemberExpression {
+                                    computed_index: None,
                                     object: Expression::Identifier("globalThis".to_string()),
                                     property: "Object".to_string(),
                                 },
@@ -749,6 +781,7 @@ fn test_resolution_accepts_object_is_with_optional_chain_wrapped_static_referenc
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "is".to_string(),
                 })),
@@ -772,6 +805,7 @@ fn test_resolution_accepts_object_is_with_optional_chain_wrapped_static_referenc
 fn test_resolution_accepts_object_is_with_optional_chain_wrapped_same_reference() {
     let mut ctx = TypeContext::new();
     let object_root = Expression::MemberExpression(Box::new(MemberExpression {
+        computed_index: None,
         object: Expression::Identifier("globalThis".to_string()),
         property: "Object".to_string(),
     }));
@@ -785,6 +819,7 @@ fn test_resolution_accepts_object_is_with_optional_chain_wrapped_same_reference(
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("Object".to_string()),
                 property: "is".to_string(),
             })),
@@ -823,6 +858,7 @@ fn test_resolution_accepts_object_is_with_sequence_wrapped_static_primitive_lite
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "is".to_string(),
                 })),

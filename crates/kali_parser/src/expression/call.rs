@@ -38,6 +38,7 @@ impl Parser {
                     expr = Expression::MemberExpression(Box::new(MemberExpression {
                         object: expr,
                         property: index_str,
+                        computed_index: Some(Box::new(index)),
                     }));
                 }
                 Some(TokenType::Dot) => {
@@ -52,11 +53,13 @@ impl Parser {
                                 expr = Expression::MemberExpression(Box::new(MemberExpression {
                                     object: expr,
                                     property: prop_name,
+                                    computed_index: None,
                                 }));
                             } else {
                                 expr = Expression::MemberExpression(Box::new(MemberExpression {
                                     object: expr,
                                     property: "unknown".to_string(),
+                                    computed_index: None,
                                 }));
                             }
                         }

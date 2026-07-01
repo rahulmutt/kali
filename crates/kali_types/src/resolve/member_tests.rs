@@ -5,8 +5,11 @@ use kali_ast::{DecoratedExpression, Expression, LiteralValue, ParenthesizedExpre
 #[test]
 fn test_member_access_bracketed_name_for_env_snapshot_materialization() {
     let expr = kali_ast::MemberExpression {
+        computed_index: None,
         object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+            computed_index: None,
             object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                computed_index: None,
                 object: Expression::Identifier("globalThis".to_string()),
                 property: "Deno".to_string(),
             })),
@@ -25,7 +28,9 @@ fn test_member_access_bracketed_name_for_env_snapshot_materialization() {
     );
 
     let mixed_expr = kali_ast::MemberExpression {
+        computed_index: None,
         object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+            computed_index: None,
             object: Expression::Identifier("Deno".to_string()),
             property: "env".to_string(),
         })),
@@ -46,6 +51,7 @@ fn test_member_access_bracketed_name_for_env_snapshot_materialization() {
             ParenthesizedExpression {
                 expression: Box::new(Expression::MemberExpression(Box::new(
                     kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Deno".to_string(),
                     },
@@ -64,7 +70,9 @@ fn test_member_access_bracketed_name_for_env_snapshot_materialization() {
     );
 
     let wrapped_expr = kali_ast::MemberExpression {
+        computed_index: None,
         object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+            computed_index: None,
             object: sequence_wrapped_object,
             property: "env".to_string(),
         })),
@@ -84,7 +92,9 @@ fn test_member_access_bracketed_name_for_env_snapshot_materialization() {
 #[test]
 fn test_member_access_bracketed_name_for_permission_escalation() {
     let expr = kali_ast::MemberExpression {
+        computed_index: None,
         object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+            computed_index: None,
             object: Expression::Identifier("Deno".to_string()),
             property: "permissions".to_string(),
         })),

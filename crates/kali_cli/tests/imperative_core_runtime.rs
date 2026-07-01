@@ -134,3 +134,32 @@ fn strict_equality_operators_parse_and_compute() {
         "18\n"
     );
 }
+
+#[test]
+fn computed_array_subscripts() {
+    // read with a[i+1] / a[i-1]
+    assert_eq!(
+        run_js("const a = new Array(3);\na[0]=10;\na[1]=20;\na[2]=30;\nlet i = 0;\nconsole.log(a[i + 1]);\n"),
+        "20\n"
+    );
+    // write with a[r-1]
+    assert_eq!(
+        run_js("const a = new Array(3);\nlet r = 2;\na[r - 1] = 99;\nconsole.log(a[1]);\n"),
+        "99\n"
+    );
+    // the fannkuch shift idiom: perm1[i] = perm1[i+1]
+    assert_eq!(
+        run_js("const a = new Array(4);\nfor (let i = 0; i < 4; i = i + 1) { a[i] = i; }\nlet i = 0;\nwhile (i < 3) { a[i] = a[i + 1]; i = i + 1; }\nconsole.log(a[0]);\nconsole.log(a[1]);\nconsole.log(a[2]);\n"),
+        "1\n2\n3\n"
+    );
+    // literal-index static fold must still work (regression guard)
+    assert_eq!(
+        run_js("const a = [10, 20, 30];\nconsole.log(a[0] + a[1] + a[2]);\n"),
+        "60\n"
+    );
+    // identifier index still works (Task 5 path)
+    assert_eq!(
+        run_js("const a = new Array(2);\na[0]=7;\na[1]=9;\nlet j=1;\nconsole.log(a[j]);\n"),
+        "9\n"
+    );
+}

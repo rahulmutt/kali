@@ -92,6 +92,7 @@ fn test_resolution_accepts_await_wrapped_numeric_literals_in_static_literal_path
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Math".to_string()),
                     property: "exp".to_string(),
                 })),
@@ -103,6 +104,7 @@ fn test_resolution_accepts_await_wrapped_numeric_literals_in_static_literal_path
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "is".to_string(),
                 })),
@@ -144,6 +146,7 @@ fn test_resolution_accepts_transparent_decorated_wrappers_for_static_object_help
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "hasOwn".to_string(),
                 })),
@@ -162,6 +165,7 @@ fn test_resolution_accepts_transparent_decorated_wrappers_for_static_object_help
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "is".to_string(),
                 })),
@@ -190,6 +194,7 @@ fn test_resolution_accepts_object_freeze_wrappers_for_static_object_helpers() {
     let mut ctx = TypeContext::new();
     let frozen_object = Expression::CallExpression(Box::new(CallExpression {
         callee: Expression::MemberExpression(Box::new(MemberExpression {
+            computed_index: None,
             object: Expression::Identifier("Object".to_string()),
             property: "freeze".to_string(),
         })),
@@ -220,6 +225,7 @@ fn test_resolution_accepts_object_freeze_wrappers_for_static_object_helpers() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "hasOwn".to_string(),
                 })),
@@ -232,6 +238,7 @@ fn test_resolution_accepts_object_freeze_wrappers_for_static_object_helpers() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "keys".to_string(),
                 })),
@@ -241,6 +248,7 @@ fn test_resolution_accepts_object_freeze_wrappers_for_static_object_helpers() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "values".to_string(),
                 })),
@@ -250,6 +258,7 @@ fn test_resolution_accepts_object_freeze_wrappers_for_static_object_helpers() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "entries".to_string(),
                 })),
@@ -303,6 +312,7 @@ fn test_resolution_reports_late_object_model_globals_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("globalThis".to_string()),
                     property: "Proxy".to_string(),
                 },
@@ -311,7 +321,9 @@ fn test_resolution_reports_late_object_model_globals_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Proxy".to_string(),
                     })),
@@ -322,6 +334,7 @@ fn test_resolution_reports_late_object_model_globals_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("globalThis".to_string()),
                     property: "WeakMap".to_string(),
                 },
@@ -330,7 +343,9 @@ fn test_resolution_reports_late_object_model_globals_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "WeakMap".to_string(),
                     })),
@@ -341,6 +356,7 @@ fn test_resolution_reports_late_object_model_globals_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("globalThis".to_string()),
                     property: "WeakSet".to_string(),
                 },
@@ -349,7 +365,9 @@ fn test_resolution_reports_late_object_model_globals_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "WeakSet".to_string(),
                     })),
@@ -360,6 +378,7 @@ fn test_resolution_reports_late_object_model_globals_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("globalThis".to_string()),
                     property: "WeakRef".to_string(),
                 },
@@ -368,7 +387,9 @@ fn test_resolution_reports_late_object_model_globals_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "WeakRef".to_string(),
                     })),
@@ -379,6 +400,7 @@ fn test_resolution_reports_late_object_model_globals_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("globalThis".to_string()),
                     property: "FinalizationRegistry".to_string(),
                 },
@@ -387,7 +409,9 @@ fn test_resolution_reports_late_object_model_globals_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "FinalizationRegistry".to_string(),
                     })),
@@ -434,6 +458,7 @@ fn test_resolution_reports_proxy_revocable_member_access_as_late_object_model_ap
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Proxy".to_string()),
                     property: "revocable".to_string(),
                 },
@@ -442,7 +467,9 @@ fn test_resolution_reports_proxy_revocable_member_access_as_late_object_model_ap
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Proxy".to_string(),
                     })),
@@ -523,10 +550,12 @@ fn test_resolution_reports_frozen_proxy_revocable_aliases_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "freeze".to_string(),
                 })),
                 args: vec![Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Proxy".to_string()),
                     property: "revocable".to_string(),
                 }))],
@@ -535,11 +564,14 @@ fn test_resolution_reports_frozen_proxy_revocable_aliases_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "freeze".to_string(),
                 })),
                 args: vec![Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Proxy".to_string(),
                     })),
@@ -576,6 +608,7 @@ fn test_resolution_reports_frozen_optional_chain_proxy_revocable_aliases_as_unav
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "freeze".to_string(),
                 })),
@@ -584,6 +617,7 @@ fn test_resolution_reports_frozen_optional_chain_proxy_revocable_aliases_as_unav
                         inner: Box::new(OptionalChainInner::NonNull {
                             object: Box::new(Expression::MemberExpression(Box::new(
                                 MemberExpression {
+                                    computed_index: None,
                                     object: Expression::Identifier("globalThis".to_string()),
                                     property: "Proxy".to_string(),
                                 },
@@ -597,6 +631,7 @@ fn test_resolution_reports_frozen_optional_chain_proxy_revocable_aliases_as_unav
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    computed_index: None,
                     object: Expression::Identifier("Object".to_string()),
                     property: "freeze".to_string(),
                 })),
@@ -605,8 +640,10 @@ fn test_resolution_reports_frozen_optional_chain_proxy_revocable_aliases_as_unav
                         inner: Box::new(OptionalChainInner::NonNull {
                             object: Box::new(Expression::MemberExpression(Box::new(
                                 MemberExpression {
+                                    computed_index: None,
                                     object: Expression::MemberExpression(Box::new(
                                         MemberExpression {
+                                            computed_index: None,
                                             object: Expression::Identifier(
                                                 "globalThis".to_string(),
                                             ),
@@ -655,6 +692,7 @@ fn test_resolution_accepts_object_freeze_wrapped_dynamic_import_targets() {
                 id: "specifier".to_string(),
                 init: Some(Expression::CallExpression(Box::new(CallExpression {
                     callee: Expression::MemberExpression(Box::new(MemberExpression {
+                        computed_index: None,
                         object: Expression::Identifier("Object".to_string()),
                         property: "freeze".to_string(),
                     })),
