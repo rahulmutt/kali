@@ -1,18 +1,30 @@
 //! Interprocedural int-vs-float representation inference.
 //!
-//! Every `number` program point is modelled as a union-find node that defaults
-//! to [`Repr::I64`]. Float *seeds* (division results, non-integer literals,
-//! `Math.sqrt`/`Math.cbrt`, `.toFixed` receivers) mark clusters as float, and
-//! equality edges (assignment, arithmetic, array element read/write, return,
-//! call argument/return flow) merge clusters so that "ever float ⇒ float
-//! throughout". The solved clusters populate a [`ReprTable`]; only float
-//! decisions are recorded, so an all-integer program yields an empty table.
+//! Float is a **forward-flow** property of scalar program points: a node is
+//! `f64` iff a float *seed* reaches it along directed "if source is float then
+//! target is float" edges (`operand -> result`, `rhs -> lhs`, `expr -> return`,
+//! `arg -> param`, `return -> callsite`, `value -> array_element`,
+//! `array_element -> read_result`). Float seeds are division results,
+//! non-integer literals, `Math.sqrt`/`Math.cbrt` results, `.toFixed` receivers,
+//! and `/=` targets. The property is solved by BFS reachability from the seed
+//! set — it is deliberately **directional** so that an integer operand binding
+//! that merely feeds a float result (e.g. `i` in `(i + j) / 2`) is NOT floated;
+//! codegen converts each i64 operand inline where a float is needed.
 //!
-//! Two axes are tracked per program point, both defaulting to `I64`: a scalar
-//! repr (per binding/param/return) and an array *element* repr. Array handles
-//! themselves are always `i64`; only their elements can become `f64`.
+//! Array *element storage*, by contrast, is a single shared property of an
+//! array's memory. Element identity across aliases (interprocedural array
+//! arg↔param passing) is modelled with a **bidirectional** [`UnionFind`]: the
+//! two arrays share ONE element node. Stores and reads are still directed edges
+//! into / out of that shared node (an int stored into a float array stays int
+//! and is converted at the store).
+//!
+//! The solved decisions populate a [`ReprTable`]; only float decisions are
+//! recorded, so an all-integer program yields an empty table. Two axes are
+//! tracked per program point, both defaulting to `I64`: a scalar repr (per
+//! binding/param/return) and an array *element* repr. Array handles themselves
+//! are always `i64`; only their elements can become `f64`.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use kali_ast::{AssignmentOperator, BlockStatement, Expression, ForInit, LiteralValue, Statement};
 use kali_common::{Repr, ReprTable, UnionFind};
@@ -30,14 +42,28 @@ struct CallEdge {
     /// For each positional argument, `Some((caller_func, name))` when the
     /// argument is a bare identifier (candidate array binding), else `None`.
     arg_array_names: Vec<Option<(String, String)>>,
-    /// Result node of the call expression itself (unioned with the callee's
-    /// return node).
+    /// Result node of the call expression itself (target of the callee's
+    /// return-flow edge).
     result_node: usize,
 }
 
 #[derive(Default)]
 struct ReprInfer {
+    /// Bidirectional union-find, used ONLY for array-element storage aliasing
+    /// (interprocedural array arg↔param). Node ids are allocated here so the
+    /// directed reachability graph and the array-aliasing forest share one id
+    /// space; scalar/param/return/result nodes are never unioned, so their
+    /// representative is always themselves.
     uf: UnionFind,
+    /// Number of allocated nodes (== next node id). Tracked because
+    /// [`UnionFind`] exposes no length accessor.
+    node_count: usize,
+    /// Directed float-flow edges `from -> to` (float(from) ⇒ float(to)).
+    /// Endpoints are canonicalised through `uf` at solve time so edges touching
+    /// aliased array-element nodes follow the shared representative.
+    edges: Vec<(usize, usize)>,
+    /// Directly-float nodes (division results, float literals, `Math.sqrt`, …).
+    seeds: Vec<usize>,
     /// One node per scalar binding/param/local: `(func, name) -> node`.
     scalar_node: BTreeMap<(String, String), usize>,
     /// One node per array binding/param element repr: `(func, name) -> node`.
@@ -51,12 +77,13 @@ struct ReprInfer {
 }
 
 /// Whole-program pass: allocate nodes, add seeds + intra/inter-procedural
-/// equality edges, solve, and emit the [`ReprTable`].
+/// directed float-flow edges (plus array-element aliasing unions), solve by
+/// reachability, and emit the [`ReprTable`].
 pub fn infer_reprs(statements: &[Statement]) -> ReprTable {
     let mut infer = ReprInfer::default();
 
     // Phase A: collect every function signature (recursively) and eagerly
-    // create a scalar node per parameter so interprocedural unions have a
+    // create a scalar node per parameter so interprocedural edges have a
     // stable target even for params never mentioned in the body.
     infer.collect_functions(statements);
 
@@ -66,7 +93,8 @@ pub fn infer_reprs(statements: &[Statement]) -> ReprTable {
         infer.visit_stmt(TOP_LEVEL, stmt);
     }
 
-    // Phase C: resolve deferred call edges.
+    // Phase C: resolve deferred call edges (transitive array-param fixpoint +
+    // directed scalar/return edges + bidirectional array-element unions).
     infer.resolve_calls();
 
     // Phase D: solve → table.
@@ -74,6 +102,25 @@ pub fn infer_reprs(statements: &[Statement]) -> ReprTable {
 }
 
 impl ReprInfer {
+    // ---- node / edge / seed constructors -------------------------------
+
+    /// Allocate a fresh node id (kept in the `uf` id space).
+    fn new_node(&mut self) -> usize {
+        let n = self.uf.fresh();
+        self.node_count = n + 1;
+        n
+    }
+
+    /// Record a directed float-flow edge `from -> to`.
+    fn add_edge(&mut self, from: usize, to: usize) {
+        self.edges.push((from, to));
+    }
+
+    /// Mark `node` as a direct float seed.
+    fn add_seed(&mut self, node: usize) {
+        self.seeds.push(node);
+    }
+
     // ---- node accessors (get-or-create) --------------------------------
 
     fn scalar_node_for(&mut self, func: &str, name: &str) -> usize {
@@ -81,7 +128,7 @@ impl ReprInfer {
         if let Some(&n) = self.scalar_node.get(&key) {
             return n;
         }
-        let n = self.uf.fresh();
+        let n = self.new_node();
         self.scalar_node.insert(key, n);
         n
     }
@@ -91,7 +138,7 @@ impl ReprInfer {
         if let Some(&n) = self.array_elem_node.get(&key) {
             return n;
         }
-        let n = self.uf.fresh();
+        let n = self.new_node();
         self.array_elem_node.insert(key, n);
         n
     }
@@ -100,7 +147,7 @@ impl ReprInfer {
         if let Some(&n) = self.return_node.get(func) {
             return n;
         }
-        let n = self.uf.fresh();
+        let n = self.new_node();
         self.return_node.insert(func.to_string(), n);
         n
     }
@@ -178,7 +225,8 @@ impl ReprInfer {
                 if let Some(arg) = &stmt.argument {
                     let rn = self.visit_expr(func, arg);
                     let ret = self.return_node_for(func);
-                    self.uf.union(ret, rn);
+                    // expr -> return.
+                    self.add_edge(rn, ret);
                 }
             }
             Statement::IfStatement(stmt) => {
@@ -257,16 +305,17 @@ impl ReprInfer {
     }
 
     /// `let/const/var id = init` — array-producing inits create an element
-    /// node for `id`; everything else unions `id`'s scalar node with the init.
+    /// node for `id`; everything else flows the init into `id`'s scalar node
+    /// (`init -> id`).
     fn visit_declarator_init(&mut self, func: &str, id: &str, init: &Expression) {
         if self.init_is_array(init) {
             let elem = self.array_elem_node_for(func, id);
-            // Array literal elements flow into the element node.
+            // Array-literal elements flow (store direction) into the element.
             if let Expression::ArrayExpression(arr) = init {
                 for element in arr.elements.iter().flatten() {
                     if let kali_ast::ExpressionOrSpread::Expression(expr) = element {
                         let en = self.visit_expr(func, expr);
-                        self.uf.union(elem, en);
+                        self.add_edge(en, elem);
                     }
                 }
             }
@@ -274,7 +323,8 @@ impl ReprInfer {
         }
         let rn = self.visit_expr(func, init);
         let sn = self.scalar_node_for(func, id);
-        self.uf.union(sn, rn);
+        // init -> id.
+        self.add_edge(rn, sn);
     }
 
     /// True when `expr` produces a fresh array binding (`new Array(...)` or an
@@ -297,36 +347,38 @@ impl ReprInfer {
             Expression::Identifier(name) => self.scalar_node_for(func, name),
 
             Expression::Literal(LiteralValue::Number(n)) => {
-                let node = self.uf.fresh();
+                let node = self.new_node();
                 if is_float_literal(*n) {
-                    self.uf.seed_float(node);
+                    self.add_seed(node);
                 }
                 node
             }
-            Expression::Literal(_) => self.uf.fresh(),
+            Expression::Literal(_) => self.new_node(),
 
             Expression::ParenthesizedExpression(inner) => self.visit_expr(func, &inner.expression),
 
             Expression::BinaryExpression(bin) => {
                 let left = self.visit_expr(func, &bin.left);
                 let right = self.visit_expr(func, &bin.right);
-                let result = self.uf.fresh();
+                let result = self.new_node();
                 match bin.operator.as_str() {
                     "/" => {
-                        // Division always yields a float; also union operands'
-                        // clusters into the result so accumulators become float.
-                        self.uf.seed_float(result);
-                        self.uf.union(result, left);
-                        self.uf.union(result, right);
+                        // Division always yields a float: SEED the result. Its
+                        // operands are NOT floated (edges run operand ->
+                        // result only), so integer operands stay integer.
+                        self.add_seed(result);
+                        self.add_edge(left, result);
+                        self.add_edge(right, result);
                     }
                     "+" | "-" | "*" | "%" | "**" => {
-                        // int+float ⇒ whole cluster float.
-                        self.uf.union(result, left);
-                        self.uf.union(result, right);
+                        // Forward-flow: a float operand floats the result; the
+                        // result does NOT flow back to the operands.
+                        self.add_edge(left, result);
+                        self.add_edge(right, result);
                     }
-                    // Comparisons and bitwise/shift ops yield i64 (boolean or
-                    // int32); operands are visited for their edges but not
-                    // unioned into the result.
+                    // Comparisons / bitwise / shift ops yield i64 (boolean or
+                    // int32); operands are visited for their own edges but no
+                    // edge runs into the result.
                     _ => {}
                 }
                 result
@@ -334,9 +386,9 @@ impl ReprInfer {
 
             Expression::UnaryExpression(unary) => {
                 let arg = self.visit_expr(func, &unary.argument);
-                let result = self.uf.fresh();
+                let result = self.new_node();
                 if matches!(unary.operator.as_str(), "-" | "+") {
-                    self.uf.union(result, arg);
+                    self.add_edge(arg, result);
                 }
                 result
             }
@@ -352,23 +404,24 @@ impl ReprInfer {
                 self.visit_expr(func, &cond.test);
                 let cons = self.visit_expr(func, &cond.consequent);
                 let alt = self.visit_expr(func, &cond.alternate);
-                let result = self.uf.fresh();
-                self.uf.union(result, cons);
-                self.uf.union(result, alt);
+                let result = self.new_node();
+                // Either branch floats the result.
+                self.add_edge(cons, result);
+                self.add_edge(alt, result);
                 result
             }
 
             Expression::LogicalExpression(logical) => {
                 let left = self.visit_expr(func, &logical.left);
                 let right = self.visit_expr(func, &logical.right);
-                let result = self.uf.fresh();
-                self.uf.union(result, left);
-                self.uf.union(result, right);
+                let result = self.new_node();
+                self.add_edge(left, result);
+                self.add_edge(right, result);
                 result
             }
 
             Expression::SequenceExpression(seq) => {
-                let mut last = self.uf.fresh();
+                let mut last = self.new_node();
                 for e in &seq.expressions {
                     last = self.visit_expr(func, e);
                 }
@@ -385,11 +438,11 @@ impl ReprInfer {
                 for arg in &new_expr.args {
                     self.visit_expr(func, arg);
                 }
-                self.uf.fresh()
+                self.new_node()
             }
 
             // Any other expression kind is a fresh (int) node.
-            _ => self.uf.fresh(),
+            _ => self.new_node(),
         }
     }
 
@@ -401,7 +454,9 @@ impl ReprInfer {
                 let rn = self.visit_expr(func, &assign.right);
                 if let Expression::Identifier(name) = &member.object {
                     let elem = self.array_elem_node_for(func, name);
-                    self.uf.union(elem, rn);
+                    // Store is directed: value -> element (a float value floats
+                    // the array; an int value into a float array stays int).
+                    self.add_edge(rn, elem);
                 } else {
                     self.visit_expr(func, &member.object);
                 }
@@ -423,12 +478,13 @@ impl ReprInfer {
                 | AssignmentOperator::MultiplyAssign
                 | AssignmentOperator::ModuloAssign
                 | AssignmentOperator::ExponentAssign => {
-                    self.uf.union(sn, rn);
+                    // rhs -> x.
+                    self.add_edge(rn, sn);
                 }
                 AssignmentOperator::DivideAssign => {
-                    // `x /= v` ⇒ x is float.
-                    self.uf.seed_float(sn);
-                    self.uf.union(sn, rn);
+                    // `x /= v` ⇒ x is float; the divisor keeps its own repr, so
+                    // no `rhs -> x` edge.
+                    self.add_seed(sn);
                 }
                 // Bitwise/logical compound assigns keep i64.
                 _ => {}
@@ -444,17 +500,18 @@ impl ReprInfer {
             self.visit_expr(func, index); // index untouched (i64).
             if let Expression::Identifier(name) = &member.object {
                 let elem = self.array_elem_node_for(func, name);
-                let result = self.uf.fresh();
-                self.uf.union(result, elem);
+                let result = self.new_node();
+                // Read is directed: element -> read result.
+                self.add_edge(elem, result);
                 return result;
             }
             self.visit_expr(func, &member.object);
-            return self.uf.fresh();
+            return self.new_node();
         }
 
         // `.length` and other dot access → i64 result.
         self.visit_expr(func, &member.object);
-        self.uf.fresh()
+        self.new_node()
     }
 
     fn visit_call(&mut self, func: &str, call: &kali_ast::CallExpression) -> usize {
@@ -467,45 +524,45 @@ impl ReprInfer {
                         for arg in &call.args {
                             self.visit_expr(func, arg);
                         }
-                        let result = self.uf.fresh();
-                        self.uf.seed_float(result);
+                        let result = self.new_node();
+                        self.add_seed(result);
                         result
                     }
                     "toFixed" => {
                         // The receiver is a float.
                         let recv = self.visit_expr(func, &member.object);
-                        self.uf.seed_float(recv);
+                        self.add_seed(recv);
                         for arg in &call.args {
                             self.visit_expr(func, arg);
                         }
                         // `.toFixed` returns a string; result is a fresh i64.
-                        self.uf.fresh()
+                        self.new_node()
                     }
                     "fill" => {
-                        // `a.fill(v)` unions the receiver's element node with v.
+                        // `a.fill(v)` is a store: value -> receiver element.
                         let vnode = call
                             .args
                             .first()
                             .map(|arg| self.visit_expr(func, arg))
-                            .unwrap_or_else(|| self.uf.fresh());
+                            .unwrap_or_else(|| self.new_node());
                         for arg in call.args.iter().skip(1) {
                             self.visit_expr(func, arg);
                         }
                         if let Expression::Identifier(name) = &member.object {
                             let elem = self.array_elem_node_for(func, name);
-                            self.uf.union(elem, vnode);
+                            self.add_edge(vnode, elem);
                         } else {
                             self.visit_expr(func, &member.object);
                         }
                         // `.fill` returns the array handle (i64).
-                        self.uf.fresh()
+                        self.new_node()
                     }
                     _ => {
                         self.visit_expr(func, &member.object);
                         for arg in &call.args {
                             self.visit_expr(func, arg);
                         }
-                        self.uf.fresh()
+                        self.new_node()
                     }
                 }
             }
@@ -522,7 +579,7 @@ impl ReprInfer {
                         _ => None,
                     });
                 }
-                let result_node = self.uf.fresh();
+                let result_node = self.new_node();
                 self.calls.push(CallEdge {
                     callee: callee.clone(),
                     arg_nodes,
@@ -537,7 +594,7 @@ impl ReprInfer {
                 for arg in &call.args {
                     self.visit_expr(func, arg);
                 }
-                self.uf.fresh()
+                self.new_node()
             }
         }
     }
@@ -545,65 +602,139 @@ impl ReprInfer {
     // ---- Phase C: interprocedural resolution ---------------------------
 
     fn resolve_calls(&mut self) {
+        // Step 1: compute the transitive "is an array param" set to a fixpoint.
+        // Seed with every binding directly used as an array (subscript, read,
+        // write, `.fill`, `new Array`, array literal — anything that created an
+        // `array_elem_node`). Then propagate: a caller's identifier argument
+        // that is passed at position `k` to a callee whose param `k` is an
+        // array binding is itself an array binding. This links pass-through
+        // params (e.g. `w` in `AtAu(u,v,w){ Au(u,w); Atu(w,v); }`) that never
+        // subscript their param directly.
+        let mut array_bindings: BTreeSet<(String, String)> =
+            self.array_elem_node.keys().cloned().collect();
+        loop {
+            let mut changed = false;
+            for edge in &self.calls {
+                let Some(params) = self.functions.get(&edge.callee) else {
+                    continue;
+                };
+                for (k, arg) in edge.arg_array_names.iter().enumerate() {
+                    let Some((caller, argname)) = arg else {
+                        continue;
+                    };
+                    let Some(param_name) = params.get(k) else {
+                        continue;
+                    };
+                    if array_bindings.contains(&(edge.callee.clone(), param_name.clone()))
+                        && array_bindings.insert((caller.clone(), argname.clone()))
+                    {
+                        changed = true;
+                    }
+                }
+            }
+            if !changed {
+                break;
+            }
+        }
+
+        // Step 2: drain call edges and wire the interprocedural constraints.
         let calls = std::mem::take(&mut self.calls);
         for edge in calls {
             let Some(params) = self.functions.get(&edge.callee).cloned() else {
                 continue; // Not a user function (builtin / undefined) — skip.
             };
 
-            // Positional scalar flow: arg node ⟷ param scalar node.
-            for (k, &arg_node) in edge.arg_nodes.iter().enumerate() {
-                if let Some(param_name) = params.get(k) {
+            for (k, param_name) in params.iter().enumerate() {
+                let is_array_param =
+                    array_bindings.contains(&(edge.callee.clone(), param_name.clone()));
+                if is_array_param {
+                    // Array element flow is bidirectional shared storage: union
+                    // the caller argument's element node with the param's. Only
+                    // meaningful when the argument is a bare identifier.
+                    if let Some(Some((caller, name))) = edge.arg_array_names.get(k) {
+                        let caller_elem = self.array_elem_node_for(caller, name);
+                        let param_elem = self.array_elem_node_for(&edge.callee, param_name);
+                        self.uf.union(caller_elem, param_elem);
+                    }
+                } else if let Some(&arg_node) = edge.arg_nodes.get(k) {
+                    // Scalar arg flow is directional: arg -> param.
                     let pnode = self.scalar_node_for(&edge.callee, param_name);
-                    self.uf.union(arg_node, pnode);
+                    self.add_edge(arg_node, pnode);
                 }
             }
 
-            // Array element flow: when the arg is a known array binding in the
-            // caller, union its element node with the param's element node.
-            for (k, arg_arr) in edge.arg_array_names.iter().enumerate() {
-                let (Some((caller, name)), Some(param_name)) = (arg_arr, params.get(k)) else {
-                    continue;
-                };
-                let caller_key = (caller.clone(), name.clone());
-                if self.array_elem_node.contains_key(&caller_key) {
-                    let caller_elem = self.array_elem_node[&caller_key];
-                    let param_elem = self.array_elem_node_for(&edge.callee, param_name);
-                    self.uf.union(caller_elem, param_elem);
-                }
-            }
-
-            // Return flow: call-site result ⟷ callee return node.
+            // Return flow is directional: callee return -> call-site result.
             let ret = self.return_node_for(&edge.callee);
-            self.uf.union(edge.result_node, ret);
+            self.add_edge(ret, edge.result_node);
         }
     }
 
     // ---- Phase D: solve → table ----------------------------------------
 
+    /// BFS float reachability over the directed edge graph, with endpoints
+    /// canonicalised through the array-element union-find. Returns a per-node
+    /// float flag indexed by node id; array-element clusters are read via their
+    /// representative.
+    fn solve_float(&mut self) -> Vec<bool> {
+        let n = self.node_count;
+        let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n];
+        let edges = std::mem::take(&mut self.edges);
+        for (from, to) in edges {
+            let f = self.uf.find(from);
+            let t = self.uf.find(to);
+            adj[f].push(t);
+        }
+
+        let mut float = vec![false; n];
+        let mut queue: VecDeque<usize> = VecDeque::new();
+        let seeds = std::mem::take(&mut self.seeds);
+        for s in seeds {
+            let r = self.uf.find(s);
+            if !float[r] {
+                float[r] = true;
+                queue.push_back(r);
+            }
+        }
+        while let Some(u) = queue.pop_front() {
+            let mut i = 0;
+            while i < adj[u].len() {
+                let v = adj[u][i];
+                if !float[v] {
+                    float[v] = true;
+                    queue.push_back(v);
+                }
+                i += 1;
+            }
+        }
+        float
+    }
+
     fn emit_table(mut self) -> ReprTable {
+        let float = self.solve_float();
         let mut table = ReprTable::default();
 
-        // Scalars (BTreeMap ⇒ deterministic order).
+        // Scalars (BTreeMap ⇒ deterministic order). Scalar nodes are never
+        // unioned, so the flag can be read directly.
         let scalars: Vec<((String, String), usize)> = self
             .scalar_node
             .iter()
             .map(|(k, &v)| (k.clone(), v))
             .collect();
         for ((func, name), node) in scalars {
-            if self.uf.is_float(node) {
+            if float[node] {
                 table.set_scalar(&func, &name, Repr::F64);
             }
         }
 
-        // Array elements.
+        // Array elements — read via the union-find representative.
         let elems: Vec<((String, String), usize)> = self
             .array_elem_node
             .iter()
             .map(|(k, &v)| (k.clone(), v))
             .collect();
         for ((func, name), node) in elems {
-            if self.uf.is_float(node) {
+            let rep = self.uf.find(node);
+            if float[rep] {
                 table.set_array_element(&func, &name, Repr::F64);
             }
         }
@@ -615,7 +746,7 @@ impl ReprInfer {
             .map(|(k, &v)| (k.clone(), v))
             .collect();
         for (func, node) in returns {
-            if self.uf.is_float(node) {
+            if float[node] {
                 table.set_return(&func, Repr::F64);
             }
         }
@@ -628,9 +759,10 @@ impl ReprInfer {
             .collect();
         for (func, params) in functions {
             for (index, name) in params.iter().enumerate() {
-                let node = self.scalar_node_for(&func, name);
-                if self.uf.is_float(node) {
-                    table.set_param(&func, index, Repr::F64);
+                if let Some(&node) = self.scalar_node.get(&(func.clone(), name.clone())) {
+                    if float[node] {
+                        table.set_param(&func, index, Repr::F64);
+                    }
                 }
             }
         }
