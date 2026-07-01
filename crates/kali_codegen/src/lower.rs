@@ -1114,15 +1114,39 @@ pub(crate) fn emit_literal(
         }
         Some(text) => {
             if let Some(number) = parse_number_literal(text) {
+                // Exact integer numeric literal: keep the i64 constant path.
                 function.instruction(&Instruction::I64Const(number));
+                EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                }
+            } else if let Some(value) =
+                parse_numeric_literal_value(text).filter(|v| v.is_finite() && v.fract() != 0.0)
+            {
+                // Finite non-integer numeric literal (fractional part or
+                // exponent): emit an f64 constant. The repr inference seeds
+                // these as float (see `is_float_literal` in kali_types), so
+                // float locals/params expect an f64 here; a mis-typed i64
+                // string handle otherwise yields an invalid module (E4201).
+                //
+                // Non-finite values (NaN/Infinity) are never real numeric
+                // source-literal tokens — they are identifiers — so the only
+                // such text reaching here is a codegen-synthesized string-print
+                // artifact (e.g. an out-of-range `charCodeAt` rendering "NaN").
+                // Those keep the existing string-interning path unchanged.
+                function.instruction(&Instruction::F64Const(value.into()));
+                EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Float,
+                }
             } else {
                 let normalized = strip_string_delimiters(text);
                 let (offset, len) = strings.intern(normalized);
                 function.instruction(&Instruction::I64Const(encode_string_handle(offset, len)));
-            }
-            EmittedValue {
-                produced: true,
-                shape: ValueShape::Scalar,
+                EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                }
             }
         }
         None => {

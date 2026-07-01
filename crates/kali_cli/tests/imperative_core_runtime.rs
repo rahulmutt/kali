@@ -517,6 +517,25 @@ console.log(count(a));\n";
 }
 
 #[test]
+fn float_literals_emit_as_f64() {
+    // A bare non-integer numeric literal must lower to an `f64.const`, not a
+    // string handle. Previously these fell through the integer parser into the
+    // string-interning path, producing an i64 string handle where an f64 was
+    // expected (E4201: WebAssembly translation error).
+    assert_eq!(run_js("console.log(1.5 > 1);\n"), "1\n");
+    assert_eq!(run_js("console.log(0.5 < 1);\n"), "1\n");
+    // float literal stored into an f64 local (inferred via repr inference).
+    assert_eq!(run_js("let x = 1.5;\nconsole.log(x > 1);\n"), "1\n");
+    assert_eq!(run_js("let y = 0.5;\nconsole.log(y < 1);\n"), "1\n");
+    // float literal in mixed arithmetic: 1.5 + 1/2 = 2.0.
+    assert_eq!(run_js("console.log((1.5 + 1 / 2) < 3);\n"), "1\n");
+    assert_eq!(run_js("console.log((1.5 + 1 / 2) > 1);\n"), "1\n");
+    // byte-identity guards: integer + string literals unaffected.
+    assert_eq!(run_js("console.log(5);\n"), "5\n");
+    assert_eq!(run_js("console.log(\"hi\");\n"), "hi\n");
+}
+
+#[test]
 fn math_sqrt_runtime_f64() {
     // non-perfect-square: was FEATURE_UNAVAILABLE, now a real f64 sqrt.
     assert_eq!(run_js("console.log(Math.sqrt(2) < 2);\n"), "1\n"); // 1.414… < 2
