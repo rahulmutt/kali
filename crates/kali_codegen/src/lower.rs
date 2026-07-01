@@ -836,6 +836,13 @@ pub(crate) fn collect_function_locals_from_node(
 /// an operator, and a computed member access (`a[<expr>]`) otherwise — computed
 /// indices never stringify to a bare operator, so `text` cleanly separates the
 /// two shapes that both lower to a two-child `Value` node.
+///
+/// Known limitation: a computed member whose index is a string LITERAL equal to
+/// an operator (e.g. `obj["+"]`, `obj["in"]`) stringifies to that bare operator
+/// and would be misclassified as a binary expression. This is unreachable in the
+/// current integer-only slice (no general object with operator-named string keys
+/// is expressible/evaluable); if a richer object model is added, disambiguate on
+/// node kind (member vs binary) rather than on `text` here.
 pub(crate) fn is_binary_operator_text(text: &str) -> bool {
     matches!(
         text,

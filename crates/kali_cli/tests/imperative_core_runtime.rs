@@ -95,6 +95,20 @@ fn loops_iterate() {
         ),
         "15\n"
     );
+    // `continue` in a `while` re-tests the condition (skips i === 3): 1 + 2 + 4 + 5 + 6 = 18
+    assert_eq!(
+        run_js(
+            "let s = 0;\nlet i = 0;\nwhile (i < 6) { i = i + 1; if (i === 3) { continue; } s = s + i; }\nconsole.log(s);\n"
+        ),
+        "18\n"
+    );
+    // `break` inside an `if` inside a conditional (non-`true`) loop
+    assert_eq!(
+        run_js(
+            "let i = 0;\nwhile (i < 100) { if (i === 4) { break; } i = i + 1; }\nconsole.log(i);\n"
+        ),
+        "4\n"
+    );
 }
 
 #[test]

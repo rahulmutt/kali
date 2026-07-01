@@ -92,6 +92,60 @@ fn while_literal_one_continue_runs_in_all_build_modes() {
     }
 }
 
+const DO_WHILE_TRUE_BREAK: &str = "\
+function main() {
+  let i = 0;
+  do {
+    i = i + 1;
+    if (i >= 3) { break; }
+  } while (true);
+  console.log(i);
+}
+main();
+";
+
+const FOR_TRUE_BREAK: &str = "\
+function main() {
+  let n = 0;
+  for (let i = 0; true; i = i + 1) {
+    if (i >= 4) { break; }
+    n = n + 1;
+  }
+  console.log(n);
+}
+main();
+";
+
+#[test]
+fn do_while_true_break_runs_in_all_build_modes() {
+    for mode in [
+        BuildMode::Fast,
+        BuildMode::Release,
+        BuildMode::ReleaseAdvanced,
+    ] {
+        assert_eq!(
+            compile_and_run(DO_WHILE_TRUE_BREAK, mode),
+            "3\n",
+            "do-while (true) + break must run identically under {mode:?}"
+        );
+    }
+}
+
+#[test]
+fn for_true_break_runs_in_all_build_modes() {
+    for mode in [
+        BuildMode::Fast,
+        BuildMode::Release,
+        BuildMode::ReleaseAdvanced,
+    ] {
+        assert_eq!(
+            compile_and_run(FOR_TRUE_BREAK, mode),
+            "4\n",
+            "for (; true; ) + break must run identically under {mode:?}"
+        );
+    }
+}
+
 fn fannkuch_fixture() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests/fixtures/benchmarks/fannkuch-redux-benchmark-v1.ts")
