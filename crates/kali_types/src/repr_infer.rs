@@ -509,6 +509,20 @@ impl ReprInfer {
             return self.new_node();
         }
 
+        // `.length` on a bare identifier is an array-length access: register the
+        // receiver as an array binding so its i64 handle is treated as a
+        // linear-memory array (matching codegen's `.length` header-load path),
+        // even when the identifier is never subscripted directly. This mirrors
+        // the subscript/`.fill`/`new Array` seeds and lets interprocedural
+        // propagation link pass-through callers. Other dot access carries no
+        // array signal. Arrays that are also subscripted are already seeded, so
+        // integer programs (whose arrays are always indexed) are unaffected.
+        if member.property.as_str() == "length" {
+            if let Expression::Identifier(name) = &member.object {
+                self.array_elem_node_for(func, name);
+            }
+        }
+
         // `.length` and other dot access → i64 result.
         self.visit_expr(func, &member.object);
         self.new_node()

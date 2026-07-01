@@ -463,3 +463,51 @@ fn array_params_float_fill_interproc_spectral_norm_shape() {
         "1\n"
     );
 }
+
+#[test]
+fn array_param_store_with_call_rhs_across_two_calls() {
+    // spectral-norm multi-call pattern: two functions that loop over an array
+    // param and store into another, chained through a driver. `A` returns a
+    // float (`/`), and `Au` uses `u.length` on a param it never subscripts.
+    // Previously the `.length` node was misclassified as a float element read,
+    // making the loop condition emit `f64.lt` with an i64 `.length` operand
+    // (E4201: expected f64, found i64), and `u.length` fell back to a
+    // placeholder 0 so the loop never ran. Must now compute w[0]=A(0,0)=1 and
+    // copy it to v[0], so v[0] > 0 => 1.
+    let source = "\
+function A(i,j){ return 1 / (i + j + 1); }\n\
+function Au(u, v) { for (let i = 0; i < u.length; i = i + 1) { v[i] = A(i, 0); } }\n\
+function Atu(u, v) { for (let i = 0; i < u.length; i = i + 1) { v[i] = u[i]; } }\n\
+function AtAu(u, v, w) { Au(u, w); Atu(w, v); }\n\
+const u = new Array(2).fill(1);\n\
+const v = new Array(2);\n\
+const w = new Array(2);\n\
+AtAu(u, v, w);\n\
+console.log(v[0] > 0);\n";
+    assert_eq!(run_js(source), "1\n");
+}
+
+#[test]
+fn array_param_store_with_float_call_rhs() {
+    // `v[i] = <call>()` where the callee returns a float, stored into a float
+    // array param. The store path must keep the call result as f64 (no bogus
+    // i64/f64 stack-type mismatch). half(0)=0.5 => u[0] < 1 => 1.
+    let source = "\
+function half(i){ return 1 / (i + 2); }\n\
+function fillIt(v){ for (let i = 0; i < v.length; i = i + 1) { v[i] = half(i); } }\n\
+const u = new Array(2);\n\
+fillIt(u);\n\
+console.log(u[0] < 1);\n";
+    assert_eq!(run_js(source), "1\n");
+}
+
+#[test]
+fn array_param_length_only_receiver_is_array() {
+    // A param used ONLY via `.length` (never subscripted) must still be treated
+    // as an array so `.length` reads the real header, not a placeholder 0.
+    let source = "\
+function count(u){ let n = 0; for (let i = 0; i < u.length; i = i + 1) { n = n + 1; } return n; }\n\
+const a = new Array(3).fill(1);\n\
+console.log(count(a));\n";
+    assert_eq!(run_js(source), "3\n");
+}

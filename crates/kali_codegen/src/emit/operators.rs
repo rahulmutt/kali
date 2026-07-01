@@ -457,6 +457,15 @@ impl<'a> FunctionEmitter<'a> {
                         // Transparent wrapper or unary sign: float-ness follows the
                         // operand.
                         self.is_float_valued(node.children[0])
+                    } else if text == "length" {
+                        // `a.length` shares the one-child member shape (base child +
+                        // property `text`) with an array element read `a[idx]`, but
+                        // the length header is always emitted as an i64 (see the
+                        // `.length` load in control_flow.rs). Never treat it as a
+                        // float element read, or a relational/arithmetic op would
+                        // wrongly select the float path and leave an i64 where an
+                        // f64 is expected.
+                        false
                     } else {
                         // Array element read `a[<literal/identifier index>]`.
                         self.array_read_base_name(node.children[0])
