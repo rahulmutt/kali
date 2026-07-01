@@ -6,15 +6,15 @@
 //! - Span type for source positions
 //! - SourceMap for human-readable diagnostics
 
+mod helpers;
 pub mod interner;
 pub mod source_map;
 pub mod span;
 pub mod template;
-mod helpers;
 
+pub(crate) use helpers::*;
 pub use interner::{InternedString, Interner};
 pub use span::Span;
-pub(crate) use helpers::*;
 mod registry;
 pub use registry::*;
 mod messages;

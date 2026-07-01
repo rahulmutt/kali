@@ -11,10 +11,13 @@ use kali_sandbox::{
     package_effects_report, EffectAnalysisContext, PackageCoordinate, SandboxPolicy,
 };
 use serde_json::Value;
-use std::{fs, path::{Path, PathBuf}};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
-use super::shared;
 use super::config;
+use super::shared;
 
 pub(crate) fn package_analysis_specific_flag_context(
     api: Option<kali_cli::ApiSurface>,
@@ -307,9 +310,13 @@ pub(crate) fn package_effects_command(
             );
         }
     };
-    if let Err(exit_code) =
-        config::reject_unavailable_compat_features("package-effects", &effective_compat, output, None, None)
-    {
+    if let Err(exit_code) = config::reject_unavailable_compat_features(
+        "package-effects",
+        &effective_compat,
+        output,
+        None,
+        None,
+    ) {
         return Err(exit_code);
     }
     let context =
@@ -398,7 +405,14 @@ pub(crate) fn package_audit_command(
 ) -> Result<(), i32> {
     if preview {
         let diagnostic = package_audit_preview_diagnostic();
-        return shared::emit_diagnostics_and_exit("package-audit", vec![diagnostic], 5, output, None, None);
+        return shared::emit_diagnostics_and_exit(
+            "package-audit",
+            vec![diagnostic],
+            5,
+            output,
+            None,
+            None,
+        );
     }
 
     reject_package_analysis_specific_flags(

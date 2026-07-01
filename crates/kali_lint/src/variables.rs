@@ -31,7 +31,6 @@ impl Analyzer {
             );
         }
     }
-
 }
 
 fn walk_statement_for_var_rules(

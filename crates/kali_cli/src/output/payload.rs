@@ -2,7 +2,9 @@
 
 use serde_json::Value;
 
-use super::browser_runtime::{validate_browser_harness_value, validate_browser_runtime_contract_value};
+use super::browser_runtime::{
+    validate_browser_harness_value, validate_browser_runtime_contract_value,
+};
 use super::coverage::validate_test_payload_coverage_value;
 use super::schema::*;
 use super::thread_topology::validate_thread_topology_snapshot_value;

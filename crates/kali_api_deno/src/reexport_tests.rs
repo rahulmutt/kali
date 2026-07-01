@@ -132,4 +132,3 @@ fn browser_stubs_are_reexported_through_the_deno_surface() {
         Some(serde_json::json!({"ok": true}))
     );
 }
-

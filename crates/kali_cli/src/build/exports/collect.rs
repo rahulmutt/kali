@@ -1,9 +1,14 @@
 //! Library/browser-bundle export + tree-shake collection.
 
 use super::super::entrypoint::generator_function_unavailable_message;
-use super::super::helpers::{has_errors, invalid_export_surface, parse_source_file, signature_from_export_specifier};
+use super::super::helpers::{
+    has_errors, invalid_export_surface, parse_source_file, signature_from_export_specifier,
+};
 use super::super::wit::LibraryExport;
-use super::signatures::{collect_declared_function_signatures, infer_function_binding_signature, infer_function_signature};
+use super::signatures::{
+    collect_declared_function_signatures, infer_function_binding_signature,
+    infer_function_signature,
+};
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;

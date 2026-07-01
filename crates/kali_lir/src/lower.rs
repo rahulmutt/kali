@@ -2,7 +2,7 @@
 
 use kali_mir::{MirNode, MirNodeId, MirNodeKind, MirProgram};
 
-use crate::{LirBuilder, LirNodeKind, LirNodeId, LirProgram};
+use crate::{LirBuilder, LirNodeId, LirNodeKind, LirProgram};
 
 /// LIR lowering.
 #[derive(Default)]

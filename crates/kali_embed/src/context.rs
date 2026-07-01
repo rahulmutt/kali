@@ -1,15 +1,10 @@
-use std::{
-    collections::BTreeMap,
-    sync::Arc,
-};
+use std::{collections::BTreeMap, sync::Arc};
 
 use kali_error::{
     _error_codes::{e4, e5},
     Diagnostic,
 };
-use kali_sandbox::{
-    HostOperation, PolicyPredicateContext, SandboxPolicy,
-};
+use kali_sandbox::{HostOperation, PolicyPredicateContext, SandboxPolicy};
 
 use crate::compiler::{CompilerConfig, KaliCompiler};
 

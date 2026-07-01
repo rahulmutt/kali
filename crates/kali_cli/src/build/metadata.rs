@@ -1,7 +1,9 @@
 //! Artifact metadata construction, build-result validation, metadata serialization.
 
+use super::compile::{
+    build_mode_name, profile_data_hash, source_hash_for_file, validate_runtime_profiles, BuildMode,
+};
 use super::wit::LibraryExport;
-use super::compile::{BuildMode, build_mode_name, profile_data_hash, source_hash_for_file, validate_runtime_profiles};
 
 use std::borrow::Cow;
 use std::path::Path;

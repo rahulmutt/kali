@@ -1,5 +1,5 @@
-use crate::*;
 use crate::test_support::*;
+use crate::*;
 use std::sync::atomic::Ordering;
 
 #[test]

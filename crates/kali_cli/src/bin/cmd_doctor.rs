@@ -3,8 +3,8 @@
 use kali_cli::output::{validate_doctor_payload_value, CliOutputOptions};
 use kali_error::{_error_codes::e5, Diagnostic};
 use kali_runtime::{
-    browser_harness_command_parts_checked, browser_runtime_contract_value,
-    BrowserRuntimeContract, BROWSER_HARNESS_COMMAND_ENV,
+    browser_harness_command_parts_checked, browser_runtime_contract_value, BrowserRuntimeContract,
+    BROWSER_HARNESS_COMMAND_ENV,
 };
 use serde_json::json;
 use std::{env, process::Command as ProcessCommand};
@@ -22,7 +22,14 @@ pub(crate) fn doctor_command(output: &CliOutputOptions) -> Result<(), i32> {
         Ok(parts) => parts,
         Err(message) => {
             let diagnostic = Diagnostic::error(e5::INVALID_CLI_USAGE as u32, message);
-            return shared::emit_diagnostics_and_exit("doctor", vec![diagnostic], 5, output, None, None);
+            return shared::emit_diagnostics_and_exit(
+                "doctor",
+                vec![diagnostic],
+                5,
+                output,
+                None,
+                None,
+            );
         }
     };
     let executable = command_parts.first().cloned().unwrap_or_default();

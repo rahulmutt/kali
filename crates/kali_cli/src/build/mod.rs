@@ -17,8 +17,8 @@ pub use compile::{
     compile_source_file_with_specialization_cap_and_profile_data,
     compile_source_file_with_specialization_cap_and_profile_data_and_validation,
     compile_source_file_with_specialization_cap_and_validation, load_profile_data_file,
-    normalize_compiler_source, read_compiler_source_file, validate_runtime_profiles,
-    BuildMode, BuildOutput, CompileOutput,
+    normalize_compiler_source, read_compiler_source_file, validate_runtime_profiles, BuildMode,
+    BuildOutput, CompileOutput,
 };
 pub use entrypoint::reject_async_and_generator_class_methods_in_runtime_entrypoint;
 pub use eval::{discover_dynamic_import_targets, DynamicImportTarget};
@@ -39,10 +39,12 @@ pub use wit::{browser_bundle_source_map, library_wit_for, LibraryExport};
 #[cfg(test)]
 pub(crate) use compile::{incremental_cache_path, profile_data_hash};
 #[cfg(test)]
-pub(crate) use exports::{collect_direct_bundle_calls_from_statements, collect_library_exports_from_statements};
+pub(crate) use exports::{
+    collect_direct_bundle_calls_from_statements, collect_library_exports_from_statements,
+};
+pub(crate) use helpers::*;
 #[cfg(test)]
-pub(crate) use metadata::validate_artifact_metadata_value;
-pub(crate) use helpers::*; // parse_source_file, source_stem, has_errors, etc. for sibling modules
+pub(crate) use metadata::validate_artifact_metadata_value; // parse_source_file, source_stem, has_errors, etc. for sibling modules
 
 // Test-only names re-exported into mod.rs scope for build_tests.rs (`use super::*`); cfg(test)-gated
 // to avoid unused-import warnings in the lib build (no production code in this facade uses them).

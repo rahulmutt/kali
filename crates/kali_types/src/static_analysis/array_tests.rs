@@ -1,5 +1,4 @@
 use crate::test_support::*;
-use kali_test_support::fixtures;
 use crate::*;
 use kali_ast::{
     AssignmentExpression, AssignmentOperator, BlockStatement, CallExpression, DecoratedExpression,
@@ -7,6 +6,7 @@ use kali_ast::{
     VariableDeclaration, VariableDeclarator,
 };
 use kali_error::_error_codes::e5;
+use kali_test_support::fixtures;
 use std::fs;
 
 fn assert_resolution_accepts_frozen_iterator_protocol_edge(source_filename: &str, source: &str) {

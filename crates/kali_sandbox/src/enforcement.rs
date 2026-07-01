@@ -3,7 +3,10 @@ use std::path::Path;
 use kali_error::Diagnostic;
 
 use crate::diagnostics::{resource_limit_violation, sandbox_violation, unavailable_capability};
-use crate::{AccessRule, HostOperation, PatternKind, PolicyPredicateContext, PolicyPredicateRegistry, SandboxPolicy};
+use crate::{
+    AccessRule, HostOperation, PatternKind, PolicyPredicateContext, PolicyPredicateRegistry,
+    SandboxPolicy,
+};
 
 impl SandboxPolicy {
     /// Resolve the effective thread budget after combining the attached policy cap

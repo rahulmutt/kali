@@ -1,5 +1,4 @@
 use crate::test_support::*;
-use kali_test_support::fixtures;
 use crate::*;
 use kali_ast::{
     CallExpression, ConditionalExpression, DecoratedExpression, Expression, ExpressionStatement,
@@ -10,6 +9,7 @@ use kali_common::{
     math_abs_sign_frozen_callable_invocation_source, math_round_frozen_callable_invocation_source,
 };
 use kali_error::_error_codes::{e3, e5};
+use kali_test_support::fixtures;
 use std::fs;
 
 #[path = "math_tests/pow.rs"]

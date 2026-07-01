@@ -18,9 +18,9 @@ use std::{
 };
 use wasm_encoder::{Component, ComponentSectionId, CustomSection, RawSection, Section};
 
-use super::shared;
-use super::config;
 use super::cmd_package::validate_source_effects_against_policy;
+use super::config;
+use super::shared;
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn build_command(
@@ -83,7 +83,14 @@ pub(crate) fn build_command(
                 e5::INVALID_CLI_USAGE as u32,
                 "`kali build --bundle` requires the effective browser API surface",
             );
-            return shared::emit_diagnostics_and_exit("build", vec![diagnostic], 5, output, None, None);
+            return shared::emit_diagnostics_and_exit(
+                "build",
+                vec![diagnostic],
+                5,
+                output,
+                None,
+                None,
+            );
         }
     } else if matches!(effective_api, kali_cli::ApiSurface::Browser) {
         let diagnostic = Diagnostic::error(
@@ -93,7 +100,8 @@ pub(crate) fn build_command(
         return shared::emit_diagnostics_and_exit("build", vec![diagnostic], 5, output, None, None);
     }
 
-    let effective_runtime_profiles = match config::resolve_effective_runtime_profiles(wasm_threads) {
+    let effective_runtime_profiles = match config::resolve_effective_runtime_profiles(wasm_threads)
+    {
         Ok(profiles) => profiles,
         Err(diagnostics) => {
             return shared::emit_diagnostics_and_exit("build", diagnostics, 5, output, None, None)
@@ -117,12 +125,20 @@ pub(crate) fn build_command(
 
     let source = source.to_string_lossy().to_string();
     let mode = build::build_mode_from_flags(fast, release, release_advanced);
-    let max_specializations = match config::resolve_effective_max_specializations(max_specializations) {
-        Ok(max_specializations) => max_specializations,
-        Err(diagnostics) => {
-            return shared::emit_diagnostics_and_exit("build", diagnostics, 5, output, None, None)
-        }
-    };
+    let max_specializations =
+        match config::resolve_effective_max_specializations(max_specializations) {
+            Ok(max_specializations) => max_specializations,
+            Err(diagnostics) => {
+                return shared::emit_diagnostics_and_exit(
+                    "build",
+                    diagnostics,
+                    5,
+                    output,
+                    None,
+                    None,
+                )
+            }
+        };
     let out_dir_path = out_dir.as_deref();
     let bundle_format = format.unwrap_or(BundleFormat::Esm);
     let artifact_mode = if lib {

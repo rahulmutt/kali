@@ -17,7 +17,11 @@ pub(crate) fn reject_unexpected_keys(
     Ok(())
 }
 
-pub(crate) fn validate_string_field(value: &Value, context: &str, field_name: &str) -> Result<(), String> {
+pub(crate) fn validate_string_field(
+    value: &Value,
+    context: &str,
+    field_name: &str,
+) -> Result<(), String> {
     if value.is_string() {
         Ok(())
     } else {
@@ -46,7 +50,11 @@ pub(crate) fn validate_non_empty_string_field(
     }
 }
 
-pub(crate) fn validate_integer_field(value: &Value, context: &str, field_name: &str) -> Result<(), String> {
+pub(crate) fn validate_integer_field(
+    value: &Value,
+    context: &str,
+    field_name: &str,
+) -> Result<(), String> {
     if value.as_i64().is_some() || value.as_u64().is_some() {
         Ok(())
     } else {
@@ -72,7 +80,11 @@ pub(crate) fn validate_non_negative_integer_field(
     }
 }
 
-pub(crate) fn integer_value(value: &Value, context: &str, field_name: &str) -> Result<i128, String> {
+pub(crate) fn integer_value(
+    value: &Value,
+    context: &str,
+    field_name: &str,
+) -> Result<i128, String> {
     if let Some(number) = value.as_i64() {
         Ok(number as i128)
     } else if let Some(number) = value.as_u64() {

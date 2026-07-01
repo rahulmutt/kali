@@ -99,7 +99,10 @@ pub(crate) fn resolve_types_package_import(
     }
 }
 
-pub(crate) fn resolve_package_types_entry(package_dir: &Path, package_json: &PackageJson) -> Option<PathBuf> {
+pub(crate) fn resolve_package_types_entry(
+    package_dir: &Path,
+    package_json: &PackageJson,
+) -> Option<PathBuf> {
     if let Some(types) = &package_json.types {
         if let Some(path) = resolve_package_file(package_dir, types) {
             return Some(path);
@@ -349,7 +352,10 @@ pub(crate) fn substitute_export_pattern(path: &str, capture: Option<&str>) -> St
     }
 }
 
-pub(crate) fn match_export_pattern<'a>(pattern: &'a str, requested_key: &'a str) -> Option<&'a str> {
+pub(crate) fn match_export_pattern<'a>(
+    pattern: &'a str,
+    requested_key: &'a str,
+) -> Option<&'a str> {
     let (prefix, suffix) = pattern.split_once('*')?;
     if requested_key.len() < prefix.len() + suffix.len() {
         return None;

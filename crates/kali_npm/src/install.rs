@@ -16,7 +16,6 @@ pub struct InstallSummary {
     pub removed: Vec<String>,
 }
 
-
 pub(crate) fn ensure_lock_install_name_unique(
     install_names: &mut BTreeMap<String, String>,
     key: &str,
@@ -360,7 +359,10 @@ pub(crate) fn prune_unreachable_raw_urls(
     Ok(removed)
 }
 
-pub(crate) fn remove_cached_raw_url_entry(root: &Path, cached: &str) -> Result<(), Vec<Diagnostic>> {
+pub(crate) fn remove_cached_raw_url_entry(
+    root: &Path,
+    cached: &str,
+) -> Result<(), Vec<Diagnostic>> {
     let cached_path = Path::new(cached);
     if cached_path.exists() {
         if cached_path.is_dir() {
@@ -1026,7 +1028,6 @@ pub(crate) fn install_raw_url(
     installed.insert(url.to_string());
     Ok(())
 }
-
 
 pub(crate) fn run_package_lifecycle_hooks(
     package_dir: &Path,

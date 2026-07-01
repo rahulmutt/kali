@@ -8,13 +8,17 @@ use kali_error::DiagnosticContextOrigin;
 use kali_npm::discover_project_root;
 use kali_runtime::{browser_runtime_request_context, RuntimeCtx};
 use serde_json::{json, Value};
-use std::{env, fs, path::{Path, PathBuf}, time::Instant};
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+    time::Instant,
+};
 use wasmparser::{Parser as WasmParser, Payload};
 
-use super::cmd_run::browser_stdout_thread_topology_snapshot_value;
-use super::shared;
-use super::config;
 use super::cmd_package::validate_source_effects_against_policy_for_roots;
+use super::cmd_run::browser_stdout_thread_topology_snapshot_value;
+use super::config;
+use super::shared;
 
 pub(crate) fn test_command(
     files: Vec<String>,
@@ -82,7 +86,8 @@ pub(crate) fn test_command(
     {
         return Err(exit_code);
     }
-    let effective_runtime_profiles = match config::resolve_effective_runtime_profiles(wasm_threads) {
+    let effective_runtime_profiles = match config::resolve_effective_runtime_profiles(wasm_threads)
+    {
         Ok(profiles) => profiles,
         Err(diagnostics) => {
             return shared::emit_diagnostics_and_exit("test", diagnostics, 5, output, None, None)
@@ -99,9 +104,13 @@ pub(crate) fn test_command(
         return Err(exit_code);
     }
     let policy = shared::load_policy_or_exit(sandbox, &effective_runtime_profiles, output)?;
-    if let Err(exit_code) =
-        config::reject_unavailable_spawned_process_budget("test", max_spawned_processes, output, None, None)
-    {
+    if let Err(exit_code) = config::reject_unavailable_spawned_process_budget(
+        "test",
+        max_spawned_processes,
+        output,
+        None,
+        None,
+    ) {
         return Err(exit_code);
     }
     if let Err(exit_code) = config::reject_unavailable_zero_capable_budgets(
@@ -114,12 +123,20 @@ pub(crate) fn test_command(
     ) {
         return Err(exit_code);
     }
-    let max_specializations = match config::resolve_effective_max_specializations(max_specializations) {
-        Ok(max_specializations) => max_specializations,
-        Err(diagnostics) => {
-            return shared::emit_diagnostics_and_exit("test", diagnostics, 5, output, None, None)
-        }
-    };
+    let max_specializations =
+        match config::resolve_effective_max_specializations(max_specializations) {
+            Ok(max_specializations) => max_specializations,
+            Err(diagnostics) => {
+                return shared::emit_diagnostics_and_exit(
+                    "test",
+                    diagnostics,
+                    5,
+                    output,
+                    None,
+                    None,
+                )
+            }
+        };
     let compat_eval = effective_compat.iter().any(|feature| feature == "eval");
 
     let selected_files = if files.is_empty() {

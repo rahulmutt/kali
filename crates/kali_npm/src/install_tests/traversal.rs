@@ -71,7 +71,11 @@ fn install_stops_at_nested_child_project_roots() {
 
     let child_dir = dir.path().join("child");
     fs::create_dir(&child_dir).unwrap();
-    kali_test_support::fixtures::write_file(dir.path(), "child/kali.json", r#"{"schemaVersion":1}"#);
+    kali_test_support::fixtures::write_file(
+        dir.path(),
+        "child/kali.json",
+        r#"{"schemaVersion":1}"#,
+    );
     kali_test_support::fixtures::write_file(
         dir.path(),
         "child/main.ts",

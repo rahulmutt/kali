@@ -89,7 +89,11 @@ fn collect_declared_function_binding_signatures(
     }
 }
 
-pub(crate) fn infer_function_signature(params: &[String], body: &BlockStatement, is_async: bool) -> String {
+pub(crate) fn infer_function_signature(
+    params: &[String],
+    body: &BlockStatement,
+    is_async: bool,
+) -> String {
     function_signature(params, infer_block_return_type(body), is_async)
 }
 

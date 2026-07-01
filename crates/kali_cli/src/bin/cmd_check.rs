@@ -7,11 +7,14 @@ use kali_cli::{
 use kali_error::{_error_codes::e5, Diagnostic};
 use kali_npm::discover_project_root;
 use serde_json::json;
-use std::{fs, path::{Path, PathBuf}};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
-use super::shared;
 use super::cmd_package::validate_source_effects_against_policy_for_roots;
 use super::config;
+use super::shared;
 
 pub(crate) fn check_command(
     files: Vec<String>,
@@ -50,7 +53,8 @@ pub(crate) fn check_command(
     {
         return Err(exit_code);
     }
-    let effective_runtime_profiles = match config::resolve_effective_runtime_profiles(wasm_threads) {
+    let effective_runtime_profiles = match config::resolve_effective_runtime_profiles(wasm_threads)
+    {
         Ok(profiles) => profiles,
         Err(diagnostics) => {
             return shared::emit_diagnostics_and_exit("check", diagnostics, 5, output, None, None)

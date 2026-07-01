@@ -1,6 +1,6 @@
-use crate::*;
 use crate::test_support::*;
 use crate::LOCK_VERSION;
+use crate::*;
 use std::fs;
 use std::sync::atomic::Ordering;
 

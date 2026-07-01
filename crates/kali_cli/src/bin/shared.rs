@@ -2,8 +2,10 @@
 
 use kali_cli::{
     discover_source_files, is_declaration_only_source_file,
-    output::{self, validate_effects_payload_value, validate_package_effects_payload_value,
-    validate_package_audit_payload_value, CliOutputOptions},
+    output::{
+        self, validate_effects_payload_value, validate_package_audit_payload_value,
+        validate_package_effects_payload_value, CliOutputOptions,
+    },
     Commands,
 };
 use kali_error::{_error_codes::e5, Diagnostic};
@@ -47,7 +49,6 @@ pub(crate) fn print_envelope(
     }
 }
 
-
 pub(crate) fn diagnostics_exit_code(diagnostics: &[Diagnostic]) -> i32 {
     if diagnostics.iter().any(|diagnostic| {
         matches!(
@@ -60,7 +61,6 @@ pub(crate) fn diagnostics_exit_code(diagnostics: &[Diagnostic]) -> i32 {
         1
     }
 }
-
 
 pub(crate) fn emit_native_json_payload<T: serde::Serialize>(
     command: &str,
@@ -92,7 +92,6 @@ pub(crate) fn emit_native_json_payload<T: serde::Serialize>(
     Ok(())
 }
 
-
 pub(crate) fn emit_diagnostics_and_exit(
     command: &str,
     diagnostics: Vec<Diagnostic>,
@@ -123,7 +122,6 @@ pub(crate) fn emit_diagnostics_and_exit(
     Err(exit_code)
 }
 
-
 pub(crate) fn split_and_convert_diagnostics(
     diagnostics: &[Diagnostic],
     source_path: Option<&Path>,
@@ -142,7 +140,6 @@ pub(crate) fn split_and_convert_diagnostics(
     (errors, warnings)
 }
 
-
 pub(crate) fn single_diagnostic_to_values(
     diagnostic: Diagnostic,
     source_path: Option<&Path>,
@@ -151,7 +148,6 @@ pub(crate) fn single_diagnostic_to_values(
     let diagnostics = vec![diagnostic];
     split_and_convert_diagnostics(&diagnostics, source_path, source_text)
 }
-
 
 pub(crate) fn load_policy_or_exit(
     sandbox: Option<PathBuf>,
@@ -173,7 +169,6 @@ pub(crate) fn load_policy_or_exit(
     }
 }
 
-
 pub(crate) fn ensure_project_ready_or_exit(output: &CliOutputOptions) -> Result<(), i32> {
     let cwd = match std::env::current_dir() {
         Ok(path) => path,
@@ -194,7 +189,6 @@ pub(crate) fn ensure_project_ready_or_exit(output: &CliOutputOptions) -> Result<
     }
 }
 
-
 pub(crate) fn selected_source_files(files: Vec<String>, discover: bool) -> Vec<String> {
     if files.is_empty() && discover {
         let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
@@ -207,7 +201,6 @@ pub(crate) fn selected_source_files(files: Vec<String>, discover: bool) -> Vec<S
         files
     }
 }
-
 
 pub(crate) fn single_or_error(
     files: Vec<String>,
@@ -238,7 +231,6 @@ pub(crate) fn single_or_error(
     }
 }
 
-
 pub(crate) fn validate_runtime_entrypoint(
     source: &PathBuf,
     api_surface: kali_cli::ApiSurface,
@@ -252,13 +244,14 @@ pub(crate) fn validate_runtime_entrypoint(
             ),
         )
         .with_suggestion("use `kali check` for declaration-only files"))
-    } else if let Some(diagnostic) = super::cmd_package::validate_package_bin_runtime_entrypoint(source, api_surface) {
+    } else if let Some(diagnostic) =
+        super::cmd_package::validate_package_bin_runtime_entrypoint(source, api_surface)
+    {
         Err(diagnostic)
     } else {
         Ok(())
     }
 }
-
 
 pub(crate) fn reject_workflow_context_flags(
     command: &str,
@@ -280,7 +273,6 @@ pub(crate) fn reject_workflow_context_flags(
     Ok(())
 }
 
-
 pub(crate) fn reject_install_context_flags(
     api: Option<kali_cli::ApiSurface>,
     sandbox: Option<PathBuf>,
@@ -298,14 +290,12 @@ pub(crate) fn reject_install_context_flags(
     Ok(())
 }
 
-
 pub(crate) fn command_allows_pretty_without_json(command: Option<&Commands>) -> bool {
     matches!(
         command,
         Some(Commands::Effects { .. }) | Some(Commands::PackageEffects { .. })
     )
 }
-
 
 pub(crate) fn matches_test_filter(file: &str, pattern: &str) -> bool {
     let path = PathBuf::from(file);
@@ -315,5 +305,3 @@ pub(crate) fn matches_test_filter(file: &str, pattern: &str) -> bool {
         .unwrap_or(file);
     file.contains(pattern) || name.contains(pattern)
 }
-
-

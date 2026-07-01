@@ -20,7 +20,10 @@ pub(crate) fn reject_unexpected_keys(
     Ok(())
 }
 
-pub(crate) fn validate_schema_version_one(value: Option<&Value>, context: &str) -> Result<(), String> {
+pub(crate) fn validate_schema_version_one(
+    value: Option<&Value>,
+    context: &str,
+) -> Result<(), String> {
     match value {
         Some(Value::Number(number)) if number.as_u64() == Some(1) => Ok(()),
         Some(other) => Err(format!(
@@ -89,7 +92,10 @@ pub(crate) fn validate_unique_string_array_value(
     Ok(())
 }
 
-pub(crate) fn validate_non_empty_string_value(value: Option<&Value>, context: &str) -> Result<(), String> {
+pub(crate) fn validate_non_empty_string_value(
+    value: Option<&Value>,
+    context: &str,
+) -> Result<(), String> {
     match value {
         Some(Value::String(value)) if !value.trim().is_empty() => Ok(()),
         Some(Value::String(_)) => Err(format!(
@@ -224,7 +230,10 @@ pub(crate) fn validate_sorted_string_array_value(
     Ok(())
 }
 
-pub(crate) fn validate_analysis_context_value(value: Option<&Value>, context: &str) -> Result<(), String> {
+pub(crate) fn validate_analysis_context_value(
+    value: Option<&Value>,
+    context: &str,
+) -> Result<(), String> {
     let Some(object) = value.and_then(Value::as_object) else {
         return Err(format!("{context} must be a JSON object"));
     };
@@ -311,7 +320,10 @@ pub(crate) fn validate_effect_location_value(value: &Value, context: &str) -> Re
     Ok(())
 }
 
-pub(crate) fn validate_effect_occurrences_value(value: Option<&Value>, context: &str) -> Result<(), String> {
+pub(crate) fn validate_effect_occurrences_value(
+    value: Option<&Value>,
+    context: &str,
+) -> Result<(), String> {
     let Some(Value::Array(items)) = value else {
         return Err(format!("{context} must be an array"));
     };

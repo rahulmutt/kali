@@ -8,7 +8,11 @@ use std::{fs, path::PathBuf};
 
 use super::shared;
 
-pub(crate) fn lint_command(files: Vec<String>, fix: bool, output: &CliOutputOptions) -> Result<(), i32> {
+pub(crate) fn lint_command(
+    files: Vec<String>,
+    fix: bool,
+    output: &CliOutputOptions,
+) -> Result<(), i32> {
     shared::ensure_project_ready_or_exit(output)?;
     let selected_files = shared::selected_source_files(files, true);
     if selected_files.is_empty() {

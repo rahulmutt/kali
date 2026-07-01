@@ -10,7 +10,7 @@ mod program;
 
 pub use kali_hir::FunctionFlavor;
 pub use lower::LirLowerer;
-pub use node::{LirBuilder, LirNode, LirNodeKind, LirNodeId};
+pub use node::{LirBuilder, LirNode, LirNodeId, LirNodeKind};
 pub use program::LirProgram;
 
 #[cfg(test)]

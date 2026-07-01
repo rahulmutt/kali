@@ -33,7 +33,9 @@ pub(crate) fn parse_package_target(target: &str) -> Result<PackageTarget, Diagno
     })
 }
 
-pub(crate) fn split_package_name_and_version(spec: &str) -> Result<(String, Option<String>), Diagnostic> {
+pub(crate) fn split_package_name_and_version(
+    spec: &str,
+) -> Result<(String, Option<String>), Diagnostic> {
     if spec.is_empty() {
         return Err(Diagnostic::error(
             e6::INVALID_PACKAGE_SPECIFIER as u32,

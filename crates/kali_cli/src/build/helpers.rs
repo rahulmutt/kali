@@ -2,12 +2,12 @@
 
 use std::path::Path;
 
+use super::read_compiler_source_file;
 use kali_ast::Statement;
 use kali_common::FileId;
 use kali_error::{_error_codes::e5, Diagnostic, DiagnosticContext, DiagnosticContextOrigin};
 use kali_lexer::Lexer;
 use kali_parser::Parser;
-use super::read_compiler_source_file;
 
 pub(crate) fn parse_source_file(source_path: &Path) -> Result<Vec<Statement>, Vec<Diagnostic>> {
     let source = read_compiler_source_file(source_path)?;

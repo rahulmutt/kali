@@ -7,33 +7,32 @@
 )]
 
 use clap::Parser;
+#[cfg(test)]
+use kali_cli::output;
+#[cfg(test)]
+use kali_cli::output::validate_package_effects_payload_value;
 use kali_cli::{
     init,
     output::{validate_init_payload_value, CliOutputOptions},
     Args, Commands,
 };
 use kali_error::{_error_codes::e5, set_verbose_diagnostics, Diagnostic};
-use serde_json::{json, Value};
-#[cfg(test)]
-use kali_cli::output::validate_package_effects_payload_value;
 #[cfg(test)]
 use kali_sandbox::package_effects_report;
-#[cfg(test)]
-use kali_cli::output;
+use serde_json::{json, Value};
 
-mod config;
-mod shared;
+mod cmd_build;
 mod cmd_check;
 mod cmd_doctor;
 mod cmd_effects;
 mod cmd_fmt;
 mod cmd_install;
 mod cmd_lint;
+mod cmd_package;
 mod cmd_run;
 mod cmd_test;
-mod cmd_build;
-mod cmd_package;
-
+mod config;
+mod shared;
 
 fn main() {
     let args = Args::parse();
@@ -46,7 +45,8 @@ fn main() {
     };
     set_verbose_diagnostics(output.verbose);
 
-    let pretty_allowed_without_json = shared::command_allows_pretty_without_json(args.command.as_ref());
+    let pretty_allowed_without_json =
+        shared::command_allows_pretty_without_json(args.command.as_ref());
     if output.pretty && !output.is_json() && !pretty_allowed_without_json {
         let diagnostic = Diagnostic::error(
             e5::INVALID_CLI_USAGE as u32,
@@ -178,7 +178,9 @@ fn main() {
             }
         }
         Commands::Init { lib, api, sandbox } => {
-            if let Err(exit_code) = shared::reject_workflow_context_flags("init", api, sandbox, &output) {
+            if let Err(exit_code) =
+                shared::reject_workflow_context_flags("init", api, sandbox, &output)
+            {
                 std::process::exit(exit_code);
             }
             match init::init_current_directory(lib) {
@@ -217,7 +219,8 @@ fn main() {
                     }
                 }
                 Err(diagnostic) => {
-                    let exit_code = shared::diagnostics_exit_code(std::slice::from_ref(&diagnostic));
+                    let exit_code =
+                        shared::diagnostics_exit_code(std::slice::from_ref(&diagnostic));
                     if output.is_json() {
                         let (errors, warnings) =
                             shared::single_diagnostic_to_values(diagnostic, None, None);
@@ -258,7 +261,9 @@ fn main() {
             sandbox,
             files,
         } => {
-            if let Err(exit_code) = shared::reject_workflow_context_flags("fmt", api, sandbox, &output) {
+            if let Err(exit_code) =
+                shared::reject_workflow_context_flags("fmt", api, sandbox, &output)
+            {
                 std::process::exit(exit_code);
             }
             if let Err(exit_code) = cmd_fmt::fmt_command(files, check, &output) {
@@ -271,7 +276,9 @@ fn main() {
             sandbox,
             files,
         } => {
-            if let Err(exit_code) = shared::reject_workflow_context_flags("lint", api, sandbox, &output) {
+            if let Err(exit_code) =
+                shared::reject_workflow_context_flags("lint", api, sandbox, &output)
+            {
                 std::process::exit(exit_code);
             }
             if let Err(exit_code) = cmd_lint::lint_command(files, fix, &output) {
@@ -298,9 +305,14 @@ fn main() {
             sandbox,
             target,
         } => {
-            if let Err(exit_code) =
-                cmd_package::package_effects_command(target, api, compat, wasm_threads, sandbox, &output)
-            {
+            if let Err(exit_code) = cmd_package::package_effects_command(
+                target,
+                api,
+                compat,
+                wasm_threads,
+                sandbox,
+                &output,
+            ) {
                 std::process::exit(exit_code);
             }
         }
@@ -312,9 +324,15 @@ fn main() {
             target,
             preview,
         } => {
-            if let Err(exit_code) =
-                cmd_package::package_audit_command(target, preview, api, compat, wasm_threads, sandbox, &output)
-            {
+            if let Err(exit_code) = cmd_package::package_audit_command(
+                target,
+                preview,
+                api,
+                compat,
+                wasm_threads,
+                sandbox,
+                &output,
+            ) {
                 std::process::exit(exit_code);
             }
         }
@@ -323,14 +341,16 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::{package_effects_report, CliOutputOptions};
     use super::cmd_package::{
-        analysis_context_for_api, package_analysis_specific_flag_context,
-        package_audit_command, package_audit_preview_diagnostic, package_effects_command,
-        sort_package_audit_findings, PACKAGE_AUDIT_PREVIEW_MESSAGE,
+        analysis_context_for_api, package_analysis_specific_flag_context, package_audit_command,
+        package_audit_preview_diagnostic, package_effects_command, sort_package_audit_findings,
+        PACKAGE_AUDIT_PREVIEW_MESSAGE,
     };
-    use super::config::{manifest_compat_features, manifest_max_specializations, manifest_runtime_profiles};
+    use super::config::{
+        manifest_compat_features, manifest_max_specializations, manifest_runtime_profiles,
+    };
     use super::shared::{command_allows_pretty_without_json, emit_native_json_payload};
+    use super::{package_effects_report, CliOutputOptions};
     use kali_cli::{ColorChoice, OutputFormat};
     use kali_common::{FileId, Span};
     use kali_error::{_error_codes::e5, Diagnostic, DiagnosticContextOrigin};

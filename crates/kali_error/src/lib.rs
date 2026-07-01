@@ -16,7 +16,6 @@ pub use severity::Severity;
 #[doc(hidden)]
 pub mod _error_codes;
 
-
 #[cfg(test)]
 #[path = "tests.rs"]
 mod tests;

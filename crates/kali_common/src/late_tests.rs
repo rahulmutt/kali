@@ -1,5 +1,5 @@
-use crate::*;
 use super::LATE_PROCESS_CONTROL_PREFIX_SEGMENTS;
+use crate::*;
 
 #[path = "late_tests/object_model.rs"]
 mod object_model;

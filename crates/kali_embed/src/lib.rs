@@ -8,10 +8,10 @@ pub use kali_sandbox::{
     HostOperation, HostPredicate, PolicyPredicateContext, PolicyPredicateRegistry, SandboxPolicy,
 };
 
-mod error;
 mod artifact;
 mod compiler;
 mod context;
+mod error;
 
 pub use artifact::{CompiledArtifact, LibArtifact};
 pub use compiler::{CompilerConfig, KaliCompiler};

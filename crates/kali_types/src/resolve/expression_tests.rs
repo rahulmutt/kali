@@ -1,5 +1,4 @@
 use crate::test_support::*;
-use kali_test_support::fixtures;
 use crate::*;
 use kali_ast::{
     AssignmentExpression, AssignmentOperator, BinaryExpression, BlockStatement,
@@ -10,6 +9,7 @@ use kali_ast::{
     UpdateExpression, UpdateOperator, VariableDeclaration, VariableDeclarator,
 };
 use kali_error::_error_codes::{e3, e5};
+use kali_test_support::fixtures;
 use std::fs;
 
 #[path = "expression_tests/exports.rs"]

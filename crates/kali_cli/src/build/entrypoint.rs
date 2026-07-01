@@ -5,7 +5,10 @@ use super::helpers::{invalid_export_surface, parse_source_file};
 use std::collections::BTreeSet;
 use std::path::Path;
 
-use kali_ast::{BlockStatement, ClassDeclaration, ExportDefaultDeclaration, Expression, OptionalChainInner, Statement};
+use kali_ast::{
+    BlockStatement, ClassDeclaration, ExportDefaultDeclaration, Expression, OptionalChainInner,
+    Statement,
+};
 use kali_common::generator_class_method_yield_lowering_unavailable_message_for_flavors;
 use kali_error::{_error_codes::e5, Diagnostic};
 

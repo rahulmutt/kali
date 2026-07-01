@@ -101,7 +101,10 @@ impl Analyzer {
     }
 }
 
-pub(crate) fn collect_statements_declarations(statements: &[Statement], counts: &mut HashMap<String, usize>) {
+pub(crate) fn collect_statements_declarations(
+    statements: &[Statement],
+    counts: &mut HashMap<String, usize>,
+) {
     for statement in statements {
         collect_statement_declarations(statement, counts);
     }

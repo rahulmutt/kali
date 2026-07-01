@@ -2,16 +2,18 @@
 
 use kali_cli::build;
 use kali_cli::output::CliOutputOptions;
-use kali_error::{
-    _error_codes::e5, Diagnostic, DiagnosticContext, DiagnosticContextOrigin,
-};
+use kali_error::{_error_codes::e5, Diagnostic, DiagnosticContext, DiagnosticContextOrigin};
 use kali_npm::{discover_project_root, load_manifest, ProjectManifest};
 use kali_optimize::ProfileData;
 use kali_runtime::{
     browser_harness_command_parts_checked, browser_runtime_unavailable_diagnostic,
     normalize_runtime_profiles, BROWSER_HARNESS_COMMAND_ENV,
 };
-use std::{collections::BTreeSet, convert::TryFrom, path::{Path, PathBuf}};
+use std::{
+    collections::BTreeSet,
+    convert::TryFrom,
+    path::{Path, PathBuf},
+};
 
 pub(crate) fn resolve_effective_api_surface(
     explicit_api: Option<kali_cli::ApiSurface>,
@@ -30,11 +32,9 @@ pub(crate) fn resolve_effective_api_surface(
     manifest_api_surface(&manifest).map(|surface| surface.unwrap_or(kali_cli::ApiSurface::Deno))
 }
 
-
 pub(crate) fn config_diagnostic_context(config_path: &str) -> DiagnosticContext {
     DiagnosticContext::new(DiagnosticContextOrigin::Config).with_config_path(config_path)
 }
-
 
 pub(crate) fn config_diagnostic_context_with_value(
     config_path: &str,
@@ -42,7 +42,6 @@ pub(crate) fn config_diagnostic_context_with_value(
 ) -> DiagnosticContext {
     config_diagnostic_context(config_path).with_effective_value(value)
 }
-
 
 pub(crate) fn manifest_api_surface(
     manifest: &ProjectManifest,
@@ -86,7 +85,6 @@ pub(crate) fn manifest_api_surface(
     }
 }
 
-
 pub(crate) fn resolve_effective_compat_features(
     explicit_compat: Vec<String>,
 ) -> Result<Vec<String>, Vec<Diagnostic>> {
@@ -101,7 +99,6 @@ pub(crate) fn resolve_effective_compat_features(
     features.extend(manifest_compat_features(&manifest)?);
     Ok(normalize_compat_features(features))
 }
-
 
 pub(crate) fn resolve_effective_runtime_profiles(
     explicit_wasm_threads: bool,
@@ -126,7 +123,6 @@ pub(crate) fn resolve_effective_runtime_profiles(
     Ok(normalize_runtime_profiles(profiles))
 }
 
-
 pub(crate) fn resolve_effective_max_specializations(
     explicit_max_specializations: Option<usize>,
 ) -> Result<usize, Vec<Diagnostic>> {
@@ -143,16 +139,18 @@ pub(crate) fn resolve_effective_max_specializations(
         .unwrap_or(16))
 }
 
-
-pub(crate) fn resolve_profile_data(profile: Option<PathBuf>) -> Result<Option<ProfileData>, Vec<Diagnostic>> {
+pub(crate) fn resolve_profile_data(
+    profile: Option<PathBuf>,
+) -> Result<Option<ProfileData>, Vec<Diagnostic>> {
     match profile {
         Some(profile_path) => build::load_profile_data_file(profile_path).map(Some),
         None => Ok(None),
     }
 }
 
-
-pub(crate) fn manifest_compat_features(manifest: &ProjectManifest) -> Result<Vec<String>, Vec<Diagnostic>> {
+pub(crate) fn manifest_compat_features(
+    manifest: &ProjectManifest,
+) -> Result<Vec<String>, Vec<Diagnostic>> {
     let Some(compat) = manifest.compat.as_ref() else {
         return Ok(Vec::new());
     };
@@ -218,8 +216,9 @@ pub(crate) fn manifest_compat_features(manifest: &ProjectManifest) -> Result<Vec
     Ok(normalized.into_iter().collect())
 }
 
-
-pub(crate) fn manifest_runtime_profiles(manifest: &ProjectManifest) -> Result<Vec<String>, Vec<Diagnostic>> {
+pub(crate) fn manifest_runtime_profiles(
+    manifest: &ProjectManifest,
+) -> Result<Vec<String>, Vec<Diagnostic>> {
     let Some(options) = manifest.compiler_options.as_ref() else {
         return Ok(Vec::new());
     };
@@ -271,7 +270,6 @@ pub(crate) fn manifest_runtime_profiles(manifest: &ProjectManifest) -> Result<Ve
     })
 }
 
-
 pub(crate) fn manifest_max_specializations(
     manifest: &ProjectManifest,
 ) -> Result<Option<usize>, Vec<Diagnostic>> {
@@ -307,7 +305,6 @@ pub(crate) fn manifest_max_specializations(
     Ok(Some(max_specializations))
 }
 
-
 pub(crate) fn normalize_compat_features(features: Vec<String>) -> Vec<String> {
     let mut normalized = BTreeSet::new();
     for feature in features {
@@ -318,7 +315,6 @@ pub(crate) fn normalize_compat_features(features: Vec<String>) -> Vec<String> {
     }
     normalized.into_iter().collect()
 }
-
 
 pub(crate) fn reject_unavailable_compat_features(
     command: &str,
@@ -355,7 +351,6 @@ pub(crate) fn reject_unavailable_compat_features(
         source_contents,
     )
 }
-
 
 pub(crate) fn reject_unavailable_runtime_profiles(
     command: &str,
@@ -394,14 +389,12 @@ pub(crate) fn reject_unavailable_runtime_profiles(
     )
 }
 
-
 pub(crate) fn browser_runtime_harness_command_available() -> bool {
     std::env::var(BROWSER_HARNESS_COMMAND_ENV)
         .ok()
         .as_deref()
         .is_some_and(|command| browser_harness_command_parts_checked(Some(command)).is_ok())
 }
-
 
 pub(crate) fn reject_unavailable_browser_runtime(
     command: &str,
@@ -426,7 +419,6 @@ pub(crate) fn reject_unavailable_browser_runtime(
         source_contents,
     )
 }
-
 
 pub(crate) fn reject_unavailable_spawned_process_budget(
     command: &str,
@@ -464,7 +456,6 @@ pub(crate) fn reject_unavailable_spawned_process_budget(
         source_contents,
     )
 }
-
 
 pub(crate) fn reject_unavailable_zero_capable_budgets(
     command: &str,
@@ -514,5 +505,3 @@ pub(crate) fn reject_unavailable_zero_capable_budgets(
         source_contents,
     )
 }
-
-

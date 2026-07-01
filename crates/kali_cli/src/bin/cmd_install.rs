@@ -24,7 +24,14 @@ pub(crate) fn install_command(
                 e5::INVALID_CLI_USAGE as u32,
                 format!("failed to read current directory: {}", error),
             );
-            return shared::emit_diagnostics_and_exit("install", vec![diagnostic], 1, output, None, None);
+            return shared::emit_diagnostics_and_exit(
+                "install",
+                vec![diagnostic],
+                1,
+                output,
+                None,
+                None,
+            );
         }
     };
     let project_root = discover_project_root(&cwd).unwrap_or(cwd);

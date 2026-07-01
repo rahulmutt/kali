@@ -463,7 +463,10 @@ pub(crate) fn validate_suggested_fix_edits_non_overlapping(edits: &[Value]) -> R
     Ok(())
 }
 
-pub(crate) fn source_location_position(value: &Value, location_name: &str) -> Result<(u64, u64), String> {
+pub(crate) fn source_location_position(
+    value: &Value,
+    location_name: &str,
+) -> Result<(u64, u64), String> {
     validate_source_location(value, location_name)?;
 
     let Some(object) = value.as_object() else {

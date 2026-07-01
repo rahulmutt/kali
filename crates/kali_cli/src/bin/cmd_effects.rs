@@ -5,9 +5,9 @@ use kali_error::{_error_codes::e5, Diagnostic};
 use kali_sandbox::{effect_report_from_inference, infer_effects_from_roots};
 use std::{fs, path::PathBuf};
 
-use super::shared;
-use super::config;
 use super::cmd_package::analysis_context_for_api;
+use super::config;
+use super::shared;
 
 pub(crate) fn effects_command(
     api: Option<kali_cli::ApiSurface>,
@@ -23,7 +23,14 @@ pub(crate) fn effects_command(
             "`effects` does not accept `--sandbox`; use `check` or `build --sandbox` for policy validation"
                 .to_string(),
         );
-        return shared::emit_diagnostics_and_exit("effects", vec![diagnostic], 5, output, None, None);
+        return shared::emit_diagnostics_and_exit(
+            "effects",
+            vec![diagnostic],
+            5,
+            output,
+            None,
+            None,
+        );
     }
 
     let Some(source) = shared::single_or_error(files, "effects", output)? else {
@@ -75,7 +82,8 @@ pub(crate) fn effects_command(
     ) {
         return Err(exit_code);
     }
-    let effective_runtime_profiles = match config::resolve_effective_runtime_profiles(wasm_threads) {
+    let effective_runtime_profiles = match config::resolve_effective_runtime_profiles(wasm_threads)
+    {
         Ok(profiles) => profiles,
         Err(diagnostics) => {
             return shared::emit_diagnostics_and_exit(

@@ -259,7 +259,9 @@ pub(crate) fn is_canonical_artifact_role(role: &str) -> bool {
     )
 }
 
-pub(crate) fn artifact_sort_key(object: &serde_json::Map<String, Value>) -> (usize, String, String) {
+pub(crate) fn artifact_sort_key(
+    object: &serde_json::Map<String, Value>,
+) -> (usize, String, String) {
     let role_rank = object
         .get("role")
         .and_then(Value::as_str)

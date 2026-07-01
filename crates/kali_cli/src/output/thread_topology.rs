@@ -125,7 +125,9 @@ pub(crate) fn validate_thread_topology_snapshot_value(value: Option<&Value>) -> 
     Ok(())
 }
 
-pub(crate) fn validate_thread_topology_instance_snapshot_value(value: &Value) -> Result<u64, String> {
+pub(crate) fn validate_thread_topology_instance_snapshot_value(
+    value: &Value,
+) -> Result<u64, String> {
     let Some(object) = value.as_object() else {
         return Err(format!("must be a JSON object, got {value}"));
     };

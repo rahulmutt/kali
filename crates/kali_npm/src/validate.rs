@@ -1,6 +1,8 @@
 use crate::*;
 
-pub(crate) fn package_host_fit_context_for_manifest(manifest: &ProjectManifest) -> PackageHostFitContext {
+pub(crate) fn package_host_fit_context_for_manifest(
+    manifest: &ProjectManifest,
+) -> PackageHostFitContext {
     let Some(options) = manifest.compiler_options.as_ref() else {
         return PackageHostFitContext::DefaultStandalone;
     };
@@ -187,7 +189,9 @@ pub(crate) fn validate_package_host_fit(
     Ok(())
 }
 
-pub(crate) fn scan_for_node_only_host_api(root: &Path) -> Result<Option<(PathBuf, &'static str)>, Diagnostic> {
+pub(crate) fn scan_for_node_only_host_api(
+    root: &Path,
+) -> Result<Option<(PathBuf, &'static str)>, Diagnostic> {
     let mut stack = vec![root.to_path_buf()];
 
     while let Some(dir) = stack.pop() {

@@ -2,9 +2,9 @@
 
 use std::path::{Path, PathBuf};
 
-use sha2::{Digest, Sha256};
-use crate::BundleFormat;
 use super::source_stem;
+use crate::BundleFormat;
+use sha2::{Digest, Sha256};
 
 pub fn executable_output_path_for(source_path: &Path, out_dir: Option<&Path>) -> PathBuf {
     let stem = source_stem(source_path);

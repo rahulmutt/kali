@@ -8,7 +8,11 @@ use std::{fs, path::PathBuf};
 
 use super::shared;
 
-pub(crate) fn fmt_command(files: Vec<String>, check: bool, output: &CliOutputOptions) -> Result<(), i32> {
+pub(crate) fn fmt_command(
+    files: Vec<String>,
+    check: bool,
+    output: &CliOutputOptions,
+) -> Result<(), i32> {
     shared::ensure_project_ready_or_exit(output)?;
     let selected_files = shared::selected_source_files(files, true);
     if selected_files.is_empty() {
