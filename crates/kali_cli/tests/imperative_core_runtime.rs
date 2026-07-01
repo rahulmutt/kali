@@ -372,3 +372,16 @@ fn f64_arrays_store_and_load() {
         "30\n"
     );
 }
+
+#[test]
+fn array_length_reads_header() {
+    assert_eq!(
+        run_js("const a = new Array(3);\nconsole.log(a.length);\n"),
+        "3\n"
+    );
+    // length drives a loop bound (the spectral-norm idiom).
+    assert_eq!(
+        run_js("const a = new Array(4);\nlet n = 0;\nfor (let i = 0; i < a.length; i = i + 1) { n = n + 1; }\nconsole.log(n);\n"),
+        "4\n"
+    );
+}

@@ -550,6 +550,12 @@ impl<'a> FunctionEmitter<'a> {
                 if let Some(bound) = self.bindings.get(text).copied() {
                     return self.render_length(&bound);
                 }
+                if self.array_bindings.contains(text) {
+                    // Runtime array: the length header isn't statically known;
+                    // defer to dynamic emission (the `a.length` header load)
+                    // instead of baking in a wrong constant.
+                    return None;
+                }
                 return Some("0".to_string());
             }
         }

@@ -448,6 +448,34 @@ impl<'a> FunctionEmitter<'a> {
                     return self.emit_static_index_member_result(function, result);
                 }
 
+                // Runtime array `.length`: this shares the same one-child `Value`
+                // shape (`text` = property name, single `object` child) as a
+                // dot-access member read. Since bracket-index reads always carry
+                // the index as an explicit second child (see the `2 =>` arm), a
+                // one-child node's non-empty `text` here is a property name, not
+                // an index — so this must be checked (and win) ahead of the
+                // generic "dynamic array element read" fallback below, which
+                // would otherwise misinterpret "length" as an index text. The
+                // length header is always an i64 at `offset: 0` of the same base
+                // handle used for element reads, for both i64 and f64 arrays.
+                if node.text.as_deref() == Some("length") {
+                    let base_id = node.children[0];
+                    if let Some(base_name) = self.assignment_target_name(node, base_id) {
+                        if self.array_bindings.contains(&base_name) {
+                            self.emit_array_base_address(function, base_id);
+                            function.instruction(&Instruction::I64Load(MemArg {
+                                offset: 0,
+                                align: 3,
+                                memory_index: 0,
+                            }));
+                            return EmittedValue {
+                                produced: true,
+                                shape: ValueShape::Scalar,
+                            };
+                        }
+                    }
+                }
+
                 // Dynamic array element read: `a[i]` where `a` is a linear-memory array.
                 if let Some(index_text) = node.text.as_deref() {
                     if !index_text.is_empty() {

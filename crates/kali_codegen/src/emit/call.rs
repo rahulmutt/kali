@@ -2307,6 +2307,15 @@ impl<'a> FunctionEmitter<'a> {
         self.emit_array_element_address_node(function, base_id, index_node);
     }
 
+    /// Push the array's i64 base handle as an i32 address, with no index term.
+    /// Shared by [`emit_array_element_address_node`] (which adds `index * 8` on
+    /// top) and the runtime-array `.length` header read, which loads directly at
+    /// `offset: 0` from this same base.
+    pub(crate) fn emit_array_base_address(&mut self, function: &mut Function, base_id: LirNodeId) {
+        let _ = self.emit_node(function, base_id, true);
+        function.instruction(&Instruction::I32WrapI64);
+    }
+
     /// Like [`emit_array_element_address`], but the index comes from an existing
     /// node (a computed subscript expression such as `i + 1`) rather than a
     /// stringified literal/identifier.
@@ -2316,8 +2325,7 @@ impl<'a> FunctionEmitter<'a> {
         base_id: LirNodeId,
         index_id: LirNodeId,
     ) {
-        let _ = self.emit_node(function, base_id, true);
-        function.instruction(&Instruction::I32WrapI64);
+        self.emit_array_base_address(function, base_id);
         let _ = self.emit_node(function, index_id, true);
         function.instruction(&Instruction::I32WrapI64);
         function.instruction(&Instruction::I32Const(8));
