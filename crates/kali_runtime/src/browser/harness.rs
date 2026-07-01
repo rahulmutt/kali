@@ -75,8 +75,31 @@ pub fn browser_bundle_runtime_harness_module_script(
         r#"{}const runtimeArgs = {args_json};
 const runRegisteredTests = {run_registered_tests};
 let wasmMemory = null;
+let wasmHeap = null;
 const collectedTests = [];
 let registeredTestFailures = 0;
+
+function allocGuestString(bytes) {{
+  if (wasmMemory === null || wasmHeap === null) {{
+    throw new Error('guest string allocation requires instantiated memory and __heap');
+  }}
+  const base = Number(wasmHeap.value);
+  new Uint8Array(wasmMemory.buffer, base, bytes.length).set(bytes);
+  wasmHeap.value = base + bytes.length;
+  return 0x8000000000000000n | (BigInt(base) << 32n) | BigInt(bytes.length);
+}}
+
+function decodeStringHandleBytes(value) {{
+  if ((value & 0x8000000000000000n) === 0n || wasmMemory === null) {{
+    return new Uint8Array(0);
+  }}
+  const offset = Number((value >> 32n) & 0x7fffffffn);
+  const length = Number(value & 0xffffffffn);
+  if (offset < 0 || length < 0 || offset + length > wasmMemory.buffer.byteLength) {{
+    return new Uint8Array(0);
+  }}
+  return new Uint8Array(wasmMemory.buffer.slice(offset, offset + length));
+}}
 
 const NULL_VALUE_TAG = -9223372036854775808n;
 const UNDEFINED_VALUE_TAG = -9223372036854775807n;
@@ -125,6 +148,21 @@ const importObject = {{
   "kali:rt": {{
     test_register(val) {{
       collectedTests.push(formatConsoleValue(val));
+    }},
+    int_to_string(value) {{
+      return allocGuestString(new TextEncoder().encode(String(value)));
+    }},
+    string_concat(left, right) {{
+      const leftBytes = decodeStringHandleBytes(left);
+      const rightBytes = decodeStringHandleBytes(right);
+      const combined = new Uint8Array(leftBytes.length + rightBytes.length);
+      combined.set(leftBytes, 0);
+      combined.set(rightBytes, leftBytes.length);
+      return allocGuestString(combined);
+    }},
+    float_to_fixed(value, digits) {{
+      const clampedDigits = Math.min(Math.max(Number(digits), 0), 100);
+      return allocGuestString(new TextEncoder().encode(Number(value).toFixed(clampedDigits)));
     }},
     args_len() {{
       return runtimeArgs.length;
@@ -203,6 +241,7 @@ if (typeof bundle.loadWithImports !== 'function') {{
 }}
 const instance = await bundle.loadWithImports(importObject);
 wasmMemory = instance.exports.memory ?? null;
+wasmHeap = instance.exports.__heap ?? null;
 if (typeof instance.exports._start === 'function') {{
   await instance.exports._start();
 }}
@@ -294,8 +333,32 @@ pub(crate) fn browser_runtime_harness_module_script(
 const runRegisteredTests = {run_registered_tests};
 const runtimeWasm = decodeBase64("{wasm_base64}");
 let wasmMemory = null;
+let wasmHeap = null;
 const collectedTests = [];
 let registeredTestFailures = 0;
+
+function allocGuestString(bytes) {{
+  if (wasmMemory === null || wasmHeap === null) {{
+    throw new Error('guest string allocation requires instantiated memory and __heap');
+  }}
+  const base = Number(wasmHeap.value);
+  new Uint8Array(wasmMemory.buffer, base, bytes.length).set(bytes);
+  wasmHeap.value = base + bytes.length;
+  return 0x8000000000000000n | (BigInt(base) << 32n) | BigInt(bytes.length);
+}}
+
+function decodeStringHandleBytes(value) {{
+  if ((value & 0x8000000000000000n) === 0n || wasmMemory === null) {{
+    return new Uint8Array(0);
+  }}
+  const offset = Number((value >> 32n) & 0x7fffffffn);
+  const length = Number(value & 0xffffffffn);
+  if (offset < 0 || length < 0 || offset + length > wasmMemory.buffer.byteLength) {{
+    return new Uint8Array(0);
+  }}
+  return new Uint8Array(wasmMemory.buffer.slice(offset, offset + length));
+}}
+
 let threadTopology = {{
   totalInstances: 0,
   terminatedInstances: 0,
@@ -399,6 +462,21 @@ const importObject = {{
     test_register(val) {{
       collectedTests.push(formatConsoleValue(val));
     }},
+    int_to_string(value) {{
+      return allocGuestString(new TextEncoder().encode(String(value)));
+    }},
+    string_concat(left, right) {{
+      const leftBytes = decodeStringHandleBytes(left);
+      const rightBytes = decodeStringHandleBytes(right);
+      const combined = new Uint8Array(leftBytes.length + rightBytes.length);
+      combined.set(leftBytes, 0);
+      combined.set(rightBytes, leftBytes.length);
+      return allocGuestString(combined);
+    }},
+    float_to_fixed(value, digits) {{
+      const clampedDigits = Math.min(Math.max(Number(digits), 0), 100);
+      return allocGuestString(new TextEncoder().encode(Number(value).toFixed(clampedDigits)));
+    }},
     thread_spawn(scriptUrlPtr, scriptUrlLen) {{
       const scriptUrl = readGuestString(scriptUrlPtr, scriptUrlLen);
       return recordThreadInstance(scriptUrl);
@@ -476,6 +554,7 @@ const importObject = {{
 
 const {{ instance }} = await WebAssembly.instantiate(runtimeWasm, importObject);
 wasmMemory = instance.exports.memory ?? null;
+wasmHeap = instance.exports.__heap ?? null;
 if (typeof instance.exports._start === 'function') {{
   await instance.exports._start();
 }}

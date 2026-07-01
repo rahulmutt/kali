@@ -1533,6 +1533,21 @@ const dynamicImportTargets = new Map([
 const defaultImportObject = {{
   "kali:rt": {{
     test_register() {{}},
+    int_to_string(value) {{
+      return allocGuestString(new TextEncoder().encode(String(value)));
+    }},
+    string_concat(left, right) {{
+      const leftBytes = decodeStringHandleBytes(left);
+      const rightBytes = decodeStringHandleBytes(right);
+      const combined = new Uint8Array(leftBytes.length + rightBytes.length);
+      combined.set(leftBytes, 0);
+      combined.set(rightBytes, leftBytes.length);
+      return allocGuestString(combined);
+    }},
+    float_to_fixed(value, digits) {{
+      const clampedDigits = Math.min(Math.max(Number(digits), 0), 100);
+      return allocGuestString(new TextEncoder().encode(Number(value).toFixed(clampedDigits)));
+    }},
     args_len() {{ return 0; }},
     process_pid() {{
       return 0;
@@ -1629,8 +1644,10 @@ async function instantiate(importObject) {{
 }}
 
 let wasmMemory = null;
+let wasmHeap = null;
 const instancePromise = instantiate(defaultImportObject).then((instance) => {{
   wasmMemory = instance.instance.exports.memory ?? null;
+  wasmHeap = instance.instance.exports.__heap ?? null;
   return instance.instance;
 }});
 
@@ -1655,6 +1672,28 @@ function formatConsoleValue(val) {{
     return val.toString();
   }}
   return String(val);
+}}
+
+function allocGuestString(bytes) {{
+  if (wasmMemory === null || wasmHeap === null) {{
+    throw new Error('guest string allocation requires instantiated memory and __heap');
+  }}
+  const base = Number(wasmHeap.value);
+  new Uint8Array(wasmMemory.buffer, base, bytes.length).set(bytes);
+  wasmHeap.value = base + bytes.length;
+  return 0x8000000000000000n | (BigInt(base) << 32n) | BigInt(bytes.length);
+}}
+
+function decodeStringHandleBytes(value) {{
+  if ((value & 0x8000000000000000n) === 0n || wasmMemory === null) {{
+    return new Uint8Array(0);
+  }}
+  const offset = Number((value >> 32n) & 0x7fffffffn);
+  const length = Number(value & 0xffffffffn);
+  if (offset < 0 || length < 0 || offset + length > wasmMemory.buffer.byteLength) {{
+    return new Uint8Array(0);
+  }}
+  return new Uint8Array(wasmMemory.buffer.slice(offset, offset + length));
 }}
 
 function normalizeDynamicImportSpecifier(specifier) {{
@@ -1703,6 +1742,7 @@ export async function load() {{
 export async function loadWithImports(overrides = {{}}) {{
   const instance = await instantiate(mergeImportObject(overrides));
   wasmMemory = instance.instance.exports.memory ?? null;
+  wasmHeap = instance.instance.exports.__heap ?? null;
   return instance.instance;
 }}
 
@@ -1722,6 +1762,21 @@ const dynamicImportTargets = new Map([
 const defaultImportObject = {{
   "kali:rt": {{
     test_register() {{}},
+    int_to_string(value) {{
+      return allocGuestString(new TextEncoder().encode(String(value)));
+    }},
+    string_concat(left, right) {{
+      const leftBytes = decodeStringHandleBytes(left);
+      const rightBytes = decodeStringHandleBytes(right);
+      const combined = new Uint8Array(leftBytes.length + rightBytes.length);
+      combined.set(leftBytes, 0);
+      combined.set(rightBytes, leftBytes.length);
+      return allocGuestString(combined);
+    }},
+    float_to_fixed(value, digits) {{
+      const clampedDigits = Math.min(Math.max(Number(digits), 0), 100);
+      return allocGuestString(new TextEncoder().encode(Number(value).toFixed(clampedDigits)));
+    }},
     args_len() {{ return 0; }},
     process_pid() {{
       return 0;
@@ -1818,8 +1873,10 @@ async function instantiate(importObject) {{
 }}
 
 let wasmMemory = null;
+let wasmHeap = null;
 const instancePromise = instantiate(defaultImportObject).then((instance) => {{
   wasmMemory = instance.instance.exports.memory ?? null;
+  wasmHeap = instance.instance.exports.__heap ?? null;
   return instance.instance;
 }});
 
@@ -1844,6 +1901,28 @@ function formatConsoleValue(val) {{
     return val.toString();
   }}
   return String(val);
+}}
+
+function allocGuestString(bytes) {{
+  if (wasmMemory === null || wasmHeap === null) {{
+    throw new Error('guest string allocation requires instantiated memory and __heap');
+  }}
+  const base = Number(wasmHeap.value);
+  new Uint8Array(wasmMemory.buffer, base, bytes.length).set(bytes);
+  wasmHeap.value = base + bytes.length;
+  return 0x8000000000000000n | (BigInt(base) << 32n) | BigInt(bytes.length);
+}}
+
+function decodeStringHandleBytes(value) {{
+  if ((value & 0x8000000000000000n) === 0n || wasmMemory === null) {{
+    return new Uint8Array(0);
+  }}
+  const offset = Number((value >> 32n) & 0x7fffffffn);
+  const length = Number(value & 0xffffffffn);
+  if (offset < 0 || length < 0 || offset + length > wasmMemory.buffer.byteLength) {{
+    return new Uint8Array(0);
+  }}
+  return new Uint8Array(wasmMemory.buffer.slice(offset, offset + length));
 }}
 
 function normalizeDynamicImportSpecifier(specifier) {{
@@ -1892,6 +1971,7 @@ async function load() {{
 async function loadWithImports(overrides = {{}}) {{
   const instance = await instantiate(mergeImportObject(overrides));
   wasmMemory = instance.instance.exports.memory ?? null;
+  wasmHeap = instance.instance.exports.__heap ?? null;
   return instance.instance;
 }}
 
