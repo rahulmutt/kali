@@ -67,6 +67,59 @@ pub(crate) fn spawn_chromium(
     }
 }
 
+/// A launched Chromium plus its blocking CDP connection.
+pub struct CdpBrowser {
+    child: Child,
+    conn: CdpConnection,
+    _user_data_dir: TempDir,
+}
+
+impl CdpBrowser {
+    /// Launch Chromium and open a CDP connection to its browser endpoint.
+    pub fn launch(executable: &str, timeout: Duration) -> Result<Self, CdpError> {
+        let (child, ws_url, user_data_dir) = spawn_chromium(executable, timeout)?;
+        let (socket, _response) = tungstenite::connect(&ws_url)
+            .map_err(|e| CdpError::Transport(format!("connect {ws_url}: {e}")))?;
+        let mut conn = CdpConnection::from_socket(socket);
+        conn.set_read_timeout(timeout)?;
+        Ok(Self {
+            child,
+            conn,
+            _user_data_dir: user_data_dir,
+        })
+    }
+
+    /// Send a method and read frames until its matching response, returning `result`.
+    /// Unrelated events are discarded here (page runs collect them in Task 5).
+    pub fn call(
+        &mut self,
+        method: &str,
+        params: Value,
+        session_id: Option<&str>,
+        timeout: Duration,
+    ) -> Result<Value, CdpError> {
+        self.conn.set_read_timeout(timeout)?;
+        let id = self.conn.send(method, params, session_id)?;
+        loop {
+            match self.conn.read()? {
+                CdpIncoming::Result { id: got, result } if got == id => return Ok(result),
+                CdpIncoming::Error { id: got, message } if got == id => {
+                    return Err(CdpError::Protocol(format!("{method}: {message}")))
+                }
+                _ => continue,
+            }
+        }
+    }
+
+    /// Best-effort clean shutdown: ask the browser to close, then kill and reap.
+    pub fn close(mut self) -> Result<(), CdpError> {
+        let _ = self.conn.send("Browser.close", json!({}), None);
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -82,5 +135,31 @@ mod tests {
         assert!(ws_url.starts_with("ws://"), "unexpected ws url: {ws_url}");
         let _ = child.kill();
         let _ = child.wait();
+    }
+
+    #[test]
+    fn round_trips_browser_get_version() {
+        if !chromium_available("chromium") {
+            eprintln!("skipping: chromium not available");
+            return;
+        }
+        let mut browser =
+            CdpBrowser::launch("chromium", std::time::Duration::from_secs(20)).expect("launch");
+        let result = browser
+            .call(
+                "Browser.getVersion",
+                serde_json::json!({}),
+                None,
+                std::time::Duration::from_secs(20),
+            )
+            .expect("getVersion");
+        assert!(
+            result["product"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("Chrom"),
+            "unexpected product: {result}"
+        );
+        browser.close().expect("close");
     }
 }
