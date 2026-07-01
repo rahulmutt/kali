@@ -1039,3 +1039,35 @@ git commit -m "docs(spec): record integer imperative-core execution slice + firs
 - **Dependency order:** 1 (relational) and 2 (return) are independent; 3 (locals) depends on 2 for its function-scope assertion; 4 (loops) depends on 1+3; 5 (arrays) depends on 3+4; 6 (strings) depends on 5's `__heap` global; 7 depends on all; 8 last. Execute in numeric order.
 - **Type/name consistency:** the `__heap` global is index `0`, exported as `"__heap"`, shared by Task 5 (guest allocation) and Task 6 (host `alloc_guest_string`). Array layout `[len@+0][elems@+8…]` is identical in Task 5 Steps 4/5/6. `ValueShape::String` (Task 6) must be added to the enum if used. Import-index bumping (Task 6 Step 4) must keep `FUNCTION_INDEX_OFFSET` and the user-function index map (`lower.rs:122-136`) consistent — verify with a full-suite run after that step alone.
 - **Investigative step:** Task 3 Step 3 is a genuine localization (the reads-as-0 cause was not statically decidable); its three concrete suspects and the wasm-dump method are specified so it is debuggable, not hand-wavy.
+
+---
+
+## Deferred Follow-ups (post-implementation, recorded 2026-07-01)
+
+This slice shipped and merged to local `main`. During execution + adversarial review, a number of
+follow-ups were surfaced. The ones below were **consciously deferred** — none is reachable-and-harmful
+within the supported integer slice (each is unreachable in-slice, a documented limitation, an
+intentional design choice, or a large pre-existing concern out of this slice's scope). They are logged
+here as actionable backlog; if picked up, do them as their own TDD + review tasks.
+
+For contrast, these related follow-ups were **already fixed** and are on `main`: the `cargo fmt`
+workspace normalization (commit `8a0a18d3`); the silent `+` string-typed-variable miscompile, now a
+checker `E3200` rejection (commits `db1463d5`, `2e28aaa3`, `0e9c430e`); extra do-while/for
+constant-condition loop tests and while continue/break coverage; and the operator-named-key member
+disambiguation doc note (all in commit `f3f53b47`). The `for`-`continue`-skips-update limitation and
+the `E3200` string-`+` behavior are recorded in `specs/19-feature-maturity.md`.
+
+| ID | Item | Reachability / kind | Why deferred | If picked up |
+|---|---|---|---|---|
+| F-1 | `a = new Array(n)` **reassignment** is not recognized as an allocation (only the `let`/`const` declarator-init position is). | Feature gap; no current consumer. | Not needed by fannkuch or claimed anywhere; declarator-init covers the supported slice. | Recognize `new Array(n)` in the assignment-RHS path (`emit_assignment`, `crates/kali_codegen/src/emit/literal.rs`) the same way the declarator-init path does. |
+| F-2 | `array_bindings` are **flat, function-scoped by name** (no block scoping); a same-named non-array in a nested block could misroute. | Pre-existing systemic emitter pattern (locals/bindings are already flat maps); not exercised by current tests. | Large pre-existing refactor unrelated to this slice; fannkuch's block-local `const`s re-init per iteration and round-trip correctly. | Give the emitter block-scoped binding maps (affects `self.locals`/`self.bindings`/`array_bindings` together), not just arrays. |
+| F-3 | Array-alloc keeps `base` in the **generic shared scratch local** (`self.locals.len()`); a size arg that itself claims that scratch (e.g. `new Array(x++)`) could clobber the saved base. | Unreachable today — no side-effecting size expression that also uses the scratch is expressible for `new Array(...)`. | Systemic single-shared-scratch hazard; not triggerable in the current feature set. | Reserve a dedicated (non-shared) scratch local for the array base, or a small scratch allocator, if size expressions gain side effects. |
+| F-4 | `is_binary_operator_text` **misroutes an operator-named string-literal member key** (`obj["+"]`, `obj["in"]`) to `emit_binary`. | Unreachable in the i64 slice (no general object with operator-named string keys is expressible/evaluable). | Documented at `crates/kali_codegen/src/lower.rs` (doc comment on `is_binary_operator_text`). | Disambiguate computed-member vs binary on **node kind** rather than on `text`, once a richer object model exists. |
+| F-5 | `ValueShape::String` is currently **inert** (treated identically to `Scalar`/`Unknown` at consumption sites). | Not a bug — intentional forward-looking variant added in Task 6. | Correct for the slice (`console.log` decodes the handle tag; truthiness routes fine); nothing to fix. | Use the distinct shape when nested `+`/`console.log`/future string ops need to branch on string-ness. |
+| F-6 | Runtime **string heap allocations are unaligned** (`__heap` advances by exact byte length, no padding). | Wasm permits unaligned loads; correctness-neutral. Arrays stay 8-aligned (allocated before any string in fannkuch). | Perf-only; no correctness impact. | Round string allocations up to 8-byte alignment in `alloc_guest_string` (`crates/kali_runtime/src/host/memory.rs`) and set the load/store align hints. |
+| F-7 | The one **known pre-existing clippy warning**: unused import `profile_data_hash` in `crates/kali_cli/src/build/mod.rs`. | Pre-existing (present on `main` before this slice); the sole workspace clippy warning. | Out of this slice's scope; removing a `pub(crate)` re-export could drop an intended API surface — needs an owner's call. | Confirm no intended consumer, then drop the re-export (or `#[allow]` with a reason). |
+
+Residual acknowledged elsewhere (not in this table): an **untyped string function parameter** in a
+`+` (`function f(s){ return s + "x" }`) is undecidable and stays out of scope — the typed-parameter
+form is already blocked at resolution (`E3100`). See the `E3200` string-`+` row in
+`specs/19-feature-maturity.md`.
