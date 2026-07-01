@@ -229,7 +229,17 @@ impl TypeContext {
 
                 if matches!(expr.operator, AssignmentOperator::Assign) {
                     if let Some(name) = self.resolve_update_binding_name(&expr.left) {
+                        // Reassignment clears the previous static tracking, then
+                        // re-establishes string-typedness from the new value so a
+                        // later `+` on this binding is still recognized. When the
+                        // right-hand side is provably non-string the flag stays
+                        // cleared, keeping the check flow-aware (e.g.
+                        // `let s = "x"; s = 5; s + 1` stays a valid numeric `6`).
+                        let right_is_string = self.expression_is_string_typed(&expr.right);
                         self.invalidate_static_binding(&name);
+                        if right_is_string {
+                            self.mark_binding_string_typed(&name);
+                        }
                     }
                     return;
                 }
@@ -359,6 +369,32 @@ impl TypeContext {
 
         if self.global_scope.bindings.contains_key(name) {
             self.global_scope.invalidate_static_binding(name);
+        }
+    }
+
+    /// Records that the binding `name` currently holds a string value, in the
+    /// scope where `name` is declared. Used after an assignment whose right-hand
+    /// side is string-typed so that a later `+` on `name` is recognized as an
+    /// unsupported string-typed-variable operand (see
+    /// `reject_unsupported_string_variable_addition`).
+    pub(crate) fn mark_binding_string_typed(&mut self, name: &str) {
+        let mut current = self.current_scope_id();
+        while let Some(scope_id) = current {
+            if let Some(scope) = self.scopes.get_mut(&scope_id) {
+                if scope.bindings.contains_key(name) {
+                    scope.static_string_typed.insert(name.to_string(), true);
+                    return;
+                }
+                current = scope.parent;
+            } else {
+                return;
+            }
+        }
+
+        if self.global_scope.bindings.contains_key(name) {
+            self.global_scope
+                .static_string_typed
+                .insert(name.to_string(), true);
         }
     }
 

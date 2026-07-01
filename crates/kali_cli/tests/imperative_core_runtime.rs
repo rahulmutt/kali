@@ -87,6 +87,15 @@ fn string_typed_variable_plus_operands_are_rejected() {
     let diag =
         run_js_expect_failure("let a = \"x\";\nlet s = a + \"z\";\nconsole.log(s + \"q\");\n");
     assert!(diag.contains("E3200"), "expected E3200, got: {diag}");
+    // Reassignment TO a string is tracked (binding became a string after decl).
+    let diag = run_js_expect_failure("let s = 5;\ns = \"x\";\nconsole.log(s + 3);\n");
+    assert!(diag.contains("E3200"), "expected E3200, got: {diag}");
+    // Reassignment to another string variable is tracked too.
+    let diag = run_js_expect_failure("let x = \"hi\";\nlet s = 5;\ns = x;\nconsole.log(s + 3);\n");
+    assert!(diag.contains("E3200"), "expected E3200, got: {diag}");
+    // `var`-declared strings are tracked (hoisted binding).
+    let diag = run_js_expect_failure("var s = \"x\";\nconsole.log(s + 3);\n");
+    assert!(diag.contains("E3200"), "expected E3200, got: {diag}");
 }
 
 #[test]

@@ -570,17 +570,25 @@ impl TypeContext {
                         .mutable_bindings
                         .insert(declarator.id.clone(), declaration.kind != "const");
                 }
+                // String-typedness is tracked for every binding kind, including
+                // hoisted `var`, so a `+` on a `var` string is rejected too. The
+                // target scope for `var` is the function/global scope, so the flag
+                // is visible wherever the binding is.
+                if self.expression_is_string_typed(init) {
+                    if let Some(scope) = self.scopes.get_mut(&target_scope) {
+                        scope
+                            .static_string_typed
+                            .insert(declarator.id.clone(), true);
+                    } else if self.global_scope.contains(&declarator.id) {
+                        self.global_scope
+                            .static_string_typed
+                            .insert(declarator.id.clone(), true);
+                    }
+                }
                 if declaration.kind != "var" {
                     if let Some(value) = self.resolve_static_string_expression(init) {
                         if let Some(scope) = self.scopes.get_mut(&target_scope) {
                             scope.static_values.insert(declarator.id.clone(), value);
-                        }
-                    }
-                    if self.expression_is_string_typed(init) {
-                        if let Some(scope) = self.scopes.get_mut(&target_scope) {
-                            scope
-                                .static_string_typed
-                                .insert(declarator.id.clone(), true);
                         }
                     }
                     if let Some(value) = self.resolve_static_numeric_literal_value(init) {

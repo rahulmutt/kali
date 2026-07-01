@@ -375,6 +375,70 @@ fn test_resolution_rejects_string_variable_plus_number() {
 }
 
 #[test]
+fn test_resolution_rejects_reassigned_and_var_string_plus_operands() {
+    let assign = |name: &str, right: Expression| {
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::AssignmentExpression(Box::new(
+                AssignmentExpression {
+                    operator: AssignmentOperator::Assign,
+                    left: Expression::Identifier(name.to_string()),
+                    right,
+                },
+            ))),
+        })
+    };
+
+    // `let s = 5; s = "x"; s + 3` — binding becomes a string after declaration.
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        let_number("s", 5.0),
+        assign(
+            "s",
+            Expression::Literal(LiteralValue::String("x".to_string())),
+        ),
+        plus_statement(
+            Expression::Identifier("s".to_string()),
+            Expression::Literal(LiteralValue::Number(3.0)),
+        ),
+    ];
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 1, "{:?}", result.diagnostics);
+    assert_eq!(result.diagnostics[0].code, Some(e3::TYPE_MISMATCH as u32));
+
+    // `var s = "x"; s + 3` — hoisted `var` string is tracked.
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "var".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "s".to_string(),
+                init: Some(Expression::Literal(LiteralValue::String("x".to_string()))),
+            }],
+        }),
+        plus_statement(
+            Expression::Identifier("s".to_string()),
+            Expression::Literal(LiteralValue::Number(3.0)),
+        ),
+    ];
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 1, "{:?}", result.diagnostics);
+    assert_eq!(result.diagnostics[0].code, Some(e3::TYPE_MISMATCH as u32));
+
+    // Reassigning a string binding back to a number clears the flag: not rejected.
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        let_string("s", "x"),
+        assign("s", Expression::Literal(LiteralValue::Number(5.0))),
+        plus_statement(
+            Expression::Identifier("s".to_string()),
+            Expression::Literal(LiteralValue::Number(1.0)),
+        ),
+    ];
+    let result = ctx.resolve_statements(&statements);
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+}
+
+#[test]
 fn test_resolution_rejects_all_string_variable_plus_operands() {
     let s_var = || Expression::Identifier("s".to_string());
     let a_var = || Expression::Identifier("a".to_string());
