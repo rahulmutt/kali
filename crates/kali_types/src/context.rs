@@ -8,6 +8,7 @@ pub struct ResolutionResult {
     pub diagnostics: Vec<Diagnostic>,
     pub scopes: IndexMap<NodeId, Scope>,
     pub global_scope: Scope,
+    pub repr_table: kali_common::ReprTable,
 }
 
 /// Type / name-resolution context.

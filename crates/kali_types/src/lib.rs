@@ -8,6 +8,7 @@ mod builtins;
 mod context;
 mod late_host;
 mod package;
+mod repr_infer;
 mod resolve;
 mod scope;
 mod static_analysis;
@@ -57,3 +58,7 @@ use std::{
 #[cfg(test)]
 #[path = "test_support.rs"]
 mod test_support;
+
+#[cfg(test)]
+#[path = "repr_infer_tests.rs"]
+mod repr_infer_tests;

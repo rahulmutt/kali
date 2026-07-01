@@ -266,10 +266,13 @@ impl TypeContext {
         self.emit_pending_generator_function_lowering_diagnostic();
         self.scope_stack.clear();
 
+        let repr_table = crate::repr_infer::infer_reprs(statements);
+
         ResolutionResult {
             diagnostics: self.diagnostics.clone(),
             scopes: self.scopes.clone(),
             global_scope: self.global_scope.clone(),
+            repr_table,
         }
     }
 

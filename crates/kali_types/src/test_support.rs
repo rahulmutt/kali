@@ -102,3 +102,12 @@ fn _macro_type_check() {
     let stmts: Vec<kali_ast::Statement> = vec![];
     let _res = assert_resolution!(stmts, diagnostics: 0);
 }
+
+/// Parse a source string into a `Vec<Statement>` using the same lexer/parser
+/// pipeline the other `kali_types` tests use.
+pub(crate) fn parse_statements(src: &str) -> Vec<kali_ast::Statement> {
+    let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), src.to_string());
+    let tokens = lexer.lex_all().tokens;
+    let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+    parser.parse(None).statements
+}
