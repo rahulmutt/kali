@@ -565,3 +565,26 @@ fn to_fixed_formats_floats() {
         "1.414213562\n"
     );
 }
+
+#[test]
+fn heavy_loop_runs_under_raised_default_fuel_budget() {
+    // Regression for the default CPU-fuel budget raise in
+    // `RuntimeCtx::run` (crates/kali_runtime/src/execute.rs): with no
+    // sandbox policy, the fuel budget used to default to 10_000 *
+    // 1_000 = 10M fuel. A plain 2,000,000-iteration counting loop
+    // consumes well over 10M fuel (manually confirmed to trap with a
+    // runtime-trap diagnostic under a temporarily-reverted 10_000
+    // default: breaks somewhere between 650K and 800K iterations) but
+    // comfortably completes under the new 60_000 * 1_000 = 60M fuel
+    // default (breaks only between ~3.7M and 3.9M iterations), leaving
+    // ample margin in both directions. This must run to completion with
+    // the correct triangular-number output rather than trapping.
+    let source = "\
+let n = 2000000;\n\
+let sum = 0;\n\
+for (let i = 0; i < n; i = i + 1) {\n\
+  sum = sum + i;\n\
+}\n\
+console.log(sum);\n";
+    assert_eq!(run_js(source), "1999999000000\n");
+}

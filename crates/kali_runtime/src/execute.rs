@@ -127,11 +127,16 @@ impl RuntimeCtx {
             },
         );
         store.limiter(|state| &mut state.store_limits);
+        // Default CPU-fuel budget when no sandbox policy sets `maxCpuTimeMs`:
+        // ~60s-equivalent (60_000 * 1_000 fuel). Benchmark-scale programs such
+        // as spectral-norm(100) need ~12-15M fuel and would trap under the old
+        // 10s/10M default. An explicit policy `resources.maxCpuTimeMs` still
+        // overrides this fallback.
         let default_fuel = self
             .policy
             .as_ref()
             .and_then(|policy| policy.resources.max_cpu_time_ms)
-            .unwrap_or(10_000);
+            .unwrap_or(60_000);
         store
             .set_fuel(default_fuel.saturating_mul(1_000))
             .map_err(|error| {
