@@ -109,6 +109,21 @@ impl<'a> FunctionEmitter<'a> {
             locals.insert(name.clone(), (params.len() + offset) as u32);
         }
 
+        // Register array PARAMETERS as array bindings. `new Array(...)`
+        // declarators register themselves at their declaration site, but a param
+        // has no declarator in this body — its i64 handle simply arrives in the
+        // param slot. The inference already knows which params are arrays
+        // (subscripted, `.length`/`.fill`, or a pass-through array param); mark
+        // them here so the existing base-address emission, repr-directed
+        // element load/store, `.length`, and `.fill` paths fire. Scalar params
+        // are left untouched, so integer programs are byte-identical.
+        let mut array_bindings = HashSet::new();
+        for name in params {
+            if repr_table.is_array_binding(function_name, name) {
+                array_bindings.insert(name.clone());
+            }
+        }
+
         Self {
             program,
             node_lookup: &program.nodes,
@@ -128,7 +143,7 @@ impl<'a> FunctionEmitter<'a> {
             current_function_flavor,
             locals,
             bindings: BTreeMap::new(),
-            array_bindings: HashSet::new(),
+            array_bindings,
             reported_placeholder_fallbacks: HashSet::new(),
             control_frames: Vec::new(),
             loop_frames: Vec::new(),

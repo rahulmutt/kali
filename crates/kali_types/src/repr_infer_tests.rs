@@ -32,6 +32,32 @@ function main() { const w = new Array(2); store(w); }\n";
     // w flows into store's v => w has float elements too, even though main
     // never touches w with a float op.
     assert_eq!(t.array_element("main", "w"), Repr::F64);
+    // Both the subscripted param and the caller's binding are array bindings.
+    assert!(t.is_array_binding("store", "v"));
+    assert!(t.is_array_binding("main", "w"));
+}
+
+#[test]
+fn array_bindings_cover_int_params_pass_through_and_exclude_scalars() {
+    let src = "\
+function store(v) { v[0] = 7; }\n\
+function get(v) { return v[0]; }\n\
+function passthrough(a, b) { store(a); store(b); }\n\
+function scalar(i) { return i + 1; }\n\
+const u = new Array(3); store(u); get(u); passthrough(u, u); scalar(1);\n";
+    let t = reprs(src);
+    // Subscripted i64 array params are array bindings (element repr stays I64).
+    assert!(t.is_array_binding("store", "v"));
+    assert_eq!(t.array_element("store", "v"), Repr::I64);
+    assert!(t.is_array_binding("get", "v"));
+    // Pass-through params never subscripted directly are array bindings via the
+    // transitive array-param fixpoint.
+    assert!(t.is_array_binding("passthrough", "a"));
+    assert!(t.is_array_binding("passthrough", "b"));
+    // The top-level array binding.
+    assert!(t.is_array_binding("_start", "u"));
+    // A scalar param is NOT an array binding.
+    assert!(!t.is_array_binding("scalar", "i"));
 }
 
 #[test]

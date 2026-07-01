@@ -398,4 +398,68 @@ fn array_fill_initializes_all_elements() {
         run_js("const a = new Array(2).fill(1);\nconsole.log((a[0] + 1 / 2) < 2);\n"),
         "1\n" // 1.0 + 0.5 = 1.5 < 2
     );
+    // I6-1 strengthening: genuinely gate the F64Store fill path. `a` is F64 via
+    // the `a[0] = 1/2` store; a[1] was filled with 1.0. 1.0 > 0.5 => 1. A broken
+    // or wrong-width F64 fill would leave a[1] ~0, yielding 0 > 0.5 => 0.
+    assert_eq!(
+        run_js("const a = new Array(2).fill(1);\na[0] = 1 / 2;\nconsole.log(a[1] > a[0]);\n"),
+        "1\n"
+    );
+}
+
+// ---- Task 6b: array parameters passed between functions --------------------
+
+#[test]
+fn array_params_int_store_across_call() {
+    // A callee stores into its array param; the caller sees the mutation.
+    assert_eq!(
+        run_js("function store(v){v[0]=7;}\nconst u=new Array(3);\nstore(u);\nconsole.log(u[0]);\n"),
+        "7\n"
+    );
+}
+
+#[test]
+fn array_params_int_read_across_call() {
+    // A callee reads and returns an element of its array param.
+    assert_eq!(
+        run_js("function get(v){return v[0];}\nconst u=new Array(2);\nu[0]=5;\nconsole.log(get(u));\n"),
+        "5\n"
+    );
+}
+
+#[test]
+fn array_params_int_length_loop_sum() {
+    // `.length` and element reads on an array param drive a loop.
+    assert_eq!(
+        run_js("function sum(v){let s=0;for(let i=0;i<v.length;i=i+1){s=s+v[i];}return s;}\nconst u=new Array(3);\nu[0]=1;u[1]=2;u[2]=3;\nconsole.log(sum(u));\n"),
+        "6\n"
+    );
+}
+
+#[test]
+fn array_params_float_store_across_call() {
+    // A float store through an array param must use F64Store (was E4201 crash).
+    assert_eq!(
+        run_js("function store(v){v[0]=1/2;}\nconst u=new Array(3);\nstore(u);\nconsole.log(u[0] > 0);\n"),
+        "1\n"
+    );
+}
+
+#[test]
+fn array_params_float_round_trip() {
+    // Float stored in one callee, read back in another: 0.5 < 1 => 1.
+    assert_eq!(
+        run_js("function store(v){v[0]=1/2;}\nfunction get(v){return v[0];}\nconst u=new Array(2);\nstore(u);\nconsole.log(get(u) < 1);\n"),
+        "1\n"
+    );
+}
+
+#[test]
+fn array_params_float_fill_interproc_spectral_norm_shape() {
+    // spectral-norm shape: fill(1) makes a float array, a callee overwrites [0]
+    // with 0.5; u[1] (=1.0) > u[0] (=0.5) => 1.
+    assert_eq!(
+        run_js("function store(v){v[0]=1/2;}\nconst u=new Array(3).fill(1);\nstore(u);\nconsole.log(u[1] > u[0]);\n"),
+        "1\n"
+    );
 }

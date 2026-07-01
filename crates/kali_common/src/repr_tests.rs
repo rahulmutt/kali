@@ -43,3 +43,17 @@ fn repr_table_defaults_int_and_records_float() {
     assert_eq!(t.param("f", 0), Repr::F64);
     assert!(!t.is_empty());
 }
+
+#[test]
+fn repr_table_tracks_array_bindings() {
+    let mut t = ReprTable::default();
+    // Unset bindings default to false.
+    assert!(!t.is_array_binding("f", "v"));
+    // Recording a binding reports true; an unrelated one stays false.
+    t.set_array_binding("f", "v");
+    assert!(t.is_array_binding("f", "v"));
+    assert!(!t.is_array_binding("f", "scalar"));
+    assert!(!t.is_array_binding("g", "v"));
+    // Additive: array bindings alone (no float) keep the table "empty".
+    assert!(t.is_empty());
+}

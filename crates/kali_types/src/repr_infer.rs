@@ -733,6 +733,11 @@ impl ReprInfer {
             .map(|(k, &v)| (k.clone(), v))
             .collect();
         for ((func, name), node) in elems {
+            // Every binding/param with an element node is an array (i64 or f64),
+            // including subscripted params and pass-through array params linked
+            // only via the transitive array-param fixpoint (which unions their
+            // element node into the callee's in `resolve_calls`).
+            table.set_array_binding(&func, &name);
             let rep = self.uf.find(node);
             if float[rep] {
                 table.set_array_element(&func, &name, Repr::F64);

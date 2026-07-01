@@ -5,7 +5,7 @@
 //! `ReprTable` is threaded to codegen, which uses it to pick wasm signatures,
 //! locals, and per-operand arithmetic instructions.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// Machine representation chosen for a `number` value.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
@@ -27,6 +27,12 @@ pub struct ReprTable {
     array_elements: HashMap<(String, String), Repr>,
     returns: HashMap<String, Repr>,
     params: HashMap<(String, usize), Repr>,
+    /// `(func, binding)` pairs the inference treated as arrays (subscripted,
+    /// `.length`/`.fill`, `new Array`, array literal, or a pass-through array
+    /// param). Lets codegen register array PARAMETERS as array bindings — an i64
+    /// array's element repr is unset (== default I64), so this is the only way to
+    /// distinguish an i64 array param from a scalar param.
+    array_bindings: HashSet<(String, String)>,
     any_float: bool,
 }
 
@@ -84,6 +90,21 @@ impl ReprTable {
             self.any_float = true;
         }
         self.params.insert((func.to_string(), index), repr);
+    }
+
+    /// Record that `(func, binding)` is an array (any element repr). Additive;
+    /// does not affect [`is_empty`](Self::is_empty) (an all-integer program with
+    /// arrays still has no float decisions).
+    pub fn set_array_binding(&mut self, func: &str, binding: &str) {
+        self.array_bindings
+            .insert((func.to_string(), binding.to_string()));
+    }
+
+    /// True when `(func, binding)` was recorded as an array by the inference.
+    /// Defaults to false, so a scalar binding/param reports false.
+    pub fn is_array_binding(&self, func: &str, binding: &str) -> bool {
+        self.array_bindings
+            .contains(&(func.to_string(), binding.to_string()))
     }
 
     /// True when no float representation was ever recorded.
