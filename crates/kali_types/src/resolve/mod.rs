@@ -442,7 +442,7 @@ impl TypeContext {
                 if let ForOfLefthand::VariableDeclaration(decl) = left {
                     self.resolve_variable_declaration(decl)
                 }
-                self.resolve_expression(right);
+                self.resolve_static_string_fold_position(right);
                 self.resolve_loop_body(body);
                 self.pop_scope();
             }
@@ -574,6 +574,13 @@ impl TypeContext {
                     if let Some(value) = self.resolve_static_string_expression(init) {
                         if let Some(scope) = self.scopes.get_mut(&target_scope) {
                             scope.static_values.insert(declarator.id.clone(), value);
+                        }
+                    }
+                    if self.expression_is_string_typed(init) {
+                        if let Some(scope) = self.scopes.get_mut(&target_scope) {
+                            scope
+                                .static_string_typed
+                                .insert(declarator.id.clone(), true);
                         }
                     }
                     if let Some(value) = self.resolve_static_numeric_literal_value(init) {

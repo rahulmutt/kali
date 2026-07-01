@@ -24,6 +24,13 @@ pub struct Scope {
     pub bindings: IndexMap<String, NodeId>,
     pub mutable_bindings: IndexMap<String, bool>,
     pub static_values: IndexMap<String, String>,
+    /// Names known to hold a *string* value (declared via a string/template
+    /// literal or a `+` expression that is string-typed). Unlike `static_values`
+    /// — which is polluted by number/boolean/null renderings and by numeric `+`
+    /// results — this flag is a clean "this binding is a string at runtime"
+    /// signal used to reject string-typed-variable `+` operands that codegen
+    /// cannot lower.
+    pub static_string_typed: IndexMap<String, bool>,
     pub static_numeric_values: IndexMap<String, String>,
     pub(crate) static_identity_values: IndexMap<String, StaticObjectIdentityValue>,
     pub static_arrays: IndexMap<String, bool>,
@@ -40,6 +47,7 @@ impl Scope {
             bindings: IndexMap::new(),
             mutable_bindings: IndexMap::new(),
             static_values: IndexMap::new(),
+            static_string_typed: IndexMap::new(),
             static_numeric_values: IndexMap::new(),
             static_identity_values: IndexMap::new(),
             static_arrays: IndexMap::new(),
@@ -65,6 +73,7 @@ impl Scope {
 
     pub(crate) fn invalidate_static_binding(&mut self, name: &str) {
         self.static_values.shift_remove(name);
+        self.static_string_typed.shift_remove(name);
         self.static_numeric_values.shift_remove(name);
         self.static_identity_values.shift_remove(name);
         self.static_arrays.shift_remove(name);

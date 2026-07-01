@@ -27,6 +27,11 @@ pub struct TypeContext {
     pub(crate) has_generator_function: bool,
     pub(crate) has_async_generator_function: bool,
     pub(crate) has_generator_yield_delegation: bool,
+    /// When true, the string-typed-variable `+` rejection is suppressed. Set only
+    /// while resolving positions whose `+` codegen folds to a static string (e.g.
+    /// a for-of iterable or a dynamic-import specifier), which do not reach the
+    /// buggy runtime `+` path and therefore compile correctly.
+    pub(crate) suppress_string_addition_rejection: bool,
 }
 
 impl Default for TypeContext {
@@ -64,6 +69,7 @@ impl TypeContext {
             has_generator_function: false,
             has_async_generator_function: false,
             has_generator_yield_delegation: false,
+            suppress_string_addition_rejection: false,
         }
     }
 

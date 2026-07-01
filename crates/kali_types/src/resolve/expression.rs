@@ -37,67 +37,120 @@ impl TypeContext {
         }
     }
 
-    /// A `+` operand that is a *string-typed variable*: an identifier bound to a
-    /// known static string value (transparent parenthesized/assertion wrappers are
-    /// unwrapped). String *literals* are deliberately excluded — codegen already
-    /// concatenates literal-rooted `+` correctly. Codegen's `is_string_valued`
-    /// recognizes only literals, so a bare string variable operand is not seen as
-    /// a concatenation and would be miscompiled as integer addition on a string
-    /// handle; this predicate identifies exactly that operand shape.
-    fn plus_operand_is_string_variable(&self, expression: &Expression) -> bool {
+    /// True when a binding named `name` is known to hold a *string* value
+    /// (recorded by `resolve_variable_declaration` when its initializer is
+    /// string-typed). Walks the scope chain, then the global scope. Reassignment
+    /// clears the flag via `invalidate_static_binding`, so a name that was a string
+    /// but has since been reassigned (e.g. to a number) is not reported as a
+    /// string here — keeping the check flow-aware and sound.
+    pub(crate) fn binding_is_string_typed(&self, name: &str) -> bool {
+        let mut current = self.current_scope_id();
+        while let Some(scope_id) = current {
+            let Some(scope) = self.scopes.get(&scope_id) else {
+                return false;
+            };
+            if let Some(&value) = scope.static_string_typed.get(name) {
+                return value;
+            }
+            current = scope.parent;
+        }
+        self.global_scope
+            .static_string_typed
+            .get(name)
+            .copied()
+            .unwrap_or(false)
+    }
+
+    /// Semantic string-typedness of an expression: does it evaluate to a string at
+    /// runtime? Covers string/template literals, `+` expressions with a string
+    /// operand (JS `string + any` is a string), and *identifiers bound to a string
+    /// value* (transparent wrappers unwrapped). This intentionally recognizes
+    /// string-typed variables, which codegen's structural check does not.
+    pub(crate) fn expression_is_string_typed(&self, expression: &Expression) -> bool {
         match expression {
-            Expression::Identifier(name) => matches!(
-                self.resolve_static_object_identity_binding(name),
-                Some(StaticObjectIdentityValue::String(_))
-            ),
+            Expression::Literal(LiteralValue::String(_)) => true,
+            Expression::TemplateLiteral(_) => true,
+            Expression::Identifier(name) => self.binding_is_string_typed(name),
+            Expression::BinaryExpression(expr) if expr.operator == "+" => {
+                self.expression_is_string_typed(&expr.left)
+                    || self.expression_is_string_typed(&expr.right)
+            }
             Expression::ParenthesizedExpression(expr) => {
-                self.plus_operand_is_string_variable(&expr.expression)
+                self.expression_is_string_typed(&expr.expression)
             }
-            Expression::TypeAssertion(expr) => {
-                self.plus_operand_is_string_variable(&expr.expression)
-            }
+            Expression::TypeAssertion(expr) => self.expression_is_string_typed(&expr.expression),
             Expression::SatisfiesExpression(expr) => {
-                self.plus_operand_is_string_variable(&expr.expression)
+                self.expression_is_string_typed(&expr.expression)
             }
             _ => false,
         }
     }
 
-    /// A `+` operand that is definitely numeric: a numeric literal or an identifier
-    /// bound to a known static numeric value (numeric bindings are never recorded
-    /// for string-valued names, so this cannot alias a string variable).
-    fn plus_operand_is_number(&self, expression: &Expression) -> bool {
-        self.resolve_static_numeric_literal_value(expression)
-            .is_some()
+    /// Mirror of codegen's structural `is_string_valued`
+    /// (`kali_codegen/src/emit/operators.rs`): recognizes only string/template
+    /// literals and `+` chains rooted in one — NOT a variable that holds a string.
+    /// Operands for which this is true are lowered to string concatenation
+    /// correctly and must not be rejected.
+    fn expression_is_codegen_string_valued(&self, expression: &Expression) -> bool {
+        match expression {
+            Expression::Literal(LiteralValue::String(_)) => true,
+            Expression::TemplateLiteral(_) => true,
+            Expression::BinaryExpression(expr) if expr.operator == "+" => {
+                self.expression_is_codegen_string_valued(&expr.left)
+                    || self.expression_is_codegen_string_valued(&expr.right)
+            }
+            Expression::ParenthesizedExpression(expr) => {
+                self.expression_is_codegen_string_valued(&expr.expression)
+            }
+            Expression::TypeAssertion(expr) => {
+                self.expression_is_codegen_string_valued(&expr.expression)
+            }
+            Expression::SatisfiesExpression(expr) => {
+                self.expression_is_codegen_string_valued(&expr.expression)
+            }
+            _ => false,
+        }
     }
 
-    /// Rejects a mixed `string-variable + number` (or `number + string-variable`)
-    /// addition with `E3200`. The direct-runtime codegen path only lowers string
-    /// concatenation that is rooted in a string/template literal (e.g. `"x" + 3`);
-    /// a string-typed *variable* added to a number is not recognized as
-    /// concatenation and would otherwise be silently miscompiled as integer
-    /// addition on a string handle. Rejecting it keeps the outcome sound (a clear
-    /// compile-time error instead of garbage) without touching the supported
-    /// literal-rooted concatenation.
-    fn reject_mixed_string_number_addition(&mut self, expr: &BinaryExpression) {
-        if expr.operator != "+" {
+    /// Rejects a `+` whose lowering codegen cannot perform correctly: any operand
+    /// that is *string-typed* but is not a codegen-recognized structural string
+    /// expression (i.e. a string-typed variable / dynamic value that codegen's
+    /// `is_string_valued` will not see). For such operands codegen either integer-
+    /// adds two string handles or coerces a string handle through `int_to_string`,
+    /// both of which silently produce garbage. Rejecting with a clear `E3200`
+    /// diagnostic makes the outcome sound (a compile error instead of a wrong
+    /// result) while leaving every literal-rooted concatenation
+    /// (e.g. `"x" + 3`, `"P(" + n + ")"`) compiling and correct.
+    fn reject_unsupported_string_variable_addition(&mut self, expr: &BinaryExpression) {
+        if expr.operator != "+" || self.suppress_string_addition_rejection {
             return;
         }
-        let left_string = self.plus_operand_is_string_variable(&expr.left);
-        let right_string = self.plus_operand_is_string_variable(&expr.right);
-        let left_number = self.plus_operand_is_number(&expr.left);
-        let right_number = self.plus_operand_is_number(&expr.right);
-        if (left_string && right_number) || (right_string && left_number) {
+        let operand_is_unsupported_string = |operand: &Expression| {
+            self.expression_is_string_typed(operand)
+                && !self.expression_is_codegen_string_valued(operand)
+        };
+        if operand_is_unsupported_string(&expr.left) || operand_is_unsupported_string(&expr.right) {
             self.diagnostics.push(
                 Diagnostic::error(
                     e3::TYPE_MISMATCH as u32,
-                    "mixed string/number '+' with a string-typed variable operand is unavailable in the current direct-runtime path: only string concatenation rooted in a string or template literal (for example \"x\" + 3) is lowered to runtime concatenation".to_string(),
+                    "'+' with a string-typed variable operand is unavailable in the current direct-runtime path: only string concatenation rooted in a string or template literal (for example \"x\" + 3) is lowered to runtime concatenation; a variable that holds a string is not recognized and would be miscompiled".to_string(),
                 )
                 .with_suggestion(
-                    "root the concatenation in a string literal (\"\" + value), or convert the number to a string before joining, or use the later compatibility path",
+                    "root the concatenation in a string literal (\"\" + value), build the string with literal-rooted concatenation, or use the later compatibility path",
                 ),
             );
         }
+    }
+
+    /// Resolves `expression` in a position where codegen folds a string-typed `+`
+    /// to a static string (a for-of iterable, a dynamic-import specifier). Such a
+    /// `+` never reaches the buggy runtime `+` path, so the string-typed-variable
+    /// rejection is suppressed for its duration.
+    pub(crate) fn resolve_static_string_fold_position(&mut self, expression: &Expression) {
+        let previous = self.suppress_string_addition_rejection;
+        self.suppress_string_addition_rejection = true;
+        self.resolve_expression(expression);
+        self.suppress_string_addition_rejection = previous;
     }
 
     pub(crate) fn resolve_expression(&mut self, expression: &Expression) {
@@ -107,7 +160,7 @@ impl TypeContext {
             Expression::BinaryExpression(expr) => {
                 self.resolve_expression(&expr.left);
                 self.resolve_expression(&expr.right);
-                self.reject_mixed_string_number_addition(expr);
+                self.reject_unsupported_string_variable_addition(expr);
             }
             Expression::UnaryExpression(expr) => {
                 if expr.operator == "delete" {
@@ -329,7 +382,7 @@ impl TypeContext {
     }
 
     pub(crate) fn resolve_import_expression(&mut self, expr: &ImportExpression) {
-        self.resolve_expression(&expr.source);
+        self.resolve_static_string_fold_position(&expr.source);
 
         if let Some(source) = self.resolve_static_import_source(&expr.source) {
             match self.resolve_import_source(&source) {

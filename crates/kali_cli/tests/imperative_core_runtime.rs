@@ -56,26 +56,61 @@ fn run_js_expect_failure(source: &str) -> String {
 }
 
 #[test]
-fn mixed_string_variable_plus_number_is_rejected() {
-    // A string-typed variable `+` an integer is not literal-rooted, so codegen
-    // cannot recognize it as concatenation. Rather than silently emitting integer
-    // addition on a string handle (garbage), the checker must reject it (E3200).
-    let diag = run_js_expect_failure("let s = \"x\";\nconsole.log(s + 3);\n");
-    assert!(
-        diag.contains("E3200"),
-        "expected E3200 type-mismatch diagnostic, got: {diag}"
-    );
-    let diag = run_js_expect_failure("let s = \"x\";\nconsole.log(3 + s);\n");
-    assert!(
-        diag.contains("E3200"),
-        "expected E3200 type-mismatch diagnostic, got: {diag}"
-    );
-    // String variable + numeric variable is the same miscompiling shape.
-    run_js_expect_failure("let s = \"x\";\nlet n = 3;\nconsole.log(s + n);\n");
+fn string_typed_variable_plus_operands_are_rejected() {
+    // Codegen's `is_string_valued` recognizes only string/template literals and
+    // literal-rooted `+` chains — NOT a variable that holds a string. So ANY `+`
+    // with a string-typed variable operand miscompiles (it either integer-adds
+    // two string handles or coerces a string handle through `int_to_string`),
+    // regardless of the other operand's type. The checker must reject the whole
+    // family (E3200) rather than silently emit garbage.
 
-    // Literal-rooted concatenation stays supported and correct.
+    // string variable + number.
+    let diag = run_js_expect_failure("let s = \"x\";\nconsole.log(s + 3);\n");
+    assert!(diag.contains("E3200"), "expected E3200, got: {diag}");
+    // number + string variable.
+    let diag = run_js_expect_failure("let s = \"x\";\nconsole.log(3 + s);\n");
+    assert!(diag.contains("E3200"), "expected E3200, got: {diag}");
+    // string variable + numeric variable.
+    let diag = run_js_expect_failure("let s = \"x\";\nlet n = 3;\nconsole.log(s + n);\n");
+    assert!(diag.contains("E3200"), "expected E3200, got: {diag}");
+    // string literal + string variable.
+    let diag = run_js_expect_failure("let b = \"y\";\nconsole.log(\"x\" + b);\n");
+    assert!(diag.contains("E3200"), "expected E3200, got: {diag}");
+    // string variable + string literal.
+    let diag = run_js_expect_failure("let b = \"y\";\nconsole.log(b + \"x\");\n");
+    assert!(diag.contains("E3200"), "expected E3200, got: {diag}");
+    // string variable + string variable.
+    let diag = run_js_expect_failure("let a = \"x\";\nlet b = \"y\";\nconsole.log(a + b);\n");
+    assert!(diag.contains("E3200"), "expected E3200, got: {diag}");
+    // concatenation-result variable + string literal (the result of `a + "z"` is
+    // itself a string-typed variable).
+    let diag =
+        run_js_expect_failure("let a = \"x\";\nlet s = a + \"z\";\nconsole.log(s + \"q\");\n");
+    assert!(diag.contains("E3200"), "expected E3200, got: {diag}");
+}
+
+#[test]
+fn literal_rooted_concatenation_and_integer_addition_stay_supported() {
+    // None of these has a string-typed *variable* operand, so they must keep
+    // compiling and producing correct output.
     assert_eq!(run_js("console.log(\"x\" + 3);\n"), "x3\n");
+    assert_eq!(run_js("console.log(\"x\" + \"y\");\n"), "xy\n");
     assert_eq!(run_js("let n = 7;\nconsole.log(\"n=\" + n);\n"), "n=7\n");
+    assert_eq!(
+        run_js("let n = 7;\nlet m = 16;\nconsole.log(\"Pfannkuchen(\" + n + \") = \" + m);\n"),
+        "Pfannkuchen(7) = 16\n"
+    );
+    // A number after reassignment is not a string: flow-aware detection keeps this
+    // compiling and correct.
+    assert_eq!(
+        run_js("let s = \"x\";\ns = 5;\nconsole.log(s + 1);\n"),
+        "6\n"
+    );
+    // Numeric concatenation into a variable stays numeric (not a false positive).
+    assert_eq!(
+        run_js("let a = 1;\nlet b = 2;\nlet x = a + b;\nconsole.log(x + 5);\n"),
+        "8\n"
+    );
 }
 
 #[test]

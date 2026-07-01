@@ -269,6 +269,32 @@ fn test_resolution_accepts_decorated_wrappers_for_update_targets() {
 
     let result = ctx.resolve_statements(&statements);
     assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+
+    // Numeric `+` folded into a variable stays numeric — `static_values` renders
+    // it to a string, but `static_string_typed` does not, so `let x = a + b;
+    // x + 5` (all numeric) is NOT falsely rejected.
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        let_number("a", 1.0),
+        let_number("b", 2.0),
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "let".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "x".to_string(),
+                init: Some(Expression::BinaryExpression(Box::new(BinaryExpression {
+                    operator: "+".to_string(),
+                    left: Expression::Identifier("a".to_string()),
+                    right: Expression::Identifier("b".to_string()),
+                }))),
+            }],
+        }),
+        plus_statement(
+            Expression::Identifier("x".to_string()),
+            Expression::Literal(LiteralValue::Number(5.0)),
+        ),
+    ];
+    let result = ctx.resolve_statements(&statements);
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
 }
 
 // Helper: `<lhs> + <rhs>` as a top-level expression statement.
@@ -346,6 +372,64 @@ fn test_resolution_rejects_string_variable_plus_number() {
     let result = ctx.resolve_statements(&statements);
     assert_eq!(result.diagnostics.len(), 1, "{:?}", result.diagnostics);
     assert_eq!(result.diagnostics[0].code, Some(e3::TYPE_MISMATCH as u32));
+}
+
+#[test]
+fn test_resolution_rejects_all_string_variable_plus_operands() {
+    let s_var = || Expression::Identifier("s".to_string());
+    let a_var = || Expression::Identifier("a".to_string());
+    let b_var = || Expression::Identifier("b".to_string());
+    let str_lit = |value: &str| Expression::Literal(LiteralValue::String(value.to_string()));
+
+    // string literal + string variable.
+    let mut ctx = TypeContext::new();
+    let statements = vec![let_string("b", "y"), plus_statement(str_lit("x"), b_var())];
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 1, "{:?}", result.diagnostics);
+    assert_eq!(result.diagnostics[0].code, Some(e3::TYPE_MISMATCH as u32));
+
+    // string variable + string literal.
+    let mut ctx = TypeContext::new();
+    let statements = vec![let_string("b", "y"), plus_statement(b_var(), str_lit("x"))];
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 1, "{:?}", result.diagnostics);
+    assert_eq!(result.diagnostics[0].code, Some(e3::TYPE_MISMATCH as u32));
+
+    // string variable + string variable.
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        let_string("a", "x"),
+        let_string("b", "y"),
+        plus_statement(a_var(), b_var()),
+    ];
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 1, "{:?}", result.diagnostics);
+    assert_eq!(result.diagnostics[0].code, Some(e3::TYPE_MISMATCH as u32));
+
+    // concatenation-result variable + string literal: `let s = a + "z"` is itself
+    // rejected (string-var operand), and the later `s + "q"` is rejected too.
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        let_string("a", "x"),
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "let".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "s".to_string(),
+                init: Some(Expression::BinaryExpression(Box::new(BinaryExpression {
+                    operator: "+".to_string(),
+                    left: a_var(),
+                    right: str_lit("z"),
+                }))),
+            }],
+        }),
+        plus_statement(s_var(), str_lit("q")),
+    ];
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 2, "{:?}", result.diagnostics);
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.code == Some(e3::TYPE_MISMATCH as u32)));
 }
 
 #[test]
