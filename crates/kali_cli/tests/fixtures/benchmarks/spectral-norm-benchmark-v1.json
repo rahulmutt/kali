@@ -1,0 +1,7 @@
+{
+  "benchmark": "spectral-norm",
+  "version": 1,
+  "sourceFile": "spectral-norm-benchmark-v1.ts",
+  "sourceSha256": "sha256-bb80ec551efcddef51c963e8ba0d571b9ff4237eb0f4885614a186f085bf5e52",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
