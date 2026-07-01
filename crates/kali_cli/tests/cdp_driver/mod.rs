@@ -2,5 +2,4 @@
 mod driver;
 mod protocol;
 
-// TODO(Task 4/5): re-export driver types
-// pub use driver::{CdpBrowser, CdpConsoleLine, CdpPageOutcome};
+pub use driver::{CdpBrowser, CdpConsoleLine, CdpPageOutcome};
