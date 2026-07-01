@@ -351,3 +351,24 @@ fn integer_programs_are_unchanged_by_repr_plumbing() {
         "10\n"
     );
 }
+
+#[test]
+fn f64_arrays_store_and_load() {
+    // a is a float array (element written from a division).
+    assert_eq!(
+        run_js("const a = new Array(2);\na[0] = 3 / 2;\nconsole.log(a[0] < 2);\n"),
+        "1\n"
+    );
+    // read-modify across elements stays float.
+    assert_eq!(
+        run_js(
+            "const a = new Array(2);\na[0] = 1 / 2;\na[1] = a[0] + a[0];\nconsole.log(a[1] < 2);\n"
+        ),
+        "1\n" // 1.0 < 2
+    );
+    // integer arrays are unchanged.
+    assert_eq!(
+        run_js("const a = new Array(2);\na[0] = 10;\na[1] = 20;\nconsole.log(a[0] + a[1]);\n"),
+        "30\n"
+    );
+}

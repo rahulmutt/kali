@@ -279,18 +279,53 @@ impl<'a> FunctionEmitter<'a> {
                                 ArrayWriteIndex::Node(index_id) => self
                                     .emit_array_element_address_node(function, base_id, index_id),
                             }
-                            let rhs = self.emit_node(function, right, true);
-                            if !rhs.produced {
-                                function.instruction(&Instruction::I64Const(0));
+                            match self.array_elem_repr(&base_name) {
+                                kali_common::Repr::F64 => {
+                                    // Stack: [address:i32]. `scratch` is always i64-typed
+                                    // (see `lower.rs`'s two trailing i64 scratch locals), so
+                                    // it cannot tee the i32 address or an f64 RHS directly.
+                                    // Extend the address to i64 to tee it, then wrap back to
+                                    // i32 to use it as a memory address; after the store,
+                                    // reload from the same address to recover the stored
+                                    // value as the assignment expression's result.
+                                    function.instruction(&Instruction::I64ExtendI32U);
+                                    function.instruction(&Instruction::LocalTee(scratch));
+                                    function.instruction(&Instruction::I32WrapI64);
+                                    let rhs = self.emit_node(function, right, true);
+                                    if !rhs.produced {
+                                        function.instruction(&Instruction::I64Const(0));
+                                    }
+                                    if !rhs.produced || !self.is_float_valued(right) {
+                                        function.instruction(&Instruction::F64ConvertI64S);
+                                    }
+                                    function.instruction(&Instruction::F64Store(MemArg {
+                                        offset: 8,
+                                        align: 3,
+                                        memory_index: 0,
+                                    }));
+                                    function.instruction(&Instruction::LocalGet(scratch));
+                                    function.instruction(&Instruction::I32WrapI64);
+                                    function.instruction(&Instruction::F64Load(MemArg {
+                                        offset: 8,
+                                        align: 3,
+                                        memory_index: 0,
+                                    }));
+                                }
+                                kali_common::Repr::I64 => {
+                                    let rhs = self.emit_node(function, right, true);
+                                    if !rhs.produced {
+                                        function.instruction(&Instruction::I64Const(0));
+                                    }
+                                    function.instruction(&Instruction::LocalTee(scratch));
+                                    function.instruction(&Instruction::I64Store(MemArg {
+                                        offset: 8,
+                                        align: 3,
+                                        memory_index: 0,
+                                    }));
+                                    // Assignment expression result is the stored value.
+                                    function.instruction(&Instruction::LocalGet(scratch));
+                                }
                             }
-                            function.instruction(&Instruction::LocalTee(scratch));
-                            function.instruction(&Instruction::I64Store(MemArg {
-                                offset: 8,
-                                align: 3,
-                                memory_index: 0,
-                            }));
-                            // Assignment expression result is the stored value.
-                            function.instruction(&Instruction::LocalGet(scratch));
                             return true;
                         }
                     }

@@ -454,7 +454,9 @@ impl<'a> FunctionEmitter<'a> {
                         let base_id = node.children[0];
                         if let Some(base_name) = self.assignment_target_name(node, base_id) {
                             if self.array_bindings.contains(&base_name) {
-                                return self.emit_dynamic_array_read(function, base_id, index_text);
+                                return self.emit_dynamic_array_read(
+                                    function, base_id, index_text, &base_name,
+                                );
                             }
                         }
                     }
@@ -488,7 +490,8 @@ impl<'a> FunctionEmitter<'a> {
                 let index_id = node.children[1];
                 if let Some(base_name) = self.assignment_target_name(node, base_id) {
                     if self.array_bindings.contains(&base_name) {
-                        return self.emit_dynamic_array_read_node(function, base_id, index_id);
+                        return self
+                            .emit_dynamic_array_read_node(function, base_id, index_id, &base_name);
                     }
                 }
 

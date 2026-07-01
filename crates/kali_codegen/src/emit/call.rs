@@ -2268,19 +2268,26 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     /// Emit `base[index_text]` as a dynamic linear-memory load. `base_id` is the array
-    /// handle expression and `index_text` is the (literal or identifier) index.
+    /// handle expression, `index_text` is the (literal or identifier) index, and
+    /// `base_name` is the array binding's name, used to select `F64Load`/`I64Load`
+    /// per the array's element repr.
     pub(crate) fn emit_dynamic_array_read(
         &mut self,
         function: &mut Function,
         base_id: LirNodeId,
         index_text: &str,
+        base_name: &str,
     ) -> EmittedValue {
         self.emit_array_element_address(function, base_id, index_text);
-        function.instruction(&Instruction::I64Load(MemArg {
+        let mem_arg = MemArg {
             offset: 8,
             align: 3,
             memory_index: 0,
-        }));
+        };
+        match self.array_elem_repr(base_name) {
+            kali_common::Repr::F64 => function.instruction(&Instruction::F64Load(mem_arg)),
+            kali_common::Repr::I64 => function.instruction(&Instruction::I64Load(mem_arg)),
+        };
         EmittedValue {
             produced: true,
             shape: ValueShape::Scalar,
@@ -2319,19 +2326,25 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     /// Emit a computed array read `base[index_expr]` sourcing the index from a
-    /// node instead of stringified text.
+    /// node instead of stringified text. `base_name` is the array binding's name,
+    /// used to select `F64Load`/`I64Load` per the array's element repr.
     pub(crate) fn emit_dynamic_array_read_node(
         &mut self,
         function: &mut Function,
         base_id: LirNodeId,
         index_id: LirNodeId,
+        base_name: &str,
     ) -> EmittedValue {
         self.emit_array_element_address_node(function, base_id, index_id);
-        function.instruction(&Instruction::I64Load(MemArg {
+        let mem_arg = MemArg {
             offset: 8,
             align: 3,
             memory_index: 0,
-        }));
+        };
+        match self.array_elem_repr(base_name) {
+            kali_common::Repr::F64 => function.instruction(&Instruction::F64Load(mem_arg)),
+            kali_common::Repr::I64 => function.instruction(&Instruction::I64Load(mem_arg)),
+        };
         EmittedValue {
             produced: true,
             shape: ValueShape::Scalar,
