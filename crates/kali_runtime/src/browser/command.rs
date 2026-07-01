@@ -203,30 +203,39 @@ pub(crate) fn browser_harness_command_parts_for_browser_executable(
     }
 }
 
-pub(crate) fn browser_harness_default_browser_command_parts() -> Option<Vec<String>> {
+/// Resolve the default browser-harness command from an availability probe.
+///
+/// A JavaScript runtime (`node`/`bun`/`deno`) is preferred over a real browser:
+/// its process stdout is exactly the program's console output, which the
+/// browser-harness contract (and every browser test) asserts on. A real browser
+/// reproduces that stdout contract only under a DevTools driver, so it is selected
+/// solely when no JS runtime is available. Pure over the injected availability
+/// probe so the selection order can be unit-tested deterministically.
+pub(crate) fn browser_harness_default_command_parts_from(
+    is_available: impl Fn(&str) -> bool,
+) -> Vec<String> {
+    for runtime in ["node", "bun", "deno"] {
+        if is_available(runtime) {
+            return vec![runtime.to_string()];
+        }
+    }
     for candidate in BROWSER_HARNESS_BROWSER_EXECUTABLE_NAMES {
-        if Command::new(candidate).arg("--version").output().is_ok() {
+        if is_available(candidate) {
             if let Some(parts) = browser_harness_command_parts_for_browser_executable(candidate) {
-                return Some(parts);
+                return parts;
             }
         }
     }
-
-    None
+    vec!["node".to_string()]
 }
 
 pub(crate) fn browser_harness_default_command_parts() -> Vec<String> {
     static BROWSER_HARNESS_COMMAND: OnceLock<Vec<String>> = OnceLock::new();
     BROWSER_HARNESS_COMMAND
         .get_or_init(|| {
-            if let Some(parts) = browser_harness_default_browser_command_parts() {
-                return parts;
-            }
-            if Command::new("bun").arg("--version").output().is_ok() {
-                vec!["bun".to_string()]
-            } else {
-                vec!["node".to_string()]
-            }
+            browser_harness_default_command_parts_from(|executable| {
+                Command::new(executable).arg("--version").output().is_ok()
+            })
         })
         .clone()
 }

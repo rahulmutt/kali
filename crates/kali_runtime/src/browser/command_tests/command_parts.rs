@@ -23,9 +23,9 @@ fn browser_harness_command_parts_exposes_override_and_default_selection() {
         "default browser harness command should not be empty"
     );
     assert!(
-        matches!(default_parts[0].as_str(), "bun" | "node")
+        matches!(default_parts[0].as_str(), "node" | "bun" | "deno")
             || browser_harness_uses_html_entrypoint(&default_parts[0]),
-        "default browser harness command should prefer a browser executable when one is available"
+        "default browser harness command should prefer a JavaScript runtime, falling back to a browser executable"
     );
 }
 
@@ -445,5 +445,37 @@ fn browser_harness_command_parts_for_browser_executables_use_headless_mode() {
     assert_eq!(
         browser_harness_command_parts_for_browser_executable("node"),
         None
+    );
+}
+
+#[test]
+fn browser_harness_default_command_prefers_js_runtime_over_browser() {
+    // A JS runtime is chosen ahead of any installed browser, in node/bun/deno order.
+    assert_eq!(
+        browser_harness_default_command_parts_from(|exe| matches!(exe, "node" | "chromium")),
+        vec!["node".to_string()]
+    );
+    assert_eq!(
+        browser_harness_default_command_parts_from(|exe| matches!(
+            exe,
+            "bun" | "deno" | "chromium"
+        )),
+        vec!["bun".to_string()]
+    );
+    assert_eq!(
+        browser_harness_default_command_parts_from(|exe| matches!(exe, "deno" | "chromium")),
+        vec!["deno".to_string()]
+    );
+
+    // A real browser is used only when no JS runtime is available.
+    assert_eq!(
+        browser_harness_default_command_parts_from(|exe| exe == "chromium"),
+        vec!["chromium".to_string(), "--headless".to_string()]
+    );
+
+    // With nothing available, fall back to node for a stable error surface.
+    assert_eq!(
+        browser_harness_default_command_parts_from(|_| false),
+        vec!["node".to_string()]
     );
 }
