@@ -67,6 +67,11 @@ impl<'a> FunctionEmitter<'a> {
                     function.instruction(&Instruction::I64Eqz);
                     function.instruction(&Instruction::I32Eqz);
                 }
+                ValueShape::Float => {
+                    // f64 truthiness: nonzero is truthy. Leaves an i32 for `If`.
+                    function.instruction(&Instruction::F64Const(0.0.into()));
+                    function.instruction(&Instruction::F64Ne);
+                }
             }
             function.instruction(&Instruction::If(BlockType::Empty));
             function.instruction(&Instruction::Else);
@@ -2116,15 +2121,30 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
-        for arg in node.children.iter().skip(1) {
+        for (arg_index, arg) in node.children.iter().skip(1).enumerate() {
             let _ = self.emit_node(function, *arg, true);
+            // Promote an integer-valued argument to `f64` when the resolved callee
+            // declares that parameter as float, so the pushed value matches the
+            // callee's f64 param slot. No-op for integer callees (param defaults to
+            // I64), keeping integer call sites byte-identical.
+            if resolved.is_some()
+                && self.repr_table.param(callee_name, arg_index) == kali_common::Repr::F64
+                && !self.is_float_valued(*arg)
+            {
+                function.instruction(&Instruction::F64ConvertI64S);
+            }
         }
 
         if let Some(index) = resolved {
+            let shape = if self.repr_table.return_repr(callee_name) == kali_common::Repr::F64 {
+                ValueShape::Float
+            } else {
+                ValueShape::Unknown
+            };
             function.instruction(&Instruction::Call(index));
             return EmittedValue {
                 produced: true,
-                shape: ValueShape::Unknown,
+                shape,
             };
         }
 

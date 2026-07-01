@@ -96,6 +96,9 @@ pub struct CodegenCtx {
     pub target: TargetConfig,
     /// Source file path for context-sensitive static lowering.
     pub source_path: Option<PathBuf>,
+    /// Integer-vs-float representation decisions from the resolver. Empty (all
+    /// `I64`) by default, keeping the integer fast path byte-identical.
+    pub repr_table: kali_common::ReprTable,
 }
 
 impl CodegenCtx {
@@ -103,6 +106,7 @@ impl CodegenCtx {
         Self {
             target,
             source_path: None,
+            repr_table: kali_common::ReprTable::default(),
         }
     }
 }

@@ -478,6 +478,7 @@ fn compile_source_file_uncached(
         coverage,
     });
     ctx.source_path = Some(source_path.as_ref().to_path_buf());
+    ctx.repr_table = analyzed.repr_table.clone();
     let result = lower_lir_to_wasm(&mut ctx, &lir);
     diagnostics.extend(result.diagnostics);
 
@@ -629,6 +630,7 @@ fn analyze_source_file(
         return Err(diagnostics);
     }
 
+    let mut repr_table = kali_common::ReprTable::default();
     if !is_declaration_only_source_file(source_path) {
         let mut resolver = TypeContext::with_base_path_and_api_surface_and_runtime_profiles(
             source_path,
@@ -641,11 +643,13 @@ fn analyze_source_file(
         if has_errors(&diagnostics) {
             return Err(diagnostics);
         }
+        repr_table = resolved.repr_table;
     }
 
     Ok(AnalyzedSource {
         statements: parsed.statements,
         diagnostics,
+        repr_table,
     })
 }
 
@@ -752,6 +756,7 @@ fn source_uses_process_env_mutation(source: &str) -> bool {
 struct AnalyzedSource {
     statements: Vec<kali_ast::Statement>,
     diagnostics: Vec<Diagnostic>,
+    repr_table: kali_common::ReprTable,
 }
 
 #[allow(clippy::too_many_arguments)]

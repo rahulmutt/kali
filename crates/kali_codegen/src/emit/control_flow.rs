@@ -204,7 +204,14 @@ impl<'a> FunctionEmitter<'a> {
         self.emit_coverage_hit(function, coverage_id);
         let produced = self.emit_node(function, body, returns_value);
         if returns_value && !produced.produced {
-            function.instruction(&Instruction::I64Const(0));
+            // Fallthrough value must match the function's declared result type: an
+            // f64-returning function needs an f64 zero here (this trailing value
+            // still has to type-check even when the body always returns early).
+            if self.repr_table.return_repr(&self.function_name) == kali_common::Repr::F64 {
+                function.instruction(&Instruction::F64Const(0.0.into()));
+            } else {
+                function.instruction(&Instruction::I64Const(0));
+            }
         } else if !returns_value && produced.produced {
             function.instruction(&Instruction::Drop);
         }
@@ -567,6 +574,11 @@ impl<'a> FunctionEmitter<'a> {
             ValueShape::Scalar | ValueShape::Unknown | ValueShape::String => {
                 function.instruction(&Instruction::I64Eqz);
                 function.instruction(&Instruction::I32Eqz);
+            }
+            ValueShape::Float => {
+                // f64 truthiness: nonzero is truthy. Leaves an i32 for `If`.
+                function.instruction(&Instruction::F64Const(0.0.into()));
+                function.instruction(&Instruction::F64Ne);
             }
         }
         let if_index = self.push_control_frame(ControlFlowLabelKind::If);

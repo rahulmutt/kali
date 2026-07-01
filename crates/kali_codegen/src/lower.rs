@@ -1,6 +1,15 @@
 //! Program-level driver and LIR-walking analysis functions.
 use crate::*;
 
+/// Maps a representation decision to the wasm value type used for the matching
+/// param/result/local slot. `I64` is the integer default; `F64` is an IEEE double.
+pub(crate) fn wasm_type(repr: kali_common::Repr) -> wasm_encoder::ValType {
+    match repr {
+        kali_common::Repr::F64 => wasm_encoder::ValType::F64,
+        kali_common::Repr::I64 => wasm_encoder::ValType::I64,
+    }
+}
+
 pub(crate) fn generator_lowering_unavailable_message(
     function_plans: &[FunctionPlan],
 ) -> &'static str {
@@ -222,21 +231,29 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     if process_exit_import_index.is_some() {
         import_section.import("kali:rt", "process_exit", EntityType::Function(1));
     }
-    let mut function_types = BTreeMap::<(usize, bool), u32>::new();
+    // Function signatures are repr-directed: each param/result ValType comes from
+    // the repr table (defaulting to I64). Two functions with equal arity but
+    // differing float shapes need distinct wasm types, so the dedup key is the
+    // full (params, results) ValType signature rather than (arity, has_result).
+    // For an all-I64 (integer) program this collapses to the same signatures as
+    // before, keeping the emitted type section byte-identical.
+    let mut function_types = BTreeMap::<(Vec<ValType>, Vec<ValType>), u32>::new();
     let mut type_for_function = Vec::with_capacity(all_functions.len());
 
     for function in &all_functions {
-        let key = (function.params.len(), function.result);
+        let params: Vec<ValType> = (0..function.params.len())
+            .map(|index| wasm_type(ctx.repr_table.param(&function.name, index)))
+            .collect();
+        let results = if function.result {
+            vec![wasm_type(ctx.repr_table.return_repr(&function.name))]
+        } else {
+            Vec::new()
+        };
+        let key = (params.clone(), results.clone());
         let type_index = if let Some(&idx) = function_types.get(&key) {
             idx
         } else {
             let idx = function_types.len() as u32 + 8;
-            let params = vec![ValType::I64; function.params.len()];
-            let results = if function.result {
-                vec![ValType::I64]
-            } else {
-                Vec::new()
-            };
             type_section.ty().function(params, results);
             function_types.insert(key, idx);
             idx
@@ -281,7 +298,25 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         // the size argument can be evaluated exactly once and reused for both the
         // length-header store and the `(n+1)*8` byte-count math (see
         // `emit_array_allocation` in `emit/call.rs`).
-        let mut body = Function::new(vec![((function.locals.len() + 2) as u32, ValType::I64)]);
+        // Per-named-local ValType is repr-directed: an F64 scalar binding gets an
+        // f64 slot, everything else (array handles and unrecorded names) defaults
+        // to i64. The two trailing scratch locals (general-purpose + array-alloc)
+        // always stay i64. Consecutive same-type locals are grouped into runs; for
+        // an all-i64 function this yields the single `(len + 2, I64)` run emitted
+        // before, keeping the code section byte-identical for integer programs.
+        let mut local_decls: Vec<(u32, ValType)> = Vec::new();
+        for local_name in &function.locals {
+            let val_type = wasm_type(ctx.repr_table.scalar(&function.name, local_name));
+            match local_decls.last_mut() {
+                Some((count, last_type)) if *last_type == val_type => *count += 1,
+                _ => local_decls.push((1, val_type)),
+            }
+        }
+        match local_decls.last_mut() {
+            Some((count, ValType::I64)) => *count += 2,
+            _ => local_decls.push((2, ValType::I64)),
+        }
+        let mut body = Function::new(local_decls);
         let mut emitter = FunctionEmitter::new(
             lir,
             &function_name_to_index,
@@ -297,6 +332,8 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             function.flavor,
             &function.params,
             &function.locals,
+            &ctx.repr_table,
+            &function.name,
         );
         let coverage_id = ctx.target.coverage.then_some(coverage_id as u32);
         if function.is_entry {

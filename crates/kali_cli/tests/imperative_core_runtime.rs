@@ -285,3 +285,44 @@ fn runtime_string_building() {
         "v=21\n"
     );
 }
+
+#[test]
+fn f64_scalar_arithmetic_observed_via_comparison() {
+    // Division yields a float; 1.5 < 2 is true (=> 1).
+    assert_eq!(run_js("console.log((3 / 2) < 2);\n"), "1\n");
+    assert_eq!(run_js("console.log((3 / 2) < 1);\n"), "0\n");
+    // int promoted into a float add: 1 + 0.5 = 1.5 < 2.
+    assert_eq!(run_js("console.log((1 + 1 / 2) < 2);\n"), "1\n");
+    // f64 local round-trips through local.set/get.
+    assert_eq!(run_js("let x = 3 / 2;\nconsole.log(x < 2);\n"), "1\n");
+    // f64-returning function + f64 param propagation across a call.
+    assert_eq!(
+        run_js("function half(x) { return 1 / x; }\nconsole.log(half(4) < 1);\n"),
+        "1\n"
+    );
+}
+
+#[test]
+fn f64_arithmetic_distinguishes_from_integer_division() {
+    // These operands are chosen so i64 truncation and real f64 division DISAGREE:
+    // 3/2 is 1.5 (f64) vs 1 (i64 trunc); `1.5 > 1` is true, `1 > 1` is false.
+    assert_eq!(run_js("console.log((3 / 2) > 1);\n"), "1\n");
+    // promoted int-into-float add: 1 + 0.5 = 1.5 > 1 (f64) vs 1 + 0 = 1, not > 1 (i64).
+    assert_eq!(run_js("console.log((1 + 1 / 2) > 1);\n"), "1\n");
+    // f64 local round-trip: 1.5 > 1 (f64) vs 1 > 1 (i64).
+    assert_eq!(run_js("let x = 3 / 2;\nconsole.log(x > 1);\n"), "1\n");
+    // f64 return + f64 param across a call: half(4) = 0.25 > 0 (f64) vs 0 > 0 (i64).
+    assert_eq!(
+        run_js("function half(x) { return 1 / x; }\nconsole.log(half(4) > 0);\n"),
+        "1\n"
+    );
+}
+
+#[test]
+fn integer_programs_are_unchanged_by_repr_plumbing() {
+    // Regression guard: pure-int program still prints the same.
+    assert_eq!(
+        run_js("let s = 0;\nfor (let i = 0; i < 5; i = i + 1) { s = s + i; }\nconsole.log(s);\n"),
+        "10\n"
+    );
+}

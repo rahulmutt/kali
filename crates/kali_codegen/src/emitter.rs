@@ -20,6 +20,8 @@ pub(crate) enum ValueShape {
     Boolean,
     /// A tagged linear-memory string handle (`STRING_HANDLE_TAG | offset << 32 | len`).
     String,
+    /// An IEEE-754 double left on the wasm stack as an `f64`.
+    Float,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -63,6 +65,12 @@ pub(crate) struct FunctionEmitter<'a> {
     pub(crate) diagnostics: &'a mut Vec<Diagnostic>,
     pub(crate) strings: &'a mut StringPool,
     pub(crate) source_path: Option<PathBuf>,
+    /// Program-wide representation decisions, consulted for repr-directed
+    /// instruction selection and operand promotion.
+    pub(crate) repr_table: &'a kali_common::ReprTable,
+    /// Name of the function currently being emitted, used to key `repr_table`
+    /// lookups (the synthetic entry is `_start`).
+    pub(crate) function_name: String,
     pub(crate) current_function_flavor: Option<FunctionFlavor>,
     pub(crate) locals: BTreeMap<String, u32>,
     pub(crate) bindings: BTreeMap<String, LirNodeId>,
@@ -90,6 +98,8 @@ impl<'a> FunctionEmitter<'a> {
         current_function_flavor: Option<FunctionFlavor>,
         params: &[String],
         local_names: &[String],
+        repr_table: &'a kali_common::ReprTable,
+        function_name: &str,
     ) -> Self {
         let mut locals = BTreeMap::new();
         for (idx, name) in params.iter().enumerate() {
@@ -113,6 +123,8 @@ impl<'a> FunctionEmitter<'a> {
             diagnostics,
             strings,
             source_path,
+            repr_table,
+            function_name: function_name.to_string(),
             current_function_flavor,
             locals,
             bindings: BTreeMap::new(),
@@ -121,6 +133,17 @@ impl<'a> FunctionEmitter<'a> {
             control_frames: Vec::new(),
             loop_frames: Vec::new(),
         }
+    }
+
+    /// Representation chosen for scalar binding `name` in the current function.
+    pub(crate) fn scalar_repr(&self, name: &str) -> kali_common::Repr {
+        self.repr_table.scalar(&self.function_name, name)
+    }
+
+    /// Representation chosen for the elements of array binding `name` in the
+    /// current function.
+    pub(crate) fn array_elem_repr(&self, name: &str) -> kali_common::Repr {
+        self.repr_table.array_element(&self.function_name, name)
     }
 
     pub(crate) fn push_control_frame(&mut self, kind: ControlFlowLabelKind) -> usize {

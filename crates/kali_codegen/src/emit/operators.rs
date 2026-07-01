@@ -72,6 +72,14 @@ impl<'a> FunctionEmitter<'a> {
                 self.emit_update_expression(function, node, op, arg)
             }
             "-" => {
+                if self.is_float_valued(arg) {
+                    let _ = self.emit_node(function, arg, true);
+                    function.instruction(&Instruction::F64Neg);
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Float,
+                    };
+                }
                 function.instruction(&Instruction::I64Const(0));
                 let _ = self.emit_node(function, arg, true);
                 function.instruction(&Instruction::I64Sub);
@@ -390,6 +398,110 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// Returns the identifier name of an array base `a` in a member read `a[i]`,
+    /// after unwrapping transparent wrappers. `None` when the base is not a bare
+    /// identifier.
+    fn array_read_base_name(&self, base: LirNodeId) -> Option<String> {
+        let base = self.unwrap_transparent(base);
+        let node = self.node(base);
+        if node.kind == LirNodeKind::Value && node.children.is_empty() {
+            node.text.clone()
+        } else {
+            None
+        }
+    }
+
+    /// True when a numeric literal text denotes a float (has a fractional part or
+    /// exponent), i.e. it does not round-trip through the integer parser but does
+    /// parse as an `f64`.
+    fn is_float_literal_text(text: &str) -> bool {
+        parse_number_literal(text).is_none() && parse_numeric_literal_value(text).is_some()
+    }
+
+    /// Structural oracle: true when the value produced by `id` is represented as an
+    /// `f64`. Mirrors `is_string_valued`; consulted per-operand by `emit_binary`
+    /// to decide instruction selection and int->float promotion.
+    ///
+    /// - identifier -> its scalar repr is `F64` (or it is a float literal),
+    /// - `/` -> always float (JS division yields a double in this model),
+    /// - `+ - *` -> float if either operand is float,
+    /// - array read `a[i]` -> the array's element repr is `F64`,
+    /// - call -> the callee's return repr is `F64`,
+    /// - float literal -> true.
+    pub(crate) fn is_float_valued(&self, id: LirNodeId) -> bool {
+        let id = self.unwrap_transparent(id);
+        let node = self.node(id);
+        match node.kind {
+            LirNodeKind::Literal => node
+                .text
+                .as_deref()
+                .is_some_and(Self::is_float_literal_text),
+            LirNodeKind::Call => {
+                let Some(callee) = node.children.first().copied() else {
+                    return false;
+                };
+                let callee = self.unwrap_transparent(callee);
+                self.node(callee)
+                    .text
+                    .as_deref()
+                    .is_some_and(|name| self.repr_table.return_repr(name) == kali_common::Repr::F64)
+            }
+            LirNodeKind::Value => match node.children.len() {
+                0 => node.text.as_deref().is_some_and(|text| {
+                    Self::is_float_literal_text(text)
+                        || self.scalar_repr(text) == kali_common::Repr::F64
+                }),
+                1 => {
+                    let text = node.text.as_deref().unwrap_or_default();
+                    if text.is_empty() || text == "-" || text == "+" {
+                        // Transparent wrapper or unary sign: float-ness follows the
+                        // operand.
+                        self.is_float_valued(node.children[0])
+                    } else {
+                        // Array element read `a[<literal/identifier index>]`.
+                        self.array_read_base_name(node.children[0])
+                            .is_some_and(|name| {
+                                self.array_elem_repr(&name) == kali_common::Repr::F64
+                            })
+                    }
+                }
+                2 => {
+                    let text = node.text.as_deref().unwrap_or_default();
+                    if is_binary_operator_text(text) {
+                        match text {
+                            "/" => true,
+                            "+" | "-" | "*" => {
+                                self.is_float_valued(node.children[0])
+                                    || self.is_float_valued(node.children[1])
+                            }
+                            _ => false,
+                        }
+                    } else {
+                        // Computed array element read `a[<expr>]`.
+                        self.array_read_base_name(node.children[0])
+                            .is_some_and(|name| {
+                                self.array_elem_repr(&name) == kali_common::Repr::F64
+                            })
+                    }
+                }
+                _ => false,
+            },
+            _ => false,
+        }
+    }
+
+    /// Emits operand `id`, inserting an `f64.convert_i64_s` promotion when the
+    /// surrounding operation is float-typed (`float_op`) but this operand is itself
+    /// integer-valued. Per-side so mixed `int <op> float` operands both land as
+    /// `f64` on the stack before the float instruction.
+    fn emit_float_operand(&mut self, function: &mut Function, id: LirNodeId, float_op: bool) {
+        let operand_is_float = self.is_float_valued(id);
+        let _ = self.emit_node(function, id, true);
+        if float_op && !operand_is_float {
+            function.instruction(&Instruction::F64ConvertI64S);
+        }
+    }
+
     /// Emits `id` as a string handle: if it is already string-valued the emitted
     /// value is a handle; otherwise the produced i64 is coerced to a decimal-string
     /// handle via `int_to_string`.
@@ -460,38 +572,78 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        // Repr-directed float selection. Arithmetic `+ - *` is float when either
+        // operand is float; `/` is always float (JS division yields a double in
+        // this model); relational ops compare as doubles when either operand is
+        // float. `%`, logical, `??`, and `**` stay on the integer path. For an
+        // all-integer program every operand is integer-valued and `/` never
+        // reaches here (no float seeds), so `float_op` is always false and the
+        // emitted code is byte-identical to the pre-repr path.
+        let operand_float = self.is_float_valued(left) || self.is_float_valued(right);
+        let float_op = match op {
+            "/" => true,
+            "+" | "-" | "*" => operand_float,
+            "<" | "<=" | ">" | ">=" | "==" | "===" | "!=" | "!==" => operand_float,
+            _ => false,
+        };
+
         if op != "??" && op != "**" {
-            let _ = self.emit_node(function, left, true);
-            let _ = self.emit_node(function, right, true);
+            self.emit_float_operand(function, left, float_op);
+            self.emit_float_operand(function, right, float_op);
         }
 
         match op {
             "+" => {
-                function.instruction(&Instruction::I64Add);
-                EmittedValue {
-                    produced: true,
-                    shape: ValueShape::Scalar,
+                if float_op {
+                    function.instruction(&Instruction::F64Add);
+                    EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Float,
+                    }
+                } else {
+                    function.instruction(&Instruction::I64Add);
+                    EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Scalar,
+                    }
                 }
             }
             "-" => {
-                function.instruction(&Instruction::I64Sub);
-                EmittedValue {
-                    produced: true,
-                    shape: ValueShape::Scalar,
+                if float_op {
+                    function.instruction(&Instruction::F64Sub);
+                    EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Float,
+                    }
+                } else {
+                    function.instruction(&Instruction::I64Sub);
+                    EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Scalar,
+                    }
                 }
             }
             "*" => {
-                function.instruction(&Instruction::I64Mul);
-                EmittedValue {
-                    produced: true,
-                    shape: ValueShape::Scalar,
+                if float_op {
+                    function.instruction(&Instruction::F64Mul);
+                    EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Float,
+                    }
+                } else {
+                    function.instruction(&Instruction::I64Mul);
+                    EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Scalar,
+                    }
                 }
             }
             "/" => {
-                function.instruction(&Instruction::I64DivS);
+                // `float_op` is always true here.
+                function.instruction(&Instruction::F64Div);
                 EmittedValue {
                     produced: true,
-                    shape: ValueShape::Scalar,
+                    shape: ValueShape::Float,
                 }
             }
             "%" => {
@@ -502,7 +654,11 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             "==" | "===" => {
-                function.instruction(&Instruction::I64Eq);
+                if float_op {
+                    function.instruction(&Instruction::F64Eq);
+                } else {
+                    function.instruction(&Instruction::I64Eq);
+                }
                 function.instruction(&Instruction::I64ExtendI32U);
                 EmittedValue {
                     produced: true,
@@ -510,8 +666,12 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             "!=" | "!==" => {
-                function.instruction(&Instruction::I64Eq);
-                function.instruction(&Instruction::I32Eqz);
+                if float_op {
+                    function.instruction(&Instruction::F64Ne);
+                } else {
+                    function.instruction(&Instruction::I64Eq);
+                    function.instruction(&Instruction::I32Eqz);
+                }
                 function.instruction(&Instruction::I64ExtendI32U);
                 EmittedValue {
                     produced: true,
@@ -519,7 +679,11 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             "<" => {
-                function.instruction(&Instruction::I64LtS);
+                if float_op {
+                    function.instruction(&Instruction::F64Lt);
+                } else {
+                    function.instruction(&Instruction::I64LtS);
+                }
                 function.instruction(&Instruction::I64ExtendI32U);
                 EmittedValue {
                     produced: true,
@@ -527,7 +691,11 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             "<=" => {
-                function.instruction(&Instruction::I64LeS);
+                if float_op {
+                    function.instruction(&Instruction::F64Le);
+                } else {
+                    function.instruction(&Instruction::I64LeS);
+                }
                 function.instruction(&Instruction::I64ExtendI32U);
                 EmittedValue {
                     produced: true,
@@ -535,7 +703,11 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             ">" => {
-                function.instruction(&Instruction::I64GtS);
+                if float_op {
+                    function.instruction(&Instruction::F64Gt);
+                } else {
+                    function.instruction(&Instruction::I64GtS);
+                }
                 function.instruction(&Instruction::I64ExtendI32U);
                 EmittedValue {
                     produced: true,
@@ -543,7 +715,11 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             ">=" => {
-                function.instruction(&Instruction::I64GeS);
+                if float_op {
+                    function.instruction(&Instruction::F64Ge);
+                } else {
+                    function.instruction(&Instruction::I64GeS);
+                }
                 function.instruction(&Instruction::I64ExtendI32U);
                 EmittedValue {
                     produced: true,
