@@ -1795,6 +1795,24 @@ impl<'a> FunctionEmitter<'a> {
                     };
                 }
 
+                if method == "sqrt" {
+                    // Runtime sqrt: emit the argument as f64, then F64Sqrt.
+                    let arg_id = *value;
+                    self.emit_node(function, arg_id, true);
+                    if !self.is_float_valued(arg_id) {
+                        function.instruction(&Instruction::F64ConvertI64S);
+                    }
+                    function.instruction(&Instruction::F64Sqrt);
+                    for arg in args {
+                        let _ = self.emit_node(function, *arg, true);
+                        function.instruction(&Instruction::Drop);
+                    }
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Float,
+                    };
+                }
+
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
                     format!(

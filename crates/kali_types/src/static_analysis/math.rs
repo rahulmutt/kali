@@ -61,9 +61,14 @@ impl TypeContext {
                 return;
             }
 
-            let shape = if method == "sqrt" {
-                "perfect-square"
-            } else if method == "cbrt" {
+            if method == "sqrt" {
+                // Runtime `Math.sqrt` on a non-perfect-square argument now lowers
+                // directly to `F64Sqrt` in codegen (see `emit/call.rs`); only
+                // `cbrt`/`log2`/`log10` remain constant-fold-only in this phase.
+                return;
+            }
+
+            let shape = if method == "cbrt" {
                 "perfect-cube"
             } else if method == "log2" {
                 "positive power-of-two"

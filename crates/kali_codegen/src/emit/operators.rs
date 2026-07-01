@@ -441,7 +441,21 @@ impl<'a> FunctionEmitter<'a> {
                     return false;
                 };
                 let callee = self.unwrap_transparent(callee);
-                self.node(callee)
+                let callee_node = self.node(callee);
+                if callee_node.text.as_deref() == Some("sqrt") && self.is_math_object(callee_node) {
+                    // `Math.sqrt(x)` is f64 at runtime (`F64Sqrt`) UNLESS `x` is a
+                    // statically-known perfect square, in which case codegen still
+                    // constant-folds to a plain `i64` scalar (see
+                    // `math_sqrt_constant_root` in `emit/call.rs`). Mirror that
+                    // decision here so consumers (e.g. `<`) pick the matching
+                    // instruction shape.
+                    return node
+                        .children
+                        .get(1)
+                        .copied()
+                        .is_some_and(|arg| self.math_sqrt_constant_root(arg).is_none());
+                }
+                callee_node
                     .text
                     .as_deref()
                     .is_some_and(|name| self.repr_table.return_repr(name) == kali_common::Repr::F64)

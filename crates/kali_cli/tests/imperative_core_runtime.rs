@@ -413,7 +413,9 @@ fn array_fill_initializes_all_elements() {
 fn array_params_int_store_across_call() {
     // A callee stores into its array param; the caller sees the mutation.
     assert_eq!(
-        run_js("function store(v){v[0]=7;}\nconst u=new Array(3);\nstore(u);\nconsole.log(u[0]);\n"),
+        run_js(
+            "function store(v){v[0]=7;}\nconst u=new Array(3);\nstore(u);\nconsole.log(u[0]);\n"
+        ),
         "7\n"
     );
 }
@@ -422,7 +424,9 @@ fn array_params_int_store_across_call() {
 fn array_params_int_read_across_call() {
     // A callee reads and returns an element of its array param.
     assert_eq!(
-        run_js("function get(v){return v[0];}\nconst u=new Array(2);\nu[0]=5;\nconsole.log(get(u));\n"),
+        run_js(
+            "function get(v){return v[0];}\nconst u=new Array(2);\nu[0]=5;\nconsole.log(get(u));\n"
+        ),
         "5\n"
     );
 }
@@ -510,4 +514,18 @@ function count(u){ let n = 0; for (let i = 0; i < u.length; i = i + 1) { n = n +
 const a = new Array(3).fill(1);\n\
 console.log(count(a));\n";
     assert_eq!(run_js(source), "3\n");
+}
+
+#[test]
+fn math_sqrt_runtime_f64() {
+    // non-perfect-square: was FEATURE_UNAVAILABLE, now a real f64 sqrt.
+    assert_eq!(run_js("console.log(Math.sqrt(2) < 2);\n"), "1\n"); // 1.414… < 2
+    assert_eq!(run_js("console.log(Math.sqrt(2) < 1);\n"), "0\n");
+    // perfect square still constant-folds correctly.
+    assert_eq!(run_js("console.log(Math.sqrt(9) < 4);\n"), "1\n"); // 3 < 4
+                                                                   // sqrt of a computed float (the spectral-norm shape).
+    assert_eq!(
+        run_js("let r = 1 / 4;\nconsole.log(Math.sqrt(r) < 1);\n"),
+        "1\n"
+    ); // 0.5 < 1
 }

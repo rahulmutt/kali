@@ -223,8 +223,41 @@ fn supported_math_log10_member_lowering_is_available_for_positive_power_of_ten_i
 }
 
 #[test]
-fn unsupported_math_sqrt_member_reports_feature_unavailable() {
-    let program = parse_and_lower_lir("console.log(Math.sqrt(1.6));");
+fn supported_math_sqrt_member_lowering_is_available_for_runtime_non_perfect_square_arguments() {
+    // A non-perfect-square argument no longer traps: it lowers to a real
+    // `f64.sqrt` at runtime instead of reporting FEATURE_UNAVAILABLE. Wrapped
+    // in a comparison (rather than printed bare) since direct float printing
+    // through `console.log` is a separate, not-yet-supported feature.
+    let program = parse_and_lower_lir("console.log(Math.sqrt(2) < 2);");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.is_error()),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("f64.sqrt"), "{printed}");
+}
+
+#[test]
+fn unsupported_math_cbrt_member_reports_feature_unavailable() {
+    // Unlike `sqrt`, runtime `cbrt` is out of scope for this phase and still
+    // reports FEATURE_UNAVAILABLE for a non-perfect-cube argument.
+    let program = parse_and_lower_lir("console.log(Math.cbrt(1.6));");
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,
         compat_eval: false,
@@ -238,7 +271,7 @@ fn unsupported_math_sqrt_member_reports_feature_unavailable() {
                 && diagnostic.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
                 && diagnostic
                     .message
-                    .contains("Math.sqrt is unavailable unless the argument is a statically-known perfect-square integer literal")
+                    .contains("Math.cbrt is unavailable unless the argument is a statically-known perfect-cube integer literal")
         }),
         "expected an unavailable Math-member diagnostic: {:?}",
         result.diagnostics
