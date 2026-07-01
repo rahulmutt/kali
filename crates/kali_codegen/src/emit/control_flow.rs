@@ -564,7 +564,7 @@ impl<'a> FunctionEmitter<'a> {
             ValueShape::Boolean => {
                 function.instruction(&Instruction::I32WrapI64);
             }
-            ValueShape::Scalar | ValueShape::Unknown => {
+            ValueShape::Scalar | ValueShape::Unknown | ValueShape::String => {
                 function.instruction(&Instruction::I64Eqz);
                 function.instruction(&Instruction::I32Eqz);
             }

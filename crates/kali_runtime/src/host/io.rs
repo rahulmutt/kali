@@ -20,14 +20,9 @@ pub(crate) fn append_stderr_raw(state: &mut KaliHostState, text: String) {
 }
 
 pub(crate) fn format_console_value(caller: &mut Caller<'_, KaliHostState>, value: i64) -> String {
-    let raw = value as u64;
-    if raw & STRING_HANDLE_TAG != 0 {
-        let offset = ((raw >> 32) & 0x7fff_ffff) as i32;
-        let len = (raw & 0xffff_ffff) as i32;
-        if let Ok(bytes) = read_guest_bytes(caller, offset, len) {
-            if let Ok(text) = String::from_utf8(bytes) {
-                return text;
-            }
+    if let Some(bytes) = decode_string_handle_bytes(caller, value) {
+        if let Ok(text) = String::from_utf8(bytes) {
+            return text;
         }
     }
 

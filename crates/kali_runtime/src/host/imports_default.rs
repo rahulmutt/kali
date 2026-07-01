@@ -623,6 +623,29 @@ pub(crate) fn register_default_host_imports(
     linker
         .func_wrap(
             "kali:rt",
+            "int_to_string",
+            |mut caller: Caller<'_, KaliHostState>, value: i64| -> i64 {
+                let text = value.to_string();
+                alloc_guest_string(&mut caller, text.as_bytes()).unwrap_or(0)
+            },
+        )
+        .map_err(|error| host_import_error("int_to_string", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
+            "string_concat",
+            |mut caller: Caller<'_, KaliHostState>, a: i64, b: i64| -> i64 {
+                let mut bytes = decode_string_handle_bytes(&mut caller, a).unwrap_or_default();
+                bytes.extend(decode_string_handle_bytes(&mut caller, b).unwrap_or_default());
+                alloc_guest_string(&mut caller, &bytes).unwrap_or(0)
+            },
+        )
+        .map_err(|error| host_import_error("string_concat", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
             "args_get",
             |mut caller: Caller<'_, KaliHostState>,
              index: i32,

@@ -173,6 +173,14 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     import_section.import("kali:rt", "cwd", EntityType::Function(6));
     import_section.import("kali:rt", "math_clz32", EntityType::Function(4));
     import_section.import("kali:rt", "math_pow", EntityType::Function(3));
+    // Two unconditional runtime string helpers occupy fixed import indices 17 and 18
+    // (see INT_TO_STRING_IMPORT_INDEX / STRING_CONCAT_IMPORT_INDEX). They are registered
+    // here, before the conditional coverage/env/process imports, so the relative
+    // bookkeeping below (all expressed against COVERAGE_HIT_IMPORT_INDEX = 19) stays
+    // consistent. int_to_string is (i64) -> i64 (type 4); string_concat is
+    // (i64, i64) -> i64 (type 3).
+    import_section.import("kali:rt", "int_to_string", EntityType::Function(4));
+    import_section.import("kali:rt", "string_concat", EntityType::Function(3));
     if ctx.target.coverage {
         import_section.import("kali:rt", "coverage_hit", EntityType::Function(0));
     }

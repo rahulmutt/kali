@@ -18,6 +18,8 @@ pub(crate) enum ValueShape {
     Unknown,
     Scalar,
     Boolean,
+    /// A tagged linear-memory string handle (`STRING_HANDLE_TAG | offset << 32 | len`).
+    String,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -163,3 +163,17 @@ fn computed_array_subscripts() {
         "9\n"
     );
 }
+
+#[test]
+fn runtime_string_building() {
+    assert_eq!(run_js("let n = 7;\nconsole.log(\"n=\" + n);\n"), "n=7\n");
+    assert_eq!(
+        run_js("let n = 7;\nlet m = 16;\nconsole.log(\"Pfannkuchen(\" + n + \") = \" + m);\n"),
+        "Pfannkuchen(7) = 16\n"
+    );
+    // concatenation of a computed integer
+    assert_eq!(
+        run_js("let x = 20;\nconsole.log(\"v=\" + (x + 1));\n"),
+        "v=21\n"
+    );
+}

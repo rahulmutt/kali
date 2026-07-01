@@ -348,6 +348,62 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// Unwraps transparent single-child `Value` wrappers (no operator text) so a
+    /// string-classification query inspects the underlying literal/expression.
+    fn unwrap_transparent(&self, mut id: LirNodeId) -> LirNodeId {
+        let mut guard = 0;
+        loop {
+            let node = self.node(id);
+            if node.kind == LirNodeKind::Value
+                && node.children.len() == 1
+                && node.text.as_deref().is_none_or(|text| text.is_empty())
+            {
+                id = node.children[0];
+                guard += 1;
+                if guard > 64 {
+                    return id;
+                }
+                continue;
+            }
+            return id;
+        }
+    }
+
+    /// Returns true when `id` statically evaluates to a string value: a string (or
+    /// template) literal, or a `+` expression whose either operand is string-valued.
+    pub(crate) fn is_string_valued(&self, id: LirNodeId) -> bool {
+        let id = self.unwrap_transparent(id);
+        let node = self.node(id);
+        match node.kind {
+            LirNodeKind::Literal => node.text.as_deref().is_some_and(|text| {
+                let trimmed = text.trim();
+                let mut chars = trimmed.chars();
+                matches!(
+                    (chars.next(), trimmed.chars().last()),
+                    (Some('"'), Some('"')) | (Some('\''), Some('\'')) | (Some('`'), Some('`'))
+                )
+            }),
+            LirNodeKind::Value if node.children.len() == 2 && node.text.as_deref() == Some("+") => {
+                self.is_string_valued(node.children[0]) || self.is_string_valued(node.children[1])
+            }
+            _ => false,
+        }
+    }
+
+    /// Emits `id` as a string handle: if it is already string-valued the emitted
+    /// value is a handle; otherwise the produced i64 is coerced to a decimal-string
+    /// handle via `int_to_string`.
+    pub(crate) fn emit_as_string(&mut self, function: &mut Function, id: LirNodeId) {
+        let is_string = self.is_string_valued(id);
+        let produced = self.emit_node(function, id, true);
+        if !produced.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
+        if !is_string {
+            function.instruction(&Instruction::Call(INT_TO_STRING_IMPORT_INDEX));
+        }
+    }
+
     pub(crate) fn emit_binary(&mut self, function: &mut Function, node: &LirNode) -> EmittedValue {
         let op = node.text.as_deref().unwrap_or_default();
         let left = node.children[0];
@@ -387,6 +443,21 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::Boolean,
                 };
             }
+        }
+
+        // String-typed `+`: if either operand is a string value, this is a string
+        // concatenation, not integer addition. Both operands are coerced to string
+        // handles (integers via `int_to_string`) and joined with `string_concat`.
+        // Static constant folds happen earlier in LIR, so only unfolded operands
+        // reach this path.
+        if op == "+" && (self.is_string_valued(left) || self.is_string_valued(right)) {
+            self.emit_as_string(function, left);
+            self.emit_as_string(function, right);
+            function.instruction(&Instruction::Call(STRING_CONCAT_IMPORT_INDEX));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::String,
+            };
         }
 
         if op != "??" && op != "**" {

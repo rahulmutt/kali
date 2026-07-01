@@ -40,6 +40,59 @@ pub(crate) fn read_guest_string_handle(
     read_guest_string(caller, offset, len)
 }
 
+/// Decodes a tagged string handle to its guest bytes, or `None` when `value` is
+/// not a tagged string handle. Shared by `format_console_value` and `string_concat`.
+pub(crate) fn decode_string_handle_bytes(
+    caller: &mut Caller<'_, KaliHostState>,
+    value: i64,
+) -> Option<Vec<u8>> {
+    let raw = value as u64;
+    if raw & STRING_HANDLE_TAG == 0 {
+        return None;
+    }
+    let offset = ((raw >> 32) & 0x7fff_ffff) as i32;
+    let len = (raw & 0xffff_ffff) as i32;
+    read_guest_bytes(caller, offset, len).ok()
+}
+
+/// Resolves the exported `__heap` bump-pointer global (added in Task 5).
+pub(crate) fn heap_global(
+    caller: &mut Caller<'_, KaliHostState>,
+) -> wasmtime::Result<wasmtime::Global> {
+    match caller.get_export("__heap") {
+        Some(Extern::Global(g)) => Ok(g),
+        _ => Err(wasmtime::Error::msg(
+            "guest module does not export __heap global",
+        )),
+    }
+}
+
+/// Allocates `bytes.len()` bytes at the current `__heap`, writes them, advances
+/// `__heap`, and returns a tagged string handle
+/// (`STRING_HANDLE_TAG | (offset << 32) | len`).
+pub(crate) fn alloc_guest_string(
+    caller: &mut Caller<'_, KaliHostState>,
+    bytes: &[u8],
+) -> wasmtime::Result<i64> {
+    let global = heap_global(caller)?;
+    let base = global
+        .get(&mut *caller)
+        .i32()
+        .ok_or_else(|| wasmtime::Error::msg("__heap global is not an i32"))?;
+    let memory = guest_memory(caller)?;
+    let start = checked_offset(base)?;
+    memory.write(&mut *caller, start, bytes).map_err(|error| {
+        wasmtime::Error::msg(format!("failed to write guest memory: {}", error))
+    })?;
+    let next = base
+        .checked_add(i32::try_from(bytes.len()).map_err(|_| {
+            wasmtime::Error::msg("guest string allocation length exceeds i32 range")
+        })?)
+        .ok_or_else(|| wasmtime::Error::msg("guest heap pointer overflow"))?;
+    global.set(&mut *caller, wasmtime::Val::I32(next))?;
+    Ok((STRING_HANDLE_TAG | ((base as u64) << 32) | (bytes.len() as u64)) as i64)
+}
+
 pub(crate) fn read_guest_bytes(
     caller: &mut Caller<'_, KaliHostState>,
     ptr: i32,
