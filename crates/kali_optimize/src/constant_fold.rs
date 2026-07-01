@@ -60,6 +60,17 @@ impl Optimizer {
                 false
             }
             LirNodeKind::Branch => {
+                // `while` / `for` / `do-while` loops are also `Branch` nodes,
+                // distinguished by a loop-kind discriminator in `text` (which
+                // routes them to `emit_loop`). Constant-folding a truthy loop
+                // condition here would collapse the `Branch` down to its body,
+                // dropping the enclosing loop frame and back-edge and leaving any
+                // `break`/`continue` in the body stranded outside a loop (E5506).
+                // Only `if` / ternary branches are safe to fold; loops must keep
+                // their `emit_loop` routing so the loop frame survives.
+                if matches!(snapshot.text.as_deref(), Some("while" | "do-while" | "for")) {
+                    return false;
+                }
                 let Some(cond_id) = snapshot.children.first().copied() else {
                     return false;
                 };
