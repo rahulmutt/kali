@@ -300,6 +300,31 @@ fn f64_scalar_arithmetic_observed_via_comparison() {
         run_js("function half(x) { return 1 / x; }\nconsole.log(half(4) < 1);\n"),
         "1\n"
     );
+    // (1/2)+(1/2) = 1.0 under f64 (=> 1<1 is false => 0); under i64 it is 0+0=0 (=> 0<1 => 1).
+    // Discriminating assertion: FAILS under i64 lowering.
+    assert_eq!(run_js("console.log((1 / 2) + (1 / 2) < 1);\n"), "0\n");
+}
+
+#[test]
+fn f64_local_init_and_reassign_promote() {
+    // Integer-literal init into an inferred-f64 local, then plain reassign with a
+    // float rhs: 0 promoted to 0.0, then 0.0 + 0.5 = 0.5 < 1.
+    assert_eq!(
+        run_js("let t = 0;\nt = t + 1 / 2;\nconsole.log(t < 1);\n"),
+        "1\n"
+    );
+    // Loop accumulator seeded with an integer literal: 0 + 0.5*3 = 1.5 < 2.
+    assert_eq!(
+        run_js(
+            "let s = 0;\nfor (let i = 0; i < 3; i = i + 1) { s = s + 1 / 2; }\nconsole.log(s < 2);\n"
+        ),
+        "1\n"
+    );
+    // f64 compound-assign: 0.5 += 0.5 = 1.0 < 2.
+    assert_eq!(
+        run_js("let a = 1 / 2;\na += 1 / 2;\nconsole.log(a < 2);\n"),
+        "1\n"
+    );
 }
 
 #[test]

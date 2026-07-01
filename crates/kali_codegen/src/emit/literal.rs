@@ -338,8 +338,16 @@ impl<'a> FunctionEmitter<'a> {
         match op {
             "=" => {
                 let rhs = self.emit_node(function, right, true);
+                // Promote an integer-valued rhs when the target local holds an f64.
+                let f64_target = self.scalar_repr(&name) == kali_common::Repr::F64;
                 if !rhs.produced {
-                    function.instruction(&Instruction::I64Const(0));
+                    if f64_target {
+                        function.instruction(&Instruction::F64Const(0.0.into()));
+                    } else {
+                        function.instruction(&Instruction::I64Const(0));
+                    }
+                } else if f64_target && !self.is_float_valued(right) {
+                    function.instruction(&Instruction::F64ConvertI64S);
                 }
                 function.instruction(&Instruction::LocalTee(index));
                 true
@@ -392,6 +400,39 @@ impl<'a> FunctionEmitter<'a> {
                 true
             }
             "+=" | "-=" | "*=" | "/=" | "%=" | "**=" => {
+                if self.scalar_repr(&name) == kali_common::Repr::F64 {
+                    // f64 compound-assign: the accumulator is an f64, so the read, the
+                    // rhs, and the arithmetic all use the f64 opcodes. `%=`/`**=` on
+                    // floats are out of scope for this slice.
+                    if matches!(op, "%=" | "**=") {
+                        self.diagnostics.push(Diagnostic::error(
+                            e5::FEATURE_UNAVAILABLE as u32,
+                            format!(
+                                "compound assignment '{}' on floating-point binding '{}' is unavailable in the current phase",
+                                op, name
+                            ),
+                        ));
+                        function.instruction(&Instruction::F64Const(0.0.into()));
+                        return true;
+                    }
+                    function.instruction(&Instruction::LocalGet(index));
+                    let rhs = self.emit_node(function, right, true);
+                    if !rhs.produced {
+                        function.instruction(&Instruction::F64Const(0.0.into()));
+                    } else if !self.is_float_valued(right) {
+                        function.instruction(&Instruction::F64ConvertI64S);
+                    }
+                    match op {
+                        "+=" => function.instruction(&Instruction::F64Add),
+                        "-=" => function.instruction(&Instruction::F64Sub),
+                        "*=" => function.instruction(&Instruction::F64Mul),
+                        "/=" => function.instruction(&Instruction::F64Div),
+                        _ => unreachable!(),
+                    };
+                    function.instruction(&Instruction::LocalSet(index));
+                    function.instruction(&Instruction::LocalGet(index));
+                    return true;
+                }
                 function.instruction(&Instruction::LocalGet(index));
                 let rhs = self.emit_node(function, right, true);
                 if !rhs.produced {

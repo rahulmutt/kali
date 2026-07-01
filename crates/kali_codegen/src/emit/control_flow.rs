@@ -289,8 +289,23 @@ impl<'a> FunctionEmitter<'a> {
                         }
 
                         let init_result = self.emit_node(function, init, true);
+                        // A named scalar local whose chosen repr is F64 must receive an
+                        // f64 on the stack; promote an integer-valued init before the store.
+                        let f64_local = match declarator.text.as_deref() {
+                            Some(name) => {
+                                self.locals.contains_key(name)
+                                    && self.scalar_repr(name) == kali_common::Repr::F64
+                            }
+                            None => false,
+                        };
                         if !init_result.produced {
-                            function.instruction(&Instruction::I64Const(0));
+                            if f64_local {
+                                function.instruction(&Instruction::F64Const(0.0.into()));
+                            } else {
+                                function.instruction(&Instruction::I64Const(0));
+                            }
+                        } else if f64_local && !self.is_float_valued(init) {
+                            function.instruction(&Instruction::F64ConvertI64S);
                         }
                         if let Some(name) = declarator.text.clone() {
                             if let Some(index) = self.locals.get(&name).copied() {
