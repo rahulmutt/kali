@@ -1,0 +1,7 @@
+{
+  "benchmark": "fannkuch-redux",
+  "version": 1,
+  "sourceFile": "fannkuch-redux-benchmark-v1.ts",
+  "sourceSha256": "sha256-18aab710f701865c1ea6f021d0a01dbf29aab6d78f34d57c9f0741aa03ffde16",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
