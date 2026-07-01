@@ -169,6 +169,14 @@ impl CdpBrowser {
     }
 }
 
+/// Kills the browser even when a test panics or errors before `close()` runs.
+impl Drop for CdpBrowser {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+
 impl CdpBrowser {
     /// Open a fresh target, navigate to `url`, capture console output, and return
     /// when the page calls the completion binding or `timeout` elapses.
