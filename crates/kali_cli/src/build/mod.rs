@@ -37,7 +37,7 @@ pub use wit::{browser_bundle_source_map, library_wit_for, LibraryExport};
 // Cutoff re-exports for build_tests.rs (uses `use super::*`); test-only → cfg(test)-gated
 // per crates/kali_runtime/src/lib.rs:41-42 precedent (avoids unused-import warnings in lib build).
 #[cfg(test)]
-pub(crate) use compile::{incremental_cache_path, profile_data_hash};
+pub(crate) use compile::incremental_cache_path;
 #[cfg(test)]
 pub(crate) use exports::{
     collect_direct_bundle_calls_from_statements, collect_library_exports_from_statements,

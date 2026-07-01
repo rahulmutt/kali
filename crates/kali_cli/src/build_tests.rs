@@ -372,7 +372,9 @@ fn assert_build_source_file_rejects_unsupported_math_member_calls_in_input(
     api_surface: ApiSurface,
     extension: &str,
 ) {
-    for method in ["sqrt", "exp", "log"] {
+    // NOTE: `sqrt` is no longer listed here — it gained runtime support via F64Sqrt
+    // (codegen commit e5d776d93). `exp`/`log` remain genuinely unavailable.
+    for method in ["exp", "log"] {
         for source in unsupported_math_member_call_source_variants(method) {
             let dir = tempdir().expect("tempdir");
             let source_path = dir.path().join(format!("main.{extension}"));
