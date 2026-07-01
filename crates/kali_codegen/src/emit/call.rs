@@ -2187,16 +2187,26 @@ impl<'a> FunctionEmitter<'a> {
         size_arg: Option<LirNodeId>,
     ) -> EmittedValue {
         let scratch = self.locals.len() as u32;
+        // Second scratch slot (see the `+ 2` extra-locals count in `lower.rs`): holds the
+        // evaluated size argument so its AST node is emitted exactly once, then reused for
+        // both the length-header store and the `(n+1)*8` byte-count math. Evaluating it
+        // once also avoids a double-evaluation of any side effect in the size expression
+        // and avoids re-emitting into the `scratch` slot in between the two uses below.
+        let size_scratch = scratch + 1;
 
         // base = __heap (saved as i64 in the scratch local).
         function.instruction(&Instruction::GlobalGet(0));
         function.instruction(&Instruction::I64ExtendI32U);
         function.instruction(&Instruction::LocalSet(scratch));
 
+        // size = evaluated size argument (emitted exactly once).
+        self.emit_array_length_value(function, size_arg);
+        function.instruction(&Instruction::LocalSet(size_scratch));
+
         // mem[base + 0] = length
         function.instruction(&Instruction::LocalGet(scratch));
         function.instruction(&Instruction::I32WrapI64);
-        self.emit_array_length_value(function, size_arg);
+        function.instruction(&Instruction::LocalGet(size_scratch));
         function.instruction(&Instruction::I64Store(MemArg {
             offset: 0,
             align: 3,
@@ -2206,7 +2216,7 @@ impl<'a> FunctionEmitter<'a> {
         // __heap = base + (length + 1) * 8
         function.instruction(&Instruction::LocalGet(scratch));
         function.instruction(&Instruction::I32WrapI64);
-        self.emit_array_length_value(function, size_arg);
+        function.instruction(&Instruction::LocalGet(size_scratch));
         function.instruction(&Instruction::I64Const(1));
         function.instruction(&Instruction::I64Add);
         function.instruction(&Instruction::I64Const(8));

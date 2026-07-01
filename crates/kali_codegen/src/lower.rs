@@ -267,7 +267,13 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
 
     let mut code_section = CodeSection::new();
     for (coverage_id, function) in all_functions.iter().enumerate() {
-        let mut body = Function::new(vec![((function.locals.len() + 1) as u32, ValType::I64)]);
+        // Two extra i64 scratch locals: `self.locals.len()` is the general-purpose
+        // scratch used throughout codegen (temp locals, tee targets, etc.), and
+        // `self.locals.len() + 1` is a second scratch reserved for array allocation so
+        // the size argument can be evaluated exactly once and reused for both the
+        // length-header store and the `(n+1)*8` byte-count math (see
+        // `emit_array_allocation` in `emit/call.rs`).
+        let mut body = Function::new(vec![((function.locals.len() + 2) as u32, ValType::I64)]);
         let mut emitter = FunctionEmitter::new(
             lir,
             &function_name_to_index,
