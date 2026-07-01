@@ -25,6 +25,8 @@ mod object;
 pub use object::*;
 mod number;
 pub use number::*;
+mod repr;
+pub use repr::*;
 mod math;
 pub use math::*;
 mod promise;
