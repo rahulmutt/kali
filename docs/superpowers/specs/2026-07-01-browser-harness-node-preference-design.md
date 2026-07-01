@@ -1,7 +1,7 @@
 # Browser harness: JS-runtime preference + bundle-glue import parity
 
 **Date:** 2026-07-01
-**Status:** Part A implemented; Part B (real-browser execution) deferred as future work.
+**Status:** Part A implemented; Part B (test-only CDP smoke driver) implemented.
 
 ## Problem
 
@@ -60,7 +60,7 @@ processes (eliminating the per-test Chromium explosion — ~64 concurrent proces
 were observed), needs no new dependency, and stays consistent with how the majority
 of browser tests already run.
 
-## Part B — future work (not implemented)
+## Part B — test-only CDP smoke driver (implemented)
 
 Genuine in-browser execution (real V8/DOM/loader fidelity, and any bug a browser
 would catch that the JS model cannot) requires driving Chromium over the **Chrome
@@ -86,6 +86,22 @@ Design sketch for when it is wanted:
   only way to "reuse a single Chrome instead of many" — plain process launch is
   inherently one instance per invocation), plus a bounded launch timeout so it can
   never hang.
+
+**Implemented as a gated, test-only driver.** Run the real-browser smoke test with:
+`cargo test -p kali_cli --test browser_cdp_smoke -- --ignored`
+(requires Chromium; launched with `--no-sandbox` for containers). The driver is
+test infrastructure, not production code: it lives in
+`crates/kali_cli/tests/cdp_driver/` with `tungstenite` as a `kali_cli`
+dev-dependency, so nothing enters production builds.
+
+Implementation notes: Chromium's `Runtime.addBinding` functions require exactly one
+string argument, so harness pages call `globalThis.__kaliHarnessDone('')`. The
+`browser_bundle_harness_script` prelude is node-only (it imports `node:fs/promises`),
+so the smoke test serves the emitted bundle and an HTML module harness from an
+in-test localhost HTTP server instead of reusing that helper. A bare top-level
+`main()` call in a browser bundle does not route `console.log` through the
+`console_log` import, so the fixture uses the repo's exported-function +
+`// kali-tree-shake:` marker shape (possible production follow-up).
 
 ## Testing
 
