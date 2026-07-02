@@ -95,13 +95,18 @@ test infrastructure, not production code: it lives in
 dev-dependency, so nothing enters production builds.
 
 Implementation notes: Chromium's `Runtime.addBinding` functions require exactly one
-string argument, so harness pages call `globalThis.__kaliHarnessDone('')`. The
-`browser_bundle_harness_script` prelude is node-only (it imports `node:fs/promises`),
-so the smoke test serves the emitted bundle and an HTML module harness from an
-in-test localhost HTTP server instead of reusing that helper. A bare top-level
-`main()` call in a browser bundle does not route `console.log` through the
-`console_log` import, so the fixture uses the repo's exported-function +
-`// kali-tree-shake:` marker shape (possible production follow-up).
+string argument, so harness pages call `globalThis.__kaliHarnessDone('')` — the
+binding name is the shared `kali_runtime::BROWSER_HARNESS_DONE_BINDING` constant,
+which the CDP driver re-uses. Both production follow-ups recorded here are closed
+(2026-07-02): the bundle glue now exports a memoized `start()` helper that runs the
+program's top-level statements (the wasm `_start` export) exactly once, so a bare
+top-level program routes `console.log` through the `console_log` import in a
+browser; and `kali_runtime::browser_bundle_harness_page` generates a browser-native
+harness page (no `node:` imports — the glue's own `fetch` works over HTTP). The
+smoke test still serves the bundle from an in-test localhost HTTP server (Chromium
+blocks `fetch()` of `file://`), but its page now comes from the production
+generator, and its fixture exercises both entry shapes: a bare top-level statement
+via `start()` and an exported function via the per-export wrapper.
 
 ## Testing
 
