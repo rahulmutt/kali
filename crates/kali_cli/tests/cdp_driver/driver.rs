@@ -212,6 +212,7 @@ impl<T: CdpTransport> CdpClient<T> {
 
     /// Send a method and read frames until its matching response, returning `result`.
     /// Events that arrive first are buffered for the page-run loop, never dropped.
+    /// The whole call is bounded by `timeout`, even while events keep arriving.
     fn call(
         &mut self,
         method: &str,
@@ -219,9 +220,14 @@ impl<T: CdpTransport> CdpClient<T> {
         session_id: Option<&str>,
         timeout: Duration,
     ) -> Result<Value, CdpError> {
-        self.transport.set_read_timeout(timeout)?;
+        let deadline = Instant::now() + timeout;
         let id = self.transport.send(method, params, session_id)?;
         loop {
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                return Err(CdpError::Timeout);
+            }
+            self.transport.set_read_timeout(remaining)?;
             match self.transport.read()? {
                 CdpIncoming::Result { id: got, result } if got == id => return Ok(result),
                 CdpIncoming::Error { id: got, message } if got == id => {
@@ -710,6 +716,67 @@ globalThis.__kaliHarnessDone && globalThis.__kaliHarnessDone('');\
                 "Page.navigate",
                 "Target.closeTarget",
             ]
+        );
+    }
+
+    /// A transport whose `read` always yields another event after a short
+    /// delay and whose command response never arrives — bounded so a driver
+    /// without an aggregate deadline still terminates the test (with the
+    /// wrong error, after much longer).
+    struct ChattyTransport {
+        events_left: u32,
+    }
+
+    impl CdpTransport for ChattyTransport {
+        fn send(
+            &mut self,
+            _method: &str,
+            _params: Value,
+            _session_id: Option<&str>,
+        ) -> Result<u64, CdpError> {
+            Ok(1)
+        }
+
+        fn read(&mut self) -> Result<CdpIncoming, CdpError> {
+            if self.events_left == 0 {
+                return Err(CdpError::Transport("chatty script exhausted".to_owned()));
+            }
+            self.events_left -= 1;
+            std::thread::sleep(Duration::from_millis(5));
+            Ok(CdpIncoming::Event {
+                method: "Page.frameNavigated".to_owned(),
+                params: serde_json::json!({}),
+                session_id: None,
+            })
+        }
+
+        fn set_read_timeout(&mut self, _timeout: Duration) -> Result<(), CdpError> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn call_gives_up_at_its_deadline_even_while_events_keep_streaming() {
+        // 400 events x 5ms = ~2s of chatter; the response never arrives. A call
+        // bounded only per-read never times out (every read succeeds) and ends
+        // up consuming the whole script; an aggregate deadline must abandon the
+        // call at ~50ms with CdpError::Timeout.
+        let mut client = CdpClient::new(ChattyTransport { events_left: 400 });
+        let started = Instant::now();
+        let result = client.call(
+            "Browser.getVersion",
+            serde_json::json!({}),
+            None,
+            Duration::from_millis(50),
+        );
+        let elapsed = started.elapsed();
+        assert!(
+            matches!(result, Err(CdpError::Timeout)),
+            "expected Timeout, got {result:?}"
+        );
+        assert!(
+            elapsed < Duration::from_secs(1),
+            "call ran far past its deadline: {elapsed:?}"
         );
     }
 }
