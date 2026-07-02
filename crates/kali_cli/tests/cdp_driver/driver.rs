@@ -606,4 +606,110 @@ globalThis.__kaliHarnessDone && globalThis.__kaliHarnessDone('');\
         assert_eq!(outcome.stdout(), "l\ni\nd\n");
         assert_eq!(outcome.stderr(), "w\ne\n");
     }
+
+    /// A scripted transport: `send` records method names and hands out ids
+    /// 1,2,3…; `read` replays a fixed frame sequence, then times out.
+    struct FakeTransport {
+        frames: VecDeque<CdpIncoming>,
+        sent: Vec<String>,
+        next_id: u64,
+    }
+
+    impl FakeTransport {
+        fn new(frames: Vec<CdpIncoming>) -> Self {
+            Self {
+                frames: frames.into(),
+                sent: Vec::new(),
+                next_id: 1,
+            }
+        }
+    }
+
+    impl CdpTransport for FakeTransport {
+        fn send(
+            &mut self,
+            method: &str,
+            _params: Value,
+            _session_id: Option<&str>,
+        ) -> Result<u64, CdpError> {
+            self.sent.push(method.to_owned());
+            let id = self.next_id;
+            self.next_id += 1;
+            Ok(id)
+        }
+
+        fn read(&mut self) -> Result<CdpIncoming, CdpError> {
+            self.frames.pop_front().ok_or(CdpError::Timeout)
+        }
+
+        fn set_read_timeout(&mut self, _timeout: Duration) -> Result<(), CdpError> {
+            Ok(())
+        }
+    }
+
+    fn result_frame(id: u64, result: Value) -> CdpIncoming {
+        CdpIncoming::Result { id, result }
+    }
+
+    fn event_frame(method: &str, params: Value, session: &str) -> CdpIncoming {
+        CdpIncoming::Event {
+            method: method.to_owned(),
+            params,
+            session_id: Some(session.to_owned()),
+        }
+    }
+
+    #[test]
+    fn run_page_keeps_events_that_arrive_before_the_navigate_response() {
+        // The document-start race, replayed deterministically: the page's whole
+        // console output AND its completion binding arrive while Page.navigate's
+        // response is still pending. A driver that drops events during call()
+        // loses all of them and times out incomplete.
+        let mut client = CdpClient::new(FakeTransport::new(vec![
+            result_frame(1, serde_json::json!({ "targetId": "T1" })), // Target.createTarget
+            result_frame(2, serde_json::json!({ "sessionId": "S1" })), // Target.attachToTarget
+            result_frame(3, serde_json::json!({})),                   // Runtime.enable
+            result_frame(4, serde_json::json!({})),                   // Page.enable
+            result_frame(5, serde_json::json!({})),                   // Runtime.addBinding
+            event_frame(
+                "Runtime.consoleAPICalled",
+                serde_json::json!({ "type": "log", "args": [{ "value": "early" }] }),
+                "S1",
+            ),
+            event_frame(
+                "Runtime.consoleAPICalled",
+                serde_json::json!({ "type": "warning", "args": [{ "value": "careful" }] }),
+                "S1",
+            ),
+            event_frame(
+                "Runtime.bindingCalled",
+                serde_json::json!({ "name": CDP_DONE_BINDING, "payload": "" }),
+                "S1",
+            ),
+            result_frame(6, serde_json::json!({})), // Page.navigate — AFTER the events
+        ]));
+        let outcome = client
+            .run_page("http://unused.invalid/", Duration::from_secs(5))
+            .expect("run page");
+
+        assert!(
+            outcome.completed,
+            "completion arrived before the navigate response and must not be dropped; console: {:?}",
+            outcome.console
+        );
+        assert_eq!(outcome.stdout(), "early\n");
+        assert_eq!(outcome.stderr(), "careful\n");
+        assert_eq!(
+            client.transport.sent,
+            [
+                "Target.createTarget",
+                "Target.attachToTarget",
+                "Runtime.enable",
+                "Page.enable",
+                "Runtime.addBinding",
+                "Page.navigate",
+                "Target.closeTarget",
+            ]
+        );
+    }
 }
