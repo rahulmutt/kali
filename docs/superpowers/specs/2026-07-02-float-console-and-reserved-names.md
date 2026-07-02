@@ -29,6 +29,6 @@ when a user export is named `load`, `loadWithImports`, `loadDynamicImport`, or
 `start` — previously a green build emitted an unloadable ESM module (duplicate
 declaration) or silently shadowed the CJS helper.
 
-**Recorded, out of scope:** template literals currently print their raw source
-(`` console.log(`v: ${7 / 2}`) `` prints `v: ${7 / 2}`) — discovered during
-this investigation; separate issue.
+**Recorded, out of scope (since closed):** template literals printed their raw
+source (`` console.log(`v: ${7 / 2}`) `` printed `v: ${7 / 2}`) — fixed by the
+parser desugar in `2026-07-02-template-literal-interpolation-and-js-number-format-design.md`.

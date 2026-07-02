@@ -15,3 +15,12 @@ fn formatting_is_idempotent() {
     let twice = format_source(&once);
     assert_eq!(once, twice);
 }
+
+#[test]
+fn interpolated_template_literals_format_idempotently() {
+    let source = "console.log(`v: ${7 / 2} end`);\n";
+    let once = format_source(source);
+    let twice = format_source(&once);
+    assert_eq!(once, twice);
+    assert!(once.contains("`v: ${7 / 2} end`"), "formatted: {once:?}");
+}
