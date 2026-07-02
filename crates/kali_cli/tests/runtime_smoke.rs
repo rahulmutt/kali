@@ -1852,6 +1852,10 @@ stderr: {}",
     assert_browser_bundle_executes(&bundle_dir, "stringPrimitiveSmoke");
 }
 
+/// Every caller writes the chunk fixture `export function lazyValue() { return 7; }`,
+/// so the harness expects `7n` (i64 chunk results surface as BigInt through the raw
+/// wasm-export ABI). Expecting the real source value proves the chunk body actually
+/// executed; the old `0n` pin was indistinguishable from a stub returning the i64 default.
 fn assert_browser_bundle_dynamic_import_loader(bundle_root: &Path, specifier: &str) {
     let bundle_dir = bundle_root
         .file_name()
@@ -1874,7 +1878,7 @@ if (typeof chunk.lazyValue !== 'function') {{
   throw new Error('missing lazyValue export');
 }}
 const value = await chunk.lazyValue();
-if (value !== 0n) {{
+if (value !== 7n) {{
   throw new Error(`unexpected chunk result ${{value}}`);
 }}
 console.log(String(value));
@@ -1900,7 +1904,7 @@ console.log(String(value));
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains('0'), "stdout: {stdout}");
+    assert!(stdout.contains('7'), "stdout: {stdout}");
 }
 
 fn write_valid_policy(path: &Path) {
