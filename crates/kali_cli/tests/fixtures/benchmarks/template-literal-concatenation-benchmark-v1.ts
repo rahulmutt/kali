@@ -30,8 +30,7 @@ function dead4(value) {
 }
 
 function hot(prefix, suffix) {
-  const folded = `${"a"}${"head"}-${"of"}-${"time"}`;
-  return `${prefix}${folded}${suffix}`;
+  return `${prefix}${"a"}${"head"}-${"of"}-${"time"}${suffix}`;
 }
 
 hot("start-", "-end");

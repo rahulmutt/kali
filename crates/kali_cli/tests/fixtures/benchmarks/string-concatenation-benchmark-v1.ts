@@ -5,8 +5,7 @@ function dead3(value) { return ("ka" + "li") + value; }
 function dead4(value) { return ("ka" + "li") + value; }
 
 function hot(prefix, suffix) {
-  const folded = ("a" + "head") + ("-" + "of") + ("-" + "time");
-  return prefix + folded + suffix;
+  return prefix + (("a" + "head") + ("-" + "of") + ("-" + "time")) + suffix;
 }
 
 hot("start-", "-end");
