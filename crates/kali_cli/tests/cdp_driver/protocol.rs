@@ -153,6 +153,42 @@ impl CdpConnection {
     }
 }
 
+/// The transport operations the driver needs from a CDP connection.
+/// Extracted as a trait so the driver's command/page-run logic can be
+/// exercised against a scripted fake without a browser or a socket.
+pub(crate) trait CdpTransport {
+    /// Send a CDP method call, optionally scoped to a flat session. Returns its id.
+    fn send(
+        &mut self,
+        method: &str,
+        params: Value,
+        session_id: Option<&str>,
+    ) -> Result<u64, CdpError>;
+    /// Read the next decoded message.
+    fn read(&mut self) -> Result<CdpIncoming, CdpError>;
+    /// Bound subsequent reads.
+    fn set_read_timeout(&mut self, timeout: std::time::Duration) -> Result<(), CdpError>;
+}
+
+impl CdpTransport for CdpConnection {
+    fn send(
+        &mut self,
+        method: &str,
+        params: Value,
+        session_id: Option<&str>,
+    ) -> Result<u64, CdpError> {
+        CdpConnection::send(self, method, params, session_id)
+    }
+
+    fn read(&mut self) -> Result<CdpIncoming, CdpError> {
+        CdpConnection::read(self)
+    }
+
+    fn set_read_timeout(&mut self, timeout: std::time::Duration) -> Result<(), CdpError> {
+        CdpConnection::set_read_timeout(self, timeout)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

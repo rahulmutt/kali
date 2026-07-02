@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 use serde_json::{json, Value};
 use tempfile::TempDir;
 
-use super::protocol::{CdpConnection, CdpError, CdpIncoming};
+use super::protocol::{CdpConnection, CdpError, CdpIncoming, CdpTransport};
 
 /// Whether the given browser executable can be invoked (`--version` succeeds).
 pub(crate) fn chromium_available(executable: &str) -> bool {
@@ -192,46 +192,37 @@ pub(crate) fn route_event(
     }
 }
 
-/// A launched Chromium plus its blocking CDP connection.
-pub struct CdpBrowser {
-    child: Child,
-    conn: CdpConnection,
+/// Transport-generic CDP client: command calls and the page-run event pump.
+/// Generic over [`CdpTransport`] so tests can drive it with a scripted fake.
+struct CdpClient<T: CdpTransport> {
+    transport: T,
     /// Events received while a command call was awaiting its response,
     /// preserved for the next page-run loop instead of being discarded.
     /// The buffer is unbounded; fine for this test-only driver whose calls are short.
     pending_events: VecDeque<CdpIncoming>,
-    _user_data_dir: TempDir,
 }
 
-impl CdpBrowser {
-    /// Launch Chromium and open a CDP connection to its browser endpoint.
-    pub fn launch(executable: &str, timeout: Duration) -> Result<Self, CdpError> {
-        let (child, ws_url, user_data_dir) = spawn_chromium(executable, timeout)?;
-        let (socket, _response) = tungstenite::connect(&ws_url)
-            .map_err(|e| CdpError::Transport(format!("connect {ws_url}: {e}")))?;
-        let mut conn = CdpConnection::from_socket(socket);
-        conn.set_read_timeout(timeout)?;
-        Ok(Self {
-            child,
-            conn,
+impl<T: CdpTransport> CdpClient<T> {
+    fn new(transport: T) -> Self {
+        Self {
+            transport,
             pending_events: VecDeque::new(),
-            _user_data_dir: user_data_dir,
-        })
+        }
     }
 
     /// Send a method and read frames until its matching response, returning `result`.
     /// Events that arrive first are buffered for the page-run loop, never dropped.
-    pub fn call(
+    fn call(
         &mut self,
         method: &str,
         params: Value,
         session_id: Option<&str>,
         timeout: Duration,
     ) -> Result<Value, CdpError> {
-        self.conn.set_read_timeout(timeout)?;
-        let id = self.conn.send(method, params, session_id)?;
+        self.transport.set_read_timeout(timeout)?;
+        let id = self.transport.send(method, params, session_id)?;
         loop {
-            match self.conn.read()? {
+            match self.transport.read()? {
                 CdpIncoming::Result { id: got, result } if got == id => return Ok(result),
                 CdpIncoming::Error { id: got, message } if got == id => {
                     return Err(CdpError::Protocol(format!("{method}: {message}")))
@@ -242,27 +233,9 @@ impl CdpBrowser {
         }
     }
 
-    /// Best-effort clean shutdown: ask the browser to close, then kill and reap.
-    pub fn close(mut self) -> Result<(), CdpError> {
-        let _ = self.conn.send("Browser.close", json!({}), None);
-        let _ = self.child.kill();
-        let _ = self.child.wait();
-        Ok(())
-    }
-}
-
-/// Kills the browser even when a test panics or errors before `close()` runs.
-impl Drop for CdpBrowser {
-    fn drop(&mut self) {
-        let _ = self.child.kill();
-        let _ = self.child.wait();
-    }
-}
-
-impl CdpBrowser {
     /// Open a fresh target, navigate to `url`, capture console output, and return
     /// when the page calls the completion binding or `timeout` elapses.
-    pub fn run_page(&mut self, url: &str, timeout: Duration) -> Result<CdpPageOutcome, CdpError> {
+    fn run_page(&mut self, url: &str, timeout: Duration) -> Result<CdpPageOutcome, CdpError> {
         let target = self.call(
             "Target.createTarget",
             json!({ "url": "about:blank" }),
@@ -309,8 +282,8 @@ impl CdpBrowser {
                 if remaining.is_zero() {
                     break;
                 }
-                self.conn.set_read_timeout(remaining)?;
-                self.conn.read()
+                self.transport.set_read_timeout(remaining)?;
+                self.transport.read()
             };
             match incoming {
                 Ok(CdpIncoming::Event {
@@ -338,6 +311,63 @@ impl CdpBrowser {
             Duration::from_secs(5),
         );
         Ok(CdpPageOutcome { console, completed })
+    }
+}
+
+/// A launched Chromium plus its blocking CDP connection.
+pub struct CdpBrowser {
+    child: Child,
+    client: CdpClient<CdpConnection>,
+    _user_data_dir: TempDir,
+}
+
+impl CdpBrowser {
+    /// Launch Chromium and open a CDP connection to its browser endpoint.
+    pub fn launch(executable: &str, timeout: Duration) -> Result<Self, CdpError> {
+        let (child, ws_url, user_data_dir) = spawn_chromium(executable, timeout)?;
+        let (socket, _response) = tungstenite::connect(&ws_url)
+            .map_err(|e| CdpError::Transport(format!("connect {ws_url}: {e}")))?;
+        let mut conn = CdpConnection::from_socket(socket);
+        conn.set_read_timeout(timeout)?;
+        Ok(Self {
+            child,
+            client: CdpClient::new(conn),
+            _user_data_dir: user_data_dir,
+        })
+    }
+
+    /// Send a method and read frames until its matching response, returning `result`.
+    /// Events that arrive first are buffered for the page-run loop, never dropped.
+    pub fn call(
+        &mut self,
+        method: &str,
+        params: Value,
+        session_id: Option<&str>,
+        timeout: Duration,
+    ) -> Result<Value, CdpError> {
+        self.client.call(method, params, session_id, timeout)
+    }
+
+    /// Open a fresh target, navigate to `url`, capture console output, and return
+    /// when the page calls the completion binding or `timeout` elapses.
+    pub fn run_page(&mut self, url: &str, timeout: Duration) -> Result<CdpPageOutcome, CdpError> {
+        self.client.run_page(url, timeout)
+    }
+
+    /// Best-effort clean shutdown: ask the browser to close, then kill and reap.
+    pub fn close(mut self) -> Result<(), CdpError> {
+        let _ = self.client.transport.send("Browser.close", json!({}), None);
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+        Ok(())
+    }
+}
+
+/// Kills the browser even when a test panics or errors before `close()` runs.
+impl Drop for CdpBrowser {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
     }
 }
 
