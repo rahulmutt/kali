@@ -1186,6 +1186,19 @@ fn write_browser_bundle_files(
         )?;
     let exports =
         build::collect_browser_bundle_exports(source, tree_shake_exports).unwrap_or_default();
+    if let Some(reserved) = exports
+        .iter()
+        .find(|export| RESERVED_GLUE_EXPORT_NAMES.contains(&export.name.as_str()))
+    {
+        return Err(vec![Diagnostic::error(
+            e5::INVALID_EXPORT_SURFACE as u32,
+            format!(
+                "export `{}` collides with a name the browser bundle glue reserves ({}); rename the export",
+                reserved.name,
+                RESERVED_GLUE_EXPORT_NAMES.join(", ")
+            ),
+        )]);
+    }
     let metadata = build::build_artifact_metadata(
         source,
         "bundle",
@@ -1494,6 +1507,12 @@ fn relative_path(from: &Path, to: &Path) -> PathBuf {
 
     path
 }
+
+/// Export names the emitted bundle glue defines itself; a user export with one
+/// of these names would produce a duplicate declaration (ESM: SyntaxError at
+/// import time) or silently shadow the helper (CJS).
+const RESERVED_GLUE_EXPORT_NAMES: [&str; 4] =
+    ["load", "loadWithImports", "loadDynamicImport", "start"];
 
 fn generate_browser_bundle_js(
     wasm_path: &Path,
