@@ -89,11 +89,20 @@ pub struct CdpPageOutcome {
 }
 
 impl CdpPageOutcome {
-    /// Reproduce node-style stdout: every `log` line joined with newlines.
+    /// Reproduce node-style stdout: `log`, `info`, and `debug` lines in order.
     pub fn stdout(&self) -> String {
+        self.lines_of(&["log", "info", "debug"])
+    }
+
+    /// Reproduce node-style stderr: `warn` and `error` lines in order.
+    pub fn stderr(&self) -> String {
+        self.lines_of(&["warn", "error"])
+    }
+
+    fn lines_of(&self, kinds: &[&str]) -> String {
         let mut out = String::new();
         for line in &self.console {
-            if line.kind == "log" {
+            if kinds.contains(&line.kind.as_str()) {
                 out.push_str(&line.text);
                 out.push('\n');
             }
@@ -472,5 +481,40 @@ console.log('3'); console.log('3'); globalThis.__kaliHarnessDone && globalThis._
             route_event("Page.frameNavigated", &params, Some("S1"), "S1"),
             PageEvent::Ignore
         );
+    }
+
+    #[test]
+    fn stdout_and_stderr_split_kinds_like_node() {
+        let outcome = CdpPageOutcome {
+            console: vec![
+                CdpConsoleLine {
+                    kind: "log".to_owned(),
+                    text: "l".to_owned(),
+                },
+                CdpConsoleLine {
+                    kind: "info".to_owned(),
+                    text: "i".to_owned(),
+                },
+                CdpConsoleLine {
+                    kind: "warn".to_owned(),
+                    text: "w".to_owned(),
+                },
+                CdpConsoleLine {
+                    kind: "debug".to_owned(),
+                    text: "d".to_owned(),
+                },
+                CdpConsoleLine {
+                    kind: "error".to_owned(),
+                    text: "e".to_owned(),
+                },
+                CdpConsoleLine {
+                    kind: "exception".to_owned(),
+                    text: "x".to_owned(),
+                },
+            ],
+            completed: true,
+        };
+        assert_eq!(outcome.stdout(), "l\ni\nd\n");
+        assert_eq!(outcome.stderr(), "w\ne\n");
     }
 }
