@@ -70,7 +70,8 @@ pub const BROWSER_HARNESS_DONE_BINDING: &str = "__kaliHarnessDone";
 /// fetch shim: the bundle glue's own `fetch(wasmUrl)` works once the bundle
 /// directory is served over HTTP next to this page. The module script defines
 /// `bundleJs` for the body — the same body contract as
-/// [`browser_bundle_harness_script`] — reports body failures via
+/// [`browser_bundle_harness_script`], though here the body runs inside a
+/// `try` block, so its declarations are block-scoped — reports body failures via
 /// `console.error`, and always invokes [`BROWSER_HARNESS_DONE_BINDING`] when
 /// a driver has installed it.
 pub fn browser_bundle_harness_page(bundle_dir: &str, body: &str) -> String {

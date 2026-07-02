@@ -1751,7 +1751,8 @@ export async function loadDynamicImport(specifier) {{
 }}
 
 // Run the program's top-level statements (the wasm `_start` export) exactly
-// once; repeated calls await the same completion (or the same trap).
+// once on the default instance (like the per-export wrappers); repeated
+// calls await the same completion (or the same trap).
 let startPromise = null;
 export async function start() {{
   if (startPromise === null) {{
@@ -1994,7 +1995,8 @@ async function loadDynamicImport(specifier) {{
 }}
 
 // Run the program's top-level statements (the wasm `_start` export) exactly
-// once; repeated calls await the same completion (or the same trap).
+// once on the default instance (like the per-export wrappers); repeated
+// calls await the same completion (or the same trap).
 let startPromise = null;
 async function start() {{
   if (startPromise === null) {{
