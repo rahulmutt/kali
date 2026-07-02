@@ -23,6 +23,7 @@ pub mod e2 {
     pub const UNEXPECTED_TOKEN: u16 = 2001;
     pub const MISSING_ITEM: u16 = 2002;
     pub const DUPLICATE_ITEM: u16 = 2003;
+    pub const MALFORMED_TEMPLATE_INTERPOLATION: u16 = 2004;
 
     // E2100-2199: Parse state errors
     pub const RECOVERY_FAILED: u16 = 2100;

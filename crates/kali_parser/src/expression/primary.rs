@@ -5,6 +5,8 @@ use kali_ast::{
     ArrayExpression, ArrowFunctionExpression, Expression, ExpressionOrSpread, FunctionParam,
     ImportExpression, ParenthesizedExpression, SpreadElement,
 };
+use kali_common::template::split_template_literal;
+use kali_error::{_error_codes::e2, diagnostic::Diagnostic};
 use kali_lexer::TokenType;
 use std::boxed::Box;
 
@@ -67,6 +69,10 @@ impl Parser {
             TokenType::StringLiteral | TokenType::Template | TokenType::Backtick => {
                 let token = self.stream.advance();
                 let value = token.map(|t| t.value).unwrap_or_default();
+                if matches!(kind, TokenType::Template | TokenType::Backtick) && value.contains("${")
+                {
+                    return self.desugar_template_literal(&value);
+                }
                 Expression::Literal(kali_ast::LiteralValue::String(value))
             }
             TokenType::LeftParen => {
@@ -189,6 +195,75 @@ impl Parser {
                 Expression::Identifier("unknown".to_string())
             }
         }
+    }
+
+    /// Desugars an interpolated template literal token into a left-associated
+    /// string `+` chain: `` `v: ${7 / 2}` `` becomes `"v: " + (7 / 2)`.
+    /// Quasis are carried as backtick-delimited string literals — a quasi can
+    /// never contain a backtick, so the delimiter is unambiguous and the
+    /// literal takes the plain-template path everywhere downstream. The
+    /// leading quasi is always emitted (even empty) so the chain is
+    /// string-valued from its first operand; later empty quasis are skipped.
+    fn desugar_template_literal(&mut self, raw: &str) -> Expression {
+        let Some(segments) = split_template_literal(raw) else {
+            self.diagnostics.push(Diagnostic::error(
+                e2::MALFORMED_TEMPLATE_INTERPOLATION as u32,
+                "Unterminated `${` interpolation in template literal",
+            ));
+            return Expression::Literal(kali_ast::LiteralValue::String(raw.to_string()));
+        };
+
+        fn quasi_literal(quasi: &str) -> Expression {
+            Expression::Literal(kali_ast::LiteralValue::String(format!("`{quasi}`")))
+        }
+        fn concat(left: Expression, right: Expression) -> Expression {
+            Expression::BinaryExpression(Box::new(kali_ast::BinaryExpression {
+                operator: "+".to_string(),
+                left,
+                right,
+            }))
+        }
+
+        let mut chain = quasi_literal(&segments.quasis[0]);
+        for (expression_source, quasi) in segments.expressions.iter().zip(&segments.quasis[1..]) {
+            let expression = self.parse_template_expression_segment(expression_source);
+            chain = concat(chain, expression);
+            if !quasi.is_empty() {
+                chain = concat(chain, quasi_literal(quasi));
+            }
+        }
+        chain
+    }
+
+    /// Parses the raw source of one `${...}` segment with a sub-lexer and
+    /// sub-parser, merging their diagnostics into this parser. Spans inside
+    /// the segment are relative to the segment text, matching the precedent
+    /// set by `resolve_static_string_from_source` in kali_types.
+    fn parse_template_expression_segment(&mut self, source: &str) -> Expression {
+        let trimmed = source.trim();
+        if trimmed.is_empty() {
+            self.diagnostics.push(Diagnostic::error(
+                e2::MALFORMED_TEMPLATE_INTERPOLATION as u32,
+                "Empty `${}` interpolation in template literal",
+            ));
+            return Expression::Literal(kali_ast::LiteralValue::String("``".to_string()));
+        }
+        let lexed = kali_lexer::Lexer::new(self.file_id, trimmed.to_string()).lex_all();
+        self.diagnostics.extend(lexed.diagnostics);
+        let mut sub_parser = Parser::new(self.file_id, lexed.tokens);
+        let expression = sub_parser.parse_expression();
+        self.diagnostics.extend(sub_parser.diagnostics);
+        // The lexer always appends a trailing `Eof` token, so a fully
+        // consumed sub-expression leaves the sub-parser's stream sitting on
+        // that `Eof` token. Anything else left over is unconsumed input,
+        // e.g. `${1 2}`, which would otherwise be silently dropped.
+        if sub_parser.stream.current_kind() != Some(&TokenType::Eof) {
+            self.diagnostics.push(Diagnostic::error(
+                e2::MALFORMED_TEMPLATE_INTERPOLATION as u32,
+                "Unexpected tokens after expression in `${...}` interpolation",
+            ));
+        }
+        expression
     }
 }
 
