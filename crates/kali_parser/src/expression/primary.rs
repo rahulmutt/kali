@@ -205,6 +205,14 @@ impl Parser {
     /// leading quasi is always emitted (even empty) so the chain is
     /// string-valued from its first operand; later empty quasis are skipped.
     fn desugar_template_literal(&mut self, raw: &str) -> Expression {
+        if raw.contains("\\${") {
+            self.diagnostics.push(Diagnostic::error(
+                e2::MALFORMED_TEMPLATE_INTERPOLATION as u32,
+                "Escaped `\\${` in a template literal is not supported: template escape \
+                 sequences are not processed in the current runtime path",
+            ));
+            return Expression::Literal(kali_ast::LiteralValue::String(raw.to_string()));
+        }
         let Some(segments) = split_template_literal(raw) else {
             self.diagnostics.push(Diagnostic::error(
                 e2::MALFORMED_TEMPLATE_INTERPOLATION as u32,

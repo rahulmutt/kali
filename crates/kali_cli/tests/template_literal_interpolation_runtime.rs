@@ -67,6 +67,18 @@ fn run_keeps_plain_templates_unchanged() {
 }
 
 #[test]
+fn run_rejects_escaped_interpolation_with_e2004() {
+    // `\${` would silently interpolate (template escapes are not processed);
+    // reject cleanly instead — never silent divergence from JS.
+    let (ok, stdout, stderr) = run_fixture("console.log(`cost: \\${5}`);\n");
+    assert!(!ok, "expected rejection, got stdout: {stdout}");
+    assert!(
+        (stdout.clone() + &stderr).contains("E2004"),
+        "stdout: {stdout}\nstderr: {stderr}"
+    );
+}
+
+#[test]
 fn run_interpolates_inside_functions() {
     let (ok, stdout, stderr) =
         run_fixture("function show(v) {\n  console.log(`p: ${v}`);\n}\nshow(9 / 2);\n");

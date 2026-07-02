@@ -177,6 +177,17 @@ fn test_trailing_tokens_in_interpolation_report_e2004() {
 }
 
 #[test]
+fn test_escaped_interpolation_reports_e2004_and_falls_back_to_raw() {
+    let (init, diagnostics) = parse_single_init_expression("const m = `cost: \\${5}`;");
+    assert!(
+        diagnostics.iter().any(|d| d.code
+            == Some(kali_error::_error_codes::e2::MALFORMED_TEMPLATE_INTERPOLATION as u32)),
+        "diagnostics: {diagnostics:?}"
+    );
+    expect_string_literal(&init, "`cost: \\${5}`");
+}
+
+#[test]
 fn test_empty_interpolation_reports_e2004() {
     let (init, diagnostics) = parse_single_init_expression("const m = `v: ${}`;");
     assert!(

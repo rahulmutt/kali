@@ -153,3 +153,13 @@ The plan's Step 5 gate `cargo test -p kali_cli --test runtime_smoke -- template`
 has 7 pre-existing failures on main (`build::[json_]build_emits_browser_bundle_chunks_for_template_literal_dynamic_imports*`,
 "unexpected chunk result 7") unrelated to this plan; the gate for this branch is
 "identical to the main baseline: 4 pass, those exact 7 fail".
+
+The final whole-branch review found that escaped `\${` in an interpolated
+template (e.g. `` `cost: \${5}` ``) silently interpolated instead of matching
+JS's escape semantics — `\5` instead of node's `${5}` — because this
+lexer/runtime performs no escape processing anywhere in template literals
+(pre-existing, out of scope to fix properly here). It is now rejected at
+parse time with E2004 (conservative: any `\` directly before `${`, including
+`` \\${ `` which real JS would interpolate) rather than silently diverging
+from JS, pinned by `test_escaped_interpolation_reports_e2004_and_falls_back_to_raw`
+(`kali_parser`) and `run_rejects_escaped_interpolation_with_e2004` (`kali_cli`).
