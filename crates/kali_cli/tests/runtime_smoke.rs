@@ -953,17 +953,25 @@ if (arrayLiteralFirst !== 4n || arrayLiteralSecond !== 4n) {
   throw 'unexpected array literal arguments';
 }
 if (
-  keys.length !== 2 ||
+  keys.length !== 4 ||
   keys[0] !== '1' ||
   keys[1] !== '2' ||
-  entries.length !== 2 ||
+  keys[2] !== 'b' ||
+  keys[3] !== 'a' ||
+  entries.length !== 4 ||
   entries[0][0] !== '1' ||
   entries[0][1] !== 4 ||
   entries[1][0] !== '2' ||
   entries[1][1] !== 2 ||
-  values.length !== 2 ||
+  entries[2][0] !== 'b' ||
+  entries[2][1] !== 1 ||
+  entries[3][0] !== 'a' ||
+  entries[3][1] !== 3 ||
+  values.length !== 4 ||
   values[0] !== 4 ||
   values[1] !== 2 ||
+  values[2] !== 1 ||
+  values[3] !== 3 ||
   fromEntriesKeys.length !== 2 ||
   fromEntriesKeys[0] !== 'b' ||
   fromEntriesKeys[1] !== 'a' ||
