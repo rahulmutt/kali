@@ -1,4 +1,5 @@
 //! High-level CDP browser lifecycle: launch, per-page run, close.
+use std::collections::VecDeque;
 use std::io::{BufRead, BufReader};
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
@@ -150,7 +151,11 @@ pub(crate) fn route_event(
     }
     match method {
         "Runtime.consoleAPICalled" => {
-            let kind = params["type"].as_str().unwrap_or("log").to_owned();
+            let mut kind = params["type"].as_str().unwrap_or("log").to_owned();
+            // Normalize Chrome CDP's "warning" to "warn" for node-style stderr compatibility.
+            if kind == "warning" {
+                kind = "warn".to_owned();
+            }
             let text = params["args"]
                 .as_array()
                 .map(|args| {
@@ -191,6 +196,9 @@ pub(crate) fn route_event(
 pub struct CdpBrowser {
     child: Child,
     conn: CdpConnection,
+    /// Events received while a command call was awaiting its response,
+    /// preserved for the next page-run loop instead of being discarded.
+    pending_events: VecDeque<CdpIncoming>,
     _user_data_dir: TempDir,
 }
 
@@ -205,12 +213,13 @@ impl CdpBrowser {
         Ok(Self {
             child,
             conn,
+            pending_events: VecDeque::new(),
             _user_data_dir: user_data_dir,
         })
     }
 
     /// Send a method and read frames until its matching response, returning `result`.
-    /// Unrelated events are discarded here (page runs collect them in Task 5).
+    /// Events that arrive first are buffered for the page-run loop, never dropped.
     pub fn call(
         &mut self,
         method: &str,
@@ -226,6 +235,7 @@ impl CdpBrowser {
                 CdpIncoming::Error { id: got, message } if got == id => {
                     return Err(CdpError::Protocol(format!("{method}: {message}")))
                 }
+                event @ CdpIncoming::Event { .. } => self.pending_events.push_back(event),
                 _ => continue,
             }
         }
@@ -288,34 +298,32 @@ impl CdpBrowser {
         let mut console = Vec::new();
         let mut completed = false;
         loop {
-            let remaining = deadline.saturating_duration_since(Instant::now());
-            if remaining.is_zero() {
-                break;
-            }
-            self.conn.set_read_timeout(remaining)?;
-            match self.conn.read() {
-                Ok(CdpIncoming::Event { method, params, .. })
-                    if method == "Runtime.consoleAPICalled" =>
-                {
-                    let kind = params["type"].as_str().unwrap_or("log").to_owned();
-                    let text = params["args"]
-                        .as_array()
-                        .map(|args| {
-                            args.iter()
-                                .map(console_arg_text)
-                                .collect::<Vec<_>>()
-                                .join(" ")
-                        })
-                        .unwrap_or_default();
-                    console.push(CdpConsoleLine { kind, text });
-                }
-                Ok(CdpIncoming::Event { method, params, .. })
-                    if method == "Runtime.bindingCalled"
-                        && params["name"].as_str() == Some(CDP_DONE_BINDING) =>
-                {
-                    completed = true;
+            // Drain events buffered during call() first — they arrived before
+            // anything still on the socket, and they are already ours to read
+            // even if the deadline has passed.
+            let incoming = if let Some(event) = self.pending_events.pop_front() {
+                Ok(event)
+            } else {
+                let remaining = deadline.saturating_duration_since(Instant::now());
+                if remaining.is_zero() {
                     break;
                 }
+                self.conn.set_read_timeout(remaining)?;
+                self.conn.read()
+            };
+            match incoming {
+                Ok(CdpIncoming::Event {
+                    method,
+                    params,
+                    session_id: event_session,
+                }) => match route_event(&method, &params, event_session.as_deref(), &session_id) {
+                    PageEvent::Console(line) => console.push(line),
+                    PageEvent::Completed => {
+                        completed = true;
+                        break;
+                    }
+                    PageEvent::Ignore => {}
+                },
                 Ok(_) => continue,
                 Err(CdpError::Timeout) => break,
                 Err(other) => return Err(other),
@@ -399,6 +407,43 @@ console.log('3'); console.log('3'); globalThis.__kaliHarnessDone && globalThis._
         let stdout = outcome.stdout();
         assert!(stdout.contains("3\n"), "stdout: {stdout:?}");
         assert!(stdout.matches("3\n").count() >= 2, "stdout: {stdout:?}");
+    }
+
+    #[test]
+    #[ignore = "launches a real Chromium; run with `-- --ignored`"]
+    fn captures_console_logged_synchronously_at_document_start() {
+        if !chromium_available("chromium") {
+            eprintln!("skipping: chromium not available");
+            return;
+        }
+        let mut browser =
+            CdpBrowser::launch("chromium", std::time::Duration::from_secs(20)).expect("launch");
+        // Classic script: runs during parse, before Page.navigate's response is
+        // necessarily read — the window where the driver used to drop events.
+        let html = "<!doctype html><meta charset=utf-8><script>\
+console.log('early-log');console.info('early-info');console.debug('early-debug');\
+console.warn('early-warn');console.error('early-error');\
+globalThis.__kaliHarnessDone && globalThis.__kaliHarnessDone('');\
+</script>";
+        let url = format!("data:text/html,{}", html);
+        let outcome = browser
+            .run_page(&url, std::time::Duration::from_secs(30))
+            .expect("run page");
+        browser.close().expect("close");
+
+        assert!(outcome.completed, "page should have signaled completion");
+        assert_eq!(
+            outcome.stdout(),
+            "early-log\nearly-info\nearly-debug\n",
+            "console: {:?}",
+            outcome.console
+        );
+        assert_eq!(
+            outcome.stderr(),
+            "early-warn\nearly-error\n",
+            "console: {:?}",
+            outcome.console
+        );
     }
 
     #[test]
