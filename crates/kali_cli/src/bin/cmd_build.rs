@@ -1750,6 +1750,20 @@ export async function loadDynamicImport(specifier) {{
   return await import(resolveDynamicImportTarget(specifier).href);
 }}
 
+// Run the program's top-level statements (the wasm `_start` export) exactly
+// once; repeated calls await the same completion (or the same trap).
+let startPromise = null;
+export async function start() {{
+  if (startPromise === null) {{
+    startPromise = instancePromise.then((instance) => {{
+      if (typeof instance.exports._start === 'function') {{
+        instance.exports._start();
+      }}
+    }});
+  }}
+  return await startPromise;
+}}
+
 "#
         ),
         BundleFormat::Cjs => format!(
@@ -1979,7 +1993,21 @@ async function loadDynamicImport(specifier) {{
   return await import(resolveDynamicImportTarget(specifier).href);
 }}
 
-const exported = {{ load, loadWithImports, loadDynamicImport }};
+// Run the program's top-level statements (the wasm `_start` export) exactly
+// once; repeated calls await the same completion (or the same trap).
+let startPromise = null;
+async function start() {{
+  if (startPromise === null) {{
+    startPromise = instancePromise.then((instance) => {{
+      if (typeof instance.exports._start === 'function') {{
+        instance.exports._start();
+      }}
+    }});
+  }}
+  return await startPromise;
+}}
+
+const exported = {{ load, loadWithImports, loadDynamicImport, start }};
 
 "#
         ),
