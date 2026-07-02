@@ -418,6 +418,25 @@ impl<'a> FunctionEmitter<'a> {
         parse_number_literal(text).is_none() && parse_numeric_literal_value(text).is_some()
     }
 
+    /// True when `id` (after unwrapping transparent wrappers and resolving
+    /// const bindings) is a BigInt literal such as `3n`. BigInt arithmetic
+    /// stays on the i64 lane; in particular JS BigInt `/` truncates toward
+    /// zero — `i64.div_s` — never `f64.div`. Scope is deliberately literal /
+    /// const-bound-literal operands: the repr machinery has no BigInt axis
+    /// yet, so BigInt-typed mutable locals keep the (wrong) float path — a
+    /// recorded follow-up.
+    fn is_bigint_literal_valued(&self, id: LirNodeId) -> bool {
+        let id = self.unwrap_transparent(id);
+        let id = self.resolve_bound_node(id);
+        let node = self.node(id);
+        node.kind == LirNodeKind::Literal
+            && node
+                .text
+                .as_deref()
+                .and_then(|text| text.strip_suffix('n'))
+                .is_some_and(|digits| digits.parse::<i64>().is_ok())
+    }
+
     /// Structural oracle: true when the value produced by `id` is represented as an
     /// `f64`. Mirrors `is_string_valued`; consulted per-operand by `emit_binary`
     /// to decide instruction selection and int->float promotion.
@@ -492,7 +511,10 @@ impl<'a> FunctionEmitter<'a> {
                     let text = node.text.as_deref().unwrap_or_default();
                     if is_binary_operator_text(text) {
                         match text {
-                            "/" => true,
+                            "/" => {
+                                !(self.is_bigint_literal_valued(node.children[0])
+                                    && self.is_bigint_literal_valued(node.children[1]))
+                            }
                             "+" | "-" | "*" => {
                                 self.is_float_valued(node.children[0])
                                     || self.is_float_valued(node.children[1])
@@ -612,7 +634,10 @@ impl<'a> FunctionEmitter<'a> {
         // emitted code is byte-identical to the pre-repr path.
         let operand_float = self.is_float_valued(left) || self.is_float_valued(right);
         let float_op = match op {
-            "/" => true,
+            // `/` is float (JS division yields a double in this model) UNLESS
+            // both operands are BigInt literals: BigInt division truncates
+            // toward zero and must stay on the i64 lane (`i64.div_s`).
+            "/" => !(self.is_bigint_literal_valued(left) && self.is_bigint_literal_valued(right)),
             "+" | "-" | "*" => operand_float,
             "<" | "<=" | ">" | ">=" | "==" | "===" | "!=" | "!==" => operand_float,
             _ => false,
@@ -670,11 +695,19 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             "/" => {
-                // `float_op` is always true here.
-                function.instruction(&Instruction::F64Div);
-                EmittedValue {
-                    produced: true,
-                    shape: ValueShape::Float,
+                if float_op {
+                    function.instruction(&Instruction::F64Div);
+                    EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Float,
+                    }
+                } else {
+                    // BigInt `/`: truncation toward zero is exactly `i64.div_s`.
+                    function.instruction(&Instruction::I64DivS);
+                    EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Scalar,
+                    }
                 }
             }
             "%" => {
