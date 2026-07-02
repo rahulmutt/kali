@@ -602,7 +602,7 @@ fn build_accepts_dynamic_function_constructor_sources_when_compat_eval_is_enable
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "const bodyPrefix = \"return \"; const body = bodyPrefix + \"1 + 2;\"; const value = new Function(body)(); if (value !== 3) { throw new Error('bad function result'); }",
+        "const body = \"return \" + \"1 + 2;\"; const value = new Function(body)(); if (value !== 3) { throw new Error('bad function result'); }",
     )
     .expect("write source");
 
@@ -633,7 +633,7 @@ fn build_accepts_dynamic_function_constructor_sources_when_compat_eval_is_enable
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "const bodyPrefix = \"return \"; const body = bodyPrefix + \"1 + 2;\"; const value = new Function(body)(); if (value !== 3) { throw new Error('bad function result'); }",
+        "const body = \"return \" + \"1 + 2;\"; const value = new Function(body)(); if (value !== 3) { throw new Error('bad function result'); }",
     )
     .expect("write source");
 
