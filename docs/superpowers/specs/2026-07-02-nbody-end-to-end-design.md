@@ -43,9 +43,13 @@ end-to-end and print the two canonical energy lines (`toFixed(9)`) for pinned `n
 byte-matching a reference Node.js run, by adding genuine (not pattern-matched) runtime heap
 objects: static shape classification of object literals, bump-allocated fixed-layout structs
 in linear memory, typed property load **and store** at static offsets, arrays of object
-references, and objects passed as function parameters and returns. Plus one small enabling
-piece: scientific-notation numeric literals in the lexer (n-body's planetary constants are
-written `4.84143144246472090e+00` upstream).
+references, and objects passed as function parameters and returns. Plus two small enabling
+pieces: scientific-notation numeric literals in the lexer (n-body's planetary constants are
+written `4.84143144246472090e+00` upstream), and module-scope `const` reads from inside
+functions (`SOLAR_MASS`, `DAYS_PER_YEAR`), which today **silently miscompile** — codegen
+lowers the identifier through a zero placeholder (`const K = 3; function f() { return K + 1; }`
+prints `1`). The slice inlines compile-time-pure module-const initializers at function read
+sites and upgrades every other module-binding read from a function to a gated reject.
 
 **Non-goals (explicitly deferred):**
 
@@ -146,7 +150,9 @@ Feature surface distilled — **new**: object literals with seven named f64 fiel
 allocation with a fixed layout; property reads through local aliases (`bi.x`); property
 writes including read-modify-write (`b.x = b.x + dt * b.vx`) and writes through an array
 element (`bodies[0].vx = …`); an array literal of five object references; object references
-flowing array-element → local binding → function parameter; e-notation float literals.
+flowing array-element → local binding → function parameter; e-notation float literals;
+module-scope consts (`PI`, `SOLAR_MASS`, `DAYS_PER_YEAR`) read from inside the factories and
+`offsetMomentum`.
 **Already present**: f64 `+ - * /`, f64 unary negation (`-px`, `F64Neg` at
 `crates/kali_codegen/src/emit/operators.rs:77`), runtime `Math.sqrt` (inline `F64Sqrt`),
 `.length`, integer loop counters, `.toFixed(9)` via `float_to_fixed`, `console.log` of string
@@ -239,6 +245,21 @@ console/string seam, or a context requiring a scalar; classes/`new`/`this`; dyna
 add/delete (any member write to a field not in the shape). Micro-acceptance: a compile test
 asserting the diagnostic for `p.z = 1.0` on a `{x, y}` literal, and for `console.log(p)`.
 
+**7. Module-const reads from functions.** Discovered while planning: an identifier read inside
+a function that resolves to a module-scope binding reaches codegen's zero-placeholder fallback
+(`crates/kali_codegen/src/emit/control_flow.rs:452`) — a warning plus `I64Const(0)`, i.e. a
+silent wrong answer. Because all functions share one `LirProgram` node space, the fix is a
+compile-time inline: lowering collects `module const name → init node` for top-level `const`
+declarators plus the set of all top-level binding names; a function-body identifier that
+misses locals and fold bindings then (a) inlines the const's initializer when it is
+compile-time pure (literal, module-const identifier, unary/binary arithmetic over pure
+operands — recursively, cycle-bounded), or (b) is rejected with `FEATURE_UNAVAILABLE` when it
+names any other module binding (mutable `let`, impure init). Locals shadow correctly for free
+(the locals lookup runs first). `is_float_valued` gets the same fallback so inlined float
+consts pick f64 instructions. Micro-acceptance:
+`const K = 3; function f() { return K + 1; } console.log(f())` → `4`, and a reject test for a
+module `let` read from a function.
+
 ### 4.3 Fold-first: preserving the existing compile-time object lane
 
 Existing fixtures (`object-enumeration-*`, `const-object-property-access-*`,
@@ -263,8 +284,9 @@ Node run of the identical port and pinned; for `n = 1000` the canonical CLBG val
 
 1. `kali run <nbody fixture>` prints exactly the two canonical lines for `n = 1000`,
    byte-matching the reference Node.js run captured and asserted in the test.
-2. Each of pieces 0–6 has a passing micro-acceptance test (run-tests for 0–5, with pieces
-   1–3 sharing the write-driven program per §4.2; a diagnostic compile-test for 6).
+2. Each of pieces 0–7 has a passing micro-acceptance test (run-tests for 0–5 and 7, with
+   pieces 1–3 sharing the write-driven program per §4.2; diagnostic compile-tests for 6 and
+   for piece 7's gated module-binding reads).
 3. The fixture ships schema-v1 benchmark metadata (`schemas/benchmark/v1.json`): `benchmark`,
    `version`, `sourceFile`, validated `sourceSha256`, `buildModes`
    `["--fast", "--release", "--release-advanced"]`, CLBG attribution in the source header —
@@ -297,6 +319,12 @@ Node run of the identical port and pinned; for `n = 1000` the canonical CLBG val
   general MIR layout pass; promoting it stays an explicit future follow-up.
 - **Heap headroom.** Five 56-byte objects + one 5-element array in fixed 16-page memory —
   no `memory.grow` needed (fannkuch/spectral precedent).
+- **Module-binding gate blast radius (piece 7).** Today a module-binding read from a function
+  is a *warning* plus a zero placeholder; the slice upgrades it to a hard reject for
+  non-inlinable bindings. Any existing test that pinned the silent-zero behavior is pinning a
+  miscompile: if one fails, flag it explicitly and correct its expectation as a behavior fix —
+  do not weaken the gate. Truly-undefined identifiers keep the existing warning fallback
+  (their names are not module bindings).
 
 ## 7. Suggested implementation sequencing
 
@@ -304,7 +332,7 @@ Piece 0 (e-notation lexing) first — independent and unblocks writing any float
 tests. Then the shape extension to repr inference (§4.1) — the load-bearing analysis. Then
 pieces 1 (literal materialization) → 2 (read) → 3 (write) — landing together behind piece
 3's write-driven acceptance test — then 4 (arrays of refs) → 5 (across functions) →
-6 (gates), each subsequent piece landing with its micro-acceptance test before the next
-(TDD).
+6 (gates) → 7 (module-const reads, independent of the object lane), each subsequent piece
+landing with its micro-acceptance test before the next (TDD).
 Then the vendored port + reference-output capture + fixture metadata + end-to-end test +
 `specs/19-feature-maturity.md` rows.

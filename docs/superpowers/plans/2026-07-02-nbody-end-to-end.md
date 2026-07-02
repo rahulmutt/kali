@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make `kali run` execute an idiomatic TS port of the CLBG n-body benchmark and print the two canonical `toFixed(9)` energy lines for `n = 1000`, by adding the first genuine runtime heap-object lane (fixed-shape objects: alloc, typed field load/store, arrays of refs, objects across calls) plus e-notation numeric literals.
+**Goal:** Make `kali run` execute an idiomatic TS port of the CLBG n-body benchmark and print the two canonical `toFixed(9)` energy lines for `n = 1000`, by adding the first genuine runtime heap-object lane (fixed-shape objects: alloc, typed field load/store, arrays of refs, objects across calls) plus two enabling pieces: e-notation numeric literals and module-const reads from functions (currently a **silent zero-placeholder miscompile** — see Task 8).
 
 **Architecture:** Extend the spectral-norm repr inference (`kali_types/src/repr_infer.rs`) with an object-shape axis: object literals seed per-slot field lists, aliasing flows (assignment / array element / arg↔param / return↔call) union per-field storage nodes in the existing `UnionFind`, and member accesses wire float edges through that shared storage. The solved table gains `Repr::Object(ShapeId)` entries, threaded through the existing `ResolutionResult → AnalyzedSource → CodegenCtx` path. Codegen materializes shaped object literals as headerless bump-allocated structs (field `i` at `base + i*8`) and lowers member reads/writes to typed loads/stores at static offsets. Fold-first: a literal with no write and no cross-boundary flow gets **no table entry** and keeps today's compile-time fold lane byte-identically. Everything outside the monomorphic fixed-shape surface is gated with `e5::FEATURE_UNAVAILABLE` (E5506), never miscompiled.
 
@@ -37,6 +37,8 @@
 | `crates/kali_codegen/src/emit/literal.rs` (modify) | member-write routing in `emit_assignment`; `Object(_)` match arms |
 | `crates/kali_codegen/src/emit/control_flow.rs` (modify) | declaration materialization (object literal, array-of-objects literal), return-literal materialization |
 | `crates/kali_codegen/src/emit/call.rs` (modify) | `console.log(object)` gate; `Object(_)` match arms; static-length array allocation |
+| `crates/kali_codegen/src/lower.rs` (modify) | collect module-const init nodes + module binding names, thread to emitters |
+| `crates/kali_codegen/src/emitter.rs` (modify) | module-const fields on `FunctionEmitter`; purity check |
 | `crates/kali_cli/tests/imperative_core_runtime.rs` (modify) | all micro-acceptance run-tests and gate tests |
 | `crates/kali_cli/tests/fixtures/benchmarks/nbody-benchmark-v1.{ts,json}` (create) | vendored fixture + schema-v1 metadata |
 | `crates/kali_cli/tests/clbg_nbody_runtime.rs` (create) | pinned end-to-end test |
@@ -1629,7 +1631,234 @@ git add -A && git commit -m "feat(codegen): gate object misuse (console/arithmet
 
 ---
 
-### Task 8: Vendored n-body fixture, pinned canonical output, maturity rows
+### Task 8: Module-const reads from functions (inline pure consts, gate the rest)
+
+Today an identifier read inside a function that names a module-scope binding falls through to codegen's zero-placeholder fallback (`crates/kali_codegen/src/emit/control_flow.rs:452`): a **warning** plus `I64Const(0)` — `const K = 3; function f() { return K + 1; } console.log(f());` prints `1`. n-body's port reads `PI`/`SOLAR_MASS`/`DAYS_PER_YEAR` from its factories, and the honest general fix is small because every `FunctionEmitter` shares one `LirProgram` node space (`lower.rs:333` passes the same `lir` to all emitters): inline the initializer node of compile-time-pure module consts at read sites, and reject reads of any other module binding.
+
+**Files:**
+- Modify: `crates/kali_codegen/src/lower.rs` (collect the tables), `crates/kali_codegen/src/emitter.rs` (fields + purity check), `crates/kali_codegen/src/emit/control_flow.rs` (identifier fallback), `crates/kali_codegen/src/emit/operators.rs` (`is_float_valued` fallback)
+- Test: `crates/kali_cli/tests/imperative_core_runtime.rs`
+
+**Interfaces:**
+- Consumes: shared `LirProgram` node ids; the declarator LIR shape (an `Instruction` node with text `const`/`let`/`var` whose declarator children carry the name in `text` and the init in `children[1]` — the exact shape the loop at `emit/control_flow.rs:265` reads); `unwrap_transparent`, `parse_numeric_literal_value`, `is_binary_operator_text`.
+- Produces: `FunctionEmitter.module_const_inits: &BTreeMap<String, LirNodeId>` (top-level `const` name → init node), `FunctionEmitter.module_binding_names: &BTreeSet<String>` (ALL top-level binding names), `is_pure_module_const_init(&self, id, depth) -> bool`. Task 9's fixture relies on this task.
+
+- [ ] **Step 1: Write the failing tests**
+
+Append to `crates/kali_cli/tests/imperative_core_runtime.rs`:
+
+```rust
+#[test]
+fn module_consts_read_from_functions() {
+    assert_eq!(
+        run_js("const K = 3;\nfunction f() { return K + 1; }\nconsole.log(f());\n"),
+        "4\n"
+    );
+    assert_eq!(
+        run_js(
+            "const PI = 3.141592653589793;\nconst SOLAR_MASS = 4 * PI * PI;\nfunction m() { return 9.54791938424326609e-4 * SOLAR_MASS; }\nconsole.log(m().toFixed(9));\n"
+        ),
+        "0.037693675\n"
+    );
+    assert_eq!(
+        run_js(
+            "const DPY = 365.24;\nfunction v(x) { return x * DPY; }\nconsole.log(v(2.0).toFixed(2));\n"
+        ),
+        "730.48\n"
+    );
+}
+
+#[test]
+fn shadowing_local_wins_over_module_const() {
+    assert_eq!(
+        run_js("const K = 3;\nfunction f() { const K = 10; return K + 1; }\nconsole.log(f());\n"),
+        "11\n"
+    );
+}
+
+#[test]
+fn module_let_read_from_function_is_rejected() {
+    let combined = run_js_expect_failure(
+        "let counter = 0;\nfunction f() { return counter + 1; }\nconsole.log(f());\n",
+    );
+    assert!(combined.contains("5506"), "expected E5506, got: {combined}");
+}
+
+#[test]
+fn impure_module_const_read_from_function_is_rejected() {
+    let combined = run_js_expect_failure(
+        "const t = Math.sqrt(2);\nfunction f() { return t; }\nconsole.log(f());\n",
+    );
+    assert!(combined.contains("5506"), "expected E5506, got: {combined}");
+}
+```
+
+Run: `cargo test -p kali_cli module_ shadowing_ impure_module` — Expected: the first two FAIL by printing placeholder-zero results (`1\n`, `0.000000000\n`, `0.00\n` — the current miscompile); the reject tests FAIL because compilation currently succeeds.
+
+- [ ] **Step 2: Collect the module tables in `lower.rs`**
+
+Before the per-function emission loop (`lower.rs:307`), walk the top-level statement nodes of the synthetic `_start` entry in `all_functions` exactly the way the declarator loop at `emit/control_flow.rs:265` walks declarations (Instruction node, text `const`/`let`/`var`, declarator children):
+
+```rust
+    // Module-scope binding tables: `const name → init node` for compile-time
+    // inlining inside functions, plus ALL top-level binding names so
+    // non-inlinable reads can be gated instead of silently lowering through
+    // the zero placeholder (see emit/control_flow.rs identifier fallback).
+    let mut module_const_inits: BTreeMap<String, LirNodeId> = BTreeMap::new();
+    let mut module_binding_names: BTreeSet<String> = BTreeSet::new();
+    {
+        let start = all_functions
+            .iter()
+            .find(|function| function.name == "_start");
+        if let Some(start) = start {
+            let mut stack = vec![start.root];
+            while let Some(id) = stack.pop() {
+                let node = &lir.nodes[id.0 as usize];
+                match node.kind {
+                    LirNodeKind::Program | LirNodeKind::Block => {
+                        stack.extend(node.children.iter().copied());
+                    }
+                    LirNodeKind::Instruction
+                        if matches!(node.text.as_deref(), Some("const" | "let" | "var")) =>
+                    {
+                        let is_const = node.text.as_deref() == Some("const");
+                        for declarator_id in &node.children {
+                            let declarator = &lir.nodes[declarator_id.0 as usize];
+                            let Some(name) = declarator.text.clone() else { continue };
+                            module_binding_names.insert(name.clone());
+                            if is_const && declarator.children.len() >= 2 {
+                                module_const_inits.insert(name, declarator.children[1]);
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+```
+
+Adapt the two details this sketch guesses at: the field holding `_start`'s LIR root (check the `all_functions` element type — same struct the loop at `lower.rs:307` iterates) and the node-indexing idiom (`lir.nodes[id.0 as usize]` vs an accessor). Walk only statement-level containers (do NOT descend into nested `FunctionDeclaration` nodes if they appear under `_start`'s root — check how function bodies are stored; if functions are separate `all_functions` entries, the top-level walk is already correct).
+
+Then pass `&module_const_inits, &module_binding_names` as two new trailing arguments to `FunctionEmitter::new` (`lower.rs:333`) and store them as borrowed fields:
+
+```rust
+    pub(crate) module_const_inits: &'a BTreeMap<String, LirNodeId>,
+    pub(crate) module_binding_names: &'a BTreeSet<String>,
+```
+
+- [ ] **Step 3: Purity check in `emitter.rs`**
+
+```rust
+    /// True when `id` is a compile-time-pure expression: a numeric literal, an
+    /// identifier of another pure module const (recursively, cycle-bounded),
+    /// or unary/binary arithmetic over pure operands. Guards module-const
+    /// inlining — an impure initializer (call, member access, allocation)
+    /// must not be re-emitted per use site.
+    pub(crate) fn is_pure_module_const_init(&self, id: LirNodeId, depth: usize) -> bool {
+        if depth > 16 {
+            return false;
+        }
+        let id = self.unwrap_transparent(id);
+        let node = self.node(id);
+        match node.kind {
+            LirNodeKind::Literal => true,
+            LirNodeKind::Value if node.children.is_empty() => {
+                let Some(text) = node.text.as_deref() else {
+                    return false;
+                };
+                parse_numeric_literal_value(text).is_some()
+                    || self
+                        .module_const_inits
+                        .get(text)
+                        .is_some_and(|&init| self.is_pure_module_const_init(init, depth + 1))
+            }
+            LirNodeKind::Value
+                if node.children.len() == 2
+                    && is_binary_operator_text(node.text.as_deref().unwrap_or_default()) =>
+            {
+                self.is_pure_module_const_init(node.children[0], depth + 1)
+                    && self.is_pure_module_const_init(node.children[1], depth + 1)
+            }
+            LirNodeKind::Value
+                if node.children.len() == 1
+                    && matches!(node.text.as_deref(), Some("-") | Some("+")) =>
+            {
+                self.is_pure_module_const_init(node.children[0], depth + 1)
+            }
+            _ => false,
+        }
+    }
+```
+
+- [ ] **Step 4: Identifier fallback in `control_flow.rs`**
+
+In the 0-child identifier path, after the `self.bindings.get(text)` lookup and before `parse_number_literal` (around line 415):
+
+```rust
+                    // Module-scope binding read from inside a function: inline
+                    // a compile-time-pure `const` initializer (all emitters
+                    // share one LirProgram node space), and gate every other
+                    // module binding — the old path lowered these through a
+                    // silent zero placeholder (a wrong answer, not an error).
+                    if self.function_name != "_start" {
+                        if let Some(&init) = self.module_const_inits.get(text) {
+                            if self.is_pure_module_const_init(init, 0) {
+                                return self.emit_node(function, init, want_value);
+                            }
+                        }
+                        if self.module_binding_names.contains(text) {
+                            self.diagnostics.push(Diagnostic::error(
+                                e5::FEATURE_UNAVAILABLE as u32,
+                                format!(
+                                    "reading module binding '{text}' from a function is only available for compile-time-constant `const` initializers in the current phase"
+                                ),
+                            ));
+                            function.instruction(&Instruction::I64Const(0));
+                            return EmittedValue {
+                                produced: true,
+                                shape: ValueShape::Unknown,
+                            };
+                        }
+                    }
+```
+
+(`self.locals.get(text)` already ran first, so a function-local shadow wins; `_start` itself reads its consts as ordinary locals and skips this block entirely.)
+
+- [ ] **Step 5: `is_float_valued` fallback in `operators.rs`**
+
+In the identifier (children-empty `Value`) handling inside `is_float_valued`, before it falls back to `scalar_repr`:
+
+```rust
+                // Module const inlined at this site: classify by its initializer.
+                if !self.locals.contains_key(name) && self.function_name != "_start" {
+                    if let Some(&init) = self.module_const_inits.get(name) {
+                        return self.is_float_valued(init);
+                    }
+                }
+```
+
+(Adapt `name` to the local variable in that arm.)
+
+- [ ] **Step 6: Run the tests**
+
+Run: `cargo test -p kali_cli module_ shadowing_ impure_module`
+Expected: all PASS.
+
+- [ ] **Step 7: Full gate + commit**
+
+Run: `cargo test -p kali_lexer -p kali_common -p kali_types -p kali_codegen -p kali_cli`
+
+If any pre-existing test fails, inspect it: a test that pinned the silent-zero result of a module-binding read from a function was pinning a miscompile — correct its expectation as a **behavior fix and flag it explicitly in the task summary**; do not weaken the gate. Truly-undefined identifiers (not module bindings) keep the old warning fallback, so E3-warning tests are unaffected.
+
+```bash
+cargo fmt --all
+git add -A && git commit -m "feat(codegen): inline pure module consts into functions; gate other module-binding reads (E5506)"
+```
+
+---
+
+### Task 9: Vendored n-body fixture, pinned canonical output, maturity rows
 
 **Files:**
 - Create: `crates/kali_cli/tests/fixtures/benchmarks/nbody-benchmark-v1.ts`, `crates/kali_cli/tests/fixtures/benchmarks/nbody-benchmark-v1.json`, `crates/kali_cli/tests/clbg_nbody_runtime.rs`
@@ -1637,14 +1866,17 @@ git add -A && git commit -m "feat(codegen): gate object misuse (console/arithmet
 
 - [ ] **Step 1: Write the fixture**
 
-`crates/kali_cli/tests/fixtures/benchmarks/nbody-benchmark-v1.ts` — planetary constants are the upstream CLBG values, digit-for-digit. Constants are **inlined per factory** (module-level consts read from inside functions are not part of the supported slice); `4 * 3.141592653589793 * 3.141592653589793` preserves the upstream `4 * PI * PI` left-associated evaluation bit-for-bit.
+`crates/kali_cli/tests/fixtures/benchmarks/nbody-benchmark-v1.ts` — planetary constants are the upstream CLBG values, digit-for-digit, with the upstream module consts (`PI`, `SOLAR_MASS`, `DAYS_PER_YEAR`) kept as module consts (supported via Task 8's inlining; `4 * PI * PI` left-associates identically under inlining, so evaluation is bit-for-bit the upstream arithmetic).
 
 ```ts
 // The Computer Language Benchmarks Game
 // https://benchmarksgame-team.pages.debian.net/benchmarksgame/
 // n-body — idiomatic TS port of the Node.js / JavaScript submission,
 // normalized to Kali's pipeline (no intrinsic tuning). Retains upstream attribution.
-// SOLAR_MASS = 4 * PI * PI and DAYS_PER_YEAR = 365.24 are inlined at each use.
+const PI = 3.141592653589793;
+const SOLAR_MASS = 4 * PI * PI;
+const DAYS_PER_YEAR = 365.24;
+
 function Sun() {
   return {
     x: 0.0,
@@ -1653,7 +1885,7 @@ function Sun() {
     vx: 0.0,
     vy: 0.0,
     vz: 0.0,
-    mass: 4 * 3.141592653589793 * 3.141592653589793
+    mass: SOLAR_MASS
   };
 }
 function Jupiter() {
@@ -1661,10 +1893,10 @@ function Jupiter() {
     x: 4.84143144246472090e+00,
     y: -1.16032004402742839e+00,
     z: -1.03622044471123109e-01,
-    vx: 1.66007664274403694e-03 * 365.24,
-    vy: 7.69901118419740425e-03 * 365.24,
-    vz: -6.90460016972063023e-05 * 365.24,
-    mass: 9.54791938424326609e-04 * (4 * 3.141592653589793 * 3.141592653589793)
+    vx: 1.66007664274403694e-03 * DAYS_PER_YEAR,
+    vy: 7.69901118419740425e-03 * DAYS_PER_YEAR,
+    vz: -6.90460016972063023e-05 * DAYS_PER_YEAR,
+    mass: 9.54791938424326609e-04 * SOLAR_MASS
   };
 }
 function Saturn() {
@@ -1672,10 +1904,10 @@ function Saturn() {
     x: 8.34336671824457987e+00,
     y: 4.12479856412430479e+00,
     z: -4.03523417114321381e-01,
-    vx: -2.76742510726862411e-03 * 365.24,
-    vy: 4.99852801234917238e-03 * 365.24,
-    vz: 2.30417297573763929e-05 * 365.24,
-    mass: 2.85885980666130812e-04 * (4 * 3.141592653589793 * 3.141592653589793)
+    vx: -2.76742510726862411e-03 * DAYS_PER_YEAR,
+    vy: 4.99852801234917238e-03 * DAYS_PER_YEAR,
+    vz: 2.30417297573763929e-05 * DAYS_PER_YEAR,
+    mass: 2.85885980666130812e-04 * SOLAR_MASS
   };
 }
 function Uranus() {
@@ -1683,10 +1915,10 @@ function Uranus() {
     x: 1.28943695621391310e+01,
     y: -1.51111514016986312e+01,
     z: -2.23307578892655734e-01,
-    vx: 2.96460137564761618e-03 * 365.24,
-    vy: 2.37847173959480950e-03 * 365.24,
-    vz: -2.96589568540237556e-05 * 365.24,
-    mass: 4.36624404335156298e-05 * (4 * 3.141592653589793 * 3.141592653589793)
+    vx: 2.96460137564761618e-03 * DAYS_PER_YEAR,
+    vy: 2.37847173959480950e-03 * DAYS_PER_YEAR,
+    vz: -2.96589568540237556e-05 * DAYS_PER_YEAR,
+    mass: 4.36624404335156298e-05 * SOLAR_MASS
   };
 }
 function Neptune() {
@@ -1694,10 +1926,10 @@ function Neptune() {
     x: 1.53796971148509165e+01,
     y: -2.59193146099879641e+01,
     z: 1.79258772950371181e-01,
-    vx: 2.68067772490389322e-03 * 365.24,
-    vy: 1.62824170038242295e-03 * 365.24,
-    vz: -9.51592254519715870e-05 * 365.24,
-    mass: 5.15138902046611451e-05 * (4 * 3.141592653589793 * 3.141592653589793)
+    vx: 2.68067772490389322e-03 * DAYS_PER_YEAR,
+    vy: 1.62824170038242295e-03 * DAYS_PER_YEAR,
+    vz: -9.51592254519715870e-05 * DAYS_PER_YEAR,
+    mass: 5.15138902046611451e-05 * SOLAR_MASS
   };
 }
 
@@ -1711,9 +1943,9 @@ function offsetMomentum(bodies) {
     py = py + b.vy * b.mass;
     pz = pz + b.vz * b.mass;
   }
-  bodies[0].vx = -px / (4 * 3.141592653589793 * 3.141592653589793);
-  bodies[0].vy = -py / (4 * 3.141592653589793 * 3.141592653589793);
-  bodies[0].vz = -pz / (4 * 3.141592653589793 * 3.141592653589793);
+  bodies[0].vx = -px / SOLAR_MASS;
+  bodies[0].vy = -py / SOLAR_MASS;
+  bodies[0].vz = -pz / SOLAR_MASS;
 }
 
 function advance(bodies, dt) {
@@ -1878,7 +2110,8 @@ Read the rows the spectral slice added: `grep -n "toFixed\|f64\|float" specs/19-
 - Runtime fixed-shape object literals: bump-allocated headerless structs, monomorphic statically-inferred shapes, typed field load/store (f64/i64), field writes including through aliases and array elements. Evidence: `imperative_core_runtime.rs` object tests + `clbg_nbody_runtime.rs`.
 - Object references in arrays and across calls: array literals of object refs, element aliasing, object params/factory returns. Same evidence.
 - Scientific-notation numeric literals (`1e5`, `4.84e+00`). Evidence: lexer tests + `exponent_notation_literals_run`.
-- Gated (not claimed): classes/`new`/`this`/prototypes, dynamic/polymorphic shapes, nested objects, printing object refs, object arithmetic, object literals as direct call arguments — all E5506.
+- Module-scope `const` reads from functions, scoped to compile-time-pure initializers (literals, module-const identifiers, arithmetic over them); reads of other module bindings from functions are rejected (previously a silent zero placeholder). Evidence: `module_consts_read_from_functions`, `module_let_read_from_function_is_rejected`.
+- Gated (not claimed): classes/`new`/`this`/prototypes, dynamic/polymorphic shapes, nested objects, printing object refs, object arithmetic, object literals as direct call arguments, module `let`/impure-const reads from functions — all E5506.
 
 Do NOT touch `proofs/BOUNDARY.md`.
 
@@ -1897,4 +2130,4 @@ git add -A && git commit -m "test(cli),docs(spec): vendored n-body fixture with 
 - [ ] `cargo test -p kali_lexer -p kali_common -p kali_types -p kali_codegen -p kali_cli` — green.
 - [ ] `cargo run -p kali_cli --bin kali -- run crates/kali_cli/tests/fixtures/benchmarks/nbody-benchmark-v1.ts` prints exactly the two canonical lines (use `superpowers:verification-before-completion`).
 - [ ] `git log --oneline` shows one commit per task; working tree clean; **nothing pushed**.
-- [ ] Spot-check fold-lane preservation: `git diff HEAD~8 -- crates/kali_cli/tests/fixtures/benchmarks/object-enumeration-benchmark-v1.json` shows no changes to any pre-existing fixture expectation.
+- [ ] Spot-check fold-lane preservation: `git diff HEAD~9 -- crates/kali_cli/tests/fixtures/benchmarks/object-enumeration-benchmark-v1.json` shows no changes to any pre-existing fixture expectation.
