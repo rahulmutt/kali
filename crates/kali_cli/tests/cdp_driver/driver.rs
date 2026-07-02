@@ -9,9 +9,13 @@ use tempfile::TempDir;
 
 use super::protocol::{CdpConnection, CdpError, CdpIncoming, CdpTransport};
 
-/// Whether the given browser executable can be invoked (`--version` succeeds).
+/// Whether the given browser executable can be invoked (`--version` exits 0).
 pub(crate) fn chromium_available(executable: &str) -> bool {
-    Command::new(executable).arg("--version").output().is_ok()
+    Command::new(executable)
+        .arg("--version")
+        .output()
+        .map(|output| output.status.success())
+        .unwrap_or(false)
 }
 
 /// Launch headless Chromium with remote debugging and read its `ws://` browser
@@ -611,6 +615,16 @@ globalThis.__kaliHarnessDone && globalThis.__kaliHarnessDone('');\
         };
         assert_eq!(outcome.stdout(), "l\ni\nd\n");
         assert_eq!(outcome.stderr(), "w\ne\n");
+    }
+
+    #[test]
+    fn chromium_available_requires_a_zero_exit_status() {
+        // Not on PATH at all:
+        assert!(!chromium_available("kali-cdp-test-no-such-browser"));
+        // Spawns fine but exits non-zero (`false --version` exits 1):
+        assert!(!chromium_available("false"));
+        // Spawns fine and exits 0 (`true --version` exits 0 under coreutils):
+        assert!(chromium_available("true"));
     }
 
     /// A scripted transport: `send` records method names and hands out ids

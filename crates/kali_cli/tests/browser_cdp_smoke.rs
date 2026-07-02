@@ -13,7 +13,7 @@
 mod cdp_driver;
 
 use std::fs;
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
 use std::path::PathBuf;
 use std::process::Command;
@@ -29,12 +29,10 @@ fn kali_bin() -> String {
 }
 
 fn chromium() -> Option<String> {
-    for exe in ["chromium", "chromium-browser", "google-chrome", "chrome"] {
-        if Command::new(exe).arg("--version").output().is_ok() {
-            return Some(exe.to_owned());
-        }
-    }
-    None
+    ["chromium", "chromium-browser", "google-chrome", "chrome"]
+        .into_iter()
+        .find(|&exe| cdp_driver::chromium_available(exe))
+        .map(str::to_owned)
 }
 
 /// Map a file extension to a minimal, correct content-type for module loading.
@@ -97,8 +95,6 @@ fn serve_dir(root: PathBuf) -> u16 {
             };
             let _ = stream.write_all(&response);
             let _ = stream.flush();
-            // Best-effort: let the client read before the socket drops.
-            let _ = stream.read(&mut [0u8; 0]);
         }
     });
     port
