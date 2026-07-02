@@ -399,3 +399,39 @@ fn browser_bundle_runtime_harness_page_wraps_the_module_body_for_real_browser_ho
     );
     assert!(page.contains("browser-app/browser-app.js"), "page: {page}");
 }
+
+#[test]
+fn browser_bundle_harness_page_is_browser_native() {
+    let body = "const mod = await import(bundleJs.href);\nawait mod.start();\n";
+    let page = browser_bundle_harness_page("app", body);
+    assert!(page.starts_with("<!doctype html>"), "page: {page}");
+    assert!(page.contains("<script type=\"module\">"), "page: {page}");
+    assert!(
+        page.contains("const bundleJs = new URL('./app/app.js', import.meta.url);"),
+        "page: {page}"
+    );
+    assert!(page.contains(body), "page: {page}");
+    assert!(
+        page.contains("globalThis.__kaliHarnessDone('')"),
+        "page must signal the completion binding with one string arg: {page}"
+    );
+    assert!(page.contains(BROWSER_HARNESS_DONE_BINDING), "page: {page}");
+    assert!(
+        !page.contains("node:"),
+        "a browser-native page must not import node builtins: {page}"
+    );
+}
+
+#[test]
+fn browser_bundle_harness_page_shares_the_node_script_body_contract() {
+    let body = "const mod = await import(bundleJs.href);\nawait mod.start();\n";
+    let node_script = browser_bundle_harness_script("app", false, body);
+    let page = browser_bundle_harness_page("app", body);
+    for artifact in [node_script.as_str(), page.as_str()] {
+        assert!(
+            artifact.contains("const bundleJs = new URL('./app/app.js', import.meta.url);"),
+            "artifact: {artifact}"
+        );
+        assert!(artifact.contains(body), "artifact: {artifact}");
+    }
+}

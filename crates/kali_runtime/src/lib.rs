@@ -33,10 +33,10 @@ pub use browser::execute::{
     BrowserHarnessOutcome, BrowserRuntimeExecutionOutcome,
 };
 pub use browser::harness::{
-    browser_bundle_harness_prelude, browser_bundle_harness_script,
+    browser_bundle_harness_page, browser_bundle_harness_prelude, browser_bundle_harness_script,
     browser_bundle_runtime_harness_module_script, browser_bundle_runtime_harness_page,
     browser_bundle_runtime_harness_script, browser_runtime_harness_page,
-    browser_runtime_harness_script,
+    browser_runtime_harness_script, BROWSER_HARNESS_DONE_BINDING,
 };
 #[cfg(test)]
 pub(crate) use execute::execute_browser_runtime;

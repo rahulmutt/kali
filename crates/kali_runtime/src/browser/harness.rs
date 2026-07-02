@@ -59,6 +59,40 @@ pub fn browser_bundle_harness_script(bundle_dir: &str, allow_subpaths: bool, bod
     )
 }
 
+/// The completion binding a browser harness page invokes once its body has
+/// finished (successfully or not). A DevTools/CDP driver installs it via
+/// `Runtime.addBinding`; Chromium requires binding functions to be called
+/// with exactly one string argument, so pages pass `''`.
+pub const BROWSER_HARNESS_DONE_BINDING: &str = "__kaliHarnessDone";
+
+/// Build a browser-native harness page for an HTTP-served bundle. Unlike the
+/// node-only prelude above, this emits no `node:` imports and installs no
+/// fetch shim: the bundle glue's own `fetch(wasmUrl)` works once the bundle
+/// directory is served over HTTP next to this page. The module script defines
+/// `bundleJs` for the body — the same body contract as
+/// [`browser_bundle_harness_script`] — reports body failures via
+/// `console.error`, and always invokes [`BROWSER_HARNESS_DONE_BINDING`] when
+/// a driver has installed it.
+pub fn browser_bundle_harness_page(bundle_dir: &str, body: &str) -> String {
+    format!(
+        r#"<!doctype html>
+<meta charset="utf-8">
+<title>Kali browser bundle harness</title>
+<script type="module">
+const bundleJs = new URL('./{bundle_dir}/{bundle_dir}.js', import.meta.url);
+try {{
+{body}}} catch (err) {{
+  console.error('harness error: ' + (err && err.stack || err));
+}}
+if (globalThis.{binding}) {{ globalThis.{binding}(''); }}
+</script>
+"#,
+        bundle_dir = bundle_dir,
+        body = body,
+        binding = BROWSER_HARNESS_DONE_BINDING
+    )
+}
+
 /// Build a browser-bundle runtime harness module that loads the emitted bundle glue.
 ///
 /// The generated module reuses the shared browser-bundle fetch shim, imports the emitted bundle,
