@@ -8,3 +8,7 @@ run = "devenv shell -- bash -lc 'cd proofs && lake build'"
 [tasks.determinism]
 description = "Run the Phase-1 determinism smoke lane"
 run = "bash scripts/check-determinism.sh"
+
+[tasks.browser-smoke]
+description = "Run the browser CDP smoke tests against a real Chromium"
+run = "cargo test -p kali_cli --test browser_cdp_smoke -- --ignored"

@@ -266,6 +266,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore = "launches a real Chromium; run with `-- --ignored`"]
     fn spawns_chromium_and_reports_ws_endpoint() {
         if !chromium_available("chromium") {
             eprintln!("skipping: chromium not available");
@@ -279,6 +280,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "launches a real Chromium; run with `-- --ignored`"]
     fn round_trips_browser_get_version() {
         if !chromium_available("chromium") {
             eprintln!("skipping: chromium not available");
@@ -305,6 +307,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "launches a real Chromium; run with `-- --ignored`"]
     fn runs_page_captures_console_and_completes() {
         if !chromium_available("chromium") {
             eprintln!("skipping: chromium not available");

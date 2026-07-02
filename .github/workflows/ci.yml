@@ -158,6 +158,35 @@ jobs:
       - name: Run determinism smoke lane
         run: bash scripts/check-determinism.sh
 
+  browser-cdp-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-v2-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-v2-
+
+      - name: Expose the preinstalled Chrome as `chromium`
+        run: |
+          if ! command -v chromium >/dev/null; then
+            sudo ln -s "$(command -v google-chrome)" /usr/local/bin/chromium
+          fi
+          chromium --version
+
+      - name: Run browser CDP smoke tests
+        run: cargo test -p kali_cli --test browser_cdp_smoke --verbose -- --ignored
+
   package-corpus:
     if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
