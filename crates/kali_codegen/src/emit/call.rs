@@ -1,6 +1,22 @@
 use crate::*;
 
 impl<'a> FunctionEmitter<'a> {
+    /// Emit `id` as a console-import argument: always leaves exactly one i64
+    /// (tagged scalar or string handle) on the stack. Float-shaped values are
+    /// stringified via the `float_to_string` host import — the i64 value
+    /// domain has no float encoding, so passing a raw f64 would emit
+    /// type-invalid wasm.
+    fn emit_console_argument(&mut self, function: &mut Function, id: LirNodeId) {
+        let emitted = self.emit_node(function, id, true);
+        if !emitted.produced {
+            function.instruction(&Instruction::I64Const(0));
+            return;
+        }
+        if matches!(emitted.shape, ValueShape::Float) {
+            function.instruction(&Instruction::Call(FLOAT_TO_STRING_IMPORT_INDEX));
+        }
+    }
+
     pub(crate) fn emit_call(&mut self, function: &mut Function, node: &LirNode) -> EmittedValue {
         let Some(callee) = node.children.first().copied() else {
             function.instruction(&Instruction::I64Const(0));
@@ -82,11 +98,13 @@ impl<'a> FunctionEmitter<'a> {
                     function.instruction(&Instruction::I64Const(handle));
                     function.instruction(&Instruction::Call(CONSOLE_ERROR_IMPORT_INDEX));
                 } else if let Some(first_arg) = message_args.first().copied() {
-                    let _ = self.emit_node(function, first_arg, true);
+                    self.emit_console_argument(function, first_arg);
                     function.instruction(&Instruction::Call(CONSOLE_ERROR_IMPORT_INDEX));
                     for arg in message_args.iter().skip(1) {
-                        let _ = self.emit_node(function, *arg, true);
-                        function.instruction(&Instruction::Drop);
+                        let produced = self.emit_node(function, *arg, true);
+                        if produced.produced {
+                            function.instruction(&Instruction::Drop);
+                        }
                     }
                 }
             } else {
@@ -116,14 +134,16 @@ impl<'a> FunctionEmitter<'a> {
 
             let mut args = node.children.iter().skip(1);
             if let Some(first_arg) = args.next() {
-                let _ = self.emit_node(function, *first_arg, true);
+                self.emit_console_argument(function, *first_arg);
             } else {
                 function.instruction(&Instruction::I64Const(0));
             }
             function.instruction(&Instruction::Call(import_index));
             for arg in args {
-                let _ = self.emit_node(function, *arg, true);
-                function.instruction(&Instruction::Drop);
+                let produced = self.emit_node(function, *arg, true);
+                if produced.produced {
+                    function.instruction(&Instruction::Drop);
+                }
             }
             return EmittedValue {
                 produced: false,

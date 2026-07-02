@@ -1548,6 +1548,9 @@ const defaultImportObject = {{
       const clampedDigits = Math.min(Math.max(Number(digits), 0), 100);
       return allocGuestString(new TextEncoder().encode(Number(value).toFixed(clampedDigits)));
     }},
+    float_to_string(value) {{
+      return allocGuestString(new TextEncoder().encode(String(value)));
+    }},
     args_len() {{ return 0; }},
     process_pid() {{
       return 0;
@@ -1791,6 +1794,9 @@ const defaultImportObject = {{
     float_to_fixed(value, digits) {{
       const clampedDigits = Math.min(Math.max(Number(digits), 0), 100);
       return allocGuestString(new TextEncoder().encode(Number(value).toFixed(clampedDigits)));
+    }},
+    float_to_string(value) {{
+      return allocGuestString(new TextEncoder().encode(String(value)));
     }},
     args_len() {{ return 0; }},
     process_pid() {{

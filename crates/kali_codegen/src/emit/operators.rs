@@ -526,15 +526,21 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     /// Emits `id` as a string handle: if it is already string-valued the emitted
-    /// value is a handle; otherwise the produced i64 is coerced to a decimal-string
-    /// handle via `int_to_string`.
+    /// value is a handle; float-shaped values are stringified via
+    /// `float_to_string` (JS `String(number)` semantics); otherwise the produced
+    /// i64 is coerced to a decimal-string handle via `int_to_string`.
     pub(crate) fn emit_as_string(&mut self, function: &mut Function, id: LirNodeId) {
         let is_string = self.is_string_valued(id);
-        let produced = self.emit_node(function, id, true);
-        if !produced.produced {
+        let emitted = self.emit_node(function, id, true);
+        if !emitted.produced {
             function.instruction(&Instruction::I64Const(0));
         }
-        if !is_string {
+        if is_string {
+            return;
+        }
+        if emitted.produced && matches!(emitted.shape, ValueShape::Float) {
+            function.instruction(&Instruction::Call(FLOAT_TO_STRING_IMPORT_INDEX));
+        } else {
             function.instruction(&Instruction::Call(INT_TO_STRING_IMPORT_INDEX));
         }
     }

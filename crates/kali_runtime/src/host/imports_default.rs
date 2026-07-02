@@ -658,6 +658,17 @@ pub(crate) fn register_default_host_imports(
     linker
         .func_wrap(
             "kali:rt",
+            "float_to_string",
+            |mut caller: Caller<'_, KaliHostState>, value: f64| -> i64 {
+                let text = format_js_number(value);
+                alloc_guest_string(&mut caller, text.as_bytes()).unwrap_or(0)
+            },
+        )
+        .map_err(|error| host_import_error("float_to_string", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
             "args_get",
             |mut caller: Caller<'_, KaliHostState>,
              index: i32,
@@ -805,4 +816,23 @@ pub(crate) fn register_default_host_imports(
         .map_err(|error| host_import_error("queueMicrotask", error))?;
 
     Ok(())
+}
+
+/// Format an f64 with JavaScript `String(number)` semantics for the common
+/// cases: `NaN`, `Infinity`, `-Infinity`, and ±0 render exactly as JS does;
+/// other finite values use Rust's shortest round-trip formatting, which
+/// matches JS for ordinary magnitudes. Known divergence: JS switches to
+/// exponent notation for |x| >= 1e21 and very small magnitudes, which this
+/// phase does not reproduce.
+fn format_js_number(value: f64) -> String {
+    if value.is_nan() {
+        return "NaN".to_owned();
+    }
+    if value.is_infinite() {
+        return if value > 0.0 { "Infinity" } else { "-Infinity" }.to_owned();
+    }
+    if value == 0.0 {
+        return "0".to_owned();
+    }
+    format!("{value}")
 }
