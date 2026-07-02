@@ -295,11 +295,21 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         if function.is_entry {
             export_section.export("_start", ExportKind::Func, function_name_to_index["_start"]);
         } else {
-            export_section.export(
-                &function.name,
-                ExportKind::Func,
-                function_name_to_index[&function.name],
-            );
+            let index = function_name_to_index[&function.name];
+            export_section.export(&function.name, ExportKind::Func, index);
+            // `Kali.test(name, callback)` registers its callback with the host via
+            // `test_register(callback_index)` (see `kali_test_callback_index` /
+            // `emit_call` in `emit/call.rs`), where `callback_index` is this same
+            // raw wasm function index. Both consumers of that registration —
+            // `kali_runtime::host::enforce::invoke_callback` (native wasmtime test
+            // runner) and the browser-harness JS scripts in
+            // `kali_runtime::browser::harness` — look the callback up by the export
+            // name `__kali_callback_<index>`, not by the function's own declared or
+            // synthetic name. Alias every non-entry function under that name too so
+            // any function reachable as a Kali.test callback resolves correctly;
+            // this previously went unexercised because arrow-shaped callbacks were
+            // never compiled as real functions before this change.
+            export_section.export(&format!("__kali_callback_{index}"), ExportKind::Func, index);
         }
     }
 
