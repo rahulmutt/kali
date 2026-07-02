@@ -74,7 +74,7 @@ pub(crate) const CDP_DONE_BINDING: &str = "__kaliHarnessDone";
 /// One captured console call from the page.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CdpConsoleLine {
-    /// Console method: "log", "error", "warn", "info", "debug".
+    /// Console method: "log", "error", "warn", "info", "debug", "exception" (uncaught errors), or any other CDP console type passed through.
     pub kind: String,
     /// The joined, stringified arguments.
     pub text: String,
@@ -198,6 +198,7 @@ pub struct CdpBrowser {
     conn: CdpConnection,
     /// Events received while a command call was awaiting its response,
     /// preserved for the next page-run loop instead of being discarded.
+    /// The buffer is unbounded; fine for this test-only driver whose calls are short.
     pending_events: VecDeque<CdpIncoming>,
     _user_data_dir: TempDir,
 }
@@ -475,6 +476,19 @@ globalThis.__kaliHarnessDone && globalThis.__kaliHarnessDone('');\
             PageEvent::Console(CdpConsoleLine {
                 kind: "info".to_owned(),
                 text: "a 3".to_owned(),
+            })
+        );
+        // Chromium reports console.warn as raw type "warning"; the driver
+        // normalizes it to "warn" so stderr()'s node-style kind split matches.
+        let warn_params = serde_json::json!({
+            "type": "warning",
+            "args": [{ "value": "w" }]
+        });
+        assert_eq!(
+            route_event("Runtime.consoleAPICalled", &warn_params, Some("S1"), "S1"),
+            PageEvent::Console(CdpConsoleLine {
+                kind: "warn".to_owned(),
+                text: "w".to_owned(),
             })
         );
     }
