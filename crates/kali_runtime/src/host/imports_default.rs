@@ -818,12 +818,11 @@ pub(crate) fn register_default_host_imports(
     Ok(())
 }
 
-/// Format an f64 with JavaScript `String(number)` semantics for the common
-/// cases: `NaN`, `Infinity`, `-Infinity`, and ±0 render exactly as JS does;
-/// other finite values use Rust's shortest round-trip formatting, which
-/// matches JS for ordinary magnitudes. Known divergence: JS switches to
-/// exponent notation for |x| >= 1e21 and very small magnitudes, which this
-/// phase does not reproduce.
+/// JS `String(number)` semantics: `NaN`, `Infinity`, `-Infinity`, `0` for
+/// ±0, and the ECMA-262 Number-to-String algorithm (via `ryu-js`) for every
+/// other double — byte-identical to the JS glue mirrors' native
+/// `String(value)`, including exponent notation for |x| >= 1e21 and
+/// magnitudes below 1e-6.
 fn format_js_number(value: f64) -> String {
     if value.is_nan() {
         return "NaN".to_owned();
@@ -834,5 +833,9 @@ fn format_js_number(value: f64) -> String {
     if value == 0.0 {
         return "0".to_owned();
     }
-    format!("{value}")
+    ryu_js::Buffer::new().format_finite(value).to_owned()
 }
+
+#[cfg(test)]
+#[path = "imports_default_tests.rs"]
+mod imports_default_tests;
