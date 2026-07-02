@@ -71,7 +71,7 @@ pub(crate) fn spawn_chromium(
 pub(crate) const CDP_DONE_BINDING: &str = "__kaliHarnessDone";
 
 /// One captured console call from the page.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CdpConsoleLine {
     /// Console method: "log", "error", "warn", "info", "debug".
     pub kind: String,
@@ -114,6 +114,68 @@ fn console_arg_text(arg: &Value) -> String {
         .and_then(Value::as_str)
         .unwrap_or("")
         .to_owned()
+}
+
+/// What a page run should do with one incoming CDP event.
+#[derive(Debug, PartialEq)]
+pub(crate) enum PageEvent {
+    /// Record this console (or exception) line.
+    Console(CdpConsoleLine),
+    /// The page called the completion binding.
+    Completed,
+    /// Not for this page run.
+    Ignore,
+}
+
+/// Route one CDP event during a page run. Only events from `page_session`
+/// count; other sessions and unrelated methods are ignored, so output from
+/// a different target can neither bleed into the console nor fake completion.
+pub(crate) fn route_event(
+    method: &str,
+    params: &Value,
+    event_session: Option<&str>,
+    page_session: &str,
+) -> PageEvent {
+    if event_session != Some(page_session) {
+        return PageEvent::Ignore;
+    }
+    match method {
+        "Runtime.consoleAPICalled" => {
+            let kind = params["type"].as_str().unwrap_or("log").to_owned();
+            let text = params["args"]
+                .as_array()
+                .map(|args| {
+                    args.iter()
+                        .map(console_arg_text)
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                })
+                .unwrap_or_default();
+            PageEvent::Console(CdpConsoleLine { kind, text })
+        }
+        "Runtime.bindingCalled" if params["name"].as_str() == Some(CDP_DONE_BINDING) => {
+            PageEvent::Completed
+        }
+        "Runtime.exceptionThrown" => {
+            let details = &params["exceptionDetails"];
+            let mut parts = Vec::new();
+            for candidate in [
+                details.get("text"),
+                details.get("exception").and_then(|e| e.get("description")),
+            ] {
+                if let Some(part) = candidate.and_then(Value::as_str) {
+                    if !part.is_empty() {
+                        parts.push(part);
+                    }
+                }
+            }
+            PageEvent::Console(CdpConsoleLine {
+                kind: "exception".to_owned(),
+                text: parts.join(" "),
+            })
+        }
+        _ => PageEvent::Ignore,
+    }
 }
 
 /// A launched Chromium plus its blocking CDP connection.
@@ -328,5 +390,87 @@ console.log('3'); console.log('3'); globalThis.__kaliHarnessDone && globalThis._
         let stdout = outcome.stdout();
         assert!(stdout.contains("3\n"), "stdout: {stdout:?}");
         assert!(stdout.matches("3\n").count() >= 2, "stdout: {stdout:?}");
+    }
+
+    #[test]
+    fn route_event_ignores_other_sessions() {
+        let params = serde_json::json!({ "type": "log", "args": [{ "value": "hi" }] });
+        assert_eq!(
+            route_event("Runtime.consoleAPICalled", &params, Some("OTHER"), "S1"),
+            PageEvent::Ignore
+        );
+        assert_eq!(
+            route_event("Runtime.consoleAPICalled", &params, None, "S1"),
+            PageEvent::Ignore
+        );
+        let done = serde_json::json!({ "name": CDP_DONE_BINDING, "payload": "" });
+        assert_eq!(
+            route_event("Runtime.bindingCalled", &done, Some("OTHER"), "S1"),
+            PageEvent::Ignore
+        );
+    }
+
+    #[test]
+    fn route_event_captures_console_kinds_and_joins_args() {
+        let params = serde_json::json!({
+            "type": "info",
+            "args": [{ "value": "a" }, { "value": 3 }]
+        });
+        assert_eq!(
+            route_event("Runtime.consoleAPICalled", &params, Some("S1"), "S1"),
+            PageEvent::Console(CdpConsoleLine {
+                kind: "info".to_owned(),
+                text: "a 3".to_owned(),
+            })
+        );
+    }
+
+    #[test]
+    fn route_event_recognizes_completion_binding_only_by_name() {
+        let done = serde_json::json!({ "name": CDP_DONE_BINDING, "payload": "" });
+        assert_eq!(
+            route_event("Runtime.bindingCalled", &done, Some("S1"), "S1"),
+            PageEvent::Completed
+        );
+        let other = serde_json::json!({ "name": "someOtherBinding", "payload": "" });
+        assert_eq!(
+            route_event("Runtime.bindingCalled", &other, Some("S1"), "S1"),
+            PageEvent::Ignore
+        );
+    }
+
+    #[test]
+    fn route_event_captures_exceptions_with_text_and_description() {
+        let params = serde_json::json!({
+            "exceptionDetails": {
+                "text": "Uncaught",
+                "exception": { "description": "Error: boom\n    at <anonymous>:1:1" }
+            }
+        });
+        assert_eq!(
+            route_event("Runtime.exceptionThrown", &params, Some("S1"), "S1"),
+            PageEvent::Console(CdpConsoleLine {
+                kind: "exception".to_owned(),
+                text: "Uncaught Error: boom\n    at <anonymous>:1:1".to_owned(),
+            })
+        );
+        // Missing description: only the text survives, no trailing separator.
+        let bare = serde_json::json!({ "exceptionDetails": { "text": "Uncaught" } });
+        assert_eq!(
+            route_event("Runtime.exceptionThrown", &bare, Some("S1"), "S1"),
+            PageEvent::Console(CdpConsoleLine {
+                kind: "exception".to_owned(),
+                text: "Uncaught".to_owned(),
+            })
+        );
+    }
+
+    #[test]
+    fn route_event_ignores_unrelated_methods() {
+        let params = serde_json::json!({});
+        assert_eq!(
+            route_event("Page.frameNavigated", &params, Some("S1"), "S1"),
+            PageEvent::Ignore
+        );
     }
 }
