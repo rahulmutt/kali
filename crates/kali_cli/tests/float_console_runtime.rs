@@ -51,3 +51,12 @@ fn run_concatenates_runtime_floats_into_strings() {
     assert!(ok, "stdout: {stdout}\nstderr: {stderr}");
     assert_eq!(stdout, "v: 3.5\n");
 }
+
+#[test]
+fn run_prints_floats_read_from_mutable_locals_and_params() {
+    let (ok, stdout, stderr) = run_fixture(
+        "let x = 7 / 2;\nconsole.log(x);\nconsole.log(\"v: \" + x);\nlet y = 1.5;\nconsole.log(y);\nfunction show(v) {\n  console.log(v);\n  console.log(\"p: \" + v);\n}\nshow(9 / 2);\n",
+    );
+    assert!(ok, "stdout: {stdout}\nstderr: {stderr}");
+    assert_eq!(stdout, "3.5\nv: 3.5\n1.5\n4.5\np: 4.5\n");
+}

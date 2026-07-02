@@ -538,7 +538,9 @@ impl<'a> FunctionEmitter<'a> {
         if is_string {
             return;
         }
-        if emitted.produced && matches!(emitted.shape, ValueShape::Float) {
+        if emitted.produced
+            && (matches!(emitted.shape, ValueShape::Float) || self.is_float_valued(id))
+        {
             function.instruction(&Instruction::Call(FLOAT_TO_STRING_IMPORT_INDEX));
         } else {
             function.instruction(&Instruction::Call(INT_TO_STRING_IMPORT_INDEX));

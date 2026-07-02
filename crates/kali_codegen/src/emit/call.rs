@@ -5,14 +5,22 @@ impl<'a> FunctionEmitter<'a> {
     /// (tagged scalar or string handle) on the stack. Float-shaped values are
     /// stringified via the `float_to_string` host import — the i64 value
     /// domain has no float encoding, so passing a raw f64 would emit
-    /// type-invalid wasm.
+    /// type-invalid wasm. Local and param reads emit shape `Unknown`, so the
+    /// repr-based `is_float_valued` is consulted as well — the same signal
+    /// the float-operand seams use. `is_float_valued` doesn't account for
+    /// string concatenation (`"v: " + x` is float-valued on its right operand
+    /// but string-shaped overall), so it is gated on `!is_string_valued(id)`
+    /// — `emit_binary`'s string-concat path already converts any float
+    /// operands internally and returns shape `String`.
     fn emit_console_argument(&mut self, function: &mut Function, id: LirNodeId) {
         let emitted = self.emit_node(function, id, true);
         if !emitted.produced {
             function.instruction(&Instruction::I64Const(0));
             return;
         }
-        if matches!(emitted.shape, ValueShape::Float) {
+        if matches!(emitted.shape, ValueShape::Float)
+            || (!self.is_string_valued(id) && self.is_float_valued(id))
+        {
             function.instruction(&Instruction::Call(FLOAT_TO_STRING_IMPORT_INDEX));
         }
     }
