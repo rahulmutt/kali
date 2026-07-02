@@ -1643,7 +1643,16 @@ fn write_browser_runtime_exports_package_fixture(package_dir: &Path, package_nam
     .expect("write browser package browser entry");
 }
 
-fn assert_browser_bundle_executes(bundle_root: &Path, export_name: &str) {
+/// Runs the bundle's `export_name(1n, 2n)` through the node harness and pins
+/// the result. `expected` is the decimal digits of the expected BigInt (i64
+/// exports surface as BigInt through the raw wasm-export ABI). Pinning the
+/// real source value proves the exported body actually executed; a blanket
+/// `0n` pin is indistinguishable from a dead stub (b5c085401 precedent).
+fn assert_browser_bundle_executes_with_result(
+    bundle_root: &Path,
+    export_name: &str,
+    expected: &str,
+) {
     let bundle_dir = bundle_root
         .file_name()
         .and_then(|name| name.to_str())
@@ -1658,12 +1667,13 @@ fn assert_browser_bundle_executes(bundle_root: &Path, export_name: &str) {
         &format!(
             r#"const mod = await import(bundleJs.href);
 const result = await mod.{export_name}(1n, 2n);
-if (result !== 0n) {{
+if (result !== {expected}n) {{
   throw new Error(`unexpected result ${{result}}`);
 }}
 console.log(String(result));
 "#,
             export_name = export_name,
+            expected = expected,
         ),
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
@@ -1684,7 +1694,12 @@ console.log(String(result));
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains('0'), "stdout: {stdout}");
+    assert!(stdout.contains(expected), "stdout: {stdout}");
+}
+
+/// Callers whose fixtures genuinely `return 0n;`.
+fn assert_browser_bundle_executes(bundle_root: &Path, export_name: &str) {
+    assert_browser_bundle_executes_with_result(bundle_root, export_name, "0");
 }
 
 fn assert_browser_bundle_promise_all_sequencing(filename: &str, json_output: bool) {

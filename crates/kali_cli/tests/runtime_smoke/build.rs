@@ -3366,7 +3366,8 @@ fn build_emits_browser_bundle_artifacts() {
     assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
     assert_eq!(metadata["apiSurface"], "browser");
 
-    assert_browser_bundle_executes(&bundle_dir, "greet");
+    // greet is `function greet(name) { return name; }` — greet(1n, 2n) === 1n.
+    assert_browser_bundle_executes_with_result(&bundle_dir, "greet", "1");
 }
 
 #[test]
@@ -3435,7 +3436,8 @@ fn build_emits_browser_bundle_artifacts_in_js_input() {
     assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
     assert_eq!(metadata["apiSurface"], "browser");
 
-    assert_browser_bundle_executes(&bundle_dir, "greet");
+    // greet is `function greet(name) { return name; }` — greet(1n, 2n) === 1n.
+    assert_browser_bundle_executes_with_result(&bundle_dir, "greet", "1");
 }
 
 #[test]
@@ -3512,7 +3514,8 @@ fn build_emits_inherited_browser_bundle_artifacts_in_js_input() {
     assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
     assert_eq!(metadata["apiSurface"], "browser");
 
-    assert_browser_bundle_executes(&bundle_dir, "greet");
+    // greet is `function greet(name) { return name; }` — greet(1n, 2n) === 1n.
+    assert_browser_bundle_executes_with_result(&bundle_dir, "greet", "1");
 }
 
 #[test]
@@ -3602,7 +3605,8 @@ fn build_embeds_sandbox_policy_custom_section_for_browser_bundle_artifact_with_v
     assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
     assert_eq!(metadata["apiSurface"], "browser");
     assert_embeds_policy_custom_section(&wasm_path, &policy_path);
-    assert_browser_bundle_executes(&bundle_dir, "greet");
+    // greet is `function greet(name) { return name; }` — greet(1n, 2n) === 1n.
+    assert_browser_bundle_executes_with_result(&bundle_dir, "greet", "1");
 }
 
 #[test]
@@ -3653,7 +3657,8 @@ fn build_trees_shakes_unused_browser_bundle_exports() {
     assert_eq!(exports.len(), 1);
     assert_eq!(exports[0]["name"], "greet");
 
-    assert_browser_bundle_executes(&bundle_dir, "greet");
+    // greet is `function greet(name) { return name; }` — greet(1n, 2n) === 1n.
+    assert_browser_bundle_executes_with_result(&bundle_dir, "greet", "1");
 }
 
 #[test]
@@ -11345,7 +11350,8 @@ fn build_uses_inherited_browser_api_surface_for_bundle() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    assert_browser_bundle_executes(&dir.path().join("app"), "greet");
+    // greet is `function greet(name) { return name; }` — greet(1n, 2n) === 1n.
+    assert_browser_bundle_executes_with_result(&dir.path().join("app"), "greet", "1");
 }
 
 #[test]
@@ -11387,7 +11393,8 @@ fn build_uses_inherited_browser_api_surface_for_bundle_with_sandbox() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    assert_browser_bundle_executes(&dir.path().join("app"), "greet");
+    // greet is `function greet(name) { return name; }` — greet(1n, 2n) === 1n.
+    assert_browser_bundle_executes_with_result(&dir.path().join("app"), "greet", "1");
 }
 
 #[test]
@@ -11441,7 +11448,8 @@ fn build_uses_inherited_browser_api_surface_for_bundle_with_validate_ir_and_sand
     assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
     assert_eq!(metadata["apiSurface"], "browser");
     assert_embeds_policy_custom_section(&wasm_path, &policy_path);
-    assert_browser_bundle_executes(&bundle_dir, "greet");
+    // greet is `function greet(name) { return name; }` — greet(1n, 2n) === 1n.
+    assert_browser_bundle_executes_with_result(&bundle_dir, "greet", "1");
 }
 
 #[test]
@@ -11475,7 +11483,8 @@ fn build_uses_explicit_browser_api_surface_for_bundle_with_sandbox() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    assert_browser_bundle_executes(&dir.path().join("app"), "greet");
+    // greet is `function greet(name) { return name; }` — greet(1n, 2n) === 1n.
+    assert_browser_bundle_executes_with_result(&dir.path().join("app"), "greet", "1");
 }
 
 #[test]
@@ -11517,7 +11526,8 @@ fn build_uses_inherited_browser_api_surface_for_bundle_with_sandbox_in_js_input(
         String::from_utf8_lossy(&output.stderr)
     );
 
-    assert_browser_bundle_executes(&dir.path().join("app"), "greet");
+    // greet is `function greet(name) { return name; }` — greet(1n, 2n) === 1n.
+    assert_browser_bundle_executes_with_result(&dir.path().join("app"), "greet", "1");
 }
 
 #[test]
@@ -11551,7 +11561,8 @@ fn build_uses_explicit_browser_api_surface_for_bundle_with_sandbox_in_js_input()
         String::from_utf8_lossy(&output.stderr)
     );
 
-    assert_browser_bundle_executes(&dir.path().join("app"), "greet");
+    // greet is `function greet(name) { return name; }` — greet(1n, 2n) === 1n.
+    assert_browser_bundle_executes_with_result(&dir.path().join("app"), "greet", "1");
 }
 
 #[test]
@@ -11610,7 +11621,8 @@ fn json_build_emits_browser_bundle_artifacts_for_inherited_browser_api_surface()
     assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
     assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
 
-    assert_browser_bundle_executes(&dir.path().join("app"), "greet");
+    // greet is `function greet(name) { return name; }` — greet(1n, 2n) === 1n.
+    assert_browser_bundle_executes_with_result(&dir.path().join("app"), "greet", "1");
 }
 
 #[test]
@@ -11665,7 +11677,8 @@ fn json_build_emits_browser_bundle_artifacts_for_explicit_browser_api_surface() 
     assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
     assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
 
-    assert_browser_bundle_executes(&dir.path().join("app"), "greet");
+    // greet is `function greet(name) { return name; }` — greet(1n, 2n) === 1n.
+    assert_browser_bundle_executes_with_result(&dir.path().join("app"), "greet", "1");
 }
 
 #[test]
