@@ -737,7 +737,20 @@ pub(crate) fn function_plan(nodes: &[LirNode], id: LirNodeId) -> Option<Function
         return None;
     }
     let body_id = *node.children.last()?;
-    if nodes.get(body_id.0 as usize)?.kind != LirNodeKind::Block {
+    let body_node = nodes.get(body_id.0 as usize)?;
+    // A function body is either a real `Block` (function declarations,
+    // function expressions, block-bodied arrows) or the single synthesized
+    // `Branch("return")` statement an expression-bodied arrow lowers to
+    // (`(x, y) => x + y`). Recognizing the latter compiles const-bound arrows
+    // as standalone wasm functions: inside their own function the emitted
+    // `Instruction::Return` is correct, whereas inlining it at the declaration
+    // site terminated the ENCLOSING function (silently truncating execution
+    // with exit 0). Call sites already dispatch through the const `bindings`
+    // resolution in `resolve_bound_member_callable_node`.
+    let is_block_body = body_node.kind == LirNodeKind::Block;
+    let is_arrow_return_body =
+        body_node.kind == LirNodeKind::Branch && body_node.text.as_deref() == Some("return");
+    if !is_block_body && !is_arrow_return_body {
         return None;
     }
 

@@ -2185,7 +2185,14 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         for (arg_index, arg) in node.children.iter().skip(1).enumerate() {
-            let _ = self.emit_node(function, *arg, true);
+            let produced = self.emit_node(function, *arg, true);
+            // A function-valued argument (e.g. an arrow, compiled as a
+            // standalone function and skipped by `is_function_like` here)
+            // produces no stack value; pad with a zero placeholder so the call
+            // arity — and the fallback per-argument `Drop` loop — stay valid.
+            if !produced.produced {
+                function.instruction(&Instruction::I64Const(0));
+            }
             // Promote an integer-valued argument to `f64` when the resolved callee
             // declares that parameter as float, so the pushed value matches the
             // callee's f64 param slot. No-op for integer callees (param defaults to
