@@ -43,10 +43,8 @@ impl Parser {
                 }
                 Some(TokenType::Dot) => {
                     let _ = self.stream.advance();
-                    match self.stream.current_kind() {
-                        Some(TokenType::Identifier)
-                        | Some(TokenType::Delete)
-                        | Some(TokenType::From) => {
+                    match self.stream.current_kind().copied() {
+                        Some(kind) if Self::is_property_name_token(&kind) => {
                             let _ = self.stream.advance();
                             if let Some(token) = self.stream.tokens.get(self.stream.position - 1) {
                                 let prop_name = token.value.clone();
@@ -131,6 +129,64 @@ impl Parser {
         }
 
         expr
+    }
+
+    /// True for every token `lex_identifier` can produce: a plain identifier
+    /// or any reserved word. Reserved words are valid property names after `.`
+    /// in JS/TS (`event.type`, `config.default`, `list.of`, ...); the token's
+    /// `value` field always carries the word text, so the member-access parser
+    /// can consume it like an identifier.
+    pub(crate) fn is_property_name_token(kind: &TokenType) -> bool {
+        matches!(
+            kind,
+            TokenType::Identifier
+                | TokenType::If
+                | TokenType::Else
+                | TokenType::For
+                | TokenType::While
+                | TokenType::Do
+                | TokenType::Switch
+                | TokenType::Case
+                | TokenType::Default
+                | TokenType::Break
+                | TokenType::Continue
+                | TokenType::Return
+                | TokenType::Throw
+                | TokenType::Try
+                | TokenType::Catch
+                | TokenType::Finally
+                | TokenType::Debugger
+                | TokenType::New
+                | TokenType::Function
+                | TokenType::Var
+                | TokenType::Let
+                | TokenType::Const
+                | TokenType::Class
+                | TokenType::Interface
+                | TokenType::Type
+                | TokenType::Enum
+                | TokenType::Import
+                | TokenType::Export
+                | TokenType::From
+                | TokenType::As
+                | TokenType::This
+                | TokenType::Super
+                | TokenType::Extends
+                | TokenType::Implements
+                | TokenType::Async
+                | TokenType::Await
+                | TokenType::Yield
+                | TokenType::InstanceOf
+                | TokenType::In
+                | TokenType::Of
+                | TokenType::True
+                | TokenType::False
+                | TokenType::Null
+                | TokenType::Undefined
+                | TokenType::Void
+                | TokenType::Delete
+                | TokenType::Typeof
+        )
     }
 
     pub(crate) fn parse_optional_chain_expression(&mut self, object: Expression) -> Expression {
