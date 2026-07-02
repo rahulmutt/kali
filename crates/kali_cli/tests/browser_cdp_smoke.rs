@@ -2,14 +2,14 @@
 //! --bundle --api browser`, serve it (plus a harness page) over localhost HTTP,
 //! and run it in one shared real Chromium via the test-only CDP driver.
 //!
-//! Why an HTTP server instead of the plan's `browser_bundle_harness_script`?
-//! That production helper emits the *node* harness (its prelude imports
-//! `node:fs/promises` / `node:url`), which neither renders nor resolves in a
-//! browser. The emitted bundle glue (`app/app.js`) instead resolves its wasm
-//! with `new URL("./app.wasm", import.meta.url)` and `fetch()`. Chromium blocks
-//! `fetch()` of `file://` URLs, so we serve the bundle dir from a tiny localhost
-//! server and navigate to a real HTML harness page that imports the glue. No
-//! extra Chromium flags, no production-code changes, no driver changes.
+//! Why an HTTP server? The emitted bundle glue (`app/app.js`) resolves its
+//! wasm with `new URL("./app.wasm", import.meta.url)` and `fetch()`. Chromium
+//! blocks `fetch()` of `file://` URLs, so we serve the bundle dir from a tiny
+//! localhost server and navigate to a real HTML harness page that imports the
+//! glue. The harness page itself is no longer hand-written here — it comes
+//! from the production `kali_runtime::browser_bundle_harness_page` generator,
+//! so this test proves that page is genuinely browser-loadable. No extra
+//! Chromium flags, no production-code changes, no driver changes.
 mod cdp_driver;
 
 use std::fs;
@@ -22,7 +22,7 @@ use std::time::Duration;
 
 use tempfile::tempdir;
 
-use cdp_driver::{CdpBrowser, CdpConsoleLine, CdpPageOutcome};
+use cdp_driver::{CdpBrowser, CdpPageOutcome};
 
 fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
@@ -108,19 +108,19 @@ fn real_chromium_runs_a_browser_bundle_and_captures_console() {
         return;
     };
 
-    // 1. Build a browser bundle from a program that logs a known value (1 + 2).
-    //    We export a named function (matching how the repo's own browser-bundle
-    //    tests drive bundles): its body's `console.log(1 + 2)` routes through the
-    //    glue's `console_log` import when the per-export wrapper is called. A bare
-    //    top-level `main()` program does NOT surface console through the import in
-    //    a browser, so the exported-function form is the reliable entry point.
+    // 1. Build a browser bundle from a program with BOTH entry shapes: a bare
+    //    top-level statement (runs via the glue's `start()` helper and must
+    //    route console.log through the `console_log` import) and an exported
+    //    function (runs via the per-export wrapper). The tree-shake marker is
+    //    required for the export wrapper to be emitted.
     let dir = tempdir().expect("tempdir");
     let source = dir.path().join("app.ts");
     fs::write(
         &source,
         "// kali-tree-shake: smoke\n\
+console.log(1 + 2);\n\
 export async function smoke(left, right) {\n\
-  console.log(1 + 2);\n\
+  console.log(6 + 1);\n\
   return left - left + right - right;\n\
 }\n",
     )
@@ -145,23 +145,15 @@ export async function smoke(left, right) {\n\
     assert!(bundle_dir.join("app.js").exists(), "bundle glue missing");
     assert!(bundle_dir.join("app.wasm").exists(), "bundle wasm missing");
 
-    // 3. Write a real HTML harness page next to the bundle dir. It imports the
-    //    emitted glue's per-export `smoke` wrapper (which instantiates the wasm and
-    //    calls `exports.smoke`, whose `console.log(1 + 2)` routes through the glue's
-    //    `console_log` import), then signals completion with a single string arg
-    //    (Chromium `addBinding` functions require exactly one string argument).
+    // 3. Generate the browser-native harness page from the production API:
+    //    run the top-level program via start(), then the exported wrapper.
     let harness_path = dir.path().join("cdp-harness.html");
-    let harness = "<!doctype html>\n\
-<meta charset=\"utf-8\">\n\
-<script type=\"module\">\n\
-try {\n\
-  const mod = await import('./app/app.js');\n\
-  await mod.smoke(1n, 2n);\n\
-} catch (err) {\n\
-  console.error('harness error: ' + (err && err.stack || err));\n\
-}\n\
-if (globalThis.__kaliHarnessDone) { globalThis.__kaliHarnessDone(''); }\n\
-</script>\n";
+    let harness = kali_runtime::browser_bundle_harness_page(
+        "app",
+        "const mod = await import(bundleJs.href);\n\
+await mod.start();\n\
+await mod.smoke(1n, 2n);\n",
+    );
     fs::write(&harness_path, harness).expect("write harness");
 
     // 4. Serve the bundle dir + harness page over localhost so the browser can
@@ -177,21 +169,9 @@ if (globalThis.__kaliHarnessDone) { globalThis.__kaliHarnessDone(''); }\n\
         .expect("run page");
     browser.close().expect("close");
 
-    // 6. Assert the real browser produced the program's console output.
+    // 6. Assert the real browser produced BOTH programs' console output, in
+    //    order: top-level `console.log(1 + 2)` via start(), then the export's
+    //    `console.log(6 + 1)` via the wrapper.
     assert!(outcome.completed, "harness did not signal completion");
-    let log_lines: Vec<&CdpConsoleLine> = outcome
-        .console
-        .iter()
-        .filter(|line| line.kind == "log")
-        .collect();
-    assert!(
-        log_lines.iter().any(|line| line.text.contains('3')),
-        "expected a '3' log line, got: {:?}",
-        outcome.console
-    );
-    assert!(
-        outcome.stdout().contains("3\n"),
-        "unexpected stdout: {:?}",
-        outcome.stdout()
-    );
+    assert_eq!(outcome.stdout(), "3\n7\n", "console: {:?}", outcome.console);
 }

@@ -72,8 +72,10 @@ pub(crate) fn spawn_chromium(
     }
 }
 
-/// The completion binding a harness page calls to signal it finished.
-pub(crate) const CDP_DONE_BINDING: &str = "__kaliHarnessDone";
+/// The completion binding a harness page calls to signal it finished —
+/// single-sourced from the production constant so driver and page generator
+/// cannot drift.
+pub(crate) use kali_runtime::BROWSER_HARNESS_DONE_BINDING as CDP_DONE_BINDING;
 
 /// One captured console call from the page.
 #[derive(Clone, Debug, PartialEq)]

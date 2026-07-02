@@ -3,4 +3,4 @@ mod driver;
 mod protocol;
 
 pub(crate) use driver::chromium_available;
-pub use driver::{CdpBrowser, CdpConsoleLine, CdpPageOutcome};
+pub use driver::{CdpBrowser, CdpPageOutcome};
