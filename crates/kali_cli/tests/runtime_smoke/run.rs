@@ -15785,7 +15785,7 @@ fn json_run_supports_math_hypot_zero_arguments_in_js_input() {
 }
 
 #[test]
-fn run_rejects_unsupported_math_member_calls_in_js_input() {
+fn run_supports_math_sqrt_member_calls_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(&source_path, "console.log(Math.sqrt(1.6));\n").expect("write source");
@@ -15797,12 +15797,16 @@ fn run_rejects_unsupported_math_member_calls_in_js_input() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
-    assert!(stderr.contains("Math.sqrt"), "stderr: {stderr}");
-    assert!(stderr.contains("later compatibility"), "stderr: {stderr}");
+    // Math.sqrt(1.6) is supported since e5d776d93; node ground truth
+    // 1.2649110640673518 (bit-for-bit match with `kali run`).
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout, "1.2649110640673518\n", "stdout: {stdout}");
 }
 
 #[test]
@@ -16034,7 +16038,7 @@ fn json_run_supports_non_integer_numeric_literals_in_math_member_calls_in_js_inp
 }
 
 #[test]
-fn run_rejects_unsupported_math_member_calls_in_browser_api_surface_with_harness_js_input() {
+fn run_supports_math_sqrt_member_calls_in_browser_api_surface_with_harness_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(&source_path, "console.log(Math.sqrt(1.6));\n").expect("write source");
@@ -16049,14 +16053,20 @@ fn run_rejects_unsupported_math_member_calls_in_browser_api_surface_with_harness
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert_unsupported_math_member_calls_rejection_text(&stderr);
+    // Math.sqrt(1.6) is supported since e5d776d93; node ground truth
+    // 1.2649110640673518 (bit-for-bit match with `kali run`).
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout, "1.2649110640673518\n", "stdout: {stdout}");
 }
 
 #[test]
-fn json_run_rejects_unsupported_math_member_calls_in_browser_api_surface_with_harness_js_input() {
+fn json_run_supports_math_sqrt_member_calls_in_browser_api_surface_with_harness_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(&source_path, "console.log(Math.sqrt(1.6));\n").expect("write source");
@@ -16073,19 +16083,25 @@ fn json_run_rejects_unsupported_math_member_calls_in_browser_api_surface_with_ha
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    // Math.sqrt(1.6) is supported since e5d776d93; node ground truth
+    // 1.2649110640673518 (bit-for-bit match with `kali run`).
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "run");
-    assert_eq!(json["success"], false);
-    let errors = json["errors"].as_array().expect("errors array");
-    assert_unsupported_math_member_calls_rejection_json(errors);
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
+    assert_eq!(json["stdout"], "1.2649110640673518\n");
 }
 
 #[test]
-fn run_rejects_unsupported_math_member_calls_in_inherited_browser_api_surface_with_harness_js_input(
-) {
+fn run_supports_math_sqrt_member_calls_in_inherited_browser_api_surface_with_harness_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(&source_path, "console.log(Math.sqrt(1.6));\n").expect("write source");
@@ -16108,15 +16124,21 @@ fn run_rejects_unsupported_math_member_calls_in_inherited_browser_api_surface_wi
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert_unsupported_math_member_calls_rejection_text(&stderr);
+    // Math.sqrt(1.6) is supported since e5d776d93; node ground truth
+    // 1.2649110640673518 (bit-for-bit match with `kali run`).
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout, "1.2649110640673518\n", "stdout: {stdout}");
 }
 
 #[test]
-fn json_run_rejects_unsupported_math_member_calls_in_inherited_browser_api_surface_with_harness_js_input(
-) {
+fn json_run_supports_math_sqrt_member_calls_in_inherited_browser_api_surface_with_harness_js_input()
+{
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(&source_path, "console.log(Math.sqrt(1.6));\n").expect("write source");
@@ -16141,18 +16163,25 @@ fn json_run_rejects_unsupported_math_member_calls_in_inherited_browser_api_surfa
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    // Math.sqrt(1.6) is supported since e5d776d93; node ground truth
+    // 1.2649110640673518 (bit-for-bit match with `kali run`).
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "run");
-    assert_eq!(json["success"], false);
-    let errors = json["errors"].as_array().expect("errors array");
-    assert_unsupported_math_member_calls_rejection_json(errors);
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
+    assert_eq!(json["stdout"], "1.2649110640673518\n");
 }
 
 #[test]
-fn run_and_test_rejects_unsupported_math_member_calls_in_browser_api_surface_with_harness_jsx_and_tsx_input(
+fn run_and_test_supports_math_sqrt_member_calls_in_browser_api_surface_with_harness_jsx_and_tsx_input(
 ) {
     for extension in ["jsx", "tsx"] {
         let dir = tempdir().expect("tempdir");
@@ -16165,7 +16194,7 @@ fn run_and_test_rejects_unsupported_math_member_calls_in_browser_api_surface_wit
         .expect("write run source");
         fs::write(
             &test_source_path,
-            "Kali.test('unsupported math', () => { console.log(globalThis[\"Math\"][\"sqrt\"](1.6)); });\n",
+            "Kali.test('supported math', () => { console.log(globalThis[\"Math\"][\"sqrt\"](1.6)); });\n",
         )
         .expect("write test source");
 
@@ -16186,18 +16215,34 @@ fn run_and_test_rejects_unsupported_math_member_calls_in_browser_api_surface_wit
                 output.arg(command).arg(source_path);
                 let output = output.output().expect("run kali");
 
-                assert!(!output.status.success());
-                assert_eq!(output.status.code(), Some(1));
+                // Math.sqrt(1.6) is supported since e5d776d93; node ground
+                // truth 1.2649110640673518 (bit-for-bit match with `kali run`,
+                // verified for the bracket/globalThis access forms too).
+                assert!(
+                    output.status.success(),
+                    "stdout: {}\nstderr: {}",
+                    String::from_utf8_lossy(&output.stdout),
+                    String::from_utf8_lossy(&output.stderr)
+                );
                 if output_json {
                     let json = parse_json_stdout(&output);
                     assert_eq!(json["schemaVersion"], 1);
                     assert_eq!(json["command"], command);
-                    assert_eq!(json["success"], false);
-                    let errors = json["errors"].as_array().expect("errors array");
-                    assert_unsupported_math_member_calls_rejection_json(errors);
+                    assert_eq!(json["success"], true);
+                    assert!(json["errors"].as_array().expect("errors array").is_empty());
+                    assert!(
+                        json["stdout"]
+                            .as_str()
+                            .expect("json stdout")
+                            .contains("1.2649110640673518"),
+                        "json: {json}"
+                    );
                 } else {
-                    let stderr = String::from_utf8_lossy(&output.stderr);
-                    assert_unsupported_math_member_calls_rejection_text(&stderr);
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    assert!(stdout.contains("1.2649110640673518"), "stdout: {stdout}");
+                    if command == "test" {
+                        assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+                    }
                 }
             }
         }
@@ -16205,7 +16250,7 @@ fn run_and_test_rejects_unsupported_math_member_calls_in_browser_api_surface_wit
 }
 
 #[test]
-fn run_and_test_rejects_unsupported_math_member_calls_in_inherited_browser_api_surface_with_harness_jsx_and_tsx_input(
+fn run_and_test_supports_math_sqrt_member_calls_in_inherited_browser_api_surface_with_harness_jsx_and_tsx_input(
 ) {
     for extension in ["jsx", "tsx"] {
         let dir = tempdir().expect("tempdir");
@@ -16218,7 +16263,7 @@ fn run_and_test_rejects_unsupported_math_member_calls_in_inherited_browser_api_s
         .expect("write run source");
         fs::write(
             &test_source_path,
-            "Kali.test('unsupported math', () => { console.log(globalThis[\"Math\"][\"sqrt\"](1.6)); });\n",
+            "Kali.test('supported math', () => { console.log(globalThis[\"Math\"][\"sqrt\"](1.6)); });\n",
         )
         .expect("write test source");
         fs::write(
@@ -16249,18 +16294,34 @@ fn run_and_test_rejects_unsupported_math_member_calls_in_inherited_browser_api_s
                 output.arg(command).arg(source_path);
                 let output = output.output().expect("run kali");
 
-                assert!(!output.status.success());
-                assert_eq!(output.status.code(), Some(1));
+                // Math.sqrt(1.6) is supported since e5d776d93; node ground
+                // truth 1.2649110640673518 (bit-for-bit match with `kali run`,
+                // verified for the bracket/globalThis access forms too).
+                assert!(
+                    output.status.success(),
+                    "stdout: {}\nstderr: {}",
+                    String::from_utf8_lossy(&output.stdout),
+                    String::from_utf8_lossy(&output.stderr)
+                );
                 if output_json {
                     let json = parse_json_stdout(&output);
                     assert_eq!(json["schemaVersion"], 1);
                     assert_eq!(json["command"], command);
-                    assert_eq!(json["success"], false);
-                    let errors = json["errors"].as_array().expect("errors array");
-                    assert_unsupported_math_member_calls_rejection_json(errors);
+                    assert_eq!(json["success"], true);
+                    assert!(json["errors"].as_array().expect("errors array").is_empty());
+                    assert!(
+                        json["stdout"]
+                            .as_str()
+                            .expect("json stdout")
+                            .contains("1.2649110640673518"),
+                        "json: {json}"
+                    );
                 } else {
-                    let stderr = String::from_utf8_lossy(&output.stderr);
-                    assert_unsupported_math_member_calls_rejection_text(&stderr);
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    assert!(stdout.contains("1.2649110640673518"), "stdout: {stdout}");
+                    if command == "test" {
+                        assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+                    }
                 }
             }
         }
@@ -16268,7 +16329,7 @@ fn run_and_test_rejects_unsupported_math_member_calls_in_inherited_browser_api_s
 }
 
 #[test]
-fn run_and_test_rejects_unsupported_math_member_calls_in_inherited_browser_api_surface_with_harness_ts_input(
+fn run_and_test_supports_math_sqrt_member_calls_in_inherited_browser_api_surface_with_harness_ts_input(
 ) {
     let dir = tempdir().expect("tempdir");
     let run_source_path = dir.path().join("main.ts");
@@ -16276,7 +16337,7 @@ fn run_and_test_rejects_unsupported_math_member_calls_in_inherited_browser_api_s
     fs::write(&run_source_path, "console.log(Math.sqrt(1.6));\n").expect("write run source");
     fs::write(
         &test_source_path,
-        "Kali.test('unsupported math', () => { console.log(Math.sqrt(1.6)); });\n",
+        "Kali.test('supported math', () => { console.log(Math.sqrt(1.6)); });\n",
     )
     .expect("write test source");
     fs::write(
@@ -16307,18 +16368,33 @@ fn run_and_test_rejects_unsupported_math_member_calls_in_inherited_browser_api_s
             output.arg(command).arg(source_path);
             let output = output.output().expect("run kali");
 
-            assert!(!output.status.success());
-            assert_eq!(output.status.code(), Some(1));
+            // Math.sqrt(1.6) is supported since e5d776d93; node ground truth
+            // 1.2649110640673518 (bit-for-bit match with `kali run`).
+            assert!(
+                output.status.success(),
+                "stdout: {}\nstderr: {}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
             if output_json {
                 let json = parse_json_stdout(&output);
                 assert_eq!(json["schemaVersion"], 1);
                 assert_eq!(json["command"], command);
-                assert_eq!(json["success"], false);
-                let errors = json["errors"].as_array().expect("errors array");
-                assert_unsupported_math_member_calls_rejection_json(errors);
+                assert_eq!(json["success"], true);
+                assert!(json["errors"].as_array().expect("errors array").is_empty());
+                assert!(
+                    json["stdout"]
+                        .as_str()
+                        .expect("json stdout")
+                        .contains("1.2649110640673518"),
+                    "json: {json}"
+                );
             } else {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                assert_unsupported_math_member_calls_rejection_text(&stderr);
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                assert!(stdout.contains("1.2649110640673518"), "stdout: {stdout}");
+                if command == "test" {
+                    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+                }
             }
         }
     }
