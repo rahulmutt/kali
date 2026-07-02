@@ -60,3 +60,12 @@ fn run_prints_floats_read_from_mutable_locals_and_params() {
     assert!(ok, "stdout: {stdout}\nstderr: {stderr}");
     assert_eq!(stdout, "3.5\nv: 3.5\n1.5\n4.5\np: 4.5\n");
 }
+
+#[test]
+fn run_prints_small_magnitudes_with_js_exponent_notation() {
+    // Was the recorded reachable divergence: host printed 0.0000001 while the
+    // browser mirrors printed 1e-7.
+    let (ok, stdout, stderr) = run_fixture("console.log(1 / 10000000);\n");
+    assert!(ok, "stdout: {stdout}\nstderr: {stderr}");
+    assert_eq!(stdout, "1e-7\n");
+}

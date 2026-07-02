@@ -15,7 +15,7 @@ fn browser_bundle_prints_runtime_floats_via_start() {
     let source_path = dir.path().join("app.ts");
     fs::write(
         &source_path,
-        "console.log(7 / 2);\nconsole.log(\"v: \" + (0 / 0));\nconsole.log(7 / 0);\n",
+        "console.log(7 / 2);\nconsole.log(\"v: \" + (0 / 0));\nconsole.log(7 / 0);\nconsole.log(1 / 10000000);\n",
     )
     .expect("write source");
 
@@ -69,4 +69,5 @@ await mod.start();
     assert!(stdout.contains("3.5\n"), "stdout: {stdout:?}");
     assert!(stdout.contains("v: NaN\n"), "stdout: {stdout:?}");
     assert!(stdout.contains("Infinity\n"), "stdout: {stdout:?}");
+    assert!(stdout.contains("1e-7\n"), "stdout: {stdout:?}");
 }

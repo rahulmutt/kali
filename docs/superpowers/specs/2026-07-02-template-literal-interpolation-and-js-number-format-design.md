@@ -131,3 +131,25 @@ untouched.
   (`cargo test --workspace` remains unusable: pre-existing chromium-sandbox
   failures). Repo hygiene: `cargo fmt` no diff; clippy `-D warnings` on the
   touched crates.
+
+## Implementation notes (2026-07-02)
+
+Task 2 added a full-consumption check beyond the plan's verbatim code: leftover
+tokens inside a `${...}` interpolation (e.g. `` `${1 2}` ``) now report E2004
+instead of being silently dropped (review finding, fixed in the Task 2 commit).
+
+Task 3's plan-mandated fixture `` `hi ${name}!` `` (string variable) was
+replaced with the inline-literal `` `hi ${"kali"}!` ``: a string-typed *variable*
+operand in `+` is a pre-existing direct-runtime-path limitation (E3200,
+`reject_unsupported_string_variable_addition`, pinned by
+`string_typed_variable_plus_operands_are_rejected` in imperative_core_runtime.rs)
+that plain `"hi " + name` hits identically on main; the desugared template
+correctly behaves like its equivalent `+` chain, and the new
+`run_rejects_string_variable_interpolation_with_e3200` test pins that clean
+rejection. Interpolating string *variables* therefore remains unsupported until
+the string-local repr limitation is lifted (follow-up).
+
+The plan's Step 5 gate `cargo test -p kali_cli --test runtime_smoke -- template`
+has 7 pre-existing failures on main (`build::[json_]build_emits_browser_bundle_chunks_for_template_literal_dynamic_imports*`,
+"unexpected chunk result 7") unrelated to this plan; the gate for this branch is
+"identical to the main baseline: 4 pass, those exact 7 fail".

@@ -16,13 +16,11 @@ Fix: unconditional `kali:rt float_to_string (f64) -> i64` host import (index
 mirrored in all four hand-mirrored JS import lists, with `Float`-arm
 adaptations at both emit seams. Semantics: JS `String(number)` —
 `NaN`/`Infinity`/`-Infinity`/`0` (for ±0) special-cased on the Rust host,
-shortest round-trip otherwise; JS mirrors use native `String(value)`. Known
-divergences (documented on `format_js_number`): JS uses exponent notation for
-very small magnitudes — e.g. `1 / 10000000` prints `1e-7` in a browser (JS
-mirror) but `0.0000001` on the wasmtime host, so host and browser stdout
-diverge for such values — and for |x| ≥ 1e21, which is currently unreachable
-from source (exponent literals do not lex; whole-number arithmetic stays in
-i64).
+shortest round-trip otherwise; JS mirrors use native `String(value)`. The formatting divergences originally recorded here (JS exponent notation for
+very small magnitudes and for |x| >= 1e21) were closed on 2026-07-02: the host
+now delegates finite doubles to `ryu-js` (exact ECMA-262 Number-to-String), so
+host and browser stdout agree — see
+`2026-07-02-template-literal-interpolation-and-js-number-format-design.md`.
 
 **Reserved glue export names.** `kali build --bundle` now fails with E5511
 when a user export is named `load`, `loadWithImports`, `loadDynamicImport`, or
