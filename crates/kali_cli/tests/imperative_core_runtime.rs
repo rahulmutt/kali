@@ -737,3 +737,39 @@ q.x = 5.0;\n\
 console.log((p.x + q.x).toFixed(1));\n";
     assert_eq!(run_js(src), "6.0\n"); // p.x=1.0 unchanged, q.x=5.0 — distinct instances
 }
+
+#[test]
+fn console_log_of_object_reference_is_rejected() {
+    let combined = run_js_expect_failure("const p = { x: 1.0 };\np.x = 2.0;\nconsole.log(p);\n");
+    assert!(combined.contains("5506"), "expected E5506, got: {combined}");
+}
+
+#[test]
+fn object_in_arithmetic_is_rejected() {
+    let combined =
+        run_js_expect_failure("const p = { x: 1.0 };\np.x = 2.0;\nconsole.log(p + 1);\n");
+    assert!(combined.contains("5506"), "expected E5506, got: {combined}");
+}
+
+#[test]
+fn unknown_field_write_is_rejected() {
+    let combined = run_js_expect_failure("const p = { x: 1.0 };\np.x = 2.0;\np.z = 1.0;\n");
+    assert!(combined.contains("5506"), "expected E5506, got: {combined}");
+}
+
+#[test]
+fn object_literal_direct_argument_is_rejected() {
+    let combined = run_js_expect_failure(
+        "function f(o) { return o.x; }\nconsole.log(f({ x: 1.0 }).toFixed(1));\n",
+    );
+    assert!(combined.contains("5506"), "expected E5506, got: {combined}");
+}
+
+#[test]
+fn object_reference_reassignment_still_compiles() {
+    // `q = p` aliases; both refer to the same object. Must NOT be E5506-rejected.
+    assert_eq!(
+        run_js("const p = { x: 1.0 };\nlet q = { x: 2.0 };\nq.x = 3.0;\nq = p;\nconsole.log(q.x.toFixed(1));\n"),
+        "1.0\n"
+    );
+}

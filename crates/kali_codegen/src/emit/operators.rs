@@ -607,6 +607,26 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        // Object misuse gate: a genuine arithmetic/comparison operator applied
+        // to an object reference (e.g. `p + 1`) would silently operate on the
+        // raw pointer. `=` and the compound-assignment operators are handled
+        // above by `emit_assignment` (which returns `true` and short-circuits
+        // before this point) and legitimately support object-reference
+        // reassignment (`q = p`, aliasing), so they never reach here.
+        if self.object_shape_of_node(left).is_some() || self.object_shape_of_node(right).is_some() {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "operator '{op}' on an object reference is unavailable in the current phase; operate on its fields instead"
+                ),
+            ));
+            function.instruction(&Instruction::I64Const(0));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Scalar,
+            };
+        }
+
         if matches!(op, "===" | "!==") {
             if let (Some(left_value), Some(right_value)) = (
                 self.static_bigint_literal_value(left),

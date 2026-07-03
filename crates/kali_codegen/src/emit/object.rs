@@ -35,6 +35,15 @@ impl<'a> FunctionEmitter<'a> {
         if node.children.len() > 2 || node.text.as_deref().is_none_or(str::is_empty) {
             return None;
         }
+        // `a.length` shares the same one-child `Value` shape (`text` = property
+        // name) as a literal-index array read `a["length"]`-shaped node — see
+        // the identical ambiguity note at `control_flow.rs`'s runtime-array-read
+        // arm. `.length` is always a scalar (the array's element count), never
+        // an object reference, so it must be excluded here ahead of the
+        // array-subscript interpretation below.
+        if node.children.len() == 1 && node.text.as_deref() == Some("length") {
+            return None;
+        }
         let base = node.children[0];
         let base_name = self.assignment_target_name(node, base)?;
         if !self.array_bindings.contains(&base_name) {

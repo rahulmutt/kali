@@ -21,6 +21,13 @@ impl<'a> FunctionEmitter<'a> {
     /// — `emit_binary`'s string-concat path already converts any float
     /// operands internally and returns shape `String`.
     fn emit_console_argument(&mut self, function: &mut Function, id: LirNodeId) {
+        if self.object_shape_of_node(id).is_some() {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "printing an object reference is unavailable in the current phase; print its fields instead"
+                    .to_string(),
+            ));
+        }
         let emitted = self.emit_node(function, id, true);
         if !emitted.produced {
             function.instruction(&Instruction::I64Const(0));
