@@ -6066,6 +6066,7 @@ fn assert_optimization_benchmark_fixture(fixture_stem: &str, benchmark_name: &st
             | "numeric-literal-arguments"
             | "math-max-min-builtin-js"
             | "spectral-norm"
+            | "nbody"
     ) {
         assert!(
             release_size < fast_size
@@ -6096,6 +6097,7 @@ fn assert_optimization_benchmark_fixture(fixture_stem: &str, benchmark_name: &st
             | "nested-call-inlining-chain"
             | "math-max-min-builtin-js"
             | "spectral-norm"
+            | "nbody"
     ) {
         assert!(
             release_adds <= fast_adds,

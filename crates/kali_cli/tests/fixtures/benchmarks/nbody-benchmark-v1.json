@@ -1,0 +1,7 @@
+{
+  "benchmark": "nbody",
+  "version": 1,
+  "sourceFile": "nbody-benchmark-v1.ts",
+  "sourceSha256": "sha256-47511350a11ba89c76a4157839c13661f0b756edfd32efdb2d25651b145f2621",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
