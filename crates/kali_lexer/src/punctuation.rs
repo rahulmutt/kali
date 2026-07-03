@@ -51,6 +51,7 @@ impl Lexer {
             '/' => (TokenType::Slash, "/".to_string(), 1),
             '&' => (TokenType::Ampersand, "&".to_string(), 1),
             '|' => (TokenType::Pipe, "|".to_string(), 1),
+            '^' => (TokenType::Caret, "^".to_string(), 1),
             '!' => (TokenType::Not, "!".to_string(), 1),
             '<' => (TokenType::Lt, "<".to_string(), 1),
             '>' => (TokenType::Gt, ">".to_string(), 1),

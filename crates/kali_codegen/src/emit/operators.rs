@@ -593,6 +593,42 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// Lowers a bitwise-integer operator with JS 32-bit semantics: both operands
+    /// are `ToInt32`-coerced (`i32.wrap_i64`), the op runs on `i32` (wasm masks
+    /// shift counts mod 32, matching JS `& 31`), and the result extends back to
+    /// `i64` — sign-extended for every op except `>>>`, which zero-extends
+    /// (uint32). Float operands are rejected before this point (see `emit_binary`).
+    fn emit_bitwise(
+        &mut self,
+        function: &mut Function,
+        op: &str,
+        left: LirNodeId,
+        right: LirNodeId,
+    ) -> EmittedValue {
+        self.emit_float_operand(function, left, false);
+        function.instruction(&Instruction::I32WrapI64);
+        self.emit_float_operand(function, right, false);
+        function.instruction(&Instruction::I32WrapI64);
+        match op {
+            "&" => function.instruction(&Instruction::I32And),
+            "|" => function.instruction(&Instruction::I32Or),
+            "^" => function.instruction(&Instruction::I32Xor),
+            "<<" => function.instruction(&Instruction::I32Shl),
+            ">>" => function.instruction(&Instruction::I32ShrS),
+            ">>>" => function.instruction(&Instruction::I32ShrU),
+            _ => unreachable!("emit_bitwise called with non-bitwise op"),
+        };
+        if op == ">>>" {
+            function.instruction(&Instruction::I64ExtendI32U);
+        } else {
+            function.instruction(&Instruction::I64ExtendI32S);
+        }
+        EmittedValue {
+            produced: true,
+            shape: ValueShape::Scalar,
+        }
+    }
+
     /// Emits `id` as a string handle: if it is already string-valued the emitted
     /// value is a handle; float-shaped values are stringified via
     /// `float_to_string` (JS `String(number)` semantics); otherwise the produced
@@ -699,6 +735,20 @@ impl<'a> FunctionEmitter<'a> {
         // reaches here (no float seeds), so `float_op` is always false and the
         // emitted code is byte-identical to the pre-repr path.
         let operand_float = self.is_float_valued(left) || self.is_float_valued(right);
+        let is_bitwise = matches!(op, "&" | "|" | "^" | "<<" | ">>" | ">>>");
+        if is_bitwise && operand_float {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "bitwise operator '{op}' on a floating-point operand is unavailable in the current phase; use integer operands or the later compatibility path"
+                ),
+            ));
+            function.instruction(&Instruction::I64Const(0));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Scalar,
+            };
+        }
         let float_op = match op {
             // `/` is float (JS division yields a double in this model) UNLESS
             // both operands are BigInt literals: BigInt division truncates
@@ -709,7 +759,7 @@ impl<'a> FunctionEmitter<'a> {
             _ => false,
         };
 
-        if op != "??" && op != "**" {
+        if op != "??" && op != "**" && !is_bitwise {
             self.emit_float_operand(function, left, float_op);
             self.emit_float_operand(function, right, float_op);
         }
@@ -899,6 +949,7 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::Unknown,
                 }
             }
+            "&" | "|" | "^" | "<<" | ">>" | ">>>" => self.emit_bitwise(function, op, left, right),
             _ => {
                 self.diagnostics.push(Diagnostic::warning(
                     e8::UNIMPLEMENTED as u32,
