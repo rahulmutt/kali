@@ -26,7 +26,10 @@
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
-use kali_ast::{AssignmentOperator, BlockStatement, Expression, ForInit, LiteralValue, Statement};
+use kali_ast::{
+    AssignmentOperator, BlockStatement, Expression, ForInLefthand, ForInit, ForOfLefthand,
+    LiteralValue, Statement,
+};
 use kali_common::{Repr, ReprTable, UnionFind};
 
 /// Synthetic function name for top-level statements, matching codegen's entry.
@@ -425,14 +428,32 @@ impl ReprInfer {
                 }
                 self.collect_local_names(func, &node.body.body);
             }
-            Statement::ForInStatement(node) => self.collect_local_names_in_stmt(func, &node.body),
-            Statement::ForOfStatement(node) => self.collect_local_names_in_stmt(func, &node.body),
+            Statement::ForInStatement(node) => {
+                if let ForInLefthand::VariableDeclaration(decl) = &node.left {
+                    let entry = self.local_names.entry(func.to_string()).or_default();
+                    for d in &decl.declarations {
+                        entry.insert(d.id.clone());
+                    }
+                }
+                self.collect_local_names_in_stmt(func, &node.body);
+            }
+            Statement::ForOfStatement(node) => {
+                if let ForOfLefthand::VariableDeclaration(decl) = &node.left {
+                    let entry = self.local_names.entry(func.to_string()).or_default();
+                    for d in &decl.declarations {
+                        entry.insert(d.id.clone());
+                    }
+                }
+                self.collect_local_names_in_stmt(func, &node.body);
+            }
             Statement::WhileStatement(node) => self.collect_local_names(func, &node.body.body),
             Statement::DoWhileStatement(node) => self.collect_local_names(func, &node.body.body),
             Statement::LabeledStatement(node) => self.collect_local_names_in_stmt(func, &node.body),
             Statement::TryStatement(node) => {
                 self.collect_local_names(func, &node.block.body);
                 if let Some(handler) = &node.handler {
+                    let entry = self.local_names.entry(func.to_string()).or_default();
+                    entry.insert(handler.param.clone());
                     self.collect_local_names(func, &handler.body.body);
                 }
                 if let Some(finalizer) = &node.finalizer {

@@ -803,6 +803,35 @@ fn shadowing_local_wins_over_module_const() {
 }
 
 #[test]
+fn for_of_loop_var_shadows_module_const() {
+    // for-of binding `K` shadows module `const K`; must compile and use the loop value.
+    // node ground truth: prints `6` (1+2+3).
+    assert_eq!(
+        run_js("const K = 2.5;\nfunction f() {\n  let s = 0;\n  for (const K of [1, 2, 3]) { s = s + K; }\n  return s;\n}\nconsole.log(f());\n"),
+        "6\n"
+    );
+}
+
+#[test]
+fn catch_param_shadows_module_const() {
+    // catch (K) shadows module `const K`. `TryStatement`/`CatchClause`
+    // currently have NO lowering support anywhere in the direct-runtime
+    // codegen pipeline (`kali_codegen` has no "try"/"catch"/"throw"
+    // instruction handling at all) — confirmed independently of this shadow
+    // by running a plain, non-colliding `catch (e) { return e + 1; }`
+    // through the same compiler, which is rejected at an EARLIER stage
+    // (E3100 "undefined identifier 'e'", from `kali_types::resolve`) before
+    // ever reaching the repr-inference/codegen layers this review fix
+    // touches. So try/catch support is a pre-existing, orthogonal gap, not
+    // something this fix can (or should) close. The achievable, honest
+    // assertion here is that the module-const-shadowed catch program is
+    // REJECTED rather than silently miscompiled to a wrong answer.
+    run_js_expect_failure(
+        "const K = 2.5;\nfunction f() {\n  try {\n    throw 1;\n  } catch (K) {\n    return K + 1;\n  }\n}\nconsole.log(f());\n",
+    );
+}
+
+#[test]
 fn module_let_read_from_function_is_rejected() {
     let combined = run_js_expect_failure(
         "let counter = 0;\nfunction f() { return counter + 1; }\nconsole.log(f());\n",

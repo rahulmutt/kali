@@ -463,6 +463,18 @@ impl<'a> FunctionEmitter<'a> {
     /// - float literal -> true.
     pub(crate) fn is_float_valued(&self, id: LirNodeId) -> bool {
         let id = self.unwrap_transparent(id);
+        // Resolve a local `const` fold-alias (`self.bindings`, e.g. a for-of/for-in
+        // bound name or an unpromoted scalar `const`) BEFORE treating a bare
+        // identifier as a candidate for module-const inlining below. Without this,
+        // a local binding whose name collides with a float module `const` (a
+        // for-of/for-in loop variable, a catch parameter, or any other unpromoted
+        // local `const`) is misclassified by the module-const fallback as sharing
+        // the module binding's float-ness, even though `emit_node`'s own identifier
+        // fallback (see `control_flow.rs`) already correctly resolves the read
+        // through `self.bindings` to the LOCAL (int) value — a type/value mismatch
+        // that produces an invalid WASM module. Mirrors `is_bigint_literal_valued`,
+        // which already calls `resolve_bound_node` for the same reason.
+        let id = self.resolve_bound_node(id);
         let node = self.node(id);
         // Fixed-shape object field read: the repr comes from the shape table.
         if node.kind == LirNodeKind::Value && node.children.len() == 1 {
