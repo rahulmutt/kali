@@ -139,3 +139,71 @@ console.log(spectralnorm(100).toFixed(9));
     assert_eq!(t.return_repr("A"), Repr::F64);
     assert_eq!(t.return_repr("spectralnorm"), Repr::F64);
 }
+
+#[test]
+fn written_object_literal_binding_gets_a_shape() {
+    let t = reprs("const p = { x: 1.5, y: 2 };\np.x = p.x + 1.0;\nconsole.log(p.y);\n");
+    let Repr::Object(shape) = t.scalar("_start", "p") else {
+        panic!("p should be an object binding");
+    };
+    assert_eq!(t.shape_field(shape, "x"), Some((0, Repr::F64)));
+    assert_eq!(t.shape_field(shape, "y"), Some((1, Repr::I64)));
+}
+
+#[test]
+fn read_only_local_object_literal_stays_on_the_fold_lane() {
+    let t = reprs("const p = { x: 1.5 };\nconsole.log(p.x);\n");
+    assert_eq!(t.scalar("_start", "p"), Repr::I64); // no entry == fold lane
+    assert!(t.shape_conflicts().is_empty());
+}
+
+#[test]
+fn field_float_flows_to_reader_binding() {
+    let t = reprs("const p = { x: 1 };\np.x = 2.5;\nconst d = p.x;\n");
+    assert_eq!(t.scalar("_start", "d"), Repr::F64);
+}
+
+#[test]
+fn array_of_objects_shares_shape_across_factory_param_and_alias() {
+    let src = "\
+function mk(v) { return { x: v, m: 1.5 }; }\n\
+function bump(arr) { const b = arr[0]; b.x = b.x + arr[1].m; }\n\
+const bodies = [mk(1.0), mk(2.0)];\n\
+bump(bodies);\n";
+    let t = reprs(src);
+    let Repr::Object(elem) = t.array_element("_start", "bodies") else {
+        panic!("bodies elements should be objects");
+    };
+    assert_eq!(t.array_element("bump", "arr"), Repr::Object(elem));
+    assert_eq!(t.return_repr("mk"), Repr::Object(elem));
+    assert_eq!(t.scalar("bump", "b"), Repr::Object(elem));
+    assert_eq!(t.param("bump", 0), Repr::Object(elem));
+    assert_eq!(t.shape_field(elem, "x"), Some((0, Repr::F64)));
+    assert!(t.is_array_binding("_start", "bodies"));
+    assert!(t.shape_conflicts().is_empty());
+}
+
+#[test]
+fn shape_mismatch_reassignment_is_a_conflict() {
+    let t = reprs("let p = { x: 1.0 };\np = { y: 2.0 };\np.y = 3.0;\n");
+    assert!(!t.shape_conflicts().is_empty());
+}
+
+#[test]
+fn unknown_field_access_is_a_conflict() {
+    let t = reprs("const p = { x: 1.0 };\np.x = 2.0;\np.z = 1.0;\n");
+    assert!(t.shape_conflicts().iter().any(|m| m.contains("'z'")));
+}
+
+#[test]
+fn object_literal_as_direct_call_argument_is_a_conflict() {
+    let t = reprs("function f(o) { return o.x; }\nf({ x: 1.0 });\n");
+    assert!(!t.shape_conflicts().is_empty());
+}
+
+#[test]
+fn float_and_array_programs_gain_no_shapes() {
+    let t = reprs("function f(a) { a[0] = 1 / 2; }\nconst w = new Array(2);\nf(w);\n");
+    assert!(t.shape_conflicts().is_empty());
+    assert_eq!(t.array_element("_start", "w"), Repr::F64);
+}

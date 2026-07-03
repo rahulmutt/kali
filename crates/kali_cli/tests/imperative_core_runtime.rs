@@ -595,3 +595,14 @@ fn exponent_notation_literals_run() {
     assert_eq!(run_js("console.log((1.5e1).toFixed(1));"), "15.0\n");
     assert_eq!(run_js("console.log((1e-2).toFixed(2));"), "0.01\n");
 }
+
+#[test]
+fn object_shape_mismatch_is_rejected() {
+    let combined = run_js_expect_failure(
+        "let p = { x: 1.0 };\np = { y: 2.0 };\np.y = 3.0;\nconsole.log(p.y);\n",
+    );
+    assert!(
+        combined.contains("5506"),
+        "expected E5506 gate, got: {combined}"
+    );
+}
