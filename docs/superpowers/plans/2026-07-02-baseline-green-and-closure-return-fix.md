@@ -2087,3 +2087,10 @@ Run: `git status --porcelain`
 Expected: empty (all work committed on `fix/stale-browser-bundle-expectations`; nothing pushed).
 
 - [ ] **Step 4: If anything failed** — do NOT re-pin the failing expectation. Identify which task introduced the change (`git log --oneline`), reproduce the failing test in isolation, and fix the code (or escalate) so the previously-passing pin holds. The only acceptable end state is Step 1 fully green.
+
+---
+
+## Deviations (recorded post-execution)
+
+- **Task 1 Step 5 Edit 5b:** implemented via a shared `scan_paren_param_list` helper factored out of `try_parse_arrow_function_expression_from`, instead of the copy-paste shown in the plan (controller ruling: DRY over verbatim duplication). Behavior is identical to the planned edit.
+- **Task 8:** the check fixture-tree count was updated 65 -> 67, not "unchanged (Checked 65 file(s))" as planned — the fannkuch/spectral fixture files predate this branch, and the walk previously aborted before counting them, so the plan's "still 65" was wrong. Additionally, spectral-norm was added to `assert_optimization_benchmark_fixture`'s existing exemption lists: release regresses its footprint (4040B / 1460 instr vs fast's 1841B / 408 instr), a pre-existing optimizer behavior tracked as a follow-up.
