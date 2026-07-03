@@ -167,6 +167,17 @@ fn object_enumeration_finalization_run_source() -> &'static str {
   }
 }
 
+// Wrapped in its own function (mirroring `assertSyncFinalization` above),
+// called from module scope instead of running directly at the top level:
+// `asyncReflectReturnProbe` below mutates `asyncReflectReturnFinallySeen`
+// across a function boundary, and `_start`'s own `run`-mode top-level scope
+// is exactly the module scope Task 8 gates non-const reads of. Nesting one
+// level deeper keeps `asyncReflectReturnFinallySeen` local to
+// `assertAsyncFinalization` instead of `_start` (unsupported cross-function
+// mutable-closure writes were previously silently miscompiled — the write
+// was always dropped — and are now correctly rejected as E5506 only when
+// the outer scope is the true module/`_start` scope).
+function assertAsyncFinalization() {
 const asyncValues = { "b": 1, "a": 2 };
 let asyncFinallySeen = false;
 let asyncThrew = false;
@@ -289,7 +300,9 @@ try {
 if (!asyncReflectThrew || !asyncReflectThrowFinallySeen) {
   throw new Error('unexpected async Reflect.ownKeys throw/finally semantics');
 }
+}
 
+assertAsyncFinalization();
 assertSyncFinalization();
 console.log('object enumeration finalization ok');
 "#

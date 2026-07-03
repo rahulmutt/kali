@@ -773,3 +773,47 @@ fn object_reference_reassignment_still_compiles() {
         "1.0\n"
     );
 }
+
+#[test]
+fn module_consts_read_from_functions() {
+    assert_eq!(
+        run_js("const K = 3;\nfunction f() { return K + 1; }\nconsole.log(f());\n"),
+        "4\n"
+    );
+    assert_eq!(
+        run_js(
+            "const PI = 3.141592653589793;\nconst SOLAR_MASS = 4 * PI * PI;\nfunction m() { return 9.54791938424326609e-4 * SOLAR_MASS; }\nconsole.log(m().toFixed(9));\n"
+        ),
+        "0.037693675\n"
+    );
+    assert_eq!(
+        run_js(
+            "const DPY = 365.24;\nfunction v(x) { return x * DPY; }\nconsole.log(v(2.0).toFixed(2));\n"
+        ),
+        "730.48\n"
+    );
+}
+
+#[test]
+fn shadowing_local_wins_over_module_const() {
+    assert_eq!(
+        run_js("const K = 3;\nfunction f() { const K = 10; return K + 1; }\nconsole.log(f());\n"),
+        "11\n"
+    );
+}
+
+#[test]
+fn module_let_read_from_function_is_rejected() {
+    let combined = run_js_expect_failure(
+        "let counter = 0;\nfunction f() { return counter + 1; }\nconsole.log(f());\n",
+    );
+    assert!(combined.contains("5506"), "expected E5506, got: {combined}");
+}
+
+#[test]
+fn impure_module_const_read_from_function_is_rejected() {
+    let combined = run_js_expect_failure(
+        "const t = Math.sqrt(2);\nfunction f() { return t; }\nconsole.log(f());\n",
+    );
+    assert!(combined.contains("5506"), "expected E5506, got: {combined}");
+}

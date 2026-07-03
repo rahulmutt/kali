@@ -21,7 +21,7 @@ pub(crate) use intrinsics::{
 
 use std::{
     borrow::Cow,
-    collections::{BTreeMap, HashSet},
+    collections::{BTreeMap, BTreeSet, HashSet},
     path::PathBuf,
 };
 

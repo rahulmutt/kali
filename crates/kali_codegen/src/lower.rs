@@ -313,6 +313,49 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         }
     }
 
+    // Module-scope binding tables: `const name → init node` for compile-time
+    // inlining inside functions, plus ALL top-level binding names so
+    // non-inlinable reads can be gated instead of silently lowering through
+    // the zero placeholder (see emit/control_flow.rs identifier fallback).
+    let mut module_const_inits: BTreeMap<String, LirNodeId> = BTreeMap::new();
+    let mut module_binding_names: BTreeSet<String> = BTreeSet::new();
+    {
+        let start = all_functions
+            .iter()
+            .find(|function| function.name == "_start");
+        if let Some(start) = start {
+            // `_start`'s LIR entry point is its `body` field (there is no
+            // `root` field on `FunctionPlan`); `_start`'s own body IS `lir.root`
+            // (see the `all_functions.push(FunctionPlan { ... body: lir.root, ... })`
+            // above), so this walks the whole top-level program.
+            let mut stack = vec![start.body];
+            while let Some(id) = stack.pop() {
+                let node = &lir.nodes[id.0 as usize];
+                match node.kind {
+                    LirNodeKind::Program | LirNodeKind::Block => {
+                        stack.extend(node.children.iter().copied());
+                    }
+                    LirNodeKind::Instruction
+                        if matches!(node.text.as_deref(), Some("const" | "let" | "var")) =>
+                    {
+                        let is_const = node.text.as_deref() == Some("const");
+                        for declarator_id in &node.children {
+                            let declarator = &lir.nodes[declarator_id.0 as usize];
+                            let Some(name) = declarator.text.clone() else {
+                                continue;
+                            };
+                            module_binding_names.insert(name.clone());
+                            if is_const && declarator.children.len() >= 2 {
+                                module_const_inits.insert(name, declarator.children[1]);
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
     let mut code_section = CodeSection::new();
     for (coverage_id, function) in all_functions.iter().enumerate() {
         // Two extra i64 scratch locals: `self.locals.len()` is the general-purpose
@@ -357,6 +400,8 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             &function.locals,
             &ctx.repr_table,
             &function.name,
+            &module_const_inits,
+            &module_binding_names,
         );
         let coverage_id = ctx.target.coverage.then_some(coverage_id as u32);
         if function.is_entry {

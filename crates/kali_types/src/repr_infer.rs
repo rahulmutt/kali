@@ -72,6 +72,15 @@ struct ReprInfer {
     return_node: BTreeMap<String, usize>,
     /// Ordered parameter names of every user `FunctionDeclaration`.
     functions: BTreeMap<String, Vec<String>>,
+    /// Names locally bound within a given scope: a function's own parameters
+    /// plus every `let`/`const`/`var` declarator reachable from its body
+    /// without descending into a nested function (module scope uses the
+    /// `TOP_LEVEL` key). Lets identifier resolution tell a local read from a
+    /// module-scope read regardless of source order, mirroring codegen's
+    /// `self.locals`/`self.bindings` shadow precedence (see
+    /// `kali_codegen::emit::control_flow`'s identifier fallback and
+    /// `kali_codegen::lower`'s `module_binding_names`).
+    local_names: BTreeMap<String, BTreeSet<String>>,
     /// Deferred interprocedural call constraints.
     calls: Vec<CallEdge>,
     /// Ordered field names of each slot directly initialized by an object literal.
@@ -131,6 +140,12 @@ pub fn infer_reprs(statements: &[Statement]) -> ReprTable {
     // create a scalar node per parameter so interprocedural edges have a
     // stable target even for params never mentioned in the body.
     infer.collect_functions(statements);
+
+    // Phase A2: collect every locally-declared name per scope (module scope
+    // plus each function's own params/declarators), so identifier resolution
+    // in Phase B can distinguish a local read from a module-scope read
+    // regardless of source order.
+    infer.collect_local_names(TOP_LEVEL, statements);
 
     // Phase B: walk bodies. Top-level non-function statements run under the
     // synthetic `_start`; each `FunctionDeclaration` runs under its own name.
@@ -366,6 +381,77 @@ impl ReprInfer {
         }
     }
 
+    // ---- Phase A2: local-name collection --------------------------------
+
+    /// Populate `local_names` for `func`'s own scope (module scope when
+    /// `func == TOP_LEVEL`): every `let`/`const`/`var` declarator reachable
+    /// from `statements` without descending into a nested function, plus
+    /// (via the `FunctionDeclaration` arm below) each nested function's own
+    /// parameters.
+    fn collect_local_names(&mut self, func: &str, statements: &[Statement]) {
+        for stmt in statements {
+            self.collect_local_names_in_stmt(func, stmt);
+        }
+    }
+
+    fn collect_local_names_in_stmt(&mut self, func: &str, stmt: &Statement) {
+        match stmt {
+            Statement::FunctionDeclaration(decl) => {
+                let entry = self.local_names.entry(decl.name.clone()).or_default();
+                for param in &decl.params {
+                    entry.insert(param.clone());
+                }
+                self.collect_local_names(&decl.name, &decl.body.body);
+            }
+            Statement::VariableDeclaration(decl) => {
+                let entry = self.local_names.entry(func.to_string()).or_default();
+                for d in &decl.declarations {
+                    entry.insert(d.id.clone());
+                }
+            }
+            Statement::BlockStatement(block) => self.collect_local_names(func, &block.body),
+            Statement::IfStatement(node) => {
+                self.collect_local_names(func, &node.consequent.body);
+                if let Some(alt) = &node.alternate {
+                    self.collect_local_names(func, &alt.body);
+                }
+            }
+            Statement::ForStatement(node) => {
+                if let Some(ForInit::VariableDeclaration(decl)) = &node.init {
+                    let entry = self.local_names.entry(func.to_string()).or_default();
+                    for d in &decl.declarations {
+                        entry.insert(d.id.clone());
+                    }
+                }
+                self.collect_local_names(func, &node.body.body);
+            }
+            Statement::ForInStatement(node) => self.collect_local_names_in_stmt(func, &node.body),
+            Statement::ForOfStatement(node) => self.collect_local_names_in_stmt(func, &node.body),
+            Statement::WhileStatement(node) => self.collect_local_names(func, &node.body.body),
+            Statement::DoWhileStatement(node) => self.collect_local_names(func, &node.body.body),
+            Statement::LabeledStatement(node) => self.collect_local_names_in_stmt(func, &node.body),
+            Statement::TryStatement(node) => {
+                self.collect_local_names(func, &node.block.body);
+                if let Some(handler) = &node.handler {
+                    self.collect_local_names(func, &handler.body.body);
+                }
+                if let Some(finalizer) = &node.finalizer {
+                    self.collect_local_names(func, &finalizer.body);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// True when `name` is locally bound in `func`'s own scope (a parameter
+    /// or a `let`/`const`/`var` declarator anywhere in its body, ignoring
+    /// nested functions) — mirrors codegen's local/binding precedence.
+    fn is_locally_declared(&self, func: &str, name: &str) -> bool {
+        self.local_names
+            .get(func)
+            .is_some_and(|names| names.contains(name))
+    }
+
     // ---- Phase B: statement walk ---------------------------------------
 
     fn visit_block(&mut self, func: &str, block: &BlockStatement) {
@@ -560,7 +646,24 @@ impl ReprInfer {
     /// Walk `expr`, wiring seeds/edges, and return its result node.
     fn visit_expr(&mut self, func: &str, expr: &Expression) -> usize {
         match expr {
-            Expression::Identifier(name) => self.scalar_node_for(func, name),
+            Expression::Identifier(name) => {
+                // A read of a name not locally bound in `func`'s own scope
+                // but declared at module scope is a module-const/binding
+                // read (see `kali_codegen`'s matching identifier fallback):
+                // route it to the SAME node as the module declaration so its
+                // float-ness (e.g. `const DPY = 365.24;`) reaches every
+                // reader, instead of a fresh, permanently-unseeded node
+                // private to this function.
+                let scope = if func != TOP_LEVEL
+                    && !self.is_locally_declared(func, name)
+                    && self.is_locally_declared(TOP_LEVEL, name)
+                {
+                    TOP_LEVEL
+                } else {
+                    func
+                };
+                self.scalar_node_for(scope, name)
+            }
 
             Expression::Literal(LiteralValue::Number(n)) => {
                 let node = self.new_node();

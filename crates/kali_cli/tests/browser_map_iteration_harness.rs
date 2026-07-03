@@ -170,7 +170,18 @@ browserMapIteration();
 }
 
 fn browser_harness_map_iteration_test_source() -> &'static str {
-    r##"Kali.test('map constructor iteration', () => {
+    // The whole check body is wrapped in its own named function (called once
+    // from the `Kali.test` callback) rather than living directly in the
+    // callback: `kali run`/`kali test` compile the `Kali.test` callback as
+    // the program entry, so a `let` declared directly in the callback (like
+    // `returnFinally`/`throwFinally` below) would be a module-scope binding
+    // read by the nested `mapReturnProbe`/`mapThrowProbe` functions across a
+    // function boundary — unsupported (and previously silently miscompiled;
+    // now correctly rejected as E5506). Nesting one level deeper, exactly
+    // like the (working) plain `run`-mode `browserMapIteration` variant
+    // above, keeps `returnFinally`/`throwFinally` local to
+    // `mapConstructorIterationCheck` instead of the entry point.
+    r##"function mapConstructorIterationCheck() {
   function assertMapIteration(values) {
     if (
       values.length !== 2 ||
@@ -325,6 +336,10 @@ fn browser_harness_map_iteration_test_source() -> &'static str {
   assertMapIteration(wrappedFrozenGlobalDirect);
   assertMapIteration(wrappedFrozenGlobalBracketed);
   console.log('browser map constructor iteration ok');
+}
+
+Kali.test('map constructor iteration', () => {
+  mapConstructorIterationCheck();
 });
 "##
 }

@@ -506,9 +506,17 @@ impl<'a> FunctionEmitter<'a> {
                     .is_some_and(|name| self.repr_table.return_repr(name) == kali_common::Repr::F64)
             }
             LirNodeKind::Value => match node.children.len() {
-                0 => node.text.as_deref().is_some_and(|text| {
-                    Self::is_float_literal_text(text)
-                        || self.scalar_repr(text) == kali_common::Repr::F64
+                0 => node.text.as_deref().is_some_and(|name| {
+                    if Self::is_float_literal_text(name) {
+                        return true;
+                    }
+                    // Module const inlined at this site: classify by its initializer.
+                    if !self.locals.contains_key(name) && self.function_name != "_start" {
+                        if let Some(&init) = self.module_const_inits.get(name) {
+                            return self.is_float_valued(init);
+                        }
+                    }
+                    self.scalar_repr(name) == kali_common::Repr::F64
                 }),
                 1 => {
                     let text = node.text.as_deref().unwrap_or_default();

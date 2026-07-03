@@ -159,7 +159,14 @@ browserSetIteration();
 }
 
 fn browser_harness_set_iteration_test_source() -> &'static str {
-    r##"Kali.test('set constructor iteration', () => {
+    // See the matching comment in browser_map_iteration_harness.rs: the whole
+    // check body is wrapped in its own named function (called once from the
+    // `Kali.test` callback) so `returnFinally`/`throwFinally` stay local to
+    // `setConstructorIterationCheck` instead of becoming module-scope
+    // bindings read across a function boundary by the nested
+    // `setReturnProbe`/`setThrowProbe` functions (unsupported; previously
+    // silently miscompiled, now correctly rejected as E5506).
+    r##"function setConstructorIterationCheck() {
   function assertSetIteration(values) {
     if (values.length !== 2 || values[0] !== 1 || values[1] !== 2) {
       throw new Error('unexpected Set constructor iteration semantics');
@@ -303,6 +310,10 @@ fn browser_harness_set_iteration_test_source() -> &'static str {
   assertSetIteration(wrappedFrozenGlobalDirect);
   assertSetIteration(wrappedFrozenGlobalBracketed);
   console.log('browser set constructor iteration ok');
+}
+
+Kali.test('set constructor iteration', () => {
+  setConstructorIterationCheck();
 });
 "##
 }

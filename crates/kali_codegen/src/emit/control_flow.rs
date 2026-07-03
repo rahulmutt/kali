@@ -521,6 +521,32 @@ impl<'a> FunctionEmitter<'a> {
                         return self.emit_node(function, bound, want_value);
                     }
 
+                    // Module-scope binding read from inside a function: inline
+                    // a compile-time-pure `const` initializer (all emitters
+                    // share one LirProgram node space), and gate every other
+                    // module binding — the old path lowered these through a
+                    // silent zero placeholder (a wrong answer, not an error).
+                    if self.function_name != "_start" {
+                        if let Some(&init) = self.module_const_inits.get(text) {
+                            if self.is_pure_module_const_init(init, 0) {
+                                return self.emit_node(function, init, want_value);
+                            }
+                        }
+                        if self.module_binding_names.contains(text) {
+                            self.diagnostics.push(Diagnostic::error(
+                                e5::FEATURE_UNAVAILABLE as u32,
+                                format!(
+                                    "reading module binding '{text}' from a function is only available for compile-time-constant `const` initializers in the current phase"
+                                ),
+                            ));
+                            function.instruction(&Instruction::I64Const(0));
+                            return EmittedValue {
+                                produced: true,
+                                shape: ValueShape::Unknown,
+                            };
+                        }
+                    }
+
                     if let Some(constant) = parse_number_literal(text) {
                         function.instruction(&Instruction::I64Const(constant));
                         return EmittedValue {
