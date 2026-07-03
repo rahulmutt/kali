@@ -701,3 +701,39 @@ fn array_element_alias_mutation_is_shared() {
         "2.5\n"
     );
 }
+
+#[test]
+fn objects_cross_function_boundaries() {
+    let src = "\
+function mk(v) { return { x: v }; }\n\
+function getx(p) { return p.x; }\n\
+const a = mk(3.5);\nconsole.log(getx(a).toFixed(1));\n";
+    assert_eq!(run_js(src), "3.5\n");
+}
+
+#[test]
+fn factory_array_advance_shape_miniature() {
+    let src = "\
+function mk(x, vx) { return { x: x, vx: vx }; }\n\
+function advance(bs, dt) {\n\
+  for (let i = 0; i < bs.length; i = i + 1) {\n\
+    const b = bs[i];\n\
+    b.x = b.x + dt * b.vx;\n\
+  }\n\
+}\n\
+const bs = [mk(1.0, 2.0), mk(0.5, 4.0)];\n\
+advance(bs, 0.5);\n\
+console.log((bs[0].x + bs[1].x).toFixed(2));\n";
+    assert_eq!(run_js(src), "4.50\n");
+}
+
+#[test]
+fn factory_returned_objects_are_distinct_instances() {
+    let src = "\
+function mk(v) { return { x: v }; }\n\
+const p = mk(1.0);\n\
+const q = mk(2.0);\n\
+q.x = 5.0;\n\
+console.log((p.x + q.x).toFixed(1));\n";
+    assert_eq!(run_js(src), "6.0\n"); // p.x=1.0 unchanged, q.x=5.0 — distinct instances
+}

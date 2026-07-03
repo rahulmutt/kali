@@ -61,6 +61,28 @@ impl<'a> FunctionEmitter<'a> {
 
     pub(crate) fn emit_return(&mut self, function: &mut Function, node: &LirNode) -> EmittedValue {
         if let Some(arg) = node.children.first().copied() {
+            // A function whose return repr is Object(shape) returning an
+            // object literal materializes it (factory functions). Only the
+            // direct return argument routes here — other literals in the
+            // body keep their own lanes.
+            if let kali_common::Repr::Object(shape) =
+                self.repr_table.return_repr(&self.function_name)
+            {
+                if let Some(aggregate_id) = self.resolve_literal_aggregate(arg) {
+                    let aggregate = self.node(aggregate_id).clone();
+                    if self.is_object_literal(&aggregate) {
+                        let produced = self.emit_object_allocation(function, &aggregate, shape);
+                        if !produced.produced {
+                            function.instruction(&Instruction::I64Const(0));
+                        }
+                        function.instruction(&Instruction::Return);
+                        return EmittedValue {
+                            produced: false,
+                            shape: ValueShape::Unknown,
+                        };
+                    }
+                }
+            }
             let produced = self.emit_node(function, arg, true);
             if !produced.produced {
                 function.instruction(&Instruction::I64Const(0));

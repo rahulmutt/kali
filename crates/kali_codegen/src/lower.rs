@@ -968,11 +968,33 @@ pub(crate) fn collect_function_locals_from_node(
                             kali_common::Repr::Object(_)
                         )
                 });
+            // A factory-call initializer (`const q = mk(2.0)`) whose callee
+            // returns an `Object` repr matching the binding's own repr needs
+            // the same stable handle: without promotion, the const folds to
+            // re-evaluating the call at every use site (`resolve_literal_aggregate`'s
+            // `bindings` alias lane), silently calling the factory again on
+            // each read/write instead of sharing the one materialized object
+            // — a distinct-instances miscompile, not just a missed optimization.
+            let is_materialized_factory_return =
+                declarator_node.text.as_deref().is_some_and(|name| {
+                    match repr_table.scalar(function_name, name) {
+                        kali_common::Repr::Object(_) => {
+                            declarator_init_call_callee_name(nodes, init).is_some_and(|callee| {
+                                matches!(
+                                    repr_table.return_repr(callee),
+                                    kali_common::Repr::Object(_)
+                                )
+                            })
+                        }
+                        _ => false,
+                    }
+                });
             if !declarator_init_is_array_alloc(nodes, init)
                 && !declarator_init_is_array_fill(nodes, init)
                 && !declarator_init_is_array_read(nodes, init, array_names)
                 && !is_materialized_object
                 && !is_materialized_object_array
+                && !is_materialized_factory_return
             {
                 continue;
             }
@@ -1210,6 +1232,45 @@ pub(crate) fn declarator_init_is_object_literal(nodes: &[LirNode], init_id: LirN
                     .and_then(|key| nodes.get(key.0 as usize))
                     .is_some_and(|key_node| key_node.kind == LirNodeKind::Literal)
         });
+    }
+}
+
+/// Returns the callee name if `init_id` (after unwrapping genuine sequence
+/// wrappers) is a plain call `name(...)` — a `Call` node whose callee is a
+/// bare identifier (no receiver, i.e. not a method call). Used to detect a
+/// factory-function initializer (`const q = mk(2.0)`) so its binding can be
+/// promoted to a stable local when the factory's return repr is `Object`;
+/// otherwise the const would fold to re-evaluating the call at every use
+/// site, silently duplicating the returned object (see
+/// `is_materialized_factory_return` below).
+pub(crate) fn declarator_init_call_callee_name(
+    nodes: &[LirNode],
+    init_id: LirNodeId,
+) -> Option<&str> {
+    let mut id = init_id;
+    let mut guard = 0;
+    loop {
+        let node = nodes.get(id.0 as usize)?;
+        if node.kind == LirNodeKind::Value
+            && node.text.as_deref() == Some("")
+            && !node.children.is_empty()
+        {
+            id = *node.children.last().expect("sequence wrapper has a child");
+            guard += 1;
+            if guard > 64 {
+                return None;
+            }
+            continue;
+        }
+        if node.kind != LirNodeKind::Call {
+            return None;
+        }
+        let callee = node.children.first()?;
+        let callee_node = nodes.get(callee.0 as usize)?;
+        if !callee_node.children.is_empty() {
+            return None;
+        }
+        return callee_node.text.as_deref();
     }
 }
 
