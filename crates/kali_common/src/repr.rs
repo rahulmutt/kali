@@ -7,6 +7,12 @@
 
 use std::collections::{HashMap, HashSet};
 
+/// Interned identity of a fixed object layout: an ordered list of
+/// `(field name, field repr)`. Field `i` lives at byte offset `i * 8`
+/// (every field is one 8-byte slot; objects have no header word).
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, PartialOrd, Ord)]
+pub struct ShapeId(pub u32);
+
 /// Machine representation chosen for a `number` value.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum Repr {
@@ -15,6 +21,8 @@ pub enum Repr {
     I64,
     /// IEEE-754 double.
     F64,
+    /// Pointer (i64) to a fixed-shape heap object in linear memory.
+    Object(ShapeId),
 }
 
 /// Representation decisions for a whole program, keyed by function + binding.
@@ -34,6 +42,11 @@ pub struct ReprTable {
     /// distinguish an i64 array param from a scalar param.
     array_bindings: HashSet<(String, String)>,
     any_float: bool,
+    /// Interned object layouts; `ShapeId` indexes this list.
+    shapes: Vec<Vec<(String, Repr)>>,
+    /// Gate messages from the shape inference (contradictory or unsupported
+    /// object usage). Any entry makes compilation fail with E5506.
+    shape_conflicts: Vec<String>,
 }
 
 impl ReprTable {
@@ -107,9 +120,40 @@ impl ReprTable {
             .contains(&(func.to_string(), binding.to_string()))
     }
 
-    /// True when no float representation was ever recorded.
+    /// True when no float representation, object shape, or shape conflict was
+    /// ever recorded (codegen may keep its all-i64 fast paths).
     pub fn is_empty(&self) -> bool {
-        !self.any_float
+        !self.any_float && self.shapes.is_empty() && self.shape_conflicts.is_empty()
+    }
+
+    pub fn intern_shape(&mut self, fields: Vec<(String, Repr)>) -> ShapeId {
+        if let Some(index) = self.shapes.iter().position(|shape| *shape == fields) {
+            return ShapeId(index as u32);
+        }
+        self.shapes.push(fields);
+        ShapeId((self.shapes.len() - 1) as u32)
+    }
+
+    pub fn shape_fields(&self, shape: ShapeId) -> &[(String, Repr)] {
+        &self.shapes[shape.0 as usize]
+    }
+
+    /// `(field index, field repr)` for `name` in `shape`; `None` for an
+    /// unknown field (callers gate, never miscompile).
+    pub fn shape_field(&self, shape: ShapeId, name: &str) -> Option<(usize, Repr)> {
+        self.shape_fields(shape)
+            .iter()
+            .enumerate()
+            .find(|(_, (field, _))| field == name)
+            .map(|(index, (_, repr))| (index, *repr))
+    }
+
+    pub fn add_shape_conflict(&mut self, message: String) {
+        self.shape_conflicts.push(message);
+    }
+
+    pub fn shape_conflicts(&self) -> &[String] {
+        &self.shape_conflicts
     }
 }
 

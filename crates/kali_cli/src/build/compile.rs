@@ -644,6 +644,16 @@ fn analyze_source_file(
             return Err(diagnostics);
         }
         repr_table = resolved.repr_table;
+
+        for message in repr_table.shape_conflicts() {
+            diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                message.clone(),
+            ));
+        }
+        if has_errors(&diagnostics) {
+            return Err(diagnostics);
+        }
     }
 
     Ok(AnalyzedSource {

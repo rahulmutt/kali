@@ -91,7 +91,20 @@ impl Parser {
         let name = name_token.value;
 
         let init = if self.stream.accept(TokenType::Eq) {
-            Some(self.parse_expression())
+            // Statement-bodied arrows (`(a, b) => { ... }`) are not representable
+            // in the expression grammar (`ArrowFunctionExpression.body` is an
+            // `Expression`, and `return` inside `{}` is a statement), so the
+            // general arrow parser bails on `{` bodies. In declarator-init
+            // position parse them as an unnamed `FunctionExpression` — the exact
+            // AST shape `const f = function () { ... }` produces, which the whole
+            // pipeline (resolver scoping, HIR synthetic naming, codegen
+            // standalone-function collection, const-binding call dispatch)
+            // already compiles correctly.
+            if let Some(arrow) = self.try_parse_block_arrow_function_expression() {
+                Some(arrow)
+            } else {
+                Some(self.parse_expression())
+            }
         } else {
             None
         };

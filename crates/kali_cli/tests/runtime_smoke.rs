@@ -953,17 +953,25 @@ if (arrayLiteralFirst !== 4n || arrayLiteralSecond !== 4n) {
   throw 'unexpected array literal arguments';
 }
 if (
-  keys.length !== 2 ||
+  keys.length !== 4 ||
   keys[0] !== '1' ||
   keys[1] !== '2' ||
-  entries.length !== 2 ||
+  keys[2] !== 'b' ||
+  keys[3] !== 'a' ||
+  entries.length !== 4 ||
   entries[0][0] !== '1' ||
   entries[0][1] !== 4 ||
   entries[1][0] !== '2' ||
   entries[1][1] !== 2 ||
-  values.length !== 2 ||
+  entries[2][0] !== 'b' ||
+  entries[2][1] !== 1 ||
+  entries[3][0] !== 'a' ||
+  entries[3][1] !== 3 ||
+  values.length !== 4 ||
   values[0] !== 4 ||
   values[1] !== 2 ||
+  values[2] !== 1 ||
+  values[3] !== 3 ||
   fromEntriesKeys.length !== 2 ||
   fromEntriesKeys[0] !== 'b' ||
   fromEntriesKeys[1] !== 'a' ||
@@ -1635,7 +1643,16 @@ fn write_browser_runtime_exports_package_fixture(package_dir: &Path, package_nam
     .expect("write browser package browser entry");
 }
 
-fn assert_browser_bundle_executes(bundle_root: &Path, export_name: &str) {
+/// Runs the bundle's `export_name(1n, 2n)` through the node harness and pins
+/// the result. `expected` is the decimal digits of the expected BigInt (i64
+/// exports surface as BigInt through the raw wasm-export ABI). Pinning the
+/// real source value proves the exported body actually executed; a blanket
+/// `0n` pin is indistinguishable from a dead stub (b5c085401 precedent).
+fn assert_browser_bundle_executes_with_result(
+    bundle_root: &Path,
+    export_name: &str,
+    expected: &str,
+) {
     let bundle_dir = bundle_root
         .file_name()
         .and_then(|name| name.to_str())
@@ -1650,12 +1667,13 @@ fn assert_browser_bundle_executes(bundle_root: &Path, export_name: &str) {
         &format!(
             r#"const mod = await import(bundleJs.href);
 const result = await mod.{export_name}(1n, 2n);
-if (result !== 0n) {{
+if (result !== {expected}n) {{
   throw new Error(`unexpected result ${{result}}`);
 }}
 console.log(String(result));
 "#,
             export_name = export_name,
+            expected = expected,
         ),
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
@@ -1676,7 +1694,12 @@ console.log(String(result));
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains('0'), "stdout: {stdout}");
+    assert!(stdout.contains(expected), "stdout: {stdout}");
+}
+
+/// Callers whose fixtures genuinely `return 0n;`.
+fn assert_browser_bundle_executes(bundle_root: &Path, export_name: &str) {
+    assert_browser_bundle_executes_with_result(bundle_root, export_name, "0");
 }
 
 fn assert_browser_bundle_promise_all_sequencing(filename: &str, json_output: bool) {
@@ -6042,6 +6065,8 @@ fn assert_optimization_benchmark_fixture(fixture_stem: &str, benchmark_name: &st
             | "array-literal-arguments"
             | "numeric-literal-arguments"
             | "math-max-min-builtin-js"
+            | "spectral-norm"
+            | "nbody"
     ) {
         assert!(
             release_size < fast_size
@@ -6071,6 +6096,8 @@ fn assert_optimization_benchmark_fixture(fixture_stem: &str, benchmark_name: &st
             | "numeric-literal-arguments"
             | "nested-call-inlining-chain"
             | "math-max-min-builtin-js"
+            | "spectral-norm"
+            | "nbody"
     ) {
         assert!(
             release_adds <= fast_adds,

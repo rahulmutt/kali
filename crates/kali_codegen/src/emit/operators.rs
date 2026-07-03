@@ -332,6 +332,10 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             _ => {
+                if let Some(shape) = self.object_shape_of_node(arg) {
+                    return self.emit_object_field_read(function, arg, shape, op);
+                }
+
                 if let Some(aggregate_id) = self.resolve_literal_aggregate(arg) {
                     let aggregate = self.node(aggregate_id).clone();
                     if let Some(field_value) = self.object_literal_field(&aggregate, op) {
@@ -358,7 +362,7 @@ impl<'a> FunctionEmitter<'a> {
 
     /// Unwraps transparent single-child `Value` wrappers (no operator text) so a
     /// string-classification query inspects the underlying literal/expression.
-    fn unwrap_transparent(&self, mut id: LirNodeId) -> LirNodeId {
+    pub(crate) fn unwrap_transparent(&self, mut id: LirNodeId) -> LirNodeId {
         let mut guard = 0;
         loop {
             let node = self.node(id);
@@ -418,6 +422,35 @@ impl<'a> FunctionEmitter<'a> {
         parse_number_literal(text).is_none() && parse_numeric_literal_value(text).is_some()
     }
 
+    /// True when `id` (after unwrapping transparent wrappers and resolving
+    /// const bindings) is a BigInt literal such as `3n`, or a unary `-` applied
+    /// to one (`-3n`) — `emit_unary`'s `-` arm lowers a BigInt-literal operand
+    /// via `i64.const 0` / `i64.sub`, which stays on the i64 lane, so the
+    /// negated form is just as div_s-eligible as the plain literal. BigInt
+    /// arithmetic stays on the i64 lane; in particular JS BigInt `/` truncates
+    /// toward zero — `i64.div_s` — never `f64.div`. Scope is deliberately
+    /// literal / const-bound-literal operands (optionally negated): the repr
+    /// machinery has no BigInt axis yet, so BigInt-typed mutable locals keep
+    /// the (wrong) float path, and mixed `3n / 2` (a JS TypeError) still
+    /// floats too — both recorded follow-ups.
+    fn is_bigint_literal_valued(&self, id: LirNodeId) -> bool {
+        let id = self.unwrap_transparent(id);
+        let id = self.resolve_bound_node(id);
+        let node = self.node(id);
+        if node.kind == LirNodeKind::Value
+            && node.children.len() == 1
+            && node.text.as_deref() == Some("-")
+        {
+            return self.is_bigint_literal_valued(node.children[0]);
+        }
+        node.kind == LirNodeKind::Literal
+            && node
+                .text
+                .as_deref()
+                .and_then(|text| text.strip_suffix('n'))
+                .is_some_and(|digits| digits.parse::<i64>().is_ok())
+    }
+
     /// Structural oracle: true when the value produced by `id` is represented as an
     /// `f64`. Mirrors `is_string_valued`; consulted per-operand by `emit_binary`
     /// to decide instruction selection and int->float promotion.
@@ -430,7 +463,31 @@ impl<'a> FunctionEmitter<'a> {
     /// - float literal -> true.
     pub(crate) fn is_float_valued(&self, id: LirNodeId) -> bool {
         let id = self.unwrap_transparent(id);
+        // Resolve a local `const` fold-alias (`self.bindings`, e.g. a for-of/for-in
+        // bound name or an unpromoted scalar `const`) BEFORE treating a bare
+        // identifier as a candidate for module-const inlining below. Without this,
+        // a local binding whose name collides with a float module `const` (a
+        // for-of/for-in loop variable, a catch parameter, or any other unpromoted
+        // local `const`) is misclassified by the module-const fallback as sharing
+        // the module binding's float-ness, even though `emit_node`'s own identifier
+        // fallback (see `control_flow.rs`) already correctly resolves the read
+        // through `self.bindings` to the LOCAL (int) value — a type/value mismatch
+        // that produces an invalid WASM module. Mirrors `is_bigint_literal_valued`,
+        // which already calls `resolve_bound_node` for the same reason.
+        let id = self.resolve_bound_node(id);
         let node = self.node(id);
+        // Fixed-shape object field read: the repr comes from the shape table.
+        if node.kind == LirNodeKind::Value && node.children.len() == 1 {
+            if let (Some(field), Some(shape)) = (
+                node.text.as_deref().filter(|text| !text.is_empty()),
+                self.object_shape_of_node(node.children[0]),
+            ) {
+                return matches!(
+                    self.repr_table.shape_field(shape, field),
+                    Some((_, kali_common::Repr::F64))
+                );
+            }
+        }
         match node.kind {
             LirNodeKind::Literal => node
                 .text
@@ -461,9 +518,17 @@ impl<'a> FunctionEmitter<'a> {
                     .is_some_and(|name| self.repr_table.return_repr(name) == kali_common::Repr::F64)
             }
             LirNodeKind::Value => match node.children.len() {
-                0 => node.text.as_deref().is_some_and(|text| {
-                    Self::is_float_literal_text(text)
-                        || self.scalar_repr(text) == kali_common::Repr::F64
+                0 => node.text.as_deref().is_some_and(|name| {
+                    if Self::is_float_literal_text(name) {
+                        return true;
+                    }
+                    // Module const inlined at this site: classify by its initializer.
+                    if !self.locals.contains_key(name) && self.function_name != "_start" {
+                        if let Some(&init) = self.module_const_inits.get(name) {
+                            return self.is_float_valued(init);
+                        }
+                    }
+                    self.scalar_repr(name) == kali_common::Repr::F64
                 }),
                 1 => {
                     let text = node.text.as_deref().unwrap_or_default();
@@ -492,7 +557,10 @@ impl<'a> FunctionEmitter<'a> {
                     let text = node.text.as_deref().unwrap_or_default();
                     if is_binary_operator_text(text) {
                         match text {
-                            "/" => true,
+                            "/" => {
+                                !(self.is_bigint_literal_valued(node.children[0])
+                                    && self.is_bigint_literal_valued(node.children[1]))
+                            }
                             "+" | "-" | "*" => {
                                 self.is_float_valued(node.children[0])
                                     || self.is_float_valued(node.children[1])
@@ -559,6 +627,26 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        // Object misuse gate: a genuine arithmetic/comparison operator applied
+        // to an object reference (e.g. `p + 1`) would silently operate on the
+        // raw pointer. `=` and the compound-assignment operators are handled
+        // above by `emit_assignment` (which returns `true` and short-circuits
+        // before this point) and legitimately support object-reference
+        // reassignment (`q = p`, aliasing), so they never reach here.
+        if self.object_shape_of_node(left).is_some() || self.object_shape_of_node(right).is_some() {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "operator '{op}' on an object reference is unavailable in the current phase; operate on its fields instead"
+                ),
+            ));
+            function.instruction(&Instruction::I64Const(0));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Scalar,
+            };
+        }
+
         if matches!(op, "===" | "!==") {
             if let (Some(left_value), Some(right_value)) = (
                 self.static_bigint_literal_value(left),
@@ -612,7 +700,10 @@ impl<'a> FunctionEmitter<'a> {
         // emitted code is byte-identical to the pre-repr path.
         let operand_float = self.is_float_valued(left) || self.is_float_valued(right);
         let float_op = match op {
-            "/" => true,
+            // `/` is float (JS division yields a double in this model) UNLESS
+            // both operands are BigInt literals: BigInt division truncates
+            // toward zero and must stay on the i64 lane (`i64.div_s`).
+            "/" => !(self.is_bigint_literal_valued(left) && self.is_bigint_literal_valued(right)),
             "+" | "-" | "*" => operand_float,
             "<" | "<=" | ">" | ">=" | "==" | "===" | "!=" | "!==" => operand_float,
             _ => false,
@@ -670,11 +761,19 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             "/" => {
-                // `float_op` is always true here.
-                function.instruction(&Instruction::F64Div);
-                EmittedValue {
-                    produced: true,
-                    shape: ValueShape::Float,
+                if float_op {
+                    function.instruction(&Instruction::F64Div);
+                    EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Float,
+                    }
+                } else {
+                    // BigInt `/`: truncation toward zero is exactly `i64.div_s`.
+                    function.instruction(&Instruction::I64DivS);
+                    EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Scalar,
+                    }
                 }
             }
             "%" => {

@@ -1,5 +1,13 @@
 use crate::*;
 
+/// Length source for [`FunctionEmitter::emit_array_allocation_with_len`]: either
+/// a dynamically evaluated size-argument AST node (`new Array(n)`) or a
+/// compile-time-known constant (array literals).
+enum ArrayLen {
+    Dynamic(Option<LirNodeId>),
+    Static(usize),
+}
+
 impl<'a> FunctionEmitter<'a> {
     /// Emit `id` as a console-import argument: always leaves exactly one i64
     /// (tagged scalar or string handle) on the stack. Float-shaped values are
@@ -13,6 +21,13 @@ impl<'a> FunctionEmitter<'a> {
     /// — `emit_binary`'s string-concat path already converts any float
     /// operands internally and returns shape `String`.
     fn emit_console_argument(&mut self, function: &mut Function, id: LirNodeId) {
+        if self.object_shape_of_node(id).is_some() {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "printing an object reference is unavailable in the current phase; print its fields instead"
+                    .to_string(),
+            ));
+        }
         let emitted = self.emit_node(function, id, true);
         if !emitted.produced {
             function.instruction(&Instruction::I64Const(0));
@@ -2185,7 +2200,14 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         for (arg_index, arg) in node.children.iter().skip(1).enumerate() {
-            let _ = self.emit_node(function, *arg, true);
+            let produced = self.emit_node(function, *arg, true);
+            // A function-valued argument (e.g. an arrow, compiled as a
+            // standalone function and skipped by `is_function_like` here)
+            // produces no stack value; pad with a zero placeholder so the call
+            // arity — and the fallback per-argument `Drop` loop — stay valid.
+            if !produced.produced {
+                function.instruction(&Instruction::I64Const(0));
+            }
             // Promote an integer-valued argument to `f64` when the resolved callee
             // declares that parameter as float, so the pushed value matches the
             // callee's f64 param slot. No-op for integer callees (param defaults to
@@ -2269,6 +2291,33 @@ impl<'a> FunctionEmitter<'a> {
         function: &mut Function,
         size_arg: Option<LirNodeId>,
     ) -> EmittedValue {
+        self.emit_array_allocation_with_len(function, ArrayLen::Dynamic(size_arg))
+    }
+
+    /// Bump-allocate an array of statically-known length (array literals), leaving
+    /// the i64 base handle on the stack. Same layout as [`Self::emit_array_allocation`].
+    pub(crate) fn emit_array_allocation_static(
+        &mut self,
+        function: &mut Function,
+        len: usize,
+    ) -> EmittedValue {
+        self.emit_array_allocation_with_len(function, ArrayLen::Static(len))
+    }
+
+    /// Shared body for [`Self::emit_array_allocation`] and
+    /// [`Self::emit_array_allocation_static`]: bump-allocates an array in linear
+    /// memory, storing the length at `+0`, advancing the `__heap` global, and
+    /// leaving the i64 base handle on the stack. Layout:
+    /// `[ length:i64 @ +0 ][ elem0 @ +8 ][ elem1 @ +16 ]…`. The two callers differ
+    /// only in how the length value is produced — a dynamically evaluated AST
+    /// node (`new Array(n)`) or a compile-time constant (array literals) — which
+    /// `ArrayLen` captures so the rest of the emission (length-header store,
+    /// `__heap` advance, handle push) stays byte-identical between the two paths.
+    fn emit_array_allocation_with_len(
+        &mut self,
+        function: &mut Function,
+        len: ArrayLen,
+    ) -> EmittedValue {
         let scratch = self.locals.len() as u32;
         // Second scratch slot (see the `+ 2` extra-locals count in `lower.rs`): holds the
         // evaluated size argument so its AST node is emitted exactly once, then reused for
@@ -2282,8 +2331,13 @@ impl<'a> FunctionEmitter<'a> {
         function.instruction(&Instruction::I64ExtendI32U);
         function.instruction(&Instruction::LocalSet(scratch));
 
-        // size = evaluated size argument (emitted exactly once).
-        self.emit_array_length_value(function, size_arg);
+        // size = evaluated size argument (emitted exactly once) or a constant.
+        match len {
+            ArrayLen::Dynamic(size_arg) => self.emit_array_length_value(function, size_arg),
+            ArrayLen::Static(len) => {
+                function.instruction(&Instruction::I64Const(len as i64));
+            }
+        }
         function.instruction(&Instruction::LocalSet(size_scratch));
 
         // mem[base + 0] = length
@@ -2540,7 +2594,9 @@ impl<'a> FunctionEmitter<'a> {
         };
         match self.array_elem_repr(base_name) {
             kali_common::Repr::F64 => function.instruction(&Instruction::F64Load(mem_arg)),
-            kali_common::Repr::I64 => function.instruction(&Instruction::I64Load(mem_arg)),
+            kali_common::Repr::I64 | kali_common::Repr::Object(_) => {
+                function.instruction(&Instruction::I64Load(mem_arg))
+            }
         };
         EmittedValue {
             produced: true,
@@ -2605,7 +2661,9 @@ impl<'a> FunctionEmitter<'a> {
         };
         match self.array_elem_repr(base_name) {
             kali_common::Repr::F64 => function.instruction(&Instruction::F64Load(mem_arg)),
-            kali_common::Repr::I64 => function.instruction(&Instruction::I64Load(mem_arg)),
+            kali_common::Repr::I64 | kali_common::Repr::Object(_) => {
+                function.instruction(&Instruction::I64Load(mem_arg))
+            }
         };
         EmittedValue {
             produced: true,

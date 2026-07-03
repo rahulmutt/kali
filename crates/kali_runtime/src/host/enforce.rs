@@ -90,18 +90,34 @@ pub(crate) fn invoke_callback(
     callback_id: i32,
 ) -> Result<(), Diagnostic> {
     // The current guest ABI uses exported callback stubs named
-    // `__kali_callback_<id>` for timer and microtask scheduling.
+    // `__kali_callback_<id>` for timer/microtask scheduling and `Kali.test`
+    // callbacks. Callbacks are nullary but their result arity varies:
+    // hand-authored stubs are `() -> ()`, while codegen-emitted functions
+    // (e.g. arrow callbacks registered through `test_register`) are
+    // `() -> i64`/`() -> f64` — every collected `FunctionPlan` carries
+    // `result: true`. Invoke through the untyped API and discard any results
+    // so both shapes dispatch.
     let export_name = format!("__kali_callback_{}", callback_id);
     let callback = instance
-        .get_typed_func::<(), ()>(&mut *store, &export_name)
-        .map_err(|error| {
+        .get_func(&mut *store, &export_name)
+        .ok_or_else(|| {
             Diagnostic::error(
                 e4::UNCAUGHT_ERROR as u32,
-                format!("missing timer callback '{}': {}", export_name, error),
+                format!("missing timer callback '{}'", export_name),
             )
         })?;
+    let mut results: Vec<Val> = callback
+        .ty(&*store)
+        .results()
+        .map(|ty| match ty {
+            wasmtime::ValType::I32 => Val::I32(0),
+            wasmtime::ValType::F32 => Val::F32(0),
+            wasmtime::ValType::F64 => Val::F64(0),
+            _ => Val::I64(0),
+        })
+        .collect();
 
-    if let Err(error) = callback.call(&mut *store, ()) {
+    if let Err(error) = callback.call(&mut *store, &[], &mut results) {
         if let Some(diagnostic) = store.data_mut().pending_diagnostic.take() {
             return Err(diagnostic);
         }

@@ -1538,6 +1538,7 @@ fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
         ("call-inlining-chain-benchmark-v1", "call-inlining-chain"),
         ("nullish-benchmark-v1", "nullish-specialization"),
         ("spectral-norm-benchmark-v1", "spectral-norm"),
+        ("nbody-benchmark-v1", "nbody"),
     ] {
         assert_optimization_benchmark_fixture(fixture_stem, benchmark_name);
     }

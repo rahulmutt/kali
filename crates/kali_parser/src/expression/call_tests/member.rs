@@ -429,3 +429,47 @@ fn test_parse_dot_from_member_expression_after_keyword_property() {
     };
     assert_eq!(array, "Array");
 }
+
+#[test]
+fn test_parse_keyword_property_names_after_dot() {
+    // Reserved words are valid property names in JS/TS (`event.type`,
+    // `config.default`, ...). The lexer reserves these words, so the member
+    // parser must accept keyword-shaped tokens after `.`.
+    let tokens = lex(
+        "event.type; config.default; chain.from; task.async; list.of; state.case; item.new; box.in;",
+    );
+    let mut parser = Parser::new(kali_common::FileId::new(0), tokens);
+    let output = parser.parse(None);
+
+    assert!(
+        output.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        output.diagnostics
+    );
+    assert_eq!(output.statements.len(), 8, "{:?}", output.statements);
+
+    let expected = [
+        ("event", "type"),
+        ("config", "default"),
+        ("chain", "from"),
+        ("task", "async"),
+        ("list", "of"),
+        ("state", "case"),
+        ("item", "new"),
+        ("box", "in"),
+    ];
+    for (statement, (object, property)) in output.statements.iter().zip(expected) {
+        let Statement::ExpressionStatement(stmt) = statement else {
+            panic!("expected expression statement, got {statement:?}");
+        };
+        let Expression::MemberExpression(member) = stmt.expression.as_ref() else {
+            panic!("expected member expression, got {:?}", stmt.expression);
+        };
+        assert_eq!(member.property, property);
+        assert!(
+            matches!(&member.object, Expression::Identifier(name) if name == object),
+            "object of .{property}: {:?}",
+            member.object
+        );
+    }
+}

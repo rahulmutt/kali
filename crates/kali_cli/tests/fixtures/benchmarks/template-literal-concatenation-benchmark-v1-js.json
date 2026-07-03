@@ -2,6 +2,6 @@
   "benchmark": "template-literal-concatenation-js",
   "version": 1,
   "sourceFile": "template-literal-concatenation-benchmark-v1-js.js",
-  "sourceSha256": "sha256-f1fb47871cbef634d9685539a76071b7f836220a31747d9c46659f026a39d6e0",
+  "sourceSha256": "sha256-3b9e6cd18be429b419668ce4fd3bec22d04cd4314e8073196d178affe12b3058",
   "buildModes": ["--fast", "--release", "--release-advanced"]
 }

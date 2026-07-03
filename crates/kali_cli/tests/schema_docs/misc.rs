@@ -2133,6 +2133,9 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
         "nested-call-inlining-chain",
         "object-enumeration-alias-chain-js",
         "nullish-specialization",
+        "fannkuch-redux",
+        "spectral-norm",
+        "nbody",
     ]
     .into_iter()
     .map(ToOwned::to_owned)
@@ -2200,6 +2203,9 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
         "layout-specialization-benchmark-v1.ts",
         "call-inlining-chain-benchmark-v1.ts",
         "nullish-benchmark-v1.ts",
+        "fannkuch-redux-benchmark-v1.ts",
+        "spectral-norm-benchmark-v1.ts",
+        "nbody-benchmark-v1.ts",
     ]
     .into_iter()
     .map(ToOwned::to_owned)

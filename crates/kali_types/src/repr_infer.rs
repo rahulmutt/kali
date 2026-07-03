@@ -26,7 +26,10 @@
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
-use kali_ast::{AssignmentOperator, BlockStatement, Expression, ForInit, LiteralValue, Statement};
+use kali_ast::{
+    AssignmentOperator, BlockStatement, Expression, ForInLefthand, ForInit, ForOfLefthand,
+    LiteralValue, Statement,
+};
 use kali_common::{Repr, ReprTable, UnionFind};
 
 /// Synthetic function name for top-level statements, matching codegen's entry.
@@ -72,8 +75,62 @@ struct ReprInfer {
     return_node: BTreeMap<String, usize>,
     /// Ordered parameter names of every user `FunctionDeclaration`.
     functions: BTreeMap<String, Vec<String>>,
+    /// Names locally bound within a given scope: a function's own parameters
+    /// plus every `let`/`const`/`var` declarator reachable from its body
+    /// without descending into a nested function (module scope uses the
+    /// `TOP_LEVEL` key). Lets identifier resolution tell a local read from a
+    /// module-scope read regardless of source order, mirroring codegen's
+    /// `self.locals`/`self.bindings` shadow precedence (see
+    /// `kali_codegen::emit::control_flow`'s identifier fallback and
+    /// `kali_codegen::lower`'s `module_binding_names`).
+    local_names: BTreeMap<String, BTreeSet<String>>,
     /// Deferred interprocedural call constraints.
     calls: Vec<CallEdge>,
+    /// Ordered field names of each slot directly initialized by an object literal.
+    obj_literal_fields: BTreeMap<ObjSlot, Vec<String>>,
+    /// Bidirectional object-aliasing flows (assignment, array element,
+    /// arg↔param, return↔call-site). Harmless for scalar slots: flows only
+    /// take effect for slots proven to hold object literals.
+    obj_flows: Vec<(ObjSlot, ObjSlot)>,
+    /// Deferred member accesses (wired in `resolve_objects`).
+    obj_accesses: Vec<ObjAccess>,
+    /// Per-(slot, field) storage node, unioned across aliased slots.
+    obj_field_node: BTreeMap<(ObjSlot, String), usize>,
+    /// Slots that must lower as runtime heap objects (any write, any flow).
+    obj_materialized: BTreeSet<ObjSlot>,
+    /// Object slots with their propagated field lists (set by `resolve_objects`).
+    obj_fields_of: BTreeMap<ObjSlot, Vec<String>>,
+    /// Deferred *structural* gate messages, keyed by the slot whose literal is
+    /// unsupported on the runtime object lane (non-identifier property name,
+    /// getter/setter, nested object). Emitted ONLY if that slot later
+    /// materializes; a read-only fold-lane literal (e.g. a string-keyed object
+    /// consumed only by `Object.keys`) never materializes and so keeps today's
+    /// fold-lane behavior byte-identically (fold-first invariant).
+    obj_pending_conflicts: BTreeMap<ObjSlot, String>,
+    /// Gate messages (unsupported or contradictory object usage).
+    obj_conflicts: Vec<String>,
+}
+
+/// Identity of an object-holding slot for shape/aliasing purposes.
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
+enum ObjSlot {
+    /// `(func, binding)` — a named binding or parameter.
+    Binding(String, String),
+    /// `(func, array_binding)` — every element of the named array (elements
+    /// of one array share one shape and one per-field storage cluster).
+    ArrayElem(String, String),
+    /// `func` — the function's return value.
+    Return(String),
+}
+
+/// A recorded `<base>.field` access: read (`other` = the result node) or
+/// write (`other` = the stored-value node). Wired to shared field storage
+/// after object propagation (`resolve_objects`).
+struct ObjAccess {
+    base: ObjSlot,
+    field: String,
+    other: usize,
+    is_write: bool,
 }
 
 /// Whole-program pass: allocate nodes, add seeds + intra/inter-procedural
@@ -87,6 +144,12 @@ pub fn infer_reprs(statements: &[Statement]) -> ReprTable {
     // stable target even for params never mentioned in the body.
     infer.collect_functions(statements);
 
+    // Phase A2: collect every locally-declared name per scope (module scope
+    // plus each function's own params/declarators), so identifier resolution
+    // in Phase B can distinguish a local read from a module-scope read
+    // regardless of source order.
+    infer.collect_local_names(TOP_LEVEL, statements);
+
     // Phase B: walk bodies. Top-level non-function statements run under the
     // synthetic `_start`; each `FunctionDeclaration` runs under its own name.
     for stmt in statements {
@@ -96,6 +159,10 @@ pub fn infer_reprs(statements: &[Statement]) -> ReprTable {
     // Phase C: resolve deferred call edges (transitive array-param fixpoint +
     // directed scalar/return edges + bidirectional array-element unions).
     infer.resolve_calls();
+
+    // Phase C2: object-shape propagation (field lists across flows, shared
+    // field storage unions, deferred member-access wiring, materialization).
+    infer.resolve_objects();
 
     // Phase D: solve → table.
     infer.emit_table()
@@ -152,6 +219,126 @@ impl ReprInfer {
         n
     }
 
+    fn obj_field_node_for(&mut self, slot: &ObjSlot, field: &str) -> usize {
+        let key = (slot.clone(), field.to_string());
+        if let Some(&n) = self.obj_field_node.get(&key) {
+            return n;
+        }
+        let n = self.new_node();
+        self.obj_field_node.insert(key, n);
+        n
+    }
+
+    /// Record an object literal initializing `slot`: remember its ordered
+    /// field names, visit each value, and wire `value -> field storage`
+    /// float edges. Unsupported property forms (non-identifier key,
+    /// getter/setter, nested object) record a *deferred* structural conflict
+    /// keyed by `slot` and return WITHOUT a field list — the slot then never
+    /// materializes on its own, so a read-only fold-lane literal keeps today's
+    /// behavior. The deferred message is promoted to a real gate conflict only
+    /// if the slot is later forced onto the object lane (`resolve_objects`).
+    fn record_object_literal(
+        &mut self,
+        func: &str,
+        slot: ObjSlot,
+        obj: &kali_ast::ObjectExpression,
+    ) {
+        let mut names = Vec::new();
+        for prop in &obj.properties {
+            let kali_ast::PropertyName::Identifier(key) = &prop.key else {
+                self.obj_pending_conflicts.insert(
+                    slot.clone(),
+                    format!(
+                        "object literal for {slot:?} uses a non-identifier property name, which is unavailable in the current phase"
+                    ),
+                );
+                return;
+            };
+            if !matches!(prop.kind, kali_ast::ObjectPropertyKind::Init) {
+                self.obj_pending_conflicts.insert(
+                    slot.clone(),
+                    format!(
+                        "object literal for {slot:?} uses a getter/setter, which is unavailable in the current phase"
+                    ),
+                );
+                return;
+            }
+            if matches!(prop.value, Expression::ObjectExpression(_)) {
+                self.obj_pending_conflicts.insert(
+                    slot.clone(),
+                    format!("nested object field '{key}' is unavailable in the current phase"),
+                );
+                return;
+            }
+            let value_node = self.visit_expr(func, &prop.value);
+            let field_node = self.obj_field_node_for(&slot, key);
+            self.add_edge(value_node, field_node);
+            names.push(key.clone());
+        }
+        match self.obj_literal_fields.entry(slot.clone()) {
+            std::collections::btree_map::Entry::Occupied(existing) => {
+                if *existing.get() != names {
+                    self.obj_conflicts
+                        .push(format!("conflicting object shapes assigned to {slot:?}"));
+                }
+            }
+            std::collections::btree_map::Entry::Vacant(entry) => {
+                entry.insert(names);
+            }
+        }
+    }
+
+    /// Record an aliasing flow `dst ~ <expr>` when the expression can carry an
+    /// object reference: identifier, `arr[i]`, or bare-identifier call.
+    fn record_object_flow_from_expr(&mut self, func: &str, dst: ObjSlot, expr: &Expression) {
+        match expr {
+            Expression::Identifier(name) => self
+                .obj_flows
+                .push((dst, ObjSlot::Binding(func.to_string(), name.clone()))),
+            Expression::MemberExpression(member) if member.computed_index.is_some() => {
+                if let Expression::Identifier(array) = &member.object {
+                    self.obj_flows
+                        .push((dst, ObjSlot::ArrayElem(func.to_string(), array.clone())));
+                }
+            }
+            Expression::CallExpression(call) => {
+                if let Expression::Identifier(callee) = &call.callee {
+                    self.obj_flows.push((dst, ObjSlot::Return(callee.clone())));
+                }
+            }
+            Expression::ParenthesizedExpression(inner) => {
+                self.record_object_flow_from_expr(func, dst, &inner.expression)
+            }
+            _ => {}
+        }
+    }
+
+    /// Slot for a member-access base: a bare identifier (binding) or a
+    /// subscript of a bare identifier (array element). Registers the array's
+    /// element node in the subscript case (the base is an array) and visits
+    /// the index for its own edges.
+    fn member_base_slot(&mut self, func: &str, base: &Expression) -> Option<ObjSlot> {
+        match base {
+            Expression::Identifier(name) => Some(ObjSlot::Binding(func.to_string(), name.clone())),
+            Expression::MemberExpression(member) if member.computed_index.is_some() => {
+                if let Some(index) = &member.computed_index {
+                    self.visit_expr(func, index);
+                }
+                match &member.object {
+                    Expression::Identifier(array) => {
+                        self.array_elem_node_for(func, array);
+                        Some(ObjSlot::ArrayElem(func.to_string(), array.clone()))
+                    }
+                    _ => None,
+                }
+            }
+            Expression::ParenthesizedExpression(inner) => {
+                self.member_base_slot(func, &inner.expression)
+            }
+            _ => None,
+        }
+    }
+
     // ---- Phase A: signature collection ---------------------------------
 
     fn collect_functions(&mut self, statements: &[Statement]) {
@@ -197,6 +384,95 @@ impl ReprInfer {
         }
     }
 
+    // ---- Phase A2: local-name collection --------------------------------
+
+    /// Populate `local_names` for `func`'s own scope (module scope when
+    /// `func == TOP_LEVEL`): every `let`/`const`/`var` declarator reachable
+    /// from `statements` without descending into a nested function, plus
+    /// (via the `FunctionDeclaration` arm below) each nested function's own
+    /// parameters.
+    fn collect_local_names(&mut self, func: &str, statements: &[Statement]) {
+        for stmt in statements {
+            self.collect_local_names_in_stmt(func, stmt);
+        }
+    }
+
+    fn collect_local_names_in_stmt(&mut self, func: &str, stmt: &Statement) {
+        match stmt {
+            Statement::FunctionDeclaration(decl) => {
+                let entry = self.local_names.entry(decl.name.clone()).or_default();
+                for param in &decl.params {
+                    entry.insert(param.clone());
+                }
+                self.collect_local_names(&decl.name, &decl.body.body);
+            }
+            Statement::VariableDeclaration(decl) => {
+                let entry = self.local_names.entry(func.to_string()).or_default();
+                for d in &decl.declarations {
+                    entry.insert(d.id.clone());
+                }
+            }
+            Statement::BlockStatement(block) => self.collect_local_names(func, &block.body),
+            Statement::IfStatement(node) => {
+                self.collect_local_names(func, &node.consequent.body);
+                if let Some(alt) = &node.alternate {
+                    self.collect_local_names(func, &alt.body);
+                }
+            }
+            Statement::ForStatement(node) => {
+                if let Some(ForInit::VariableDeclaration(decl)) = &node.init {
+                    let entry = self.local_names.entry(func.to_string()).or_default();
+                    for d in &decl.declarations {
+                        entry.insert(d.id.clone());
+                    }
+                }
+                self.collect_local_names(func, &node.body.body);
+            }
+            Statement::ForInStatement(node) => {
+                if let ForInLefthand::VariableDeclaration(decl) = &node.left {
+                    let entry = self.local_names.entry(func.to_string()).or_default();
+                    for d in &decl.declarations {
+                        entry.insert(d.id.clone());
+                    }
+                }
+                self.collect_local_names_in_stmt(func, &node.body);
+            }
+            Statement::ForOfStatement(node) => {
+                if let ForOfLefthand::VariableDeclaration(decl) = &node.left {
+                    let entry = self.local_names.entry(func.to_string()).or_default();
+                    for d in &decl.declarations {
+                        entry.insert(d.id.clone());
+                    }
+                }
+                self.collect_local_names_in_stmt(func, &node.body);
+            }
+            Statement::WhileStatement(node) => self.collect_local_names(func, &node.body.body),
+            Statement::DoWhileStatement(node) => self.collect_local_names(func, &node.body.body),
+            Statement::LabeledStatement(node) => self.collect_local_names_in_stmt(func, &node.body),
+            Statement::TryStatement(node) => {
+                self.collect_local_names(func, &node.block.body);
+                if let Some(handler) = &node.handler {
+                    let entry = self.local_names.entry(func.to_string()).or_default();
+                    entry.insert(handler.param.clone());
+                    self.collect_local_names(func, &handler.body.body);
+                }
+                if let Some(finalizer) = &node.finalizer {
+                    self.collect_local_names(func, &finalizer.body);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// True when `name` is locally bound in `func`'s own scope (a parameter
+    /// or a `let`/`const`/`var` declarator anywhere in its body, ignoring
+    /// nested functions) — mirrors codegen's local/binding precedence.
+    fn is_locally_declared(&self, func: &str, name: &str) -> bool {
+        self.local_names
+            .get(func)
+            .is_some_and(|names| names.contains(name))
+    }
+
     // ---- Phase B: statement walk ---------------------------------------
 
     fn visit_block(&mut self, func: &str, block: &BlockStatement) {
@@ -219,14 +495,35 @@ impl ReprInfer {
                 }
             }
             Statement::ExpressionStatement(stmt) => {
+                // A bare, top-level member-read statement (`p.field;`) never
+                // observes its result — the value is unconditionally
+                // discarded. This is also, incidentally, the exact AST shape
+                // the parser currently produces for `delete p.field;` (the
+                // parser silently drops the `delete` keyword rather than
+                // building a `UnaryExpression` for it) — routing it through
+                // the same "unobserved" helper fixes that case too, without
+                // requiring dedicated `delete` parser support. See
+                // `visit_unobserved_member_target`.
+                if matches!(stmt.expression.as_ref(), Expression::MemberExpression(_)) {
+                    self.visit_unobserved_member_target(func, &stmt.expression);
+                    return;
+                }
                 self.visit_expr(func, &stmt.expression);
             }
             Statement::ReturnStatement(stmt) => {
                 if let Some(arg) = &stmt.argument {
-                    let rn = self.visit_expr(func, arg);
-                    let ret = self.return_node_for(func);
-                    // expr -> return.
-                    self.add_edge(rn, ret);
+                    if let Expression::ObjectExpression(obj) = arg {
+                        self.record_object_literal(func, ObjSlot::Return(func.to_string()), obj);
+                    } else {
+                        self.record_object_flow_from_expr(
+                            func,
+                            ObjSlot::Return(func.to_string()),
+                            arg,
+                        );
+                        let rn = self.visit_expr(func, arg);
+                        let ret = self.return_node_for(func);
+                        self.add_edge(rn, ret);
+                    }
                 }
             }
             Statement::IfStatement(stmt) => {
@@ -308,12 +605,38 @@ impl ReprInfer {
     /// node for `id`; everything else flows the init into `id`'s scalar node
     /// (`init -> id`).
     fn visit_declarator_init(&mut self, func: &str, id: &str, init: &Expression) {
+        if let Expression::ObjectExpression(obj) = init {
+            self.record_object_literal(
+                func,
+                ObjSlot::Binding(func.to_string(), id.to_string()),
+                obj,
+            );
+            return;
+        }
+        self.record_object_flow_from_expr(
+            func,
+            ObjSlot::Binding(func.to_string(), id.to_string()),
+            init,
+        );
         if self.init_is_array(init) {
             let elem = self.array_elem_node_for(func, id);
             // Array-literal elements flow (store direction) into the element.
             if let Expression::ArrayExpression(arr) = init {
                 for element in arr.elements.iter().flatten() {
                     if let kali_ast::ExpressionOrSpread::Expression(expr) = element {
+                        if let Expression::ObjectExpression(obj) = expr {
+                            self.record_object_literal(
+                                func,
+                                ObjSlot::ArrayElem(func.to_string(), id.to_string()),
+                                obj,
+                            );
+                            continue;
+                        }
+                        self.record_object_flow_from_expr(
+                            func,
+                            ObjSlot::ArrayElem(func.to_string(), id.to_string()),
+                            expr,
+                        );
                         let en = self.visit_expr(func, expr);
                         self.add_edge(en, elem);
                     }
@@ -344,7 +667,24 @@ impl ReprInfer {
     /// Walk `expr`, wiring seeds/edges, and return its result node.
     fn visit_expr(&mut self, func: &str, expr: &Expression) -> usize {
         match expr {
-            Expression::Identifier(name) => self.scalar_node_for(func, name),
+            Expression::Identifier(name) => {
+                // A read of a name not locally bound in `func`'s own scope
+                // but declared at module scope is a module-const/binding
+                // read (see `kali_codegen`'s matching identifier fallback):
+                // route it to the SAME node as the module declaration so its
+                // float-ness (e.g. `const DPY = 365.24;`) reaches every
+                // reader, instead of a fresh, permanently-unseeded node
+                // private to this function.
+                let scope = if func != TOP_LEVEL
+                    && !self.is_locally_declared(func, name)
+                    && self.is_locally_declared(TOP_LEVEL, name)
+                {
+                    TOP_LEVEL
+                } else {
+                    func
+                };
+                self.scalar_node_for(scope, name)
+            }
 
             Expression::Literal(LiteralValue::Number(n)) => {
                 let node = self.new_node();
@@ -385,6 +725,23 @@ impl ReprInfer {
             }
 
             Expression::UnaryExpression(unary) => {
+                if unary.operator == "delete" {
+                    // `delete <base>.field` / `delete <base>[i]` never OBSERVES
+                    // the deleted slot's value (codegen lowers `delete` through
+                    // its own dedicated path, independent of this object axis).
+                    // Visiting it like an ordinary member read would wrongly
+                    // register a deferred field-*read* access, which the
+                    // pending-conflict promotion below treats as evidence that
+                    // the slot's value is actually consumed — miscounting a
+                    // `delete` as a read would over-promote a structural
+                    // literal that is only ever deleted-from and reinserted
+                    // into (never truly read through this axis), rejecting a
+                    // program that today runs correctly. Still visit the base
+                    // (and computed index) for their own housekeeping, just
+                    // without creating the ObjAccess.
+                    self.visit_unobserved_member_target(func, &unary.argument);
+                    return self.new_node();
+                }
                 let arg = self.visit_expr(func, &unary.argument);
                 let result = self.new_node();
                 if matches!(unary.operator.as_str(), "-" | "+") {
@@ -447,6 +804,25 @@ impl ReprInfer {
     }
 
     fn visit_assignment(&mut self, func: &str, assign: &kali_ast::AssignmentExpression) -> usize {
+        // Whole-object (re)assignment through a plain identifier target.
+        if let Expression::Identifier(name) = &assign.left {
+            if matches!(assign.operator, AssignmentOperator::Assign) {
+                if let Expression::ObjectExpression(obj) = &assign.right {
+                    let slot = ObjSlot::Binding(func.to_string(), name.clone());
+                    self.record_object_literal(func, slot.clone(), obj);
+                    // A reassigned literal is observable through the binding:
+                    // the fold lane cannot represent it, so materialize.
+                    self.obj_materialized.insert(slot);
+                    return self.scalar_node_for(func, name);
+                }
+                self.record_object_flow_from_expr(
+                    func,
+                    ObjSlot::Binding(func.to_string(), name.clone()),
+                    &assign.right,
+                );
+            }
+        }
+
         // Array element store: `a[i] = v`.
         if let Expression::MemberExpression(member) = &assign.left {
             if let Some(index) = &member.computed_index {
@@ -462,9 +838,20 @@ impl ReprInfer {
                 }
                 return rn;
             }
-            // `.length`/`.field =` — visit both sides, no numeric edge.
-            self.visit_expr(func, &member.object);
-            return self.visit_expr(func, &assign.right);
+            // Non-computed member store: `<base>.field = v` — deferred object
+            // field access, wired after object propagation.
+            let rn = self.visit_expr(func, &assign.right);
+            if let Some(base) = self.member_base_slot(func, &member.object) {
+                self.obj_accesses.push(ObjAccess {
+                    base,
+                    field: member.property.clone(),
+                    other: rn,
+                    is_write: true,
+                });
+            } else {
+                self.visit_expr(func, &member.object);
+            }
+            return rn;
         }
 
         // Scalar assignment: `x = v`, `x += v`, `x /= v`, ...
@@ -523,9 +910,67 @@ impl ReprInfer {
             }
         }
 
+        // Non-computed member read `<base>.field` — deferred object access.
+        if let Some(base) = self.member_base_slot(func, &member.object) {
+            let result = self.new_node();
+            self.obj_accesses.push(ObjAccess {
+                base,
+                field: member.property.as_str().to_string(),
+                other: result,
+                is_write: false,
+            });
+            return result;
+        }
+
         // `.length` and other dot access → i64 result.
         self.visit_expr(func, &member.object);
         self.new_node()
+    }
+
+    /// Visit `expr` WITHOUT recording a deferred object-field READ access,
+    /// for positions whose member-access result is provably never observed:
+    /// the target of `delete <expr>` (which never observes the deleted
+    /// slot's value — codegen lowers `delete` through its own dedicated
+    /// path), and a bare top-level `<expr>;` expression-statement (whose
+    /// value is unconditionally discarded — see the `ExpressionStatement`
+    /// arm of `visit_stmt`, which is *also* the exact AST shape the parser
+    /// currently produces for `delete <expr>;`, since it drops the `delete`
+    /// keyword rather than building a `UnaryExpression` for it; routing both
+    /// spellings through this helper keeps them consistent regardless of
+    /// which one the parser happens to use). Mirrors `visit_member`'s
+    /// housekeeping (index visiting, array-binding registration, `.length`
+    /// array signal) so array/float bookkeeping is unaffected; only the
+    /// terminal `ObjAccess` push is skipped. Not observing this read matters
+    /// for `resolve_objects`'s pending-conflict promotion: an unobserved
+    /// read must NOT count as evidence that a structurally-unsupported
+    /// literal's value is consumed (that would over-promote a literal that
+    /// is only ever deleted-from/reinserted-into and enumerated via
+    /// `Object.keys`-style builtins, rejecting a program that runs correctly
+    /// today — see `pending_slots_reached_by_a_read`).
+    fn visit_unobserved_member_target(&mut self, func: &str, expr: &Expression) {
+        let Expression::MemberExpression(member) = expr else {
+            self.visit_expr(func, expr);
+            return;
+        };
+        if let Some(index) = &member.computed_index {
+            self.visit_expr(func, index);
+            if let Expression::Identifier(name) = &member.object {
+                self.array_elem_node_for(func, name);
+            } else {
+                self.visit_expr(func, &member.object);
+            }
+            return;
+        }
+        if member.property.as_str() == "length" {
+            if let Expression::Identifier(name) = &member.object {
+                self.array_elem_node_for(func, name);
+                return;
+            }
+        }
+        // Still visit the base for its own housekeeping (e.g. a nested
+        // member/array access reached along the way), but never create a
+        // deferred field-read ObjAccess for the terminal `.field`.
+        self.visit_expr(func, &member.object);
     }
 
     fn visit_call(&mut self, func: &str, call: &kali_ast::CallExpression) -> usize {
@@ -587,6 +1032,12 @@ impl ReprInfer {
                 let mut arg_nodes = Vec::with_capacity(call.args.len());
                 let mut arg_array_names = Vec::with_capacity(call.args.len());
                 for arg in &call.args {
+                    if matches!(arg, Expression::ObjectExpression(_)) {
+                        self.obj_conflicts.push(
+                            "an object literal passed directly as a call argument is unavailable in the current phase; bind it to a const first"
+                                .to_string(),
+                        );
+                    }
                     arg_nodes.push(self.visit_expr(func, arg));
                     arg_array_names.push(match arg {
                         Expression::Identifier(name) => Some((func.to_string(), name.clone())),
@@ -669,11 +1120,23 @@ impl ReprInfer {
                         let caller_elem = self.array_elem_node_for(caller, name);
                         let param_elem = self.array_elem_node_for(&edge.callee, param_name);
                         self.uf.union(caller_elem, param_elem);
+                        // Elements of the two arrays are the same objects.
+                        self.obj_flows.push((
+                            ObjSlot::ArrayElem(caller.clone(), name.clone()),
+                            ObjSlot::ArrayElem(edge.callee.clone(), param_name.clone()),
+                        ));
                     }
                 } else if let Some(&arg_node) = edge.arg_nodes.get(k) {
                     // Scalar arg flow is directional: arg -> param.
                     let pnode = self.scalar_node_for(&edge.callee, param_name);
                     self.add_edge(arg_node, pnode);
+                    // Object aliasing arg ~ param (no-op unless proven object).
+                    if let Some(Some((caller, name))) = edge.arg_array_names.get(k) {
+                        self.obj_flows.push((
+                            ObjSlot::Binding(caller.clone(), name.clone()),
+                            ObjSlot::Binding(edge.callee.clone(), param_name.clone()),
+                        ));
+                    }
                 }
             }
 
@@ -681,6 +1144,225 @@ impl ReprInfer {
             let ret = self.return_node_for(&edge.callee);
             self.add_edge(ret, edge.result_node);
         }
+    }
+
+    // ---- Phase C2: object-shape propagation -----------------------------
+
+    fn resolve_objects(&mut self) {
+        // 1. Propagate field lists across flows to a fixpoint (copy into
+        //    unknown sides only; mismatches are flagged once, afterwards).
+        let mut fields_of: BTreeMap<ObjSlot, Vec<String>> = self.obj_literal_fields.clone();
+        loop {
+            let mut changed = false;
+            for (a, b) in &self.obj_flows {
+                match (fields_of.contains_key(a), fields_of.get(b).cloned()) {
+                    (false, Some(fields)) => {
+                        fields_of.insert(a.clone(), fields);
+                        changed = true;
+                    }
+                    (true, None) => {
+                        fields_of.insert(b.clone(), fields_of[a].clone());
+                        changed = true;
+                    }
+                    _ => {}
+                }
+            }
+            if !changed {
+                break;
+            }
+        }
+        for (a, b) in &self.obj_flows {
+            if let (Some(fa), Some(fb)) = (fields_of.get(a), fields_of.get(b)) {
+                if fa != fb {
+                    self.obj_conflicts.push(format!(
+                        "conflicting object shapes flow between {a:?} and {b:?}"
+                    ));
+                }
+            }
+        }
+
+        // 2. Union per-field storage across flows between object slots; both
+        //    endpoints of an object flow are observable through an alias, so
+        //    they materialize.
+        let flows = self.obj_flows.clone();
+        for (a, b) in &flows {
+            let Some(names) = fields_of.get(a).cloned() else {
+                continue;
+            };
+            if !fields_of.contains_key(b) {
+                continue;
+            }
+            for name in &names {
+                let x = self.obj_field_node_for(a, name);
+                let y = self.obj_field_node_for(b, name);
+                self.uf.union(x, y);
+            }
+            self.obj_materialized.insert(a.clone());
+            self.obj_materialized.insert(b.clone());
+        }
+
+        // 2.5. Compute which *pending*-conflict slots (structurally-unsupported
+        //      literals — non-identifier key / getter-setter / nested object;
+        //      see `record_object_literal`) are observably READ somewhere they
+        //      can be reached, and so must be promoted below: a purely
+        //      write-only or purely aliased-but-never-read pending literal
+        //      stays on the fold lane untouched (fold-first). See the doc
+        //      comment on `pending_slots_reached_by_a_read` for the exact
+        //      rule and why it is shaped this way.
+        let promote_via_read = self.pending_slots_reached_by_a_read();
+
+        // 2.6. Pre-mark materialization for every WRITE access on a
+        //      known-shape base, BEFORE gating individual accesses in step 3
+        //      below. Materialization is a whole-program property: a write
+        //      appearing later in the source must still be visible to an
+        //      earlier unknown-field READ's materialized-gate (step 3), not
+        //      just to writes processed after it in this same pass.
+        for access in &self.obj_accesses {
+            if access.is_write {
+                if let Some(names) = fields_of.get(&access.base) {
+                    if names.contains(&access.field) {
+                        self.obj_materialized.insert(access.base.clone());
+                    }
+                }
+            }
+        }
+
+        // 3. Wire deferred member accesses through canonical field storage.
+        let accesses = std::mem::take(&mut self.obj_accesses);
+        for access in accesses {
+            let Some(names) = fields_of.get(&access.base) else {
+                continue; // not an object: fold lane / existing behavior
+            };
+            if !names.contains(&access.field) {
+                // Unknown-field access on a KNOWN shape: a real conflict only
+                // when the base is observable outside the fold lane — a
+                // write, or a base materialized elsewhere. A read-only
+                // unknown-field access on a literal that never materializes
+                // matches JS (`undefined`) and must NOT reject (fold-first).
+                if access.is_write || self.obj_materialized.contains(&access.base) {
+                    self.obj_conflicts.push(format!(
+                        "unknown field '{}' on fixed-shape object {:?}",
+                        access.field, access.base
+                    ));
+                }
+                continue;
+            }
+            let field_node = self.obj_field_node_for(&access.base, &access.field);
+            if access.is_write {
+                self.add_edge(access.other, field_node);
+                self.obj_materialized.insert(access.base.clone());
+            } else {
+                self.add_edge(field_node, access.other);
+            }
+        }
+
+        // 4. Promote deferred structural conflicts for any slot that was
+        //    forced onto the object lane: reassigned (already recorded in
+        //    `obj_materialized` eagerly by `visit_assignment`'s whole-object
+        //    reassignment branch), or reached by an observable read per 2.5
+        //    above. A structurally-unsupported literal that stayed read-only
+        //    and non-aliased, or that is only written-to and consumed via
+        //    generic enumeration (`Object.keys`-style builtins, which never
+        //    create a deferred field access here), never materializes and so
+        //    keeps its fold-lane behavior byte-identically (fold-first
+        //    invariant) — this is the whole point of the deferral.
+        let pending = std::mem::take(&mut self.obj_pending_conflicts);
+        for (slot, message) in pending {
+            if self.obj_materialized.contains(&slot) || promote_via_read.contains(&slot) {
+                self.obj_conflicts.push(message);
+            }
+        }
+
+        self.obj_fields_of = fields_of;
+    }
+
+    /// Which `obj_pending_conflicts` slots are observably READ somewhere
+    /// reachable from them, and so must be promoted to a real (rejected)
+    /// conflict rather than staying deferred.
+    ///
+    /// A pending (structurally-unsupported) literal hits the buggy fold-lane
+    /// `.field` read codegen this gate exists to guard against precisely when
+    /// its value can be read from somewhere OTHER than a compile-time fold of
+    /// its own literal text:
+    ///
+    /// - **Same-slot write + read**: the slot is both the base of a WRITE
+    ///   `ObjAccess` and a READ `ObjAccess` — the write makes a same-slot
+    ///   fold-to-literal-text read stale (`const p = {"a-b":1}; p.c = 2;
+    ///   console.log(p.c);` must print `2`, not the folded/default value).
+    /// - **Cross-slot via any flow**: the slot participates in ANY
+    ///   object-aliasing flow (assignment, array-element sharing,
+    ///   arg↔param, return↔call-site — `obj_flows`, regardless of whether
+    ///   either endpoint has a known field list) AND *some* slot in that
+    ///   flow-connected component has a READ `ObjAccess` anywhere. Crossing a
+    ///   flow means the reading site has no visibility into the original
+    ///   literal text to fold from at all (`function f(o){return o.c;}
+    ///   f(structuralLiteral)` must reject, not silently fold to `0`) — a
+    ///   write on that same component is not required.
+    ///
+    /// A literal that is only ever read locally with no write (the classic
+    /// read-only fold-lane case), or only ever written-to/aliased but never
+    /// read through this axis (e.g. deleted-from and reinserted, then only
+    /// consumed via `Object.keys`/`Object.values`/`Object.entries`/
+    /// `Reflect.ownKeys`, none of which create a deferred `ObjAccess`), is
+    /// NOT promoted — that would re-break fold-first, the whole point of the
+    /// pending-conflict deferral. `delete <base>.field` (and any bare,
+    /// top-level `<base>.field;` expression statement, whose result is
+    /// unconditionally discarded either way) is deliberately excluded from
+    /// counting as a read — see `visit_unobserved_member_target`.
+    fn pending_slots_reached_by_a_read(&self) -> BTreeSet<ObjSlot> {
+        // Union-find over `ObjSlot`s via `obj_flows` (undirected aliasing).
+        // `ObjSlot`s are never merged in the *field-storage* union-find
+        // (`self.uf`, which only unions field nodes of slots that already
+        // have BOTH field lists known — step 2 above); this is a separate,
+        // slot-identity-level grouping used only to decide promotion.
+        fn find(parent: &mut BTreeMap<ObjSlot, ObjSlot>, x: &ObjSlot) -> ObjSlot {
+            let p = parent.entry(x.clone()).or_insert_with(|| x.clone()).clone();
+            if &p == x {
+                return p;
+            }
+            let root = find(parent, &p);
+            parent.insert(x.clone(), root.clone());
+            root
+        }
+
+        let mut parent: BTreeMap<ObjSlot, ObjSlot> = BTreeMap::new();
+        for (a, b) in &self.obj_flows {
+            let ra = find(&mut parent, a);
+            let rb = find(&mut parent, b);
+            if ra != rb {
+                parent.insert(ra, rb);
+            }
+        }
+
+        let mut members: BTreeMap<ObjSlot, BTreeSet<ObjSlot>> = BTreeMap::new();
+        for (a, b) in &self.obj_flows {
+            let root = find(&mut parent, a);
+            members.entry(root.clone()).or_default().insert(a.clone());
+            members.entry(root).or_default().insert(b.clone());
+        }
+
+        let mut comp_has_read: BTreeSet<ObjSlot> = BTreeSet::new();
+        let mut comp_has_write: BTreeSet<ObjSlot> = BTreeSet::new();
+        for access in &self.obj_accesses {
+            let root = find(&mut parent, &access.base);
+            if access.is_write {
+                comp_has_write.insert(root);
+            } else {
+                comp_has_read.insert(root);
+            }
+        }
+
+        let mut promoted = BTreeSet::new();
+        for slot in self.obj_pending_conflicts.keys() {
+            let root = find(&mut parent, slot);
+            let component_size = members.get(&root).map(BTreeSet::len).unwrap_or(1);
+            let has_read = comp_has_read.contains(&root);
+            let has_write = comp_has_write.contains(&root);
+            if has_read && (has_write || component_size > 1) {
+                promoted.insert(slot.clone());
+            }
+        }
+        promoted
     }
 
     // ---- Phase D: solve → table ----------------------------------------
@@ -784,6 +1466,70 @@ impl ReprInfer {
                     }
                 }
             }
+        }
+
+        // Object shapes: one interned Shape per materialized object slot.
+        // Unmaterialized (write-free, non-flowing) literals get NO entry —
+        // codegen keeps its compile-time fold lane for them.
+        let fields_of = std::mem::take(&mut self.obj_fields_of);
+        let materialized = std::mem::take(&mut self.obj_materialized);
+        for (slot, names) in &fields_of {
+            if !materialized.contains(slot) {
+                continue;
+            }
+            let fields: Vec<(String, Repr)> = names
+                .iter()
+                .map(|name| {
+                    let node = self.obj_field_node_for(slot, name);
+                    let rep = self.uf.find(node);
+                    let repr = if float[rep] { Repr::F64 } else { Repr::I64 };
+                    (name.clone(), repr)
+                })
+                .collect();
+            let shape = table.intern_shape(fields);
+            match slot {
+                ObjSlot::Binding(func, name) => {
+                    // A binding both object and float-unified is contradictory.
+                    if let Some(&node) = self.scalar_node.get(&(func.clone(), name.clone())) {
+                        if float[node] {
+                            self.obj_conflicts.push(format!(
+                                "binding '{name}' in '{func}' is used both as an object and as a number"
+                            ));
+                            continue;
+                        }
+                    }
+                    table.set_scalar(func, name, Repr::Object(shape));
+                }
+                ObjSlot::ArrayElem(func, name) => {
+                    table.set_array_binding(func, name);
+                    table.set_array_element(func, name, Repr::Object(shape));
+                }
+                ObjSlot::Return(func) => table.set_return(func, Repr::Object(shape)),
+            }
+        }
+        // Object params mirror the binding entry positionally.
+        let functions: Vec<(String, Vec<String>)> = self
+            .functions
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+        for (func, params) in functions {
+            for (index, name) in params.iter().enumerate() {
+                if let Repr::Object(shape) = table.scalar(&func, name) {
+                    table.set_param(&func, index, Repr::Object(shape));
+                } else if table.is_array_binding(&func, name) {
+                    // Array-of-objects param: the param itself has no scalar
+                    // Object entry (only its elements do), but codegen still
+                    // needs the shape at the param position to lower element
+                    // accesses without re-deriving it from the array binding.
+                    if let Repr::Object(shape) = table.array_element(&func, name) {
+                        table.set_param(&func, index, Repr::Object(shape));
+                    }
+                }
+            }
+        }
+        for message in std::mem::take(&mut self.obj_conflicts) {
+            table.add_shape_conflict(message);
         }
 
         table

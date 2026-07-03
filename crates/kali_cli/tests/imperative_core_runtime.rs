@@ -588,3 +588,261 @@ for (let i = 0; i < n; i = i + 1) {\n\
 console.log(sum);\n";
     assert_eq!(run_js(source), "1999999000000\n");
 }
+
+#[test]
+fn exponent_notation_literals_run() {
+    assert_eq!(run_js("console.log(2e3);"), "2000\n");
+    assert_eq!(run_js("console.log((1.5e1).toFixed(1));"), "15.0\n");
+    assert_eq!(run_js("console.log((1e-2).toFixed(2));"), "0.01\n");
+}
+
+#[test]
+fn object_shape_mismatch_is_rejected() {
+    let combined = run_js_expect_failure(
+        "let p = { x: 1.0 };\np = { y: 2.0 };\np.y = 3.0;\nconsole.log(p.y);\n",
+    );
+    assert!(
+        combined.contains("5506"),
+        "expected E5506 gate, got: {combined}"
+    );
+}
+
+/// Review fix (promotion hole): a structurally-unsupported object literal
+/// (non-identifier property key) written and read through the same local
+/// binding must be rejected with E5506 instead of silently falling through
+/// to the buggy fold-lane codegen (which ignores the write and prints `0`;
+/// node prints `2`). Before the fix, this compiled and ran with no error.
+#[test]
+fn locally_written_structural_object_literal_is_rejected() {
+    let combined = run_js_expect_failure("const p = {\"a-b\": 1};\np.c = 2;\nconsole.log(p.c);\n");
+    assert!(
+        combined.contains("5506"),
+        "expected E5506 gate, got: {combined}"
+    );
+}
+
+/// Review fix (promotion hole): a structurally-unsupported object literal
+/// passed as a call argument (via a const binding, not a direct literal
+/// argument — which Task 3 already rejected) and field-read inside the
+/// callee must also be rejected with E5506. Before the fix, this compiled
+/// and printed `0` (node prints `undefined`).
+#[test]
+fn structural_object_literal_passed_as_call_argument_is_rejected() {
+    let combined = run_js_expect_failure(
+        "function f(o) { return o.c; }\nconst o = {\"a-b\": 1};\nconsole.log(f(o));\n",
+    );
+    assert!(
+        combined.contains("5506"),
+        "expected E5506 gate, got: {combined}"
+    );
+}
+
+/// Review fix (IMPORTANT, fold-first both ways): a read-only, non-
+/// materialized object literal with a known shape must NOT reject on an
+/// unknown-field read (matches node's `undefined`); the same shape, once
+/// materialized by a write, must still reject on an unknown-field read.
+#[test]
+fn unknown_field_read_is_fold_first_until_materialized() {
+    assert_eq!(
+        run_js("const p = { x: 1.0 };\nconsole.log(p.y);\n"),
+        "0\n",
+        "a read-only unknown-field access must stay on the fold lane and compile"
+    );
+
+    let combined = run_js_expect_failure("const p = { x: 1.0 };\np.x = 2.0;\nconsole.log(p.y);\n");
+    assert!(
+        combined.contains("5506"),
+        "expected E5506 gate once the object is materialized, got: {combined}"
+    );
+}
+
+#[test]
+fn object_field_write_and_read_round_trip() {
+    assert_eq!(
+        run_js("const p = { x: 1.0 };\np.x = p.x + 1.5;\nconsole.log(p.x.toFixed(1));\n"),
+        "2.5\n"
+    );
+}
+
+#[test]
+fn object_field_read_through_alias() {
+    assert_eq!(
+        run_js(
+            "const p = { x: 1.0, y: 2.5 };\np.x = 4.0;\nconst q = p;\nconsole.log((q.x + q.y).toFixed(1));\n"
+        ),
+        "6.5\n"
+    );
+}
+
+#[test]
+fn integer_object_field_round_trip() {
+    assert_eq!(
+        run_js("const p = { n: 3 };\np.n = p.n + 4;\nconsole.log(p.n);\n"),
+        "7\n"
+    );
+}
+
+#[test]
+fn array_of_object_literals_reads_and_writes() {
+    assert_eq!(
+        run_js(
+            "const a = [{ x: 1.0 }, { x: 2.0 }];\na[1].x = 5.0;\nconsole.log((a[0].x + a[1].x).toFixed(1));\n"
+        ),
+        "6.0\n"
+    );
+}
+
+#[test]
+fn array_element_alias_mutation_is_shared() {
+    assert_eq!(
+        run_js(
+            "const a = [{ x: 1.5 }, { x: 2.0 }];\nconst b = a[0];\nb.x = b.x + 1.0;\nconsole.log(a[0].x.toFixed(1));\n"
+        ),
+        "2.5\n"
+    );
+}
+
+#[test]
+fn objects_cross_function_boundaries() {
+    let src = "\
+function mk(v) { return { x: v }; }\n\
+function getx(p) { return p.x; }\n\
+const a = mk(3.5);\nconsole.log(getx(a).toFixed(1));\n";
+    assert_eq!(run_js(src), "3.5\n");
+}
+
+#[test]
+fn factory_array_advance_shape_miniature() {
+    let src = "\
+function mk(x, vx) { return { x: x, vx: vx }; }\n\
+function advance(bs, dt) {\n\
+  for (let i = 0; i < bs.length; i = i + 1) {\n\
+    const b = bs[i];\n\
+    b.x = b.x + dt * b.vx;\n\
+  }\n\
+}\n\
+const bs = [mk(1.0, 2.0), mk(0.5, 4.0)];\n\
+advance(bs, 0.5);\n\
+console.log((bs[0].x + bs[1].x).toFixed(2));\n";
+    assert_eq!(run_js(src), "4.50\n");
+}
+
+#[test]
+fn factory_returned_objects_are_distinct_instances() {
+    let src = "\
+function mk(v) { return { x: v }; }\n\
+const p = mk(1.0);\n\
+const q = mk(2.0);\n\
+q.x = 5.0;\n\
+console.log((p.x + q.x).toFixed(1));\n";
+    assert_eq!(run_js(src), "6.0\n"); // p.x=1.0 unchanged, q.x=5.0 — distinct instances
+}
+
+#[test]
+fn console_log_of_object_reference_is_rejected() {
+    let combined = run_js_expect_failure("const p = { x: 1.0 };\np.x = 2.0;\nconsole.log(p);\n");
+    assert!(combined.contains("5506"), "expected E5506, got: {combined}");
+}
+
+#[test]
+fn object_in_arithmetic_is_rejected() {
+    let combined =
+        run_js_expect_failure("const p = { x: 1.0 };\np.x = 2.0;\nconsole.log(p + 1);\n");
+    assert!(combined.contains("5506"), "expected E5506, got: {combined}");
+}
+
+#[test]
+fn unknown_field_write_is_rejected() {
+    let combined = run_js_expect_failure("const p = { x: 1.0 };\np.x = 2.0;\np.z = 1.0;\n");
+    assert!(combined.contains("5506"), "expected E5506, got: {combined}");
+}
+
+#[test]
+fn object_literal_direct_argument_is_rejected() {
+    let combined = run_js_expect_failure(
+        "function f(o) { return o.x; }\nconsole.log(f({ x: 1.0 }).toFixed(1));\n",
+    );
+    assert!(combined.contains("5506"), "expected E5506, got: {combined}");
+}
+
+#[test]
+fn object_reference_reassignment_still_compiles() {
+    // `q = p` aliases; both refer to the same object. Must NOT be E5506-rejected.
+    assert_eq!(
+        run_js("const p = { x: 1.0 };\nlet q = { x: 2.0 };\nq.x = 3.0;\nq = p;\nconsole.log(q.x.toFixed(1));\n"),
+        "1.0\n"
+    );
+}
+
+#[test]
+fn module_consts_read_from_functions() {
+    assert_eq!(
+        run_js("const K = 3;\nfunction f() { return K + 1; }\nconsole.log(f());\n"),
+        "4\n"
+    );
+    assert_eq!(
+        run_js(
+            "const PI = 3.141592653589793;\nconst SOLAR_MASS = 4 * PI * PI;\nfunction m() { return 9.54791938424326609e-4 * SOLAR_MASS; }\nconsole.log(m().toFixed(9));\n"
+        ),
+        "0.037693675\n"
+    );
+    assert_eq!(
+        run_js(
+            "const DPY = 365.24;\nfunction v(x) { return x * DPY; }\nconsole.log(v(2.0).toFixed(2));\n"
+        ),
+        "730.48\n"
+    );
+}
+
+#[test]
+fn shadowing_local_wins_over_module_const() {
+    assert_eq!(
+        run_js("const K = 3;\nfunction f() { const K = 10; return K + 1; }\nconsole.log(f());\n"),
+        "11\n"
+    );
+}
+
+#[test]
+fn for_of_loop_var_shadows_module_const() {
+    // for-of binding `K` shadows module `const K`; must compile and use the loop value.
+    // node ground truth: prints `6` (1+2+3).
+    assert_eq!(
+        run_js("const K = 2.5;\nfunction f() {\n  let s = 0;\n  for (const K of [1, 2, 3]) { s = s + K; }\n  return s;\n}\nconsole.log(f());\n"),
+        "6\n"
+    );
+}
+
+#[test]
+fn catch_param_shadows_module_const() {
+    // catch (K) shadows module `const K`. `TryStatement`/`CatchClause`
+    // currently have NO lowering support anywhere in the direct-runtime
+    // codegen pipeline (`kali_codegen` has no "try"/"catch"/"throw"
+    // instruction handling at all) — confirmed independently of this shadow
+    // by running a plain, non-colliding `catch (e) { return e + 1; }`
+    // through the same compiler, which is rejected at an EARLIER stage
+    // (E3100 "undefined identifier 'e'", from `kali_types::resolve`) before
+    // ever reaching the repr-inference/codegen layers this review fix
+    // touches. So try/catch support is a pre-existing, orthogonal gap, not
+    // something this fix can (or should) close. The achievable, honest
+    // assertion here is that the module-const-shadowed catch program is
+    // REJECTED rather than silently miscompiled to a wrong answer.
+    run_js_expect_failure(
+        "const K = 2.5;\nfunction f() {\n  try {\n    throw 1;\n  } catch (K) {\n    return K + 1;\n  }\n}\nconsole.log(f());\n",
+    );
+}
+
+#[test]
+fn module_let_read_from_function_is_rejected() {
+    let combined = run_js_expect_failure(
+        "let counter = 0;\nfunction f() { return counter + 1; }\nconsole.log(f());\n",
+    );
+    assert!(combined.contains("5506"), "expected E5506, got: {combined}");
+}
+
+#[test]
+fn impure_module_const_read_from_function_is_rejected() {
+    let combined = run_js_expect_failure(
+        "const t = Math.sqrt(2);\nfunction f() { return t; }\nconsole.log(f());\n",
+    );
+    assert!(combined.contains("5506"), "expected E5506, got: {combined}");
+}

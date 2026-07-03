@@ -152,3 +152,66 @@ fn nullish_coalescing_lowers_for_supported_input_shapes() {
     assert_nullish_coalescing_lowers("console.log(null ?? 1);");
     assert_nullish_coalescing_lowers("console.log(undefined ?? 1);");
 }
+
+#[test]
+fn bigint_literal_division_lowers_to_truncating_integer_division() {
+    // node: (3n / 2n).toString() === "1" — BigInt `/` truncates toward zero.
+    let program = parse_and_lower_lir("console.log(3n / 2n);");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.div_s"), "{printed}");
+    assert!(!printed.contains("f64.div"), "{printed}");
+}
+
+#[test]
+fn unary_minus_bigint_literal_division_lowers_to_truncating_integer_division() {
+    // node: (-7n / 2n).toString() === "-3" — BigInt `/` truncates toward zero,
+    // and a unary-minus-wrapped BigInt literal is still a BigInt literal for the
+    // purposes of picking the i64.div_s lane (not just the plain-literal shape).
+    let program = parse_and_lower_lir("console.log(-7n / 2n);");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.div_s"), "{printed}");
+    assert!(!printed.contains("f64.div"), "{printed}");
+}
+
+#[test]
+fn number_division_still_lowers_to_float_division() {
+    let program = parse_and_lower_lir("console.log(3 / 2);");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("f64.div"), "{printed}");
+}

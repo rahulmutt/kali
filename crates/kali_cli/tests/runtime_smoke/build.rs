@@ -602,7 +602,7 @@ fn build_accepts_dynamic_function_constructor_sources_when_compat_eval_is_enable
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "const bodyPrefix = \"return \"; const body = bodyPrefix + \"1 + 2;\"; const value = new Function(body)(); if (value !== 3) { throw new Error('bad function result'); }",
+        "const body = \"return \" + \"1 + 2;\"; const value = new Function(body)(); if (value !== 3) { throw new Error('bad function result'); }",
     )
     .expect("write source");
 
@@ -633,7 +633,7 @@ fn build_accepts_dynamic_function_constructor_sources_when_compat_eval_is_enable
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "const bodyPrefix = \"return \"; const body = bodyPrefix + \"1 + 2;\"; const value = new Function(body)(); if (value !== 3) { throw new Error('bad function result'); }",
+        "const body = \"return \" + \"1 + 2;\"; const value = new Function(body)(); if (value !== 3) { throw new Error('bad function result'); }",
     )
     .expect("write source");
 
@@ -3366,7 +3366,8 @@ fn build_emits_browser_bundle_artifacts() {
     assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
     assert_eq!(metadata["apiSurface"], "browser");
 
-    assert_browser_bundle_executes(&bundle_dir, "greet");
+    // greet is `function greet(name) { return name; }` — greet(1n, 2n) === 1n.
+    assert_browser_bundle_executes_with_result(&bundle_dir, "greet", "1");
 }
 
 #[test]
@@ -3435,7 +3436,8 @@ fn build_emits_browser_bundle_artifacts_in_js_input() {
     assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
     assert_eq!(metadata["apiSurface"], "browser");
 
-    assert_browser_bundle_executes(&bundle_dir, "greet");
+    // greet is `function greet(name) { return name; }` — greet(1n, 2n) === 1n.
+    assert_browser_bundle_executes_with_result(&bundle_dir, "greet", "1");
 }
 
 #[test]
@@ -3512,7 +3514,8 @@ fn build_emits_inherited_browser_bundle_artifacts_in_js_input() {
     assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
     assert_eq!(metadata["apiSurface"], "browser");
 
-    assert_browser_bundle_executes(&bundle_dir, "greet");
+    // greet is `function greet(name) { return name; }` — greet(1n, 2n) === 1n.
+    assert_browser_bundle_executes_with_result(&bundle_dir, "greet", "1");
 }
 
 #[test]
@@ -3602,7 +3605,8 @@ fn build_embeds_sandbox_policy_custom_section_for_browser_bundle_artifact_with_v
     assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
     assert_eq!(metadata["apiSurface"], "browser");
     assert_embeds_policy_custom_section(&wasm_path, &policy_path);
-    assert_browser_bundle_executes(&bundle_dir, "greet");
+    // greet is `function greet(name) { return name; }` — greet(1n, 2n) === 1n.
+    assert_browser_bundle_executes_with_result(&bundle_dir, "greet", "1");
 }
 
 #[test]
@@ -3653,7 +3657,8 @@ fn build_trees_shakes_unused_browser_bundle_exports() {
     assert_eq!(exports.len(), 1);
     assert_eq!(exports[0]["name"], "greet");
 
-    assert_browser_bundle_executes(&bundle_dir, "greet");
+    // greet is `function greet(name) { return name; }` — greet(1n, 2n) === 1n.
+    assert_browser_bundle_executes_with_result(&bundle_dir, "greet", "1");
 }
 
 #[test]
@@ -8628,7 +8633,7 @@ fn build_supports_math_hypot_on_perfect_square_integer_literal_sums_in_tsx_input
 }
 
 #[test]
-fn build_rejects_unsupported_math_member_calls_in_browser_api_surface_in_js_input() {
+fn build_supports_math_sqrt_member_calls_in_browser_api_surface_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.js");
     fs::write(&source_path, "console.log(Math.sqrt(1.6));\n").expect("write source");
@@ -8643,14 +8648,18 @@ fn build_rejects_unsupported_math_member_calls_in_browser_api_surface_in_js_inpu
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert_unsupported_math_member_calls_rejection_text(&stderr);
+    // Math.sqrt(1.6) is supported since e5d776d93; node ground truth
+    // 1.2649110640673518 (bit-for-bit match with `kali run`).
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 #[test]
-fn json_build_rejects_unsupported_math_member_calls_in_browser_api_surface_in_js_input() {
+fn json_build_supports_math_sqrt_member_calls_in_browser_api_surface_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.js");
     fs::write(&source_path, "console.log(Math.sqrt(1.6));\n").expect("write source");
@@ -8667,18 +8676,24 @@ fn json_build_rejects_unsupported_math_member_calls_in_browser_api_surface_in_js
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    // Math.sqrt(1.6) is supported since e5d776d93; node ground truth
+    // 1.2649110640673518 (bit-for-bit match with `kali run`).
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "build");
-    assert_eq!(json["success"], false);
-    let errors = json["errors"].as_array().expect("errors array");
-    assert_unsupported_math_member_calls_rejection_json(errors);
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 
 #[test]
-fn build_rejects_unsupported_math_member_calls_in_browser_api_surface_in_jsx_and_tsx_input() {
+fn build_supports_math_sqrt_member_calls_in_browser_api_surface_in_jsx_and_tsx_input() {
     let dir = tempdir().expect("tempdir");
 
     for extension in ["tsx", "jsx"] {
@@ -8700,25 +8715,27 @@ fn build_rejects_unsupported_math_member_calls_in_browser_api_surface_in_jsx_and
                 .output()
                 .expect("run kali");
 
-            assert!(!output.status.success());
-            assert_eq!(output.status.code(), Some(1));
+            // Math.sqrt(1.6) is supported since e5d776d93; node ground truth
+            // 1.2649110640673518 (bit-for-bit match with `kali run`).
+            assert!(
+                output.status.success(),
+                "stdout: {}\nstderr: {}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
             if output_json {
                 let json = parse_json_stdout(&output);
                 assert_eq!(json["schemaVersion"], 1);
                 assert_eq!(json["command"], "build");
-                assert_eq!(json["success"], false);
-                let errors = json["errors"].as_array().expect("errors array");
-                assert_unsupported_math_member_calls_rejection_json(errors);
-            } else {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                assert_unsupported_math_member_calls_rejection_text(&stderr);
+                assert_eq!(json["success"], true);
+                assert!(json["errors"].as_array().expect("errors array").is_empty());
             }
         }
     }
 }
 
 #[test]
-fn build_rejects_unsupported_math_member_calls_in_inherited_browser_api_surface_in_js_input() {
+fn build_supports_math_sqrt_member_calls_in_inherited_browser_api_surface_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.js");
     fs::write(&source_path, "console.log(Math.sqrt(1.6));\n").expect("write source");
@@ -8741,14 +8758,18 @@ fn build_rejects_unsupported_math_member_calls_in_inherited_browser_api_surface_
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert_unsupported_math_member_calls_rejection_text(&stderr);
+    // Math.sqrt(1.6) is supported since e5d776d93; node ground truth
+    // 1.2649110640673518 (bit-for-bit match with `kali run`).
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 #[test]
-fn json_build_rejects_unsupported_math_member_calls_in_inherited_browser_api_surface_in_js_input() {
+fn json_build_supports_math_sqrt_member_calls_in_inherited_browser_api_surface_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.js");
     fs::write(&source_path, "console.log(Math.sqrt(1.6));\n").expect("write source");
@@ -8773,19 +8794,24 @@ fn json_build_rejects_unsupported_math_member_calls_in_inherited_browser_api_sur
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    // Math.sqrt(1.6) is supported since e5d776d93; node ground truth
+    // 1.2649110640673518 (bit-for-bit match with `kali run`).
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "build");
-    assert_eq!(json["success"], false);
-    let errors = json["errors"].as_array().expect("errors array");
-    assert_unsupported_math_member_calls_rejection_json(errors);
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 
 #[test]
-fn build_rejects_unsupported_math_member_calls_in_inherited_browser_api_surface_in_jsx_and_tsx_input(
-) {
+fn build_supports_math_sqrt_member_calls_in_inherited_browser_api_surface_in_jsx_and_tsx_input() {
     let dir = tempdir().expect("tempdir");
 
     for extension in ["tsx", "jsx"] {
@@ -8815,18 +8841,20 @@ fn build_rejects_unsupported_math_member_calls_in_inherited_browser_api_surface_
                 .output()
                 .expect("run kali");
 
-            assert!(!output.status.success());
-            assert_eq!(output.status.code(), Some(1));
+            // Math.sqrt(1.6) is supported since e5d776d93; node ground truth
+            // 1.2649110640673518 (bit-for-bit match with `kali run`).
+            assert!(
+                output.status.success(),
+                "stdout: {}\nstderr: {}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
             if output_json {
                 let json = parse_json_stdout(&output);
                 assert_eq!(json["schemaVersion"], 1);
                 assert_eq!(json["command"], "build");
-                assert_eq!(json["success"], false);
-                let errors = json["errors"].as_array().expect("errors array");
-                assert_unsupported_math_member_calls_rejection_json(errors);
-            } else {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                assert_unsupported_math_member_calls_rejection_text(&stderr);
+                assert_eq!(json["success"], true);
+                assert!(json["errors"].as_array().expect("errors array").is_empty());
             }
         }
     }
@@ -11322,7 +11350,8 @@ fn build_uses_inherited_browser_api_surface_for_bundle() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    assert_browser_bundle_executes(&dir.path().join("app"), "greet");
+    // greet is `function greet(name) { return name; }` — greet(1n, 2n) === 1n.
+    assert_browser_bundle_executes_with_result(&dir.path().join("app"), "greet", "1");
 }
 
 #[test]
@@ -11364,7 +11393,8 @@ fn build_uses_inherited_browser_api_surface_for_bundle_with_sandbox() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    assert_browser_bundle_executes(&dir.path().join("app"), "greet");
+    // greet is `function greet(name) { return name; }` — greet(1n, 2n) === 1n.
+    assert_browser_bundle_executes_with_result(&dir.path().join("app"), "greet", "1");
 }
 
 #[test]
@@ -11418,7 +11448,8 @@ fn build_uses_inherited_browser_api_surface_for_bundle_with_validate_ir_and_sand
     assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
     assert_eq!(metadata["apiSurface"], "browser");
     assert_embeds_policy_custom_section(&wasm_path, &policy_path);
-    assert_browser_bundle_executes(&bundle_dir, "greet");
+    // greet is `function greet(name) { return name; }` — greet(1n, 2n) === 1n.
+    assert_browser_bundle_executes_with_result(&bundle_dir, "greet", "1");
 }
 
 #[test]
@@ -11452,7 +11483,8 @@ fn build_uses_explicit_browser_api_surface_for_bundle_with_sandbox() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    assert_browser_bundle_executes(&dir.path().join("app"), "greet");
+    // greet is `function greet(name) { return name; }` — greet(1n, 2n) === 1n.
+    assert_browser_bundle_executes_with_result(&dir.path().join("app"), "greet", "1");
 }
 
 #[test]
@@ -11494,7 +11526,8 @@ fn build_uses_inherited_browser_api_surface_for_bundle_with_sandbox_in_js_input(
         String::from_utf8_lossy(&output.stderr)
     );
 
-    assert_browser_bundle_executes(&dir.path().join("app"), "greet");
+    // greet is `function greet(name) { return name; }` — greet(1n, 2n) === 1n.
+    assert_browser_bundle_executes_with_result(&dir.path().join("app"), "greet", "1");
 }
 
 #[test]
@@ -11528,7 +11561,8 @@ fn build_uses_explicit_browser_api_surface_for_bundle_with_sandbox_in_js_input()
         String::from_utf8_lossy(&output.stderr)
     );
 
-    assert_browser_bundle_executes(&dir.path().join("app"), "greet");
+    // greet is `function greet(name) { return name; }` — greet(1n, 2n) === 1n.
+    assert_browser_bundle_executes_with_result(&dir.path().join("app"), "greet", "1");
 }
 
 #[test]
@@ -11587,7 +11621,8 @@ fn json_build_emits_browser_bundle_artifacts_for_inherited_browser_api_surface()
     assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
     assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
 
-    assert_browser_bundle_executes(&dir.path().join("app"), "greet");
+    // greet is `function greet(name) { return name; }` — greet(1n, 2n) === 1n.
+    assert_browser_bundle_executes_with_result(&dir.path().join("app"), "greet", "1");
 }
 
 #[test]
@@ -11642,7 +11677,8 @@ fn json_build_emits_browser_bundle_artifacts_for_explicit_browser_api_surface() 
     assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
     assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
 
-    assert_browser_bundle_executes(&dir.path().join("app"), "greet");
+    // greet is `function greet(name) { return name; }` — greet(1n, 2n) === 1n.
+    assert_browser_bundle_executes_with_result(&dir.path().join("app"), "greet", "1");
 }
 
 #[test]

@@ -61,6 +61,28 @@ impl<'a> FunctionEmitter<'a> {
 
     pub(crate) fn emit_return(&mut self, function: &mut Function, node: &LirNode) -> EmittedValue {
         if let Some(arg) = node.children.first().copied() {
+            // A function whose return repr is Object(shape) returning an
+            // object literal materializes it (factory functions). Only the
+            // direct return argument routes here — other literals in the
+            // body keep their own lanes.
+            if let kali_common::Repr::Object(shape) =
+                self.repr_table.return_repr(&self.function_name)
+            {
+                if let Some(aggregate_id) = self.resolve_literal_aggregate(arg) {
+                    let aggregate = self.node(aggregate_id).clone();
+                    if self.is_object_literal(&aggregate) {
+                        let produced = self.emit_object_allocation(function, &aggregate, shape);
+                        if !produced.produced {
+                            function.instruction(&Instruction::I64Const(0));
+                        }
+                        function.instruction(&Instruction::Return);
+                        return EmittedValue {
+                            produced: false,
+                            shape: ValueShape::Unknown,
+                        };
+                    }
+                }
+            }
             let produced = self.emit_node(function, arg, true);
             if !produced.produced {
                 function.instruction(&Instruction::I64Const(0));
@@ -269,6 +291,89 @@ impl<'a> FunctionEmitter<'a> {
                         }
                         let init = declarator.children[1];
 
+                        // Materialized object-literal binding: `const p = {…}`
+                        // whose inferred repr is Object(shape) — allocate the
+                        // fixed-layout struct and bind the base pointer.
+                        // Unmaterialized literals keep the fold lane below.
+                        if let Some(name) = declarator.text.clone() {
+                            if let kali_common::Repr::Object(shape) = self.scalar_repr(&name) {
+                                let aggregate = self
+                                    .resolve_literal_aggregate(init)
+                                    .map(|id| self.node(id).clone())
+                                    .filter(|node| self.is_object_literal(node));
+                                if let Some(aggregate) = aggregate {
+                                    let allocated =
+                                        self.emit_object_allocation(function, &aggregate, shape);
+                                    if !allocated.produced {
+                                        function.instruction(&Instruction::I64Const(0));
+                                    }
+                                    if let Some(index) = self.locals.get(&name).copied() {
+                                        function.instruction(&Instruction::LocalSet(index));
+                                    } else {
+                                        function.instruction(&Instruction::Drop);
+                                    }
+                                    continue;
+                                }
+                                // A shaped binding aliasing an existing object
+                                // (identifier / element / call): the generic
+                                // emission below yields the i64 pointer.
+                            }
+                        }
+
+                        // Array literal of object references:
+                        // `const bodies = [ … ]` with element repr
+                        // Object(shape) — allocate the array, then
+                        // materialize/store each element pointer.
+                        if let Some(name) = declarator.text.clone() {
+                            if let kali_common::Repr::Object(elem_shape) =
+                                self.array_elem_repr(&name)
+                            {
+                                let aggregate = self
+                                    .resolve_literal_aggregate(init)
+                                    .map(|id| self.node(id).clone())
+                                    .filter(|node| self.is_array_literal(node));
+                                if let (Some(aggregate), Some(index)) =
+                                    (aggregate, self.locals.get(&name).copied())
+                                {
+                                    let allocated = self.emit_array_allocation_static(
+                                        function,
+                                        aggregate.children.len(),
+                                    );
+                                    if !allocated.produced {
+                                        function.instruction(&Instruction::I64Const(0));
+                                    }
+                                    function.instruction(&Instruction::LocalSet(index));
+                                    self.array_bindings.insert(name.clone());
+                                    for (i, child) in aggregate.children.iter().copied().enumerate()
+                                    {
+                                        function.instruction(&Instruction::LocalGet(index));
+                                        function.instruction(&Instruction::I32WrapI64);
+                                        let child_node = self.node(child).clone();
+                                        let produced = if self.is_object_literal(&child_node) {
+                                            self.emit_object_allocation(
+                                                function,
+                                                &child_node,
+                                                elem_shape,
+                                            )
+                                        } else {
+                                            // Factory call / identifier: already
+                                            // an i64 pointer.
+                                            self.emit_node(function, child, true)
+                                        };
+                                        if !produced.produced {
+                                            function.instruction(&Instruction::I64Const(0));
+                                        }
+                                        function.instruction(&Instruction::I64Store(MemArg {
+                                            offset: (8 + i * 8) as u64,
+                                            align: 3,
+                                            memory_index: 0,
+                                        }));
+                                    }
+                                    continue;
+                                }
+                            }
+                        }
+
                         // `new Array(n)` allocations need a stable handle held in a
                         // local slot regardless of `const`/`let`, so the binding can be
                         // read and written through linear memory.
@@ -414,6 +519,32 @@ impl<'a> FunctionEmitter<'a> {
 
                     if let Some(bound) = self.bindings.get(text).copied() {
                         return self.emit_node(function, bound, want_value);
+                    }
+
+                    // Module-scope binding read from inside a function: inline
+                    // a compile-time-pure `const` initializer (all emitters
+                    // share one LirProgram node space), and gate every other
+                    // module binding — the old path lowered these through a
+                    // silent zero placeholder (a wrong answer, not an error).
+                    if self.function_name != "_start" {
+                        if let Some(&init) = self.module_const_inits.get(text) {
+                            if self.is_pure_module_const_init(init, 0) {
+                                return self.emit_node(function, init, want_value);
+                            }
+                        }
+                        if self.module_binding_names.contains(text) {
+                            self.diagnostics.push(Diagnostic::error(
+                                e5::FEATURE_UNAVAILABLE as u32,
+                                format!(
+                                    "reading module binding '{text}' from a function is only available for compile-time-constant `const` initializers in the current phase"
+                                ),
+                            ));
+                            function.instruction(&Instruction::I64Const(0));
+                            return EmittedValue {
+                                produced: true,
+                                shape: ValueShape::Unknown,
+                            };
+                        }
                     }
 
                     if let Some(constant) = parse_number_literal(text) {

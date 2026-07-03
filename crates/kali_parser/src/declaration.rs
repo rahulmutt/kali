@@ -189,6 +189,44 @@ impl Parser {
         self.try_parse_arrow_function_expression_from(self.stream.position, false)
     }
 
+    /// Scans a parenthesized, identifier-only parameter list — `()` or
+    /// `(a, b, c)` — starting at `start`, which must index a `LeftParen`
+    /// token. Returns the parameter names in order and the token position
+    /// immediately after the closing `RightParen`, or `None` if the tokens
+    /// ahead are not a well-formed identifier-only parameter list. Shared by
+    /// `try_parse_arrow_function_expression_from` (expression-bodied arrows,
+    /// any position) and `try_parse_block_arrow_function_expression`
+    /// (block-bodied arrows, declarator-init position only) — the two arrow
+    /// shapes diverge after the parameter list (return-type annotation and
+    /// bare-identifier-param arms are exclusive to the former).
+    fn scan_paren_param_list(&self, start: usize) -> Option<(usize, Vec<String>)> {
+        let mut scan = start + 1;
+        let mut params = Vec::new();
+        match self.stream.tokens.get(scan).map(|token| &token.kind) {
+            Some(TokenType::RightParen) => {
+                scan += 1;
+            }
+            Some(TokenType::Identifier) => loop {
+                let token = self.stream.tokens.get(scan)?;
+                params.push(token.value.clone());
+                scan += 1;
+
+                match self.stream.tokens.get(scan).map(|token| &token.kind) {
+                    Some(TokenType::Comma) => {
+                        scan += 1;
+                    }
+                    Some(TokenType::RightParen) => {
+                        scan += 1;
+                        break;
+                    }
+                    _ => return None,
+                }
+            },
+            _ => return None,
+        }
+        Some((scan, params))
+    }
+
     pub(crate) fn try_parse_arrow_function_expression_from(
         &mut self,
         start: usize,
@@ -200,29 +238,9 @@ impl Parser {
         match self.stream.tokens.get(scan).map(|token| &token.kind) {
             Some(TokenType::LeftParen) => {
                 allow_return_type = true;
-                scan += 1;
-                match self.stream.tokens.get(scan).map(|token| &token.kind) {
-                    Some(TokenType::RightParen) => {
-                        scan += 1;
-                    }
-                    Some(TokenType::Identifier) => loop {
-                        let token = self.stream.tokens.get(scan)?;
-                        params.push(token.value.clone());
-                        scan += 1;
-
-                        match self.stream.tokens.get(scan).map(|token| &token.kind) {
-                            Some(TokenType::Comma) => {
-                                scan += 1;
-                            }
-                            Some(TokenType::RightParen) => {
-                                scan += 1;
-                                break;
-                            }
-                            _ => return None,
-                        }
-                    },
-                    _ => return None,
-                }
+                let (next_scan, parsed_params) = self.scan_paren_param_list(scan)?;
+                scan = next_scan;
+                params = parsed_params;
             }
             Some(TokenType::Identifier) => {
                 let token = self.stream.tokens.get(scan)?;
@@ -267,6 +285,46 @@ impl Parser {
                 body,
                 is_async,
                 returnType: return_type,
+            },
+        )))
+    }
+
+    /// Parses `(params) => { statements }` — a block-bodied arrow — into an
+    /// unnamed `FunctionExpression`. Only invoked from variable-declarator init
+    /// position (`parse_variable_declaration`); every other position keeps the
+    /// legacy behavior so the `Kali.test('…', () => { … })` callback lane is
+    /// untouched. Returns `None` (with the stream position unchanged) unless
+    /// the tokens ahead are exactly a paren parameter list, `=>`, then `{`.
+    pub(crate) fn try_parse_block_arrow_function_expression(&mut self) -> Option<Expression> {
+        let start = self.stream.position;
+        if self.stream.tokens.get(start).map(|token| &token.kind) != Some(&TokenType::LeftParen) {
+            return None;
+        }
+        let (scan, params) = self.scan_paren_param_list(start)?;
+
+        if self.stream.tokens.get(scan).map(|token| &token.kind) != Some(&TokenType::Arrow) {
+            return None;
+        }
+        if self.stream.tokens.get(scan + 1).map(|token| &token.kind) != Some(&TokenType::LeftBrace)
+        {
+            return None;
+        }
+
+        self.stream.position = scan + 1;
+        let Some(Statement::BlockStatement(block)) = self.parse_block_statement() else {
+            self.stream.position = start;
+            return None;
+        };
+        Some(Expression::FunctionExpression(Box::new(
+            FunctionExpression {
+                id: None,
+                params: params
+                    .into_iter()
+                    .map(|name| FunctionParam { name })
+                    .collect(),
+                body: Some(Box::new(block)),
+                is_async: false,
+                generator: false,
             },
         )))
     }

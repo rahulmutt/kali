@@ -241,6 +241,68 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
 
+        // Fixed-shape object field store: `<base>.field = v` (including
+        // through an array element: `bodies[0].vx = v`). Must precede the
+        // array-write path: both lower as a 1-child member node, but here the
+        // BASE (not the whole target) carries the object shape.
+        if op == "=" {
+            let left_node = self.node(left).clone();
+            if left_node.kind == LirNodeKind::Value && left_node.children.len() == 1 {
+                if let Some(field) = left_node.text.clone().filter(|text| !text.is_empty()) {
+                    let base_id = left_node.children[0];
+                    if let Some(shape) = self.object_shape_of_node(base_id) {
+                        let Some((index, repr)) = self.repr_table.shape_field(shape, &field) else {
+                            self.diagnostics.push(Diagnostic::error(
+                                e5::FEATURE_UNAVAILABLE as u32,
+                                format!(
+                                    "unknown field '{field}' on a fixed-shape object; only declared fields can be assigned"
+                                ),
+                            ));
+                            function.instruction(&Instruction::I64Const(0));
+                            return true;
+                        };
+                        let scratch = self.locals.len() as u32;
+                        let produced = self.emit_node(function, base_id, true);
+                        if !produced.produced {
+                            function.instruction(&Instruction::I64Const(0));
+                        }
+                        function.instruction(&Instruction::LocalTee(scratch));
+                        function.instruction(&Instruction::I32WrapI64);
+                        let mem = MemArg {
+                            offset: (index * 8) as u64,
+                            align: 3,
+                            memory_index: 0,
+                        };
+                        let rhs = self.emit_node(function, right, true);
+                        match repr {
+                            kali_common::Repr::F64 => {
+                                if !rhs.produced {
+                                    function.instruction(&Instruction::F64Const(0.0.into()));
+                                } else if !self.is_float_valued(right) {
+                                    function.instruction(&Instruction::F64ConvertI64S);
+                                }
+                                function.instruction(&Instruction::F64Store(mem));
+                                // Assignment expression result: reload the field.
+                                function.instruction(&Instruction::LocalGet(scratch));
+                                function.instruction(&Instruction::I32WrapI64);
+                                function.instruction(&Instruction::F64Load(mem));
+                            }
+                            _ => {
+                                if !rhs.produced {
+                                    function.instruction(&Instruction::I64Const(0));
+                                }
+                                function.instruction(&Instruction::I64Store(mem));
+                                function.instruction(&Instruction::LocalGet(scratch));
+                                function.instruction(&Instruction::I32WrapI64);
+                                function.instruction(&Instruction::I64Load(mem));
+                            }
+                        }
+                        return true;
+                    }
+                }
+            }
+        }
+
         // Dynamic array element write: `a[i] = v` where `a` is a linear-memory
         // array. Literal/identifier indices lower to a 1-child member node with
         // the index in `text`; computed indices (`a[r - 1] = v`) lower to a
@@ -311,7 +373,7 @@ impl<'a> FunctionEmitter<'a> {
                                         memory_index: 0,
                                     }));
                                 }
-                                kali_common::Repr::I64 => {
+                                kali_common::Repr::I64 | kali_common::Repr::Object(_) => {
                                     let rhs = self.emit_node(function, right, true);
                                     if !rhs.produced {
                                         function.instruction(&Instruction::I64Const(0));

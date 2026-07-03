@@ -62,6 +62,68 @@ fn assert_browser_harness_unsupported_math_rejection(
     }
 }
 
+/// Math.sqrt on a non-perfect-square literal is SUPPORTED since e5d776d93
+/// (runtime F64Sqrt). node ground truth, bit-for-bit with `kali run`:
+/// Math.sqrt(1.6) -> 1.2649110640673518. The fixtures call sqrt through six
+/// access forms, so run/test stdout carries the value exactly six times.
+fn assert_browser_harness_math_sqrt_success(
+    command: &str,
+    filename: &str,
+    source: &str,
+    bundle: bool,
+    json_output: bool,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, source).expect("write source");
+
+    let mut cli = Command::new(kali_bin());
+    cli.current_dir(dir.path())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node");
+    if json_output {
+        cli.arg("--output").arg("json");
+    }
+    cli.arg(command);
+    if bundle {
+        cli.arg("--bundle");
+    }
+    cli.arg("--api").arg("browser").arg(&source_path);
+
+    let output = cli.output().expect("run kali");
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    if json_output {
+        let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], command);
+        assert_eq!(json["success"], true);
+        assert!(json["errors"].as_array().expect("errors array").is_empty());
+        if command != "build" {
+            let stdout = json["stdout"].as_str().expect("json stdout");
+            assert_eq!(
+                stdout.matches("1.2649110640673518").count(),
+                6,
+                "stdout: {stdout}"
+            );
+        }
+    } else if command != "build" {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert_eq!(
+            stdout.matches("1.2649110640673518").count(),
+            6,
+            "stdout: {stdout}"
+        );
+        if command == "test" {
+            assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+        }
+    }
+}
+
 fn browser_harness_run_source() -> &'static str {
     "console.log(Math.sqrt(1.6));\nconsole.log(Math[\"sqrt\"](1.6));\nconsole.log(globalThis.Math[\"sqrt\"](1.6));\nconsole.log(globalThis[\"Math\"].sqrt(1.6));\nconsole.log(globalThis[\"Math\"][\"sqrt\"](1.6));\nconsole.log(globalThis['Math']['sqrt'](1.6));\n"
 }
@@ -94,17 +156,17 @@ fn browser_harness_test_atan2_source() -> &'static str {
 "#
 }
 #[test]
-fn run_rejects_unsupported_math_member_calls_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input(
-) {
+fn run_supports_math_sqrt_member_calls_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input()
+{
     for extension in ["js", "ts", "jsx", "tsx"] {
-        assert_browser_harness_unsupported_math_rejection(
+        assert_browser_harness_math_sqrt_success(
             "run",
             &format!("main.{extension}"),
             browser_harness_run_source(),
             false,
             false,
         );
-        assert_browser_harness_unsupported_math_rejection(
+        assert_browser_harness_math_sqrt_success(
             "run",
             &format!("main.{extension}"),
             browser_harness_run_source(),
@@ -136,17 +198,17 @@ fn run_rejects_broader_math_atan2_member_calls_in_browser_api_surface_with_harne
 }
 
 #[test]
-fn test_rejects_unsupported_math_member_calls_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input(
+fn test_supports_math_sqrt_member_calls_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input(
 ) {
     for extension in ["js", "ts", "jsx", "tsx"] {
-        assert_browser_harness_unsupported_math_rejection(
+        assert_browser_harness_math_sqrt_success(
             "test",
             &format!("smoke.test.{extension}"),
             browser_harness_test_source(),
             false,
             false,
         );
-        assert_browser_harness_unsupported_math_rejection(
+        assert_browser_harness_math_sqrt_success(
             "test",
             &format!("smoke.test.{extension}"),
             browser_harness_test_source(),
@@ -178,17 +240,16 @@ fn test_rejects_broader_math_atan2_member_calls_in_browser_api_surface_with_harn
 }
 
 #[test]
-fn build_rejects_unsupported_math_member_calls_in_browser_api_surface_with_harness_jsx_and_tsx_input(
-) {
+fn build_supports_math_sqrt_member_calls_in_browser_api_surface_with_harness_jsx_and_tsx_input() {
     for extension in ["jsx", "tsx"] {
-        assert_browser_harness_unsupported_math_rejection(
+        assert_browser_harness_math_sqrt_success(
             "build",
             &format!("main.{extension}"),
             browser_harness_run_source(),
             true,
             false,
         );
-        assert_browser_harness_unsupported_math_rejection(
+        assert_browser_harness_math_sqrt_success(
             "build",
             &format!("main.{extension}"),
             browser_harness_run_source(),

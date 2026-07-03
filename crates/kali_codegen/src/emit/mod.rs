@@ -3,4 +3,5 @@
 mod call;
 mod control_flow;
 mod literal;
+mod object;
 mod operators;

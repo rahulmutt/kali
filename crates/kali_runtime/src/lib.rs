@@ -67,6 +67,7 @@ use tempfile::tempdir;
 use url::Url;
 use wasmtime::{
     Caller, Config, Engine, Extern, Instance, Linker, Memory, Module, Store, StoreLimitsBuilder,
+    Val,
 };
 
 #[cfg(test)]

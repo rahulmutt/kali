@@ -79,6 +79,13 @@ pub(crate) struct FunctionEmitter<'a> {
     pub(crate) reported_placeholder_fallbacks: HashSet<String>,
     pub(crate) control_frames: Vec<ControlFlowLabelKind>,
     pub(crate) loop_frames: Vec<LoopFrame>,
+    /// Top-level `const name → init node` table (all `FunctionEmitter`s share
+    /// one `LirProgram` node space, so a compile-time-pure module const's
+    /// initializer node can be re-emitted at each function read site).
+    pub(crate) module_const_inits: &'a BTreeMap<String, LirNodeId>,
+    /// ALL top-level binding names (const, let, var), used to gate reads of
+    /// module bindings that are not inlinable pure consts.
+    pub(crate) module_binding_names: &'a BTreeSet<String>,
 }
 
 impl<'a> FunctionEmitter<'a> {
@@ -100,6 +107,8 @@ impl<'a> FunctionEmitter<'a> {
         local_names: &[String],
         repr_table: &'a kali_common::ReprTable,
         function_name: &str,
+        module_const_inits: &'a BTreeMap<String, LirNodeId>,
+        module_binding_names: &'a BTreeSet<String>,
     ) -> Self {
         let mut locals = BTreeMap::new();
         for (idx, name) in params.iter().enumerate() {
@@ -147,6 +156,48 @@ impl<'a> FunctionEmitter<'a> {
             reported_placeholder_fallbacks: HashSet::new(),
             control_frames: Vec::new(),
             loop_frames: Vec::new(),
+            module_const_inits,
+            module_binding_names,
+        }
+    }
+
+    /// True when `id` is a compile-time-pure expression: a numeric literal, an
+    /// identifier of another pure module const (recursively, cycle-bounded),
+    /// or unary/binary arithmetic over pure operands. Guards module-const
+    /// inlining — an impure initializer (call, member access, allocation)
+    /// must not be re-emitted per use site.
+    pub(crate) fn is_pure_module_const_init(&self, id: LirNodeId, depth: usize) -> bool {
+        if depth > 16 {
+            return false;
+        }
+        let id = self.unwrap_transparent(id);
+        let node = self.node(id);
+        match node.kind {
+            LirNodeKind::Literal => true,
+            LirNodeKind::Value if node.children.is_empty() => {
+                let Some(text) = node.text.as_deref() else {
+                    return false;
+                };
+                parse_numeric_literal_value(text).is_some()
+                    || self
+                        .module_const_inits
+                        .get(text)
+                        .is_some_and(|&init| self.is_pure_module_const_init(init, depth + 1))
+            }
+            LirNodeKind::Value
+                if node.children.len() == 2
+                    && is_binary_operator_text(node.text.as_deref().unwrap_or_default()) =>
+            {
+                self.is_pure_module_const_init(node.children[0], depth + 1)
+                    && self.is_pure_module_const_init(node.children[1], depth + 1)
+            }
+            LirNodeKind::Value
+                if node.children.len() == 1
+                    && matches!(node.text.as_deref(), Some("-") | Some("+")) =>
+            {
+                self.is_pure_module_const_init(node.children[0], depth + 1)
+            }
+            _ => false,
         }
     }
 

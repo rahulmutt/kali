@@ -140,12 +140,13 @@ fn assert_browser_harness_break_continue(
             assert_eq!(json["payload"]["passed"], 1);
             assert_eq!(json["payload"]["failed"], 0);
         }
+        // node ground truth: the registered test callback executes at test
+        // time and logs its "… ok" line. (An earlier pin expected "" for the
+        // for-await test lane — an artifact of arrow-shaped `Kali.test`
+        // callbacks silently never being registered or run before the
+        // closure-return isolation fix.)
         let stdout = json["stdout"].as_str().expect("stdout string");
-        if source.contains("browserForAwaitArrayIterationBreakContinue") && command == "test" {
-            assert_eq!(stdout, "", "json: {json}");
-        } else {
-            assert!(stdout.contains("browser for-"), "json: {json}");
-        }
+        assert!(stdout.contains("browser for-"), "json: {json}");
         assert_eq!(json["stderr"], "");
         assert!(json["errors"].as_array().expect("errors array").is_empty());
     } else {
