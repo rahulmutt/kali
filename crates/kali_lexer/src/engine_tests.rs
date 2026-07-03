@@ -118,3 +118,27 @@ fn test_lexer_template_preserves_interpolation_delimiters() {
     assert_eq!(token.kind, TokenType::Template);
     assert_eq!(token.value, "`hello ${world}`");
 }
+
+#[test]
+fn test_lexer_exponent_number() {
+    for source in ["1e5", "4.84e+00", "2E-3", "1.5e1"] {
+        let lexer = Lexer::new(FileId::new(0), source.to_string());
+        let result = lexer.lex_all();
+        assert_eq!(
+            result.tokens[0].kind,
+            TokenType::NumericLiteral,
+            "source: {source}"
+        );
+        assert_eq!(result.tokens[0].value, source, "source: {source}");
+        assert!(result.diagnostics.is_empty(), "source: {source}");
+    }
+}
+
+#[test]
+fn test_lexer_exponent_without_digits_is_not_consumed() {
+    let lexer = Lexer::new(FileId::new(0), "1e".to_string());
+    let result = lexer.lex_all();
+    assert_eq!(result.tokens[0].kind, TokenType::NumericLiteral);
+    assert_eq!(result.tokens[0].value, "1");
+    assert_eq!(result.tokens[1].kind, TokenType::Identifier);
+}

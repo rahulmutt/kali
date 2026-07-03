@@ -588,3 +588,10 @@ for (let i = 0; i < n; i = i + 1) {\n\
 console.log(sum);\n";
     assert_eq!(run_js(source), "1999999000000\n");
 }
+
+#[test]
+fn exponent_notation_literals_run() {
+    assert_eq!(run_js("console.log(2e3);"), "2000\n");
+    assert_eq!(run_js("console.log((1.5e1).toFixed(1));"), "15.0\n");
+    assert_eq!(run_js("console.log((1e-2).toFixed(2));"), "0.01\n");
+}
