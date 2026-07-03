@@ -583,6 +583,16 @@ impl<'a> FunctionEmitter<'a> {
         let callback_name = self.node(callback_node).text.as_deref()?;
         self.functions.get(callback_name).copied()
     }
+
+    pub(crate) fn is_kali_write_stdout_bytes_call(&self, callee_node: &LirNode) -> bool {
+        if callee_node.text.as_deref() != Some("writeStdoutBytes") {
+            return false;
+        }
+        let Some(object) = callee_node.children.first().copied() else {
+            return false;
+        };
+        self.node(object).text.as_deref() == Some("Kali")
+    }
 }
 
 #[cfg(test)]

@@ -14,3 +14,6 @@ mod array_iteration;
 
 #[path = "call_tests/object_enumeration.rs"]
 mod object_enumeration;
+
+#[path = "call_tests/write_stdout_bytes.rs"]
+mod write_stdout_bytes;

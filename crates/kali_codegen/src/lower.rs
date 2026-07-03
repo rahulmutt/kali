@@ -53,6 +53,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     let uses_env_delete = program_uses_env_delete(lir);
     let uses_cwd_set = program_uses_cwd_set(lir);
     let uses_process_exit = program_uses_process_exit(lir);
+    let uses_stdout_write_bytes = program_uses_stdout_write_bytes(lir);
     let uses_env_access = uses_env_get || uses_env_has || uses_env_set || uses_env_delete;
     let function_index_offset = crate::FUNCTION_INDEX_OFFSET
         + if ctx.target.coverage { 1 } else { 0 }
@@ -61,7 +62,8 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         + if uses_env_get { 1 } else { 0 }
         + if uses_env_has { 1 } else { 0 }
         + if uses_cwd_set { 1 } else { 0 }
-        + if uses_process_exit { 1 } else { 0 };
+        + if uses_process_exit { 1 } else { 0 }
+        + if uses_stdout_write_bytes { 1 } else { 0 };
     let env_get_type_index = if uses_env_access { Some(6) } else { None };
     let env_has_type_index = if uses_env_has { Some(7) } else { None };
     let cwd_set_type_index = if uses_cwd_set { Some(5) } else { None };
@@ -121,6 +123,25 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                 + if uses_env_get { 1 } else { 0 }
                 + if uses_env_has { 1 } else { 0 }
                 + if uses_cwd_set { 1 } else { 0 },
+        )
+    } else {
+        None
+    };
+    // `stdout_write_bytes` is appended after every other conditional import (see
+    // the `import_section.import(...)` block below), so its index sums ALL
+    // preceding conditional-import flags in the same order they are declared
+    // there: coverage, env_set, env_delete, env_get, env_has, cwd_set,
+    // process_exit.
+    let stdout_write_bytes_import_index = if uses_stdout_write_bytes {
+        Some(
+            crate::COVERAGE_HIT_IMPORT_INDEX
+                + if ctx.target.coverage { 1 } else { 0 }
+                + if uses_env_set { 1 } else { 0 }
+                + if uses_env_delete { 1 } else { 0 }
+                + if uses_env_get { 1 } else { 0 }
+                + if uses_env_has { 1 } else { 0 }
+                + if uses_cwd_set { 1 } else { 0 }
+                + if uses_process_exit { 1 } else { 0 },
         )
     } else {
         None
@@ -243,6 +264,11 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     }
     if process_exit_import_index.is_some() {
         import_section.import("kali:rt", "process_exit", EntityType::Function(1));
+    }
+    if stdout_write_bytes_import_index.is_some() {
+        // `(i64) -> ()`: takes the byte-array's linear-memory handle, writes it
+        // to stdout, and returns no value.
+        import_section.import("kali:rt", "stdout_write_bytes", EntityType::Function(1));
     }
     // Function signatures are repr-directed: each param/result ValType comes from
     // the repr table (defaulting to I64). Two functions with equal arity but
@@ -392,6 +418,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             env_has_import_index,
             cwd_set_import_index,
             process_exit_import_index,
+            stdout_write_bytes_import_index,
             &mut diagnostics,
             &mut string_pool,
             ctx.source_path.clone(),
@@ -758,6 +785,33 @@ pub(crate) fn program_uses_process_exit(lir: &LirProgram) -> bool {
                         matches!(host.text.as_deref(), Some("process") | Some("Deno"))
                     })
                 }))
+    })
+}
+
+pub(crate) fn program_uses_stdout_write_bytes(lir: &LirProgram) -> bool {
+    lir.nodes.iter().any(|node| {
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+
+        let Some(callee) = node.children.first() else {
+            return false;
+        };
+        let Some(callee_node) = lir.nodes.get(callee.0 as usize) else {
+            return false;
+        };
+        if callee_node.text.as_deref() != Some("writeStdoutBytes") {
+            return false;
+        }
+
+        let Some(object) = callee_node.children.first() else {
+            return false;
+        };
+        let Some(object_node) = lir.nodes.get(object.0 as usize) else {
+            return false;
+        };
+
+        object_node.text.as_deref() == Some("Kali")
     })
 }
 

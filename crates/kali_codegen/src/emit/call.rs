@@ -73,6 +73,32 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if self.is_kali_write_stdout_bytes_call(&callee_node) {
+            let Some(index) = self.stdout_write_bytes_import_index else {
+                // Mirror the sibling `Kali.test` gate above: push the diagnostic
+                // and return without emitting any value. Emitting an
+                // `I64Const(0)` here while claiming `produced: false` would
+                // silently unbalance the value stack.
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Kali.writeStdoutBytes is unavailable under this backend".to_string(),
+                ));
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            };
+            // First arg is the byte array; emit its handle (i64) and call the
+            // host import. The call produces no value (statement position).
+            let arg = node.children[1];
+            let _ = self.emit_node(function, arg, true);
+            function.instruction(&Instruction::Call(index));
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
+
         let callee_name = callee_node.text.as_deref().unwrap_or_default();
         let resolved = self.functions.get(callee_name).copied();
 
