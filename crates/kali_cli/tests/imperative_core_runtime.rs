@@ -681,3 +681,23 @@ fn integer_object_field_round_trip() {
         "7\n"
     );
 }
+
+#[test]
+fn array_of_object_literals_reads_and_writes() {
+    assert_eq!(
+        run_js(
+            "const a = [{ x: 1.0 }, { x: 2.0 }];\na[1].x = 5.0;\nconsole.log((a[0].x + a[1].x).toFixed(1));\n"
+        ),
+        "6.0\n"
+    );
+}
+
+#[test]
+fn array_element_alias_mutation_is_shared() {
+    assert_eq!(
+        run_js(
+            "const a = [{ x: 1.5 }, { x: 2.0 }];\nconst b = a[0];\nb.x = b.x + 1.0;\nconsole.log(a[0].x.toFixed(1));\n"
+        ),
+        "2.5\n"
+    );
+}

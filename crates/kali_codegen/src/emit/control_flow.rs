@@ -298,6 +298,60 @@ impl<'a> FunctionEmitter<'a> {
                             }
                         }
 
+                        // Array literal of object references:
+                        // `const bodies = [ … ]` with element repr
+                        // Object(shape) — allocate the array, then
+                        // materialize/store each element pointer.
+                        if let Some(name) = declarator.text.clone() {
+                            if let kali_common::Repr::Object(elem_shape) =
+                                self.array_elem_repr(&name)
+                            {
+                                let aggregate = self
+                                    .resolve_literal_aggregate(init)
+                                    .map(|id| self.node(id).clone())
+                                    .filter(|node| self.is_array_literal(node));
+                                if let (Some(aggregate), Some(index)) =
+                                    (aggregate, self.locals.get(&name).copied())
+                                {
+                                    let allocated = self.emit_array_allocation_static(
+                                        function,
+                                        aggregate.children.len(),
+                                    );
+                                    if !allocated.produced {
+                                        function.instruction(&Instruction::I64Const(0));
+                                    }
+                                    function.instruction(&Instruction::LocalSet(index));
+                                    self.array_bindings.insert(name.clone());
+                                    for (i, child) in aggregate.children.iter().copied().enumerate()
+                                    {
+                                        function.instruction(&Instruction::LocalGet(index));
+                                        function.instruction(&Instruction::I32WrapI64);
+                                        let child_node = self.node(child).clone();
+                                        let produced = if self.is_object_literal(&child_node) {
+                                            self.emit_object_allocation(
+                                                function,
+                                                &child_node,
+                                                elem_shape,
+                                            )
+                                        } else {
+                                            // Factory call / identifier: already
+                                            // an i64 pointer.
+                                            self.emit_node(function, child, true)
+                                        };
+                                        if !produced.produced {
+                                            function.instruction(&Instruction::I64Const(0));
+                                        }
+                                        function.instruction(&Instruction::I64Store(MemArg {
+                                            offset: (8 + i * 8) as u64,
+                                            align: 3,
+                                            memory_index: 0,
+                                        }));
+                                    }
+                                    continue;
+                                }
+                            }
+                        }
+
                         // `new Array(n)` allocations need a stable handle held in a
                         // local slot regardless of `const`/`let`, so the binding can be
                         // read and written through linear memory.

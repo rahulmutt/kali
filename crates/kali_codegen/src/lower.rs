@@ -821,7 +821,14 @@ pub(crate) fn collect_function_locals(
     // `const` reads of those arrays can be promoted to eagerly-evaluated locals.
     let mut array_names = HashSet::new();
     let mut array_seen = HashSet::new();
-    collect_array_binding_names(nodes, body_id, &mut array_seen, &mut array_names);
+    collect_array_binding_names(
+        nodes,
+        body_id,
+        repr_table,
+        function_name,
+        &mut array_seen,
+        &mut array_names,
+    );
 
     let mut locals = Vec::new();
     let mut seen = HashSet::new();
@@ -840,6 +847,8 @@ pub(crate) fn collect_function_locals(
 pub(crate) fn collect_array_binding_names(
     nodes: &[LirNode],
     id: LirNodeId,
+    repr_table: &kali_common::ReprTable,
+    function_name: &str,
     seen: &mut HashSet<LirNodeId>,
     array_names: &mut HashSet<String>,
 ) {
@@ -861,12 +870,26 @@ pub(crate) fn collect_array_binding_names(
             let Some(init) = declarator_node.children.get(1).copied() else {
                 continue;
             };
+            let Some(name) = declarator_node.text.clone() else {
+                continue;
+            };
+            // An array literal of object references (`const bodies = [{…}, …]`)
+            // is a real linear-memory array only once shape inference decided
+            // its elements are `Repr::Object` (materialized, i.e. read/written
+            // through more than the compile-time fold lane); a plain scalar
+            // literal (`[1, 2, 3]`) has no `array_element` entry at all and
+            // stays untouched. Mirrors `declarator_init_is_array_alloc`/`_fill`
+            // below, which likewise mark the binding as a real array handle.
+            let is_object_array_literal = declarator_init_is_array_literal(nodes, init)
+                && matches!(
+                    repr_table.array_element(function_name, &name),
+                    kali_common::Repr::Object(_)
+                );
             if declarator_init_is_array_alloc(nodes, init)
                 || declarator_init_is_array_fill(nodes, init)
+                || is_object_array_literal
             {
-                if let Some(name) = declarator_node.text.clone() {
-                    array_names.insert(name);
-                }
+                array_names.insert(name);
             }
         }
     }
@@ -875,7 +898,7 @@ pub(crate) fn collect_array_binding_names(
         if is_function_like(nodes, *child) {
             continue;
         }
-        collect_array_binding_names(nodes, *child, seen, array_names);
+        collect_array_binding_names(nodes, *child, repr_table, function_name, seen, array_names);
     }
 }
 
@@ -933,10 +956,23 @@ pub(crate) fn collect_function_locals_from_node(
                         kali_common::Repr::Object(_)
                     )
             });
+            // An array literal of object references needs the same stable
+            // handle as a `new Array(n)` allocation, so its own base pointer
+            // (not just later reads of it) is promoted to a local. See
+            // `collect_array_binding_names`'s matching check.
+            let is_materialized_object_array =
+                declarator_node.text.as_deref().is_some_and(|name| {
+                    declarator_init_is_array_literal(nodes, init)
+                        && matches!(
+                            repr_table.array_element(function_name, name),
+                            kali_common::Repr::Object(_)
+                        )
+                });
             if !declarator_init_is_array_alloc(nodes, init)
                 && !declarator_init_is_array_fill(nodes, init)
                 && !declarator_init_is_array_read(nodes, init, array_names)
                 && !is_materialized_object
+                && !is_materialized_object_array
             {
                 continue;
             }
@@ -1174,6 +1210,37 @@ pub(crate) fn declarator_init_is_object_literal(nodes: &[LirNode], init_id: LirN
                     .and_then(|key| nodes.get(key.0 as usize))
                     .is_some_and(|key_node| key_node.kind == LirNodeKind::Literal)
         });
+    }
+}
+
+/// Returns true if `init_id` (after unwrapping genuine sequence wrappers) is
+/// an array-literal expression: a `Value` node with no text that is not an
+/// object literal. Mirrors `FunctionEmitter::is_array_literal`, but as a free
+/// function usable here, before a `FunctionEmitter` exists — see the doc
+/// comment on `declarator_init_is_object_literal` for why the sequence-wrapper
+/// unwrap can't reuse `unwrap_transparent_value`.
+pub(crate) fn declarator_init_is_array_literal(nodes: &[LirNode], init_id: LirNodeId) -> bool {
+    let mut id = init_id;
+    let mut guard = 0;
+    loop {
+        let Some(node) = nodes.get(id.0 as usize) else {
+            return false;
+        };
+        if node.kind == LirNodeKind::Value
+            && node.text.as_deref() == Some("")
+            && !node.children.is_empty()
+        {
+            id = *node.children.last().expect("sequence wrapper has a child");
+            guard += 1;
+            if guard > 64 {
+                return false;
+            }
+            continue;
+        }
+        if node.kind != LirNodeKind::Value || node.text.is_some() {
+            return false;
+        }
+        return !declarator_init_is_object_literal(nodes, id);
     }
 }
 
