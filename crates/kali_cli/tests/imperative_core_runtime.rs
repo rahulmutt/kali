@@ -655,3 +655,29 @@ fn unknown_field_read_is_fold_first_until_materialized() {
         "expected E5506 gate once the object is materialized, got: {combined}"
     );
 }
+
+#[test]
+fn object_field_write_and_read_round_trip() {
+    assert_eq!(
+        run_js("const p = { x: 1.0 };\np.x = p.x + 1.5;\nconsole.log(p.x.toFixed(1));\n"),
+        "2.5\n"
+    );
+}
+
+#[test]
+fn object_field_read_through_alias() {
+    assert_eq!(
+        run_js(
+            "const p = { x: 1.0, y: 2.5 };\np.x = 4.0;\nconst q = p;\nconsole.log((q.x + q.y).toFixed(1));\n"
+        ),
+        "6.5\n"
+    );
+}
+
+#[test]
+fn integer_object_field_round_trip() {
+    assert_eq!(
+        run_js("const p = { n: 3 };\np.n = p.n + 4;\nconsole.log(p.n);\n"),
+        "7\n"
+    );
+}

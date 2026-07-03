@@ -332,6 +332,10 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             _ => {
+                if let Some(shape) = self.object_shape_of_node(arg) {
+                    return self.emit_object_field_read(function, arg, shape, op);
+                }
+
                 if let Some(aggregate_id) = self.resolve_literal_aggregate(arg) {
                     let aggregate = self.node(aggregate_id).clone();
                     if let Some(field_value) = self.object_literal_field(&aggregate, op) {
@@ -358,7 +362,7 @@ impl<'a> FunctionEmitter<'a> {
 
     /// Unwraps transparent single-child `Value` wrappers (no operator text) so a
     /// string-classification query inspects the underlying literal/expression.
-    fn unwrap_transparent(&self, mut id: LirNodeId) -> LirNodeId {
+    pub(crate) fn unwrap_transparent(&self, mut id: LirNodeId) -> LirNodeId {
         let mut guard = 0;
         loop {
             let node = self.node(id);
@@ -460,6 +464,18 @@ impl<'a> FunctionEmitter<'a> {
     pub(crate) fn is_float_valued(&self, id: LirNodeId) -> bool {
         let id = self.unwrap_transparent(id);
         let node = self.node(id);
+        // Fixed-shape object field read: the repr comes from the shape table.
+        if node.kind == LirNodeKind::Value && node.children.len() == 1 {
+            if let (Some(field), Some(shape)) = (
+                node.text.as_deref().filter(|text| !text.is_empty()),
+                self.object_shape_of_node(node.children[0]),
+            ) {
+                return matches!(
+                    self.repr_table.shape_field(shape, field),
+                    Some((_, kali_common::Repr::F64))
+                );
+            }
+        }
         match node.kind {
             LirNodeKind::Literal => node
                 .text

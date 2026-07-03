@@ -269,6 +269,35 @@ impl<'a> FunctionEmitter<'a> {
                         }
                         let init = declarator.children[1];
 
+                        // Materialized object-literal binding: `const p = {…}`
+                        // whose inferred repr is Object(shape) — allocate the
+                        // fixed-layout struct and bind the base pointer.
+                        // Unmaterialized literals keep the fold lane below.
+                        if let Some(name) = declarator.text.clone() {
+                            if let kali_common::Repr::Object(shape) = self.scalar_repr(&name) {
+                                let aggregate = self
+                                    .resolve_literal_aggregate(init)
+                                    .map(|id| self.node(id).clone())
+                                    .filter(|node| self.is_object_literal(node));
+                                if let Some(aggregate) = aggregate {
+                                    let allocated =
+                                        self.emit_object_allocation(function, &aggregate, shape);
+                                    if !allocated.produced {
+                                        function.instruction(&Instruction::I64Const(0));
+                                    }
+                                    if let Some(index) = self.locals.get(&name).copied() {
+                                        function.instruction(&Instruction::LocalSet(index));
+                                    } else {
+                                        function.instruction(&Instruction::Drop);
+                                    }
+                                    continue;
+                                }
+                                // A shaped binding aliasing an existing object
+                                // (identifier / element / call): the generic
+                                // emission below yields the i64 pointer.
+                            }
+                        }
+
                         // `new Array(n)` allocations need a stable handle held in a
                         // local slot regardless of `const`/`let`, so the binding can be
                         // read and written through linear memory.

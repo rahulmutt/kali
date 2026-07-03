@@ -29,7 +29,7 @@ pub(crate) fn generator_lowering_unavailable_message(
 /// Generate WASM from LIR.
 pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResult {
     let mut diagnostics = Vec::new();
-    let function_plans = collect_functions(lir);
+    let function_plans = collect_functions(lir, &ctx.repr_table);
     if function_plans.iter().any(|plan| {
         matches!(
             plan.flavor,
@@ -132,7 +132,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     all_functions.push(FunctionPlan {
         name: "_start".to_string(),
         params: Vec::new(),
-        locals: collect_function_locals(&lir.nodes, lir.root),
+        locals: collect_function_locals(&lir.nodes, lir.root, &ctx.repr_table, "_start"),
         body: lir.root,
         result: false,
         is_entry: true,
@@ -418,10 +418,13 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     }
 }
 
-pub(crate) fn collect_functions(lir: &LirProgram) -> Vec<FunctionPlan> {
+pub(crate) fn collect_functions(
+    lir: &LirProgram,
+    repr_table: &kali_common::ReprTable,
+) -> Vec<FunctionPlan> {
     let mut plans = Vec::new();
     let mut visited = HashSet::new();
-    collect_functions_from_node(lir, lir.root, &mut visited, &mut plans);
+    collect_functions_from_node(lir, lir.root, &mut visited, &mut plans, repr_table);
     plans
 }
 
@@ -718,12 +721,13 @@ pub(crate) fn collect_functions_from_node(
     id: LirNodeId,
     visited: &mut HashSet<LirNodeId>,
     plans: &mut Vec<FunctionPlan>,
+    repr_table: &kali_common::ReprTable,
 ) {
     if !visited.insert(id) {
         return;
     }
 
-    if let Some(plan) = function_plan(&lir.nodes, id) {
+    if let Some(plan) = function_plan(&lir.nodes, id, repr_table) {
         plans.push(plan);
     }
 
@@ -732,11 +736,20 @@ pub(crate) fn collect_functions_from_node(
     };
 
     for child in &node.children {
-        collect_functions_from_node(lir, *child, visited, plans);
+        collect_functions_from_node(lir, *child, visited, plans, repr_table);
     }
 }
 
-pub(crate) fn function_plan(nodes: &[LirNode], id: LirNodeId) -> Option<FunctionPlan> {
+/// Structural shape of a function-like `Instruction` node: name, body, and
+/// params — everything `function_plan` needs except the repr-directed local
+/// slots, which only `function_plan` itself computes. Shared so
+/// `is_function_like` can answer its purely-structural question without a
+/// `ReprTable` (it is consulted from contexts, like `is_function_like`'s own
+/// callers, that only care whether a node IS a function, not its locals).
+fn function_shape(
+    nodes: &[LirNode],
+    id: LirNodeId,
+) -> Option<(String, Option<FunctionFlavor>, LirNodeId, Vec<String>)> {
     let node = nodes.get(id.0 as usize)?;
     if node.kind != LirNodeKind::Instruction {
         return None;
@@ -772,7 +785,16 @@ pub(crate) fn function_plan(nodes: &[LirNode], id: LirNodeId) -> Option<Function
         }
     }
 
-    let locals = collect_function_locals(nodes, body_id);
+    Some((name, flavor, body_id, params))
+}
+
+pub(crate) fn function_plan(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    repr_table: &kali_common::ReprTable,
+) -> Option<FunctionPlan> {
+    let (name, flavor, body_id, params) = function_shape(nodes, id)?;
+    let locals = collect_function_locals(nodes, body_id, repr_table, &name);
 
     Some(FunctionPlan {
         name,
@@ -786,10 +808,15 @@ pub(crate) fn function_plan(nodes: &[LirNode], id: LirNodeId) -> Option<Function
 }
 
 pub(crate) fn is_function_like(nodes: &[LirNode], id: LirNodeId) -> bool {
-    function_plan(nodes, id).is_some()
+    function_shape(nodes, id).is_some()
 }
 
-pub(crate) fn collect_function_locals(nodes: &[LirNode], body_id: LirNodeId) -> Vec<String> {
+pub(crate) fn collect_function_locals(
+    nodes: &[LirNode],
+    body_id: LirNodeId,
+    repr_table: &kali_common::ReprTable,
+    function_name: &str,
+) -> Vec<String> {
     // First identify every binding that holds a linear-memory array handle, so that
     // `const` reads of those arrays can be promoted to eagerly-evaluated locals.
     let mut array_names = HashSet::new();
@@ -798,7 +825,15 @@ pub(crate) fn collect_function_locals(nodes: &[LirNode], body_id: LirNodeId) -> 
 
     let mut locals = Vec::new();
     let mut seen = HashSet::new();
-    collect_function_locals_from_node(nodes, body_id, &array_names, &mut seen, &mut locals);
+    collect_function_locals_from_node(
+        nodes,
+        body_id,
+        &array_names,
+        repr_table,
+        function_name,
+        &mut seen,
+        &mut locals,
+    );
     locals
 }
 
@@ -848,6 +883,8 @@ pub(crate) fn collect_function_locals_from_node(
     nodes: &[LirNode],
     id: LirNodeId,
     array_names: &HashSet<String>,
+    repr_table: &kali_common::ReprTable,
+    function_name: &str,
     seen: &mut HashSet<LirNodeId>,
     locals: &mut Vec<String>,
 ) {
@@ -876,6 +913,11 @@ pub(crate) fn collect_function_locals_from_node(
     // `const` bindings normally inline their initializer, but an allocation
     // (`new Array(n)`) needs a stable handle and a read of a mutable array
     // (`const t = a[i]`) must be evaluated eagerly; both are promoted to locals.
+    // A materialized object-literal binding (its inferred repr is `Object`,
+    // i.e. the shape inference recorded it as heap-allocated) needs the same
+    // stable handle, so its mutations (`p.x = ...`) and aliases (`const q = p`)
+    // observe the same storage; an object literal with no shape entry stays on
+    // the compile-time fold lane untouched (fold-first).
     if node.kind == LirNodeKind::Instruction && node.text.as_deref() == Some("const") {
         for declarator in &node.children {
             let Some(declarator_node) = nodes.get(declarator.0 as usize) else {
@@ -884,9 +926,17 @@ pub(crate) fn collect_function_locals_from_node(
             let Some(init) = declarator_node.children.get(1).copied() else {
                 continue;
             };
+            let is_materialized_object = declarator_node.text.as_deref().is_some_and(|name| {
+                declarator_init_is_object_literal(nodes, init)
+                    && matches!(
+                        repr_table.scalar(function_name, name),
+                        kali_common::Repr::Object(_)
+                    )
+            });
             if !declarator_init_is_array_alloc(nodes, init)
                 && !declarator_init_is_array_fill(nodes, init)
                 && !declarator_init_is_array_read(nodes, init, array_names)
+                && !is_materialized_object
             {
                 continue;
             }
@@ -902,7 +952,15 @@ pub(crate) fn collect_function_locals_from_node(
         if is_function_like(nodes, *child) {
             continue;
         }
-        collect_function_locals_from_node(nodes, *child, array_names, seen, locals);
+        collect_function_locals_from_node(
+            nodes,
+            *child,
+            array_names,
+            repr_table,
+            function_name,
+            seen,
+            locals,
+        );
     }
 }
 
@@ -1061,6 +1119,61 @@ pub(crate) fn declarator_init_is_array_alloc(nodes: &[LirNode], init_id: LirNode
             return false;
         };
         return callee_node.text.as_deref() == Some("Array") && callee_node.children.is_empty();
+    }
+}
+
+/// Returns true if `init_id` (after unwrapping genuine sequence wrappers) is
+/// an object-literal expression: a `Value` node with no text whose every
+/// child is a 2-child `init`/`get`/`set` property node with a `Literal` key.
+/// Mirrors `FunctionEmitter::is_object_literal`, but as a free function
+/// usable here, before a `FunctionEmitter` exists (local-slot collection runs
+/// first, ahead of emission).
+///
+/// Deliberately does NOT reuse `unwrap_transparent_value`: that helper
+/// unwraps any single-child node whose text is `None` OR empty, but an
+/// object literal's own top node ALSO has `text: None` — a single-property
+/// literal (`{n: 3}`, exactly one property child) has the identical
+/// "one child, no text" shape, so that unwrap would wrongly descend into the
+/// lone property node and report "not a literal". A genuine sequence
+/// wrapper's text is the empty string (`Some("")`), never `None` — that
+/// narrower condition (mirroring `resolve_literal_aggregate`'s own
+/// sequence-wrapper check) is what's used to unwrap here.
+pub(crate) fn declarator_init_is_object_literal(nodes: &[LirNode], init_id: LirNodeId) -> bool {
+    let mut id = init_id;
+    let mut guard = 0;
+    loop {
+        let Some(node) = nodes.get(id.0 as usize) else {
+            return false;
+        };
+        if node.kind == LirNodeKind::Value
+            && node.text.as_deref() == Some("")
+            && !node.children.is_empty()
+        {
+            id = *node.children.last().expect("sequence wrapper has a child");
+            guard += 1;
+            if guard > 64 {
+                return false;
+            }
+            continue;
+        }
+        if node.kind != LirNodeKind::Value || node.text.is_some() || node.children.is_empty() {
+            return false;
+        }
+        return node.children.iter().all(|child| {
+            let Some(child_node) = nodes.get(child.0 as usize) else {
+                return false;
+            };
+            child_node.children.len() == 2
+                && child_node
+                    .text
+                    .as_deref()
+                    .is_some_and(|kind| matches!(kind, "init" | "get" | "set"))
+                && child_node
+                    .children
+                    .first()
+                    .and_then(|key| nodes.get(key.0 as usize))
+                    .is_some_and(|key_node| key_node.kind == LirNodeKind::Literal)
+        });
     }
 }
 
