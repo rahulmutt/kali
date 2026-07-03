@@ -606,3 +606,52 @@ fn object_shape_mismatch_is_rejected() {
         "expected E5506 gate, got: {combined}"
     );
 }
+
+/// Review fix (promotion hole): a structurally-unsupported object literal
+/// (non-identifier property key) written and read through the same local
+/// binding must be rejected with E5506 instead of silently falling through
+/// to the buggy fold-lane codegen (which ignores the write and prints `0`;
+/// node prints `2`). Before the fix, this compiled and ran with no error.
+#[test]
+fn locally_written_structural_object_literal_is_rejected() {
+    let combined = run_js_expect_failure("const p = {\"a-b\": 1};\np.c = 2;\nconsole.log(p.c);\n");
+    assert!(
+        combined.contains("5506"),
+        "expected E5506 gate, got: {combined}"
+    );
+}
+
+/// Review fix (promotion hole): a structurally-unsupported object literal
+/// passed as a call argument (via a const binding, not a direct literal
+/// argument — which Task 3 already rejected) and field-read inside the
+/// callee must also be rejected with E5506. Before the fix, this compiled
+/// and printed `0` (node prints `undefined`).
+#[test]
+fn structural_object_literal_passed_as_call_argument_is_rejected() {
+    let combined = run_js_expect_failure(
+        "function f(o) { return o.c; }\nconst o = {\"a-b\": 1};\nconsole.log(f(o));\n",
+    );
+    assert!(
+        combined.contains("5506"),
+        "expected E5506 gate, got: {combined}"
+    );
+}
+
+/// Review fix (IMPORTANT, fold-first both ways): a read-only, non-
+/// materialized object literal with a known shape must NOT reject on an
+/// unknown-field read (matches node's `undefined`); the same shape, once
+/// materialized by a write, must still reject on an unknown-field read.
+#[test]
+fn unknown_field_read_is_fold_first_until_materialized() {
+    assert_eq!(
+        run_js("const p = { x: 1.0 };\nconsole.log(p.y);\n"),
+        "0\n",
+        "a read-only unknown-field access must stay on the fold lane and compile"
+    );
+
+    let combined = run_js_expect_failure("const p = { x: 1.0 };\np.x = 2.0;\nconsole.log(p.y);\n");
+    assert!(
+        combined.contains("5506"),
+        "expected E5506 gate once the object is materialized, got: {combined}"
+    );
+}

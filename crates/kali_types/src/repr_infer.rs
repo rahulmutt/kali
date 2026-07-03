@@ -388,6 +388,19 @@ impl ReprInfer {
                 }
             }
             Statement::ExpressionStatement(stmt) => {
+                // A bare, top-level member-read statement (`p.field;`) never
+                // observes its result — the value is unconditionally
+                // discarded. This is also, incidentally, the exact AST shape
+                // the parser currently produces for `delete p.field;` (the
+                // parser silently drops the `delete` keyword rather than
+                // building a `UnaryExpression` for it) — routing it through
+                // the same "unobserved" helper fixes that case too, without
+                // requiring dedicated `delete` parser support. See
+                // `visit_unobserved_member_target`.
+                if matches!(stmt.expression.as_ref(), Expression::MemberExpression(_)) {
+                    self.visit_unobserved_member_target(func, &stmt.expression);
+                    return;
+                }
                 self.visit_expr(func, &stmt.expression);
             }
             Statement::ReturnStatement(stmt) => {
@@ -588,6 +601,23 @@ impl ReprInfer {
             }
 
             Expression::UnaryExpression(unary) => {
+                if unary.operator == "delete" {
+                    // `delete <base>.field` / `delete <base>[i]` never OBSERVES
+                    // the deleted slot's value (codegen lowers `delete` through
+                    // its own dedicated path, independent of this object axis).
+                    // Visiting it like an ordinary member read would wrongly
+                    // register a deferred field-*read* access, which the
+                    // pending-conflict promotion below treats as evidence that
+                    // the slot's value is actually consumed — miscounting a
+                    // `delete` as a read would over-promote a structural
+                    // literal that is only ever deleted-from and reinserted
+                    // into (never truly read through this axis), rejecting a
+                    // program that today runs correctly. Still visit the base
+                    // (and computed index) for their own housekeeping, just
+                    // without creating the ObjAccess.
+                    self.visit_unobserved_member_target(func, &unary.argument);
+                    return self.new_node();
+                }
                 let arg = self.visit_expr(func, &unary.argument);
                 let result = self.new_node();
                 if matches!(unary.operator.as_str(), "-" | "+") {
@@ -771,6 +801,52 @@ impl ReprInfer {
         // `.length` and other dot access → i64 result.
         self.visit_expr(func, &member.object);
         self.new_node()
+    }
+
+    /// Visit `expr` WITHOUT recording a deferred object-field READ access,
+    /// for positions whose member-access result is provably never observed:
+    /// the target of `delete <expr>` (which never observes the deleted
+    /// slot's value — codegen lowers `delete` through its own dedicated
+    /// path), and a bare top-level `<expr>;` expression-statement (whose
+    /// value is unconditionally discarded — see the `ExpressionStatement`
+    /// arm of `visit_stmt`, which is *also* the exact AST shape the parser
+    /// currently produces for `delete <expr>;`, since it drops the `delete`
+    /// keyword rather than building a `UnaryExpression` for it; routing both
+    /// spellings through this helper keeps them consistent regardless of
+    /// which one the parser happens to use). Mirrors `visit_member`'s
+    /// housekeeping (index visiting, array-binding registration, `.length`
+    /// array signal) so array/float bookkeeping is unaffected; only the
+    /// terminal `ObjAccess` push is skipped. Not observing this read matters
+    /// for `resolve_objects`'s pending-conflict promotion: an unobserved
+    /// read must NOT count as evidence that a structurally-unsupported
+    /// literal's value is consumed (that would over-promote a literal that
+    /// is only ever deleted-from/reinserted-into and enumerated via
+    /// `Object.keys`-style builtins, rejecting a program that runs correctly
+    /// today — see `pending_slots_reached_by_a_read`).
+    fn visit_unobserved_member_target(&mut self, func: &str, expr: &Expression) {
+        let Expression::MemberExpression(member) = expr else {
+            self.visit_expr(func, expr);
+            return;
+        };
+        if let Some(index) = &member.computed_index {
+            self.visit_expr(func, index);
+            if let Expression::Identifier(name) = &member.object {
+                self.array_elem_node_for(func, name);
+            } else {
+                self.visit_expr(func, &member.object);
+            }
+            return;
+        }
+        if member.property.as_str() == "length" {
+            if let Expression::Identifier(name) = &member.object {
+                self.array_elem_node_for(func, name);
+                return;
+            }
+        }
+        // Still visit the base for its own housekeeping (e.g. a nested
+        // member/array access reached along the way), but never create a
+        // deferred field-read ObjAccess for the terminal `.field`.
+        self.visit_expr(func, &member.object);
     }
 
     fn visit_call(&mut self, func: &str, call: &kali_ast::CallExpression) -> usize {
@@ -1001,6 +1077,32 @@ impl ReprInfer {
             self.obj_materialized.insert(b.clone());
         }
 
+        // 2.5. Compute which *pending*-conflict slots (structurally-unsupported
+        //      literals — non-identifier key / getter-setter / nested object;
+        //      see `record_object_literal`) are observably READ somewhere they
+        //      can be reached, and so must be promoted below: a purely
+        //      write-only or purely aliased-but-never-read pending literal
+        //      stays on the fold lane untouched (fold-first). See the doc
+        //      comment on `pending_slots_reached_by_a_read` for the exact
+        //      rule and why it is shaped this way.
+        let promote_via_read = self.pending_slots_reached_by_a_read();
+
+        // 2.6. Pre-mark materialization for every WRITE access on a
+        //      known-shape base, BEFORE gating individual accesses in step 3
+        //      below. Materialization is a whole-program property: a write
+        //      appearing later in the source must still be visible to an
+        //      earlier unknown-field READ's materialized-gate (step 3), not
+        //      just to writes processed after it in this same pass.
+        for access in &self.obj_accesses {
+            if access.is_write {
+                if let Some(names) = fields_of.get(&access.base) {
+                    if names.contains(&access.field) {
+                        self.obj_materialized.insert(access.base.clone());
+                    }
+                }
+            }
+        }
+
         // 3. Wire deferred member accesses through canonical field storage.
         let accesses = std::mem::take(&mut self.obj_accesses);
         for access in accesses {
@@ -1008,10 +1110,17 @@ impl ReprInfer {
                 continue; // not an object: fold lane / existing behavior
             };
             if !names.contains(&access.field) {
-                self.obj_conflicts.push(format!(
-                    "unknown field '{}' on fixed-shape object {:?}",
-                    access.field, access.base
-                ));
+                // Unknown-field access on a KNOWN shape: a real conflict only
+                // when the base is observable outside the fold lane — a
+                // write, or a base materialized elsewhere. A read-only
+                // unknown-field access on a literal that never materializes
+                // matches JS (`undefined`) and must NOT reject (fold-first).
+                if access.is_write || self.obj_materialized.contains(&access.base) {
+                    self.obj_conflicts.push(format!(
+                        "unknown field '{}' on fixed-shape object {:?}",
+                        access.field, access.base
+                    ));
+                }
                 continue;
             }
             let field_node = self.obj_field_node_for(&access.base, &access.field);
@@ -1023,19 +1132,113 @@ impl ReprInfer {
             }
         }
 
-        // 4. Promote deferred structural conflicts for any slot that was forced
-        //    onto the object lane (materialized). A structurally-unsupported
-        //    literal that stayed read-only never materializes and so keeps its
-        //    fold-lane behavior (fold-first invariant); one that is reassigned,
-        //    written, or aliased into a materialized object is rejected here.
+        // 4. Promote deferred structural conflicts for any slot that was
+        //    forced onto the object lane: reassigned (already recorded in
+        //    `obj_materialized` eagerly by `visit_assignment`'s whole-object
+        //    reassignment branch), or reached by an observable read per 2.5
+        //    above. A structurally-unsupported literal that stayed read-only
+        //    and non-aliased, or that is only written-to and consumed via
+        //    generic enumeration (`Object.keys`-style builtins, which never
+        //    create a deferred field access here), never materializes and so
+        //    keeps its fold-lane behavior byte-identically (fold-first
+        //    invariant) — this is the whole point of the deferral.
         let pending = std::mem::take(&mut self.obj_pending_conflicts);
         for (slot, message) in pending {
-            if self.obj_materialized.contains(&slot) {
+            if self.obj_materialized.contains(&slot) || promote_via_read.contains(&slot) {
                 self.obj_conflicts.push(message);
             }
         }
 
         self.obj_fields_of = fields_of;
+    }
+
+    /// Which `obj_pending_conflicts` slots are observably READ somewhere
+    /// reachable from them, and so must be promoted to a real (rejected)
+    /// conflict rather than staying deferred.
+    ///
+    /// A pending (structurally-unsupported) literal hits the buggy fold-lane
+    /// `.field` read codegen this gate exists to guard against precisely when
+    /// its value can be read from somewhere OTHER than a compile-time fold of
+    /// its own literal text:
+    ///
+    /// - **Same-slot write + read**: the slot is both the base of a WRITE
+    ///   `ObjAccess` and a READ `ObjAccess` — the write makes a same-slot
+    ///   fold-to-literal-text read stale (`const p = {"a-b":1}; p.c = 2;
+    ///   console.log(p.c);` must print `2`, not the folded/default value).
+    /// - **Cross-slot via any flow**: the slot participates in ANY
+    ///   object-aliasing flow (assignment, array-element sharing,
+    ///   arg↔param, return↔call-site — `obj_flows`, regardless of whether
+    ///   either endpoint has a known field list) AND *some* slot in that
+    ///   flow-connected component has a READ `ObjAccess` anywhere. Crossing a
+    ///   flow means the reading site has no visibility into the original
+    ///   literal text to fold from at all (`function f(o){return o.c;}
+    ///   f(structuralLiteral)` must reject, not silently fold to `0`) — a
+    ///   write on that same component is not required.
+    ///
+    /// A literal that is only ever read locally with no write (the classic
+    /// read-only fold-lane case), or only ever written-to/aliased but never
+    /// read through this axis (e.g. deleted-from and reinserted, then only
+    /// consumed via `Object.keys`/`Object.values`/`Object.entries`/
+    /// `Reflect.ownKeys`, none of which create a deferred `ObjAccess`), is
+    /// NOT promoted — that would re-break fold-first, the whole point of the
+    /// pending-conflict deferral. `delete <base>.field` (and any bare,
+    /// top-level `<base>.field;` expression statement, whose result is
+    /// unconditionally discarded either way) is deliberately excluded from
+    /// counting as a read — see `visit_unobserved_member_target`.
+    fn pending_slots_reached_by_a_read(&self) -> BTreeSet<ObjSlot> {
+        // Union-find over `ObjSlot`s via `obj_flows` (undirected aliasing).
+        // `ObjSlot`s are never merged in the *field-storage* union-find
+        // (`self.uf`, which only unions field nodes of slots that already
+        // have BOTH field lists known — step 2 above); this is a separate,
+        // slot-identity-level grouping used only to decide promotion.
+        fn find(parent: &mut BTreeMap<ObjSlot, ObjSlot>, x: &ObjSlot) -> ObjSlot {
+            let p = parent.entry(x.clone()).or_insert_with(|| x.clone()).clone();
+            if &p == x {
+                return p;
+            }
+            let root = find(parent, &p);
+            parent.insert(x.clone(), root.clone());
+            root
+        }
+
+        let mut parent: BTreeMap<ObjSlot, ObjSlot> = BTreeMap::new();
+        for (a, b) in &self.obj_flows {
+            let ra = find(&mut parent, a);
+            let rb = find(&mut parent, b);
+            if ra != rb {
+                parent.insert(ra, rb);
+            }
+        }
+
+        let mut members: BTreeMap<ObjSlot, BTreeSet<ObjSlot>> = BTreeMap::new();
+        for (a, b) in &self.obj_flows {
+            let root = find(&mut parent, a);
+            members.entry(root.clone()).or_default().insert(a.clone());
+            members.entry(root).or_default().insert(b.clone());
+        }
+
+        let mut comp_has_read: BTreeSet<ObjSlot> = BTreeSet::new();
+        let mut comp_has_write: BTreeSet<ObjSlot> = BTreeSet::new();
+        for access in &self.obj_accesses {
+            let root = find(&mut parent, &access.base);
+            if access.is_write {
+                comp_has_write.insert(root);
+            } else {
+                comp_has_read.insert(root);
+            }
+        }
+
+        let mut promoted = BTreeSet::new();
+        for slot in self.obj_pending_conflicts.keys() {
+            let root = find(&mut parent, slot);
+            let component_size = members.get(&root).map(BTreeSet::len).unwrap_or(1);
+            let has_read = comp_has_read.contains(&root);
+            let has_write = comp_has_write.contains(&root);
+            if has_read && (has_write || component_size > 1) {
+                promoted.insert(slot.clone());
+            }
+        }
+        promoted
     }
 
     // ---- Phase D: solve → table ----------------------------------------

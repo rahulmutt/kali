@@ -207,3 +207,120 @@ fn float_and_array_programs_gain_no_shapes() {
     assert!(t.shape_conflicts().is_empty());
     assert_eq!(t.array_element("_start", "w"), Repr::F64);
 }
+
+// ---- Review fix: promotion-hole regression tests -----------------------
+//
+// Task 3 deferred *structural* object-literal conflicts (non-identifier
+// property key / getter-setter / nested object) into `obj_pending_conflicts`
+// so read-only fold-lane literals (consumed only by `Object.keys`-style
+// builtins) keep compiling. Promotion of a pending conflict was originally
+// tied to the slot ACQUIRING A FIELD LIST — but a purely-structural literal
+// never gets one, so several materialization paths (a local field write, a
+// factory-return then write, an array-of-objects element write across a
+// function boundary, and an object passed as a call argument then
+// field-read in the callee) never promoted their pending conflict. The
+// object silently fell through to the pre-existing "fold lane" object
+// codegen, which is demonstrably wrong for these four shapes (confirmed
+// against node): it either ignores writes and folds a `.field` read back to
+// the literal's own declared value (or `0` if the field doesn't appear in
+// the literal at all), or has no visibility into the original literal text
+// once the read crosses a function boundary. Each test below is one of the
+// four confirmed-escaping paths and must now be rejected (a real shape
+// conflict) instead of silently compiling.
+
+#[test]
+fn local_field_write_on_structural_literal_is_a_conflict() {
+    // node: `p.c = 2; console.log(p.c)` prints `2`. Before the fix, kali
+    // silently compiled this (no conflict) and the buggy fold-lane codegen
+    // printed `0`, ignoring the write.
+    let t = reprs("const p = {\"a-b\": 1};\np.c = 2;\nconsole.log(p.c);\n");
+    assert!(
+        !t.shape_conflicts().is_empty(),
+        "a written-then-read structurally-unsupported literal must be a shape conflict"
+    );
+}
+
+#[test]
+fn factory_return_then_write_on_structural_literal_is_a_conflict() {
+    // node: `result.c` (after `result.c = 2`) is `2`. Before the fix, kali
+    // never promoted the pending conflict on the factory's `Return` slot
+    // because it never acquired a field list, and the buggy fold lane
+    // printed `0`.
+    let t = reprs(
+        "function mk() { return {\"a-b\": 1}; }\nconst result = mk();\nresult.c = 2;\nconsole.log(result.c);\n",
+    );
+    assert!(
+        !t.shape_conflicts().is_empty(),
+        "a factory returning a structurally-unsupported literal, written and read by the caller, must be a shape conflict"
+    );
+}
+
+#[test]
+fn array_of_objects_element_write_across_boundary_on_structural_literal_is_a_conflict() {
+    // node: `bodies[0].c` (after `bump` writes it) is `9`. Before the fix,
+    // the pending conflict on the array-element slot was never promoted
+    // (the write happens on a *different*, flow-connected `ArrayElem` slot
+    // inside `bump`), and the buggy fold lane printed `0`.
+    let t = reprs(
+        "function bump(arr) { arr[0].c = 9; }\nconst bodies = [{\"a-b\": 1}];\nbump(bodies);\nconsole.log(bodies[0].c);\n",
+    );
+    assert!(
+        !t.shape_conflicts().is_empty(),
+        "an array-of-structurally-unsupported-objects element written across a function boundary must be a shape conflict"
+    );
+}
+
+#[test]
+fn structural_literal_as_call_argument_field_read_in_callee_is_a_conflict() {
+    // node: `f(o)` is `undefined` (`o` has no `.c` field). Before the fix,
+    // this purely-read-only-but-cross-function case never promoted the
+    // pending conflict on the caller's binding, and the buggy fold lane
+    // printed `0` instead of the (would-be) `undefined`.
+    let t = reprs("function f(o) { return o.c; }\nconst o = {\"a-b\": 1};\nconsole.log(f(o));\n");
+    assert!(
+        !t.shape_conflicts().is_empty(),
+        "a structurally-unsupported literal passed as a call argument (via a const binding) and field-read in the callee must be a shape conflict"
+    );
+}
+
+#[test]
+fn unknown_field_read_gate_is_fold_first_but_rejects_once_materialized() {
+    // Read-only: `{x: 1.0}` is never written or aliased, so an unknown-field
+    // read on it must stay on the fold lane (matches node's `undefined`)
+    // rather than reject — this is the same fold-first contract as
+    // `read_only_local_object_literal_stays_on_the_fold_lane`, extended to
+    // an *unknown*-field read.
+    let read_only = reprs("const p = { x: 1.0 };\nconsole.log(p.y);\n");
+    assert!(
+        read_only.shape_conflicts().is_empty(),
+        "a read-only unknown-field access on a non-materialized literal must not conflict"
+    );
+
+    // Materialized: the same shape, but written first — now genuinely
+    // escapes the fold lane, so the unknown-field read must still conflict.
+    let materialized = reprs("const p = { x: 1.0 };\np.x = 2.0;\nconsole.log(p.y);\n");
+    assert!(
+        !materialized.shape_conflicts().is_empty(),
+        "an unknown-field access on a materialized (written) object must still conflict"
+    );
+}
+
+#[test]
+fn object_enumeration_delete_reinsert_style_literal_stays_on_the_fold_lane() {
+    // Mirrors `object-enumeration-delete-reinsert-benchmark-v1`: a
+    // structurally-unsupported literal that is only written-to (and
+    // "deleted" from, which the parser today folds into a bare, unobserved
+    // member-read statement) and consumed via `Object.keys`-style
+    // enumeration builtins — never through a genuine `.field` read — must
+    // stay on the fold lane (fold-first), exactly like it does today.
+    // Regression guard for the promotion-hole fix: promoting on ANY write,
+    // unconditionally, would wrongly reject this.
+    let t = reprs(
+        "function hot(seed) {\n  const literal = { 1: 4, 2: 2, b: 1 };\n  delete literal.b;\n  literal.b = 3;\n  return seed;\n}\nhot(0);\n",
+    );
+    assert!(
+        t.shape_conflicts().is_empty(),
+        "a write-only structural literal never observed through a genuine field read must not conflict: {:?}",
+        t.shape_conflicts()
+    );
+}
