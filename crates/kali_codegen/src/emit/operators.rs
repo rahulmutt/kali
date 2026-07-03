@@ -419,16 +419,26 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     /// True when `id` (after unwrapping transparent wrappers and resolving
-    /// const bindings) is a BigInt literal such as `3n`. BigInt arithmetic
-    /// stays on the i64 lane; in particular JS BigInt `/` truncates toward
-    /// zero — `i64.div_s` — never `f64.div`. Scope is deliberately literal /
-    /// const-bound-literal operands: the repr machinery has no BigInt axis
-    /// yet, so BigInt-typed mutable locals keep the (wrong) float path — a
-    /// recorded follow-up.
+    /// const bindings) is a BigInt literal such as `3n`, or a unary `-` applied
+    /// to one (`-3n`) — `emit_unary`'s `-` arm lowers a BigInt-literal operand
+    /// via `i64.const 0` / `i64.sub`, which stays on the i64 lane, so the
+    /// negated form is just as div_s-eligible as the plain literal. BigInt
+    /// arithmetic stays on the i64 lane; in particular JS BigInt `/` truncates
+    /// toward zero — `i64.div_s` — never `f64.div`. Scope is deliberately
+    /// literal / const-bound-literal operands (optionally negated): the repr
+    /// machinery has no BigInt axis yet, so BigInt-typed mutable locals keep
+    /// the (wrong) float path, and mixed `3n / 2` (a JS TypeError) still
+    /// floats too — both recorded follow-ups.
     fn is_bigint_literal_valued(&self, id: LirNodeId) -> bool {
         let id = self.unwrap_transparent(id);
         let id = self.resolve_bound_node(id);
         let node = self.node(id);
+        if node.kind == LirNodeKind::Value
+            && node.children.len() == 1
+            && node.text.as_deref() == Some("-")
+        {
+            return self.is_bigint_literal_valued(node.children[0]);
+        }
         node.kind == LirNodeKind::Literal
             && node
                 .text

@@ -10182,6 +10182,15 @@ fn run_supports_bigint_division_semantics_in_js_input() {
 }
 
 #[test]
+fn run_supports_negative_bigint_literal_division_semantics() {
+    // node: -7n / 2n === -3n — BigInt `/` truncates toward zero, so a
+    // unary-minus-wrapped BigInt literal dividend must still take the
+    // truncating i64 division lane, not the float lane (which would print
+    // -3.5).
+    assert_run_supports_bigint_binary_semantics("ts", "-7n / 2n", "-3");
+}
+
+#[test]
 fn run_supports_bigint_remainder_semantics() {
     assert_run_supports_bigint_binary_semantics("ts", "3n % 2n", "1");
 }
