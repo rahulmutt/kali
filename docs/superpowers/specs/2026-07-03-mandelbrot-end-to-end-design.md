@@ -15,20 +15,30 @@ opened one new representation lane:
 
 There is no documented ordering for the remaining canonical benchmarks. Of them,
 **mandelbrot** needs the least new compiler infrastructure: it extends the existing
-`f64` lane and adds only integer **bitwise operators** plus a way to emit the packed
-bitmap. It needs no garbage collector, hashtable, arbitrary-precision bignum, or regex
-engine, so it keeps the established "one new lane per fixture" cadence.
+`f64` lane and adds integer **bitwise operators** plus a way to emit the packed bitmap.
+It needs no garbage collector, hashtable, arbitrary-precision bignum, or regex engine.
+
+**This slice deliberately opens two lanes** (bitwise-integer operators and faithful
+binary stdout), because the chosen output strategy is a byte-for-byte-faithful PBM image
+rather than a checksum adaptation. This is a conscious departure from the usual
+one-lane-per-fixture cadence, taken so the fixture reproduces canonical mandelbrot's
+actual output bytes.
 
 ## Goal
 
-Vendor a `mandelbrot` fixture that executes end-to-end under `kali run` and reproduces
-the canonical mandelbrot bitmap, pinned as deterministic output — recording
-execution-correctness coverage for a new **bitwise-integer** lane, not a throughput claim.
+Vendor a `mandelbrot` fixture that executes end-to-end under `kali run` and writes the
+**byte-for-byte canonical binary PBM image** to stdout, pinned as deterministic output —
+recording execution-correctness coverage for a new **bitwise-integer** lane and a new
+**binary-stdout** runtime lane, not a throughput claim.
 
 ## Non-goals
 
 - No throughput / performance claim (consistent with the other CLBG maturity rows).
-- No binary / raw-byte stdout runtime lane in this slice (deferred; see Follow-ups).
+- No general typed-array / `Uint8Array` / `Deno.stdout` surface — the guest emits bytes
+  through a narrow kali-namespaced intrinsic (see Output).
+- **No binary stdout in the browser harness** — the binary sink is host-runtime only in
+  this slice; the browser harness serializes stdout as a JSON string and is left on the
+  existing text path (see Runtime plumbing → browser).
 - No general JS numeric-tower or float↔int bitwise coercion beyond what is specified.
 - No `?:` ternary, `continue`-in-`for`, or other unproven surface in the fixture.
 
@@ -57,7 +67,10 @@ binary format where a set bit is a black (in-set) pixel:
 `byte = (byte << 1) | inSet`. In PBM each *row* is padded to a byte boundary; we choose
 `n` divisible by 8 (`n = 200`, 25 bytes/row) so no intra-row padding logic is needed.
 
-## Compiler work — the new lane
+The canonical stdout is the ASCII header `P4\n<n> <n>\n` followed by the packed bitmap
+bytes — for `n = 200`, an 11-byte header + 5000 bitmap bytes.
+
+## Compiler work — lane 1: bitwise-integer operators
 
 ### Real bitwise-operator lowering
 
@@ -93,49 +106,81 @@ Bitwise operators whose operands are **`f64`-inferred** (or otherwise not intege
 invariant intact. (JS would `ToInt32`-coerce a float operand; that coercion path is
 explicitly out of scope and rejected rather than half-implemented.)
 
+## Compiler + runtime work — lane 2: faithful binary stdout
+
+### The problem
+
+The runtime's stdout is a UTF-8 `String` end-to-end: `KaliHostState.stdout`
+(`crates/kali_runtime/src/state.rs:29`), the public `RunOutcome.stdout`
+(`crates/kali_runtime/src/outcome.rs:15`, cloned through ~8 sites in `execute.rs`), and
+the CLI flush is `print!("{}", outcome.stdout)` (`crates/kali_cli/src/bin/cmd_run.rs:258`).
+Arbitrary PBM bytes (0–255) are not valid UTF-8 and cannot ride that `String` path.
+
+### Dual-sink runtime model
+
+Add a **second, byte-capable sink** rather than converting the whole stdout pipeline to
+`Vec<u8>` (which would also force the browser harness's JSON-string serialization to
+base64/escape — out of scope here):
+
+- `KaliHostState` gains `stdout_bytes: Vec<u8>` alongside the existing `stdout: String`.
+- `RunOutcome` gains a matching `stdout_bytes: Vec<u8>` (threaded through the same
+  `execute.rs` clone sites as `stdout`).
+- New `kali:rt` host import **`stdout_write_bytes(handle: i64)`**: decodes an array handle
+  from guest linear memory (same `[len@+0][elem@+8…]` layout the array lane uses; each
+  `i64` element contributes its low byte) and appends those raw bytes to `stdout_bytes`.
+  Modeled on the existing `string_concat` / `decode_string_handle_bytes` host decode path.
+  Gated by the existing `HostOperation::Console` policy check, like `console_log`.
+- `kali run` flush (`cmd_run.rs`): after the existing `print!("{}", outcome.stdout)` text
+  flush, write the byte sink with `io::stdout().write_all(&outcome.stdout_bytes)` +
+  flush. For mandelbrot the text sink is empty and the byte sink holds the whole PBM, so
+  ordering is unambiguous; the general interleaving of text and binary output is not a
+  concern this fixture exercises and is left undefined for now.
+
+### Guest-facing surface — batched array write
+
+The guest emits bytes through one narrow kali-namespaced intrinsic,
+**`Kali.writeStdoutBytes(arr)`**, chosen over per-byte writes (chatty) and over
+`Deno.stdout`/`Uint8Array` (a large typed-array feature out of scope):
+
+- The program builds an ordinary array (the existing array lane) whose elements are byte
+  values 0–255 — the ASCII PBM header bytes followed by the packed bitmap bytes — and
+  passes it to `Kali.writeStdoutBytes(out)`.
+- **Codegen** recognizes the `Kali.writeStdoutBytes(x)` call (alongside the existing
+  `Kali.*` intrinsic recognition, e.g. `Kali.test`), emits `x` as the array handle
+  (`i64`), and calls the `stdout_write_bytes` host import.
+- **Type resolution** admits `Kali.writeStdoutBytes` as a known intrinsic member so it is
+  not rejected during resolution (follow the existing `Kali` namespace handling).
+- One host call per program; the array lane (alloc, element write, `.length`) is already
+  proven by spectral-norm / n-body.
+
+### Browser harness
+
+The browser harness embeds stdout into a JSON summary **string** and cannot carry raw
+binary without base64/escaping. Binary stdout is therefore **host-runtime only** in this
+slice. If `Kali.writeStdoutBytes` is reached under the browser backend, it must
+**diagnose/gate** rather than silently drop or corrupt output. The `clbg_*_runtime.rs`
+tests already invoke the `kali` binary directly (host path), so the fixture's test is
+unaffected.
+
 ## Reused lanes (no new work)
 
 - `f64` arithmetic + int→float promotion (`2.0*y/n`, `Zr*Zi`, `Tr+Ti`) — spectral-norm lane.
-- `%` on `i64` (the Adler-32 fold) — existing integer arithmetic.
+- Arrays (`new Array(n)`, element write, `.length`) — spectral-norm / n-body lane.
 - `break`, integer `for` loops, mutable `i64`/`f64` locals — fannkuch/spectral lanes.
-- Literal-rooted `console.log` string concatenation of an integer — fannkuch output lane.
-
-## Output strategy — checksum line
-
-kali has no binary/raw-byte stdout today (only `console.log` of strings/ints via the
-`int_to_string` / `string_concat` host helpers). Rather than introduce a second new lane
-(binary I/O) in the same slice, the fixture emits a **checksum** of the packed bitmap:
-
-- The program packs pixels into **PBM-body-identical bytes** (8/px, MSB-first, no padding
-  because `n % 8 == 0`) and folds each completed byte through **Adler-32**:
-  `a = (a + byte) % 65521; b = (b + a) % 65521;` (initial `a = 1, b = 0`), then prints
-  `b * 65536 + a` on one line via the proven literal-rooted `console.log` path.
-- Adler-32 uses only `+` and `%`, and every intermediate stays well within `i64`, so it
-  rides existing lanes with no new runtime surface.
-
-Because the fixture packs bytes exactly as the canonical PBM body does and checksums that
-exact byte stream, the pinned checksum **equals Adler-32 of the real upstream PBM body**
-at the same `n`. The checksum therefore *certifies the computed bitmap is byte-identical
-to canonical mandelbrot* — a strong correctness signal without binary I/O.
-
-### Reference generation and pinning
-
-The pinned checksum is produced offline by an **independent reference implementation** of
-the exact canonical algorithm at the chosen `n` (a short throwaway script), Adler-32'd
-over its PBM body bytes. The kali fixture must reproduce that value. This mirrors n-body's
-discipline of pinning an externally-derived canonical result, not a self-generated one.
-(The reference script is a verification aid; it is not vendored into the test tree.)
 
 ## The fixture (shape, not final text)
 
-`crates/kali_cli/tests/fixtures/benchmarks/mandelbrot-benchmark-v1.ts`, in the same
-imperative style as spectral-norm, e.g.:
+`crates/kali_cli/tests/fixtures/benchmarks/mandelbrot-benchmark-v1.ts`, e.g.:
 
 ```ts
 // The Computer Language Benchmarks Game — mandelbrot, TS port normalized to Kali.
 function mandelbrot(n) {
-  let a = 1;              // Adler-32 low
-  let b = 0;              // Adler-32 high
+  // header "P4\n<n> <n>\n" (n = 200) + n*n/8 packed bitmap bytes
+  const out = new Array(11 + n * n / 8);
+  out[0] = 80; out[1] = 52; out[2] = 10;               // "P4\n"
+  out[3] = 50; out[4] = 48; out[5] = 48; out[6] = 32;  // "200 "
+  out[7] = 50; out[8] = 48; out[9] = 48; out[10] = 10; // "200\n"
+  let p = 11;
   for (let y = 0; y < n; y = y + 1) {
     const Ci = 2.0 * y / n - 1.0;
     let byte = 0;
@@ -155,20 +200,32 @@ function mandelbrot(n) {
       byte = (byte << 1) | bit;
       bits = bits + 1;
       if (bits === 8) {
-        a = (a + byte) % 65521;
-        b = (b + a) % 65521;
+        out[p] = byte;
+        p = p + 1;
         byte = 0;
         bits = 0;
       }
     }
   }
-  return b * 65536 + a;
+  Kali.writeStdoutBytes(out);
 }
-console.log("" + mandelbrot(200));
+mandelbrot(200);
 ```
 
 (`n = 200` divisible by 8, so `bits` always reaches 8 at row end — no flush-remainder
-branch. Final text is settled during implementation/TDD.)
+branch. The header digits are hard-coded ASCII for `n = 200`; if `n` is retuned the header
+bytes and the pinned output re-pin together. Final text is settled during
+implementation/TDD.)
+
+## Reference generation and pinning
+
+The pinned canonical output is produced offline by an **independent reference
+implementation** of the exact canonical algorithm at the chosen `n` (a short throwaway
+script), emitting the real PBM header + packed bytes. The test pins both the byte length
+and the **sha256** of stdout (and may embed the reference bytes as a fixture asset). The
+kali fixture must reproduce it exactly. This mirrors n-body's discipline of pinning an
+externally-derived canonical result. (The reference script is a verification aid; it is
+not vendored into the test tree.)
 
 ## Testing
 
@@ -176,42 +233,57 @@ Mirror `crates/kali_cli/tests/clbg_nbody_runtime.rs`:
 
 - `clbg_mandelbrot_runtime.rs`:
   - `mandelbrot_runs_and_matches_canonical_output` — `kali run` the fixture, assert
-    success and exact pinned checksum stdout.
+    success and that raw stdout **bytes** equal the canonical PBM (compare length + sha256,
+    or exact bytes). Uses the `Command` output's `Vec<u8>` stdout directly.
   - `mandelbrot_metadata_is_consistent` — parse `mandelbrot-benchmark-v1.json`, assert
     `benchmark`, `version`, `sourceFile`, `buildModes`, and that `sourceSha256` matches the
     fixture file digest.
-- Unit coverage for the new bitwise lane in the codegen crate: `<<`, `>>`, `>>>`, `&`,
-  `|`, `^` each produce the correct wasm/result (including a `>>>` uint32 case and a
-  negative-operand `>>` vs `>>>` divergence), plus a test that a **bitwise op on an
-  `f64` operand is rejected with `E5506`** (not miscompiled).
+- Codegen unit coverage for lane 1: `<<`, `>>`, `>>>`, `&`, `|`, `^` each produce the
+  correct wasm/result (including a `>>>` uint32 case and a negative-operand `>>` vs `>>>`
+  divergence), plus a test that a **bitwise op on an `f64` operand is rejected with
+  `E5506`** (not miscompiled).
+- Runtime unit coverage for lane 2: `stdout_write_bytes` appends the array's low-byte
+  stream to the byte sink; `kali run` flushes raw bytes; a program mixing `console.log`
+  text and `Kali.writeStdoutBytes` keeps the two sinks intact; browser backend gates the
+  intrinsic rather than corrupting output.
 - `mandelbrot-benchmark-v1.json` metadata with `buildModes: ["--fast", "--release", "--release-advanced"]`.
 
 ## Documentation and memory
 
-- Add a maturity row to `specs/19-feature-maturity.md` for the bitwise-integer-operator
-  lane (real `i64`/JS-32-bit lowering; `f64`-operand reject), and extend the
-  optimization-evidence-lane row to name mandelbrot as the fixture exercising it.
-- Update the `kali-heap-object-lane` / verification memories with the new fixture and the
-  closed bitwise-`I64Add` miscompile.
+- Add maturity rows to `specs/19-feature-maturity.md` for (a) the bitwise-integer-operator
+  lane (real `i64`/JS-32-bit lowering; `f64`-operand reject) and (b) the host-only
+  binary-stdout lane (`Kali.writeStdoutBytes`; browser-gated), and extend the
+  optimization-evidence-lane row to name mandelbrot as the fixture exercising them.
+- Update the `kali-heap-object-lane` / verification memories with the new fixture, the
+  closed bitwise-`I64Add` miscompile, and the new dual-sink binary-stdout surface.
 
 ## Risks / validate early
 
 1. **Fuel budget.** `n=200` ≈ 40k pixels × up to 50 iterations of ~5 `f64` ops. Compare
    to spectral-norm(100) (~12–15M fuel) against the 60M default. Measure first; if it
    trips fuel or CI wall-clock, drop to a smaller divisible-by-8 `n` (e.g. 128 or 64) and
-   re-pin the checksum. The checksum is `n`-specific by construction.
-2. **f64 inference of zero-initialized accumulators.** `Zr/Zi/Tr/Ti` start at integer-ish
-   `0.0`; confirm repr inference marks them `f64` (seeded by the float literals and `/`
-   and the `f64`-valued assignments). If inference instead leaves one on the `i64` path,
-   the reject-don't-miscompile invariant means a compile error, not a wrong answer — but
+   re-pin. The pinned output and the header bytes are `n`-specific by construction.
+2. **f64 inference of zero-initialized accumulators.** `Zr/Zi/Tr/Ti` start at `0.0`;
+   confirm repr inference marks them `f64` (seeded by the float literals and `/` and the
+   `f64`-valued assignments). If inference instead leaves one on the `i64` path, the
+   reject-don't-miscompile invariant means a compile error, not a wrong answer — but
    validate so the fixture actually compiles.
 3. **Bitwise reject path.** Confirm the new `f64`-operand `E5506` rejection fires and the
    old silent-`I64Add` warning path is fully removed (no residual miscompile).
+4. **Byte-sink threading.** `RunOutcome.stdout_bytes` must be carried through every
+   `execute.rs` site that currently clones `stdout` (~8), or binary output silently
+   vanishes on some run paths. The unit test that flushes bytes through `kali run` guards
+   this.
+5. **Array element → byte truncation.** `stdout_write_bytes` takes each `i64` element's
+   low 8 bits; the fixture only stores 0–255, but the host decode must mask explicitly so
+   an out-of-range element can never emit a multi-byte or sign-extended value.
 
 ## Follow-ups (deferred, out of scope here)
 
-- **Faithful binary PBM output.** Add a runtime byte / binary-stdout host helper so a
-  variant fixture writes the real `P4\n<n> <n>\n` + packed bytes, with the test pinning
-  `sha256` of raw stdout. This is a second, orthogonal runtime-I/O lane; sequencing it
-  after the checksum fixture keeps each slice to one lane.
+- **Browser binary stdout** — carry `stdout_bytes` through the browser harness (base64 in
+  the JSON summary, decoded host-side) so the fixture also runs under the browser backend.
+- **General text/binary stdout interleaving** — define ordering if a later program mixes
+  `console.log` and byte writes.
+- **Typed-array / `Deno.stdout` surface** — a faithful `Deno.stdout.writeSync(Uint8Array)`
+  port, if a later fixture needs real typed arrays.
 - **Float-operand bitwise coercion** (`ToInt32` of an `f64`), if a later fixture needs it.
