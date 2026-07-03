@@ -57,3 +57,31 @@ fn repr_table_tracks_array_bindings() {
     // Additive: array bindings alone (no float) keep the table "empty".
     assert!(t.is_empty());
 }
+
+#[test]
+fn shape_interning_dedupes_identical_field_lists() {
+    let mut table = ReprTable::default();
+    let a = table.intern_shape(vec![("x".into(), Repr::F64), ("m".into(), Repr::I64)]);
+    let b = table.intern_shape(vec![("x".into(), Repr::F64), ("m".into(), Repr::I64)]);
+    let c = table.intern_shape(vec![("x".into(), Repr::I64), ("m".into(), Repr::I64)]);
+    assert_eq!(a, b);
+    assert_ne!(a, c);
+    assert_eq!(table.shape_field(a, "m"), Some((1, Repr::I64)));
+    assert_eq!(table.shape_field(a, "nope"), None);
+    assert_eq!(table.shape_fields(a).len(), 2);
+}
+
+#[test]
+fn object_entries_and_conflicts_make_the_table_non_empty() {
+    let mut table = ReprTable::default();
+    assert!(table.is_empty());
+    let s = table.intern_shape(vec![("x".into(), Repr::I64)]);
+    table.set_scalar("_start", "p", Repr::Object(s));
+    assert!(!table.is_empty());
+    assert_eq!(table.scalar("_start", "p"), Repr::Object(s));
+
+    let mut conflicted = ReprTable::default();
+    conflicted.add_shape_conflict("boom".into());
+    assert!(!conflicted.is_empty());
+    assert_eq!(conflicted.shape_conflicts(), ["boom".to_string()]);
+}

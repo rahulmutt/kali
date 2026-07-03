@@ -6,7 +6,7 @@ use crate::*;
 pub(crate) fn wasm_type(repr: kali_common::Repr) -> wasm_encoder::ValType {
     match repr {
         kali_common::Repr::F64 => wasm_encoder::ValType::F64,
-        kali_common::Repr::I64 => wasm_encoder::ValType::I64,
+        kali_common::Repr::I64 | kali_common::Repr::Object(_) => wasm_encoder::ValType::I64,
     }
 }
 

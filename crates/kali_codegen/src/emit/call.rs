@@ -2547,7 +2547,9 @@ impl<'a> FunctionEmitter<'a> {
         };
         match self.array_elem_repr(base_name) {
             kali_common::Repr::F64 => function.instruction(&Instruction::F64Load(mem_arg)),
-            kali_common::Repr::I64 => function.instruction(&Instruction::I64Load(mem_arg)),
+            kali_common::Repr::I64 | kali_common::Repr::Object(_) => {
+                function.instruction(&Instruction::I64Load(mem_arg))
+            }
         };
         EmittedValue {
             produced: true,
@@ -2612,7 +2614,9 @@ impl<'a> FunctionEmitter<'a> {
         };
         match self.array_elem_repr(base_name) {
             kali_common::Repr::F64 => function.instruction(&Instruction::F64Load(mem_arg)),
-            kali_common::Repr::I64 => function.instruction(&Instruction::I64Load(mem_arg)),
+            kali_common::Repr::I64 | kali_common::Repr::Object(_) => {
+                function.instruction(&Instruction::I64Load(mem_arg))
+            }
         };
         EmittedValue {
             produced: true,
