@@ -13,6 +13,8 @@ pub struct RuntimeOutcome {
     pub tests_failed: usize,
     /// Captured guest stdout.
     pub stdout: String,
+    /// Captured guest raw stdout byte sink (populated only by `Kali.writeStdoutBytes`).
+    pub stdout_bytes: Vec<u8>,
     /// Captured guest stderr.
     pub stderr: String,
     /// Coverage hit ordinals recorded during the execution.

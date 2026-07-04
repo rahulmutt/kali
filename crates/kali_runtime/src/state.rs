@@ -27,6 +27,8 @@ pub struct KaliHostState {
     pub max_spawned_processes: Option<u64>,
     /// Captured guest stdout.
     pub stdout: String,
+    /// Captured guest raw stdout byte sink (populated only by `Kali.writeStdoutBytes`).
+    pub stdout_bytes: Vec<u8>,
     /// Captured guest stderr.
     pub stderr: String,
     /// Pending one-shot and repeating timers.
@@ -86,6 +88,7 @@ impl Default for KaliHostState {
             max_threads: None,
             max_spawned_processes: None,
             stdout: String::new(),
+            stdout_bytes: Vec::new(),
             stderr: String::new(),
             pending_timers: BTreeMap::new(),
             pending_microtasks: VecDeque::new(),
