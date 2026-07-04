@@ -159,6 +159,27 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         is_entry: true,
         flavor: None,
     });
+    // Synthetic bump allocator `__alloc(size: i32) -> i32`, occupying a fixed
+    // slot right after `_start` and before any named (source-defined)
+    // function. Its body is hand-emitted by `emit_alloc_body` below, not
+    // lowered from LIR — `body` is unused (set to `lir.root` as an inert
+    // placeholder) and `locals`/`flavor` are left at their inert defaults.
+    // Object/array allocation sites resolve its index through
+    // `function_name_to_index["__alloc"]` (see `FunctionEmitter::alloc_fn_index`)
+    // exactly like any other named function, so inserting it here shifts every
+    // later function's index by exactly one — safe because every call site in
+    // this crate resolves callee indices through that same map (verified: the
+    // only hardcoded `Instruction::Call(..)` sites are fixed *import* indices,
+    // which live in a separate index space unaffected by `all_functions`).
+    all_functions.push(FunctionPlan {
+        name: "__alloc".to_string(),
+        params: vec!["size".to_string()],
+        locals: Vec::new(),
+        body: lir.root,
+        result: true,
+        is_entry: false,
+        flavor: None,
+    });
     all_functions.extend(function_plans);
 
     for (idx, function) in all_functions.iter().enumerate() {
@@ -280,13 +301,22 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     let mut type_for_function = Vec::with_capacity(all_functions.len());
 
     for function in &all_functions {
-        let params: Vec<ValType> = (0..function.params.len())
-            .map(|index| wasm_type(ctx.repr_table.param(&function.name, index)))
-            .collect();
-        let results = if function.result {
-            vec![wasm_type(ctx.repr_table.return_repr(&function.name))]
+        // `__alloc` is not a repr-directed user function (it has no `ReprTable`
+        // entries at all), so its `(i32) -> i32` signature is fixed here rather
+        // than derived from `ctx.repr_table.param`/`return_repr`, which would
+        // otherwise default it to `(i64) -> i64`.
+        let (params, results) = if function.name == "__alloc" {
+            (vec![ValType::I32], vec![ValType::I32])
         } else {
-            Vec::new()
+            let params: Vec<ValType> = (0..function.params.len())
+                .map(|index| wasm_type(ctx.repr_table.param(&function.name, index)))
+                .collect();
+            let results = if function.result {
+                vec![wasm_type(ctx.repr_table.return_repr(&function.name))]
+            } else {
+                Vec::new()
+            };
+            (params, results)
         };
         let key = (params.clone(), results.clone());
         let type_index = if let Some(&idx) = function_types.get(&key) {
@@ -431,7 +461,13 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             &module_binding_names,
         );
         let coverage_id = ctx.target.coverage.then_some(coverage_id as u32);
-        if function.is_entry {
+        if function.name == "__alloc" {
+            // Hand-emitted: not lowered from LIR (there is no source-level
+            // function body for the synthetic allocator), and deliberately
+            // uninstrumented (no `emit_coverage_hit`) since it is not a
+            // source-defined function.
+            emit_alloc_body(&mut body);
+        } else if function.is_entry {
             emitter.emit_coverage_hit(&mut body, coverage_id);
             emitter.emit_sequence(&mut body, &top_level_children(lir), false);
         } else {
@@ -1447,6 +1483,24 @@ pub(crate) fn declarator_init_is_array_fill(nodes: &[LirNode], init_id: LirNodeI
         return false;
     };
     declarator_init_is_array_alloc(nodes, receiver)
+}
+
+/// Body of the synthetic `__alloc(size: i32) -> i32` bump allocator: `ptr =
+/// __heap; __heap = ptr + size; return ptr` — byte-for-byte the same
+/// computation every inline bump-allocation site used to perform. Local 0 is
+/// the `size` param; the caller (`lower_lir_to_wasm`) appends the trailing
+/// `Instruction::End` uniformly for every function, so this does not emit one
+/// itself. Phase 0 only (no `memory.grow` check yet); Task 3 inserts that
+/// check ahead of the final `GlobalSet`, and this function is the only place
+/// it will need to touch.
+fn emit_alloc_body(func: &mut Function) {
+    // Leave the old `__heap` value on the stack (the function result)...
+    func.instruction(&Instruction::GlobalGet(0));
+    // ...then advance the global by `size`.
+    func.instruction(&Instruction::GlobalGet(0));
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::GlobalSet(0));
 }
 
 pub(crate) fn top_level_children(lir: &LirProgram) -> Vec<LirNodeId> {
