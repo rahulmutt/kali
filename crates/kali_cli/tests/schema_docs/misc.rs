@@ -2221,6 +2221,13 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
     benchmark_entries.sort();
 
     for path in benchmark_entries {
+        let file_name = path.file_name().and_then(|name| name.to_str());
+        if file_name.is_some_and(|name| name.ends_with(".policy.json")) {
+            // Scoped `--sandbox` policy fixtures (e.g. mandelbrot-benchmark-v1.policy.json)
+            // sit alongside benchmark metadata but follow a different schema; they are
+            // reusable sandbox policies, not benchmark metadata files.
+            continue;
+        }
         if path.extension().and_then(|ext| ext.to_str()) != Some("json") {
             continue;
         }

@@ -21,5 +21,8 @@ pub use bundle::*;
 pub const HOST_ABI_VERSION: u32 = 2;
 
 #[cfg(test)]
+mod test_support;
+
+#[cfg(test)]
 #[path = "binding_tests.rs"]
 mod binding_tests;

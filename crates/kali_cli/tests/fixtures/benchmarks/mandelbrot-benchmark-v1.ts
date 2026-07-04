@@ -4,8 +4,8 @@
 function mandelbrot(n) {
   const out = new Array(11 + (n * n >> 3));
   out[0] = 80; out[1] = 52; out[2] = 10;                 // "P4\n"
-  out[3] = 49; out[4] = 50; out[5] = 56; out[6] = 32;    // "128 "
-  out[7] = 49; out[8] = 50; out[9] = 56; out[10] = 10;   // "128\n"
+  out[3] = 50; out[4] = 48; out[5] = 48; out[6] = 32;    // "200 "
+  out[7] = 50; out[8] = 48; out[9] = 48; out[10] = 10;   // "200\n"
   let p = 11;
   for (let y = 0; y < n; y = y + 1) {
     const Ci = 2.0 * y / n - 1.0;
@@ -35,4 +35,4 @@ function mandelbrot(n) {
   }
   Kali.writeStdoutBytes(out);
 }
-mandelbrot(128);
+mandelbrot(200);

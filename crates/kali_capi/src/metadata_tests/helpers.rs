@@ -3,12 +3,13 @@ use super::*;
 #[test]
 fn cabi_metadata_helpers_load_and_summarize_generated_payloads() {
     let temp_root = std::env::temp_dir().join(format!(
-        "kali_capi_metadata_{}_{}",
+        "kali_capi_metadata_{}_{}_{}",
         std::process::id(),
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("monotonic time")
-            .as_nanos()
+            .as_nanos(),
+        crate::test_support::unique_fixture_seq()
     ));
     fs::create_dir_all(&temp_root).expect("temp dir");
 
@@ -71,12 +72,13 @@ fn cabi_metadata_helpers_load_and_summarize_generated_payloads() {
 #[test]
 fn cabi_metadata_helpers_discover_load_and_summarize_root_sidecars() {
     let temp_root = std::env::temp_dir().join(format!(
-        "kali_capi_metadata_root_{}_{}",
+        "kali_capi_metadata_root_{}_{}_{}",
         std::process::id(),
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("monotonic time")
-            .as_nanos()
+            .as_nanos(),
+        crate::test_support::unique_fixture_seq()
     ));
     fs::create_dir_all(&temp_root).expect("temp dir");
 
@@ -171,12 +173,13 @@ fn cabi_metadata_helpers_reject_incompatible_host_abi_version_windows() {
 #[test]
 fn cabi_metadata_helpers_reject_ambiguous_auto_discovery() {
     let temp_root = std::env::temp_dir().join(format!(
-        "kali_capi_metadata_root_{}_ambiguous_{}",
+        "kali_capi_metadata_root_{}_ambiguous_{}_{}",
         std::process::id(),
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("monotonic time")
-            .as_nanos()
+            .as_nanos(),
+        crate::test_support::unique_fixture_seq()
     ));
     fs::create_dir_all(&temp_root).expect("temp dir");
 
