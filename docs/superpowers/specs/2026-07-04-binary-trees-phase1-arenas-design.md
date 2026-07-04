@@ -3,7 +3,8 @@
 **Date:** 2026-07-04
 **Status:** Approved
 **Goal:** `kali run` executes the canonical CLBG binary-trees benchmark at N=21
-byte-for-byte, under plain `kali run` (no `--sandbox` policy expected).
+byte-for-byte, via a scoped `--sandbox` fuel policy (mandelbrot precedent; the
+default 60M fuel runaway guard stays tight).
 **Builds on:** `2026-07-04-region-reclaiming-allocator-design.md` (Phase 0, shipped
 PR #5). Respects the standing GC-less invariant: reclamation is region/arena-based
 only — no tracing, copying, or generational collection, no shadow stack, no write
@@ -20,15 +21,20 @@ unchanged.
 
 Empirical results on main (`abc068239`):
 
-1. **A latent wild-pointer bug at ~17.1MB cumulative allocation.** Object workloads
-   with bound identifiers and correct shapes run byte-correct until cumulative bump
-   allocation crosses a boundary in **(17,087,840 .. 17,169,600] bytes**, then trap
-   E4000 on a wild field access in *user* code. Pinned repro: depth-8 trees
-   (511 nodes × 16B = 8,176B/tree) allocated in a loop — 2,090 iterations correct
-   output, 2,100 traps. Byte-driven (depth-4 trees trap at the same cumulative
-   volume), not iteration- or depth-driven. `__alloc` is absent from the trap
-   backtrace and growth to 33MB+ works for arrays, so this is a pointer-path bug,
-   not an allocator OOM. Root cause unknown — P0a below.
+1. **Fuel exhaustion masquerading as a bare E4000 trap.** *(Corrected 2026-07-04,
+   during planning — the first draft of this spec called this a "~17.1MB
+   wild-pointer bug"; it is not a memory bug at all.)* Plain `kali run` applies a
+   default CPU-fuel budget (60,000,000 fuel ≈ 60s-equivalent, the intentional
+   runaway guard per `specs/19-feature-maturity.md`), and exhausting it reports a
+   **bare `E4000: runtime trap` with a wasm backtrace and no mention of fuel** —
+   indistinguishable from a genuine wild-pointer trap. Verified: the pinned repro
+   (depth-8 trees in a loop; 2,090 iterations passed, 2,100 "trapped") runs
+   byte-correct at 2,100 iterations under a `--sandbox` policy raising
+   `maxCpuTimeMs`, as does full binary-trees n=13 (~21MB cumulative allocation).
+   The memory lane is correct to 33MB+; the apparent "byte boundary" was fuel
+   consumption scaling with iteration count. Two real defects remain: the
+   diagnostic (fuel exhaustion must be distinguishable and actionable) and
+   buffered stdout being discarded on trap — P0a below.
 2. **Object-shape inference misses call-result arguments.**
    `itemCheck(bottomUpTree(d))` silently miscompiles (returns 1) unless some other
    call site passes a bound identifier, which seeds the callee param's shape as a
@@ -39,9 +45,11 @@ Empirical results on main (`abc068239`):
    ceiling, so no budget policy can save it; arenas are required — P1. With
    arenas, peak live ≈ stretch tree (134MB) + long-lived tree (67MB) + one
    iteration tree (67MB) ≈ **270MB**, comfortably under 4GB. Plain `kali run`
-   has no memory ceiling today (module declares `maximum: None`, no default
-   policy), so no `--sandbox` policy is expected; if that proves wrong
-   empirically, the mandelbrot scoped-policy precedent is the fallback.
+   has no memory ceiling (module declares `maximum: None`), but N=21's compute
+   (~590M allocations, ~1.2B node visits) far exceeds the 60M default fuel
+   budget, so the fixture ships with a scoped `--sandbox` policy raising
+   `maxCpuTimeMs` — the mandelbrot canonical-via-policy precedent. No
+   `maxMemoryMB` entry is needed.
 
 Also established: stdout is buffered and **lost** when a trap occurs (a leading
 `console.log` before a later trap prints nothing), which disguised bug (1) as
@@ -51,17 +59,26 @@ several different bugs during investigation.
 
 Three work packages, in dependency order.
 
-### P0a — root-cause and fix the ~17.1MB wild-pointer trap
+### P0a — trap diagnosability (fuel exhaustion, stdout, trap kinds)
 
-- Entry: the pinned repro above. Method: systematic debugging (`.wat` dump with a
-  name section, inspect the pointer path around the boundary). No fix is designed
-  here because the root cause is unknown; the spec pins the acceptance instead:
-  the repro family runs byte-correct to **≥64MB cumulative** allocation.
-- Drive-by fixes riding along (same debugging surface):
-  - flush buffered stdout before reporting a runtime trap — partial output is
-    evidence and must not be discarded;
-  - the E4000 diagnostic distinguishes trap kinds (out-of-bounds access vs
-    `unreachable` from the allocator's OOM check).
+*(Rescoped during planning: the "root-cause the wild-pointer bug" hunt is done —
+the root cause is the default fuel guard, which is working as intended. What
+remains is making that legible, because the bare diagnostic cost this
+investigation hours and misled two separate specs.)*
+
+- Fuel exhaustion under `kali run` reports its **own diagnostic** naming the
+  runaway fuel guard and pointing at `--sandbox` `resources.maxCpuTimeMs` — not
+  a bare `E4000: runtime trap` backtrace. Other trap kinds keep E4000 but the
+  message distinguishes what is distinguishable (out-of-bounds access vs
+  `unreachable`, which covers the allocator's OOM check).
+- Buffered stdout is flushed before reporting a runtime trap — partial output is
+  evidence and must not be discarded (today a `console.log` preceding a later
+  trap prints nothing).
+- Regression pin: the depth-8-trees repro runs byte-correct to **≥64MB
+  cumulative** allocation under a raised-fuel policy (pins memory-lane
+  correctness independent of fuel).
+- The default 60M fuel budget itself is **unchanged** — it is intentionally
+  tight per `specs/19-feature-maturity.md`.
 
 ### P0b — wire call-result arguments into object-shape inference
 
@@ -227,15 +244,20 @@ Extends the existing `OwnershipAnalyzer` (`crates/kali_mir/src/analysis/`), whos
   `1 << k` iteration counts, template-literal output with real tabs — the
   Phase-0 escape lane).
 - Mirrors the four existing CLBG fixtures: `.json` metadata (sha256, buildModes),
-  e2e `clbg_binary_trees_runtime.rs`, new feature-maturity row.
+  e2e `clbg_binary_trees_runtime.rs`, new feature-maturity row — plus a
+  `binary-trees-benchmark-v1.policy.json` raising `resources.maxCpuTimeMs`
+  (mandelbrot's canonical-via-policy precedent; N=21's compute exceeds the 60M
+  default fuel guard by orders of magnitude).
 - Canonical N=21 output lines:
   `stretch tree of depth 22\t check: …`, `N\t trees of depth d\t check: …`,
   `long lived tree of depth 21\t check: …`.
 
 ## Testing
 
-- **P0a:** the 17MB repro pinned as a regression test — cumulative allocation to
-  ≥64MB byte-correct (extends the `heap_grow_runtime.rs` family).
+- **P0a:** fuel exhaustion reports the new named diagnostic (not bare E4000);
+  stdout emitted before a trap survives it; the depth-8-trees repro pinned as a
+  regression test — cumulative allocation to ≥64MB byte-correct under a
+  raised-fuel policy (extends the `heap_grow_runtime.rs` family).
 - **P0b:** `repr_infer` unit tests (call-result arg seeds callee param with no
   other seeding site); E5506 rejection case for unclassifiable object args.
 - **Escape gate (kali_mir unit tests):** each lattice transition (returned,
@@ -251,8 +273,9 @@ Extends the existing `OwnershipAnalyzer` (`crates/kali_mir/src/analysis/`), whos
   - adversarial soundness (gate must fail closed to the global heap, values
     correct): the long-lived-tree pattern, store-to-outer-binding from inside a
     loop, escape via object-field chain.
-- **Acceptance:** binary-trees N=21 byte-for-byte canonical output under plain
-  `kali run`.
+- **Acceptance:** binary-trees N=21 byte-for-byte canonical output via
+  `kali run --sandbox` with the fixture's fuel policy
+  (`binary-trees-benchmark-v1.policy.json`, mandelbrot precedent).
 - **Test tiers:** always-on byte-exact small-N run (n=10, sub-second); the N=21
   run's CI placement decided empirically — wasm executes at native speed
   regardless of host profile, so it stays always-on if within the suite's
@@ -273,7 +296,8 @@ arena) is covered by the one-directional bias plus adversarial tests; page-based
 arenas, not saved-pointer tricks; every growth path checks `memory.grow == -1`;
 synthetic-function index bookkeeping stays name-map-resolved.
 
-New: the 17MB bug's root cause is unknown and could reshape assumptions — P0a
-runs first for exactly this reason; loop-ordinal keying fragility — pinned by the
-stability test, and misses fail closed; the runtime string-building allocation
-path — explicit audit item.
+New: loop-ordinal keying fragility — pinned by the stability test, and misses
+fail closed; the runtime string-building allocation path — explicit audit item;
+N=21's fuel appetite is estimated (hundreds of times the 60M default) — the
+policy's `maxCpuTimeMs` is sized generously and trimmed empirically once the
+fixture runs.
