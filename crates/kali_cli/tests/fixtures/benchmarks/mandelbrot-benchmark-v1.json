@@ -1,0 +1,7 @@
+{
+  "benchmark": "mandelbrot",
+  "version": 1,
+  "sourceFile": "mandelbrot-benchmark-v1.ts",
+  "sourceSha256": "sha256-0d3ab10c5b7cc4d9b665b9eaa1e72d4f04ba239903fe8d37b84a985c421f9f81",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
