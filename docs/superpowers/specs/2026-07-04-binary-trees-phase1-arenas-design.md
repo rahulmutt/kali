@@ -155,8 +155,9 @@ Chosen for performance and invasiveness, with the user's sign-off:
   arena; plus the free-list head. `__heap` stays **global 0** (the frontier),
   export name unchanged; new globals are appended after it.
 - **Open** = save the three current-arena globals into locals of the enclosing
-  function, install a fresh page. **Close/release** = return the arena's page
-  list to the free list, restore the globals from those locals. No descriptors
+  function, zero the trio (empty arena; first allocation fetches a page).
+  **Close/release** = return the arena's page list to the free list, restore
+  the globals from those locals. No descriptors
   in memory, no shadow stack — nesting and recursion ride the wasm frame
   structure.
 - **Per-iteration reset** keeps the arena's first page (rewind cursor, surplus
@@ -205,15 +206,35 @@ Extends the existing `OwnershipAnalyzer` (`crates/kali_mir/src/analysis/`), whos
 
 ### Codegen changes
 
-- **Five synthetics**, hand-emitted via the `FunctionPlan` idiom Phase 0
+- **Four synthetics**, hand-emitted via the `FunctionPlan` idiom Phase 0
   established for `__alloc` (name-map resolution, type entry, locals
   special-case, coverage exclusion — the `functionsTotal` filter becomes a
   synthetic-name set):
   `__alloc` (rewritten: bump from `__arena_*`, overflow → slow path),
-  `__alloc_global` (bump from `__global_*`),
-  `__page_get` (shared slow path: free list, else frontier + geometric grow),
-  `__arena_reset` (rewind to first page, surplus to free list),
-  `__arena_release` (all pages to free list).
+  `__alloc_global` (same body shape against `__global_*`; **exported**, see
+  host strings below),
+  `__page_get` (shared slow path: pop free list — splitting a span head when
+  a single page is requested — else frontier + Phase-0 geometric grow),
+  `__arena_reset` (walk the current arena's page list into the free list,
+  zero the `__arena_*` trio). "Release" is not a fifth synthetic: it is
+  `__arena_reset` followed by an inline restore of the saved globals from
+  locals. An empty arena is the all-zero trio; the first allocation's
+  overflow path fetches its page, so opening an arena installs no page and
+  per-iteration reset needs none either.
+- **Two distinct arenas at boot.** `_start` opens a never-reset **program
+  arena** as the initial current arena (module-scope allocations land there;
+  same lifetime as global) and a separate **global arena** (`__global_*`)
+  reserved exclusively for `__alloc_global` escapers — so the two cursor
+  trios never alias and neither can go stale.
+- **Host-side runtime strings (audit item resolved).** The host allocates
+  runtime-built strings (`string_concat`, number formatting) by directly
+  bumping the exported `__heap` global (`kali_runtime/src/host/memory.rs`);
+  once `__heap` is the page frontier that write would collide with page
+  allocation. Fix: the host calls the exported `__alloc_global` instead, so
+  all runtime strings are global-arena values in v1 — never reclaimed, and
+  therefore never dangling across a reset. The four hand-mirrored browser
+  JS glue implementations make the same switch (their *import lists* still
+  do not change).
 - **No new host imports** — the four hand-mirrored browser-harness JS import
   lists need no changes.
 - `_start` prologue installs the global arena's first page and points the
@@ -232,9 +253,10 @@ Extends the existing `OwnershipAnalyzer` (`crates/kali_mir/src/analysis/`), whos
 - **Call lowering untouched.** Allocation sites (`emit_object_allocation`, array
   allocation) change one line: call `__alloc` if the enclosing function is
   `arena_eligible`, else `__alloc_global`.
-- **Audit item:** confirm runtime template-literal string building allocates via
-  `__alloc` (or route it to the global arena) so interpolated strings cannot
-  dangle across a reset.
+- **Audit item — resolved above:** runtime template-literal/concat strings are
+  host-allocated and move to `__alloc_global` (all runtime strings global-arena
+  in v1; reclaiming them is future work — impact on binary-trees is a handful
+  of short per-depth-level lines).
 
 ## The fixture
 
@@ -297,7 +319,9 @@ arenas, not saved-pointer tricks; every growth path checks `memory.grow == -1`;
 synthetic-function index bookkeeping stays name-map-resolved.
 
 New: loop-ordinal keying fragility — pinned by the stability test, and misses
-fail closed; the runtime string-building allocation path — explicit audit item;
+fail closed; host-side string allocation must move to `__alloc_global` in the
+same task that repurposes `__heap` (a missed caller would corrupt pages — grep
+for `__heap` uses across kali_runtime *and* the browser JS glue);
 N=21's fuel appetite is estimated (hundreds of times the 60M default) — the
 policy's `maxCpuTimeMs` is sized generously and trimmed empirically once the
 fixture runs.
