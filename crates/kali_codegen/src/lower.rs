@@ -365,6 +365,11 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             // any function reachable as a Kali.test callback resolves correctly;
             // this previously went unexercised because arrow-shaped callbacks were
             // never compiled as real functions before this change.
+            //
+            // `__alloc` is a non-entry function too, so it picks up this same
+            // `__kali_callback_<index>` alias export. That's harmless: nothing
+            // ever calls `test_register` with `__alloc`'s index, so no host
+            // ever looks it up under that alias as a Kali.test callback.
             export_section.export(&format!("__kali_callback_{index}"), ExportKind::Func, index);
         }
     }
@@ -519,9 +524,17 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     module.section(&export_section);
     module.section(&code_section);
     if ctx.target.coverage {
+        // Exclude synthetic, uninstrumented functions (currently just
+        // `__alloc`; see its hand-emitted body above, which deliberately has
+        // no `emit_coverage_hit`) from the denominator. Counting them here
+        // would make 100% coverage structurally unreachable: their
+        // `coverage_id` can never appear in `coverage_hits` because nothing
+        // ever calls `coverage_hit` on their behalf.
+        let instrumented_function_count =
+            all_functions.iter().filter(|f| f.name != "__alloc").count() as u32;
         module.section(&CustomSection {
             name: Cow::Borrowed("kali:coverage"),
-            data: Cow::Owned((all_functions.len() as u32).to_le_bytes().to_vec()),
+            data: Cow::Owned(instrumented_function_count.to_le_bytes().to_vec()),
         });
     }
     if !data_section.is_empty() {
@@ -1514,6 +1527,11 @@ pub(crate) fn declarator_init_is_array_fill(nodes: &[LirNode], init_id: LirNodeI
 fn emit_alloc_body(func: &mut Function) {
     const PAGE: i32 = 65536;
 
+    // All arithmetic below is i32, so a single allocation whose `size` pushes
+    // `new_top` past ~2^31 wraps around instead of growing memory; at
+    // kali's current scales this is unreachable, and if it ever were hit the
+    // wrapped `new_top` would simply fail the bounds check on the subsequent
+    // access and trap cleanly (E4000), not corrupt memory with a wild write.
     // new_top = __heap + size
     func.instruction(&Instruction::GlobalGet(0));
     func.instruction(&Instruction::LocalGet(0));
