@@ -141,6 +141,42 @@ pub struct CodegenResult {
     pub diagnostics: Vec<Diagnostic>,
 }
 
+/// Decode the recognized single-character string escapes into their bytes.
+/// The lexer has already rejected unrecognized escapes, so an unknown `\x`
+/// sequence here is passed through verbatim (best-effort, never a panic).
+pub(crate) fn decode_string_escapes(text: &str) -> String {
+    if !text.contains('\\') {
+        return text.to_owned();
+    }
+    let mut out = String::with_capacity(text.len());
+    let mut chars = text.chars();
+    while let Some(c) = chars.next() {
+        if c != '\\' {
+            out.push(c);
+            continue;
+        }
+        match chars.next() {
+            Some('n') => out.push('\n'),
+            Some('t') => out.push('\t'),
+            Some('r') => out.push('\r'),
+            Some('\\') => out.push('\\'),
+            Some('"') => out.push('"'),
+            Some('\'') => out.push('\''),
+            Some('`') => out.push('`'),
+            Some('0') => out.push('\0'),
+            Some('b') => out.push('\u{0008}'),
+            Some('f') => out.push('\u{000C}'),
+            Some('v') => out.push('\u{000B}'),
+            Some(other) => {
+                out.push('\\');
+                out.push(other);
+            }
+            None => out.push('\\'),
+        }
+    }
+    out
+}
+
 pub(crate) struct StringPool {
     pub(crate) entries: Vec<(u32, String)>,
     pub(crate) offsets: BTreeMap<String, u32>,
@@ -157,15 +193,20 @@ impl StringPool {
     }
 
     pub(crate) fn intern(&mut self, text: &str) -> (u32, u32) {
-        if let Some(&offset) = self.offsets.get(text) {
+        let text = decode_string_escapes(text);
+        if let Some(&offset) = self.offsets.get(&text) {
             return (offset, text.len() as u32);
         }
 
         let offset = self.next_offset;
         let len = text.len() as u32;
-        self.entries.push((offset, text.to_owned()));
-        self.offsets.insert(text.to_owned(), offset);
+        self.entries.push((offset, text.clone()));
+        self.offsets.insert(text, offset);
         self.next_offset = self.next_offset.saturating_add(len);
         (offset, len)
     }
 }
+
+#[cfg(test)]
+#[path = "ctx_tests.rs"]
+mod ctx_tests;
