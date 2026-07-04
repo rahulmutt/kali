@@ -15,8 +15,11 @@ fn fixture(name: &str) -> PathBuf {
 fn mandelbrot_runs_and_matches_canonical_output() {
     let source = fixture("mandelbrot-benchmark-v1.ts");
     let expected = fs::read(fixture("mandelbrot-benchmark-v1.expected.pbm")).expect("read golden");
+    let policy = fixture("mandelbrot-benchmark-v1.policy.json");
     let output = Command::new(kali_bin())
         .arg("run")
+        .arg("--sandbox")
+        .arg(&policy)
         .arg(&source)
         .output()
         .expect("run kali");
