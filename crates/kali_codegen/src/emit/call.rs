@@ -90,7 +90,21 @@ impl<'a> FunctionEmitter<'a> {
             };
             // First arg is the byte array; emit its handle (i64) and call the
             // host import. The call produces no value (statement position).
-            let arg = node.children[1];
+            // The recognizer only checks callee text + object, not arity, so a
+            // zero-arg `Kali.writeStdoutBytes()` reaches here — guard the arg
+            // fetch and reject it with a diagnostic rather than indexing out of
+            // bounds. Mirror the None-index branch above: push nothing, return
+            // `produced: false`.
+            let Some(arg) = node.children.get(1).copied() else {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Kali.writeStdoutBytes requires exactly one array argument".to_string(),
+                ));
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            };
             let _ = self.emit_node(function, arg, true);
             function.instruction(&Instruction::Call(index));
             return EmittedValue {

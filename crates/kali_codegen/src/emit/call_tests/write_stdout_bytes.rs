@@ -44,3 +44,29 @@ fn write_stdout_bytes_imports_and_calls_host() {
         "missing `{call_needle}` to the stdout_write_bytes import:\n{text}"
     );
 }
+
+#[test]
+fn write_stdout_bytes_zero_args_reports_diagnostic_without_panicking() {
+    // The recognizer matches on callee text + object only, so a zero-arg call
+    // reaches the emit branch. It must reject with an E5506 diagnostic rather
+    // than indexing `children[1]` out of bounds and panicking.
+    let program = parse_and_lower_lir("Kali.writeStdoutBytes();");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.is_error()
+                && diagnostic.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
+                && diagnostic
+                    .message
+                    .contains("Kali.writeStdoutBytes requires exactly one array argument")
+        }),
+        "expected a zero-arg writeStdoutBytes diagnostic: {:?}",
+        result.diagnostics
+    );
+}
