@@ -426,17 +426,27 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         // always stay i64. Consecutive same-type locals are grouped into runs; for
         // an all-i64 function this yields the single `(len + 2, I64)` run emitted
         // before, keeping the code section byte-identical for integer programs.
+        //
+        // `__alloc` is a special case: it is hand-emitted (not lowered from LIR,
+        // has no `function.locals` names, and is not repr-directed), and its
+        // `memory.grow` growth check (`emit_alloc_body`) needs three i32 scratch
+        // locals — `new_top`, `cur_pages`, `deficit_pages` — instead of the two
+        // i64 scratch locals every other function gets.
         let mut local_decls: Vec<(u32, ValType)> = Vec::new();
-        for local_name in &function.locals {
-            let val_type = wasm_type(ctx.repr_table.scalar(&function.name, local_name));
-            match local_decls.last_mut() {
-                Some((count, last_type)) if *last_type == val_type => *count += 1,
-                _ => local_decls.push((1, val_type)),
+        if function.name == "__alloc" {
+            local_decls.push((3, ValType::I32));
+        } else {
+            for local_name in &function.locals {
+                let val_type = wasm_type(ctx.repr_table.scalar(&function.name, local_name));
+                match local_decls.last_mut() {
+                    Some((count, last_type)) if *last_type == val_type => *count += 1,
+                    _ => local_decls.push((1, val_type)),
+                }
             }
-        }
-        match local_decls.last_mut() {
-            Some((count, ValType::I64)) => *count += 2,
-            _ => local_decls.push((2, ValType::I64)),
+            match local_decls.last_mut() {
+                Some((count, ValType::I64)) => *count += 2,
+                _ => local_decls.push((2, ValType::I64)),
+            }
         }
         let mut body = Function::new(local_decls);
         let mut emitter = FunctionEmitter::new(
@@ -1485,22 +1495,82 @@ pub(crate) fn declarator_init_is_array_fill(nodes: &[LirNode], init_id: LirNodeI
     declarator_init_is_array_alloc(nodes, receiver)
 }
 
-/// Body of the synthetic `__alloc(size: i32) -> i32` bump allocator: `ptr =
-/// __heap; __heap = ptr + size; return ptr` — byte-for-byte the same
-/// computation every inline bump-allocation site used to perform. Local 0 is
-/// the `size` param; the caller (`lower_lir_to_wasm`) appends the trailing
-/// `Instruction::End` uniformly for every function, so this does not emit one
-/// itself. Phase 0 only (no `memory.grow` check yet); Task 3 inserts that
-/// check ahead of the final `GlobalSet`, and this function is the only place
-/// it will need to touch.
+/// Body of the synthetic `__alloc(size: i32) -> i32` bump allocator: `new_top
+/// = __heap + size`; if `new_top` would exceed the currently-committed bytes
+/// (`memory.size * 65536`), grow linear memory by `max(deficit_pages,
+/// cur_pages)` 64 KiB pages (geometric — at least doubling) before advancing
+/// `__heap`, trapping deterministically (`unreachable`) if `memory.grow`
+/// reports failure (`-1`). `__heap` is then set to `new_top` and the
+/// allocation returns the pre-growth pointer (`new_top - size`), which is
+/// numerically identical to the old `__heap` value and avoids needing a
+/// fourth local to keep it live across the branch.
+///
+/// Local 0 is the `size` param; locals 1-3 are the three i32 scratch locals
+/// this function is allocated (see the `__alloc` special case in the
+/// per-function local-declaration loop in `lower_lir_to_wasm`): local 1 =
+/// `new_top`, local 2 = `cur_pages`, local 3 = `deficit_pages`. The caller
+/// (`lower_lir_to_wasm`) appends the trailing `Instruction::End` uniformly
+/// for every function, so this does not emit one itself.
 fn emit_alloc_body(func: &mut Function) {
-    // Leave the old `__heap` value on the stack (the function result)...
-    func.instruction(&Instruction::GlobalGet(0));
-    // ...then advance the global by `size`.
+    const PAGE: i32 = 65536;
+
+    // new_top = __heap + size
     func.instruction(&Instruction::GlobalGet(0));
     func.instruction(&Instruction::LocalGet(0));
     func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalSet(1)); // local1 = new_top
+
+    // cur_pages = memory.size
+    func.instruction(&Instruction::MemorySize(0));
+    func.instruction(&Instruction::LocalSet(2)); // local2 = cur_pages
+
+    // if new_top > cur_pages * PAGE { grow }
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32Const(PAGE));
+    func.instruction(&Instruction::I32Mul);
+    func.instruction(&Instruction::I32GtU);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    {
+        // deficit_pages = ceil((new_top - cur_pages*PAGE) / PAGE)
+        func.instruction(&Instruction::LocalGet(1));
+        func.instruction(&Instruction::LocalGet(2));
+        func.instruction(&Instruction::I32Const(PAGE));
+        func.instruction(&Instruction::I32Mul);
+        func.instruction(&Instruction::I32Sub);
+        func.instruction(&Instruction::I32Const(PAGE - 1));
+        func.instruction(&Instruction::I32Add);
+        func.instruction(&Instruction::I32Const(PAGE));
+        func.instruction(&Instruction::I32DivU);
+        func.instruction(&Instruction::LocalSet(3)); // local3 = deficit_pages
+
+        // grow_pages = max(deficit_pages, cur_pages) — geometric: at least doubling.
+        func.instruction(&Instruction::LocalGet(3));
+        func.instruction(&Instruction::LocalGet(2));
+        func.instruction(&Instruction::I32GtU);
+        func.instruction(&Instruction::If(BlockType::Result(ValType::I32)));
+        func.instruction(&Instruction::LocalGet(3));
+        func.instruction(&Instruction::Else);
+        func.instruction(&Instruction::LocalGet(2));
+        func.instruction(&Instruction::End); // end grow_pages select
+
+        // memory.grow(grow_pages); if it reports failure (-1), trap cleanly
+        // rather than let the subsequent store go wild out-of-bounds.
+        func.instruction(&Instruction::MemoryGrow(0));
+        func.instruction(&Instruction::I32Const(-1));
+        func.instruction(&Instruction::I32Eq);
+        func.instruction(&Instruction::If(BlockType::Empty));
+        func.instruction(&Instruction::Unreachable);
+        func.instruction(&Instruction::End); // end grow-failure check
+    }
+    func.instruction(&Instruction::End); // end growth-needed check
+
+    // __heap = new_top; return the pre-growth pointer (new_top - size).
+    func.instruction(&Instruction::LocalGet(1));
     func.instruction(&Instruction::GlobalSet(0));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I32Sub);
 }
 
 pub(crate) fn top_level_children(lir: &LirProgram) -> Vec<LirNodeId> {
