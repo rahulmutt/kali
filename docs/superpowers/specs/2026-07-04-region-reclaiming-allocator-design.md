@@ -74,15 +74,19 @@ Plus one small orthogonal lexer lane the fixture's canonical output requires:
   (per 15 years of MLKit experience) is prone to region-explosion space leaks. We build the
   lighter escape-analysis form. The *one* Tofte–Talpin idea we keep is region-polymorphic
   factory functions.
-- **No tracing garbage collector in this cycle.** We design *toward* a copying/generational
-  GC (forward-compat decisions listed) but do not build it. The fallback heap remains the
-  existing non-reclaimed bump behavior for escaping/ambiguous objects this cycle.
+- **No garbage collector — ever. kali is GC-less by design.** No tracing, copying, or
+  generational collector is a goal now or later; there is no "GC endgame." All reclamation
+  comes from compile-time region/escape analysis (this cycle) and, optionally later, an
+  explicit non-tracing manual/region-scoped free path — never a runtime tracing collector.
+  The accepted consequence is stated under Risks: genuinely indefinite-lifetime,
+  graph-shaped data that no region can bound is retained until program exit.
 - **No size-classed free-list fallback heap in this cycle** (Phase 2, deferred). Escaping
-  objects go to the existing global bump heap; they are not individually freed yet.
+  objects go to the global arena and are reclaimed at program exit, not individually freed.
 - **No throughput / performance claim** (consistent with the other CLBG maturity rows).
   This records execution-correctness coverage for a reclamation lane, not a speed claim.
-- **No shadow stack / GC roots build-out in this cycle** — only the cheap, non-locking-in
-  discipline choices that keep the GC endgame from becoming a rewrite (see Phase 2).
+- **No shadow stack, no GC roots, no per-object trace metadata** — these exist only to serve
+  a tracing collector, which kali will not have. Regions free en masse and never trace, so
+  none of it is needed.
 - **No `\xNN` / `\uNNNN` / `\u{…}` numeric escapes** — recognized escapes are processed;
   unknown/numeric escapes are **rejected with a diagnostic**, never silently passed through
   (reject-don't-miscompile).
@@ -103,10 +107,11 @@ AOT/wasm-compiled languages) converge on the following. Full citations in Refere
   not full region inference. Single-threaded kali collapses the escape lattice to
   essentially "escapes this scope / doesn't" (no thread-escape, no lock elision). Per-
   **function** and per-**loop** arenas; the **per-loop arena is the whole win** for
-  binary-trees (transient inner-loop trees become O(1) live memory per iteration). This is
-  the **Reaps** design — regions for the common case + a general heap for escapers
-  (Berger/Zorn/McKinley, OOPSLA'02), and matches how Cyclone pairs LIFO regions with a
-  GC'd heap region.
+  binary-trees (transient inner-loop trees become O(1) live memory per iteration). Regions
+  handle the common case; escapers fall back to the global arena (Reaps-style split of
+  regions + a general heap — Berger/Zorn/McKinley, OOPSLA'02 — but with kali's general heap
+  kept GC-less, reclaimed at program exit rather than collected). Cyclone shows the same
+  LIFO-regions model working *without* a tracing collector for the region-shaped majority.
 
 - **Region-polymorphic factories** (the one kept Tofte–Talpin idea): a factory that returns
   a fresh object (`bottomUpTree`, spectral-norm's `makeVector`) must build into the
@@ -165,31 +170,22 @@ it does not escape, and rewrites the site to allocate in that scope's arena; fac
 made region-polymorphic (the arena is threaded as an implicit parameter). Anything global
 or ambiguous → fallback heap.
 
-### Layer 3 — size-classed fallback heap (Phase 2, deferred)
+### Layer 3 — size-classed manual-free fallback heap (Phase 2, deferred; non-tracing)
 
-For escaping/global/ambiguous objects that should be individually freed. Single-threaded,
-size-classed (exact 8-byte classes: every kali object is a multiple of 8, so
-`class = size >> 3` → zero internal fragmentation on 16-byte tree nodes), bump-in-page then
-intrusive-free-list hybrid, all mimalloc/jemalloc concurrency machinery deleted. **Not
-built this cycle** — escaping objects use the non-reclaimed global bump heap for now.
+An optional future path for escaping objects whose lifetime a region cannot bound but which
+should still be reclaimed before program exit. It is a **manual/explicit** reclaimer — a
+single-threaded size-classed free-list allocator (exact 8-byte classes: every kali object is
+a multiple of 8, so `class = size >> 3` → zero internal fragmentation on 16-byte tree
+nodes; bump-in-page then intrusive-free-list; all mimalloc/jemalloc concurrency machinery
+deleted), reclaimed by an **explicit or region-scoped free trigger** (e.g. Gay–Aiken
+region-level reference counts, PLDI'98), **not** a tracing collector. **Not built this
+cycle** — escaping objects use the global arena and are reclaimed at program exit.
 
-### Forward-compatibility for the eventual GC (design-noted; only the cheap discipline now)
-
-The copying/generational GC endgame keeps bump allocation and suits the binary-trees
-"mostly garbage" pattern. To avoid a later rewrite, this cycle adopts only the cheap,
-non-locking-in disciplines and *defers* the expensive build-out:
-
-1. **Centralize the object-base → field-address computation and every pointer-field store**
-   through one codegen path (write-barrier / spill hook later). *(Do now — cheap discipline.)*
-2. **Emit the static `ShapeId → {size, pointer-slot bitmap}` descriptor table** in a
-   read-only data section. Near-free (ShapeId is known at every site) and it is the exact
-   trace-time metadata. *(Do now if cheap; else Phase 2.)*
-3. **Keep arenas shape-homogeneous where practical** so layout is recoverable from the page
-   header (tag-free), avoiding an 8-byte header on 16-byte nodes. *(Prefer now.)*
-4. **Shadow stack of pointer-typed locals at safepoints** — the highest-priority and least-
-   retrofittable GC prerequisite, but **deferred**: not needed for arenas (which free en
-   masse and never trace). Codegen should merely *know* which locals are pointer-typed so
-   the spill is a later addition, not a re-architecture.
+Because kali is GC-less, there is deliberately **no** shadow stack, GC-root spilling,
+per-object shape/trace metadata, or write barrier. Arenas free en masse and never trace, so
+none of that machinery is introduced. The only cheap discipline worth keeping for its own
+sake (not for a GC) is centralizing the object-base → field-address computation, which the
+`__alloc` refactor already encourages.
 
 ## Escape analysis — worked examples
 
@@ -264,9 +260,9 @@ global) points into it. Enforced by:
   free-page list, per-loop/per-function arena open/reset, region-polymorphic factory
   lowering, outlives soundness gate, fallback-to-global for escapers. **Reaches canonical
   binary-trees N=21.** The proving fixture lands here.
-- **Phase 2 — deferred (design-noted):** size-classed fallback heap; shadow stack + full GC
-  forward-compat; eventual copying/generational GC. Built when profiling or real programs
-  demand individual-object reclamation.
+- **Phase 2 — deferred (design-noted):** size-classed **manual-free** fallback heap with an
+  explicit / region-scoped-refcount free trigger (non-tracing). Built if/when real programs
+  need escaping objects reclaimed before program exit. No GC.
 
 ## The binary-trees fixture
 
@@ -308,9 +304,11 @@ global) points into it. Enforced by:
   turns OOM into a later hard trap.
 - **`__alloc` as the first internal helper** perturbs function-index bookkeeping — the
   refactor must keep host-import indices (17–20) and `FUNCTION_INDEX_OFFSET` consistent.
-- **A complementary GC is eventually needed** for graph/cache/indefinite-lifetime data no LIFO
-  region can reclaim; the fallback heap is architected to *become* GC'd without disturbing the
-  arena fast path.
+- **GC-less retention is an accepted limitation.** Genuinely indefinite-lifetime, graph- or
+  cache-shaped data that no LIFO region can bound is retained until program exit (or until the
+  optional Phase 2 manual-free path reclaims it). This is a deliberate consequence of kali's
+  GC-less design, not a bug — there is no tracing collector to fall back on, and none is
+  planned. Programs that need unbounded live graphs are out of scope for the reclamation model.
 
 ## References
 
@@ -324,8 +322,8 @@ global) points into it. Enforced by:
 - Leijen, Zorn & de Moura, *Mimalloc: Free List Sharding in Action*, MSR-TR-2019-18, 2019.
 - Evans, *A Scalable Concurrent malloc(3) Implementation for FreeBSD* (jemalloc), BSDCan 2006.
 - Google, *TCMalloc design*. Blackburn & McKinley, *Immix*, PLDI 2008.
-- Cheney, *A Nonrecursive List Compacting Algorithm*, CACM 13(11), 1970.
-- Appel, *Simple Generational Garbage Collection and Fast Allocation*, SP&E 19(2), 1989.
-- Elsman & Hallenberg, *Integrating region memory management and tag-free generational GC*, JFP 2020.
-- Wingo, *walloc*; Wellons, *WebAssembly: How to allocate your allocator*, 2025.
-- V8, *Bringing GC languages to WebAssembly (WasmGC)*, 2023; WebAssembly core spec (memory).
+- Wingo, *walloc*; Wellons, *WebAssembly: How to allocate your allocator*, 2025; WebAssembly core spec (memory).
+
+*(The GC literature reviewed during research — tracing/copying/generational collection, GC
+roots, WasmGC — is deliberately omitted: kali is GC-less by design. Those sources informed
+what this design does **not** do.)*
