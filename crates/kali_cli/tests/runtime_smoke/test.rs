@@ -13,15 +13,15 @@ fn test_supports_deno_chdir_aliases_in_js_input() {
             r#"Kali.test('chdir aliases', () => {{
   const nested = {nested};
   Deno.chdir(nested);
-  Deno[\"chdir\"](nested);
+  Deno["chdir"](nested);
   globalThis.Deno.chdir(nested);
-  globalThis.Deno[\"chdir\"](nested);
-  globalThis[\"Deno\"].chdir(nested);
-  globalThis[\"Deno\"][\"chdir\"](nested);
+  globalThis.Deno["chdir"](nested);
+  globalThis["Deno"].chdir(nested);
+  globalThis["Deno"]["chdir"](nested);
   const direct = Deno.cwd();
-  const bracketed = Deno[\"cwd\"]();
-  const mixed = globalThis.Deno[\"cwd\"]();
-  const inherited = globalThis[\"Deno\"][\"cwd\"]();
+  const bracketed = Deno["cwd"]();
+  const mixed = globalThis.Deno["cwd"]();
+  const inherited = globalThis["Deno"]["cwd"]();
   if (!(direct === nested && bracketed === nested && mixed === nested && inherited === nested)) {{
     throw new Error('expected cwd aliases to agree after chdir');
   }}
@@ -54,15 +54,15 @@ fn json_test_supports_deno_chdir_aliases_in_js_input() {
             r#"Kali.test('chdir aliases', () => {{
   const nested = {nested};
   Deno.chdir(nested);
-  Deno[\"chdir\"](nested);
+  Deno["chdir"](nested);
   globalThis.Deno.chdir(nested);
-  globalThis.Deno[\"chdir\"](nested);
-  globalThis[\"Deno\"].chdir(nested);
-  globalThis[\"Deno\"][\"chdir\"](nested);
+  globalThis.Deno["chdir"](nested);
+  globalThis["Deno"].chdir(nested);
+  globalThis["Deno"]["chdir"](nested);
   const direct = Deno.cwd();
-  const bracketed = Deno[\"cwd\"]();
-  const mixed = globalThis.Deno[\"cwd\"]();
-  const inherited = globalThis[\"Deno\"][\"cwd\"]();
+  const bracketed = Deno["cwd"]();
+  const mixed = globalThis.Deno["cwd"]();
+  const inherited = globalThis["Deno"]["cwd"]();
   if (!(direct === nested && bracketed === nested && mixed === nested && inherited === nested)) {{
     throw new Error('expected cwd aliases to agree after chdir');
   }}

@@ -143,6 +143,29 @@ fn test_lexer_template_preserves_interpolation_delimiters() {
 }
 
 #[test]
+fn test_lexer_template_rejects_unknown_escape() {
+    let mut lexer = Lexer::new(FileId::new(0), "`a\\qb`".to_string());
+    let _ = lexer.next_token();
+    assert!(
+        lexer
+            .diagnostics()
+            .iter()
+            .any(|d| d.message.contains("escape")),
+        "expected an unsupported-escape diagnostic, got: {:?}",
+        lexer.diagnostics()
+    );
+}
+
+#[test]
+fn test_lexer_template_accepts_known_escapes_and_keeps_raw_value() {
+    let mut lexer = Lexer::new(FileId::new(0), "`a\\tb\\n`".to_string());
+    let token = lexer.next_token().expect("token");
+    // Value is kept RAW (with backslashes) so kali_fmt round-trips templates verbatim.
+    assert_eq!(token.value, "`a\\tb\\n`");
+    assert!(lexer.diagnostics().is_empty(), "{:?}", lexer.diagnostics());
+}
+
+#[test]
 fn test_lexer_exponent_number() {
     for source in ["1e5", "4.84e+00", "2E-3", "1.5e1"] {
         let lexer = Lexer::new(FileId::new(0), source.to_string());
