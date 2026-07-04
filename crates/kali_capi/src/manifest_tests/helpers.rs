@@ -69,12 +69,13 @@ fn binding_package_manifest_helpers_reject_empty_or_whitespace_artifact_paths() 
 #[test]
 fn binding_package_manifest_helpers_reject_ambiguous_auto_discovery() {
     let temp_root = std::env::temp_dir().join(format!(
-        "kali_capi_binding_manifest_{}_ambiguous_{}",
+        "kali_capi_binding_manifest_{}_ambiguous_{}_{}",
         std::process::id(),
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .expect("monotonic time")
-            .as_nanos()
+            .as_nanos(),
+        crate::test_support::unique_fixture_seq()
     ));
     fs::create_dir_all(&temp_root).expect("temp dir");
 
@@ -104,12 +105,13 @@ fn binding_package_manifest_helpers_reject_ambiguous_auto_discovery() {
 #[test]
 fn binding_package_manifest_helpers_load_discover_and_summarize_manifests() {
     let temp_root = std::env::temp_dir().join(format!(
-        "kali_capi_binding_manifest_{}_{}",
+        "kali_capi_binding_manifest_{}_{}_{}",
         std::process::id(),
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("monotonic time")
-            .as_nanos()
+            .as_nanos(),
+        crate::test_support::unique_fixture_seq()
     ));
     fs::create_dir_all(&temp_root).expect("temp dir");
 

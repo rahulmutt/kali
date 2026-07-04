@@ -34,12 +34,13 @@ fn python_binding_wraps_generated_header_exports() {
         .expect("repo root");
     let binding_root = repo_root.join("bindings/python");
     let temp_root = std::env::temp_dir().join(format!(
-        "kali_capi_python_binding_{}_{}",
+        "kali_capi_python_binding_{}_{}_{}",
         std::process::id(),
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("monotonic time")
-            .as_nanos()
+            .as_nanos(),
+        crate::test_support::unique_fixture_seq()
     ));
     fs::create_dir_all(&temp_root).expect("temp dir");
 
@@ -187,12 +188,13 @@ fn python_binding_auto_discovers_stem_specific_binding_package_manifest() {
         .expect("repo root");
     let binding_root = repo_root.join("bindings/python");
     let temp_root = std::env::temp_dir().join(format!(
-        "kali_capi_python_binding_{}_discover_{}",
+        "kali_capi_python_binding_{}_discover_{}_{}",
         std::process::id(),
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("monotonic time")
-            .as_nanos()
+            .as_nanos(),
+        crate::test_support::unique_fixture_seq()
     ));
     fs::create_dir_all(&temp_root).expect("temp dir");
 
@@ -276,12 +278,13 @@ fn python_binding_rejects_incompatible_host_abi_metadata() {
         .expect("repo root");
     let binding_root = repo_root.join("bindings/python");
     let temp_root = std::env::temp_dir().join(format!(
-        "kali_capi_python_binding_{}_reject_{}",
+        "kali_capi_python_binding_{}_reject_{}_{}",
         std::process::id(),
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("monotonic time")
-            .as_nanos()
+            .as_nanos(),
+        crate::test_support::unique_fixture_seq()
     ));
     fs::create_dir_all(&temp_root).expect("temp dir");
 
