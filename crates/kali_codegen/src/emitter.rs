@@ -215,6 +215,14 @@ impl<'a> FunctionEmitter<'a> {
         self.repr_table.array_element(&self.function_name, name)
     }
 
+    /// Wasm function index of the synthetic bump allocator `__alloc`
+    /// (registered in `functions`/`function_name_to_index` by
+    /// `lower_lir_to_wasm` right after `_start`). Object/array allocation
+    /// sites call through this instead of inlining a `__heap` bump directly.
+    pub(crate) fn alloc_fn_index(&self) -> u32 {
+        self.functions["__alloc"]
+    }
+
     pub(crate) fn push_control_frame(&mut self, kind: ControlFlowLabelKind) -> usize {
         self.control_frames.push(kind);
         self.control_frames.len() - 1

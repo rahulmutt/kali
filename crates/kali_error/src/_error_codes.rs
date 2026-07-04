@@ -7,6 +7,7 @@ pub mod e1 {
     pub const UNTERMINATED_TEMPLATE: u16 = 1001;
     pub const UNEXPECTED_CHARACTER: u16 = 1002;
     pub const ILLEGAL_BACKSLASH: u16 = 1003;
+    pub const UNSUPPORTED_ESCAPE: u16 = 1004;
 
     // E1100-1199: Number parsing errors
     pub const INVALID_NUMBER: u16 = 1100;

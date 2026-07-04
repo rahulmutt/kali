@@ -159,6 +159,27 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         is_entry: true,
         flavor: None,
     });
+    // Synthetic bump allocator `__alloc(size: i32) -> i32`, occupying a fixed
+    // slot right after `_start` and before any named (source-defined)
+    // function. Its body is hand-emitted by `emit_alloc_body` below, not
+    // lowered from LIR — `body` is unused (set to `lir.root` as an inert
+    // placeholder) and `locals`/`flavor` are left at their inert defaults.
+    // Object/array allocation sites resolve its index through
+    // `function_name_to_index["__alloc"]` (see `FunctionEmitter::alloc_fn_index`)
+    // exactly like any other named function, so inserting it here shifts every
+    // later function's index by exactly one — safe because every call site in
+    // this crate resolves callee indices through that same map (verified: the
+    // only hardcoded `Instruction::Call(..)` sites are fixed *import* indices,
+    // which live in a separate index space unaffected by `all_functions`).
+    all_functions.push(FunctionPlan {
+        name: "__alloc".to_string(),
+        params: vec!["size".to_string()],
+        locals: Vec::new(),
+        body: lir.root,
+        result: true,
+        is_entry: false,
+        flavor: None,
+    });
     all_functions.extend(function_plans);
 
     for (idx, function) in all_functions.iter().enumerate() {
@@ -280,13 +301,22 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     let mut type_for_function = Vec::with_capacity(all_functions.len());
 
     for function in &all_functions {
-        let params: Vec<ValType> = (0..function.params.len())
-            .map(|index| wasm_type(ctx.repr_table.param(&function.name, index)))
-            .collect();
-        let results = if function.result {
-            vec![wasm_type(ctx.repr_table.return_repr(&function.name))]
+        // `__alloc` is not a repr-directed user function (it has no `ReprTable`
+        // entries at all), so its `(i32) -> i32` signature is fixed here rather
+        // than derived from `ctx.repr_table.param`/`return_repr`, which would
+        // otherwise default it to `(i64) -> i64`.
+        let (params, results) = if function.name == "__alloc" {
+            (vec![ValType::I32], vec![ValType::I32])
         } else {
-            Vec::new()
+            let params: Vec<ValType> = (0..function.params.len())
+                .map(|index| wasm_type(ctx.repr_table.param(&function.name, index)))
+                .collect();
+            let results = if function.result {
+                vec![wasm_type(ctx.repr_table.return_repr(&function.name))]
+            } else {
+                Vec::new()
+            };
+            (params, results)
         };
         let key = (params.clone(), results.clone());
         let type_index = if let Some(&idx) = function_types.get(&key) {
@@ -335,6 +365,11 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             // any function reachable as a Kali.test callback resolves correctly;
             // this previously went unexercised because arrow-shaped callbacks were
             // never compiled as real functions before this change.
+            //
+            // `__alloc` is a non-entry function too, so it picks up this same
+            // `__kali_callback_<index>` alias export. That's harmless: nothing
+            // ever calls `test_register` with `__alloc`'s index, so no host
+            // ever looks it up under that alias as a Kali.test callback.
             export_section.export(&format!("__kali_callback_{index}"), ExportKind::Func, index);
         }
     }
@@ -396,17 +431,27 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         // always stay i64. Consecutive same-type locals are grouped into runs; for
         // an all-i64 function this yields the single `(len + 2, I64)` run emitted
         // before, keeping the code section byte-identical for integer programs.
+        //
+        // `__alloc` is a special case: it is hand-emitted (not lowered from LIR,
+        // has no `function.locals` names, and is not repr-directed), and its
+        // `memory.grow` growth check (`emit_alloc_body`) needs three i32 scratch
+        // locals — `new_top`, `cur_pages`, `deficit_pages` — instead of the two
+        // i64 scratch locals every other function gets.
         let mut local_decls: Vec<(u32, ValType)> = Vec::new();
-        for local_name in &function.locals {
-            let val_type = wasm_type(ctx.repr_table.scalar(&function.name, local_name));
-            match local_decls.last_mut() {
-                Some((count, last_type)) if *last_type == val_type => *count += 1,
-                _ => local_decls.push((1, val_type)),
+        if function.name == "__alloc" {
+            local_decls.push((3, ValType::I32));
+        } else {
+            for local_name in &function.locals {
+                let val_type = wasm_type(ctx.repr_table.scalar(&function.name, local_name));
+                match local_decls.last_mut() {
+                    Some((count, last_type)) if *last_type == val_type => *count += 1,
+                    _ => local_decls.push((1, val_type)),
+                }
             }
-        }
-        match local_decls.last_mut() {
-            Some((count, ValType::I64)) => *count += 2,
-            _ => local_decls.push((2, ValType::I64)),
+            match local_decls.last_mut() {
+                Some((count, ValType::I64)) => *count += 2,
+                _ => local_decls.push((2, ValType::I64)),
+            }
         }
         let mut body = Function::new(local_decls);
         let mut emitter = FunctionEmitter::new(
@@ -431,7 +476,13 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             &module_binding_names,
         );
         let coverage_id = ctx.target.coverage.then_some(coverage_id as u32);
-        if function.is_entry {
+        if function.name == "__alloc" {
+            // Hand-emitted: not lowered from LIR (there is no source-level
+            // function body for the synthetic allocator), and deliberately
+            // uninstrumented (no `emit_coverage_hit`) since it is not a
+            // source-defined function.
+            emit_alloc_body(&mut body);
+        } else if function.is_entry {
             emitter.emit_coverage_hit(&mut body, coverage_id);
             emitter.emit_sequence(&mut body, &top_level_children(lir), false);
         } else {
@@ -473,9 +524,17 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     module.section(&export_section);
     module.section(&code_section);
     if ctx.target.coverage {
+        // Exclude synthetic, uninstrumented functions (currently just
+        // `__alloc`; see its hand-emitted body above, which deliberately has
+        // no `emit_coverage_hit`) from the denominator. Counting them here
+        // would make 100% coverage structurally unreachable: their
+        // `coverage_id` can never appear in `coverage_hits` because nothing
+        // ever calls `coverage_hit` on their behalf.
+        let instrumented_function_count =
+            all_functions.iter().filter(|f| f.name != "__alloc").count() as u32;
         module.section(&CustomSection {
             name: Cow::Borrowed("kali:coverage"),
-            data: Cow::Owned((all_functions.len() as u32).to_le_bytes().to_vec()),
+            data: Cow::Owned(instrumented_function_count.to_le_bytes().to_vec()),
         });
     }
     if !data_section.is_empty() {
@@ -1447,6 +1506,89 @@ pub(crate) fn declarator_init_is_array_fill(nodes: &[LirNode], init_id: LirNodeI
         return false;
     };
     declarator_init_is_array_alloc(nodes, receiver)
+}
+
+/// Body of the synthetic `__alloc(size: i32) -> i32` bump allocator: `new_top
+/// = __heap + size`; if `new_top` would exceed the currently-committed bytes
+/// (`memory.size * 65536`), grow linear memory by `max(deficit_pages,
+/// cur_pages)` 64 KiB pages (geometric — at least doubling) before advancing
+/// `__heap`, trapping deterministically (`unreachable`) if `memory.grow`
+/// reports failure (`-1`). `__heap` is then set to `new_top` and the
+/// allocation returns the pre-growth pointer (`new_top - size`), which is
+/// numerically identical to the old `__heap` value and avoids needing a
+/// fourth local to keep it live across the branch.
+///
+/// Local 0 is the `size` param; locals 1-3 are the three i32 scratch locals
+/// this function is allocated (see the `__alloc` special case in the
+/// per-function local-declaration loop in `lower_lir_to_wasm`): local 1 =
+/// `new_top`, local 2 = `cur_pages`, local 3 = `deficit_pages`. The caller
+/// (`lower_lir_to_wasm`) appends the trailing `Instruction::End` uniformly
+/// for every function, so this does not emit one itself.
+fn emit_alloc_body(func: &mut Function) {
+    const PAGE: i32 = 65536;
+
+    // All arithmetic below is i32, so a single allocation whose `size` pushes
+    // `new_top` past ~2^31 wraps around instead of growing memory; at
+    // kali's current scales this is unreachable, and if it ever were hit the
+    // wrapped `new_top` would simply fail the bounds check on the subsequent
+    // access and trap cleanly (E4000), not corrupt memory with a wild write.
+    // new_top = __heap + size
+    func.instruction(&Instruction::GlobalGet(0));
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalSet(1)); // local1 = new_top
+
+    // cur_pages = memory.size
+    func.instruction(&Instruction::MemorySize(0));
+    func.instruction(&Instruction::LocalSet(2)); // local2 = cur_pages
+
+    // if new_top > cur_pages * PAGE { grow }
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32Const(PAGE));
+    func.instruction(&Instruction::I32Mul);
+    func.instruction(&Instruction::I32GtU);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    {
+        // deficit_pages = ceil((new_top - cur_pages*PAGE) / PAGE)
+        func.instruction(&Instruction::LocalGet(1));
+        func.instruction(&Instruction::LocalGet(2));
+        func.instruction(&Instruction::I32Const(PAGE));
+        func.instruction(&Instruction::I32Mul);
+        func.instruction(&Instruction::I32Sub);
+        func.instruction(&Instruction::I32Const(PAGE - 1));
+        func.instruction(&Instruction::I32Add);
+        func.instruction(&Instruction::I32Const(PAGE));
+        func.instruction(&Instruction::I32DivU);
+        func.instruction(&Instruction::LocalSet(3)); // local3 = deficit_pages
+
+        // grow_pages = max(deficit_pages, cur_pages) — geometric: at least doubling.
+        func.instruction(&Instruction::LocalGet(3));
+        func.instruction(&Instruction::LocalGet(2));
+        func.instruction(&Instruction::I32GtU);
+        func.instruction(&Instruction::If(BlockType::Result(ValType::I32)));
+        func.instruction(&Instruction::LocalGet(3));
+        func.instruction(&Instruction::Else);
+        func.instruction(&Instruction::LocalGet(2));
+        func.instruction(&Instruction::End); // end grow_pages select
+
+        // memory.grow(grow_pages); if it reports failure (-1), trap cleanly
+        // rather than let the subsequent store go wild out-of-bounds.
+        func.instruction(&Instruction::MemoryGrow(0));
+        func.instruction(&Instruction::I32Const(-1));
+        func.instruction(&Instruction::I32Eq);
+        func.instruction(&Instruction::If(BlockType::Empty));
+        func.instruction(&Instruction::Unreachable);
+        func.instruction(&Instruction::End); // end grow-failure check
+    }
+    func.instruction(&Instruction::End); // end growth-needed check
+
+    // __heap = new_top; return the pre-growth pointer (new_top - size).
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::GlobalSet(0));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I32Sub);
 }
 
 pub(crate) fn top_level_children(lir: &LirProgram) -> Vec<LirNodeId> {

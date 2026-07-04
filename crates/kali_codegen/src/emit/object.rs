@@ -68,14 +68,13 @@ impl<'a> FunctionEmitter<'a> {
         let scratch = self.locals.len() as u32;
         let fields = self.repr_table.shape_fields(shape).to_vec();
 
-        // base = __heap; __heap += nfields * 8.
-        function.instruction(&Instruction::GlobalGet(0));
+        // base = __alloc(nfields * 8), kept i64-extended in `scratch` exactly
+        // as the old inline `__heap` bump did — only the pointer source
+        // changed (the shared allocator instead of an inline global bump).
+        function.instruction(&Instruction::I32Const((fields.len() * 8) as i32));
+        function.instruction(&Instruction::Call(self.alloc_fn_index()));
         function.instruction(&Instruction::I64ExtendI32U);
         function.instruction(&Instruction::LocalSet(scratch));
-        function.instruction(&Instruction::GlobalGet(0));
-        function.instruction(&Instruction::I32Const((fields.len() * 8) as i32));
-        function.instruction(&Instruction::I32Add);
-        function.instruction(&Instruction::GlobalSet(0));
 
         for (index, (name, repr)) in fields.iter().enumerate() {
             let Some(value_id) = self.object_literal_field(literal, name) else {

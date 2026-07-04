@@ -20,6 +20,18 @@ impl Lexer {
                     value.push(c);
                     self.position += 1;
                     if let Some(next) = self.source.get(self.position).copied() {
+                        // Keep the raw sequence in `value` (kali_fmt re-emits it verbatim);
+                        // only validate. Recognized single-char escapes plus the two quote
+                        // chars and backtick. Numeric \x / \u forms are out of scope: reject.
+                        if !matches!(
+                            next,
+                            'n' | 't' | 'r' | '\\' | '"' | '\'' | '`' | '0' | 'b' | 'f' | 'v'
+                        ) {
+                            self.emit_error(
+                                e1::UNSUPPORTED_ESCAPE,
+                                "unsupported string escape sequence",
+                            );
+                        }
                         value.push(next);
                         self.position += 1;
                     }

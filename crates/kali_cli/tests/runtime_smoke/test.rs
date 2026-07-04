@@ -13,15 +13,15 @@ fn test_supports_deno_chdir_aliases_in_js_input() {
             r#"Kali.test('chdir aliases', () => {{
   const nested = {nested};
   Deno.chdir(nested);
-  Deno[\"chdir\"](nested);
+  Deno["chdir"](nested);
   globalThis.Deno.chdir(nested);
-  globalThis.Deno[\"chdir\"](nested);
-  globalThis[\"Deno\"].chdir(nested);
-  globalThis[\"Deno\"][\"chdir\"](nested);
+  globalThis.Deno["chdir"](nested);
+  globalThis["Deno"].chdir(nested);
+  globalThis["Deno"]["chdir"](nested);
   const direct = Deno.cwd();
-  const bracketed = Deno[\"cwd\"]();
-  const mixed = globalThis.Deno[\"cwd\"]();
-  const inherited = globalThis[\"Deno\"][\"cwd\"]();
+  const bracketed = Deno["cwd"]();
+  const mixed = globalThis.Deno["cwd"]();
+  const inherited = globalThis["Deno"]["cwd"]();
   if (!(direct === nested && bracketed === nested && mixed === nested && inherited === nested)) {{
     throw new Error('expected cwd aliases to agree after chdir');
   }}
@@ -54,15 +54,15 @@ fn json_test_supports_deno_chdir_aliases_in_js_input() {
             r#"Kali.test('chdir aliases', () => {{
   const nested = {nested};
   Deno.chdir(nested);
-  Deno[\"chdir\"](nested);
+  Deno["chdir"](nested);
   globalThis.Deno.chdir(nested);
-  globalThis.Deno[\"chdir\"](nested);
-  globalThis[\"Deno\"].chdir(nested);
-  globalThis[\"Deno\"][\"chdir\"](nested);
+  globalThis.Deno["chdir"](nested);
+  globalThis["Deno"].chdir(nested);
+  globalThis["Deno"]["chdir"](nested);
   const direct = Deno.cwd();
-  const bracketed = Deno[\"cwd\"]();
-  const mixed = globalThis.Deno[\"cwd\"]();
-  const inherited = globalThis[\"Deno\"][\"cwd\"]();
+  const bracketed = Deno["cwd"]();
+  const mixed = globalThis.Deno["cwd"]();
+  const inherited = globalThis["Deno"]["cwd"]();
   if (!(direct === nested && bracketed === nested && mixed === nested && inherited === nested)) {{
     throw new Error('expected cwd aliases to agree after chdir');
   }}
@@ -7849,6 +7849,57 @@ fn test_reports_function_coverage_in_json_output() {
             .as_u64()
             .expect("functionsTotal")
             >= 1
+    );
+}
+
+#[test]
+fn test_coverage_reaches_100_percent_when_every_user_function_is_exercised() {
+    // A named function declaration referenced by name as the `Kali.test`
+    // callback compiles to its own real wasm function (unlike an inline
+    // anonymous arrow, which the front end currently lowers to a bare
+    // `"unknown"` placeholder value and never registers as a callback at
+    // all — a separate, pre-existing quirk, not something this test
+    // exercises). Here exactly two source-level functions are emitted,
+    // `_start` and `cb`, and executing the suite runs both. The synthetic,
+    // uninstrumented `__alloc` helper (added for the reclaiming allocator)
+    // must NOT be counted in `functionsTotal`, or 100% coverage becomes
+    // structurally unreachable even though every user function ran.
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("cb.test.ts");
+    fs::write(
+        &source_path,
+        r#"function cb() {
+    1 + 2;
+}
+Kali.test("addition", cb);
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .arg("test")
+        .arg("--output")
+        .arg("json")
+        .arg("--coverage")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    let summary = &json["payload"]["coverage"]["summary"];
+    assert_eq!(summary["functionsTotal"], json!(2), "summary: {summary}");
+    assert_eq!(summary["functionsCovered"], json!(2), "summary: {summary}");
+    assert_eq!(summary["functionsMissed"], json!(0), "summary: {summary}");
+    assert_eq!(
+        summary["coveragePercent"],
+        json!(100.0),
+        "summary: {summary}"
     );
 }
 

@@ -17,3 +17,6 @@ mod object_enumeration;
 
 #[path = "call_tests/write_stdout_bytes.rs"]
 mod write_stdout_bytes;
+
+#[path = "call_tests/alloc_helper.rs"]
+mod alloc_helper;

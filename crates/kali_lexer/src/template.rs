@@ -28,6 +28,28 @@ impl Lexer {
                     value.push('\n');
                     self.position += 1;
                 }
+                Some(&'\\') => {
+                    value.push('\\');
+                    self.position += 1;
+                    if let Some(next) = self.source.get(self.position).copied() {
+                        // Keep the raw sequence in `value` (kali_fmt re-emits templates
+                        // verbatim); only validate, matching the recognized set in
+                        // string.rs. Consuming both chars here also means an escaped
+                        // backtick/`$` doesn't terminate the template or start an
+                        // interpolation early.
+                        if !matches!(
+                            next,
+                            'n' | 't' | 'r' | '\\' | '"' | '\'' | '`' | '0' | 'b' | 'f' | 'v'
+                        ) {
+                            self.emit_error(
+                                e1::UNSUPPORTED_ESCAPE,
+                                "unsupported string escape sequence",
+                            );
+                        }
+                        value.push(next);
+                        self.position += 1;
+                    }
+                }
                 Some(&c) => {
                     value.push(c);
                     self.position += 1;

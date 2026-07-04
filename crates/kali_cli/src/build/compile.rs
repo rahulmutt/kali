@@ -613,10 +613,11 @@ fn analyze_source_file(
     }
 
     let lexer = Lexer::new(FileId::new(0), source);
-    let tokens = lexer.lex_all().tokens;
-    let mut parser = Parser::new(FileId::new(0), tokens);
+    let lexed = lexer.lex_all();
+    let mut diagnostics = lexed.diagnostics;
+    let mut parser = Parser::new(FileId::new(0), lexed.tokens);
     let parsed = parser.parse(Some(source_path.to_string_lossy().to_string()));
-    let mut diagnostics = parsed.diagnostics;
+    diagnostics.extend(parsed.diagnostics);
 
     if has_errors(&diagnostics) {
         return Err(diagnostics);

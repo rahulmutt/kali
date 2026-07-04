@@ -2366,11 +2366,6 @@ impl<'a> FunctionEmitter<'a> {
         // and avoids re-emitting into the `scratch` slot in between the two uses below.
         let size_scratch = scratch + 1;
 
-        // base = __heap (saved as i64 in the scratch local).
-        function.instruction(&Instruction::GlobalGet(0));
-        function.instruction(&Instruction::I64ExtendI32U);
-        function.instruction(&Instruction::LocalSet(scratch));
-
         // size = evaluated size argument (emitted exactly once) or a constant.
         match len {
             ArrayLen::Dynamic(size_arg) => self.emit_array_length_value(function, size_arg),
@@ -2379,6 +2374,22 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
         function.instruction(&Instruction::LocalSet(size_scratch));
+
+        // base = __alloc((length + 1) * 8) — same total-byte-count math the old
+        // inline `__heap` bump used (`base + (length + 1) * 8`), just handed to
+        // the shared allocator as its argument instead of computed against a
+        // pinned-before-size-evaluation `base` local. All existing call sites
+        // evaluate a pure-arithmetic size argument (no allocation side effects),
+        // so this reordering is behavior-preserving for every current caller.
+        function.instruction(&Instruction::LocalGet(size_scratch));
+        function.instruction(&Instruction::I64Const(1));
+        function.instruction(&Instruction::I64Add);
+        function.instruction(&Instruction::I64Const(8));
+        function.instruction(&Instruction::I64Mul);
+        function.instruction(&Instruction::I32WrapI64);
+        function.instruction(&Instruction::Call(self.alloc_fn_index()));
+        function.instruction(&Instruction::I64ExtendI32U);
+        function.instruction(&Instruction::LocalSet(scratch));
 
         // mem[base + 0] = length
         function.instruction(&Instruction::LocalGet(scratch));
@@ -2389,18 +2400,6 @@ impl<'a> FunctionEmitter<'a> {
             align: 3,
             memory_index: 0,
         }));
-
-        // __heap = base + (length + 1) * 8
-        function.instruction(&Instruction::LocalGet(scratch));
-        function.instruction(&Instruction::I32WrapI64);
-        function.instruction(&Instruction::LocalGet(size_scratch));
-        function.instruction(&Instruction::I64Const(1));
-        function.instruction(&Instruction::I64Add);
-        function.instruction(&Instruction::I64Const(8));
-        function.instruction(&Instruction::I64Mul);
-        function.instruction(&Instruction::I32WrapI64);
-        function.instruction(&Instruction::I32Add);
-        function.instruction(&Instruction::GlobalSet(0));
 
         // Result: the i64 base handle.
         function.instruction(&Instruction::LocalGet(scratch));
