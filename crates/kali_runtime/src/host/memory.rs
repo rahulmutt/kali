@@ -55,6 +55,58 @@ pub(crate) fn decode_string_handle_bytes(
     read_guest_bytes(caller, offset, len).ok()
 }
 
+/// Decodes an array handle (an `i64` pointer into `__heap`) into its element
+/// low-byte stream: reads the `i64` length at offset 0, then `len` `i64`
+/// elements at offsets 8, 16, …, masking each to its low 8 bits. Used by
+/// `stdout_write_bytes` to emit a byte buffer built in the array lane.
+///
+/// The whole `[len][elem…]` range is bounds-checked against the actual guest
+/// memory slice BEFORE any allocation (mirroring `read_guest_bytes`), so a
+/// forged/garbage handle with an enormous length prefix yields an empty result
+/// rather than triggering a giant allocation that would abort the host process.
+pub(crate) fn decode_array_low_bytes(
+    caller: &mut Caller<'_, KaliHostState>,
+    handle: i64,
+) -> wasmtime::Result<Vec<u8>> {
+    let memory = guest_memory(caller)?;
+    Ok(decode_low_bytes_from_slice(memory.data(caller), handle))
+}
+
+/// Pure, bounds-checked core of `decode_array_low_bytes`, factored out so the
+/// oversized/forged-length safety can be unit-tested without a live wasmtime
+/// store. Returns an empty vec for any handle whose declared length would read
+/// past the end of `data` (or whose offset arithmetic overflows).
+pub(crate) fn decode_low_bytes_from_slice(data: &[u8], handle: i64) -> Vec<u8> {
+    if handle <= 0 {
+        return Vec::new();
+    }
+    let base = handle as usize;
+    // Length prefix (i64 @ base+0) must fit.
+    let Some(len_bytes) = base.checked_add(8).and_then(|end| data.get(base..end)) else {
+        return Vec::new();
+    };
+    let len =
+        i64::from_le_bytes(len_bytes.try_into().expect("8-byte length slice")).max(0) as usize;
+    // The full element range [base+8 .. base+8+len*8) must fit within the slice
+    // BEFORE we allocate — checked arithmetic so the offset itself can't wrap.
+    let Some(end) = len
+        .checked_mul(8)
+        .and_then(|elem_span| base.checked_add(8).and_then(|s| s.checked_add(elem_span)))
+    else {
+        return Vec::new();
+    };
+    let elem_start = base + 8;
+    let Some(elems) = data.get(elem_start..end) else {
+        return Vec::new();
+    };
+    let mut out = Vec::with_capacity(len);
+    for chunk in elems.chunks_exact(8) {
+        let value = i64::from_le_bytes(chunk.try_into().expect("8-byte element slice"));
+        out.push((value & 0xFF) as u8);
+    }
+    out
+}
+
 /// Resolves the exported `__heap` bump-pointer global (added in Task 5).
 pub(crate) fn heap_global(
     caller: &mut Caller<'_, KaliHostState>,
@@ -154,3 +206,85 @@ pub(crate) fn checked_offset(value: i32) -> wasmtime::Result<usize> {
 }
 
 pub(crate) const STRING_HANDLE_TAG: u64 = 0x8000_0000_0000_0000;
+
+#[cfg(test)]
+mod memory_tests {
+    use super::decode_low_bytes_from_slice;
+
+    /// Builds a well-formed array-lane buffer: `[len i64][elem i64…]` at `base`.
+    fn array_buffer(base: usize, elems: &[i64]) -> Vec<u8> {
+        let mut data = vec![0u8; base];
+        data.extend_from_slice(&(elems.len() as i64).to_le_bytes());
+        for &e in elems {
+            data.extend_from_slice(&e.to_le_bytes());
+        }
+        data
+    }
+
+    #[test]
+    fn decode_low_bytes_reads_well_formed_array() {
+        let base = 16usize;
+        let data = array_buffer(base, &[80, 52, 10, 52, 32]);
+        assert_eq!(
+            decode_low_bytes_from_slice(&data, base as i64),
+            vec![80u8, 52, 10, 52, 32]
+        );
+    }
+
+    #[test]
+    fn decode_low_bytes_masks_low_byte_only() {
+        let base = 8usize;
+        // 0x1FF -> 0xFF, negative -1 -> 0xFF, 256 -> 0x00: never multi-byte/sign-extended.
+        let data = array_buffer(base, &[0x1FF, -1, 256]);
+        assert_eq!(
+            decode_low_bytes_from_slice(&data, base as i64),
+            vec![0xFFu8, 0xFF, 0x00]
+        );
+    }
+
+    #[test]
+    fn decode_low_bytes_oversized_length_yields_empty_not_abort() {
+        // Forged handle: length prefix claims a huge element count that would
+        // make `Vec::with_capacity` abort the host. Must be rejected pre-alloc.
+        let base = 0usize;
+        let mut data = vec![0u8; 8]; // only the length prefix, no elements
+        data[..8].copy_from_slice(&(i64::MAX).to_le_bytes());
+        assert_eq!(
+            decode_low_bytes_from_slice(&data, base as i64),
+            Vec::<u8>::new()
+        );
+    }
+
+    #[test]
+    fn decode_low_bytes_truncated_element_range_yields_empty() {
+        // Length says 4 elements but only 2 elements' worth of bytes follow.
+        let base = 0usize;
+        let mut data = Vec::new();
+        data.extend_from_slice(&4i64.to_le_bytes());
+        data.extend_from_slice(&1i64.to_le_bytes());
+        data.extend_from_slice(&2i64.to_le_bytes());
+        assert_eq!(
+            decode_low_bytes_from_slice(&data, base as i64),
+            Vec::<u8>::new()
+        );
+    }
+
+    #[test]
+    fn decode_low_bytes_nonpositive_and_out_of_range_handle_yields_empty() {
+        let data = array_buffer(0, &[1, 2, 3]);
+        assert_eq!(decode_low_bytes_from_slice(&data, 0), Vec::<u8>::new());
+        assert_eq!(decode_low_bytes_from_slice(&data, -5), Vec::<u8>::new());
+        // Handle points past the end of the slice.
+        assert_eq!(decode_low_bytes_from_slice(&data, 10_000), Vec::<u8>::new());
+    }
+
+    #[test]
+    fn decode_low_bytes_zero_length_array_yields_empty() {
+        let base = 8usize;
+        let data = array_buffer(base, &[]);
+        assert_eq!(
+            decode_low_bytes_from_slice(&data, base as i64),
+            Vec::<u8>::new()
+        );
+    }
+}

@@ -2136,6 +2136,7 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
         "fannkuch-redux",
         "spectral-norm",
         "nbody",
+        "mandelbrot",
     ]
     .into_iter()
     .map(ToOwned::to_owned)
@@ -2206,6 +2207,7 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
         "fannkuch-redux-benchmark-v1.ts",
         "spectral-norm-benchmark-v1.ts",
         "nbody-benchmark-v1.ts",
+        "mandelbrot-benchmark-v1.ts",
     ]
     .into_iter()
     .map(ToOwned::to_owned)

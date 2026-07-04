@@ -257,6 +257,12 @@ pub(crate) fn run_command(
                     if !outcome.stdout.is_empty() {
                         print!("{}", outcome.stdout);
                     }
+                    if !outcome.stdout_bytes.is_empty() {
+                        use std::io::Write;
+                        let mut out = std::io::stdout();
+                        let _ = out.write_all(&outcome.stdout_bytes);
+                        let _ = out.flush();
+                    }
                     if !outcome.stderr.is_empty() {
                         eprint!("{}", outcome.stderr);
                     }

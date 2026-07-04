@@ -140,7 +140,7 @@ impl Parser {
                 TokenType::AndAnd => Some(2),
                 TokenType::Pipe => Some(3),
                 TokenType::Caret => Some(4),
-                TokenType::And => Some(5),
+                TokenType::Ampersand => Some(5),
                 TokenType::EqEquals
                 | TokenType::EqEqEq
                 | TokenType::Neq
@@ -149,9 +149,12 @@ impl Parser {
                 | TokenType::Gt
                 | TokenType::LtEq
                 | TokenType::GtEq => Some(6),
-                TokenType::Plus | TokenType::Minus => Some(7),
-                TokenType::Star | TokenType::Slash | TokenType::Percent => Some(8),
-                TokenType::StarStar => Some(9),
+                // Shift operators bind tighter than relational/equality but looser
+                // than additive, per JS operator precedence.
+                TokenType::LtLt | TokenType::GtGt => Some(7),
+                TokenType::Plus | TokenType::Minus => Some(8),
+                TokenType::Star | TokenType::Slash | TokenType::Percent => Some(9),
+                TokenType::StarStar => Some(10),
                 _ => None,
             };
 
@@ -173,7 +176,18 @@ impl Parser {
                     TokenType::NullCoalesce => "??",
                     TokenType::Pipe => "|",
                     TokenType::Caret => "^",
-                    TokenType::And => "&",
+                    TokenType::Ampersand => "&",
+                    TokenType::LtLt => "<<",
+                    // `>>` and `>>>` both lex to `GtGt`; disambiguate on the
+                    // token's text so `>>>` (unsigned/zero-extend) is not lowered
+                    // as `>>` (signed/sign-extend) in codegen.
+                    TokenType::GtGt => {
+                        if self.stream.current().map(|token| token.value.as_str()) == Some(">>>") {
+                            ">>>"
+                        } else {
+                            ">>"
+                        }
+                    }
                     TokenType::EqEquals => "==",
                     TokenType::EqEqEq => "===",
                     TokenType::Neq => "!=",

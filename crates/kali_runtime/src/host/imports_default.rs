@@ -20,6 +20,19 @@ pub(crate) fn register_default_host_imports(
     linker
         .func_wrap(
             "kali:rt",
+            "stdout_write_bytes",
+            |mut caller: Caller<'_, KaliHostState>, handle: i64| -> wasmtime::Result<()> {
+                enforce_operation(caller.data_mut(), HostOperation::Console)?;
+                let bytes = decode_array_low_bytes(&mut caller, handle)?;
+                caller.data_mut().stdout_bytes.extend_from_slice(&bytes);
+                Ok(())
+            },
+        )
+        .map_err(|error| host_import_error("stdout_write_bytes", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
             "console_error",
             |mut caller: Caller<'_, KaliHostState>, val: i64| -> wasmtime::Result<()> {
                 enforce_operation(caller.data_mut(), HostOperation::Console)?;

@@ -73,6 +73,46 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if self.is_kali_write_stdout_bytes_call(&callee_node) {
+            let Some(index) = self.stdout_write_bytes_import_index else {
+                // Mirror the sibling `Kali.test` gate above: push the diagnostic
+                // and return without emitting any value. Emitting an
+                // `I64Const(0)` here while claiming `produced: false` would
+                // silently unbalance the value stack.
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Kali.writeStdoutBytes is unavailable under this backend".to_string(),
+                ));
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            };
+            // First arg is the byte array; emit its handle (i64) and call the
+            // host import. The call produces no value (statement position).
+            // The recognizer only checks callee text + object, not arity, so a
+            // zero-arg `Kali.writeStdoutBytes()` reaches here — guard the arg
+            // fetch and reject it with a diagnostic rather than indexing out of
+            // bounds. Mirror the None-index branch above: push nothing, return
+            // `produced: false`.
+            let Some(arg) = node.children.get(1).copied() else {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Kali.writeStdoutBytes requires exactly one array argument".to_string(),
+                ));
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            };
+            let _ = self.emit_node(function, arg, true);
+            function.instruction(&Instruction::Call(index));
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
+
         let callee_name = callee_node.text.as_deref().unwrap_or_default();
         let resolved = self.functions.get(callee_name).copied();
 
