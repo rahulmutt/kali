@@ -39,6 +39,7 @@ fn test_mir_validation_rejects_out_of_bounds_children() {
             function_flavor: None,
         }],
         functions: Vec::new(),
+        arena_facts: Vec::new(),
     };
 
     let error = mir

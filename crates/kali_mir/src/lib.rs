@@ -3,7 +3,7 @@
 //! MIR is a conservative structural lowering of HIR that preserves the source
 //! shape while providing a stable bridge for later memory/ownership analysis.
 
-mod analysis;
+pub mod analysis;
 mod binding;
 mod function;
 mod layout;
@@ -12,6 +12,7 @@ mod node;
 mod ownership;
 mod program;
 
+pub use analysis::arena_gate::{compute_arena_table, FunctionArenaFacts, LoopArenaFacts};
 pub use binding::{BorrowedLifetime, MirBinding, MirBindingKind};
 pub use function::{MirFunction, MirFunctionKind};
 pub use layout::LayoutDescriptor;

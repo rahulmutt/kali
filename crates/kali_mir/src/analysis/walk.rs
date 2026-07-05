@@ -27,8 +27,15 @@ impl<'a> OwnershipAnalyzer<'a> {
             }
             HirNodeKind::VarDeclarator => {
                 if let Some(name) = text.as_ref() {
+                    self.arena_note_declared_binding(name);
                     if let Some(init) = children.get(1).copied() {
                         let init_node = &self.nodes[init.0 as usize];
+                        if matches!(
+                            init_node.kind,
+                            HirNodeKind::ObjectExpr | HirNodeKind::ArrayExpr
+                        ) {
+                            self.arena_note_fresh_binding(name);
+                        }
                         let layout = self.infer_layout(init);
                         let functions_before = self.functions.len();
                         let direct_function_target = matches!(init_node.kind, HirNodeKind::Ident)
@@ -139,11 +146,13 @@ impl<'a> OwnershipAnalyzer<'a> {
                 }
             }
             HirNodeKind::ReturnStmt => {
+                self.arena_note_return(&children);
                 for child in children {
                     self.walk_scope_node(child, UseContext::Return);
                 }
             }
             HirNodeKind::CallExpr => {
+                self.arena_note_call_expr(&children);
                 let mut direct_call_escape_flags = None;
                 if let Some(callee) = children.first().copied() {
                     let callee_node = &self.nodes[callee.0 as usize];
@@ -198,11 +207,13 @@ impl<'a> OwnershipAnalyzer<'a> {
                 }
             }
             HirNodeKind::ArrayExpr => {
+                self.arena_note_alloc();
                 for child in children {
                     self.walk_scope_node(child, UseContext::Escape);
                 }
             }
             HirNodeKind::ObjectExpr => {
+                self.arena_note_alloc();
                 for child in children {
                     self.walk_scope_node(child, UseContext::Escape);
                 }
@@ -223,6 +234,9 @@ impl<'a> OwnershipAnalyzer<'a> {
             HirNodeKind::AssignmentExpr => {
                 let left = children.first().copied();
                 let right = children.get(1).copied();
+                if let (Some(left), Some(right)) = (left, right) {
+                    self.arena_note_assignment(left, right);
+                }
                 if let Some(left) = left {
                     self.walk_scope_node(left, UseContext::Normal);
                 }
@@ -250,6 +264,20 @@ impl<'a> OwnershipAnalyzer<'a> {
                 if let Some(name) = text.as_ref() {
                     self.resolve_use(name, context);
                 }
+            }
+            HirNodeKind::ForStmt
+            | HirNodeKind::ForInStmt
+            | HirNodeKind::ForOfStmt
+            | HirNodeKind::WhileStmt
+            | HirNodeKind::DoWhileStmt => {
+                // Pre-order loop ordinal (matches the order the LIR emitter
+                // walks loops). Child walking is identical to the default arm,
+                // so ownership verdicts are unchanged.
+                self.arena_enter_loop();
+                for child in children {
+                    self.walk_scope_node(child, context);
+                }
+                self.arena_exit_loop();
             }
             _ => {
                 for child in children {

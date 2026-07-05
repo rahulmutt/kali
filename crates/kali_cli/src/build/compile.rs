@@ -479,6 +479,7 @@ fn compile_source_file_uncached(
     });
     ctx.source_path = Some(source_path.as_ref().to_path_buf());
     ctx.repr_table = analyzed.repr_table.clone();
+    ctx.arena_table = kali_mir::analysis::arena_gate::compute_arena_table(&mir);
     let result = lower_lir_to_wasm(&mut ctx, &lir);
     diagnostics.extend(result.diagnostics);
 

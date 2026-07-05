@@ -27,6 +27,8 @@ mod number;
 pub use number::*;
 mod repr;
 pub use repr::*;
+mod arena_table;
+pub use arena_table::*;
 mod math;
 pub use math::*;
 mod promise;

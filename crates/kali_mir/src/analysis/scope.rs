@@ -13,12 +13,15 @@ impl<'a> OwnershipAnalyzer<'a> {
     ) {
         self.scope_stack
             .push(ScopeState::new(label, kind, function_flavor));
+        self.arena_enter_function();
     }
 
     pub(crate) fn pop_scope_and_record(&mut self) {
+        self.arena_finalize_current_function();
         if let Some(scope) = self.scope_stack.pop() {
             self.functions.push(scope.finalize());
         }
+        self.arena_exit_function();
     }
 
     pub(crate) fn current_scope_label(&self) -> String {

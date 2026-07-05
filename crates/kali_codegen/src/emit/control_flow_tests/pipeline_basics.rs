@@ -43,6 +43,7 @@ fn mir_backed_pipeline_reduces_legacy_overhead_on_escaping_locals() {
         root: kali_mir::MirNodeId::new(0),
         nodes: Vec::new(),
         functions: Vec::new(),
+        arena_facts: Vec::new(),
     };
     let baseline_lir = legacy_phase1_baseline(&current_lir, &mir);
 

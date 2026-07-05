@@ -99,6 +99,10 @@ pub struct CodegenCtx {
     /// Integer-vs-float representation decisions from the resolver. Empty (all
     /// `I64`) by default, keeping the integer fast path byte-identical.
     pub repr_table: kali_common::ReprTable,
+    /// Arena placement decisions from the `kali_mir` escape gate. Empty by
+    /// default; misses fail closed (global allocation / no arena). Read by
+    /// Tasks 6/7 — no codegen behavior depends on it yet.
+    pub arena_table: kali_common::ArenaTable,
 }
 
 impl CodegenCtx {
@@ -107,6 +111,7 @@ impl CodegenCtx {
             target,
             source_path: None,
             repr_table: kali_common::ReprTable::default(),
+            arena_table: kali_common::ArenaTable::default(),
         }
     }
 }
