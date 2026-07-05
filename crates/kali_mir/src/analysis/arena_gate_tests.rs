@@ -224,3 +224,130 @@ fn loop_whitelist_kali_write_stdout_bytes() {
     let table = compute_arena_table(&mir);
     assert!(table.loop_arena("f", 0));
 }
+
+// --- Review fixes round 2: conservative heap judgment ------------------------
+
+#[test]
+fn ineligible_on_ternary_store_with_scalar_alternate() {
+    // NOTE: kali_parser has no ternary surface today, so this source does not
+    // reach HirNodeKind::ConditionalExpr (the statement parses degenerately);
+    // the test pins that the store is classified Global regardless of the
+    // parse shape. The ConditionalExpr analyzer arm itself is pinned by the
+    // hand-built-HIR test `ineligible_on_conditional_expr_store_hir_level`.
+    let mir = analyze(
+        "let cache;
+         function f(c) {
+           const node = { v: 1 };
+           cache = c ? node : null;
+           return 1;
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(!table.arena_eligible("f"));
+    assert!(!table.opens_arena("f"));
+}
+
+#[test]
+fn ineligible_on_logical_or_store() {
+    // `||` parses as BinaryExpr text "||"; infer_binary_layout maps it to
+    // Scalar("bool") although `||` returns an operand. Heap if ANY operand is
+    // heap.
+    let mir = analyze(
+        "let cache;
+         function f(flag) {
+           const node = { v: 1 };
+           cache = flag || node;
+           return 1;
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(!table.arena_eligible("f"));
+    assert!(!table.opens_arena("f"));
+}
+
+#[test]
+fn ineligible_on_reassigned_scalar_binding_store() {
+    // `x`'s layout is frozen Scalar("number") at the declarator; reassigning a
+    // fresh literal into it must record x as fresh-heap so the later
+    // module-binding store is classified Global.
+    let mir = analyze(
+        "let cache;
+         function f() {
+           let x = 0;
+           x = { v: 1 };
+           cache = x;
+           return 1;
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(!table.arena_eligible("f"));
+    assert!(!table.opens_arena("f"));
+}
+
+#[test]
+fn same_named_functions_fail_closed() {
+    // Two function expressions sharing the name `h` collide in the name-keyed
+    // facts (codegen is name-keyed too, so per-instance decisions are
+    // impossible). The collision must poison the merged entry: OR-merging
+    // could otherwise grant opens_arena("h") from the second body while the
+    // first body's returned values would dangle after the function-exit reset.
+    let mir = analyze(
+        "const a = function h() { return { v: 1 }; };
+         const b = function h() { const o = { v: 2 }; let s = o.v; return s; };",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(!table.arena_eligible("h"));
+    assert!(!table.opens_arena("h"));
+}
+
+#[test]
+fn ineligible_on_conditional_expr_store_hir_level() {
+    // Hand-built HIR (the parser has no ternary surface): `let cache;
+    // function f(c) { const node = { v: 1 }; cache = c ? node : null;
+    // return 1; }`. infer_layout(ConditionalExpr) returns only the LAST
+    // child's layout (alternate `null` => Scalar("unknown")); the gate's own
+    // judgment must treat the ternary as heap because a branch is heap, and
+    // classify the module store Global.
+    use kali_hir::{HirNode, HirNodeId, HirNodeKind, LoweringResult as HirLoweringResult};
+
+    let node = |kind: HirNodeKind, text: Option<&str>, children: Vec<u32>| HirNode {
+        kind,
+        span: None,
+        text: text.map(str::to_string),
+        children: children.into_iter().map(HirNodeId::new).collect(),
+    };
+    let hir = HirLoweringResult {
+        root: HirNodeId::new(0),
+        nodes: vec![
+            node(HirNodeKind::Program, None, vec![1, 4]),
+            node(HirNodeKind::VarDecl, Some("let"), vec![2]),
+            node(HirNodeKind::VarDeclarator, Some("cache"), vec![3]),
+            node(HirNodeKind::Ident, Some("cache"), vec![]),
+            node(HirNodeKind::FunctionDecl, Some("f"), vec![5, 6]),
+            node(HirNodeKind::Ident, Some("c"), vec![]),
+            node(HirNodeKind::Block, None, vec![7, 14, 20]),
+            node(HirNodeKind::VarDecl, Some("const"), vec![8]),
+            node(HirNodeKind::VarDeclarator, Some("node"), vec![9, 10]),
+            node(HirNodeKind::Ident, Some("node"), vec![]),
+            node(HirNodeKind::ObjectExpr, None, vec![11]),
+            node(HirNodeKind::ObjectProperty, Some("v"), vec![12, 13]),
+            node(HirNodeKind::Ident, Some("v"), vec![]),
+            node(HirNodeKind::Literal, Some("1"), vec![]),
+            node(HirNodeKind::AssignmentExpr, Some("="), vec![15, 16]),
+            node(HirNodeKind::Ident, Some("cache"), vec![]),
+            node(HirNodeKind::ConditionalExpr, None, vec![17, 18, 19]),
+            node(HirNodeKind::Ident, Some("c"), vec![]),
+            node(HirNodeKind::Ident, Some("node"), vec![]),
+            node(HirNodeKind::Literal, Some("null"), vec![]),
+            node(HirNodeKind::ReturnStmt, None, vec![21]),
+            node(HirNodeKind::Literal, Some("1"), vec![]),
+        ],
+        function_flavors: Vec::new(),
+        diagnostics: vec![],
+    };
+
+    let mir = crate::MirLowerer::new().lower_hir_result(&hir);
+    let table = compute_arena_table(&mir);
+    assert!(!table.arena_eligible("f"));
+    assert!(!table.opens_arena("f"));
+}

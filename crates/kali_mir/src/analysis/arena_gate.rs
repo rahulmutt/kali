@@ -87,6 +87,10 @@ pub(crate) struct FuncRaw {
     has_unknown_call: bool,
     fresh_heap_bindings: BTreeSet<String>,
     loops: Vec<LoopArenaFacts>,
+    /// Two same-named function scopes wrote into this entry (the table is
+    /// name-keyed, so per-instance decisions are impossible) ⇒ poisoned at
+    /// `into_facts`.
+    name_collision: bool,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -123,6 +127,11 @@ impl ArenaCollector {
         self.functions.entry(label.to_string()).or_default()
     }
 
+    /// NOTE: facts are name-keyed, so two same-named functions merge into one
+    /// entry; the merge must stay conservative. Boolean facts OR together
+    /// (veto-side), but `has_scope_local_site` and per-ordinal loop entries
+    /// would GRANT across instances — so a detected collision poisons the
+    /// entry outright (global site + unknown call, loops dropped).
     pub(crate) fn into_facts(self) -> Vec<FunctionArenaFacts> {
         let ArenaCollector {
             functions, order, ..
@@ -131,14 +140,27 @@ impl ArenaCollector {
             .into_iter()
             .filter(|label| label != "<module>")
             .filter_map(|label| {
-                functions.get(&label).map(|raw| FunctionArenaFacts {
-                    name: label.clone(),
-                    allocates: raw.allocates,
-                    has_global_site: raw.has_global_site,
-                    has_scope_local_site: raw.has_scope_local_site,
-                    calls: raw.calls.clone(),
-                    has_unknown_call: raw.has_unknown_call,
-                    loops: raw.loops.clone(),
+                functions.get(&label).map(|raw| {
+                    if raw.name_collision {
+                        return FunctionArenaFacts {
+                            name: label.clone(),
+                            allocates: raw.allocates,
+                            has_global_site: true,
+                            has_scope_local_site: false,
+                            calls: raw.calls.clone(),
+                            has_unknown_call: true,
+                            loops: Vec::new(),
+                        };
+                    }
+                    FunctionArenaFacts {
+                        name: label.clone(),
+                        allocates: raw.allocates,
+                        has_global_site: raw.has_global_site,
+                        has_scope_local_site: raw.has_scope_local_site,
+                        calls: raw.calls.clone(),
+                        has_unknown_call: raw.has_unknown_call,
+                        loops: raw.loops.clone(),
+                    }
                 })
             })
             .collect()
@@ -154,7 +176,15 @@ impl<'a> OwnershipAnalyzer<'a> {
     /// loop counter/stack, saving the enclosing function's.
     pub(crate) fn arena_enter_function(&mut self) {
         let label = self.current_scope_label();
-        self.arena.func(&label);
+        // Entries are created here, at scope push — so a pre-existing entry
+        // means a second function scope with the same name (name-keyed facts
+        // cannot tell instances apart ⇒ the merged entry is poisoned at
+        // `into_facts`).
+        let collision = self.arena.functions.contains_key(&label);
+        let raw = self.arena.func(&label);
+        if collision {
+            raw.name_collision = true;
+        }
         let ordinal = std::mem::take(&mut self.arena.loop_ordinal);
         let stack = std::mem::take(&mut self.arena.loop_stack);
         self.arena.saved.push((ordinal, stack));
@@ -346,7 +376,17 @@ impl<'a> OwnershipAnalyzer<'a> {
                         Some((scope_index, _)) if scope_index < self.current_scope_index() => {
                             self.arena_note_global_site();
                         }
-                        Some(_) => {}
+                        Some(_) => {
+                            // Same-scope reassignment from a fresh heap
+                            // literal: the binding's declarator layout is
+                            // stale (frozen at declaration), so record it as
+                            // fresh-heap — this feeds both the fate
+                            // classification at function finalize and the
+                            // Ident arm of `arena_is_heap_value`.
+                            if rhs_fresh {
+                                self.arena_note_fresh_binding(&name);
+                            }
+                        }
                         None => self.arena_note_global_site(),
                     }
                 }
@@ -424,16 +464,94 @@ impl<'a> OwnershipAnalyzer<'a> {
         )
     }
 
+    /// The gate's OWN conservative may-hold-heap judgment. Deliberately NOT a
+    /// raw `infer_layout` lookup: `infer_layout` resolves ambiguity OPEN
+    /// (ternaries take only the last branch's layout, `||`/`&&` map to
+    /// `Scalar("bool")` though they return an operand, binding layouts are
+    /// frozen at the declarator), which is fine for layout inference but
+    /// unsound as an escape gate. Every arm here errs toward heap.
     fn arena_is_heap_value(&self, node_id: HirNodeId) -> bool {
-        is_heap_layout(&self.infer_layout(node_id))
+        let node = &self.nodes[node_id.0 as usize];
+        match node.kind {
+            HirNodeKind::ObjectExpr | HirNodeKind::ArrayExpr => true,
+            // Numbers/strings/bools are scalar; `null`/`undefined` infer
+            // Scalar("unknown"), which the gate treats as heap (fail closed).
+            HirNodeKind::Literal => is_heap_layout(&self.infer_layout(node_id)),
+            // A ternary produces whichever branch runs: heap if ANY branch
+            // (children[1..] = consequent, alternate) is heap. Malformed ⇒
+            // heap.
+            HirNodeKind::ConditionalExpr => {
+                node.children.len() < 2
+                    || node
+                        .children
+                        .iter()
+                        .skip(1)
+                        .any(|child| self.arena_is_heap_value(*child))
+            }
+            // Logical ops return an operand; a sequence returns its last
+            // expression. Heap if ANY child is heap (malformed ⇒ heap).
+            HirNodeKind::LogicalExpr | HirNodeKind::SequenceExpr => {
+                node.children.is_empty()
+                    || node
+                        .children
+                        .iter()
+                        .any(|child| self.arena_is_heap_value(*child))
+            }
+            HirNodeKind::BinaryExpr => match node.text.as_deref() {
+                // Genuinely scalar-producing operators. String `+` concat is
+                // scalar too in v1: runtime strings are global-arena host
+                // values and never dangle across a reset.
+                Some(
+                    "+" | "-" | "*" | "/" | "%" | "**" | "&" | "|" | "^" | "<<" | ">>" | ">>>"
+                    | "==" | "!=" | "===" | "!==" | "<" | "<=" | ">" | ">=",
+                ) => false,
+                // `&&`/`||`/`??` parse as BinaryExpr and return an operand.
+                Some("&&" | "||" | "??") => {
+                    node.children.is_empty()
+                        || node
+                            .children
+                            .iter()
+                            .any(|child| self.arena_is_heap_value(*child))
+                }
+                _ => true,
+            },
+            HirNodeKind::UnaryExpr => {
+                !matches!(node.text.as_deref(), Some("!" | "-" | "+" | "~" | "typeof"))
+            }
+            HirNodeKind::Ident => {
+                let name = node.text.as_deref().unwrap_or_default();
+                // A binding reassigned from a fresh heap literal keeps its
+                // stale declarator layout, so consult the fresh-heap set
+                // recorded by `arena_note_assignment` first.
+                let label = self.current_scope_label();
+                if self
+                    .arena
+                    .functions
+                    .get(&label)
+                    .is_some_and(|f| f.fresh_heap_bindings.contains(name))
+                {
+                    return true;
+                }
+                match self.resolve_binding_layout(name) {
+                    Some(layout) => is_heap_layout(&layout),
+                    None => true,
+                }
+            }
+            // Calls, member reads, templates, everything else: unknown ⇒ heap.
+            _ => true,
+        }
     }
 }
 
-/// Heap-typed layouts (fail closed: unknown `TaggedVal` is treated as heap).
-/// Scalars — including strings, which are host-allocated into the global arena
-/// in v1 — are exempt from outflow.
+/// Heap-typed layouts for the gate. Fails closed: `TaggedVal` AND
+/// `Scalar("unknown")` (the layout of `null`/`undefined` and unclassifiable
+/// values) are treated as heap. Concrete scalars — including strings, which
+/// are host-allocated into the global arena in v1 — are exempt from outflow.
 fn is_heap_layout(layout: &LayoutDescriptor) -> bool {
-    !matches!(layout, LayoutDescriptor::Scalar(_))
+    match layout {
+        LayoutDescriptor::Scalar(name) => name == "unknown",
+        _ => true,
+    }
 }
 
 // ---------------------------------------------------------------------------
