@@ -769,3 +769,69 @@ main();
     //       = 12*4950 + 603000 = 59400 + 603000 = 662400.
     assert_eq!(String::from_utf8_lossy(&output.stdout), "662400\n");
 }
+
+#[test]
+fn mixed_scratch_and_returned_call_result_is_sound() {
+    // FINAL-REVIEW CRITICAL, ROUND 2: same use-after-reset hazard as
+    // `mixed_returned_and_scratch_function_is_sound`, but the returned heap
+    // value is a CALL-RESULT (`return build(s);`) rather than a bare or
+    // name-bound object literal. Round 1's fix (`arena_gate.rs` commit
+    // 7d2af1a30) only detected `has_returned_site` via two SHAPE-SPECIFIC
+    // paths — `arena_is_fresh_literal` in `arena_note_return` (bare-literal
+    // returns) and `binding.returned` in
+    // `arena_finalize_current_function` (name-bound-literal returns) — and
+    // MISSED this shape entirely: `return build(s)` is syntactically neither
+    // a literal nor a fresh-heap binding of `make`, so round 1 still grants
+    // `make` its own per-call function arena, which resets on exit and
+    // splices the just-returned `{ v: s }` object's backing page onto the
+    // free list the instant `make` returns — the exact same LIFO free-list
+    // clobber as the round-1 pin, just reached through a call-result instead
+    // of a literal. Round 2 generalizes the veto via a deferred
+    // `push_returned_site` resolved against the escape-flow fixpoint, which
+    // must resolve `return build(s)`'s class (`DependsOn(Return { build })`)
+    // as may-heap because `build`'s own return is a fresh object literal.
+    //
+    // Confirmed RED against the round-1-only gate (this test's source
+    // reproduces the same corrupted-sum failure mode as
+    // `mixed_returned_and_scratch_function_is_sound` when only round 1's
+    // shape-specific detection is present — see the Final-review Critical
+    // round 2 section of task-9-report.md for the stash/rebuild/restore
+    // transcript).
+    let source = write_temp_source(
+        "mixed_scratch_and_returned_call_result",
+        r#"function build(v) {
+  return { v: v };
+}
+function make(seed) {
+  const scratch = { a: seed, b: seed + 1, c: seed + 2, d: seed + 3, e: seed + 4, f: seed + 5 };
+  const s = scratch.a + scratch.b + scratch.c + scratch.d + scratch.e + scratch.f;
+  return build(s);
+}
+function main() {
+  let total = 0;
+  for (let i = 0; i < 100; i = i + 1) {
+    const r1 = make(i);
+    const r2 = make(i + 1000);
+    total = total + r1.v + r2.v;
+  }
+  console.log(total);
+}
+main();
+"#,
+    );
+    let output = std::process::Command::new(kali_bin())
+        .arg("run")
+        .arg(&source)
+        .output()
+        .expect("run kali");
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    // Identical arithmetic to `mixed_returned_and_scratch_function_is_sound`
+    // (`build` just wraps `s` in `{ v: s }`, same as the literal it replaces):
+    // make(seed).v = 6*seed + 15; total = sum_{i=0}^{99} (12*i + 6030) =
+    // 12*4950 + 603000 = 662400.
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "662400\n");
+}

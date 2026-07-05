@@ -184,6 +184,20 @@ impl ArenaCollector {
                 }
             }
         }
+        // A `return` whose value resolves may-heap under the fixpoint is a
+        // Returned-fate site: it must veto `opens_arena` regardless of shape
+        // (bare literal, name-bound literal, ternary, `new`, or a
+        // transitively may-heap call-result). This generalizes round-1's two
+        // shape-specific paths (`arena_is_fresh_literal` in
+        // `arena_note_return`, `binding.returned` in
+        // `arena_finalize_current_function`).
+        for site in flow.returned_sites() {
+            if solution.class_may_heap(&site.class) {
+                if let Some(raw) = self.functions.get_mut(&site.function) {
+                    raw.has_returned_site = true;
+                }
+            }
+        }
 
         let ArenaCollector {
             functions, order, ..
@@ -511,25 +525,18 @@ impl<'a> OwnershipAnalyzer<'a> {
         }
     }
 
-    /// A `return` of a heap value from inside a loop leaks it out of the arena.
+    /// A `return` of a heap value from inside a loop leaks it out of the
+    /// arena; a `return` of a heap value anywhere in the function is a
+    /// Returned-fate site (deferred: resolved against the escape-flow
+    /// fixpoint in `ArenaCollector::into_facts` via `push_returned_site`,
+    /// which is what lets `return factory()` — a call-result — resolve
+    /// correctly through transitive may-heap chains, not just the two
+    /// shape-specific literal forms round 1 detected).
     pub(crate) fn arena_note_return(&mut self, children: &[HirNodeId]) {
         let function = self.current_scope_label();
         let mut class = ValueClass::Scalar;
         for child in children {
             class = class.join(self.classify_value(*child));
-            // A fresh object/array literal returned DIRECTLY (not first bound
-            // to a name) is a Returned-fate allocation site that the
-            // binding-based fate lattice in `arena_finalize_current_function`
-            // can never see (there is no binding to classify: nothing ever
-            // calls `arena_note_fresh_binding` for it). Mark it here, at the
-            // raw site itself, so `return { v: s }` vetoes `opens_arena`
-            // exactly like the `const out = { v: s }; return out;` identifier
-            // form the bindings loop already catches — both are the same
-            // use-after-reset hazard if the enclosing function also opens its
-            // own function arena for an unrelated ScopeLocal site.
-            if self.arena_is_fresh_literal(*child) {
-                self.arena.func(&function).has_returned_site = true;
-            }
         }
         self.flow.note_value_into(
             crate::analysis::escape_flow::FlowNode::Return {
@@ -537,6 +544,7 @@ impl<'a> OwnershipAnalyzer<'a> {
             },
             &class,
         );
+        self.flow.push_returned_site(&function, class.clone());
         let ordinals: Vec<u32> = self.arena.loop_stack.iter().map(|l| l.ordinal).collect();
         for ordinal in ordinals {
             self.flow.push_outflow(&function, ordinal, class.clone());

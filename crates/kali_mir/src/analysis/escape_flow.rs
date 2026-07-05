@@ -121,6 +121,19 @@ pub(crate) struct ArgEscapeIf {
     pub(crate) loop_ordinals: Vec<u32>,
 }
 
+/// Deferred "this function has a Returned-fate site if the returned value is
+/// may-heap" record. Generalizes round-1's shape-specific bare-literal /
+/// name-bound-literal detection: `class` is the same joined [`ValueClass`]
+/// already computed for every `return` statement (covers literals, plain
+/// idents, ternaries, and call-results transitively via `DependsOn(Return {
+/// callee })` edges), so a `return factory()` whose callee's own return
+/// resolves may-heap through the fixpoint resolves true here too.
+#[derive(Debug, Clone)]
+pub(crate) struct ReturnedSiteIf {
+    pub(crate) function: String,
+    pub(crate) class: ValueClass,
+}
+
 /// Everything the walk records for the fixpoint. All containers are ordered
 /// (determinism).
 #[derive(Debug, Default)]
@@ -138,6 +151,7 @@ pub(crate) struct FlowCollector {
     global_sites: Vec<GlobalSiteIf>,
     outflow_sites: Vec<OutflowIf>,
     arg_sites: Vec<ArgEscapeIf>,
+    returned_sites: Vec<ReturnedSiteIf>,
 }
 
 impl FlowCollector {
@@ -240,6 +254,21 @@ impl FlowCollector {
         });
     }
 
+    /// Register a deferred returned-fate site for `function`: resolved true
+    /// (vetoes `opens_arena`) iff `class` turns out may-heap under the
+    /// fixpoint. A genuinely `Scalar` return (e.g. `return 1 + n;`) is
+    /// dropped here just like the other deferred sites — the function stays
+    /// eligible to open its own arena for that return.
+    pub(crate) fn push_returned_site(&mut self, function: &str, class: ValueClass) {
+        if class.is_scalar() {
+            return;
+        }
+        self.returned_sites.push(ReturnedSiteIf {
+            function: function.to_string(),
+            class,
+        });
+    }
+
     pub(crate) fn global_sites(&self) -> &[GlobalSiteIf] {
         &self.global_sites
     }
@@ -250,6 +279,10 @@ impl FlowCollector {
 
     pub(crate) fn arg_sites(&self) -> &[ArgEscapeIf] {
         &self.arg_sites
+    }
+
+    pub(crate) fn returned_sites(&self) -> &[ReturnedSiteIf] {
+        &self.returned_sites
     }
 }
 
@@ -457,10 +490,35 @@ impl<'a> OwnershipAnalyzer<'a> {
                 }
             }
             // A member read shares its base's structure: if the read value
-            // escapes, the base's contents escape with it.
+            // escapes, the base's contents escape with it. EXCEPT when the
+            // base's inferred layout gives POSITIVE PROOF the accessed field
+            // is itself scalar (a resolvable `Struct` layout with a matching
+            // non-heap field) — a genuinely scalar field read (e.g. `o.v`
+            // where `o = { v: 1 }`) does not share `o`'s heap identity at
+            // all, and must not itself taint/veto as though the whole
+            // struct escaped (this is what keeps a returned scalar field of
+            // a ScopeLocal struct from wrongly vetoing `opens_arena` — see
+            // arena_gate's `opens_arena_still_true_for_all_scope_local_function`).
+            // Anything unresolved (a parameter's opaque `TaggedVal` layout,
+            // for instance) keeps the fail-closed Heap classification below,
+            // which is what keeps `member_read_carries_base_identity_for_taint`
+            // sound (a param's `p.left` still taints `p`).
             HirNodeKind::MemberExpr | HirNodeKind::OptionalChain | HirNodeKind::ChainExpr => {
                 match node.children.first() {
-                    Some(base) => ValueClass::Heap(self.classify_value(*base).take_nodes()),
+                    Some(base) => {
+                        if let (Some(field), LayoutDescriptor::Struct { fields }) =
+                            (node.text.as_deref(), self.infer_layout(*base))
+                        {
+                            if let Some((_, field_layout)) =
+                                fields.iter().find(|(name, _)| name == field)
+                            {
+                                if !is_heap_layout(field_layout) {
+                                    return ValueClass::Scalar;
+                                }
+                            }
+                        }
+                        ValueClass::Heap(self.classify_value(*base).take_nodes())
+                    }
                     None => ValueClass::heap(),
                 }
             }

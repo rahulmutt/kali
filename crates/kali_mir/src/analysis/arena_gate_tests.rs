@@ -724,6 +724,32 @@ fn opens_arena_excludes_function_with_bare_literal_return_and_scope_local_site()
 }
 
 #[test]
+fn opens_arena_excludes_function_with_returned_call_result_and_scope_local_site() {
+    // Round-2 generalization: `make` returns the RESULT OF A CALL to
+    // `factory`, not a literal at all — neither of round 1's two
+    // shape-specific paths (bare-literal check in `arena_note_return`,
+    // `binding.returned` in `arena_finalize_current_function`) can see this,
+    // since there is no literal and no name-bound fresh-heap binding in
+    // `make`'s own body. The deferred `push_returned_site` mechanism must
+    // resolve `return factory(s)`'s class (`DependsOn(Return { factory })`)
+    // against the escape-flow fixpoint: `factory` itself returns a fresh
+    // object literal (definitely heap), so `factory`'s Return node is
+    // may-heap, and `make`'s returned-site resolves true — vetoing `make`'s
+    // own function arena even though `scratch` is a genuine ScopeLocal site.
+    let mir = analyze(
+        "function factory(s) { return { v: s }; }
+         function make() {
+           const scratch = { a: 1, b: 2, c: 3, d: 4, e: 5, f: 6 };
+           const s = scratch.a + scratch.b + scratch.c + scratch.d + scratch.e + scratch.f;
+           return factory(s);
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(table.arena_eligible("make"));
+    assert!(!table.opens_arena("make"));
+}
+
+#[test]
 fn opens_arena_still_true_for_all_scope_local_function() {
     // Guard against over-tightening: a function whose only fresh-heap site is
     // purely ScopeLocal (no Returned site at all) must still open its own
