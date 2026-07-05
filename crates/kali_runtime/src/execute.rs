@@ -194,10 +194,25 @@ impl RuntimeCtx {
             if let Some(diagnostic) = store.data_mut().pending_diagnostic.take() {
                 return Err(vec![diagnostic]);
             }
-            return Err(vec![runtime_error_diagnostic(format!(
-                "runtime trap: {}",
-                error
-            ))]);
+            let diagnostic = match error.downcast_ref::<wasmtime::Trap>() {
+                Some(wasmtime::Trap::OutOfFuel) => Diagnostic::error(
+                    e4::RESOURCE_LIMIT_EXCEEDED as u32,
+                    "CPU fuel budget exhausted: the program ran past the runaway guard \
+                     (default ~60s-equivalent when no sandbox policy is set); grant more \
+                     compute by raising `resources.maxCpuTimeMs` in a --sandbox policy"
+                        .to_string(),
+                ),
+                Some(wasmtime::Trap::MemoryOutOfBounds) => runtime_error_diagnostic(format!(
+                    "runtime trap (out-of-bounds memory access): {}",
+                    error
+                )),
+                Some(wasmtime::Trap::UnreachableCodeReached) => runtime_error_diagnostic(format!(
+                    "runtime trap (unreachable — allocation failure or an unsupported-path guard): {}",
+                    error
+                )),
+                _ => runtime_error_diagnostic(format!("runtime trap: {}", error)),
+            };
+            return Err(vec![diagnostic]);
         }
 
         if let Err(diagnostic) = drain_event_loop(&instance, &mut store) {
