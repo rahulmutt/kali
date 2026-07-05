@@ -26,6 +26,10 @@
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
+use kali_hir::{HirNodeId, HirNodeKind};
+
+use crate::{LayoutDescriptor, OwnershipAnalyzer};
+
 /// A dataflow node. Bindings are keyed (owner function label, name) — the
 /// same name-keyed granularity as the rest of the gate, with the same
 /// collision conservatism (see [`FlowCollector::poison_function`]).
@@ -324,6 +328,156 @@ pub(crate) fn solve(flow: &FlowCollector) -> FlowSolution {
         may_heap,
         tainted,
         poisoned_functions: flow.poisoned_functions.clone(),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tri-state value classification (walk-time, pure — records nothing).
+// ---------------------------------------------------------------------------
+
+/// Heap-typed layouts, fail-closed: `TaggedVal` AND `Scalar("unknown")` (the
+/// layout of `null`/`undefined`) count as heap. Moved here from arena_gate
+/// when the gate's own judgment was retired.
+pub(crate) fn is_heap_layout(layout: &LayoutDescriptor) -> bool {
+    match layout {
+        LayoutDescriptor::Scalar(name) => name == "unknown",
+        _ => true,
+    }
+}
+
+impl<'a> OwnershipAnalyzer<'a> {
+    /// Classify an expression's value without resolving binding heap-ness:
+    /// identifiers become `DependsOn` nodes for the fixpoint. Operator-aware:
+    /// `sum + itemCheck(tree)` is `Scalar` no matter what `tree` is — this is
+    /// what keeps the binary-trees loop grant alive. Every unknown shape
+    /// fails closed to `Heap`.
+    pub(crate) fn classify_value(&self, node_id: HirNodeId) -> ValueClass {
+        let node = &self.nodes[node_id.0 as usize];
+        match node.kind {
+            HirNodeKind::ObjectExpr | HirNodeKind::ArrayExpr => {
+                // A structure carries the identity of everything embedded in
+                // it: if the structure escapes, its contents escape.
+                let mut embeds = BTreeSet::new();
+                for child in &node.children {
+                    embeds.extend(self.classify_value(*child).take_nodes());
+                }
+                ValueClass::Heap(embeds)
+            }
+            HirNodeKind::ObjectProperty => match node.children.get(1) {
+                Some(value) => self.classify_value(*value),
+                None => ValueClass::heap(),
+            },
+            HirNodeKind::Literal => {
+                if is_heap_layout(&self.infer_layout(node_id)) {
+                    ValueClass::heap()
+                } else {
+                    ValueClass::Scalar
+                }
+            }
+            // A ternary produces whichever branch runs (children[1..]).
+            HirNodeKind::ConditionalExpr => {
+                if node.children.len() < 2 {
+                    return ValueClass::heap();
+                }
+                node.children
+                    .iter()
+                    .skip(1)
+                    .fold(ValueClass::Scalar, |acc, child| {
+                        acc.join(self.classify_value(*child))
+                    })
+            }
+            // Logical ops return an operand; a sequence returns its last
+            // expression — join everything (fail closed on malformed).
+            HirNodeKind::LogicalExpr | HirNodeKind::SequenceExpr => {
+                if node.children.is_empty() {
+                    return ValueClass::heap();
+                }
+                node.children.iter().fold(ValueClass::Scalar, |acc, child| {
+                    acc.join(self.classify_value(*child))
+                })
+            }
+            HirNodeKind::BinaryExpr => match node.text.as_deref() {
+                // Genuinely scalar-producing operators. String `+` concat is
+                // scalar too in v1: runtime strings are global-arena host
+                // values and never dangle across a reset.
+                Some(
+                    "+" | "-" | "*" | "/" | "%" | "**" | "&" | "|" | "^" | "<<" | ">>" | ">>>"
+                    | "==" | "!=" | "===" | "!==" | "<" | "<=" | ">" | ">=",
+                ) => ValueClass::Scalar,
+                // `&&`/`||`/`??` parse as BinaryExpr and return an operand.
+                Some("&&" | "||" | "??") => {
+                    if node.children.is_empty() {
+                        return ValueClass::heap();
+                    }
+                    node.children.iter().fold(ValueClass::Scalar, |acc, child| {
+                        acc.join(self.classify_value(*child))
+                    })
+                }
+                _ => self.classify_children_as_heap(node_id),
+            },
+            HirNodeKind::UnaryExpr => {
+                if matches!(node.text.as_deref(), Some("!" | "-" | "+" | "~" | "typeof")) {
+                    ValueClass::Scalar
+                } else {
+                    self.classify_children_as_heap(node_id)
+                }
+            }
+            HirNodeKind::Ident => {
+                let name = node.text.as_deref().unwrap_or_default();
+                match self.resolve_binding(name) {
+                    Some((scope_index, _)) => {
+                        let owner = self
+                            .scope_stack
+                            .get(scope_index)
+                            .map(|scope| scope.label.clone())
+                            .unwrap_or_else(|| "<module>".to_string());
+                        ValueClass::DependsOn(
+                            std::iter::once(FlowNode::Binding {
+                                owner,
+                                name: name.to_string(),
+                            })
+                            .collect(),
+                        )
+                    }
+                    None => ValueClass::heap(),
+                }
+            }
+            HirNodeKind::CallExpr => {
+                let target = node
+                    .children
+                    .first()
+                    .map(|id| &self.nodes[id.0 as usize])
+                    .filter(|callee| callee.kind == HirNodeKind::Ident)
+                    .and_then(|callee| callee.text.as_deref())
+                    .and_then(|name| self.resolve_function_target(name));
+                match target {
+                    Some(function) => ValueClass::DependsOn(
+                        std::iter::once(FlowNode::Return { function }).collect(),
+                    ),
+                    None => ValueClass::heap(),
+                }
+            }
+            // A member read shares its base's structure: if the read value
+            // escapes, the base's contents escape with it.
+            HirNodeKind::MemberExpr | HirNodeKind::OptionalChain | HirNodeKind::ChainExpr => {
+                match node.children.first() {
+                    Some(base) => ValueClass::Heap(self.classify_value(*base).take_nodes()),
+                    None => ValueClass::heap(),
+                }
+            }
+            // Everything else (templates, new-expressions, unknown nodes):
+            // heap, carrying any identifier sources found underneath.
+            _ => self.classify_children_as_heap(node_id),
+        }
+    }
+
+    fn classify_children_as_heap(&self, node_id: HirNodeId) -> ValueClass {
+        let node = &self.nodes[node_id.0 as usize];
+        let mut embeds = BTreeSet::new();
+        for child in &node.children {
+            embeds.extend(self.classify_value(*child).take_nodes());
+        }
+        ValueClass::Heap(embeds)
     }
 }
 

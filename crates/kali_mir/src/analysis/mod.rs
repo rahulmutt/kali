@@ -264,6 +264,7 @@ pub(crate) struct OwnershipAnalyzer<'a> {
     pub(crate) scope_stack: Vec<ScopeState>,
     pub(crate) synthetic_function_counter: usize,
     pub(crate) arena: arena_gate::ArenaCollector,
+    pub(crate) flow: escape_flow::FlowCollector,
 }
 
 impl<'a> OwnershipAnalyzer<'a> {
@@ -278,6 +279,7 @@ impl<'a> OwnershipAnalyzer<'a> {
             scope_stack: Vec::new(),
             synthetic_function_counter: 0,
             arena: arena_gate::ArenaCollector::default(),
+            flow: escape_flow::FlowCollector::default(),
         }
     }
 

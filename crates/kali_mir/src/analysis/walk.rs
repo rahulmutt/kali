@@ -36,6 +36,15 @@ impl<'a> OwnershipAnalyzer<'a> {
                         ) {
                             self.arena_note_fresh_binding(name);
                         }
+                        let class = self.classify_value(init);
+                        let owner = self.current_scope_label();
+                        self.flow.note_value_into(
+                            crate::analysis::escape_flow::FlowNode::Binding {
+                                owner,
+                                name: name.clone(),
+                            },
+                            &class,
+                        );
                         let layout = self.infer_layout(init);
                         let functions_before = self.functions.len();
                         let direct_function_target = matches!(init_node.kind, HirNodeKind::Ident)
@@ -88,8 +97,10 @@ impl<'a> OwnershipAnalyzer<'a> {
                         },
                     );
                 }
-                for child in children.iter().take(params_end) {
+                for (param_index, child) in children.iter().take(params_end).enumerate() {
                     if let Some(param_name) = self.nodes[child.0 as usize].text.as_ref() {
+                        self.flow
+                            .note_param(&function_name, param_index, param_name);
                         if let Some(scope) = self.current_scope_mut() {
                             scope.define(
                                 param_name.clone(),
@@ -123,8 +134,10 @@ impl<'a> OwnershipAnalyzer<'a> {
                         },
                     );
                 }
-                for child in children.iter().take(params_end) {
+                for (param_index, child) in children.iter().take(params_end).enumerate() {
                     if let Some(param_name) = self.nodes[child.0 as usize].text.as_ref() {
+                        self.flow
+                            .note_param(&function_name, param_index, param_name);
                         if let Some(scope) = self.current_scope_mut() {
                             scope.define(
                                 param_name.clone(),

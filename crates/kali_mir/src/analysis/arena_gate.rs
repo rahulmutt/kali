@@ -19,6 +19,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use kali_common::ArenaTable;
 use kali_hir::{HirNodeId, HirNodeKind};
 
+use crate::analysis::escape_flow::ValueClass;
 use crate::{LayoutDescriptor, MirProgram, OwnershipAnalyzer};
 
 /// Host calls that consume (do not retain) their arguments, so a loop that only
@@ -191,6 +192,7 @@ impl<'a> OwnershipAnalyzer<'a> {
         let raw = self.arena.func(&label);
         if collision {
             raw.name_collision = true;
+            self.flow.poison_function(&label);
         }
         let ordinal = std::mem::take(&mut self.arena.loop_ordinal);
         let stack = std::mem::take(&mut self.arena.loop_stack);
@@ -331,13 +333,15 @@ impl<'a> OwnershipAnalyzer<'a> {
         };
         let callee_node = &self.nodes[callee.0 as usize];
         let mut whitelisted = false;
+        let mut known_target: Option<String> = None;
         match callee_node.kind {
             HirNodeKind::Ident => {
                 let name = callee_node.text.clone();
                 match name.and_then(|n| self.resolve_function_target(&n)) {
-                    Some(target) => self.arena_note_call(&target),
-                    // A bare identifier that is not a known function target is
-                    // an indirect/closure call ⇒ taint.
+                    Some(target) => {
+                        self.arena_note_call(&target);
+                        known_target = Some(target);
+                    }
                     None => self.arena_note_unknown_call(),
                 }
             }
@@ -359,12 +363,35 @@ impl<'a> OwnershipAnalyzer<'a> {
             _ => self.arena_note_unknown_call(),
         }
 
-        // A fresh literal handed to a non-whitelisted call might be retained by
-        // the callee ⇒ global (fail closed). Whitelisted host calls consume it.
-        if !whitelisted {
-            for arg in children.iter().skip(1).copied() {
-                if self.arena_is_fresh_literal(arg) {
-                    self.arena_note_global_site();
+        // Whitelisted host calls consume their arguments (never retain).
+        if whitelisted {
+            return;
+        }
+        let function = self.current_scope_label();
+        let open_ordinals: Vec<u32> = self.arena.loop_stack.iter().map(|l| l.ordinal).collect();
+        for (index, arg) in children.iter().skip(1).copied().enumerate() {
+            let class = self.classify_value(arg);
+            if class.is_scalar() {
+                continue;
+            }
+            match &known_target {
+                Some(target) => {
+                    // The value flows into the callee's positional param slot;
+                    // the veto (if any) is decided by the callee's summary.
+                    self.flow.note_value_into(
+                        crate::analysis::escape_flow::FlowNode::Param {
+                            function: target.clone(),
+                            index,
+                        },
+                        &class,
+                    );
+                    self.flow
+                        .push_arg_site(&function, target, index, class, open_ordinals.clone());
+                }
+                None => {
+                    // Unknown callee: assume it retains every argument.
+                    self.flow.note_taint_class(&class);
+                    self.flow.push_global_site(&function, class);
                 }
             }
         }
@@ -380,6 +407,36 @@ impl<'a> OwnershipAnalyzer<'a> {
         match left_kind {
             HirNodeKind::Ident => {
                 let name = left_node.text.clone().unwrap_or_default();
+                let class = self.classify_value(right);
+                let function = self.current_scope_label();
+                if let Some((scope_index, _)) = self.resolve_binding(&name) {
+                    let owner = self
+                        .scope_stack
+                        .get(scope_index)
+                        .map(|scope| scope.label.clone())
+                        .unwrap_or_else(|| "<module>".to_string());
+                    let target = crate::analysis::escape_flow::FlowNode::Binding {
+                        owner,
+                        name: name.clone(),
+                    };
+                    self.flow.note_value_into(target.clone(), &class);
+                    if scope_index < self.current_scope_index() {
+                        self.flow.note_taint_node(target);
+                        self.flow.push_global_site(&function, class.clone());
+                    }
+                } else {
+                    self.flow.push_global_site(&function, class.clone());
+                }
+                let outflow_ordinals: Vec<u32> = self
+                    .arena
+                    .loop_stack
+                    .iter()
+                    .filter(|l| !l.inner_bindings.contains(&name))
+                    .map(|l| l.ordinal)
+                    .collect();
+                for ordinal in outflow_ordinals {
+                    self.flow.push_outflow(&function, ordinal, class.clone());
+                }
                 // Store of a heap-holding value (fresh literal, an identifier
                 // bound to a heap layout, or anything unknown — `rhs_heap`
                 // treats `TaggedVal` as heap) into a binding that lives in a
@@ -437,6 +494,29 @@ impl<'a> OwnershipAnalyzer<'a> {
                 }
             }
             HirNodeKind::MemberExpr | HirNodeKind::OptionalChain | HirNodeKind::ChainExpr => {
+                let class = self.classify_value(right);
+                let function = self.current_scope_label();
+                self.flow.push_global_site(&function, class.clone());
+                self.flow.note_taint_class(&class);
+                let base_name = left_node
+                    .children
+                    .first()
+                    .map(|id| &self.nodes[id.0 as usize])
+                    .filter(|base| base.kind == HirNodeKind::Ident)
+                    .and_then(|base| base.text.clone());
+                let outflow_ordinals: Vec<u32> = self
+                    .arena
+                    .loop_stack
+                    .iter()
+                    .filter(|l| match &base_name {
+                        Some(base) => !l.inner_bindings.contains(base),
+                        None => true,
+                    })
+                    .map(|l| l.ordinal)
+                    .collect();
+                for ordinal in outflow_ordinals {
+                    self.flow.push_outflow(&function, ordinal, class.clone());
+                }
                 // Store into a field/element of a pre-existing object.
                 if rhs_fresh {
                     self.arena_note_global_site();
@@ -458,6 +538,15 @@ impl<'a> OwnershipAnalyzer<'a> {
                 }
             }
             _ => {
+                let class = self.classify_value(right);
+                let function = self.current_scope_label();
+                self.flow.push_global_site(&function, class.clone());
+                self.flow.note_taint_class(&class);
+                let all_ordinals: Vec<u32> =
+                    self.arena.loop_stack.iter().map(|l| l.ordinal).collect();
+                for ordinal in all_ordinals {
+                    self.flow.push_outflow(&function, ordinal, class.clone());
+                }
                 // Unknown assignment target (no destructuring surface exists
                 // today — anything unexpected lands here) ⇒ fail closed on
                 // BOTH axes: the heap value may flow anywhere.
@@ -471,6 +560,21 @@ impl<'a> OwnershipAnalyzer<'a> {
 
     /// A `return` of a heap value from inside a loop leaks it out of the arena.
     pub(crate) fn arena_note_return(&mut self, children: &[HirNodeId]) {
+        let function = self.current_scope_label();
+        let mut class = ValueClass::Scalar;
+        for child in children {
+            class = class.join(self.classify_value(*child));
+        }
+        self.flow.note_value_into(
+            crate::analysis::escape_flow::FlowNode::Return {
+                function: function.clone(),
+            },
+            &class,
+        );
+        let ordinals: Vec<u32> = self.arena.loop_stack.iter().map(|l| l.ordinal).collect();
+        for ordinal in ordinals {
+            self.flow.push_outflow(&function, ordinal, class.clone());
+        }
         if self.arena.loop_stack.is_empty() {
             return;
         }
