@@ -20,6 +20,10 @@
 //! may-heap unconditionally (a function may be called from contexts the
 //! graph cannot see); name-collided functions poison their param summaries.
 
+// TEMPORARY: consumers land in Tasks 2-4 of the interprocedural escape-flow
+// plan; remove at the Task 3 gate cutover.
+#![allow(dead_code)]
+
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 /// A dataflow node. Bindings are keyed (owner function label, name) — the
