@@ -291,24 +291,51 @@ impl<'a> OwnershipAnalyzer<'a> {
                 }
                 self.arena_exit_loop();
             }
-            HirNodeKind::ForStmt
-            | HirNodeKind::ForInStmt
-            | HirNodeKind::WhileStmt
-            | HirNodeKind::DoWhileStmt => {
+            HirNodeKind::ForStmt | HirNodeKind::WhileStmt | HirNodeKind::DoWhileStmt => {
                 // Pre-order loop ordinal (matches the order the LIR emitter
                 // walks loops). Child walking is identical to the default arm,
                 // so ownership verdicts are unchanged.
-                //
-                // ForInStmt's loop-head binder is NOT seeded here: a for-in
-                // binder is always a string property key (never an alias of
-                // the source object's values), so there is no shape where the
-                // missing-inflow gap below lets a heap value escape
-                // undetected (verified against the whole-branch review).
                 self.arena_enter_loop();
                 for child in children {
                     self.walk_scope_node(child, context);
                 }
                 self.arena_exit_loop();
+            }
+            HirNodeKind::ForInStmt => {
+                // Deliberately NOT `arena_enter_loop()`: codegen's
+                // `loop_preorder_ordinals` (`kali_codegen::lower`) has no LIR
+                // text to recognize a for-in loop by (its `Branch` node
+                // carries no distinguishing text, same as a plain `if`), so
+                // it never advances its ordinal counter for one. If this walk
+                // assigned for-in an ordinal here, MIR's per-function ordinal
+                // sequence would run one-ahead of codegen's for every REAL
+                // loop lexically following a for-in in the same function, and
+                // `loop_arena(fn, ordinal)` would then be queried against the
+                // wrong loop entirely — a fail-OPEN ordinal desync, not merely
+                // "for-in itself has no arena support" (a prior version of
+                // this comment wrongly assumed the two walks "skip for-in
+                // identically"; they did not — this walk assigned it an
+                // ordinal while codegen silently skipped over it).
+                //
+                // This does not weaken escape/veto tracking: `arena_note_*`
+                // (alloc / call / assignment / return) all record their facts
+                // against the current function unconditionally AND every
+                // `LoopRaw` still open on `loop_stack` — i.e. any REAL
+                // enclosing loop. Not pushing a `LoopRaw` for for-in itself
+                // only removes an entry codegen could never have consumed
+                // anyway (for-in never gets an arena); it does not affect
+                // outflow propagation to enclosing loops or to the function's
+                // own fate lattice. Fail-closed is preserved.
+                //
+                // ForInStmt's loop-head binder is NOT seeded (may-heap) here
+                // either: a for-in binder is always a string property key
+                // (never an alias of the source object's values), so there is
+                // no shape where the missing-inflow gap lets a heap value
+                // escape undetected (verified against the whole-branch
+                // review).
+                for child in children {
+                    self.walk_scope_node(child, context);
+                }
             }
             _ => {
                 for child in children {

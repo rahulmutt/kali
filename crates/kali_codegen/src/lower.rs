@@ -1134,15 +1134,22 @@ pub(crate) fn is_function_like(nodes: &[LirNode], id: LirNodeId) -> bool {
 /// from each other (see Task 6's brief: a divergence here would install an
 /// arena on the wrong loop — a use-after-reset miscompile).
 ///
-/// Known gap (pre-existing, orthogonal to loop arenas): a `for-in` loop's HIR
-/// node carries no distinguishing `text` (same as an `if` statement without
-/// one), so it is invisible to this text-based recognizer even though the
-/// `kali_mir` walk assigns it an ordinal too. `for-in` is already unsupported
-/// by codegen today (it falls through `emit_node`'s `Branch` match to
-/// `emit_branch`, i.e. is silently mis-lowered as an `if`, independently of
-/// arenas), so no ordinal mismatch this could cause is newly introduced by
-/// Task 6 — but a future `for-in` implementation must give codegen a way to
-/// recognize it here too.
+/// `for-in` is deliberately skipped by BOTH walks, and must stay that way: a
+/// `for-in` loop's HIR/LIR node carries no distinguishing `text` (same as an
+/// `if` statement without one), so it is invisible to this text-based
+/// recognizer. `kali_mir::analysis::walk` mirrors that on purpose — its
+/// `ForInStmt` arm does NOT call `arena_enter_loop()` — precisely so it never
+/// advances its ordinal counter past a for-in either. (An earlier revision of
+/// this comment claimed the `kali_mir` walk assigned for-in an ordinal too,
+/// on the theory that a mismatch there was harmless because for-in itself is
+/// unsupported by codegen; that was wrong — assigning for-in an ordinal on
+/// only one side would desync every REAL loop lexically following it in the
+/// same function, sending `loop_arena(fn, ordinal)` lookups to the wrong
+/// loop, not just failing to support for-in's own.) `for-in` is still
+/// unsupported by codegen today for unrelated reasons (it falls through
+/// `emit_node`'s `Branch` match to `emit_branch`, i.e. is silently
+/// mis-lowered as an `if`) — but a future `for-in` implementation must give
+/// BOTH walks a way to recognize it, together, not just this one.
 pub(crate) fn loop_preorder_ordinals(
     nodes: &[LirNode],
     body: LirNodeId,

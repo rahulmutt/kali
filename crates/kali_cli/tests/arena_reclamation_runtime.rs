@@ -293,6 +293,14 @@ main();
 fn store_to_outer_fails_closed() {
     // The fresh object escapes the iteration into an outer-declared binding:
     // the gate must veto this loop's arena; the value must survive the loop.
+    // NOTE: this test's own veto genuinely fires, but its final `mk(100)`
+    // would also survive under a WRONG grant (a top-of-iteration reset only
+    // recycles the *previous* iteration's pages, so the *last* iteration's
+    // allocation is never actually clobbered) — it does not by itself prove
+    // reset-on-escape. `module_global_store_fails_closed` above is the real
+    // mis-grant detector: it reads the escaped value from a container built
+    // BEFORE the loop, so a wrong grant recycles it out from under a still-
+    // live read.
     let source = write_temp_source(
         "store_outer",
         r#"function mk(v) {
@@ -355,6 +363,75 @@ main();
     );
     // rowSum = 3 * (0..199 sum) = 3 * 19900 = 59700; total = 50 * 59700
     assert_eq!(String::from_utf8_lossy(&output.stdout), "2985000\n");
+}
+
+#[test]
+fn nested_arena_loops_with_inner_break_is_sound() {
+    // Regression pin for the break double-release bug (whole-branch review
+    // finding 1): an unlabeled `break` used to emit its OWN inline arena
+    // release in `emit_break_or_continue`, and that release's `Br` lands
+    // exactly where `emit_loop` already emits its own unconditional
+    // normal-exit release — so the same `ArenaFrame` was released twice.
+    //
+    // The bug is invisible with a single arena'd loop (`break_inside_arena_loop_is_sound`
+    // above): with nothing enclosing it, the frame's saved page/cursor/limit
+    // are all zero, so a second `__arena_reset` walking an empty page list is
+    // a harmless no-op. It only corrupts state when the loop that breaks is
+    // NESTED inside an outer loop that has ALREADY allocated (a non-zero
+    // saved page) at the moment the inner loop opens: the inner frame's
+    // saved trio is then the OUTER arena's own live page/cursor/limit. The
+    // (buggy) inline release correctly recycles the inner loop's own pages
+    // and restores the trio to the outer arena's values — then falling
+    // through into `emit_loop`'s unconditional release runs `__arena_reset`
+    // A SECOND time, this time against the now-current (just-restored)
+    // OUTER arena, splicing the outer loop's still-live pages onto the free
+    // list out from under it: a corrupted free list / use-after-free, not
+    // merely "the inner loop's own pages released twice".
+    //
+    // `outerObj` is allocated directly in the OUTER loop's body, OUTSIDE the
+    // inner loop, every outer iteration, so the outer arena's saved trio is
+    // always non-zero by the time the inner loop opens. The inner loop
+    // allocates its own `cell` objects and unconditionally breaks partway
+    // through, then `outerObj` is read back immediately after the inner loop
+    // closes, every outer iteration (20 of them, to give the corrupted free
+    // list many chances to alias a still-live page into a later allocation
+    // and clobber `outerObj`'s fields before they're read).
+    let source = write_temp_source(
+        "nested_inner_break",
+        r#"function mk(v) {
+  return { a: v, b: v + 1 };
+}
+function main() {
+  let total = 0;
+  for (let outer = 0; outer < 20; outer = outer + 1) {
+    const outerObj = mk(outer);
+    for (let inner = 0; inner < 30; inner = inner + 1) {
+      const cell = mk(inner);
+      if (inner === 10) {
+        break;
+      }
+    }
+    total = total + outerObj.a + outerObj.b;
+  }
+  console.log(total);
+}
+main();
+"#,
+    );
+    let output = std::process::Command::new(kali_bin())
+        .arg("run")
+        .arg(&source)
+        .output()
+        .expect("run kali");
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    // outerObj = mk(outer) => a=outer, b=outer+1, so each iteration
+    // contributes 2*outer + 1; total = sum_{outer=0}^{19} (2*outer + 1)
+    // = 2*(0+1+...+19) + 20 = 2*190 + 20 = 400.
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "400\n");
 }
 
 #[test]

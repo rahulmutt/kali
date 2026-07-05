@@ -53,38 +53,25 @@ impl<'a> FunctionEmitter<'a> {
         };
         let depth = self.control_frame_depth(target_index);
 
-        // `break` unwinds any arena this loop itself owns before jumping out.
-        // Unlabeled break/continue always target the innermost open loop
-        // (labels are rejected above), so at most the TOP `arena_frames`
-        // entry can belong to that loop — but walk down defensively (`take_while`
-        // on "at or inside" the target loop_frame index) rather than assuming
-        // exactly one match. This is intentionally redundant with the release
-        // `emit_loop` already emits unconditionally right after the loop's
-        // closing `End`s (which a `break`'s `Br` also lands at — wasm branches
-        // to a `block` land immediately after its `End`, same target as the
-        // loop's own normal-exit fallthrough): the inline release here only
-        // executes on the branch actually taken (the break path), while
-        // `emit_loop`'s still emits unconditionally on every path, so
-        // `arena_frames` must NOT be popped here — only Step 3's own
-        // `arena_frames.pop()` at the loop's close retires the frame.
-        if !is_continue {
-            let target_loop_frame_idx = self.loop_frames.len() - 1;
-            let to_release: Vec<ArenaFrame> = self
-                .arena_frames
-                .iter()
-                .rev()
-                .take_while(|frame| {
-                    frame
-                        .loop_frame_index
-                        .is_some_and(|idx| idx >= target_loop_frame_idx)
-                })
-                .copied()
-                .collect();
-            for frame in &to_release {
-                self.emit_arena_release(function, frame);
-            }
-        }
-
+        // No inline arena release here — this is intentional, not a gap.
+        // Labels are rejected above, so an unlabeled `break`/`continue`
+        // always targets the innermost open loop, and a `break`'s `Br` lands
+        // exactly where `emit_loop` already emits its own unconditional
+        // normal-exit release (`arena_frames.pop()` + `emit_arena_release`,
+        // right after that loop's closing `End`s — a wasm branch to a
+        // `block`'s label lands immediately after its `End`, the same target
+        // as normal fallthrough). An earlier version of this function ALSO
+        // emitted an inline release here, reasoning that it "only executes on
+        // the break path" — true, but irrelevant: the break path then falls
+        // straight into `emit_loop`'s unconditional release too, so the same
+        // `ArenaFrame` got released twice. For a loop nested inside an
+        // already-allocating enclosing arena, the second `__arena_reset` ran
+        // against the *enclosing* arena's now-current (restored) page list,
+        // splicing its still-live pages onto the free list — a corrupted
+        // free list / use-after-free. Releasing exactly once here — via the
+        // fallthrough into `emit_loop`'s own close — is correct for both the
+        // normal-exit path and the break path, and `continue` never releases
+        // anything (it re-enters the same iteration, never leaving the loop).
         function.instruction(&Instruction::Br(depth));
         EmittedValue {
             produced: false,
