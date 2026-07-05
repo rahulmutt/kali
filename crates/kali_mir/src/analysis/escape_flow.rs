@@ -487,9 +487,21 @@ impl<'a> OwnershipAnalyzer<'a> {
 /// The fourth disjunct of the engine's escape judgment: a binding whose value
 /// the fixpoint proves stored beyond a dynamic extent escapes, even when the
 /// walk saw only plain-ident dataflow (`sink = p`, alias chains, hoisted
-/// helpers). Mirrors `finalise_binding`'s ownership mapping; only ever flips
-/// verdicts toward escaping. Module-scope bindings are storage roots, not
-/// escapees — skipped.
+/// helpers). Only ever flips verdicts toward escaping. Module-scope bindings
+/// are storage roots, not escapees — skipped.
+///
+/// The `captured_by.is_empty()` check below is DELIBERATELY not the same
+/// predicate `finalise_binding` uses: that function keys `SharedHeap` on
+/// `capture_escapes` (some capturing function itself escapes), not on
+/// `captured_by` being non-empty. This post-pass only ever runs on bindings
+/// `finalise_binding` already left at `escapes == false` — which means
+/// `capture_escapes` was known false for them — so using the coarser
+/// `!captured_by.is_empty()` here can only pick `SharedHeap` where
+/// `finalise_binding` would have picked `OwnedHeap` (never the reverse). That
+/// is strictly more conservative (multi-owner-safe representation for a
+/// value that may in fact be uniquely owned), never less, so it stays sound
+/// with the fail-closed invariant even though it diverges from
+/// `finalise_binding`'s exact mapping.
 pub(crate) fn apply_escape_verdicts(functions: &mut [MirFunction], solution: &FlowSolution) {
     for function in functions.iter_mut() {
         if function.kind == MirFunctionKind::Module {

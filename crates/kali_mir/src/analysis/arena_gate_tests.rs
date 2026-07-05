@@ -604,6 +604,56 @@ fn ineligible_on_param_embedded_in_literal_stored_outward() {
     assert!(!table.opens_arena("f"));
 }
 
+// --- PROBE (finding 1, final whole-branch review) ---------------------------
+
+#[test]
+fn ineligible_on_for_of_loop_var_escape() {
+    // A for-of loop-head binder (`x`) has no init child, so the only place a
+    // binding gets a may-heap seed (VarDeclarator-with-init) never runs for
+    // it; `precollect_scope_bindings` still defines the name, so an unseeded
+    // binder was judged definitely-not-heap and `sink = x` failed to veto —
+    // a fail-open regression versus the deleted `arena_is_heap_value`, which
+    // fell back to the binding's layout (TaggedVal/unknown => heap) here.
+    // `x` aliases an arena object from `items` and escapes to module `sink`,
+    // so `f` must be vetoed.
+    let mir = analyze(
+        "let sink;
+         function f() {
+           const items = [{ a: 1 }, { a: 2 }];
+           for (const x of items) { sink = x; }
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(!table.arena_eligible("f"));
+}
+
+// NOTE: for-in was investigated the same way (see the whole-branch review's
+// finding 1) and does NOT reproduce: a for-in loop var is always a string
+// property key, never an alias of the source object's values, so there is no
+// shape where the missing-inflow gap lets a heap value escape undetected.
+// `compute_arena_table` correctly keeps `f` eligible when the loop var is
+// merely stored (verified: `arena_eligible("f") == true` for `for (const k in
+// items) { sink = k; }` with `items` a fresh array of objects) — no fix
+// needed for for-in.
+
+#[test]
+fn ineligible_on_fresh_literal_arg_to_escaping_callee() {
+    // The Task-2->Task-3 window: a FRESH OBJECT LITERAL passed directly as a
+    // call argument to a known callee whose param escapes (`cache = p`).
+    // Existing pins only cover call-result (`stash(x)`) and reassigned-ident
+    // (`x = mk()`) forms flowing into an escaping param; this pins the
+    // literal-direct form so `push_arg_site` -> `into_facts` closes it too.
+    let mir = analyze(
+        "let cache;
+         function keep(p) { cache = p; }
+         function f() {
+           keep({ v: 1 });
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(!table.arena_eligible("f"));
+}
+
 #[test]
 fn ineligible_on_heap_ident_arg_to_unknown_callee() {
     // Old behavior only vetoed FRESH LITERAL args to unknown callees; a
