@@ -157,8 +157,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
 
     // Keep the emitted order deterministic: imported registration hook first, synthetic entry
     // second, then named functions in source order.
-    let mut all_functions = Vec::new();
-    all_functions.push(FunctionPlan {
+    let mut all_functions = vec![FunctionPlan {
         name: "_start".to_string(),
         params: Vec::new(),
         locals: collect_function_locals(
@@ -172,7 +171,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         result: false,
         is_entry: true,
         flavor: None,
-    });
+    }];
     // Synthetic bump allocator `__alloc(size: i32) -> i32`, occupying a fixed
     // slot right after `_start` and before any named (source-defined)
     // function. Its body (and its three siblings' below) is hand-emitted by
