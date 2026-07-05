@@ -339,6 +339,33 @@ impl<'a> FunctionEmitter<'a> {
                 if let Some(aggregate_id) = self.resolve_literal_aggregate(arg) {
                     let aggregate = self.node(aggregate_id).clone();
                     if let Some(field_value) = self.object_literal_field(&aggregate, op) {
+                        // The fold lane found a structural field. Unknown
+                        // fields on a KNOWN object literal stay fold-first
+                        // (that `None` case falls all the way through to the
+                        // pre-existing warning+0 fallback below, unchanged —
+                        // see `unknown_field_read_is_fold_first_until_materialized`).
+                        // But if the field's OWN value resolves (through the
+                        // same const-fold alias chain) to ANOTHER unlabeled
+                        // object-literal aggregate with no proven runtime
+                        // shape, emitting it directly falls into
+                        // `emit_aggregate_literal`'s drop-only fallback, which
+                        // always pushes a placeholder `0` — silently wrong for
+                        // a value read (only correct in a discarded-statement
+                        // position). REJECT-DON'T-MISCOMPILE: reject that
+                        // specific dead end at compile time instead.
+                        if self.fold_lane_field_value_is_dead_end(field_value) {
+                            self.diagnostics.push(Diagnostic::error(
+                                e5::FEATURE_UNAVAILABLE as u32,
+                                format!(
+                                    "reading property '{op}' of a value with no statically inferred object shape is unavailable in the current phase"
+                                ),
+                            ));
+                            function.instruction(&Instruction::Unreachable);
+                            return EmittedValue {
+                                produced: false,
+                                shape: ValueShape::Unknown,
+                            };
+                        }
                         return self.emit_node(function, field_value, true);
                     }
                 }
@@ -357,6 +384,51 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::Unknown,
                 }
             }
+        }
+    }
+
+    /// True when `field_value` — a field found via the compile-time fold lane
+    /// (`object_literal_field`) — itself resolves, through the same
+    /// const-fold alias chain (`resolve_literal_aggregate`), to an unlabeled
+    /// object-literal aggregate. Such a node has no proven runtime shape and
+    /// no representable scalar value: emitting it directly would silently
+    /// fall into `emit_aggregate_literal`'s drop-only fallback (a placeholder
+    /// `0`), so callers must treat this as a fold-lane dead end rather than
+    /// emit it as-is. A field value that's a plain literal, a local, or any
+    /// other already-supported shape resolves to something that is NOT an
+    /// object literal here, so this only flags genuinely unresolved nested
+    /// object references (a `const` object literal whose field value is a
+    /// `const` binding to another, unmaterialized object literal).
+    ///
+    /// Deliberately scoped to the *identifier-alias* shape only: the field
+    /// value must be a bare identifier whose const-fold binding
+    /// (`self.bindings`) resolves to an object literal. A field value that IS
+    /// directly an inline nested object literal (`{ nested: { count: 1 } }`)
+    /// is excluded — that shape is today's green fold-lane surface (the
+    /// web-baseline structured-clone fixtures read such fields and tolerate
+    /// the placeholder), and the shape inference's structural pending-conflict
+    /// gate (`record_object_literal`'s nested-object arm) owns its promotion
+    /// story. (Note the two shapes CANNOT be told apart by unwrapping first:
+    /// a single-property object literal is itself a None-text single-child
+    /// `Value` node, indistinguishable from a transparent wrapper, so this
+    /// matches the identifier positively instead of excluding literals.)
+    /// Only the identifier-alias indirection, which demonstrably produces a
+    /// wrong printed answer (`t.left === null` → `true` for a non-null
+    /// field), is rejected here.
+    pub(crate) fn fold_lane_field_value_is_dead_end(&self, field_value: LirNodeId) -> bool {
+        let node = self.node(field_value);
+        if node.kind != LirNodeKind::Value || !node.children.is_empty() {
+            return false;
+        }
+        let Some(name) = node.text.as_deref() else {
+            return false;
+        };
+        let Some(&bound) = self.bindings.get(name) else {
+            return false;
+        };
+        match self.resolve_literal_aggregate(bound) {
+            Some(resolved) => self.is_object_literal(&self.node(resolved).clone()),
+            None => false,
         }
     }
 

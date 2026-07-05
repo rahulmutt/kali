@@ -324,3 +324,27 @@ fn object_enumeration_delete_reinsert_style_literal_stays_on_the_fold_lane() {
         t.shape_conflicts()
     );
 }
+
+#[test]
+fn call_result_argument_seeds_callee_param_object_shape() {
+    // No bound-identifier call site anywhere: `check`'s param `t` must get
+    // its object shape from the call-result argument `mk()` itself.
+    let t = reprs(
+        r#"function mk() {
+  return { left: null, right: null };
+}
+function check(t) {
+  if (t.left === null) { return 1; }
+  return 2;
+}
+function main() {
+  console.log(check(mk()));
+}
+main();
+"#,
+    );
+    assert!(
+        matches!(t.param("check", 0), Repr::Object(_)),
+        "param must receive the object shape from the call-result argument"
+    );
+}
