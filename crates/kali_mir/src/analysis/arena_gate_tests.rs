@@ -435,6 +435,18 @@ fn ineligible_on_closure_mediated_launder() {
 // interprocedural may-heap/escape propagation — out of scope for a per-walk
 // patch. Run with `cargo test -p kali_mir arena_gate -- --ignored` to see
 // them fail.
+//
+// BOUNDARY STATEMENT (corrected round 5b — read this before consuming the
+// table in codegen): the gate is sound on BOTH axes for programs without
+// (a) hoisted-function-after-read launders, (b) callees that plain-ident-
+// store heap params/captures outward; both shapes corrupt arena_eligible
+// ITSELF, and every consumer inherits the hole — opens_arena AND loop_arena
+// (a driver loop calling the wrongly-eligible f is granted a loop arena:
+// reaches_alloc_transitively("f") is true and the only available veto,
+// !eligible("f"), is exactly the corrupted fact). There is no axis
+// containment, only pattern containment. Each pin below therefore also
+// asserts the loop-axis form via a driver loop; the future interprocedural
+// fix must clear ALL assertions in both pins.
 
 #[test]
 #[ignore = "known fail-open: walk-order launder via hoisted function; needs order-independent (fixpoint) classification — see task-4 round-5 report"]
@@ -453,9 +465,15 @@ fn ineligible_on_hoisted_function_launder() {
            function helper() { x = mk(); }
            let s = local.w;
            return s;
+         }
+         function g(n) {
+           for (let i = 0; i < n; i = i + 1) { f(); }
+           return 0;
          }",
     );
     let table = compute_arena_table(&mir);
+    // Loop axis first: the driver loop inherits the corrupted eligible("f").
+    assert!(!table.loop_arena("g", 0));
     assert!(!table.opens_arena("f"));
     assert!(!table.arena_eligible("f"));
 }
@@ -477,9 +495,15 @@ fn ineligible_on_param_mediated_escape() {
            retain(x);
            let s = local.w;
            return s;
+         }
+         function g(n) {
+           for (let i = 0; i < n; i = i + 1) { f(); }
+           return 0;
          }",
     );
     let table = compute_arena_table(&mir);
+    // Loop axis first: the driver loop inherits the corrupted eligible("f").
+    assert!(!table.loop_arena("g", 0));
     assert!(!table.opens_arena("f"));
     assert!(!table.arena_eligible("f"));
 }
