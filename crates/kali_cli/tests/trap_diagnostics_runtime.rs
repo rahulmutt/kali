@@ -160,3 +160,25 @@ fn stdout_emitted_before_a_trap_is_not_lost() {
     );
     assert!(String::from_utf8_lossy(&output.stderr).contains("E4003"));
 }
+
+#[test]
+fn quiet_run_still_reports_the_trap_diagnostic_on_stderr() {
+    // `--quiet` suppresses status text and output replay, not error output:
+    // a trap must never become a silent nonzero exit.
+    let source = write_temp_source(
+        "quiet_trap",
+        "let i = 0;\nwhile (true) {\n  i = i + 1;\n}\n",
+    );
+    let output = std::process::Command::new(kali_bin())
+        .arg("run")
+        .arg("--quiet")
+        .arg(&source)
+        .output()
+        .expect("run kali");
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("E4003"),
+        "trap diagnostics must survive --quiet; got stderr: {stderr:?}"
+    );
+}

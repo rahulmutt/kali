@@ -241,7 +241,7 @@ pub(crate) fn run_command(
                 });
                 validate_run_payload_value(&payload)
                     .expect("constructed run payload must satisfy schema-v1 shape");
-                let (errors, warnings) = match outcome.trap.clone() {
+                let (errors, warnings) = match outcome.trap {
                     Some(diagnostic) => shared::single_diagnostic_to_values(
                         diagnostic,
                         Some(&source),
@@ -274,9 +274,11 @@ pub(crate) fn run_command(
                     if !outcome.stderr.is_empty() {
                         eprint!("{}", outcome.stderr);
                     }
-                    if let Some(diagnostic) = &outcome.trap {
-                        eprintln!("{}", diagnostic);
-                    }
+                }
+                // `--quiet` suppresses status text and output replay, not
+                // error output: the trap diagnostic must always reach stderr.
+                if let Some(diagnostic) = &outcome.trap {
+                    eprintln!("{}", diagnostic);
                 }
             }
             if outcome.exit_code == 0 {
