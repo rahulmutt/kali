@@ -493,3 +493,215 @@ main();
     // per-iteration value = t + 2t + marker.a - marker.a = 3*i; sum = 3 * (0..199 sum) = 59700.
     assert_eq!(String::from_utf8_lossy(&output.stdout), "59700\n");
 }
+
+// --- Task 7: function-body arenas -----------------------------------------
+
+#[test]
+fn function_scratch_is_reclaimed() {
+    // `scratchSum` builds a single ~64KB `new Array` of scratch, fills and
+    // sums it, and returns a scalar — the array dies entirely inside the
+    // call (never returned, never stored anywhere reachable after the call
+    // returns). Crucially there is NO loop *inside* `scratchSum` that
+    // allocates: the two `for` loops here only read/write the ALREADY-
+    // allocated `buf`'s existing elements, so Task 6's already-shipped
+    // per-loop arenas have nothing of their own to reclaim in this function
+    // — the only mechanism that CAN recycle this ~64KB per call is a Task-7
+    // per-call FUNCTION arena. `marker` (declared, never read again) exists
+    // solely so `scratchSum` has a `kali_mir`-recognized object-literal
+    // allocation site: exactly like `spans_inside_arena_loop`'s `mkSpan`
+    // above, a bare `new Array(n)` is invisible to the escape gate's
+    // `allocates` bit on its own, so without `marker` `scratchSum` would
+    // never become arena-eligible at all and this test would (fail-closed,
+    // correctly) never reclaim regardless of Task 7. (An earlier draft
+    // folded `marker.tag - marker.tag` into the return value to net zero —
+    // disassembly showed an earlier compiler stage constant-folding that
+    // whole expression to a literal `0` and dropping `marker`'s allocation
+    // entirely, silently undoing the arena-eligibility trick. Leaving
+    // `marker` truly unread, exactly like `mkSpan`'s own precedent, avoids
+    // that.)
+    //
+    // `scratchSum` is called 300 times from a loop in `main`. That loop's OWN
+    // arena is explicitly vetoed by `taint`: a factory whose returned OBJECT
+    // is stored into `taints`, an array allocated BEFORE the loop — the same
+    // store-to-outer-container pattern `module_global_store_fails_closed`
+    // uses to force a veto (confirmed by disassembly during development: with
+    // `taint`'s escaping store present, `main`'s loop emits no
+    // save/zero-trio prologue and no `__arena_reset` call at all around the
+    // `call` loop). This is NOT optional set dressing — it is the whole
+    // point of this test: a plain `for` loop calling a scalar-returning
+    // function (no escaping store anywhere) was tried first and the
+    // escape/arena gate correctly granted THAT loop its own per-iteration
+    // arena (Task 6, interprocedural: nothing escapes the call, so the loop
+    // safely reclaims `scratchSum`'s internal allocations between calls
+    // without any Task-7 code running at all) — which made an early
+    // version of this test pass even against the pre-Task-7 codegen,
+    // defeating it as a TDD RED/GREEN pin. With the loop's own arena
+    // genuinely vetoed via `taint`, NOTHING but a Task-7 per-call function
+    // arena on `scratchSum` itself can reclaim its scratch, confirmed by
+    // re-running this exact fixture against the pre-Task-7 codegen and
+    // observing a real E4000 allocation-failure trap (see the task report).
+    //
+    // Cumulative: 300 calls x ~64KB ~= 18.3MB, over 2x an 8MB memory cap —
+    // passes only if the per-call function arena actually reclaims between
+    // calls. (The fill and sum are folded into ONE loop over `buf`, not two,
+    // to keep the total instruction count in the same ballpark as the
+    // already-passing `per_iteration_loop_allocations_are_reclaimed` above
+    // rather than tripping the CPU-fuel guard instead of the memory cap.)
+    let source = write_temp_source(
+        "function_scratch",
+        r#"function taint(v) {
+  return { v: v };
+}
+function scratchSum(seed) {
+  const marker = { tag: seed };
+  const buf = new Array(8000);
+  let sum = 0;
+  for (let i = 0; i < 8000; i = i + 1) {
+    buf[i] = seed + i;
+    sum = sum + buf[i];
+  }
+  return sum;
+}
+function main() {
+  const taints = new Array(1);
+  let total = 0;
+  for (let call = 0; call < 300; call = call + 1) {
+    taints[0] = taint(call);
+    total = total + scratchSum(call);
+  }
+  console.log(total + taints[0].v - taints[0].v);
+}
+main();
+"#,
+    );
+    let policy = write_temp_policy_json("function_scratch_mem8", MEM8_POLICY_JSON);
+    let output = std::process::Command::new(kali_bin())
+        .arg("run")
+        .arg("--sandbox")
+        .arg(&policy)
+        .arg(&source)
+        .output()
+        .expect("run kali");
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    // scratchSum(seed) = sum_{i=0}^{7999} (seed+i) = 8000*seed + 31996000.
+    // total = sum_{call=0}^{299} scratchSum(call)
+    //       = 8000 * (0+...+299) + 300*31996000
+    //       = 8000*44850 + 9598800000 = 358800000 + 9598800000
+    //       = 9957600000.
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "9957600000\n");
+}
+
+#[test]
+fn recursive_function_arena_sound() {
+    // `recurse` opens a function-body arena (its `scratch` object literal is
+    // read into a scalar and then discarded — ScopeLocal fate, never
+    // returned — so the gate grants it `opens_arena`, unlike a factory that
+    // returns its allocation). Recursing to depth 500 means up to 501
+    // function-arena frames are simultaneously OPEN (each recursive call's
+    // prologue runs before the next level's, and none release until their
+    // own call returns): this pins that the saved-trio locals for each stack
+    // frame are genuinely separate wasm locals (one physical local slot per
+    // ACTIVATION, not a single shared slot silently clobbered by the next
+    // nested call) — if they aliased across frames, an inner frame's release
+    // would restore the WRONG (some other frame's) saved arena state into
+    // the globals, corrupting every shallower frame's still-live scratch and
+    // producing a wrong sum (or a trap), not just the right one by luck.
+    let source = write_temp_source(
+        "recursive_function_arena",
+        r#"function recurse(depth) {
+  const scratch = { a: depth, b: depth * 2, c: depth * 3 };
+  let sum = scratch.a + scratch.b + scratch.c;
+  if (depth <= 0) {
+    return sum;
+  }
+  return sum + recurse(depth - 1);
+}
+function main() {
+  console.log(recurse(500));
+}
+main();
+"#,
+    );
+    let output = std::process::Command::new(kali_bin())
+        .arg("run")
+        .arg(&source)
+        .output()
+        .expect("run kali");
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    // Per-frame sum at depth d = d + 2d + 3d = 6d. total = sum_{d=0}^{500} 6d
+    // = 6 * (500*501/2) = 6*125250 = 751500.
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "751500\n");
+}
+
+#[test]
+fn factory_functions_get_no_arena() {
+    // BINARY-TREES-CRITICAL (RISK 1): a `bottomUpTree`-shaped factory — every
+    // site inside it is Returned, never ScopeLocal (its own object literal
+    // IS the return value, and the two recursive calls' results are threaded
+    // straight into the returned object's fields) — called from a loop in
+    // `main` that itself opens a per-ITERATION arena (Task 6): the tree is
+    // built and checked, then discarded before the next iteration, a
+    // classic loop-arena grant.
+    //
+    // If `bottomUpTree` were WRONGLY granted its own per-call FUNCTION arena
+    // (this task's new machinery), each recursive call's returned subtree
+    // would be allocated from a per-call arena that gets `__arena_reset` the
+    // instant that call returns — so by the time the PARENT call reads
+    // `left`/`right` back and returns its own (parent-level) object, the
+    // child calls' pages are already back on the free list and get reused
+    // (and overwritten) by the very next sibling call or the parent's own
+    // allocation, corrupting the tree before `itemCheck` ever walks it. That
+    // failure mode produces a wrong `total`, not a crash, which is exactly
+    // why this test pins an EXACT output rather than just "doesn't trap".
+    //
+    // This test's job is to prove the codegen consumes `opens_arena`
+    // faithfully — i.e., it does NOT independently second-guess or
+    // over-grant beyond what the escape gate (kali_mir, already shipped)
+    // decided.
+    let source = write_temp_source(
+        "factory_no_arena",
+        r#"function bottomUpTree(depth) {
+  if (depth > 0) {
+    return { left: bottomUpTree(depth - 1), right: bottomUpTree(depth - 1) };
+  }
+  return { left: null, right: null };
+}
+function itemCheck(t) {
+  if (t.left === null) {
+    return 1;
+  }
+  return 1 + itemCheck(t.left) + itemCheck(t.right);
+}
+function main() {
+  let total = 0;
+  for (let i = 0; i < 100; i = i + 1) {
+    const tree = bottomUpTree(10);
+    total = total + itemCheck(tree);
+  }
+  console.log(total);
+}
+main();
+"#,
+    );
+    let output = std::process::Command::new(kali_bin())
+        .arg("run")
+        .arg(&source)
+        .output()
+        .expect("run kali");
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    // A full depth-10 tree has itemCheck = 2^11 - 1 = 2047 nodes;
+    // 100 iterations => 100 * 2047 = 204700.
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "204700\n");
+}

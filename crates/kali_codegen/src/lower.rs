@@ -1176,6 +1176,26 @@ pub(crate) fn arena_save_local_names(ordinal: u32) -> (String, String, String) {
     )
 }
 
+/// Names of the three synthetic i32 locals that save/restore the
+/// current-arena trio (`g1`/`g2`/`g3`) around a per-call FUNCTION-BODY arena
+/// (Task 7) — the sibling of `arena_save_local_names` above for the single
+/// function-level `ArenaFrame` (`loop_frame_index: None`) a function opens on
+/// entry, rather than a per-loop one. Fixed (not keyed by an ordinal) since a
+/// function has at most one such frame. Shared by `collect_function_locals`
+/// (which reserves these slots when `ArenaTable::opens_arena` grants this
+/// function one) and `control_flow.rs::emit_function_arena_prologue`/
+/// `emit_function_arena_epilogue` (which read them back by name through
+/// `FunctionEmitter::locals`), so the two cannot disagree on naming. The
+/// `#fn` suffix can never collide with a per-loop name: `arena_save_local_names`
+/// only ever formats a `u32` ordinal there, never the literal text `fn`.
+pub(crate) fn arena_save_local_names_for_function() -> (String, String, String) {
+    (
+        "__arena_save_page#fn".to_string(),
+        "__arena_save_cursor#fn".to_string(),
+        "__arena_save_limit#fn".to_string(),
+    )
+}
+
 /// True for a local name synthesized by `arena_save_local_names` — these hold
 /// a saved copy of an i32 global (`g1`/`g2`/`g3`) and must be declared as i32
 /// locals regardless of what `ReprTable` would otherwise infer for an
@@ -1258,6 +1278,17 @@ pub(crate) fn collect_function_locals(
             locals.push(cursor);
             locals.push(limit);
         }
+    }
+
+    // Reserve 3 more synthetic i32 locals (Task 7) when this function itself
+    // opens a function-body arena — the bottom-of-stack `ArenaFrame` pushed
+    // by `emit_function_arena_prologue` and released by
+    // `emit_function_arena_epilogue`/`emit_return`'s all-frames unwind.
+    if arena_table.opens_arena(function_name) {
+        let (page, cursor, limit) = arena_save_local_names_for_function();
+        locals.push(page);
+        locals.push(cursor);
+        locals.push(limit);
     }
 
     locals

@@ -345,6 +345,89 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// Task 7 prologue: if `ArenaTable::opens_arena` grants this function a
+    /// function-body arena, save the current-arena trio (`g1`/`g2`/`g3`) into
+    /// this function's three reserved locals (`arena_save_local_names_for_function`,
+    /// provisioned by `collect_function_locals`) and zero it — the same
+    /// "Open" shape `emit_loop` uses for a loop arena, just once per call
+    /// instead of once per loop entry. Pushes an `ArenaFrame { loop_frame_index:
+    /// None, .. }` as the BOTTOM of `arena_frames` (called before any loop in
+    /// the body can push its own frame on top), so `emit_return`'s all-frames
+    /// unwind (`emit_arena_unwind_for_return`, which walks `arena_frames`
+    /// newest→oldest) releases this frame too on every explicit `return` —
+    /// including one nested inside a loop, where it must run OUTSIDE/AFTER
+    /// that loop's own frame release, oldest-released-last, which "newest
+    /// first" already guarantees since this frame is the oldest (pushed
+    /// first, bottom of the stack). A miss (`opens_arena` false) is a no-op:
+    /// no frame is pushed, so `alloc_callee_index`'s existing
+    /// `arena_eligible`/`__alloc_global` routing and `emit_return`'s unwind
+    /// are both completely unaffected — behavior-identical to before this task.
+    pub(crate) fn emit_function_arena_prologue(&mut self, function: &mut Function) {
+        if !self.arena_table.opens_arena(&self.function_name) {
+            return;
+        }
+        let (page_name, cursor_name, limit_name) =
+            crate::lower::arena_save_local_names_for_function();
+        let saved_page_local = self.locals[&page_name];
+        let saved_cursor_local = self.locals[&cursor_name];
+        let saved_limit_local = self.locals[&limit_name];
+        function.instruction(&Instruction::GlobalGet(1));
+        function.instruction(&Instruction::LocalSet(saved_page_local));
+        function.instruction(&Instruction::GlobalGet(2));
+        function.instruction(&Instruction::LocalSet(saved_cursor_local));
+        function.instruction(&Instruction::GlobalGet(3));
+        function.instruction(&Instruction::LocalSet(saved_limit_local));
+        function.instruction(&Instruction::I32Const(0));
+        function.instruction(&Instruction::GlobalSet(1));
+        function.instruction(&Instruction::I32Const(0));
+        function.instruction(&Instruction::GlobalSet(2));
+        function.instruction(&Instruction::I32Const(0));
+        function.instruction(&Instruction::GlobalSet(3));
+        self.arena_frames.push(ArenaFrame {
+            saved_page_local,
+            saved_cursor_local,
+            saved_limit_local,
+            loop_frame_index: None,
+        });
+    }
+
+    /// Task 7 fall-through epilogue: the counterpart to
+    /// `emit_function_arena_prologue`, emitted after the function body (right
+    /// before the trailing wasm `End`, i.e. only on the path where the
+    /// function's own control flow runs off the end of its body rather than
+    /// hitting an explicit `return`). Pops the function-level `ArenaFrame`
+    /// pushed by the prologue (a no-op if the prologue never pushed one,
+    /// i.e. `opens_arena` is false) and releases it exactly once here.
+    ///
+    /// This can never double-release with `emit_return`'s unwind: a `return`
+    /// always emits `Instruction::Return`, which exits the wasm function
+    /// immediately, so any code emitted after it (including this epilogue,
+    /// which only runs after `emit_function_body`'s call to `emit_node` for
+    /// the WHOLE body returns) is unreachable on that path — the two release
+    /// sites are mutually exclusive per invocation, not merely per lexical
+    /// position. `emit_return`'s unwind is emit-only (never pops
+    /// `arena_frames`), so on the fall-through path this frame is still on
+    /// top of the stack here with its original saved-locals intact, letting
+    /// this epilogue restore from the SAME locals the prologue wrote,
+    /// regardless of how many `return`s executed inside nested branches that
+    /// were NOT taken at runtime.
+    pub(crate) fn emit_function_arena_epilogue(&mut self, function: &mut Function) {
+        if !self.arena_table.opens_arena(&self.function_name) {
+            return;
+        }
+        let Some(frame) = self.arena_frames.pop() else {
+            return;
+        };
+        debug_assert_eq!(
+            frame.loop_frame_index, None,
+            "function epilogue must pop exactly the function-level arena frame \
+             (bottom of `arena_frames`, pushed by emit_function_arena_prologue); \
+             a non-None loop_frame_index here means a loop frame was left \
+             unpopped, which is an emit_loop bug, not a Task-7 one"
+        );
+        self.emit_arena_release(function, &frame);
+    }
+
     pub(crate) fn emit_function_body(
         &mut self,
         function: &mut Function,
@@ -353,6 +436,7 @@ impl<'a> FunctionEmitter<'a> {
         coverage_id: Option<u32>,
     ) {
         self.emit_coverage_hit(function, coverage_id);
+        self.emit_function_arena_prologue(function);
         let produced = self.emit_node(function, body, returns_value);
         if returns_value && !produced.produced {
             // Fallthrough value must match the function's declared result type: an
@@ -366,6 +450,7 @@ impl<'a> FunctionEmitter<'a> {
         } else if !returns_value && produced.produced {
             function.instruction(&Instruction::Drop);
         }
+        self.emit_function_arena_epilogue(function);
     }
 
     pub(crate) fn emit_sequence(
