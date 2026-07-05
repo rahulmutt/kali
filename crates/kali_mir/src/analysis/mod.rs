@@ -9,6 +9,7 @@ use crate::{
 };
 
 pub mod arena_gate;
+pub(crate) mod escape_flow;
 mod infer;
 mod resolve;
 mod scope;
@@ -263,6 +264,7 @@ pub(crate) struct OwnershipAnalyzer<'a> {
     pub(crate) scope_stack: Vec<ScopeState>,
     pub(crate) synthetic_function_counter: usize,
     pub(crate) arena: arena_gate::ArenaCollector,
+    pub(crate) flow: escape_flow::FlowCollector,
 }
 
 impl<'a> OwnershipAnalyzer<'a> {
@@ -277,6 +279,7 @@ impl<'a> OwnershipAnalyzer<'a> {
             scope_stack: Vec::new(),
             synthetic_function_counter: 0,
             arena: arena_gate::ArenaCollector::default(),
+            flow: escape_flow::FlowCollector::default(),
         }
     }
 
@@ -290,7 +293,10 @@ impl<'a> OwnershipAnalyzer<'a> {
         self.precollect_scope_bindings(root);
         self.walk_scope_node(root, UseContext::Normal);
         self.pop_scope_and_record();
-        let facts = std::mem::take(&mut self.arena).into_facts();
+        let flow = std::mem::take(&mut self.flow);
+        let solution = escape_flow::solve(&flow);
+        escape_flow::apply_escape_verdicts(&mut self.functions, &solution);
+        let facts = std::mem::take(&mut self.arena).into_facts(&flow, &solution);
         (self.functions, facts)
     }
 

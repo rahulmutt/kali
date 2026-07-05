@@ -36,6 +36,15 @@ impl<'a> OwnershipAnalyzer<'a> {
                         ) {
                             self.arena_note_fresh_binding(name);
                         }
+                        let class = self.classify_value(init);
+                        let owner = self.current_scope_label();
+                        self.flow.note_value_into(
+                            crate::analysis::escape_flow::FlowNode::Binding {
+                                owner,
+                                name: name.clone(),
+                            },
+                            &class,
+                        );
                         let layout = self.infer_layout(init);
                         let functions_before = self.functions.len();
                         let direct_function_target = matches!(init_node.kind, HirNodeKind::Ident)
@@ -88,8 +97,10 @@ impl<'a> OwnershipAnalyzer<'a> {
                         },
                     );
                 }
-                for child in children.iter().take(params_end) {
+                for (param_index, child) in children.iter().take(params_end).enumerate() {
                     if let Some(param_name) = self.nodes[child.0 as usize].text.as_ref() {
+                        self.flow
+                            .note_param(&function_name, param_index, param_name);
                         if let Some(scope) = self.current_scope_mut() {
                             scope.define(
                                 param_name.clone(),
@@ -123,8 +134,10 @@ impl<'a> OwnershipAnalyzer<'a> {
                         },
                     );
                 }
-                for child in children.iter().take(params_end) {
+                for (param_index, child) in children.iter().take(params_end).enumerate() {
                     if let Some(param_name) = self.nodes[child.0 as usize].text.as_ref() {
+                        self.flow
+                            .note_param(&function_name, param_index, param_name);
                         if let Some(scope) = self.current_scope_mut() {
                             scope.define(
                                 param_name.clone(),
@@ -265,14 +278,32 @@ impl<'a> OwnershipAnalyzer<'a> {
                     self.resolve_use(name, context);
                 }
             }
+            HirNodeKind::ForOfStmt => {
+                // Pre-order loop ordinal (matches the order the LIR emitter
+                // walks loops). Child walking is identical to the default arm,
+                // so ownership verdicts are unchanged — except that the
+                // loop-head binder (if any) is seeded may-heap first: see
+                // `seed_for_of_loop_var_heap`.
+                self.arena_enter_loop();
+                self.seed_for_of_loop_var_heap(&children);
+                for child in children {
+                    self.walk_scope_node(child, context);
+                }
+                self.arena_exit_loop();
+            }
             HirNodeKind::ForStmt
             | HirNodeKind::ForInStmt
-            | HirNodeKind::ForOfStmt
             | HirNodeKind::WhileStmt
             | HirNodeKind::DoWhileStmt => {
                 // Pre-order loop ordinal (matches the order the LIR emitter
                 // walks loops). Child walking is identical to the default arm,
                 // so ownership verdicts are unchanged.
+                //
+                // ForInStmt's loop-head binder is NOT seeded here: a for-in
+                // binder is always a string property key (never an alias of
+                // the source object's values), so there is no shape where the
+                // missing-inflow gap below lets a heap value escape
+                // undetected (verified against the whole-branch review).
                 self.arena_enter_loop();
                 for child in children {
                     self.walk_scope_node(child, context);
@@ -338,6 +369,47 @@ impl<'a> OwnershipAnalyzer<'a> {
             }
         }
         None
+    }
+
+    /// Seed a for-of loop-head binder (`for (const x of items) { ... }`)
+    /// may-heap, restoring the fail-closed default for a binding that
+    /// `precollect_scope_bindings` defines but that never runs through the
+    /// only code path that records a may-heap inflow edge (the
+    /// VarDeclarator-WITH-init arm above): a for-of binder's VarDeclarator
+    /// has no init child (the source value comes from the iterable, which
+    /// this analysis does not model per-element). Left unseeded, `x` would
+    /// be judged definitely-not-heap and a heap alias captured through it
+    /// (`sink = x`) would escape the gate undetected — the deleted
+    /// `arena_is_heap_value` used to catch this via the binding's layout
+    /// (TaggedVal/unknown => heap) before that fallback was retired in favor
+    /// of the flow fixpoint. This only ever ORs a may-heap bit in (veto
+    /// side); it can never grant.
+    fn seed_for_of_loop_var_heap(&mut self, for_of_children: &[HirNodeId]) {
+        let Some(decl) = for_of_children.first().copied() else {
+            return;
+        };
+        let decl_node = &self.nodes[decl.0 as usize];
+        if decl_node.kind != HirNodeKind::VarDecl {
+            // `for (x of items)` reuses an existing binding — no declarator
+            // to seed; `x`'s own assignment/declaration site already governs
+            // its heap-ness.
+            return;
+        }
+        let Some(declarator) = decl_node.children.first().copied() else {
+            return;
+        };
+        let declarator_node = &self.nodes[declarator.0 as usize];
+        if declarator_node.kind != HirNodeKind::VarDeclarator {
+            return;
+        }
+        let Some(name) = declarator_node.text.clone() else {
+            return;
+        };
+        let owner = self.current_scope_label();
+        self.flow.note_value_into(
+            crate::analysis::escape_flow::FlowNode::Binding { owner, name },
+            &crate::analysis::escape_flow::ValueClass::heap(),
+        );
     }
 
     pub(crate) fn is_heap_store_target(&self, node_id: HirNodeId) -> bool {

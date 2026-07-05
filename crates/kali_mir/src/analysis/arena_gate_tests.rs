@@ -426,30 +426,15 @@ fn ineligible_on_closure_mediated_launder() {
     assert!(!table.arena_eligible("f"));
 }
 
-// --- KNOWN FAIL-OPEN pins (round 5, BLOCKED) ---------------------------------
-// Two surviving members of the launder family, pinned with the CORRECT
-// (currently failing) assertions and #[ignore]d until the structural fix
-// lands. Root cause analysis in .superpowers/sdd/task-4-report.md round 5:
-// both the gate's store notes and the ownership engine's param-escape flags
-// ignore plain-ident dataflow, so heap-value flow is only closable with an
-// interprocedural may-heap/escape propagation — out of scope for a per-walk
-// patch. Run with `cargo test -p kali_mir arena_gate -- --ignored` to see
-// them fail.
-//
-// BOUNDARY STATEMENT (corrected round 5b — read this before consuming the
-// table in codegen): the gate is sound on BOTH axes for programs without
-// (a) hoisted-function-after-read launders, (b) callees that plain-ident-
-// store heap params/captures outward; both shapes corrupt arena_eligible
-// ITSELF, and every consumer inherits the hole — opens_arena AND loop_arena
-// (a driver loop calling the wrongly-eligible f is granted a loop arena:
-// reaches_alloc_transitively("f") is true and the only available veto,
-// !eligible("f"), is exactly the corrupted fact). There is no axis
-// containment, only pattern containment. Each pin below therefore also
-// asserts the loop-axis form via a driver loop; the future interprocedural
-// fix must clear ALL assertions in both pins.
+// --- Interprocedural launder pins (round 5 xfails, closed by escape_flow) ----
+// These two shapes corrupted arena_eligible itself under the old walk-order-
+// sensitive judgment (task-4-report.md rounds 4-5b: plain-ident dataflow was
+// unmodeled in both the gate and the engine; there was no axis containment,
+// only pattern containment). The escape_flow fixpoint resolves heap-ness and
+// param-escape summaries order-independently, so all assertions — loop_arena
+// via the driver loop, opens_arena, arena_eligible — now hold.
 
 #[test]
-#[ignore = "known fail-open: walk-order launder via hoisted function; needs order-independent (fixpoint) classification — see task-4 round-5 report"]
 fn ineligible_on_hoisted_function_launder() {
     // `helper` is declared after `cache = x` but hoisted and called before
     // it: the walk classifies `cache = x` before helper's body records
@@ -479,7 +464,6 @@ fn ineligible_on_hoisted_function_launder() {
 }
 
 #[test]
-#[ignore = "known fail-open: param-mediated escape (engine's param-escape flags are blind to plain-ident outer stores); needs interprocedural summaries — see task-4 round-5 report"]
 fn ineligible_on_param_mediated_escape() {
     // `retain` stores its param into a module binding via a plain-ident LHS,
     // which neither the engine's escape flags (p.escapes == false) nor the
@@ -506,4 +490,185 @@ fn ineligible_on_param_mediated_escape() {
     assert!(!table.loop_arena("g", 0));
     assert!(!table.opens_arena("f"));
     assert!(!table.arena_eligible("f"));
+}
+
+// --- Interprocedural round hardening pins ------------------------------------
+
+#[test]
+fn eligible_when_arg_passed_to_nonescaping_param() {
+    // THE load-bearing precision grant: a may-heap call-result argument to a
+    // callee whose param never escapes must NOT veto — this is the
+    // `itemCheck(bottomUpTree(d))` shape at the heart of binary-trees.
+    let mir = analyze(
+        "function bottomUpTree(d) { return { left: null, right: null }; }
+         function itemCheck(t) { if (t.left === null) { return 1; } return 2; }
+         function f(n) {
+           let sum = 0;
+           for (let i = 0; i < n; i = i + 1) {
+             sum = sum + itemCheck(bottomUpTree(3));
+           }
+           return sum;
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(table.loop_arena("f", 0));
+    assert!(table.arena_eligible("bottomUpTree"));
+}
+
+#[test]
+fn ineligible_on_call_result_stored_into_member() {
+    // A call result stored into a pre-existing object's field outlives the
+    // frame. The old judgment only caught FRESH literals in member stores;
+    // the class-based site catches laundered/call-result values too.
+    let mir = analyze(
+        "function mk() { return { v: 1 }; }
+         function f(p) {
+           const local = { w: 2 };
+           const x = mk();
+           p.left = x;
+           let s = local.w;
+           return s;
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(!table.arena_eligible("f"));
+    assert!(!table.opens_arena("f"));
+}
+
+#[test]
+fn ineligible_on_transitive_chain_across_hoisted_helpers() {
+    // The round-4 transitive shape (x -> keep -> cache across hoisted
+    // helpers): every link is plain-ident dataflow, the store is above the
+    // helper declarations, and only the fixpoint sees the whole chain.
+    let mir = analyze(
+        "let cache;
+         function mk() { return { v: 1 }; }
+         function f() {
+           const local = { w: 2 };
+           let x = 0;
+           let keep = 0;
+           step1();
+           step2();
+           cache = keep;
+           function step1() { x = mk(); }
+           function step2() { keep = x; }
+           let s = local.w;
+           return s;
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(!table.arena_eligible("f"));
+    assert!(!table.opens_arena("f"));
+}
+
+#[test]
+fn ineligible_on_launder_through_returning_callee() {
+    // Heap-ness survives a round trip through `id`: the returned value is
+    // the module-stored value.
+    let mir = analyze(
+        "let cache;
+         function id(p) { return p; }
+         function mk() { return { v: 1 }; }
+         function f() {
+           const local = { w: 2 };
+           const x = mk();
+           const y = id(x);
+           cache = y;
+           let s = local.w;
+           return s;
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(!table.arena_eligible("f"));
+    assert!(!table.opens_arena("f"));
+}
+
+#[test]
+fn ineligible_on_param_embedded_in_literal_stored_outward() {
+    // The callee wraps its param in a fresh literal and stores THAT outward:
+    // the embeds set must carry p so the arg site still fires in the caller.
+    let mir = analyze(
+        "let cache;
+         function stash(p) { cache = { v: p }; }
+         function mk() { return { v: 1 }; }
+         function f() {
+           const local = { w: 2 };
+           const x = mk();
+           stash(x);
+           let s = local.w;
+           return s;
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(!table.arena_eligible("f"));
+    assert!(!table.opens_arena("f"));
+}
+
+// --- PROBE (finding 1, final whole-branch review) ---------------------------
+
+#[test]
+fn ineligible_on_for_of_loop_var_escape() {
+    // A for-of loop-head binder (`x`) has no init child, so the only place a
+    // binding gets a may-heap seed (VarDeclarator-with-init) never runs for
+    // it; `precollect_scope_bindings` still defines the name, so an unseeded
+    // binder was judged definitely-not-heap and `sink = x` failed to veto —
+    // a fail-open regression versus the deleted `arena_is_heap_value`, which
+    // fell back to the binding's layout (TaggedVal/unknown => heap) here.
+    // `x` aliases an arena object from `items` and escapes to module `sink`,
+    // so `f` must be vetoed.
+    let mir = analyze(
+        "let sink;
+         function f() {
+           const items = [{ a: 1 }, { a: 2 }];
+           for (const x of items) { sink = x; }
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(!table.arena_eligible("f"));
+}
+
+// NOTE: for-in was investigated the same way (see the whole-branch review's
+// finding 1) and does NOT reproduce: a for-in loop var is always a string
+// property key, never an alias of the source object's values, so there is no
+// shape where the missing-inflow gap lets a heap value escape undetected.
+// `compute_arena_table` correctly keeps `f` eligible when the loop var is
+// merely stored (verified: `arena_eligible("f") == true` for `for (const k in
+// items) { sink = k; }` with `items` a fresh array of objects) — no fix
+// needed for for-in.
+
+#[test]
+fn ineligible_on_fresh_literal_arg_to_escaping_callee() {
+    // The Task-2->Task-3 window: a FRESH OBJECT LITERAL passed directly as a
+    // call argument to a known callee whose param escapes (`cache = p`).
+    // Existing pins only cover call-result (`stash(x)`) and reassigned-ident
+    // (`x = mk()`) forms flowing into an escaping param; this pins the
+    // literal-direct form so `push_arg_site` -> `into_facts` closes it too.
+    let mir = analyze(
+        "let cache;
+         function keep(p) { cache = p; }
+         function f() {
+           keep({ v: 1 });
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(!table.arena_eligible("f"));
+}
+
+#[test]
+fn ineligible_on_heap_ident_arg_to_unknown_callee() {
+    // Old behavior only vetoed FRESH LITERAL args to unknown callees; a
+    // may-heap IDENT handed to an unknown callee must veto too.
+    let mir = analyze(
+        "function mk() { return { v: 1 }; }
+         function f(cb) {
+           const local = { w: 2 };
+           const x = mk();
+           cb(x);
+           let s = local.w;
+           return s;
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(!table.arena_eligible("f"));
+    assert!(!table.opens_arena("f"));
 }

@@ -13,3 +13,6 @@ mod alias_precision;
 
 #[path = "ownership_analysis_tests/aggregate_escape.rs"]
 mod aggregate_escape;
+
+#[path = "ownership_analysis_tests/plain_ident_escape.rs"]
+mod plain_ident_escape;
