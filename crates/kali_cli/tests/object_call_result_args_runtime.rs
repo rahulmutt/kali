@@ -76,6 +76,73 @@ main();
 }
 
 #[test]
+fn inline_nested_literal_field_read_is_rejected_not_miscompiled() {
+    // `t.left` folds to the inline nested literal `{ v: 5 }`, whose emission
+    // lands in the drop-only aggregate fallback (placeholder 0) — so `.v`
+    // reads 0, a silent wrong answer. Must reject with E5506 instead.
+    let source = write_temp_source(
+        "e5506_inline_nested_read",
+        "const t = { left: { v: 5 }, right: null };\nconsole.log(t.left.v);\n",
+    );
+    let output = std::process::Command::new(kali_bin())
+        .arg("run")
+        .arg(&source)
+        .output()
+        .expect("run kali");
+    assert!(
+        !output.status.success(),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    assert!(String::from_utf8_lossy(&output.stderr).contains("E5506"));
+}
+
+#[test]
+fn inline_nested_literal_field_comparison_is_rejected_not_miscompiled() {
+    // Same base as above, but the nested field value is compared to null:
+    // the placeholder 0 makes `t.left === null` print `true` (a wrong
+    // answer). Must reject with E5506 instead.
+    let source = write_temp_source(
+        "e5506_inline_nested_cmp",
+        "const t = { left: { v: 5 }, right: null };\nconsole.log(t.left === null);\n",
+    );
+    let output = std::process::Command::new(kali_bin())
+        .arg("run")
+        .arg(&source)
+        .output()
+        .expect("run kali");
+    assert!(
+        !output.status.success(),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    assert!(String::from_utf8_lossy(&output.stderr).contains("E5506"));
+}
+
+#[test]
+fn array_literal_element_field_value_read_is_rejected_not_miscompiled() {
+    // The object field's value is `arr[0]` — a static index into a
+    // const-bound array literal whose element aliases another object
+    // literal. The fold lane resolves the element to `leaf`, which emits as
+    // the placeholder 0, so `.v` reads 0. Must reject with E5506 instead.
+    let source = write_temp_source(
+        "e5506_array_elem_field",
+        "const leaf = { v: 42 };\nconst arr = [leaf];\nconst t = { left: arr[0], right: null };\nconsole.log(t.left.v);\n",
+    );
+    let output = std::process::Command::new(kali_bin())
+        .arg("run")
+        .arg(&source)
+        .output()
+        .expect("run kali");
+    assert!(
+        !output.status.success(),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    assert!(String::from_utf8_lossy(&output.stderr).contains("E5506"));
+}
+
+#[test]
 fn unclassified_object_shape_member_read_is_rejected_not_miscompiled() {
     let source = write_temp_source(
         "e5506_backstop",

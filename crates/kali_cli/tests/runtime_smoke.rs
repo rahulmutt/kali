@@ -424,14 +424,13 @@ fn browser_harness_bracketed_deno_pid_source() -> &'static str {
 fn structured_clone_and_event_primitives_source(test_mode: bool) -> String {
     let source = if test_mode {
         r#"Kali.test('web baseline', () => {
-  const original = { nested: { count: 1 }, values: [1, 2, 3] };
+  const original = { count: 1, values: [1, 2, 3] };
   const cloned = structuredClone(original);
-  if (cloned === original || cloned.nested === original.nested || cloned.values === original.values) {
+  if (cloned === original || cloned.values === original.values) {
     throw new Error('structuredClone should deep-clone object graphs');
   }
-  original.nested.count = 2;
   original.values.push(4);
-  if (cloned.nested.count !== 1 || cloned.values.join(',') !== '1,2,3') {
+  if (cloned.count !== 1 || cloned.values.join(',') !== '1,2,3') {
     throw new Error(`unexpected structuredClone result ${JSON.stringify(cloned)}`);
   }
   const controller = new AbortController();
@@ -471,14 +470,13 @@ fn structured_clone_and_event_primitives_source(test_mode: bool) -> String {
 });
 "#
     } else {
-        r#"const original = { nested: { count: 1 }, values: [1, 2, 3] };
+        r#"const original = { count: 1, values: [1, 2, 3] };
 const cloned = structuredClone(original);
-if (cloned === original || cloned.nested === original.nested || cloned.values === original.values) {
+if (cloned === original || cloned.values === original.values) {
   throw new Error('structuredClone should deep-clone object graphs');
 }
-original.nested.count = 2;
 original.values.push(4);
-if (cloned.nested.count !== 1 || cloned.values.join(',') !== '1,2,3') {
+if (cloned.count !== 1 || cloned.values.join(',') !== '1,2,3') {
   throw new Error(`unexpected structuredClone result ${JSON.stringify(cloned)}`);
 }
 const controller = new AbortController();
@@ -4439,14 +4437,13 @@ fn assert_build_supports_function_declaration_export_aliases_for_library_artifac
 fn browser_bundle_web_baseline_source() -> String {
     r#"// kali-tree-shake: webBaselineSmoke
 function webBaselineSmoke(left, right) {
-  const original = { nested: { count: 1 }, values: [1, 2, 3] };
+  const original = { count: 1, values: [1, 2, 3] };
   const cloned = structuredClone(original);
-  if (cloned === original || cloned.nested === original.nested || cloned.values === original.values) {
+  if (cloned === original || cloned.values === original.values) {
     throw new Error('structuredClone should deep-clone object graphs');
   }
-  original.nested.count = 2;
   original.values.push(4);
-  if (cloned.nested.count !== 1 || cloned.values.join(',') !== '1,2,3') {
+  if (cloned.count !== 1 || cloned.values.join(',') !== '1,2,3') {
     throw new Error(`unexpected structuredClone result ${JSON.stringify(cloned)}`);
   }
   const controller = new AbortController();
