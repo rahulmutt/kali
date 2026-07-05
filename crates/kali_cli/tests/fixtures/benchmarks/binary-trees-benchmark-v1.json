@@ -1,0 +1,7 @@
+{
+  "benchmark": "binary-trees",
+  "version": 1,
+  "sourceFile": "binary-trees-benchmark-v1.ts",
+  "sourceSha256": "sha256-bca86a0e7afb45d092a5e237564baccb478e3beea9b332d7971c8ace8b388d36",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}

@@ -2137,6 +2137,7 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
         "spectral-norm",
         "nbody",
         "mandelbrot",
+        "binary-trees",
     ]
     .into_iter()
     .map(ToOwned::to_owned)
@@ -2208,6 +2209,7 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
         "spectral-norm-benchmark-v1.ts",
         "nbody-benchmark-v1.ts",
         "mandelbrot-benchmark-v1.ts",
+        "binary-trees-benchmark-v1.ts",
     ]
     .into_iter()
     .map(ToOwned::to_owned)
