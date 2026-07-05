@@ -351,3 +351,48 @@ fn ineligible_on_conditional_expr_store_hir_level() {
     assert!(!table.arena_eligible("f"));
     assert!(!table.opens_arena("f"));
 }
+
+// --- Review fixes round 3: laundering through scalar-initialized bindings ---
+
+#[test]
+fn loop_veto_on_heap_laundered_through_scalar_binding() {
+    // `x` is frozen Scalar("number") at the declarator; `x = mk()` is heap
+    // but NOT a fresh literal, so a fresh-set-only fix misses it and
+    // `keep = x` sees the stale scalar layout — granting a loop arena while
+    // `keep` retains an arena value past the per-iteration reset.
+    let mir = analyze(
+        "function mk() { return { v: 1 }; }
+         function g(n) {
+           let keep;
+           for (let i = 0; i < n; i = i + 1) {
+             let x = 0;
+             x = mk();
+             keep = x;
+           }
+           return keep;
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(!table.loop_arena("g", 0));
+}
+
+#[test]
+fn ineligible_on_module_store_laundered_through_scalar_binding() {
+    // Module-store form of the same launder. `local` gives f a real fresh
+    // site so the eligibility assertion is not vacuous (a non-allocating f
+    // is ineligible trivially).
+    let mir = analyze(
+        "let cache;
+         function mk() { return { v: 1 }; }
+         function f() {
+           const local = { w: 2 };
+           let x = 0;
+           x = mk();
+           cache = x;
+           return local.w;
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(!table.arena_eligible("f"));
+    assert!(!table.opens_arena("f"));
+}

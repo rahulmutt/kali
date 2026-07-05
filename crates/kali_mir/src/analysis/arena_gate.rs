@@ -86,6 +86,13 @@ pub(crate) struct FuncRaw {
     calls: BTreeSet<String>,
     has_unknown_call: bool,
     fresh_heap_bindings: BTreeSet<String>,
+    /// Bindings reassigned from ANY may-hold-heap RHS (call results, member
+    /// reads, ...) whose declarator layout is stale-scalar. Consulted ONLY by
+    /// `arena_is_heap_value` — deliberately NOT fed into the fate
+    /// classification: a call RESULT is not a fresh allocation site of this
+    /// function, and classifying it ScopeLocal would wrongly grant
+    /// `opens_arena` (dangling returned values after the exit reset).
+    maybe_heap_bindings: BTreeSet<String>,
     loops: Vec<LoopArenaFacts>,
     /// Two same-named function scopes wrote into this entry (the table is
     /// name-keyed, so per-instance decisions are impossible) ⇒ poisoned at
@@ -285,6 +292,17 @@ impl<'a> OwnershipAnalyzer<'a> {
             .insert(name.to_string());
     }
 
+    /// Record that local `name` was reassigned from a may-hold-heap RHS, so
+    /// its (stale) declarator layout must no longer be trusted by
+    /// `arena_is_heap_value`.
+    fn arena_note_maybe_heap_binding(&mut self, name: &str) {
+        let label = self.current_scope_label();
+        self.arena
+            .func(&label)
+            .maybe_heap_bindings
+            .insert(name.to_string());
+    }
+
     fn arena_note_call(&mut self, target: &str) {
         let label = self.current_scope_label();
         self.arena.func(&label).calls.insert(target.to_string());
@@ -377,15 +395,21 @@ impl<'a> OwnershipAnalyzer<'a> {
                             self.arena_note_global_site();
                         }
                         Some(_) => {
-                            // Same-scope reassignment from a fresh heap
-                            // literal: the binding's declarator layout is
-                            // stale (frozen at declaration), so record it as
-                            // fresh-heap — this feeds both the fate
-                            // classification at function finalize and the
-                            // Ident arm of `arena_is_heap_value`.
+                            // Same-scope reassignment: the binding's
+                            // declarator layout is stale (frozen at
+                            // declaration). A fresh LITERAL makes the binding
+                            // a fresh allocation site of this function (feeds
+                            // fate classification at finalize); ANY heap RHS
+                            // (call result, member read, ...) additionally
+                            // marks it may-hold-heap so `arena_is_heap_value`
+                            // stops trusting the stale scalar layout — but
+                            // does NOT enter fate classification (a call
+                            // result is not this function's allocation site
+                            // and must not flip `opens_arena`).
                             if rhs_fresh {
                                 self.arena_note_fresh_binding(&name);
                             }
+                            self.arena_note_maybe_heap_binding(&name);
                         }
                         None => self.arena_note_global_site(),
                     }
@@ -520,16 +544,13 @@ impl<'a> OwnershipAnalyzer<'a> {
             }
             HirNodeKind::Ident => {
                 let name = node.text.as_deref().unwrap_or_default();
-                // A binding reassigned from a fresh heap literal keeps its
-                // stale declarator layout, so consult the fresh-heap set
-                // recorded by `arena_note_assignment` first.
+                // A binding reassigned from a fresh heap literal OR any other
+                // may-hold-heap RHS keeps its stale declarator layout, so
+                // consult the sets recorded by `arena_note_assignment` first.
                 let label = self.current_scope_label();
-                if self
-                    .arena
-                    .functions
-                    .get(&label)
-                    .is_some_and(|f| f.fresh_heap_bindings.contains(name))
-                {
+                if self.arena.functions.get(&label).is_some_and(|f| {
+                    f.fresh_heap_bindings.contains(name) || f.maybe_heap_bindings.contains(name)
+                }) {
                     return true;
                 }
                 match self.resolve_binding_layout(name) {
