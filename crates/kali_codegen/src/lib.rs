@@ -11,7 +11,7 @@ use ctx::{
     StaticObjectIdentityValue, StaticStringAtResult, StringPool,
 };
 use emitter::{
-    ControlFlowLabelKind, EmittedValue, FunctionEmitter, FunctionPlan, LoopFrame,
+    ArenaFrame, ControlFlowLabelKind, EmittedValue, FunctionEmitter, FunctionPlan, LoopFrame,
     ObjectEnumerationMode, ValueShape,
 };
 pub(crate) use intrinsics::{
@@ -21,7 +21,7 @@ pub(crate) use intrinsics::{
 
 use std::{
     borrow::Cow,
-    collections::{BTreeMap, BTreeSet, HashSet},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     path::PathBuf,
 };
 

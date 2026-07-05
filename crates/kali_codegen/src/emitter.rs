@@ -45,6 +45,19 @@ pub(crate) struct LoopFrame {
     pub(crate) continue_index: usize,
 }
 
+/// A live per-loop arena scope: the three local slots holding the
+/// current-arena trio (`g1`/`g2`/`g3`) as it was *before* this loop opened
+/// (restored on release), and the index into `FunctionEmitter::loop_frames`
+/// of the loop this arena belongs to (used by `break` to decide whether it is
+/// exiting the loop that owns this frame).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct ArenaFrame {
+    pub(crate) saved_page_local: u32,
+    pub(crate) saved_cursor_local: u32,
+    pub(crate) saved_limit_local: u32,
+    pub(crate) loop_frame_index: Option<usize>,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct EmittedValue {
     pub(crate) produced: bool,
@@ -69,6 +82,11 @@ pub(crate) struct FunctionEmitter<'a> {
     /// Program-wide representation decisions, consulted for repr-directed
     /// instruction selection and operand promotion.
     pub(crate) repr_table: &'a kali_common::ReprTable,
+    /// Arena placement decisions from the `kali_mir` escape gate — read by
+    /// `alloc_callee_index` (allocation-site routing) and `emit_loop`
+    /// (loop-arena open/reset/release). Misses fail closed (global
+    /// allocation / no arena).
+    pub(crate) arena_table: &'a kali_common::ArenaTable,
     /// Name of the function currently being emitted, used to key `repr_table`
     /// lookups (the synthetic entry is `_start`).
     pub(crate) function_name: String,
@@ -80,6 +98,14 @@ pub(crate) struct FunctionEmitter<'a> {
     pub(crate) reported_placeholder_fallbacks: HashSet<String>,
     pub(crate) control_frames: Vec<ControlFlowLabelKind>,
     pub(crate) loop_frames: Vec<LoopFrame>,
+    /// Pre-order loop ordinal of every loop-shaped node in this function's
+    /// body (see `crate::lower::loop_preorder_ordinals`), resolved once at
+    /// construction time and consulted by `emit_loop` to key `arena_table`
+    /// and the `__arena_save_*` locals.
+    pub(crate) loop_ordinals: HashMap<LirNodeId, u32>,
+    /// Stack of currently-open loop arenas (innermost last) — see
+    /// `emitter::ArenaFrame`.
+    pub(crate) arena_frames: Vec<ArenaFrame>,
     /// Top-level `const name → init node` table (all `FunctionEmitter`s share
     /// one `LirProgram` node space, so a compile-time-pure module const's
     /// initializer node can be re-emitted at each function read site).
@@ -108,10 +134,13 @@ impl<'a> FunctionEmitter<'a> {
         params: &[String],
         local_names: &[String],
         repr_table: &'a kali_common::ReprTable,
+        arena_table: &'a kali_common::ArenaTable,
         function_name: &str,
+        body: LirNodeId,
         module_const_inits: &'a BTreeMap<String, LirNodeId>,
         module_binding_names: &'a BTreeSet<String>,
     ) -> Self {
+        let loop_ordinals = crate::lower::loop_preorder_ordinals(&program.nodes, body);
         let mut locals = BTreeMap::new();
         for (idx, name) in params.iter().enumerate() {
             locals.insert(name.clone(), idx as u32);
@@ -151,6 +180,7 @@ impl<'a> FunctionEmitter<'a> {
             strings,
             source_path,
             repr_table,
+            arena_table,
             function_name: function_name.to_string(),
             current_function_flavor,
             locals,
@@ -159,6 +189,8 @@ impl<'a> FunctionEmitter<'a> {
             reported_placeholder_fallbacks: HashSet::new(),
             control_frames: Vec::new(),
             loop_frames: Vec::new(),
+            loop_ordinals,
+            arena_frames: Vec::new(),
             module_const_inits,
             module_binding_names,
         }
@@ -215,12 +247,29 @@ impl<'a> FunctionEmitter<'a> {
         self.repr_table.array_element(&self.function_name, name)
     }
 
-    /// Wasm function index of the synthetic bump allocator `__alloc`
-    /// (registered in `functions`/`function_name_to_index` by
-    /// `lower_lir_to_wasm` right after `_start`). Object/array allocation
-    /// sites call through this instead of inlining a `__heap` bump directly.
-    pub(crate) fn alloc_fn_index(&self) -> u32 {
-        self.functions["__alloc"]
+    /// Wasm function index of the allocator an allocation site in the
+    /// CURRENTLY-EMITTING function should call: `__alloc` (the current
+    /// arena) when the escape gate marked this function `arena_eligible`,
+    /// else `__alloc_global` — fail-closed default for anything the gate
+    /// didn't (or couldn't) grant. This is a per-FUNCTION gate (every
+    /// allocation call site lexically inside a given function shares its
+    /// verdict), not a per-loop one — whether any of those sites also sit
+    /// inside a loop that itself opens/resets/releases an iteration arena is
+    /// decided separately by `emit_loop`.
+    pub(crate) fn alloc_callee_index(&self) -> u32 {
+        if self.arena_table.arena_eligible(&self.function_name) {
+            self.functions["__alloc"]
+        } else {
+            self.functions["__alloc_global"]
+        }
+    }
+
+    /// Wasm function index of the synthetic `__arena_reset() -> ()` page-pool
+    /// recycler (Task 5): walks the current arena's page list onto the
+    /// shared free list and zeroes the current-arena trio. Called by
+    /// `emit_loop`'s per-iteration reset and by `emit_arena_release`.
+    pub(crate) fn arena_reset_fn_index(&self) -> u32 {
+        self.functions["__arena_reset"]
     }
 
     pub(crate) fn push_control_frame(&mut self, kind: ControlFlowLabelKind) -> usize {

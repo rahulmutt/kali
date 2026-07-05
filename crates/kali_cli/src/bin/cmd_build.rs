@@ -1667,9 +1667,11 @@ async function instantiate(importObject) {{
 
 let wasmMemory = null;
 let wasmHeap = null;
+let wasmAllocGlobal = null;
 const instancePromise = instantiate(defaultImportObject).then((instance) => {{
   wasmMemory = instance.instance.exports.memory ?? null;
   wasmHeap = instance.instance.exports.__heap ?? null;
+  wasmAllocGlobal = instance.instance.exports.__alloc_global ?? null;
   return instance.instance;
 }});
 
@@ -1697,12 +1699,26 @@ function formatConsoleValue(val) {{
 }}
 
 function allocGuestString(bytes) {{
-  if (wasmMemory === null || wasmHeap === null) {{
+  if (wasmMemory === null) {{
     throw new Error('guest string allocation requires instantiated memory and __heap');
   }}
-  const base = Number(wasmHeap.value);
+  let base;
+  if (wasmAllocGlobal !== null) {{
+    // Page-pool allocator (Task 5): call the exported __alloc_global, byte
+    // length rounded up to a multiple of 8 to keep host-runtime strings
+    // 8-aligned in the arena (mirrors kali_runtime::host::memory's Rust-side
+    // rounding).
+    const rounded = (bytes.length + 7) & ~7;
+    base = Number(wasmAllocGlobal(rounded));
+  }} else if (wasmHeap !== null) {{
+    // Fallback for a stale cached module built pre-Task-5 (page-pool
+    // allocator) with no __alloc_global export: bump __heap directly.
+    base = Number(wasmHeap.value);
+    wasmHeap.value = base + bytes.length;
+  }} else {{
+    throw new Error('guest string allocation requires instantiated memory and __heap');
+  }}
   new Uint8Array(wasmMemory.buffer, base, bytes.length).set(bytes);
-  wasmHeap.value = base + bytes.length;
   return 0x8000000000000000n | (BigInt(base) << 32n) | BigInt(bytes.length);
 }}
 
@@ -1765,6 +1781,7 @@ export async function loadWithImports(overrides = {{}}) {{
   const instance = await instantiate(mergeImportObject(overrides));
   wasmMemory = instance.instance.exports.memory ?? null;
   wasmHeap = instance.instance.exports.__heap ?? null;
+  wasmAllocGlobal = instance.instance.exports.__alloc_global ?? null;
   return instance.instance;
 }}
 
@@ -1914,9 +1931,11 @@ async function instantiate(importObject) {{
 
 let wasmMemory = null;
 let wasmHeap = null;
+let wasmAllocGlobal = null;
 const instancePromise = instantiate(defaultImportObject).then((instance) => {{
   wasmMemory = instance.instance.exports.memory ?? null;
   wasmHeap = instance.instance.exports.__heap ?? null;
+  wasmAllocGlobal = instance.instance.exports.__alloc_global ?? null;
   return instance.instance;
 }});
 
@@ -1944,12 +1963,26 @@ function formatConsoleValue(val) {{
 }}
 
 function allocGuestString(bytes) {{
-  if (wasmMemory === null || wasmHeap === null) {{
+  if (wasmMemory === null) {{
     throw new Error('guest string allocation requires instantiated memory and __heap');
   }}
-  const base = Number(wasmHeap.value);
+  let base;
+  if (wasmAllocGlobal !== null) {{
+    // Page-pool allocator (Task 5): call the exported __alloc_global, byte
+    // length rounded up to a multiple of 8 to keep host-runtime strings
+    // 8-aligned in the arena (mirrors kali_runtime::host::memory's Rust-side
+    // rounding).
+    const rounded = (bytes.length + 7) & ~7;
+    base = Number(wasmAllocGlobal(rounded));
+  }} else if (wasmHeap !== null) {{
+    // Fallback for a stale cached module built pre-Task-5 (page-pool
+    // allocator) with no __alloc_global export: bump __heap directly.
+    base = Number(wasmHeap.value);
+    wasmHeap.value = base + bytes.length;
+  }} else {{
+    throw new Error('guest string allocation requires instantiated memory and __heap');
+  }}
   new Uint8Array(wasmMemory.buffer, base, bytes.length).set(bytes);
-  wasmHeap.value = base + bytes.length;
   return 0x8000000000000000n | (BigInt(base) << 32n) | BigInt(bytes.length);
 }}
 
@@ -2012,6 +2045,7 @@ async function loadWithImports(overrides = {{}}) {{
   const instance = await instantiate(mergeImportObject(overrides));
   wasmMemory = instance.instance.exports.memory ?? null;
   wasmHeap = instance.instance.exports.__heap ?? null;
+  wasmAllocGlobal = instance.instance.exports.__alloc_global ?? null;
   return instance.instance;
 }}
 

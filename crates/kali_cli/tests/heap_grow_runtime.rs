@@ -1,7 +1,43 @@
-use std::process::Command;
+use std::{
+    fs,
+    path::PathBuf,
+    process::Command,
+    sync::atomic::{AtomicU64, Ordering},
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
+}
+
+/// Build a process-wide-unique directory name for a test fixture.
+///
+/// Uniqueness must NOT depend on wall-clock resolution: tests run
+/// multi-threaded, and on platforms with a coarse `SystemTime` clock (e.g.
+/// macOS) two concurrent calls can observe the same `as_nanos()` value,
+/// collide on the same temp dir, and clobber each other's fixture file. A
+/// process-wide monotonic counter guarantees uniqueness independently of the
+/// wall-clock's resolution. Mirrors the identical idiom in
+/// `object_call_result_args_runtime.rs` / `trap_diagnostics_runtime.rs`.
+fn unique_fixture_slug(label: &str) -> String {
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let seq = COUNTER.fetch_add(1, Ordering::Relaxed);
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system time")
+        .as_nanos();
+    format!(
+        "kali-heap-grow-{label}-{unique}-{}-{seq}",
+        std::process::id()
+    )
+}
+
+fn write_temp_source(label: &str, source: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join(unique_fixture_slug(label));
+    fs::create_dir_all(&dir).expect("create temp dir");
+    let path = dir.join("main.ts");
+    fs::write(&path, source).expect("write source fixture");
+    path
 }
 
 #[test]
@@ -123,4 +159,42 @@ fn oom_past_sandbox_cap_fails_cleanly() {
     assert!(!out.status.success(), "expected clean OOM failure");
     let err = String::from_utf8_lossy(&out.stderr);
     assert!(!err.contains("panic"), "should not panic: {err}");
+}
+
+// Task 5 (page-pool allocator): a `new Array(20000)` is (20000+1)*8 = 160008
+// bytes, past PAYLOAD (PAGE-8 = 65528 bytes), so each iteration exercises the
+// multi-page SPAN allocation path in `__page_get` (n>1 pages, no free-list
+// entries yet) rather than the single-page bump/frontier path. Arrays this
+// size already work via today's flat `__heap` bump (recorded as the PASSing
+// baseline below, before the page-pool machinery exists); the test's value is
+// catching span-path regressions once `__page_get` replaces the bump.
+#[test]
+fn multi_page_array_allocations_are_correct() {
+    let source = write_temp_source(
+        "span_arrays",
+        r#"function main() {
+  let sum = 0;
+  for (let round = 0; round < 4; round = round + 1) {
+    const a = new Array(20000);
+    for (let i = 0; i < 20000; i = i + 1) {
+      a[i] = i + round;
+    }
+    sum = sum + a[19999];
+  }
+  console.log(sum);
+}
+main();
+"#,
+    );
+    let output = std::process::Command::new(kali_bin())
+        .arg("run")
+        .arg(&source)
+        .output()
+        .expect("run kali");
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "80002\n"); // 4*19999 + (0+1+2+3)
 }

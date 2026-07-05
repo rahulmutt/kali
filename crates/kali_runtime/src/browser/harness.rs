@@ -111,16 +111,31 @@ pub fn browser_bundle_runtime_harness_module_script(
 const runRegisteredTests = {run_registered_tests};
 let wasmMemory = null;
 let wasmHeap = null;
+let wasmAllocGlobal = null;
 const collectedTests = [];
 let registeredTestFailures = 0;
 
 function allocGuestString(bytes) {{
-  if (wasmMemory === null || wasmHeap === null) {{
+  if (wasmMemory === null) {{
     throw new Error('guest string allocation requires instantiated memory and __heap');
   }}
-  const base = Number(wasmHeap.value);
+  let base;
+  if (wasmAllocGlobal !== null) {{
+    // Page-pool allocator (Task 5): call the exported __alloc_global, byte
+    // length rounded up to a multiple of 8 to keep host-runtime strings
+    // 8-aligned in the arena (mirrors kali_runtime::host::memory's Rust-side
+    // rounding).
+    const rounded = (bytes.length + 7) & ~7;
+    base = Number(wasmAllocGlobal(rounded));
+  }} else if (wasmHeap !== null) {{
+    // Fallback for a stale cached module built pre-Task-5 (page-pool
+    // allocator) with no __alloc_global export: bump __heap directly.
+    base = Number(wasmHeap.value);
+    wasmHeap.value = base + bytes.length;
+  }} else {{
+    throw new Error('guest string allocation requires instantiated memory and __heap');
+  }}
   new Uint8Array(wasmMemory.buffer, base, bytes.length).set(bytes);
-  wasmHeap.value = base + bytes.length;
   return 0x8000000000000000n | (BigInt(base) << 32n) | BigInt(bytes.length);
 }}
 
@@ -280,6 +295,7 @@ if (typeof bundle.loadWithImports !== 'function') {{
 const instance = await bundle.loadWithImports(importObject);
 wasmMemory = instance.exports.memory ?? null;
 wasmHeap = instance.exports.__heap ?? null;
+wasmAllocGlobal = instance.exports.__alloc_global ?? null;
 if (typeof instance.exports._start === 'function') {{
   await instance.exports._start();
 }}
@@ -372,16 +388,31 @@ const runRegisteredTests = {run_registered_tests};
 const runtimeWasm = decodeBase64("{wasm_base64}");
 let wasmMemory = null;
 let wasmHeap = null;
+let wasmAllocGlobal = null;
 const collectedTests = [];
 let registeredTestFailures = 0;
 
 function allocGuestString(bytes) {{
-  if (wasmMemory === null || wasmHeap === null) {{
+  if (wasmMemory === null) {{
     throw new Error('guest string allocation requires instantiated memory and __heap');
   }}
-  const base = Number(wasmHeap.value);
+  let base;
+  if (wasmAllocGlobal !== null) {{
+    // Page-pool allocator (Task 5): call the exported __alloc_global, byte
+    // length rounded up to a multiple of 8 to keep host-runtime strings
+    // 8-aligned in the arena (mirrors kali_runtime::host::memory's Rust-side
+    // rounding).
+    const rounded = (bytes.length + 7) & ~7;
+    base = Number(wasmAllocGlobal(rounded));
+  }} else if (wasmHeap !== null) {{
+    // Fallback for a stale cached module built pre-Task-5 (page-pool
+    // allocator) with no __alloc_global export: bump __heap directly.
+    base = Number(wasmHeap.value);
+    wasmHeap.value = base + bytes.length;
+  }} else {{
+    throw new Error('guest string allocation requires instantiated memory and __heap');
+  }}
   new Uint8Array(wasmMemory.buffer, base, bytes.length).set(bytes);
-  wasmHeap.value = base + bytes.length;
   return 0x8000000000000000n | (BigInt(base) << 32n) | BigInt(bytes.length);
 }}
 
@@ -596,6 +627,7 @@ const importObject = {{
 const {{ instance }} = await WebAssembly.instantiate(runtimeWasm, importObject);
 wasmMemory = instance.exports.memory ?? null;
 wasmHeap = instance.exports.__heap ?? null;
+wasmAllocGlobal = instance.exports.__alloc_global ?? null;
 if (typeof instance.exports._start === 'function') {{
   await instance.exports._start();
 }}

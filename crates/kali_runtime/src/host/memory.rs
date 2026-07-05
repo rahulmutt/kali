@@ -107,7 +107,10 @@ pub(crate) fn decode_low_bytes_from_slice(data: &[u8], handle: i64) -> Vec<u8> {
     out
 }
 
-/// Resolves the exported `__heap` bump-pointer global (added in Task 5).
+/// Resolves the exported `__heap` global. Since Task 5 (the page-pool
+/// allocator) this is the page *frontier*, not a flat bump pointer, and is
+/// consulted here only as the fallback path in `alloc_guest_string` below —
+/// the primary path calls the exported `__alloc_global` function instead.
 pub(crate) fn heap_global(
     caller: &mut Caller<'_, KaliHostState>,
 ) -> wasmtime::Result<wasmtime::Global> {
@@ -119,29 +122,59 @@ pub(crate) fn heap_global(
     }
 }
 
-/// Allocates `bytes.len()` bytes at the current `__heap`, writes them, advances
-/// `__heap`, and returns a tagged string handle
-/// (`STRING_HANDLE_TAG | (offset << 32) | len`).
+/// Allocates `bytes.len()` bytes for a host-runtime string and returns a
+/// tagged string handle (`STRING_HANDLE_TAG | (offset << 32) | len`).
+///
+/// Since Task 5 (the page-pool allocator), the primary path calls the guest's
+/// exported `__alloc_global(i32) -> i32` — the same "global" arena trio the
+/// guest's own `Kali`-runtime-string-producing calls use, which is never
+/// touched by `__arena_reset` — with the byte length rounded up to a
+/// multiple of 8 (matching the browser JS glue's `allocGuestString`, so host
+/// strings stay 8-aligned in the arena regardless of which runtime produced
+/// them). A stale cached module built pre-Task-5 has no `__alloc_global`
+/// export; for that case only, this falls back to the old direct-`__heap`
+/// bump so previously-compiled `.wasm` artifacts keep working.
 pub(crate) fn alloc_guest_string(
     caller: &mut Caller<'_, KaliHostState>,
     bytes: &[u8],
 ) -> wasmtime::Result<i64> {
-    let global = heap_global(caller)?;
-    let base = global
-        .get(&mut *caller)
-        .i32()
-        .ok_or_else(|| wasmtime::Error::msg("__heap global is not an i32"))?;
+    let len = i32::try_from(bytes.len())
+        .map_err(|_| wasmtime::Error::msg("guest string allocation length exceeds i32 range"))?;
+    let base = match caller.get_export("__alloc_global") {
+        Some(Extern::Func(alloc_global)) => {
+            let typed = alloc_global
+                .typed::<i32, i32>(&mut *caller)
+                .map_err(|error| {
+                    wasmtime::Error::msg(format!(
+                        "__alloc_global has an unexpected signature: {error}"
+                    ))
+                })?;
+            let rounded = (len + 7) & !7;
+            typed.call(&mut *caller, rounded).map_err(|error| {
+                wasmtime::Error::msg(format!("__alloc_global call failed: {error}"))
+            })?
+        }
+        _ => {
+            // Fallback for a stale cached module built pre-Task-5 (page-pool
+            // allocator) with no `__alloc_global` export: bump `__heap`
+            // directly, exactly as before this task.
+            let global = heap_global(caller)?;
+            let heap_base = global
+                .get(&mut *caller)
+                .i32()
+                .ok_or_else(|| wasmtime::Error::msg("__heap global is not an i32"))?;
+            let next = heap_base
+                .checked_add(len)
+                .ok_or_else(|| wasmtime::Error::msg("guest heap pointer overflow"))?;
+            global.set(&mut *caller, wasmtime::Val::I32(next))?;
+            heap_base
+        }
+    };
     let memory = guest_memory(caller)?;
     let start = checked_offset(base)?;
     memory.write(&mut *caller, start, bytes).map_err(|error| {
         wasmtime::Error::msg(format!("failed to write guest memory: {}", error))
     })?;
-    let next = base
-        .checked_add(i32::try_from(bytes.len()).map_err(|_| {
-            wasmtime::Error::msg("guest string allocation length exceeds i32 range")
-        })?)
-        .ok_or_else(|| wasmtime::Error::msg("guest heap pointer overflow"))?;
-    global.set(&mut *caller, wasmtime::Val::I32(next))?;
     Ok((STRING_HANDLE_TAG | ((base as u64) << 32) | (bytes.len() as u64)) as i64)
 }
 

@@ -71,6 +71,12 @@ pub struct FunctionArenaFacts {
     pub has_global_site: bool,
     /// At least one allocation site has `ScopeLocal` fate (dies inside `f`).
     pub has_scope_local_site: bool,
+    /// At least one allocation site has `Returned` fate (neither `Global` nor
+    /// `ScopeLocal`: it flows out via a bare `return`). Such a site must NOT
+    /// be routed into a per-call function arena that gets reset on exit, so
+    /// this fact vetoes `opens_arena` even when a `ScopeLocal` site is also
+    /// present (see `opens_arena` doc comment).
+    pub has_returned_site: bool,
     /// Resolved bare-identifier call targets invoked in the function body.
     pub calls: BTreeSet<String>,
     /// The function contains a closure/indirect/unresolved or non-whitelisted
@@ -89,6 +95,7 @@ pub(crate) struct FuncRaw {
     allocates: bool,
     has_global_site: bool,
     has_scope_local_site: bool,
+    has_returned_site: bool,
     calls: BTreeSet<String>,
     has_unknown_call: bool,
     fresh_heap_bindings: BTreeSet<String>,
@@ -177,6 +184,20 @@ impl ArenaCollector {
                 }
             }
         }
+        // A `return` whose value resolves may-heap under the fixpoint is a
+        // Returned-fate site: it must veto `opens_arena` regardless of shape
+        // (bare literal, name-bound literal, ternary, `new`, or a
+        // transitively may-heap call-result). This generalizes round-1's two
+        // shape-specific paths (`arena_is_fresh_literal` in
+        // `arena_note_return`, `binding.returned` in
+        // `arena_finalize_current_function`).
+        for site in flow.returned_sites() {
+            if solution.class_may_heap(&site.class) {
+                if let Some(raw) = self.functions.get_mut(&site.function) {
+                    raw.has_returned_site = true;
+                }
+            }
+        }
 
         let ArenaCollector {
             functions, order, ..
@@ -192,6 +213,7 @@ impl ArenaCollector {
                             allocates: raw.allocates,
                             has_global_site: true,
                             has_scope_local_site: false,
+                            has_returned_site: false,
                             calls: raw.calls.clone(),
                             has_unknown_call: true,
                             loops: Vec::new(),
@@ -202,6 +224,7 @@ impl ArenaCollector {
                         allocates: raw.allocates,
                         has_global_site: raw.has_global_site,
                         has_scope_local_site: raw.has_scope_local_site,
+                        has_returned_site: raw.has_returned_site,
                         calls: raw.calls.clone(),
                         has_unknown_call: raw.has_unknown_call,
                         loops: raw.loops.clone(),
@@ -258,10 +281,14 @@ impl<'a> OwnershipAnalyzer<'a> {
             // `return` ⇒ Returned (neither local nor global); otherwise the
             // value dies here ⇒ ScopeLocal.
             let global = !binding.captured_by.is_empty() || binding.escaped_via_flow;
+            let returned = !global && binding.returned;
             let scope_local = !global && !binding.returned;
             let f = self.arena.func(&label);
             if global {
                 f.has_global_site = true;
+            }
+            if returned {
+                f.has_returned_site = true;
             }
             if scope_local {
                 f.has_scope_local_site = true;
@@ -498,7 +525,13 @@ impl<'a> OwnershipAnalyzer<'a> {
         }
     }
 
-    /// A `return` of a heap value from inside a loop leaks it out of the arena.
+    /// A `return` of a heap value from inside a loop leaks it out of the
+    /// arena; a `return` of a heap value anywhere in the function is a
+    /// Returned-fate site (deferred: resolved against the escape-flow
+    /// fixpoint in `ArenaCollector::into_facts` via `push_returned_site`,
+    /// which is what lets `return factory()` — a call-result — resolve
+    /// correctly through transitive may-heap chains, not just the two
+    /// shape-specific literal forms round 1 detected).
     pub(crate) fn arena_note_return(&mut self, children: &[HirNodeId]) {
         let function = self.current_scope_label();
         let mut class = ValueClass::Scalar;
@@ -511,6 +544,7 @@ impl<'a> OwnershipAnalyzer<'a> {
             },
             &class,
         );
+        self.flow.push_returned_site(&function, class.clone());
         let ordinals: Vec<u32> = self.arena.loop_stack.iter().map(|l| l.ordinal).collect();
         for ordinal in ordinals {
             self.flow.push_outflow(&function, ordinal, class.clone());
@@ -534,7 +568,16 @@ impl<'a> OwnershipAnalyzer<'a> {
 /// Reads the raw per-function/per-loop facts collected during ownership
 /// analysis (`mir.arena_facts`) and applies:
 /// 1. `arena_eligible(f)` ⇔ `f` allocates and has no `Global`-fate site.
-/// 2. `opens_arena(f)` ⇔ `arena_eligible(f)` and `f` has a `ScopeLocal` site.
+/// 2. `opens_arena(f)` ⇔ `arena_eligible(f)`, `f` has a `ScopeLocal` site, and
+///    `f` has NO `Returned`-fate site. A function-body arena is reset on
+///    every exit path; a `Returned` site's value must survive past that
+///    reset into the caller, so ANY `Returned` site vetoes opening a
+///    function arena for `f` even when a `ScopeLocal` site is also present
+///    (every fresh-heap site in `f` currently routes into the same current
+///    arena, so a mixed function cannot open one without also resetting the
+///    returned value's backing page). `f` stays `arena_eligible` — its sites
+///    still target the *caller's* current arena — only the per-call function
+///    arena it would otherwise open for itself is withheld.
 /// 3. `loop_arena(f, ord)` ⇔ the loop reaches allocation through only known,
 ///    arena-eligible callees, has no heap outflow, and no unknown/non-whitelist
 ///    call.
@@ -557,7 +600,7 @@ pub fn compute_arena_table(mir: &MirProgram) -> ArenaTable {
     for facts in &mir.arena_facts {
         if eligible(&facts.name) {
             table.set_arena_eligible(&facts.name);
-            if facts.has_scope_local_site {
+            if facts.has_scope_local_site && !facts.has_returned_site {
                 table.set_opens_arena(&facts.name);
             }
         }
