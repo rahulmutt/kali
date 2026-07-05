@@ -241,11 +241,19 @@ pub(crate) fn run_command(
                 });
                 validate_run_payload_value(&payload)
                     .expect("constructed run payload must satisfy schema-v1 shape");
+                let (errors, warnings) = match outcome.trap.clone() {
+                    Some(diagnostic) => shared::single_diagnostic_to_values(
+                        diagnostic,
+                        Some(&source),
+                        fs::read_to_string(&source).ok().as_deref(),
+                    ),
+                    None => (vec![], vec![]),
+                };
                 shared::print_envelope(
                     "run",
                     outcome.exit_code == 0,
-                    vec![],
-                    vec![],
+                    errors,
+                    warnings,
                     payload,
                     Some(outcome.stdout),
                     Some(outcome.stderr),
@@ -265,6 +273,9 @@ pub(crate) fn run_command(
                     }
                     if !outcome.stderr.is_empty() {
                         eprint!("{}", outcome.stderr);
+                    }
+                    if let Some(diagnostic) = &outcome.trap {
+                        eprintln!("{}", diagnostic);
                     }
                 }
             }

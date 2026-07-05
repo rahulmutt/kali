@@ -27,4 +27,8 @@ pub struct RuntimeOutcome {
     pub runtime_backend: RuntimeBackend,
     /// Deterministic worker/thread shutdown snapshot captured for the execution.
     pub thread_topology: ThreadRuntimeShutdownReport,
+    /// Set when execution ended in a wasm trap: the run produced the captured
+    /// stdout/stderr up to the trap, `exit_code` is nonzero, and this holds the
+    /// diagnostic to render. `None` for clean completion.
+    pub trap: Option<Diagnostic>,
 }

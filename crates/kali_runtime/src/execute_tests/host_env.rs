@@ -338,12 +338,14 @@ fn runtime_reports_mocked_fetch_failures() {
     );
 
     let wasm = compile_wat(&wat);
-    let diagnostics = runtime.execute(&wasm).expect_err("fetch should fail");
-    assert_eq!(diagnostics[0].code, Some(e4::UNCAUGHT_ERROR as u32));
+    let outcome = runtime.execute(&wasm).expect("runtime outcome");
+    assert_eq!(outcome.exit_code, 1);
+    let diagnostic = outcome.trap.expect("fetch should fail");
+    assert_eq!(diagnostic.code, Some(e4::UNCAUGHT_ERROR as u32));
     assert!(
-        diagnostics[0].message.contains("runtime trap"),
+        diagnostic.message.contains("runtime trap"),
         "diagnostic: {:?}",
-        diagnostics[0]
+        diagnostic
     );
     server.join().expect("server thread");
 }
@@ -363,14 +365,16 @@ fn runtime_rejects_math_pow_negative_exponents_without_panicking() {
             "#,
     );
 
-    let diagnostics = runtime
-        .execute(&wasm)
-        .expect_err("negative Math.pow exponents should be rejected through the host import");
-    assert_eq!(diagnostics[0].code, Some(e4::UNCAUGHT_ERROR as u32));
+    let outcome = runtime.execute(&wasm).expect("runtime outcome");
+    assert_eq!(outcome.exit_code, 1);
+    let diagnostic = outcome
+        .trap
+        .expect("negative Math.pow exponents should be rejected through the host import");
+    assert_eq!(diagnostic.code, Some(e4::UNCAUGHT_ERROR as u32));
     assert!(
-        diagnostics[0].message.contains("runtime trap"),
+        diagnostic.message.contains("runtime trap"),
         "diagnostic: {:?}",
-        diagnostics[0]
+        diagnostic
     );
 }
 

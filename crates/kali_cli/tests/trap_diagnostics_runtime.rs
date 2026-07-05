@@ -139,3 +139,24 @@ main();
     // 8000 iterations x itemCheck(depth-8 tree) = 8000 x 511
     assert_eq!(String::from_utf8_lossy(&output.stdout), "4088000\n");
 }
+
+#[test]
+fn stdout_emitted_before_a_trap_is_not_lost() {
+    let source = write_temp_source(
+        "stdout_before_trap",
+        "console.log(777);\nlet i = 0;\nwhile (true) {\n  i = i + 1;\n}\n",
+    );
+    let output = std::process::Command::new(kali_bin())
+        .arg("run")
+        .arg(&source)
+        .output()
+        .expect("run kali");
+    assert!(!output.status.success());
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("777"),
+        "pre-trap stdout must be flushed; got stdout: {:?} stderr: {:?}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(String::from_utf8_lossy(&output.stderr).contains("E4003"));
+}
