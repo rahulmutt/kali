@@ -393,6 +393,22 @@ impl<'a> OwnershipAnalyzer<'a> {
                     match self.resolve_binding(&name) {
                         Some((scope_index, _)) if scope_index < self.current_scope_index() => {
                             self.arena_note_global_site();
+                            // The target binding lives in an ENCLOSING
+                            // function: mark it may-heap in its OWNER's entry
+                            // (scopes are function scopes here), so reads of
+                            // it back in the owner stop trusting the stale
+                            // declarator layout — closure-mediated writes
+                            // must not launder heap values into scalars.
+                            if let Some(owner) = self
+                                .scope_stack
+                                .get(scope_index)
+                                .map(|scope| scope.label.clone())
+                            {
+                                self.arena
+                                    .func(&owner)
+                                    .maybe_heap_bindings
+                                    .insert(name.clone());
+                            }
                         }
                         Some(_) => {
                             // Same-scope reassignment: the binding's
@@ -546,12 +562,24 @@ impl<'a> OwnershipAnalyzer<'a> {
                 let name = node.text.as_deref().unwrap_or_default();
                 // A binding reassigned from a fresh heap literal OR any other
                 // may-hold-heap RHS keeps its stale declarator layout, so
-                // consult the sets recorded by `arena_note_assignment` first.
-                let label = self.current_scope_label();
-                if self.arena.functions.get(&label).is_some_and(|f| {
-                    f.fresh_heap_bindings.contains(name) || f.maybe_heap_bindings.contains(name)
-                }) {
-                    return true;
+                // consult the sets recorded by `arena_note_assignment` first —
+                // in the binding's OWNING function's entry (bindings are
+                // capturable: the reassignment may have happened in a closure,
+                // and this read may itself be in a different closure than the
+                // write).
+                if let Some((scope_index, _)) = self.resolve_binding(name) {
+                    if let Some(owner) = self
+                        .scope_stack
+                        .get(scope_index)
+                        .map(|scope| scope.label.as_str())
+                    {
+                        if self.arena.functions.get(owner).is_some_and(|f| {
+                            f.fresh_heap_bindings.contains(name)
+                                || f.maybe_heap_bindings.contains(name)
+                        }) {
+                            return true;
+                        }
+                    }
                 }
                 match self.resolve_binding_layout(name) {
                     Some(layout) => is_heap_layout(&layout),

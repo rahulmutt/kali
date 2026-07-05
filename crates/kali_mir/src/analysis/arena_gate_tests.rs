@@ -396,3 +396,32 @@ fn ineligible_on_module_store_laundered_through_scalar_binding() {
     assert!(!table.arena_eligible("f"));
     assert!(!table.opens_arena("f"));
 }
+
+// --- Review fixes round 4: closure-mediated launder --------------------------
+
+#[test]
+fn ineligible_on_closure_mediated_launder() {
+    // `x = mk()` happens inside `inner`, so the maybe-heap fact must land on
+    // x's OWNING function (f), and f's later `cache = x` must consult the
+    // owner's sets — otherwise f keeps its stale Scalar view of x, the store
+    // is invisible, and opens_arena("f") is granted while mk's tree (allocated
+    // into f's arena via inner) escapes into `cache` past the exit reset.
+    // `local` gives f a real ScopeLocal site so the assertions are not
+    // vacuous.
+    let mir = analyze(
+        "let cache;
+         function mk() { return { v: 1 }; }
+         function f() {
+           const local = { w: 2 };
+           let x = 0;
+           const inner = function() { x = mk(); };
+           inner();
+           cache = x;
+           let s = local.w;
+           return s;
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(!table.opens_arena("f"));
+    assert!(!table.arena_eligible("f"));
+}
