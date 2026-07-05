@@ -25,10 +25,13 @@ use crate::{LayoutDescriptor, MirProgram, OwnershipAnalyzer};
 /// calls these does not leak heap values out of its per-iteration arena.
 ///
 /// Matches the stdout-write family actually registered in codegen
-/// (`kali_codegen/src/intrinsics/host.rs`): any `console.*` method and the
-/// `writeStdoutBytes` binary-stdout intrinsic.
+/// (`kali_codegen/src/intrinsics/host.rs`): any `console.*` method (console
+/// serializes, never retains) and the `Kali.writeStdoutBytes` binary-stdout
+/// intrinsic. The receiver check on `writeStdoutBytes` mirrors codegen's
+/// `is_kali_write_stdout_bytes_call` — a user method merely named
+/// `writeStdoutBytes` may retain its argument and must NOT pass.
 fn is_whitelisted_host_method(base_object: Option<&str>, method: &str) -> bool {
-    base_object == Some("console") || method == "writeStdoutBytes"
+    base_object == Some("console") || (base_object == Some("Kali") && method == "writeStdoutBytes")
 }
 
 /// Raw per-loop facts collected during the walk (pre-order ordinal keyed).
@@ -329,13 +332,22 @@ impl<'a> OwnershipAnalyzer<'a> {
         match left_kind {
             HirNodeKind::Ident => {
                 let name = left_node.text.clone().unwrap_or_default();
-                // Store of a fresh literal into a binding that lives in a scope
-                // strictly enclosing the current function ⇒ escapes ⇒ Global.
-                if rhs_fresh {
-                    if let Some((scope_index, _)) = self.resolve_binding(&name) {
-                        if scope_index < self.current_scope_index() {
+                // Store of a heap-holding value (fresh literal, an identifier
+                // bound to a heap layout, or anything unknown — `rhs_heap`
+                // treats `TaggedVal` as heap) into a binding that lives in a
+                // scope strictly enclosing the current function ⇒ the value
+                // outlives the function ⇒ Global. The plain-ident LHS never
+                // sets `escaped_via_flow` in the ownership walk
+                // (`is_heap_store_target` only covers member/chain targets),
+                // so this is the only place that catches `cache = node`.
+                // Unresolved names fail closed.
+                if rhs_fresh || rhs_heap {
+                    match self.resolve_binding(&name) {
+                        Some((scope_index, _)) if scope_index < self.current_scope_index() => {
                             self.arena_note_global_site();
                         }
+                        Some(_) => {}
+                        None => self.arena_note_global_site(),
                     }
                 }
                 // Loop outflow: heap value assigned to a binding declared
@@ -366,8 +378,11 @@ impl<'a> OwnershipAnalyzer<'a> {
                 }
             }
             _ => {
-                // Unknown assignment target ⇒ fail closed on outflow.
-                if rhs_heap {
+                // Unknown assignment target (no destructuring surface exists
+                // today — anything unexpected lands here) ⇒ fail closed on
+                // BOTH axes: the heap value may flow anywhere.
+                if rhs_fresh || rhs_heap {
+                    self.arena_note_global_site();
                     self.arena_note_outflow_all_loops();
                 }
             }

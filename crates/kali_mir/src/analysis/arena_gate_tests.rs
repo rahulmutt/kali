@@ -168,3 +168,59 @@ fn loop_ordinals_are_preorder() {
     assert!(table.loop_arena("f", 2));
     assert!(!table.loop_arena("f", 3));
 }
+
+// --- Review fixes: fail-open holes pinned ----------------------------------
+
+#[test]
+fn ineligible_on_ident_store_to_module_binding() {
+    // The RHS is an identifier holding a fresh heap value (not a literal), so
+    // the rhs_fresh check alone misses it; the LHS is a module binding, so the
+    // value outlives any arena `build` would open. Must be Global (fail
+    // closed) — otherwise `cache` dangles after a function-exit reset.
+    let mir = analyze(
+        "let cache;
+         function build() {
+           const node = { v: 1 };
+           cache = node;
+           return node.v;
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(!table.arena_eligible("build"));
+    assert!(!table.opens_arena("build"));
+}
+
+// NOTE (review item b): a destructuring/pattern-target variant is NOT
+// expressible in today's surface — kali_ast has no ArrayPattern/ObjectPattern,
+// and a source like `[a] = [{ v: 1 }];` is dropped at parse (verified: the
+// function's arena facts show `allocates: false`, i.e. the statement never
+// reaches the analyzer). The analyzer's unknown-LHS arm is nevertheless
+// tightened to fail closed (global site + outflow on any heap-holding RHS).
+
+#[test]
+fn loop_veto_on_non_kali_write_stdout_bytes_receiver() {
+    // A user method merely NAMED writeStdoutBytes may retain its argument; the
+    // whitelist must require the `Kali` receiver, not just the method name.
+    let mir = analyze(
+        "function f(sink, n) {
+           for (let i = 0; i < n; i = i + 1) { sink.writeStdoutBytes([i]); }
+           return 0;
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(!table.loop_arena("f", 0));
+}
+
+#[test]
+fn loop_whitelist_kali_write_stdout_bytes() {
+    // The real host intrinsic (`Kali.writeStdoutBytes`) consumes its argument
+    // and stays whitelisted.
+    let mir = analyze(
+        "function f(n) {
+           for (let i = 0; i < n; i = i + 1) { Kali.writeStdoutBytes([i]); }
+           return 0;
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(table.loop_arena("f", 0));
+}
