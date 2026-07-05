@@ -425,3 +425,61 @@ fn ineligible_on_closure_mediated_launder() {
     assert!(!table.opens_arena("f"));
     assert!(!table.arena_eligible("f"));
 }
+
+// --- KNOWN FAIL-OPEN pins (round 5, BLOCKED) ---------------------------------
+// Two surviving members of the launder family, pinned with the CORRECT
+// (currently failing) assertions and #[ignore]d until the structural fix
+// lands. Root cause analysis in .superpowers/sdd/task-4-report.md round 5:
+// both the gate's store notes and the ownership engine's param-escape flags
+// ignore plain-ident dataflow, so heap-value flow is only closable with an
+// interprocedural may-heap/escape propagation — out of scope for a per-walk
+// patch. Run with `cargo test -p kali_mir arena_gate -- --ignored` to see
+// them fail.
+
+#[test]
+#[ignore = "known fail-open: walk-order launder via hoisted function; needs order-independent (fixpoint) classification — see task-4 round-5 report"]
+fn ineligible_on_hoisted_function_launder() {
+    // `helper` is declared after `cache = x` but hoisted and called before
+    // it: the walk classifies `cache = x` before helper's body records
+    // f.maybe(x), so the store is invisible against the stale scalar layout.
+    let mir = analyze(
+        "let cache;
+         function mk() { return { v: 1 }; }
+         function f() {
+           const local = { w: 2 };
+           let x = 0;
+           helper();
+           cache = x;
+           function helper() { x = mk(); }
+           let s = local.w;
+           return s;
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(!table.opens_arena("f"));
+    assert!(!table.arena_eligible("f"));
+}
+
+#[test]
+#[ignore = "known fail-open: param-mediated escape (engine's param-escape flags are blind to plain-ident outer stores); needs interprocedural summaries — see task-4 round-5 report"]
+fn ineligible_on_param_mediated_escape() {
+    // `retain` stores its param into a module binding via a plain-ident LHS,
+    // which neither the engine's escape flags (p.escapes == false) nor the
+    // gate's per-function notes see from f's side; f keeps eligible+opens
+    // while mk's tree (allocated in f's arena) is retained in `sink`.
+    let mir = analyze(
+        "let sink;
+         function retain(p) { sink = p; }
+         function mk() { return { v: 1 }; }
+         function f() {
+           const local = { w: 2 };
+           const x = mk();
+           retain(x);
+           let s = local.w;
+           return s;
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(!table.opens_arena("f"));
+    assert!(!table.arena_eligible("f"));
+}
