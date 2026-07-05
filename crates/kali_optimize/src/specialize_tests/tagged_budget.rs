@@ -52,6 +52,7 @@ fn release_specializes_tagged_parameters_from_concrete_arguments() {
 
     let mir = MirAnalysisProgram {
         root: kali_mir::MirNodeId::new(0),
+        arena_facts: Vec::new(),
         nodes: Vec::new(),
         functions: vec![kali_mir::MirFunction {
             name: Some("add_pair".to_string()),
@@ -159,6 +160,7 @@ fn release_respects_zero_specialization_budget_for_tagged_parameters() {
 
     let mir = MirAnalysisProgram {
         root: kali_mir::MirNodeId::new(0),
+        arena_facts: Vec::new(),
         nodes: Vec::new(),
         functions: vec![kali_mir::MirFunction {
             name: Some("add_pair".to_string()),
@@ -284,6 +286,7 @@ fn release_advanced_limits_specialization_to_one_distinct_call_site_after_root_i
 
     let mir = MirAnalysisProgram {
         root: kali_mir::MirNodeId::new(0),
+        arena_facts: Vec::new(),
         nodes: Vec::new(),
         functions: vec![
             kali_mir::MirFunction {
@@ -403,6 +406,7 @@ fn release_specializes_tagged_parameters_for_non_inlined_functions() {
 
     let mir = MirAnalysisProgram {
         root: kali_mir::MirNodeId::new(0),
+        arena_facts: Vec::new(),
         nodes: Vec::new(),
         functions: vec![kali_mir::MirFunction {
             name: Some("sum_chain".to_string()),

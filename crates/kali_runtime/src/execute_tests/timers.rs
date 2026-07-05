@@ -100,11 +100,11 @@ fn runtime_reports_traps_from_the_entrypoint() {
             "#,
     );
 
-    let diagnostics = runtime
-        .execute(&wasm)
-        .expect_err("division by zero should trap");
-    assert_eq!(diagnostics[0].code, Some(e4::UNCAUGHT_ERROR as u32));
-    assert!(diagnostics[0].message.contains("runtime trap"));
+    let outcome = runtime.execute(&wasm).expect("runtime outcome");
+    assert_eq!(outcome.exit_code, 1);
+    let diagnostic = outcome.trap.expect("division by zero should trap");
+    assert_eq!(diagnostic.code, Some(e4::UNCAUGHT_ERROR as u32));
+    assert!(diagnostic.message.contains("runtime trap"));
 }
 
 #[test]
@@ -150,14 +150,16 @@ fn runtime_rejects_negative_timer_delays() {
             "#,
     );
 
-    let diagnostics = runtime
-        .execute(&wasm)
-        .expect_err("negative timer delays should be rejected");
+    let outcome = runtime.execute(&wasm).expect("runtime outcome");
+    assert_eq!(outcome.exit_code, 1);
+    let diagnostic = outcome
+        .trap
+        .expect("negative timer delays should be rejected");
     assert_eq!(
-        diagnostics[0].code,
+        diagnostic.code,
         Some(kali_error::_error_codes::e4::UNCAUGHT_ERROR as u32)
     );
-    assert!(diagnostics[0].message.contains("runtime trap"));
+    assert!(diagnostic.message.contains("runtime trap"));
 }
 
 #[test]
@@ -179,12 +181,14 @@ fn runtime_rejects_negative_interval_delays() {
             "#,
     );
 
-    let diagnostics = runtime
-        .execute(&wasm)
-        .expect_err("negative timer delays should be rejected");
+    let outcome = runtime.execute(&wasm).expect("runtime outcome");
+    assert_eq!(outcome.exit_code, 1);
+    let diagnostic = outcome
+        .trap
+        .expect("negative timer delays should be rejected");
     assert_eq!(
-        diagnostics[0].code,
+        diagnostic.code,
         Some(kali_error::_error_codes::e4::UNCAUGHT_ERROR as u32)
     );
-    assert!(diagnostics[0].message.contains("runtime trap"));
+    assert!(diagnostic.message.contains("runtime trap"));
 }

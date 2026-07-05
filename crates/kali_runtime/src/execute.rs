@@ -189,15 +189,45 @@ impl RuntimeCtx {
                     host_contract: self.host_contract(),
                     runtime_backend: self.runtime_backend(),
                     thread_topology: state.thread_topology_snapshot(),
+                    trap: None,
                 });
             }
             if let Some(diagnostic) = store.data_mut().pending_diagnostic.take() {
                 return Err(vec![diagnostic]);
             }
-            return Err(vec![runtime_error_diagnostic(format!(
-                "runtime trap: {}",
-                error
-            ))]);
+            let diagnostic = match error.downcast_ref::<wasmtime::Trap>() {
+                Some(wasmtime::Trap::OutOfFuel) => Diagnostic::error(
+                    e4::RESOURCE_LIMIT_EXCEEDED as u32,
+                    "CPU fuel budget exhausted: the program ran past the runaway guard \
+                     (default ~60s-equivalent when no sandbox policy is set); grant more \
+                     compute by raising `resources.maxCpuTimeMs` in a --sandbox policy"
+                        .to_string(),
+                ),
+                Some(wasmtime::Trap::MemoryOutOfBounds) => runtime_error_diagnostic(format!(
+                    "runtime trap (out-of-bounds memory access): {}",
+                    error
+                )),
+                Some(wasmtime::Trap::UnreachableCodeReached) => runtime_error_diagnostic(format!(
+                    "runtime trap (unreachable — allocation failure or an unsupported-path guard): {}",
+                    error
+                )),
+                _ => runtime_error_diagnostic(format!("runtime trap: {}", error)),
+            };
+            let state = store.data();
+            return Ok(RuntimeOutcome {
+                exit_code: 1,
+                tests_run: 0,
+                tests_failed: 0,
+                stdout: state.stdout.clone(),
+                stdout_bytes: state.stdout_bytes.clone(),
+                stderr: state.stderr.clone(),
+                coverage_hits: state.coverage_hits.iter().copied().collect(),
+                runtime_profiles: normalized_runtime_profiles.clone(),
+                host_contract: self.host_contract(),
+                runtime_backend: self.runtime_backend(),
+                thread_topology: state.thread_topology_snapshot(),
+                trap: Some(diagnostic),
+            });
         }
 
         if let Err(diagnostic) = drain_event_loop(&instance, &mut store) {
@@ -215,6 +245,7 @@ impl RuntimeCtx {
                     host_contract: self.host_contract(),
                     runtime_backend: self.runtime_backend(),
                     thread_topology: state.thread_topology_snapshot(),
+                    trap: None,
                 });
             }
             return Err(vec![diagnostic]);
@@ -234,6 +265,7 @@ impl RuntimeCtx {
                 host_contract: self.host_contract(),
                 runtime_backend: self.runtime_backend(),
                 thread_topology: state.thread_topology_snapshot(),
+                trap: None,
             });
         }
 
@@ -256,6 +288,7 @@ impl RuntimeCtx {
                 host_contract: self.host_contract(),
                 runtime_backend: self.runtime_backend(),
                 thread_topology: state.thread_topology_snapshot(),
+                trap: None,
             });
         }
 
@@ -280,6 +313,7 @@ impl RuntimeCtx {
                             host_contract: self.host_contract(),
                             runtime_backend: self.runtime_backend(),
                             thread_topology: state.thread_topology_snapshot(),
+                            trap: None,
                         });
                     }
                     let rendered = diagnostic.to_string();
@@ -304,6 +338,7 @@ impl RuntimeCtx {
                         host_contract: self.host_contract(),
                         runtime_backend: self.runtime_backend(),
                         thread_topology: state.thread_topology_snapshot(),
+                        trap: None,
                     });
                 }
                 return Err(vec![diagnostic]);
@@ -323,6 +358,7 @@ impl RuntimeCtx {
             host_contract: self.host_contract(),
             runtime_backend: self.runtime_backend(),
             thread_topology: state.thread_topology_snapshot(),
+            trap: None,
         })
     }
 }
@@ -372,6 +408,7 @@ pub(crate) fn execute_browser_runtime(
         host_contract: outcome.host_contract,
         runtime_backend: outcome.runtime_backend,
         thread_topology: outcome.thread_topology,
+        trap: None,
     })
 }
 

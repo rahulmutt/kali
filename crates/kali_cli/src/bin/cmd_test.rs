@@ -323,6 +323,17 @@ pub(crate) fn test_command(
                         "functionsMissed": coverage_total.saturating_sub(covered),
                     }));
                 }
+                // A wasm trap ends the run early but preserves captured
+                // stdout/stderr; surface the diagnostic and count the file as
+                // failed, exactly like the `Err` path did before traps
+                // started carrying their captured state on the outcome.
+                if let Some(diagnostic) = outcome.trap {
+                    if !output.is_json() {
+                        eprintln!("{}", diagnostic);
+                    }
+                    diagnostics.push(diagnostic);
+                    failed += 1;
+                }
             }
             Err(errs) => {
                 diagnostics.extend(errs.clone());

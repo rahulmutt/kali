@@ -8,6 +8,7 @@ use crate::{
     LayoutDescriptor, MirBinding, MirBindingKind, MirFunction, MirFunctionKind, OwnershipClass,
 };
 
+pub mod arena_gate;
 mod infer;
 mod resolve;
 mod scope;
@@ -261,6 +262,7 @@ pub(crate) struct OwnershipAnalyzer<'a> {
     pub(crate) functions: Vec<MirFunction>,
     pub(crate) scope_stack: Vec<ScopeState>,
     pub(crate) synthetic_function_counter: usize,
+    pub(crate) arena: arena_gate::ArenaCollector,
 }
 
 impl<'a> OwnershipAnalyzer<'a> {
@@ -274,15 +276,22 @@ impl<'a> OwnershipAnalyzer<'a> {
             functions: Vec::new(),
             scope_stack: Vec::new(),
             synthetic_function_counter: 0,
+            arena: arena_gate::ArenaCollector::default(),
         }
     }
 
-    pub(crate) fn analyze_program(mut self, root: HirNodeId) -> Vec<MirFunction> {
+    /// Run the ownership walk, returning the finalized functions and the raw
+    /// arena facts collected during the same walk (see [`arena_gate`]).
+    pub(crate) fn analyze_program_with_arena(
+        mut self,
+        root: HirNodeId,
+    ) -> (Vec<MirFunction>, Vec<arena_gate::FunctionArenaFacts>) {
         self.push_scope("<module>", MirFunctionKind::Module, None);
         self.precollect_scope_bindings(root);
         self.walk_scope_node(root, UseContext::Normal);
         self.pop_scope_and_record();
-        self.functions
+        let facts = std::mem::take(&mut self.arena).into_facts();
+        (self.functions, facts)
     }
 
     pub(crate) fn function_flavor(&self, node_id: HirNodeId) -> Option<FunctionFlavor> {

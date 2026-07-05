@@ -45,6 +45,10 @@ struct CallEdge {
     /// For each positional argument, `Some((caller_func, name))` when the
     /// argument is a bare identifier (candidate array binding), else `None`.
     arg_array_names: Vec<Option<(String, String)>>,
+    /// For each positional argument, the object slot the argument's value
+    /// aliases, when one exists: a bare identifier (binding), `arr[i]`
+    /// (array element), or a bare-identifier call (callee return).
+    arg_obj_slots: Vec<Option<ObjSlot>>,
     /// Result node of the call expression itself (target of the callee's
     /// return-flow edge).
     result_node: usize,
@@ -310,6 +314,30 @@ impl ReprInfer {
                 self.record_object_flow_from_expr(func, dst, &inner.expression)
             }
             _ => {}
+        }
+    }
+
+    /// Object slot aliased by a call argument, when the expression can carry
+    /// an object reference (same recognized set as `record_object_flow_from_expr`).
+    fn arg_obj_slot(&mut self, func: &str, arg: &Expression) -> Option<ObjSlot> {
+        match arg {
+            Expression::Identifier(name) => Some(ObjSlot::Binding(func.to_string(), name.clone())),
+            Expression::MemberExpression(member) if member.computed_index.is_some() => {
+                match &member.object {
+                    Expression::Identifier(array) => {
+                        Some(ObjSlot::ArrayElem(func.to_string(), array.clone()))
+                    }
+                    _ => None,
+                }
+            }
+            Expression::CallExpression(call) => match &call.callee {
+                Expression::Identifier(callee) => Some(ObjSlot::Return(callee.clone())),
+                _ => None,
+            },
+            Expression::ParenthesizedExpression(inner) => {
+                self.arg_obj_slot(func, &inner.expression)
+            }
+            _ => None,
         }
     }
 
@@ -1031,6 +1059,7 @@ impl ReprInfer {
             Expression::Identifier(callee) => {
                 let mut arg_nodes = Vec::with_capacity(call.args.len());
                 let mut arg_array_names = Vec::with_capacity(call.args.len());
+                let mut arg_obj_slots = Vec::with_capacity(call.args.len());
                 for arg in &call.args {
                     if matches!(arg, Expression::ObjectExpression(_)) {
                         self.obj_conflicts.push(
@@ -1038,6 +1067,7 @@ impl ReprInfer {
                                 .to_string(),
                         );
                     }
+                    arg_obj_slots.push(self.arg_obj_slot(func, arg));
                     arg_nodes.push(self.visit_expr(func, arg));
                     arg_array_names.push(match arg {
                         Expression::Identifier(name) => Some((func.to_string(), name.clone())),
@@ -1049,6 +1079,7 @@ impl ReprInfer {
                     callee: callee.clone(),
                     arg_nodes,
                     arg_array_names,
+                    arg_obj_slots,
                     result_node,
                 });
                 result_node
@@ -1131,9 +1162,9 @@ impl ReprInfer {
                     let pnode = self.scalar_node_for(&edge.callee, param_name);
                     self.add_edge(arg_node, pnode);
                     // Object aliasing arg ~ param (no-op unless proven object).
-                    if let Some(Some((caller, name))) = edge.arg_array_names.get(k) {
+                    if let Some(Some(slot)) = edge.arg_obj_slots.get(k) {
                         self.obj_flows.push((
-                            ObjSlot::Binding(caller.clone(), name.clone()),
+                            slot.clone(),
                             ObjSlot::Binding(edge.callee.clone(), param_name.clone()),
                         ));
                     }

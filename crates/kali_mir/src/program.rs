@@ -3,7 +3,8 @@
 use std::collections::BTreeSet;
 
 use crate::{
-    BorrowedLifetime, MirFunction, MirFunctionKind, MirNode, MirNodeId, ThreadBoundaryProfile,
+    BorrowedLifetime, FunctionArenaFacts, MirFunction, MirFunctionKind, MirNode, MirNodeId,
+    ThreadBoundaryProfile,
 };
 
 /// MIR lowering result.
@@ -12,6 +13,10 @@ pub struct MirProgram {
     pub root: MirNodeId,
     pub nodes: Vec<MirNode>,
     pub functions: Vec<MirFunction>,
+    /// Raw per-function escape-gate facts collected during ownership analysis,
+    /// consumed by [`crate::analysis::arena_gate::compute_arena_table`]. Empty
+    /// when the program was constructed without arena analysis.
+    pub arena_facts: Vec<FunctionArenaFacts>,
 }
 
 impl MirProgram {

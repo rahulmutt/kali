@@ -112,6 +112,7 @@ fn release_specializes_object_literal_property_order_canonicalization() {
 
     let mir = MirAnalysisProgram {
         root: kali_mir::MirNodeId::new(0),
+        arena_facts: Vec::new(),
         nodes: Vec::new(),
         functions: vec![
             kali_mir::MirFunction {

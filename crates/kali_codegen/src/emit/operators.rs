@@ -339,7 +339,63 @@ impl<'a> FunctionEmitter<'a> {
                 if let Some(aggregate_id) = self.resolve_literal_aggregate(arg) {
                     let aggregate = self.node(aggregate_id).clone();
                     if let Some(field_value) = self.object_literal_field(&aggregate, op) {
+                        // The fold lane found a structural field. Unknown
+                        // fields on a KNOWN object literal stay fold-first
+                        // (that `None` case falls all the way through to the
+                        // pre-existing warning+0 fallback below, unchanged —
+                        // see `unknown_field_read_is_fold_first_until_materialized`).
+                        // But if the field's OWN value resolves (through the
+                        // same const-fold alias chain) to ANOTHER unlabeled
+                        // object-literal aggregate with no proven runtime
+                        // shape, emitting it directly falls into
+                        // `emit_aggregate_literal`'s drop-only fallback, which
+                        // always pushes a placeholder `0` — silently wrong for
+                        // a value read (only correct in a discarded-statement
+                        // position). REJECT-DON'T-MISCOMPILE: reject that
+                        // specific dead end at compile time instead.
+                        if self.fold_lane_field_value_is_dead_end(field_value) {
+                            self.diagnostics.push(Diagnostic::error(
+                                e5::FEATURE_UNAVAILABLE as u32,
+                                format!(
+                                    "reading property '{op}' of a value with no statically inferred object shape is unavailable in the current phase"
+                                ),
+                            ));
+                            function.instruction(&Instruction::Unreachable);
+                            return EmittedValue {
+                                produced: false,
+                                shape: ValueShape::Unknown,
+                            };
+                        }
                         return self.emit_node(function, field_value, true);
+                    }
+                }
+
+                // Chained member read off a fold-lane member base
+                // (`t.left.v` where `t.left` folds to an object reference):
+                // the inner read may produce a perfectly valid object pointer
+                // (e.g. `arr[0]` with materialized object elements), but this
+                // OUTER read has no way to classify a member-chain base
+                // (`object_shape_of_node` recognizes identifier and
+                // array-subscript bases only), so it would fall into the
+                // warning+0 placeholder below — a silent wrong answer.
+                // REJECT-DON'T-MISCOMPILE: reject when the inner fold-lane
+                // substitution is object-shaped (either a dead end or a node
+                // with a proven object shape).
+                if let Some(substituted) = self.fold_lane_member_chain_field_value(arg) {
+                    if self.fold_lane_field_value_is_dead_end(substituted)
+                        || self.object_shape_of_node(substituted).is_some()
+                    {
+                        self.diagnostics.push(Diagnostic::error(
+                            e5::FEATURE_UNAVAILABLE as u32,
+                            format!(
+                                "reading property '{op}' of a value with no statically inferred object shape is unavailable in the current phase"
+                            ),
+                        ));
+                        function.instruction(&Instruction::Unreachable);
+                        return EmittedValue {
+                            produced: false,
+                            shape: ValueShape::Unknown,
+                        };
                     }
                 }
 
@@ -358,6 +414,87 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
         }
+    }
+
+    /// True when `field_value` — a field found via the compile-time fold lane
+    /// (`object_literal_field`) — is an object reference that emitting as a
+    /// VALUE would silently mislower to `emit_aggregate_literal`'s drop-only
+    /// fallback (an unconditional placeholder `I64Const(0)`, correct only in
+    /// a discarded-statement position). REJECT-DON'T-MISCOMPILE: callers must
+    /// turn this into a compile-time E5506 instead of emitting it.
+    ///
+    /// Positively matched dead-end shapes (each pinned by a rejection test in
+    /// `kali_cli/tests/object_call_result_args_runtime.rs`):
+    /// - an inline nested object literal (`{ left: { v: 5 } }` — `t.left`
+    ///   would emit the placeholder, so `t.left.v` reads 0 and
+    ///   `t.left === null` prints true);
+    /// - a bare identifier whose const-fold binding (`self.bindings`)
+    ///   resolves through `resolve_literal_aggregate` to an object literal
+    ///   (`const t = { left: leafA }`);
+    /// - a static index into a const-bound array literal (`arr[0]`) whose
+    ///   element is, recursively, one of these dead-end shapes.
+    ///
+    /// Everything else stays on today's green surface, by construction:
+    /// scalar/string/array-literal field values are not `is_object_literal`;
+    /// host/global member chains (`Deno.env`, `globalThis.Math`, `Object`,
+    /// `Set`, `Map`, …) never resolve through `resolve_literal_aggregate` to
+    /// a user object literal; and a MISSING field never reaches this
+    /// predicate at all (`object_literal_field` returns `None` first), so
+    /// fold-first unknown-field reads keep printing the JS-`undefined`
+    /// placeholder (`unknown_field_read_is_fold_first_until_materialized`).
+    /// When `id` is a one-child member-read node (`<base>.field`, property
+    /// name in `text`) whose base resolves through the const-fold alias chain
+    /// to an object literal declaring that field, returns the field's value
+    /// node — the node the fold lane would substitute when emitting `id`.
+    /// Used by `emit_unary`'s default arm to see through ONE level of member
+    /// chaining (`t.left.v`) and gate the outer read when the substitution is
+    /// object-shaped. `None` for every other shape (identifier, subscript,
+    /// call, host chain, unknown field), which keeps all of those on their
+    /// existing paths.
+    fn fold_lane_member_chain_field_value(&self, id: LirNodeId) -> Option<LirNodeId> {
+        let id = self.unwrap_transparent(id);
+        let node = self.node(id).clone();
+        if node.kind != LirNodeKind::Value || node.children.len() != 1 {
+            return None;
+        }
+        let field = node.text.as_deref().filter(|text| !text.is_empty())?;
+        let aggregate_id = self.resolve_literal_aggregate(node.children[0])?;
+        let aggregate = self.node(aggregate_id).clone();
+        self.object_literal_field(&aggregate, field)
+    }
+
+    pub(crate) fn fold_lane_field_value_is_dead_end(&self, field_value: LirNodeId) -> bool {
+        self.fold_lane_field_value_is_dead_end_at_depth(field_value, 0)
+    }
+
+    fn fold_lane_field_value_is_dead_end_at_depth(
+        &self,
+        field_value: LirNodeId,
+        depth: usize,
+    ) -> bool {
+        // Self-referential const initializers (`const arr = [arr[0]]`) make
+        // the static-index resolution below return the same node id forever;
+        // bail out conservatively (no rejection) past a small alias depth.
+        if depth > 8 {
+            return false;
+        }
+        let node = self.node(field_value).clone();
+        // Inline nested object literal, or an identifier alias resolving to
+        // one: `resolve_literal_aggregate` returns the literal itself for the
+        // inline shape and follows `self.bindings` for the alias shape.
+        if let Some(resolved) = self.resolve_literal_aggregate(field_value) {
+            if self.is_object_literal(&self.node(resolved).clone()) {
+                return true;
+            }
+        }
+        // Static array-literal element (`arr[0]`): recurse into the element
+        // the fold lane would substitute.
+        if let Some(StaticIndexMemberResult::Node(element)) =
+            self.resolve_static_index_member(&node)
+        {
+            return self.fold_lane_field_value_is_dead_end_at_depth(element, depth + 1);
+        }
+        false
     }
 
     /// Unwraps transparent single-child `Value` wrappers (no operator text) so a
