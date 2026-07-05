@@ -295,6 +295,7 @@ impl<'a> OwnershipAnalyzer<'a> {
         self.pop_scope_and_record();
         let flow = std::mem::take(&mut self.flow);
         let solution = escape_flow::solve(&flow);
+        escape_flow::apply_escape_verdicts(&mut self.functions, &solution);
         let facts = std::mem::take(&mut self.arena).into_facts(&flow, &solution);
         (self.functions, facts)
     }

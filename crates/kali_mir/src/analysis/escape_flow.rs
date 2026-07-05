@@ -24,7 +24,10 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use kali_hir::{HirNodeId, HirNodeKind};
 
-use crate::{LayoutDescriptor, OwnershipAnalyzer};
+use crate::{
+    LayoutDescriptor, MirBindingKind, MirFunction, MirFunctionKind, OwnershipAnalyzer,
+    OwnershipClass,
+};
 
 /// A dataflow node. Bindings are keyed (owner function label, name) — the
 /// same name-keyed granularity as the rest of the gate, with the same
@@ -275,11 +278,6 @@ impl FlowSolution {
             })
     }
 
-    // Consumer lands in Task 4 (`progress.md`: "Engine post-pass —
-    // binding.escapes learns the fixpoint verdicts"), which is out of scope
-    // for this cutover; narrowly allowed rather than reintroducing the
-    // module-wide allow this task is removing.
-    #[allow(dead_code)]
     pub(crate) fn binding_escapes(&self, owner: &str, name: &str) -> bool {
         self.tainted.contains(&FlowNode::Binding {
             owner: owner.to_string(),
@@ -479,6 +477,48 @@ impl<'a> OwnershipAnalyzer<'a> {
             embeds.extend(self.classify_value(*child).take_nodes());
         }
         ValueClass::Heap(embeds)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Engine consumer: fold fixpoint escape verdicts into finalized bindings.
+// ---------------------------------------------------------------------------
+
+/// The fourth disjunct of the engine's escape judgment: a binding whose value
+/// the fixpoint proves stored beyond a dynamic extent escapes, even when the
+/// walk saw only plain-ident dataflow (`sink = p`, alias chains, hoisted
+/// helpers). Mirrors `finalise_binding`'s ownership mapping; only ever flips
+/// verdicts toward escaping. Module-scope bindings are storage roots, not
+/// escapees — skipped.
+pub(crate) fn apply_escape_verdicts(functions: &mut [MirFunction], solution: &FlowSolution) {
+    for function in functions.iter_mut() {
+        if function.kind == MirFunctionKind::Module {
+            continue;
+        }
+        let Some(owner) = function.name.clone() else {
+            continue;
+        };
+        for binding in &mut function.bindings {
+            if binding.escapes {
+                continue;
+            }
+            if !solution.binding_escapes(&owner, &binding.name) {
+                continue;
+            }
+            binding.escapes = true;
+            match binding.kind {
+                MirBindingKind::Local | MirBindingKind::Function => {
+                    binding.ownership = if binding.captured_by.is_empty() {
+                        OwnershipClass::OwnedHeap
+                    } else {
+                        OwnershipClass::SharedHeap
+                    };
+                }
+                // finalise_binding's returned/escaped arm keeps Parameter and
+                // Import ownership untouched.
+                MirBindingKind::Parameter | MirBindingKind::Import => {}
+            }
+        }
     }
 }
 

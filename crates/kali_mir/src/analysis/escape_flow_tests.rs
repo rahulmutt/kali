@@ -100,8 +100,8 @@ fn value_class_join_lattice() {
     let b = binding("f", "b");
     // Scalar is the identity.
     assert_eq!(
-        ValueClass::Scalar.join(depends_on(&[a.clone()])),
-        depends_on(&[a.clone()])
+        ValueClass::Scalar.join(depends_on(std::slice::from_ref(&a))),
+        depends_on(std::slice::from_ref(&a))
     );
     assert_eq!(
         ValueClass::Scalar.join(ValueClass::Scalar),
@@ -109,11 +109,11 @@ fn value_class_join_lattice() {
     );
     // Heap absorbs, unioning source nodes.
     assert_eq!(
-        heap_with(&[a.clone()]).join(depends_on(&[b.clone()])),
+        heap_with(std::slice::from_ref(&a)).join(depends_on(std::slice::from_ref(&b))),
         heap_with(&[a.clone(), b.clone()])
     );
     assert_eq!(
-        depends_on(&[a.clone()]).join(depends_on(&[b.clone()])),
+        depends_on(std::slice::from_ref(&a)).join(depends_on(std::slice::from_ref(&b))),
         depends_on(&[a, b])
     );
 }
