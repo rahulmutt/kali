@@ -73,7 +73,10 @@ capture_escapes` is computed, `analysis/mod.rs`) and `ArenaCollector::into_facts
 3. **`FunctionSummary`** — per function: `param_escapes: Vec<bool>` ("param *i* is stored
    beyond the function's dynamic extent"), `stores_capture_outward` (set of outer binding
    names), `returns_heap` (tri-state until the fixpoint resolves it), and the existing
-   `has_unknown_call`.
+   `has_unknown_call`. "Stored beyond the dynamic extent" means any of: stored into a
+   module-level binding, stored into a heap object's field/element, returned, or passed
+   as an argument to a callee whose summary does one of these to that param (the
+   transitive case is what the fixpoint resolves).
 
 ### Fixpoint
 
