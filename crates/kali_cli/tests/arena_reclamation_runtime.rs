@@ -705,3 +705,67 @@ main();
     // 100 iterations => 100 * 2047 = 204700.
     assert_eq!(String::from_utf8_lossy(&output.stdout), "204700\n");
 }
+
+#[test]
+fn mixed_returned_and_scratch_function_is_sound() {
+    // FINAL-REVIEW CRITICAL: `make` has BOTH a dying scratch object
+    // (`scratch`, a 6-field object read into a scalar and then discarded —
+    // ScopeLocal fate, exactly the shape `opens_arena_only_with_local_sites`
+    // grants a function arena for) AND a returned fresh object (`{ v: s }` —
+    // Returned fate). The old gate rule `opens_arena(f) = arena_eligible(f)
+    // && has_scope_local_site` looked ONLY at the ScopeLocal bit and ignored
+    // the Returned site entirely, so it wrongly granted `make` its own
+    // per-call function arena. Every fresh-heap site in an arena-eligible
+    // function routes into the SAME current arena, so the returned `{ v: s
+    // }` was ALSO allocated into that per-call arena — and `make`'s epilogue
+    // resets/releases that arena on every exit path, splicing the just
+    // *returned* object's backing page onto the free list the instant the
+    // call returns.
+    //
+    // `make` is called TWICE per iteration so the LIFO free-list clobber is
+    // observable within a single iteration: `r1 = make(i)`'s returned page is
+    // freed when `make` returns, and `r2 = make(i + 1000)`'s own allocations
+    // (scratch + its own returned object) reuse that freed page from the free
+    // list BEFORE `r1.v` is ever read back — so `r1.v` reads back corrupted
+    // (overwritten by `r2`'s call), producing the wrong sum. Confirmed RED
+    // against the pre-fix gate (`arena_gate.rs` with the `has_returned_site`
+    // exclusion reverted): this exact fixture printed `1262400`, not the
+    // correct `662400` — see the Final-review Critical section of
+    // task-9-report.md for the stash/rebuild/restore transcript.
+    let source = write_temp_source(
+        "mixed_returned_and_scratch",
+        r#"function make(seed) {
+  const scratch = { a: seed, b: seed + 1, c: seed + 2, d: seed + 3, e: seed + 4, f: seed + 5 };
+  const s = scratch.a + scratch.b + scratch.c + scratch.d + scratch.e + scratch.f;
+  return { v: s };
+}
+function main() {
+  let total = 0;
+  for (let i = 0; i < 100; i = i + 1) {
+    const r1 = make(i);
+    const r2 = make(i + 1000);
+    total = total + r1.v + r2.v;
+  }
+  console.log(total);
+}
+main();
+"#,
+    );
+    let output = std::process::Command::new(kali_bin())
+        .arg("run")
+        .arg(&source)
+        .output()
+        .expect("run kali");
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    // scratch's fields sum to 6*seed + (0+1+2+3+4+5) = 6*seed + 15, so
+    // make(seed).v = 6*seed + 15.
+    // r1.v = 6*i + 15; r2.v = 6*(i+1000) + 15 = 6*i + 6015.
+    // r1.v + r2.v = 12*i + 6030.
+    // total = sum_{i=0}^{99} (12*i + 6030) = 12*(99*100/2) + 100*6030
+    //       = 12*4950 + 603000 = 59400 + 603000 = 662400.
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "662400\n");
+}

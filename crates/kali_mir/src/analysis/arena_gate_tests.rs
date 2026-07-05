@@ -672,3 +672,64 @@ fn ineligible_on_heap_ident_arg_to_unknown_callee() {
     assert!(!table.arena_eligible("f"));
     assert!(!table.opens_arena("f"));
 }
+
+// --- Final-review Critical: opens_arena excludes mixed Returned+ScopeLocal ---
+
+#[test]
+fn opens_arena_excludes_function_with_returned_and_scope_local_site() {
+    // `scratch` is a fresh object whose fields are only read (dies inside
+    // `make` ⇒ ScopeLocal), but `out` is a second fresh object that is
+    // returned (⇒ Returned fate). Every fresh-heap site in an arena-eligible
+    // function routes into the SAME current arena; if `make` opened its own
+    // per-call function arena (as the old `has_scope_local_site`-only rule
+    // would grant), that arena resets on every exit path and would splice
+    // `out`'s backing page onto the free list right as it is handed back to
+    // the caller — a use-after-reset. `make` must stay arena_eligible (its
+    // sites may still target the CALLER's current arena) but must NOT open
+    // its own function arena.
+    let mir = analyze(
+        "function make() {
+           const scratch = { a: 1, b: 2, c: 3, d: 4, e: 5, f: 6 };
+           const s = scratch.a + scratch.b + scratch.c + scratch.d + scratch.e + scratch.f;
+           const out = { v: s };
+           return out;
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(table.arena_eligible("make"));
+    assert!(!table.opens_arena("make"));
+}
+
+#[test]
+fn opens_arena_excludes_function_with_bare_literal_return_and_scope_local_site() {
+    // Same hazard as `opens_arena_excludes_function_with_returned_and_scope_local_site`,
+    // but the returned object is a BARE LITERAL in return position
+    // (`return { v: s };`) rather than first bound to a name. This exercises
+    // a genuinely different code path: a literal returned directly never
+    // becomes a `fresh_heap_binding` (nothing ever calls
+    // `arena_note_fresh_binding` for it, since that only fires on
+    // `VarDeclarator` initializers), so the binding-based fate lattice in
+    // `arena_finalize_current_function` can never see it — `arena_note_return`
+    // must flag it directly at the raw site.
+    let mir = analyze(
+        "function make() {
+           const scratch = { a: 1, b: 2, c: 3, d: 4, e: 5, f: 6 };
+           const s = scratch.a + scratch.b + scratch.c + scratch.d + scratch.e + scratch.f;
+           return { v: s };
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(table.arena_eligible("make"));
+    assert!(!table.opens_arena("make"));
+}
+
+#[test]
+fn opens_arena_still_true_for_all_scope_local_function() {
+    // Guard against over-tightening: a function whose only fresh-heap site is
+    // purely ScopeLocal (no Returned site at all) must still open its own
+    // function arena.
+    let mir = analyze("function f() { const o = { v: 1 }; let s = o.v; return s; }");
+    let table = compute_arena_table(&mir);
+    assert!(table.arena_eligible("f"));
+    assert!(table.opens_arena("f"));
+}

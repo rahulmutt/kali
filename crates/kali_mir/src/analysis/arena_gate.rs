@@ -71,6 +71,12 @@ pub struct FunctionArenaFacts {
     pub has_global_site: bool,
     /// At least one allocation site has `ScopeLocal` fate (dies inside `f`).
     pub has_scope_local_site: bool,
+    /// At least one allocation site has `Returned` fate (neither `Global` nor
+    /// `ScopeLocal`: it flows out via a bare `return`). Such a site must NOT
+    /// be routed into a per-call function arena that gets reset on exit, so
+    /// this fact vetoes `opens_arena` even when a `ScopeLocal` site is also
+    /// present (see `opens_arena` doc comment).
+    pub has_returned_site: bool,
     /// Resolved bare-identifier call targets invoked in the function body.
     pub calls: BTreeSet<String>,
     /// The function contains a closure/indirect/unresolved or non-whitelisted
@@ -89,6 +95,7 @@ pub(crate) struct FuncRaw {
     allocates: bool,
     has_global_site: bool,
     has_scope_local_site: bool,
+    has_returned_site: bool,
     calls: BTreeSet<String>,
     has_unknown_call: bool,
     fresh_heap_bindings: BTreeSet<String>,
@@ -192,6 +199,7 @@ impl ArenaCollector {
                             allocates: raw.allocates,
                             has_global_site: true,
                             has_scope_local_site: false,
+                            has_returned_site: false,
                             calls: raw.calls.clone(),
                             has_unknown_call: true,
                             loops: Vec::new(),
@@ -202,6 +210,7 @@ impl ArenaCollector {
                         allocates: raw.allocates,
                         has_global_site: raw.has_global_site,
                         has_scope_local_site: raw.has_scope_local_site,
+                        has_returned_site: raw.has_returned_site,
                         calls: raw.calls.clone(),
                         has_unknown_call: raw.has_unknown_call,
                         loops: raw.loops.clone(),
@@ -258,10 +267,14 @@ impl<'a> OwnershipAnalyzer<'a> {
             // `return` ⇒ Returned (neither local nor global); otherwise the
             // value dies here ⇒ ScopeLocal.
             let global = !binding.captured_by.is_empty() || binding.escaped_via_flow;
+            let returned = !global && binding.returned;
             let scope_local = !global && !binding.returned;
             let f = self.arena.func(&label);
             if global {
                 f.has_global_site = true;
+            }
+            if returned {
+                f.has_returned_site = true;
             }
             if scope_local {
                 f.has_scope_local_site = true;
@@ -504,6 +517,19 @@ impl<'a> OwnershipAnalyzer<'a> {
         let mut class = ValueClass::Scalar;
         for child in children {
             class = class.join(self.classify_value(*child));
+            // A fresh object/array literal returned DIRECTLY (not first bound
+            // to a name) is a Returned-fate allocation site that the
+            // binding-based fate lattice in `arena_finalize_current_function`
+            // can never see (there is no binding to classify: nothing ever
+            // calls `arena_note_fresh_binding` for it). Mark it here, at the
+            // raw site itself, so `return { v: s }` vetoes `opens_arena`
+            // exactly like the `const out = { v: s }; return out;` identifier
+            // form the bindings loop already catches — both are the same
+            // use-after-reset hazard if the enclosing function also opens its
+            // own function arena for an unrelated ScopeLocal site.
+            if self.arena_is_fresh_literal(*child) {
+                self.arena.func(&function).has_returned_site = true;
+            }
         }
         self.flow.note_value_into(
             crate::analysis::escape_flow::FlowNode::Return {
@@ -534,7 +560,16 @@ impl<'a> OwnershipAnalyzer<'a> {
 /// Reads the raw per-function/per-loop facts collected during ownership
 /// analysis (`mir.arena_facts`) and applies:
 /// 1. `arena_eligible(f)` ⇔ `f` allocates and has no `Global`-fate site.
-/// 2. `opens_arena(f)` ⇔ `arena_eligible(f)` and `f` has a `ScopeLocal` site.
+/// 2. `opens_arena(f)` ⇔ `arena_eligible(f)`, `f` has a `ScopeLocal` site, and
+///    `f` has NO `Returned`-fate site. A function-body arena is reset on
+///    every exit path; a `Returned` site's value must survive past that
+///    reset into the caller, so ANY `Returned` site vetoes opening a
+///    function arena for `f` even when a `ScopeLocal` site is also present
+///    (every fresh-heap site in `f` currently routes into the same current
+///    arena, so a mixed function cannot open one without also resetting the
+///    returned value's backing page). `f` stays `arena_eligible` — its sites
+///    still target the *caller's* current arena — only the per-call function
+///    arena it would otherwise open for itself is withheld.
 /// 3. `loop_arena(f, ord)` ⇔ the loop reaches allocation through only known,
 ///    arena-eligible callees, has no heap outflow, and no unknown/non-whitelist
 ///    call.
@@ -557,7 +592,7 @@ pub fn compute_arena_table(mir: &MirProgram) -> ArenaTable {
     for facts in &mir.arena_facts {
         if eligible(&facts.name) {
             table.set_arena_eligible(&facts.name);
-            if facts.has_scope_local_site {
+            if facts.has_scope_local_site && !facts.has_returned_site {
                 table.set_opens_arena(&facts.name);
             }
         }
