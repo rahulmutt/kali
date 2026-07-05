@@ -9,6 +9,7 @@ use crate::{
 };
 
 pub mod arena_gate;
+pub(crate) mod escape_flow;
 mod infer;
 mod resolve;
 mod scope;
