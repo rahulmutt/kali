@@ -10,6 +10,39 @@
 
 **Spec:** `docs/superpowers/specs/2026-07-04-binary-trees-phase1-arenas-design.md` (read it before starting any task).
 
+## Re-validation note (2026-07-05, before starting Task 5)
+
+Tasks 1–4 shipped as **PR #6** (main `0488c2931`). A human-ruled prerequisite —
+the **interprocedural escape-flow round** — then shipped as **PR #7** (main
+`149ce982b`) *between* Task 4 and Task 5. Tasks 5–9 were re-validated against
+`149ce982b` and **hold as written**, with three deltas recorded here:
+
+1. **Task 4's algorithm text below is now historical.** PR #7 *replaced* the
+   fate-lattice `compute_arena_table` (Task 4 Steps 4–6) with a shared may-heap/
+   escape **fixpoint** (`crates/kali_mir/src/analysis/escape_flow.rs` +
+   `ArenaCollector::into_facts`). The **`ArenaTable` public surface is
+   unchanged** (`arena_eligible` / `opens_arena` / `loop_arena`), so Tasks 5–9 —
+   which consume only that surface — are unaffected. Do **not** re-implement
+   Task 4; read the current gate before Task 6.
+2. **The gate is now strictly *more* sound** than when this plan was written
+   (PR #7 closed the launder family + a for-of loop-var fail-OPEN). That
+   hardening first becomes **load-bearing at Task 6**, where a wrong arena grant
+   is a use-after-reset miscompile.
+3. **Soundness watch-item for Task 6 (verify early, don't defer to Task 8):** the
+   **long-lived tree** is declared *before* the main loop and must **not** be
+   pulled into the per-iteration arena. PR #7 pins the core shapes green
+   (`bottomUpTree` eligible, `itemCheck` gets no arena, `loop_arena` granted for
+   the `itemCheck(bottomUpTree(d))` loop), but the real fixture's
+   long-lived-tree veto is not directly pinned — add a gate/e2e assertion for it
+   early in Task 6.
+
+Line-number anchors throughout Tasks 5–9 have drifted (PR #6 added ~230 lines to
+`lower.rs`, ~134 to `host/memory.rs`); re-derive them by symbol as the plan
+already instructs. Confirmed still present and matching: only `__heap` is a
+declared global today (index 0), so Task 5's g1–g7 indices are correct; the
+geometric-grow logic Task 5 relocates is intact in `emit_alloc_body`; the host
+string bump (`write_bytes_at_heap`) still bumps `__heap` directly.
+
 ## Global Constraints
 
 - **GC-less invariant:** no tracing/copying/generational GC machinery, no shadow stack, no write barriers. Reclamation is arena reset only.
@@ -20,7 +53,7 @@
 - **No new host imports.** The 4 hand-mirrored browser JS import lists must not change (JS glue *implementations* may).
 - **Existing CLBG fixtures stay output-identical** (n-body, spectral-norm, fannkuch, mandelbrot incl. the 5011-byte golden PBM). Wasm bytes will differ; canonical output must not.
 - **Gate after every task:** `cargo test -p kali_lexer -p kali_common -p kali_types -p kali_codegen -p kali_cli` green and `cargo fmt --check` clean.
-- **Branch:** all work on `binary-trees-phase1-arenas` (created in Task 1, Step 1). Commit at the end of every task.
+- **Branch:** Tasks 1–4 already merged (PR #6). Tasks 5–9 run on a **fresh branch off main `149ce982b`** (e.g. `binary-trees-arena-codegen`). Commit at the end of every task; integrate per the push-a-PR-and-self-merge convention.
 - Repro/scratch sources go in a temp dir, never committed. Temp fixture files in tests use the existing `AtomicU64`-counter slug helper idiom (see `heap_grow_runtime.rs`) — `as_nanos()+pid` alone collides on macOS CI.
 
 ## File Structure (net-new and load-bearing modifications)
