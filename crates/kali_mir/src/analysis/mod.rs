@@ -293,7 +293,9 @@ impl<'a> OwnershipAnalyzer<'a> {
         self.precollect_scope_bindings(root);
         self.walk_scope_node(root, UseContext::Normal);
         self.pop_scope_and_record();
-        let facts = std::mem::take(&mut self.arena).into_facts();
+        let flow = std::mem::take(&mut self.flow);
+        let solution = escape_flow::solve(&flow);
+        let facts = std::mem::take(&mut self.arena).into_facts(&flow, &solution);
         (self.functions, facts)
     }
 

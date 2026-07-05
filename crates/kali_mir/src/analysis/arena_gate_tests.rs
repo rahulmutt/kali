@@ -426,30 +426,15 @@ fn ineligible_on_closure_mediated_launder() {
     assert!(!table.arena_eligible("f"));
 }
 
-// --- KNOWN FAIL-OPEN pins (round 5, BLOCKED) ---------------------------------
-// Two surviving members of the launder family, pinned with the CORRECT
-// (currently failing) assertions and #[ignore]d until the structural fix
-// lands. Root cause analysis in .superpowers/sdd/task-4-report.md round 5:
-// both the gate's store notes and the ownership engine's param-escape flags
-// ignore plain-ident dataflow, so heap-value flow is only closable with an
-// interprocedural may-heap/escape propagation — out of scope for a per-walk
-// patch. Run with `cargo test -p kali_mir arena_gate -- --ignored` to see
-// them fail.
-//
-// BOUNDARY STATEMENT (corrected round 5b — read this before consuming the
-// table in codegen): the gate is sound on BOTH axes for programs without
-// (a) hoisted-function-after-read launders, (b) callees that plain-ident-
-// store heap params/captures outward; both shapes corrupt arena_eligible
-// ITSELF, and every consumer inherits the hole — opens_arena AND loop_arena
-// (a driver loop calling the wrongly-eligible f is granted a loop arena:
-// reaches_alloc_transitively("f") is true and the only available veto,
-// !eligible("f"), is exactly the corrupted fact). There is no axis
-// containment, only pattern containment. Each pin below therefore also
-// asserts the loop-axis form via a driver loop; the future interprocedural
-// fix must clear ALL assertions in both pins.
+// --- Interprocedural launder pins (round 5 xfails, closed by escape_flow) ----
+// These two shapes corrupted arena_eligible itself under the old walk-order-
+// sensitive judgment (task-4-report.md rounds 4-5b: plain-ident dataflow was
+// unmodeled in both the gate and the engine; there was no axis containment,
+// only pattern containment). The escape_flow fixpoint resolves heap-ness and
+// param-escape summaries order-independently, so all assertions — loop_arena
+// via the driver loop, opens_arena, arena_eligible — now hold.
 
 #[test]
-#[ignore = "known fail-open: walk-order launder via hoisted function; needs order-independent (fixpoint) classification — see task-4 round-5 report"]
 fn ineligible_on_hoisted_function_launder() {
     // `helper` is declared after `cache = x` but hoisted and called before
     // it: the walk classifies `cache = x` before helper's body records
@@ -479,7 +464,6 @@ fn ineligible_on_hoisted_function_launder() {
 }
 
 #[test]
-#[ignore = "known fail-open: param-mediated escape (engine's param-escape flags are blind to plain-ident outer stores); needs interprocedural summaries — see task-4 round-5 report"]
 fn ineligible_on_param_mediated_escape() {
     // `retain` stores its param into a module binding via a plain-ident LHS,
     // which neither the engine's escape flags (p.escapes == false) nor the

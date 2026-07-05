@@ -5,10 +5,15 @@
 //! run a second traversal): during the one HIR walk that already computes
 //! ownership, it also records, per function scope, the raw facts the gate needs
 //! — allocation presence, per-site fate summary, call targets, and per-loop
-//! (pre-order ordinal) facts. Those raw facts are surfaced on
-//! [`crate::MirProgram::arena_facts`]; [`compute_arena_table`] then applies the
-//! fate lattice, the transitive reaches-allocation closure, and the loop
-//! opening rule over them.
+//! (pre-order ordinal) facts. Heap-ness and escape resolution are no longer
+//! judged immediately against possibly-stale walk-order state: the walk
+//! defers global/outflow/arg-escape sites into
+//! [`crate::analysis::escape_flow::FlowCollector`], and
+//! [`ArenaCollector::into_facts`] resolves them against the interprocedural
+//! [`crate::analysis::escape_flow::FlowSolution`] fixpoint before emission.
+//! Those raw facts are surfaced on [`crate::MirProgram::arena_facts`];
+//! [`compute_arena_table`] then applies the fate lattice, the transitive
+//! reaches-allocation closure, and the loop opening rule over them.
 //!
 //! Every join **fails closed**: any ambiguity vetoes the arena (or sends a site
 //! to the global heap). Vetoing is always sound — the only cost is unreclaimed
@@ -19,8 +24,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use kali_common::ArenaTable;
 use kali_hir::{HirNodeId, HirNodeKind};
 
-use crate::analysis::escape_flow::ValueClass;
-use crate::{LayoutDescriptor, MirProgram, OwnershipAnalyzer};
+use crate::analysis::escape_flow::{FlowCollector, FlowSolution, ValueClass};
+use crate::{MirProgram, OwnershipAnalyzer};
 
 /// Host calls that consume (do not retain) their arguments, so a loop that only
 /// calls these does not leak heap values out of its per-iteration arena.
@@ -87,13 +92,6 @@ pub(crate) struct FuncRaw {
     calls: BTreeSet<String>,
     has_unknown_call: bool,
     fresh_heap_bindings: BTreeSet<String>,
-    /// Bindings reassigned from ANY may-hold-heap RHS (call results, member
-    /// reads, ...) whose declarator layout is stale-scalar. Consulted ONLY by
-    /// `arena_is_heap_value` — deliberately NOT fed into the fate
-    /// classification: a call RESULT is not a fresh allocation site of this
-    /// function, and classifying it ScopeLocal would wrongly grant
-    /// `opens_arena` (dangling returned values after the exit reset).
-    maybe_heap_bindings: BTreeSet<String>,
     loops: Vec<LoopArenaFacts>,
     /// Two same-named function scopes wrote into this entry (the table is
     /// name-keyed, so per-instance decisions are impossible) ⇒ poisoned at
@@ -140,7 +138,46 @@ impl ArenaCollector {
     /// (veto-side), but `has_scope_local_site` and per-ordinal loop entries
     /// would GRANT across instances — so a detected collision poisons the
     /// entry outright (global site + unknown call, loops dropped).
-    pub(crate) fn into_facts(self) -> Vec<FunctionArenaFacts> {
+    pub(crate) fn into_facts(
+        mut self,
+        flow: &FlowCollector,
+        solution: &FlowSolution,
+    ) -> Vec<FunctionArenaFacts> {
+        // Resolve the deferred veto sites against the fixpoint. Everything
+        // here only ever ORs veto bits in — grants are untouched.
+        for site in flow.global_sites() {
+            if solution.class_may_heap(&site.class) {
+                if let Some(raw) = self.functions.get_mut(&site.function) {
+                    raw.has_global_site = true;
+                }
+            }
+        }
+        for site in flow.outflow_sites() {
+            if solution.class_may_heap(&site.class) {
+                if let Some(raw) = self.functions.get_mut(&site.function) {
+                    if let Some(l) = raw.loops.iter_mut().find(|l| l.ordinal == site.ordinal) {
+                        l.has_outflow = true;
+                    }
+                }
+            }
+        }
+        // A may-heap argument handed to a param slot the callee stores
+        // outward escapes the caller's frame AND every loop open at the call.
+        for site in flow.arg_sites() {
+            if solution.param_escapes(&site.callee, site.index)
+                && solution.class_may_heap(&site.class)
+            {
+                if let Some(raw) = self.functions.get_mut(&site.function) {
+                    raw.has_global_site = true;
+                    for ordinal in &site.loop_ordinals {
+                        if let Some(l) = raw.loops.iter_mut().find(|l| l.ordinal == *ordinal) {
+                            l.has_outflow = true;
+                        }
+                    }
+                }
+            }
+        }
+
         let ArenaCollector {
             functions, order, ..
         } = self;
@@ -294,17 +331,6 @@ impl<'a> OwnershipAnalyzer<'a> {
             .insert(name.to_string());
     }
 
-    /// Record that local `name` was reassigned from a may-hold-heap RHS, so
-    /// its (stale) declarator layout must no longer be trusted by
-    /// `arena_is_heap_value`.
-    fn arena_note_maybe_heap_binding(&mut self, name: &str) {
-        let label = self.current_scope_label();
-        self.arena
-            .func(&label)
-            .maybe_heap_bindings
-            .insert(name.to_string());
-    }
-
     fn arena_note_call(&mut self, target: &str) {
         let label = self.current_scope_label();
         self.arena.func(&label).calls.insert(target.to_string());
@@ -319,11 +345,6 @@ impl<'a> OwnershipAnalyzer<'a> {
         for loop_raw in &mut self.arena.loop_stack {
             loop_raw.has_unknown_call = true;
         }
-    }
-
-    fn arena_note_global_site(&mut self) {
-        let label = self.current_scope_label();
-        self.arena.func(&label).has_global_site = true;
     }
 
     /// Classify a call expression's callee (and its argument literals).
@@ -401,8 +422,6 @@ impl<'a> OwnershipAnalyzer<'a> {
     pub(crate) fn arena_note_assignment(&mut self, left: HirNodeId, right: HirNodeId) {
         let left_node = &self.nodes[left.0 as usize];
         let left_kind = left_node.kind.clone();
-        let rhs_fresh = self.arena_is_fresh_literal(right);
-        let rhs_heap = self.arena_is_heap_value(right);
 
         match left_kind {
             HirNodeKind::Ident => {
@@ -423,6 +442,8 @@ impl<'a> OwnershipAnalyzer<'a> {
                     if scope_index < self.current_scope_index() {
                         self.flow.note_taint_node(target);
                         self.flow.push_global_site(&function, class.clone());
+                    } else if self.arena_is_fresh_literal(right) {
+                        self.arena_note_fresh_binding(&name);
                     }
                 } else {
                     self.flow.push_global_site(&function, class.clone());
@@ -436,61 +457,6 @@ impl<'a> OwnershipAnalyzer<'a> {
                     .collect();
                 for ordinal in outflow_ordinals {
                     self.flow.push_outflow(&function, ordinal, class.clone());
-                }
-                // Store of a heap-holding value (fresh literal, an identifier
-                // bound to a heap layout, or anything unknown — `rhs_heap`
-                // treats `TaggedVal` as heap) into a binding that lives in a
-                // scope strictly enclosing the current function ⇒ the value
-                // outlives the function ⇒ Global. The plain-ident LHS never
-                // sets `escaped_via_flow` in the ownership walk
-                // (`is_heap_store_target` only covers member/chain targets),
-                // so this is the only place that catches `cache = node`.
-                // Unresolved names fail closed.
-                if rhs_fresh || rhs_heap {
-                    match self.resolve_binding(&name) {
-                        Some((scope_index, _)) if scope_index < self.current_scope_index() => {
-                            self.arena_note_global_site();
-                            // The target binding lives in an ENCLOSING
-                            // function: mark it may-heap in its OWNER's entry
-                            // (scopes are function scopes here), so reads of
-                            // it back in the owner stop trusting the stale
-                            // declarator layout — closure-mediated writes
-                            // must not launder heap values into scalars.
-                            if let Some(owner) = self
-                                .scope_stack
-                                .get(scope_index)
-                                .map(|scope| scope.label.clone())
-                            {
-                                self.arena
-                                    .func(&owner)
-                                    .maybe_heap_bindings
-                                    .insert(name.clone());
-                            }
-                        }
-                        Some(_) => {
-                            // Same-scope reassignment: the binding's
-                            // declarator layout is stale (frozen at
-                            // declaration). A fresh LITERAL makes the binding
-                            // a fresh allocation site of this function (feeds
-                            // fate classification at finalize); ANY heap RHS
-                            // (call result, member read, ...) additionally
-                            // marks it may-hold-heap so `arena_is_heap_value`
-                            // stops trusting the stale scalar layout — but
-                            // does NOT enter fate classification (a call
-                            // result is not this function's allocation site
-                            // and must not flip `opens_arena`).
-                            if rhs_fresh {
-                                self.arena_note_fresh_binding(&name);
-                            }
-                            self.arena_note_maybe_heap_binding(&name);
-                        }
-                        None => self.arena_note_global_site(),
-                    }
-                }
-                // Loop outflow: heap value assigned to a binding declared
-                // outside the loop.
-                if rhs_heap {
-                    self.arena_note_outflow_to_binding(&name);
                 }
             }
             HirNodeKind::MemberExpr | HirNodeKind::OptionalChain | HirNodeKind::ChainExpr => {
@@ -517,25 +483,6 @@ impl<'a> OwnershipAnalyzer<'a> {
                 for ordinal in outflow_ordinals {
                     self.flow.push_outflow(&function, ordinal, class.clone());
                 }
-                // Store into a field/element of a pre-existing object.
-                if rhs_fresh {
-                    self.arena_note_global_site();
-                }
-                if rhs_heap {
-                    // Base object: if it outlives the loop, the heap value
-                    // stored into it outlives the loop too.
-                    if let Some(base) = left_node.children.first().copied() {
-                        let base_node = &self.nodes[base.0 as usize];
-                        if base_node.kind == HirNodeKind::Ident {
-                            let base_name = base_node.text.clone().unwrap_or_default();
-                            self.arena_note_outflow_to_binding(&base_name);
-                        } else {
-                            self.arena_note_outflow_all_loops();
-                        }
-                    } else {
-                        self.arena_note_outflow_all_loops();
-                    }
-                }
             }
             _ => {
                 let class = self.classify_value(right);
@@ -546,13 +493,6 @@ impl<'a> OwnershipAnalyzer<'a> {
                     self.arena.loop_stack.iter().map(|l| l.ordinal).collect();
                 for ordinal in all_ordinals {
                     self.flow.push_outflow(&function, ordinal, class.clone());
-                }
-                // Unknown assignment target (no destructuring surface exists
-                // today — anything unexpected lands here) ⇒ fail closed on
-                // BOTH axes: the heap value may flow anywhere.
-                if rhs_fresh || rhs_heap {
-                    self.arena_note_global_site();
-                    self.arena_note_outflow_all_loops();
                 }
             }
         }
@@ -575,30 +515,6 @@ impl<'a> OwnershipAnalyzer<'a> {
         for ordinal in ordinals {
             self.flow.push_outflow(&function, ordinal, class.clone());
         }
-        if self.arena.loop_stack.is_empty() {
-            return;
-        }
-        let returns_heap = children
-            .iter()
-            .copied()
-            .any(|child| self.arena_is_heap_value(child));
-        if returns_heap {
-            self.arena_note_outflow_all_loops();
-        }
-    }
-
-    fn arena_note_outflow_to_binding(&mut self, name: &str) {
-        for loop_raw in &mut self.arena.loop_stack {
-            if !loop_raw.inner_bindings.contains(name) {
-                loop_raw.has_outflow = true;
-            }
-        }
-    }
-
-    fn arena_note_outflow_all_loops(&mut self) {
-        for loop_raw in &mut self.arena.loop_stack {
-            loop_raw.has_outflow = true;
-        }
     }
 
     fn arena_is_fresh_literal(&self, node_id: HirNodeId) -> bool {
@@ -606,104 +522,6 @@ impl<'a> OwnershipAnalyzer<'a> {
             self.nodes[node_id.0 as usize].kind,
             HirNodeKind::ObjectExpr | HirNodeKind::ArrayExpr
         )
-    }
-
-    /// The gate's OWN conservative may-hold-heap judgment. Deliberately NOT a
-    /// raw `infer_layout` lookup: `infer_layout` resolves ambiguity OPEN
-    /// (ternaries take only the last branch's layout, `||`/`&&` map to
-    /// `Scalar("bool")` though they return an operand, binding layouts are
-    /// frozen at the declarator), which is fine for layout inference but
-    /// unsound as an escape gate. Every arm here errs toward heap.
-    fn arena_is_heap_value(&self, node_id: HirNodeId) -> bool {
-        let node = &self.nodes[node_id.0 as usize];
-        match node.kind {
-            HirNodeKind::ObjectExpr | HirNodeKind::ArrayExpr => true,
-            // Numbers/strings/bools are scalar; `null`/`undefined` infer
-            // Scalar("unknown"), which the gate treats as heap (fail closed).
-            HirNodeKind::Literal => is_heap_layout(&self.infer_layout(node_id)),
-            // A ternary produces whichever branch runs: heap if ANY branch
-            // (children[1..] = consequent, alternate) is heap. Malformed ⇒
-            // heap.
-            HirNodeKind::ConditionalExpr => {
-                node.children.len() < 2
-                    || node
-                        .children
-                        .iter()
-                        .skip(1)
-                        .any(|child| self.arena_is_heap_value(*child))
-            }
-            // Logical ops return an operand; a sequence returns its last
-            // expression. Heap if ANY child is heap (malformed ⇒ heap).
-            HirNodeKind::LogicalExpr | HirNodeKind::SequenceExpr => {
-                node.children.is_empty()
-                    || node
-                        .children
-                        .iter()
-                        .any(|child| self.arena_is_heap_value(*child))
-            }
-            HirNodeKind::BinaryExpr => match node.text.as_deref() {
-                // Genuinely scalar-producing operators. String `+` concat is
-                // scalar too in v1: runtime strings are global-arena host
-                // values and never dangle across a reset.
-                Some(
-                    "+" | "-" | "*" | "/" | "%" | "**" | "&" | "|" | "^" | "<<" | ">>" | ">>>"
-                    | "==" | "!=" | "===" | "!==" | "<" | "<=" | ">" | ">=",
-                ) => false,
-                // `&&`/`||`/`??` parse as BinaryExpr and return an operand.
-                Some("&&" | "||" | "??") => {
-                    node.children.is_empty()
-                        || node
-                            .children
-                            .iter()
-                            .any(|child| self.arena_is_heap_value(*child))
-                }
-                _ => true,
-            },
-            HirNodeKind::UnaryExpr => {
-                !matches!(node.text.as_deref(), Some("!" | "-" | "+" | "~" | "typeof"))
-            }
-            HirNodeKind::Ident => {
-                let name = node.text.as_deref().unwrap_or_default();
-                // A binding reassigned from a fresh heap literal OR any other
-                // may-hold-heap RHS keeps its stale declarator layout, so
-                // consult the sets recorded by `arena_note_assignment` first —
-                // in the binding's OWNING function's entry (bindings are
-                // capturable: the reassignment may have happened in a closure,
-                // and this read may itself be in a different closure than the
-                // write).
-                if let Some((scope_index, _)) = self.resolve_binding(name) {
-                    if let Some(owner) = self
-                        .scope_stack
-                        .get(scope_index)
-                        .map(|scope| scope.label.as_str())
-                    {
-                        if self.arena.functions.get(owner).is_some_and(|f| {
-                            f.fresh_heap_bindings.contains(name)
-                                || f.maybe_heap_bindings.contains(name)
-                        }) {
-                            return true;
-                        }
-                    }
-                }
-                match self.resolve_binding_layout(name) {
-                    Some(layout) => is_heap_layout(&layout),
-                    None => true,
-                }
-            }
-            // Calls, member reads, templates, everything else: unknown ⇒ heap.
-            _ => true,
-        }
-    }
-}
-
-/// Heap-typed layouts for the gate. Fails closed: `TaggedVal` AND
-/// `Scalar("unknown")` (the layout of `null`/`undefined` and unclassifiable
-/// values) are treated as heap. Concrete scalars — including strings, which
-/// are host-allocated into the global arena in v1 — are exempt from outflow.
-fn is_heap_layout(layout: &LayoutDescriptor) -> bool {
-    match layout {
-        LayoutDescriptor::Scalar(name) => name == "unknown",
-        _ => true,
     }
 }
 

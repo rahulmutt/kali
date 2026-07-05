@@ -20,10 +20,6 @@
 //! may-heap unconditionally (a function may be called from contexts the
 //! graph cannot see); name-collided functions poison their param summaries.
 
-// TEMPORARY: consumers land in Tasks 2-4 of the interprocedural escape-flow
-// plan; remove at the Task 3 gate cutover.
-#![allow(dead_code)]
-
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use kali_hir::{HirNodeId, HirNodeKind};
@@ -279,6 +275,11 @@ impl FlowSolution {
             })
     }
 
+    // Consumer lands in Task 4 (`progress.md`: "Engine post-pass —
+    // binding.escapes learns the fixpoint verdicts"), which is out of scope
+    // for this cutover; narrowly allowed rather than reintroducing the
+    // module-wide allow this task is removing.
+    #[allow(dead_code)]
     pub(crate) fn binding_escapes(&self, owner: &str, name: &str) -> bool {
         self.tainted.contains(&FlowNode::Binding {
             owner: owner.to_string(),
