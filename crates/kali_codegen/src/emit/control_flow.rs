@@ -52,10 +52,71 @@ impl<'a> FunctionEmitter<'a> {
             loop_frame.break_index
         };
         let depth = self.control_frame_depth(target_index);
+
+        // `break` unwinds any arena this loop itself owns before jumping out.
+        // Unlabeled break/continue always target the innermost open loop
+        // (labels are rejected above), so at most the TOP `arena_frames`
+        // entry can belong to that loop — but walk down defensively (`take_while`
+        // on "at or inside" the target loop_frame index) rather than assuming
+        // exactly one match. This is intentionally redundant with the release
+        // `emit_loop` already emits unconditionally right after the loop's
+        // closing `End`s (which a `break`'s `Br` also lands at — wasm branches
+        // to a `block` land immediately after its `End`, same target as the
+        // loop's own normal-exit fallthrough): the inline release here only
+        // executes on the branch actually taken (the break path), while
+        // `emit_loop`'s still emits unconditionally on every path, so
+        // `arena_frames` must NOT be popped here — only Step 3's own
+        // `arena_frames.pop()` at the loop's close retires the frame.
+        if !is_continue {
+            let target_loop_frame_idx = self.loop_frames.len() - 1;
+            let to_release: Vec<ArenaFrame> = self
+                .arena_frames
+                .iter()
+                .rev()
+                .take_while(|frame| {
+                    frame
+                        .loop_frame_index
+                        .is_some_and(|idx| idx >= target_loop_frame_idx)
+                })
+                .copied()
+                .collect();
+            for frame in &to_release {
+                self.emit_arena_release(function, frame);
+            }
+        }
+
         function.instruction(&Instruction::Br(depth));
         EmittedValue {
             produced: false,
             shape: ValueShape::Unknown,
+        }
+    }
+
+    /// `Call(__arena_reset)` followed by restoring the saved current-arena
+    /// trio (`g1`/`g2`/`g3`) from `frame`'s three saved locals. Emit-only: the
+    /// caller decides whether/when to pop `arena_frames`.
+    pub(crate) fn emit_arena_release(&mut self, function: &mut Function, frame: &ArenaFrame) {
+        function.instruction(&Instruction::Call(self.arena_reset_fn_index()));
+        function.instruction(&Instruction::LocalGet(frame.saved_page_local));
+        function.instruction(&Instruction::GlobalSet(1));
+        function.instruction(&Instruction::LocalGet(frame.saved_cursor_local));
+        function.instruction(&Instruction::GlobalSet(2));
+        function.instruction(&Instruction::LocalGet(frame.saved_limit_local));
+        function.instruction(&Instruction::GlobalSet(3));
+    }
+
+    /// Releases every currently-open loop arena, newest→oldest, emit-only (no
+    /// pop — `arena_frames` is only ever popped by the owning loop's own
+    /// normal-exit release in `emit_loop`). Shared by both `Instruction::Return`
+    /// emission sites in `emit_return` below: a `return` unwinds the wasm
+    /// call frame directly, bypassing every enclosing `block`/`loop`
+    /// construct (unlike `break`, it never lands at the loop's own
+    /// post-`End` release code), so every live arena must be released inline
+    /// here or its pages would never be recycled.
+    fn emit_arena_unwind_for_return(&mut self, function: &mut Function) {
+        let frames: Vec<ArenaFrame> = self.arena_frames.iter().rev().copied().collect();
+        for frame in &frames {
+            self.emit_arena_release(function, frame);
         }
     }
 
@@ -75,6 +136,7 @@ impl<'a> FunctionEmitter<'a> {
                         if !produced.produced {
                             function.instruction(&Instruction::I64Const(0));
                         }
+                        self.emit_arena_unwind_for_return(function);
                         function.instruction(&Instruction::Return);
                         return EmittedValue {
                             produced: false,
@@ -90,6 +152,7 @@ impl<'a> FunctionEmitter<'a> {
         } else {
             function.instruction(&Instruction::I64Const(0));
         }
+        self.emit_arena_unwind_for_return(function);
         function.instruction(&Instruction::Return);
         EmittedValue {
             produced: false,
@@ -105,8 +168,32 @@ impl<'a> FunctionEmitter<'a> {
     /// body (since wasm's `loop` has no native init/update clause), so a
     /// `continue` re-enters the loop *without* running `update`. `while` /
     /// `do-while` re-test correctly on `continue` since they have no `update`.
-    pub(crate) fn emit_loop(&mut self, function: &mut Function, node: &LirNode) -> EmittedValue {
+    pub(crate) fn emit_loop(
+        &mut self,
+        function: &mut Function,
+        id: LirNodeId,
+        node: &LirNode,
+    ) -> EmittedValue {
         let kind = node.text.as_deref().unwrap_or_default();
+
+        // The escape gate keys `loop_arena` by this loop's pre-order ordinal
+        // (see `crate::lower::loop_preorder_ordinals`'s doc comment for why
+        // this lookup and the locals `collect_function_locals` reserved for
+        // it can never diverge). A miss (no ordinal recorded, or the gate
+        // never granted this ordinal) fails closed: `is_arena_loop = false`,
+        // i.e. no arena — plain `__alloc`/`__alloc_global` routing per
+        // `alloc_callee_index`, exactly like before this task.
+        let ordinal = self.loop_ordinals.get(&id).copied();
+        let is_arena_loop =
+            ordinal.is_some_and(|ord| self.arena_table.loop_arena(&self.function_name, ord));
+        let arena_save_locals = ordinal.filter(|_| is_arena_loop).map(|ord| {
+            let (page_name, cursor_name, limit_name) = crate::lower::arena_save_local_names(ord);
+            (
+                self.locals[&page_name],
+                self.locals[&cursor_name],
+                self.locals[&limit_name],
+            )
+        });
 
         // Resolve clauses by loop kind.
         let (init, test, update, body) = match kind {
@@ -152,14 +239,55 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
 
+        // Open: save the current-arena trio (`g1`/`g2`/`g3`) into this loop's
+        // three reserved locals, then zero it — so allocations from here
+        // until the loop closes start a fresh, empty arena instead of
+        // continuing to bump whatever arena was active before this loop
+        // (the enclosing function's, or an enclosing loop's, borrowed for the
+        // duration exactly like a callee borrows and restores a register).
+        if let Some((saved_page, saved_cursor, saved_limit)) = arena_save_locals {
+            function.instruction(&Instruction::GlobalGet(1));
+            function.instruction(&Instruction::LocalSet(saved_page));
+            function.instruction(&Instruction::GlobalGet(2));
+            function.instruction(&Instruction::LocalSet(saved_cursor));
+            function.instruction(&Instruction::GlobalGet(3));
+            function.instruction(&Instruction::LocalSet(saved_limit));
+            function.instruction(&Instruction::I32Const(0));
+            function.instruction(&Instruction::GlobalSet(1));
+            function.instruction(&Instruction::I32Const(0));
+            function.instruction(&Instruction::GlobalSet(2));
+            function.instruction(&Instruction::I32Const(0));
+            function.instruction(&Instruction::GlobalSet(3));
+        }
+
         let break_index = self.push_control_frame(ControlFlowLabelKind::LoopBreak);
         function.instruction(&Instruction::Block(BlockType::Empty));
         let continue_index = self.push_control_frame(ControlFlowLabelKind::LoopContinue);
         function.instruction(&Instruction::Loop(BlockType::Empty));
+        let loop_frame_index = self.loop_frames.len();
         self.loop_frames.push(LoopFrame {
             break_index,
             continue_index,
         });
+
+        // Per-iteration reset: recycle the PREVIOUS iteration's pages onto
+        // the free list and zero the trio again, at the very top of every
+        // iteration (before the test/body) — including the first, which is a
+        // no-op recycle against the still-empty arena `Open` just installed.
+        // Placing it here (rather than at the bottom, before the back-edge)
+        // makes `continue` correct with zero extra unwinding: every loop
+        // re-entry, however it was reached, passes through this reset, and
+        // the outflow veto in the escape gate already guarantees nothing
+        // live spans an iteration boundary.
+        if let Some((saved_page, saved_cursor, saved_limit)) = arena_save_locals {
+            function.instruction(&Instruction::Call(self.arena_reset_fn_index()));
+            self.arena_frames.push(ArenaFrame {
+                saved_page_local: saved_page,
+                saved_cursor_local: saved_cursor,
+                saved_limit_local: saved_limit,
+                loop_frame_index: Some(loop_frame_index),
+            });
+        }
 
         let emit_body_and_update = |emitter: &mut Self, function: &mut Function| {
             if let Some(body) = body {
@@ -209,6 +337,20 @@ impl<'a> FunctionEmitter<'a> {
         self.pop_control_frame(ControlFlowLabelKind::LoopContinue);
         function.instruction(&Instruction::End); // end block
         self.pop_control_frame(ControlFlowLabelKind::LoopBreak);
+
+        // Release: unconditional fallthrough code reached both by the
+        // natural falsy-test exit AND by any `break` inside this loop (both
+        // land here — a wasm branch to a `block`'s label lands immediately
+        // after its `End`, same as normal fallthrough). Recycle whatever the
+        // last iteration left in the current arena, then restore the trio
+        // this loop's `Open` step saved, so the enclosing scope's allocations
+        // resume exactly where they left off. This is the ONLY place that
+        // permanently retires this loop's `ArenaFrame`.
+        if arena_save_locals.is_some() {
+            if let Some(frame) = self.arena_frames.pop() {
+                self.emit_arena_release(function, &frame);
+            }
+        }
 
         EmittedValue {
             produced: false,
@@ -475,7 +617,9 @@ impl<'a> FunctionEmitter<'a> {
                     self.emit_for_of_array_iteration(function, &node)
                 }
                 Some("return") => self.emit_return(function, &node),
-                Some("while") | Some("do-while") | Some("for") => self.emit_loop(function, &node),
+                Some("while") | Some("do-while") | Some("for") => {
+                    self.emit_loop(function, id, &node)
+                }
                 _ => self.emit_branch(function, &node, want_value),
             },
             LirNodeKind::Unknown => {

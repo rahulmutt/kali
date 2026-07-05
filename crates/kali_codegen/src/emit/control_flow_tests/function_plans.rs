@@ -3,7 +3,11 @@ use super::*;
 #[test]
 fn function_plans_are_detected_from_instruction_shape() {
     let program = sample_program();
-    let plans = collect_functions(&program, &kali_common::ReprTable::default());
+    let plans = collect_functions(
+        &program,
+        &kali_common::ReprTable::default(),
+        &kali_common::ArenaTable::default(),
+    );
     assert_eq!(plans.len(), 1);
     assert_eq!(plans[0].name, "add");
     assert_eq!(plans[0].params, vec!["a", "b"]);
@@ -14,7 +18,11 @@ fn function_plans_preserve_generator_flavor_metadata_for_class_methods() {
     let program = parse_and_lower_lir(
         "class Example { async *outer() { yield* other(); } *inner() { yield* other(); } plain() { return 0; } }",
     );
-    let plans = collect_functions(&program, &kali_common::ReprTable::default());
+    let plans = collect_functions(
+        &program,
+        &kali_common::ReprTable::default(),
+        &kali_common::ArenaTable::default(),
+    );
 
     let outer = plans
         .iter()
@@ -39,7 +47,11 @@ fn function_plans_preserve_generator_flavor_metadata_for_class_expressions() {
     let program = parse_and_lower_lir(
         "const Example = class NamedExample { async *outer() { yield* other(); } *inner() { yield* other(); } plain() { return 0; } };",
     );
-    let plans = collect_functions(&program, &kali_common::ReprTable::default());
+    let plans = collect_functions(
+        &program,
+        &kali_common::ReprTable::default(),
+        &kali_common::ArenaTable::default(),
+    );
 
     let named = plans
         .iter()
@@ -69,7 +81,11 @@ fn function_plans_preserve_generator_flavor_metadata_for_default_export_class_ex
     let program = parse_and_lower_lir(
         "export default (class NamedExample { async *outer() { yield* other(); } *inner() { yield* other(); } plain() { return 0; } });",
     );
-    let plans = collect_functions(&program, &kali_common::ReprTable::default());
+    let plans = collect_functions(
+        &program,
+        &kali_common::ReprTable::default(),
+        &kali_common::ArenaTable::default(),
+    );
 
     let named = plans
         .iter()
@@ -99,7 +115,11 @@ fn function_plans_preserve_generator_flavor_metadata_for_default_export_class_de
     let program = parse_and_lower_lir(
         "export default class NamedDeclExample { async *outer() { yield* other(); } *inner() { yield* other(); } plain() { return 0; } }",
     );
-    let plans = collect_functions(&program, &kali_common::ReprTable::default());
+    let plans = collect_functions(
+        &program,
+        &kali_common::ReprTable::default(),
+        &kali_common::ArenaTable::default(),
+    );
 
     let named = plans
         .iter()
@@ -128,7 +148,11 @@ fn function_plans_preserve_generator_flavor_metadata_for_default_export_class_de
 fn function_plans_preserve_generator_flavor_metadata_for_default_export_generator_function_declarations(
 ) {
     let program = parse_and_lower_lir("export default function* main() { yield* []; }\nmain();");
-    let plans = collect_functions(&program, &kali_common::ReprTable::default());
+    let plans = collect_functions(
+        &program,
+        &kali_common::ReprTable::default(),
+        &kali_common::ArenaTable::default(),
+    );
 
     let main = plans
         .iter()
@@ -142,7 +166,11 @@ fn function_plans_preserve_generator_flavor_metadata_for_default_export_generato
 fn function_plans_preserve_generator_flavor_metadata_for_default_export_anonymous_generator_function_declarations(
 ) {
     let program = parse_and_lower_lir("export default function*() { yield* []; }\n");
-    let plans = collect_functions(&program, &kali_common::ReprTable::default());
+    let plans = collect_functions(
+        &program,
+        &kali_common::ReprTable::default(),
+        &kali_common::ArenaTable::default(),
+    );
 
     let main = plans
         .iter()
@@ -158,7 +186,11 @@ fn function_plans_preserve_generator_flavor_metadata_for_default_export_async_ge
 ) {
     let program =
         parse_and_lower_lir("export default async function* main() { yield 1; }\nmain();");
-    let plans = collect_functions(&program, &kali_common::ReprTable::default());
+    let plans = collect_functions(
+        &program,
+        &kali_common::ReprTable::default(),
+        &kali_common::ArenaTable::default(),
+    );
 
     let main = plans
         .iter()
@@ -172,7 +204,11 @@ fn function_plans_preserve_generator_flavor_metadata_for_default_export_async_ge
 fn function_plans_preserve_generator_flavor_metadata_for_default_export_anonymous_async_generator_function_declarations(
 ) {
     let program = parse_and_lower_lir("export default async function*() { yield 1; }\n");
-    let plans = collect_functions(&program, &kali_common::ReprTable::default());
+    let plans = collect_functions(
+        &program,
+        &kali_common::ReprTable::default(),
+        &kali_common::ArenaTable::default(),
+    );
 
     let main = plans
         .iter()

@@ -72,7 +72,7 @@ impl<'a> FunctionEmitter<'a> {
         // as the old inline `__heap` bump did — only the pointer source
         // changed (the shared allocator instead of an inline global bump).
         function.instruction(&Instruction::I32Const((fields.len() * 8) as i32));
-        function.instruction(&Instruction::Call(self.alloc_fn_index()));
+        function.instruction(&Instruction::Call(self.alloc_callee_index()));
         function.instruction(&Instruction::I64ExtendI32U);
         function.instruction(&Instruction::LocalSet(scratch));
 

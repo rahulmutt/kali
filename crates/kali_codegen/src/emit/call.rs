@@ -2387,7 +2387,7 @@ impl<'a> FunctionEmitter<'a> {
         function.instruction(&Instruction::I64Const(8));
         function.instruction(&Instruction::I64Mul);
         function.instruction(&Instruction::I32WrapI64);
-        function.instruction(&Instruction::Call(self.alloc_fn_index()));
+        function.instruction(&Instruction::Call(self.alloc_callee_index()));
         function.instruction(&Instruction::I64ExtendI32U);
         function.instruction(&Instruction::LocalSet(scratch));
 

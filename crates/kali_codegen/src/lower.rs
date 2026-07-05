@@ -37,7 +37,7 @@ pub const SYNTHETIC_FUNCTIONS: &[&str] =
 /// Generate WASM from LIR.
 pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResult {
     let mut diagnostics = Vec::new();
-    let function_plans = collect_functions(lir, &ctx.repr_table);
+    let function_plans = collect_functions(lir, &ctx.repr_table, &ctx.arena_table);
     if function_plans.iter().any(|plan| {
         matches!(
             plan.flavor,
@@ -161,7 +161,13 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     all_functions.push(FunctionPlan {
         name: "_start".to_string(),
         params: Vec::new(),
-        locals: collect_function_locals(&lir.nodes, lir.root, &ctx.repr_table, "_start"),
+        locals: collect_function_locals(
+            &lir.nodes,
+            lir.root,
+            &ctx.repr_table,
+            &ctx.arena_table,
+            "_start",
+        ),
         body: lir.root,
         result: false,
         is_entry: true,
@@ -520,7 +526,17 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             local_decls.push((2, ValType::I32));
         } else {
             for local_name in &function.locals {
-                let val_type = wasm_type(ctx.repr_table.scalar(&function.name, local_name));
+                // A `__arena_save_*` local (Step 2 of loop-arena provisioning)
+                // holds a saved copy of an i32 global (`g1`/`g2`/`g3`) and has
+                // no `ReprTable` entry of its own; `scalar()`'s default
+                // (`Repr::I64`) would mistype the slot and fail wasm
+                // validation the first time `GlobalGet(1..3)` is stored into
+                // it, so it is forced to i32 here ahead of the repr lookup.
+                let val_type = if is_arena_save_local_name(local_name) {
+                    ValType::I32
+                } else {
+                    wasm_type(ctx.repr_table.scalar(&function.name, local_name))
+                };
                 match local_decls.last_mut() {
                     Some((count, last_type)) if *last_type == val_type => *count += 1,
                     _ => local_decls.push((1, val_type)),
@@ -549,7 +565,9 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             &function.params,
             &function.locals,
             &ctx.repr_table,
+            &ctx.arena_table,
             &function.name,
+            function.body,
             &module_const_inits,
             &module_binding_names,
         );
@@ -666,10 +684,18 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
 pub(crate) fn collect_functions(
     lir: &LirProgram,
     repr_table: &kali_common::ReprTable,
+    arena_table: &kali_common::ArenaTable,
 ) -> Vec<FunctionPlan> {
     let mut plans = Vec::new();
     let mut visited = HashSet::new();
-    collect_functions_from_node(lir, lir.root, &mut visited, &mut plans, repr_table);
+    collect_functions_from_node(
+        lir,
+        lir.root,
+        &mut visited,
+        &mut plans,
+        repr_table,
+        arena_table,
+    );
     plans
 }
 
@@ -994,12 +1020,13 @@ pub(crate) fn collect_functions_from_node(
     visited: &mut HashSet<LirNodeId>,
     plans: &mut Vec<FunctionPlan>,
     repr_table: &kali_common::ReprTable,
+    arena_table: &kali_common::ArenaTable,
 ) {
     if !visited.insert(id) {
         return;
     }
 
-    if let Some(plan) = function_plan(&lir.nodes, id, repr_table) {
+    if let Some(plan) = function_plan(&lir.nodes, id, repr_table, arena_table) {
         plans.push(plan);
     }
 
@@ -1008,7 +1035,7 @@ pub(crate) fn collect_functions_from_node(
     };
 
     for child in &node.children {
-        collect_functions_from_node(lir, *child, visited, plans, repr_table);
+        collect_functions_from_node(lir, *child, visited, plans, repr_table, arena_table);
     }
 }
 
@@ -1064,9 +1091,10 @@ pub(crate) fn function_plan(
     nodes: &[LirNode],
     id: LirNodeId,
     repr_table: &kali_common::ReprTable,
+    arena_table: &kali_common::ArenaTable,
 ) -> Option<FunctionPlan> {
     let (name, flavor, body_id, params) = function_shape(nodes, id)?;
-    let locals = collect_function_locals(nodes, body_id, repr_table, &name);
+    let locals = collect_function_locals(nodes, body_id, repr_table, arena_table, &name);
 
     Some(FunctionPlan {
         name,
@@ -1083,10 +1111,104 @@ pub(crate) fn is_function_like(nodes: &[LirNode], id: LirNodeId) -> bool {
     function_shape(nodes, id).is_some()
 }
 
+/// Pre-order, function-scoped loop-ordinal assignment over the LIR tree
+/// rooted at `body`: the `k`-th loop-shaped `Branch` node (`for` / `while` /
+/// `do-while` / `for-of` / `for-await-of` text) encountered while recursing
+/// over `children` in array order gets ordinal `k` (0-based), assigned
+/// *before* recursing into that node's own children (pre-order) — a nested
+/// function body is treated as an opaque leaf (never descended into; its own
+/// loops are numbered independently by a separate call to this same helper
+/// against that function's own body, never by continuing this counter).
+///
+/// This MUST stay in lockstep with the per-function pre-order loop ordinal
+/// the `kali_mir` escape-gate assigns while walking the matching HIR loop
+/// nodes (`OwnershipAnalyzer::arena_enter_loop`, `kali_mir::analysis::walk`):
+/// both recurse over children in the same array order, and both reset their
+/// counter at a nested function boundary rather than carrying it through.
+/// Every MIR→LIR lowering stage in this crate is a 1:1 structural copy (same
+/// node count, same child order, same text) — see `kali_mir::lower` and
+/// `kali_lir::lower` — so the two walks visit loop nodes in the identical
+/// relative order. A single shared helper, called from both locals
+/// provisioning (`collect_function_locals`) and emission
+/// (`FunctionEmitter::new`), is used so the two call sites cannot diverge
+/// from each other (see Task 6's brief: a divergence here would install an
+/// arena on the wrong loop — a use-after-reset miscompile).
+///
+/// Known gap (pre-existing, orthogonal to loop arenas): a `for-in` loop's HIR
+/// node carries no distinguishing `text` (same as an `if` statement without
+/// one), so it is invisible to this text-based recognizer even though the
+/// `kali_mir` walk assigns it an ordinal too. `for-in` is already unsupported
+/// by codegen today (it falls through `emit_node`'s `Branch` match to
+/// `emit_branch`, i.e. is silently mis-lowered as an `if`, independently of
+/// arenas), so no ordinal mismatch this could cause is newly introduced by
+/// Task 6 — but a future `for-in` implementation must give codegen a way to
+/// recognize it here too.
+pub(crate) fn loop_preorder_ordinals(
+    nodes: &[LirNode],
+    body: LirNodeId,
+) -> HashMap<LirNodeId, u32> {
+    let mut ordinals = HashMap::new();
+    let mut next = 0u32;
+    loop_preorder_ordinals_walk(nodes, body, &mut next, &mut ordinals);
+    ordinals
+}
+
+/// Names of the three synthetic i32 locals that save/restore the
+/// current-arena trio (`g1`/`g2`/`g3`) around the arena'd loop with pre-order
+/// ordinal `ordinal` in its function. Shared by locals provisioning
+/// (`collect_function_locals`, which reserves these slots) and emission
+/// (`control_flow.rs::emit_loop`/`emit_arena_release`, which reads them back
+/// by name through `FunctionEmitter::locals`) so the two cannot disagree on
+/// naming. The `#` makes these unrepresentable as a source-level identifier,
+/// so they can never collide with a real binding name.
+pub(crate) fn arena_save_local_names(ordinal: u32) -> (String, String, String) {
+    (
+        format!("__arena_save_page#{ordinal}"),
+        format!("__arena_save_cursor#{ordinal}"),
+        format!("__arena_save_limit#{ordinal}"),
+    )
+}
+
+/// True for a local name synthesized by `arena_save_local_names` — these hold
+/// a saved copy of an i32 global (`g1`/`g2`/`g3`) and must be declared as i32
+/// locals regardless of what `ReprTable` would otherwise infer for an
+/// unrecorded name (its default, `Repr::I64`, would mistype the slot and fail
+/// wasm validation the first time `GlobalGet(1..3)` is stored into it).
+pub(crate) fn is_arena_save_local_name(name: &str) -> bool {
+    name.starts_with("__arena_save_")
+}
+
+fn loop_preorder_ordinals_walk(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    next: &mut u32,
+    ordinals: &mut HashMap<LirNodeId, u32>,
+) {
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return;
+    };
+    if node.kind == LirNodeKind::Branch
+        && matches!(
+            node.text.as_deref(),
+            Some("for" | "while" | "do-while" | "for-of" | "for-await-of")
+        )
+    {
+        ordinals.insert(id, *next);
+        *next += 1;
+    }
+    for child in &node.children {
+        if is_function_like(nodes, *child) {
+            continue;
+        }
+        loop_preorder_ordinals_walk(nodes, *child, next, ordinals);
+    }
+}
+
 pub(crate) fn collect_function_locals(
     nodes: &[LirNode],
     body_id: LirNodeId,
     repr_table: &kali_common::ReprTable,
+    arena_table: &kali_common::ArenaTable,
     function_name: &str,
 ) -> Vec<String> {
     // First identify every binding that holds a linear-memory array handle, so that
@@ -1113,6 +1235,24 @@ pub(crate) fn collect_function_locals(
         &mut seen,
         &mut locals,
     );
+
+    // Reserve 3 synthetic i32 locals (saved page/cursor/limit) per arena'd
+    // loop in this function, keyed by the SAME pre-order loop ordinal
+    // `loop_preorder_ordinals` assigns during emission — see that function's
+    // doc comment for why this must be the one shared helper.
+    let mut loop_ordinals: Vec<u32> = loop_preorder_ordinals(nodes, body_id)
+        .into_values()
+        .collect();
+    loop_ordinals.sort_unstable();
+    for ordinal in loop_ordinals {
+        if arena_table.loop_arena(function_name, ordinal) {
+            let (page, cursor, limit) = arena_save_local_names(ordinal);
+            locals.push(page);
+            locals.push(cursor);
+            locals.push(limit);
+        }
+    }
+
     locals
 }
 
@@ -1737,16 +1877,16 @@ fn emit_bump_body(func: &mut Function, g_page: u32, g_cur: u32, g_lim: u32, page
 /// (`span_pages == n` is recorded on that first page only).
 ///
 /// Two disjoint sources, tried in order:
-///   1. **Free-list pop** (only for `n == 1`, the overwhelmingly common
-///      case): if the shared free list (`g7`) is non-empty, pop its head. A
-///      free node whose own `span_pages > 1` is split — the caller gets a
-///      single page carved off the front (`head`, `span` forced to 1) and the
-///      remainder (`head + PAGE`, `span - 1`) goes back onto the free list in
-///      `head`'s place. A multi-page REQUEST (`n > 1`) never consults the
-///      free list at all (no multi-page free-list search/coalescing in this
-///      task); it always falls through to the frontier below, which is
-///      always correct, just possibly wasteful of previously-freed single
-///      pages.
+///   1. **Free-list pop**: if the shared free list's head (`g7`) has
+///      `span_pages >= n`, pop it. An exact-size match (`span == n`) unlinks
+///      the head outright; an oversized match is split — the caller gets the
+///      first `n` pages (`head`, `span` forced to `n`) and the remainder
+///      (`head + n*PAGE`, `span - n`) goes back onto the free list in
+///      `head`'s place. Only the free list's HEAD is ever consulted (no
+///      search across multiple free-list nodes for a better fit); if it
+///      can't satisfy `n` this always falls through to the frontier below,
+///      which is always correct, just possibly wasteful of a previously-freed
+///      range that a search further down the list could have used.
 ///   2. **Frontier + geometric grow**: carve `n` fresh pages off `__heap`
 ///      (g0, the page frontier — see its updated doc comment where it's
 ///      declared), growing linear memory first if needed. This re-houses the
@@ -1764,65 +1904,90 @@ fn emit_bump_body(func: &mut Function, g_page: u32, g_cur: u32, g_lim: u32, page
 /// `LocalGet`s and an `I32Add`) to recompute at each of its three uses
 /// instead of keeping a fifth local live across the branch.
 fn emit_page_get_body(func: &mut Function) {
-    // ---- Free-list fast path: n == 1 && g7 != 0 ----
-    func.instruction(&Instruction::LocalGet(0)); // n
-    func.instruction(&Instruction::I32Const(1));
-    func.instruction(&Instruction::I32Eq);
+    // ---- Free-list fast path: g7 != 0 && head.span >= n ----
+    //
+    // Task 6 finding (documented here since this function is Task 5's, not
+    // Task 6's, but the gap it closes was only DISCOVERED by Task 6's first
+    // real exercise of page recycling): the ORIGINAL Task-5 version of this
+    // branch only ever matched `n == 1`, so a multi-page span (`n > 1`, e.g.
+    // any `new Array(n)` past `PAYLOAD` bytes) returned to the free list by
+    // `__arena_reset` could NEVER be popped back off it — every subsequent
+    // same-size span request fell through to the frontier/grow path and grew
+    // linear memory further, unboundedly, regardless of how correctly a loop
+    // arena around it opened/reset/released. This generalizes the same
+    // pop-or-split logic from "`span == 1`" to "`span >= n`" (splitting off
+    // exactly `n` pages and returning any remainder to the free list in the
+    // popped node's place) — behavior-IDENTICAL to before for every `n == 1`
+    // call site (every existing fixture/test only ever requests single
+    // pages except the span path itself), and additionally correct for
+    // `n > 1`: a page range popped from the free list was legitimately
+    // freed by an earlier `__arena_reset`, so reusing it is exactly as sound
+    // as the `n == 1` case.
     func.instruction(&Instruction::GlobalGet(7));
     func.instruction(&Instruction::I32Const(0));
     func.instruction(&Instruction::I32Ne);
-    func.instruction(&Instruction::I32And);
     func.instruction(&Instruction::If(BlockType::Empty));
     {
         func.instruction(&Instruction::GlobalGet(7));
         func.instruction(&Instruction::LocalSet(1)); // head = g7 (no stray value left on the stack)
 
-        // if head.span == 1 { g7 = head.next; return head }
+        // if head.span >= n
         func.instruction(&Instruction::LocalGet(1));
         func.instruction(&Instruction::I32Load(page_mem_arg(4)));
-        func.instruction(&Instruction::I32Const(1));
-        func.instruction(&Instruction::I32Eq);
+        func.instruction(&Instruction::LocalGet(0)); // n
+        func.instruction(&Instruction::I32GeU);
         func.instruction(&Instruction::If(BlockType::Empty));
-        func.instruction(&Instruction::LocalGet(1)); // head.next value source addr
-        func.instruction(&Instruction::I32Load(page_mem_arg(0)));
-        func.instruction(&Instruction::GlobalSet(7));
-        func.instruction(&Instruction::LocalGet(1));
-        func.instruction(&Instruction::Return);
-        func.instruction(&Instruction::End);
+        {
+            // if head.span == n { g7 = head.next; return head }
+            func.instruction(&Instruction::LocalGet(1));
+            func.instruction(&Instruction::I32Load(page_mem_arg(4)));
+            func.instruction(&Instruction::LocalGet(0));
+            func.instruction(&Instruction::I32Eq);
+            func.instruction(&Instruction::If(BlockType::Empty));
+            func.instruction(&Instruction::LocalGet(1)); // head.next value source addr
+            func.instruction(&Instruction::I32Load(page_mem_arg(0)));
+            func.instruction(&Instruction::GlobalSet(7));
+            func.instruction(&Instruction::LocalGet(1));
+            func.instruction(&Instruction::Return);
+            func.instruction(&Instruction::End);
 
-        // span > 1: split off one page; return the remainder to the free list.
-        // rem = head + PAGE
-        func.instruction(&Instruction::LocalGet(1));
-        func.instruction(&Instruction::I32Const(PAGE));
-        func.instruction(&Instruction::I32Add);
-        func.instruction(&Instruction::LocalSet(2)); // base(local2) reused as `rem`, no residue
+            // span > n: split off the first n pages; return the remainder to
+            // the free list. rem = head + n*PAGE
+            func.instruction(&Instruction::LocalGet(1));
+            func.instruction(&Instruction::LocalGet(0)); // n
+            func.instruction(&Instruction::I32Const(PAGE));
+            func.instruction(&Instruction::I32Mul);
+            func.instruction(&Instruction::I32Add);
+            func.instruction(&Instruction::LocalSet(2)); // base(local2) reused as `rem`, no residue
 
-        // rem.next = head.next
-        func.instruction(&Instruction::LocalGet(2)); // addr = rem
-        func.instruction(&Instruction::LocalGet(1)); // head
-        func.instruction(&Instruction::I32Load(page_mem_arg(0)));
-        func.instruction(&Instruction::I32Store(page_mem_arg(0)));
+            // rem.next = head.next
+            func.instruction(&Instruction::LocalGet(2)); // addr = rem
+            func.instruction(&Instruction::LocalGet(1)); // head
+            func.instruction(&Instruction::I32Load(page_mem_arg(0)));
+            func.instruction(&Instruction::I32Store(page_mem_arg(0)));
 
-        // rem.span = head.span - 1
-        func.instruction(&Instruction::LocalGet(2)); // addr = rem
-        func.instruction(&Instruction::LocalGet(1)); // head
-        func.instruction(&Instruction::I32Load(page_mem_arg(4)));
-        func.instruction(&Instruction::I32Const(1));
-        func.instruction(&Instruction::I32Sub);
-        func.instruction(&Instruction::I32Store(page_mem_arg(4)));
+            // rem.span = head.span - n
+            func.instruction(&Instruction::LocalGet(2)); // addr = rem
+            func.instruction(&Instruction::LocalGet(1)); // head
+            func.instruction(&Instruction::I32Load(page_mem_arg(4)));
+            func.instruction(&Instruction::LocalGet(0));
+            func.instruction(&Instruction::I32Sub);
+            func.instruction(&Instruction::I32Store(page_mem_arg(4)));
 
-        // g7 = rem
-        func.instruction(&Instruction::LocalGet(2));
-        func.instruction(&Instruction::GlobalSet(7));
+            // g7 = rem
+            func.instruction(&Instruction::LocalGet(2));
+            func.instruction(&Instruction::GlobalSet(7));
 
-        // head.span = 1
-        func.instruction(&Instruction::LocalGet(1)); // addr = head
-        func.instruction(&Instruction::I32Const(1));
-        func.instruction(&Instruction::I32Store(page_mem_arg(4)));
+            // head.span = n
+            func.instruction(&Instruction::LocalGet(1)); // addr = head
+            func.instruction(&Instruction::LocalGet(0));
+            func.instruction(&Instruction::I32Store(page_mem_arg(4)));
 
-        // return head
-        func.instruction(&Instruction::LocalGet(1));
-        func.instruction(&Instruction::Return);
+            // return head
+            func.instruction(&Instruction::LocalGet(1));
+            func.instruction(&Instruction::Return);
+        }
+        func.instruction(&Instruction::End); // end "head.span >= n" check
     }
     func.instruction(&Instruction::End); // end free-list branch
 

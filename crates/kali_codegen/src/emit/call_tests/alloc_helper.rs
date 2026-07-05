@@ -74,6 +74,12 @@ fn array_allocation_calls_shared_alloc_helper() {
         compat_eval: false,
         coverage: false,
     });
+    // Task 6 gates allocation-site routing on `arena_table.arena_eligible`
+    // (empty by default here, since this test's `parse_and_lower_lir` skips
+    // the real `kali_mir` escape-gate pass) — mark `_start` eligible so this
+    // test still exercises the `__alloc` (not `__alloc_global`) path it was
+    // written to pin.
+    ctx.arena_table.set_arena_eligible("_start");
     let result = lower_lir_to_wasm(&mut ctx, &program);
 
     assert!(
@@ -118,6 +124,10 @@ fn object_allocation_calls_shared_alloc_helper() {
     ]);
     ctx.repr_table
         .set_scalar("_start", "o", kali_common::Repr::Object(shape));
+    // See the matching comment in `array_allocation_calls_shared_alloc_helper`:
+    // Task 6 gates allocation-site routing on `arena_eligible`, empty by
+    // default here since this test bypasses the real escape-gate pass.
+    ctx.arena_table.set_arena_eligible("_start");
 
     let result = lower_lir_to_wasm(&mut ctx, &program);
 
