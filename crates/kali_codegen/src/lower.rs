@@ -26,6 +26,14 @@ pub(crate) fn generator_lowering_unavailable_message(
     )
 }
 
+/// Names of every hand-emitted synthetic wasm function (not lowered from
+/// source LIR): the page-pool allocator family. Used to exclude them from
+/// coverage instrumentation (see the `kali:coverage` custom-section count
+/// below) and, in later tasks, anywhere else code needs to distinguish a
+/// real source-defined function from these fixed compiler-internal slots.
+pub const SYNTHETIC_FUNCTIONS: &[&str] =
+    &["__alloc", "__alloc_global", "__page_get", "__arena_reset"];
+
 /// Generate WASM from LIR.
 pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResult {
     let mut diagnostics = Vec::new();
@@ -161,22 +169,60 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     });
     // Synthetic bump allocator `__alloc(size: i32) -> i32`, occupying a fixed
     // slot right after `_start` and before any named (source-defined)
-    // function. Its body is hand-emitted by `emit_alloc_body` below, not
+    // function. Its body (and its three siblings' below) is hand-emitted by
+    // `emit_bump_body` / `emit_page_get_body` / `emit_arena_reset_body`, not
     // lowered from LIR — `body` is unused (set to `lir.root` as an inert
     // placeholder) and `locals`/`flavor` are left at their inert defaults.
     // Object/array allocation sites resolve its index through
     // `function_name_to_index["__alloc"]` (see `FunctionEmitter::alloc_fn_index`)
-    // exactly like any other named function, so inserting it here shifts every
-    // later function's index by exactly one — safe because every call site in
-    // this crate resolves callee indices through that same map (verified: the
-    // only hardcoded `Instruction::Call(..)` sites are fixed *import* indices,
-    // which live in a separate index space unaffected by `all_functions`).
+    // exactly like any other named function, so inserting these four here
+    // shifts every later function's index by exactly four — safe because
+    // every call site in this crate resolves callee indices through that
+    // same map (verified: the only hardcoded `Instruction::Call(..)` sites
+    // are fixed *import* indices, which live in a separate index space
+    // unaffected by `all_functions`).
     all_functions.push(FunctionPlan {
         name: "__alloc".to_string(),
         params: vec!["size".to_string()],
         locals: Vec::new(),
         body: lir.root,
         result: true,
+        is_entry: false,
+        flavor: None,
+    });
+    // Three more synthetic slots, same inert-placeholder pattern as `__alloc`
+    // above (hand-emitted bodies, no real LIR, `body`/`locals`/`flavor` all
+    // inert): `__alloc_global` is `__alloc`'s twin against the separate
+    // "global" arena trio (used for host-runtime-allocated strings, which
+    // must outlive any `__arena_reset`); `__page_get` is the shared page
+    // supplier both bump allocators fall back to; `__arena_reset` recycles a
+    // function/loop arena's page list onto the shared free list. See
+    // `emit_bump_body` / `emit_page_get_body` / `emit_arena_reset_body`
+    // below for their bodies.
+    all_functions.push(FunctionPlan {
+        name: "__alloc_global".to_string(),
+        params: vec!["size".to_string()],
+        locals: Vec::new(),
+        body: lir.root,
+        result: true,
+        is_entry: false,
+        flavor: None,
+    });
+    all_functions.push(FunctionPlan {
+        name: "__page_get".to_string(),
+        params: vec!["pages".to_string()],
+        locals: Vec::new(),
+        body: lir.root,
+        result: true,
+        is_entry: false,
+        flavor: None,
+    });
+    all_functions.push(FunctionPlan {
+        name: "__arena_reset".to_string(),
+        params: Vec::new(),
+        locals: Vec::new(),
+        body: lir.root,
+        result: false,
         is_entry: false,
         flavor: None,
     });
@@ -301,12 +347,22 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     let mut type_for_function = Vec::with_capacity(all_functions.len());
 
     for function in &all_functions {
-        // `__alloc` is not a repr-directed user function (it has no `ReprTable`
-        // entries at all), so its `(i32) -> i32` signature is fixed here rather
-        // than derived from `ctx.repr_table.param`/`return_repr`, which would
-        // otherwise default it to `(i64) -> i64`.
-        let (params, results) = if function.name == "__alloc" {
+        // The four synthetic page-pool functions are not repr-directed user
+        // functions (they have no `ReprTable` entries at all), so their
+        // signatures are fixed here rather than derived from
+        // `ctx.repr_table.param`/`return_repr`, which would otherwise default
+        // them to `(i64) -> i64`. `__alloc`/`__alloc_global`/`__page_get` all
+        // share the one `(i32) -> i32` signature (deduped below to the same
+        // type index); `__arena_reset` is `() -> ()`, which `_start` (also
+        // no params, no result) already registers as a type, so it reuses
+        // that entry too rather than adding a new one.
+        let (params, results) = if matches!(
+            function.name.as_str(),
+            "__alloc" | "__alloc_global" | "__page_get"
+        ) {
             (vec![ValType::I32], vec![ValType::I32])
+        } else if function.name == "__arena_reset" {
+            (Vec::new(), Vec::new())
         } else {
             let params: Vec<ValType> = (0..function.params.len())
                 .map(|index| wasm_type(ctx.repr_table.param(&function.name, index)))
@@ -366,10 +422,14 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             // this previously went unexercised because arrow-shaped callbacks were
             // never compiled as real functions before this change.
             //
-            // `__alloc` is a non-entry function too, so it picks up this same
-            // `__kali_callback_<index>` alias export. That's harmless: nothing
-            // ever calls `test_register` with `__alloc`'s index, so no host
-            // ever looks it up under that alias as a Kali.test callback.
+            // The four synthetic page-pool functions are non-entry functions
+            // too, so each picks up this same `__kali_callback_<index>` alias
+            // export in addition to its own name export (which is how
+            // `__alloc_global` gets exported as `"__alloc_global"` per the
+            // host/browser-glue contract, with no special-cased export call
+            // needed here). Harmless: nothing ever calls `test_register` with
+            // a synthetic function's index, so no host ever looks it up under
+            // the alias as a Kali.test callback.
             export_section.export(&format!("__kali_callback_{index}"), ExportKind::Func, index);
         }
     }
@@ -432,14 +492,32 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         // an all-i64 function this yields the single `(len + 2, I64)` run emitted
         // before, keeping the code section byte-identical for integer programs.
         //
-        // `__alloc` is a special case: it is hand-emitted (not lowered from LIR,
-        // has no `function.locals` names, and is not repr-directed), and its
-        // `memory.grow` growth check (`emit_alloc_body`) needs three i32 scratch
-        // locals — `new_top`, `cur_pages`, `deficit_pages` — instead of the two
-        // i64 scratch locals every other function gets.
+        // The four synthetic page-pool functions are hand-emitted (not
+        // lowered from LIR, have no `function.locals` names, and are not
+        // repr-directed), and each needs its own fixed set of i32 scratch
+        // locals instead of the two i64 scratch locals every other function
+        // gets:
+        //   `__alloc`/`__alloc_global` (`emit_bump_body`): 2 — `cur`, `p`
+        //     (locals 1, 2; local/param 0 is `size`).
+        //   `__page_get` (`emit_page_get_body`): 4 — `head`, `base`, `need`,
+        //     and one grow-loop scratch (locals 1-4; local/param 0 is `n`).
+        //     `head`'s slot is reused as the grow path's `cur_pages` (their
+        //     lifetimes never overlap: `head` is only live inside the
+        //     free-list branch, which always returns before the frontier/grow
+        //     path runs), so only ONE further local (`deficit_pages`) is
+        //     needed beyond `head`/`base`/`need` — matching the moved
+        //     Phase-0 grow logic's 3-temporary shape (`new_top` is not
+        //     stored at all; it is cheap enough to recompute as `base + need`
+        //     each place it's needed instead).
+        //   `__arena_reset` (`emit_arena_reset_body`): 2 — `p`, `next`
+        //     (locals 0, 1; no params).
         let mut local_decls: Vec<(u32, ValType)> = Vec::new();
-        if function.name == "__alloc" {
-            local_decls.push((3, ValType::I32));
+        if matches!(function.name.as_str(), "__alloc" | "__alloc_global") {
+            local_decls.push((2, ValType::I32));
+        } else if function.name == "__page_get" {
+            local_decls.push((4, ValType::I32));
+        } else if function.name == "__arena_reset" {
+            local_decls.push((2, ValType::I32));
         } else {
             for local_name in &function.locals {
                 let val_type = wasm_type(ctx.repr_table.scalar(&function.name, local_name));
@@ -476,12 +554,19 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             &module_binding_names,
         );
         let coverage_id = ctx.target.coverage.then_some(coverage_id as u32);
-        if function.name == "__alloc" {
+        if SYNTHETIC_FUNCTIONS.contains(&function.name.as_str()) {
             // Hand-emitted: not lowered from LIR (there is no source-level
-            // function body for the synthetic allocator), and deliberately
-            // uninstrumented (no `emit_coverage_hit`) since it is not a
-            // source-defined function.
-            emit_alloc_body(&mut body);
+            // function body for these synthetic page-pool functions), and
+            // deliberately uninstrumented (no `emit_coverage_hit`) since none
+            // is a source-defined function.
+            let page_get_index = function_name_to_index["__page_get"];
+            match function.name.as_str() {
+                "__alloc" => emit_bump_body(&mut body, 1, 2, 3, page_get_index),
+                "__alloc_global" => emit_bump_body(&mut body, 4, 5, 6, page_get_index),
+                "__page_get" => emit_page_get_body(&mut body),
+                "__arena_reset" => emit_arena_reset_body(&mut body),
+                other => unreachable!("unhandled synthetic function {other}"),
+            }
         } else if function.is_entry {
             emitter.emit_coverage_hit(&mut body, coverage_id);
             emitter.emit_sequence(&mut body, &top_level_children(lir), false);
@@ -501,8 +586,12 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         );
     }
 
-    // Heap base: first 8-aligned byte after interned string data. The `__heap` bump
-    // pointer starts here and grows upward as `new Array(n)` allocations are made.
+    // Heap base: first 8-aligned byte after interned string data. `__heap`
+    // (global index 0, g0) now means the *page frontier* — the first byte of
+    // linear memory not yet carved into a 64KB page — rather than a flat bump
+    // pointer; `__page_get` advances it by whole pages (or `n*PAGE` for a
+    // multi-page span). Pages are 64KB *chunks* starting here, not
+    // 64KB-*aligned*, so no alignment change to `heap_base` itself is needed.
     let heap_base = (string_pool.next_offset + 7) & !7;
     let mut global_section = GlobalSection::new();
     global_section.global(
@@ -513,6 +602,28 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         },
         &ConstExpr::i32_const(heap_base as i32),
     );
+    // g1..g7: the page-pool's remaining state, all mutable i32 initialized to
+    // 0 (an empty boot arena — see the Notes on `emit_bump_body` below for why
+    // an all-zero trio correctly takes the slow/fresh-page path on first use).
+    // Order fixed by `emit_bump_body`'s/`emit_page_get_body`'s/
+    // `emit_arena_reset_body`'s own global-index parameters below:
+    //   g1 = current-arena page-list head   (__alloc's trio;   reset by __arena_reset)
+    //   g2 = current-arena bump cursor       ("
+    //   g3 = current-arena bump limit        ("
+    //   g4 = global-arena page-list head    (__alloc_global's trio; never reset)
+    //   g5 = global-arena bump cursor        ("
+    //   g6 = global-arena bump limit         ("
+    //   g7 = free-list head (pages recycled by __arena_reset; consumed by __page_get)
+    for _ in 0..7 {
+        global_section.global(
+            GlobalType {
+                val_type: ValType::I32,
+                mutable: true,
+                shared: false,
+            },
+            &ConstExpr::i32_const(0),
+        );
+    }
 
     let mut module = Module::new();
     module.section(&type_section);
@@ -524,14 +635,17 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     module.section(&export_section);
     module.section(&code_section);
     if ctx.target.coverage {
-        // Exclude synthetic, uninstrumented functions (currently just
-        // `__alloc`; see its hand-emitted body above, which deliberately has
-        // no `emit_coverage_hit`) from the denominator. Counting them here
-        // would make 100% coverage structurally unreachable: their
-        // `coverage_id` can never appear in `coverage_hits` because nothing
-        // ever calls `coverage_hit` on their behalf.
-        let instrumented_function_count =
-            all_functions.iter().filter(|f| f.name != "__alloc").count() as u32;
+        // Exclude synthetic, uninstrumented functions (the page-pool family
+        // in `SYNTHETIC_FUNCTIONS`; see their hand-emitted bodies above,
+        // which deliberately have no `emit_coverage_hit`) from the
+        // denominator. Counting them here would make 100% coverage
+        // structurally unreachable: their `coverage_id` can never appear in
+        // `coverage_hits` because nothing ever calls `coverage_hit` on their
+        // behalf.
+        let instrumented_function_count = all_functions
+            .iter()
+            .filter(|f| !SYNTHETIC_FUNCTIONS.contains(&f.name.as_str()))
+            .count() as u32;
         module.section(&CustomSection {
             name: Cow::Borrowed("kali:coverage"),
             data: Cow::Owned(instrumented_function_count.to_le_bytes().to_vec()),
@@ -1508,51 +1622,240 @@ pub(crate) fn declarator_init_is_array_fill(nodes: &[LirNode], init_id: LirNodeI
     declarator_init_is_array_alloc(nodes, receiver)
 }
 
-/// Body of the synthetic `__alloc(size: i32) -> i32` bump allocator: `new_top
-/// = __heap + size`; if `new_top` would exceed the currently-committed bytes
-/// (`memory.size * 65536`), grow linear memory by `max(deficit_pages,
-/// cur_pages)` 64 KiB pages (geometric — at least doubling) before advancing
-/// `__heap`, trapping deterministically (`unreachable`) if `memory.grow`
-/// reports failure (`-1`). `__heap` is then set to `new_top` and the
-/// allocation returns the pre-growth pointer (`new_top - size`), which is
-/// numerically identical to the old `__heap` value and avoids needing a
-/// fourth local to keep it live across the branch.
-///
-/// Local 0 is the `size` param; locals 1-3 are the three i32 scratch locals
-/// this function is allocated (see the `__alloc` special case in the
-/// per-function local-declaration loop in `lower_lir_to_wasm`): local 1 =
-/// `new_top`, local 2 = `cur_pages`, local 3 = `deficit_pages`. The caller
-/// (`lower_lir_to_wasm`) appends the trailing `Instruction::End` uniformly
-/// for every function, so this does not emit one itself.
-fn emit_alloc_body(func: &mut Function) {
-    const PAGE: i32 = 65536;
+/// Page layout shared by every page the pool hands out: an 8-byte header
+/// (`next: i32 @ 0`, `span_pages: i32 @ 4`) followed by payload at offset 8.
+/// `span_pages` is only meaningful on the first page of a (possibly
+/// multi-page) span; interior pages of a span are never independently headed.
+const PAGE: i32 = 65536;
+const HEADER: i32 = 8;
+const PAYLOAD: i32 = PAGE - HEADER;
 
-    // All arithmetic below is i32, so a single allocation whose `size` pushes
-    // `new_top` past ~2^31 wraps around instead of growing memory; at
-    // kali's current scales this is unreachable, and if it ever were hit the
-    // wrapped `new_top` would simply fail the bounds check on the subsequent
-    // access and trap cleanly (E4000), not corrupt memory with a wild write.
-    // new_top = __heap + size
-    func.instruction(&Instruction::GlobalGet(0));
+fn page_mem_arg(offset: u64) -> MemArg {
+    MemArg {
+        offset,
+        align: 2,
+        memory_index: 0,
+    }
+}
+
+/// Bump allocator against one arena trio (page-list head `g_page`, cursor
+/// `g_cur`, limit `g_lim`) — the shared body for both `__alloc`
+/// (`g_page/g_cur/g_lim` = g1/g2/g3) and `__alloc_global`
+/// (g4/g5/g6). Param 0 = `size`; locals 1 = `cur`, 2 = `p`.
+///
+/// Three paths, tried in order:
+///   1. **Fast path**: `cur + size <= g_lim` — bump `g_cur` and return `cur`
+///      in place, no call.
+///   2. **Span path** (`size > PAYLOAD`): the request doesn't fit in one
+///      page's payload at all. Get `ceil((size+HEADER)/PAGE)` fresh pages
+///      from `__page_get`, link the span onto this trio's page list, and
+///      return the payload start — WITHOUT touching `g_cur`/`g_lim`: the
+///      trio's in-progress page keeps filling from where it left off, and
+///      the span is handed out fully consumed (it will never be bumped into
+///      again, since nothing else fits in its wake within this same
+///      allocation call).
+///   3. **Fresh single page**: get one page from `__page_get`, link it onto
+///      the page list, and install it as the new cursor/limit before bumping
+///      for this allocation — this is also the path a genuinely-empty
+///      all-zero boot trio takes on its very first call (`cur + size <= 0` is
+///      false for any `size > 0`, so the fast path is correctly skipped, and
+///      `g_page == 0` linked as this page's `.next` correctly terminates the
+///      list at its first entry).
+///
+/// The caller (`lower_lir_to_wasm`) appends the trailing `Instruction::End`
+/// uniformly for every function, so this does not emit one itself.
+fn emit_bump_body(func: &mut Function, g_page: u32, g_cur: u32, g_lim: u32, page_get: u32) {
+    // fast path: cur = g_cur; if cur+size <= g_lim { g_cur = cur+size; return cur }
+    func.instruction(&Instruction::GlobalGet(g_cur));
+    func.instruction(&Instruction::LocalTee(1));
     func.instruction(&Instruction::LocalGet(0));
     func.instruction(&Instruction::I32Add);
-    func.instruction(&Instruction::LocalSet(1)); // local1 = new_top
-
-    // cur_pages = memory.size
-    func.instruction(&Instruction::MemorySize(0));
-    func.instruction(&Instruction::LocalSet(2)); // local2 = cur_pages
-
-    // if new_top > cur_pages * PAGE { grow }
+    func.instruction(&Instruction::GlobalGet(g_lim));
+    func.instruction(&Instruction::I32LeU);
+    func.instruction(&Instruction::If(BlockType::Empty));
     func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::GlobalSet(g_cur));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::Return);
+    func.instruction(&Instruction::End);
+    // span path: size > PAYLOAD
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I32Const(PAYLOAD));
+    func.instruction(&Instruction::I32GtU);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    //   n = (size + HEADER + PAGE - 1) / PAGE ; p = __page_get(n)
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I32Const(HEADER + PAGE - 1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I32Const(PAGE));
+    func.instruction(&Instruction::I32DivU);
+    func.instruction(&Instruction::Call(page_get));
+    func.instruction(&Instruction::LocalSet(2));
+    //   p.next = g_page; g_page = p; return p + HEADER  (cursor/limit untouched:
+    //   the previous page keeps filling; the span is fully consumed)
     func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::GlobalGet(g_page));
+    func.instruction(&Instruction::I32Store(page_mem_arg(0)));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::GlobalSet(g_page));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32Const(HEADER));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::Return);
+    func.instruction(&Instruction::End);
+    // fresh single page: p = __page_get(1); link; install cursor/limit; return p+HEADER
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::Call(page_get));
+    func.instruction(&Instruction::LocalSet(2));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::GlobalGet(g_page));
+    func.instruction(&Instruction::I32Store(page_mem_arg(0)));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::GlobalSet(g_page));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32Const(HEADER));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::GlobalSet(g_cur));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32Const(PAGE));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::GlobalSet(g_lim));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32Const(HEADER));
+    func.instruction(&Instruction::I32Add);
+    // falls through as the function result
+}
+
+/// Body of the synthetic `__page_get(pages: i32) -> i32` page supplier: the
+/// thing both `__alloc` and `__alloc_global` (via `emit_bump_body`) fall back
+/// to once their own cursor can't satisfy a request in-place. Returns a page
+/// base pointer to a freshly-claimed contiguous page range, `n` pages long
+/// (`span_pages == n` is recorded on that first page only).
+///
+/// Two disjoint sources, tried in order:
+///   1. **Free-list pop** (only for `n == 1`, the overwhelmingly common
+///      case): if the shared free list (`g7`) is non-empty, pop its head. A
+///      free node whose own `span_pages > 1` is split — the caller gets a
+///      single page carved off the front (`head`, `span` forced to 1) and the
+///      remainder (`head + PAGE`, `span - 1`) goes back onto the free list in
+///      `head`'s place. A multi-page REQUEST (`n > 1`) never consults the
+///      free list at all (no multi-page free-list search/coalescing in this
+///      task); it always falls through to the frontier below, which is
+///      always correct, just possibly wasteful of previously-freed single
+///      pages.
+///   2. **Frontier + geometric grow**: carve `n` fresh pages off `__heap`
+///      (g0, the page frontier — see its updated doc comment where it's
+///      declared), growing linear memory first if needed. This re-houses the
+///      Phase-0 `__alloc` growth logic verbatim (same `max(deficit_pages,
+///      cur_pages)` geometric sizing, same `Unreachable`-on-`memory.grow ==
+///      -1` trap), just measured in whole pages (`need = n * PAGE`) instead
+///      of an arbitrary byte count.
+///
+/// Locals: 0 = `pages` (`n`) param; 1 = `head` in the free-list branch,
+/// REUSED as `cur_pages` in the frontier branch (their lifetimes never
+/// overlap: the free-list branch always returns before the frontier branch
+/// runs); 2 = `base` (the page pointer being carved/returned, live across the
+/// whole frontier branch); 3 = `need` (`n * PAGE`); 4 = `deficit_pages`.
+/// `new_top` is never stored to a local — cheap enough (`base + need`, two
+/// `LocalGet`s and an `I32Add`) to recompute at each of its three uses
+/// instead of keeping a fifth local live across the branch.
+fn emit_page_get_body(func: &mut Function) {
+    // ---- Free-list fast path: n == 1 && g7 != 0 ----
+    func.instruction(&Instruction::LocalGet(0)); // n
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Eq);
+    func.instruction(&Instruction::GlobalGet(7));
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::I32Ne);
+    func.instruction(&Instruction::I32And);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    {
+        func.instruction(&Instruction::GlobalGet(7));
+        func.instruction(&Instruction::LocalSet(1)); // head = g7 (no stray value left on the stack)
+
+        // if head.span == 1 { g7 = head.next; return head }
+        func.instruction(&Instruction::LocalGet(1));
+        func.instruction(&Instruction::I32Load(page_mem_arg(4)));
+        func.instruction(&Instruction::I32Const(1));
+        func.instruction(&Instruction::I32Eq);
+        func.instruction(&Instruction::If(BlockType::Empty));
+        func.instruction(&Instruction::LocalGet(1)); // head.next value source addr
+        func.instruction(&Instruction::I32Load(page_mem_arg(0)));
+        func.instruction(&Instruction::GlobalSet(7));
+        func.instruction(&Instruction::LocalGet(1));
+        func.instruction(&Instruction::Return);
+        func.instruction(&Instruction::End);
+
+        // span > 1: split off one page; return the remainder to the free list.
+        // rem = head + PAGE
+        func.instruction(&Instruction::LocalGet(1));
+        func.instruction(&Instruction::I32Const(PAGE));
+        func.instruction(&Instruction::I32Add);
+        func.instruction(&Instruction::LocalSet(2)); // base(local2) reused as `rem`, no residue
+
+        // rem.next = head.next
+        func.instruction(&Instruction::LocalGet(2)); // addr = rem
+        func.instruction(&Instruction::LocalGet(1)); // head
+        func.instruction(&Instruction::I32Load(page_mem_arg(0)));
+        func.instruction(&Instruction::I32Store(page_mem_arg(0)));
+
+        // rem.span = head.span - 1
+        func.instruction(&Instruction::LocalGet(2)); // addr = rem
+        func.instruction(&Instruction::LocalGet(1)); // head
+        func.instruction(&Instruction::I32Load(page_mem_arg(4)));
+        func.instruction(&Instruction::I32Const(1));
+        func.instruction(&Instruction::I32Sub);
+        func.instruction(&Instruction::I32Store(page_mem_arg(4)));
+
+        // g7 = rem
+        func.instruction(&Instruction::LocalGet(2));
+        func.instruction(&Instruction::GlobalSet(7));
+
+        // head.span = 1
+        func.instruction(&Instruction::LocalGet(1)); // addr = head
+        func.instruction(&Instruction::I32Const(1));
+        func.instruction(&Instruction::I32Store(page_mem_arg(4)));
+
+        // return head
+        func.instruction(&Instruction::LocalGet(1));
+        func.instruction(&Instruction::Return);
+    }
+    func.instruction(&Instruction::End); // end free-list branch
+
+    // ---- Frontier + geometric grow path ----
+    // base = g0; need = n * PAGE
+    func.instruction(&Instruction::GlobalGet(0));
+    func.instruction(&Instruction::LocalSet(2)); // base
+    func.instruction(&Instruction::LocalGet(0)); // n
+    func.instruction(&Instruction::I32Const(PAGE));
+    func.instruction(&Instruction::I32Mul);
+    func.instruction(&Instruction::LocalSet(3)); // need
+
+    // cur_pages = memory.size (reuses local1 — dead after the free-list branch)
+    func.instruction(&Instruction::MemorySize(0));
+    func.instruction(&Instruction::LocalSet(1));
+
+    // if (base + need) > cur_pages * PAGE { grow } — Phase-0 logic moved
+    // verbatim from the old `__alloc`, measured against `base + need`
+    // instead of `__heap + size`.
+    func.instruction(&Instruction::LocalGet(2)); // base
+    func.instruction(&Instruction::LocalGet(3)); // need
+    func.instruction(&Instruction::I32Add); // new_top (not stored)
+    func.instruction(&Instruction::LocalGet(1)); // cur_pages
     func.instruction(&Instruction::I32Const(PAGE));
     func.instruction(&Instruction::I32Mul);
     func.instruction(&Instruction::I32GtU);
     func.instruction(&Instruction::If(BlockType::Empty));
     {
         // deficit_pages = ceil((new_top - cur_pages*PAGE) / PAGE)
-        func.instruction(&Instruction::LocalGet(1));
         func.instruction(&Instruction::LocalGet(2));
+        func.instruction(&Instruction::LocalGet(3));
+        func.instruction(&Instruction::I32Add); // new_top (recomputed)
+        func.instruction(&Instruction::LocalGet(1));
         func.instruction(&Instruction::I32Const(PAGE));
         func.instruction(&Instruction::I32Mul);
         func.instruction(&Instruction::I32Sub);
@@ -1560,16 +1863,16 @@ fn emit_alloc_body(func: &mut Function) {
         func.instruction(&Instruction::I32Add);
         func.instruction(&Instruction::I32Const(PAGE));
         func.instruction(&Instruction::I32DivU);
-        func.instruction(&Instruction::LocalSet(3)); // local3 = deficit_pages
+        func.instruction(&Instruction::LocalSet(4)); // deficit_pages
 
         // grow_pages = max(deficit_pages, cur_pages) — geometric: at least doubling.
-        func.instruction(&Instruction::LocalGet(3));
-        func.instruction(&Instruction::LocalGet(2));
+        func.instruction(&Instruction::LocalGet(4));
+        func.instruction(&Instruction::LocalGet(1));
         func.instruction(&Instruction::I32GtU);
         func.instruction(&Instruction::If(BlockType::Result(ValType::I32)));
-        func.instruction(&Instruction::LocalGet(3));
+        func.instruction(&Instruction::LocalGet(4));
         func.instruction(&Instruction::Else);
-        func.instruction(&Instruction::LocalGet(2));
+        func.instruction(&Instruction::LocalGet(1));
         func.instruction(&Instruction::End); // end grow_pages select
 
         // memory.grow(grow_pages); if it reports failure (-1), trap cleanly
@@ -1583,12 +1886,78 @@ fn emit_alloc_body(func: &mut Function) {
     }
     func.instruction(&Instruction::End); // end growth-needed check
 
-    // __heap = new_top; return the pre-growth pointer (new_top - size).
-    func.instruction(&Instruction::LocalGet(1));
+    // g0 = base + need
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I32Add);
     func.instruction(&Instruction::GlobalSet(0));
-    func.instruction(&Instruction::LocalGet(1));
-    func.instruction(&Instruction::LocalGet(0));
-    func.instruction(&Instruction::I32Sub);
+
+    // base.next = 0
+    func.instruction(&Instruction::LocalGet(2)); // addr = base
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::I32Store(page_mem_arg(0)));
+
+    // base.span = n
+    func.instruction(&Instruction::LocalGet(2)); // addr = base
+    func.instruction(&Instruction::LocalGet(0)); // n (param, still valid)
+    func.instruction(&Instruction::I32Store(page_mem_arg(4)));
+
+    // return base (falls through as the function result)
+    func.instruction(&Instruction::LocalGet(2));
+}
+
+/// Body of the synthetic `__arena_reset() -> ()` function/loop-arena
+/// recycler: walks the current arena's page list (`g1`) onto the shared free
+/// list (`g7`), then zeros the current-arena trio (`g1`/`g2`/`g3`) so the
+/// next allocation from that arena starts fresh. Not yet called from
+/// anywhere in this task (`ArenaTable` is still unconsumed by codegen; loop
+/// and function arenas that call this land in Tasks 6-7) — Task 5 only
+/// builds and unit-tests this machinery in isolation.
+///
+/// Locals: 0 = `p`, 1 = `next` (no params).
+fn emit_arena_reset_body(func: &mut Function) {
+    // p = g1
+    func.instruction(&Instruction::GlobalGet(1));
+    func.instruction(&Instruction::LocalSet(0));
+
+    func.instruction(&Instruction::Block(BlockType::Empty));
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    {
+        // if p == 0 { break out of the block, ending the loop }
+        func.instruction(&Instruction::LocalGet(0));
+        func.instruction(&Instruction::I32Eqz);
+        func.instruction(&Instruction::BrIf(1));
+
+        // next = p.next
+        func.instruction(&Instruction::LocalGet(0));
+        func.instruction(&Instruction::I32Load(page_mem_arg(0)));
+        func.instruction(&Instruction::LocalSet(1));
+
+        // p.next = g7
+        func.instruction(&Instruction::LocalGet(0)); // addr = p
+        func.instruction(&Instruction::GlobalGet(7));
+        func.instruction(&Instruction::I32Store(page_mem_arg(0)));
+
+        // g7 = p
+        func.instruction(&Instruction::LocalGet(0));
+        func.instruction(&Instruction::GlobalSet(7));
+
+        // p = next
+        func.instruction(&Instruction::LocalGet(1));
+        func.instruction(&Instruction::LocalSet(0));
+
+        func.instruction(&Instruction::Br(0)); // continue loop
+    }
+    func.instruction(&Instruction::End); // end loop
+    func.instruction(&Instruction::End); // end block
+
+    // g1 = 0; g2 = 0; g3 = 0
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::GlobalSet(1));
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::GlobalSet(2));
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::GlobalSet(3));
 }
 
 pub(crate) fn top_level_children(lir: &LirProgram) -> Vec<LirNodeId> {
