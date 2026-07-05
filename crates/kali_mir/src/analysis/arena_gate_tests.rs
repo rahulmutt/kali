@@ -491,3 +491,134 @@ fn ineligible_on_param_mediated_escape() {
     assert!(!table.opens_arena("f"));
     assert!(!table.arena_eligible("f"));
 }
+
+// --- Interprocedural round hardening pins ------------------------------------
+
+#[test]
+fn eligible_when_arg_passed_to_nonescaping_param() {
+    // THE load-bearing precision grant: a may-heap call-result argument to a
+    // callee whose param never escapes must NOT veto — this is the
+    // `itemCheck(bottomUpTree(d))` shape at the heart of binary-trees.
+    let mir = analyze(
+        "function bottomUpTree(d) { return { left: null, right: null }; }
+         function itemCheck(t) { if (t.left === null) { return 1; } return 2; }
+         function f(n) {
+           let sum = 0;
+           for (let i = 0; i < n; i = i + 1) {
+             sum = sum + itemCheck(bottomUpTree(3));
+           }
+           return sum;
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(table.loop_arena("f", 0));
+    assert!(table.arena_eligible("bottomUpTree"));
+}
+
+#[test]
+fn ineligible_on_call_result_stored_into_member() {
+    // A call result stored into a pre-existing object's field outlives the
+    // frame. The old judgment only caught FRESH literals in member stores;
+    // the class-based site catches laundered/call-result values too.
+    let mir = analyze(
+        "function mk() { return { v: 1 }; }
+         function f(p) {
+           const local = { w: 2 };
+           const x = mk();
+           p.left = x;
+           let s = local.w;
+           return s;
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(!table.arena_eligible("f"));
+    assert!(!table.opens_arena("f"));
+}
+
+#[test]
+fn ineligible_on_transitive_chain_across_hoisted_helpers() {
+    // The round-4 transitive shape (x -> keep -> cache across hoisted
+    // helpers): every link is plain-ident dataflow, the store is above the
+    // helper declarations, and only the fixpoint sees the whole chain.
+    let mir = analyze(
+        "let cache;
+         function mk() { return { v: 1 }; }
+         function f() {
+           const local = { w: 2 };
+           let x = 0;
+           let keep = 0;
+           step1();
+           step2();
+           cache = keep;
+           function step1() { x = mk(); }
+           function step2() { keep = x; }
+           let s = local.w;
+           return s;
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(!table.arena_eligible("f"));
+    assert!(!table.opens_arena("f"));
+}
+
+#[test]
+fn ineligible_on_launder_through_returning_callee() {
+    // Heap-ness survives a round trip through `id`: the returned value is
+    // the module-stored value.
+    let mir = analyze(
+        "let cache;
+         function id(p) { return p; }
+         function mk() { return { v: 1 }; }
+         function f() {
+           const local = { w: 2 };
+           const x = mk();
+           const y = id(x);
+           cache = y;
+           let s = local.w;
+           return s;
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(!table.arena_eligible("f"));
+    assert!(!table.opens_arena("f"));
+}
+
+#[test]
+fn ineligible_on_param_embedded_in_literal_stored_outward() {
+    // The callee wraps its param in a fresh literal and stores THAT outward:
+    // the embeds set must carry p so the arg site still fires in the caller.
+    let mir = analyze(
+        "let cache;
+         function stash(p) { cache = { v: p }; }
+         function mk() { return { v: 1 }; }
+         function f() {
+           const local = { w: 2 };
+           const x = mk();
+           stash(x);
+           let s = local.w;
+           return s;
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(!table.arena_eligible("f"));
+    assert!(!table.opens_arena("f"));
+}
+
+#[test]
+fn ineligible_on_heap_ident_arg_to_unknown_callee() {
+    // Old behavior only vetoed FRESH LITERAL args to unknown callees; a
+    // may-heap IDENT handed to an unknown callee must veto too.
+    let mir = analyze(
+        "function mk() { return { v: 1 }; }
+         function f(cb) {
+           const local = { w: 2 };
+           const x = mk();
+           cb(x);
+           let s = local.w;
+           return s;
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(!table.arena_eligible("f"));
+    assert!(!table.opens_arena("f"));
+}
