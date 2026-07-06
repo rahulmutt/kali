@@ -603,6 +603,13 @@ fn substring_result_binding_is_string_and_tainted() {
 }
 
 #[test]
+fn bound_join_result_is_string_and_tainted() {
+    let t = reprs("const a = new Array(1);\na[0] = \"x\";\nconst j = a.join(\"\");\n");
+    assert_eq!(t.scalar("_start", "j"), Repr::String);
+    assert!(t.is_string_concat_tainted("_start", "j"));
+}
+
+#[test]
 fn param_that_is_both_length_and_substring_receiver_is_string() {
     // Task 10 (commit 9efba347d) `resolve_calls` independence pin, at the unit
     // level: the fastaRepeat shape passes a bare string identifier (`ALU`) to a

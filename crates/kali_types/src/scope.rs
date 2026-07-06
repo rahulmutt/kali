@@ -34,6 +34,14 @@ pub struct Scope {
     pub static_numeric_values: IndexMap<String, String>,
     pub(crate) static_identity_values: IndexMap<String, StaticObjectIdentityValue>,
     pub static_arrays: IndexMap<String, bool>,
+    /// Names bound to an array *literal* (`x = ["a", "b"]`) — tracked for
+    /// EVERY declaration kind, including `var` (unlike `static_arrays`, which
+    /// is non-`var` only). Codegen never linearizes a string/number literal
+    /// array into a runtime linear-memory binding (only `new Array(n)`,
+    /// `.fill`, array params, and array reassignment register in codegen's
+    /// `array_bindings`), so the runtime `join` lane must REJECT a
+    /// literal-array receiver (it would silently emit `0`). Fail-closed.
+    pub array_literal_bindings: IndexMap<String, bool>,
     pub static_objects: IndexMap<String, bool>,
     pub static_reference_values: IndexMap<String, String>,
     pub static_object_keys: IndexMap<String, bool>,
@@ -51,6 +59,7 @@ impl Scope {
             static_numeric_values: IndexMap::new(),
             static_identity_values: IndexMap::new(),
             static_arrays: IndexMap::new(),
+            array_literal_bindings: IndexMap::new(),
             static_objects: IndexMap::new(),
             static_reference_values: IndexMap::new(),
             static_object_keys: IndexMap::new(),
@@ -77,6 +86,7 @@ impl Scope {
         self.static_numeric_values.shift_remove(name);
         self.static_identity_values.shift_remove(name);
         self.static_arrays.shift_remove(name);
+        self.array_literal_bindings.shift_remove(name);
         self.static_objects.shift_remove(name);
         self.static_reference_values.shift_remove(name);
         self.static_object_keys.shift_remove(name);

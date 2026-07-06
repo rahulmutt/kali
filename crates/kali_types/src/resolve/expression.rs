@@ -245,7 +245,7 @@ impl TypeContext {
     /// text (a `.length` byte count would then disagree with JS's UTF-16 unit
     /// count). Same key resolution as `string_element_array_binding`; fail-closed
     /// (unknown key ⇒ assume non-ASCII ⇒ reject).
-    fn array_element_non_ascii(&self, name: &str) -> bool {
+    pub(crate) fn array_element_non_ascii(&self, name: &str) -> bool {
         match self.binding_repr_function_key(name) {
             Some(func) => self.repr_table.is_array_element_non_ascii(&func, name),
             None => true,
@@ -271,6 +271,16 @@ impl TypeContext {
             Expression::CallExpression(call) => match &call.callee {
                 Expression::Identifier(callee) => {
                     self.repr_table.return_repr(callee) == Repr::String
+                }
+                // Runtime `a.join(sep)` over a proven `Repr::String`-element
+                // array binding produces a runtime string (Spec 3) — same
+                // signal codegen's `is_string_valued` `runtime_join_call_parts`
+                // arm consults.
+                Expression::MemberExpression(member)
+                    if member.computed_index.is_none() && member.property.as_str() == "join" =>
+                {
+                    matches!(&member.object, Expression::Identifier(base)
+                        if self.string_element_array_binding(base))
                 }
                 _ => false,
             },
@@ -516,6 +526,15 @@ impl TypeContext {
         }
         if let Expression::CallExpression(call) = expr {
             if let Expression::MemberExpression(member) = &call.callee {
+                // Runtime `a.join(sep)` over a proven `Repr::String`-element
+                // array binding is a runtime string producer (a fresh buffer),
+                // alongside the substring fallthrough. Both mirror codegen's
+                // `is_string_valued`. Non-identifier receivers fall through to
+                // the substring check and then to `false` (fail-closed).
+                if member.computed_index.is_none() && member.property.as_str() == "join" {
+                    return matches!(&member.object, Expression::Identifier(base)
+                        if self.string_element_array_binding(base));
+                }
                 return member.computed_index.is_none() && member.property.as_str() == "substring";
             }
         }

@@ -571,6 +571,11 @@ impl<'a> FunctionEmitter<'a> {
         if let Some(base) = self.dynamic_array_read_base(self.node(id)) {
             return self.array_elem_repr(&base) == kali_common::Repr::String;
         }
+        // Runtime `a.join(sep)` produces a string (Spec 3). Same recognizer the
+        // emitter dispatch routes with, so the oracle and emitter agree.
+        if self.runtime_join_call_parts(self.node(id)).is_some() {
+            return true;
+        }
         let node = self.node(id);
         match node.kind {
             LirNodeKind::Literal => node.text.as_deref().is_some_and(|text| {
@@ -643,6 +648,12 @@ impl<'a> FunctionEmitter<'a> {
             return self
                 .repr_table
                 .is_array_element_concat_tainted(&self.function_name, &base);
+        }
+        // Runtime `a.join(sep)` yields a FRESH runtime buffer: interned identity
+        // never holds, so it is always concat-tainted (identity `==` must
+        // reject). Same recognizer as `is_string_valued`.
+        if self.runtime_join_call_parts(self.node(id)).is_some() {
+            return true;
         }
         let node = self.node(id);
         match node.kind {

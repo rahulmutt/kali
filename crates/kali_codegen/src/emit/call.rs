@@ -757,6 +757,13 @@ impl<'a> FunctionEmitter<'a> {
             return self.emit_node(function, literal, true);
         }
 
+        // Runtime join over a proven String-element array binding (Spec 3).
+        // Placed AFTER the static fold lane so literal receivers keep folding;
+        // the recognizer's `array_bindings` check already makes them disjoint.
+        if let Some((receiver, separator)) = self.runtime_join_call_parts(node) {
+            return self.emit_runtime_join(function, receiver, separator);
+        }
+
         if let Some(result) = self.resolve_static_array_to_string_call(node) {
             let literal = self.alloc_scratch_node(
                 LirNodeKind::Literal,
@@ -2522,6 +2529,38 @@ impl<'a> FunctionEmitter<'a> {
         ))
     }
 
+    /// `(receiver, separator)` iff this is a runtime join over a
+    /// linear-memory array binding with proven String elements. Literal
+    /// receivers are never in `array_bindings`, so the static fold lane
+    /// (`resolve_static_array_join_call`) stays disjoint. ASCII-safety of the
+    /// elements and separator is enforced upstream by the `kali_types` E5506
+    /// gate (byte-count join of a non-ASCII element/separator rejects before
+    /// codegen); this recognizer only gates on the array binding's proven
+    /// String element axis, staying in lockstep with that gate.
+    pub(crate) fn runtime_join_call_parts(
+        &self,
+        node: &LirNode,
+    ) -> Option<(LirNodeId, Option<LirNodeId>)> {
+        if node.kind != LirNodeKind::Call || !(1..=2).contains(&node.children.len()) {
+            return None;
+        }
+        let callee = self.resolve_transparent_callable_node(node.children[0])?;
+        let callee_node = self.node(callee);
+        if callee_node.text.as_deref() != Some("join") {
+            return None;
+        }
+        let receiver = callee_node.children.first().copied()?;
+        let receiver_node = self.node(self.unwrap_transparent(receiver));
+        let base = receiver_node.text.as_deref()?;
+        if !self.array_bindings.contains(base) {
+            return None;
+        }
+        if self.array_elem_repr(base) != kali_common::Repr::String {
+            return None;
+        }
+        Some((receiver, node.children.get(1).copied()))
+    }
+
     /// Lower `<recv>.toFixed(<digits>)` to `<recv as f64>; I32Const(digits);
     /// Call(float_to_fixed)`. The receiver is promoted to f64 when it is not already
     /// float-valued; the digit count is read from the static integer literal argument
@@ -2567,6 +2606,39 @@ impl<'a> FunctionEmitter<'a> {
         self.emit_substring_bound(function, start, 0);
         self.emit_substring_bound(function, end, i64::MAX);
         function.instruction(&Instruction::Call(self.substring_fn_index()));
+        EmittedValue {
+            produced: true,
+            shape: ValueShape::String,
+        }
+    }
+
+    /// Runtime `a.join(sep)`: push the array handle, then the separator handle
+    /// (a runtime string, a static separator, or the default ",") and call the
+    /// synthetic `__join`. The result is a fresh `__alloc_global` string handle.
+    fn emit_runtime_join(
+        &mut self,
+        function: &mut Function,
+        receiver: LirNodeId,
+        separator: Option<LirNodeId>,
+    ) -> EmittedValue {
+        let base = self.emit_node(function, receiver, true);
+        if !base.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
+        match separator {
+            Some(sep) => {
+                let emitted = self.emit_node(function, sep, true);
+                if !emitted.produced {
+                    function.instruction(&Instruction::I64Const(0));
+                }
+            }
+            None => {
+                // JS default separator is ",".
+                let (offset, len) = self.strings.intern(",");
+                function.instruction(&Instruction::I64Const(encode_string_handle(offset, len)));
+            }
+        }
+        function.instruction(&Instruction::Call(self.join_fn_index()));
         EmittedValue {
             produced: true,
             shape: ValueShape::String,

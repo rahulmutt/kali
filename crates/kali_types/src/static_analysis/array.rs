@@ -422,6 +422,23 @@ impl TypeContext {
 
         self.global_scope.static_arrays.contains_key(name)
     }
+    /// True iff `name` is bound to an array *literal* (`x = ["a", "b"]`), in any
+    /// enclosing scope. Scope-walk twin of `resolve_static_array_binding_name`
+    /// over `array_literal_bindings` (which tracks every kind, incl. `var`). The
+    /// runtime `join` lane rejects such receivers — codegen never linearizes a
+    /// literal array, so a `__join` call over one would silently emit `0`.
+    pub(crate) fn resolve_array_literal_binding_name(&self, name: &str) -> bool {
+        let mut current = self.current_scope_id();
+        while let Some(scope_id) = current {
+            let scope = self.scopes.get(&scope_id).expect("scope exists");
+            if scope.array_literal_bindings.contains_key(name) {
+                return true;
+            }
+            current = scope.parent;
+        }
+
+        self.global_scope.array_literal_bindings.contains_key(name)
+    }
     pub(crate) fn resolve_array_is_array_call(&mut self, expr: &CallExpression) -> bool {
         let Some(callee_name) = self.resolve_static_callable_name(&expr.callee) else {
             return false;
@@ -797,34 +814,97 @@ impl TypeContext {
             return;
         }
 
-        let has_static_receiver = self.is_static_array_iteration_target(&member.object);
-        if !has_static_receiver {
-            return;
-        }
-
         let supported_arg_count = matches!(expr.args.len(), 0 | 1);
-        let has_static_separator = expr
-            .args
-            .first()
-            .is_none_or(|argument| self.resolve_static_string_expression(argument).is_some());
 
-        if supported_arg_count && has_static_separator {
+        // Static fold lane (unchanged): literal receiver + static separator.
+        // Folds in Rust byte-exactly, so the separator is NOT ASCII-restricted.
+        if self.is_static_array_iteration_target(&member.object) {
+            let has_static_separator = expr
+                .args
+                .first()
+                .is_none_or(|argument| self.resolve_static_string_expression(argument).is_some());
             self.resolve_expression(&member.object);
             for arg in &expr.args {
                 self.resolve_expression(arg);
             }
+            if supported_arg_count && has_static_separator {
+                return;
+            }
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "Array.prototype.join is unavailable for static literal-array receivers unless the optional separator is a statically-known string in the current direct-runtime path; use explicit literals or the later compatibility path".to_string(),
+            ));
             return;
         }
 
+        // Runtime lane (Spec 3): linear-memory array receiver with proven ASCII
+        // String elements; separator absent (default ","), statically known, or
+        // a proven-ASCII runtime string. Static separators MUST also be
+        // ASCII-checked here because `__join` counts bytes (the static FOLD lane
+        // above is exempt — it folds in Rust).
         self.resolve_expression(&member.object);
         for arg in &expr.args {
             self.resolve_expression(arg);
         }
 
-        self.diagnostics.push(Diagnostic::error(
-            e5::FEATURE_UNAVAILABLE as u32,
-            "Array.prototype.join is unavailable for static literal-array receivers unless the optional separator is a statically-known string in the current direct-runtime path; use explicit literals or the later compatibility path".to_string(),
-        ));
+        let receiver = self.unwrap_for_of_wrapper_expression(&member.object);
+        if let Expression::Identifier(base) = receiver {
+            let name = base.as_str();
+            // Only PROVEN String-element array bindings enter the runtime-join
+            // adjudication — the shapes Spec 3 targets. A non-String identifier
+            // array (number/BigInt/unknown elements) is left to its prior
+            // behavior: a number+string element mix already conflicts in
+            // repr_infer (E5506), a pure-number join is codegen-folded or a
+            // deferred residual — this predicate must NOT newly reject it (it
+            // would break unrelated fixtures whose only `join` is on a
+            // non-String array, e.g. a dead-code error message).
+            if self.string_element_array_binding(name) {
+                // A literal-array receiver (`var line = ["a","b"]`) is NOT a
+                // codegen runtime array binding — codegen would silently emit
+                // `0`. Reject it (fail-closed): the fold lane handles static
+                // `const` literal arrays; a `var`/reassigned literal-array join
+                // has no runtime lane.
+                if supported_arg_count
+                    && !self.array_element_non_ascii(name)
+                    && !self.resolve_array_literal_binding_name(name)
+                {
+                    let separator_ok = expr.args.first().is_none_or(|argument| {
+                        self.resolve_static_string_expression(argument)
+                            .map(|s| s.is_ascii())
+                            .unwrap_or_else(|| self.expression_repr_is_ascii_string(argument))
+                    });
+                    if separator_ok {
+                        return;
+                    }
+                }
+                // Proven String array but unsupported (literal-backed,
+                // non-ASCII element, unsupported arg count, or non-ASCII/
+                // non-string separator): the silent fall-through dies here.
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Array.prototype.join is unavailable unless the receiver is a statically-known array literal with a statically-known separator, or a runtime array whose elements are all proven ASCII strings with a proven-ASCII string separator, in the current direct-runtime path".to_string(),
+                ));
+            }
+            return;
+        }
+
+        // A ternary/logical wrapper receiver (`(c ? a : b).join(...)`) never
+        // resolves to a single runtime array and is never codegen-foldable here
+        // (a statically-decidable wrapper was already unwrapped into the static
+        // fold lane above) — reject (fail-closed, closes the silent `0`).
+        if matches!(
+            receiver,
+            Expression::ConditionalExpression(_) | Expression::LogicalExpression(_)
+        ) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "Array.prototype.join is unavailable unless the receiver is a statically-known array literal with a statically-known separator, or a runtime array whose elements are all proven ASCII strings with a proven-ASCII string separator, in the current direct-runtime path".to_string(),
+            ));
+        }
+        // Any other receiver (member access such as `cloned.values`, a call
+        // result, …) keeps its prior behavior: codegen's static fold / object
+        // modeling handles the foldable shapes; the rest are a deferred residual
+        // outside Spec 3's identifier-receiver scope.
     }
     pub(crate) fn resolve_array_to_string_member_call(&mut self, expr: &CallExpression) {
         let Expression::MemberExpression(member) = &expr.callee else {

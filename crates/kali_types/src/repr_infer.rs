@@ -1192,6 +1192,43 @@ impl ReprInfer {
                         self.runtime_string_nodes.push(result);
                         result
                     }
+                    "join" => {
+                        // `a.join(sep)` implies `a`'s elements are strings.
+                        // String-seed the receiver's element node so an
+                        // otherwise-unstored array (e.g. `new Array(0)`) proves
+                        // a String element axis and the join gate accepts it,
+                        // while an array that ALSO stores a non-string element
+                        // (`a[0] = 1`) becomes a mixed-store element conflict
+                        // (E5506) — the number-element reject. Seeding the
+                        // element node rather than a fresh one is what makes
+                        // both facts fall out of the existing element solve
+                        // (emit_table: mixed_store || float => conflict).
+                        if let Expression::Identifier(name) = &member.object {
+                            let elem = self.array_elem_node_for(func, name);
+                            self.add_string_seed(elem);
+                        } else {
+                            self.visit_expr(func, &member.object);
+                        }
+                        for arg in &call.args {
+                            self.visit_expr(func, arg);
+                        }
+                        let result = self.new_node();
+                        // A bound join result must flow `Repr::String` to its
+                        // captor: string-seed it directly. Unlike substring there
+                        // is no receiver->result string edge — a join result is a
+                        // FRESH runtime buffer, not a slice of the receiver.
+                        self.add_string_seed(result);
+                        // A join result is a non-interned runtime string (like
+                        // `+`): taint it so identity `==` rejects.
+                        self.runtime_string_nodes.push(result);
+                        // No node-level non-ASCII seed on the RESULT: the Task 7
+                        // join GATE (resolve_array_join_member_call) rejects any
+                        // runtime join whose element axis is non-ASCII OR whose
+                        // separator is not proven ASCII, so a non-ASCII join
+                        // never reaches codegen — result-node non-ASCII
+                        // propagation would be unreachable.
+                        result
+                    }
                     "fill" => {
                         // `a.fill(v)` is a store: value -> receiver element.
                         let vnode = call

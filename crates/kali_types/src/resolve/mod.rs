@@ -591,6 +591,20 @@ impl TypeContext {
                             .insert(declarator.id.clone(), true);
                     }
                 }
+                // Track array-literal bindings for EVERY kind (incl. `var`):
+                // the runtime `join` lane rejects them (codegen never linearizes
+                // a literal array into a runtime binding — it would emit `0`).
+                if matches!(init, Expression::ArrayExpression(_)) {
+                    if let Some(scope) = self.scopes.get_mut(&target_scope) {
+                        scope
+                            .array_literal_bindings
+                            .insert(declarator.id.clone(), true);
+                    } else if self.global_scope.contains(&declarator.id) {
+                        self.global_scope
+                            .array_literal_bindings
+                            .insert(declarator.id.clone(), true);
+                    }
+                }
                 if declaration.kind != "var" {
                     if let Some(value) = self.resolve_static_string_expression(init) {
                         if let Some(scope) = self.scopes.get_mut(&target_scope) {
