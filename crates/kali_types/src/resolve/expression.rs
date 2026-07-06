@@ -194,6 +194,79 @@ impl TypeContext {
         }
     }
 
+    /// True when `name`'s string value may contain non-ASCII text. Checks BOTH
+    /// the current-function and module scopes (over-approximate: either scope
+    /// non-ASCII rejects — fail-closed against the scope-resolution ambiguity
+    /// `identifier_repr_is_string` handles precisely for the String bit).
+    fn identifier_string_may_be_non_ascii(&self, name: &str) -> bool {
+        let func = self.current_function_name();
+        self.repr_table.is_string_non_ascii(func, name)
+            || self.repr_table.is_string_non_ascii("_start", name)
+    }
+
+    /// True when `expr` is proven an ASCII-only runtime string: `Repr::String`
+    /// via the inference AND never reached by a non-ASCII seed. The receivers
+    /// the substring/.length lanes accept. Fail-closed: unknown shapes are false.
+    pub(crate) fn expression_repr_is_ascii_string(&self, expr: &Expression) -> bool {
+        use kali_common::Repr;
+        match expr {
+            Expression::Identifier(name) => {
+                self.identifier_repr_is_string(name)
+                    && !self.identifier_string_may_be_non_ascii(name)
+            }
+            Expression::CallExpression(call) => match &call.callee {
+                Expression::Identifier(callee) => {
+                    self.repr_table.return_repr(callee) == Repr::String
+                        && !self.repr_table.is_string_non_ascii_return(callee)
+                }
+                // A chained substring: ASCII iff ITS receiver is.
+                Expression::MemberExpression(member)
+                    if member.computed_index.is_none()
+                        && member.property.as_str() == "substring" =>
+                {
+                    self.expression_repr_is_ascii_string(&member.object)
+                }
+                _ => false,
+            },
+            Expression::ParenthesizedExpression(inner) => {
+                self.expression_repr_is_ascii_string(&inner.expression)
+            }
+            _ => false,
+        }
+    }
+
+    /// True when `arg` is safe as a runtime substring bound: provably integer-
+    /// repr at runtime. Float/string/unknown shapes reject (JS ToInteger on
+    /// NaN/fractions is unimplemented). Fail-closed.
+    pub(crate) fn expression_is_int_repr_bound(&self, arg: &Expression) -> bool {
+        use kali_common::Repr;
+        match arg {
+            Expression::Literal(LiteralValue::Number(n)) => n.is_finite() && n.fract() == 0.0,
+            Expression::Identifier(name) => {
+                let func = self.current_function_name();
+                self.repr_table.scalar(func, name) == Repr::I64
+                    && self.repr_table.scalar("_start", name) == Repr::I64
+            }
+            Expression::BinaryExpression(binary)
+                if matches!(binary.operator.as_str(), "+" | "-" | "*" | "%") =>
+            {
+                self.expression_is_int_repr_bound(&binary.left)
+                    && self.expression_is_int_repr_bound(&binary.right)
+            }
+            Expression::UnaryExpression(unary) if unary.operator == "-" => {
+                self.expression_is_int_repr_bound(&unary.argument)
+            }
+            Expression::ParenthesizedExpression(inner) => {
+                self.expression_is_int_repr_bound(&inner.expression)
+            }
+            Expression::CallExpression(call) => match &call.callee {
+                Expression::Identifier(callee) => self.repr_table.return_repr(callee) == Repr::I64,
+                _ => false,
+            },
+            _ => false,
+        }
+    }
+
     /// Rejects a `+` whose lowering codegen cannot perform correctly: any operand
     /// that is *string-typed* but is not a codegen-recognized structural string
     /// expression (i.e. a string-typed variable / dynamic value that codegen's

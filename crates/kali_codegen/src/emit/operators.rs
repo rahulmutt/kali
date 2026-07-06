@@ -585,6 +585,8 @@ impl<'a> FunctionEmitter<'a> {
                     }
                 })
             }
+            // Runtime substring: a slice of a string is a string.
+            LirNodeKind::Call if self.runtime_substring_call_parts(node).is_some() => true,
             // Call to a string-returning function.
             LirNodeKind::Call => {
                 let Some(callee) = node.children.first().copied() else {
@@ -631,6 +633,13 @@ impl<'a> FunctionEmitter<'a> {
                             .is_string_concat_tainted(&self.function_name, name)
                     }
                 })
+            }
+            // A runtime substring result is a non-interned runtime string.
+            LirNodeKind::Call
+                if self.runtime_substring_call_parts(node).is_some()
+                    && self.resolve_static_string_substring_call(node).is_none() =>
+            {
+                true
             }
             // Call to a string-returning function: tainted iff the return is.
             LirNodeKind::Call => {

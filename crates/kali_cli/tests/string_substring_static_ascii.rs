@@ -107,8 +107,31 @@ fn check_gates_non_ascii_static_string_substring_receiver() {
 }
 
 #[test]
-fn check_gates_dynamic_string_substring_receiver() {
-    assert_check_gates_unsupported_string_substring(
+fn runs_ascii_provable_runtime_string_substring_receiver() {
+    // A param that only ever holds an ASCII string is an ASCII-provable
+    // runtime string receiver: Task 4 lowers `value.substring(1)` to the
+    // synthetic `__substring` (byte-offset slicing is JS-correct for ASCII),
+    // so this case that previously gated is now accepted and runs correctly.
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
         "function cut(value) {\n  console.log(value.substring(1));\n}\ncut('hello');\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
     );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "ello\n");
 }

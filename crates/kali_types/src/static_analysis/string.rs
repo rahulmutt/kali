@@ -421,6 +421,19 @@ impl TypeContext {
             return;
         }
 
+        let receiver_is_runtime_ascii_string = self.expression_repr_is_ascii_string(&member.object);
+        let bounds_are_int_repr = expr
+            .args
+            .iter()
+            .all(|argument| self.expression_is_int_repr_bound(argument));
+        if supported_arg_count && receiver_is_runtime_ascii_string && bounds_are_int_repr {
+            self.resolve_expression(&member.object);
+            for arg in &expr.args {
+                self.resolve_expression(arg);
+            }
+            return;
+        }
+
         self.resolve_expression(&member.object);
         for arg in &expr.args {
             self.resolve_expression(arg);
@@ -428,7 +441,7 @@ impl TypeContext {
 
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
-            "String.prototype.substring is unavailable unless the receiver is a statically-known ASCII string literal and the start/end bounds are statically-known finite numeric literals in the current direct-runtime path; use explicit ASCII literals or the later compatibility path".to_string(),
+            "String.prototype.substring is unavailable unless the receiver is a statically-known ASCII string literal with statically-known finite numeric bounds, or an ASCII-provable runtime string value with integer-typed bounds, in the current direct-runtime path; non-ASCII receivers and float-typed bounds are rejected".to_string(),
         ));
     }
     pub(crate) fn resolve_string_repeat_member_call(&mut self, expr: &CallExpression) {
