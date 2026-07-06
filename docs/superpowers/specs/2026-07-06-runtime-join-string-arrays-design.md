@@ -78,7 +78,9 @@ Three candidates; the types-side axis and gates are identical in all three.
   slots summing `handle & 0xFFFF_FFFF` plus `sep_len × (n−1)`; pass 2 does
   ONE `__alloc` of the total, then `memory.copy`s each element's bytes and
   the separator between them; returns `TAG | ptr<<32 | len`. Fast path:
-  empty array → interned `""` handle (immortal pool — alias-safe). A
+  empty array → `TAG` itself (offset 0, length 0 — a zero-length handle is
+  never dereferenced, so no interning is needed inside the shared
+  synthetic). A
   single-element array is deliberately NOT returned zero-copy: it copies
   like any other, so the "join result is a fresh allocation" escape
   invariant holds unconditionally (a runtime branch returning an element
@@ -86,11 +88,18 @@ Three candidates; the types-side axis and gates are identical in all three.
   element-aliasing — worse than the one-element copy it saves). No new
   host import — the 4 hand-mirrored browser
   JS import lists stay untouched (known LinkError footgun). One allocation
-  per join through the **arena-aware** guest allocator, so fastaRandom's
-  per-line join result is reclaimed by the existing per-loop arena
-  machinery — the only option whose memory story survives Spec 6's
-  N=25,000,000 (~417k lines) without rework. Cost: the most codegen work,
-  and escape flow must model the result (below).
+  per join via the guest `__alloc_global` export. **Planning amendment
+  (2026-07-06):** the approved design said "arena-aware allocator";
+  investigation found runtime strings are ALWAYS `__alloc_global`-allocated
+  and `escape_flow.rs:431-438` structurally relies on it ("runtime strings
+  are global-arena host values and never dangle across a reset") — and one
+  shared synthetic cannot pick a per-caller arena anyway. `__join` therefore
+  allocates globally like `string_concat`: ~25MB of dead line strings at
+  Spec 6's N=25,000,000 (~417k lines), comfortably under wasm32's 4GB.
+  Still the best option — one allocation per join vs C's ~760MB of
+  intermediates, no import-list/host-coupling cost vs B. Arena-tracked
+  strings, if ever needed, are a separate future spec. Cost: the most
+  codegen work.
 - **B — host import `string_join`** — simplest codegen, but a fifth entry
   in all 4 hand-mirrored JS import lists, host coupling to the guest array
   layout, and `__alloc_global` results leak (~25MB dead at N=25M). Rejected.
@@ -153,30 +162,34 @@ untouched and must stay compile-time.
 
 ### 5. Escape flow (`escape_flow.rs`)
 
-Two new edges, both fail-closed:
+**Planning amendment (2026-07-06)** — investigation found both designed
+edges smaller than feared, because runtime strings are never
+arena-allocated:
 
-- **Join result = fresh allocation.** No aliasing of receiver or elements
-  (guaranteed by the always-copy rule in §4; simpler than substring's
-  receiver-alias). It is heap: arena-eligible
-  when it does not escape; escaping results follow the existing
-  escape-flow rules.
-- **Store-into-container alias (the dangerous one).** Storing a string
-  handle into an array aliases the string to the container: an
-  arena-allocated substring stored into an array that outlives the arena
-  would be use-after-reset — memory corruption, strictly worse than a
-  wrong answer. Element stores of string handles add an alias edge so the
-  string's lifetime follows the array's; whenever the fixpoint cannot
-  prove containment, the string escapes. This edge gets the adversarial
+- **Join result.** A fresh `__alloc_global` string, exactly like
+  `string_concat` output — classified the way `classify_value` already
+  classifies concat (`Scalar`: escape_flow.rs:431-438, "runtime strings
+  are global-arena host values and never dangle across a reset"). A new
+  explicit `join` arm mirrors that concat arm so the member call does not
+  fall into the unknown-call fail-closed path and needlessly veto arenas.
+  No aliasing of receiver or elements (guaranteed by the always-copy rule
+  in §4).
+- **Store-into-container.** Already fail-closed today:
+  `arena_note_assignment` (arena_gate.rs:453-530) unconditionally taints
+  the stored value's sources on ANY member/element store, and stored
+  strings are global-region values, so no use-after-reset is reachable.
+  Spec 3 adds regression pins for both facts (store-taint, join-result
+  classification) rather than new machinery; the pins get the adversarial
   review treatment the Spec 2 final review gave `opens_arena`.
 
 ### 6. Data flow (fastaRandom shell)
 
 `line = new Array(60)` (function-scope alloc) → loop stores single-char
 string handles (String element axis proves) → `line.join('')` → `__join`
-arena-allocates the 60-byte line → `console.log` prints it → the loop's
-arena reset reclaims it → `n -= line.length` reads the runtime length →
-the final iteration reassigns `line = new Array(n)` and the merged binding
-keeps its String element repr.
+allocates the 60-byte line in the global string region (never reclaimed —
+~25MB total at Spec 6 scale) → `console.log` prints it → `n -= line.length`
+reads the runtime length → the final iteration reassigns
+`line = new Array(n)` and the merged binding keeps its String element repr.
 
 ## Error handling — fail-closed matrix
 
@@ -210,10 +223,10 @@ Five layers (patterns proven in Specs 1–2):
    binary-trees, mandelbrot) byte-identical; static join fold stays
    compile-time (pin); `__join` excluded from the tag-boxing census (pin);
    standing 5-crate gate + CI-exact `cargo clippy --workspace -- -D warnings`.
-5. **Escape adversarial** — `kali_mir` unit pins for the
-   store-into-container edge and join freshness; a use-after-reset probe
-   (arena substring stored into an outer-scope array, loop resets, read
-   back — must have escaped to global).
+5. **Escape adversarial** — `kali_mir` unit pins for the existing
+   store-taints-stored-value behavior and the new join-call classification
+   (planning amendment in §5: pins over new machinery, since strings are
+   global-region values and no use-after-reset is reachable).
 
 **Capstone:** the fastaRandom shell vendored with ONLY the `for..in`
 picker swapped for a Spec-2-supported stand-in (substring-based pick from a
@@ -232,10 +245,15 @@ source — the Spec 2 `fastaRepeat` capstone pattern.
 
 ## Risks
 
-- **Store-into-container escape edge is the safety-critical piece** — a
-  fail-open is memory corruption, not just a wrong answer. Mitigation:
-  conservative default (escape when unprovable), dedicated adversarial
-  probes, and reviewer instruction to attack this edge specifically.
+- **The strings-never-dangle invariant is the safety-critical piece** — a
+  fail-open (any runtime string allocated inside a resettable arena) is
+  memory corruption, not just a wrong answer. `__join` MUST allocate via
+  `__alloc_global`, never `__alloc`. Mitigation: dedicated escape pins,
+  and reviewer instruction to attack this invariant specifically.
+- **`memory.copy` has no repo precedent** — wasm bulk-memory is supported
+  by wasmtime, node, and Chromium, but if any harness config rejects it,
+  the fallback is an inline byte-copy loop; a validation failure surfaces
+  loudly in the first suite run that compiles `__join`.
 - **Oracle mirroring** — every new expression shape (element read, join
   call) must land arms on the codegen oracle AND the types predicates in
   the same change, or it fails open (Spec 2's two-Critical lesson).
