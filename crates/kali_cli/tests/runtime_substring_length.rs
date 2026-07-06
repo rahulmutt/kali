@@ -196,3 +196,70 @@ fn array_length_still_prints() {
     );
     assert_eq!(String::from_utf8_lossy(&out.stdout), "3\n");
 }
+
+#[test]
+fn storing_tainted_concat_into_element_is_rejected() {
+    // The F1 launder: base prints 0 for this (element read loses stringness).
+    let out = run_source(
+        "let x = \"x\";\nlet t = x + \"y\";\nlet arr = [0];\narr[0] = t;\nif (arr[0] == \"xy\") { console.log(1); }\n",
+    );
+    assert!(
+        !out.status.success(),
+        "runtime-string element store must be rejected"
+    );
+}
+
+#[test]
+fn storing_substring_into_element_is_rejected() {
+    let out = run_source(
+        "let a = \"GGCC\";\nlet i = 1;\nlet arr = [0];\narr[0] = a.substring(0, i);\nconsole.log(arr[0]);\n",
+    );
+    assert!(
+        !out.status.success(),
+        "substring element store must be rejected"
+    );
+}
+
+#[test]
+fn storing_string_param_into_field_is_rejected() {
+    let out = run_source(
+        "function f(s) { let o = { v: 1 };\no.v = s;\nreturn o.v; }\nconsole.log(f(\"hi\"));\n",
+    );
+    assert!(
+        !out.status.success(),
+        "runtime-string field store must be rejected"
+    );
+}
+
+#[test]
+fn array_literal_with_runtime_string_element_is_rejected() {
+    let out =
+        run_source("function f(s) { let a = [s];\nreturn a.length; }\nconsole.log(f(\"hi\"));\n");
+    assert!(
+        !out.status.success(),
+        "runtime-string array-literal element must be rejected"
+    );
+}
+
+#[test]
+fn fill_with_runtime_string_is_rejected() {
+    let out = run_source(
+        "function f(s) { let a = [0, 0];\na.fill(s);\nreturn a.length; }\nconsole.log(f(\"hi\"));\n",
+    );
+    assert!(
+        !out.status.success(),
+        "runtime-string fill must be rejected"
+    );
+}
+
+#[test]
+fn static_string_array_join_stays_green() {
+    // The REQUIRED-GREEN fold lane: fully static elements + static join.
+    let out = run_source("const a = [\"x\", \"y\"];\nconsole.log(a.join(\",\"));\n");
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "x,y\n");
+}

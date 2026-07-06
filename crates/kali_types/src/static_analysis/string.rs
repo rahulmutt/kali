@@ -949,6 +949,28 @@ impl TypeContext {
             "String.prototype.split is unavailable unless the receiver is a statically-known ASCII string literal, the optional separator is a statically-known ASCII string literal, and the optional limit is a statically-known integer from 0 through 1024 in the current direct-runtime path; use explicit ASCII literals or the later compatibility path".to_string(),
         ));
     }
+
+    /// F1: reject `Array.prototype.fill` with a runtime string argument.
+    /// Element reads are int-lane (per-edge string-axis exclusion, Spec 1) —
+    /// filling with a runtime string handle would read back as a raw number
+    /// or compare by meaningless handle identity.
+    pub(crate) fn resolve_array_fill_runtime_string(&mut self, expr: &CallExpression) {
+        let Expression::MemberExpression(member) = &expr.callee else {
+            return;
+        };
+        if member.computed_index.is_some() || member.property.as_str() != "fill" {
+            return;
+        }
+        let Some(first) = expr.args.first() else {
+            return;
+        };
+        if self.expression_is_runtime_string_value(first) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "Array.prototype.fill with a runtime string value is unavailable in the current direct-runtime path; element reads have no string lane yet".to_string(),
+            ));
+        }
+    }
 }
 
 #[cfg(test)]

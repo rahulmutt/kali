@@ -357,6 +357,58 @@ impl TypeContext {
         }
     }
 
+    /// True when `expr` produces a RUNTIME string value — one whose handle
+    /// exists only at run time (concat results, string-typed vars/params,
+    /// string-returning calls, substring slices). Statically-foldable strings
+    /// return false: the const-fold lane (e.g. `const a = ["x","y"]` + static
+    /// `join`) must stay green, and interned-literal stores keep base
+    /// behavior. The F1 store gate keys on this.
+    ///
+    /// Uses `expression_is_length_fold_receiver` (not a raw
+    /// `resolve_static_string_expression(expr).is_some()` check) for the
+    /// static-fold escape: `resolve_static_string_expression`'s identifier arm
+    /// resolves through `static_values`, which is populated for every
+    /// non-`var` declarator INCLUDING `let` (see `resolve_variable_declaration`
+    /// in `resolve/mod.rs`). A `let` binding whose current value happens to be
+    /// statically known (e.g. `let t = x + "y"` folded from literals) would
+    /// otherwise be misreported as "not runtime" here — but codegen's own
+    /// fold-alias table only ever aliases `const` bindings, so such a `let`
+    /// still materializes as a real runtime string handle and must still be
+    /// gated. `expression_is_length_fold_receiver` already encodes this
+    /// const-only distinction (Task 5), so reusing it keeps the two gates
+    /// consistent.
+    pub(crate) fn expression_is_runtime_string_value(&mut self, expr: &Expression) -> bool {
+        if self.expression_is_length_fold_receiver(expr) {
+            return false;
+        }
+        if self.expression_is_string_typed(expr) || self.operand_repr_is_string(expr) {
+            return true;
+        }
+        if let Expression::CallExpression(call) = expr {
+            if let Expression::MemberExpression(member) = &call.callee {
+                return member.computed_index.is_none() && member.property.as_str() == "substring";
+            }
+        }
+        false
+    }
+
+    /// F1: reject storing a runtime string into an array element or object
+    /// field. Element/field reads are int-lane (per-edge string-axis
+    /// exclusion, Spec 1) — a stored runtime string would read back as a raw
+    /// number or compare by meaningless handle identity.
+    pub(crate) fn reject_runtime_string_store(&mut self, assign: &AssignmentExpression) {
+        let Expression::MemberExpression(_) = &assign.left else {
+            return;
+        };
+        if !self.expression_is_runtime_string_value(&assign.right) {
+            return;
+        }
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "storing a runtime string value into an array element or object field is unavailable in the current direct-runtime path; element and field reads have no string lane yet".to_string(),
+        ));
+    }
+
     /// Resolves `expression` in a position where codegen folds a string-typed `+`
     /// to a static string (a for-of iterable, a dynamic-import specifier). Such a
     /// `+` never reaches the buggy runtime `+` path, so the string-typed-variable
@@ -399,6 +451,16 @@ impl TypeContext {
                         ExpressionOrSpread::Empty => {}
                     }
                 }
+                for element in elements.iter().flatten() {
+                    if let ExpressionOrSpread::Expression(element_expr) = element {
+                        if self.expression_is_runtime_string_value(element_expr) {
+                            self.diagnostics.push(Diagnostic::error(
+                                e5::FEATURE_UNAVAILABLE as u32,
+                                "a runtime string value is unavailable as an array element in the current direct-runtime path; element reads have no string lane yet".to_string(),
+                            ));
+                        }
+                    }
+                }
             }
             Expression::ObjectExpression(ObjectExpression { properties }) => {
                 for property in properties {
@@ -424,6 +486,8 @@ impl TypeContext {
             Expression::AssignmentExpression(expr) => {
                 self.resolve_expression(&expr.left);
                 self.resolve_expression(&expr.right);
+
+                self.reject_runtime_string_store(expr);
 
                 if self.resolve_late_env_assignment_mutation(expr) {
                     return;
