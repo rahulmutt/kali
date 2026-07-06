@@ -75,6 +75,15 @@ impl TypeContext {
                 self.expression_is_string_typed(&expr.left)
                     || self.expression_is_string_typed(&expr.right)
             }
+            // A ternary is string-typed iff EITHER arm is (mirrors codegen's
+            // `emit_conditional` `string_result` and `is_string_valued`'s ternary
+            // arm at `operators.rs`). Fail-closed: one string arm taints the whole
+            // conditional, so the `.length`/store/`+` gates that key on this treat
+            // a partially-string ternary as a string receiver.
+            Expression::ConditionalExpression(expr) => {
+                self.expression_is_string_typed(&expr.consequent)
+                    || self.expression_is_string_typed(&expr.alternate)
+            }
             Expression::ParenthesizedExpression(expr) => {
                 self.expression_is_string_typed(&expr.expression)
             }
@@ -98,6 +107,16 @@ impl TypeContext {
             Expression::BinaryExpression(expr) if expr.operator == "+" => {
                 self.expression_is_codegen_string_valued(&expr.left)
                     || self.expression_is_codegen_string_valued(&expr.right)
+            }
+            // Mirror of codegen's `is_string_valued` ternary arm
+            // (`operators.rs`, marker text "?", either-arm rule): a ternary whose
+            // arm is a codegen-recognized structural string is itself lowered to
+            // string concatenation, so it must NOT be rejected by the `+` gate.
+            // Kept in lockstep with `expression_is_string_typed`'s ternary arm so
+            // a string-armed ternary `+` operand passes the E3200 gate.
+            Expression::ConditionalExpression(expr) => {
+                self.expression_is_codegen_string_valued(&expr.consequent)
+                    || self.expression_is_codegen_string_valued(&expr.alternate)
             }
             Expression::ParenthesizedExpression(expr) => {
                 self.expression_is_codegen_string_valued(&expr.expression)
@@ -187,6 +206,15 @@ impl TypeContext {
                 }
                 _ => false,
             },
+            // A ternary whose arm is a `Repr::String` identifier/call is itself
+            // a runtime string (codegen's `is_string_valued` ternary arm agrees).
+            // Fail-closed: keeps the `.length`/store gates classifying a ternary
+            // of string-returning calls as a string even though such arms are not
+            // `expression_is_string_typed` (which lacks a call arm).
+            Expression::ConditionalExpression(cond) => {
+                self.operand_repr_is_string(&cond.consequent)
+                    || self.operand_repr_is_string(&cond.alternate)
+            }
             Expression::ParenthesizedExpression(inner) => {
                 self.operand_repr_is_string(&inner.expression)
             }
@@ -328,10 +356,24 @@ impl TypeContext {
     /// foldable: it materializes as a real runtime string handle, so it must
     /// still clear the ASCII-provable check below, not bypass it.
     fn expression_is_length_fold_receiver(&self, expr: &Expression) -> bool {
-        if let Expression::Identifier(name) = expr {
-            if self.binding_is_mutable(name) {
-                return false;
+        match expr {
+            Expression::Identifier(name) => {
+                if self.binding_is_mutable(name) {
+                    return false;
+                }
             }
+            // Codegen never const-folds a ternary to a static string: it always
+            // emits a runtime select (`emit_conditional`), materializing a real
+            // runtime string handle. `resolve_static_string_expression` DOES fold
+            // a ternary whose arms resolve to the same static string (e.g.
+            // `c > 0 ? t : t`), so without this exclusion such a receiver would
+            // wrongly take the fold escape and bypass the `.length`/store gates
+            // (fail-OPEN). Reject the escape for any ternary; the gates then apply.
+            Expression::ConditionalExpression(_) => return false,
+            Expression::ParenthesizedExpression(inner) => {
+                return self.expression_is_length_fold_receiver(&inner.expression);
+            }
+            _ => {}
         }
         self.resolve_static_string_expression(expr).is_some()
     }

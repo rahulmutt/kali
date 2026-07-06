@@ -163,6 +163,88 @@ fn string_and_float_arms_are_rejected() {
 }
 
 #[test]
+fn length_of_non_ascii_literal_armed_ternary_is_rejected() {
+    // Final-review CRITICAL 1: codegen's `is_string_valued` ternary arm outran
+    // the types-side string predicates (all ternary-blind), so the `.length`
+    // gate never classified a ternary receiver as a string and codegen emitted
+    // `handle & 0xFFFF_FFFF` (a BYTE count: HEAD printed 6, node 5). The types
+    // predicates now carry a ConditionalExpression arm; a non-ASCII-armed
+    // ternary `.length` fails closed. `expression_repr_is_ascii_string` stays
+    // ternary-blind, so EVERY string-armed ternary `.length` rejects.
+    let out = run_source("let c = 1;\nconsole.log((c > 0 ? \"héllo\" : \"x\").length);\n");
+    assert!(
+        !out.status.success(),
+        "non-ASCII-armed ternary .length must be rejected, not byte-counted"
+    );
+}
+
+#[test]
+fn length_of_ascii_armed_ternary_is_rejected_fail_closed() {
+    // Decision pin: `expression_repr_is_ascii_string` stays ternary-blind, so
+    // even an ALL-ASCII-armed ternary `.length` rejects as unprovable-ASCII
+    // (fail-closed, never fail-open) rather than becoming a supported shape.
+    // If a precise `ascii(cons) && ascii(alt)` arm is added later, this pin
+    // flips to a green per-arm-length expectation.
+    let out = run_source("let c = 1;\nconsole.log((c > 0 ? \"abcd\" : \"wx\").length);\n");
+    assert!(
+        !out.status.success(),
+        "ASCII-armed ternary .length is pinned as a REJECT while the ASCII predicate is ternary-blind"
+    );
+}
+
+#[test]
+fn length_of_runtime_string_var_armed_ternary_is_rejected() {
+    // CRITICAL 1 through runtime string variables: both arms are non-ASCII
+    // runtime string bindings. Same fail-closed rejection.
+    let out = run_source(
+        "let c = 1;\nlet a = \"héllo\";\nlet b = \"x\";\nconsole.log((c > 0 ? a : b).length);\n",
+    );
+    assert!(
+        !out.status.success(),
+        "runtime-string-var-armed ternary .length must be rejected"
+    );
+}
+
+#[test]
+fn storing_tainted_concat_armed_ternary_into_element_is_rejected() {
+    // Final-review CRITICAL 2: the F1 store gate was bypassed by a ternary
+    // wrapping a runtime string. `t` is a tainted concat; the ternary must be
+    // classified as a runtime string value so the element store fails closed
+    // (HEAD compiled silently and printed 0; node prints the string).
+    let out = run_source(
+        "let c = 1;\nlet x = \"x\";\nlet t = x + \"y\";\nlet arr = [0];\narr[0] = c > 0 ? t : t;\nconsole.log(arr[0]);\n",
+    );
+    assert!(
+        !out.status.success(),
+        "ternary-wrapped runtime-string element store must be rejected"
+    );
+}
+
+#[test]
+fn filling_with_tainted_concat_armed_ternary_is_rejected() {
+    // CRITICAL 2 via Array.prototype.fill.
+    let out = run_source(
+        "let c = 1;\nlet x = \"x\";\nlet t = x + \"y\";\nlet a = [0, 0];\na.fill(c > 0 ? t : t);\nconsole.log(a[0]);\n",
+    );
+    assert!(
+        !out.status.success(),
+        "fill with a ternary-wrapped runtime string must be rejected"
+    );
+}
+
+#[test]
+fn storing_substring_armed_ternary_into_element_is_rejected() {
+    // CRITICAL 2: one arm is a runtime substring slice; the store must reject.
+    let out = run_source(
+        "let a2 = \"GGCC\";\nlet i = 1;\nlet arr2 = [0];\narr2[0] = i > 0 ? a2.substring(0, i) : a2;\nconsole.log(arr2[0]);\n",
+    );
+    assert!(
+        !out.status.success(),
+        "ternary-selected substring element store must be rejected"
+    );
+}
+
+#[test]
 fn ternary_in_never_called_function_still_compiles() {
     let out = run_source("function unused(a) { return a > 0 ? 1 : 2; }\nconsole.log(7);\n");
     assert!(
