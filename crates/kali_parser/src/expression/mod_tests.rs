@@ -10,3 +10,6 @@ mod binary;
 
 #[path = "mod_tests/type_ops.rs"]
 mod type_ops;
+
+#[path = "mod_tests/conditional.rs"]
+mod conditional;

@@ -56,6 +56,11 @@ pub struct ReprTable {
     string_concat_tainted: HashSet<(String, String)>,
     /// Functions whose `Repr::String` RETURN is a fresh runtime concat handle.
     string_concat_tainted_returns: HashSet<String>,
+    /// Bindings whose string value may contain non-ASCII text (byte-length
+    /// handles diverge from JS UTF-16 semantics): `(function, binding)`.
+    string_non_ascii: HashSet<(String, String)>,
+    /// Functions whose string return value may contain non-ASCII text.
+    string_non_ascii_returns: HashSet<String>,
     /// Interned object layouts; `ShapeId` indexes this list.
     shapes: Vec<Vec<(String, Repr)>>,
     /// Gate messages from the shape inference (contradictory or unsupported
@@ -151,6 +156,30 @@ impl ReprTable {
     /// True when `func`'s return is a fresh runtime concat handle.
     pub fn is_string_concat_tainted_return(&self, func: &str) -> bool {
         self.string_concat_tainted_returns.contains(func)
+    }
+
+    /// Mark `(func, binding)` (scalar or param) as a non-ASCII string.
+    /// Only meaningful together with a `Repr::String` entry.
+    pub fn mark_string_non_ascii(&mut self, func: &str, binding: &str) {
+        self.string_non_ascii
+            .insert((func.to_string(), binding.to_string()));
+    }
+
+    /// Mark `func`'s return as a non-ASCII string.
+    pub fn mark_string_non_ascii_return(&mut self, func: &str) {
+        self.string_non_ascii_returns.insert(func.to_string());
+    }
+
+    /// True when `(func, binding)` holds a non-ASCII string.
+    /// Defaults to false — an ASCII-only string does not need special handling.
+    pub fn is_string_non_ascii(&self, func: &str, binding: &str) -> bool {
+        self.string_non_ascii
+            .contains(&(func.to_string(), binding.to_string()))
+    }
+
+    /// True when `func`'s return is a non-ASCII string.
+    pub fn is_string_non_ascii_return(&self, func: &str) -> bool {
+        self.string_non_ascii_returns.contains(func)
     }
 
     /// Record that `(func, binding)` is an array (any element repr). Additive;

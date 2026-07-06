@@ -59,6 +59,7 @@ impl TypeContext {
         self.resolve_array_at_member_call(expr);
         self.resolve_array_join_member_call(expr);
         self.resolve_array_to_string_member_call(expr);
+        self.resolve_array_fill_runtime_string(expr);
         self.resolve_string_search_member_call(expr);
         self.resolve_string_slice_member_call(expr);
         self.resolve_string_substring_member_call(expr);

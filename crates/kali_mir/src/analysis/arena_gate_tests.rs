@@ -229,11 +229,11 @@ fn loop_whitelist_kali_write_stdout_bytes() {
 
 #[test]
 fn ineligible_on_ternary_store_with_scalar_alternate() {
-    // NOTE: kali_parser has no ternary surface today, so this source does not
-    // reach HirNodeKind::ConditionalExpr (the statement parses degenerately);
-    // the test pins that the store is classified Global regardless of the
-    // parse shape. The ConditionalExpr analyzer arm itself is pinned by the
-    // hand-built-HIR test `ineligible_on_conditional_expr_store_hir_level`.
+    // This source's `cache = c ? node : null;` reaches the ConditionalExpr
+    // analyzer arm; the test pins that the module store is classified Global
+    // regardless of the ternary's branch layouts. The analyzer arm is also
+    // pinned in isolation by the hand-built-HIR test
+    // `ineligible_on_conditional_expr_store_hir_level`.
     let mir = analyze(
         "let cache;
          function f(c) {
@@ -302,7 +302,7 @@ fn same_named_functions_fail_closed() {
 
 #[test]
 fn ineligible_on_conditional_expr_store_hir_level() {
-    // Hand-built HIR (the parser has no ternary surface): `let cache;
+    // Hand-built HIR to isolate the analyzer arm: `let cache;
     // function f(c) { const node = { v: 1 }; cache = c ? node : null;
     // return 1; }`. infer_layout(ConditionalExpr) returns only the LAST
     // child's layout (alternate `null` => Scalar("unknown")); the gate's own
@@ -758,4 +758,30 @@ fn opens_arena_still_true_for_all_scope_local_function() {
     let table = compute_arena_table(&mir);
     assert!(table.arena_eligible("f"));
     assert!(table.opens_arena("f"));
+}
+
+// --- Spec 2 Task 9: substring is not an unknown call -------------------------
+
+#[test]
+fn substring_member_call_is_not_an_unknown_call() {
+    // A pure-ALU slice retains nothing: a loop whose only member call is
+    // `s.substring(0, 1)` must keep whatever arena eligibility it otherwise
+    // has. Mirrors `loop_whitelist_console_log` (a whitelisted, non-retaining
+    // call inside the loop does not veto `loop_arena`) and contrasts with
+    // `loop_veto_on_unknown_call` (a genuine indirect/unresolved call DOES
+    // veto it via `has_unknown_call`). Before the fix, `substring` fell into
+    // the MemberExpr arm's `else { self.arena_note_unknown_call(); }` branch
+    // and poisoned the loop.
+    let mir = analyze(
+        "function f(s, n) {
+           for (let i = 0; i < n; i = i + 1) {
+             const t = { v: i };
+             let x = s.substring(0, 1);
+             let y = t.v;
+           }
+           return 0;
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(table.loop_arena("f", 0));
 }

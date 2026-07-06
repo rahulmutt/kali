@@ -786,16 +786,64 @@ fn count_i64_adds(bytes: &[u8]) -> usize {
 }
 
 fn count_tag_boxing_ops(bytes: &[u8]) -> usize {
+    // This census guards USER hot paths against tag-check/untag boxing ops.
+    // The hand-emitted synthetic runtime helpers (`kali_codegen`'s
+    // `SYNTHETIC_FUNCTIONS`: the `__alloc` page-pool family plus
+    // `__substring`) are compiler-internal fixed slots present in EVERY
+    // module regardless of what the source does — `__substring`'s
+    // handle-field masking legitimately uses `I64And` — so their bodies are
+    // excluded here, exactly as they are excluded from coverage
+    // instrumentation in the compiler itself. Imports and exports precede
+    // the code section in the wasm binary format, so a single pass sees the
+    // full exclusion set before the first body.
+    const SYNTHETIC_FUNCTIONS: &[&str] = &[
+        "__alloc",
+        "__alloc_global",
+        "__page_get",
+        "__arena_reset",
+        "__substring",
+    ];
+    let mut imported_functions = 0u32;
+    let mut synthetic_indices = Vec::new();
+    let mut body_ordinal = 0u32;
     let mut count = 0;
     for payload in Parser::new(0).parse_all(bytes) {
-        if let Ok(Payload::CodeSectionEntry(body)) = payload {
-            let mut reader = body.get_operators_reader().expect("operators reader");
-            while !reader.eof() {
-                match reader.read().expect("read operator") {
-                    Operator::I64And | Operator::I64Eq | Operator::I64ShrS => count += 1,
-                    _ => {}
+        match payload.expect("wasm payload") {
+            Payload::ImportSection(reader) => {
+                for import in reader {
+                    if matches!(
+                        import.expect("import entry").ty,
+                        wasmparser::TypeRef::Func(_)
+                    ) {
+                        imported_functions += 1;
+                    }
                 }
             }
+            Payload::ExportSection(reader) => {
+                for export in reader {
+                    let export = export.expect("export entry");
+                    if export.kind == wasmparser::ExternalKind::Func
+                        && SYNTHETIC_FUNCTIONS.contains(&export.name)
+                    {
+                        synthetic_indices.push(export.index);
+                    }
+                }
+            }
+            Payload::CodeSectionEntry(body) => {
+                let function_index = imported_functions + body_ordinal;
+                body_ordinal += 1;
+                if synthetic_indices.contains(&function_index) {
+                    continue;
+                }
+                let mut reader = body.get_operators_reader().expect("operators reader");
+                while !reader.eof() {
+                    match reader.read().expect("read operator") {
+                        Operator::I64And | Operator::I64Eq | Operator::I64ShrS => count += 1,
+                        _ => {}
+                    }
+                }
+            }
+            _ => {}
         }
     }
     count

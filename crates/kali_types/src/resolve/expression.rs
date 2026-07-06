@@ -75,6 +75,15 @@ impl TypeContext {
                 self.expression_is_string_typed(&expr.left)
                     || self.expression_is_string_typed(&expr.right)
             }
+            // A ternary is string-typed iff EITHER arm is (mirrors codegen's
+            // `emit_conditional` `string_result` and `is_string_valued`'s ternary
+            // arm at `operators.rs`). Fail-closed: one string arm taints the whole
+            // conditional, so the `.length`/store/`+` gates that key on this treat
+            // a partially-string ternary as a string receiver.
+            Expression::ConditionalExpression(expr) => {
+                self.expression_is_string_typed(&expr.consequent)
+                    || self.expression_is_string_typed(&expr.alternate)
+            }
             Expression::ParenthesizedExpression(expr) => {
                 self.expression_is_string_typed(&expr.expression)
             }
@@ -98,6 +107,16 @@ impl TypeContext {
             Expression::BinaryExpression(expr) if expr.operator == "+" => {
                 self.expression_is_codegen_string_valued(&expr.left)
                     || self.expression_is_codegen_string_valued(&expr.right)
+            }
+            // Mirror of codegen's `is_string_valued` ternary arm
+            // (`operators.rs`, marker text "?", either-arm rule): a ternary whose
+            // arm is a codegen-recognized structural string is itself lowered to
+            // string concatenation, so it must NOT be rejected by the `+` gate.
+            // Kept in lockstep with `expression_is_string_typed`'s ternary arm so
+            // a string-armed ternary `+` operand passes the E3200 gate.
+            Expression::ConditionalExpression(expr) => {
+                self.expression_is_codegen_string_valued(&expr.consequent)
+                    || self.expression_is_codegen_string_valued(&expr.alternate)
             }
             Expression::ParenthesizedExpression(expr) => {
                 self.expression_is_codegen_string_valued(&expr.expression)
@@ -187,9 +206,91 @@ impl TypeContext {
                 }
                 _ => false,
             },
+            // A ternary whose arm is a `Repr::String` identifier/call is itself
+            // a runtime string (codegen's `is_string_valued` ternary arm agrees).
+            // Fail-closed: keeps the `.length`/store gates classifying a ternary
+            // of string-returning calls as a string even though such arms are not
+            // `expression_is_string_typed` (which lacks a call arm).
+            Expression::ConditionalExpression(cond) => {
+                self.operand_repr_is_string(&cond.consequent)
+                    || self.operand_repr_is_string(&cond.alternate)
+            }
             Expression::ParenthesizedExpression(inner) => {
                 self.operand_repr_is_string(&inner.expression)
             }
+            _ => false,
+        }
+    }
+
+    /// True when `name`'s string value may contain non-ASCII text. Checks BOTH
+    /// the current-function and module scopes (over-approximate: either scope
+    /// non-ASCII rejects — fail-closed against the scope-resolution ambiguity
+    /// `identifier_repr_is_string` handles precisely for the String bit).
+    fn identifier_string_may_be_non_ascii(&self, name: &str) -> bool {
+        let func = self.current_function_name();
+        self.repr_table.is_string_non_ascii(func, name)
+            || self.repr_table.is_string_non_ascii("_start", name)
+    }
+
+    /// True when `expr` is proven an ASCII-only runtime string: `Repr::String`
+    /// via the inference AND never reached by a non-ASCII seed. The receivers
+    /// the substring/.length lanes accept. Fail-closed: unknown shapes are false.
+    pub(crate) fn expression_repr_is_ascii_string(&self, expr: &Expression) -> bool {
+        use kali_common::Repr;
+        match expr {
+            Expression::Identifier(name) => {
+                self.identifier_repr_is_string(name)
+                    && !self.identifier_string_may_be_non_ascii(name)
+            }
+            Expression::CallExpression(call) => match &call.callee {
+                Expression::Identifier(callee) => {
+                    self.repr_table.return_repr(callee) == Repr::String
+                        && !self.repr_table.is_string_non_ascii_return(callee)
+                }
+                // A chained substring: ASCII iff ITS receiver is.
+                Expression::MemberExpression(member)
+                    if member.computed_index.is_none()
+                        && member.property.as_str() == "substring" =>
+                {
+                    self.expression_repr_is_ascii_string(&member.object)
+                }
+                _ => false,
+            },
+            Expression::ParenthesizedExpression(inner) => {
+                self.expression_repr_is_ascii_string(&inner.expression)
+            }
+            _ => false,
+        }
+    }
+
+    /// True when `arg` is safe as a runtime substring bound: provably integer-
+    /// repr at runtime. Float/string/unknown shapes reject (JS ToInteger on
+    /// NaN/fractions is unimplemented). Fail-closed.
+    pub(crate) fn expression_is_int_repr_bound(&self, arg: &Expression) -> bool {
+        use kali_common::Repr;
+        match arg {
+            Expression::Literal(LiteralValue::Number(n)) => n.is_finite() && n.fract() == 0.0,
+            Expression::Identifier(name) => {
+                let func = self.current_function_name();
+                self.repr_table.scalar(func, name) == Repr::I64
+                    && self.repr_table.scalar("_start", name) == Repr::I64
+            }
+            Expression::BinaryExpression(binary)
+                if matches!(binary.operator.as_str(), "+" | "-" | "*" | "%") =>
+            {
+                self.expression_is_int_repr_bound(&binary.left)
+                    && self.expression_is_int_repr_bound(&binary.right)
+            }
+            Expression::UnaryExpression(unary) if unary.operator == "-" => {
+                self.expression_is_int_repr_bound(&unary.argument)
+            }
+            Expression::ParenthesizedExpression(inner) => {
+                self.expression_is_int_repr_bound(&inner.expression)
+            }
+            Expression::CallExpression(call) => match &call.callee {
+                Expression::Identifier(callee) => self.repr_table.return_repr(callee) == Repr::I64,
+                _ => false,
+            },
             _ => false,
         }
     }
@@ -242,6 +343,125 @@ impl TypeContext {
         }
     }
 
+    /// True when `expr` is the SAME "compile-time constant" shape codegen's
+    /// own `.length` fold lanes recognize: a direct string/template literal
+    /// (or a `+`/wrapper chain rooted in one), or an IMMUTABLE (`const`)
+    /// alias of such. `resolve_static_string_expression` alone is broader —
+    /// its identifier arm resolves through `static_values`, which
+    /// `resolve/mod.rs` populates for every non-`var` declarator (`let`
+    /// included) — but codegen's fold-alias table (`self.bindings` in
+    /// `kali_codegen`) only ever aliases `const` bindings. A `let` receiver
+    /// that types-side static analysis can still compute (e.g. `let b = a +
+    /// ""`, never reassigned in this snippet) is NOT what codegen treats as
+    /// foldable: it materializes as a real runtime string handle, so it must
+    /// still clear the ASCII-provable check below, not bypass it.
+    fn expression_is_length_fold_receiver(&self, expr: &Expression) -> bool {
+        match expr {
+            Expression::Identifier(name) => {
+                if self.binding_is_mutable(name) {
+                    return false;
+                }
+            }
+            // Codegen never const-folds a ternary to a static string: it always
+            // emits a runtime select (`emit_conditional`), materializing a real
+            // runtime string handle. `resolve_static_string_expression` DOES fold
+            // a ternary whose arms resolve to the same static string (e.g.
+            // `c > 0 ? t : t`), so without this exclusion such a receiver would
+            // wrongly take the fold escape and bypass the `.length`/store gates
+            // (fail-OPEN). Reject the escape for any ternary; the gates then apply.
+            Expression::ConditionalExpression(_) => return false,
+            Expression::ParenthesizedExpression(inner) => {
+                return self.expression_is_length_fold_receiver(&inner.expression);
+            }
+            _ => {}
+        }
+        self.resolve_static_string_expression(expr).is_some()
+    }
+
+    /// `.length` gate: a runtime string receiver must be ASCII-provable
+    /// (handle len is a byte count; JS counts UTF-16 units — they agree only
+    /// for ASCII). Static-foldable receivers stay on the base fold lane,
+    /// which counts UTF-16 units and is correct for ANY literal.
+    pub(crate) fn reject_unprovable_string_length(&mut self, expr: &MemberExpression) {
+        if expr.computed_index.is_some() || expr.property.as_str() != "length" {
+            return;
+        }
+        if self.expression_is_length_fold_receiver(&expr.object) {
+            return;
+        }
+        let object_is_string = self.expression_is_string_typed(&expr.object)
+            || self.operand_repr_is_string(&expr.object);
+        if object_is_string && !self.expression_repr_is_ascii_string(&expr.object) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "'.length' on a runtime string value is unavailable unless the string is ASCII-provable in the current direct-runtime path; non-ASCII strings would report a byte count, not a JS character count".to_string(),
+            ));
+        }
+    }
+
+    /// True when `expr` produces a RUNTIME string value — one whose handle
+    /// exists only at run time (concat results, string-typed vars/params,
+    /// string-returning calls, substring slices). Statically-foldable strings
+    /// return false: the const-fold lane (e.g. `const a = ["x","y"]` + static
+    /// `join`) must stay green, and interned-literal stores keep base
+    /// behavior. The F1 store gate keys on this.
+    ///
+    /// Uses `expression_is_length_fold_receiver` (not a raw
+    /// `resolve_static_string_expression(expr).is_some()` check) for the
+    /// static-fold escape: `resolve_static_string_expression`'s identifier arm
+    /// resolves through `static_values`, which is populated for every
+    /// non-`var` declarator INCLUDING `let` (see `resolve_variable_declaration`
+    /// in `resolve/mod.rs`). A `let` binding whose current value happens to be
+    /// statically known (e.g. `let t = x + "y"` folded from literals) would
+    /// otherwise be misreported as "not runtime" here — but codegen's own
+    /// fold-alias table only ever aliases `const` bindings, so such a `let`
+    /// still materializes as a real runtime string handle and must still be
+    /// gated. `expression_is_length_fold_receiver` already encodes this
+    /// const-only distinction (Task 5), so reusing it keeps the two gates
+    /// consistent.
+    pub(crate) fn expression_is_runtime_string_value(&mut self, expr: &Expression) -> bool {
+        if self.expression_is_length_fold_receiver(expr) {
+            return false;
+        }
+        if self.expression_is_string_typed(expr) || self.operand_repr_is_string(expr) {
+            return true;
+        }
+        // A ternary is a runtime string iff EITHER arm is — recursing into THIS
+        // predicate (not only into the string-typed/repr mirrors above, whose
+        // ternary arms never reach the substring member-call fallthrough below)
+        // so a ternary whose EVERY arm is a `.substring(...)` call still
+        // classifies as a runtime string. Fail-closed mirror of codegen's
+        // `is_string_valued` ternary arm, in lockstep with the other
+        // ConditionalExpression arms above.
+        if let Expression::ConditionalExpression(cond) = expr {
+            return self.expression_is_runtime_string_value(&cond.consequent)
+                || self.expression_is_runtime_string_value(&cond.alternate);
+        }
+        if let Expression::CallExpression(call) = expr {
+            if let Expression::MemberExpression(member) = &call.callee {
+                return member.computed_index.is_none() && member.property.as_str() == "substring";
+            }
+        }
+        false
+    }
+
+    /// F1: reject storing a runtime string into an array element or object
+    /// field. Element/field reads are int-lane (per-edge string-axis
+    /// exclusion, Spec 1) — a stored runtime string would read back as a raw
+    /// number or compare by meaningless handle identity.
+    pub(crate) fn reject_runtime_string_store(&mut self, assign: &AssignmentExpression) {
+        let Expression::MemberExpression(_) = &assign.left else {
+            return;
+        };
+        if !self.expression_is_runtime_string_value(&assign.right) {
+            return;
+        }
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "storing a runtime string value into an array element or object field is unavailable in the current direct-runtime path; element and field reads have no string lane yet".to_string(),
+        ));
+    }
+
     /// Resolves `expression` in a position where codegen folds a string-typed `+`
     /// to a static string (a for-of iterable, a dynamic-import specifier). Such a
     /// `+` never reaches the buggy runtime `+` path, so the string-typed-variable
@@ -284,6 +504,16 @@ impl TypeContext {
                         ExpressionOrSpread::Empty => {}
                     }
                 }
+                for element in elements.iter().flatten() {
+                    if let ExpressionOrSpread::Expression(element_expr) = element {
+                        if self.expression_is_runtime_string_value(element_expr) {
+                            self.diagnostics.push(Diagnostic::error(
+                                e5::FEATURE_UNAVAILABLE as u32,
+                                "a runtime string value is unavailable as an array element in the current direct-runtime path; element reads have no string lane yet".to_string(),
+                            ));
+                        }
+                    }
+                }
             }
             Expression::ObjectExpression(ObjectExpression { properties }) => {
                 for property in properties {
@@ -309,6 +539,8 @@ impl TypeContext {
             Expression::AssignmentExpression(expr) => {
                 self.resolve_expression(&expr.left);
                 self.resolve_expression(&expr.right);
+
+                self.reject_runtime_string_store(expr);
 
                 if self.resolve_late_env_assignment_mutation(expr) {
                     return;

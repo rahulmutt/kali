@@ -257,3 +257,14 @@ fn member_read_carries_base_identity_for_taint() {
     let solution = solution_for("let cache; function grab(p) { cache = p.left; }");
     assert!(solution.param_escapes("grab", 0));
 }
+
+#[test]
+fn substring_result_aliases_receiver_for_taint() {
+    // g = p.substring(0, 1) stores a zero-copy slice of p's memory outward:
+    // the alias edge (DependsOn(receiver's nodes)) must taint p, exactly like
+    // the sibling MemberExpr-read case above (`member_read_carries_base_identity_for_taint`).
+    // Before the fix, CallExpr's fallback `None => ValueClass::heap()` gives
+    // an EMPTY-embed heap value, so the taint vanishes and p never escapes.
+    let solution = solution_for("let g; function f(p) { g = p.substring(0, 1); }");
+    assert!(solution.param_escapes("f", 0));
+}

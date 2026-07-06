@@ -575,6 +575,14 @@ impl<'a> FunctionEmitter<'a> {
             LirNodeKind::Value if node.children.len() == 2 && node.text.as_deref() == Some("+") => {
                 self.is_string_valued(node.children[0]) || self.is_string_valued(node.children[1])
             }
+            // Ternary `test ? a : b` (marker text "?"): string-valued iff
+            // either arm is — mirrors `emit_conditional`'s `string_result` (and
+            // the symmetric `is_float_valued` ternary arm) so a string-armed
+            // ternary used as a `+` operand takes the string-concat path
+            // instead of leaking its tagged handle through `int_to_string`.
+            LirNodeKind::Value if node.children.len() == 3 && node.text.as_deref() == Some("?") => {
+                self.is_string_valued(node.children[1]) || self.is_string_valued(node.children[2])
+            }
             // Bare identifier read: string iff its binding's repr is String.
             LirNodeKind::Value if node.children.is_empty() => {
                 node.text.as_deref().is_some_and(|name| {
@@ -585,6 +593,8 @@ impl<'a> FunctionEmitter<'a> {
                     }
                 })
             }
+            // Runtime substring: a slice of a string is a string.
+            LirNodeKind::Call if self.runtime_substring_call_parts(node).is_some() => true,
             // Call to a string-returning function.
             LirNodeKind::Call => {
                 let Some(callee) = node.children.first().copied() else {
@@ -631,6 +641,13 @@ impl<'a> FunctionEmitter<'a> {
                             .is_string_concat_tainted(&self.function_name, name)
                     }
                 })
+            }
+            // A runtime substring result is a non-interned runtime string.
+            LirNodeKind::Call
+                if self.runtime_substring_call_parts(node).is_some()
+                    && self.resolve_static_string_substring_call(node).is_none() =>
+            {
+                true
             }
             // Call to a string-returning function: tainted iff the return is.
             LirNodeKind::Call => {
@@ -839,6 +856,15 @@ impl<'a> FunctionEmitter<'a> {
                             })
                     }
                 }
+                3 => {
+                    // Ternary `test ? a : b` (marker text "?"): float-valued
+                    // iff either arm is — mirrors `emit_conditional`'s
+                    // `float_result` so a store into an f64 local promotes once
+                    // (inside the arms) and this site never double-converts.
+                    node.text.as_deref() == Some("?")
+                        && (self.is_float_valued(node.children[1])
+                            || self.is_float_valued(node.children[2]))
+                }
                 _ => false,
             },
             _ => false,
@@ -849,7 +875,12 @@ impl<'a> FunctionEmitter<'a> {
     /// surrounding operation is float-typed (`float_op`) but this operand is itself
     /// integer-valued. Per-side so mixed `int <op> float` operands both land as
     /// `f64` on the stack before the float instruction.
-    fn emit_float_operand(&mut self, function: &mut Function, id: LirNodeId, float_op: bool) {
+    pub(crate) fn emit_float_operand(
+        &mut self,
+        function: &mut Function,
+        id: LirNodeId,
+        float_op: bool,
+    ) {
         let operand_is_float = self.is_float_valued(id);
         let _ = self.emit_node(function, id, true);
         if float_op && !operand_is_float {

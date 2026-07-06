@@ -540,6 +540,16 @@ impl<'a> FunctionEmitter<'a> {
             return Some(value.encode_utf16().count().to_string());
         }
 
+        if self.is_string_valued(*id) {
+            // Runtime string receiver (a `let` string, string param, substring
+            // result, …) not caught by the static-identity fold above: its
+            // length lives in the handle at runtime. Defer to dynamic emission
+            // (control_flow.rs's string-length arm) instead of falling through
+            // to the identifier branch below, which would bake in a wrong
+            // static `0`.
+            return None;
+        }
+
         let node = self.node(*id);
         if node.text.is_none() {
             return Some(node.children.len().to_string());

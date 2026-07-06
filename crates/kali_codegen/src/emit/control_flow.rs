@@ -716,6 +716,11 @@ impl<'a> FunctionEmitter<'a> {
             return self.emit_aggregate_literal(function, node, want_value);
         }
 
+        // Ternary `test ? a : b` — marker text "?" set by the HIR lowering.
+        if node.text.as_deref() == Some("?") && node.children.len() == 3 {
+            return self.emit_conditional(function, node, want_value);
+        }
+
         if self.is_supported_callable_reference(node) {
             function.instruction(&Instruction::I64Const(0));
             return EmittedValue {
@@ -829,6 +834,32 @@ impl<'a> FunctionEmitter<'a> {
                 // handle used for element reads, for both i64 and f64 arrays.
                 if node.text.as_deref() == Some("length") {
                     let base_id = node.children[0];
+                    // Runtime string length: low 32 bits of the tagged handle
+                    // (byte count == JS code-unit count for ASCII-provable
+                    // strings; `kali_types`'s `reject_unprovable_string_length`
+                    // gate rejects everything else). MUST win before the array
+                    // interpretation below — repr_infer registers ANY `.length`
+                    // receiver as an array binding, and the array lane would
+                    // read garbage memory through a tagged handle. Excludes a
+                    // receiver resolvable as a static string (`.substring`-free
+                    // literal/const fold): that stays on the `emit_unary` fold
+                    // lane below, which counts UTF-16 units and is correct for
+                    // non-ASCII literals too, whereas the handle byte count is
+                    // not.
+                    if self.is_string_valued(base_id)
+                        && self.resolve_static_object_identity_value(base_id).is_none()
+                    {
+                        let base = self.emit_node(function, base_id, true);
+                        if !base.produced {
+                            function.instruction(&Instruction::I64Const(0));
+                        }
+                        function.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+                        function.instruction(&Instruction::I64And);
+                        return EmittedValue {
+                            produced: true,
+                            shape: ValueShape::Scalar,
+                        };
+                    }
                     if let Some(base_name) = self.assignment_target_name(node, base_id) {
                         if self.array_bindings.contains(&base_name) {
                             self.emit_array_base_address(function, base_id);
@@ -1034,6 +1065,109 @@ impl<'a> FunctionEmitter<'a> {
         EmittedValue {
             produced: want_value,
             shape: ValueShape::Unknown,
+        }
+    }
+
+    /// `test ? consequent : alternate`: value-producing if/else. Only the
+    /// taken arm evaluates (JS semantics — never `select`). Result block type
+    /// is repr-directed: f64 when either arm is float-valued (the other arm
+    /// promotes), i64 otherwise (ints, booleans, string handles).
+    pub(crate) fn emit_conditional(
+        &mut self,
+        function: &mut Function,
+        node: &LirNode,
+        want_value: bool,
+    ) -> EmittedValue {
+        let cond = node.children[0];
+        let cons = node.children[1];
+        let alt = node.children[2];
+
+        self.reject_string_condition(cond);
+
+        let float_result = want_value && (self.is_float_valued(cons) || self.is_float_valued(alt));
+        let string_result =
+            want_value && (self.is_string_valued(cons) || self.is_string_valued(alt));
+        if float_result && string_result {
+            // A float result block would reinterpret a string handle as f64.
+            self.diagnostics.push(Diagnostic::error(
+                e3::TYPE_MISMATCH as u32,
+                "a conditional expression mixing string and float branches is unavailable in the current direct-runtime path".to_string(),
+            ));
+            function.instruction(&Instruction::I64Const(0));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Scalar,
+            };
+        }
+
+        let condition = self.emit_node(function, cond, true);
+        if !condition.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
+        match condition.shape {
+            ValueShape::Boolean => {
+                function.instruction(&Instruction::I32WrapI64);
+            }
+            ValueShape::Scalar | ValueShape::Unknown | ValueShape::String => {
+                function.instruction(&Instruction::I64Eqz);
+                function.instruction(&Instruction::I32Eqz);
+            }
+            ValueShape::Float => {
+                // f64 truthiness: nonzero is truthy. Leaves an i32 for `If`.
+                function.instruction(&Instruction::F64Const(0.0.into()));
+                function.instruction(&Instruction::F64Ne);
+            }
+        }
+
+        let if_index = self.push_control_frame(ControlFlowLabelKind::If);
+        function.instruction(&Instruction::If(if want_value {
+            BlockType::Result(if float_result {
+                ValType::F64
+            } else {
+                ValType::I64
+            })
+        } else {
+            BlockType::Empty
+        }));
+        self.emit_conditional_arm(function, cons, want_value, float_result);
+        function.instruction(&Instruction::Else);
+        self.emit_conditional_arm(function, alt, want_value, float_result);
+        function.instruction(&Instruction::End);
+        self.pop_control_frame(ControlFlowLabelKind::If);
+        debug_assert!(self.control_frames.get(if_index).is_none());
+
+        EmittedValue {
+            produced: want_value,
+            shape: if !want_value {
+                ValueShape::Unknown
+            } else if float_result {
+                ValueShape::Float
+            } else if string_result {
+                ValueShape::String
+            } else {
+                ValueShape::Unknown
+            },
+        }
+    }
+
+    fn emit_conditional_arm(
+        &mut self,
+        function: &mut Function,
+        arm: LirNodeId,
+        want_value: bool,
+        float_result: bool,
+    ) {
+        if want_value && float_result {
+            // Emits the arm and inserts F64ConvertI64S when it isn't already
+            // float — the same promotion `+` uses for mixed operands.
+            self.emit_float_operand(function, arm, true);
+            return;
+        }
+        let produced = self.emit_node(function, arm, want_value);
+        if want_value && !produced.produced {
+            function.instruction(&Instruction::I64Const(0));
+        } else if !want_value && produced.produced {
+            function.instruction(&Instruction::Drop);
         }
     }
 }

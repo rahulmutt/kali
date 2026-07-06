@@ -537,3 +537,91 @@ fn string_then_plain_reassignment_is_a_conflict() {
         t.shape_conflicts()
     );
 }
+
+#[test]
+fn substring_result_binding_is_string_and_tainted() {
+    let t = reprs("let a = \"GGCC\";\nlet s = a.substring(1, 3);\n");
+    assert_eq!(t.scalar("_start", "s"), Repr::String);
+    assert!(
+        t.is_string_concat_tainted("_start", "s"),
+        "a runtime substring result is a non-interned string and must be concat-tainted"
+    );
+    assert!(!t.is_string_non_ascii("_start", "s"));
+}
+
+#[test]
+fn param_that_is_both_length_and_substring_receiver_is_string() {
+    // Task 10 (commit 9efba347d) `resolve_calls` independence pin, at the unit
+    // level: the fastaRepeat shape passes a bare string identifier (`ALU`) to a
+    // param (`seq`) that is BOTH a `.length` receiver and a `.substring`
+    // receiver. Repr inference must prove `seq: Repr::String` from the string
+    // argument flowing in — independent of resolution order.
+    let src = "\
+function f(seq) { if (seq.length > 0) { return seq.substring(0, 1); } return seq; }\n\
+const ALU = \"GGCC\";\n\
+let out = f(ALU);\n";
+    let t = reprs(src);
+    assert_eq!(t.scalar("f", "seq"), Repr::String);
+    assert_eq!(t.return_repr("f"), Repr::String);
+    assert_eq!(t.scalar("_start", "out"), Repr::String);
+}
+
+#[test]
+fn substring_flows_through_param_and_return() {
+    let src = "\
+function f(seq) { return seq.substring(0, 2); }\n\
+let out = f(\"GGCC\");\n";
+    let t = reprs(src);
+    assert_eq!(t.return_repr("f"), Repr::String);
+    assert_eq!(t.scalar("_start", "out"), Repr::String);
+}
+
+#[test]
+fn non_ascii_literal_marks_non_ascii_through_flow() {
+    let t = reprs("let a = \"héllo\";\nlet b = a + \"!\";\n");
+    assert_eq!(t.scalar("_start", "a"), Repr::String);
+    assert!(t.is_string_non_ascii("_start", "a"));
+    assert!(
+        t.is_string_non_ascii("_start", "b"),
+        "non-ASCII propagates through +"
+    );
+}
+
+#[test]
+fn ascii_only_flow_is_not_marked_non_ascii() {
+    let t = reprs("let a = \"GG\" + \"CC\";\nlet b = a + 5;\n");
+    assert!(!t.is_string_non_ascii("_start", "a"));
+    assert!(!t.is_string_non_ascii("_start", "b"));
+}
+
+#[test]
+fn non_ascii_interpolated_string_propagates_through_template() {
+    // The parser desugars `x${s}y` into a `+` chain BEFORE repr_infer runs
+    // (kali_parser's desugar_template_literal), so the non-ASCII mark on `s`
+    // flows through real `+` value-flow edges into `a`.
+    let t = reprs("let s = \"héllo\";\nlet a = `x${s}y`;\n");
+    assert_eq!(t.scalar("_start", "a"), Repr::String);
+    assert!(t.is_string_non_ascii("_start", "a"));
+}
+
+#[test]
+fn non_ascii_template_quasi_marks_non_ascii() {
+    // After desugaring, the non-ASCII quasi chunk is a plain non-ASCII
+    // string Literal seed feeding the `+` chain.
+    let t = reprs("let n = 3;\nlet a = `héllo${n}`;\n");
+    assert!(t.is_string_non_ascii("_start", "a"));
+}
+
+#[test]
+fn numeric_interpolation_is_ascii_precise() {
+    // Decision (controller-approved deviation from the task brief): the
+    // parser desugars interpolations into real `+` value-flow edges, so
+    // interpolated contents ARE modeled by repr_infer — the brief's premise
+    // that they are unprovable does not hold for real parsed source. Every
+    // non-string primitive (number/bool/null) stringifies to ASCII, and a
+    // string interpoland propagates its own non-ASCII mark through the `+`
+    // edge (see the two tests above) — precise, not fail-open.
+    let t = reprs("let n = 3;\nlet a = `x${n}y`;\n");
+    assert_eq!(t.scalar("_start", "a"), Repr::String);
+    assert!(!t.is_string_non_ascii("_start", "a"));
+}

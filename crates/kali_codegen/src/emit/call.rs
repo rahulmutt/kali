@@ -447,6 +447,10 @@ impl<'a> FunctionEmitter<'a> {
             return self.emit_node(function, literal, true);
         }
 
+        if let Some((receiver, start, end)) = self.runtime_substring_call_parts(node) {
+            return self.emit_runtime_substring(function, receiver, start, end);
+        }
+
         if let Some(result) = self.resolve_static_string_repeat_call(node) {
             let literal = self.alloc_scratch_node(
                 LirNodeKind::Literal,
@@ -2473,6 +2477,38 @@ impl<'a> FunctionEmitter<'a> {
         Some((receiver, node.children[1]))
     }
 
+    /// Recognizes a RUNTIME `x.substring(a?, b?)` member call: Call node whose
+    /// callee is a member node with text "substring" and a string-valued
+    /// receiver. Returns (receiver, start_arg, end_arg). Static-foldable
+    /// slices are handled by `resolve_static_string_substring_call` FIRST and
+    /// never reach this.
+    pub(crate) fn runtime_substring_call_parts(
+        &self,
+        node: &LirNode,
+    ) -> Option<(LirNodeId, Option<LirNodeId>, Option<LirNodeId>)> {
+        // ASCII-safety of the receiver is NOT checked here: it is enforced
+        // upstream by the `kali_types` E5506 gate (byte-offset slicing of a
+        // non-ASCII receiver rejects before codegen). This recognizer only gates
+        // on `is_string_valued`, so it stays in lockstep with that gate.
+        if node.kind != LirNodeKind::Call || !(1..=3).contains(&node.children.len()) {
+            return None;
+        }
+        let callee = self.resolve_transparent_callable_node(node.children[0])?;
+        let callee_node = self.node(callee);
+        if callee_node.text.as_deref() != Some("substring") {
+            return None;
+        }
+        let receiver = callee_node.children.first().copied()?;
+        if !self.is_string_valued(receiver) {
+            return None;
+        }
+        Some((
+            receiver,
+            node.children.get(1).copied(),
+            node.children.get(2).copied(),
+        ))
+    }
+
     /// Lower `<recv>.toFixed(<digits>)` to `<recv as f64>; I32Const(digits);
     /// Call(float_to_fixed)`. The receiver is promoted to f64 when it is not already
     /// float-valued; the digit count is read from the static integer literal argument
@@ -2498,6 +2534,56 @@ impl<'a> FunctionEmitter<'a> {
         EmittedValue {
             produced: true,
             shape: ValueShape::String,
+        }
+    }
+
+    /// Runtime `x.substring(a?, b?)`: push handle + clamped-later bounds, call
+    /// the synthetic `__substring`. Defaults: start 0, end i64::MAX (the
+    /// helper clamps it to len — the "to end of string" 0/1-arg forms).
+    fn emit_runtime_substring(
+        &mut self,
+        function: &mut Function,
+        receiver: LirNodeId,
+        start: Option<LirNodeId>,
+        end: Option<LirNodeId>,
+    ) -> EmittedValue {
+        let recv = self.emit_node(function, receiver, true);
+        if !recv.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
+        self.emit_substring_bound(function, start, 0);
+        self.emit_substring_bound(function, end, i64::MAX);
+        function.instruction(&Instruction::Call(self.substring_fn_index()));
+        EmittedValue {
+            produced: true,
+            shape: ValueShape::String,
+        }
+    }
+
+    /// Emits one substring bound as i64, defaulting when absent. Codegen-side
+    /// fail-closed backstop behind the types gate: a float- or string-valued
+    /// bound gets a diagnostic, never a silent reinterpret.
+    fn emit_substring_bound(
+        &mut self,
+        function: &mut Function,
+        arg: Option<LirNodeId>,
+        default: i64,
+    ) {
+        let Some(arg) = arg else {
+            function.instruction(&Instruction::I64Const(default));
+            return;
+        };
+        if self.is_float_valued(arg) || self.is_string_valued(arg) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "String.prototype.substring bounds must be integer-typed in the current direct-runtime path".to_string(),
+            ));
+            function.instruction(&Instruction::I64Const(default));
+            return;
+        }
+        let value = self.emit_node(function, arg, true);
+        if !value.produced {
+            function.instruction(&Instruction::I64Const(default));
         }
     }
 

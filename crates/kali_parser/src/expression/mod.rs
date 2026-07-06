@@ -6,8 +6,8 @@ mod primary;
 
 use crate::Parser;
 use kali_ast::{
-    AssignmentExpression, AssignmentOperator, BinaryExpression, Expression, UnaryExpression,
-    UpdateExpression, UpdateOperator, YieldExpression,
+    AssignmentExpression, AssignmentOperator, BinaryExpression, ConditionalExpression, Expression,
+    UnaryExpression, UpdateExpression, UpdateOperator, YieldExpression,
 };
 use kali_lexer::TokenType;
 use std::boxed::Box;
@@ -18,7 +18,7 @@ impl Parser {
     }
 
     pub(crate) fn parse_assignment_expression(&mut self) -> Expression {
-        let left = self.parse_binary_expression(0);
+        let left = self.parse_conditional_expression();
 
         let Some(operator) = self.parse_assignment_operator() else {
             return left;
@@ -30,6 +30,26 @@ impl Parser {
             operator,
             left,
             right,
+        }))
+    }
+
+    /// `ConditionalExpression : ShortCircuit ('?' AssignmentExpression ':' AssignmentExpression)?`
+    /// Right-associative via the recursive `parse_assignment_expression` arms.
+    /// `?.` never reaches here (it lexes as `QuestionDot`).
+    fn parse_conditional_expression(&mut self) -> Expression {
+        let test = self.parse_binary_expression(0);
+
+        if self.stream.current_kind() != Some(&TokenType::Question) {
+            return test;
+        }
+        let _ = self.stream.advance();
+        let consequent = self.parse_assignment_expression();
+        let _ = self.stream.accept(TokenType::Colon);
+        let alternate = self.parse_assignment_expression();
+        Expression::ConditionalExpression(Box::new(ConditionalExpression {
+            test: Box::new(test),
+            consequent: Box::new(consequent),
+            alternate: Box::new(alternate),
         }))
     }
 

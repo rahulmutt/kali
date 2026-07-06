@@ -98,3 +98,16 @@ fn repr_table_records_string_and_is_non_empty() {
     t2.set_return("f", Repr::String);
     assert_eq!(t2.return_repr("f"), Repr::String);
 }
+
+#[test]
+fn repr_table_records_non_ascii_string_provenance() {
+    let mut t = ReprTable::default();
+    assert!(!t.is_string_non_ascii("_start", "s"));
+    t.mark_string_non_ascii("_start", "s");
+    assert!(t.is_string_non_ascii("_start", "s"));
+    assert!(!t.is_string_non_ascii("_start", "other"));
+
+    assert!(!t.is_string_non_ascii_return("f"));
+    t.mark_string_non_ascii_return("f");
+    assert!(t.is_string_non_ascii_return("f"));
+}

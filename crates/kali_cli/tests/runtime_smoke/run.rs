@@ -13133,7 +13133,18 @@ fn run_supports_object_is_numeric_literals_in_js_input() {
     assert!(output.status.success());
     assert_eq!(output.status.code(), Some(0));
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert_eq!(stdout.trim(), "0\n1\n1\n1\n1\n1\n1", "stdout: {stdout}");
+    // The fixture wraps each `Object.is(...)` in a string-armed ternary. This
+    // golden previously read "0\n1\n1\n1\n1\n1\n1" — the output of the parser's
+    // SILENT `?:`-tail drop (`console.log(Object.is(...))` rendering the bool as
+    // 0/1). Now that `?:` parses (Task 7) and branch-selects (Task 8), the
+    // ternaries actually evaluate: `Object.is(-0, 0)` is false -> the alternate
+    // string, the rest true -> the consequent strings. This is the correct JS
+    // result; the old numeric golden encoded the now-fixed drop bug.
+    assert_eq!(
+        stdout.trim(),
+        "base-false\nbracket-true\nobject-dot-bracket-true\nbracket-dot-true\ndot-dot-true\nbigint-true\nneg-bigint-true",
+        "stdout: {stdout}"
+    );
 }
 
 #[test]
@@ -13161,7 +13172,13 @@ fn json_run_supports_object_is_numeric_literals_in_js_input() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "run");
     assert_eq!(json["success"], true);
-    assert_eq!(json["stdout"], "0\n1\n1\n1\n1\n1\n1\n");
+    // Correct branch-selected output now that `?:` parses (Task 7) and evaluates
+    // (Task 8); the old "0\n1\n1\n1\n1\n1\n1\n" golden was the parser's silent
+    // `?:`-tail-drop result (see the sibling non-JSON test for the rationale).
+    assert_eq!(
+        json["stdout"],
+        "base-false\nbracket-true\nobject-dot-bracket-true\nbracket-dot-true\ndot-dot-true\nbigint-true\nneg-bigint-true\n"
+    );
     assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 

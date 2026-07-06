@@ -272,6 +272,13 @@ impl<'a> FunctionEmitter<'a> {
         self.functions["__arena_reset"]
     }
 
+    /// Wasm function index of the synthetic runtime-substring helper
+    /// (`__substring(h, s, e) -> i64`, Spec 2): pure-ALU clamp/swap +
+    /// zero-copy handle re-tag over a tagged string handle.
+    pub(crate) fn substring_fn_index(&self) -> u32 {
+        self.functions["__substring"]
+    }
+
     pub(crate) fn push_control_frame(&mut self, kind: ControlFlowLabelKind) -> usize {
         self.control_frames.push(kind);
         self.control_frames.len() - 1

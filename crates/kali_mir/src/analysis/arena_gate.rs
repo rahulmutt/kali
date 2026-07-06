@@ -403,6 +403,10 @@ impl<'a> OwnershipAnalyzer<'a> {
                     .and_then(|base| base.text.clone());
                 if is_whitelisted_host_method(base_object.as_deref(), &method) {
                     whitelisted = true;
+                } else if method == "substring" {
+                    // Pure-ALU slice: retains nothing, poisons nothing. The
+                    // result's aliasing is modeled by `classify_value`
+                    // (escape_flow.rs), not by arena unknown-call taint.
                 } else {
                     self.arena_note_unknown_call();
                 }

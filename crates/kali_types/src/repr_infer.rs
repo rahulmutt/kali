@@ -90,6 +90,10 @@ struct ReprInfer {
     /// be compared by identity (`==`/`!=`) or tested for truthiness — see the
     /// `string_concat_tainted*` sets on `ReprTable`.
     runtime_string_nodes: Vec<usize>,
+    /// Directed reachability seeds for the NON-ASCII provenance axis:
+    /// non-ASCII string literals and interpolated template results (whose
+    /// interpolations are not modeled, so their contents are unprovable).
+    non_ascii_seeds: Vec<usize>,
     /// One node per scalar binding/param/local: `(func, name) -> node`.
     scalar_node: BTreeMap<(String, String), usize>,
     /// One node per array binding/param element repr: `(func, name) -> node`.
@@ -762,12 +766,23 @@ impl ReprInfer {
                 }
                 node
             }
-            Expression::Literal(LiteralValue::String(_)) => {
+            Expression::Literal(LiteralValue::String(value)) => {
                 let node = self.new_node();
                 self.add_string_seed(node);
+                if !value.is_ascii() {
+                    self.non_ascii_seeds.push(node);
+                }
                 node
             }
             Expression::Literal(_) => self.new_node(),
+            // NOTE: real source never reaches this arm — kali_parser desugars
+            // interpolated backtick templates into `+` chains of string
+            // Literals and the parsed interpolands (desugar_template_literal,
+            // kali_parser/src/expression/primary.rs) BEFORE repr_infer runs,
+            // and non-interpolated backticks parse as plain string Literals.
+            // Only hand-built ASTs construct `TemplateLiteral`; the arm stays
+            // fail-closed in case a future pipeline ever routes a raw
+            // interpolated `TemplateLiteral` here.
             Expression::TemplateLiteral(template) => {
                 // Visit interpolated expressions for their own edges.
                 for expr in &template.expressions {
@@ -779,6 +794,12 @@ impl ReprInfer {
                     // An interpolated template lowers to runtime concatenation
                     // (a fresh handle), exactly like a string `+`.
                     self.runtime_string_nodes.push(node);
+                    // The interpolations' value flow is not wired into `node`
+                    // on this arm, so the template's contents cannot be proven
+                    // ASCII here. Fail closed.
+                    self.non_ascii_seeds.push(node);
+                } else if template.quasis.iter().any(|quasi| !quasi.value.is_ascii()) {
+                    self.non_ascii_seeds.push(node);
                 }
                 node
             }
@@ -1108,6 +1129,21 @@ impl ReprInfer {
                         // `.toFixed` returns a string; result is a fresh i64.
                         self.new_node()
                     }
+                    "substring" => {
+                        let recv = self.visit_expr(func, &member.object);
+                        for arg in &call.args {
+                            self.visit_expr(func, arg);
+                        }
+                        let result = self.new_node();
+                        // A slice of a string is a string: receiver -> result.
+                        self.add_edge(recv, result);
+                        // A runtime substring result is a non-interned runtime
+                        // string: taint-seed it (like `+` results). Static-
+                        // foldable slices never consult the repr, so this
+                        // over-approximation costs nothing there.
+                        self.runtime_string_nodes.push(result);
+                        result
+                    }
                     "fill" => {
                         // `a.fill(v)` is a store: value -> receiver element.
                         let vnode = call
@@ -1226,21 +1262,41 @@ impl ReprInfer {
             for (k, param_name) in params.iter().enumerate() {
                 let is_array_param =
                     array_bindings.contains(&(edge.callee.clone(), param_name.clone()));
-                if is_array_param {
+                let arg_identifier_name = edge.arg_array_names.get(k).cloned().flatten();
+                if let Some((caller, name)) = arg_identifier_name.clone().filter(|_| is_array_param)
+                {
                     // Array element flow is bidirectional shared storage: union
                     // the caller argument's element node with the param's. Only
-                    // meaningful when the argument is a bare identifier.
-                    if let Some(Some((caller, name))) = edge.arg_array_names.get(k) {
-                        let caller_elem = self.array_elem_node_for(caller, name);
-                        let param_elem = self.array_elem_node_for(&edge.callee, param_name);
-                        self.uf.union(caller_elem, param_elem);
-                        // Elements of the two arrays are the same objects.
-                        self.obj_flows.push((
-                            ObjSlot::ArrayElem(caller.clone(), name.clone()),
-                            ObjSlot::ArrayElem(edge.callee.clone(), param_name.clone()),
-                        ));
-                    }
-                } else if let Some(&arg_node) = edge.arg_nodes.get(k) {
+                    // meaningful when the argument is a bare identifier — the
+                    // only shape that can alias array storage.
+                    let caller_elem = self.array_elem_node_for(&caller, &name);
+                    let param_elem = self.array_elem_node_for(&edge.callee, param_name);
+                    self.uf.union(caller_elem, param_elem);
+                    // Elements of the two arrays are the same objects.
+                    self.obj_flows.push((
+                        ObjSlot::ArrayElem(caller, name),
+                        ObjSlot::ArrayElem(edge.callee.clone(), param_name.clone()),
+                    ));
+                }
+                // Independently of the array-element union above, ALSO wire the
+                // ordinary scalar/string/float flow edge whenever the call site
+                // supplies an argument node. This is NOT mutually exclusive with
+                // the array-union branch: `is_array_param` can be true purely
+                // because the callee's param is read through a `.length`-only
+                // receiver (see `visit_member`'s "array-bias" registration) while
+                // the param is ACTUALLY a runtime string (e.g. `fastaRepeat`'s
+                // `seq`, which is both `seq.length`'d and `seq.substring`'d).
+                // Skipping this edge whenever the arg happens to be a bare
+                // identifier passed to such a param silently drops the only
+                // signal that proves the param `Repr::String` — the callee
+                // param never resolves as a string and the substring/`.length`
+                // gates reject it, even though codegen would lower it
+                // correctly. Wiring it unconditionally costs nothing for a
+                // genuine array argument: its own scalar node carries no
+                // string/float seed unless the SAME identifier is independently
+                // used as a scalar elsewhere, in which case surfacing that flow
+                // is correct (a real conflict), not a regression.
+                if let Some(&arg_node) = edge.arg_nodes.get(k) {
                     // Scalar arg flow is directional: arg -> param.
                     let pnode = self.scalar_node_for(&edge.callee, param_name);
                     self.add_edge(arg_node, pnode);
@@ -1554,7 +1610,7 @@ impl ReprInfer {
         // truthiness-test an interned handle correctly (identity == value), but
         // NOT a fresh concat handle — so tainted string operands are rejected in
         // those positions (fail-closed) while interned ones stay allowed.
-        let (string, tainted) = if has_strings {
+        let (string, tainted, non_ascii) = if has_strings {
             let mut string_adj: Vec<Vec<usize>> = vec![Vec::new(); n];
             for &(from, to, in_string) in &edges_snapshot {
                 if in_string {
@@ -1570,9 +1626,14 @@ impl ReprInfer {
                 .filter(|&node| string[self.uf.find(node)])
                 .collect();
             let tainted = self.solve_reach(&string_adj, &taint_seeds);
-            (string, tainted)
+            // Non-ASCII provenance: same string adjacency, seeded by non-ASCII
+            // literals/templates (see the `Literal`/`TemplateLiteral` arms of
+            // `visit_expr`).
+            let non_ascii_seeds = std::mem::take(&mut self.non_ascii_seeds);
+            let non_ascii = self.solve_reach(&string_adj, &non_ascii_seeds);
+            (string, tainted, non_ascii)
         } else {
-            (vec![false; n], vec![false; n])
+            (vec![false; n], vec![false; n], vec![false; n])
         };
 
         // Nodes fed by a write whose source is UNBACKED as a string handle —
@@ -1693,6 +1754,9 @@ impl ReprInfer {
                     if tainted[node] {
                         table.mark_string_concat_tainted(&func, &name);
                     }
+                    if non_ascii[node] {
+                        table.mark_string_non_ascii(&func, &name);
+                    }
                 }
                 (false, true) => table.set_scalar(&func, &name, Repr::F64),
                 (false, false) => {}
@@ -1745,6 +1809,9 @@ impl ReprInfer {
                     if tainted[node] {
                         table.mark_string_concat_tainted_return(&func);
                     }
+                    if non_ascii[node] {
+                        table.mark_string_non_ascii_return(&func);
+                    }
                 }
                 (false, true) => table.set_return(&func, Repr::F64),
                 (false, false) => {}
@@ -1775,6 +1842,9 @@ impl ReprInfer {
                             // (which looks up by name) sees it.
                             if tainted[node] {
                                 table.mark_string_concat_tainted(&func, name);
+                            }
+                            if non_ascii[node] {
+                                table.mark_string_non_ascii(&func, name);
                             }
                         }
                         (false, true) => table.set_param(&func, index, Repr::F64),
