@@ -759,3 +759,29 @@ fn opens_arena_still_true_for_all_scope_local_function() {
     assert!(table.arena_eligible("f"));
     assert!(table.opens_arena("f"));
 }
+
+// --- Spec 2 Task 9: substring is not an unknown call -------------------------
+
+#[test]
+fn substring_member_call_is_not_an_unknown_call() {
+    // A pure-ALU slice retains nothing: a loop whose only member call is
+    // `s.substring(0, 1)` must keep whatever arena eligibility it otherwise
+    // has. Mirrors `loop_whitelist_console_log` (a whitelisted, non-retaining
+    // call inside the loop does not veto `loop_arena`) and contrasts with
+    // `loop_veto_on_unknown_call` (a genuine indirect/unresolved call DOES
+    // veto it via `has_unknown_call`). Before the fix, `substring` fell into
+    // the MemberExpr arm's `else { self.arena_note_unknown_call(); }` branch
+    // and poisoned the loop.
+    let mir = analyze(
+        "function f(s, n) {
+           for (let i = 0; i < n; i = i + 1) {
+             const t = { v: i };
+             let x = s.substring(0, 1);
+             let y = t.v;
+           }
+           return 0;
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(table.loop_arena("f", 0));
+}

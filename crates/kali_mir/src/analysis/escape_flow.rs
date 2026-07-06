@@ -475,6 +475,33 @@ impl<'a> OwnershipAnalyzer<'a> {
                 }
             }
             HirNodeKind::CallExpr => {
+                // Runtime `substring` is a zero-copy slice: the result ALIASES
+                // its receiver's memory. Heap-ness defers to the receiver's
+                // nodes (DependsOn), and result-escape taints the receiver
+                // backward through them. An interned/global-arena receiver
+                // carries no nodes -> the slice stays effectively scalar.
+                // Soundness note: no CURRENT string source can dangle across
+                // an `__arena_reset` (concat lives in the never-reset global
+                // arena; literals are static), so this is a precision fix
+                // today — but the alias edge is the spec's keystone (§4): it
+                // makes the invariant STRUCTURAL so a future resettable-arena
+                // string source cannot fail open.
+                if let Some(callee) = node
+                    .children
+                    .first()
+                    .map(|id| &self.nodes[id.0 as usize])
+                    .filter(|callee| {
+                        callee.kind == HirNodeKind::MemberExpr
+                            && callee.text.as_deref() == Some("substring")
+                    })
+                {
+                    return match callee.children.first() {
+                        Some(receiver) => {
+                            ValueClass::DependsOn(self.classify_value(*receiver).take_nodes())
+                        }
+                        None => ValueClass::heap(),
+                    };
+                }
                 let target = node
                     .children
                     .first()
