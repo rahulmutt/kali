@@ -550,6 +550,23 @@ fn substring_result_binding_is_string_and_tainted() {
 }
 
 #[test]
+fn param_that_is_both_length_and_substring_receiver_is_string() {
+    // Task 10 (commit 9efba347d) `resolve_calls` independence pin, at the unit
+    // level: the fastaRepeat shape passes a bare string identifier (`ALU`) to a
+    // param (`seq`) that is BOTH a `.length` receiver and a `.substring`
+    // receiver. Repr inference must prove `seq: Repr::String` from the string
+    // argument flowing in — independent of resolution order.
+    let src = "\
+function f(seq) { if (seq.length > 0) { return seq.substring(0, 1); } return seq; }\n\
+const ALU = \"GGCC\";\n\
+let out = f(ALU);\n";
+    let t = reprs(src);
+    assert_eq!(t.scalar("f", "seq"), Repr::String);
+    assert_eq!(t.return_repr("f"), Repr::String);
+    assert_eq!(t.scalar("_start", "out"), Repr::String);
+}
+
+#[test]
 fn substring_flows_through_param_and_return() {
     let src = "\
 function f(seq) { return seq.substring(0, 2); }\n\
