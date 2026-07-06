@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-06
 **Status:** Approved (design)
-**Series:** Runtime strings & dynamic tables for verbatim fasta — **Spec 1 of 5**
+**Series:** Runtime strings & dynamic tables for verbatim fasta — **Spec 1 of 6**
 
 ## Series context
 
@@ -39,11 +39,17 @@ series (each its own spec → plan → implementation cycle):
 4. **Spec 4 — `for..in` live-key + dynamic string-keyed property get/set (fix
    `E4201`).** Object-model lane for `makeCumulative`. Hardest / most
    orthogonal; may itself split.
-5. **Spec 5 — fasta fixture + two-tier validation (capstone).** Vendor the
-   upstream program, normalized only where unavoidable (`n` pinned as a constant
-   instead of `+process.argv[2]`, matching every prior fixture). Small-N golden
-   (byte-for-byte) + canonical N=25,000,000 SHA-256 vs a `node`-computed
-   reference.
+5. **Spec 5 — `process.argv` runtime element read + string→number coercion.**
+   `process.argv.length` / `.slice(n).length` and the `process_args_get` host
+   buffer already exist (on the `--api node` surface), but reading an *element*
+   `process.argv[i]` as a runtime **string handle** yields 0 today, and there is
+   no runtime `+str` / `Number(str)` / `parseInt` parse (only static const-fold).
+   Both build on Spec 1's string-value-flow foundation. Lets the capstone read
+   `+process.argv[2]` verbatim instead of pinning `n`.
+6. **Spec 6 — fasta fixture + two-tier validation (capstone).** Vendor the
+   upstream program **verbatim** (`n = +process.argv[2]`, enabled by Spec 5).
+   Small-N golden (byte-for-byte) + canonical N=25,000,000 SHA-256 vs a
+   `node`-computed reference.
 
 `console.log` of runtime strings needs no new work — it falls out of Spec 1.
 
