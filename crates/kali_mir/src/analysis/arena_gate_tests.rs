@@ -229,11 +229,11 @@ fn loop_whitelist_kali_write_stdout_bytes() {
 
 #[test]
 fn ineligible_on_ternary_store_with_scalar_alternate() {
-    // NOTE: kali_parser has no ternary surface today, so this source does not
-    // reach HirNodeKind::ConditionalExpr (the statement parses degenerately);
-    // the test pins that the store is classified Global regardless of the
-    // parse shape. The ConditionalExpr analyzer arm itself is pinned by the
-    // hand-built-HIR test `ineligible_on_conditional_expr_store_hir_level`.
+    // This source's `cache = c ? node : null;` reaches the ConditionalExpr
+    // analyzer arm; the test pins that the module store is classified Global
+    // regardless of the ternary's branch layouts. The analyzer arm is also
+    // pinned in isolation by the hand-built-HIR test
+    // `ineligible_on_conditional_expr_store_hir_level`.
     let mir = analyze(
         "let cache;
          function f(c) {
@@ -302,7 +302,7 @@ fn same_named_functions_fail_closed() {
 
 #[test]
 fn ineligible_on_conditional_expr_store_hir_level() {
-    // Hand-built HIR (the parser has no ternary surface): `let cache;
+    // Hand-built HIR to isolate the analyzer arm: `let cache;
     // function f(c) { const node = { v: 1 }; cache = c ? node : null;
     // return 1; }`. infer_layout(ConditionalExpr) returns only the LAST
     // child's layout (alternate `null` => Scalar("unknown")); the gate's own

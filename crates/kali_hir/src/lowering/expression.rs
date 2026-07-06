@@ -130,7 +130,12 @@ impl HirLowerer {
                 id
             }
             Expression::ConditionalExpression(expr) => {
-                let id = self.builder.alloc(HirNodeKind::ConditionalExpr, None);
+                // Marker text "?": MIR/LIR erase the node KIND (Expr -> Value)
+                // but preserve text — this is how codegen tells a ternary from
+                // an aggregate literal (both are otherwise text-less Values).
+                let id = self
+                    .builder
+                    .alloc_text(HirNodeKind::ConditionalExpr, None, "?");
                 push_child!(self, id, self.lower_expression(&expr.test));
                 push_child!(self, id, self.lower_expression(&expr.consequent));
                 push_child!(self, id, self.lower_expression(&expr.alternate));

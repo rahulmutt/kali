@@ -848,6 +848,15 @@ impl<'a> FunctionEmitter<'a> {
                             })
                     }
                 }
+                3 => {
+                    // Ternary `test ? a : b` (marker text "?"): float-valued
+                    // iff either arm is — mirrors `emit_conditional`'s
+                    // `float_result` so a store into an f64 local promotes once
+                    // (inside the arms) and this site never double-converts.
+                    node.text.as_deref() == Some("?")
+                        && (self.is_float_valued(node.children[1])
+                            || self.is_float_valued(node.children[2]))
+                }
                 _ => false,
             },
             _ => false,
@@ -858,7 +867,12 @@ impl<'a> FunctionEmitter<'a> {
     /// surrounding operation is float-typed (`float_op`) but this operand is itself
     /// integer-valued. Per-side so mixed `int <op> float` operands both land as
     /// `f64` on the stack before the float instruction.
-    fn emit_float_operand(&mut self, function: &mut Function, id: LirNodeId, float_op: bool) {
+    pub(crate) fn emit_float_operand(
+        &mut self,
+        function: &mut Function,
+        id: LirNodeId,
+        float_op: bool,
+    ) {
         let operand_is_float = self.is_float_valued(id);
         let _ = self.emit_node(function, id, true);
         if float_op && !operand_is_float {
