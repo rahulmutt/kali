@@ -2486,6 +2486,10 @@ impl<'a> FunctionEmitter<'a> {
         &self,
         node: &LirNode,
     ) -> Option<(LirNodeId, Option<LirNodeId>, Option<LirNodeId>)> {
+        // ASCII-safety of the receiver is NOT checked here: it is enforced
+        // upstream by the `kali_types` E5506 gate (byte-offset slicing of a
+        // non-ASCII receiver rejects before codegen). This recognizer only gates
+        // on `is_string_valued`, so it stays in lockstep with that gate.
         if node.kind != LirNodeKind::Call || !(1..=3).contains(&node.children.len()) {
             return None;
         }
