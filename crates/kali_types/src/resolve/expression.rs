@@ -229,6 +229,19 @@ impl TypeContext {
         }
     }
 
+    /// Reject a string-typed expression used as a ternary condition (fail-closed).
+    /// Uses the same string-typedness signal as the `+` gate
+    /// (`expression_is_string_typed`), covering string literals/templates, `+`
+    /// chains rooted in one, and string-typed variables.
+    fn reject_string_condition_expression(&mut self, test: &Expression) {
+        if self.expression_is_string_typed(test) {
+            self.diagnostics.push(Diagnostic::error(
+                e3::TYPE_MISMATCH as u32,
+                "a string value is unavailable as a ternary condition in the current direct-runtime path; its truthiness is not evaluated".to_string(),
+            ));
+        }
+    }
+
     /// Resolves `expression` in a position where codegen folds a string-typed `+`
     /// to a static string (a for-of iterable, a dynamic-import specifier). Such a
     /// `+` never reaches the buggy runtime `+` path, so the string-typed-variable
@@ -368,6 +381,13 @@ impl TypeContext {
                 self.resolve_expression(&expr.test);
                 self.resolve_expression(&expr.consequent);
                 self.resolve_expression(&expr.alternate);
+                // A string-typed ternary TEST cannot be truthiness-tested here:
+                // the conditional lowering is degenerate (it yields the test
+                // value itself, ignoring the branches), so a string test would
+                // print/return the raw string instead of selecting a branch.
+                // Reject fail-closed. No base-correct string ternary exists (the
+                // degenerate lowering was always wrong for a string test).
+                self.reject_string_condition_expression(&expr.test);
             }
             Expression::SequenceExpression(expr) => {
                 for subexpr in &expr.expressions {

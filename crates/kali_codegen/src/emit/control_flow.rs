@@ -295,6 +295,7 @@ impl<'a> FunctionEmitter<'a> {
             // body first, then test at the bottom.
             emit_body_and_update(self, function);
             if let Some(test) = test {
+                self.reject_string_condition(test);
                 let cond = self.emit_node(function, test, true);
                 if !cond.produced {
                     function.instruction(&Instruction::I64Const(0));
@@ -308,6 +309,7 @@ impl<'a> FunctionEmitter<'a> {
         } else {
             // test at the top; exit (break) when falsy.
             if let Some(test) = test {
+                self.reject_string_condition(test);
                 let cond = self.emit_node(function, test, true);
                 if !cond.produced {
                     function.instruction(&Instruction::I64Const(0));
@@ -976,6 +978,7 @@ impl<'a> FunctionEmitter<'a> {
         let then_branch = node.children.get(1).copied();
         let else_branch = node.children.get(2).copied();
 
+        self.reject_string_condition(cond);
         let condition = self.emit_node(function, cond, true);
         if !condition.produced {
             function.instruction(&Instruction::I64Const(0));
