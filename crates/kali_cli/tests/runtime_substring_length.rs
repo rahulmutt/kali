@@ -263,3 +263,41 @@ fn static_string_array_join_stays_green() {
     );
     assert_eq!(String::from_utf8_lossy(&out.stdout), "x,y\n");
 }
+
+#[test]
+fn fasta_repeat_shape_matches_node_byte_for_byte() {
+    // The spec's success criterion #1: upstream CLBG fasta's fastaRepeat
+    // control flow (`let`-styled, pinned n=200), run byte-for-byte against a
+    // node-captured golden. This is the same bytes fed to `node -e` to
+    // generate the golden below.
+    let src = r#"const ALU = "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGGGAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGACCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAATACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCAGCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGGAGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCCAGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA";
+function fastaRepeat(n, seq) {
+  let seqi = 0;
+  let lenOut = 60;
+  while (n > 0) {
+    if (n < lenOut) {
+      lenOut = n;
+    }
+    if (seqi + lenOut < seq.length) {
+      console.log(seq.substring(seqi, seqi + lenOut));
+      seqi = seqi + lenOut;
+    } else {
+      let s = seq.substring(seqi);
+      seqi = lenOut - s.length;
+      console.log(s + seq.substring(0, seqi));
+    }
+    n = n - lenOut;
+  }
+}
+fastaRepeat(200, ALU);
+"#;
+    let out = run_source(src);
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    // node -e '<src above>' captured stdout, exactly.
+    let expected = "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGGGAGGCCGAGGCGGGCGGA\nTCACCTGAGGTCAGGAGTTCGAGACCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACT\nAAAAATACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCAGCTACTCGGGAG\nGCTGAGGCAGGAGAATCGCT\n";
+    assert_eq!(String::from_utf8_lossy(&out.stdout), expected);
+}
