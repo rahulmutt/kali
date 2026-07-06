@@ -144,20 +144,30 @@ fn interned_literal_equality_is_preserved() {
 }
 
 // ---- Final-review Finding 2: array-element read must not leak the string axis ----
+//
+// Superseded by Spec 3 (runtime `Array.prototype.join`): `element_read_captor_is_not_string`
+// pinned this exact shape (`let a = [1]; let s = a[0]; a[0] = "x";`) compiling
+// successfully and printing the base compiler's silently-wrong `0!`, because
+// element reads were float-only (excluded from the string axis) and mixed
+// string/number element STORES were never checked. Spec 3 lifts the read-edge
+// exclusion and adds a store-source conflict check, so this array's elements
+// (an int literal store from `[1]` and a string store from `a[0] = "x"`) are
+// now correctly diagnosed as a shape conflict instead of silently reading back
+// an unrelated int — a compile error is strictly better than the old `0!`.
 
 #[test]
-fn element_read_captor_is_not_string() {
-    // `s` captures an array element read; the element was later stored a string,
-    // but `s` holds the raw int it read. It must NOT be classified `Repr::String`
-    // (head printed garbage `!`); it stays on the int lane, matching the base
-    // compiler's `0!`.
+fn mixed_literal_int_and_string_element_store_is_rejected() {
     let out = run_source("let a = [1];\nlet s = a[0];\na[0] = \"x\";\nconsole.log(s + \"!\");\n");
     assert!(
-        out.status.success(),
+        !out.status.success(),
+        "mixed int/string array-element stores must be rejected; stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    assert!(
+        String::from_utf8_lossy(&out.stderr).contains("elements of `a`"),
         "stderr: {}",
         String::from_utf8_lossy(&out.stderr)
     );
-    assert_eq!(String::from_utf8_lossy(&out.stdout), "0!\n");
 }
 
 // ---- Final-review Finding 3: string `+=` lowers through string concat ----

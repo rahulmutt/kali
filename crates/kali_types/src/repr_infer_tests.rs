@@ -357,13 +357,66 @@ fn plain_integer_program_has_no_string_repr() {
 }
 
 #[test]
-fn element_read_captor_is_not_string() {
-    // Finding 2: a scalar capturing an array-element read must NOT be proven
-    // `Repr::String` even when a string is stored into that element — codegen
-    // materialises an element read as a raw i64 with no string lane. The
-    // element-read edge is excluded from the string axis, so `s` stays I64.
+fn mixed_literal_int_and_string_store_is_element_conflict() {
+    // Spec 1 pinned s == I64 here via the element-read string-axis exclusion.
+    // Spec 3 lifts that exclusion (stores are gated + mixed arrays conflict),
+    // so this launder shape now fails closed instead of reading back an int.
     let t = reprs("let a = [1];\nlet s = a[0];\na[0] = \"x\";\n");
-    assert_eq!(t.scalar("_start", "s"), Repr::I64);
+    assert!(t
+        .shape_conflicts()
+        .iter()
+        .any(|m| m.contains("elements of `a`")));
+}
+
+#[test]
+fn string_stores_prove_string_element_axis() {
+    let t = reprs("function f(s) { const a = new Array(2); a[0] = s.substring(0, 1); a[1] = \"x\"; }\nf(\"hey\");\n");
+    assert_eq!(t.array_element("f", "a"), Repr::String);
+    assert!(t.shape_conflicts().is_empty());
+}
+
+#[test]
+fn mixed_string_and_number_element_stores_conflict() {
+    let t = reprs("const a = new Array(2);\na[0] = \"x\";\na[1] = 1;\n");
+    assert!(
+        t.shape_conflicts()
+            .iter()
+            .any(|m| m.contains("elements of `a`")),
+        "conflicts: {:?}",
+        t.shape_conflicts()
+    );
+}
+
+#[test]
+fn element_read_of_string_element_array_is_string() {
+    let t = reprs("const a = new Array(1);\na[0] = \"x\";\nlet s = a[0];\n");
+    assert_eq!(t.scalar("_start", "s"), Repr::String);
+}
+
+#[test]
+fn non_ascii_element_store_marks_element_non_ascii() {
+    let t = reprs("const a = new Array(1);\na[0] = \"héllo\";\n");
+    assert!(t.is_array_element_non_ascii("_start", "a"));
+}
+
+#[test]
+fn concat_store_marks_element_tainted_but_literal_store_does_not() {
+    let t = reprs("function f(s) { const a = new Array(1); a[0] = s + \"y\"; }\nf(\"x\");\nconst b = new Array(1);\nb[0] = \"z\";\n");
+    assert!(t.is_array_element_concat_tainted("f", "a"));
+    assert!(!t.is_array_element_concat_tainted("_start", "b"));
+}
+
+#[test]
+fn array_alloc_reassignment_merges_element_axes() {
+    let t = reprs("function f(n) { let a = new Array(60); if (n < 60) { a = new Array(n); } a[0] = \"x\"; }\nf(3);\n");
+    assert_eq!(t.array_element("f", "a"), Repr::String);
+    assert!(t.shape_conflicts().is_empty());
+}
+
+#[test]
+fn string_element_array_flows_through_param() {
+    let t = reprs("function g(q) { q[0] = \"x\"; }\nfunction f() { const a = new Array(1); g(a); let s = a[0]; }\nf();\n");
+    assert_eq!(t.array_element("f", "a"), Repr::String);
 }
 
 #[test]

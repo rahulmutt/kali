@@ -90,6 +90,12 @@ struct ReprInfer {
     /// be compared by identity (`==`/`!=`) or tested for truthiness — see the
     /// `string_concat_tainted*` sets on `ReprTable`.
     runtime_string_nodes: Vec<usize>,
+    /// Element-store edges `(element node, stored-value node)` — one entry per
+    /// `a[i] = v` / `.fill(v)` / array-literal-init element. Consulted at
+    /// emit_table time to fail-close arrays mixing string and non-string
+    /// stores (the element node itself unions both axes, so reachability
+    /// alone cannot see the mix).
+    element_store_sources: Vec<(usize, usize)>,
     /// Directed reachability seeds for the NON-ASCII provenance axis:
     /// non-ASCII string literals and interpolated template results (whose
     /// interpolations are not modeled, so their contents are unprovable).
@@ -692,29 +698,7 @@ impl ReprInfer {
             init,
         );
         if self.init_is_array(init) {
-            let elem = self.array_elem_node_for(func, id);
-            // Array-literal elements flow (store direction) into the element.
-            if let Expression::ArrayExpression(arr) = init {
-                for element in arr.elements.iter().flatten() {
-                    if let kali_ast::ExpressionOrSpread::Expression(expr) = element {
-                        if let Expression::ObjectExpression(obj) = expr {
-                            self.record_object_literal(
-                                func,
-                                ObjSlot::ArrayElem(func.to_string(), id.to_string()),
-                                obj,
-                            );
-                            continue;
-                        }
-                        self.record_object_flow_from_expr(
-                            func,
-                            ObjSlot::ArrayElem(func.to_string(), id.to_string()),
-                            expr,
-                        );
-                        let en = self.visit_expr(func, expr);
-                        self.add_edge(en, elem);
-                    }
-                }
-            }
+            self.note_array_init(func, id, init);
             return;
         }
         let rn = self.visit_expr(func, init);
@@ -732,6 +716,39 @@ impl ReprInfer {
                 constructor_name(&new_expr.callee).as_deref() == Some("Array")
             }
             _ => false,
+        }
+    }
+
+    /// Wire an array-producing init (`new Array(...)` or an array literal)
+    /// into `name`'s element node. Shared by a declarator init (`let a = ...`)
+    /// and a plain-identifier reassignment (`a = ...`), so both union into the
+    /// SAME element node instead of the reassignment silently dropping the
+    /// array-ness (extracted verbatim from the former declarator-only body —
+    /// the declarator path's behavior is unchanged).
+    fn note_array_init(&mut self, func: &str, name: &str, init: &Expression) {
+        let elem = self.array_elem_node_for(func, name);
+        // Array-literal elements flow (store direction) into the element.
+        if let Expression::ArrayExpression(arr) = init {
+            for element in arr.elements.iter().flatten() {
+                if let kali_ast::ExpressionOrSpread::Expression(expr) = element {
+                    if let Expression::ObjectExpression(obj) = expr {
+                        self.record_object_literal(
+                            func,
+                            ObjSlot::ArrayElem(func.to_string(), name.to_string()),
+                            obj,
+                        );
+                        continue;
+                    }
+                    self.record_object_flow_from_expr(
+                        func,
+                        ObjSlot::ArrayElem(func.to_string(), name.to_string()),
+                        expr,
+                    );
+                    let en = self.visit_expr(func, expr);
+                    self.add_edge(en, elem);
+                    self.element_store_sources.push((elem, en));
+                }
+            }
         }
     }
 
@@ -956,6 +973,7 @@ impl ReprInfer {
                     // Store is directed: value -> element (a float value floats
                     // the array; an int value into a float array stays int).
                     self.add_edge(rn, elem);
+                    self.element_store_sources.push((elem, rn));
                 } else {
                     self.visit_expr(func, &member.object);
                 }
@@ -1005,9 +1023,34 @@ impl ReprInfer {
                 // Bitwise/logical compound assigns keep i64.
                 _ => {}
             }
+            if matches!(assign.operator, AssignmentOperator::Assign) {
+                // `a = new Array(n)` / `a = [..]`: route the RHS through the
+                // same element-node path as a declarator init, so
+                // reassignment unions the element axes instead of silently
+                // dropping the array-ness.
+                if self.init_is_array(&assign.right) {
+                    self.note_array_init(func, name, &assign.right);
+                } else if let Expression::Identifier(rhs) = &assign.right {
+                    // `a = b` between arrays: elements of b flow into elements
+                    // of a.
+                    if self.binding_has_element_node(func, rhs) {
+                        let src = self.array_elem_node_for(func, rhs);
+                        let dst = self.array_elem_node_for(func, name);
+                        self.add_edge(src, dst);
+                        self.element_store_sources.push((dst, src));
+                    }
+                }
+            }
             return sn;
         }
         rn
+    }
+
+    /// Non-inserting lookup twin of [`Self::array_elem_node_for`]: true when
+    /// `(func, name)` already has an element node, without allocating one.
+    fn binding_has_element_node(&self, func: &str, name: &str) -> bool {
+        self.array_elem_node
+            .contains_key(&(func.to_string(), name.to_string()))
     }
 
     fn visit_member(&mut self, func: &str, member: &kali_ast::MemberExpression) -> usize {
@@ -1017,11 +1060,16 @@ impl ReprInfer {
             if let Expression::Identifier(name) = &member.object {
                 let elem = self.array_elem_node_for(func, name);
                 let result = self.new_node();
-                // Read is directed: element -> read result. FLOAT-ONLY: a
-                // string stored in an element must not prove the read result
-                // (and its captors) `Repr::String` — codegen materialises an
-                // element read as a raw i64/f64 with no string lane (Finding 2).
-                self.add_edge_float_only(elem, result);
+                // Read is directed: element -> read result. Element reads now
+                // carry the STRING axis too (Spec 3 lifts Spec 1's float-only
+                // exclusion): element STORES are gated (Spec 2's F1, re-keyed
+                // in Spec 3), and a mixed string/number array fails closed at
+                // emit_table (`element_store_sources`) — so a string can no
+                // longer launder through an element read unseen the way it
+                // could when only reachability was consulted. Object-FIELD
+                // reads (`resolve_objects`) remain float-only and gated;
+                // fields are a separate, still-excluded axis.
+                self.add_edge(elem, result);
                 return result;
             }
             self.visit_expr(func, &member.object);
@@ -1157,6 +1205,7 @@ impl ReprInfer {
                         if let Expression::Identifier(name) = &member.object {
                             let elem = self.array_elem_node_for(func, name);
                             self.add_edge(vnode, elem);
+                            self.element_store_sources.push((elem, vnode));
                         } else {
                             self.visit_expr(func, &member.object);
                         }
@@ -1776,7 +1825,30 @@ impl ReprInfer {
             // element node into the callee's in `resolve_calls`).
             table.set_array_binding(&func, &name);
             let rep = self.uf.find(node);
-            if float[rep] {
+            if string[rep] {
+                // The element node unions every store AND every read into one
+                // shared node, so plain reachability cannot see a mix of
+                // string and non-string stores — consult the recorded store
+                // sources directly. A float store into a string-reachable
+                // element is exactly as unsound (mixed_store handles the
+                // "int literal stored + string stored" shape; `float[rep]`
+                // catches the "float stored + string stored" shape).
+                let mixed_store = self
+                    .element_store_sources
+                    .iter()
+                    .any(|(e, s)| self.uf.find(*e) == rep && !string[self.uf.find(*s)]);
+                if mixed_store || float[rep] {
+                    table.add_shape_conflict(element_conflict_message(&func, &name));
+                } else {
+                    table.set_array_element(&func, &name, Repr::String);
+                    if non_ascii[rep] {
+                        table.mark_array_element_non_ascii(&func, &name);
+                    }
+                    if tainted[rep] {
+                        table.mark_array_element_concat_tainted(&func, &name);
+                    }
+                }
+            } else if float[rep] {
                 table.set_array_element(&func, &name, Repr::F64);
             }
         }
@@ -1962,6 +2034,16 @@ fn scope_conflict_message(func: &str, name: &str) -> String {
         format!("binding `{name}` at module scope is used as both a string and a number")
     } else {
         format!("binding `{name}` in `{func}` is used as both a string and a number")
+    }
+}
+
+/// Shape-conflict message for an array's ELEMENT axis (mirrors
+/// `scope_conflict_message`'s module-scope phrasing convention).
+fn element_conflict_message(func: &str, name: &str) -> String {
+    if func == TOP_LEVEL {
+        format!("elements of `{name}` at module scope are used as both strings and numbers")
+    } else {
+        format!("elements of `{name}` in `{func}` are used as both strings and numbers")
     }
 }
 
