@@ -262,17 +262,16 @@ impl TypeContext {
         self.base_path = base_path.map(|path| path.as_ref().to_path_buf());
 
         self.push_scope(ScopeType::Module);
+        self.repr_table = crate::repr_infer::infer_reprs(statements);
         self.resolve_statement_list(statements);
         self.emit_pending_generator_function_lowering_diagnostic();
         self.scope_stack.clear();
-
-        let repr_table = crate::repr_infer::infer_reprs(statements);
 
         ResolutionResult {
             diagnostics: self.diagnostics.clone(),
             scopes: self.scopes.clone(),
             global_scope: self.global_scope.clone(),
-            repr_table,
+            repr_table: self.repr_table.clone(),
         }
     }
 
@@ -466,7 +465,9 @@ impl TypeContext {
                 ..
             }) => {
                 self.bind_current_scope(name.clone());
-                self.push_scope(ScopeType::Function);
+                let function_scope_id = self.push_scope(ScopeType::Function);
+                self.current_function.push(name.clone());
+                self.current_function_scopes.push(function_scope_id);
                 let previous_generator = self.in_generator_function;
                 self.in_generator_function = *generator;
                 if *generator {
@@ -475,6 +476,8 @@ impl TypeContext {
                 self.bind_name_list(params);
                 self.resolve_block_body(body);
                 self.in_generator_function = previous_generator;
+                self.current_function_scopes.pop();
+                self.current_function.pop();
                 self.pop_scope();
             }
             Statement::ClassDeclaration(ClassDeclaration { name, body }) => {

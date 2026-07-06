@@ -373,7 +373,9 @@ impl<'a> FunctionEmitter<'a> {
                                         memory_index: 0,
                                     }));
                                 }
-                                kali_common::Repr::I64 | kali_common::Repr::Object(_) => {
+                                kali_common::Repr::I64
+                                | kali_common::Repr::Object(_)
+                                | kali_common::Repr::String => {
                                     let rhs = self.emit_node(function, right, true);
                                     if !rhs.produced {
                                         function.instruction(&Instruction::I64Const(0));
@@ -497,6 +499,28 @@ impl<'a> FunctionEmitter<'a> {
                 true
             }
             "+=" | "-=" | "*=" | "/=" | "%=" | "**=" => {
+                if self.scalar_repr(&name) == kali_common::Repr::String {
+                    // String compound-assign. Only `+=` has a meaning
+                    // (concatenation); `-=`/`*=`/… on a string are nonsensical
+                    // and have no lowering — reject fail-closed.
+                    if op != "+=" {
+                        self.diagnostics.push(Diagnostic::error(
+                            e5::FEATURE_UNAVAILABLE as u32,
+                            format!(
+                                "compound assignment '{op}' on string binding '{name}' is unavailable in the current phase"
+                            ),
+                        ));
+                        function.instruction(&Instruction::I64Const(0));
+                        return true;
+                    }
+                    // `a += e` ≡ `a = a + e`: concatenate the current handle
+                    // with the (stringified) rhs and store the fresh handle.
+                    function.instruction(&Instruction::LocalGet(index));
+                    self.emit_as_string(function, right);
+                    function.instruction(&Instruction::Call(STRING_CONCAT_IMPORT_INDEX));
+                    function.instruction(&Instruction::LocalTee(index));
+                    return true;
+                }
                 if self.scalar_repr(&name) == kali_common::Repr::F64 {
                     // f64 compound-assign: the accumulator is an f64, so the read, the
                     // rhs, and the arithmetic all use the f64 opcodes. `%=`/`**=` on

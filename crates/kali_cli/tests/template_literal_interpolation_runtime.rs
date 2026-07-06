@@ -44,19 +44,15 @@ fn run_interpolates_ints_strings_and_adjacent_segments() {
 }
 
 #[test]
-fn run_rejects_string_variable_interpolation_with_e3200() {
-    // Pre-existing direct-runtime-path limitation, NOT caused by the desugar:
-    // a string-typed *variable* operand in `+` is rejected (E3200) because
-    // codegen cannot distinguish a string-handle local from an int local —
-    // see string_typed_variable_plus_operands_are_rejected in
-    // imperative_core_runtime.rs. The desugared template behaves exactly like
-    // the equivalent explicit `+` chain: a clean error, never silent garbage.
+fn run_interpolates_string_variables() {
+    // Runtime string value flow: a string-typed variable operand in the
+    // desugared `+` chain is proven `Repr::String` by the repr inference, so
+    // the template interpolates correctly at runtime (previously rejected
+    // with E3200) — see string_typed_variable_plus_operands_flow_at_runtime
+    // in imperative_core_runtime.rs and runtime_string_value_flow.rs.
     let (ok, stdout, stderr) = run_fixture("const name = \"kali\";\nconsole.log(`hi ${name}!`);\n");
-    assert!(!ok, "expected rejection, got stdout: {stdout}");
-    assert!(
-        (stdout.clone() + &stderr).contains("E3200"),
-        "stdout: {stdout}\nstderr: {stderr}"
-    );
+    assert!(ok, "stdout: {stdout}\nstderr: {stderr}");
+    assert_eq!(stdout, "hi kali!\n");
 }
 
 #[test]

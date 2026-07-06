@@ -85,3 +85,16 @@ fn object_entries_and_conflicts_make_the_table_non_empty() {
     assert!(!conflicted.is_empty());
     assert_eq!(conflicted.shape_conflicts(), ["boom".to_string()]);
 }
+
+#[test]
+fn repr_table_records_string_and_is_non_empty() {
+    let mut t = ReprTable::default();
+    assert!(t.is_empty());
+    t.set_scalar("_start", "s", Repr::String);
+    assert_eq!(t.scalar("_start", "s"), Repr::String);
+    assert!(!t.is_empty(), "a string decision makes the table non-empty");
+    // A string decision must not spuriously mark the program as containing floats.
+    let mut t2 = ReprTable::default();
+    t2.set_return("f", Repr::String);
+    assert_eq!(t2.return_repr("f"), Repr::String);
+}

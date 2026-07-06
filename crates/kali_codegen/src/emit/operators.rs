@@ -67,6 +67,28 @@ impl<'a> FunctionEmitter<'a> {
     pub(crate) fn emit_unary(&mut self, function: &mut Function, node: &LirNode) -> EmittedValue {
         let op = node.text.as_deref().unwrap_or_default();
         let arg = node.children[0];
+        // A string operand under a numeric/logical unary op has no correct
+        // lowering: `-`/`+`/`~` would arithmetic on a raw handle; `!` truthiness
+        // is wrong for a fresh concat handle (empty-string handle is non-zero).
+        // Reject fail-closed. `-`/`+`/`~` reject any string; `!` rejects only a
+        // tainted (runtime-concat) string (an interned literal keeps today's
+        // behavior, matching the base compiler).
+        if (matches!(op, "-" | "+" | "~") && self.is_string_valued(arg))
+            || (op == "!" && self.is_runtime_concat_string(arg))
+        {
+            self.diagnostics.push(Diagnostic::error(
+                e3::TYPE_MISMATCH as u32,
+                format!(
+                    "unary operator '{op}' on a runtime string value is unavailable in the current direct-runtime path"
+                ),
+            ));
+            function.instruction(&Instruction::I64Const(0));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Scalar,
+            };
+        }
+
         match op {
             "prefix++" | "postfix++" | "prefix--" | "postfix--" => {
                 self.emit_update_expression(function, node, op, arg)
@@ -519,9 +541,27 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     /// Returns true when `id` statically evaluates to a string value: a string (or
-    /// template) literal, or a `+` expression whose either operand is string-valued.
+    /// template) literal, a `+` expression whose either operand is string-valued,
+    /// a bare identifier whose binding's repr is proven `Repr::String` (mirroring
+    /// `is_float_valued`'s local-vs-module-const resolution: a name not declared
+    /// locally in a non-`_start` function reads the module `_start` binding), or
+    /// a call to a function whose return repr is proven `Repr::String`. The
+    /// identifier/call arms are the codegen half of the runtime string-value
+    /// flow — `kali_types`'s `E3200` gate (`operand_repr_is_string`) is narrowed
+    /// to allow exactly the operands these arms also recognize, so the two never
+    /// disagree.
     pub(crate) fn is_string_valued(&self, id: LirNodeId) -> bool {
         let id = self.unwrap_transparent(id);
+        // Resolve a local `const` fold-alias (`self.bindings`) BEFORE the bare-
+        // identifier repr lookup below, mirroring `is_float_valued` (which has
+        // the same hazard, documented there): a fold-lane `const` is NOT in
+        // `self.locals`, so the identifier arm would misroute it to the module
+        // `_start` table — classifying a function-local `const s = "a"` as
+        // non-string (int-coercing a string handle) even though `emit_node`'s
+        // identifier fallback resolves the read through `self.bindings` to the
+        // string literal. Resolving first classifies the node `emit_node` will
+        // actually emit.
+        let id = self.resolve_bound_node(id);
         let node = self.node(id);
         match node.kind {
             LirNodeKind::Literal => node.text.as_deref().is_some_and(|text| {
@@ -535,7 +575,94 @@ impl<'a> FunctionEmitter<'a> {
             LirNodeKind::Value if node.children.len() == 2 && node.text.as_deref() == Some("+") => {
                 self.is_string_valued(node.children[0]) || self.is_string_valued(node.children[1])
             }
+            // Bare identifier read: string iff its binding's repr is String.
+            LirNodeKind::Value if node.children.is_empty() => {
+                node.text.as_deref().is_some_and(|name| {
+                    if !self.locals.contains_key(name) && self.function_name != "_start" {
+                        self.repr_table.scalar("_start", name) == kali_common::Repr::String
+                    } else {
+                        self.scalar_repr(name) == kali_common::Repr::String
+                    }
+                })
+            }
+            // Call to a string-returning function.
+            LirNodeKind::Call => {
+                let Some(callee) = node.children.first().copied() else {
+                    return false;
+                };
+                let callee = self.unwrap_transparent(callee);
+                let callee_node = self.node(callee);
+                callee_node.text.as_deref().is_some_and(|name| {
+                    self.repr_table.return_repr(name) == kali_common::Repr::String
+                })
+            }
             _ => false,
+        }
+    }
+
+    /// True when `id` is a string value backed by a FRESH runtime
+    /// `string_concat` handle (a `+` expression, an interpolated template, a
+    /// `Repr::String`-tainted identifier/call), as opposed to an interned
+    /// literal constant. Such a handle must never be identity-compared
+    /// (`==`/`!=`/`===`/`!==`) or truthiness-tested: two equal-valued concat
+    /// results have DIFFERENT handles, and every non-empty AND empty handle is
+    /// non-zero. Interned literals (and identifiers proven string but NOT
+    /// tainted) are safe to compare/test by identity and return `false` here.
+    /// Mirrors `is_string_valued`'s local-vs-module identifier resolution so the
+    /// taint query keys the same table entry.
+    pub(crate) fn is_runtime_concat_string(&self, id: LirNodeId) -> bool {
+        let id = self.unwrap_transparent(id);
+        let id = self.resolve_bound_node(id);
+        let node = self.node(id);
+        match node.kind {
+            // Interned literal constant: identity == value, never tainted.
+            LirNodeKind::Literal => false,
+            // Inline `+`: a string `+` lowers to a fresh runtime concat handle.
+            LirNodeKind::Value if node.children.len() == 2 && node.text.as_deref() == Some("+") => {
+                self.is_string_valued(id)
+            }
+            // Bare identifier read: tainted iff its binding is marked tainted.
+            LirNodeKind::Value if node.children.is_empty() => {
+                node.text.as_deref().is_some_and(|name| {
+                    if !self.locals.contains_key(name) && self.function_name != "_start" {
+                        self.repr_table.is_string_concat_tainted("_start", name)
+                    } else {
+                        self.repr_table
+                            .is_string_concat_tainted(&self.function_name, name)
+                    }
+                })
+            }
+            // Call to a string-returning function: tainted iff the return is.
+            LirNodeKind::Call => {
+                let Some(callee) = node.children.first().copied() else {
+                    return false;
+                };
+                let callee = self.unwrap_transparent(callee);
+                let callee_node = self.node(callee);
+                callee_node
+                    .text
+                    .as_deref()
+                    .is_some_and(|name| self.repr_table.is_string_concat_tainted_return(name))
+            }
+            // Any other string-valued node (e.g. an interpolated template that
+            // reached here without folding): treat as runtime (fail-closed).
+            _ => self.is_string_valued(id),
+        }
+    }
+
+    /// Push a fail-closed diagnostic when `cond` is a fresh runtime concat
+    /// string used in a boolean/truthiness position (if/while/for/do-while/
+    /// ternary test): a concat handle is always non-zero, so JS empty-string
+    /// falsiness is lost. Interned literals (and non-tainted string bindings)
+    /// keep today's behavior — matching the base compiler, no regression.
+    /// Emission continues; the error aborts the compile and the bytes are
+    /// discarded.
+    pub(crate) fn reject_string_condition(&mut self, cond: LirNodeId) {
+        if self.is_runtime_concat_string(cond) {
+            self.diagnostics.push(Diagnostic::error(
+                e3::TYPE_MISMATCH as u32,
+                "a runtime string value is unavailable as a condition in the current direct-runtime path; its truthiness (empty vs non-empty) is not evaluated".to_string(),
+            ));
         }
     }
 
@@ -862,6 +989,61 @@ impl<'a> FunctionEmitter<'a> {
                 produced: true,
                 shape: ValueShape::String,
             };
+        }
+
+        // A string operand in a NON-`+` position has no correct lowering here.
+        // Static string folds have already returned above (relational literal
+        // folds, `===`/`!==` bigint folds), so a string operand reaching this
+        // point is a genuine runtime value. Reject fail-closed (a wrong runtime
+        // result is worse than a compile error):
+        //   - Relational / arithmetic / bitwise / logical: compare or combine
+        //     RAW handles — always wrong. Reject ANY string-valued operand.
+        //   - Equality (`== != === !==`): identity-comparing handles is correct
+        //     ONLY for interned literal constants; a fresh runtime concat handle
+        //     is not the interned handle of the same text. Reject only a tainted
+        //     (runtime-concat-derived) operand, preserving `s == "hi"` etc.
+        // NOTE: `&&`/`||`/`??` are deliberately EXCLUDED — they are
+        // value-SELECTING (return one operand unchanged, a valid string result)
+        // and are statically folded in string-fold positions (e.g. dynamic
+        // import specifiers). The string+int selection hazard is caught by the
+        // repr inference's `merge_nodes` guard, not here.
+        let is_equality = matches!(op, "==" | "!=" | "===" | "!==");
+        let is_order_or_arith = matches!(
+            op,
+            "-" | "*"
+                | "/"
+                | "%"
+                | "**"
+                | "&"
+                | "|"
+                | "^"
+                | "<<"
+                | ">>"
+                | ">>>"
+                | "<"
+                | "<="
+                | ">"
+                | ">="
+        );
+        if is_equality || is_order_or_arith {
+            let reject = if is_equality {
+                self.is_runtime_concat_string(left) || self.is_runtime_concat_string(right)
+            } else {
+                self.is_string_valued(left) || self.is_string_valued(right)
+            };
+            if reject {
+                self.diagnostics.push(Diagnostic::error(
+                    e3::TYPE_MISMATCH as u32,
+                    format!(
+                        "operator '{op}' on a runtime string value is unavailable in the current direct-runtime path; only string concatenation with '+' is lowered, and a runtime string cannot be compared, ordered, arithmetic-combined, or truthiness-tested here"
+                    ),
+                ));
+                function.instruction(&Instruction::I64Const(0));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                };
+            }
         }
 
         // Repr-directed float selection. Arithmetic `+ - *` is float when either

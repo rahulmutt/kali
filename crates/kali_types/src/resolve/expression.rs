@@ -112,15 +112,101 @@ impl TypeContext {
         }
     }
 
+    /// True when `name`'s runtime representation at the CURRENT resolution
+    /// point is proven `Repr::String` by the repr inference — the SAME signal
+    /// codegen's `is_string_valued` identifier arm uses
+    /// (`kali_codegen/src/emit/operators.rs`), so the gate and codegen never
+    /// disagree.
+    ///
+    /// Mirrors codegen's local/module-const dichotomy (`self.locals.contains_key
+    /// (name) ... else self.repr_table.scalar("_start", name)`), which is a
+    /// FLAT per-function-body test — codegen has no lexical/block scoping
+    /// inside one wasm function, so any binding declared anywhere in the
+    /// current function counts as "local" to it. Concretely: walk the
+    /// resolver's scope chain from the current position outward.
+    ///
+    /// - If `name` is found in a scope at or before the tracked function's own
+    ///   `ScopeType::Function` scope (`current_function_scope()`), it is local
+    ///   to the SAME function codegen is about to emit: consult
+    ///   `scalar(current_function_name(), name)`.
+    /// - If we reach module/global scope without finding it (and without
+    ///   crossing an untracked boundary), it is a free reference to a
+    ///   module-level binding: consult `scalar("_start", name)`, mirroring
+    ///   codegen's fallback.
+    /// - If, before either of the above, we reach a `ScopeType::Function`
+    ///   scope that is NOT `current_function_scope()` — an arrow function,
+    ///   function expression, class method, or `export default function`,
+    ///   none of which push onto `current_function` (see
+    ///   `TypeContext::current_function_scope`'s doc) — `current_function_name()`
+    ///   does not actually name the function whose body we are in, so neither
+    ///   table lookup above is safe: a same-named module binding or a
+    ///   same-named binding in a DIFFERENT enclosing function could wrongly
+    ///   suppress the gate. FAIL CLOSED (return `false`) instead of guessing.
+    fn identifier_repr_is_string(&self, name: &str) -> bool {
+        use kali_common::Repr;
+        let tracked_scope = self.current_function_scope();
+        let mut current = self.current_scope_id();
+        loop {
+            let Some(scope_id) = current else {
+                // Reached module/global scope: free top-level reference.
+                return self.repr_table.scalar("_start", name) == Repr::String;
+            };
+            let Some(scope) = self.scopes.get(&scope_id) else {
+                return false;
+            };
+            if scope.scope_type == ScopeType::Function && Some(scope_id) != tracked_scope {
+                return false;
+            }
+            if scope.contains(name) {
+                return self.repr_table.scalar(self.current_function_name(), name) == Repr::String;
+            }
+            if scope.scope_type == ScopeType::Function {
+                // Reached the tracked function's own top scope without finding
+                // `name` there: mirror codegen's `self.locals`-miss fallback,
+                // which unconditionally consults the module `_start` table
+                // regardless of any further-enclosing scope (codegen does not
+                // model closures over an outer function's locals).
+                return self.repr_table.scalar("_start", name) == Repr::String;
+            }
+            current = scope.parent;
+        }
+    }
+
+    /// True when `operand`'s runtime representation is proven `Repr::String` by
+    /// the repr inference — the SAME signal codegen's `is_string_valued` uses,
+    /// so the gate and codegen never disagree. Covers a string-typed identifier
+    /// (variable/param, via `identifier_repr_is_string`) and a call to a
+    /// string-returning function.
+    fn operand_repr_is_string(&self, operand: &Expression) -> bool {
+        use kali_common::Repr;
+        match operand {
+            Expression::Identifier(name) => self.identifier_repr_is_string(name),
+            Expression::CallExpression(call) => match &call.callee {
+                Expression::Identifier(callee) => {
+                    self.repr_table.return_repr(callee) == Repr::String
+                }
+                _ => false,
+            },
+            Expression::ParenthesizedExpression(inner) => {
+                self.operand_repr_is_string(&inner.expression)
+            }
+            _ => false,
+        }
+    }
+
     /// Rejects a `+` whose lowering codegen cannot perform correctly: any operand
     /// that is *string-typed* but is not a codegen-recognized structural string
     /// expression (i.e. a string-typed variable / dynamic value that codegen's
-    /// `is_string_valued` will not see). For such operands codegen either integer-
-    /// adds two string handles or coerces a string handle through `int_to_string`,
-    /// both of which silently produce garbage. Rejecting with a clear `E3200`
-    /// diagnostic makes the outcome sound (a compile error instead of a wrong
-    /// result) while leaving every literal-rooted concatenation
-    /// (e.g. `"x" + 3`, `"P(" + n + ")"`) compiling and correct.
+    /// `is_string_valued` will not see) AND not proven `Repr::String` by the
+    /// repr inference (`operand_repr_is_string` — the same signal codegen's
+    /// runtime identifier/call arms now consult, so an operand this predicate
+    /// lets through is one codegen lowers correctly). For any other unsupported
+    /// operand codegen either integer-adds two string handles or coerces a
+    /// string handle through `int_to_string`, both of which silently produce
+    /// garbage. Rejecting with a clear `E3200` diagnostic makes the outcome
+    /// sound (a compile error instead of a wrong result) while leaving every
+    /// literal-rooted concatenation (e.g. `"x" + 3`, `"P(" + n + ")"`) and every
+    /// `Repr::String`-backed variable/param/return compiling and correct.
     fn reject_unsupported_string_variable_addition(&mut self, expr: &BinaryExpression) {
         if expr.operator != "+" || self.suppress_string_addition_rejection {
             return;
@@ -128,6 +214,7 @@ impl TypeContext {
         let operand_is_unsupported_string = |operand: &Expression| {
             self.expression_is_string_typed(operand)
                 && !self.expression_is_codegen_string_valued(operand)
+                && !self.operand_repr_is_string(operand)
         };
         if operand_is_unsupported_string(&expr.left) || operand_is_unsupported_string(&expr.right) {
             self.diagnostics.push(
@@ -139,6 +226,19 @@ impl TypeContext {
                     "root the concatenation in a string literal (\"\" + value), build the string with literal-rooted concatenation, or use the later compatibility path",
                 ),
             );
+        }
+    }
+
+    /// Reject a string-typed expression used as a ternary condition (fail-closed).
+    /// Uses the same string-typedness signal as the `+` gate
+    /// (`expression_is_string_typed`), covering string literals/templates, `+`
+    /// chains rooted in one, and string-typed variables.
+    fn reject_string_condition_expression(&mut self, test: &Expression) {
+        if self.expression_is_string_typed(test) {
+            self.diagnostics.push(Diagnostic::error(
+                e3::TYPE_MISMATCH as u32,
+                "a string value is unavailable as a ternary condition in the current direct-runtime path; its truthiness is not evaluated".to_string(),
+            ));
         }
     }
 
@@ -281,6 +381,13 @@ impl TypeContext {
                 self.resolve_expression(&expr.test);
                 self.resolve_expression(&expr.consequent);
                 self.resolve_expression(&expr.alternate);
+                // A string-typed ternary TEST cannot be truthiness-tested here:
+                // the conditional lowering is degenerate (it yields the test
+                // value itself, ignoring the branches), so a string test would
+                // print/return the raw string instead of selecting a branch.
+                // Reject fail-closed. No base-correct string ternary exists (the
+                // degenerate lowering was always wrong for a string test).
+                self.reject_string_condition_expression(&expr.test);
             }
             Expression::SequenceExpression(expr) => {
                 for subexpr in &expr.expressions {

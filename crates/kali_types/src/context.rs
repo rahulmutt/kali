@@ -33,6 +33,18 @@ pub struct TypeContext {
     /// a for-of iterable or a dynamic-import specifier), which do not reach the
     /// buggy runtime `+` path and therefore compile correctly.
     pub(crate) suppress_string_addition_rejection: bool,
+    pub(crate) repr_table: kali_common::ReprTable,
+    /// Stack of enclosing function names; module scope is `_start`.
+    pub(crate) current_function: Vec<String>,
+    /// Stack of scope ids parallel to `current_function`: the `ScopeType::Function`
+    /// scope pushed alongside each named `FunctionDeclaration` entry. Lets
+    /// `current_function_scope` tell whether the scope chain at a given
+    /// resolution point ever crosses an UNTRACKED function-shaped scope (an
+    /// arrow function, function expression, class method, or
+    /// `export default function` — none of which push onto `current_function`,
+    /// see Task 3/4 follow-up) before reaching the scope that
+    /// `current_function_name()` actually names.
+    pub(crate) current_function_scopes: Vec<NodeId>,
 }
 
 impl Default for TypeContext {
@@ -71,7 +83,35 @@ impl TypeContext {
             has_async_generator_function: false,
             has_generator_yield_delegation: false,
             suppress_string_addition_rejection: false,
+            repr_table: kali_common::ReprTable::default(),
+            current_function: vec!["_start".to_string()],
+            current_function_scopes: Vec::new(),
         }
+    }
+
+    /// Enclosing function name for the current resolution position (`_start`
+    /// at module scope). Consumed by the `E3200` gate's `operand_repr_is_string`
+    /// (`resolve/expression.rs`) — see `current_function_scope` for the
+    /// companion scope-id check that guards against misattributing a name to
+    /// this function when the scope chain actually crosses an untracked
+    /// (arrow/function-expression/class-method) function boundary first.
+    pub(crate) fn current_function_name(&self) -> &str {
+        self.current_function
+            .last()
+            .map(String::as_str)
+            .unwrap_or("_start")
+    }
+
+    /// The `ScopeType::Function` scope id that corresponds EXACTLY to
+    /// `current_function_name()` — `None` at module scope (`_start`). Only
+    /// named `FunctionDeclaration`s push here (mirroring `current_function`);
+    /// an arrow function, function expression, class method, or
+    /// `export default function` scope is never this value, so comparing a
+    /// scope id encountered while walking the scope chain against this lets
+    /// callers detect "we are inside a function `current_function_name()`
+    /// does not actually name" and fail closed instead of guessing.
+    pub(crate) fn current_function_scope(&self) -> Option<NodeId> {
+        self.current_function_scopes.last().copied()
     }
 
     pub fn with_base_path(base_path: impl AsRef<Path>) -> Self {

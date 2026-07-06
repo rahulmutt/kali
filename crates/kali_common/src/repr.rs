@@ -23,12 +23,15 @@ pub enum Repr {
     F64,
     /// Pointer (i64) to a fixed-shape heap object in linear memory.
     Object(ShapeId),
+    /// Tagged linear-memory string handle (`STRING_HANDLE_TAG | offset << 32 | len`).
+    String,
 }
 
 /// Representation decisions for a whole program, keyed by function + binding.
 ///
-/// All lookups default to [`Repr::I64`]; only float decisions are stored, so an
-/// empty table means "no floats anywhere" and codegen can keep its i64 fast path.
+/// All lookups default to [`Repr::I64`]; only float and string decisions are
+/// stored, so an empty table means "no floats and no strings anywhere" and
+/// codegen can keep its i64 fast path.
 #[derive(Clone, Debug, Default)]
 pub struct ReprTable {
     scalars: HashMap<(String, String), Repr>,
@@ -42,6 +45,17 @@ pub struct ReprTable {
     /// distinguish an i64 array param from a scalar param.
     array_bindings: HashSet<(String, String)>,
     any_float: bool,
+    any_string: bool,
+    /// `(func, binding)` scalars/params whose `Repr::String` value is a FRESH
+    /// runtime `string_concat` handle (reachable from a `+`, interpolated
+    /// template, or string `+=`), NOT an interned literal constant. Codegen may
+    /// identity-compare (`==`/`!=`) or truthiness-test an interned handle
+    /// correctly, but a tainted (concat-derived) handle must be rejected in
+    /// those positions — its fresh handle does not equal the interned handle of
+    /// the same text. Populated only when the value is also proven `String`.
+    string_concat_tainted: HashSet<(String, String)>,
+    /// Functions whose `Repr::String` RETURN is a fresh runtime concat handle.
+    string_concat_tainted_returns: HashSet<String>,
     /// Interned object layouts; `ShapeId` indexes this list.
     shapes: Vec<Vec<(String, Repr)>>,
     /// Gate messages from the shape inference (contradictory or unsupported
@@ -79,6 +93,9 @@ impl ReprTable {
         if repr == Repr::F64 {
             self.any_float = true;
         }
+        if repr == Repr::String {
+            self.any_string = true;
+        }
         self.scalars
             .insert((func.to_string(), binding.to_string()), repr);
     }
@@ -95,6 +112,9 @@ impl ReprTable {
         if repr == Repr::F64 {
             self.any_float = true;
         }
+        if repr == Repr::String {
+            self.any_string = true;
+        }
         self.returns.insert(func.to_string(), repr);
     }
 
@@ -102,7 +122,35 @@ impl ReprTable {
         if repr == Repr::F64 {
             self.any_float = true;
         }
+        if repr == Repr::String {
+            self.any_string = true;
+        }
         self.params.insert((func.to_string(), index), repr);
+    }
+
+    /// Mark `(func, binding)` (scalar or param) as a runtime-concat-derived
+    /// (tainted) string. Only meaningful together with a `Repr::String` entry.
+    pub fn mark_string_concat_tainted(&mut self, func: &str, binding: &str) {
+        self.string_concat_tainted
+            .insert((func.to_string(), binding.to_string()));
+    }
+
+    /// Mark `func`'s return as a runtime-concat-derived (tainted) string.
+    pub fn mark_string_concat_tainted_return(&mut self, func: &str) {
+        self.string_concat_tainted_returns.insert(func.to_string());
+    }
+
+    /// True when `(func, binding)` holds a fresh runtime concat handle (a
+    /// tainted string). Defaults to false — an interned literal string is not
+    /// tainted, so identity-comparison/truthiness on it stays allowed.
+    pub fn is_string_concat_tainted(&self, func: &str, binding: &str) -> bool {
+        self.string_concat_tainted
+            .contains(&(func.to_string(), binding.to_string()))
+    }
+
+    /// True when `func`'s return is a fresh runtime concat handle.
+    pub fn is_string_concat_tainted_return(&self, func: &str) -> bool {
+        self.string_concat_tainted_returns.contains(func)
     }
 
     /// Record that `(func, binding)` is an array (any element repr). Additive;
@@ -120,10 +168,14 @@ impl ReprTable {
             .contains(&(func.to_string(), binding.to_string()))
     }
 
-    /// True when no float representation, object shape, or shape conflict was
-    /// ever recorded (codegen may keep its all-i64 fast paths).
+    /// True when no float representation, string representation, object shape,
+    /// or shape conflict was ever recorded (codegen may keep its all-i64 fast
+    /// paths).
     pub fn is_empty(&self) -> bool {
-        !self.any_float && self.shapes.is_empty() && self.shape_conflicts.is_empty()
+        !self.any_float
+            && !self.any_string
+            && self.shapes.is_empty()
+            && self.shape_conflicts.is_empty()
     }
 
     pub fn intern_shape(&mut self, fields: Vec<(String, Repr)>) -> ShapeId {

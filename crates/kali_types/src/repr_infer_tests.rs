@@ -326,6 +326,98 @@ fn object_enumeration_delete_reinsert_style_literal_stays_on_the_fold_lane() {
 }
 
 #[test]
+fn string_literal_binding_is_string_repr() {
+    let t = reprs("let s = \"hi\";\n");
+    assert_eq!(t.scalar("_start", "s"), Repr::String);
+}
+
+#[test]
+fn string_flows_through_concat_reassignment() {
+    // a starts as a string literal and accumulates string concatenations.
+    let t = reprs("let a = \"\";\na = a + \"y\";\n");
+    assert_eq!(t.scalar("_start", "a"), Repr::String);
+}
+
+#[test]
+fn string_flows_through_param_and_return() {
+    let src = "\
+function f(s) { return s + \"!\"; }\n\
+let out = f(\"hi\");\n";
+    let t = reprs(src);
+    assert_eq!(t.param("f", 0), Repr::String);
+    assert_eq!(t.return_repr("f"), Repr::String);
+    assert_eq!(t.scalar("_start", "out"), Repr::String);
+}
+
+#[test]
+fn plain_integer_program_has_no_string_repr() {
+    let t = reprs("let a = 1 + 2;\n");
+    assert_eq!(t.scalar("_start", "a"), Repr::I64);
+    assert!(t.is_empty());
+}
+
+#[test]
+fn element_read_captor_is_not_string() {
+    // Finding 2: a scalar capturing an array-element read must NOT be proven
+    // `Repr::String` even when a string is stored into that element — codegen
+    // materialises an element read as a raw i64 with no string lane. The
+    // element-read edge is excluded from the string axis, so `s` stays I64.
+    let t = reprs("let a = [1];\nlet s = a[0];\na[0] = \"x\";\n");
+    assert_eq!(t.scalar("_start", "s"), Repr::I64);
+}
+
+#[test]
+fn float_still_flows_through_element_read() {
+    // The float axis KEEPS element-read edges: a scalar capturing an f64
+    // element read is still `Repr::F64` (Finding 2 excludes only the STRING
+    // axis). Companion to `element_read_captor_is_not_string`; the existing
+    // `array_element_float_from_store_and_interprocedural_param` pins the
+    // array-element side.
+    let t = reprs("let a = [1.5];\nlet s = a[0];\n");
+    assert_eq!(t.scalar("_start", "s"), Repr::F64);
+}
+
+#[test]
+fn concat_derived_string_is_tainted_but_literal_is_not() {
+    // Finding 1: a runtime-concat-derived string is tainted (its fresh handle
+    // may not be identity-compared); a literal-rooted string is interned and
+    // NOT tainted.
+    let t = reprs("let s = \"hi\";\nlet a = \"x\";\nlet b = a + \"y\";\n");
+    assert_eq!(t.scalar("_start", "b"), Repr::String);
+    assert!(
+        t.is_string_concat_tainted("_start", "b"),
+        "a concat result must be tainted"
+    );
+    assert_eq!(t.scalar("_start", "s"), Repr::String);
+    assert!(
+        !t.is_string_concat_tainted("_start", "s"),
+        "an interned literal string must NOT be tainted"
+    );
+}
+
+#[test]
+fn interpolated_template_result_is_tainted() {
+    // An interpolated template lowers to runtime concatenation (a fresh handle).
+    let t = reprs("let n = 5;\nlet x = `a${n}`;\n");
+    assert_eq!(t.scalar("_start", "x"), Repr::String);
+    assert!(t.is_string_concat_tainted("_start", "x"));
+}
+
+#[test]
+fn module_scope_string_number_conflict_message_reads_at_module_scope() {
+    // Minor: a top-level binding conflict renders "at module scope", not the
+    // synthetic `_start`.
+    let t = reprs("let x = \"a\";\nx = 5;\n");
+    assert!(
+        t.shape_conflicts()
+            .iter()
+            .any(|m| m.contains("at module scope") && !m.contains("_start")),
+        "conflicts: {:?}",
+        t.shape_conflicts()
+    );
+}
+
+#[test]
 fn call_result_argument_seeds_callee_param_object_shape() {
     // No bound-identifier call site anywhere: `check`'s param `t` must get
     // its object shape from the call-result argument `mk()` itself.
@@ -346,5 +438,102 @@ main();
     assert!(
         matches!(t.param("check", 0), Repr::Object(_)),
         "param must receive the object shape from the call-result argument"
+    );
+}
+
+#[test]
+fn resolution_result_carries_string_reprs() {
+    // End-to-end through the resolver (not infer_reprs directly): the reordered
+    // table must reach ResolutionResult unchanged.
+    let parsed = crate::test_support::parse_statements("let s = \"hi\";\n");
+    let mut ctx = crate::context::TypeContext::default();
+    let result = ctx.resolve_statements_at_path(None::<&std::path::Path>, &parsed);
+    assert_eq!(result.repr_table.scalar("_start", "s"), Repr::String);
+}
+#[test]
+fn uncalled_string_concat_return_is_string_without_conflict() {
+    // `string-concatenation-benchmark-v1.ts` shape: the return expression is a
+    // `+` rooted in string literals, so the (single) return in-edge is itself
+    // string-reachable — proven `Repr::String`, no conflict, even though the
+    // function is never called (its param stays unproven I64).
+    let t = reprs(
+        "function dead0(value) { return (\"ka\" + \"li\") + value; }\nfunction hot(prefix, suffix) {\n  return prefix + ((\"a\" + \"head\") + (\"-\" + \"of\") + (\"-\" + \"time\")) + suffix;\n}\nhot(\"start-\", \"-end\");\n",
+    );
+    assert!(
+        t.shape_conflicts().is_empty(),
+        "conflicts: {:?}",
+        t.shape_conflicts()
+    );
+    assert_eq!(t.return_repr("dead0"), Repr::String);
+}
+
+#[test]
+fn mixed_string_and_plain_returns_downgrade_to_i64_without_conflict() {
+    // `template-literal-concatenation-benchmark-v1.ts` shape: one return is a
+    // template literal (string seed), the other returns the unproven param
+    // (plain). The repr axis cannot claim `Repr::String` (a call site could
+    // receive a raw int), but it must NOT hard-reject either — the function
+    // stays on the pre-string-flow I64 lane (codegen and the E3200 gate both
+    // treat the call result as non-string, exactly the pre-existing behavior).
+    let t = reprs(
+        "function dead0(value) {\n  if (false) {\n    return `ka${\"li\"}${value}`;\n  }\n  return value;\n}\n",
+    );
+    assert!(
+        t.shape_conflicts().is_empty(),
+        "conflicts: {:?}",
+        t.shape_conflicts()
+    );
+    assert_eq!(t.return_repr("dead0"), Repr::I64);
+}
+
+#[test]
+fn consumed_mixed_return_captured_by_scalar_is_a_conflict() {
+    // Finding 1: `g` mixes a string return with a plain (unproven-int) return,
+    // so it downgrades to I64 — but the call result is CAPTURED by `r`, and
+    // string-reachability flows return -> call-result -> `r`, which would then
+    // classify `Repr::String` over a runtime int. Codegen materialises the call
+    // as a raw i64 (return_repr != String), so this MUST fail closed.
+    let t =
+        reprs("function g(v, k) { if (k > 0) { return \"yes\"; } return v; }\nlet r = g(99, 0);\n");
+    assert!(
+        t.shape_conflicts()
+            .iter()
+            .any(|m| m.contains("both a string and a number")),
+        "consumed mixed return must conflict; conflicts: {:?}",
+        t.shape_conflicts()
+    );
+}
+
+#[test]
+fn never_called_mixed_return_captured_nowhere_is_not_a_conflict() {
+    // The other side of Finding 1: the SAME mixed-return shape, but the function
+    // is never called (no call-result node exists), so no scalar is string-
+    // tainted and nothing miscompiles. The return simply downgrades to I64 with
+    // NO conflict — the `kali check`-only benchmark fixtures depend on this.
+    let t = reprs("function g(v, k) { if (k > 0) { return \"yes\"; } return v; }\n");
+    assert!(
+        t.shape_conflicts().is_empty(),
+        "never-called mixed return must not conflict; conflicts: {:?}",
+        t.shape_conflicts()
+    );
+    assert_eq!(t.return_repr("g"), Repr::I64);
+}
+
+#[test]
+fn string_then_plain_reassignment_is_a_conflict() {
+    // A BINDING that is string-reachable and also directly written with a
+    // plain (non-string, non-float) value cannot get one runtime repr: with
+    // codegen now trusting `Repr::String` for identifier reads, claiming
+    // String would read the raw integer as a string handle. Unlike the
+    // mixed-RETURN case above (downgraded, never previously miscompiled at
+    // call sites), a scalar downgrade would silently print through the old
+    // int lane, so this fails closed as a shape conflict instead.
+    let t = reprs("let x = \"a\";\nx = 5;\n");
+    assert!(
+        t.shape_conflicts()
+            .iter()
+            .any(|m| m.contains("both a string and a number")),
+        "conflicts: {:?}",
+        t.shape_conflicts()
     );
 }
