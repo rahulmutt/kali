@@ -373,7 +373,9 @@ impl<'a> FunctionEmitter<'a> {
                                         memory_index: 0,
                                     }));
                                 }
-                                kali_common::Repr::I64 | kali_common::Repr::Object(_) => {
+                                kali_common::Repr::I64
+                                | kali_common::Repr::Object(_)
+                                | kali_common::Repr::String => {
                                     let rhs = self.emit_node(function, right, true);
                                     if !rhs.produced {
                                         function.instruction(&Instruction::I64Const(0));

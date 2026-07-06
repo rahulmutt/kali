@@ -29,8 +29,9 @@ pub enum Repr {
 
 /// Representation decisions for a whole program, keyed by function + binding.
 ///
-/// All lookups default to [`Repr::I64`]; only float decisions are stored, so an
-/// empty table means "no floats anywhere" and codegen can keep its i64 fast path.
+/// All lookups default to [`Repr::I64`]; only float and string decisions are
+/// stored, so an empty table means "no floats and no strings anywhere" and
+/// codegen can keep its i64 fast path.
 #[derive(Clone, Debug, Default)]
 pub struct ReprTable {
     scalars: HashMap<(String, String), Repr>,
@@ -132,10 +133,14 @@ impl ReprTable {
             .contains(&(func.to_string(), binding.to_string()))
     }
 
-    /// True when no float representation, object shape, or shape conflict was
-    /// ever recorded (codegen may keep its all-i64 fast paths).
+    /// True when no float representation, string representation, object shape,
+    /// or shape conflict was ever recorded (codegen may keep its all-i64 fast
+    /// paths).
     pub fn is_empty(&self) -> bool {
-        !self.any_float && !self.any_string && self.shapes.is_empty() && self.shape_conflicts.is_empty()
+        !self.any_float
+            && !self.any_string
+            && self.shapes.is_empty()
+            && self.shape_conflicts.is_empty()
     }
 
     pub fn intern_shape(&mut self, fields: Vec<(String, Repr)>) -> ShapeId {
