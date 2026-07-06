@@ -111,3 +111,21 @@ fn repr_table_records_non_ascii_string_provenance() {
     t.mark_string_non_ascii_return("f");
     assert!(t.is_string_non_ascii_return("f"));
 }
+
+#[test]
+fn repr_table_records_string_element_axis_and_provenance() {
+    let mut t = ReprTable::default();
+    assert_eq!(t.array_element("_start", "a"), Repr::I64);
+    t.set_array_element("_start", "a", Repr::String);
+    assert_eq!(t.array_element("_start", "a"), Repr::String);
+    assert!(!t.is_empty());
+
+    assert!(!t.is_array_element_non_ascii("_start", "a"));
+    t.mark_array_element_non_ascii("_start", "a");
+    assert!(t.is_array_element_non_ascii("_start", "a"));
+    assert!(!t.is_array_element_non_ascii("_start", "other"));
+
+    assert!(!t.is_array_element_concat_tainted("_start", "a"));
+    t.mark_array_element_concat_tainted("_start", "a");
+    assert!(t.is_array_element_concat_tainted("_start", "a"));
+}
