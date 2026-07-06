@@ -33,6 +33,9 @@ pub struct TypeContext {
     /// a for-of iterable or a dynamic-import specifier), which do not reach the
     /// buggy runtime `+` path and therefore compile correctly.
     pub(crate) suppress_string_addition_rejection: bool,
+    pub(crate) repr_table: kali_common::ReprTable,
+    /// Stack of enclosing function names; module scope is `_start`.
+    pub(crate) current_function: Vec<String>,
 }
 
 impl Default for TypeContext {
@@ -71,7 +74,20 @@ impl TypeContext {
             has_async_generator_function: false,
             has_generator_yield_delegation: false,
             suppress_string_addition_rejection: false,
+            repr_table: kali_common::ReprTable::default(),
+            current_function: vec!["_start".to_string()],
         }
+    }
+
+    /// Enclosing function name for the current resolution position (`_start`
+    /// at module scope). Not yet consumed within this crate — wired up by the
+    /// E3200 gate in a follow-up task.
+    #[allow(dead_code)]
+    pub(crate) fn current_function_name(&self) -> &str {
+        self.current_function
+            .last()
+            .map(String::as_str)
+            .unwrap_or("_start")
     }
 
     pub fn with_base_path(base_path: impl AsRef<Path>) -> Self {

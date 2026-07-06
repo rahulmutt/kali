@@ -379,3 +379,13 @@ main();
         "param must receive the object shape from the call-result argument"
     );
 }
+
+#[test]
+fn resolution_result_carries_string_reprs() {
+    // End-to-end through the resolver (not infer_reprs directly): the reordered
+    // table must reach ResolutionResult unchanged.
+    let parsed = crate::test_support::parse_statements("let s = \"hi\";\n");
+    let mut ctx = crate::context::TypeContext::default();
+    let result = ctx.resolve_statements_at_path(None::<&std::path::Path>, &parsed);
+    assert_eq!(result.repr_table.scalar("_start", "s"), Repr::String);
+}
