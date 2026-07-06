@@ -575,6 +575,14 @@ impl<'a> FunctionEmitter<'a> {
             LirNodeKind::Value if node.children.len() == 2 && node.text.as_deref() == Some("+") => {
                 self.is_string_valued(node.children[0]) || self.is_string_valued(node.children[1])
             }
+            // Ternary `test ? a : b` (marker text "?"): string-valued iff
+            // either arm is — mirrors `emit_conditional`'s `string_result` (and
+            // the symmetric `is_float_valued` ternary arm) so a string-armed
+            // ternary used as a `+` operand takes the string-concat path
+            // instead of leaking its tagged handle through `int_to_string`.
+            LirNodeKind::Value if node.children.len() == 3 && node.text.as_deref() == Some("?") => {
+                self.is_string_valued(node.children[1]) || self.is_string_valued(node.children[2])
+            }
             // Bare identifier read: string iff its binding's repr is String.
             LirNodeKind::Value if node.children.is_empty() => {
                 node.text.as_deref().is_some_and(|name| {

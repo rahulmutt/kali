@@ -73,6 +73,41 @@ fn string_arms_ternary_prints() {
 }
 
 #[test]
+fn string_ternary_as_concat_operand_prints() {
+    // Handle-leak pin: a string-armed ternary used as a `+` operand must be
+    // concatenated as a STRING. Without a ternary arm in `is_string_valued`,
+    // `emit_as_string` misclassifies the ternary as numeric and routes its
+    // tagged handle through `int_to_string` — printing the raw handle bits
+    // (e.g. "-9223354375949254654!") with exit 0 and no diagnostic.
+    let out = run_source(
+        "let c = 1;\nlet x = \"z\";\nconsole.log((c > 0 ? \"a\" + x : \"b\" + x) + \"!\");\n",
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "az!\n");
+}
+
+#[test]
+fn string_ternary_equality_is_rejected() {
+    // Fail-closed pin: `==` on a string-armed ternary must reject, not
+    // handle-compare. Pre-fix this silently printed the WRONG branch ("2":
+    // two equal-valued concat results have different handles) with exit 0;
+    // the `is_string_valued` ternary arm makes `is_runtime_concat_string`'s
+    // fallback classify the ternary as a runtime string, tripping the
+    // equality gate in `emit_binary`.
+    let out = run_source(
+        "let c = 1;\nlet x = \"z\";\nif ((c > 0 ? \"a\" + x : \"b\" + x) == \"az\") { console.log(1); } else { console.log(2); }\n",
+    );
+    assert!(
+        !out.status.success(),
+        "string-armed ternary == must be rejected, not compared by handle"
+    );
+}
+
+#[test]
 fn only_taken_arm_evaluates() {
     // Laziness pin: the untaken arm's side effect must not run.
     //
