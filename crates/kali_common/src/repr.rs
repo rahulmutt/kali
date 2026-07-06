@@ -23,6 +23,8 @@ pub enum Repr {
     F64,
     /// Pointer (i64) to a fixed-shape heap object in linear memory.
     Object(ShapeId),
+    /// Tagged linear-memory string handle (`STRING_HANDLE_TAG | offset << 32 | len`).
+    String,
 }
 
 /// Representation decisions for a whole program, keyed by function + binding.
@@ -42,6 +44,7 @@ pub struct ReprTable {
     /// distinguish an i64 array param from a scalar param.
     array_bindings: HashSet<(String, String)>,
     any_float: bool,
+    any_string: bool,
     /// Interned object layouts; `ShapeId` indexes this list.
     shapes: Vec<Vec<(String, Repr)>>,
     /// Gate messages from the shape inference (contradictory or unsupported
@@ -79,6 +82,9 @@ impl ReprTable {
         if repr == Repr::F64 {
             self.any_float = true;
         }
+        if repr == Repr::String {
+            self.any_string = true;
+        }
         self.scalars
             .insert((func.to_string(), binding.to_string()), repr);
     }
@@ -95,12 +101,18 @@ impl ReprTable {
         if repr == Repr::F64 {
             self.any_float = true;
         }
+        if repr == Repr::String {
+            self.any_string = true;
+        }
         self.returns.insert(func.to_string(), repr);
     }
 
     pub fn set_param(&mut self, func: &str, index: usize, repr: Repr) {
         if repr == Repr::F64 {
             self.any_float = true;
+        }
+        if repr == Repr::String {
+            self.any_string = true;
         }
         self.params.insert((func.to_string(), index), repr);
     }
@@ -123,7 +135,7 @@ impl ReprTable {
     /// True when no float representation, object shape, or shape conflict was
     /// ever recorded (codegen may keep its all-i64 fast paths).
     pub fn is_empty(&self) -> bool {
-        !self.any_float && self.shapes.is_empty() && self.shape_conflicts.is_empty()
+        !self.any_float && !self.any_string && self.shapes.is_empty() && self.shape_conflicts.is_empty()
     }
 
     pub fn intern_shape(&mut self, fields: Vec<(String, Repr)>) -> ShapeId {
