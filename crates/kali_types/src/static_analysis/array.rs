@@ -847,7 +847,19 @@ impl TypeContext {
             self.resolve_expression(arg);
         }
 
-        let receiver = self.unwrap_for_of_wrapper_expression(&member.object);
+        // The accept arm keys on the receiver PRE-unwrap being a bare
+        // Identifier (parentheses stripped — a pure syntactic wrapper that
+        // codegen's `unwrap_transparent` also sees through). It must NOT use
+        // `unwrap_for_of_wrapper_expression`: that helper COLLAPSES a
+        // statically-decidable `a || b` / `c ? a : b` to one operand, so a
+        // wrapper receiver would route into the identifier arm here while
+        // codegen's `runtime_join_call_parts` sees the UNcollapsed node
+        // (`receiver_node.text` is None), emits no `__join`, and falls through
+        // to a silent `0` — a gate-accepts/codegen-can't-lower mirror break.
+        let mut receiver = &member.object;
+        while let Expression::ParenthesizedExpression(inner) = receiver {
+            receiver = &inner.expression;
+        }
         if let Expression::Identifier(base) = receiver {
             let name = base.as_str();
             // Only PROVEN String-element array bindings enter the runtime-join
@@ -888,23 +900,38 @@ impl TypeContext {
             return;
         }
 
-        // A ternary/logical wrapper receiver (`(c ? a : b).join(...)`) never
-        // resolves to a single runtime array and is never codegen-foldable here
-        // (a statically-decidable wrapper was already unwrapped into the static
-        // fold lane above) — reject (fail-closed, closes the silent `0`).
-        if matches!(
-            receiver,
-            Expression::ConditionalExpression(_) | Expression::LogicalExpression(_)
-        ) {
-            self.diagnostics.push(Diagnostic::error(
-                e5::FEATURE_UNAVAILABLE as u32,
-                "Array.prototype.join is unavailable unless the receiver is a statically-known array literal with a statically-known separator, or a runtime array whose elements are all proven ASCII strings with a proven-ASCII string separator, in the current direct-runtime path".to_string(),
-            ));
+        // Non-identifier receivers. Codegen's `runtime_join_call_parts` can
+        // only lower a bare-identifier receiver, and every FOLD-eligible
+        // receiver already took the static lane above (its
+        // `is_static_array_iteration_target` covers static literals, static
+        // bindings, `Object.keys`/`Array.from`/freeze/identity-map call
+        // results, …). So a non-identifier receiver reaching this point has
+        // NO lowering and NO fold — it would silently emit `0`. Reject
+        // (fail-closed), with ONE documented exception below.
+        //
+        // - Ternary/logical wrappers: `(c ? a : b)`, `(a || b)`, `(a && b)`.
+        //   NOTE the parser lowers `||`/`&&`/`??` to BinaryExpression (it has
+        //   no LogicalExpression production) — match BOTH spellings.
+        // - Call results: `mk().join('-')` — fold-eligible calls (e.g.
+        //   `Object.keys(staticObj)`) never reach here.
+        //
+        // EXCEPTION (documented silent residual, Task 8 scope): a MEMBER
+        // receiver (`cloned.values.join(',')`, `o.arr.join('-')`). The whole
+        // member-read surface of runtime-modeled objects is silent-wrong
+        // today (`cloned.count`, `cloned.values[0]` also print `0`), and the
+        // shipped web-baseline smoke fixtures exercise `.values.join(',')`
+        // inside `throw`-guarded checks that currently pass only because
+        // `throw` is a no-op. Rejecting member receivers here would fail
+        // those fixtures' compiles wholesale; closing the member-read family
+        // (reads, `.length`, join) belongs to the literal-array/object-field
+        // fail-closed pass, not the join gate alone.
+        if matches!(receiver, Expression::MemberExpression(_)) {
+            return;
         }
-        // Any other receiver (member access such as `cloned.values`, a call
-        // result, …) keeps its prior behavior: codegen's static fold / object
-        // modeling handles the foldable shapes; the rest are a deferred residual
-        // outside Spec 3's identifier-receiver scope.
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "Array.prototype.join is unavailable unless the receiver is a statically-known array literal with a statically-known separator, or a runtime array whose elements are all proven ASCII strings with a proven-ASCII string separator, in the current direct-runtime path".to_string(),
+        ));
     }
     pub(crate) fn resolve_array_to_string_member_call(&mut self, expr: &CallExpression) {
         let Expression::MemberExpression(member) = &expr.callee else {

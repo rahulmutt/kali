@@ -172,3 +172,55 @@ fn ternary_wrapped_join_receiver_is_rejected() {
         "non-identifier receivers hit the fail-closed default"
     );
 }
+
+#[test]
+fn logical_or_wrapped_join_receiver_is_rejected() {
+    // Fix round 1: was silent 0 — the parser lowers `||` to BinaryExpression,
+    // which dodged a LogicalExpression-only reject arm.
+    let out = run_source(
+        "const a = new Array(1);\na[0] = \"x\";\nconst b = new Array(1);\nb[0] = \"y\";\nconsole.log((a || b).join(\"-\"));\n",
+    );
+    assert!(
+        !out.status.success(),
+        "logical-|| wrapper receivers hit the fail-closed default (was silent 0)"
+    );
+}
+
+#[test]
+fn logical_and_wrapped_join_receiver_is_rejected() {
+    // Fix round 1: was silent 0 (same BinaryExpression("&&") parse shape).
+    let out = run_source(
+        "const a = new Array(1);\na[0] = \"x\";\nconst b = new Array(1);\nb[0] = \"y\";\nconsole.log((a && b).join(\"-\"));\n",
+    );
+    assert!(
+        !out.status.success(),
+        "logical-&& wrapper receivers hit the fail-closed default (was silent 0)"
+    );
+}
+
+#[test]
+fn call_result_join_receiver_is_rejected() {
+    // Fix round 1: was silent 0. Fold-eligible call receivers (e.g.
+    // `Object.keys(staticObj).join(',')`) take the static fold lane and never
+    // reach the runtime lane; a runtime call result has no lowering — reject.
+    let out = run_source(
+        "function mk() {\n  const a = new Array(2);\n  a[0] = \"x\";\n  a[1] = \"y\";\n  return a;\n}\nconsole.log(mk().join(\"-\"));\n",
+    );
+    assert!(
+        !out.status.success(),
+        "call-result receivers hit the fail-closed default (was silent 0)"
+    );
+}
+
+#[test]
+fn static_object_keys_join_stays_green() {
+    // Pin the fold-lane disjointness the call-result reject relies on:
+    // `Object.keys(staticObj)` is a static-lane receiver, not a runtime call.
+    let out = run_source("const o = { a: 1, b: 2 };\nconsole.log(Object.keys(o).join(\",\"));\n");
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "a,b\n");
+}
