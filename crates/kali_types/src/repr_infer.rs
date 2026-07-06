@@ -65,14 +65,31 @@ struct ReprInfer {
     /// Number of allocated nodes (== next node id). Tracked because
     /// [`UnionFind`] exposes no length accessor.
     node_count: usize,
-    /// Directed float-flow edges `from -> to` (float(from) ⇒ float(to)).
-    /// Endpoints are canonicalised through `uf` at solve time so edges touching
-    /// aliased array-element nodes follow the shared representative.
-    edges: Vec<(usize, usize)>,
+    /// Directed float-flow edges `(from, to, in_string_axis)`.
+    /// `float(from) ⇒ float(to)` always; the boolean records whether the edge
+    /// also carries the STRING axis. Endpoints are canonicalised through `uf`
+    /// at solve time so edges touching aliased array-element nodes follow the
+    /// shared representative. Array-element and object-field *read* edges are
+    /// added float-only (`in_string_axis == false`, via `add_edge_float_only`):
+    /// codegen materialises those reads as raw i64/f64 and has no string lane
+    /// for them, so a scalar capturing such a read must NOT be proven
+    /// `Repr::String` (that would vouch for a runtime raw int — a miscompile).
+    /// The float axis keeps the edge (an f64 element read still floats its
+    /// captor).
+    edges: Vec<(usize, usize, bool)>,
     /// Directly-float nodes (division results, float literals, `Math.sqrt`, …).
     seeds: Vec<usize>,
     /// Directed reachability seeds for the STRING axis (string/template literals).
     string_seeds: Vec<usize>,
+    /// Candidate RUNTIME-string-producing nodes: `+` results (string concat),
+    /// interpolated template-literal results, and string `+=` targets. All are
+    /// FRESH runtime handles at execution time (not interned literal constants).
+    /// The taint pass seeds those of these that are string-reachable and
+    /// forward-propagates over the string adjacency; any scalar/param/return it
+    /// reaches is a "runtime-concat-derived" string whose fresh handle must NOT
+    /// be compared by identity (`==`/`!=`) or tested for truthiness — see the
+    /// `string_concat_tainted*` sets on `ReprTable`.
+    runtime_string_nodes: Vec<usize>,
     /// One node per scalar binding/param/local: `(func, name) -> node`.
     scalar_node: BTreeMap<(String, String), usize>,
     /// One node per array binding/param element repr: `(func, name) -> node`.
@@ -192,9 +209,18 @@ impl ReprInfer {
         n
     }
 
-    /// Record a directed float-flow edge `from -> to`.
+    /// Record a directed flow edge `from -> to` carried by BOTH axes.
     fn add_edge(&mut self, from: usize, to: usize) {
-        self.edges.push((from, to));
+        self.edges.push((from, to, true));
+    }
+
+    /// Record a directed flow edge carried by the FLOAT axis ONLY (excluded
+    /// from the string axis). Used for array-element and object-field *read*
+    /// edges: an f64 element/field read still floats its captor, but a string
+    /// stored in an element/field must not prove the captor `Repr::String`
+    /// (codegen has no string lane for element/field reads).
+    fn add_edge_float_only(&mut self, from: usize, to: usize) {
+        self.edges.push((from, to, false));
     }
 
     /// Mark `node` as a direct float seed.
@@ -742,9 +768,18 @@ impl ReprInfer {
                 node
             }
             Expression::Literal(_) => self.new_node(),
-            Expression::TemplateLiteral(_) => {
+            Expression::TemplateLiteral(template) => {
+                // Visit interpolated expressions for their own edges.
+                for expr in &template.expressions {
+                    self.visit_expr(func, expr);
+                }
                 let node = self.new_node();
                 self.add_string_seed(node);
+                if !template.expressions.is_empty() {
+                    // An interpolated template lowers to runtime concatenation
+                    // (a fresh handle), exactly like a string `+`.
+                    self.runtime_string_nodes.push(node);
+                }
                 node
             }
 
@@ -768,6 +803,14 @@ impl ReprInfer {
                         // result does NOT flow back to the operands.
                         self.add_edge(left, result);
                         self.add_edge(right, result);
+                        if bin.operator == "+" {
+                            // A string `+` lowers to runtime `string_concat`
+                            // producing a FRESH handle (not an interned literal
+                            // constant). Record it as a runtime-string node so
+                            // the taint pass can forbid identity-comparing /
+                            // truthiness-testing its downstream captors.
+                            self.runtime_string_nodes.push(result);
+                        }
                     }
                     // Comparisons / bitwise / shift ops yield i64 (boolean or
                     // int32); operands are visited for their own edges but no
@@ -926,6 +969,12 @@ impl ReprInfer {
                 | AssignmentOperator::ExponentAssign => {
                     // rhs -> x.
                     self.add_edge(rn, sn);
+                    if matches!(assign.operator, AssignmentOperator::AddAssign) {
+                        // A string `+=` lowers to runtime `string_concat` into
+                        // the target (a fresh handle). Record the target as a
+                        // runtime-string node (seeded only if string-reachable).
+                        self.runtime_string_nodes.push(sn);
+                    }
                 }
                 AssignmentOperator::DivideAssign => {
                     // `x /= v` ⇒ x is float; the divisor keeps its own repr, so
@@ -947,8 +996,11 @@ impl ReprInfer {
             if let Expression::Identifier(name) = &member.object {
                 let elem = self.array_elem_node_for(func, name);
                 let result = self.new_node();
-                // Read is directed: element -> read result.
-                self.add_edge(elem, result);
+                // Read is directed: element -> read result. FLOAT-ONLY: a
+                // string stored in an element must not prove the read result
+                // (and its captors) `Repr::String` — codegen materialises an
+                // element read as a raw i64/f64 with no string lane (Finding 2).
+                self.add_edge_float_only(elem, result);
                 return result;
             }
             self.visit_expr(func, &member.object);
@@ -1314,7 +1366,11 @@ impl ReprInfer {
                 self.add_edge(access.other, field_node);
                 self.obj_materialized.insert(access.base.clone());
             } else {
-                self.add_edge(field_node, access.other);
+                // FLOAT-ONLY: an object field read is materialised as a raw
+                // i64/f64 (object fields are I64/F64 only); a string flowing
+                // into a field must not prove the read result `Repr::String`
+                // (Finding 2).
+                self.add_edge_float_only(field_node, access.other);
             }
         }
 
@@ -1454,12 +1510,13 @@ impl ReprInfer {
         hit
     }
 
-    /// Build the canonicalised adjacency list once (consumes `self.edges`).
+    /// Build the canonicalised FLOAT adjacency list (all edges; consumes
+    /// `self.edges`).
     fn build_adjacency(&mut self) -> Vec<Vec<usize>> {
         let n = self.node_count;
         let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n];
         let edges = std::mem::take(&mut self.edges);
-        for (from, to) in edges {
+        for (from, to, _in_string) in edges {
             let f = self.uf.find(from);
             let t = self.uf.find(to);
             adj[f].push(t);
@@ -1468,15 +1525,55 @@ impl ReprInfer {
     }
 
     fn emit_table(mut self) -> ReprTable {
-        // Snapshot the raw edges BEFORE `build_adjacency` consumes them — needed
-        // below to detect a DIRECT write into a scalar/return node from a source
-        // that is unambiguously `I64` in this model (see `plain_write_targets`).
-        let edges_snapshot = self.edges.clone();
-        let adj = self.build_adjacency();
+        let n = self.node_count;
         let float_seeds = std::mem::take(&mut self.seeds);
         let string_seeds = std::mem::take(&mut self.string_seeds);
+        // No string seeds ⇒ no string decisions, no plain-write fixpoint, no
+        // taint — skip the extra edge snapshot/clone and the fixpoint entirely
+        // (the all-integer/float fast path stays byte-identical). Programs with
+        // strings are the only ones that pay for the string adjacency + taint.
+        let has_strings = !string_seeds.is_empty();
+        // Snapshot the raw edges BEFORE `build_adjacency` consumes them —
+        // needed both to build the string-only adjacency and to detect a DIRECT
+        // write into a scalar/return node from an unbacked source (see
+        // `plain_write_targets`). Only cloned when strings are present.
+        let edges_snapshot: Vec<(usize, usize, bool)> = if has_strings {
+            self.edges.clone()
+        } else {
+            Vec::new()
+        };
+        let adj = self.build_adjacency();
         let float = self.solve_reach(&adj, &float_seeds);
-        let string = self.solve_reach(&adj, &string_seeds);
+        // String reachability runs over the STRING adjacency: edges added
+        // `add_edge_float_only` (array-element / object-field reads) are
+        // excluded so a captor of such a read is never proven `Repr::String`
+        // (Finding 2). The float axis above keeps every edge.
+        // `tainted[node]` marks nodes carrying a FRESH runtime string handle
+        // (reachable from a `+`/interpolated-template/`+=` result), as opposed
+        // to an interned literal constant. Codegen may `==`/`!=`-compare or
+        // truthiness-test an interned handle correctly (identity == value), but
+        // NOT a fresh concat handle — so tainted string operands are rejected in
+        // those positions (fail-closed) while interned ones stay allowed.
+        let (string, tainted) = if has_strings {
+            let mut string_adj: Vec<Vec<usize>> = vec![Vec::new(); n];
+            for &(from, to, in_string) in &edges_snapshot {
+                if in_string {
+                    let f = self.uf.find(from);
+                    let t = self.uf.find(to);
+                    string_adj[f].push(t);
+                }
+            }
+            let string = self.solve_reach(&string_adj, &string_seeds);
+            // Taint seeds: runtime-string nodes that are actually string-typed.
+            let taint_seeds: Vec<usize> = std::mem::take(&mut self.runtime_string_nodes)
+                .into_iter()
+                .filter(|&node| string[self.uf.find(node)])
+                .collect();
+            let tainted = self.solve_reach(&string_adj, &taint_seeds);
+            (string, tainted)
+        } else {
+            (vec![false; n], vec![false; n])
+        };
 
         // Nodes fed by a write whose source is UNBACKED as a string handle —
         // i.e. codegen materializes a raw `i64` there, but the solved repr may
@@ -1515,12 +1612,16 @@ impl ReprInfer {
         // REJECT-DON'T-MISCOMPILE: a scalar/return node fed by an unbacked
         // source that is ALSO string-reachable is exactly as unsound as the
         // existing string+float conflict, and is reported identically.
-        let plain_write_targets: BTreeSet<usize> = {
+        let plain_write_targets: BTreeSet<usize> = if !has_strings {
+            // No strings ⇒ nothing can be a mislabelled string write; skip the
+            // whole fixpoint (empty-table fast path stays byte-identical).
+            BTreeSet::new()
+        } else {
             // Canonicalise once; scalar/return nodes are never unioned, so their
             // raw ids equal their roots (the match arms below index by raw id).
             let canon_edges: Vec<(usize, usize)> = edges_snapshot
                 .iter()
-                .map(|(f, t)| (self.uf.find(*f), self.uf.find(*t)))
+                .map(|(f, t, _in_string)| (self.uf.find(*f), self.uf.find(*t)))
                 .collect();
             let value_targets: BTreeSet<usize> = self
                 .scalar_node
@@ -1583,13 +1684,16 @@ impl ReprInfer {
             .collect();
         for ((func, name), node) in scalars {
             match (string[node], float[node]) {
-                (true, true) => table.add_shape_conflict(format!(
-                    "binding `{name}` in `{func}` is used as both a string and a number"
-                )),
-                (true, false) if plain_write_targets.contains(&node) => table.add_shape_conflict(
-                    format!("binding `{name}` in `{func}` is used as both a string and a number"),
-                ),
-                (true, false) => table.set_scalar(&func, &name, Repr::String),
+                (true, true) => table.add_shape_conflict(scope_conflict_message(&func, &name)),
+                (true, false) if plain_write_targets.contains(&node) => {
+                    table.add_shape_conflict(scope_conflict_message(&func, &name))
+                }
+                (true, false) => {
+                    table.set_scalar(&func, &name, Repr::String);
+                    if tainted[node] {
+                        table.mark_string_concat_tainted(&func, &name);
+                    }
+                }
                 (false, true) => table.set_scalar(&func, &name, Repr::F64),
                 (false, false) => {}
             }
@@ -1636,7 +1740,12 @@ impl ReprInfer {
                 // benchmark fixture, whose never-called `dead*` functions
                 // have exactly this shape).
                 (true, false) if plain_write_targets.contains(&node) => {}
-                (true, false) => table.set_return(&func, Repr::String),
+                (true, false) => {
+                    table.set_return(&func, Repr::String);
+                    if tainted[node] {
+                        table.mark_string_concat_tainted_return(&func);
+                    }
+                }
                 (false, true) => table.set_return(&func, Repr::F64),
                 (false, false) => {}
             }
@@ -1659,7 +1768,15 @@ impl ReprInfer {
                             .add_shape_conflict(format!(
                                 "param {index} of `{func}` is used as both a string and a number"
                             )),
-                        (true, false) => table.set_param(&func, index, Repr::String),
+                        (true, false) => {
+                            table.set_param(&func, index, Repr::String);
+                            // A param aliases its binding's scalar node; taint is
+                            // keyed by (func, name) so codegen's identifier arm
+                            // (which looks up by name) sees it.
+                            if tainted[node] {
+                                table.mark_string_concat_tainted(&func, name);
+                            }
+                        }
                         (false, true) => table.set_param(&func, index, Repr::F64),
                         (false, false) => {}
                     }
@@ -1764,6 +1881,17 @@ impl ReprInfer {
         }
 
         table
+    }
+}
+
+/// Shape-conflict message for a scalar binding, rendering the synthetic
+/// top-level function name `_start` as the user-facing "at module scope"
+/// (a plain binding declared at module scope has no function to name).
+fn scope_conflict_message(func: &str, name: &str) -> String {
+    if func == TOP_LEVEL {
+        format!("binding `{name}` at module scope is used as both a string and a number")
+    } else {
+        format!("binding `{name}` in `{func}` is used as both a string and a number")
     }
 }
 

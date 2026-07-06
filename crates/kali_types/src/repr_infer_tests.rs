@@ -357,6 +357,67 @@ fn plain_integer_program_has_no_string_repr() {
 }
 
 #[test]
+fn element_read_captor_is_not_string() {
+    // Finding 2: a scalar capturing an array-element read must NOT be proven
+    // `Repr::String` even when a string is stored into that element — codegen
+    // materialises an element read as a raw i64 with no string lane. The
+    // element-read edge is excluded from the string axis, so `s` stays I64.
+    let t = reprs("let a = [1];\nlet s = a[0];\na[0] = \"x\";\n");
+    assert_eq!(t.scalar("_start", "s"), Repr::I64);
+}
+
+#[test]
+fn float_still_flows_through_element_read() {
+    // The float axis KEEPS element-read edges: a scalar capturing an f64
+    // element read is still `Repr::F64` (Finding 2 excludes only the STRING
+    // axis). Companion to `element_read_captor_is_not_string`; the existing
+    // `array_element_float_from_store_and_interprocedural_param` pins the
+    // array-element side.
+    let t = reprs("let a = [1.5];\nlet s = a[0];\n");
+    assert_eq!(t.scalar("_start", "s"), Repr::F64);
+}
+
+#[test]
+fn concat_derived_string_is_tainted_but_literal_is_not() {
+    // Finding 1: a runtime-concat-derived string is tainted (its fresh handle
+    // may not be identity-compared); a literal-rooted string is interned and
+    // NOT tainted.
+    let t = reprs("let s = \"hi\";\nlet a = \"x\";\nlet b = a + \"y\";\n");
+    assert_eq!(t.scalar("_start", "b"), Repr::String);
+    assert!(
+        t.is_string_concat_tainted("_start", "b"),
+        "a concat result must be tainted"
+    );
+    assert_eq!(t.scalar("_start", "s"), Repr::String);
+    assert!(
+        !t.is_string_concat_tainted("_start", "s"),
+        "an interned literal string must NOT be tainted"
+    );
+}
+
+#[test]
+fn interpolated_template_result_is_tainted() {
+    // An interpolated template lowers to runtime concatenation (a fresh handle).
+    let t = reprs("let n = 5;\nlet x = `a${n}`;\n");
+    assert_eq!(t.scalar("_start", "x"), Repr::String);
+    assert!(t.is_string_concat_tainted("_start", "x"));
+}
+
+#[test]
+fn module_scope_string_number_conflict_message_reads_at_module_scope() {
+    // Minor: a top-level binding conflict renders "at module scope", not the
+    // synthetic `_start`.
+    let t = reprs("let x = \"a\";\nx = 5;\n");
+    assert!(
+        t.shape_conflicts()
+            .iter()
+            .any(|m| m.contains("at module scope") && !m.contains("_start")),
+        "conflicts: {:?}",
+        t.shape_conflicts()
+    );
+}
+
+#[test]
 fn call_result_argument_seeds_callee_param_object_shape() {
     // No bound-identifier call site anywhere: `check`'s param `t` must get
     // its object shape from the call-result argument `mk()` itself.
