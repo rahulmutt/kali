@@ -268,3 +268,23 @@ fn substring_result_aliases_receiver_for_taint() {
     let solution = solution_for("let g; function f(p) { g = p.substring(0, 1); }");
     assert!(solution.param_escapes("f", 0));
 }
+
+#[test]
+fn join_result_does_not_carry_receiver_identity() {
+    // let out = q.join("") copies bytes into a fresh global-arena string:
+    // returning it must NOT taint the receiver array param — unlike
+    // substring, which zero-copy ALIASES its receiver and must taint it
+    // (see substring_result_aliases_receiver_for_taint above).
+    let solution = solution_for("function f(q) { return q.join(\"\"); }");
+    assert!(!solution.param_escapes("f", 0));
+}
+
+#[test]
+fn string_stored_into_array_element_taints_source() {
+    // arr[0] = p publishes p outward through the container: the member-store
+    // arm (arena_gate.rs arena_note_assignment) taints the stored value's
+    // sources unconditionally. PIN — Spec 3's string-element store lane
+    // (Task 4) relies on this staying fail-closed.
+    let solution = solution_for("function f(p) { const a = new Array(1); a[0] = p; }");
+    assert!(solution.param_escapes("f", 0));
+}

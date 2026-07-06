@@ -502,6 +502,25 @@ impl<'a> OwnershipAnalyzer<'a> {
                         None => ValueClass::heap(),
                     };
                 }
+                // Runtime `join` COPIES element bytes into a fresh
+                // `__alloc_global` string: like `+` concat (BinaryExpr arm
+                // above), the result is a global-arena host value that never
+                // dangles across an arena reset — effectively scalar here.
+                // Types-side gating admits only string-element array
+                // receivers, so a user method named `join` never reaches
+                // this arm compiled. Contrast substring above, which
+                // zero-copy ALIASES its receiver and must carry its nodes.
+                if node
+                    .children
+                    .first()
+                    .map(|id| &self.nodes[id.0 as usize])
+                    .is_some_and(|callee| {
+                        callee.kind == HirNodeKind::MemberExpr
+                            && callee.text.as_deref() == Some("join")
+                    })
+                {
+                    return ValueClass::Scalar;
+                }
                 let target = node
                     .children
                     .first()
