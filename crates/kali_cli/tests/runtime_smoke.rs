@@ -789,19 +789,21 @@ fn count_tag_boxing_ops(bytes: &[u8]) -> usize {
     // This census guards USER hot paths against tag-check/untag boxing ops.
     // The hand-emitted synthetic runtime helpers (`kali_codegen`'s
     // `SYNTHETIC_FUNCTIONS`: the `__alloc` page-pool family plus
-    // `__substring`) are compiler-internal fixed slots present in EVERY
-    // module regardless of what the source does — `__substring`'s
-    // handle-field masking legitimately uses `I64And` — so their bodies are
-    // excluded here, exactly as they are excluded from coverage
-    // instrumentation in the compiler itself. Imports and exports precede
-    // the code section in the wasm binary format, so a single pass sees the
-    // full exclusion set before the first body.
+    // `__substring` and `__join`) are compiler-internal fixed slots present
+    // in EVERY module regardless of what the source does — `__substring`'s
+    // handle-field masking and `__join`'s length-field masking / two-pass
+    // copy loop legitimately use `I64And` — so their bodies are excluded
+    // here, exactly as they are excluded from coverage instrumentation in
+    // the compiler itself. Imports and exports precede the code section in
+    // the wasm binary format, so a single pass sees the full exclusion set
+    // before the first body.
     const SYNTHETIC_FUNCTIONS: &[&str] = &[
         "__alloc",
         "__alloc_global",
         "__page_get",
         "__arena_reset",
         "__substring",
+        "__join",
     ];
     let mut imported_functions = 0u32;
     let mut synthetic_indices = Vec::new();

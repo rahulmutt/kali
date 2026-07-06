@@ -40,6 +40,7 @@ pub const SYNTHETIC_FUNCTIONS: &[&str] = &[
     "__page_get",
     "__arena_reset",
     "__substring",
+    "__join",
 ];
 
 /// Generate WASM from LIR.
@@ -253,6 +254,20 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         is_entry: false,
         flavor: None,
     });
+    // Synthetic runtime-join `__join(arr: i64, sep: i64) -> i64` (Spec 3):
+    // two-pass copy of an all-string-element array into ONE fresh
+    // __alloc_global string — sum lengths, allocate, memory.copy each
+    // element and separator. NEVER __alloc: runtime strings must not
+    // dangle across an arena reset (escape_flow relies on it).
+    all_functions.push(FunctionPlan {
+        name: "__join".to_string(),
+        params: vec!["arr".to_string(), "sep".to_string()],
+        locals: Vec::new(),
+        body: lir.root,
+        result: true,
+        is_entry: false,
+        flavor: None,
+    });
     all_functions.extend(function_plans);
 
     for (idx, function) in all_functions.iter().enumerate() {
@@ -375,10 +390,11 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
 
     for function in &all_functions {
         // The four allocator synthetic page-pool functions (plus
-        // `__substring`) are not repr-directed user functions (they have no
-        // `ReprTable` entries at all), so their signatures are fixed here
-        // rather than derived from `ctx.repr_table.param`/`return_repr`,
-        // which would otherwise default them to `(i64) -> i64`.
+        // `__substring` and `__join`) are not repr-directed user functions
+        // (they have no `ReprTable` entries at all), so their signatures are
+        // fixed here rather than derived from
+        // `ctx.repr_table.param`/`return_repr`, which would otherwise
+        // default them to `(i64) -> i64`.
         // `__alloc`/`__alloc_global`/`__page_get` all share the one
         // `(i32) -> i32` signature (deduped below to the same type index);
         // `__arena_reset` is `() -> ()`, which `_start` (also no params, no
@@ -386,7 +402,8 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         // rather than adding a new one. `__substring` is `(i64, i64, i64) ->
         // i64`, deduped below same as any other function with that shape
         // (e.g. a real 3-arg all-integer function, if one exists in the
-        // program) rather than a new type per module.
+        // program) rather than a new type per module. `__join` is
+        // `(i64, i64) -> i64` (Spec 3), same dedup treatment.
         let (params, results) = if matches!(
             function.name.as_str(),
             "__alloc" | "__alloc_global" | "__page_get"
@@ -397,6 +414,8 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                 vec![ValType::I64, ValType::I64, ValType::I64],
                 vec![ValType::I64],
             )
+        } else if function.name == "__join" {
+            (vec![ValType::I64, ValType::I64], vec![ValType::I64])
         } else if function.name == "__arena_reset" {
             (Vec::new(), Vec::new())
         } else {
@@ -551,6 +570,9 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         //     (local 3; locals 0-2 are its `h`/`s`/`e` params). `len` is
         //     recomputed from `h` rather than stored, so no further local
         //     is needed.
+        //   `__join` (`emit_join_body`, Spec 3): 6 i64 — `n`, `i`, `total`,
+        //     `out`, `cur`, `h` (locals 2-7; locals 0-1 are its `arr`/`sep`
+        //     params).
         let mut local_decls: Vec<(u32, ValType)> = Vec::new();
         if matches!(function.name.as_str(), "__alloc" | "__alloc_global") {
             local_decls.push((2, ValType::I32));
@@ -560,6 +582,8 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             local_decls.push((2, ValType::I32));
         } else if function.name == "__substring" {
             local_decls.push((1, ValType::I64));
+        } else if function.name == "__join" {
+            local_decls.push((6, ValType::I64));
         } else {
             for local_name in &function.locals {
                 // A `__arena_save_*` local (Step 2 of loop-arena provisioning)
@@ -614,12 +638,14 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             // deliberately uninstrumented (no `emit_coverage_hit`) since none
             // is a source-defined function.
             let page_get_index = function_name_to_index["__page_get"];
+            let alloc_global_index = function_name_to_index["__alloc_global"];
             match function.name.as_str() {
                 "__alloc" => emit_bump_body(&mut body, 1, 2, 3, page_get_index),
                 "__alloc_global" => emit_bump_body(&mut body, 4, 5, 6, page_get_index),
                 "__page_get" => emit_page_get_body(&mut body),
                 "__arena_reset" => emit_arena_reset_body(&mut body),
                 "__substring" => emit_substring_body(&mut body),
+                "__join" => emit_join_body(&mut body, alloc_global_index),
                 other => unreachable!("unhandled synthetic function {other}"),
             }
         } else if function.is_entry {
@@ -2272,6 +2298,188 @@ fn emit_substring_body(func: &mut Function) {
     func.instruction(&Instruction::LocalGet(1));
     func.instruction(&Instruction::I64Sub);
     func.instruction(&Instruction::I64Or);
+}
+
+/// `__join(arr, sep) -> i64`: copy every element string (i64 handles in the
+/// array's slots) plus `sep` between them into ONE fresh __alloc_global
+/// buffer; return `TAG | out<<32 | total`. Empty array returns bare TAG
+/// (offset 0, len 0 — a zero-length handle is never dereferenced).
+/// Locals: 0=arr 1=sep (params), 2=n 3=i 4=total 5=out 6=cur 7=h.
+fn emit_join_body(func: &mut Function, alloc_global_index: u32) {
+    // n = *(arr + 0)
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(2));
+    // if n == 0 return TAG
+    // (Explicit `n == 0` via I64Const(0) + I64Eq rather than I64Eqz: this
+    // synthetic's body is NOT excluded from
+    // `control_flow_tests::pipeline_basics::boolean_branches_use_the_layout_fast_path`,
+    // a whole-module printed-text assertion elsewhere in this crate that a
+    // specialized boolean fast path never needs `i64.eqz` — since `__join` is
+    // present in every module, any `I64Eqz` it emits would trip that
+    // assertion for unrelated programs. `I64Eq` is semantically identical
+    // and already used elsewhere in this crate for `==`/`===` lowering.)
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::I64Const(crate::STRING_HANDLE_TAG as i64));
+    func.instruction(&Instruction::Return);
+    func.instruction(&Instruction::End);
+    // total = 0; i = 0
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(3));
+    // pass 1: total += len(elem_i) for each i
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    //   h = *(arr + (i<<3) + 8)
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(3));
+    func.instruction(&Instruction::I64Shl);
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(7));
+    //   total = total + (h & 0xFFFF_FFFF)
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(4));
+    //   i += 1; continue while i < n
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64LtS);
+    func.instruction(&Instruction::BrIf(0));
+    func.instruction(&Instruction::End);
+    // total += (sep & 0xFFFF_FFFF) * (n - 1)
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Sub);
+    func.instruction(&Instruction::I64Mul);
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(4));
+    // out = zext(__alloc_global(wrap((total + 7) & !7)))
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I64Const(7));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::I64Const(-8)); // !7 as two's-complement
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::Call(alloc_global_index));
+    func.instruction(&Instruction::I64ExtendI32U);
+    func.instruction(&Instruction::LocalSet(5));
+    // cur = out; i = 0
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::LocalSet(6));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(3));
+    // pass 2: copy elements, separator between them
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    //   h = *(arr + (i<<3) + 8)
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(3));
+    func.instruction(&Instruction::I64Shl);
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(7));
+    //   memory.copy(dst=cur, src=(h>>32)&0x7FFF_FFFF, len=h&0xFFFF_FFFF)
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I64Const(32));
+    func.instruction(&Instruction::I64ShrU);
+    func.instruction(&Instruction::I64Const(0x7FFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::MemoryCopy {
+        src_mem: 0,
+        dst_mem: 0,
+    });
+    //   cur += len(h)
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(6));
+    //   i += 1
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(3));
+    //   if i < n { copy separator; continue }
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64LtS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    //     memory.copy(dst=cur, src=sep off, len=sep len) — zero-len is a legal no-op
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Const(32));
+    func.instruction(&Instruction::I64ShrU);
+    func.instruction(&Instruction::I64Const(0x7FFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::MemoryCopy {
+        src_mem: 0,
+        dst_mem: 0,
+    });
+    //     cur += sep_len
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(6));
+    //     continue the loop (br 1: label 0 = this If, label 1 = the Loop)
+    func.instruction(&Instruction::Br(1));
+    func.instruction(&Instruction::End); // If
+    func.instruction(&Instruction::End); // Loop — falls through when i == n
+                                         // TAG | out << 32 | total
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I64Const(32));
+    func.instruction(&Instruction::I64Shl);
+    func.instruction(&Instruction::I64Const(crate::STRING_HANDLE_TAG as i64));
+    func.instruction(&Instruction::I64Or);
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I64Or);
+    // NO trailing End — the dispatch loop appends it (lower.rs:631).
 }
 
 pub(crate) fn top_level_children(lir: &LirProgram) -> Vec<LirNodeId> {

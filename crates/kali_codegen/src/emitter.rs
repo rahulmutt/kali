@@ -279,6 +279,13 @@ impl<'a> FunctionEmitter<'a> {
         self.functions["__substring"]
     }
 
+    /// Wasm function index of the synthetic runtime-join helper
+    /// (`__join(arr, sep) -> i64`, Spec 3): two-pass `memory.copy` of an
+    /// all-string-element array into one fresh `__alloc_global` string.
+    pub(crate) fn join_fn_index(&self) -> u32 {
+        self.functions["__join"]
+    }
+
     pub(crate) fn push_control_frame(&mut self, kind: ControlFlowLabelKind) -> usize {
         self.control_frames.push(kind);
         self.control_frames.len() - 1

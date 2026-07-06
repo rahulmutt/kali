@@ -52,7 +52,10 @@ fn supported_static_string_prefix_suffix_lowers_ascii_literals() {
         .expect("generated wasm should validate");
 
     let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
-    assert_eq!(printed.matches("i64.const 1").count(), 4, "{printed}");
+    // 4 from this program's own lowering + 3 from the synthetic `__join`
+    // guest function (Spec 3), present in every module: two loop-increment
+    // `i += 1`s and the `n - 1` separator-count term all use `i64.const 1`.
+    assert_eq!(printed.matches("i64.const 1").count(), 4 + 3, "{printed}");
     assert!(printed.contains("i64.const 0"), "{printed}");
 }
 
@@ -79,7 +82,10 @@ fn supported_static_string_search_lowers_omitted_search_as_undefined() {
         .expect("generated wasm should validate");
 
     let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
-    assert_eq!(printed.matches("i64.const 1").count(), 2, "{printed}");
+    // 2 from this program's own lowering + 3 from the synthetic `__join`
+    // guest function (Spec 3), present in every module: two loop-increment
+    // `i += 1`s and the `n - 1` separator-count term all use `i64.const 1`.
+    assert_eq!(printed.matches("i64.const 1").count(), 2 + 3, "{printed}");
     assert!(printed.contains("i64.const 6"), "{printed}");
     assert!(printed.contains("i64.const -1"), "{printed}");
     assert!(printed.contains("i64.const 0"), "{printed}");
