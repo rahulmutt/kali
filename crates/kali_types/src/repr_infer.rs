@@ -71,6 +71,8 @@ struct ReprInfer {
     edges: Vec<(usize, usize)>,
     /// Directly-float nodes (division results, float literals, `Math.sqrt`, …).
     seeds: Vec<usize>,
+    /// Directed reachability seeds for the STRING axis (string/template literals).
+    string_seeds: Vec<usize>,
     /// One node per scalar binding/param/local: `(func, name) -> node`.
     scalar_node: BTreeMap<(String, String), usize>,
     /// One node per array binding/param element repr: `(func, name) -> node`.
@@ -190,6 +192,11 @@ impl ReprInfer {
     /// Mark `node` as a direct float seed.
     fn add_seed(&mut self, node: usize) {
         self.seeds.push(node);
+    }
+
+    /// Mark `node` as a direct string seed.
+    fn add_string_seed(&mut self, node: usize) {
+        self.string_seeds.push(node);
     }
 
     // ---- node accessors (get-or-create) --------------------------------
@@ -721,7 +728,17 @@ impl ReprInfer {
                 }
                 node
             }
+            Expression::Literal(LiteralValue::String(_)) => {
+                let node = self.new_node();
+                self.add_string_seed(node);
+                node
+            }
             Expression::Literal(_) => self.new_node(),
+            Expression::TemplateLiteral(_) => {
+                let node = self.new_node();
+                self.add_string_seed(node);
+                node
+            }
 
             Expression::ParenthesizedExpression(inner) => self.visit_expr(func, &inner.expression),
 
@@ -1398,11 +1415,33 @@ impl ReprInfer {
 
     // ---- Phase D: solve → table ----------------------------------------
 
-    /// BFS float reachability over the directed edge graph, with endpoints
-    /// canonicalised through the array-element union-find. Returns a per-node
-    /// float flag indexed by node id; array-element clusters are read via their
-    /// representative.
-    fn solve_float(&mut self) -> Vec<bool> {
+    /// BFS reachability over the directed edge graph from `seed_nodes`,
+    /// endpoints canonicalised through the array-element union-find. Shared by
+    /// the float and string axes. Consumes nothing (adjacency rebuilt by caller).
+    fn solve_reach(&mut self, adj: &[Vec<usize>], seed_nodes: &[usize]) -> Vec<bool> {
+        let n = self.node_count;
+        let mut hit = vec![false; n];
+        let mut queue: VecDeque<usize> = VecDeque::new();
+        for &s in seed_nodes {
+            let r = self.uf.find(s);
+            if !hit[r] {
+                hit[r] = true;
+                queue.push_back(r);
+            }
+        }
+        while let Some(u) = queue.pop_front() {
+            for &v in &adj[u] {
+                if !hit[v] {
+                    hit[v] = true;
+                    queue.push_back(v);
+                }
+            }
+        }
+        hit
+    }
+
+    /// Build the canonicalised adjacency list once (consumes `self.edges`).
+    fn build_adjacency(&mut self) -> Vec<Vec<usize>> {
         let n = self.node_count;
         let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n];
         let edges = std::mem::take(&mut self.edges);
@@ -1411,33 +1450,15 @@ impl ReprInfer {
             let t = self.uf.find(to);
             adj[f].push(t);
         }
-
-        let mut float = vec![false; n];
-        let mut queue: VecDeque<usize> = VecDeque::new();
-        let seeds = std::mem::take(&mut self.seeds);
-        for s in seeds {
-            let r = self.uf.find(s);
-            if !float[r] {
-                float[r] = true;
-                queue.push_back(r);
-            }
-        }
-        while let Some(u) = queue.pop_front() {
-            let mut i = 0;
-            while i < adj[u].len() {
-                let v = adj[u][i];
-                if !float[v] {
-                    float[v] = true;
-                    queue.push_back(v);
-                }
-                i += 1;
-            }
-        }
-        float
+        adj
     }
 
     fn emit_table(mut self) -> ReprTable {
-        let float = self.solve_float();
+        let adj = self.build_adjacency();
+        let float_seeds = std::mem::take(&mut self.seeds);
+        let string_seeds = std::mem::take(&mut self.string_seeds);
+        let float = self.solve_reach(&adj, &float_seeds);
+        let string = self.solve_reach(&adj, &string_seeds);
         let mut table = ReprTable::default();
 
         // Scalars (BTreeMap ⇒ deterministic order). Scalar nodes are never
@@ -1448,8 +1469,13 @@ impl ReprInfer {
             .map(|(k, &v)| (k.clone(), v))
             .collect();
         for ((func, name), node) in scalars {
-            if float[node] {
-                table.set_scalar(&func, &name, Repr::F64);
+            match (string[node], float[node]) {
+                (true, true) => table.add_shape_conflict(format!(
+                    "binding `{name}` in `{func}` is used as both a string and a number"
+                )),
+                (true, false) => table.set_scalar(&func, &name, Repr::String),
+                (false, true) => table.set_scalar(&func, &name, Repr::F64),
+                (false, false) => {}
             }
         }
 
@@ -1478,8 +1504,13 @@ impl ReprInfer {
             .map(|(k, &v)| (k.clone(), v))
             .collect();
         for (func, node) in returns {
-            if float[node] {
-                table.set_return(&func, Repr::F64);
+            match (string[node], float[node]) {
+                (true, true) => table.add_shape_conflict(format!(
+                    "return value of `{func}` is used as both a string and a number"
+                )),
+                (true, false) => table.set_return(&func, Repr::String),
+                (false, true) => table.set_return(&func, Repr::F64),
+                (false, false) => {}
             }
         }
 
@@ -1492,8 +1523,13 @@ impl ReprInfer {
         for (func, params) in functions {
             for (index, name) in params.iter().enumerate() {
                 if let Some(&node) = self.scalar_node.get(&(func.clone(), name.clone())) {
-                    if float[node] {
-                        table.set_param(&func, index, Repr::F64);
+                    match (string[node], float[node]) {
+                        (true, true) => table.add_shape_conflict(format!(
+                            "param {index} of `{func}` is used as both a string and a number"
+                        )),
+                        (true, false) => table.set_param(&func, index, Repr::String),
+                        (false, true) => table.set_param(&func, index, Repr::F64),
+                        (false, false) => {}
                     }
                 }
             }

@@ -326,6 +326,37 @@ fn object_enumeration_delete_reinsert_style_literal_stays_on_the_fold_lane() {
 }
 
 #[test]
+fn string_literal_binding_is_string_repr() {
+    let t = reprs("let s = \"hi\";\n");
+    assert_eq!(t.scalar("_start", "s"), Repr::String);
+}
+
+#[test]
+fn string_flows_through_concat_reassignment() {
+    // a starts as a string literal and accumulates string concatenations.
+    let t = reprs("let a = \"\";\na = a + \"y\";\n");
+    assert_eq!(t.scalar("_start", "a"), Repr::String);
+}
+
+#[test]
+fn string_flows_through_param_and_return() {
+    let src = "\
+function f(s) { return s + \"!\"; }\n\
+let out = f(\"hi\");\n";
+    let t = reprs(src);
+    assert_eq!(t.param("f", 0), Repr::String);
+    assert_eq!(t.return_repr("f"), Repr::String);
+    assert_eq!(t.scalar("_start", "out"), Repr::String);
+}
+
+#[test]
+fn plain_integer_program_has_no_string_repr() {
+    let t = reprs("let a = 1 + 2;\n");
+    assert_eq!(t.scalar("_start", "a"), Repr::I64);
+    assert!(t.is_empty());
+}
+
+#[test]
 fn call_result_argument_seeds_callee_param_object_shape() {
     // No bound-identifier call site anywhere: `check`'s param `t` must get
     // its object shape from the call-result argument `mk()` itself.
