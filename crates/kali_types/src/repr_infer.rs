@@ -1263,7 +1263,8 @@ impl ReprInfer {
                 let is_array_param =
                     array_bindings.contains(&(edge.callee.clone(), param_name.clone()));
                 let arg_identifier_name = edge.arg_array_names.get(k).cloned().flatten();
-                if let Some((caller, name)) = arg_identifier_name.filter(|_| is_array_param) {
+                if let Some((caller, name)) = arg_identifier_name.clone().filter(|_| is_array_param)
+                {
                     // Array element flow is bidirectional shared storage: union
                     // the caller argument's element node with the param's. Only
                     // meaningful when the argument is a bare identifier — the
@@ -1276,19 +1277,26 @@ impl ReprInfer {
                         ObjSlot::ArrayElem(caller, name),
                         ObjSlot::ArrayElem(edge.callee.clone(), param_name.clone()),
                     ));
-                } else if let Some(&arg_node) = edge.arg_nodes.get(k) {
-                    // Either a genuine scalar param, OR an "array" param
-                    // (registered purely by a `.length`-only receiver, e.g. a
-                    // string param never subscripted — see `visit_member`)
-                    // whose caller argument at this call site is NOT a bare
-                    // identifier (a literal, a call result, …) and so cannot
-                    // alias array storage above. Such an argument is a plain
-                    // value: wire the ordinary scalar/string/float flow edge
-                    // so, e.g., a string literal argument still proves a
-                    // `.length`-only param `Repr::String`. Safe for a true
-                    // array param too — there is no identifier to (mis)alias,
-                    // so this adds a value-flow signal where none existed
-                    // before, never overriding a real array union.
+                }
+                // Independently of the array-element union above, ALSO wire the
+                // ordinary scalar/string/float flow edge whenever the call site
+                // supplies an argument node. This is NOT mutually exclusive with
+                // the array-union branch: `is_array_param` can be true purely
+                // because the callee's param is read through a `.length`-only
+                // receiver (see `visit_member`'s "array-bias" registration) while
+                // the param is ACTUALLY a runtime string (e.g. `fastaRepeat`'s
+                // `seq`, which is both `seq.length`'d and `seq.substring`'d).
+                // Skipping this edge whenever the arg happens to be a bare
+                // identifier passed to such a param silently drops the only
+                // signal that proves the param `Repr::String` — the callee
+                // param never resolves as a string and the substring/`.length`
+                // gates reject it, even though codegen would lower it
+                // correctly. Wiring it unconditionally costs nothing for a
+                // genuine array argument: its own scalar node carries no
+                // string/float seed unless the SAME identifier is independently
+                // used as a scalar elsewhere, in which case surfacing that flow
+                // is correct (a real conflict), not a regression.
+                if let Some(&arg_node) = edge.arg_nodes.get(k) {
                     // Scalar arg flow is directional: arg -> param.
                     let pnode = self.scalar_node_for(&edge.callee, param_name);
                     self.add_edge(arg_node, pnode);
