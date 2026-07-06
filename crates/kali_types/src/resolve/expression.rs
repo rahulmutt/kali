@@ -71,6 +71,15 @@ impl TypeContext {
             Expression::Literal(LiteralValue::String(_)) => true,
             Expression::TemplateLiteral(_) => true,
             Expression::Identifier(name) => self.binding_is_string_typed(name),
+            // Computed element read `a[i]` of an array whose element axis is
+            // proven `Repr::String` (Spec 3). Mirror of codegen's
+            // `is_string_valued` `dynamic_array_read_base` arm — both classify
+            // the loaded element as a string so the `+`/`.length` gates and the
+            // print/concat lowering agree.
+            Expression::MemberExpression(member) if member.computed_index.is_some() => {
+                matches!(&member.object, Expression::Identifier(base)
+                    if self.string_element_array_binding(base))
+            }
             Expression::BinaryExpression(expr) if expr.operator == "+" => {
                 self.expression_is_string_typed(&expr.left)
                     || self.expression_is_string_typed(&expr.right)
@@ -163,21 +172,44 @@ impl TypeContext {
     ///   suppress the gate. FAIL CLOSED (return `false`) instead of guessing.
     fn identifier_repr_is_string(&self, name: &str) -> bool {
         use kali_common::Repr;
+        match self.binding_repr_function_key(name) {
+            Some(func) => self.repr_table.scalar(&func, name) == Repr::String,
+            None => false,
+        }
+    }
+
+    /// Resolves the `ReprTable` function-key under which a binding named `name`
+    /// is recorded, mirroring codegen's local-vs-module dichotomy EXACTLY as the
+    /// (now-thin) `identifier_repr_is_string` scalar lookup does — the single
+    /// scope-chain walk shared by every "what codegen thinks this binding's repr
+    /// is" query (scalar String, array-element String, element non-ASCII/taint).
+    ///
+    /// - `Some(current_function_name())` — `name` is declared at or before the
+    ///   tracked function's own `Function` scope, so it is local to the wasm
+    ///   function codegen is about to emit.
+    /// - `Some("_start")` — the walk reached module/global scope (or the tracked
+    ///   function's top scope) without finding `name`: a free reference to a
+    ///   module-level binding, mirroring codegen's `self.locals`-miss fallback.
+    /// - `None` — the walk crossed a `Function` scope that is NOT
+    ///   `current_function_scope()` (an arrow/function-expression/method/`export
+    ///   default function` body that does not push onto `current_function`):
+    ///   neither table lookup is safe, so callers FAIL CLOSED.
+    fn binding_repr_function_key(&self, name: &str) -> Option<String> {
         let tracked_scope = self.current_function_scope();
         let mut current = self.current_scope_id();
         loop {
             let Some(scope_id) = current else {
                 // Reached module/global scope: free top-level reference.
-                return self.repr_table.scalar("_start", name) == Repr::String;
+                return Some("_start".to_string());
             };
             let Some(scope) = self.scopes.get(&scope_id) else {
-                return false;
+                return None;
             };
             if scope.scope_type == ScopeType::Function && Some(scope_id) != tracked_scope {
-                return false;
+                return None;
             }
             if scope.contains(name) {
-                return self.repr_table.scalar(self.current_function_name(), name) == Repr::String;
+                return Some(self.current_function_name().to_string());
             }
             if scope.scope_type == ScopeType::Function {
                 // Reached the tracked function's own top scope without finding
@@ -185,9 +217,38 @@ impl TypeContext {
                 // which unconditionally consults the module `_start` table
                 // regardless of any further-enclosing scope (codegen does not
                 // model closures over an outer function's locals).
-                return self.repr_table.scalar("_start", name) == Repr::String;
+                return Some("_start".to_string());
             }
             current = scope.parent;
+        }
+    }
+
+    /// True iff `name` resolves to a linear-memory array binding whose element
+    /// repr is proven `Repr::String` by the inference (Spec 3 store/read/join
+    /// lane). Reuses the SAME function-key resolution as
+    /// `identifier_repr_is_string` (via `binding_repr_function_key`) so the F1
+    /// store gate, the read-side mirrors, and codegen's element oracles all key
+    /// the same `ReprTable` entry and never disagree. Fail-closed: an
+    /// untracked-function boundary (`None` key) reports false.
+    pub(crate) fn string_element_array_binding(&self, name: &str) -> bool {
+        use kali_common::Repr;
+        match self.binding_repr_function_key(name) {
+            Some(func) => {
+                self.repr_table.is_array_binding(&func, name)
+                    && self.repr_table.array_element(&func, name) == Repr::String
+            }
+            None => false,
+        }
+    }
+
+    /// True when array binding `name`'s String element axis may hold non-ASCII
+    /// text (a `.length` byte count would then disagree with JS's UTF-16 unit
+    /// count). Same key resolution as `string_element_array_binding`; fail-closed
+    /// (unknown key ⇒ assume non-ASCII ⇒ reject).
+    fn array_element_non_ascii(&self, name: &str) -> bool {
+        match self.binding_repr_function_key(name) {
+            Some(func) => self.repr_table.is_array_element_non_ascii(&func, name),
+            None => true,
         }
     }
 
@@ -200,6 +261,13 @@ impl TypeContext {
         use kali_common::Repr;
         match operand {
             Expression::Identifier(name) => self.identifier_repr_is_string(name),
+            // Computed element read `a[i]` of a proven `Repr::String` array
+            // (Spec 3) — same signal codegen's `is_string_valued`
+            // `dynamic_array_read_base` arm consults.
+            Expression::MemberExpression(member) if member.computed_index.is_some() => {
+                matches!(&member.object, Expression::Identifier(base)
+                    if self.string_element_array_binding(base))
+            }
             Expression::CallExpression(call) => match &call.callee {
                 Expression::Identifier(callee) => {
                     self.repr_table.return_repr(callee) == Repr::String
@@ -241,6 +309,15 @@ impl TypeContext {
             Expression::Identifier(name) => {
                 self.identifier_repr_is_string(name)
                     && !self.identifier_string_may_be_non_ascii(name)
+            }
+            // Computed element read `a[i]` of a proven `Repr::String` array is
+            // ASCII iff the element axis was never reached by a non-ASCII seed
+            // (Spec 3). This is what lets `a[i].length`/`a[i].substring(...)`
+            // through on ASCII element arrays and rejects them on non-ASCII ones.
+            Expression::MemberExpression(member) if member.computed_index.is_some() => {
+                matches!(&member.object, Expression::Identifier(base)
+                    if self.string_element_array_binding(base)
+                        && !self.array_element_non_ascii(base))
             }
             Expression::CallExpression(call) => match &call.callee {
                 Expression::Identifier(callee) => {
@@ -442,6 +519,18 @@ impl TypeContext {
                 return member.computed_index.is_none() && member.property.as_str() == "substring";
             }
         }
+        // Computed element read `a[i]` of a proven `Repr::String` array is a
+        // runtime string value (Spec 3). Subsumed by the `expression_is_string_typed`
+        // check above, but kept explicit so this predicate — the one the F1 store
+        // gate and the array-literal element gate consult directly — recognizes
+        // the shape on its own, in lockstep with the other read-side mirrors.
+        if let Expression::MemberExpression(member) = expr {
+            if member.computed_index.is_some() {
+                if let Expression::Identifier(base) = &member.object {
+                    return self.string_element_array_binding(base);
+                }
+            }
+        }
         false
     }
 
@@ -450,15 +539,28 @@ impl TypeContext {
     /// exclusion, Spec 1) — a stored runtime string would read back as a raw
     /// number or compare by meaningless handle identity.
     pub(crate) fn reject_runtime_string_store(&mut self, assign: &AssignmentExpression) {
-        let Expression::MemberExpression(_) = &assign.left else {
+        let Expression::MemberExpression(member) = &assign.left else {
             return;
         };
         if !self.expression_is_runtime_string_value(&assign.right) {
             return;
         }
+        // Spec 3 lane: element stores into arrays with proven String elements
+        // are supported — the read side, the oracle arms, and mixed arrays'
+        // shape conflicts (repr_infer emits E5506 for a string+number element
+        // mix) make this sound. The subscript-target shape MIRRORS the `a[i] = v`
+        // recognizer in `repr_infer::visit_assignment` (computed index over a
+        // bare-identifier base). Fields and every unproven target keep rejecting.
+        if member.computed_index.is_some() {
+            if let Expression::Identifier(base_name) = &member.object {
+                if self.string_element_array_binding(base_name) {
+                    return;
+                }
+            }
+        }
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
-            "storing a runtime string value into an array element or object field is unavailable in the current direct-runtime path; element and field reads have no string lane yet".to_string(),
+            "storing a runtime string value into this element or field is unavailable in the current direct-runtime path unless the target is an array whose elements are all proven strings; use the later compatibility path".to_string(),
         ));
     }
 

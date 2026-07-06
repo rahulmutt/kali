@@ -373,6 +373,10 @@ impl<'a> FunctionEmitter<'a> {
                                         memory_index: 0,
                                     }));
                                 }
+                                // Spec 3 activates the `String` case here: a
+                                // proven string-element store lowers through the
+                                // same i64-slot path (the value is a tagged string
+                                // handle), no store-side change needed.
                                 kali_common::Repr::I64
                                 | kali_common::Repr::Object(_)
                                 | kali_common::Repr::String => {
