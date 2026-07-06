@@ -115,6 +115,14 @@ struct ReprInfer {
     obj_pending_conflicts: BTreeMap<ObjSlot, String>,
     /// Gate messages (unsupported or contradictory object usage).
     obj_conflicts: Vec<String>,
+    /// Value-SELECTING merge points and their direct inputs: `a || b`,
+    /// `a && b`, `cond ? a : b` (`(result_node, [input_nodes])`). Unlike `+`
+    /// (whose result is a genuine string whenever either operand is), a
+    /// selecting merge yields ONE of its inputs unchanged at runtime, so a
+    /// string-reachable merge with a plain-`I64` input can hold a raw integer
+    /// where the solved repr says `String` — checked fail-closed in
+    /// `emit_table` (see `plain_write_targets` for the assignment-shaped twin).
+    merge_nodes: Vec<(usize, Vec<usize>)>,
 }
 
 /// Identity of an object-holding slot for shape/aliasing purposes.
@@ -810,6 +818,9 @@ impl ReprInfer {
                 // Either branch floats the result.
                 self.add_edge(cons, result);
                 self.add_edge(alt, result);
+                // Value-selecting merge: a string branch mixed with a plain
+                // int branch is a shape conflict (see `merge_nodes`).
+                self.merge_nodes.push((result, vec![cons, alt]));
                 result
             }
 
@@ -819,6 +830,9 @@ impl ReprInfer {
                 let result = self.new_node();
                 self.add_edge(left, result);
                 self.add_edge(right, result);
+                // Value-selecting merge: a string operand mixed with a plain
+                // int operand is a shape conflict (see `merge_nodes`).
+                self.merge_nodes.push((result, vec![left, right]));
                 result
             }
 
@@ -1454,11 +1468,50 @@ impl ReprInfer {
     }
 
     fn emit_table(mut self) -> ReprTable {
+        // Snapshot the raw edges BEFORE `build_adjacency` consumes them — needed
+        // below to detect a DIRECT write into a scalar/return node from a source
+        // that is unambiguously `I64` in this model (see `plain_write_targets`).
+        let edges_snapshot = self.edges.clone();
         let adj = self.build_adjacency();
         let float_seeds = std::mem::take(&mut self.seeds);
         let string_seeds = std::mem::take(&mut self.string_seeds);
         let float = self.solve_reach(&adj, &float_seeds);
         let string = self.solve_reach(&adj, &string_seeds);
+
+        // Nodes fed by a DIRECT write whose source is unambiguously `I64`
+        // (string-unreachable AND float-unreachable — exactly the sources the
+        // `(false, false) => {}` arms below leave as the default `I64` repr):
+        // an integer literal, or any other expression that never touches a
+        // string/float seed. An unseeded integer literal does NOT itself seed
+        // EITHER axis, so `let x = "a"; x = 5;` would otherwise be classified
+        // by `(string[x], float[x])` alone as plain `Repr::String` (string-
+        // reachable via the `"a"` write, and the `5` write contributes no float
+        // seed to conflict with) — codegen's `is_string_valued` would then read
+        // a value that is, at that point in the program, a raw `i64`, as a
+        // string handle. REJECT-DON'T-MISCOMPILE: a scalar/return node in this
+        // set that is ALSO string-reachable is exactly as unsound as the
+        // existing string+float conflict, and is reported identically.
+        let plain_write_targets: BTreeSet<usize> = {
+            let value_targets: BTreeSet<usize> = self
+                .scalar_node
+                .values()
+                .chain(self.return_node.values())
+                .copied()
+                .collect();
+            let mut targets = BTreeSet::new();
+            for (from, to) in &edges_snapshot {
+                let to = self.uf.find(*to);
+                if !value_targets.contains(&to) {
+                    continue;
+                }
+                let from = self.uf.find(*from);
+                if !string[from] && !float[from] {
+                    targets.insert(to);
+                }
+            }
+            targets
+        };
+
         let mut table = ReprTable::default();
 
         // Scalars (BTreeMap ⇒ deterministic order). Scalar nodes are never
@@ -1473,6 +1526,9 @@ impl ReprInfer {
                 (true, true) => table.add_shape_conflict(format!(
                     "binding `{name}` in `{func}` is used as both a string and a number"
                 )),
+                (true, false) if plain_write_targets.contains(&node) => table.add_shape_conflict(
+                    format!("binding `{name}` in `{func}` is used as both a string and a number"),
+                ),
                 (true, false) => table.set_scalar(&func, &name, Repr::String),
                 (false, true) => table.set_scalar(&func, &name, Repr::F64),
                 (false, false) => {}
@@ -1508,6 +1564,18 @@ impl ReprInfer {
                 (true, true) => table.add_shape_conflict(format!(
                     "return value of `{func}` is used as both a string and a number"
                 )),
+                // Mixed string + plain returns (`return \`s\`` on one path,
+                // `return unprovenParam` on another): the repr axis cannot
+                // claim `Repr::String` — a call site could receive a raw
+                // integer — but unlike the scalar-binding case above it does
+                // NOT hard-reject either: leaving the return unproven keeps
+                // both codegen (`is_string_valued`'s call arm) and the E3200
+                // gate (`operand_repr_is_string`) on the pre-string-flow I64
+                // lane, byte-identical to the behavior before this axis was
+                // consumed (pinned by the template-literal-concatenation
+                // benchmark fixture, whose never-called `dead*` functions
+                // have exactly this shape).
+                (true, false) if plain_write_targets.contains(&node) => {}
                 (true, false) => table.set_return(&func, Repr::String),
                 (false, true) => table.set_return(&func, Repr::F64),
                 (false, false) => {}
@@ -1527,6 +1595,10 @@ impl ReprInfer {
                         (true, true) => table.add_shape_conflict(format!(
                             "param {index} of `{func}` is used as both a string and a number"
                         )),
+                        (true, false) if plain_write_targets.contains(&node) => table
+                            .add_shape_conflict(format!(
+                                "param {index} of `{func}` is used as both a string and a number"
+                            )),
                         (true, false) => table.set_param(&func, index, Repr::String),
                         (false, true) => table.set_param(&func, index, Repr::F64),
                         (false, false) => {}

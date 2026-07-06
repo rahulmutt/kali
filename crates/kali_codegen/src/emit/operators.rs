@@ -519,9 +519,27 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     /// Returns true when `id` statically evaluates to a string value: a string (or
-    /// template) literal, or a `+` expression whose either operand is string-valued.
+    /// template) literal, a `+` expression whose either operand is string-valued,
+    /// a bare identifier whose binding's repr is proven `Repr::String` (mirroring
+    /// `is_float_valued`'s local-vs-module-const resolution: a name not declared
+    /// locally in a non-`_start` function reads the module `_start` binding), or
+    /// a call to a function whose return repr is proven `Repr::String`. The
+    /// identifier/call arms are the codegen half of the runtime string-value
+    /// flow — `kali_types`'s `E3200` gate (`operand_repr_is_string`) is narrowed
+    /// to allow exactly the operands these arms also recognize, so the two never
+    /// disagree.
     pub(crate) fn is_string_valued(&self, id: LirNodeId) -> bool {
         let id = self.unwrap_transparent(id);
+        // Resolve a local `const` fold-alias (`self.bindings`) BEFORE the bare-
+        // identifier repr lookup below, mirroring `is_float_valued` (which has
+        // the same hazard, documented there): a fold-lane `const` is NOT in
+        // `self.locals`, so the identifier arm would misroute it to the module
+        // `_start` table — classifying a function-local `const s = "a"` as
+        // non-string (int-coercing a string handle) even though `emit_node`'s
+        // identifier fallback resolves the read through `self.bindings` to the
+        // string literal. Resolving first classifies the node `emit_node` will
+        // actually emit.
+        let id = self.resolve_bound_node(id);
         let node = self.node(id);
         match node.kind {
             LirNodeKind::Literal => node.text.as_deref().is_some_and(|text| {
@@ -534,6 +552,27 @@ impl<'a> FunctionEmitter<'a> {
             }),
             LirNodeKind::Value if node.children.len() == 2 && node.text.as_deref() == Some("+") => {
                 self.is_string_valued(node.children[0]) || self.is_string_valued(node.children[1])
+            }
+            // Bare identifier read: string iff its binding's repr is String.
+            LirNodeKind::Value if node.children.is_empty() => {
+                node.text.as_deref().is_some_and(|name| {
+                    if !self.locals.contains_key(name) && self.function_name != "_start" {
+                        self.repr_table.scalar("_start", name) == kali_common::Repr::String
+                    } else {
+                        self.scalar_repr(name) == kali_common::Repr::String
+                    }
+                })
+            }
+            // Call to a string-returning function.
+            LirNodeKind::Call => {
+                let Some(callee) = node.children.first().copied() else {
+                    return false;
+                };
+                let callee = self.unwrap_transparent(callee);
+                let callee_node = self.node(callee);
+                callee_node.text.as_deref().is_some_and(|name| {
+                    self.repr_table.return_repr(name) == kali_common::Repr::String
+                })
             }
             _ => false,
         }

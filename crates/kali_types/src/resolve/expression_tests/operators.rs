@@ -332,7 +332,12 @@ fn let_number(name: &str, value: f64) -> Statement {
 }
 
 #[test]
-fn test_resolution_rejects_string_variable_plus_number() {
+fn test_resolution_allows_repr_proven_string_variable_plus_number() {
+    // Runtime string value flow: `s` is proven `Repr::String` by the repr
+    // inference (computed before resolution), so the E3200 gate is suppressed
+    // and codegen lowers the `+` to runtime concatenation. Previously all of
+    // these were rejected with E3200.
+
     // `let s = "x"; s + 3` — string-typed variable added to an integer.
     let mut ctx = TypeContext::new();
     let statements = vec![
@@ -343,8 +348,7 @@ fn test_resolution_rejects_string_variable_plus_number() {
         ),
     ];
     let result = ctx.resolve_statements(&statements);
-    assert_eq!(result.diagnostics.len(), 1, "{:?}", result.diagnostics);
-    assert_eq!(result.diagnostics[0].code, Some(e3::TYPE_MISMATCH as u32));
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
 
     // `let s = "x"; 3 + s` — operand order is symmetric.
     let mut ctx = TypeContext::new();
@@ -356,8 +360,7 @@ fn test_resolution_rejects_string_variable_plus_number() {
         ),
     ];
     let result = ctx.resolve_statements(&statements);
-    assert_eq!(result.diagnostics.len(), 1, "{:?}", result.diagnostics);
-    assert_eq!(result.diagnostics[0].code, Some(e3::TYPE_MISMATCH as u32));
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
 
     // `let s = "x"; let n = 3; s + n` — string variable + numeric variable.
     let mut ctx = TypeContext::new();
@@ -370,12 +373,11 @@ fn test_resolution_rejects_string_variable_plus_number() {
         ),
     ];
     let result = ctx.resolve_statements(&statements);
-    assert_eq!(result.diagnostics.len(), 1, "{:?}", result.diagnostics);
-    assert_eq!(result.diagnostics[0].code, Some(e3::TYPE_MISMATCH as u32));
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
 }
 
 #[test]
-fn test_resolution_rejects_reassigned_and_var_string_plus_operands() {
+fn test_resolution_rejects_mixed_reassigned_string_and_allows_var_string() {
     let assign = |name: &str, right: Expression| {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::AssignmentExpression(Box::new(
@@ -388,7 +390,9 @@ fn test_resolution_rejects_reassigned_and_var_string_plus_operands() {
         })
     };
 
-    // `let s = 5; s = "x"; s + 3` — binding becomes a string after declaration.
+    // `let s = 5; s = "x"; s + 3` — binding becomes a string after a numeric
+    // declaration: the repr axis records a string+number conflict instead of
+    // `Repr::String`, so the E3200 gate is NOT suppressed (fail-closed).
     let mut ctx = TypeContext::new();
     let statements = vec![
         let_number("s", 5.0),
@@ -405,7 +409,8 @@ fn test_resolution_rejects_reassigned_and_var_string_plus_operands() {
     assert_eq!(result.diagnostics.len(), 1, "{:?}", result.diagnostics);
     assert_eq!(result.diagnostics[0].code, Some(e3::TYPE_MISMATCH as u32));
 
-    // `var s = "x"; s + 3` — hoisted `var` string is tracked.
+    // `var s = "x"; s + 3` — hoisted `var` string is proven `Repr::String`
+    // (the repr inference keys all declarator kinds), so it now flows.
     let mut ctx = TypeContext::new();
     let statements = vec![
         Statement::VariableDeclaration(VariableDeclaration {
@@ -421,8 +426,7 @@ fn test_resolution_rejects_reassigned_and_var_string_plus_operands() {
         ),
     ];
     let result = ctx.resolve_statements(&statements);
-    assert_eq!(result.diagnostics.len(), 1, "{:?}", result.diagnostics);
-    assert_eq!(result.diagnostics[0].code, Some(e3::TYPE_MISMATCH as u32));
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
 
     // Reassigning a string binding back to a number clears the flag: not rejected.
     let mut ctx = TypeContext::new();
@@ -439,7 +443,10 @@ fn test_resolution_rejects_reassigned_and_var_string_plus_operands() {
 }
 
 #[test]
-fn test_resolution_rejects_all_string_variable_plus_operands() {
+fn test_resolution_allows_all_repr_proven_string_variable_plus_operands() {
+    // Runtime string value flow: every operand here is proven `Repr::String`
+    // by the repr inference, so the E3200 gate is suppressed for all of them
+    // (previously each was rejected with E3200).
     let s_var = || Expression::Identifier("s".to_string());
     let a_var = || Expression::Identifier("a".to_string());
     let b_var = || Expression::Identifier("b".to_string());
@@ -449,15 +456,13 @@ fn test_resolution_rejects_all_string_variable_plus_operands() {
     let mut ctx = TypeContext::new();
     let statements = vec![let_string("b", "y"), plus_statement(str_lit("x"), b_var())];
     let result = ctx.resolve_statements(&statements);
-    assert_eq!(result.diagnostics.len(), 1, "{:?}", result.diagnostics);
-    assert_eq!(result.diagnostics[0].code, Some(e3::TYPE_MISMATCH as u32));
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
 
     // string variable + string literal.
     let mut ctx = TypeContext::new();
     let statements = vec![let_string("b", "y"), plus_statement(b_var(), str_lit("x"))];
     let result = ctx.resolve_statements(&statements);
-    assert_eq!(result.diagnostics.len(), 1, "{:?}", result.diagnostics);
-    assert_eq!(result.diagnostics[0].code, Some(e3::TYPE_MISMATCH as u32));
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
 
     // string variable + string variable.
     let mut ctx = TypeContext::new();
@@ -467,11 +472,10 @@ fn test_resolution_rejects_all_string_variable_plus_operands() {
         plus_statement(a_var(), b_var()),
     ];
     let result = ctx.resolve_statements(&statements);
-    assert_eq!(result.diagnostics.len(), 1, "{:?}", result.diagnostics);
-    assert_eq!(result.diagnostics[0].code, Some(e3::TYPE_MISMATCH as u32));
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
 
-    // concatenation-result variable + string literal: `let s = a + "z"` is itself
-    // rejected (string-var operand), and the later `s + "q"` is rejected too.
+    // concatenation-result variable + string literal: `let s = a + "z"` is
+    // itself proven string, and the later `s + "q"` flows too.
     let mut ctx = TypeContext::new();
     let statements = vec![
         let_string("a", "x"),
@@ -489,11 +493,7 @@ fn test_resolution_rejects_all_string_variable_plus_operands() {
         plus_statement(s_var(), str_lit("q")),
     ];
     let result = ctx.resolve_statements(&statements);
-    assert_eq!(result.diagnostics.len(), 2, "{:?}", result.diagnostics);
-    assert!(result
-        .diagnostics
-        .iter()
-        .all(|diag| diag.code == Some(e3::TYPE_MISMATCH as u32)));
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
 }
 
 #[test]

@@ -56,46 +56,69 @@ fn run_js_expect_failure(source: &str) -> String {
 }
 
 #[test]
-fn string_typed_variable_plus_operands_are_rejected() {
-    // Codegen's `is_string_valued` recognizes only string/template literals and
-    // literal-rooted `+` chains — NOT a variable that holds a string. So ANY `+`
-    // with a string-typed variable operand miscompiles (it either integer-adds
-    // two string handles or coerces a string handle through `int_to_string`),
-    // regardless of the other operand's type. The checker must reject the whole
-    // family (E3200) rather than silently emit garbage.
+fn string_typed_variable_plus_operands_flow_at_runtime() {
+    // Runtime string value flow: codegen's `is_string_valued` consults the
+    // repr axis (`Repr::String`) for identifiers and calls, so a variable
+    // proven to hold a string lowers `+` to real runtime concatenation
+    // (matching JS output) instead of being rejected with E3200. The E3200
+    // gate stays for string sources the repr axis cannot prove (see
+    // `mixed_string_number_bindings_are_rejected` below and
+    // `runtime_string_value_flow.rs`).
 
     // string variable + number.
-    let diag = run_js_expect_failure("let s = \"x\";\nconsole.log(s + 3);\n");
-    assert!(diag.contains("E3200"), "expected E3200, got: {diag}");
+    assert_eq!(run_js("let s = \"x\";\nconsole.log(s + 3);\n"), "x3\n");
     // number + string variable.
-    let diag = run_js_expect_failure("let s = \"x\";\nconsole.log(3 + s);\n");
-    assert!(diag.contains("E3200"), "expected E3200, got: {diag}");
+    assert_eq!(run_js("let s = \"x\";\nconsole.log(3 + s);\n"), "3x\n");
     // string variable + numeric variable.
-    let diag = run_js_expect_failure("let s = \"x\";\nlet n = 3;\nconsole.log(s + n);\n");
-    assert!(diag.contains("E3200"), "expected E3200, got: {diag}");
+    assert_eq!(
+        run_js("let s = \"x\";\nlet n = 3;\nconsole.log(s + n);\n"),
+        "x3\n"
+    );
     // string literal + string variable.
-    let diag = run_js_expect_failure("let b = \"y\";\nconsole.log(\"x\" + b);\n");
-    assert!(diag.contains("E3200"), "expected E3200, got: {diag}");
+    assert_eq!(run_js("let b = \"y\";\nconsole.log(\"x\" + b);\n"), "xy\n");
     // string variable + string literal.
-    let diag = run_js_expect_failure("let b = \"y\";\nconsole.log(b + \"x\");\n");
-    assert!(diag.contains("E3200"), "expected E3200, got: {diag}");
+    assert_eq!(run_js("let b = \"y\";\nconsole.log(b + \"x\");\n"), "yx\n");
     // string variable + string variable.
-    let diag = run_js_expect_failure("let a = \"x\";\nlet b = \"y\";\nconsole.log(a + b);\n");
-    assert!(diag.contains("E3200"), "expected E3200, got: {diag}");
-    // concatenation-result variable + string literal (the result of `a + "z"` is
-    // itself a string-typed variable).
-    let diag =
-        run_js_expect_failure("let a = \"x\";\nlet s = a + \"z\";\nconsole.log(s + \"q\");\n");
-    assert!(diag.contains("E3200"), "expected E3200, got: {diag}");
-    // Reassignment TO a string is tracked (binding became a string after decl).
+    assert_eq!(
+        run_js("let a = \"x\";\nlet b = \"y\";\nconsole.log(a + b);\n"),
+        "xy\n"
+    );
+    // concatenation-result variable + string literal (the result of `a + "z"`
+    // is itself a string-typed variable).
+    assert_eq!(
+        run_js("let a = \"x\";\nlet s = a + \"z\";\nconsole.log(s + \"q\");\n"),
+        "xzq\n"
+    );
+    // `var`-declared strings flow too (hoisted binding).
+    assert_eq!(run_js("var s = \"x\";\nconsole.log(s + 3);\n"), "x3\n");
+}
+
+#[test]
+fn mixed_string_number_bindings_are_rejected() {
+    // A binding that holds a string at one program point and a number at
+    // another cannot get a single runtime repr: the repr inference is
+    // flow-insensitive, so codegen would read a raw integer as a string
+    // handle (or vice versa). REJECT-DON'T-MISCOMPILE: the whole family
+    // fails to compile — E3200 when the resolver still sees a string-typed
+    // operand in `+` (the repr axis records a conflict instead of
+    // `Repr::String`, so the gate is NOT suppressed), E5506 when only the
+    // repr shape conflict catches it (no string-typed `+` at the use point).
+
+    // Reassignment TO a string after a numeric init.
     let diag = run_js_expect_failure("let s = 5;\ns = \"x\";\nconsole.log(s + 3);\n");
     assert!(diag.contains("E3200"), "expected E3200, got: {diag}");
     // Reassignment to another string variable is tracked too.
     let diag = run_js_expect_failure("let x = \"hi\";\nlet s = 5;\ns = x;\nconsole.log(s + 3);\n");
     assert!(diag.contains("E3200"), "expected E3200, got: {diag}");
-    // `var`-declared strings are tracked (hoisted binding).
-    let diag = run_js_expect_failure("var s = \"x\";\nconsole.log(s + 3);\n");
-    assert!(diag.contains("E3200"), "expected E3200, got: {diag}");
+    // Reassignment to a NUMBER after a string init: the resolver's flow-aware
+    // string flag is cleared (no E3200), but the repr conflict still rejects
+    // (previously this ran as integer arithmetic; with codegen now trusting
+    // `Repr::String`, compiling it would read the raw 5 as a string handle).
+    let diag = run_js_expect_failure("let s = \"x\";\ns = 5;\nconsole.log(s + 1);\n");
+    assert!(
+        diag.contains("E5506") && diag.contains("both a string and a number"),
+        "expected E5506 string/number conflict, got: {diag}"
+    );
 }
 
 #[test]
@@ -109,12 +132,12 @@ fn literal_rooted_concatenation_and_integer_addition_stay_supported() {
         run_js("let n = 7;\nlet m = 16;\nconsole.log(\"Pfannkuchen(\" + n + \") = \" + m);\n"),
         "Pfannkuchen(7) = 16\n"
     );
-    // A number after reassignment is not a string: flow-aware detection keeps this
-    // compiling and correct.
-    assert_eq!(
-        run_js("let s = \"x\";\ns = 5;\nconsole.log(s + 1);\n"),
-        "6\n"
-    );
+    // NOTE: `let s = "x"; s = 5; console.log(s + 1);` used to run here as
+    // integer arithmetic (flow-aware string tracking cleared the string flag).
+    // With codegen now trusting `Repr::String` for identifier reads, that
+    // program would read the raw 5 as a string handle, so the flow-insensitive
+    // repr axis rejects the string/number mix instead — pinned in
+    // `mixed_string_number_bindings_are_rejected`.
     // Numeric concatenation into a variable stays numeric (not a false positive).
     assert_eq!(
         run_js("let a = 1;\nlet b = 2;\nlet x = a + b;\nconsole.log(x + 5);\n"),

@@ -389,3 +389,57 @@ fn resolution_result_carries_string_reprs() {
     let result = ctx.resolve_statements_at_path(None::<&std::path::Path>, &parsed);
     assert_eq!(result.repr_table.scalar("_start", "s"), Repr::String);
 }
+#[test]
+fn uncalled_string_concat_return_is_string_without_conflict() {
+    // `string-concatenation-benchmark-v1.ts` shape: the return expression is a
+    // `+` rooted in string literals, so the (single) return in-edge is itself
+    // string-reachable — proven `Repr::String`, no conflict, even though the
+    // function is never called (its param stays unproven I64).
+    let t = reprs(
+        "function dead0(value) { return (\"ka\" + \"li\") + value; }\nfunction hot(prefix, suffix) {\n  return prefix + ((\"a\" + \"head\") + (\"-\" + \"of\") + (\"-\" + \"time\")) + suffix;\n}\nhot(\"start-\", \"-end\");\n",
+    );
+    assert!(
+        t.shape_conflicts().is_empty(),
+        "conflicts: {:?}",
+        t.shape_conflicts()
+    );
+    assert_eq!(t.return_repr("dead0"), Repr::String);
+}
+
+#[test]
+fn mixed_string_and_plain_returns_downgrade_to_i64_without_conflict() {
+    // `template-literal-concatenation-benchmark-v1.ts` shape: one return is a
+    // template literal (string seed), the other returns the unproven param
+    // (plain). The repr axis cannot claim `Repr::String` (a call site could
+    // receive a raw int), but it must NOT hard-reject either — the function
+    // stays on the pre-string-flow I64 lane (codegen and the E3200 gate both
+    // treat the call result as non-string, exactly the pre-existing behavior).
+    let t = reprs(
+        "function dead0(value) {\n  if (false) {\n    return `ka${\"li\"}${value}`;\n  }\n  return value;\n}\n",
+    );
+    assert!(
+        t.shape_conflicts().is_empty(),
+        "conflicts: {:?}",
+        t.shape_conflicts()
+    );
+    assert_eq!(t.return_repr("dead0"), Repr::I64);
+}
+
+#[test]
+fn string_then_plain_reassignment_is_a_conflict() {
+    // A BINDING that is string-reachable and also directly written with a
+    // plain (non-string, non-float) value cannot get one runtime repr: with
+    // codegen now trusting `Repr::String` for identifier reads, claiming
+    // String would read the raw integer as a string handle. Unlike the
+    // mixed-RETURN case above (downgraded, never previously miscompiled at
+    // call sites), a scalar downgrade would silently print through the old
+    // int lane, so this fails closed as a shape conflict instead.
+    let t = reprs("let x = \"a\";\nx = 5;\n");
+    assert!(
+        t.shape_conflicts()
+            .iter()
+            .any(|m| m.contains("both a string and a number")),
+        "conflicts: {:?}",
+        t.shape_conflicts()
+    );
+}

@@ -465,8 +465,9 @@ impl TypeContext {
                 ..
             }) => {
                 self.bind_current_scope(name.clone());
-                self.push_scope(ScopeType::Function);
+                let function_scope_id = self.push_scope(ScopeType::Function);
                 self.current_function.push(name.clone());
+                self.current_function_scopes.push(function_scope_id);
                 let previous_generator = self.in_generator_function;
                 self.in_generator_function = *generator;
                 if *generator {
@@ -475,6 +476,7 @@ impl TypeContext {
                 self.bind_name_list(params);
                 self.resolve_block_body(body);
                 self.in_generator_function = previous_generator;
+                self.current_function_scopes.pop();
                 self.current_function.pop();
                 self.pop_scope();
             }
