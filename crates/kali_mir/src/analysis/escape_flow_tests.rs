@@ -275,6 +275,14 @@ fn join_result_does_not_carry_receiver_identity() {
     // returning it must NOT taint the receiver array param — unlike
     // substring, which zero-copy ALIASES its receiver and must taint it
     // (see substring_result_aliases_receiver_for_taint above).
+    //
+    // NOTE: this pins the non-taint PROPERTY, not the Scalar arm itself —
+    // even without the arm, the unknown-callee MemberExpr fallback yields an
+    // EMPTY-embed heap value that taints nothing, so this test passes on
+    // either path. The arm's behavioral pin (Scalar, so join results don't
+    // veto loop arenas) is
+    // `join_member_call_keeps_loop_arena_even_when_result_flows_outward`
+    // in arena_gate_tests.rs.
     let solution = solution_for("function f(q) { return q.join(\"\"); }");
     assert!(!solution.param_escapes("f", 0));
 }
