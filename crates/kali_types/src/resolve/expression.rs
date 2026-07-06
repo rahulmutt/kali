@@ -426,6 +426,17 @@ impl TypeContext {
         if self.expression_is_string_typed(expr) || self.operand_repr_is_string(expr) {
             return true;
         }
+        // A ternary is a runtime string iff EITHER arm is — recursing into THIS
+        // predicate (not only into the string-typed/repr mirrors above, whose
+        // ternary arms never reach the substring member-call fallthrough below)
+        // so a ternary whose EVERY arm is a `.substring(...)` call still
+        // classifies as a runtime string. Fail-closed mirror of codegen's
+        // `is_string_valued` ternary arm, in lockstep with the other
+        // ConditionalExpression arms above.
+        if let Expression::ConditionalExpression(cond) = expr {
+            return self.expression_is_runtime_string_value(&cond.consequent)
+                || self.expression_is_runtime_string_value(&cond.alternate);
+        }
         if let Expression::CallExpression(call) = expr {
             if let Expression::MemberExpression(member) = &call.callee {
                 return member.computed_index.is_none() && member.property.as_str() == "substring";

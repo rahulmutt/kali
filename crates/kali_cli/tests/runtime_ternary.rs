@@ -245,6 +245,64 @@ fn storing_substring_armed_ternary_into_element_is_rejected() {
 }
 
 #[test]
+fn storing_all_substring_armed_ternary_into_element_is_rejected() {
+    // Re-review residual Critical: when EVERY arm is a substring member-call,
+    // neither `expression_is_string_typed` nor `operand_repr_is_string`
+    // recognizes the arms (no member-call arm in either), so only
+    // `expression_is_runtime_string_value`'s own ternary recursion reaches its
+    // substring fallthrough. Pre-fix this compiled silently and printed 0.
+    let out = run_source(
+        "let a = \"GGCC\";\nlet i = 1;\nlet arr = [0];\narr[0] = i > 0 ? a.substring(0, i) : a.substring(i);\nconsole.log(arr[0]);\n",
+    );
+    assert!(
+        !out.status.success(),
+        "all-substring-armed ternary element store must be rejected"
+    );
+}
+
+#[test]
+fn filling_with_all_substring_armed_ternary_is_rejected() {
+    // Same residual Critical via Array.prototype.fill (pre-fix: printed 0).
+    let out = run_source(
+        "let a = \"GGCC\";\nlet i = 1;\nlet arr = [0];\narr.fill(i > 0 ? a.substring(0, i) : a.substring(i));\nconsole.log(arr[0]);\n",
+    );
+    assert!(
+        !out.status.success(),
+        "fill with an all-substring-armed ternary must be rejected"
+    );
+}
+
+#[test]
+fn storing_all_substring_armed_ternary_into_field_is_rejected() {
+    // Same residual Critical via an object-field store. Pre-fix the field lane
+    // happened to print the right value, but the design (§7 row 5) mandates a
+    // compile error — the gate must fire, not rely on luck.
+    let out = run_source(
+        "let a = \"GGCC\";\nlet i = 1;\nlet o = { v: 1 };\no.v = i > 0 ? a.substring(0, i) : a.substring(i);\nconsole.log(o.v);\n",
+    );
+    assert!(
+        !out.status.success(),
+        "all-substring-armed ternary field store must be rejected"
+    );
+}
+
+#[test]
+fn ternary_of_substrings_in_read_position_prints() {
+    // MUST-STAY-GREEN companion (reviewer's p20): a ternary of substring calls
+    // in READ position (console.log) is supported — the store/fill gates must
+    // not leak into read positions.
+    let out = run_source(
+        "let a = \"abcd\";\nlet c = 1;\nlet i = 1;\nconsole.log(c > 0 ? a.substring(i) : a.substring(0, i));\n",
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "bcd\n");
+}
+
+#[test]
 fn ternary_in_never_called_function_still_compiles() {
     let out = run_source("function unused(a) { return a > 0 ? 1 : 2; }\nconsole.log(7);\n");
     assert!(
