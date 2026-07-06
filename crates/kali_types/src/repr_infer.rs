@@ -1478,36 +1478,96 @@ impl ReprInfer {
         let float = self.solve_reach(&adj, &float_seeds);
         let string = self.solve_reach(&adj, &string_seeds);
 
-        // Nodes fed by a DIRECT write whose source is unambiguously `I64`
-        // (string-unreachable AND float-unreachable — exactly the sources the
-        // `(false, false) => {}` arms below leave as the default `I64` repr):
-        // an integer literal, or any other expression that never touches a
-        // string/float seed. An unseeded integer literal does NOT itself seed
-        // EITHER axis, so `let x = "a"; x = 5;` would otherwise be classified
-        // by `(string[x], float[x])` alone as plain `Repr::String` (string-
-        // reachable via the `"a"` write, and the `5` write contributes no float
-        // seed to conflict with) — codegen's `is_string_valued` would then read
-        // a value that is, at that point in the program, a raw `i64`, as a
-        // string handle. REJECT-DON'T-MISCOMPILE: a scalar/return node in this
-        // set that is ALSO string-reachable is exactly as unsound as the
+        // Nodes fed by a write whose source is UNBACKED as a string handle —
+        // i.e. codegen materializes a raw `i64` there, but the solved repr may
+        // say `String`. Two kinds of unbacked source:
+        //
+        //   (a) A plain integer: string-unreachable AND float-unreachable —
+        //       exactly the sources the `(false, false) => {}` arms below leave
+        //       as the default `I64` repr (an integer literal, or any
+        //       expression that never touches a string/float seed). An unseeded
+        //       integer literal does NOT itself seed EITHER axis, so
+        //       `let x = "a"; x = 5;` would otherwise be classified by
+        //       `(string[x], float[x])` alone as plain `Repr::String` (string-
+        //       reachable via `"a"`, no float seed to conflict with) — and
+        //       codegen's `is_string_valued` would read the raw `5` as a handle.
+        //
+        //   (b) The call-RESULT of a DOWNGRADED mixed return (string branch +
+        //       plain/int branch). The returns loop below leaves such a return
+        //       at the default I64 repr (no `Repr::String` entry), so codegen's
+        //       call arm (`return_repr(callee) != String`) materializes its call
+        //       result as a raw `i64`. String-reachability, however, still flows
+        //       from the return node into that result node (the
+        //       `add_edge(ret, result_node)` in `resolve_calls`) and onward into
+        //       any scalar/param/return that captures the call — which would
+        //       then classify `String` over a runtime int (Finding 1: silent
+        //       miscompile). Treating the result node as an unbacked source
+        //       forces those captors into `plain_write_targets` so they FAIL
+        //       CLOSED (conflict) instead. A downgraded return is itself fed by
+        //       such a result in a chain (`return g(...)`), so its own result
+        //       becomes unbacked too — hence the fixpoint below.
+        //
+        // A NEVER-called downgraded return has NO result-node edge, adds no
+        // unbacked source, and stays a silent downgrade with no downstream
+        // conflict — the `kali check`-only benchmark fixtures (never-called
+        // `dead*` mixed-return functions) depend on this and stay green.
+        //
+        // REJECT-DON'T-MISCOMPILE: a scalar/return node fed by an unbacked
+        // source that is ALSO string-reachable is exactly as unsound as the
         // existing string+float conflict, and is reported identically.
         let plain_write_targets: BTreeSet<usize> = {
+            // Canonicalise once; scalar/return nodes are never unioned, so their
+            // raw ids equal their roots (the match arms below index by raw id).
+            let canon_edges: Vec<(usize, usize)> = edges_snapshot
+                .iter()
+                .map(|(f, t)| (self.uf.find(*f), self.uf.find(*t)))
+                .collect();
             let value_targets: BTreeSet<usize> = self
                 .scalar_node
                 .values()
                 .chain(self.return_node.values())
-                .copied()
+                .map(|&v| self.uf.find(v))
                 .collect();
-            let mut targets = BTreeSet::new();
-            for (from, to) in &edges_snapshot {
-                let to = self.uf.find(*to);
-                if !value_targets.contains(&to) {
-                    continue;
+            let return_roots: BTreeSet<usize> = self
+                .return_node
+                .values()
+                .map(|&v| self.uf.find(v))
+                .collect();
+
+            let mut targets: BTreeSet<usize> = BTreeSet::new();
+            let mut unbacked_results: BTreeSet<usize> = BTreeSet::new();
+            loop {
+                // (1) Value targets fed by ANY unbacked source (plain int, or a
+                //     downgraded return's call-result node).
+                let mut next_targets: BTreeSet<usize> = BTreeSet::new();
+                for &(from, to) in &canon_edges {
+                    if !value_targets.contains(&to) {
+                        continue;
+                    }
+                    let plain_int = !string[from] && !float[from];
+                    if plain_int || unbacked_results.contains(&from) {
+                        next_targets.insert(to);
+                    }
                 }
-                let from = self.uf.find(*from);
-                if !string[from] && !float[from] {
-                    targets.insert(to);
+                // (2) Returns that WILL be downgraded under `next_targets`
+                //     (string-reachable, not float, and a plain_write_target):
+                //     their downstream neighbour is the call-result node codegen
+                //     leaves as a raw i64 — a fresh unbacked source.
+                let mut next_unbacked: BTreeSet<usize> = BTreeSet::new();
+                for &(from, to) in &canon_edges {
+                    if return_roots.contains(&from)
+                        && string[from]
+                        && !float[from]
+                        && next_targets.contains(&from)
+                    {
+                        next_unbacked.insert(to);
+                    }
                 }
+                if next_targets == targets && next_unbacked == unbacked_results {
+                    break;
+                }
+                targets = next_targets;
+                unbacked_results = next_unbacked;
             }
             targets
         };
@@ -1604,6 +1664,38 @@ impl ReprInfer {
                         (false, false) => {}
                     }
                 }
+            }
+        }
+
+        // Value-SELECTING merges (`a || b`, `a && b`, `cond ? a : b`). Unlike
+        // `+` (whose result is a genuine string whenever either operand is), a
+        // selecting merge yields ONE input UNCHANGED at runtime. If the solved
+        // result is string-reachable but SOME input is a plain `i64` (neither
+        // string- nor float-reachable), the runtime value can be a raw integer
+        // where the repr says `String` — the same unsoundness the assignment-
+        // shaped `plain_write_targets` guards. FAIL CLOSED with a conflict.
+        //
+        // Behaviour-neutral today: the parser lowers `&&`/`||`/`??` to
+        // `BinaryExpression` (no string inflow reaches these merge results, so
+        // no `String` claim to trip on) and `?:` parses degenerately, so no
+        // current program reaches this arm — but it makes the guard REAL (the
+        // field is now consumed, closing Finding 2) and protects
+        // programmatically-built ASTs / any future parser change. It can only
+        // reject, never widen.
+        let merge_nodes = std::mem::take(&mut self.merge_nodes);
+        for (result, inputs) in merge_nodes {
+            let result = self.uf.find(result);
+            if !string[result] {
+                continue;
+            }
+            let has_plain_input = inputs.iter().any(|&i| {
+                let i = self.uf.find(i);
+                !string[i] && !float[i]
+            });
+            if has_plain_input {
+                table.add_shape_conflict(
+                    "value-selecting expression is used as both a string and a number".to_string(),
+                );
             }
         }
 

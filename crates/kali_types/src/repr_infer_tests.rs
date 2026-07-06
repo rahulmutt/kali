@@ -426,6 +426,39 @@ fn mixed_string_and_plain_returns_downgrade_to_i64_without_conflict() {
 }
 
 #[test]
+fn consumed_mixed_return_captured_by_scalar_is_a_conflict() {
+    // Finding 1: `g` mixes a string return with a plain (unproven-int) return,
+    // so it downgrades to I64 — but the call result is CAPTURED by `r`, and
+    // string-reachability flows return -> call-result -> `r`, which would then
+    // classify `Repr::String` over a runtime int. Codegen materialises the call
+    // as a raw i64 (return_repr != String), so this MUST fail closed.
+    let t =
+        reprs("function g(v, k) { if (k > 0) { return \"yes\"; } return v; }\nlet r = g(99, 0);\n");
+    assert!(
+        t.shape_conflicts()
+            .iter()
+            .any(|m| m.contains("both a string and a number")),
+        "consumed mixed return must conflict; conflicts: {:?}",
+        t.shape_conflicts()
+    );
+}
+
+#[test]
+fn never_called_mixed_return_captured_nowhere_is_not_a_conflict() {
+    // The other side of Finding 1: the SAME mixed-return shape, but the function
+    // is never called (no call-result node exists), so no scalar is string-
+    // tainted and nothing miscompiles. The return simply downgrades to I64 with
+    // NO conflict — the `kali check`-only benchmark fixtures depend on this.
+    let t = reprs("function g(v, k) { if (k > 0) { return \"yes\"; } return v; }\n");
+    assert!(
+        t.shape_conflicts().is_empty(),
+        "never-called mixed return must not conflict; conflicts: {:?}",
+        t.shape_conflicts()
+    );
+    assert_eq!(t.return_repr("g"), Repr::I64);
+}
+
+#[test]
 fn string_then_plain_reassignment_is_a_conflict() {
     // A BINDING that is string-reachable and also directly written with a
     // plain (non-string, non-float) value cannot get one runtime repr: with
