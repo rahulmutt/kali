@@ -57,6 +57,41 @@ fn test_conditional_is_right_associative() {
 }
 
 #[test]
+fn test_conditional_nests_in_consequent() {
+    // Mirror of `test_conditional_is_right_associative` for the CONSEQUENT
+    // position: `a ? b ? 10 : 11 : 12` parses the inner ternary as the
+    // consequent of the outer one. (e2e with a=1,b=0 prints 11.)
+    let tokens = lex("let x = a ? b ? 10 : 11 : 12;");
+    let mut parser = Parser::new(kali_common::FileId::new(0), tokens);
+    let output = parser.parse(None);
+
+    assert!(
+        output.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        output.diagnostics
+    );
+
+    let Statement::VariableDeclaration(vd) = &output.statements[0] else {
+        panic!(
+            "Expected VariableDeclaration, got {:?}",
+            output.statements[0]
+        );
+    };
+    let init = vd.declarations[0].init.as_ref().expect("initializer");
+    let Expression::ConditionalExpression(outer) = init else {
+        panic!("expected outer conditional, got {init:?}");
+    };
+    assert!(
+        matches!(*outer.consequent, Expression::ConditionalExpression(_)),
+        "consequent must nest the inner conditional"
+    );
+    assert!(
+        matches!(*outer.alternate, Expression::Literal(_)),
+        "outer alternate is the trailing literal"
+    );
+}
+
+#[test]
 fn test_conditional_nests_inside_assignment_rhs() {
     // `x = a ? 1 : 2` — the ternary binds tighter than `=`.
     let tokens = lex("x = a ? 1 : 2;");
