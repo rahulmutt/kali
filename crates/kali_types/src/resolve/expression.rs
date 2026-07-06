@@ -564,6 +564,88 @@ impl TypeContext {
         ));
     }
 
+    /// True when `expr` is one of the array-producing reassignment shapes
+    /// codegen's `"="` arm (Task 5, literal.rs) actually routes through the
+    /// allocation/copy path: `new Array(...)`, the bare `Array(...)` call form
+    /// (both funnel through codegen's `resolve_array_alloc_call`, which does
+    /// not distinguish `new` from a plain call once lowered to LIR), or a bare
+    /// identifier that is itself a proven array binding (`a = b`, copied via
+    /// `bare_identifier_name`).
+    ///
+    /// Deliberately narrower than `repr_infer::init_is_array`'s shape list
+    /// (repr_infer.rs:712-720), which ALSO accepts `Expression::ArrayExpression`
+    /// — that fn only feeds the ANALYSIS-side element-axis merge (Task 2), not
+    /// a codegen guarantee. Probed on this branch: codegen's `"="` arm has NO
+    /// routing for an array-literal RHS (`emit_aggregate_literal`'s non-object
+    /// branch is a side-effect-only stub that pushes a bogus `I64Const(0)`
+    /// handle), so `a = [1, 2]` on an array binding would silently clobber the
+    /// base handle with 0 — the exact miscompile this gate exists to prevent.
+    /// Accepting `ArrayExpression` here would fail OPEN. If codegen ever grows
+    /// real array-literal-reassignment routing, widen this arm to match.
+    fn rhs_is_array_shape(&self, expr: &Expression) -> bool {
+        match expr {
+            Expression::NewExpression(new_expr) => {
+                matches!(&new_expr.callee, Expression::Identifier(name) if name == "Array")
+                    || matches!(&new_expr.callee, Expression::CallExpression(call)
+                        if matches!(&call.callee, Expression::Identifier(name) if name == "Array"))
+            }
+            Expression::CallExpression(call) => {
+                matches!(&call.callee, Expression::Identifier(name) if name == "Array")
+            }
+            Expression::Identifier(name) => match self.binding_repr_function_key(name) {
+                Some(func) => self.repr_table.is_array_binding(&func, name),
+                None => false,
+            },
+            _ => false,
+        }
+    }
+
+    /// `a = 5` where `a` is an array binding would clobber the base handle
+    /// with an integer — later element reads would dereference address 5.
+    /// Fail closed. Array-alloc and array-identifier RHS (`rhs_is_array_shape`)
+    /// are the supported reassignment shapes; every compound operator (`+=`
+    /// etc.) on an array-binding target rejects outright, since none of them
+    /// are a supported reassignment shape.
+    ///
+    /// Scoped to genuinely linear-memory-backed targets ONLY:
+    /// `repr_table.is_array_binding` is broader than codegen's runtime array
+    /// lane — it also covers compile-time literal arrays consumed by the
+    /// static/for-of iteration lane (`static_analysis::array`'s
+    /// `is_static_array_iteration_target`/`static_arrays`), which codegen
+    /// never backs with a linear-memory handle at all, so reassigning one has
+    /// no handle to clobber. `resolve_static_array_binding_name` is that
+    /// lane's OWN "is this binding a proven static/literal array" query;
+    /// excluding it here is what keeps this gate from firing on
+    /// `let values = [1, 2]; values = [3, 4];` (a real, pre-existing,
+    /// non-runtime-array reassignment the for-of static-iteration gate
+    /// already polices on its own terms).
+    pub(crate) fn reject_array_binding_scalar_reassignment(
+        &mut self,
+        assign: &AssignmentExpression,
+    ) {
+        let Expression::Identifier(target) = &assign.left else {
+            return;
+        };
+        let Some(func) = self.binding_repr_function_key(target) else {
+            return;
+        };
+        if !self.repr_table.is_array_binding(&func, target) {
+            return;
+        }
+        if self.resolve_static_array_binding_name(target) {
+            return;
+        }
+        if matches!(assign.operator, AssignmentOperator::Assign)
+            && self.rhs_is_array_shape(&assign.right)
+        {
+            return;
+        }
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "reassigning an array binding to a non-array value is unavailable in the current direct-runtime path".to_string(),
+        ));
+    }
+
     /// Resolves `expression` in a position where codegen folds a string-typed `+`
     /// to a static string (a for-of iterable, a dynamic-import specifier). Such a
     /// `+` never reaches the buggy runtime `+` path, so the string-typed-variable
@@ -643,6 +725,7 @@ impl TypeContext {
                 self.resolve_expression(&expr.right);
 
                 self.reject_runtime_string_store(expr);
+                self.reject_array_binding_scalar_reassignment(expr);
 
                 if self.resolve_late_env_assignment_mutation(expr) {
                     return;

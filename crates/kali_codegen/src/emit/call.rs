@@ -2327,6 +2327,19 @@ impl<'a> FunctionEmitter<'a> {
         Some(node.children.get(1).copied())
     }
 
+    /// If `id` (after unwrapping transparent value wrappers) is a bare identifier
+    /// reference, returns its text. Mirrors the bare-identifier arm shared by
+    /// `is_string_valued`/`is_float_valued` (`LirNodeKind::Value` with no children).
+    pub(crate) fn bare_identifier_name(&self, id: LirNodeId) -> Option<String> {
+        let target = self.unwrap_transparent_value_node(id);
+        let node = self.node(target);
+        if node.kind == LirNodeKind::Value && node.children.is_empty() {
+            node.text.clone()
+        } else {
+            None
+        }
+    }
+
     /// Bump-allocate an array of `size_arg` i64 elements in linear memory, storing the
     /// length at `+0`, advancing the `__heap` global, and leaving the i64 base handle on
     /// the stack. Layout: `[ length:i64 @ +0 ][ elem0 @ +8 ][ elem1 @ +16 ]…`.

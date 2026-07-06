@@ -99,3 +99,52 @@ fn non_ascii_element_length_is_rejected() {
         "byte-len .length on non-ASCII element must reject"
     );
 }
+
+#[test]
+fn array_alloc_reassignment_int_elements() {
+    // fastaRandom's partial-last-line shape; silent-wrong 0 on main 745a3ecea.
+    let out = run_source(
+        "function g(n) {\n  let a = new Array(60);\n  if (n < 60) {\n    a = new Array(n);\n  }\n  for (let i = 0; i < a.length; i = i + 1) {\n    a[i] = i * 10;\n  }\n  console.log(a[1]);\n  console.log(a.length);\n}\ng(3);\n",
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "10\n3\n");
+}
+
+#[test]
+fn array_alloc_reassignment_string_elements() {
+    let out = run_source(
+        "function g(n, s) {\n  let a = new Array(4);\n  if (n < 4) {\n    a = new Array(n);\n  }\n  for (let i = 0; i < a.length; i = i + 1) {\n    a[i] = s.substring(0, 1);\n  }\n  console.log(a[0] + a[1]);\n  console.log(a.length);\n}\ng(2, \"xy\");\n",
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "xx\n2\n");
+}
+
+#[test]
+fn array_to_array_binding_copy() {
+    let out = run_source(
+        "function g() {\n  const b = new Array(2);\n  b[0] = 5;\n  b[1] = 6;\n  let a = new Array(1);\n  a = b;\n  console.log(a[1]);\n  console.log(a.length);\n}\ng();\n",
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "6\n2\n");
+}
+
+#[test]
+fn scalar_reassignment_of_array_binding_is_rejected() {
+    let out = run_source("let a = new Array(2);\na[0] = 1;\na = 5;\nconsole.log(a[0]);\n");
+    assert!(
+        !out.status.success(),
+        "scalar into array binding must reject, not clobber the handle"
+    );
+}
