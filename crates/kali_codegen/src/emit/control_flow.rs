@@ -829,6 +829,32 @@ impl<'a> FunctionEmitter<'a> {
                 // handle used for element reads, for both i64 and f64 arrays.
                 if node.text.as_deref() == Some("length") {
                     let base_id = node.children[0];
+                    // Runtime string length: low 32 bits of the tagged handle
+                    // (byte count == JS code-unit count for ASCII-provable
+                    // strings; `kali_types`'s `reject_unprovable_string_length`
+                    // gate rejects everything else). MUST win before the array
+                    // interpretation below — repr_infer registers ANY `.length`
+                    // receiver as an array binding, and the array lane would
+                    // read garbage memory through a tagged handle. Excludes a
+                    // receiver resolvable as a static string (`.substring`-free
+                    // literal/const fold): that stays on the `emit_unary` fold
+                    // lane below, which counts UTF-16 units and is correct for
+                    // non-ASCII literals too, whereas the handle byte count is
+                    // not.
+                    if self.is_string_valued(base_id)
+                        && self.resolve_static_object_identity_value(base_id).is_none()
+                    {
+                        let base = self.emit_node(function, base_id, true);
+                        if !base.produced {
+                            function.instruction(&Instruction::I64Const(0));
+                        }
+                        function.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+                        function.instruction(&Instruction::I64And);
+                        return EmittedValue {
+                            produced: true,
+                            shape: ValueShape::Scalar,
+                        };
+                    }
                     if let Some(base_name) = self.assignment_target_name(node, base_id) {
                         if self.array_bindings.contains(&base_name) {
                             self.emit_array_base_address(function, base_id);

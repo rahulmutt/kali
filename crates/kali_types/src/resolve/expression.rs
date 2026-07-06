@@ -315,6 +315,48 @@ impl TypeContext {
         }
     }
 
+    /// True when `expr` is the SAME "compile-time constant" shape codegen's
+    /// own `.length` fold lanes recognize: a direct string/template literal
+    /// (or a `+`/wrapper chain rooted in one), or an IMMUTABLE (`const`)
+    /// alias of such. `resolve_static_string_expression` alone is broader —
+    /// its identifier arm resolves through `static_values`, which
+    /// `resolve/mod.rs` populates for every non-`var` declarator (`let`
+    /// included) — but codegen's fold-alias table (`self.bindings` in
+    /// `kali_codegen`) only ever aliases `const` bindings. A `let` receiver
+    /// that types-side static analysis can still compute (e.g. `let b = a +
+    /// ""`, never reassigned in this snippet) is NOT what codegen treats as
+    /// foldable: it materializes as a real runtime string handle, so it must
+    /// still clear the ASCII-provable check below, not bypass it.
+    fn expression_is_length_fold_receiver(&self, expr: &Expression) -> bool {
+        if let Expression::Identifier(name) = expr {
+            if self.binding_is_mutable(name) {
+                return false;
+            }
+        }
+        self.resolve_static_string_expression(expr).is_some()
+    }
+
+    /// `.length` gate: a runtime string receiver must be ASCII-provable
+    /// (handle len is a byte count; JS counts UTF-16 units — they agree only
+    /// for ASCII). Static-foldable receivers stay on the base fold lane,
+    /// which counts UTF-16 units and is correct for ANY literal.
+    pub(crate) fn reject_unprovable_string_length(&mut self, expr: &MemberExpression) {
+        if expr.computed_index.is_some() || expr.property.as_str() != "length" {
+            return;
+        }
+        if self.expression_is_length_fold_receiver(&expr.object) {
+            return;
+        }
+        let object_is_string = self.expression_is_string_typed(&expr.object)
+            || self.operand_repr_is_string(&expr.object);
+        if object_is_string && !self.expression_repr_is_ascii_string(&expr.object) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "'.length' on a runtime string value is unavailable unless the string is ASCII-provable in the current direct-runtime path; non-ASCII strings would report a byte count, not a JS character count".to_string(),
+            ));
+        }
+    }
+
     /// Resolves `expression` in a position where codegen folds a string-typed `+`
     /// to a static string (a for-of iterable, a dynamic-import specifier). Such a
     /// `+` never reaches the buggy runtime `+` path, so the string-typed-variable

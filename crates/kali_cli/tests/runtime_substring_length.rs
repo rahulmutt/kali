@@ -118,3 +118,81 @@ fn static_substring_fold_still_prints() {
     );
     assert_eq!(String::from_utf8_lossy(&out.stdout), "CC\n");
 }
+
+#[test]
+fn string_param_length_prints() {
+    let out = run_source("function f(seq) { return seq.length; }\nconsole.log(f(\"GGCCAATT\"));\n");
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "8\n");
+}
+
+#[test]
+fn substring_result_length_prints() {
+    // The fastaRepeat shape: `seqi = lenOut - s.length` on a slice.
+    let out = run_source(
+        "let a = \"GGCCAATT\";\nlet i = 6;\nlet s = a.substring(i);\nconsole.log(10 - s.length);\n",
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "8\n");
+}
+
+#[test]
+fn let_string_length_prints_directly() {
+    // Direct `console.log(a.length)` takes the console static-render lane
+    // first (`render_length`); a runtime string receiver must defer to the
+    // dynamic string-length arm, not bake in a static 0.
+    let out = run_source("let a = \"GGCC\";\nconsole.log(a.length);\n");
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "4\n");
+}
+
+#[test]
+fn non_ascii_string_length_is_rejected() {
+    // handle len is a byte count; "héllo".length must be 5, the handle says 6.
+    let out = run_source("let a = \"héllo\";\nlet b = a + \"\";\nconsole.log(b.length);\n");
+    assert!(
+        !out.status.success(),
+        "non-ASCII runtime .length must be rejected"
+    );
+}
+
+#[test]
+fn static_non_ascii_literal_length_still_prints_utf16_count() {
+    // Base fold lane: emit_unary counts UTF-16 units — correct for literals.
+    let out = run_source("console.log(\"héllo\".length);\n");
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "5\n");
+}
+
+#[test]
+fn array_length_still_prints() {
+    // NOTE: adapted from the brief's `let a = [1, 2, 3]` to `const` — a `let`
+    // numeric-array literal is not registered as an array binding today (a
+    // pre-existing gap unrelated to this task; only the `const` alias/fold
+    // path and `new Array`/`.fill` declarators register `array_bindings`).
+    // `const` exercises the actual working array-`.length` lane this task
+    // must leave untouched.
+    let out = run_source("const a = [1, 2, 3];\nconsole.log(a.length);\n");
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "3\n");
+}

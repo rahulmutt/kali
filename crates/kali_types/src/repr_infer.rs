@@ -1262,21 +1262,33 @@ impl ReprInfer {
             for (k, param_name) in params.iter().enumerate() {
                 let is_array_param =
                     array_bindings.contains(&(edge.callee.clone(), param_name.clone()));
-                if is_array_param {
+                let arg_identifier_name = edge.arg_array_names.get(k).cloned().flatten();
+                if let Some((caller, name)) = arg_identifier_name.filter(|_| is_array_param) {
                     // Array element flow is bidirectional shared storage: union
                     // the caller argument's element node with the param's. Only
-                    // meaningful when the argument is a bare identifier.
-                    if let Some(Some((caller, name))) = edge.arg_array_names.get(k) {
-                        let caller_elem = self.array_elem_node_for(caller, name);
-                        let param_elem = self.array_elem_node_for(&edge.callee, param_name);
-                        self.uf.union(caller_elem, param_elem);
-                        // Elements of the two arrays are the same objects.
-                        self.obj_flows.push((
-                            ObjSlot::ArrayElem(caller.clone(), name.clone()),
-                            ObjSlot::ArrayElem(edge.callee.clone(), param_name.clone()),
-                        ));
-                    }
+                    // meaningful when the argument is a bare identifier — the
+                    // only shape that can alias array storage.
+                    let caller_elem = self.array_elem_node_for(&caller, &name);
+                    let param_elem = self.array_elem_node_for(&edge.callee, param_name);
+                    self.uf.union(caller_elem, param_elem);
+                    // Elements of the two arrays are the same objects.
+                    self.obj_flows.push((
+                        ObjSlot::ArrayElem(caller, name),
+                        ObjSlot::ArrayElem(edge.callee.clone(), param_name.clone()),
+                    ));
                 } else if let Some(&arg_node) = edge.arg_nodes.get(k) {
+                    // Either a genuine scalar param, OR an "array" param
+                    // (registered purely by a `.length`-only receiver, e.g. a
+                    // string param never subscripted — see `visit_member`)
+                    // whose caller argument at this call site is NOT a bare
+                    // identifier (a literal, a call result, …) and so cannot
+                    // alias array storage above. Such an argument is a plain
+                    // value: wire the ordinary scalar/string/float flow edge
+                    // so, e.g., a string literal argument still proves a
+                    // `.length`-only param `Repr::String`. Safe for a true
+                    // array param too — there is no identifier to (mis)alias,
+                    // so this adds a value-flow signal where none existed
+                    // before, never overriding a real array union.
                     // Scalar arg flow is directional: arg -> param.
                     let pnode = self.scalar_node_for(&edge.callee, param_name);
                     self.add_edge(arg_node, pnode);
