@@ -29,12 +29,18 @@ pub(crate) fn generator_lowering_unavailable_message(
 }
 
 /// Names of every hand-emitted synthetic wasm function (not lowered from
-/// source LIR): the page-pool allocator family. Used to exclude them from
-/// coverage instrumentation (see the `kali:coverage` custom-section count
-/// below) and, in later tasks, anywhere else code needs to distinguish a
-/// real source-defined function from these fixed compiler-internal slots.
-pub const SYNTHETIC_FUNCTIONS: &[&str] =
-    &["__alloc", "__alloc_global", "__page_get", "__arena_reset"];
+/// source LIR): the page-pool allocator family, plus the runtime-substring
+/// helper (Spec 2). Used to exclude them from coverage instrumentation (see
+/// the `kali:coverage` custom-section count below) and, in later tasks,
+/// anywhere else code needs to distinguish a real source-defined function
+/// from these fixed compiler-internal slots.
+pub const SYNTHETIC_FUNCTIONS: &[&str] = &[
+    "__alloc",
+    "__alloc_global",
+    "__page_get",
+    "__arena_reset",
+    "__substring",
+];
 
 /// Generate WASM from LIR.
 pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResult {
@@ -233,6 +239,20 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         is_entry: false,
         flavor: None,
     });
+    // Synthetic runtime-substring `__substring(h: i64, s: i64, e: i64) -> i64`:
+    // pure-ALU zero-copy slice re-tag over a tagged string handle (Spec 2).
+    // Same inert-placeholder pattern as the four allocator synthetics above;
+    // body hand-emitted by `emit_substring_body`. Pass `e = i64::MAX` for the
+    // "to end of string" 0/1-arg forms — the clamp folds it to `len`.
+    all_functions.push(FunctionPlan {
+        name: "__substring".to_string(),
+        params: vec!["h".to_string(), "s".to_string(), "e".to_string()],
+        locals: Vec::new(),
+        body: lir.root,
+        result: true,
+        is_entry: false,
+        flavor: None,
+    });
     all_functions.extend(function_plans);
 
     for (idx, function) in all_functions.iter().enumerate() {
@@ -354,20 +374,29 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     let mut type_for_function = Vec::with_capacity(all_functions.len());
 
     for function in &all_functions {
-        // The four synthetic page-pool functions are not repr-directed user
-        // functions (they have no `ReprTable` entries at all), so their
-        // signatures are fixed here rather than derived from
-        // `ctx.repr_table.param`/`return_repr`, which would otherwise default
-        // them to `(i64) -> i64`. `__alloc`/`__alloc_global`/`__page_get` all
-        // share the one `(i32) -> i32` signature (deduped below to the same
-        // type index); `__arena_reset` is `() -> ()`, which `_start` (also
-        // no params, no result) already registers as a type, so it reuses
-        // that entry too rather than adding a new one.
+        // The four allocator synthetic page-pool functions (plus
+        // `__substring`) are not repr-directed user functions (they have no
+        // `ReprTable` entries at all), so their signatures are fixed here
+        // rather than derived from `ctx.repr_table.param`/`return_repr`,
+        // which would otherwise default them to `(i64) -> i64`.
+        // `__alloc`/`__alloc_global`/`__page_get` all share the one
+        // `(i32) -> i32` signature (deduped below to the same type index);
+        // `__arena_reset` is `() -> ()`, which `_start` (also no params, no
+        // result) already registers as a type, so it reuses that entry too
+        // rather than adding a new one. `__substring` is `(i64, i64, i64) ->
+        // i64`, deduped below same as any other function with that shape
+        // (e.g. a real 3-arg all-integer function, if one exists in the
+        // program) rather than a new type per module.
         let (params, results) = if matches!(
             function.name.as_str(),
             "__alloc" | "__alloc_global" | "__page_get"
         ) {
             (vec![ValType::I32], vec![ValType::I32])
+        } else if function.name == "__substring" {
+            (
+                vec![ValType::I64, ValType::I64, ValType::I64],
+                vec![ValType::I64],
+            )
         } else if function.name == "__arena_reset" {
             (Vec::new(), Vec::new())
         } else {
@@ -518,6 +547,10 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         //     each place it's needed instead).
         //   `__arena_reset` (`emit_arena_reset_body`): 2 — `p`, `next`
         //     (locals 0, 1; no params).
+        //   `__substring` (`emit_substring_body`): 1 i64 — the swap temp
+        //     (local 3; locals 0-2 are its `h`/`s`/`e` params). `len` is
+        //     recomputed from `h` rather than stored, so no further local
+        //     is needed.
         let mut local_decls: Vec<(u32, ValType)> = Vec::new();
         if matches!(function.name.as_str(), "__alloc" | "__alloc_global") {
             local_decls.push((2, ValType::I32));
@@ -525,6 +558,8 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             local_decls.push((4, ValType::I32));
         } else if function.name == "__arena_reset" {
             local_decls.push((2, ValType::I32));
+        } else if function.name == "__substring" {
+            local_decls.push((1, ValType::I64));
         } else {
             for local_name in &function.locals {
                 // A `__arena_save_*` local (Step 2 of loop-arena provisioning)
@@ -584,6 +619,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                 "__alloc_global" => emit_bump_body(&mut body, 4, 5, 6, page_get_index),
                 "__page_get" => emit_page_get_body(&mut body),
                 "__arena_reset" => emit_arena_reset_body(&mut body),
+                "__substring" => emit_substring_body(&mut body),
                 other => unreachable!("unhandled synthetic function {other}"),
             }
         } else if function.is_entry {
@@ -2162,6 +2198,80 @@ fn emit_arena_reset_body(func: &mut Function) {
     func.instruction(&Instruction::GlobalSet(2));
     func.instruction(&Instruction::I32Const(0));
     func.instruction(&Instruction::GlobalSet(3));
+}
+
+/// `__substring(h, s, e) -> i64`: zero-copy slice of a tagged string handle.
+/// Locals: 0 = h, 1 = s, 2 = e (params), 3 = swap temp.
+/// len is recomputed from `h` (2 instructions) rather than stored.
+fn emit_substring_body(func: &mut Function) {
+    // s = max(s, 0)
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::I64LtS);
+    func.instruction(&Instruction::Select);
+    func.instruction(&Instruction::LocalSet(1));
+    // s = min(s, len)
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I64GtS);
+    func.instruction(&Instruction::Select);
+    func.instruction(&Instruction::LocalSet(1));
+    // e = max(e, 0)
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::I64LtS);
+    func.instruction(&Instruction::Select);
+    func.instruction(&Instruction::LocalSet(2));
+    // e = min(e, len)
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I64GtS);
+    func.instruction(&Instruction::Select);
+    func.instruction(&Instruction::LocalSet(2));
+    // if s > e { t = s; s = e; e = t }   (JS substring swaps its bounds)
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64GtS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::LocalSet(1));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalSet(2));
+    func.instruction(&Instruction::End);
+    // TAG | (off + s) << 32 | (e - s)   where off = (h >> 32) & 0x7FFF_FFFF
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I64Const(32));
+    func.instruction(&Instruction::I64ShrU);
+    func.instruction(&Instruction::I64Const(0x7FFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::I64Const(32));
+    func.instruction(&Instruction::I64Shl);
+    func.instruction(&Instruction::I64Const(crate::STRING_HANDLE_TAG as i64));
+    func.instruction(&Instruction::I64Or);
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Sub);
+    func.instruction(&Instruction::I64Or);
 }
 
 pub(crate) fn top_level_children(lir: &LirProgram) -> Vec<LirNodeId> {
