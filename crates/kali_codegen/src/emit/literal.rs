@@ -373,6 +373,10 @@ impl<'a> FunctionEmitter<'a> {
                                         memory_index: 0,
                                     }));
                                 }
+                                // Spec 3 activates the `String` case here: a
+                                // proven string-element store lowers through the
+                                // same i64-slot path (the value is a tagged string
+                                // handle), no store-side change needed.
                                 kali_common::Repr::I64
                                 | kali_common::Repr::Object(_)
                                 | kali_common::Repr::String => {
@@ -436,6 +440,37 @@ impl<'a> FunctionEmitter<'a> {
 
         match op {
             "=" => {
+                // `a = new Array(n)`: same routing as the declarator path
+                // (control_flow.rs:596-610) — the allocation needs a stable
+                // handle in the local, and the binding (re)registers as an
+                // array so element/length lanes stay routed. Uses `LocalTee`
+                // (not the declarator's `LocalSet`) because this arm is an
+                // assignment EXPRESSION: it must leave the assigned value on
+                // the stack, mirroring the generic path below.
+                if let Some(size_arg) = self.resolve_array_alloc_call(right) {
+                    let allocated = self.emit_array_allocation(function, size_arg);
+                    if !allocated.produced {
+                        function.instruction(&Instruction::I64Const(0));
+                    }
+                    function.instruction(&Instruction::LocalTee(index));
+                    self.array_bindings.insert(name.clone());
+                    return true;
+                }
+                // `a = b` where `b` is an array binding: the local already
+                // holds an i64 handle either way, but `a` must (re)register
+                // as an array binding so its element/length lanes stay
+                // routed after the reassignment.
+                if let Some(rhs_name) = self.bare_identifier_name(right) {
+                    if self.array_bindings.contains(&rhs_name) {
+                        let rhs = self.emit_node(function, right, true);
+                        if !rhs.produced {
+                            function.instruction(&Instruction::I64Const(0));
+                        }
+                        function.instruction(&Instruction::LocalTee(index));
+                        self.array_bindings.insert(name.clone());
+                        return true;
+                    }
+                }
                 let rhs = self.emit_node(function, right, true);
                 // Promote an integer-valued rhs when the target local holds an f64.
                 let f64_target = self.scalar_repr(&name) == kali_common::Repr::F64;

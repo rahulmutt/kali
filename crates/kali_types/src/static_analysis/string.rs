@@ -368,6 +368,23 @@ impl TypeContext {
 
         let source = self.resolve_static_string_expression(&member.object);
         if source.is_none() {
+            // Non-static receiver. A PROVEN runtime string receiver (the same
+            // `operand_repr_is_string` signal codegen's `is_string_valued`
+            // consults) has no slice lowering — the general member-call
+            // dispatch also runs `resolve_array_slice_member_call` on every
+            // `.slice(...)` call, which already rejects any non-static,
+            // non-argv/Deno.args receiver, so this branch does not change
+            // whether the program compiles; it exists to attach the correct,
+            // string-specific diagnostic instead of the array gate's
+            // misleading "Array.prototype.slice" message. Unproven receivers
+            // keep the silent early return (they reject via the array gate
+            // fallthrough, or are not strings at all).
+            if self.operand_repr_is_string(&member.object) {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "String.prototype.slice is unavailable on runtime string receivers in the current direct-runtime path; use substring".to_string(),
+                ));
+            }
             return;
         }
 

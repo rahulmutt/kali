@@ -706,6 +706,48 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// Base binding name iff `node` is a dynamic array-element read this
+    /// emitter routes to `emit_dynamic_array_read{_node}`. SINGLE source of
+    /// truth shared by the two dispatch sites in `emit_value` and by the string
+    /// oracles (`is_string_valued`, `is_runtime_concat_string`), so the emitter
+    /// and the oracles can never drift about which nodes are element reads.
+    ///
+    /// Mirrors each dispatch site's guard exactly:
+    /// - 1-child `[object]` (dot/literal-index): a non-empty index `text` over
+    ///   an array binding — EXCLUDING `.length`, which the dedicated length lane
+    ///   handles before the dynamic-read dispatch is ever reached (so a `.length`
+    ///   node with an array base never routes here, and the oracles must not
+    ///   mistake it for an element read).
+    /// - 2-child `[object, index]` (computed): not a binary operator, not a
+    ///   static-index fold, over an array binding.
+    pub(crate) fn dynamic_array_read_base(&self, node: &LirNode) -> Option<String> {
+        match node.children.len() {
+            1 => {
+                let index_text = node.text.as_deref()?;
+                if index_text.is_empty() || index_text == "length" {
+                    return None;
+                }
+                let base_name = self.assignment_target_name(node, node.children[0])?;
+                self.array_bindings
+                    .contains(&base_name)
+                    .then_some(base_name)
+            }
+            2 => {
+                if is_binary_operator_text(node.text.as_deref().unwrap_or_default()) {
+                    return None;
+                }
+                if self.resolve_static_index_member(node).is_some() {
+                    return None;
+                }
+                let base_name = self.assignment_target_name(node, node.children[0])?;
+                self.array_bindings
+                    .contains(&base_name)
+                    .then_some(base_name)
+            }
+            _ => None,
+        }
+    }
+
     pub(crate) fn emit_value(
         &mut self,
         function: &mut Function,
@@ -876,18 +918,18 @@ impl<'a> FunctionEmitter<'a> {
                     }
                 }
 
-                // Dynamic array element read: `a[i]` where `a` is a linear-memory array.
-                if let Some(index_text) = node.text.as_deref() {
-                    if !index_text.is_empty() {
-                        let base_id = node.children[0];
-                        if let Some(base_name) = self.assignment_target_name(node, base_id) {
-                            if self.array_bindings.contains(&base_name) {
-                                return self.emit_dynamic_array_read(
-                                    function, base_id, index_text, &base_name,
-                                );
-                            }
-                        }
-                    }
+                // Dynamic array element read: `a[i]` where `a` is a linear-memory
+                // array. Recognizer shared with the string oracles via
+                // `dynamic_array_read_base` (same guard: non-empty, non-`length`
+                // index text over an array binding).
+                if let Some(base_name) = self.dynamic_array_read_base(node) {
+                    let index_text = node.text.as_deref().unwrap_or_default();
+                    return self.emit_dynamic_array_read(
+                        function,
+                        node.children[0],
+                        index_text,
+                        &base_name,
+                    );
                 }
 
                 if node.text.as_deref().unwrap_or_default().is_empty() {
@@ -913,14 +955,17 @@ impl<'a> FunctionEmitter<'a> {
                 // Dynamic linear-memory read `a[<expr>]` when the base is an array
                 // binding; otherwise fall back to member handling (e.g. host
                 // member chains such as `globalThis["process"]["pid"]`), matching
-                // the single-child member path.
-                let base_id = node.children[0];
-                let index_id = node.children[1];
-                if let Some(base_name) = self.assignment_target_name(node, base_id) {
-                    if self.array_bindings.contains(&base_name) {
-                        return self
-                            .emit_dynamic_array_read_node(function, base_id, index_id, &base_name);
-                    }
+                // the single-child member path. Recognizer shared with the string
+                // oracles via `dynamic_array_read_base` (the binary-operator and
+                // static-index-fold cases above have already returned, so the
+                // helper's re-checks of them are no-ops here).
+                if let Some(base_name) = self.dynamic_array_read_base(node) {
+                    return self.emit_dynamic_array_read_node(
+                        function,
+                        node.children[0],
+                        node.children[1],
+                        &base_name,
+                    );
                 }
 
                 self.emit_unary(function, node)

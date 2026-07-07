@@ -785,3 +785,35 @@ fn substring_member_call_is_not_an_unknown_call() {
     let table = compute_arena_table(&mir);
     assert!(table.loop_arena("f", 0));
 }
+
+// --- Spec 3 Task 3: join is a global-arena scalar, not an unknown call -------
+
+#[test]
+fn join_member_call_keeps_loop_arena_even_when_result_flows_outward() {
+    // Compound pin for BOTH Task 3 arms — this loop grant REDs if either is
+    // deleted:
+    //  1. arena_gate's `"join"` exemption in `arena_note_call_expr`: without
+    //     it the member call falls into `else { arena_note_unknown_call() }`
+    //     and `has_unknown_call` vetoes the loop (like
+    //     `loop_veto_on_unknown_call`).
+    //  2. escape_flow's `.join(..)` -> `ValueClass::Scalar` arm: `out` is
+    //     declared OUTSIDE the loop, so `out = a.join(",")` pushes an outflow
+    //     site classed by `classify_value` — without the arm the call-result
+    //     fallback is may-heap and `has_outflow` vetoes the loop (like
+    //     `loop_veto_on_outer_binding_assignment`). With the arm the copied
+    //     `__alloc_global` string is Scalar and the store is harmless.
+    // The `{ v: i }` literal supplies the reachable allocation the grant
+    // needs, exactly as in the substring test above.
+    let mir = analyze(
+        "function f(a, n) {
+           let out = 0;
+           for (let i = 0; i < n; i = i + 1) {
+             const t = { v: i };
+             out = a.join(\",\");
+           }
+           return 0;
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    assert!(table.loop_arena("f", 0));
+}

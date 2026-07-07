@@ -474,6 +474,18 @@ impl TypeContext {
                     self.record_generator_function_lowering(*is_async);
                 }
                 self.bind_name_list(params);
+                // Structural runtime-array registry (C1): an array-typed
+                // PARAMETER is registered by codegen's emitter (emitter.rs:
+                // `repr_table.is_array_binding(function_name, name)`). Mirror
+                // that here so a `join`/store/`.length` on an array param stays
+                // in lockstep with what codegen lowers.
+                for param in params {
+                    if self.repr_table.is_array_binding(name, param) {
+                        if let Some(scope) = self.scopes.get_mut(&function_scope_id) {
+                            scope.runtime_array_bindings.insert(param.clone(), true);
+                        }
+                    }
+                }
                 self.resolve_block_body(body);
                 self.in_generator_function = previous_generator;
                 self.current_function_scopes.pop();
@@ -588,6 +600,37 @@ impl TypeContext {
                     } else if self.global_scope.contains(&declarator.id) {
                         self.global_scope
                             .static_string_typed
+                            .insert(declarator.id.clone(), true);
+                    }
+                }
+                // Track array-literal bindings for EVERY kind (incl. `var`):
+                // the runtime `join` lane rejects them (codegen never linearizes
+                // a literal array into a runtime binding — it would emit `0`).
+                if matches!(init, Expression::ArrayExpression(_)) {
+                    if let Some(scope) = self.scopes.get_mut(&target_scope) {
+                        scope
+                            .array_literal_bindings
+                            .insert(declarator.id.clone(), true);
+                    } else if self.global_scope.contains(&declarator.id) {
+                        self.global_scope
+                            .array_literal_bindings
+                            .insert(declarator.id.clone(), true);
+                    }
+                }
+                // Structural runtime-array registry (C1): register a declarator
+                // whose init codegen backs with a linear-memory allocation
+                // (`new Array(n)` / `Array(n)` / `.fill(...)`), mirroring
+                // codegen's `array_bindings` declarator registration. The
+                // string store / `.length` / `join` lanes require this
+                // structural proof, not the repr-table proof alone.
+                if self.declarator_registers_runtime_array(init) {
+                    if let Some(scope) = self.scopes.get_mut(&target_scope) {
+                        scope
+                            .runtime_array_bindings
+                            .insert(declarator.id.clone(), true);
+                    } else if self.global_scope.contains(&declarator.id) {
+                        self.global_scope
+                            .runtime_array_bindings
                             .insert(declarator.id.clone(), true);
                     }
                 }

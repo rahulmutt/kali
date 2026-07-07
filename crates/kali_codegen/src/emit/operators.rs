@@ -562,6 +562,20 @@ impl<'a> FunctionEmitter<'a> {
         // string literal. Resolving first classifies the node `emit_node` will
         // actually emit.
         let id = self.resolve_bound_node(id);
+        // Computed element read `a[i]` of an array whose element axis is proven
+        // `Repr::String` (Spec 3). Uses the SAME recognizer the emitter dispatch
+        // routes with (`dynamic_array_read_base`), so the oracle and the emitter
+        // agree exactly on which nodes load a string element. Mirror of the
+        // types-side `expression_is_string_typed`/`operand_repr_is_string`
+        // computed-member arms.
+        if let Some(base) = self.dynamic_array_read_base(self.node(id)) {
+            return self.array_elem_repr(&base) == kali_common::Repr::String;
+        }
+        // Runtime `a.join(sep)` produces a string (Spec 3). Same recognizer the
+        // emitter dispatch routes with, so the oracle and emitter agree.
+        if self.runtime_join_call_parts(self.node(id)).is_some() {
+            return true;
+        }
         let node = self.node(id);
         match node.kind {
             LirNodeKind::Literal => node.text.as_deref().is_some_and(|text| {
@@ -623,6 +637,24 @@ impl<'a> FunctionEmitter<'a> {
     pub(crate) fn is_runtime_concat_string(&self, id: LirNodeId) -> bool {
         let id = self.unwrap_transparent(id);
         let id = self.resolve_bound_node(id);
+        // Computed element read `a[i]`: tainted (a fresh, non-interned runtime
+        // handle that must not be identity-compared) iff the array's String
+        // element axis was reached by a runtime-concat store (Spec 3). Same
+        // recognizer + function-key convention as `is_string_valued`; an interned
+        // literal element (never concat-tainted) returns false, keeping
+        // `a[i] == "lit"` an allowed identity comparison. This is the sole
+        // gate for the `==`/`!=` element-taint rejection (`emit_binary`).
+        if let Some(base) = self.dynamic_array_read_base(self.node(id)) {
+            return self
+                .repr_table
+                .is_array_element_concat_tainted(&self.function_name, &base);
+        }
+        // Runtime `a.join(sep)` yields a FRESH runtime buffer: interned identity
+        // never holds, so it is always concat-tainted (identity `==` must
+        // reject). Same recognizer as `is_string_valued`.
+        if self.runtime_join_call_parts(self.node(id)).is_some() {
+            return true;
+        }
         let node = self.node(id);
         match node.kind {
             // Interned literal constant: identity == value, never tainted.

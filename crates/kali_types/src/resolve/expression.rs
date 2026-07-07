@@ -71,6 +71,15 @@ impl TypeContext {
             Expression::Literal(LiteralValue::String(_)) => true,
             Expression::TemplateLiteral(_) => true,
             Expression::Identifier(name) => self.binding_is_string_typed(name),
+            // Computed element read `a[i]` of an array whose element axis is
+            // proven `Repr::String` (Spec 3). Mirror of codegen's
+            // `is_string_valued` `dynamic_array_read_base` arm — both classify
+            // the loaded element as a string so the `+`/`.length` gates and the
+            // print/concat lowering agree.
+            Expression::MemberExpression(member) if member.computed_index.is_some() => {
+                matches!(&member.object, Expression::Identifier(base)
+                    if self.string_element_array_binding(base))
+            }
             Expression::BinaryExpression(expr) if expr.operator == "+" => {
                 self.expression_is_string_typed(&expr.left)
                     || self.expression_is_string_typed(&expr.right)
@@ -163,21 +172,42 @@ impl TypeContext {
     ///   suppress the gate. FAIL CLOSED (return `false`) instead of guessing.
     fn identifier_repr_is_string(&self, name: &str) -> bool {
         use kali_common::Repr;
+        match self.binding_repr_function_key(name) {
+            Some(func) => self.repr_table.scalar(&func, name) == Repr::String,
+            None => false,
+        }
+    }
+
+    /// Resolves the `ReprTable` function-key under which a binding named `name`
+    /// is recorded, mirroring codegen's local-vs-module dichotomy EXACTLY as the
+    /// (now-thin) `identifier_repr_is_string` scalar lookup does — the single
+    /// scope-chain walk shared by every "what codegen thinks this binding's repr
+    /// is" query (scalar String, array-element String, element non-ASCII/taint).
+    ///
+    /// - `Some(current_function_name())` — `name` is declared at or before the
+    ///   tracked function's own `Function` scope, so it is local to the wasm
+    ///   function codegen is about to emit.
+    /// - `Some("_start")` — the walk reached module/global scope (or the tracked
+    ///   function's top scope) without finding `name`: a free reference to a
+    ///   module-level binding, mirroring codegen's `self.locals`-miss fallback.
+    /// - `None` — the walk crossed a `Function` scope that is NOT
+    ///   `current_function_scope()` (an arrow/function-expression/method/`export
+    ///   default function` body that does not push onto `current_function`):
+    ///   neither table lookup is safe, so callers FAIL CLOSED.
+    fn binding_repr_function_key(&self, name: &str) -> Option<String> {
         let tracked_scope = self.current_function_scope();
         let mut current = self.current_scope_id();
         loop {
             let Some(scope_id) = current else {
                 // Reached module/global scope: free top-level reference.
-                return self.repr_table.scalar("_start", name) == Repr::String;
+                return Some("_start".to_string());
             };
-            let Some(scope) = self.scopes.get(&scope_id) else {
-                return false;
-            };
+            let scope = self.scopes.get(&scope_id)?;
             if scope.scope_type == ScopeType::Function && Some(scope_id) != tracked_scope {
-                return false;
+                return None;
             }
             if scope.contains(name) {
-                return self.repr_table.scalar(self.current_function_name(), name) == Repr::String;
+                return Some(self.current_function_name().to_string());
             }
             if scope.scope_type == ScopeType::Function {
                 // Reached the tracked function's own top scope without finding
@@ -185,9 +215,142 @@ impl TypeContext {
                 // which unconditionally consults the module `_start` table
                 // regardless of any further-enclosing scope (codegen does not
                 // model closures over an outer function's locals).
-                return self.repr_table.scalar("_start", name) == Repr::String;
+                return Some("_start".to_string());
             }
             current = scope.parent;
+        }
+    }
+
+    /// True iff `name` is STRUCTURALLY registered as a codegen runtime array
+    /// binding in the CURRENT function — the types-side mirror of codegen's
+    /// `array_bindings` membership (see `Scope::runtime_array_bindings`). Walks
+    /// the scope chain exactly like `binding_repr_function_key`: it stops at the
+    /// tracked function's own boundary, so a binding registered in an OUTER
+    /// function (or, from within a named function, at module scope) is NOT
+    /// structural here — codegen's emitter for this function would never have
+    /// registered it. Only when emitting `_start` (no tracked function) does the
+    /// walk reach module/global scope, matching codegen's `_start` locals.
+    ///
+    /// - crossing an UNTRACKED function-shaped scope (arrow/method/etc.) ⇒
+    ///   `false` (fail-closed, same reason as `binding_repr_function_key`),
+    /// - reaching the tracked function's own top scope without a hit ⇒ `false`
+    ///   (a free module reference codegen does NOT register in this function).
+    pub(crate) fn is_structural_runtime_array(&self, name: &str) -> bool {
+        let tracked_scope = self.current_function_scope();
+        let mut current = self.current_scope_id();
+        loop {
+            let Some(scope_id) = current else {
+                // Reached module/global (only possible under `_start`, whose
+                // tracked scope is `None`): module bindings are `_start`-local
+                // to codegen, so a top-level `new Array` IS structural here.
+                return self.global_scope.runtime_array_bindings.contains_key(name);
+            };
+            let Some(scope) = self.scopes.get(&scope_id) else {
+                return false;
+            };
+            if scope.scope_type == ScopeType::Function && Some(scope_id) != tracked_scope {
+                // Crossed into a function `current_function_name()` does not
+                // name — fail closed rather than guess.
+                return false;
+            }
+            if scope.runtime_array_bindings.contains_key(name) {
+                return true;
+            }
+            if scope.scope_type == ScopeType::Function {
+                // Tracked function's own top scope, no hit: a free module
+                // reference codegen's emitter for this function never registers.
+                return false;
+            }
+            current = scope.parent;
+        }
+    }
+
+    /// True when `expr` is a DECLARATOR init that codegen registers as a runtime
+    /// array binding: `new Array(...)`, the bare `Array(...)` call form (both
+    /// funnel through codegen's `resolve_array_alloc_call`), or a `.fill(...)`
+    /// over such an allocation / an already-structural array binding (codegen's
+    /// `resolve_array_fill_call`, control_flow.rs). NARROWER than
+    /// `rhs_is_array_shape`: it deliberately EXCLUDES the bare-identifier copy
+    /// (`const c = a`), which codegen's declarator path does NOT register (only
+    /// the `=` reassignment arm registers an identifier copy).
+    pub(crate) fn declarator_registers_runtime_array(&self, expr: &Expression) -> bool {
+        match expr {
+            // `new Array(n)`: callee is the `CallExpression` `Array(n)` (see
+            // `rhs_is_array_shape`); bare `new Array` is the Identifier form.
+            Expression::NewExpression(new_expr) => {
+                matches!(&new_expr.callee, Expression::Identifier(name) if name == "Array")
+                    || matches!(&new_expr.callee, Expression::CallExpression(call)
+                        if matches!(&call.callee, Expression::Identifier(name) if name == "Array"))
+            }
+            Expression::CallExpression(call) => {
+                if matches!(&call.callee, Expression::Identifier(name) if name == "Array") {
+                    return true;
+                }
+                // `<recv>.fill(v)` — recv is a fresh `new Array(n)`/`Array(n)`
+                // allocation or an already-structural runtime array binding.
+                if let Expression::MemberExpression(member) = &call.callee {
+                    if member.computed_index.is_none() && member.property.as_str() == "fill" {
+                        return self.declarator_registers_runtime_array(&member.object)
+                            || matches!(&member.object, Expression::Identifier(name)
+                                if self.is_structural_runtime_array(name));
+                    }
+                }
+                false
+            }
+            _ => false,
+        }
+    }
+
+    /// Register `name` as a structural runtime array binding in the scope where
+    /// it is declared (module/global fallback otherwise). Grow-only, mirroring
+    /// codegen's insert-only `array_bindings`. Scope-walk twin of
+    /// `mark_binding_string_typed`.
+    pub(crate) fn register_runtime_array_binding(&mut self, name: &str) {
+        let mut current = self.current_scope_id();
+        while let Some(scope_id) = current {
+            if let Some(scope) = self.scopes.get_mut(&scope_id) {
+                if scope.bindings.contains_key(name) {
+                    scope.runtime_array_bindings.insert(name.to_string(), true);
+                    return;
+                }
+                current = scope.parent;
+            } else {
+                return;
+            }
+        }
+        if self.global_scope.bindings.contains_key(name) {
+            self.global_scope
+                .runtime_array_bindings
+                .insert(name.to_string(), true);
+        }
+    }
+
+    /// True iff `name` resolves to a linear-memory array binding whose element
+    /// repr is proven `Repr::String` by the inference (Spec 3 store/read/join
+    /// lane). Reuses the SAME function-key resolution as
+    /// `identifier_repr_is_string` (via `binding_repr_function_key`) so the F1
+    /// store gate, the read-side mirrors, and codegen's element oracles all key
+    /// the same `ReprTable` entry and never disagree. Fail-closed: an
+    /// untracked-function boundary (`None` key) reports false.
+    pub(crate) fn string_element_array_binding(&self, name: &str) -> bool {
+        use kali_common::Repr;
+        match self.binding_repr_function_key(name) {
+            Some(func) => {
+                self.repr_table.is_array_binding(&func, name)
+                    && self.repr_table.array_element(&func, name) == Repr::String
+            }
+            None => false,
+        }
+    }
+
+    /// True when array binding `name`'s String element axis may hold non-ASCII
+    /// text (a `.length` byte count would then disagree with JS's UTF-16 unit
+    /// count). Same key resolution as `string_element_array_binding`; fail-closed
+    /// (unknown key ⇒ assume non-ASCII ⇒ reject).
+    pub(crate) fn array_element_non_ascii(&self, name: &str) -> bool {
+        match self.binding_repr_function_key(name) {
+            Some(func) => self.repr_table.is_array_element_non_ascii(&func, name),
+            None => true,
         }
     }
 
@@ -196,13 +359,30 @@ impl TypeContext {
     /// so the gate and codegen never disagree. Covers a string-typed identifier
     /// (variable/param, via `identifier_repr_is_string`) and a call to a
     /// string-returning function.
-    fn operand_repr_is_string(&self, operand: &Expression) -> bool {
+    pub(crate) fn operand_repr_is_string(&self, operand: &Expression) -> bool {
         use kali_common::Repr;
         match operand {
             Expression::Identifier(name) => self.identifier_repr_is_string(name),
+            // Computed element read `a[i]` of a proven `Repr::String` array
+            // (Spec 3) — same signal codegen's `is_string_valued`
+            // `dynamic_array_read_base` arm consults.
+            Expression::MemberExpression(member) if member.computed_index.is_some() => {
+                matches!(&member.object, Expression::Identifier(base)
+                    if self.string_element_array_binding(base))
+            }
             Expression::CallExpression(call) => match &call.callee {
                 Expression::Identifier(callee) => {
                     self.repr_table.return_repr(callee) == Repr::String
+                }
+                // Runtime `a.join(sep)` over a proven `Repr::String`-element
+                // array binding produces a runtime string (Spec 3) — same
+                // signal codegen's `is_string_valued` `runtime_join_call_parts`
+                // arm consults.
+                Expression::MemberExpression(member)
+                    if member.computed_index.is_none() && member.property.as_str() == "join" =>
+                {
+                    matches!(&member.object, Expression::Identifier(base)
+                        if self.string_element_array_binding(base))
                 }
                 _ => false,
             },
@@ -241,6 +421,15 @@ impl TypeContext {
             Expression::Identifier(name) => {
                 self.identifier_repr_is_string(name)
                     && !self.identifier_string_may_be_non_ascii(name)
+            }
+            // Computed element read `a[i]` of a proven `Repr::String` array is
+            // ASCII iff the element axis was never reached by a non-ASCII seed
+            // (Spec 3). This is what lets `a[i].length`/`a[i].substring(...)`
+            // through on ASCII element arrays and rejects them on non-ASCII ones.
+            Expression::MemberExpression(member) if member.computed_index.is_some() => {
+                matches!(&member.object, Expression::Identifier(base)
+                    if self.string_element_array_binding(base)
+                        && !self.array_element_non_ascii(base))
             }
             Expression::CallExpression(call) => match &call.callee {
                 Expression::Identifier(callee) => {
@@ -327,6 +516,30 @@ impl TypeContext {
                     "root the concatenation in a string literal (\"\" + value), build the string with literal-rooted concatenation, or use the later compatibility path",
                 ),
             );
+        }
+    }
+
+    /// Operand-position layer for `&&`/`||`: a PROVEN runtime-string operand
+    /// (`operand_repr_is_string` — the same signal codegen's `is_string_valued`
+    /// consults, narrower than `expression_is_string_typed`) has no correct
+    /// runtime lowering here. `&&`/`||` truthiness-test their left operand to
+    /// pick a side, exactly the defect `reject_string_condition_expression`
+    /// rejects for a ternary test — and unlike the ternary, `&&`/`||` can also
+    /// YIELD the proven-string operand itself into a caller expression (a
+    /// store, an object-literal value, a call argument): `1 && s` prints the
+    /// int `1` instead of the string `s` (probed: silent-wrong on this
+    /// branch). No correct runtime case exists for a proven string operand of
+    /// `&&`/`||`, so reject outright rather than trying to characterize which
+    /// downstream uses would be sound.
+    fn reject_logical_operand_runtime_string(&mut self, expr: &BinaryExpression) {
+        if !matches!(expr.operator.as_str(), "&&" | "||") {
+            return;
+        }
+        if self.operand_repr_is_string(&expr.left) || self.operand_repr_is_string(&expr.right) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "a runtime string value is unavailable as an operand of '&&'/'||' in the current direct-runtime path; truthiness of a runtime string is not evaluated correctly and the operator may yield the string into an unsupported position".to_string(),
+            ));
         }
     }
 
@@ -437,9 +650,43 @@ impl TypeContext {
             return self.expression_is_runtime_string_value(&cond.consequent)
                 || self.expression_is_runtime_string_value(&cond.alternate);
         }
+        // `&&`/`||`/`??` yield one of their two operands at runtime (whichever
+        // the short-circuit picks) — a runtime string iff EITHER operand is,
+        // same self-recursing shape as the ternary arm above. The parser has
+        // NO `LogicalExpression` production (verified Task 7): `a && b` / `a
+        // || b` / `a ?? b` all lower to `BinaryExpression` with that operator
+        // string, so this arm keys on `BinaryExpression`, not the (dead)
+        // `LogicalExpression` AST variant.
+        if let Expression::BinaryExpression(binary) = expr {
+            if matches!(binary.operator.as_str(), "&&" | "||" | "??") {
+                return self.expression_is_runtime_string_value(&binary.left)
+                    || self.expression_is_runtime_string_value(&binary.right);
+            }
+        }
         if let Expression::CallExpression(call) = expr {
             if let Expression::MemberExpression(member) = &call.callee {
+                // Runtime `a.join(sep)` over a proven `Repr::String`-element
+                // array binding is a runtime string producer (a fresh buffer),
+                // alongside the substring fallthrough. Both mirror codegen's
+                // `is_string_valued`. Non-identifier receivers fall through to
+                // the substring check and then to `false` (fail-closed).
+                if member.computed_index.is_none() && member.property.as_str() == "join" {
+                    return matches!(&member.object, Expression::Identifier(base)
+                        if self.string_element_array_binding(base));
+                }
                 return member.computed_index.is_none() && member.property.as_str() == "substring";
+            }
+        }
+        // Computed element read `a[i]` of a proven `Repr::String` array is a
+        // runtime string value (Spec 3). Subsumed by the `expression_is_string_typed`
+        // check above, but kept explicit so this predicate — the one the F1 store
+        // gate and the array-literal element gate consult directly — recognizes
+        // the shape on its own, in lockstep with the other read-side mirrors.
+        if let Expression::MemberExpression(member) = expr {
+            if member.computed_index.is_some() {
+                if let Expression::Identifier(base) = &member.object {
+                    return self.string_element_array_binding(base);
+                }
             }
         }
         false
@@ -450,16 +697,212 @@ impl TypeContext {
     /// exclusion, Spec 1) — a stored runtime string would read back as a raw
     /// number or compare by meaningless handle identity.
     pub(crate) fn reject_runtime_string_store(&mut self, assign: &AssignmentExpression) {
-        let Expression::MemberExpression(_) = &assign.left else {
+        let Expression::MemberExpression(member) = &assign.left else {
             return;
         };
         if !self.expression_is_runtime_string_value(&assign.right) {
             return;
         }
+        // Spec 3 lane: element stores into arrays with proven String elements
+        // are supported — the read side, the oracle arms, and mixed arrays'
+        // shape conflicts (repr_infer emits E5506 for a string+number element
+        // mix) make this sound. The subscript-target shape MIRRORS the `a[i] = v`
+        // recognizer in `repr_infer::visit_assignment` (computed index over a
+        // bare-identifier base). Fields and every unproven target keep rejecting.
+        // The accept path also requires STRUCTURAL registration (C1): a
+        // repr-proven String-element array that codegen never registers in
+        // this function's `array_bindings` (a call-result capture
+        // `const c = mk(); c[0] = ...`) has no element-store lowering — codegen
+        // falls through and the read silently yields `0`. Require
+        // `is_structural_runtime_array` so such a target rejects (fail-closed).
+        if member.computed_index.is_some() {
+            if let Expression::Identifier(base_name) = &member.object {
+                if self.string_element_array_binding(base_name)
+                    && self.is_structural_runtime_array(base_name)
+                {
+                    return;
+                }
+            }
+        }
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
-            "storing a runtime string value into an array element or object field is unavailable in the current direct-runtime path; element and field reads have no string lane yet".to_string(),
+            "storing a runtime string value into this element or field is unavailable in the current direct-runtime path unless the target is an array whose elements are all proven strings; use the later compatibility path".to_string(),
         ));
+    }
+
+    /// Literal-array mutation gate: a computed subscript STORE whose base
+    /// resolves to a static array-LITERAL binding (`resolve_array_literal_binding_name`,
+    /// the Task 7 registry backing `is_static_array_iteration_target`) has no
+    /// correct runtime lowering unless the WHOLE access folds statically.
+    /// Codegen never linearizes a literal array into a mutable runtime buffer
+    /// (the `join`-lane doc comment on `resolve_array_literal_binding_name`
+    /// notes the same absence for reads); probing on this branch: a runtime
+    /// index (`a[k] = 42` for a parameter `k`) and a STATIC index inside a
+    /// named function (`a[1] = 42` inside `function h() {...}`) both compile
+    /// and silently print a stale/wrong value instead of the stored one.
+    /// Rejects when EITHER:
+    ///   (a) the index is not a static numeric literal (no fold target at
+    ///       all — mirrors the slice/join gates' `is_static_numeric_literal_expr`
+    ///       foldability check), OR
+    ///   (b) the store executes inside a named function
+    ///       (`current_function_name() != "_start"`) — even a static index
+    ///       there is not the SAME top-level fold lane that resolves a
+    ///       top-level `var a = [...]; a[1] = 42;` (probed: that top-level
+    ///       shape's behavior is unchanged by this gate, silent-wrong residual
+    ///       or not — out of scope here, no new green lane).
+    /// Same dispatch site as `reject_runtime_string_store` (any assignment
+    /// operator; a compound `a[1] += 1` on a literal array is exactly as
+    /// unsupported as `a[1] = 42`). `new Array(n)` bindings
+    /// (`rhs_is_array_shape`/`string_element_array_binding` lanes) are
+    /// untouched — this gate only keys on the `ArrayExpression`-literal
+    /// binding shape, a disjoint registry.
+    pub(crate) fn reject_literal_array_unfoldable_mutation(
+        &mut self,
+        assign: &AssignmentExpression,
+    ) {
+        let Expression::MemberExpression(member) = &assign.left else {
+            return;
+        };
+        let Some(index) = member.computed_index.as_deref() else {
+            return;
+        };
+        let Expression::Identifier(base_name) = &member.object else {
+            return;
+        };
+        if !self.resolve_array_literal_binding_name(base_name) {
+            return;
+        }
+        let index_is_foldable = self.is_static_numeric_literal_expr(index);
+        let in_named_function = self.current_function_name() != "_start";
+        if !index_is_foldable || in_named_function {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "mutating a literal array is unavailable in the current direct-runtime path unless the whole access folds statically; use new Array(n) for runtime mutation".to_string(),
+            ));
+        }
+    }
+
+    /// True when `expr` is one of the array-producing reassignment shapes
+    /// codegen's `"="` arm (Task 5, literal.rs) actually routes through the
+    /// allocation/copy path: `new Array(...)`, the bare `Array(...)` call form
+    /// (both funnel through codegen's `resolve_array_alloc_call`, which does
+    /// not distinguish `new` from a plain call once lowered to LIR), or a bare
+    /// identifier that is itself a STRUCTURAL runtime array binding (`a = b`,
+    /// copied via `bare_identifier_name` — codegen's `=` arm only registers the
+    /// copy when `b` is already in `array_bindings`).
+    ///
+    /// Deliberately narrower than `repr_infer::init_is_array`'s shape list
+    /// (repr_infer.rs:712-720), which ALSO accepts `Expression::ArrayExpression`
+    /// — that fn only feeds the ANALYSIS-side element-axis merge (Task 2), not
+    /// a codegen guarantee. Probed on this branch: codegen's `"="` arm has NO
+    /// routing for an array-literal RHS (`emit_aggregate_literal`'s non-object
+    /// branch is a side-effect-only stub that pushes a bogus `I64Const(0)`
+    /// handle), so `a = [1, 2]` on an array binding would silently clobber the
+    /// base handle with 0 — the exact miscompile this gate exists to prevent.
+    /// Accepting `ArrayExpression` here would fail OPEN. If codegen ever grows
+    /// real array-literal-reassignment routing, widen this arm to match.
+    ///
+    /// The Identifier arm keys on the STRUCTURAL registry (C1), not the
+    /// repr-table `is_array_binding` proof: repr_infer proves array-ness for a
+    /// LITERAL-array binding (`let b = [7, 8]`) too, but codegen cannot copy
+    /// one (it never linearizes a literal array into a runtime buffer), so
+    /// `a = b` there silently clobbers `a`'s handle with `0` (I1). Requiring
+    /// `is_structural_runtime_array` rejects that copy source (fail-closed).
+    fn rhs_is_array_shape(&self, expr: &Expression) -> bool {
+        match expr {
+            // `new Array(n)` parses as a `NewExpression` whose callee is the
+            // `CallExpression` `Array(n)` (the parser attaches the args to the
+            // inner call, leaving `NewExpression.args` empty) — the second
+            // `matches!` is the LOAD-BEARING one for the common form; the bare
+            // `new Array` (no args) takes the Identifier form. (T5-Minor-1
+            // claimed the CallExpression-callee sub-match was unreachable and
+            // asked to delete it; empirically it is the normal shape for
+            // `new Array(n)` — deleting it makes `new Array(n)` unrecognized
+            // and regresses reassignment + declarator registration, so it is
+            // deliberately KEPT. See Final-review fix round notes.)
+            Expression::NewExpression(new_expr) => {
+                matches!(&new_expr.callee, Expression::Identifier(name) if name == "Array")
+                    || matches!(&new_expr.callee, Expression::CallExpression(call)
+                        if matches!(&call.callee, Expression::Identifier(name) if name == "Array"))
+            }
+            Expression::CallExpression(call) => {
+                matches!(&call.callee, Expression::Identifier(name) if name == "Array")
+            }
+            Expression::Identifier(name) => self.is_structural_runtime_array(name),
+            _ => false,
+        }
+    }
+
+    /// True when `expr` is an array *literal* or a binding that resolves to one
+    /// (`[1, 2]`, or `b` where `let b = [1, 2]`). Used only to give a
+    /// reassignment-to-an-array-literal a message that names the actual defect
+    /// (codegen has no runtime lowering for a literal-array RHS) instead of the
+    /// misleading "non-array value".
+    fn rhs_is_literal_array_shape(&self, expr: &Expression) -> bool {
+        match expr {
+            Expression::ArrayExpression(_) => true,
+            Expression::Identifier(name) => self.resolve_array_literal_binding_name(name),
+            Expression::ParenthesizedExpression(inner) => {
+                self.rhs_is_literal_array_shape(&inner.expression)
+            }
+            _ => false,
+        }
+    }
+
+    /// `a = 5` where `a` is an array binding would clobber the base handle
+    /// with an integer — later element reads would dereference address 5.
+    /// Fail closed. Array-alloc and array-identifier RHS (`rhs_is_array_shape`)
+    /// are the supported reassignment shapes; every compound operator (`+=`
+    /// etc.) on an array-binding target rejects outright, since none of them
+    /// are a supported reassignment shape.
+    ///
+    /// Scoped to genuinely linear-memory-backed targets ONLY:
+    /// `repr_table.is_array_binding` is broader than codegen's runtime array
+    /// lane — it also covers compile-time literal arrays consumed by the
+    /// static/for-of iteration lane (`static_analysis::array`'s
+    /// `is_static_array_iteration_target`/`static_arrays`), which codegen
+    /// never backs with a linear-memory handle at all, so reassigning one has
+    /// no handle to clobber. `resolve_static_array_binding_name` is that
+    /// lane's OWN "is this binding a proven static/literal array" query;
+    /// excluding it here is what keeps this gate from firing on
+    /// `let values = [1, 2]; values = [3, 4];` (a real, pre-existing,
+    /// non-runtime-array reassignment the for-of static-iteration gate
+    /// already polices on its own terms).
+    pub(crate) fn reject_array_binding_scalar_reassignment(
+        &mut self,
+        assign: &AssignmentExpression,
+    ) {
+        let Expression::Identifier(target) = &assign.left else {
+            return;
+        };
+        let Some(func) = self.binding_repr_function_key(target) else {
+            return;
+        };
+        if !self.repr_table.is_array_binding(&func, target) {
+            return;
+        }
+        if self.resolve_static_array_binding_name(target) {
+            return;
+        }
+        if matches!(assign.operator, AssignmentOperator::Assign)
+            && self.rhs_is_array_shape(&assign.right)
+        {
+            return;
+        }
+        // Distinguish an array-LITERAL / literal-binding RHS (`a = [1, 2]`,
+        // `a = b` where `b` is a literal array) from a genuinely non-array
+        // value: the former IS an array value, just one codegen cannot copy
+        // into a runtime buffer, so the "non-array value" phrasing would
+        // misdescribe it (T7-Minor-3).
+        let message = if matches!(assign.operator, AssignmentOperator::Assign)
+            && self.rhs_is_literal_array_shape(&assign.right)
+        {
+            "reassigning an array binding to an array literal is unavailable in the current direct-runtime path (codegen does not linearize a literal array into a runtime buffer); use new Array(n) for a runtime-mutable array".to_string()
+        } else {
+            "reassigning an array binding to a non-array value is unavailable in the current direct-runtime path".to_string()
+        };
+        self.diagnostics
+            .push(Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, message));
     }
 
     /// Resolves `expression` in a position where codegen folds a string-typed `+`
@@ -481,6 +924,7 @@ impl TypeContext {
                 self.resolve_expression(&expr.left);
                 self.resolve_expression(&expr.right);
                 self.reject_unsupported_string_variable_addition(expr);
+                self.reject_logical_operand_runtime_string(expr);
             }
             Expression::UnaryExpression(expr) => {
                 if expr.operator == "delete" {
@@ -541,6 +985,8 @@ impl TypeContext {
                 self.resolve_expression(&expr.right);
 
                 self.reject_runtime_string_store(expr);
+                self.reject_array_binding_scalar_reassignment(expr);
+                self.reject_literal_array_unfoldable_mutation(expr);
 
                 if self.resolve_late_env_assignment_mutation(expr) {
                     return;
@@ -568,9 +1014,21 @@ impl TypeContext {
                         // cleared, keeping the check flow-aware (e.g.
                         // `let s = "x"; s = 5; s + 1` stays a valid numeric `6`).
                         let right_is_string = self.expression_is_string_typed(&expr.right);
+                        // Structural runtime-array registry (C1): a
+                        // reassignment whose RHS codegen backs as a runtime
+                        // array (`new Array(n)` / `Array(n)` / a
+                        // structural-identifier copy `a = b`) registers the
+                        // target, mirroring codegen's `=` arm (literal.rs).
+                        // Evaluated BEFORE `invalidate_static_binding` — the
+                        // registry is grow-only and invalidation does not touch
+                        // it, but the ordering keeps intent clear.
+                        let right_is_array_shape = self.rhs_is_array_shape(&expr.right);
                         self.invalidate_static_binding(&name);
                         if right_is_string {
                             self.mark_binding_string_typed(&name);
+                        }
+                        if right_is_array_shape {
+                            self.register_runtime_array_binding(&name);
                         }
                     }
                     return;
@@ -875,6 +1333,19 @@ impl TypeContext {
     pub(crate) fn resolve_object_property(&mut self, property: &ObjectProperty) {
         self.resolve_property_name(&property.key);
         self.resolve_expression(&property.value);
+        // Mirrors the array-literal element gate (`ArrayExpression` arm above):
+        // an object-literal property VALUE stored at construction has no
+        // string lane in codegen's aggregate-literal emission (Task 8) — only
+        // `init` properties are actual stored values; `get`/`set` properties'
+        // "value" is a function expression body, never a runtime string.
+        if matches!(property.kind, ObjectPropertyKind::Init)
+            && self.expression_is_runtime_string_value(&property.value)
+        {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "a runtime string value is unavailable as an object-literal property value in the current direct-runtime path; use a statically-known string or the later compatibility path".to_string(),
+            ));
+        }
     }
 
     pub(crate) fn resolve_property_name(&mut self, name: &PropertyName) {

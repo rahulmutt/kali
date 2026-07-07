@@ -407,6 +407,12 @@ impl<'a> OwnershipAnalyzer<'a> {
                     // Pure-ALU slice: retains nothing, poisons nothing. The
                     // result's aliasing is modeled by `classify_value`
                     // (escape_flow.rs), not by arena unknown-call taint.
+                } else if method == "join" {
+                    // Runtime `join` copies element bytes into a fresh
+                    // `__alloc_global` string: retains nothing from the
+                    // receiver's arena, poisons nothing. The result's
+                    // scalar-ness is modeled by `classify_value`
+                    // (escape_flow.rs), not by arena unknown-call taint.
                 } else {
                     self.arena_note_unknown_call();
                 }

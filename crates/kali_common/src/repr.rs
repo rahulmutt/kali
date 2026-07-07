@@ -61,6 +61,10 @@ pub struct ReprTable {
     string_non_ascii: HashSet<(String, String)>,
     /// Functions whose string return value may contain non-ASCII text.
     string_non_ascii_returns: HashSet<String>,
+    /// Arrays whose ELEMENTS may contain non-ASCII string text: `(function, array binding)`.
+    array_element_non_ascii: HashSet<(String, String)>,
+    /// Arrays whose ELEMENTS may hold runtime-concat-derived strings.
+    array_element_concat_tainted: HashSet<(String, String)>,
     /// Interned object layouts; `ShapeId` indexes this list.
     shapes: Vec<Vec<(String, Repr)>>,
     /// Gate messages from the shape inference (contradictory or unsupported
@@ -108,6 +112,9 @@ impl ReprTable {
     pub fn set_array_element(&mut self, func: &str, binding: &str, repr: Repr) {
         if repr == Repr::F64 {
             self.any_float = true;
+        }
+        if repr == Repr::String {
+            self.any_string = true;
         }
         self.array_elements
             .insert((func.to_string(), binding.to_string()), repr);
@@ -180,6 +187,30 @@ impl ReprTable {
     /// True when `func`'s return is a non-ASCII string.
     pub fn is_string_non_ascii_return(&self, func: &str) -> bool {
         self.string_non_ascii_returns.contains(func)
+    }
+
+    /// Mark `(func, binding)` array element as non-ASCII.
+    pub fn mark_array_element_non_ascii(&mut self, func: &str, binding: &str) {
+        self.array_element_non_ascii
+            .insert((func.to_string(), binding.to_string()));
+    }
+
+    /// True when `(func, binding)` array element may contain non-ASCII text.
+    pub fn is_array_element_non_ascii(&self, func: &str, binding: &str) -> bool {
+        self.array_element_non_ascii
+            .contains(&(func.to_string(), binding.to_string()))
+    }
+
+    /// Mark `(func, binding)` array element as runtime-concat-derived (tainted).
+    pub fn mark_array_element_concat_tainted(&mut self, func: &str, binding: &str) {
+        self.array_element_concat_tainted
+            .insert((func.to_string(), binding.to_string()));
+    }
+
+    /// True when `(func, binding)` array element holds a fresh runtime concat handle.
+    pub fn is_array_element_concat_tainted(&self, func: &str, binding: &str) -> bool {
+        self.array_element_concat_tainted
+            .contains(&(func.to_string(), binding.to_string()))
     }
 
     /// Record that `(func, binding)` is an array (any element repr). Additive;
