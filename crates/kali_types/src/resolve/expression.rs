@@ -313,10 +313,7 @@ impl TypeContext {
     /// unreachable. Runs for both the RHS read `= obj[c]` and the store target
     /// `obj[c] = v` (the assignment dispatch resolves `expr.left` through
     /// `resolve_member_expression` too).
-    pub(crate) fn reject_nonuniform_forin_key_object_access(
-        &mut self,
-        member: &MemberExpression,
-    ) {
+    pub(crate) fn reject_nonuniform_forin_key_object_access(&mut self, member: &MemberExpression) {
         let Some(index) = member.computed_index.as_deref() else {
             return;
         };
@@ -343,6 +340,30 @@ impl TypeContext {
                 e5::FEATURE_UNAVAILABLE as u32,
                 "computed key access `obj[c]` over a mixed-repr fixed shape is unavailable in the current direct-runtime path (a runtime ordinal cannot select a per-field type); use an object whose fields all share one type".to_string(),
             ));
+        }
+    }
+
+    /// Fail-closed gate: a `for..in` key (or alias) binding used as an operand
+    /// of `!`, `&&`, `||`, or `??` would be lowered with raw integer truthiness
+    /// (`I64Eqz`/`I64And`/`I64Or`/nullish `Eqz`), which INVERTS the null-sentinel
+    /// (`-1`) semantics — `!last` with `last == -1` (null) must be `true`, but
+    /// `-1` is nonzero. Only an `if` condition (lowered `>= 0`), a computed index
+    /// (`obj[c]`), and a returned value are safely handled; these boolean/nullish
+    /// operator contexts are out of scope, so reject rather than miscompile.
+    pub(crate) fn reject_forin_key_boolean_operand(&mut self, expr: &Expression, op: &str) {
+        let mut inner = expr;
+        while let Expression::ParenthesizedExpression(p) = inner {
+            inner = &p.expression;
+        }
+        if let Expression::Identifier(name) = inner {
+            if self.for_in_key_shape(name).is_some() {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    format!(
+                        "a for..in key or alias binding is only usable in an `if` condition, a computed index, or as a returned value; using it as an operand of `{op}` is unavailable in the current direct-runtime path"
+                    ),
+                ));
+            }
         }
     }
 
@@ -1075,6 +1096,14 @@ impl TypeContext {
                 self.resolve_expression(&expr.right);
                 self.reject_unsupported_string_variable_addition(expr);
                 self.reject_logical_operand_runtime_string(expr);
+                // `&&`/`||`/`??` parse to a BinaryExpression here (not a
+                // LogicalExpression). A for-in-key alias operand of these is a
+                // fail-closed reject (raw integer truthiness inverts the `-1`
+                // null sentinel).
+                if matches!(expr.operator.as_str(), "&&" | "||" | "??") {
+                    self.reject_forin_key_boolean_operand(&expr.left, &expr.operator);
+                    self.reject_forin_key_boolean_operand(&expr.right, &expr.operator);
+                }
             }
             Expression::UnaryExpression(expr) => {
                 if expr.operator == "delete" {
@@ -1083,6 +1112,9 @@ impl TypeContext {
                             return;
                         }
                     }
+                }
+                if expr.operator == "!" {
+                    self.reject_forin_key_boolean_operand(&expr.argument, "!");
                 }
                 self.resolve_expression(&expr.argument)
             }
@@ -1247,6 +1279,13 @@ impl TypeContext {
             Expression::LogicalExpression(expr) => {
                 self.resolve_expression(&expr.left);
                 self.resolve_expression(&expr.right);
+                let op_symbol = match expr.operator {
+                    LogicalOperator::And => "&&",
+                    LogicalOperator::Or => "||",
+                    LogicalOperator::Coalesce => "??",
+                };
+                self.reject_forin_key_boolean_operand(&expr.left, op_symbol);
+                self.reject_forin_key_boolean_operand(&expr.right, op_symbol);
             }
             Expression::ConditionalExpression(expr) => {
                 self.resolve_expression(&expr.test);

@@ -433,25 +433,36 @@ impl<'a> FunctionEmitter<'a> {
         // types gate that the emitter relies on for correctness.
         self.for_in_key_shapes.insert(key_name.clone(), shape);
 
-        // Register for-in-key ALIASES (`last = c`) over this same shape BEFORE
-        // emitting the body (Spec 4a Task 4). A computed read `table[last]`
-        // inside the body is emitted BEFORE the `last = c` assignment that
-        // grants the alias, so without this pre-registration
-        // `computed_forin_object_access` would not recognize `table[last]` as a
-        // dynamic for-in-key slot. `last = c` aliases reference the loop key, so
-        // they only occur inside this body; mirror of the types-side `last = c`
+        // Register for-in-key ALIASES (`last = c`, and transitively `y = last`)
+        // over this same shape BEFORE emitting the body (Spec 4a Task 4). A
+        // computed read `table[last]` inside the body is emitted BEFORE the
+        // `last = c` assignment that grants the alias, so without this
+        // pre-registration `computed_forin_object_access` would not recognize
+        // `table[last]` as a dynamic for-in-key slot. Aliases reference the loop
+        // key (directly or through a chain), so they only occur inside this body;
+        // iterate to a fixpoint so a multi-level alias `y = last` is registered
+        // too — the codegen mirror of the types-side transitive `= <key>`
         // provenance propagation.
-        let mut key_only = std::collections::HashSet::new();
-        key_only.insert(key_name.clone());
-        let mut aliases = std::collections::HashSet::new();
-        crate::lower::for_in_key_aliases_walk(
-            &self.program.nodes,
-            body_id,
-            &key_only,
-            &mut aliases,
-        );
-        for alias in aliases {
-            self.for_in_key_shapes.insert(alias, shape);
+        let mut recognized = std::collections::HashSet::new();
+        recognized.insert(key_name.clone());
+        loop {
+            let before = recognized.len();
+            let mut next = recognized.clone();
+            crate::lower::for_in_key_aliases_walk(
+                &self.program.nodes,
+                body_id,
+                &recognized,
+                &mut next,
+            );
+            recognized = next;
+            if recognized.len() == before {
+                break;
+            }
+        }
+        for alias in recognized {
+            if alias != key_name {
+                self.for_in_key_shapes.insert(alias, shape);
+            }
         }
 
         // preheader: ord = 0

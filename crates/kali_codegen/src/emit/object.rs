@@ -341,6 +341,22 @@ impl<'a> FunctionEmitter<'a> {
                 function.instruction(&Instruction::F64Load(memarg));
             }
             _ => {
+                // `**=` on an integer field would lower via Math.pow (f64) and
+                // then `I64Store` — a stack-type mismatch (invalid module), not a
+                // meaningful lowering. Reject fail-closed, symmetric to the F64
+                // branch's `%=`/`**=` rejection. (`%=` via `I64RemS` is fine.)
+                if op == "**=" {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        "compound assignment '**=' on an integer for-in-key object field is unavailable in the current phase".to_string(),
+                    ));
+                    function.instruction(&Instruction::Drop);
+                    function.instruction(&Instruction::I64Const(0));
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Scalar,
+                    };
+                }
                 // current value: obj[c]
                 function.instruction(&Instruction::LocalGet(scratch));
                 function.instruction(&Instruction::I32WrapI64);
@@ -355,7 +371,6 @@ impl<'a> FunctionEmitter<'a> {
                     "*=" => function.instruction(&Instruction::I64Mul),
                     "/=" => function.instruction(&Instruction::I64DivS),
                     "%=" => function.instruction(&Instruction::I64RemS),
-                    "**=" => function.instruction(&Instruction::Call(MATH_POW_IMPORT_INDEX)),
                     _ => unreachable!(),
                 };
                 function.instruction(&Instruction::I64Store(memarg));

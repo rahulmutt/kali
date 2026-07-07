@@ -1255,10 +1255,22 @@ pub(crate) fn for_in_preorder_ordinals(
 /// recognizes `last`. Structural twin of the types-side `for..in` key +
 /// `last = c` provenance propagation (mirror binding provenance, not repr).
 pub(crate) fn for_in_key_alias_names(nodes: &[LirNode], body: LirNodeId) -> HashSet<String> {
-    let mut keys: HashSet<String> = HashSet::new();
-    for_in_loop_keys_walk(nodes, body, &mut keys);
-    let mut names = keys.clone();
-    for_in_key_aliases_walk(nodes, body, &keys, &mut names);
+    let mut names: HashSet<String> = HashSet::new();
+    for_in_loop_keys_walk(nodes, body, &mut names);
+    // Transitive closure: `y = last` inherits provenance when `last` is already
+    // recognized (a chain of `= <recognized alias>` from a loop key). Iterate to
+    // a fixpoint so codegen recognizes exactly the transitive set the types side
+    // admits (its `last = c` propagation reads a growing registry) — symmetric,
+    // no fail-open on a two-plus-level alias.
+    loop {
+        let before = names.len();
+        let mut next = names.clone();
+        for_in_key_aliases_walk(nodes, body, &names, &mut next);
+        names = next;
+        if names.len() == before {
+            break;
+        }
+    }
     names
 }
 

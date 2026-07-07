@@ -47,10 +47,19 @@ fn computed_forin_key_access_uses_headerless_offset_zero() {
     // The dynamic slot address scales the ordinal by the 8-byte field stride —
     // this is the computed-key lane, not a static field read (which would emit
     // no `i32.mul`).
-    assert!(printed.contains("i32.mul"), "expected index*8 scaling:\n{printed}");
+    assert!(
+        printed.contains("i32.mul"),
+        "expected index*8 scaling:\n{printed}"
+    );
     // Both directions of the access are emitted as f64 (uniform-float shape).
-    assert!(printed.contains("f64.store"), "expected f64.store:\n{printed}");
-    assert!(printed.contains("f64.load"), "expected f64.load:\n{printed}");
+    assert!(
+        printed.contains("f64.store"),
+        "expected f64.store:\n{printed}"
+    );
+    assert!(
+        printed.contains("f64.load"),
+        "expected f64.load:\n{printed}"
+    );
     // Headerless: the f64 field access sits at offset 0, NOT the array's
     // 8-byte length-header offset. The only `offset=8` in the module is the
     // i64/byte runtime helpers (`__join` etc.) — no FLOAT access rides the

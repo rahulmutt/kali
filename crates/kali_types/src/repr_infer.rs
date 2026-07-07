@@ -1127,17 +1127,19 @@ impl ReprInfer {
         // Computed access `a[i]` → array element read.
         if let Some(index) = &member.computed_index {
             self.visit_expr(func, index); // index untouched (i64).
-            // Task 3: a computed read `base[key]` where `key` is the active
-            // `for..in` key over `base` is a uniform-object FIELD read, not an
-            // array element read. Its result carries the shape's (uniform)
-            // field repr — wired against field storage in `resolve_objects`.
+                                          // Task 3: a computed read `base[key]` where `key` is the active
+                                          // `for..in` key over `base` is a uniform-object FIELD read, not an
+                                          // array element read. Its result carries the shape's (uniform)
+                                          // field repr — wired against field storage in `resolve_objects`.
             if let (Expression::Identifier(base_name), Expression::Identifier(key_name)) =
                 (&member.object, index.as_ref())
             {
                 let base = ObjSlot::Binding(func.to_string(), base_name.clone());
-                if self.for_in_key_bases.iter().any(|(f, k, b)| {
-                    f == func && k == key_name && *b == base
-                }) {
+                if self
+                    .for_in_key_bases
+                    .iter()
+                    .any(|(f, k, b)| f == func && k == key_name && *b == base)
+                {
                     let result = self.new_node();
                     self.obj_materialized.insert(base.clone());
                     self.uniform_computed_reads.push((base, result));
