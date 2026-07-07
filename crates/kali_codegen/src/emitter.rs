@@ -120,6 +120,17 @@ pub(crate) struct FunctionEmitter<'a> {
     /// emitter (each function gets a fresh emitter, so keys never leak across
     /// functions).
     pub(crate) for_in_key_shapes: HashMap<String, kali_common::ShapeId>,
+    /// Per-function structural set of "for-in-key provenance" binding names:
+    /// every `for..in` loop key declared in this function, plus every binding
+    /// aliased directly from such a key (`last = c`) — the Spec 4a Task 4
+    /// null-sentinel alias family. Computed ONCE up front (unlike
+    /// `for_in_key_shapes`, which is populated during emission) so the
+    /// `var last = null` init — emitted BEFORE the loop — already recognizes
+    /// `last`. The null-sentinel (`-1`) store and the truthiness (`>= 0`)
+    /// lowering key off this set. Structural twin of the types-side `for..in`
+    /// key + `last = c` provenance propagation (mirror binding provenance, not
+    /// repr — the Spec-3 lesson).
+    pub(crate) for_in_key_aliases: HashSet<String>,
     /// Stack of currently-open loop arenas (innermost last) — see
     /// `emitter::ArenaFrame`.
     pub(crate) arena_frames: Vec<ArenaFrame>,
@@ -159,6 +170,7 @@ impl<'a> FunctionEmitter<'a> {
     ) -> Self {
         let loop_ordinals = crate::lower::loop_preorder_ordinals(&program.nodes, body);
         let for_in_ordinals = crate::lower::for_in_preorder_ordinals(&program.nodes, body);
+        let for_in_key_aliases = crate::lower::for_in_key_alias_names(&program.nodes, body);
         let mut locals = BTreeMap::new();
         for (idx, name) in params.iter().enumerate() {
             locals.insert(name.clone(), idx as u32);
@@ -210,6 +222,7 @@ impl<'a> FunctionEmitter<'a> {
             loop_ordinals,
             for_in_ordinals,
             for_in_key_shapes: HashMap::new(),
+            for_in_key_aliases,
             arena_frames: Vec::new(),
             module_const_inits,
             module_binding_names,

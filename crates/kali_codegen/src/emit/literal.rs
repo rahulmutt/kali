@@ -157,6 +157,15 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// True when `id` resolves (through transparent wrappers) to a `null` or
+    /// `undefined` literal. Used by the Spec 4a Task 4 null-sentinel store: a
+    /// nullish init/reassignment of a for-in-key alias stores `-1`, not `0`.
+    pub(crate) fn is_null_or_undefined_literal(&self, id: LirNodeId) -> bool {
+        let node = self.node(self.unwrap_transparent(id));
+        node.kind == LirNodeKind::Literal
+            && matches!(node.text.as_deref(), Some("null") | Some("undefined"))
+    }
+
     pub(crate) fn assignment_target_name(&self, _node: &LirNode, id: LirNodeId) -> Option<String> {
         let mut current = id;
         loop {
@@ -416,6 +425,23 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
 
+        // Compound-assign to a computed for-in-key object target `obj[c] op= v`
+        // (Spec 4a Task 4): decompose to `obj[c] = (obj[c] op v)`, routing BOTH
+        // the read of `obj[c]` and the write through Task 3's dynamic slot lane.
+        // The types gate admits exactly the same accept condition
+        // (`forin_key_member_target_is_uniform`) as `obj[c] = v`. Must precede
+        // the `assignment_target_name` fallthrough below, which would otherwise
+        // reject this member target fail-closed (E5506).
+        if matches!(op, "+=" | "-=" | "*=" | "/=" | "%=" | "**=") {
+            let left_node = self.node(left).clone();
+            if let Some((base, index, elem)) = self.computed_forin_object_access(&left_node) {
+                self.emit_object_field_compound_assign_dynamic(
+                    function, base, index, right, elem, op,
+                );
+                return true;
+            }
+        }
+
         let Some(name) = self.assignment_target_name(node, left) else {
             if op == "=" {
                 return false;
@@ -455,6 +481,17 @@ impl<'a> FunctionEmitter<'a> {
 
         match op {
             "=" => {
+                // Spec 4a Task 4 null-sentinel: reassigning a for-in-key alias
+                // to null/undefined stores `-1`, matching the declarator
+                // null-init, so a later `if (alias)` (lowered to `>= 0`) reads
+                // false. Recognized structurally via `for_in_key_aliases`.
+                if self.for_in_key_aliases.contains(&name)
+                    && self.is_null_or_undefined_literal(right)
+                {
+                    function.instruction(&Instruction::I64Const(-1));
+                    function.instruction(&Instruction::LocalTee(index));
+                    return true;
+                }
                 // `a = new Array(n)`: same routing as the declarator path
                 // (control_flow.rs:596-610) — the allocation needs a stable
                 // handle in the local, and the binding (re)registers as an

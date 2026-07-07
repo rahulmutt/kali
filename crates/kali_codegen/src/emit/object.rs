@@ -263,6 +263,113 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// Compound-assign `obj[c] op= rhs` over a uniform-repr headerless object
+    /// (Spec 4a Task 4): the decompose of `obj[c] = (obj[c] op rhs)` where BOTH
+    /// the read of `obj[c]` and the write route through the same dynamic slot
+    /// (`base + index*8`, offset 0) so the address is computed once and reused.
+    /// The op applies at the element repr (F64 for a uniform-float shape).
+    /// Leaves the stored value on the stack (reloaded) as the expression result.
+    /// `%=`/`**=` on a float shape have no lowering — reject fail-closed.
+    pub(crate) fn emit_object_field_compound_assign_dynamic(
+        &mut self,
+        function: &mut Function,
+        base: LirNodeId,
+        index: LirNodeId,
+        rhs: LirNodeId,
+        elem_repr: kali_common::Repr,
+        op: &str,
+    ) -> EmittedValue {
+        let scratch = self.locals.len() as u32;
+        // address: base (i32) + index*8, saved (i64-extended) in `scratch` so
+        // the same slot backs the current-value load, the store, and the result
+        // reload — `scratch` is an i64 local.
+        let produced = self.emit_node(function, base, true);
+        if !produced.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
+        function.instruction(&Instruction::I32WrapI64);
+        let _ = self.emit_node(function, index, true);
+        function.instruction(&Instruction::I32WrapI64);
+        function.instruction(&Instruction::I32Const(8));
+        function.instruction(&Instruction::I32Mul);
+        function.instruction(&Instruction::I32Add);
+        function.instruction(&Instruction::I64ExtendI32U);
+        function.instruction(&Instruction::LocalTee(scratch));
+        function.instruction(&Instruction::I32WrapI64); // store address on stack
+        let memarg = MemArg {
+            offset: 0,
+            align: 3,
+            memory_index: 0,
+        };
+        match elem_repr {
+            kali_common::Repr::F64 => {
+                if matches!(op, "%=" | "**=") {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        format!(
+                            "compound assignment '{op}' on a floating-point for-in-key object field is unavailable in the current phase"
+                        ),
+                    ));
+                    function.instruction(&Instruction::Drop);
+                    function.instruction(&Instruction::F64Const(0.0.into()));
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Scalar,
+                    };
+                }
+                // current value: obj[c]
+                function.instruction(&Instruction::LocalGet(scratch));
+                function.instruction(&Instruction::I32WrapI64);
+                function.instruction(&Instruction::F64Load(memarg));
+                // rhs, promoted to f64
+                let r = self.emit_node(function, rhs, true);
+                if !r.produced {
+                    function.instruction(&Instruction::F64Const(0.0.into()));
+                } else if !self.is_float_valued(rhs) {
+                    function.instruction(&Instruction::F64ConvertI64S);
+                }
+                match op {
+                    "+=" => function.instruction(&Instruction::F64Add),
+                    "-=" => function.instruction(&Instruction::F64Sub),
+                    "*=" => function.instruction(&Instruction::F64Mul),
+                    "/=" => function.instruction(&Instruction::F64Div),
+                    _ => unreachable!(),
+                };
+                function.instruction(&Instruction::F64Store(memarg));
+                function.instruction(&Instruction::LocalGet(scratch));
+                function.instruction(&Instruction::I32WrapI64);
+                function.instruction(&Instruction::F64Load(memarg));
+            }
+            _ => {
+                // current value: obj[c]
+                function.instruction(&Instruction::LocalGet(scratch));
+                function.instruction(&Instruction::I32WrapI64);
+                function.instruction(&Instruction::I64Load(memarg));
+                let r = self.emit_node(function, rhs, true);
+                if !r.produced {
+                    function.instruction(&Instruction::I64Const(0));
+                }
+                match op {
+                    "+=" => function.instruction(&Instruction::I64Add),
+                    "-=" => function.instruction(&Instruction::I64Sub),
+                    "*=" => function.instruction(&Instruction::I64Mul),
+                    "/=" => function.instruction(&Instruction::I64DivS),
+                    "%=" => function.instruction(&Instruction::I64RemS),
+                    "**=" => function.instruction(&Instruction::Call(MATH_POW_IMPORT_INDEX)),
+                    _ => unreachable!(),
+                };
+                function.instruction(&Instruction::I64Store(memarg));
+                function.instruction(&Instruction::LocalGet(scratch));
+                function.instruction(&Instruction::I32WrapI64);
+                function.instruction(&Instruction::I64Load(memarg));
+            }
+        }
+        EmittedValue {
+            produced: true,
+            shape: ValueShape::Scalar,
+        }
+    }
+
     /// `<base>.field` read on a shaped base: typed load at the field's static
     /// offset. Unknown fields are gated, never miscompiled.
     pub(crate) fn emit_object_field_read(

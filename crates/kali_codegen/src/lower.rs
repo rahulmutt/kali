@@ -1247,6 +1247,106 @@ pub(crate) fn for_in_preorder_ordinals(
     ordinals
 }
 
+/// Structural per-function set of "for-in-key provenance" binding names: every
+/// `for..in` loop key declared in the function, plus every binding aliased
+/// directly from such a key (`last = c`). Codegen's null-sentinel (`-1`) store
+/// and truthiness (`>= 0`) special-cases key off this set — computed once up
+/// front so the `var last = null` init (emitted BEFORE the loop) already
+/// recognizes `last`. Structural twin of the types-side `for..in` key +
+/// `last = c` provenance propagation (mirror binding provenance, not repr).
+pub(crate) fn for_in_key_alias_names(nodes: &[LirNode], body: LirNodeId) -> HashSet<String> {
+    let mut keys: HashSet<String> = HashSet::new();
+    for_in_loop_keys_walk(nodes, body, &mut keys);
+    let mut names = keys.clone();
+    for_in_key_aliases_walk(nodes, body, &keys, &mut names);
+    names
+}
+
+/// The for-in loop key name for a for-in Branch node's `left` child, whether it
+/// is a `var`/`let`/`const` declarator (`for (var c in obj)`) or a bare
+/// identifier (`for (c in obj)`). Free-function twin of
+/// `FunctionEmitter::for_in_key_name`.
+fn for_in_loop_key_name(nodes: &[LirNode], left_id: LirNodeId) -> Option<String> {
+    let left = nodes.get(left_id.0 as usize)?;
+    if left.kind == LirNodeKind::Instruction
+        && matches!(left.text.as_deref(), Some("let" | "var" | "const"))
+    {
+        if let Some(&declarator_id) = left.children.first() {
+            if let Some(name) = nodes
+                .get(declarator_id.0 as usize)
+                .and_then(|n| n.text.clone())
+            {
+                return Some(name).filter(|t| !t.is_empty());
+            }
+        }
+    }
+    left.text.clone().filter(|t| !t.is_empty())
+}
+
+/// Free-function twin of `FunctionEmitter::bare_identifier_name` operating on a
+/// raw node slice (used before any scratch nodes exist).
+fn bare_identifier_name_of(nodes: &[LirNode], id: LirNodeId) -> Option<String> {
+    let target = unwrap_transparent_value(nodes, id);
+    let node = nodes.get(target.0 as usize)?;
+    if node.kind == LirNodeKind::Value && node.children.is_empty() {
+        node.text.clone().filter(|t| !t.is_empty())
+    } else {
+        None
+    }
+}
+
+fn for_in_loop_keys_walk(nodes: &[LirNode], id: LirNodeId, keys: &mut HashSet<String>) {
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return;
+    };
+    if node.kind == LirNodeKind::Branch && node.text.as_deref() == Some("for-in") {
+        if let Some(&left_id) = node.children.first() {
+            if let Some(name) = for_in_loop_key_name(nodes, left_id) {
+                keys.insert(name);
+            }
+        }
+    }
+    for child in &node.children {
+        if is_function_like(nodes, *child) {
+            continue;
+        }
+        for_in_loop_keys_walk(nodes, *child, keys);
+    }
+}
+
+pub(crate) fn for_in_key_aliases_walk(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    keys: &HashSet<String>,
+    out: &mut HashSet<String>,
+) {
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return;
+    };
+    // A direct alias `X = K` where `K` is a for-in loop key: `X` inherits the
+    // key provenance. Represented as a 2-child `=` Value node with a bare
+    // identifier on each side.
+    if node.kind == LirNodeKind::Value
+        && node.children.len() == 2
+        && node.text.as_deref() == Some("=")
+    {
+        if let (Some(lhs), Some(rhs)) = (
+            bare_identifier_name_of(nodes, node.children[0]),
+            bare_identifier_name_of(nodes, node.children[1]),
+        ) {
+            if keys.contains(&rhs) {
+                out.insert(lhs);
+            }
+        }
+    }
+    for child in &node.children {
+        if is_function_like(nodes, *child) {
+            continue;
+        }
+        for_in_key_aliases_walk(nodes, *child, keys, out);
+    }
+}
+
 fn for_in_preorder_ordinals_walk(
     nodes: &[LirNode],
     id: LirNodeId,

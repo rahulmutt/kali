@@ -346,6 +346,29 @@ impl TypeContext {
         }
     }
 
+    /// `true` iff `member` is exactly the accept case of
+    /// `reject_nonuniform_forin_key_object_access`: a computed access `obj[c]`
+    /// where the index `c` is a proven `for..in` key (`for_in_key_shape`), the
+    /// base `obj` is a known object whose shape MATCHES the key's shape, and
+    /// that shape is uniform-repr. Used by the assignment dispatch to ADMIT a
+    /// compound-assign to such a target (`obj[c] += v`) — codegen decomposes it
+    /// to `obj[c] = (obj[c] op v)`, routing both the read and the write through
+    /// Task 3's dynamic slot lane. Anything the gate would reject (shape
+    /// mismatch, mixed-repr, non-key index, non-object base) is NOT admitted
+    /// here and falls through to the fail-closed compound-assign rejection.
+    pub(crate) fn forin_key_member_target_is_uniform(&self, member: &MemberExpression) -> bool {
+        let Some(Expression::Identifier(key)) = member.computed_index.as_deref() else {
+            return false;
+        };
+        let Some(key_shape) = self.for_in_key_shape(key) else {
+            return false;
+        };
+        let Some(obj_shape) = self.object_shape_of_expression(&member.object) else {
+            return false;
+        };
+        obj_shape == key_shape && self.repr_table.shape_is_uniform_repr(obj_shape).is_some()
+    }
+
     /// `Some(shape)` iff `expr` is a bare identifier whose `ReprTable` scalar
     /// is proven `Repr::Object(shape)` — used to derive the shape a
     /// `for..in`'s `right` enumerates (Spec 4a Task 2). Reuses the same
@@ -1173,6 +1196,23 @@ impl TypeContext {
                         }
                     }
                     return;
+                }
+
+                // Spec 4a Task 4: compound-assign to a computed for-in-key
+                // object target `obj[c] += v` over a uniform-repr fixed shape is
+                // ADMITTED — codegen decomposes it to `obj[c] = (obj[c] op v)`,
+                // routing both the read of `obj[c]` and the write through Task
+                // 3's dynamic slot lane. The accept condition is exactly the one
+                // `reject_nonuniform_forin_key_object_access` uses for `obj[c] =
+                // v` (base shape proven + shape-matched + uniform-repr + key
+                // index). A non-for-in-key or non-uniform target is NOT admitted
+                // here and still rejects fail-closed below.
+                if !matches!(expr.operator, AssignmentOperator::NullishAssign) {
+                    if let Expression::MemberExpression(member) = &expr.left {
+                        if self.forin_key_member_target_is_uniform(member) {
+                            return;
+                        }
+                    }
                 }
 
                 let Some(name) = self.resolve_update_binding_name(&expr.left) else {

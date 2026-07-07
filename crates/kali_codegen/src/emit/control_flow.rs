@@ -433,6 +433,27 @@ impl<'a> FunctionEmitter<'a> {
         // types gate that the emitter relies on for correctness.
         self.for_in_key_shapes.insert(key_name.clone(), shape);
 
+        // Register for-in-key ALIASES (`last = c`) over this same shape BEFORE
+        // emitting the body (Spec 4a Task 4). A computed read `table[last]`
+        // inside the body is emitted BEFORE the `last = c` assignment that
+        // grants the alias, so without this pre-registration
+        // `computed_forin_object_access` would not recognize `table[last]` as a
+        // dynamic for-in-key slot. `last = c` aliases reference the loop key, so
+        // they only occur inside this body; mirror of the types-side `last = c`
+        // provenance propagation.
+        let mut key_only = std::collections::HashSet::new();
+        key_only.insert(key_name.clone());
+        let mut aliases = std::collections::HashSet::new();
+        crate::lower::for_in_key_aliases_walk(
+            &self.program.nodes,
+            body_id,
+            &key_only,
+            &mut aliases,
+        );
+        for alias in aliases {
+            self.for_in_key_shapes.insert(alias, shape);
+        }
+
         // preheader: ord = 0
         function.instruction(&Instruction::I64Const(0));
         function.instruction(&Instruction::LocalSet(ord_local));
@@ -749,6 +770,28 @@ impl<'a> FunctionEmitter<'a> {
                                     if !filled.produced {
                                         function.instruction(&Instruction::I64Const(0));
                                     }
+                                    function.instruction(&Instruction::LocalSet(index));
+                                    continue;
+                                }
+                            }
+                        }
+
+                        // Spec 4a Task 4 null-sentinel: `var last = null` where
+                        // `last` carries for-in-key provenance stores the
+                        // sentinel `-1` (an out-of-range ordinal), NOT `0` — `0`
+                        // is a valid first-field ordinal and would collide with
+                        // the key. `if (last)` then lowers to `last >= 0` (see
+                        // `emit_branch`), so the sentinel reads false. Recognized
+                        // structurally via the precomputed `for_in_key_aliases`
+                        // set (the loop that grants `last` its provenance is
+                        // emitted AFTER this init, so a runtime signal is unusable
+                        // here).
+                        if let Some(name) = declarator.text.clone() {
+                            if self.for_in_key_aliases.contains(&name)
+                                && self.is_null_or_undefined_literal(init)
+                            {
+                                if let Some(index) = self.locals.get(&name).copied() {
+                                    function.instruction(&Instruction::I64Const(-1));
                                     function.instruction(&Instruction::LocalSet(index));
                                     continue;
                                 }
@@ -1173,6 +1216,14 @@ impl<'a> FunctionEmitter<'a> {
         None
     }
 
+    /// True when `cond` is a bare identifier carrying for-in-key provenance
+    /// (`for_in_key_aliases`) — a "key-or-null" whose truthiness is `value >= 0`
+    /// (Spec 4a Task 4), not the default `!= 0`.
+    pub(crate) fn is_for_in_key_alias_condition(&self, cond: LirNodeId) -> bool {
+        self.bare_identifier_name(cond)
+            .is_some_and(|name| self.for_in_key_aliases.contains(&name))
+    }
+
     pub(crate) fn emit_branch(
         &mut self,
         function: &mut Function,
@@ -1195,18 +1246,28 @@ impl<'a> FunctionEmitter<'a> {
         if !condition.produced {
             function.instruction(&Instruction::I64Const(0));
         }
-        match condition.shape {
-            ValueShape::Boolean => {
-                function.instruction(&Instruction::I32WrapI64);
-            }
-            ValueShape::Scalar | ValueShape::Unknown | ValueShape::String => {
-                function.instruction(&Instruction::I64Eqz);
-                function.instruction(&Instruction::I32Eqz);
-            }
-            ValueShape::Float => {
-                // f64 truthiness: nonzero is truthy. Leaves an i32 for `If`.
-                function.instruction(&Instruction::F64Const(0.0.into()));
-                function.instruction(&Instruction::F64Ne);
+        // Spec 4a Task 4 null-sentinel truthiness: a for-in-key alias condition
+        // (`if (last)`) holds either a real key ordinal (`>= 0`) or the null
+        // sentinel `-1`. Truthy iff a real key, i.e. `value >= 0` — NOT the
+        // default `!= 0`, which would treat the first-field ordinal `0` as
+        // falsy. Recognized structurally via `for_in_key_aliases`.
+        if self.is_for_in_key_alias_condition(cond) {
+            function.instruction(&Instruction::I64Const(0));
+            function.instruction(&Instruction::I64GeS);
+        } else {
+            match condition.shape {
+                ValueShape::Boolean => {
+                    function.instruction(&Instruction::I32WrapI64);
+                }
+                ValueShape::Scalar | ValueShape::Unknown | ValueShape::String => {
+                    function.instruction(&Instruction::I64Eqz);
+                    function.instruction(&Instruction::I32Eqz);
+                }
+                ValueShape::Float => {
+                    // f64 truthiness: nonzero is truthy. Leaves an i32 for `If`.
+                    function.instruction(&Instruction::F64Const(0.0.into()));
+                    function.instruction(&Instruction::F64Ne);
+                }
             }
         }
         let if_index = self.push_control_frame(ControlFlowLabelKind::If);
