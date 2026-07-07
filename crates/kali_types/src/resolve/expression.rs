@@ -202,9 +202,7 @@ impl TypeContext {
                 // Reached module/global scope: free top-level reference.
                 return Some("_start".to_string());
             };
-            let Some(scope) = self.scopes.get(&scope_id) else {
-                return None;
-            };
+            let scope = self.scopes.get(&scope_id)?;
             if scope.scope_type == ScopeType::Function && Some(scope_id) != tracked_scope {
                 return None;
             }
