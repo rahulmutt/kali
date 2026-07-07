@@ -71,12 +71,17 @@ impl TypeContext {
             Expression::Literal(LiteralValue::String(_)) => true,
             Expression::TemplateLiteral(_) => true,
             // A `for..in` key (or alias) used as a VALUE is its field-name
-            // STRING (Spec 4a Task 5) — codegen materializes the interned handle
-            // from the per-shape key handle table. Mirror of codegen's
-            // `is_string_valued` identifier arm (which sees the key's scalar repr
-            // lifted to `String` by `repr_infer`'s string-sink seed).
+            // STRING (Spec 4a Task 5) — but ONLY where `repr_infer` actually
+            // lifted its scalar repr to `String` (a string SINK: `return c`,
+            // `console.log(c)`, `+`/equality of a bare key). `identifier_repr_is_string`
+            // reads the SAME solved `scalar(func,name)==String` that codegen's
+            // `emit_value`/`is_string_valued` materialization guard consults, so
+            // types and codegen cover EXACTLY the same set. A for-in key in a
+            // non-sink position (e.g. `strArr[i] = c`, or a ternary arm) is NOT
+            // repr-lifted → false here → codegen emits the raw ordinal and this
+            // predicate agrees (fail-closed, never a raw-ordinal-as-string open).
             Expression::Identifier(name) => {
-                self.binding_is_string_typed(name) || self.for_in_key_shape(name).is_some()
+                self.binding_is_string_typed(name) || self.identifier_repr_is_string(name)
             }
             // Computed element read `a[i]` of an array whose element axis is
             // proven `Repr::String` (Spec 3). Mirror of codegen's
@@ -540,12 +545,11 @@ impl TypeContext {
     pub(crate) fn operand_repr_is_string(&self, operand: &Expression) -> bool {
         use kali_common::Repr;
         match operand {
-            // A `for..in` key/alias is a runtime string value (its materialized
-            // field-name handle) — Spec 4a Task 5. Mirrors the codegen
-            // `is_string_valued` identifier arm.
-            Expression::Identifier(name) => {
-                self.identifier_repr_is_string(name) || self.for_in_key_shape(name).is_some()
-            }
+            // Spec 4a Task 5: a for-in key materialized as a string is repr-lifted
+            // to `String`, so it is already covered by `identifier_repr_is_string`
+            // (the SAME solved-repr signal codegen consults) — no extra for-in-key
+            // disjunct needed. A non-repr-lifted key stays false, mirroring codegen.
+            Expression::Identifier(name) => self.identifier_repr_is_string(name),
             // Computed element read `a[i]` of a proven `Repr::String` array
             // (Spec 3) — same signal codegen's `is_string_valued`
             // `dynamic_array_read_base` arm consults.
@@ -816,16 +820,16 @@ impl TypeContext {
     /// const-only distinction (Task 5), so reusing it keeps the two gates
     /// consistent.
     pub(crate) fn expression_is_runtime_string_value(&mut self, expr: &Expression) -> bool {
-        // A `for..in` key/alias is a RUNTIME string value (its field-name handle
-        // materializes only at run time) — Spec 4a Task 5. Checked ahead of the
-        // fold-receiver escape: a for-in key is a mutable per-iteration binding,
-        // never a compile-time-constant fold receiver, so it must not be
-        // mistaken for a static string.
-        if let Expression::Identifier(name) = expr {
-            if self.for_in_key_shape(name).is_some() {
-                return true;
-            }
-        }
+        // Spec 4a Task 5: a for-in key materialized as a string is repr-lifted to
+        // `String`, so the `expression_is_string_typed(expr) || operand_repr_is_string
+        // (expr)` check below (both now keyed on `identifier_repr_is_string`, the
+        // SAME solved repr codegen's materialization guard reads) already covers a
+        // seeded key — and a for-in key is never a fold receiver (mutable per
+        // iteration), so the fold-receiver escape does not swallow it. An UNSEEDED
+        // key stays false → codegen emits the raw ordinal → both sides agree
+        // (fail-closed). No unconditional for-in-key arm here (that was the
+        // value-flow fail-open: types must not admit a string where codegen
+        // emits an ordinal).
         if self.expression_is_length_fold_receiver(expr) {
             return false;
         }

@@ -1302,8 +1302,33 @@ impl<'a> FunctionEmitter<'a> {
         let then_branch = node.children.get(1).copied();
         let else_branch = node.children.get(2).copied();
 
-        self.reject_string_condition(cond);
-        let condition = self.emit_node(function, cond, true);
+        // Spec 4a Task 4/5: a for-in-key alias condition (`if (last)`) is ALWAYS
+        // the raw ordinal truthiness (`>= 0`), never a string. Read its ordinal
+        // local DIRECTLY, bypassing `emit_value`'s string-materialization arm —
+        // otherwise a key that is ALSO string-used elsewhere (scalar repr lifted
+        // to `String`) would materialize a handle here and truthiness-test it.
+        // (For a key never string-used this is byte-identical to `emit_node`,
+        // which resolves the same `LocalGet` ordinal.) `reject_string_condition`
+        // is skipped for the same reason: the condition is an ordinal, not a
+        // string. Structural recognition via `for_in_key_aliases`.
+        let is_alias_cond = self.is_for_in_key_alias_condition(cond);
+        let condition = if is_alias_cond {
+            let ord_local = self
+                .bare_identifier_name(cond)
+                .and_then(|name| self.locals.get(&name).copied());
+            if let Some(ord_local) = ord_local {
+                function.instruction(&Instruction::LocalGet(ord_local));
+                EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                }
+            } else {
+                self.emit_node(function, cond, true)
+            }
+        } else {
+            self.reject_string_condition(cond);
+            self.emit_node(function, cond, true)
+        };
         if !condition.produced {
             function.instruction(&Instruction::I64Const(0));
         }
@@ -1311,8 +1336,8 @@ impl<'a> FunctionEmitter<'a> {
         // (`if (last)`) holds either a real key ordinal (`>= 0`) or the null
         // sentinel `-1`. Truthy iff a real key, i.e. `value >= 0` — NOT the
         // default `!= 0`, which would treat the first-field ordinal `0` as
-        // falsy. Recognized structurally via `for_in_key_aliases`.
-        if self.is_for_in_key_alias_condition(cond) {
+        // falsy.
+        if is_alias_cond {
             function.instruction(&Instruction::I64Const(0));
             function.instruction(&Instruction::I64GeS);
         } else {

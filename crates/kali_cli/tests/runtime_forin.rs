@@ -168,6 +168,45 @@ console.log(selectRandom(t, 0.1));\nconsole.log(selectRandom(t, 0.5));\nconsole.
 }
 
 #[test]
+fn for_in_key_in_string_number_ternary_never_yields_garbage() {
+    // Value-flow fail-open guard: a for-in key in a ternary arm whose OTHER arm
+    // is a string literal (`r < 0 ? c : "?"`) is NOT a repr-lifted string in that
+    // position (the ternary arm is not a seed sink), so codegen would emit the
+    // raw ordinal. The types oracles now mirror codegen's solved-repr guard
+    // (`identifier_repr_is_string`), so this must NOT compile to a bogus string
+    // handle: either it matches node OR it fails closed — never garbage.
+    let src = "function pick(t, r) {\n  for (var c in t) {\n    if (r < t[c]) return (r < 0.0 ? c : \"?\");\n  }\n  return \"?\";\n}\n\
+const t = { a: 0.3, c: 0.6, g: 0.95 };\nconsole.log(pick(t, 0.1));\n";
+    let out = run_source(src);
+    // node: 0.1<0.3 -> (0.1<0 ? c : "?") -> "?". Accept a byte-identical match OR
+    // a fail-closed rejection; reject a garbage-producing success.
+    assert!(
+        !out.status.success() || String::from_utf8_lossy(&out.stdout) == "?\n",
+        "for-in key in a string/number ternary must match node or fail closed, not miscompile; got stdout={:?} stderr={}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+#[test]
+fn for_in_key_stored_into_string_array_element_is_fail_closed() {
+    // Value-flow fail-open guard: `strArr[i] = c` (element store, not a seed
+    // sink) must NOT land in the Spec-3 string-element accept lane storing the
+    // raw ordinal. The oracle↔codegen mirror keeps this fail-closed.
+    let src = "function collect(t) {\n  let out = new Array(3);\n  out[0] = \"x\"; out[1] = \"y\"; out[2] = \"z\";\n  let i = 0;\n  for (var c in t) { out[i] = c; i = i + 1; }\n  return out.join(\",\");\n}\n\
+const t = { a: 0.3, c: 0.6, g: 0.95 };\nconsole.log(collect(t));\n";
+    let out = run_source(src);
+    // node: "a,c,g". Accept a byte-identical match OR a fail-closed rejection;
+    // reject a garbage-producing success (raw ordinals joined as a string).
+    assert!(
+        !out.status.success() || String::from_utf8_lossy(&out.stdout) == "a,c,g\n",
+        "for-in key stored into a string array must match node or fail closed, not miscompile; got stdout={:?} stderr={}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+#[test]
 fn for_in_over_fixed_shape_object_with_bare_key_iterates_once_per_field() {
     // The bare-identifier `for (c in obj)` form (key pre-declared, no
     // `var`/`let`/`const` in the head) — the exact shape fasta's `selectRandom`
