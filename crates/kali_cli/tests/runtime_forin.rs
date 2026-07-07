@@ -37,3 +37,20 @@ fn for_in_over_fixed_shape_object_iterates_once_per_field() {
     );
     assert_eq!(String::from_utf8_lossy(&out.stdout), "3\n");
 }
+
+#[test]
+fn for_in_over_fixed_shape_object_with_bare_key_iterates_once_per_field() {
+    // The bare-identifier `for (c in obj)` form (key pre-declared, no
+    // `var`/`let`/`const` in the head) — the exact shape fasta's `selectRandom`
+    // uses. Proves `ForInLefthand::Expression` lowers end-to-end, not just the
+    // declaration form. Key not used yet; only the iteration count is observable.
+    let out = run_source(
+        "const table = { a: 1, c: 2, g: 3 };\nlet count = 0;\nlet c;\nfor (c in table) {\n  count = count + 1;\n}\nconsole.log(count);\n",
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "3\n");
+}
