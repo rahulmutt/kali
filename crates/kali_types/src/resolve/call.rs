@@ -49,6 +49,19 @@ impl TypeContext {
         for arg in &expr.args {
             self.resolve_expression(arg);
         }
+        // Spec 4a Task 5 fail-closed: a for-in-key VALUE at a `console.*(...)`
+        // argument is a string value escape; a non-materializable one (an
+        // aliased key) would leak the raw ordinal. A direct seeded key
+        // (`console.log(c)`, repr `String`) is materialized and not rejected.
+        if let Expression::MemberExpression(member) = &expr.callee {
+            if member.computed_index.is_none()
+                && matches!(&member.object, Expression::Identifier(o) if o == "console")
+            {
+                for arg in &expr.args {
+                    self.reject_nonmaterializable_forin_key_value(arg);
+                }
+            }
+        }
         self.resolve_permission_query_call(expr);
         self.resolve_process_kill_call(expr);
         self.resolve_math_member_call(expr);

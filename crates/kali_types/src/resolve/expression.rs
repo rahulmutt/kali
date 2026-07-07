@@ -567,6 +567,112 @@ impl TypeContext {
         }
     }
 
+    /// Spec 4a Task 5 fail-closed: mark `name` as holding a COPY of a `for..in`
+    /// key VALUE (a declarator-init alias `let d = c`, or a chain thereof), for
+    /// the value-escape reject gate only. Mirrors `register_for_in_key`'s
+    /// declaring-scope walk. NOT registered in `for_in_key_bindings` (see the
+    /// `Scope` field doc): this must never admit `table[d]` into the key index
+    /// lane that codegen cannot lower for a declarator alias.
+    pub(crate) fn register_for_in_key_value(&mut self, name: &str) {
+        let mut current = self.current_scope_id();
+        while let Some(scope_id) = current {
+            if let Some(scope) = self.scopes.get_mut(&scope_id) {
+                if scope.bindings.contains_key(name) {
+                    scope
+                        .for_in_key_value_bindings
+                        .insert(name.to_string(), true);
+                    return;
+                }
+                current = scope.parent;
+            } else {
+                return;
+            }
+        }
+        if self.global_scope.bindings.contains_key(name) {
+            self.global_scope
+                .for_in_key_value_bindings
+                .insert(name.to_string(), true);
+        }
+    }
+
+    /// True iff `name` carries `for..in`-key VALUE provenance — either a full
+    /// for-in key/alias (`for_in_key_shape`) or a declarator-init value copy
+    /// (`register_for_in_key_value`). Same tracked-function-boundary scope walk
+    /// as `for_in_key_shape` (fail-closed across an untracked function boundary).
+    pub(crate) fn is_for_in_key_value(&self, name: &str) -> bool {
+        if self.for_in_key_shape(name).is_some() {
+            return true;
+        }
+        let tracked_scope = self.current_function_scope();
+        let mut current = self.current_scope_id();
+        loop {
+            let Some(scope_id) = current else {
+                return self
+                    .global_scope
+                    .for_in_key_value_bindings
+                    .contains_key(name);
+            };
+            let Some(scope) = self.scopes.get(&scope_id) else {
+                return false;
+            };
+            if scope.scope_type == ScopeType::Function && Some(scope_id) != tracked_scope {
+                return false;
+            }
+            if scope.for_in_key_value_bindings.contains_key(name) {
+                return true;
+            }
+            if scope.scope_type == ScopeType::Function {
+                return false;
+            }
+            current = scope.parent;
+        }
+    }
+
+    /// If `name` (a bare identifier) is used as an RHS of an alias copy — a
+    /// declarator init `let d = <rhs>` or an assignment `d = <rhs>` — and `<rhs>`
+    /// carries for-in-key value provenance, mark the LHS `d` as a value copy too,
+    /// so a later string-escape use of `d` is caught by the reject gate. Only the
+    /// bare-identifier RHS form propagates (an ordinal-domain copy); anything else
+    /// is left alone.
+    pub(crate) fn propagate_for_in_key_value(&mut self, lhs: &str, rhs: &Expression) {
+        if let Expression::Identifier(rhs_name) = rhs {
+            if self.is_for_in_key_value(rhs_name) {
+                self.register_for_in_key_value(lhs);
+            }
+        }
+    }
+
+    /// Spec 4a Task 5 fail-closed value-escape gate: reject (E5506) a `for..in`
+    /// key / alias / value-copy binding used as a STRING/GENERAL VALUE that
+    /// codegen will NOT materialize. Codegen materializes ONLY when the repr was
+    /// lifted to `String` by a seed sink on the DIRECT loop key (return /
+    /// console.log / `+` / `==`/`!=`/`===`/`!==`), i.e. exactly when
+    /// `identifier_repr_is_string(name)` is true. So: reject when the operand is a
+    /// bare identifier with for-in-key value provenance AND its repr is NOT lifted
+    /// to `String` — that is the aliased key (`let d = c; return d`) and the
+    /// direct key at an UN-seeded escape (a template interpolation `${c}`), both
+    /// of which would otherwise leak the RAW ORDINAL as a bogus string handle.
+    /// Called ONLY at value-ESCAPE sinks (return arg, console.log arg,
+    /// `+`/equality operand, template interpolation) — NEVER on an index
+    /// (`table[c]`), a truthiness test (`if (c)`), or an alias-copy RHS
+    /// (`last = c`), which stay in the ordinal domain and must keep compiling.
+    pub(crate) fn reject_nonmaterializable_forin_key_value(&mut self, expr: &Expression) {
+        let mut inner = expr;
+        while let Expression::ParenthesizedExpression(p) = inner {
+            inner = &p.expression;
+        }
+        if let Expression::Identifier(name) = inner {
+            if self.is_for_in_key_value(name) && !self.identifier_repr_is_string(name) {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    format!(
+                        "a for..in key value that is aliased (`let d = {name}`) or used at an un-materialized string position (e.g. a template `${{{name}}}`) is unavailable in the current direct-runtime path; only a DIRECT key at a return / console.log / `+` / `==` position materializes its field-name string"
+                    ),
+                ));
+            }
+        }
+    }
+
     /// True iff `name` resolves to a linear-memory array binding whose element
     /// repr is proven `Repr::String` by the inference (Spec 3 store/read/join
     /// lane). Reuses the SAME function-key resolution as
@@ -1198,6 +1304,15 @@ impl TypeContext {
                     self.reject_forin_key_boolean_operand(&expr.left, &expr.operator);
                     self.reject_forin_key_boolean_operand(&expr.right, &expr.operator);
                 }
+                // Spec 4a Task 5 fail-closed: `+`/equality is a string value
+                // escape — a NON-materializable for-in-key value operand (an
+                // aliased key, or a direct key whose repr was not lifted) would
+                // leak the raw ordinal. A direct seeded key (repr `String`) is
+                // materialized and NOT rejected here.
+                if matches!(expr.operator.as_str(), "+" | "==" | "!=" | "===" | "!==") {
+                    self.reject_nonmaterializable_forin_key_value(&expr.left);
+                    self.reject_nonmaterializable_forin_key_value(&expr.right);
+                }
             }
             Expression::UnaryExpression(expr) => {
                 if expr.operator == "delete" {
@@ -1320,6 +1435,12 @@ impl TypeContext {
                         if let Some(shape) = right_for_in_key_shape {
                             self.register_for_in_key(&name, shape);
                         }
+                        // Spec 4a Task 5 fail-closed: propagate for-in-key VALUE
+                        // provenance through an assignment alias whose RHS is a
+                        // declarator-init value copy (`e = d` where `d` is
+                        // `let d = c`) — the assignment-side sibling of the
+                        // declarator-init taint, for the escape reject gate only.
+                        self.propagate_for_in_key_value(&name, &expr.right);
                     }
                     return;
                 }
@@ -1645,6 +1766,12 @@ impl TypeContext {
     pub(crate) fn resolve_template_literal(&mut self, template: &TemplateLiteral) {
         for expr in &template.expressions {
             self.resolve_expression(expr);
+            // Spec 4a Task 5 fail-closed: a template interpolation `${c}` is a
+            // string value escape but is NOT a repr seed sink, so even a DIRECT
+            // key is not materialized here — reject rather than leak the raw
+            // ordinal. (Real templates usually desugar to `+` chains before this
+            // pass; this covers any raw `TemplateLiteral` that reaches resolve.)
+            self.reject_nonmaterializable_forin_key_value(expr);
         }
     }
 

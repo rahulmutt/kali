@@ -67,6 +67,16 @@ pub struct Scope {
     /// the enumerated object's ShapeId. Grow-only, per the runtime_array_bindings
     /// convention. Seeded at the for..in left-hand var and at `last = c` aliases.
     pub for_in_key_bindings: IndexMap<String, kali_common::ShapeId>,
+    /// Spec 4a Task 5 fail-closed: bindings that hold a COPY of a `for..in` key
+    /// value but are NOT full for-in keys — a declarator-init alias `let d = c`
+    /// (assignment aliases `d = c` register in `for_in_key_bindings` above; this
+    /// set is the declarator-init sibling those miss). Deliberately SEPARATE from
+    /// `for_in_key_bindings`: it feeds ONLY the value-escape reject gate
+    /// (`reject_nonmaterializable_forin_key_value`), never the index / truthiness /
+    /// materialization lanes — so `let d = c; table[d]` stays fail-closed
+    /// (rejected, as codegen never recognizes such a declarator alias for the
+    /// index lane) rather than becoming a types-admits/codegen-miscompiles open.
+    pub for_in_key_value_bindings: IndexMap<String, bool>,
 }
 
 impl Scope {
@@ -87,6 +97,7 @@ impl Scope {
             static_reference_values: IndexMap::new(),
             static_object_keys: IndexMap::new(),
             for_in_key_bindings: IndexMap::new(),
+            for_in_key_value_bindings: IndexMap::new(),
         }
     }
 

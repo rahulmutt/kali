@@ -421,6 +421,12 @@ impl TypeContext {
             Statement::ReturnStatement(ReturnStatement { argument }) => {
                 if let Some(argument) = argument {
                     self.resolve_expression(argument);
+                    // Spec 4a Task 5 fail-closed: `return d` where `d` is a
+                    // non-materializable for-in-key value (an aliased key) would
+                    // leak the raw ordinal as a bogus string handle. A direct
+                    // seeded key (`return c`) has repr `String` → materialized →
+                    // not rejected.
+                    self.reject_nonmaterializable_forin_key_value(argument);
                 }
             }
             Statement::LabeledStatement(LabeledStatement { body, .. }) => {
@@ -750,6 +756,26 @@ impl TypeContext {
                         self.global_scope
                             .static_string_typed
                             .insert(declarator.id.clone(), true);
+                    }
+                }
+                // Spec 4a Task 5 fail-closed: a declarator-init alias
+                // `let d = c` (RHS carries for-in-key value provenance) marks
+                // `d` as a value copy for the value-escape reject gate ONLY
+                // (never the index/truthiness/materialization lanes). Chains
+                // (`let e = d`) propagate because `is_for_in_key_value` is
+                // transitive. Assignment aliases (`d = c`) register in
+                // `for_in_key_bindings` separately.
+                if let Expression::Identifier(rhs_name) = init {
+                    if self.is_for_in_key_value(rhs_name) {
+                        if let Some(scope) = self.scopes.get_mut(&target_scope) {
+                            scope
+                                .for_in_key_value_bindings
+                                .insert(declarator.id.clone(), true);
+                        } else if self.global_scope.contains(&declarator.id) {
+                            self.global_scope
+                                .for_in_key_value_bindings
+                                .insert(declarator.id.clone(), true);
+                        }
                     }
                 }
                 // Track array-literal bindings for EVERY kind (incl. `var`):

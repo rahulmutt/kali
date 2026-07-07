@@ -206,6 +206,57 @@ const t = { a: 0.3, c: 0.6, g: 0.95 };\nconsole.log(collect(t));\n";
     );
 }
 
+#[test]
+fn for_in_key_declarator_alias_returned_as_string_is_fail_closed() {
+    // Dual-role × alias fail-open guard: a DECLARATOR-init alias `let d = c`
+    // used as a string value (`return d`) is NOT materialized by codegen (only
+    // a DIRECT seeded key is), so it must fail closed — never leak the raw
+    // ordinal as a bogus string handle (the reviewer's exact probe: was `0`).
+    let src = "const t = { a: 0.5, c: 0.5 };\n\
+function f(tab) { for (var c in tab) { let d = c; return d; } return \"?\"; }\nconsole.log(f(t));\n";
+    let out = run_source(src);
+    // node: "a". Accept a byte-identical match OR fail-closed; reject garbage.
+    assert!(
+        !out.status.success() || String::from_utf8_lossy(&out.stdout) == "a\n",
+        "declarator-alias for-in key returned as a string must match node or fail closed, not leak the ordinal; got stdout={:?} stderr={}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+#[test]
+fn for_in_key_assignment_alias_returned_as_string_is_fail_closed() {
+    // Assignment-alias form `d = c; return d` — same fail-open class; must fail
+    // closed, not leak the raw ordinal.
+    let src = "const t = { a: 0.5, c: 0.5 };\n\
+function f(tab) { var d; for (var c in tab) { d = c; return d; } return \"?\"; }\nconsole.log(f(t));\n";
+    let out = run_source(src);
+    assert!(
+        !out.status.success() || String::from_utf8_lossy(&out.stdout) == "a\n",
+        "assignment-alias for-in key returned as a string must match node or fail closed; got stdout={:?} stderr={}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+#[test]
+fn for_in_key_in_template_literal_is_fail_closed_or_matches_node() {
+    // A DIRECT key inside a template interpolation `${c}` is a string escape
+    // that is NOT a repr seed sink — must fail closed OR match node, never leak
+    // the raw ordinal. (Real templates desugar to `+` chains, which DO
+    // materialize the direct key; either outcome is acceptable, garbage is not.)
+    let src = "const t = { a: 0.5, c: 0.5 };\n\
+function f(tab) { for (var c in tab) { return `${c}`; } return \"?\"; }\nconsole.log(f(t));\n";
+    let out = run_source(src);
+    // node: "a".
+    assert!(
+        !out.status.success() || String::from_utf8_lossy(&out.stdout) == "a\n",
+        "for-in key in a template literal must match node or fail closed; got stdout={:?} stderr={}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
 // ---------------------------------------------------------------------------
 // Task 6: fail-closed matrix. Every out-of-scope for..in shape must FAIL CLOSED
 // (non-zero exit / E5506), never miscompile.
