@@ -458,11 +458,15 @@ impl<'a> FunctionEmitter<'a> {
             return true;
         };
         // Module-scope mutable scalar promoted to a persistent global: route the
-        // write through `GlobalSet` (from a function OR module scope). Wins ahead
-        // of the local lookup (a promoted name is filtered out of `_start`'s
-        // locals) and ahead of the fail-closed compound-assign path below.
-        if let Some(&(global_index, repr)) = self.module_global_slots.get(&name) {
-            return self.emit_module_global_assignment(function, op, global_index, repr, right);
+        // write through `GlobalSet` (from a function OR module scope). Gated on
+        // the target NOT being a local/param FIRST — a same-named local `var`/
+        // `let` or param shadows the module global and must be written to its own
+        // slot (JS lexical scoping), so this yields to the local lookup below.
+        // (In `_start` a promoted name is never a local, so this still fires.)
+        if !self.locals.contains_key(&name) {
+            if let Some(&(global_index, repr)) = self.module_global_slots.get(&name) {
+                return self.emit_module_global_assignment(function, op, global_index, repr, right);
+            }
         }
         let Some(index) = self.locals.get(&name).copied() else {
             if op == "=" {

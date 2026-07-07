@@ -824,14 +824,22 @@ impl<'a> FunctionEmitter<'a> {
                         }
 
                         // Module-scope mutable scalar promoted to a global: its
-                        // declarator (only ever reached in `_start`) stores its
-                        // init through `GlobalSet`, not a local slot. The global
-                        // itself is zero-initialized in the `GlobalSection`, so a
-                        // no-initializer `var g;` already reads 0 and skips here
-                        // (the `children.len() < 2` guard above `continue`d).
+                        // MODULE declarator (in `_start`) stores its init through
+                        // `GlobalSet`, not a local slot. Gated on the name NOT
+                        // being a local of THIS function: a same-named `var`/`let`
+                        // inside another function is a distinct local (it is in
+                        // that function's `locals`), so it must fall through to
+                        // the normal local store below and NOT clobber the module
+                        // global. In `_start` the promoted name is filtered out of
+                        // its locals, so this fires only for the real module
+                        // declarator. A no-initializer `var g;` skips here (the
+                        // `children.len() < 2` guard above `continue`d); the global
+                        // is zero-initialized in the `GlobalSection`.
                         if let Some(name) = declarator.text.clone() {
-                            if let Some(&(global_index, repr)) = self.module_global_slots.get(&name)
-                            {
+                            if let (false, Some(&(global_index, repr))) = (
+                                self.locals.contains_key(&name),
+                                self.module_global_slots.get(&name),
+                            ) {
                                 let is_f64 = repr == kali_common::Repr::F64;
                                 let produced = self.emit_node(function, init, true);
                                 if !produced.produced {
@@ -1032,20 +1040,26 @@ impl<'a> FunctionEmitter<'a> {
                     }
                     // Module-scope mutable scalar promoted to a persistent
                     // global (see `collect_module_scalar_globals`): read it with
-                    // `GlobalGet` from a function OR module scope. Wins ahead of
-                    // the local lookup (a promoted name is filtered out of
-                    // `_start`'s locals) and ahead of the E5506 module-binding
-                    // gate below, which only ever handled the inline-const case.
-                    if let Some(&(global_index, repr)) = self.module_global_slots.get(text) {
-                        function.instruction(&Instruction::GlobalGet(global_index));
-                        return EmittedValue {
-                            produced: true,
-                            shape: if repr == kali_common::Repr::F64 {
-                                ValueShape::Float
-                            } else {
-                                ValueShape::Scalar
-                            },
-                        };
+                    // `GlobalGet` from a function OR module scope. Gated on the
+                    // name NOT being a local/param FIRST — a param or local
+                    // `var`/`let` that shadows a same-named module global wins
+                    // (JS lexical scoping), so this must yield to the local
+                    // lookup below. (In `_start` a promoted name is never a
+                    // local — it is filtered out of `_start`'s locals — so this
+                    // still fires there.) Also wins ahead of the E5506
+                    // module-binding gate, which only handled the inline-const case.
+                    if !self.locals.contains_key(text) {
+                        if let Some(&(global_index, repr)) = self.module_global_slots.get(text) {
+                            function.instruction(&Instruction::GlobalGet(global_index));
+                            return EmittedValue {
+                                produced: true,
+                                shape: if repr == kali_common::Repr::F64 {
+                                    ValueShape::Float
+                                } else {
+                                    ValueShape::Scalar
+                                },
+                            };
+                        }
                     }
 
                     if let Some(index) = self.locals.get(text).copied() {

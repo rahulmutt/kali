@@ -101,6 +101,63 @@ fn module_var_compound_assign_from_function() {
     assert_eq!(String::from_utf8_lossy(&out.stdout), "5\n12\n");
 }
 
+/// FIX 1 fail-closed pin: a module OBJECT reassigned from a function but NEVER
+/// member-accessed has a DEFAULT-`I64` repr (its shape is never proven), so a
+/// naive "I64 minus member-bases" heuristic would promote it and store the
+/// object handle in an i64 global (a memory-corruption-class fail-open, printed
+/// `0` exit 0 pre-fix). The positive-scalar promotion proof requires the init
+/// (`{x:1}`) to be numeric — it is not — so the binding is left unpromoted and
+/// the assignment stays fail-closed (E5506).
+#[test]
+fn module_object_reassigned_never_member_accessed_is_rejected() {
+    let out = run_source(
+        "var o = { x: 1 };\nfunction f(){ o = { x: 2 }; return 0; }\nf();\nconsole.log(o);\n",
+    );
+    assert!(
+        !out.status.success(),
+        "expected a fail-closed rejection, stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("E5506"),
+        "expected E5506 fail-closed rejection, stderr: {stderr}"
+    );
+}
+
+/// FIX 2: a local `var g` inside a function that shadows a promoted module
+/// global `g` must write its OWN local slot (JS lexical scoping), NOT clobber
+/// the module global. Pre-fix the declarator-init `GlobalSet` fired for the
+/// local too, so the module `g` became 5 (node: 10).
+#[test]
+fn local_var_shadowing_module_global_does_not_clobber() {
+    let out = run_source(
+        "var g = 10;\nfunction f(){ var g = 5; return g + 1; }\nconsole.log(f());\nconsole.log(g);\n",
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "6\n10\n");
+}
+
+/// FIX 3: a param `n` that shadows a promoted module global `n` must read the
+/// PARAM, not the global. Pre-fix the read `GlobalGet` branch sat ahead of the
+/// param lookup, so `id(7)` returned the global 5 (node: 7).
+#[test]
+fn param_shadowing_module_global_reads_param() {
+    let out = run_source(
+        "var n = 5;\nfunction id(n){ return n; }\nconsole.log(id(7));\nconsole.log(n);\n",
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "7\n5\n");
+}
+
 /// SCOPE fail-closed pin: a mutable module-scope OBJECT mutated from a function
 /// is a persistent heap root the GC-less region reclamation does not model.
 /// It MUST stay rejected (E5506) — never silently lowered to a mutable global.

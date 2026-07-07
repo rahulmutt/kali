@@ -838,9 +838,13 @@ impl<'a> FunctionEmitter<'a> {
                     // Module-scope mutable scalar promoted to a global: its
                     // float-ness is the global's declared repr (its per-function
                     // `scalar_repr` node is unseeded, so this must win — see
-                    // `collect_module_scalar_globals`).
-                    if let Some(&(_, repr)) = self.module_global_slots.get(name) {
-                        return repr == kali_common::Repr::F64;
+                    // `collect_module_scalar_globals`). Gated on the name NOT
+                    // being a local/param: a shadowing local/param uses its OWN
+                    // repr (resolved by `scalar_repr` below), not the global's.
+                    if !self.locals.contains_key(name) {
+                        if let Some(&(_, repr)) = self.module_global_slots.get(name) {
+                            return repr == kali_common::Repr::F64;
+                        }
                     }
                     // Module const inlined at this site: classify by its initializer.
                     if !self.locals.contains_key(name) && self.function_name != "_start" {

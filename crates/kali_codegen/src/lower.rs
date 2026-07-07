@@ -724,7 +724,16 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     // `BTreeMap`). Each is zero-initialized (`var` hoisting semantics: the
     // binding reads `undefined`/0 until its declarator line runs `GlobalSet` in
     // `_start`); the declared wasm type follows the binding's repr.
-    for (_index, repr) in module_global_slots.values() {
+    for (i, (index, repr)) in module_global_slots.values().enumerate() {
+        // The map iterates in the same sorted order the indices were assigned
+        // in `collect_module_scalar_globals`, so append position and stored
+        // index MUST stay in lockstep — a future filter divergence that broke
+        // this would silently desync every `GlobalGet`/`GlobalSet`.
+        debug_assert_eq!(
+            *index,
+            RESERVED_GLOBAL_COUNT + i as u32,
+            "module global index/append-order desync"
+        );
         let (val_type, init) = match repr {
             kali_common::Repr::F64 => (ValType::F64, ConstExpr::f64_const(0.0.into())),
             _ => (ValType::I64, ConstExpr::i64_const(0)),
@@ -1655,6 +1664,32 @@ pub(crate) fn collect_module_scalar_globals(
         collect_member_base_names(&lir.nodes, lir.root, &mut seen, &mut heap_base_names);
     }
 
+    // POSITIVE scalar proof (the load-bearing gate). A candidate's repr may be
+    // a *default* `I64` for an object whose shape was never proven (e.g. a
+    // module object reassigned `o = {…}` but never member-accessed), so the
+    // I64/`is_array_binding`/member-base checks above are not sufficient — they
+    // are a NEGATIVE heuristic an unproven heap value evades. Promote ONLY when
+    // the binding is PROVABLY numeric: its initializer AND every reassignment
+    // RHS is a numeric expression (numeric literal, arithmetic/bitwise over
+    // numerics, a proven-numeric call, `.length`, …). Any object/array literal,
+    // string, template, `new`, or non-numeric-return call as an init/RHS leaves
+    // the name unpromoted → the existing E5506 module-binding gate = fail-closed
+    // (the safe pre-feature behavior). The capstone's `var rngLast = 42`
+    // (reassigned only to `(rngLast*3877+29573)%139968`) is provably numeric.
+    let mut numeric_ok: HashSet<String> = candidates.keys().cloned().collect();
+    {
+        let mut seen = HashSet::new();
+        scan_numeric_assignments(
+            &lir.nodes,
+            lir.root,
+            "_start",
+            repr_table,
+            &candidates,
+            &mut seen,
+            &mut numeric_ok,
+        );
+    }
+
     // Only bindings referenced from inside a function need a persistent global;
     // a module-only scalar stays a `_start` local (byte-identical).
     let mut referenced: HashSet<String> = HashSet::new();
@@ -1669,7 +1704,10 @@ pub(crate) fn collect_module_scalar_globals(
     let mut slots = BTreeMap::new();
     let mut next_index = RESERVED_GLOBAL_COUNT;
     for (name, repr) in candidates {
-        if referenced.contains(&name) && !heap_base_names.contains(&name) {
+        if referenced.contains(&name)
+            && !heap_base_names.contains(&name)
+            && numeric_ok.contains(&name)
+        {
             slots.insert(name, (next_index, repr));
             next_index += 1;
         }
@@ -1722,6 +1760,239 @@ fn collect_member_base_names(
     }
     for child in &node.children {
         collect_member_base_names(nodes, *child, seen, out);
+    }
+}
+
+/// A binary operator whose RESULT is always a number (arithmetic, bitwise,
+/// relational, and equality). Used by the positive-scalar promotion proof:
+/// `&&`/`||`/`??` (yield one operand, possibly heap), `,` (yields the RHS),
+/// and `in`/`instanceof` are deliberately NOT here, so a candidate whose RHS
+/// uses them is left unproven (fail-closed).
+fn is_numeric_result_binary_operator(text: &str) -> bool {
+    matches!(
+        text,
+        "+" | "-"
+            | "*"
+            | "/"
+            | "%"
+            | "**"
+            | "&"
+            | "|"
+            | "^"
+            | "<<"
+            | ">>"
+            | ">>>"
+            | "<"
+            | "<="
+            | ">"
+            | ">="
+            | "=="
+            | "==="
+            | "!="
+            | "!=="
+    )
+}
+
+/// An assignment operator (`=` and the compound forms). LHS-targeted; used to
+/// find every reassignment of a promotion candidate.
+fn is_assignment_operator_text(text: &str) -> bool {
+    matches!(
+        text,
+        "=" | "+="
+            | "-="
+            | "*="
+            | "/="
+            | "%="
+            | "**="
+            | "<<="
+            | ">>="
+            | ">>>="
+            | "&="
+            | "|="
+            | "^="
+            | "&&="
+            | "||="
+            | "??="
+    )
+}
+
+/// POSITIVE proof that the expression at `id` yields a plain NUMBER (so a module
+/// binding whose init and every reassignment RHS is numeric can be backed by an
+/// i64/f64 global). Conservative: anything not recognized as numeric returns
+/// `false` (→ the binding is left unpromoted → fail-closed E5506). Rejects the
+/// heap shapes — object/array literal (a childless-text `Value` with children),
+/// string/other non-numeric literal, `.field` member access (except `.length`),
+/// computed member, and a call whose return repr is not proven numeric.
+/// `func` scopes identifier-operand repr lookups to the enclosing function.
+fn is_numeric_expr(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    repr_table: &kali_common::ReprTable,
+    func: &str,
+    depth: usize,
+) -> bool {
+    if depth > 32 {
+        return false;
+    }
+    let id = unwrap_transparent_value(nodes, id);
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return false;
+    };
+    match node.kind {
+        LirNodeKind::Literal => node.text.as_deref().is_some_and(|t| {
+            parse_numeric_literal_value(t).is_some() || matches!(t, "true" | "false")
+        }),
+        LirNodeKind::Call => {
+            // Only a plain named call (`f(...)`) whose return repr is proven
+            // numeric. A member call (`o.m()`) or an unproven return is rejected.
+            let Some(&callee_id) = node.children.first() else {
+                return false;
+            };
+            let callee = unwrap_transparent_value(nodes, callee_id);
+            let Some(callee_node) = nodes.get(callee.0 as usize) else {
+                return false;
+            };
+            if callee_node.kind == LirNodeKind::Value && callee_node.children.is_empty() {
+                if let Some(name) = callee_node.text.as_deref() {
+                    return matches!(
+                        repr_table.return_repr(name),
+                        kali_common::Repr::I64 | kali_common::Repr::F64
+                    );
+                }
+            }
+            false
+        }
+        LirNodeKind::Value => {
+            // Object/array literal: no text + children → heap aggregate.
+            if node.text.is_none() && !node.children.is_empty() {
+                return false;
+            }
+            match node.children.len() {
+                0 => {
+                    let Some(t) = node.text.as_deref() else {
+                        return false;
+                    };
+                    if parse_numeric_literal_value(t).is_some() || matches!(t, "true" | "false") {
+                        return true;
+                    }
+                    // Bare identifier operand: numeric iff its scalar repr is
+                    // numeric AND it is not an array binding. An object/string
+                    // binding (repr `Object`/`String`) is rejected here.
+                    matches!(
+                        repr_table.scalar(func, t),
+                        kali_common::Repr::I64 | kali_common::Repr::F64
+                    ) && !repr_table.is_array_binding(func, t)
+                }
+                1 => {
+                    let t = node.text.as_deref().unwrap_or_default();
+                    if t == "length" {
+                        // `a.length` / `s.length` is a number.
+                        return true;
+                    }
+                    if matches!(
+                        t,
+                        "-" | "+" | "~" | "!" | "prefix++" | "postfix++" | "prefix--" | "postfix--"
+                    ) {
+                        return is_numeric_expr(
+                            nodes,
+                            node.children[0],
+                            repr_table,
+                            func,
+                            depth + 1,
+                        );
+                    }
+                    // `o.field` / `typeof` / `void` / `delete` → not proven numeric.
+                    false
+                }
+                2 => {
+                    let t = node.text.as_deref().unwrap_or_default();
+                    is_numeric_result_binary_operator(t)
+                        && is_numeric_expr(nodes, node.children[0], repr_table, func, depth + 1)
+                        && is_numeric_expr(nodes, node.children[1], repr_table, func, depth + 1)
+                }
+                _ => false,
+            }
+        }
+        _ => false,
+    }
+}
+
+/// Walk the whole program (tracking the enclosing function so identifier-operand
+/// reprs resolve in the right scope) and, for every declarator init and every
+/// reassignment RHS of a promotion `candidate`, drop the name from `numeric_ok`
+/// if that init/RHS is not provably numeric (`is_numeric_expr`).
+#[allow(clippy::too_many_arguments)]
+fn scan_numeric_assignments(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    func: &str,
+    repr_table: &kali_common::ReprTable,
+    candidates: &BTreeMap<String, kali_common::Repr>,
+    seen: &mut HashSet<LirNodeId>,
+    numeric_ok: &mut HashSet<String>,
+) {
+    if !seen.insert(id) {
+        return;
+    }
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return;
+    };
+
+    // Function boundary: descend into the body under the function's own name so
+    // a reassignment's identifier operands resolve in that scope.
+    if let Some((name, _, body_id, _)) = function_shape(nodes, id) {
+        scan_numeric_assignments(
+            nodes, body_id, &name, repr_table, candidates, seen, numeric_ok,
+        );
+        return;
+    }
+
+    // Declarator init (`var`/`let name = init`).
+    if node.kind == LirNodeKind::Instruction && matches!(node.text.as_deref(), Some("let" | "var"))
+    {
+        for declarator_id in &node.children {
+            let Some(declarator) = nodes.get(declarator_id.0 as usize) else {
+                continue;
+            };
+            let Some(name) = declarator.text.as_deref() else {
+                continue;
+            };
+            if candidates.contains_key(name) && numeric_ok.contains(name) {
+                if let Some(&init) = declarator.children.get(1) {
+                    if !is_numeric_expr(nodes, init, repr_table, func, 0) {
+                        numeric_ok.remove(name);
+                    }
+                }
+            }
+        }
+    }
+
+    // Reassignment (`name = rhs`, or a compound `name op= rhs`): its RHS must
+    // also be numeric (a compound over a numeric global stays numeric iff the
+    // RHS is numeric).
+    if node.kind == LirNodeKind::Value
+        && node.children.len() == 2
+        && is_assignment_operator_text(node.text.as_deref().unwrap_or_default())
+    {
+        let lhs = unwrap_transparent_value(nodes, node.children[0]);
+        if let Some(lhs_node) = nodes.get(lhs.0 as usize) {
+            if lhs_node.kind == LirNodeKind::Value && lhs_node.children.is_empty() {
+                if let Some(name) = lhs_node.text.as_deref() {
+                    if candidates.contains_key(name)
+                        && numeric_ok.contains(name)
+                        && !is_numeric_expr(nodes, node.children[1], repr_table, func, 0)
+                    {
+                        numeric_ok.remove(name);
+                    }
+                }
+            }
+        }
+    }
+
+    for child in &node.children {
+        scan_numeric_assignments(
+            nodes, *child, func, repr_table, candidates, seen, numeric_ok,
+        );
     }
 }
 
