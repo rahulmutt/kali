@@ -169,6 +169,29 @@ fn loop_ordinals_are_preorder() {
     assert!(!table.loop_arena("f", 3));
 }
 
+#[test]
+fn for_in_consumes_no_loop_ordinal() {
+    // A for..in between two real loops must NOT shift the second loop's
+    // ordinal. If for..in were (incorrectly) numbered, loop `1` below would
+    // become `2` and this pin would break.
+    let mir = analyze(
+        "function mk(d) { return { v: d }; }
+         function f(n) {
+           let keep;
+           for (let i = 0; i < n; i = i + 1) { const a = mk(1); let s = a.v; }
+           const t = { a: 1, c: 2 };
+           for (var c in t) { keep = c; }
+           for (let j = 0; j < n; j = j + 1) { const b = mk(3); let u = b.v; }
+           return keep;
+         }",
+    );
+    let table = compute_arena_table(&mir);
+    // Loop 0 = first real for-loop; the for..in is skipped; loop 1 = last for-loop.
+    assert!(table.loop_arena("f", 0));
+    assert!(table.loop_arena("f", 1));
+    assert!(!table.loop_arena("f", 2));
+}
+
 // --- Review fixes: fail-open holes pinned ----------------------------------
 
 #[test]

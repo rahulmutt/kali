@@ -651,6 +651,22 @@ impl ReprInfer {
                 self.visit_block(func, &stmt.body);
             }
             Statement::ForInStatement(stmt) => {
+                // `for (key in obj)` observes EVERY field of `obj` at
+                // runtime (Spec 4a Task 1's counted-loop lowering reads the
+                // object's shape field count) even though it never emits a
+                // `.field` `ObjAccess` of its own — so a base that is
+                // otherwise only ever read via a fold-lane compile-time
+                // literal (never field-accessed, never aliased) must still
+                // be forced onto the materialized runtime-object lane here,
+                // or `kali_codegen`'s `object_shape_of_node` will find no
+                // `Repr::Object` entry for it and fail closed (a "no known
+                // shape" diagnostic) even for a perfectly fixed-shape object
+                // literal. Mirrors `visit_assignment`'s whole-object
+                // reassignment branch, which materializes the same way for
+                // the same reason (observable outside the fold lane).
+                if let Some(base) = self.member_base_slot(func, &stmt.right) {
+                    self.obj_materialized.insert(base);
+                }
                 self.visit_expr(func, &stmt.right);
                 self.visit_stmt(func, &stmt.body);
             }

@@ -1223,6 +1223,59 @@ pub(crate) fn loop_preorder_ordinals(
     ordinals
 }
 
+/// Pre-order, function-scoped ordinal assigned to each `for-in`-text `Branch`
+/// node's LIR id. Completely independent of `loop_preorder_ordinals` (which
+/// deliberately does NOT recognize `for-in` — see that function's doc comment
+/// on the arena-ordinal desync danger of doing so) and never consulted by
+/// `kali_mir`'s escape gate: this ordinal exists ONLY to name a dedicated
+/// per-for-in scratch i64 local (`for_in_ord_local_name`) that holds the
+/// loop's own counter, so nested emission inside the for-in body (e.g. an
+/// object allocation, which reuses the function's generic trailing scratch
+/// local — see `emit_object_allocation`) can never clobber it. Consulted from
+/// exactly two call sites, both inside `kali_codegen`
+/// (`collect_function_locals`, which reserves the local, and
+/// `FunctionEmitter::new`, which resolves it back for `emit_for_in`) — it has
+/// no bearing on arena placement and must never be threaded into
+/// `ArenaTable`/`loop_arena` lookups.
+pub(crate) fn for_in_preorder_ordinals(
+    nodes: &[LirNode],
+    body: LirNodeId,
+) -> HashMap<LirNodeId, u32> {
+    let mut ordinals = HashMap::new();
+    let mut next = 0u32;
+    for_in_preorder_ordinals_walk(nodes, body, &mut next, &mut ordinals);
+    ordinals
+}
+
+fn for_in_preorder_ordinals_walk(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    next: &mut u32,
+    ordinals: &mut HashMap<LirNodeId, u32>,
+) {
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return;
+    };
+    if node.kind == LirNodeKind::Branch && node.text.as_deref() == Some("for-in") {
+        ordinals.insert(id, *next);
+        *next += 1;
+    }
+    for child in &node.children {
+        if is_function_like(nodes, *child) {
+            continue;
+        }
+        for_in_preorder_ordinals_walk(nodes, *child, next, ordinals);
+    }
+}
+
+/// Name of the dedicated i64 scratch local holding the `for-in` loop's own
+/// ordinal counter (`for_in_preorder_ordinals`-keyed). The `#` makes this
+/// unrepresentable as a source-level identifier, matching the convention
+/// `arena_save_local_names` uses, so it can never collide with a real binding.
+pub(crate) fn for_in_ord_local_name(ordinal: u32) -> String {
+    format!("__for_in_ord#{ordinal}")
+}
+
 /// Names of the three synthetic i32 locals that save/restore the
 /// current-arena trio (`g1`/`g2`/`g3`) around the arena'd loop with pre-order
 /// ordinal `ordinal` in its function. Shared by locals provisioning
@@ -1352,6 +1405,18 @@ pub(crate) fn collect_function_locals(
         locals.push(page);
         locals.push(cursor);
         locals.push(limit);
+    }
+
+    // Reserve one dedicated i64 scratch local per `for-in` loop in this
+    // function (Task 1 of Spec 4a) — see `for_in_preorder_ordinals`'s doc
+    // comment for why this is a wholly separate, codegen-internal counter
+    // from the arena-ordinal one above.
+    let mut for_in_ordinals: Vec<u32> = for_in_preorder_ordinals(nodes, body_id)
+        .into_values()
+        .collect();
+    for_in_ordinals.sort_unstable();
+    for ordinal in for_in_ordinals {
+        locals.push(for_in_ord_local_name(ordinal));
     }
 
     locals

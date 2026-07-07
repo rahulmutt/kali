@@ -347,6 +347,124 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// Bound name of a `for..in` key (`for-in` node's `children[0]`, i.e.
+    /// `left`): either a declaration form (`var`/`let`/`const` `Instruction`
+    /// wrapping one declarator whose own `text` is the name — the same shape
+    /// `collect_function_locals_from_node` recognizes when reserving the
+    /// key's local, so this lookup and that reservation can never disagree
+    /// about the name), or a plain already-bound identifier (`for (c in obj)`
+    /// with `c` declared elsewhere), whose own `text` already IS the name.
+    fn for_in_key_name(&self, left_id: LirNodeId) -> String {
+        let left = self.node(left_id);
+        if left.kind == LirNodeKind::Instruction
+            && matches!(left.text.as_deref(), Some("let" | "var" | "const"))
+        {
+            if let Some(&declarator_id) = left.children.first() {
+                if let Some(name) = self.node(declarator_id).text.clone() {
+                    return name;
+                }
+            }
+        }
+        left.text.clone().unwrap_or_default()
+    }
+
+    /// Lower `for (KEY in OBJ)` over a compile-time-known fixed-shape object.
+    /// `children` = `[left(key binding), right(object), body]`. The key is
+    /// bound to an ordinal `0..N-1` (`N` = `OBJ`'s shape field count); it is
+    /// not yet usable as an index or a string (Tasks 3/5). No arena: this
+    /// loop allocates nothing per iteration.
+    ///
+    /// Critically, this loop must NEVER be numbered by
+    /// `crate::lower::loop_preorder_ordinals` / looked up in `ArenaTable` —
+    /// see that function's doc comment and `kali_mir::analysis::walk`'s
+    /// `ForInStmt` arm: assigning this loop a real loop-arena ordinal would
+    /// desync every REAL loop lexically following it in the same function.
+    /// The dedicated counter local this function uses instead comes from the
+    /// wholly separate `crate::lower::for_in_preorder_ordinals` bookkeeping.
+    pub(crate) fn emit_for_in(
+        &mut self,
+        function: &mut Function,
+        id: LirNodeId,
+        node: &LirNode,
+    ) -> EmittedValue {
+        let left_id = node.children[0];
+        let right_id = node.children[1];
+        let body_id = node.children[2];
+
+        // N from the object's shape. Fail closed if the object has no known shape.
+        let shape = match self.object_shape_of_node(right_id) {
+            Some(s) => s,
+            None => {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "for..in is only supported over an object with a compile-time-known shape",
+                ));
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            }
+        };
+        let n = self.repr_table.shape_fields(shape).len() as i64;
+
+        // Resolve the key variable's local slot — the same slot an
+        // identifier read of the key resolves to via `self.locals` (see
+        // `emit_value`'s 0-child `Value` arm).
+        let key_name = self.for_in_key_name(left_id);
+        let Some(key_local) = self.locals.get(&key_name).copied() else {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!("for..in key binding '{key_name}' has no reserved local"),
+            ));
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        };
+        // Dedicated ordinal-counter local — see `for_in_preorder_ordinals`.
+        let ordinal = self.for_in_ordinals[&id];
+        let ord_local = self.locals[&crate::lower::for_in_ord_local_name(ordinal)];
+
+        // preheader: ord = 0
+        function.instruction(&Instruction::I64Const(0));
+        function.instruction(&Instruction::LocalSet(ord_local));
+
+        // block (break target) { loop (continue target) { ... } }
+        function.instruction(&Instruction::Block(BlockType::Empty));
+        function.instruction(&Instruction::Loop(BlockType::Empty));
+
+        // break when ord >= N
+        function.instruction(&Instruction::LocalGet(ord_local));
+        function.instruction(&Instruction::I64Const(n));
+        function.instruction(&Instruction::I64GeS);
+        function.instruction(&Instruction::BrIf(1)); // -> break out of block
+
+        // key = ord
+        function.instruction(&Instruction::LocalGet(ord_local));
+        function.instruction(&Instruction::LocalSet(key_local));
+
+        // body
+        let produced = self.emit_node(function, body_id, false);
+        if produced.produced {
+            function.instruction(&Instruction::Drop);
+        }
+
+        // ord = ord + 1
+        function.instruction(&Instruction::LocalGet(ord_local));
+        function.instruction(&Instruction::I64Const(1));
+        function.instruction(&Instruction::I64Add);
+        function.instruction(&Instruction::LocalSet(ord_local));
+
+        function.instruction(&Instruction::Br(0)); // back to loop top
+        function.instruction(&Instruction::End); // end loop
+        function.instruction(&Instruction::End); // end block
+
+        EmittedValue {
+            produced: false,
+            shape: ValueShape::Unknown,
+        }
+    }
+
     /// Task 7 prologue: if `ArenaTable::opens_arena` grants this function a
     /// function-body arena, save the current-arena trio (`g1`/`g2`/`g3`) into
     /// this function's three reserved locals (`arena_save_local_names_for_function`,
@@ -694,6 +812,7 @@ impl<'a> FunctionEmitter<'a> {
                 Some("while") | Some("do-while") | Some("for") => {
                     self.emit_loop(function, id, &node)
                 }
+                Some("for-in") => self.emit_for_in(function, id, &node),
                 _ => self.emit_branch(function, &node, want_value),
             },
             LirNodeKind::Unknown => {

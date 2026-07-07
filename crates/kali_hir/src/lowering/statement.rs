@@ -189,7 +189,9 @@ impl HirLowerer {
                 id
             }
             Statement::ForInStatement(ForInStatement { left, right, body }) => {
-                let id = self.builder.alloc(HirNodeKind::ForInStmt, None);
+                let id = self
+                    .builder
+                    .alloc_text(HirNodeKind::ForInStmt, None, "for-in");
                 match left {
                     ForInLefthand::VariableDeclaration(v) => push_child!(
                         self,

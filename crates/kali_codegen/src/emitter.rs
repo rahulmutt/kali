@@ -103,6 +103,13 @@ pub(crate) struct FunctionEmitter<'a> {
     /// construction time and consulted by `emit_loop` to key `arena_table`
     /// and the `__arena_save_*` locals.
     pub(crate) loop_ordinals: HashMap<LirNodeId, u32>,
+    /// Pre-order ordinal of every `for-in` node in this function's body (see
+    /// `crate::lower::for_in_preorder_ordinals`), resolved once at
+    /// construction time and consulted by `emit_for_in` to find its dedicated
+    /// counter local (`crate::lower::for_in_ord_local_name`). Wholly separate
+    /// from `loop_ordinals`/`arena_table` — never consulted for arena
+    /// placement.
+    pub(crate) for_in_ordinals: HashMap<LirNodeId, u32>,
     /// Stack of currently-open loop arenas (innermost last) — see
     /// `emitter::ArenaFrame`.
     pub(crate) arena_frames: Vec<ArenaFrame>,
@@ -141,6 +148,7 @@ impl<'a> FunctionEmitter<'a> {
         module_binding_names: &'a BTreeSet<String>,
     ) -> Self {
         let loop_ordinals = crate::lower::loop_preorder_ordinals(&program.nodes, body);
+        let for_in_ordinals = crate::lower::for_in_preorder_ordinals(&program.nodes, body);
         let mut locals = BTreeMap::new();
         for (idx, name) in params.iter().enumerate() {
             locals.insert(name.clone(), idx as u32);
@@ -190,6 +198,7 @@ impl<'a> FunctionEmitter<'a> {
             control_frames: Vec::new(),
             loop_frames: Vec::new(),
             loop_ordinals,
+            for_in_ordinals,
             arena_frames: Vec::new(),
             module_const_inits,
             module_binding_names,
