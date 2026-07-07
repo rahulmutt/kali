@@ -352,3 +352,61 @@ fn literal_array_top_level_static_index_mutation_stays_unchanged() {
     );
     assert_eq!(String::from_utf8_lossy(&out.stdout), "0\n");
 }
+
+// ---------------------------------------------------------------------------
+// Final-review fix round (C1 structural runtime-array registry): the join
+// gate now requires the receiver to be STRUCTURALLY registered as a codegen
+// runtime array in the current function — not merely repr-proven a String
+// array. repr_infer over-proves array-ness for call-result captures and
+// cross-scope module reads, which codegen never registers, so those receivers
+// used to fall through to a silent `0`. All reject now (was silent 0 at
+// pre-fix HEAD, exit 0).
+// ---------------------------------------------------------------------------
+
+#[test]
+fn join_of_call_result_captor_binding_is_rejected() {
+    // p15: `const c = mk(s)` captures a returned String array; codegen never
+    // registers `c` in `f`'s `array_bindings`, so `c.join("-")` emitted a
+    // silent `0`. Non-structural receiver -> reject (fail-closed).
+    let out = run_source(
+        "function mk(s) {\n  const a = new Array(2);\n  a[0] = s.substring(0, 1);\n  a[1] = s.substring(1, 2);\n  return a;\n}\nfunction f(s) {\n  const c = mk(s);\n  console.log(c.join(\"-\"));\n}\nf(\"xy\");\n",
+    );
+    assert!(
+        !out.status.success(),
+        "call-result captor join was silent 0; must reject. stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+}
+
+#[test]
+fn join_of_cross_scope_module_array_inside_function_is_rejected() {
+    // p26: `line` is a module `new Array(2)`; codegen's emitter for `f` never
+    // registers a module binding, so `line.join("-")` inside `f` emitted a
+    // silent `0`. The structural registry is per-function: a module binding is
+    // not structural inside `f` -> reject. (The module-scope-only twin below
+    // stays green.)
+    let out = run_source(
+        "var line = new Array(2);\nline[0] = \"x\";\nline[1] = \"y\";\nfunction f() {\n  console.log(line.join(\"-\"));\n}\nf();\n",
+    );
+    assert!(
+        !out.status.success(),
+        "cross-scope module-array join was silent 0; must reject. stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+}
+
+#[test]
+fn module_scope_top_level_join_stays_green() {
+    // p26's green twin: the SAME `var line = new Array(2)` joined at TOP LEVEL
+    // (`_start`) is structural in `_start` and must keep working — the C1
+    // registry must not over-reject the module-scope lane.
+    let out = run_source(
+        "var line = new Array(2);\nline[0] = \"x\";\nline[1] = \"y\";\nconsole.log(line.join(\"-\"));\n",
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "x-y\n");
+}

@@ -148,3 +148,55 @@ fn scalar_reassignment_of_array_binding_is_rejected() {
         "scalar into array binding must reject, not clobber the handle"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Final-review fix round: structural runtime-array registry (C1) + literal-
+// array reassignment gate (I1) + String-element-array return conflict (I2).
+// Each shape below was silent (printed "0", exit 0) at pre-fix HEAD.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn string_store_into_call_result_captor_is_rejected() {
+    // p32: `const c = mk()` captures a returned `new Array(2)`; codegen never
+    // registers `c` in `f`, so `c[0] = s.substring(...)` had no element-store
+    // lowering and `c[0]` read back a silent `0`. Non-structural store target
+    // -> reject (fail-closed).
+    let out = run_source(
+        "function mk() {\n  return new Array(2);\n}\nfunction f(s) {\n  const c = mk();\n  c[0] = s.substring(0, 1);\n  console.log(c[0]);\n}\nf(\"xy\");\n",
+    );
+    assert!(
+        !out.status.success(),
+        "string store into a call-result captor was silent 0; must reject. stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+}
+
+#[test]
+fn reassigning_array_binding_to_literal_array_binding_is_rejected() {
+    // p13 (I1): `a = b` where `b` is a literal-array binding. codegen cannot
+    // copy a literal array into a runtime buffer, so it clobbered `a`'s handle
+    // with `0` (node prints 7). rhs_is_array_shape now requires `b` to be a
+    // STRUCTURAL runtime array -> a literal-array copy source rejects.
+    let out = run_source("let b = [7, 8];\nlet a = new Array(2);\na = b;\nconsole.log(a[0]);\n");
+    assert!(
+        !out.status.success(),
+        "literal-array copy source was silent-wrong (printed 0, node 7); must reject. stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+}
+
+#[test]
+fn element_read_of_returned_string_array_is_rejected() {
+    // p15b (I2): `const c = mk(s); c[0]` captures a returned String-element
+    // array. No gate consults element READS, so C1 alone does not close it;
+    // repr_infer now fail-closes the RETURN of a String-element array at its
+    // choke point (mk's `return a`), rejecting the whole captor family.
+    let out = run_source(
+        "function mk(s) {\n  const a = new Array(2);\n  a[0] = s.substring(0, 1);\n  a[1] = s.substring(1, 2);\n  return a;\n}\nfunction f(s) {\n  const c = mk(s);\n  console.log(c[0]);\n}\nf(\"xy\");\n",
+    );
+    assert!(
+        !out.status.success(),
+        "element read of a returned String array was silent 0; must reject. stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+}
