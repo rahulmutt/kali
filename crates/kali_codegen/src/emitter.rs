@@ -131,6 +131,20 @@ pub(crate) struct FunctionEmitter<'a> {
     /// key + `last = c` provenance propagation (mirror binding provenance, not
     /// repr — the Spec-3 lesson).
     pub(crate) for_in_key_aliases: HashSet<String>,
+    /// Spec 4a Task 5: per-for-in-key handle-table base locals. `name -> local`
+    /// where `local` holds the i64 base pointer of an `N*8`-byte table of
+    /// interned field-name string handles (slot `j` = the interned handle of the
+    /// shape's `j`th field), bump-allocated ONCE in the loop preheader
+    /// (`emit_key_handle_table`). A for-in key (or alias) emitted in a
+    /// STRING-VALUE context materializes its field-name string by loading
+    /// `base + ord*8` from this table instead of yielding the raw ordinal. The
+    /// interned handles are compile-time data-segment offsets, so the table only
+    /// stores immutable `i64` handle values — the strings NEVER dangle.
+    /// Registered for the loop key AND its aliases (they enumerate the same
+    /// shape, so one table serves all); materialization is additionally gated on
+    /// the name's scalar repr being `String`, so an alias used only as an ordinal
+    /// (`table[last]`) is never wrongly materialized.
+    pub(crate) for_in_key_handle_tables: HashMap<String, u32>,
     /// Stack of currently-open loop arenas (innermost last) — see
     /// `emitter::ArenaFrame`.
     pub(crate) arena_frames: Vec<ArenaFrame>,
@@ -223,6 +237,7 @@ impl<'a> FunctionEmitter<'a> {
             for_in_ordinals,
             for_in_key_shapes: HashMap::new(),
             for_in_key_aliases,
+            for_in_key_handle_tables: HashMap::new(),
             arena_frames: Vec::new(),
             module_const_inits,
             module_binding_names,

@@ -130,6 +130,44 @@ fn forin_key_alias_under_logical_or_is_rejected() {
 }
 
 #[test]
+fn for_in_key_returned_as_string_matches_node() {
+    // selectRandom shape: return the key whose cumulative field first exceeds r.
+    // The key `c` is used BOTH as a computed index (`table[c]`, a raw ordinal)
+    // AND as a returned string value (`return c`, an interned field-name handle)
+    // in the SAME loop — the dual-role crux of Task 5.
+    let src = "function selectRandom(table, r) {\n  for (var c in table) {\n    if (r < table[c]) return c;\n  }\n  return \"?\";\n}\n\
+const t = { a: 0.3, c: 0.6, g: 0.95 };\n\
+console.log(selectRandom(t, 0.1));\nconsole.log(selectRandom(t, 0.5));\nconsole.log(selectRandom(t, 0.9));\n";
+    let out = run_source(src);
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    // node v26.4.0: 0.1<0.3 -> "a"; 0.5<0.6 -> "c"; 0.9<1.0 -> "g"
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "a\nc\ng\n");
+}
+
+#[test]
+fn for_in_bare_key_returned_as_string_matches_node() {
+    // R1: the BARE `for (c in table)` form (key pre-declared `var c;`, no
+    // `var`/`let`/`const` in the head) with the key returned as a string —
+    // the exact shape the Task 7 capstone's `selectRandom` uses. Proves the
+    // bare-form for-in-key provenance (types + codegen) supports key-as-string.
+    let src = "function selectRandom(table, r) {\n  var c;\n  for (c in table) {\n    if (r < table[c]) return c;\n  }\n  return \"?\";\n}\n\
+const t = { a: 0.3, c: 0.6, g: 0.95 };\n\
+console.log(selectRandom(t, 0.1));\nconsole.log(selectRandom(t, 0.5));\nconsole.log(selectRandom(t, 0.9));\n";
+    let out = run_source(src);
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    // node v26.4.0: same as the declaration form -> "a\nc\ng\n"
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "a\nc\ng\n");
+}
+
+#[test]
 fn for_in_over_fixed_shape_object_with_bare_key_iterates_once_per_field() {
     // The bare-identifier `for (c in obj)` form (key pre-declared, no
     // `var`/`let`/`const` in the head) — the exact shape fasta's `selectRandom`

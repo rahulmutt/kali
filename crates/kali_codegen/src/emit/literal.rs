@@ -492,6 +492,25 @@ impl<'a> FunctionEmitter<'a> {
                     function.instruction(&Instruction::LocalTee(index));
                     return true;
                 }
+                // Spec 4a Task 5: an alias assignment `last = c` (target and RHS
+                // both for-in-key provenance) copies the raw ORDINAL, never the
+                // materialized string handle — the alias's local must stay an
+                // ordinal so `table[last]` indexes correctly, even when the RHS
+                // key is ALSO used as a string elsewhere (so its scalar repr is
+                // `String` and the generic identifier emit would materialize a
+                // handle). Reads the RHS ordinal local directly, bypassing the
+                // string-materialization arm in `emit_value`.
+                if self.for_in_key_aliases.contains(&name) {
+                    if let Some(rhs_name) = self.bare_identifier_name(right) {
+                        if self.for_in_key_shapes.contains_key(&rhs_name) {
+                            if let Some(&ord_local) = self.locals.get(&rhs_name) {
+                                function.instruction(&Instruction::LocalGet(ord_local));
+                                function.instruction(&Instruction::LocalTee(index));
+                                return true;
+                            }
+                        }
+                    }
+                }
                 // `a = new Array(n)`: same routing as the declarator path
                 // (control_flow.rs:596-610) — the allocation needs a stable
                 // handle in the local, and the binding (re)registers as an

@@ -11,16 +11,21 @@ pub(crate) fn block_contains_yield_delegation(block: &BlockStatement) -> bool {
     block.body.iter().any(statement_contains_yield_delegation)
 }
 
-/// Extracts the bound identifier from a `for..in` left-hand side, but ONLY
-/// for the single-declarator `var`/`let`/`const` form (`for (var c in obj)`).
-/// Returns `None` for the bare-expression form (`for (c in obj)`) and for
-/// destructuring — fail closed; Spec 4a Task 2 does not yet reason about
-/// those binding shapes.
+/// Extracts the bound identifier from a `for..in` left-hand side, for the
+/// single-declarator `var`/`let`/`const` form (`for (var c in obj)`) AND —
+/// Spec 4a Task 5 R1 — the bare-identifier form (`for (c in obj)`, key
+/// pre-declared). Returns `None` for destructuring / any non-identifier LHS —
+/// fail closed; those binding shapes are not yet reasoned about.
 pub(crate) fn for_in_key_binding_name(left: &ForInLefthand) -> Option<String> {
     match left {
         ForInLefthand::VariableDeclaration(decl) if decl.declarations.len() == 1 => {
             Some(decl.declarations[0].id.clone())
         }
+        // Spec 4a Task 5 R1: the bare-identifier form `for (c in obj)` (key
+        // pre-declared elsewhere), the shape the capstone's `selectRandom`
+        // uses. Registers the same key provenance as the declaration form.
+        // Destructuring / non-identifier LHS remain fail-closed (`None`).
+        ForInLefthand::Expression(kali_ast::Expression::Identifier(name)) => Some(name.clone()),
         _ => None,
     }
 }

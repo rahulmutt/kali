@@ -459,10 +459,24 @@ impl<'a> FunctionEmitter<'a> {
                 break;
             }
         }
-        for alias in recognized {
-            if alias != key_name {
-                self.for_in_key_shapes.insert(alias, shape);
+        for alias in &recognized {
+            if alias != &key_name {
+                self.for_in_key_shapes.insert(alias.clone(), shape);
             }
+        }
+
+        // Spec 4a Task 5: build the per-shape key handle table ONCE, here in the
+        // preheader (never per-iteration). The base is stored in this loop's
+        // dedicated persistent local (`for_in_key_table_local_name`), and the
+        // key + every recognized alias map to it in `for_in_key_handle_tables` so
+        // a STRING-VALUE use of any of them (`return c`) materializes the interned
+        // field-name handle instead of the raw ordinal. Aliases enumerate the
+        // same shape (same ordered field names), so one table serves all.
+        let table_local = self.locals[&crate::lower::for_in_key_table_local_name(ordinal)];
+        self.emit_key_handle_table(function, shape, table_local);
+        for name in &recognized {
+            self.for_in_key_handle_tables
+                .insert(name.clone(), table_local);
         }
 
         // preheader: ord = 0
@@ -955,6 +969,42 @@ impl<'a> FunctionEmitter<'a> {
         match node.children.len() {
             0 => {
                 if let Some(text) = node.text.as_deref() {
+                    // Spec 4a Task 5: a for-in key (or alias) emitted in a
+                    // STRING-VALUE context materializes its interned field-name
+                    // handle from this loop's key handle table at `base + ord*8`,
+                    // instead of yielding the raw ordinal local. PROVENANCE is
+                    // structural (`for_in_key_handle_tables` membership, the
+                    // Task-4 threaded signal — not re-derived from repr); the
+                    // STRING context is the key's scalar repr being `String`
+                    // (lifted by `repr_infer` only where the key flows into a
+                    // string sink). The ORDINAL uses — computed index
+                    // (`table[c]`, via `emit_forin_key_ordinal`), `if`-truthiness
+                    // (`emit_branch`), and the alias ordinal-copy (`last = c`) —
+                    // never reach here as strings, so this arm is the sole
+                    // string-materialization site (the dual-role disambiguation).
+                    if let Some(&table_base) = self.for_in_key_handle_tables.get(text) {
+                        if self.scalar_repr(text) == kali_common::Repr::String {
+                            if let Some(&ord_local) = self.locals.get(text) {
+                                // addr = table_base(i32) + ord*8, load the i64 handle
+                                function.instruction(&Instruction::LocalGet(table_base));
+                                function.instruction(&Instruction::I32WrapI64);
+                                function.instruction(&Instruction::LocalGet(ord_local));
+                                function.instruction(&Instruction::I32WrapI64);
+                                function.instruction(&Instruction::I32Const(8));
+                                function.instruction(&Instruction::I32Mul);
+                                function.instruction(&Instruction::I32Add);
+                                function.instruction(&Instruction::I64Load(MemArg {
+                                    offset: 0,
+                                    align: 3,
+                                    memory_index: 0,
+                                }));
+                                return EmittedValue {
+                                    produced: true,
+                                    shape: ValueShape::String,
+                                };
+                            }
+                        }
+                    }
                     if let Some(index) = self.locals.get(text).copied() {
                         function.instruction(&Instruction::LocalGet(index));
                         return EmittedValue {

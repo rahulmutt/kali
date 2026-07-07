@@ -264,6 +264,32 @@ impl ReprInfer {
         self.string_seeds.push(node);
     }
 
+    /// True when `name` is a currently-active `for..in` key of `func` (its
+    /// enclosing `for (key in base)` body is being visited). Spec 4a Task 5.
+    fn is_active_for_in_key(&self, func: &str, name: &str) -> bool {
+        self.for_in_key_bases
+            .iter()
+            .any(|(f, k, _)| f == func && k == name)
+    }
+
+    /// Spec 4a Task 5: if `expr` is a bare identifier that is an active
+    /// `for..in` key used HERE in a string sink (a `return`, a `console.log`
+    /// argument, or a `+`/equality operand), lift its value axis to `String` by
+    /// seeding its scalar node. This makes `return c` solve `Repr::String`
+    /// (so callers/`console.log(selectRandom(...))` treat the result as a
+    /// string) AND makes codegen's `is_string_valued`/materialization fire on
+    /// the key at that sink. The key's ORDINAL role (`table[c]`) is unaffected:
+    /// the ordinal counter local is `i64` regardless (`wasm_type(String) ==
+    /// I64`) and codegen emits the raw ordinal at index sites.
+    fn seed_for_in_key_string_use(&mut self, func: &str, expr: &Expression) {
+        if let Expression::Identifier(name) = expr {
+            if self.is_active_for_in_key(func, name) {
+                let node = self.scalar_node_for(func, name);
+                self.add_string_seed(node);
+            }
+        }
+    }
+
     // ---- node accessors (get-or-create) --------------------------------
 
     fn scalar_node_for(&mut self, func: &str, name: &str) -> usize {
@@ -626,6 +652,9 @@ impl ReprInfer {
                             ObjSlot::Return(func.to_string()),
                             arg,
                         );
+                        // Spec 4a Task 5: `return c` where `c` is an active
+                        // for-in key lifts the key (hence the return) to String.
+                        self.seed_for_in_key_string_use(func, arg);
                         let rn = self.visit_expr(func, arg);
                         let ret = self.return_node_for(func);
                         self.add_edge(rn, ret);
@@ -691,18 +720,26 @@ impl ReprInfer {
                     for d in &decl.declarations {
                         let _ = self.scalar_node_for(func, &d.id);
                     }
-                    // Task 3: record the key → base provenance for the loop
-                    // body so `base[key]` resolves to a uniform-object field
-                    // read. Only the single-declarator declaration form (the
-                    // Task 3 scope); the bare-identifier form is Task 5.
-                    if let (Some(base), true) = (&base_slot, decl.declarations.len() == 1) {
-                        self.for_in_key_bases.push((
-                            func.to_string(),
-                            decl.declarations[0].id.clone(),
-                            base.clone(),
-                        ));
-                        pushed_key = true;
+                }
+                // Record the key → base provenance for the loop body so
+                // `base[key]` resolves to a uniform-object field read (Task 3)
+                // and a string USE of the key materializes (Task 5). Supports
+                // BOTH the single-declarator declaration form (`for (var c in
+                // obj)`) and — Task 5 R1 — the bare-identifier Expression form
+                // (`for (c in obj)`, the shape the capstone's `selectRandom`
+                // uses). Destructuring / multi-declarator remain deferred.
+                let key_name = match &stmt.left {
+                    ForInLefthand::VariableDeclaration(decl) if decl.declarations.len() == 1 => {
+                        Some(decl.declarations[0].id.clone())
                     }
+                    ForInLefthand::Expression(Expression::Identifier(name)) => Some(name.clone()),
+                    _ => None,
+                };
+                if let (Some(key), Some(base)) = (key_name, &base_slot) {
+                    let _ = self.scalar_node_for(func, &key);
+                    self.for_in_key_bases
+                        .push((func.to_string(), key, base.clone()));
+                    pushed_key = true;
                 }
                 self.visit_stmt(func, &stmt.body);
                 if pushed_key {
@@ -894,6 +931,12 @@ impl ReprInfer {
             Expression::ParenthesizedExpression(inner) => self.visit_expr(func, &inner.expression),
 
             Expression::BinaryExpression(bin) => {
+                // Spec 4a Task 5: a for-in key as a `+` or equality operand is
+                // used as a string (`c + x`, `c == "a"`), so lift it to String.
+                if matches!(bin.operator.as_str(), "+" | "==" | "!=" | "===" | "!==") {
+                    self.seed_for_in_key_string_use(func, &bin.left);
+                    self.seed_for_in_key_string_use(func, &bin.right);
+                }
                 let left = self.visit_expr(func, &bin.left);
                 let right = self.visit_expr(func, &bin.right);
                 let result = self.new_node();
@@ -1339,6 +1382,15 @@ impl ReprInfer {
                         self.new_node()
                     }
                     _ => {
+                        // Spec 4a Task 5: `console.log(c)` (and siblings) print
+                        // the for-in key as a string — lift it to String so
+                        // codegen materializes the field-name handle instead of
+                        // printing the raw ordinal.
+                        if is_console_object(&member.object) {
+                            for arg in &call.args {
+                                self.seed_for_in_key_string_use(func, arg);
+                            }
+                        }
                         self.visit_expr(func, &member.object);
                         for arg in &call.args {
                             self.visit_expr(func, arg);
@@ -2240,6 +2292,10 @@ fn is_float_literal(n: f64) -> bool {
 /// True when `expr` is the `Math` object (`Math` identifier).
 fn is_math_object(expr: &Expression) -> bool {
     matches!(expr, Expression::Identifier(name) if name == "Math")
+}
+
+fn is_console_object(expr: &Expression) -> bool {
+    matches!(expr, Expression::Identifier(name) if name == "console")
 }
 
 /// Extract the constructor identifier name from a `new`-expression callee,

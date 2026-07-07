@@ -1388,6 +1388,19 @@ pub(crate) fn for_in_ord_local_name(ordinal: u32) -> String {
     format!("__for_in_ord#{ordinal}")
 }
 
+/// Name of the dedicated i64 local holding the base pointer of a `for-in`
+/// loop's per-shape key handle table (Spec 4a Task 5, `emit_key_handle_table`).
+/// The table is bump-allocated once in the loop preheader; this local must
+/// PERSIST across the whole loop body (a `return c`/`c + x` string use loads
+/// `base + ord*8` from it), so it is a dedicated reserved slot — NOT the
+/// function's transient trailing scratch, which body emission (e.g. an
+/// `obj[c] = v` write) reuses and would clobber. Same `#`-name convention +
+/// two-call-site (reserve here, resolve in `emit_for_in`) discipline as
+/// `for_in_ord_local_name`.
+pub(crate) fn for_in_key_table_local_name(ordinal: u32) -> String {
+    format!("__for_in_ktbl#{ordinal}")
+}
+
 /// Names of the three synthetic i32 locals that save/restore the
 /// current-arena trio (`g1`/`g2`/`g3`) around the arena'd loop with pre-order
 /// ordinal `ordinal` in its function. Shared by locals provisioning
@@ -1529,6 +1542,9 @@ pub(crate) fn collect_function_locals(
     for_in_ordinals.sort_unstable();
     for ordinal in for_in_ordinals {
         locals.push(for_in_ord_local_name(ordinal));
+        // Spec 4a Task 5: a parallel dedicated i64 local per for-in loop for the
+        // key handle-table base pointer (persists across the loop body).
+        locals.push(for_in_key_table_local_name(ordinal));
     }
 
     locals

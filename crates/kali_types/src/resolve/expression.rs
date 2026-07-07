@@ -70,7 +70,14 @@ impl TypeContext {
         match expression {
             Expression::Literal(LiteralValue::String(_)) => true,
             Expression::TemplateLiteral(_) => true,
-            Expression::Identifier(name) => self.binding_is_string_typed(name),
+            // A `for..in` key (or alias) used as a VALUE is its field-name
+            // STRING (Spec 4a Task 5) — codegen materializes the interned handle
+            // from the per-shape key handle table. Mirror of codegen's
+            // `is_string_valued` identifier arm (which sees the key's scalar repr
+            // lifted to `String` by `repr_infer`'s string-sink seed).
+            Expression::Identifier(name) => {
+                self.binding_is_string_typed(name) || self.for_in_key_shape(name).is_some()
+            }
             // Computed element read `a[i]` of an array whose element axis is
             // proven `Repr::String` (Spec 3). Mirror of codegen's
             // `is_string_valued` `dynamic_array_read_base` arm — both classify
@@ -533,7 +540,12 @@ impl TypeContext {
     pub(crate) fn operand_repr_is_string(&self, operand: &Expression) -> bool {
         use kali_common::Repr;
         match operand {
-            Expression::Identifier(name) => self.identifier_repr_is_string(name),
+            // A `for..in` key/alias is a runtime string value (its materialized
+            // field-name handle) — Spec 4a Task 5. Mirrors the codegen
+            // `is_string_valued` identifier arm.
+            Expression::Identifier(name) => {
+                self.identifier_repr_is_string(name) || self.for_in_key_shape(name).is_some()
+            }
             // Computed element read `a[i]` of a proven `Repr::String` array
             // (Spec 3) — same signal codegen's `is_string_valued`
             // `dynamic_array_read_base` arm consults.
@@ -804,6 +816,16 @@ impl TypeContext {
     /// const-only distinction (Task 5), so reusing it keeps the two gates
     /// consistent.
     pub(crate) fn expression_is_runtime_string_value(&mut self, expr: &Expression) -> bool {
+        // A `for..in` key/alias is a RUNTIME string value (its field-name handle
+        // materializes only at run time) — Spec 4a Task 5. Checked ahead of the
+        // fold-receiver escape: a for-in key is a mutable per-iteration binding,
+        // never a compile-time-constant fold receiver, so it must not be
+        // mistaken for a static string.
+        if let Expression::Identifier(name) = expr {
+            if self.for_in_key_shape(name).is_some() {
+                return true;
+            }
+        }
         if self.expression_is_length_fold_receiver(expr) {
             return false;
         }
