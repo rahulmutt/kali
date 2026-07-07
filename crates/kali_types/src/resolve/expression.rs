@@ -221,6 +221,110 @@ impl TypeContext {
         }
     }
 
+    /// True iff `name` is STRUCTURALLY registered as a codegen runtime array
+    /// binding in the CURRENT function — the types-side mirror of codegen's
+    /// `array_bindings` membership (see `Scope::runtime_array_bindings`). Walks
+    /// the scope chain exactly like `binding_repr_function_key`: it stops at the
+    /// tracked function's own boundary, so a binding registered in an OUTER
+    /// function (or, from within a named function, at module scope) is NOT
+    /// structural here — codegen's emitter for this function would never have
+    /// registered it. Only when emitting `_start` (no tracked function) does the
+    /// walk reach module/global scope, matching codegen's `_start` locals.
+    ///
+    /// - crossing an UNTRACKED function-shaped scope (arrow/method/etc.) ⇒
+    ///   `false` (fail-closed, same reason as `binding_repr_function_key`),
+    /// - reaching the tracked function's own top scope without a hit ⇒ `false`
+    ///   (a free module reference codegen does NOT register in this function).
+    pub(crate) fn is_structural_runtime_array(&self, name: &str) -> bool {
+        let tracked_scope = self.current_function_scope();
+        let mut current = self.current_scope_id();
+        loop {
+            let Some(scope_id) = current else {
+                // Reached module/global (only possible under `_start`, whose
+                // tracked scope is `None`): module bindings are `_start`-local
+                // to codegen, so a top-level `new Array` IS structural here.
+                return self.global_scope.runtime_array_bindings.contains_key(name);
+            };
+            let Some(scope) = self.scopes.get(&scope_id) else {
+                return false;
+            };
+            if scope.scope_type == ScopeType::Function && Some(scope_id) != tracked_scope {
+                // Crossed into a function `current_function_name()` does not
+                // name — fail closed rather than guess.
+                return false;
+            }
+            if scope.runtime_array_bindings.contains_key(name) {
+                return true;
+            }
+            if scope.scope_type == ScopeType::Function {
+                // Tracked function's own top scope, no hit: a free module
+                // reference codegen's emitter for this function never registers.
+                return false;
+            }
+            current = scope.parent;
+        }
+    }
+
+    /// True when `expr` is a DECLARATOR init that codegen registers as a runtime
+    /// array binding: `new Array(...)`, the bare `Array(...)` call form (both
+    /// funnel through codegen's `resolve_array_alloc_call`), or a `.fill(...)`
+    /// over such an allocation / an already-structural array binding (codegen's
+    /// `resolve_array_fill_call`, control_flow.rs). NARROWER than
+    /// `rhs_is_array_shape`: it deliberately EXCLUDES the bare-identifier copy
+    /// (`const c = a`), which codegen's declarator path does NOT register (only
+    /// the `=` reassignment arm registers an identifier copy).
+    pub(crate) fn declarator_registers_runtime_array(&self, expr: &Expression) -> bool {
+        match expr {
+            // `new Array(n)`: callee is the `CallExpression` `Array(n)` (see
+            // `rhs_is_array_shape`); bare `new Array` is the Identifier form.
+            Expression::NewExpression(new_expr) => {
+                matches!(&new_expr.callee, Expression::Identifier(name) if name == "Array")
+                    || matches!(&new_expr.callee, Expression::CallExpression(call)
+                        if matches!(&call.callee, Expression::Identifier(name) if name == "Array"))
+            }
+            Expression::CallExpression(call) => {
+                if matches!(&call.callee, Expression::Identifier(name) if name == "Array") {
+                    return true;
+                }
+                // `<recv>.fill(v)` — recv is a fresh `new Array(n)`/`Array(n)`
+                // allocation or an already-structural runtime array binding.
+                if let Expression::MemberExpression(member) = &call.callee {
+                    if member.computed_index.is_none() && member.property.as_str() == "fill" {
+                        return self.declarator_registers_runtime_array(&member.object)
+                            || matches!(&member.object, Expression::Identifier(name)
+                                if self.is_structural_runtime_array(name));
+                    }
+                }
+                false
+            }
+            _ => false,
+        }
+    }
+
+    /// Register `name` as a structural runtime array binding in the scope where
+    /// it is declared (module/global fallback otherwise). Grow-only, mirroring
+    /// codegen's insert-only `array_bindings`. Scope-walk twin of
+    /// `mark_binding_string_typed`.
+    pub(crate) fn register_runtime_array_binding(&mut self, name: &str) {
+        let mut current = self.current_scope_id();
+        while let Some(scope_id) = current {
+            if let Some(scope) = self.scopes.get_mut(&scope_id) {
+                if scope.bindings.contains_key(name) {
+                    scope.runtime_array_bindings.insert(name.to_string(), true);
+                    return;
+                }
+                current = scope.parent;
+            } else {
+                return;
+            }
+        }
+        if self.global_scope.bindings.contains_key(name) {
+            self.global_scope
+                .runtime_array_bindings
+                .insert(name.to_string(), true);
+        }
+    }
+
     /// True iff `name` resolves to a linear-memory array binding whose element
     /// repr is proven `Repr::String` by the inference (Spec 3 store/read/join
     /// lane). Reuses the SAME function-key resolution as
@@ -605,9 +709,17 @@ impl TypeContext {
         // mix) make this sound. The subscript-target shape MIRRORS the `a[i] = v`
         // recognizer in `repr_infer::visit_assignment` (computed index over a
         // bare-identifier base). Fields and every unproven target keep rejecting.
+        // The accept path also requires STRUCTURAL registration (C1): a
+        // repr-proven String-element array that codegen never registers in
+        // this function's `array_bindings` (a call-result capture
+        // `const c = mk(); c[0] = ...`) has no element-store lowering — codegen
+        // falls through and the read silently yields `0`. Require
+        // `is_structural_runtime_array` so such a target rejects (fail-closed).
         if member.computed_index.is_some() {
             if let Expression::Identifier(base_name) = &member.object {
-                if self.string_element_array_binding(base_name) {
+                if self.string_element_array_binding(base_name)
+                    && self.is_structural_runtime_array(base_name)
+                {
                     return;
                 }
             }
@@ -675,8 +787,9 @@ impl TypeContext {
     /// allocation/copy path: `new Array(...)`, the bare `Array(...)` call form
     /// (both funnel through codegen's `resolve_array_alloc_call`, which does
     /// not distinguish `new` from a plain call once lowered to LIR), or a bare
-    /// identifier that is itself a proven array binding (`a = b`, copied via
-    /// `bare_identifier_name`).
+    /// identifier that is itself a STRUCTURAL runtime array binding (`a = b`,
+    /// copied via `bare_identifier_name` — codegen's `=` arm only registers the
+    /// copy when `b` is already in `array_bindings`).
     ///
     /// Deliberately narrower than `repr_infer::init_is_array`'s shape list
     /// (repr_infer.rs:712-720), which ALSO accepts `Expression::ArrayExpression`
@@ -688,8 +801,25 @@ impl TypeContext {
     /// base handle with 0 — the exact miscompile this gate exists to prevent.
     /// Accepting `ArrayExpression` here would fail OPEN. If codegen ever grows
     /// real array-literal-reassignment routing, widen this arm to match.
+    ///
+    /// The Identifier arm keys on the STRUCTURAL registry (C1), not the
+    /// repr-table `is_array_binding` proof: repr_infer proves array-ness for a
+    /// LITERAL-array binding (`let b = [7, 8]`) too, but codegen cannot copy
+    /// one (it never linearizes a literal array into a runtime buffer), so
+    /// `a = b` there silently clobbers `a`'s handle with `0` (I1). Requiring
+    /// `is_structural_runtime_array` rejects that copy source (fail-closed).
     fn rhs_is_array_shape(&self, expr: &Expression) -> bool {
         match expr {
+            // `new Array(n)` parses as a `NewExpression` whose callee is the
+            // `CallExpression` `Array(n)` (the parser attaches the args to the
+            // inner call, leaving `NewExpression.args` empty) — the second
+            // `matches!` is the LOAD-BEARING one for the common form; the bare
+            // `new Array` (no args) takes the Identifier form. (T5-Minor-1
+            // claimed the CallExpression-callee sub-match was unreachable and
+            // asked to delete it; empirically it is the normal shape for
+            // `new Array(n)` — deleting it makes `new Array(n)` unrecognized
+            // and regresses reassignment + declarator registration, so it is
+            // deliberately KEPT. See Final-review fix round notes.)
             Expression::NewExpression(new_expr) => {
                 matches!(&new_expr.callee, Expression::Identifier(name) if name == "Array")
                     || matches!(&new_expr.callee, Expression::CallExpression(call)
@@ -698,10 +828,23 @@ impl TypeContext {
             Expression::CallExpression(call) => {
                 matches!(&call.callee, Expression::Identifier(name) if name == "Array")
             }
-            Expression::Identifier(name) => match self.binding_repr_function_key(name) {
-                Some(func) => self.repr_table.is_array_binding(&func, name),
-                None => false,
-            },
+            Expression::Identifier(name) => self.is_structural_runtime_array(name),
+            _ => false,
+        }
+    }
+
+    /// True when `expr` is an array *literal* or a binding that resolves to one
+    /// (`[1, 2]`, or `b` where `let b = [1, 2]`). Used only to give a
+    /// reassignment-to-an-array-literal a message that names the actual defect
+    /// (codegen has no runtime lowering for a literal-array RHS) instead of the
+    /// misleading "non-array value".
+    fn rhs_is_literal_array_shape(&self, expr: &Expression) -> bool {
+        match expr {
+            Expression::ArrayExpression(_) => true,
+            Expression::Identifier(name) => self.resolve_array_literal_binding_name(name),
+            Expression::ParenthesizedExpression(inner) => {
+                self.rhs_is_literal_array_shape(&inner.expression)
+            }
             _ => false,
         }
     }
@@ -746,10 +889,20 @@ impl TypeContext {
         {
             return;
         }
-        self.diagnostics.push(Diagnostic::error(
-            e5::FEATURE_UNAVAILABLE as u32,
-            "reassigning an array binding to a non-array value is unavailable in the current direct-runtime path".to_string(),
-        ));
+        // Distinguish an array-LITERAL / literal-binding RHS (`a = [1, 2]`,
+        // `a = b` where `b` is a literal array) from a genuinely non-array
+        // value: the former IS an array value, just one codegen cannot copy
+        // into a runtime buffer, so the "non-array value" phrasing would
+        // misdescribe it (T7-Minor-3).
+        let message = if matches!(assign.operator, AssignmentOperator::Assign)
+            && self.rhs_is_literal_array_shape(&assign.right)
+        {
+            "reassigning an array binding to an array literal is unavailable in the current direct-runtime path (codegen does not linearize a literal array into a runtime buffer); use new Array(n) for a runtime-mutable array".to_string()
+        } else {
+            "reassigning an array binding to a non-array value is unavailable in the current direct-runtime path".to_string()
+        };
+        self.diagnostics
+            .push(Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, message));
     }
 
     /// Resolves `expression` in a position where codegen folds a string-typed `+`
@@ -861,9 +1014,21 @@ impl TypeContext {
                         // cleared, keeping the check flow-aware (e.g.
                         // `let s = "x"; s = 5; s + 1` stays a valid numeric `6`).
                         let right_is_string = self.expression_is_string_typed(&expr.right);
+                        // Structural runtime-array registry (C1): a
+                        // reassignment whose RHS codegen backs as a runtime
+                        // array (`new Array(n)` / `Array(n)` / a
+                        // structural-identifier copy `a = b`) registers the
+                        // target, mirroring codegen's `=` arm (literal.rs).
+                        // Evaluated BEFORE `invalidate_static_binding` — the
+                        // registry is grow-only and invalidation does not touch
+                        // it, but the ordering keeps intent clear.
+                        let right_is_array_shape = self.rhs_is_array_shape(&expr.right);
                         self.invalidate_static_binding(&name);
                         if right_is_string {
                             self.mark_binding_string_typed(&name);
+                        }
+                        if right_is_array_shape {
+                            self.register_runtime_array_binding(&name);
                         }
                     }
                     return;

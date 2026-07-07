@@ -876,7 +876,19 @@ impl TypeContext {
                 // `0`. Reject it (fail-closed): the fold lane handles static
                 // `const` literal arrays; a `var`/reassigned literal-array join
                 // has no runtime lane.
+                //
+                // `is_structural_runtime_array` (C1) is the decisive check:
+                // repr_infer proves `string_element_array_binding` for shapes
+                // codegen never registers in THIS function's `array_bindings`
+                // (a call-result capture `const c = mk()`; a module-scope array
+                // read inside a nested function — codegen's emitter for the
+                // inner function has no handle for it). Such a receiver reaches
+                // codegen's `runtime_join_call_parts`, finds no array binding,
+                // emits no `__join`, and falls through to a silent `0`. Require
+                // the structural proof so a non-structural receiver routes into
+                // the reject branch below.
                 if supported_arg_count
+                    && self.is_structural_runtime_array(name)
                     && !self.array_element_non_ascii(name)
                     && !self.resolve_array_literal_binding_name(name)
                 {

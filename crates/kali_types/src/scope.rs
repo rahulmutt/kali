@@ -42,6 +42,24 @@ pub struct Scope {
     /// `array_bindings`), so the runtime `join` lane must REJECT a
     /// literal-array receiver (it would silently emit `0`). Fail-closed.
     pub array_literal_bindings: IndexMap<String, bool>,
+    /// Names structurally proven to be a codegen RUNTIME linear-memory array
+    /// binding — the types-side mirror of `kali_codegen`'s `array_bindings`
+    /// set (emitter.rs). Populated at exactly the sites codegen registers:
+    /// an array-typed PARAMETER (repr-table `is_array_binding`, at function
+    /// entry), a `new Array(n)` / `Array(n)` / `.fill(...)` DECLARATOR init,
+    /// and a `new Array(n)` / `Array(n)` / structural-identifier REASSIGNMENT
+    /// target. Grow-only within a scope, mirroring codegen's insert-only
+    /// `HashSet` (a reassignment never REMOVES a binding from codegen's set).
+    ///
+    /// The runtime string store / `.length` / `join` lanes trust this
+    /// STRUCTURAL registry, not the repr-table proof alone: repr_infer
+    /// over-proves `is_array_binding` for shapes codegen never registers (a
+    /// call-result capture `const c = mk()`, a module-scope array read inside
+    /// a nested function), so a gate keying on the repr proof would ACCEPT a
+    /// receiver codegen falls through on and silently emits `0`. Requiring
+    /// structural registration keeps types in lockstep with what codegen can
+    /// lower. Fail-closed: a repr-proven-but-non-structural binding rejects.
+    pub runtime_array_bindings: IndexMap<String, bool>,
     pub static_objects: IndexMap<String, bool>,
     pub static_reference_values: IndexMap<String, String>,
     pub static_object_keys: IndexMap<String, bool>,
@@ -60,6 +78,7 @@ impl Scope {
             static_identity_values: IndexMap::new(),
             static_arrays: IndexMap::new(),
             array_literal_bindings: IndexMap::new(),
+            runtime_array_bindings: IndexMap::new(),
             static_objects: IndexMap::new(),
             static_reference_values: IndexMap::new(),
             static_object_keys: IndexMap::new(),
