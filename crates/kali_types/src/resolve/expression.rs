@@ -265,6 +265,60 @@ impl TypeContext {
         }
     }
 
+    /// `Some(shape)` iff `name` is a `for..in` key binding over a known
+    /// object shape — the Spec 4a Task 2 dormant provenance registry. Walks
+    /// the scope chain exactly like `is_structural_runtime_array`: stops at
+    /// the tracked function's own boundary (fail-closed; a binding registered
+    /// in an outer, untracked-boundary-crossed function is NOT visible here),
+    /// and only reaches module/global scope when emitting `_start` (no
+    /// tracked function).
+    pub(crate) fn for_in_key_shape(&self, name: &str) -> Option<kali_common::ShapeId> {
+        let tracked_scope = self.current_function_scope();
+        let mut current = self.current_scope_id();
+        loop {
+            let Some(scope_id) = current else {
+                return self.global_scope.for_in_key_bindings.get(name).copied();
+            };
+            let scope = self.scopes.get(&scope_id)?;
+            if scope.scope_type == ScopeType::Function && Some(scope_id) != tracked_scope {
+                // Crossed into a function `current_function_name()` does not
+                // name — fail closed rather than guess.
+                return None;
+            }
+            if let Some(shape) = scope.for_in_key_bindings.get(name) {
+                return Some(*shape);
+            }
+            if scope.scope_type == ScopeType::Function {
+                // Tracked function's own top scope, no hit: a free module
+                // reference this function never registered a key for.
+                return None;
+            }
+            current = scope.parent;
+        }
+    }
+
+    /// `Some(shape)` iff `expr` is a bare identifier whose `ReprTable` scalar
+    /// is proven `Repr::Object(shape)` — used to derive the shape a
+    /// `for..in`'s `right` enumerates (Spec 4a Task 2). Reuses the same
+    /// `binding_repr_function_key` scope-walk every other repr-table query in
+    /// this module keys off of, so this never disagrees with codegen's
+    /// per-function `ReprTable` entry. Fail-closed: anything other than a
+    /// bare identifier, or an untracked-function-boundary binding, is `None`.
+    pub(crate) fn object_shape_of_expression(
+        &self,
+        expr: &Expression,
+    ) -> Option<kali_common::ShapeId> {
+        use kali_common::Repr;
+        let Expression::Identifier(name) = expr else {
+            return None;
+        };
+        let func = self.binding_repr_function_key(name)?;
+        match self.repr_table.scalar(&func, name) {
+            Repr::Object(shape) => Some(shape),
+            _ => None,
+        }
+    }
+
     /// True when `expr` is a DECLARATOR init that codegen registers as a runtime
     /// array binding: `new Array(...)`, the bare `Array(...)` call form (both
     /// funnel through codegen's `resolve_array_alloc_call`), or a `.fill(...)`
@@ -322,6 +376,30 @@ impl TypeContext {
             self.global_scope
                 .runtime_array_bindings
                 .insert(name.to_string(), true);
+        }
+    }
+
+    /// Register `name` as a `for..in` key binding over `shape` in the scope
+    /// where it is declared (module/global fallback otherwise). Grow-only,
+    /// mirroring `register_runtime_array_binding` and codegen's insert-only
+    /// registries — Spec 4a Task 2's dormant provenance registry.
+    pub(crate) fn register_for_in_key(&mut self, name: &str, shape: kali_common::ShapeId) {
+        let mut current = self.current_scope_id();
+        while let Some(scope_id) = current {
+            if let Some(scope) = self.scopes.get_mut(&scope_id) {
+                if scope.bindings.contains_key(name) {
+                    scope.for_in_key_bindings.insert(name.to_string(), shape);
+                    return;
+                }
+                current = scope.parent;
+            } else {
+                return;
+            }
+        }
+        if self.global_scope.bindings.contains_key(name) {
+            self.global_scope
+                .for_in_key_bindings
+                .insert(name.to_string(), shape);
         }
     }
 
@@ -1023,12 +1101,26 @@ impl TypeContext {
                         // registry is grow-only and invalidation does not touch
                         // it, but the ordering keeps intent clear.
                         let right_is_array_shape = self.rhs_is_array_shape(&expr.right);
+                        // Spec 4a Task 2: propagate `for..in` key provenance
+                        // through a bare-identifier alias (`last = c`) —
+                        // computed BEFORE `invalidate_static_binding` for the
+                        // same reason as `right_is_array_shape` above (the
+                        // registry itself is grow-only and untouched by
+                        // invalidation; the ordering just keeps intent
+                        // clear). Dormant: nothing reads this registry yet.
+                        let right_for_in_key_shape = match &expr.right {
+                            Expression::Identifier(rhs_name) => self.for_in_key_shape(rhs_name),
+                            _ => None,
+                        };
                         self.invalidate_static_binding(&name);
                         if right_is_string {
                             self.mark_binding_string_typed(&name);
                         }
                         if right_is_array_shape {
                             self.register_runtime_array_binding(&name);
+                        }
+                        if let Some(shape) = right_for_in_key_shape {
+                            self.register_for_in_key(&name, shape);
                         }
                     }
                     return;

@@ -11,6 +11,20 @@ pub(crate) fn block_contains_yield_delegation(block: &BlockStatement) -> bool {
     block.body.iter().any(statement_contains_yield_delegation)
 }
 
+/// Extracts the bound identifier from a `for..in` left-hand side, but ONLY
+/// for the single-declarator `var`/`let`/`const` form (`for (var c in obj)`).
+/// Returns `None` for the bare-expression form (`for (c in obj)`) and for
+/// destructuring — fail closed; Spec 4a Task 2 does not yet reason about
+/// those binding shapes.
+pub(crate) fn for_in_key_binding_name(left: &ForInLefthand) -> Option<String> {
+    match left {
+        ForInLefthand::VariableDeclaration(decl) if decl.declarations.len() == 1 => {
+            Some(decl.declarations[0].id.clone())
+        }
+        _ => None,
+    }
+}
+
 pub(crate) fn statement_contains_yield_delegation(statement: &Statement) -> bool {
     match statement {
         Statement::ExpressionStatement(expression) => {
@@ -413,6 +427,17 @@ impl TypeContext {
                     ForInLefthand::Expression(expr) => self.resolve_expression(expr),
                 }
                 self.resolve_expression(right);
+                // Spec 4a Task 2: tag the key binding with the enumerated
+                // object's shape when known (dormant provenance registry —
+                // unconsumed until Task 3+). Fail-closed: only a `var`/`let`/
+                // `const` single-declarator LHS and a bare-identifier RHS
+                // proven `Repr::Object(shape)` register anything.
+                if let (Some(key_name), Some(shape)) = (
+                    for_in_key_binding_name(left),
+                    self.object_shape_of_expression(right),
+                ) {
+                    self.register_for_in_key(&key_name, shape);
+                }
                 self.resolve_loop_body(body);
                 self.pop_scope();
             }

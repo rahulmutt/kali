@@ -685,3 +685,13 @@ fn numeric_interpolation_is_ascii_precise() {
     assert_eq!(t.scalar("_start", "a"), Repr::String);
     assert!(!t.is_string_non_ascii("_start", "a"));
 }
+
+#[test]
+fn for_in_key_is_seeded_and_not_a_string_repr_by_default() {
+    // The key binding exists after inference and defaults to a scalar repr
+    // (I64 ordinal) until a string-use lifts it. This pins that seeding the
+    // key node did not accidentally make it F64 or a shape.
+    let t =
+        reprs("function m(table) { for (var c in table) { let z = c; } }\nm({ a: 1, c: 2 });\n");
+    assert_eq!(t.scalar("m", "c"), Repr::I64);
+}

@@ -63,6 +63,10 @@ pub struct Scope {
     pub static_objects: IndexMap<String, bool>,
     pub static_reference_values: IndexMap<String, String>,
     pub static_object_keys: IndexMap<String, bool>,
+    /// Bindings that hold a `for..in` key over a known-shape object: name ->
+    /// the enumerated object's ShapeId. Grow-only, per the runtime_array_bindings
+    /// convention. Seeded at the for..in left-hand var and at `last = c` aliases.
+    pub for_in_key_bindings: IndexMap<String, kali_common::ShapeId>,
 }
 
 impl Scope {
@@ -82,6 +86,7 @@ impl Scope {
             static_objects: IndexMap::new(),
             static_reference_values: IndexMap::new(),
             static_object_keys: IndexMap::new(),
+            for_in_key_bindings: IndexMap::new(),
         }
     }
 

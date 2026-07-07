@@ -668,6 +668,16 @@ impl ReprInfer {
                     self.obj_materialized.insert(base);
                 }
                 self.visit_expr(func, &stmt.right);
+                // Seed a scalar node for the key binding so it has a stable
+                // identity in the repr graph. Deliberately left on the
+                // default (I64) axis — no float/string seed — so this stays
+                // a dormant provenance hook until Task 3+ consumes it (Spec
+                // 4a Task 2).
+                if let ForInLefthand::VariableDeclaration(decl) = &stmt.left {
+                    for d in &decl.declarations {
+                        let _ = self.scalar_node_for(func, &d.id);
+                    }
+                }
                 self.visit_stmt(func, &stmt.body);
             }
             Statement::ForOfStatement(stmt) => {
