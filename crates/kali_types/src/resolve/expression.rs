@@ -1347,6 +1347,12 @@ impl TypeContext {
                                 "a runtime string value is unavailable as an array element in the current direct-runtime path; element reads have no string lane yet".to_string(),
                             ));
                         }
+                        // Spec 4a Task 5 fail-closed: an array-literal element is
+                        // a value escape — a non-materializable for-in-key value
+                        // (an aliased key, or an un-lifted direct key) would store
+                        // the raw ordinal. The runtime-string gate above misses it
+                        // (a non-lifted key is not `Repr::String`), so reject here.
+                        self.reject_nonmaterializable_forin_key_value(element_expr);
                     }
                 }
             }
@@ -1790,6 +1796,13 @@ impl TypeContext {
                 e5::FEATURE_UNAVAILABLE as u32,
                 "a runtime string value is unavailable as an object-literal property value in the current direct-runtime path; use a statically-known string or the later compatibility path".to_string(),
             ));
+        }
+        // Spec 4a Task 5 fail-closed: an object-literal property value `{k: c}`
+        // is a value escape — a non-materializable for-in-key value would store
+        // the raw ordinal. The runtime-string gate above misses a non-lifted key
+        // (not `Repr::String`), so reject it here.
+        if matches!(property.kind, ObjectPropertyKind::Init) {
+            self.reject_nonmaterializable_forin_key_value(&property.value);
         }
     }
 

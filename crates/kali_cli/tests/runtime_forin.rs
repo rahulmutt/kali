@@ -257,6 +257,54 @@ function f(tab) { for (var c in tab) { return `${c}`; } return \"?\"; }\nconsole
     );
 }
 
+#[test]
+fn for_in_key_as_general_call_argument_is_fail_closed() {
+    // Value-escape class guard: a for-in key passed as a GENERAL (non-console)
+    // function argument (`id(c)`) is not materialized across the call boundary
+    // and would leak the raw ordinal — must fail closed.
+    let src = "const t = { a: 0.5, c: 0.5 };\n\
+function id(x) { return x; }\nfunction f(tab) { for (var c in tab) { return id(c); } return \"?\"; }\nconsole.log(f(t));\n";
+    let out = run_source(src);
+    // node: "a". Match node OR fail-closed; never the raw ordinal.
+    assert!(
+        !out.status.success() || String::from_utf8_lossy(&out.stdout) == "a\n",
+        "for-in key as a general call argument must match node or fail closed; got stdout={:?} stderr={}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+#[test]
+fn for_in_key_as_array_literal_element_is_fail_closed() {
+    // Value-escape class guard: an aliased for-in key as an ARRAY-LITERAL
+    // element (`let d = c; let a = [d]; return a[0]`) would store the raw
+    // ordinal — must fail closed.
+    let src = "const t = { a: 0.5, c: 0.5 };\n\
+function f(tab) { for (var c in tab) { let d = c; let a = [d]; return a[0]; } return \"?\"; }\nconsole.log(f(t));\n";
+    let out = run_source(src);
+    assert!(
+        !out.status.success() || String::from_utf8_lossy(&out.stdout) == "a\n",
+        "for-in key as an array-literal element must match node or fail closed; got stdout={:?} stderr={}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+#[test]
+fn for_in_key_as_object_property_value_is_fail_closed() {
+    // Value-escape class guard: a for-in key as an OBJECT-LITERAL property value
+    // (`let o = {k: c}; return o.k`) would store the raw ordinal — fail closed.
+    let src = "const t = { a: 0.5, c: 0.5 };\n\
+function f(tab) { for (var c in tab) { let o = { k: c }; return o.k; } return \"?\"; }\nconsole.log(f(t));\n";
+    let out = run_source(src);
+    assert!(
+        !out.status.success() || String::from_utf8_lossy(&out.stdout) == "a\n",
+        "for-in key as an object-property value must match node or fail closed; got stdout={:?} stderr={}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
 // ---------------------------------------------------------------------------
 // Task 6: fail-closed matrix. Every out-of-scope for..in shape must FAIL CLOSED
 // (non-zero exit / E5506), never miscompile.

@@ -49,18 +49,16 @@ impl TypeContext {
         for arg in &expr.args {
             self.resolve_expression(arg);
         }
-        // Spec 4a Task 5 fail-closed: a for-in-key VALUE at a `console.*(...)`
-        // argument is a string value escape; a non-materializable one (an
-        // aliased key) would leak the raw ordinal. A direct seeded key
+        // Spec 4a Task 5 fail-closed: a for-in-key VALUE passed as ANY call
+        // argument (a general user/method call `id(c)`, or `console.log(c)`) is
+        // a value escape — a non-materializable one (an aliased key, or a direct
+        // key passed to a non-console call that is not a repr seed sink) would
+        // leak the raw ordinal across the call boundary. A direct SEEDED key
         // (`console.log(c)`, repr `String`) is materialized and not rejected.
-        if let Expression::MemberExpression(member) = &expr.callee {
-            if member.computed_index.is_none()
-                && matches!(&member.object, Expression::Identifier(o) if o == "console")
-            {
-                for arg in &expr.args {
-                    self.reject_nonmaterializable_forin_key_value(arg);
-                }
-            }
+        // Call arguments are always value positions (never an index/truthiness/
+        // alias-copy), so rejecting here never touches the ordinal-domain lanes.
+        for arg in &expr.args {
+            self.reject_nonmaterializable_forin_key_value(arg);
         }
         self.resolve_permission_query_call(expr);
         self.resolve_process_kill_call(expr);
