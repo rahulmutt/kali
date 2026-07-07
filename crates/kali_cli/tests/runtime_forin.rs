@@ -206,6 +206,133 @@ const t = { a: 0.3, c: 0.6, g: 0.95 };\nconsole.log(collect(t));\n";
     );
 }
 
+// ---------------------------------------------------------------------------
+// Task 6: fail-closed matrix. Every out-of-scope for..in shape must FAIL CLOSED
+// (non-zero exit / E5506), never miscompile.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn for_in_over_array_is_rejected() {
+    let out =
+        run_source("const a = new Array(2);\na[0]=1;\nfor (var c in a) { console.log(c); }\n");
+    assert!(!out.status.success(), "for..in over an array must reject");
+}
+
+#[test]
+fn computed_key_from_non_forin_string_is_rejected() {
+    // A plain runtime string key not derived from for..in over `t` -> Spec 4b.
+    let out = run_source(
+        "function f(t, k) { return t[k]; }\nconst t = { a: 1.0, c: 2.0 };\nconsole.log(f(t, \"a\"));\n",
+    );
+    assert!(
+        !out.status.success(),
+        "general dynamic string key must reject"
+    );
+}
+
+#[test]
+fn string_value_into_object_field_is_rejected() {
+    let out = run_source(
+        "function f(table, s) { for (var c in table) { table[c] = s; } }\nconst t = { a: 1.0 };\nf(t, \"x\");\n",
+    );
+    assert!(
+        !out.status.success(),
+        "storing a string into a field must reject"
+    );
+}
+
+#[test]
+fn for_in_key_indexing_a_different_object_is_rejected() {
+    let out = run_source(
+        "function f(t, u) { for (var c in t) { console.log(u[c]); } }\nconst t = { a: 1.0 };\nconst u = { a: 9.0, b: 8.0 };\nf(t, u);\n",
+    );
+    assert!(
+        !out.status.success(),
+        "key used against a different object must reject"
+    );
+}
+
+#[test]
+fn for_in_over_mixed_repr_shape_is_rejected() {
+    // Non-uniform field reprs: dynamic index can't pick a per-field type.
+    let out = run_source(
+        "function f(table) { for (var c in table) { console.log(table[c]); } }\nconst t = { a: 1, c: 2.5 };\nf(t);\n",
+    );
+    assert!(
+        !out.status.success(),
+        "mixed-repr shape dynamic access must reject"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Task 6 (controller handoff H2): a for-in-key/alias identifier used as a
+// while / for / do-while condition or a ternary TEST lowers via default `!= 0`
+// truthiness (`-1` null sentinel reads TRUTHY) with NO diagnostic — a
+// fail-OPEN in the same class as the `!`/`&&`/`||` rejects but in loop/ternary
+// test positions. fasta uses NONE of these, so reject fail-closed (E5506).
+// `if (last)` (makeCumulative) must STILL compile (it is an `if`, lowered
+// `>= 0`), and a normal while/for/ternary on a NON-for-in binding too.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn forin_key_alias_as_while_condition_is_rejected() {
+    let out = run_source(
+        "function f(table) {\n  var last = null;\n  for (var c in table) {\n    last = c;\n    while (last) { break; }\n  }\n}\nconst t = { a: 1, c: 2, g: 3 };\nf(t);\n",
+    );
+    assert!(
+        !out.status.success(),
+        "expected a fail-closed rejection of `while (last)` on a for-in-key alias"
+    );
+}
+
+#[test]
+fn forin_key_alias_as_for_condition_is_rejected() {
+    let out = run_source(
+        "function f(table) {\n  var last = null;\n  for (var c in table) {\n    last = c;\n    for (; last; ) { break; }\n  }\n}\nconst t = { a: 1, c: 2, g: 3 };\nf(t);\n",
+    );
+    assert!(
+        !out.status.success(),
+        "expected a fail-closed rejection of `for (; last;)` on a for-in-key alias"
+    );
+}
+
+#[test]
+fn forin_key_alias_as_do_while_condition_is_rejected() {
+    let out = run_source(
+        "function f(table) {\n  var last = null;\n  for (var c in table) {\n    last = c;\n    do { break; } while (last);\n  }\n}\nconst t = { a: 1, c: 2, g: 3 };\nf(t);\n",
+    );
+    assert!(
+        !out.status.success(),
+        "expected a fail-closed rejection of `do..while (last)` on a for-in-key alias"
+    );
+}
+
+#[test]
+fn forin_key_alias_as_ternary_test_is_rejected() {
+    let out = run_source(
+        "function f(table) {\n  var last = null;\n  for (var c in table) {\n    last = c;\n    let z = last ? 1 : 2;\n    console.log(z);\n  }\n}\nconst t = { a: 1, c: 2, g: 3 };\nf(t);\n",
+    );
+    assert!(
+        !out.status.success(),
+        "expected a fail-closed rejection of `last ? a : b` on a for-in-key alias"
+    );
+}
+
+#[test]
+fn normal_while_and_ternary_on_non_forin_binding_still_compile() {
+    // Guard against over-rejection: a plain while-loop condition and a ternary
+    // test on ordinary (non-for-in-key) bindings must STILL compile.
+    let out = run_source(
+        "let i = 0;\nwhile (i < 3) { i = i + 1; }\nlet flag = 1;\nlet z = flag ? 7 : 8;\nconsole.log(i);\nconsole.log(z);\n",
+    );
+    assert!(
+        out.status.success(),
+        "normal while/ternary on non-for-in bindings must still compile; stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "3\n7\n");
+}
+
 #[test]
 fn for_in_over_fixed_shape_object_with_bare_key_iterates_once_per_field() {
     // The bare-identifier `for (c in obj)` form (key pre-declared, no

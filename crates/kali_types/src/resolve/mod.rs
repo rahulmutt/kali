@@ -30,6 +30,72 @@ pub(crate) fn for_in_key_binding_name(left: &ForInLefthand) -> Option<String> {
     }
 }
 
+/// Collect every plain `<ident> = <ident>` assignment pair reachable inside a
+/// `for..in` loop body, so the resolver can PRE-REGISTER for-in-key aliases
+/// (`last = c`, `y = last`) BEFORE resolving the body. Mirrors codegen's
+/// `for_in_key_alias_names` fixpoint pre-pass: a loop can USE an alias
+/// (`table[last]`) textually BEFORE the `last = c` that defines it (the value
+/// is live from the prior iteration), so a forward, in-order registration
+/// alone would miss it and the Task 6 dynamic-key reject would spuriously fire
+/// on a valid alias (fail-CLOSED, but an over-reject of makeCumulative).
+/// Statement-level assignments cover fasta's `last = c` / `y = last`; an alias
+/// buried in an unwalked expression position stays unregistered and merely
+/// over-rejects (never miscompiles) — the safe direction.
+pub(crate) fn collect_identifier_assignment_pairs(
+    stmt: &Statement,
+    out: &mut Vec<(String, String)>,
+) {
+    fn from_expression(expr: &Expression, out: &mut Vec<(String, String)>) {
+        if let Expression::AssignmentExpression(assign) = expr {
+            if matches!(assign.operator, AssignmentOperator::Assign) {
+                if let (Expression::Identifier(lhs), Expression::Identifier(rhs)) =
+                    (&assign.left, &assign.right)
+                {
+                    out.push((lhs.clone(), rhs.clone()));
+                }
+            }
+        }
+    }
+    match stmt {
+        Statement::ExpressionStatement(e) => from_expression(&e.expression, out),
+        Statement::BlockStatement(b) => {
+            for s in &b.body {
+                collect_identifier_assignment_pairs(s, out);
+            }
+        }
+        Statement::IfStatement(i) => {
+            for s in &i.consequent.body {
+                collect_identifier_assignment_pairs(s, out);
+            }
+            if let Some(alt) = &i.alternate {
+                for s in &alt.body {
+                    collect_identifier_assignment_pairs(s, out);
+                }
+            }
+        }
+        Statement::ForStatement(f) => {
+            for s in &f.body.body {
+                collect_identifier_assignment_pairs(s, out);
+            }
+        }
+        Statement::ForInStatement(f) => collect_identifier_assignment_pairs(&f.body, out),
+        Statement::ForOfStatement(f) => collect_identifier_assignment_pairs(&f.body, out),
+        Statement::WhileStatement(w) => {
+            for s in &w.body.body {
+                collect_identifier_assignment_pairs(s, out);
+            }
+        }
+        Statement::DoWhileStatement(d) => {
+            for s in &d.body.body {
+                collect_identifier_assignment_pairs(s, out);
+            }
+        }
+        Statement::LabeledStatement(l) => collect_identifier_assignment_pairs(&l.body, out),
+        Statement::WithStatement(w) => collect_identifier_assignment_pairs(&w.body, out),
+        _ => {}
+    }
+}
+
 pub(crate) fn statement_contains_yield_delegation(statement: &Statement) -> bool {
     match statement {
         Statement::ExpressionStatement(expression) => {
@@ -416,6 +482,10 @@ impl TypeContext {
                 }
                 if let Some(test) = test {
                     self.resolve_expression(test);
+                    // H2: a for-in-key/alias `for (; last;)` condition lowers via
+                    // default `!= 0` truthiness (the `>= 0` sentinel path is
+                    // `if`-only) — reject fail-closed.
+                    self.reject_forin_key_test_operand(test, "for-loop condition");
                 }
                 if let Some(update) = update {
                     self.resolve_expression(update);
@@ -437,11 +507,52 @@ impl TypeContext {
                 // unconsumed until Task 3+). Fail-closed: only a `var`/`let`/
                 // `const` single-declarator LHS and a bare-identifier RHS
                 // proven `Repr::Object(shape)` register anything.
-                if let (Some(key_name), Some(shape)) = (
-                    for_in_key_binding_name(left),
-                    self.object_shape_of_expression(right),
-                ) {
-                    self.register_for_in_key(&key_name, shape);
+                // Spec 4a Task 6 fail-closed gate: `for..in` only lowers over an
+                // object with a compile-time-known fixed shape. A `None` shape
+                // (an array, a non-object, or an unproven/polymorphic base) has
+                // no field count to count against and no ordinal-to-slot map —
+                // reject rather than miscompile. This is the types-side twin of
+                // codegen's `emit_for_in` shape guard; both fail closed on the
+                // same set. The accept lanes all enumerate a bare-identifier RHS
+                // proven `Repr::Object(shape)` (register below), so this never
+                // over-rejects them.
+                match self.object_shape_of_expression(right) {
+                    Some(shape) => {
+                        if let Some(key_name) = for_in_key_binding_name(left) {
+                            self.register_for_in_key(&key_name, shape);
+                            // Pre-register transitive for-in-key aliases
+                            // (`last = c`, `y = last`) so a computed access
+                            // `table[last]` used BEFORE its defining assignment
+                            // (value live from the prior iteration) still
+                            // resolves as a key rather than tripping the Task 6
+                            // dynamic-key reject. Fixpoint over the body's
+                            // identifier-assignment pairs — the types-side twin
+                            // of codegen's `for_in_key_alias_names`.
+                            let mut pairs = Vec::new();
+                            collect_identifier_assignment_pairs(body, &mut pairs);
+                            let mut registered = std::collections::HashSet::new();
+                            registered.insert(key_name);
+                            loop {
+                                let mut changed = false;
+                                for (lhs, rhs) in &pairs {
+                                    if registered.contains(rhs) && !registered.contains(lhs) {
+                                        self.register_for_in_key(lhs, shape);
+                                        registered.insert(lhs.clone());
+                                        changed = true;
+                                    }
+                                }
+                                if !changed {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    None => {
+                        self.diagnostics.push(Diagnostic::error(
+                            e5::FEATURE_UNAVAILABLE as u32,
+                            "for..in is only supported over an object with a compile-time-known fixed shape in the current direct-runtime path; iterating an array or a value of unknown shape is unavailable".to_string(),
+                        ));
+                    }
                 }
                 self.resolve_loop_body(body);
                 self.pop_scope();
@@ -480,11 +591,19 @@ impl TypeContext {
             }
             Statement::WhileStatement(WhileStatement { test, body }) => {
                 self.resolve_expression(test);
+                // H2: a for-in-key/alias `while (last)` condition lowers via
+                // default `!= 0` truthiness (the `>= 0` sentinel path is
+                // `if`-only) — reject fail-closed.
+                self.reject_forin_key_test_operand(test, "while-loop condition");
                 self.resolve_block_statement(body);
             }
             Statement::DoWhileStatement(DoWhileStatement { body, test }) => {
                 self.resolve_block_statement(body);
                 self.resolve_expression(test);
+                // H2: a for-in-key/alias `do..while (last)` condition lowers via
+                // default `!= 0` truthiness (the `>= 0` sentinel path is
+                // `if`-only) — reject fail-closed.
+                self.reject_forin_key_test_operand(test, "do-while-loop condition");
             }
             Statement::FunctionDeclaration(FunctionDeclaration {
                 name,

@@ -332,26 +332,52 @@ impl TypeContext {
         let Expression::Identifier(key) = index else {
             return;
         };
-        let Some(key_shape) = self.for_in_key_shape(key) else {
-            return;
-        };
         let Some(obj_shape) = self.object_shape_of_expression(&member.object) else {
             // Not a known object (an array or an unproven base): leave the
             // existing element/host member behavior untouched.
             return;
         };
+        // The base IS a known fixed-shape object. The ONLY dynamic
+        // (identifier-indexed) access this direct-runtime path supports is a
+        // `for..in` key over the SAME shape whose fields all share ONE NUMERIC
+        // repr. Everything else off that lane fails closed here.
+        let Some(key_shape) = self.for_in_key_shape(key) else {
+            // Row 2: a general dynamic key not derived from `for..in` over this
+            // object (a plain param/local index `obj[k]`) — Spec 4b territory.
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "computed key access `obj[k]` where the key is not a `for..in` key over `obj` is unavailable in the current direct-runtime path (general dynamic string-keyed access); use a `for..in` key over the same object".to_string(),
+            ));
+            return;
+        };
         if obj_shape != key_shape {
+            // Row 4: the key enumerates a DIFFERENT object than the base — the
+            // ordinal range is wrong for this base.
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
                 "computed key access `obj[c]` where the for..in key enumerates a different object shape than the base is unavailable in the current direct-runtime path".to_string(),
             ));
             return;
         }
-        if self.repr_table.shape_is_uniform_repr(obj_shape).is_none() {
-            self.diagnostics.push(Diagnostic::error(
-                e5::FEATURE_UNAVAILABLE as u32,
-                "computed key access `obj[c]` over a mixed-repr fixed shape is unavailable in the current direct-runtime path (a runtime ordinal cannot select a per-field type); use an object whose fields all share one type".to_string(),
-            ));
+        match self.repr_table.shape_is_uniform_repr(obj_shape) {
+            Some(kali_common::Repr::I64) | Some(kali_common::Repr::F64) => {}
+            // Row 3 (string-into-field materializes a uniform-String shape) and
+            // any object-repr shape: a runtime ordinal only selects a numeric
+            // slot in this lane; a string/object field is out of scope.
+            Some(_) => {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "computed key access `obj[c]` over a fixed shape whose fields are strings or objects is unavailable in the current direct-runtime path (a runtime ordinal only selects a numeric slot); use an object whose fields are all numbers".to_string(),
+                ));
+            }
+            // Row 5: mixed-repr shape — a runtime ordinal cannot pick a
+            // per-field type.
+            None => {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "computed key access `obj[c]` over a mixed-repr fixed shape is unavailable in the current direct-runtime path (a runtime ordinal cannot select a per-field type); use an object whose fields all share one type".to_string(),
+                ));
+            }
         }
     }
 
@@ -379,6 +405,35 @@ impl TypeContext {
         }
     }
 
+    /// Fail-closed gate (Spec 4a Task 6, controller handoff H2): a `for..in`
+    /// key or alias binding used as a `while` / `for` / `do-while` condition or
+    /// a ternary TEST is lowered via codegen's DEFAULT `!= 0` truthiness (only
+    /// an `if` condition lowers through the `>= 0` null-sentinel path in
+    /// `emit_branch`), so the `-1` null sentinel would read TRUTHY — a
+    /// fail-OPEN in the same class as the `!`/`&&`/`||`/`??` operand rejects
+    /// but in loop/ternary test positions. fasta uses NONE of these forms
+    /// (only `if (last)`), so reject fail-closed rather than lower `>= 0` here.
+    /// Keyed strictly on a `for_in_key_shape`-carrying identifier: a normal
+    /// `while`/`for`/`do-while`/ternary on any other binding is untouched, and
+    /// `if (last)` (makeCumulative) stays admitted because the `if` arm never
+    /// calls this gate.
+    pub(crate) fn reject_forin_key_test_operand(&mut self, expr: &Expression, context: &str) {
+        let mut inner = expr;
+        while let Expression::ParenthesizedExpression(p) = inner {
+            inner = &p.expression;
+        }
+        if let Expression::Identifier(name) = inner {
+            if self.for_in_key_shape(name).is_some() {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    format!(
+                        "a for..in key or alias binding is only usable in an `if` condition, a computed index, or as a returned value; using it as a {context} is unavailable in the current direct-runtime path (its null sentinel would read truthy)"
+                    ),
+                ));
+            }
+        }
+    }
+
     /// `true` iff `member` is exactly the accept case of
     /// `reject_nonuniform_forin_key_object_access`: a computed access `obj[c]`
     /// where the index `c` is a proven `for..in` key (`for_in_key_shape`), the
@@ -399,7 +454,11 @@ impl TypeContext {
         let Some(obj_shape) = self.object_shape_of_expression(&member.object) else {
             return false;
         };
-        obj_shape == key_shape && self.repr_table.shape_is_uniform_repr(obj_shape).is_some()
+        obj_shape == key_shape
+            && matches!(
+                self.repr_table.shape_is_uniform_repr(obj_shape),
+                Some(kali_common::Repr::I64) | Some(kali_common::Repr::F64)
+            )
     }
 
     /// `Some(shape)` iff `expr` is a bare identifier whose `ReprTable` scalar
@@ -914,7 +973,16 @@ impl TypeContext {
         // `is_structural_runtime_array` so such a target rejects (fail-closed).
         if member.computed_index.is_some() {
             if let Expression::Identifier(base_name) = &member.object {
-                if self.string_element_array_binding(base_name)
+                // Row 3 (Spec 4a Task 6): a computed store whose base is a
+                // KNOWN fixed-shape object is a `for..in`-key FIELD store, NOT
+                // a Spec-3 string-element array store. The store wires the
+                // value into an array-element node (visit_assignment treats
+                // `base[i] = v` as an element store), so `string_element_array_binding`
+                // reports true here — but the base is an OBJECT, so that accept
+                // path must NOT fire. Storing a runtime string into a numeric
+                // object field is out of scope; fall through to reject.
+                if self.object_shape_of_expression(&member.object).is_none()
+                    && self.string_element_array_binding(base_name)
                     && self.is_structural_runtime_array(base_name)
                 {
                     return;
@@ -1324,6 +1392,10 @@ impl TypeContext {
                 // Reject fail-closed. No base-correct string ternary exists (the
                 // degenerate lowering was always wrong for a string test).
                 self.reject_string_condition_expression(&expr.test);
+                // H2: a for-in-key/alias test in a ternary lowers via default
+                // `!= 0` truthiness (the `>= 0` sentinel path is `if`-only) —
+                // reject fail-closed.
+                self.reject_forin_key_test_operand(&expr.test, "ternary condition");
             }
             Expression::SequenceExpression(expr) => {
                 for subexpr in &expr.expressions {
