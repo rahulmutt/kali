@@ -855,11 +855,17 @@ fn catch_param_shadows_module_const() {
 }
 
 #[test]
-fn module_let_read_from_function_is_rejected() {
-    let combined = run_js_expect_failure(
-        "let counter = 0;\nfunction f() { return counter + 1; }\nconsole.log(f());\n",
+fn module_let_read_from_function_is_supported() {
+    // Behavior change (mutable module-scope scalar globals): a module `let`
+    // numeric scalar read from a function is now backed by a persistent mutable
+    // WASM global (`GlobalGet`), not rejected. Formerly pinned as E5506; the
+    // fail-closed rejection is now reserved for the cases that still lack a
+    // lowering — an impure/heap `const` read (see the sibling test below) and a
+    // mutable module OBJECT/ARRAY (see `runtime_module_globals.rs`).
+    assert_eq!(
+        run_js("let counter = 0;\nfunction f() { return counter + 1; }\nconsole.log(f());\n"),
+        "1\n"
     );
-    assert!(combined.contains("5506"), "expected E5506, got: {combined}");
 }
 
 #[test]

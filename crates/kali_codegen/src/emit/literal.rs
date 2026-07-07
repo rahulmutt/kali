@@ -457,6 +457,13 @@ impl<'a> FunctionEmitter<'a> {
             function.instruction(&Instruction::I64Const(0));
             return true;
         };
+        // Module-scope mutable scalar promoted to a persistent global: route the
+        // write through `GlobalSet` (from a function OR module scope). Wins ahead
+        // of the local lookup (a promoted name is filtered out of `_start`'s
+        // locals) and ahead of the fail-closed compound-assign path below.
+        if let Some(&(global_index, repr)) = self.module_global_slots.get(&name) {
+            return self.emit_module_global_assignment(function, op, global_index, repr, right);
+        }
         let Some(index) = self.locals.get(&name).copied() else {
             if op == "=" {
                 return false;
@@ -679,6 +686,103 @@ impl<'a> FunctionEmitter<'a> {
                 true
             }
             _ => false,
+        }
+    }
+
+    /// Assignment (`=` or an arithmetic compound `+= -= *= /= %= **=`) to a
+    /// module-scope mutable scalar promoted to a persistent WASM global. Plain
+    /// `=` emits `<rhs> ; GlobalSet`; a compound decomposes to
+    /// `GlobalGet ; <rhs> ; op ; GlobalSet`. Both leave the stored value on the
+    /// stack (`GlobalGet` after the set), so the assignment EXPRESSION result is
+    /// available — matching the `LocalTee` contract of the local path.
+    ///
+    /// The nullish/logical compounds (`??= &&= ||=`) and `%= **=` on an f64
+    /// global are out of scope for this slice — rejected fail-closed (E5506)
+    /// rather than mis-lowered.
+    pub(crate) fn emit_module_global_assignment(
+        &mut self,
+        function: &mut Function,
+        op: &str,
+        global_index: u32,
+        repr: kali_common::Repr,
+        right: LirNodeId,
+    ) -> bool {
+        let is_f64 = repr == kali_common::Repr::F64;
+        match op {
+            "=" => {
+                let rhs = self.emit_node(function, right, true);
+                if !rhs.produced {
+                    if is_f64 {
+                        function.instruction(&Instruction::F64Const(0.0.into()));
+                    } else {
+                        function.instruction(&Instruction::I64Const(0));
+                    }
+                } else if is_f64 && !self.is_float_valued(right) {
+                    function.instruction(&Instruction::F64ConvertI64S);
+                }
+                function.instruction(&Instruction::GlobalSet(global_index));
+                function.instruction(&Instruction::GlobalGet(global_index));
+                true
+            }
+            "+=" | "-=" | "*=" | "/=" | "%=" | "**=" => {
+                if is_f64 && matches!(op, "%=" | "**=") {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        format!(
+                            "compound assignment '{op}' on a floating-point module global is unavailable in the current phase"
+                        ),
+                    ));
+                    function.instruction(&Instruction::F64Const(0.0.into()));
+                    return true;
+                }
+                function.instruction(&Instruction::GlobalGet(global_index));
+                let rhs = self.emit_node(function, right, true);
+                if is_f64 {
+                    if !rhs.produced {
+                        function.instruction(&Instruction::F64Const(0.0.into()));
+                    } else if !self.is_float_valued(right) {
+                        function.instruction(&Instruction::F64ConvertI64S);
+                    }
+                    match op {
+                        "+=" => function.instruction(&Instruction::F64Add),
+                        "-=" => function.instruction(&Instruction::F64Sub),
+                        "*=" => function.instruction(&Instruction::F64Mul),
+                        "/=" => function.instruction(&Instruction::F64Div),
+                        _ => unreachable!(),
+                    };
+                } else {
+                    if !rhs.produced {
+                        function.instruction(&Instruction::I64Const(0));
+                    }
+                    match op {
+                        "+=" => function.instruction(&Instruction::I64Add),
+                        "-=" => function.instruction(&Instruction::I64Sub),
+                        "*=" => function.instruction(&Instruction::I64Mul),
+                        "/=" => function.instruction(&Instruction::I64DivS),
+                        "%=" => function.instruction(&Instruction::I64RemS),
+                        "**=" => function.instruction(&Instruction::Call(MATH_POW_IMPORT_INDEX)),
+                        _ => unreachable!(),
+                    };
+                }
+                function.instruction(&Instruction::GlobalSet(global_index));
+                function.instruction(&Instruction::GlobalGet(global_index));
+                true
+            }
+            // `??= &&= ||=` on a module global: out of scope, fail-closed.
+            _ => {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    format!(
+                        "assignment operator '{op}' on a module global is unavailable in the current phase"
+                    ),
+                ));
+                if is_f64 {
+                    function.instruction(&Instruction::F64Const(0.0.into()));
+                } else {
+                    function.instruction(&Instruction::I64Const(0));
+                }
+                true
+            }
         }
     }
 }

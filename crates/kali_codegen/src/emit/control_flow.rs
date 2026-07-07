@@ -823,6 +823,31 @@ impl<'a> FunctionEmitter<'a> {
                             }
                         }
 
+                        // Module-scope mutable scalar promoted to a global: its
+                        // declarator (only ever reached in `_start`) stores its
+                        // init through `GlobalSet`, not a local slot. The global
+                        // itself is zero-initialized in the `GlobalSection`, so a
+                        // no-initializer `var g;` already reads 0 and skips here
+                        // (the `children.len() < 2` guard above `continue`d).
+                        if let Some(name) = declarator.text.clone() {
+                            if let Some(&(global_index, repr)) = self.module_global_slots.get(&name)
+                            {
+                                let is_f64 = repr == kali_common::Repr::F64;
+                                let produced = self.emit_node(function, init, true);
+                                if !produced.produced {
+                                    if is_f64 {
+                                        function.instruction(&Instruction::F64Const(0.0.into()));
+                                    } else {
+                                        function.instruction(&Instruction::I64Const(0));
+                                    }
+                                } else if is_f64 && !self.is_float_valued(init) {
+                                    function.instruction(&Instruction::F64ConvertI64S);
+                                }
+                                function.instruction(&Instruction::GlobalSet(global_index));
+                                continue;
+                            }
+                        }
+
                         let init_result = self.emit_node(function, init, true);
                         // A named scalar local whose chosen repr is F64 must receive an
                         // f64 on the stack; promote an integer-valued init before the store.
@@ -1005,6 +1030,24 @@ impl<'a> FunctionEmitter<'a> {
                             }
                         }
                     }
+                    // Module-scope mutable scalar promoted to a persistent
+                    // global (see `collect_module_scalar_globals`): read it with
+                    // `GlobalGet` from a function OR module scope. Wins ahead of
+                    // the local lookup (a promoted name is filtered out of
+                    // `_start`'s locals) and ahead of the E5506 module-binding
+                    // gate below, which only ever handled the inline-const case.
+                    if let Some(&(global_index, repr)) = self.module_global_slots.get(text) {
+                        function.instruction(&Instruction::GlobalGet(global_index));
+                        return EmittedValue {
+                            produced: true,
+                            shape: if repr == kali_common::Repr::F64 {
+                                ValueShape::Float
+                            } else {
+                                ValueShape::Scalar
+                            },
+                        };
+                    }
+
                     if let Some(index) = self.locals.get(text).copied() {
                         function.instruction(&Instruction::LocalGet(index));
                         return EmittedValue {

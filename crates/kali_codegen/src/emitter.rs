@@ -155,6 +155,12 @@ pub(crate) struct FunctionEmitter<'a> {
     /// ALL top-level binding names (const, let, var), used to gate reads of
     /// module bindings that are not inlinable pure consts.
     pub(crate) module_binding_names: &'a BTreeSet<String>,
+    /// Module-scope mutable SCALAR (`var`/`let` numeric) bindings promoted to
+    /// persistent mutable WASM globals: `name -> (global_index, repr)`. A read
+    /// of such a name (from a function OR module scope) lowers to `GlobalGet`; a
+    /// write to `GlobalSet`; the declarator init in `_start` stores through
+    /// `GlobalSet`. See `kali_codegen::lower::collect_module_scalar_globals`.
+    pub(crate) module_global_slots: &'a BTreeMap<String, (u32, kali_common::Repr)>,
 }
 
 impl<'a> FunctionEmitter<'a> {
@@ -181,6 +187,7 @@ impl<'a> FunctionEmitter<'a> {
         body: LirNodeId,
         module_const_inits: &'a BTreeMap<String, LirNodeId>,
         module_binding_names: &'a BTreeSet<String>,
+        module_global_slots: &'a BTreeMap<String, (u32, kali_common::Repr)>,
     ) -> Self {
         let loop_ordinals = crate::lower::loop_preorder_ordinals(&program.nodes, body);
         let for_in_ordinals = crate::lower::for_in_preorder_ordinals(&program.nodes, body);
@@ -241,6 +248,7 @@ impl<'a> FunctionEmitter<'a> {
             arena_frames: Vec::new(),
             module_const_inits,
             module_binding_names,
+            module_global_slots,
         }
     }
 

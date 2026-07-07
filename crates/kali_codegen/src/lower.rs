@@ -47,6 +47,13 @@ pub const SYNTHETIC_FUNCTIONS: &[&str] = &[
 pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResult {
     let mut diagnostics = Vec::new();
     let function_plans = collect_functions(lir, &ctx.repr_table, &ctx.arena_table);
+    // Module-scope mutable SCALAR (`var`/`let` numeric) bindings that are read
+    // or written from inside a function are promoted to persistent mutable WASM
+    // globals (indices AFTER the reserved arena globals). A module-only scalar
+    // stays a `_start` local (byte-identical); heap types (object/array/string)
+    // are NEVER promoted — a mutable global heap root is a persistent GC root
+    // the region reclamation does not model, so those stay fail-closed (E5506).
+    let module_global_slots = collect_module_scalar_globals(lir, &ctx.repr_table, &function_plans);
     if function_plans.iter().any(|plan| {
         matches!(
             plan.flavor,
@@ -166,16 +173,21 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
 
     // Keep the emitted order deterministic: imported registration hook first, synthetic entry
     // second, then named functions in source order.
+    let mut start_locals = collect_function_locals(
+        &lir.nodes,
+        lir.root,
+        &ctx.repr_table,
+        &ctx.arena_table,
+        "_start",
+    );
+    // A promoted module scalar lives in its persistent global, not a `_start`
+    // local slot — its declarator init stores through `GlobalSet` (see the
+    // module-global declarator branch in `emit/control_flow.rs`).
+    start_locals.retain(|name| !module_global_slots.contains_key(name));
     let mut all_functions = vec![FunctionPlan {
         name: "_start".to_string(),
         params: Vec::new(),
-        locals: collect_function_locals(
-            &lir.nodes,
-            lir.root,
-            &ctx.repr_table,
-            &ctx.arena_table,
-            "_start",
-        ),
+        locals: start_locals,
         body: lir.root,
         result: false,
         is_entry: true,
@@ -630,6 +642,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             function.body,
             &module_const_inits,
             &module_binding_names,
+            &module_global_slots,
         );
         let coverage_id = ctx.target.coverage.then_some(coverage_id as u32);
         if SYNTHETIC_FUNCTIONS.contains(&function.name.as_str()) {
@@ -703,6 +716,26 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                 shared: false,
             },
             &ConstExpr::i32_const(0),
+        );
+    }
+    // Module-scope mutable scalar globals, appended after g0..g7 at indices
+    // 8, 9, … (matching the ascending indices assigned in
+    // `collect_module_scalar_globals`, which iterates the same sorted-by-name
+    // `BTreeMap`). Each is zero-initialized (`var` hoisting semantics: the
+    // binding reads `undefined`/0 until its declarator line runs `GlobalSet` in
+    // `_start`); the declared wasm type follows the binding's repr.
+    for (_index, repr) in module_global_slots.values() {
+        let (val_type, init) = match repr {
+            kali_common::Repr::F64 => (ValType::F64, ConstExpr::f64_const(0.0.into())),
+            _ => (ValType::I64, ConstExpr::i64_const(0)),
+        };
+        global_section.global(
+            GlobalType {
+                val_type,
+                mutable: true,
+                shared: false,
+            },
+            &init,
         );
     }
 
@@ -1550,6 +1583,177 @@ pub(crate) fn collect_function_locals(
     locals
 }
 
+/// WASM globals reserved before any module-scope mutable scalar global:
+/// g0 (heap/page frontier) + g1..g7 (arena page-pool state). Module scalar
+/// globals are appended AFTER these, at indices `RESERVED_GLOBAL_COUNT`, +1, …
+pub(crate) const RESERVED_GLOBAL_COUNT: u32 = 8;
+
+/// Promote module-scope mutable SCALAR (`var`/`let` numeric) bindings that are
+/// READ or WRITTEN from inside a function to persistent mutable WASM globals.
+///
+/// Returns `name -> (global_index, repr)`, sorted by name (so the index order
+/// matches the order globals are appended to the `GlobalSection`). Only
+/// numeric (`I64`/`F64`) scalars qualify: an array/object/string module binding
+/// is a heap type, and a mutable global heap root is a persistent GC root the
+/// GC-less region reclamation does not model — those stay fail-closed (E5506).
+/// A `const` is excluded (it stays on the compile-time inline path). A scalar
+/// referenced only at module scope is NOT promoted (it keeps its byte-identical
+/// `_start`-local lowering).
+pub(crate) fn collect_module_scalar_globals(
+    lir: &LirProgram,
+    repr_table: &kali_common::ReprTable,
+    function_plans: &[FunctionPlan],
+) -> BTreeMap<String, (u32, kali_common::Repr)> {
+    // Top-level `var`/`let` numeric scalar declarators (never `const`).
+    let mut candidates: BTreeMap<String, kali_common::Repr> = BTreeMap::new();
+    let mut stack = vec![lir.root];
+    while let Some(id) = stack.pop() {
+        let Some(node) = lir.nodes.get(id.0 as usize) else {
+            continue;
+        };
+        match node.kind {
+            LirNodeKind::Program | LirNodeKind::Block => {
+                stack.extend(node.children.iter().copied());
+            }
+            LirNodeKind::Instruction if matches!(node.text.as_deref(), Some("let" | "var")) => {
+                for declarator_id in &node.children {
+                    let Some(declarator) = lir.nodes.get(declarator_id.0 as usize) else {
+                        continue;
+                    };
+                    let Some(name) = declarator.text.clone() else {
+                        continue;
+                    };
+                    // Heap types stay fail-closed: never promote an array/object
+                    // module binding to a mutable global root.
+                    if repr_table.is_array_binding("_start", &name) {
+                        continue;
+                    }
+                    // `Object(_)` / `String` reprs are heap — leave rejected;
+                    // only a numeric scalar becomes a mutable global.
+                    let repr = repr_table.scalar("_start", &name);
+                    if matches!(repr, kali_common::Repr::I64 | kali_common::Repr::F64) {
+                        candidates.insert(name, repr);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    if candidates.is_empty() {
+        return BTreeMap::new();
+    }
+
+    // Names used ANYWHERE as a member/index base (`o.x`, `a[i]`) are heap
+    // (object/array) bindings — even when repr inference left them a default
+    // `I64` (e.g. a module object mutated only cross-function never proves its
+    // shape). Promoting such a name to a mutable scalar global would fail OPEN:
+    // a member access on an i64 global silently reads 0. Exclude them so those
+    // cases stay fail-closed (E5506), never mis-lowered.
+    let mut heap_base_names: HashSet<String> = HashSet::new();
+    {
+        let mut seen = HashSet::new();
+        collect_member_base_names(&lir.nodes, lir.root, &mut seen, &mut heap_base_names);
+    }
+
+    // Only bindings referenced from inside a function need a persistent global;
+    // a module-only scalar stays a `_start` local (byte-identical).
+    let mut referenced: HashSet<String> = HashSet::new();
+    for plan in function_plans {
+        if plan.name == "_start" {
+            continue;
+        }
+        let mut seen = HashSet::new();
+        collect_bare_identifier_names(&lir.nodes, plan.body, &mut seen, &mut referenced);
+    }
+
+    let mut slots = BTreeMap::new();
+    let mut next_index = RESERVED_GLOBAL_COUNT;
+    for (name, repr) in candidates {
+        if referenced.contains(&name) && !heap_base_names.contains(&name) {
+            slots.insert(name, (next_index, repr));
+            next_index += 1;
+        }
+    }
+    slots
+}
+
+/// Collect every identifier used as a member/index base — the `o` in `o.x`,
+/// `o.length`, or `o[i]` — anywhere in the subtree at `id`. A member access is
+/// a `Value` node whose first child is the base:
+/// - 1 child + non-empty `text` that is NOT a unary operator (a dot/`.length`
+///   access; a unary `-g`/`!g` also has 1 child + text but is not a base use),
+/// - 2 children + `text` that is NOT a binary operator (a computed `o[i]`; a
+///   binary expression also has 2 children but carries an operator text).
+fn collect_member_base_names(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    seen: &mut HashSet<LirNodeId>,
+    out: &mut HashSet<String>,
+) {
+    if !seen.insert(id) {
+        return;
+    }
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return;
+    };
+    if node.kind == LirNodeKind::Value {
+        let base_child = match node.children.len() {
+            1 => node
+                .text
+                .as_deref()
+                .filter(|text| !text.is_empty() && !is_unary_operator_text(text))
+                .map(|_| node.children[0]),
+            2 => (!is_binary_operator_text(node.text.as_deref().unwrap_or_default()))
+                .then_some(node.children[0]),
+            _ => None,
+        };
+        if let Some(base_child) = base_child {
+            let base = unwrap_transparent_value(nodes, base_child);
+            if let Some(base_node) = nodes.get(base.0 as usize) {
+                if base_node.kind == LirNodeKind::Value && base_node.children.is_empty() {
+                    if let Some(text) = base_node.text.as_deref() {
+                        if !text.is_empty() {
+                            out.insert(text.to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+    for child in &node.children {
+        collect_member_base_names(nodes, *child, seen, out);
+    }
+}
+
+/// Collect every bare identifier name (a childless `Value` node with non-empty
+/// text — an identifier read or an assignment target) in the subtree at `id`.
+/// Over-collection (e.g. numeric-literal texts) is harmless: it only ever
+/// admits MORE names to the promotion set, and a name that is not a module
+/// scalar candidate is ignored by the caller.
+fn collect_bare_identifier_names(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    seen: &mut HashSet<LirNodeId>,
+    out: &mut HashSet<String>,
+) {
+    if !seen.insert(id) {
+        return;
+    }
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return;
+    };
+    if node.kind == LirNodeKind::Value && node.children.is_empty() {
+        if let Some(text) = node.text.as_deref() {
+            if !text.is_empty() {
+                out.insert(text.to_string());
+            }
+        }
+    }
+    for child in &node.children {
+        collect_bare_identifier_names(nodes, *child, seen, out);
+    }
+}
+
 pub(crate) fn collect_array_binding_names(
     nodes: &[LirNode],
     id: LirNodeId,
@@ -1785,6 +1989,26 @@ pub(crate) fn is_binary_operator_text(text: &str) -> bool {
             | "&&="
             | "||="
             | "??="
+    )
+}
+
+/// Unary operator texts a 1-child `Value` node may carry. Used to distinguish a
+/// unary expression (`-g`, `!g`) from a dot/`.length` member access (`o.x`) —
+/// both lower to a 1-child `Value` with a `text`, but only the latter uses `o`
+/// as a heap (object) base (see `collect_member_base_names`).
+pub(crate) fn is_unary_operator_text(text: &str) -> bool {
+    matches!(
+        text,
+        "-" | "+"
+            | "~"
+            | "!"
+            | "void"
+            | "delete"
+            | "typeof"
+            | "prefix++"
+            | "postfix++"
+            | "prefix--"
+            | "postfix--"
     )
 }
 
