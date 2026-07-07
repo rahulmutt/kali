@@ -150,6 +150,15 @@ struct ReprInfer {
     /// where the solved repr says `String` — checked fail-closed in
     /// `emit_table` (see `plain_write_targets` for the assignment-shaped twin).
     merge_nodes: Vec<(usize, Vec<usize>)>,
+    /// `(func, name)` for every `return <identifier>;` — the function `func`
+    /// returns the bare binding `name`. At `emit_table` time, if `name`'s
+    /// element node solves `Repr::String`, the return is a String-element
+    /// array with NO codegen lowering (the caller captures a raw i64 handle;
+    /// element reads / `join` on the captured value silently yield `0`), so it
+    /// is FAIL-CLOSED with a shape conflict (I2). Recorded unconditionally and
+    /// filtered at emit time, keeping the check monotone: int/float array
+    /// returns (element node not String) add no conflict.
+    array_binding_returns: Vec<(String, String)>,
 }
 
 /// Identity of an object-holding slot for shape/aliasing purposes.
@@ -594,6 +603,12 @@ impl ReprInfer {
                     if let Expression::ObjectExpression(obj) = arg {
                         self.record_object_literal(func, ObjSlot::Return(func.to_string()), obj);
                     } else {
+                        // `return <identifier>;` — record for the I2
+                        // String-element-array-return fail-closed check.
+                        if let Expression::Identifier(name) = arg {
+                            self.array_binding_returns
+                                .push((func.to_string(), name.clone()));
+                        }
                         self.record_object_flow_from_expr(
                             func,
                             ObjSlot::Return(func.to_string()),
@@ -1890,6 +1905,32 @@ impl ReprInfer {
             }
         }
 
+        // I2: returning a String-element array binding has NO codegen lowering.
+        // The caller captures a raw i64 handle (`return_repr` is not proven
+        // String for an array), and every downstream element read / `join` on
+        // that captured value falls through to a silent `0` — the whole
+        // call-result-captor family (`const c = mk(s); c[0]` / `c.join(...)`),
+        // which no gate catches at the READ site. Reject at the choke point
+        // (the return) with an element-style shape conflict. Monotone: only a
+        // return whose element node SOLVES `Repr::String` (string-reachable,
+        // no mixed/float store) conflicts — int/float array returns are
+        // untouched.
+        for (func, name) in &self.array_binding_returns {
+            if let Some(&node) = self.array_elem_node.get(&(func.clone(), name.clone())) {
+                let rep = self.uf.find(node);
+                if !string[rep] {
+                    continue;
+                }
+                let mixed_store = self
+                    .element_store_sources
+                    .iter()
+                    .any(|(e, s)| self.uf.find(*e) == rep && !string[self.uf.find(*s)]);
+                if !mixed_store && !float[rep] {
+                    table.add_shape_conflict(returning_string_array_message(func, name));
+                }
+            }
+        }
+
         // Returns.
         let returns: Vec<(String, usize)> = self
             .return_node
@@ -2081,6 +2122,20 @@ fn element_conflict_message(func: &str, name: &str) -> String {
         format!("elements of `{name}` at module scope are used as both strings and numbers")
     } else {
         format!("elements of `{name}` in `{func}` are used as both strings and numbers")
+    }
+}
+
+/// Shape-conflict message for a function returning a String-element array
+/// binding (I2), following `element_conflict_message`'s module-scope phrasing.
+fn returning_string_array_message(func: &str, name: &str) -> String {
+    if func == TOP_LEVEL {
+        format!(
+            "returning `{name}` whose elements are strings from module scope is unavailable in the current direct-runtime path"
+        )
+    } else {
+        format!(
+            "returning `{name}` whose elements are strings from `{func}` is unavailable in the current direct-runtime path"
+        )
     }
 }
 

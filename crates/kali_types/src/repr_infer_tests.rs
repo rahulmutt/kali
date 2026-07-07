@@ -423,7 +423,7 @@ fn string_element_array_flows_through_param() {
 fn float_still_flows_through_element_read() {
     // The float axis KEEPS element-read edges: a scalar capturing an f64
     // element read is still `Repr::F64` (Finding 2 excludes only the STRING
-    // axis). Companion to `element_read_captor_is_not_string`; the existing
+    // axis). Companion to `mixed_literal_int_and_string_store_is_element_conflict`; the existing
     // `array_element_float_from_store_and_interprocedural_param` pins the
     // array-element side.
     let t = reprs("let a = [1.5];\nlet s = a[0];\n");
