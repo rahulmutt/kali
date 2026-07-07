@@ -303,6 +303,21 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
 
+        // Computed for-in-key object write `obj[c] = v` over a uniform-repr
+        // fixed shape (Spec 4a Task 3): a dynamic headerless field slot store
+        // at `base + c*8`, offset 0. Must precede the array-write path below —
+        // both lower as a 2-child computed member, but here the base is an
+        // object (never an array binding) and the index is the loop ordinal.
+        // The static-field store arm above only matches the 1-child dot form,
+        // so the computed bracket form falls through to here.
+        if op == "=" {
+            let left_node = self.node(left).clone();
+            if let Some((base, index, elem)) = self.computed_forin_object_access(&left_node) {
+                self.emit_object_field_write_dynamic(function, base, index, right, elem);
+                return true;
+            }
+        }
+
         // Dynamic array element write: `a[i] = v` where `a` is a linear-memory
         // array. Literal/identifier indices lower to a 1-child member node with
         // the index in `text`; computed indices (`a[r - 1] = v`) lower to a

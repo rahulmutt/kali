@@ -119,6 +119,150 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// Recognize a computed for-in-key object access `obj[c]` over a
+    /// uniform-repr fixed shape: the base carries a known object shape, every
+    /// field of that shape shares one repr, and the bracket index is a bare
+    /// identifier bound to a `for..in` key over *that same* shape (recorded by
+    /// `emit_for_in` in `for_in_key_shapes`). Returns
+    /// `(base, index, element_repr)` for the dynamic slot lane.
+    ///
+    /// This is the structural codegen twin of the `kali_types`
+    /// gate (`resolve/expression.rs`, `computed_forin_object_key_access`):
+    /// both admit exactly `obj[c]` where `object_shape_of_*(obj) == Some(s)`,
+    /// `shape_is_uniform_repr(s) == Some(_)`, and `for_in_key_shape(c) ==
+    /// Some(s)`. Only the COMPUTED bracket form (2-child member node) matches;
+    /// dot access `obj.c` (1-child) stays a static field read, and a string
+    /// LITERAL key `obj["c"]` (index child is a `Literal`, not an identifier)
+    /// stays static too — both are correct JS semantics.
+    pub(crate) fn computed_forin_object_access(
+        &self,
+        node: &LirNode,
+    ) -> Option<(LirNodeId, LirNodeId, kali_common::Repr)> {
+        if node.kind != LirNodeKind::Value || node.children.len() != 2 {
+            return None;
+        }
+        // A binary expression also lowers to a 2-child `Value` node; its
+        // operator `text` cleanly separates it from a computed member access.
+        if is_binary_operator_text(node.text.as_deref().unwrap_or_default()) {
+            return None;
+        }
+        let base_id = node.children[0];
+        let shape = self.object_shape_of_node(base_id)?;
+        let elem = self.repr_table.shape_is_uniform_repr(shape)?;
+        // The index must be a bare identifier (not a string/number literal key)
+        // that this function registered as a `for..in` key over `shape`.
+        let index_id = self.unwrap_transparent(node.children[1]);
+        let index_node = self.node(index_id);
+        if index_node.kind != LirNodeKind::Value || !index_node.children.is_empty() {
+            return None;
+        }
+        let name = index_node.text.as_deref().filter(|t| !t.is_empty())?;
+        if self.for_in_key_shapes.get(name) != Some(&shape) {
+            return None;
+        }
+        Some((base_id, node.children[1], elem))
+    }
+
+    /// Dynamic computed read `obj[c]` over a uniform-repr headerless object:
+    /// address `base + index*8`, typed load at `offset: 0` (objects carry NO
+    /// length header, unlike arrays whose elements sit at `offset: 8`).
+    pub(crate) fn emit_object_field_read_dynamic(
+        &mut self,
+        function: &mut Function,
+        base: LirNodeId,
+        index: LirNodeId,
+        elem_repr: kali_common::Repr,
+    ) -> EmittedValue {
+        // address: base (i32) + index*8
+        let produced = self.emit_node(function, base, true);
+        if !produced.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
+        function.instruction(&Instruction::I32WrapI64);
+        let _ = self.emit_node(function, index, true);
+        function.instruction(&Instruction::I32WrapI64);
+        function.instruction(&Instruction::I32Const(8));
+        function.instruction(&Instruction::I32Mul);
+        function.instruction(&Instruction::I32Add);
+        let memarg = MemArg {
+            offset: 0,
+            align: 3,
+            memory_index: 0,
+        };
+        match elem_repr {
+            kali_common::Repr::F64 => function.instruction(&Instruction::F64Load(memarg)),
+            _ => function.instruction(&Instruction::I64Load(memarg)),
+        };
+        EmittedValue {
+            produced: true,
+            shape: ValueShape::Scalar,
+        }
+    }
+
+    /// Dynamic computed store `obj[c] = v` over a uniform-repr headerless
+    /// object: address `base + index*8`, then the value (promoted to the
+    /// element repr the same way the static field store does), then a typed
+    /// store at `offset: 0`. Leaves the stored value on the stack as the
+    /// assignment expression's result (reloaded from the same address).
+    pub(crate) fn emit_object_field_write_dynamic(
+        &mut self,
+        function: &mut Function,
+        base: LirNodeId,
+        index: LirNodeId,
+        value: LirNodeId,
+        elem_repr: kali_common::Repr,
+    ) -> EmittedValue {
+        let scratch = self.locals.len() as u32;
+        // address: base (i32) + index*8, saved (i64-extended) so it can be
+        // reused for the result reload — `scratch` is an i64 local.
+        let produced = self.emit_node(function, base, true);
+        if !produced.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
+        function.instruction(&Instruction::I32WrapI64);
+        let _ = self.emit_node(function, index, true);
+        function.instruction(&Instruction::I32WrapI64);
+        function.instruction(&Instruction::I32Const(8));
+        function.instruction(&Instruction::I32Mul);
+        function.instruction(&Instruction::I32Add);
+        function.instruction(&Instruction::I64ExtendI32U);
+        function.instruction(&Instruction::LocalTee(scratch));
+        function.instruction(&Instruction::I32WrapI64);
+        let memarg = MemArg {
+            offset: 0,
+            align: 3,
+            memory_index: 0,
+        };
+        match elem_repr {
+            kali_common::Repr::F64 => {
+                let rhs = self.emit_node(function, value, true);
+                if !rhs.produced {
+                    function.instruction(&Instruction::F64Const(0.0.into()));
+                } else if !self.is_float_valued(value) {
+                    function.instruction(&Instruction::F64ConvertI64S);
+                }
+                function.instruction(&Instruction::F64Store(memarg));
+                function.instruction(&Instruction::LocalGet(scratch));
+                function.instruction(&Instruction::I32WrapI64);
+                function.instruction(&Instruction::F64Load(memarg));
+            }
+            _ => {
+                let rhs = self.emit_node(function, value, true);
+                if !rhs.produced {
+                    function.instruction(&Instruction::I64Const(0));
+                }
+                function.instruction(&Instruction::I64Store(memarg));
+                function.instruction(&Instruction::LocalGet(scratch));
+                function.instruction(&Instruction::I32WrapI64);
+                function.instruction(&Instruction::I64Load(memarg));
+            }
+        }
+        EmittedValue {
+            produced: true,
+            shape: ValueShape::Scalar,
+        }
+    }
+
     /// `<base>.field` read on a shaped base: typed load at the field's static
     /// offset. Unknown fields are gated, never miscompiled.
     pub(crate) fn emit_object_field_read(
@@ -161,3 +305,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "object_tests.rs"]
+mod object_tests;

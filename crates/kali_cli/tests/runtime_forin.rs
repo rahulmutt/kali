@@ -39,6 +39,24 @@ fn for_in_over_fixed_shape_object_iterates_once_per_field() {
 }
 
 #[test]
+fn for_in_computed_key_read_write_doubles_each_field() {
+    // makeCumulative-shaped index use without the `last`/null pattern:
+    // read obj[c], write obj[c]. Sum after doubling proves both directions.
+    let src = "const t = { a: 0.25, c: 0.25, g: 0.5 };\n\
+function dbl(table) {\n  for (var c in table) {\n    table[c] = table[c] * 2;\n  }\n}\n\
+function sum(table) {\n  let s = 0.0;\n  for (var c in table) {\n    s = s + table[c];\n  }\n  return s;\n}\n\
+dbl(t);\nconsole.log(sum(t));\n";
+    let out = run_source(src);
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    // node: (0.25+0.25+0.5)*2 = 2 -> "2\n"
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "2\n");
+}
+
+#[test]
 fn for_in_over_fixed_shape_object_with_bare_key_iterates_once_per_field() {
     // The bare-identifier `for (c in obj)` form (key pre-declared, no
     // `var`/`let`/`const` in the head) — the exact shape fasta's `selectRandom`

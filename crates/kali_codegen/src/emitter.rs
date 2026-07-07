@@ -110,6 +110,16 @@ pub(crate) struct FunctionEmitter<'a> {
     /// from `loop_ordinals`/`arena_table` — never consulted for arena
     /// placement.
     pub(crate) for_in_ordinals: HashMap<LirNodeId, u32>,
+    /// `for..in` key binding name → the fixed shape its object enumerates,
+    /// recorded by `emit_for_in` BEFORE it emits the loop body (Spec 4a Task
+    /// 3). The codegen-side mirror of `kali_types`'s `for_in_key_bindings`
+    /// registry: the computed-key access recognizer
+    /// (`computed_forin_object_access`) consults it so `obj[c]` lowers to a
+    /// dynamic field slot only when `c` is a for..in key over `obj`'s shape,
+    /// never a same-named static field. Grow-only within this function's
+    /// emitter (each function gets a fresh emitter, so keys never leak across
+    /// functions).
+    pub(crate) for_in_key_shapes: HashMap<String, kali_common::ShapeId>,
     /// Stack of currently-open loop arenas (innermost last) — see
     /// `emitter::ArenaFrame`.
     pub(crate) arena_frames: Vec<ArenaFrame>,
@@ -199,6 +209,7 @@ impl<'a> FunctionEmitter<'a> {
             loop_frames: Vec::new(),
             loop_ordinals,
             for_in_ordinals,
+            for_in_key_shapes: HashMap::new(),
             arena_frames: Vec::new(),
             module_const_inits,
             module_binding_names,

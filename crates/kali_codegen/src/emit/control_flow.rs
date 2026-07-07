@@ -425,6 +425,14 @@ impl<'a> FunctionEmitter<'a> {
         let ordinal = self.for_in_ordinals[&id];
         let ord_local = self.locals[&crate::lower::for_in_ord_local_name(ordinal)];
 
+        // Record the key → shape provenance BEFORE emitting the body, so a
+        // computed access `table[c]` inside the body recognizes `c` as this
+        // loop's ordinal over `shape` (Spec 4a Task 3). Mirror of
+        // `kali_types`'s `register_for_in_key`; the codegen recognizer
+        // (`computed_forin_object_access`) is the structural twin of the
+        // types gate that the emitter relies on for correctness.
+        self.for_in_key_shapes.insert(key_name.clone(), shape);
+
         // preheader: ord = 0
         function.instruction(&Instruction::I64Const(0));
         function.instruction(&Instruction::LocalSet(ord_local));
@@ -1065,6 +1073,15 @@ impl<'a> FunctionEmitter<'a> {
                 // two shapes.
                 if is_binary_operator_text(node.text.as_deref().unwrap_or_default()) {
                     return self.emit_binary(function, node);
+                }
+
+                // Computed for-in-key read `obj[c]` over a uniform-repr fixed
+                // shape (Spec 4a Task 3): a dynamic headerless field slot at
+                // `base + c*8`, offset 0. Must precede the static-index and
+                // array lanes below — its base is an object (never an array
+                // binding) and its index is the loop ordinal, not a literal.
+                if let Some((base, index, elem)) = self.computed_forin_object_access(node) {
+                    return self.emit_object_field_read_dynamic(function, base, index, elem);
                 }
 
                 if let Some(result) = self.resolve_static_index_member(node) {

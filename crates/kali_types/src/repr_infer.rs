@@ -150,6 +150,18 @@ struct ReprInfer {
     /// where the solved repr says `String` — checked fail-closed in
     /// `emit_table` (see `plain_write_targets` for the assignment-shaped twin).
     merge_nodes: Vec<(usize, Vec<usize>)>,
+    /// Active `for..in` key bindings (Spec 4a Task 3): `(func, key_name,
+    /// base_slot)` pushed while visiting a `for (var key in base)` body,
+    /// popped on exit. Lets `visit_member` recognize a computed read
+    /// `base[key]` as a uniform-shape object FIELD read (not an array element
+    /// read) so its result carries the shape's element repr. The repr_infer
+    /// twin of codegen's `for_in_key_shapes` and the resolve-phase
+    /// `for_in_key_bindings` registry.
+    for_in_key_bases: Vec<(String, String, ObjSlot)>,
+    /// Deferred computed uniform-object reads `base[key]` — `(base_slot,
+    /// result_node)`, wired to the shape's field storage in `resolve_objects`
+    /// so the read result carries the (uniform) field repr.
+    uniform_computed_reads: Vec<(ObjSlot, usize)>,
     /// `(func, name)` for every `return <identifier>;` — the function `func`
     /// returns the bare binding `name`. At `emit_table` time, if `name`'s
     /// element node solves `Repr::String`, the return is a String-element
@@ -664,21 +676,38 @@ impl ReprInfer {
                 // literal. Mirrors `visit_assignment`'s whole-object
                 // reassignment branch, which materializes the same way for
                 // the same reason (observable outside the fold lane).
-                if let Some(base) = self.member_base_slot(func, &stmt.right) {
-                    self.obj_materialized.insert(base);
+                let base_slot = self.member_base_slot(func, &stmt.right);
+                if let Some(base) = &base_slot {
+                    self.obj_materialized.insert(base.clone());
                 }
                 self.visit_expr(func, &stmt.right);
                 // Seed a scalar node for the key binding so it has a stable
                 // identity in the repr graph. Deliberately left on the
-                // default (I64) axis — no float/string seed — so this stays
-                // a dormant provenance hook until Task 3+ consumes it (Spec
-                // 4a Task 2).
+                // default (I64) axis — no float/string seed — so the ORDINAL
+                // itself stays i64 (Spec 4a Task 2); the value read THROUGH it
+                // (`base[key]`) is what carries the field repr (Task 3).
+                let mut pushed_key = false;
                 if let ForInLefthand::VariableDeclaration(decl) = &stmt.left {
                     for d in &decl.declarations {
                         let _ = self.scalar_node_for(func, &d.id);
                     }
+                    // Task 3: record the key → base provenance for the loop
+                    // body so `base[key]` resolves to a uniform-object field
+                    // read. Only the single-declarator declaration form (the
+                    // Task 3 scope); the bare-identifier form is Task 5.
+                    if let (Some(base), true) = (&base_slot, decl.declarations.len() == 1) {
+                        self.for_in_key_bases.push((
+                            func.to_string(),
+                            decl.declarations[0].id.clone(),
+                            base.clone(),
+                        ));
+                        pushed_key = true;
+                    }
                 }
                 self.visit_stmt(func, &stmt.body);
+                if pushed_key {
+                    self.for_in_key_bases.pop();
+                }
             }
             Statement::ForOfStatement(stmt) => {
                 self.visit_expr(func, &stmt.right);
@@ -1098,6 +1127,23 @@ impl ReprInfer {
         // Computed access `a[i]` → array element read.
         if let Some(index) = &member.computed_index {
             self.visit_expr(func, index); // index untouched (i64).
+            // Task 3: a computed read `base[key]` where `key` is the active
+            // `for..in` key over `base` is a uniform-object FIELD read, not an
+            // array element read. Its result carries the shape's (uniform)
+            // field repr — wired against field storage in `resolve_objects`.
+            if let (Expression::Identifier(base_name), Expression::Identifier(key_name)) =
+                (&member.object, index.as_ref())
+            {
+                let base = ObjSlot::Binding(func.to_string(), base_name.clone());
+                if self.for_in_key_bases.iter().any(|(f, k, b)| {
+                    f == func && k == key_name && *b == base
+                }) {
+                    let result = self.new_node();
+                    self.obj_materialized.insert(base.clone());
+                    self.uniform_computed_reads.push((base, result));
+                    return result;
+                }
+            }
             if let Expression::Identifier(name) = &member.object {
                 let elem = self.array_elem_node_for(func, name);
                 let result = self.new_node();
@@ -1554,6 +1600,23 @@ impl ReprInfer {
                 // into a field must not prove the read result `Repr::String`
                 // (Finding 2).
                 self.add_edge_float_only(field_node, access.other);
+            }
+        }
+
+        // 3b. Wire deferred computed uniform-object reads `base[key]` (Task
+        //     3) through EVERY field's storage: the read result is float iff
+        //     the (uniform) field repr is float. A non-object base has no
+        //     field list — left untouched (fold lane / existing behavior).
+        //     `add_edge_float_only` keeps object fields on the I64/F64 axis
+        //     (no string can prove through a field read).
+        let uniform_reads = std::mem::take(&mut self.uniform_computed_reads);
+        for (base, result) in uniform_reads {
+            let Some(names) = fields_of.get(&base).cloned() else {
+                continue;
+            };
+            for name in &names {
+                let field_node = self.obj_field_node_for(&base, name);
+                self.add_edge_float_only(field_node, result);
             }
         }
 

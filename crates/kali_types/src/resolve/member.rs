@@ -4,6 +4,7 @@ use crate::*;
 impl TypeContext {
     pub(crate) fn resolve_member_expression(&mut self, expr: &MemberExpression) {
         self.reject_unprovable_string_length(expr);
+        self.reject_nonuniform_forin_key_object_access(expr);
 
         if self.resolve_late_intl_member(expr) {
             return;

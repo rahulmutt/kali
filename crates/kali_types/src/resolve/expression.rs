@@ -297,6 +297,55 @@ impl TypeContext {
         }
     }
 
+    /// Spec 4a Task 3 fail-closed gate for a computed for-in-key object access
+    /// `obj[c]`. Fires ONLY when `c` is a proven `for..in` key
+    /// (`for_in_key_shape`) — a runtime ordinal over a fixed shape — and the
+    /// base `obj` is a KNOWN object (`object_shape_of_expression`). Rejects
+    /// (E5506) when the base's shape does not match the key's shape (the
+    /// ordinal range would be wrong for this base) or is not uniform-repr (a
+    /// runtime ordinal cannot select a per-field type — mixed I64/F64 fields
+    /// must fail closed, never miscompile). A non-object base (array / unknown)
+    /// keeps its existing behavior: `arr[c]` over an array is a valid element
+    /// read. This is the types-side authority the codegen recognizer
+    /// (`computed_forin_object_access`) mirrors — both admit exactly the
+    /// uniform, shape-matched case; codegen fails closed by falling through to
+    /// a static-field read for everything else, which this gate makes
+    /// unreachable. Runs for both the RHS read `= obj[c]` and the store target
+    /// `obj[c] = v` (the assignment dispatch resolves `expr.left` through
+    /// `resolve_member_expression` too).
+    pub(crate) fn reject_nonuniform_forin_key_object_access(
+        &mut self,
+        member: &MemberExpression,
+    ) {
+        let Some(index) = member.computed_index.as_deref() else {
+            return;
+        };
+        let Expression::Identifier(key) = index else {
+            return;
+        };
+        let Some(key_shape) = self.for_in_key_shape(key) else {
+            return;
+        };
+        let Some(obj_shape) = self.object_shape_of_expression(&member.object) else {
+            // Not a known object (an array or an unproven base): leave the
+            // existing element/host member behavior untouched.
+            return;
+        };
+        if obj_shape != key_shape {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "computed key access `obj[c]` where the for..in key enumerates a different object shape than the base is unavailable in the current direct-runtime path".to_string(),
+            ));
+            return;
+        }
+        if self.repr_table.shape_is_uniform_repr(obj_shape).is_none() {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "computed key access `obj[c]` over a mixed-repr fixed shape is unavailable in the current direct-runtime path (a runtime ordinal cannot select a per-field type); use an object whose fields all share one type".to_string(),
+            ));
+        }
+    }
+
     /// `Some(shape)` iff `expr` is a bare identifier whose `ReprTable` scalar
     /// is proven `Repr::Object(shape)` — used to derive the shape a
     /// `for..in`'s `right` enumerates (Spec 4a Task 2). Reuses the same

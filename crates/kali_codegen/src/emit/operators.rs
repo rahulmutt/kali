@@ -880,6 +880,12 @@ impl<'a> FunctionEmitter<'a> {
                             }
                             _ => false,
                         }
+                    } else if let Some((_, _, elem)) = self.computed_forin_object_access(node) {
+                        // Computed for-in-key object read `obj[c]` (Spec 4a
+                        // Task 3): float-ness comes from the uniform element
+                        // repr, mirroring the dynamic-read lane so `+`/store
+                        // selection stays f64 for a float-field shape.
+                        elem == kali_common::Repr::F64
                     } else {
                         // Computed array element read `a[<expr>]`.
                         self.array_read_base_name(node.children[0])
