@@ -305,6 +305,39 @@ fn literal_array_function_scope_mutation_is_rejected() {
 }
 
 #[test]
+fn fasta_random_shell_matches_node_byte_for_byte() {
+    // Spec 3 capstone: fastaRandom's shell — new Array(60), reassignment to
+    // new Array(n), string element stores in a loop, join(''), n -= length —
+    // with the Spec 4 for..in picker stubbed by a substring pick. Golden
+    // captured from `node` running these exact bytes.
+    let src = r#"const ALU = "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGGGAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGACCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAATACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCAGCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGGAGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCCAGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA";
+function fastaRandom(n, seed) {
+  let line = new Array(60);
+  while (n > 0) {
+    if (n < line.length) {
+      line = new Array(n);
+    }
+    for (let i = 0; i < line.length; i = i + 1) {
+      let k = (i * 7) % seed.length;
+      line[i] = seed.substring(k, k + 1);
+    }
+    console.log(line.join(''));
+    n = n - line.length;
+  }
+}
+fastaRandom(200, ALU);
+"#;
+    let out = run_source(src);
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let expected = "GCGCTAGACCTTCGAATTATGTCAGGTGCAAGGGCGAGACTGCGCTAGACCTTCGAATTA\nGCGCTAGACCTTCGAATTATGTCAGGTGCAAGGGCGAGACTGCGCTAGACCTTCGAATTA\nGCGCTAGACCTTCGAATTATGTCAGGTGCAAGGGCGAGACTGCGCTAGACCTTCGAATTA\nGCGCTAGACCTTCGAATTAT\n";
+    assert_eq!(String::from_utf8_lossy(&out.stdout), expected);
+}
+
+#[test]
 fn literal_array_top_level_static_index_mutation_stays_unchanged() {
     // Probe 7: pre-existing silent-wrong residual (node prints "42", kali
     // prints "0") — out of scope for this task (no new green lanes). Pinned
