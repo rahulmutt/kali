@@ -224,3 +224,98 @@ fn static_object_keys_join_stays_green() {
     );
     assert_eq!(String::from_utf8_lossy(&out.stdout), "a,b\n");
 }
+
+// ---------------------------------------------------------------------------
+// Task 8: fail-closed gates batch — object literals, `&&`/`||`, slice,
+// literal-array mutation. Step 1 probe classifications (kali vs node):
+//   1. object-literal `{ v: s }` construction   — was silent (exit 0, no diag) -> reject
+//   2. `a[0] = 1 && s`                          — was silent-WRONG (printed "1", node "x") -> reject
+//   3. `s.slice(1)` runtime string receiver     — ALREADY rejected (via the array-slice
+//      catch-all firing on every `.slice(...)` call); this task adds a precise
+//      String-specific diagnostic alongside it, not a new reject -> green pin (already-correct)
+//   4. `a.slice(0)` runtime array receiver      — ALREADY rejected (same array-slice
+//      catch-all) -> green pin (already-correct)
+//   5. `a[k] = 42` literal-array runtime index  — was silent-WRONG (printed "0", node "42") -> reject
+//   6. `a[1] = 42` literal-array, named function scope — was silent-WRONG (printed "2",
+//      node "42"; NOT "0" as the design note guessed — recorded as observed) -> reject
+//   7. `a[1] = 42` literal-array, top-level (`_start`) static index — kali prints "0",
+//      node prints "42": this shape is ALSO silent-wrong relative to node, but it is a
+//      PRE-EXISTING residual outside this task's scope (no new green lanes); pinned as
+//      byte-identical-to-base (still "0", still exit 0) so this gate batch does not
+//      regress it into either a reject or a different wrong value.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn object_literal_runtime_string_value_is_rejected() {
+    let out = run_source("function f(s) {\n  const o = { v: s };\n}\nf(\"x\");\n");
+    assert!(
+        !out.status.success(),
+        "object-literal construction store must reject"
+    );
+}
+
+#[test]
+fn logical_launder_into_element_store_is_rejected() {
+    let out = run_source(
+        "function f(s) {\n  const a = new Array(1);\n  a[0] = 1 && s;\n  console.log(a[0]);\n}\nf(\"x\");\n",
+    );
+    assert!(
+        !out.status.success(),
+        "&&/|| must not launder runtime strings into stores"
+    );
+}
+
+#[test]
+fn runtime_string_slice_is_rejected() {
+    let out = run_source("function f(s) {\n  console.log(s.slice(1));\n}\nf(\"abc\");\n");
+    assert!(
+        !out.status.success(),
+        "slice on a runtime string receiver must reject (was silent 0)"
+    );
+}
+
+#[test]
+fn runtime_array_slice_is_rejected() {
+    let out = run_source(
+        "const a = new Array(2);\na[0] = 7;\nconst b = a.slice(0);\nconsole.log(b[0]);\n",
+    );
+    assert!(
+        !out.status.success(),
+        "slice on a runtime array receiver must reject"
+    );
+}
+
+#[test]
+fn literal_array_runtime_index_mutation_is_rejected() {
+    let out = run_source(
+        "function g(k) {\n  const a = [1, 2, 3];\n  a[k] = 42;\n  console.log(a[k]);\n}\ng(1);\n",
+    );
+    assert!(!out.status.success(), "was silent-wrong 0; must reject");
+}
+
+#[test]
+fn literal_array_function_scope_mutation_is_rejected() {
+    let out = run_source(
+        "function h() {\n  const a = [1, 2, 3];\n  a[1] = 42;\n  console.log(a[1]);\n}\nh();\n",
+    );
+    assert!(
+        !out.status.success(),
+        "was silent-wrong (printed 2, node 42); must reject"
+    );
+}
+
+#[test]
+fn literal_array_top_level_static_index_mutation_stays_unchanged() {
+    // Probe 7: pre-existing silent-wrong residual (node prints "42", kali
+    // prints "0") — out of scope for this task (no new green lanes). Pinned
+    // so the literal-array mutation gate (condition (a) index-foldable AND
+    // (b) `_start`-only scope) does not regress this top-level fold-lane
+    // shape into a reject or a different wrong value.
+    let out = run_source("var a = [1, 2, 3];\na[1] = 42;\nconsole.log(a[1]);\n");
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "0\n");
+}

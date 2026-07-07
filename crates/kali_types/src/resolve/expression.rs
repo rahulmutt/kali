@@ -257,7 +257,7 @@ impl TypeContext {
     /// so the gate and codegen never disagree. Covers a string-typed identifier
     /// (variable/param, via `identifier_repr_is_string`) and a call to a
     /// string-returning function.
-    fn operand_repr_is_string(&self, operand: &Expression) -> bool {
+    pub(crate) fn operand_repr_is_string(&self, operand: &Expression) -> bool {
         use kali_common::Repr;
         match operand {
             Expression::Identifier(name) => self.identifier_repr_is_string(name),
@@ -417,6 +417,30 @@ impl TypeContext {
         }
     }
 
+    /// Operand-position layer for `&&`/`||`: a PROVEN runtime-string operand
+    /// (`operand_repr_is_string` — the same signal codegen's `is_string_valued`
+    /// consults, narrower than `expression_is_string_typed`) has no correct
+    /// runtime lowering here. `&&`/`||` truthiness-test their left operand to
+    /// pick a side, exactly the defect `reject_string_condition_expression`
+    /// rejects for a ternary test — and unlike the ternary, `&&`/`||` can also
+    /// YIELD the proven-string operand itself into a caller expression (a
+    /// store, an object-literal value, a call argument): `1 && s` prints the
+    /// int `1` instead of the string `s` (probed: silent-wrong on this
+    /// branch). No correct runtime case exists for a proven string operand of
+    /// `&&`/`||`, so reject outright rather than trying to characterize which
+    /// downstream uses would be sound.
+    fn reject_logical_operand_runtime_string(&mut self, expr: &BinaryExpression) {
+        if !matches!(expr.operator.as_str(), "&&" | "||") {
+            return;
+        }
+        if self.operand_repr_is_string(&expr.left) || self.operand_repr_is_string(&expr.right) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "a runtime string value is unavailable as an operand of '&&'/'||' in the current direct-runtime path; truthiness of a runtime string is not evaluated correctly and the operator may yield the string into an unsupported position".to_string(),
+            ));
+        }
+    }
+
     /// Reject a string-typed expression used as a ternary condition (fail-closed).
     /// Uses the same string-typedness signal as the `+` gate
     /// (`expression_is_string_typed`), covering string literals/templates, `+`
@@ -524,6 +548,19 @@ impl TypeContext {
             return self.expression_is_runtime_string_value(&cond.consequent)
                 || self.expression_is_runtime_string_value(&cond.alternate);
         }
+        // `&&`/`||`/`??` yield one of their two operands at runtime (whichever
+        // the short-circuit picks) — a runtime string iff EITHER operand is,
+        // same self-recursing shape as the ternary arm above. The parser has
+        // NO `LogicalExpression` production (verified Task 7): `a && b` / `a
+        // || b` / `a ?? b` all lower to `BinaryExpression` with that operator
+        // string, so this arm keys on `BinaryExpression`, not the (dead)
+        // `LogicalExpression` AST variant.
+        if let Expression::BinaryExpression(binary) = expr {
+            if matches!(binary.operator.as_str(), "&&" | "||" | "??") {
+                return self.expression_is_runtime_string_value(&binary.left)
+                    || self.expression_is_runtime_string_value(&binary.right);
+            }
+        }
         if let Expression::CallExpression(call) = expr {
             if let Expression::MemberExpression(member) = &call.callee {
                 // Runtime `a.join(sep)` over a proven `Repr::String`-element
@@ -581,6 +618,58 @@ impl TypeContext {
             e5::FEATURE_UNAVAILABLE as u32,
             "storing a runtime string value into this element or field is unavailable in the current direct-runtime path unless the target is an array whose elements are all proven strings; use the later compatibility path".to_string(),
         ));
+    }
+
+    /// Literal-array mutation gate: a computed subscript STORE whose base
+    /// resolves to a static array-LITERAL binding (`resolve_array_literal_binding_name`,
+    /// the Task 7 registry backing `is_static_array_iteration_target`) has no
+    /// correct runtime lowering unless the WHOLE access folds statically.
+    /// Codegen never linearizes a literal array into a mutable runtime buffer
+    /// (the `join`-lane doc comment on `resolve_array_literal_binding_name`
+    /// notes the same absence for reads); probing on this branch: a runtime
+    /// index (`a[k] = 42` for a parameter `k`) and a STATIC index inside a
+    /// named function (`a[1] = 42` inside `function h() {...}`) both compile
+    /// and silently print a stale/wrong value instead of the stored one.
+    /// Rejects when EITHER:
+    ///   (a) the index is not a static numeric literal (no fold target at
+    ///       all — mirrors the slice/join gates' `is_static_numeric_literal_expr`
+    ///       foldability check), OR
+    ///   (b) the store executes inside a named function
+    ///       (`current_function_name() != "_start"`) — even a static index
+    ///       there is not the SAME top-level fold lane that resolves a
+    ///       top-level `var a = [...]; a[1] = 42;` (probed: that top-level
+    ///       shape's behavior is unchanged by this gate, silent-wrong residual
+    ///       or not — out of scope here, no new green lane).
+    /// Same dispatch site as `reject_runtime_string_store` (any assignment
+    /// operator; a compound `a[1] += 1` on a literal array is exactly as
+    /// unsupported as `a[1] = 42`). `new Array(n)` bindings
+    /// (`rhs_is_array_shape`/`string_element_array_binding` lanes) are
+    /// untouched — this gate only keys on the `ArrayExpression`-literal
+    /// binding shape, a disjoint registry.
+    pub(crate) fn reject_literal_array_unfoldable_mutation(
+        &mut self,
+        assign: &AssignmentExpression,
+    ) {
+        let Expression::MemberExpression(member) = &assign.left else {
+            return;
+        };
+        let Some(index) = member.computed_index.as_deref() else {
+            return;
+        };
+        let Expression::Identifier(base_name) = &member.object else {
+            return;
+        };
+        if !self.resolve_array_literal_binding_name(base_name) {
+            return;
+        }
+        let index_is_foldable = self.is_static_numeric_literal_expr(index);
+        let in_named_function = self.current_function_name() != "_start";
+        if !index_is_foldable || in_named_function {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "mutating a literal array is unavailable in the current direct-runtime path unless the whole access folds statically; use new Array(n) for runtime mutation".to_string(),
+            ));
+        }
     }
 
     /// True when `expr` is one of the array-producing reassignment shapes
@@ -684,6 +773,7 @@ impl TypeContext {
                 self.resolve_expression(&expr.left);
                 self.resolve_expression(&expr.right);
                 self.reject_unsupported_string_variable_addition(expr);
+                self.reject_logical_operand_runtime_string(expr);
             }
             Expression::UnaryExpression(expr) => {
                 if expr.operator == "delete" {
@@ -745,6 +835,7 @@ impl TypeContext {
 
                 self.reject_runtime_string_store(expr);
                 self.reject_array_binding_scalar_reassignment(expr);
+                self.reject_literal_array_unfoldable_mutation(expr);
 
                 if self.resolve_late_env_assignment_mutation(expr) {
                     return;
@@ -1079,6 +1170,19 @@ impl TypeContext {
     pub(crate) fn resolve_object_property(&mut self, property: &ObjectProperty) {
         self.resolve_property_name(&property.key);
         self.resolve_expression(&property.value);
+        // Mirrors the array-literal element gate (`ArrayExpression` arm above):
+        // an object-literal property VALUE stored at construction has no
+        // string lane in codegen's aggregate-literal emission (Task 8) — only
+        // `init` properties are actual stored values; `get`/`set` properties'
+        // "value" is a function expression body, never a runtime string.
+        if matches!(property.kind, ObjectPropertyKind::Init)
+            && self.expression_is_runtime_string_value(&property.value)
+        {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "a runtime string value is unavailable as an object-literal property value in the current direct-runtime path; use a statically-known string or the later compatibility path".to_string(),
+            ));
+        }
     }
 
     pub(crate) fn resolve_property_name(&mut self, name: &PropertyName) {
