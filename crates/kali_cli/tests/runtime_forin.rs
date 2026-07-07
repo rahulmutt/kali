@@ -334,6 +334,51 @@ fn normal_while_and_ternary_on_non_forin_binding_still_compile() {
 }
 
 #[test]
+fn fasta_make_cumulative_select_random_capstone_matches_node_byte_for_byte() {
+    // Task 7 capstone: the exact fasta `makeCumulative` + `random` (LCG) +
+    // `selectRandom` shell over the IUB table, run for 20 iterations. This is
+    // the true end-to-end integration of Tasks 1-6 plus the two enabling
+    // fixes: multi-declarator `var r = random(1.0), c;` (binds both r and c)
+    // and a mutable module-scope scalar global `var rngLast = 42;` read+written
+    // by `random()`. Exercises the declaration-form for..in in makeCumulative
+    // (null-sentinel key alias, computed read/write both directions) plus the
+    // BARE-form for..in in selectRandom (key used as a computed index AND
+    // returned as a string in the same loop).
+    // Golden captured from `node` v26.4.0 running these exact bytes.
+    let src = r#"function makeCumulative(table) {
+  var last = null;
+  for (var c in table) {
+    if (last) table[c] += table[last];
+    last = c;
+  }
+}
+var rngLast = 42;
+function random(max) {
+  rngLast = (rngLast * 3877 + 29573) % 139968;
+  return (max * rngLast) / 139968;
+}
+function selectRandom(table) {
+  var r = random(1.0), c;
+  for (c in table) if (r < table[c]) return c;
+  return c;
+}
+var iub = { a: 0.27, c: 0.12, g: 0.12, t: 0.27, B: 0.02, D: 0.02, H: 0.02 };
+makeCumulative(iub);
+var out = "";
+for (var i = 0; i < 20; i = i + 1) out += selectRandom(iub);
+console.log(out);
+"#;
+    let out = run_source(src);
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let expected = "cttBtatcatatgctaHggH\n";
+    assert_eq!(String::from_utf8_lossy(&out.stdout), expected);
+}
+
+#[test]
 fn for_in_over_fixed_shape_object_with_bare_key_iterates_once_per_field() {
     // The bare-identifier `for (c in obj)` form (key pre-declared, no
     // `var`/`let`/`const` in the head) — the exact shape fasta's `selectRandom`
