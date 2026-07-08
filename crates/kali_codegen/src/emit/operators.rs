@@ -518,7 +518,11 @@ impl<'a> FunctionEmitter<'a> {
     /// the codegen counterpart of unary `+` accepting a string operand:
     /// `emit_unary`'s `"+"` arm calls this only when `is_string_valued(arg)`
     /// is true, so a non-string/non-numeric operand never reaches here.
-    fn emit_string_to_i64_parse(&mut self, function: &mut Function, arg: LirNodeId) -> EmittedValue {
+    fn emit_string_to_i64_parse(
+        &mut self,
+        function: &mut Function,
+        arg: LirNodeId,
+    ) -> EmittedValue {
         let ptr = self.locals[&crate::lower::coerce_ptr_local_name()];
         let end = self.locals[&crate::lower::coerce_end_local_name()];
         let acc = self.locals[&crate::lower::coerce_acc_local_name()];
@@ -530,7 +534,7 @@ impl<'a> FunctionEmitter<'a> {
             function.instruction(&Instruction::I64Const(0));
         }
         function.instruction(&Instruction::LocalSet(acc)); // acc = handle
-        // ptr = (acc >> 32) & 0x7FFF_FFFF   (byte offset)
+                                                           // ptr = (acc >> 32) & 0x7FFF_FFFF   (byte offset)
         function.instruction(&Instruction::LocalGet(acc));
         function.instruction(&Instruction::I64Const(32));
         function.instruction(&Instruction::I64ShrU);

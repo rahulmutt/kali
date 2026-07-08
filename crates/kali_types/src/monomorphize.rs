@@ -510,9 +510,7 @@ impl<'a> Analyzer<'a> {
         let params = self.params_of(func);
         for (idx, tuple) in &ctx.params {
             if let Some(name) = params.get(*idx) {
-                env.entry(name.clone())
-                    .or_default()
-                    .insert(tuple.clone());
+                env.entry(name.clone()).or_default().insert(tuple.clone());
             }
         }
         let body = self.body_of(func);
@@ -529,7 +527,12 @@ impl<'a> Analyzer<'a> {
     /// Union the shapes produced by every binding/assignment in `stmts` into
     /// `env` (flow-insensitive; all branches merge). Does not descend into
     /// nested function declarations (separate scopes).
-    fn collect_env(&self, stmts: &[Statement], env: &mut Env, returns: &BTreeMap<Instance, ShapeVal>) {
+    fn collect_env(
+        &self,
+        stmts: &[Statement],
+        env: &mut Env,
+        returns: &BTreeMap<Instance, ShapeVal>,
+    ) {
         for stmt in stmts {
             match stmt {
                 Statement::VariableDeclaration(decl) => {
@@ -591,12 +594,22 @@ impl<'a> Analyzer<'a> {
         }
     }
 
-    fn collect_stmt(&self, stmt: &Statement, env: &mut Env, returns: &BTreeMap<Instance, ShapeVal>) {
+    fn collect_stmt(
+        &self,
+        stmt: &Statement,
+        env: &mut Env,
+        returns: &BTreeMap<Instance, ShapeVal>,
+    ) {
         self.collect_env(std::slice::from_ref(stmt), env, returns);
     }
 
     /// Evaluate the object shape(s) an expression can carry in `env`.
-    fn eval(&self, expr: &Expression, env: &Env, returns: &BTreeMap<Instance, ShapeVal>) -> ShapeVal {
+    fn eval(
+        &self,
+        expr: &Expression,
+        env: &Env,
+        returns: &BTreeMap<Instance, ShapeVal>,
+    ) -> ShapeVal {
         match expr {
             Expression::ObjectExpression(obj) => match clean_shape(obj) {
                 Some(t) => BTreeSet::from([t]),
@@ -627,9 +640,10 @@ impl<'a> Analyzer<'a> {
                 }
                 // Return-shape of the callee under the shapes we pass it.
                 match self.callee_ctx(&call.args, env, returns) {
-                    CalleeCtx::Definite(ck) => {
-                        returns.get(&(callee.clone(), ck)).cloned().unwrap_or_default()
-                    }
+                    CalleeCtx::Definite(ck) => returns
+                        .get(&(callee.clone(), ck))
+                        .cloned()
+                        .unwrap_or_default(),
                     _ => ShapeVal::new(),
                 }
             }
@@ -661,7 +675,12 @@ impl<'a> Analyzer<'a> {
     }
 
     /// The shape(s) a function instance can return.
-    fn return_shape(&self, func: &str, env: &Env, returns: &BTreeMap<Instance, ShapeVal>) -> ShapeVal {
+    fn return_shape(
+        &self,
+        func: &str,
+        env: &Env,
+        returns: &BTreeMap<Instance, ShapeVal>,
+    ) -> ShapeVal {
         let mut out = ShapeVal::new();
         collect_returns(self.body_of(func), &mut |expr| {
             union_into(&mut out, &self.eval(expr, env, returns));
@@ -836,7 +855,10 @@ impl<'a> Analyzer<'a> {
                 if func == TOP_LEVEL {
                     continue;
                 }
-                let poly = keys_by_func.get(func).map(|k| k.len() >= 2).unwrap_or(false);
+                let poly = keys_by_func
+                    .get(func)
+                    .map(|k| k.len() >= 2)
+                    .unwrap_or(false);
                 if !poly || specializations.contains_key(func) {
                     continue; // not a poly-uncloned caller
                 }
@@ -964,8 +986,7 @@ fn stmt_has_nested_fn_decl(stmt: &Statement) -> bool {
         Statement::FunctionDeclaration(_) => true,
         Statement::IfStatement(s) => {
             body_has_nested_fn_decl(&s.consequent.body)
-                || s
-                    .alternate
+                || s.alternate
                     .as_ref()
                     .is_some_and(|alt| body_has_nested_fn_decl(&alt.body))
         }
@@ -978,12 +999,10 @@ fn stmt_has_nested_fn_decl(stmt: &Statement) -> bool {
         Statement::LabeledStatement(s) => stmt_has_nested_fn_decl(&s.body),
         Statement::TryStatement(s) => {
             body_has_nested_fn_decl(&s.block.body)
-                || s
-                    .handler
+                || s.handler
                     .as_ref()
                     .is_some_and(|h| body_has_nested_fn_decl(&h.body.body))
-                || s
-                    .finalizer
+                || s.finalizer
                     .as_ref()
                     .is_some_and(|f| body_has_nested_fn_decl(&f.body))
         }

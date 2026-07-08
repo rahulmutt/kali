@@ -76,7 +76,8 @@ impl TypeContext {
         let Some(index) = member.computed_index.as_deref() else {
             return false;
         };
-        Self::expression_is_nonneg_int_literal(index) && Self::is_process_argv_member(&member.object)
+        Self::expression_is_nonneg_int_literal(index)
+            && Self::is_process_argv_member(&member.object)
     }
 
     /// Structural `process.argv[<any index>]` — a computed element read whose
@@ -172,7 +173,9 @@ impl TypeContext {
             // print/concat lowering agree.
             // `process.argv[<int>]` reads a runtime string handle (Spec 5 Task
             // 5) — mirror of codegen's `is_string_valued` argv-element arm.
-            Expression::MemberExpression(_) if self.is_process_argv_element_expr(expression) => true,
+            Expression::MemberExpression(_) if self.is_process_argv_element_expr(expression) => {
+                true
+            }
             Expression::MemberExpression(member) if member.computed_index.is_some() => {
                 matches!(&member.object, Expression::Identifier(base)
                     if self.string_element_array_binding(base))

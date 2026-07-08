@@ -425,7 +425,11 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         // `(index: i32, out_ptr: i32, out_cap: i32) -> i32`: writes an argv
         // element's UTF-8 bytes into guest memory at `out_ptr` (bounded by
         // `out_cap`), returning the byte count or -1 (out-of-range index).
-        import_section.import("kali:rt", "args_get", EntityType::Function(ARGS_GET_TYPE_INDEX));
+        import_section.import(
+            "kali:rt",
+            "args_get",
+            EntityType::Function(ARGS_GET_TYPE_INDEX),
+        );
     }
     // Function signatures are repr-directed: each param/result ValType comes from
     // the repr table (defaulting to I64). Two functions with equal arity but

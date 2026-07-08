@@ -1312,10 +1312,10 @@ impl ReprInfer {
                 self.runtime_string_nodes.push(result);
                 return result;
             }
-                                          // Task 3: a computed read `base[key]` where `key` is the active
-                                          // `for..in` key over `base` is a uniform-object FIELD read, not an
-                                          // array element read. Its result carries the shape's (uniform)
-                                          // field repr — wired against field storage in `resolve_objects`.
+            // Task 3: a computed read `base[key]` where `key` is the active
+            // `for..in` key over `base` is a uniform-object FIELD read, not an
+            // array element read. Its result carries the shape's (uniform)
+            // field repr — wired against field storage in `resolve_objects`.
             if let (Expression::Identifier(base_name), Expression::Identifier(key_name)) =
                 (&member.object, index.as_ref())
             {

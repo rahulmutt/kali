@@ -104,6 +104,10 @@ fn fasta_repeat_shell_matches_node() {
     // output (no randomness involved -- fully deterministic).
     const GOLDEN: &str = "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGGGAGGCCGAGGCGGGCGGA\nTCACCTGAGGTCAGGAGTTCGAGAGGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCA\n";
     let out = run_source(FASTA_REPEAT_SHELL);
-    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     assert_eq!(String::from_utf8_lossy(&out.stdout), GOLDEN);
 }

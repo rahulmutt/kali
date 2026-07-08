@@ -107,10 +107,7 @@ fn process_argv_variable_index_never_flows_as_a_real_string() {
     // element by either side — this pin guards the fallback contract stays
     // the same shape as the huge-literal pin above (no reliance on a
     // dynamic value being smuggled through as a string).
-    let out = run_node_source_with_args(
-        "var i = 2;\nconsole.log(process.argv[i]);\n",
-        &["hello"],
-    );
+    let out = run_node_source_with_args("var i = 2;\nconsole.log(process.argv[i]);\n", &["hello"]);
     assert!(
         out.status.success(),
         "stderr: {}",
@@ -156,10 +153,7 @@ fn process_argv_huge_literal_index_length_fails_closed() {
         String::from_utf8_lossy(&out.stdout)
     );
     let stderr = String::from_utf8_lossy(&out.stderr);
-    assert!(
-        stderr.contains("E5506"),
-        "expected E5506, stderr: {stderr}"
-    );
+    assert!(stderr.contains("E5506"), "expected E5506, stderr: {stderr}");
     // The specific pre-fix miscompile (child-count fold) must never surface.
     assert_ne!(String::from_utf8_lossy(&out.stdout), "2\n");
 }
@@ -234,38 +228,26 @@ fn unary_plus_coerced_argv_drives_a_loop_count() {
 // narrowing above must not leak into the other unary operators) ---
 #[test]
 fn unary_minus_on_runtime_argv_string_still_fails_closed() {
-    let out = run_node_source_with_args(
-        "console.log(-process.argv[2]);\n",
-        &["1000"],
-    );
+    let out = run_node_source_with_args("console.log(-process.argv[2]);\n", &["1000"]);
     assert!(
         !out.status.success(),
         "unary '-' on a runtime string must still reject, got stdout: {:?}",
         String::from_utf8_lossy(&out.stdout)
     );
     let stderr = String::from_utf8_lossy(&out.stderr);
-    assert!(
-        stderr.contains("E3200"),
-        "expected E3200, stderr: {stderr}"
-    );
+    assert!(stderr.contains("E3200"), "expected E3200, stderr: {stderr}");
 }
 
 #[test]
 fn unary_bitnot_on_runtime_argv_string_still_fails_closed() {
-    let out = run_node_source_with_args(
-        "console.log(~process.argv[2]);\n",
-        &["1000"],
-    );
+    let out = run_node_source_with_args("console.log(~process.argv[2]);\n", &["1000"]);
     assert!(
         !out.status.success(),
         "unary '~' on a runtime string must still reject, got stdout: {:?}",
         String::from_utf8_lossy(&out.stdout)
     );
     let stderr = String::from_utf8_lossy(&out.stderr);
-    assert!(
-        stderr.contains("E3200"),
-        "expected E3200, stderr: {stderr}"
-    );
+    assert!(stderr.contains("E3200"), "expected E3200, stderr: {stderr}");
 }
 
 // Regression pin for the kali_types both-sides mirror (repr_infer.rs): unary
@@ -278,10 +260,7 @@ fn unary_bitnot_on_runtime_argv_string_still_fails_closed() {
 // local actually holds the coerced integer.
 #[test]
 fn unary_plus_coerces_a_string_literal_typed_variable_end_to_end() {
-    let out = run_node_source_with_args(
-        "var s = \"5\";\nvar n = +s;\nconsole.log(n + 1);\n",
-        &[],
-    );
+    let out = run_node_source_with_args("var s = \"5\";\nvar n = +s;\nconsole.log(n + 1);\n", &[]);
     assert!(
         out.status.success(),
         "stderr: {}",
