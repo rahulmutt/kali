@@ -78,6 +78,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     let uses_cwd_set = program_uses_cwd_set(lir);
     let uses_process_exit = program_uses_process_exit(lir);
     let uses_stdout_write_bytes = program_uses_stdout_write_bytes(lir);
+    let uses_args_get = program_uses_args_get(lir);
     let uses_env_access = uses_env_get || uses_env_has || uses_env_set || uses_env_delete;
     let function_index_offset = crate::FUNCTION_INDEX_OFFSET
         + if ctx.target.coverage { 1 } else { 0 }
@@ -87,7 +88,8 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         + if uses_env_has { 1 } else { 0 }
         + if uses_cwd_set { 1 } else { 0 }
         + if uses_process_exit { 1 } else { 0 }
-        + if uses_stdout_write_bytes { 1 } else { 0 };
+        + if uses_stdout_write_bytes { 1 } else { 0 }
+        + if uses_args_get { 1 } else { 0 };
     let env_get_type_index = if uses_env_access { Some(6) } else { None };
     let env_has_type_index = if uses_env_has { Some(7) } else { None };
     let cwd_set_type_index = if uses_cwd_set { Some(5) } else { None };
@@ -166,6 +168,25 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                 + if uses_env_has { 1 } else { 0 }
                 + if uses_cwd_set { 1 } else { 0 }
                 + if uses_process_exit { 1 } else { 0 },
+        )
+    } else {
+        None
+    };
+    // `args_get` is appended AFTER `stdout_write_bytes` in the import section
+    // below, so its index sums every preceding conditional-import flag in the
+    // same declaration order (coverage, env_set, env_delete, env_get, env_has,
+    // cwd_set, process_exit, stdout_write_bytes).
+    let args_get_import_index = if uses_args_get {
+        Some(
+            crate::COVERAGE_HIT_IMPORT_INDEX
+                + if ctx.target.coverage { 1 } else { 0 }
+                + if uses_env_set { 1 } else { 0 }
+                + if uses_env_delete { 1 } else { 0 }
+                + if uses_env_get { 1 } else { 0 }
+                + if uses_env_has { 1 } else { 0 }
+                + if uses_cwd_set { 1 } else { 0 }
+                + if uses_process_exit { 1 } else { 0 }
+                + if uses_stdout_write_bytes { 1 } else { 0 },
         )
     } else {
         None
@@ -315,6 +336,15 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     type_section
         .ty()
         .function(vec![ValType::F64], vec![ValType::I64]);
+    // Type 10: args_get `(index: i32, out_ptr: i32, out_cap: i32) -> i32`
+    // (Spec 5 Task 5) — writes an argv element's UTF-8 bytes into guest memory,
+    // returns the byte count or -1. Registered unconditionally so the type
+    // index is stable; the import itself is conditional (see below).
+    const ARGS_GET_TYPE_INDEX: u32 = 10;
+    type_section.ty().function(
+        vec![ValType::I32, ValType::I32, ValType::I32],
+        vec![ValType::I32],
+    );
     let mut import_section = ImportSection::new();
     import_section.import("kali:rt", "test_register", EntityType::Function(0));
     import_section.import("kali:rt", "console_log", EntityType::Function(1));
@@ -391,6 +421,12 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         // to stdout, and returns no value.
         import_section.import("kali:rt", "stdout_write_bytes", EntityType::Function(1));
     }
+    if args_get_import_index.is_some() {
+        // `(index: i32, out_ptr: i32, out_cap: i32) -> i32`: writes an argv
+        // element's UTF-8 bytes into guest memory at `out_ptr` (bounded by
+        // `out_cap`), returning the byte count or -1 (out-of-range index).
+        import_section.import("kali:rt", "args_get", EntityType::Function(ARGS_GET_TYPE_INDEX));
+    }
     // Function signatures are repr-directed: each param/result ValType comes from
     // the repr table (defaulting to I64). Two functions with equal arity but
     // differing float shapes need distinct wasm types, so the dedup key is the
@@ -445,7 +481,10 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         let type_index = if let Some(&idx) = function_types.get(&key) {
             idx
         } else {
-            let idx = function_types.len() as u32 + 10;
+            // Function-signature types begin right after the fixed types
+            // (0..=ARGS_GET_TYPE_INDEX): args_get (type 10) is the last fixed
+            // type, so repr-directed function types start at index 11.
+            let idx = function_types.len() as u32 + ARGS_GET_TYPE_INDEX + 1;
             type_section.ty().function(params, results);
             function_types.insert(key, idx);
             idx
@@ -604,7 +643,9 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                 // (`Repr::I64`) would mistype the slot and fail wasm
                 // validation the first time `GlobalGet(1..3)` is stored into
                 // it, so it is forced to i32 here ahead of the repr lookup.
-                let val_type = if is_arena_save_local_name(local_name) {
+                let val_type = if is_arena_save_local_name(local_name)
+                    || is_argv_scratch_local_name(local_name)
+                {
                     ValType::I32
                 } else {
                     wasm_type(ctx.repr_table.scalar(&function.name, local_name))
@@ -630,6 +671,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             cwd_set_import_index,
             process_exit_import_index,
             stdout_write_bytes_import_index,
+            args_get_import_index,
             &mut diagnostics,
             &mut string_pool,
             ctx.source_path.clone(),
@@ -1119,6 +1161,73 @@ pub(crate) fn program_uses_stdout_write_bytes(lir: &LirProgram) -> bool {
     })
 }
 
+/// Program-wide probe for a `process.argv[<int literal>]` element read (Spec 5
+/// Task 5). Mirrors `FunctionEmitter::is_process_argv_element` /
+/// `is_process_argv` structurally over raw nodes (the emitter method needs a
+/// live `FunctionEmitter`). Kept a SUPERSET of the emit recognizer: were this
+/// ever false where emit fires, the conditional `args_get` import would be
+/// undeclared and emit fails closed with an E5506 (never a bad call), so
+/// over-inclusiveness here is the safe side.
+pub(crate) fn program_uses_args_get(lir: &LirProgram) -> bool {
+    lir.nodes
+        .iter()
+        .any(|node| node_is_process_argv_element(&lir.nodes, node))
+}
+
+/// Follows empty-text single-child `Value` wrapper nodes, mirroring
+/// `FunctionEmitter::unwrap_transparent_value_node` over raw nodes.
+fn unwrap_transparent_value_node_raw(nodes: &[LirNode], mut id: LirNodeId) -> LirNodeId {
+    loop {
+        let Some(node) = nodes.get(id.0 as usize) else {
+            return id;
+        };
+        if node.kind == LirNodeKind::Value
+            && node.children.len() == 1
+            && node.text.as_deref().is_none_or(|text| text.is_empty())
+        {
+            id = node.children[0];
+            continue;
+        }
+        return id;
+    }
+}
+
+/// Raw-node mirror of `FunctionEmitter::is_process_argv`.
+fn node_is_process_argv_raw(nodes: &[LirNode], id: LirNodeId) -> bool {
+    let id = unwrap_transparent_value_node_raw(nodes, id);
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return false;
+    };
+    if node.text.as_deref() != Some("argv") || node.children.len() != 1 {
+        return false;
+    }
+    let root = unwrap_transparent_value_node_raw(nodes, node.children[0]);
+    is_process_root(nodes, root)
+}
+
+/// Raw-node mirror of `FunctionEmitter::is_process_argv_element` (the two-child
+/// computed-read shape `[process.argv, index]`, with the stringified integer
+/// index carried in the second child's `text`).
+fn node_is_process_argv_element(nodes: &[LirNode], node: &LirNode) -> bool {
+    if node.kind != LirNodeKind::Value || node.children.len() != 2 {
+        return false;
+    }
+    if is_binary_operator_text(node.text.as_deref().unwrap_or_default()) {
+        return false;
+    }
+    if !node_is_process_argv_raw(nodes, node.children[0]) {
+        return false;
+    }
+    let Some(index) = nodes
+        .get(node.children[1].0 as usize)
+        .and_then(|child| child.text.as_deref())
+        .and_then(parse_number_literal)
+    else {
+        return false;
+    };
+    index >= 0
+}
+
 pub(crate) fn collect_functions_from_node(
     lir: &LirProgram,
     id: LirNodeId,
@@ -1488,6 +1597,31 @@ pub(crate) fn is_arena_save_local_name(name: &str) -> bool {
     name.starts_with("__arena_save_")
 }
 
+/// Name of the dedicated i32 scratch local holding the `__alloc_global` buffer
+/// pointer for a `process.argv[<int>]` element read (Spec 5 Task 5). Reserved
+/// once per function that contains any such read; shared by
+/// `collect_function_locals` (reserve) and `emit_unary`'s element-read emit
+/// (resolve by name). The `#argv` suffix is unrepresentable as a source
+/// identifier, so it never collides with a real binding.
+pub(crate) fn argv_buf_local_name() -> String {
+    "__argv_buf".to_string()
+}
+
+/// Name of the dedicated i32 scratch local holding the byte length returned by
+/// `args_get` for a `process.argv[<int>]` element read (Spec 5 Task 5). Sibling
+/// of `argv_buf_local_name`; same reserve/resolve discipline.
+pub(crate) fn argv_len_local_name() -> String {
+    "__argv_len".to_string()
+}
+
+/// True for a scratch local synthesized for a `process.argv` element read —
+/// both hold i32 values (`__alloc_global` pointer / `args_get` byte count) and
+/// must be declared as i32 locals, like `is_arena_save_local_name`, rather than
+/// the `Repr::I64` default an unrecorded name would otherwise get.
+pub(crate) fn is_argv_scratch_local_name(name: &str) -> bool {
+    name == argv_buf_local_name() || name == argv_len_local_name()
+}
+
 fn loop_preorder_ordinals_walk(
     nodes: &[LirNode],
     id: LirNodeId,
@@ -1589,7 +1723,41 @@ pub(crate) fn collect_function_locals(
         locals.push(for_in_key_table_local_name(ordinal));
     }
 
+    // Reserve the two i32 scratch locals for a `process.argv[<int>]` element
+    // read (Spec 5 Task 5): the `__alloc_global` buffer pointer and the
+    // `args_get` byte length. One shared pair per function suffices — the
+    // element-read emit sequence consumes both before any later read could
+    // overwrite them. Guarded by the SAME argv-element shape walk the emit
+    // recognizer keys on, so the slots exist iff the emit path can fire.
+    if body_contains_process_argv_element(nodes, body_id) {
+        locals.push(argv_buf_local_name());
+        locals.push(argv_len_local_name());
+    }
+
     locals
+}
+
+/// True iff any node reachable from `body_id` (not descending into nested
+/// function bodies) is a `process.argv[<int literal>]` element read. Mirrors
+/// `node_is_process_argv_element` used by the program-wide import probe, but
+/// scoped to one function body so its scratch locals are reserved only where
+/// needed.
+fn body_contains_process_argv_element(nodes: &[LirNode], body_id: LirNodeId) -> bool {
+    fn walk(nodes: &[LirNode], id: LirNodeId) -> bool {
+        let Some(node) = nodes.get(id.0 as usize) else {
+            return false;
+        };
+        if node_is_process_argv_element(nodes, node) {
+            return true;
+        }
+        node.children.iter().any(|child| {
+            if is_function_like(nodes, *child) {
+                return false;
+            }
+            walk(nodes, *child)
+        })
+    }
+    walk(nodes, body_id)
 }
 
 /// WASM globals reserved before any module-scope mutable scalar global:

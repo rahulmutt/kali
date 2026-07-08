@@ -259,6 +259,68 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             op if op.parse::<usize>().is_ok() || op.parse::<isize>().is_ok() => {
+                // `process.argv[<int literal>]` (Spec 5 Task 5): read the arg's
+                // UTF-8 bytes into a persistent global buffer via `args_get` and
+                // encode a runtime string handle. Must precede the static-slice
+                // and placeholder fall-throughs below, none of which apply to a
+                // host argv element.
+                if let Some(index) = self.is_process_argv_element(node) {
+                    let Some(args_get) = self.args_get_import_index else {
+                        // Probe/emit desync — the conditional `args_get` import
+                        // was not declared. Fail closed rather than emit a bad
+                        // call (the program-wide `program_uses_args_get` probe is
+                        // kept a superset of this recognizer to prevent this).
+                        self.diagnostics.push(Diagnostic::error(
+                            e5::FEATURE_UNAVAILABLE as u32,
+                            "process.argv element read requires the args_get import".to_string(),
+                        ));
+                        function.instruction(&Instruction::I64Const(0));
+                        return EmittedValue {
+                            produced: true,
+                            shape: ValueShape::Scalar,
+                        };
+                    };
+                    // Buffer capacity: args longer than this trap in `args_get`
+                    // (host `write_guest_bytes` errors on overflow); ample for
+                    // CLI ints/paths.
+                    const ARGV_BUF_CAP: i32 = 256;
+                    let buf_local = self.locals[&crate::lower::argv_buf_local_name()];
+                    let len_local = self.locals[&crate::lower::argv_len_local_name()];
+                    // buf = __alloc_global(CAP) — a NEVER-reset (g4/g5/g6) buffer,
+                    // so the string handle it backs can safely outlive any arena
+                    // reset.
+                    function.instruction(&Instruction::I32Const(ARGV_BUF_CAP));
+                    function.instruction(&Instruction::Call(self.alloc_global_fn_index()));
+                    function.instruction(&Instruction::LocalSet(buf_local));
+                    // len = args_get(index, buf, CAP)
+                    function.instruction(&Instruction::I32Const(index as i32));
+                    function.instruction(&Instruction::LocalGet(buf_local));
+                    function.instruction(&Instruction::I32Const(ARGV_BUF_CAP));
+                    function.instruction(&Instruction::Call(args_get));
+                    // clamp len to >= 0 (out-of-range index returns -1 -> empty
+                    // string handle).
+                    function.instruction(&Instruction::LocalTee(len_local));
+                    function.instruction(&Instruction::I32Const(0));
+                    function.instruction(&Instruction::I32LtS);
+                    function.instruction(&Instruction::If(BlockType::Empty));
+                    function.instruction(&Instruction::I32Const(0));
+                    function.instruction(&Instruction::LocalSet(len_local));
+                    function.instruction(&Instruction::End);
+                    // handle = STRING_HANDLE_TAG | (buf << 32) | len
+                    function.instruction(&Instruction::I64Const(crate::STRING_HANDLE_TAG as i64));
+                    function.instruction(&Instruction::LocalGet(buf_local));
+                    function.instruction(&Instruction::I64ExtendI32U);
+                    function.instruction(&Instruction::I64Const(32));
+                    function.instruction(&Instruction::I64Shl);
+                    function.instruction(&Instruction::I64Or);
+                    function.instruction(&Instruction::LocalGet(len_local));
+                    function.instruction(&Instruction::I64ExtendI32U);
+                    function.instruction(&Instruction::I64Or);
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::String,
+                    };
+                }
                 if let Ok(index) = op.parse::<usize>() {
                     if let Some(element) = self.resolve_static_array_slice_element(arg, index) {
                         return self.emit_node(function, element, true);
@@ -574,6 +636,13 @@ impl<'a> FunctionEmitter<'a> {
         // Runtime `a.join(sep)` produces a string (Spec 3). Same recognizer the
         // emitter dispatch routes with, so the oracle and emitter agree.
         if self.runtime_join_call_parts(self.node(id)).is_some() {
+            return true;
+        }
+        // `process.argv[<int>]` reads a runtime string handle (Spec 5 Task 5).
+        // Same recognizer the numeric-index emit arm keys on, so `.length` /
+        // console.log / `+`-coercion classify it as a string exactly where the
+        // emit produces one.
+        if self.is_process_argv_element(self.node(id)).is_some() {
             return true;
         }
         let node = self.node(id);

@@ -35,6 +35,44 @@ use kali_common::{Repr, ReprTable, UnionFind};
 /// Synthetic function name for top-level statements, matching codegen's entry.
 const TOP_LEVEL: &str = "_start";
 
+/// `process.argv[<int literal>]` element read (Spec 5 Task 5). Structural
+/// mirror of `TypeContext::is_process_argv_element_expr` / codegen's
+/// `is_process_argv_element`, over a `MemberExpression` so `visit_member` can
+/// register its result as a runtime-string node. Only a static non-negative
+/// integer index qualifies (codegen emits `0` for anything else).
+fn member_is_process_argv_element(member: &kali_ast::MemberExpression) -> bool {
+    let Some(index) = &member.computed_index else {
+        return false;
+    };
+    expr_is_nonneg_int_literal(index) && expr_is_process_argv(&member.object)
+}
+
+fn expr_is_process_argv(expr: &Expression) -> bool {
+    let Expression::MemberExpression(member) = expr else {
+        return false;
+    };
+    if member.computed_index.is_some() || member.property.as_str() != "argv" {
+        return false;
+    }
+    expr_is_process_root(&member.object)
+}
+
+fn expr_is_process_root(expr: &Expression) -> bool {
+    match expr {
+        Expression::Identifier(name) => name == "process",
+        Expression::MemberExpression(member) => {
+            member.computed_index.is_none()
+                && member.property.as_str() == "process"
+                && matches!(&member.object, Expression::Identifier(root) if root == "globalThis")
+        }
+        _ => false,
+    }
+}
+
+fn expr_is_nonneg_int_literal(expr: &Expression) -> bool {
+    matches!(expr, Expression::Literal(LiteralValue::Number(n)) if n.fract() == 0.0 && *n >= 0.0)
+}
+
 /// A deferred interprocedural call constraint, resolved after every function
 /// body has been walked (so all param/return/element nodes already exist).
 struct CallEdge {
@@ -1224,6 +1262,19 @@ impl ReprInfer {
         // Computed access `a[i]` → array element read.
         if let Some(index) = &member.computed_index {
             self.visit_expr(func, index); // index untouched (i64).
+                                          // `process.argv[<int>]` (Spec 5 Task 5): a runtime string handle
+                                          // (`args_get`), NOT an array element read. Its base is the
+                                          // `process.argv` member (never a bare array binding), so this must
+                                          // precede the Identifier-base element arm below. Register the read
+                                          // result as a runtime-string node so a consuming binding
+                                          // (`const s = process.argv[i]`) solves `Repr::String`, mirroring
+                                          // the substring/join result registration.
+            if member_is_process_argv_element(member) {
+                self.visit_expr(func, &member.object);
+                let result = self.new_node();
+                self.runtime_string_nodes.push(result);
+                return result;
+            }
                                           // Task 3: a computed read `base[key]` where `key` is the active
                                           // `for..in` key over `base` is a uniform-object FIELD read, not an
                                           // array element read. Its result carries the shape's (uniform)
