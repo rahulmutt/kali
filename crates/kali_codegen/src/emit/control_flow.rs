@@ -347,6 +347,178 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// Bound name of a `for..in` key (`for-in` node's `children[0]`, i.e.
+    /// `left`): either a declaration form (`var`/`let`/`const` `Instruction`
+    /// wrapping one declarator whose own `text` is the name — the same shape
+    /// `collect_function_locals_from_node` recognizes when reserving the
+    /// key's local, so this lookup and that reservation can never disagree
+    /// about the name), or a plain already-bound identifier (`for (c in obj)`
+    /// with `c` declared elsewhere), whose own `text` already IS the name.
+    fn for_in_key_name(&self, left_id: LirNodeId) -> String {
+        let left = self.node(left_id);
+        if left.kind == LirNodeKind::Instruction
+            && matches!(left.text.as_deref(), Some("let" | "var" | "const"))
+        {
+            if let Some(&declarator_id) = left.children.first() {
+                if let Some(name) = self.node(declarator_id).text.clone() {
+                    return name;
+                }
+            }
+        }
+        left.text.clone().unwrap_or_default()
+    }
+
+    /// Lower `for (KEY in OBJ)` over a compile-time-known fixed-shape object.
+    /// `children` = `[left(key binding), right(object), body]`. The key is
+    /// bound to an ordinal `0..N-1` (`N` = `OBJ`'s shape field count); it is
+    /// not yet usable as an index or a string (Tasks 3/5). No arena: this
+    /// loop allocates nothing per iteration.
+    ///
+    /// Critically, this loop must NEVER be numbered by
+    /// `crate::lower::loop_preorder_ordinals` / looked up in `ArenaTable` —
+    /// see that function's doc comment and `kali_mir::analysis::walk`'s
+    /// `ForInStmt` arm: assigning this loop a real loop-arena ordinal would
+    /// desync every REAL loop lexically following it in the same function.
+    /// The dedicated counter local this function uses instead comes from the
+    /// wholly separate `crate::lower::for_in_preorder_ordinals` bookkeeping.
+    pub(crate) fn emit_for_in(
+        &mut self,
+        function: &mut Function,
+        id: LirNodeId,
+        node: &LirNode,
+    ) -> EmittedValue {
+        let left_id = node.children[0];
+        let right_id = node.children[1];
+        let body_id = node.children[2];
+
+        // N from the object's shape. Fail closed if the object has no known shape.
+        let shape = match self.object_shape_of_node(right_id) {
+            Some(s) => s,
+            None => {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "for..in is only supported over an object with a compile-time-known shape",
+                ));
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            }
+        };
+        let n = self.repr_table.shape_fields(shape).len() as i64;
+
+        // Resolve the key variable's local slot — the same slot an
+        // identifier read of the key resolves to via `self.locals` (see
+        // `emit_value`'s 0-child `Value` arm).
+        let key_name = self.for_in_key_name(left_id);
+        let Some(key_local) = self.locals.get(&key_name).copied() else {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!("for..in key binding '{key_name}' has no reserved local"),
+            ));
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        };
+        // Dedicated ordinal-counter local — see `for_in_preorder_ordinals`.
+        let ordinal = self.for_in_ordinals[&id];
+        let ord_local = self.locals[&crate::lower::for_in_ord_local_name(ordinal)];
+
+        // Record the key → shape provenance BEFORE emitting the body, so a
+        // computed access `table[c]` inside the body recognizes `c` as this
+        // loop's ordinal over `shape` (Spec 4a Task 3). Mirror of
+        // `kali_types`'s `register_for_in_key`; the codegen recognizer
+        // (`computed_forin_object_access`) is the structural twin of the
+        // types gate that the emitter relies on for correctness.
+        self.for_in_key_shapes.insert(key_name.clone(), shape);
+
+        // Register for-in-key ALIASES (`last = c`, and transitively `y = last`)
+        // over this same shape BEFORE emitting the body (Spec 4a Task 4). A
+        // computed read `table[last]` inside the body is emitted BEFORE the
+        // `last = c` assignment that grants the alias, so without this
+        // pre-registration `computed_forin_object_access` would not recognize
+        // `table[last]` as a dynamic for-in-key slot. Aliases reference the loop
+        // key (directly or through a chain), so they only occur inside this body;
+        // iterate to a fixpoint so a multi-level alias `y = last` is registered
+        // too — the codegen mirror of the types-side transitive `= <key>`
+        // provenance propagation.
+        let mut recognized = std::collections::HashSet::new();
+        recognized.insert(key_name.clone());
+        loop {
+            let before = recognized.len();
+            let mut next = recognized.clone();
+            crate::lower::for_in_key_aliases_walk(
+                &self.program.nodes,
+                body_id,
+                &recognized,
+                &mut next,
+            );
+            recognized = next;
+            if recognized.len() == before {
+                break;
+            }
+        }
+        for alias in &recognized {
+            if alias != &key_name {
+                self.for_in_key_shapes.insert(alias.clone(), shape);
+            }
+        }
+
+        // Spec 4a Task 5: build the per-shape key handle table ONCE, here in the
+        // preheader (never per-iteration). The base is stored in this loop's
+        // dedicated persistent local (`for_in_key_table_local_name`), and the
+        // key + every recognized alias map to it in `for_in_key_handle_tables` so
+        // a STRING-VALUE use of any of them (`return c`) materializes the interned
+        // field-name handle instead of the raw ordinal. Aliases enumerate the
+        // same shape (same ordered field names), so one table serves all.
+        let table_local = self.locals[&crate::lower::for_in_key_table_local_name(ordinal)];
+        self.emit_key_handle_table(function, shape, table_local);
+        for name in &recognized {
+            self.for_in_key_handle_tables
+                .insert(name.clone(), table_local);
+        }
+
+        // preheader: ord = 0
+        function.instruction(&Instruction::I64Const(0));
+        function.instruction(&Instruction::LocalSet(ord_local));
+
+        // block (break target) { loop (continue target) { ... } }
+        function.instruction(&Instruction::Block(BlockType::Empty));
+        function.instruction(&Instruction::Loop(BlockType::Empty));
+
+        // break when ord >= N
+        function.instruction(&Instruction::LocalGet(ord_local));
+        function.instruction(&Instruction::I64Const(n));
+        function.instruction(&Instruction::I64GeS);
+        function.instruction(&Instruction::BrIf(1)); // -> break out of block
+
+        // key = ord
+        function.instruction(&Instruction::LocalGet(ord_local));
+        function.instruction(&Instruction::LocalSet(key_local));
+
+        // body
+        let produced = self.emit_node(function, body_id, false);
+        if produced.produced {
+            function.instruction(&Instruction::Drop);
+        }
+
+        // ord = ord + 1
+        function.instruction(&Instruction::LocalGet(ord_local));
+        function.instruction(&Instruction::I64Const(1));
+        function.instruction(&Instruction::I64Add);
+        function.instruction(&Instruction::LocalSet(ord_local));
+
+        function.instruction(&Instruction::Br(0)); // back to loop top
+        function.instruction(&Instruction::End); // end loop
+        function.instruction(&Instruction::End); // end block
+
+        EmittedValue {
+            produced: false,
+            shape: ValueShape::Unknown,
+        }
+    }
+
     /// Task 7 prologue: if `ArenaTable::opens_arena` grants this function a
     /// function-body arena, save the current-arena trio (`g1`/`g2`/`g3`) into
     /// this function's three reserved locals (`arena_save_local_names_for_function`,
@@ -629,6 +801,61 @@ impl<'a> FunctionEmitter<'a> {
                             }
                         }
 
+                        // Spec 4a Task 4 null-sentinel: `var last = null` where
+                        // `last` carries for-in-key provenance stores the
+                        // sentinel `-1` (an out-of-range ordinal), NOT `0` — `0`
+                        // is a valid first-field ordinal and would collide with
+                        // the key. `if (last)` then lowers to `last >= 0` (see
+                        // `emit_branch`), so the sentinel reads false. Recognized
+                        // structurally via the precomputed `for_in_key_aliases`
+                        // set (the loop that grants `last` its provenance is
+                        // emitted AFTER this init, so a runtime signal is unusable
+                        // here).
+                        if let Some(name) = declarator.text.clone() {
+                            if self.for_in_key_aliases.contains(&name)
+                                && self.is_null_or_undefined_literal(init)
+                            {
+                                if let Some(index) = self.locals.get(&name).copied() {
+                                    function.instruction(&Instruction::I64Const(-1));
+                                    function.instruction(&Instruction::LocalSet(index));
+                                    continue;
+                                }
+                            }
+                        }
+
+                        // Module-scope mutable scalar promoted to a global: its
+                        // MODULE declarator (in `_start`) stores its init through
+                        // `GlobalSet`, not a local slot. Gated on the name NOT
+                        // being a local of THIS function: a same-named `var`/`let`
+                        // inside another function is a distinct local (it is in
+                        // that function's `locals`), so it must fall through to
+                        // the normal local store below and NOT clobber the module
+                        // global. In `_start` the promoted name is filtered out of
+                        // its locals, so this fires only for the real module
+                        // declarator. A no-initializer `var g;` skips here (the
+                        // `children.len() < 2` guard above `continue`d); the global
+                        // is zero-initialized in the `GlobalSection`.
+                        if let Some(name) = declarator.text.clone() {
+                            if let (false, Some(&(global_index, repr))) = (
+                                self.locals.contains_key(&name),
+                                self.module_global_slots.get(&name),
+                            ) {
+                                let is_f64 = repr == kali_common::Repr::F64;
+                                let produced = self.emit_node(function, init, true);
+                                if !produced.produced {
+                                    if is_f64 {
+                                        function.instruction(&Instruction::F64Const(0.0.into()));
+                                    } else {
+                                        function.instruction(&Instruction::I64Const(0));
+                                    }
+                                } else if is_f64 && !self.is_float_valued(init) {
+                                    function.instruction(&Instruction::F64ConvertI64S);
+                                }
+                                function.instruction(&Instruction::GlobalSet(global_index));
+                                continue;
+                            }
+                        }
+
                         let init_result = self.emit_node(function, init, true);
                         // A named scalar local whose chosen repr is F64 must receive an
                         // f64 on the stack; promote an integer-valued init before the store.
@@ -694,6 +921,7 @@ impl<'a> FunctionEmitter<'a> {
                 Some("while") | Some("do-while") | Some("for") => {
                     self.emit_loop(function, id, &node)
                 }
+                Some("for-in") => self.emit_for_in(function, id, &node),
                 _ => self.emit_branch(function, &node, want_value),
             },
             LirNodeKind::Unknown => {
@@ -774,6 +1002,66 @@ impl<'a> FunctionEmitter<'a> {
         match node.children.len() {
             0 => {
                 if let Some(text) = node.text.as_deref() {
+                    // Spec 4a Task 5: a for-in key (or alias) emitted in a
+                    // STRING-VALUE context materializes its interned field-name
+                    // handle from this loop's key handle table at `base + ord*8`,
+                    // instead of yielding the raw ordinal local. PROVENANCE is
+                    // structural (`for_in_key_handle_tables` membership, the
+                    // Task-4 threaded signal — not re-derived from repr); the
+                    // STRING context is the key's scalar repr being `String`
+                    // (lifted by `repr_infer` only where the key flows into a
+                    // string sink). The ORDINAL uses — computed index
+                    // (`table[c]`, via `emit_forin_key_ordinal`), `if`-truthiness
+                    // (`emit_branch`), and the alias ordinal-copy (`last = c`) —
+                    // never reach here as strings, so this arm is the sole
+                    // string-materialization site (the dual-role disambiguation).
+                    if let Some(&table_base) = self.for_in_key_handle_tables.get(text) {
+                        if self.scalar_repr(text) == kali_common::Repr::String {
+                            if let Some(&ord_local) = self.locals.get(text) {
+                                // addr = table_base(i32) + ord*8, load the i64 handle
+                                function.instruction(&Instruction::LocalGet(table_base));
+                                function.instruction(&Instruction::I32WrapI64);
+                                function.instruction(&Instruction::LocalGet(ord_local));
+                                function.instruction(&Instruction::I32WrapI64);
+                                function.instruction(&Instruction::I32Const(8));
+                                function.instruction(&Instruction::I32Mul);
+                                function.instruction(&Instruction::I32Add);
+                                function.instruction(&Instruction::I64Load(MemArg {
+                                    offset: 0,
+                                    align: 3,
+                                    memory_index: 0,
+                                }));
+                                return EmittedValue {
+                                    produced: true,
+                                    shape: ValueShape::String,
+                                };
+                            }
+                        }
+                    }
+                    // Module-scope mutable scalar promoted to a persistent
+                    // global (see `collect_module_scalar_globals`): read it with
+                    // `GlobalGet` from a function OR module scope. Gated on the
+                    // name NOT being a local/param FIRST — a param or local
+                    // `var`/`let` that shadows a same-named module global wins
+                    // (JS lexical scoping), so this must yield to the local
+                    // lookup below. (In `_start` a promoted name is never a
+                    // local — it is filtered out of `_start`'s locals — so this
+                    // still fires there.) Also wins ahead of the E5506
+                    // module-binding gate, which only handled the inline-const case.
+                    if !self.locals.contains_key(text) {
+                        if let Some(&(global_index, repr)) = self.module_global_slots.get(text) {
+                            function.instruction(&Instruction::GlobalGet(global_index));
+                            return EmittedValue {
+                                produced: true,
+                                shape: if repr == kali_common::Repr::F64 {
+                                    ValueShape::Float
+                                } else {
+                                    ValueShape::Scalar
+                                },
+                            };
+                        }
+                    }
+
                     if let Some(index) = self.locals.get(text).copied() {
                         function.instruction(&Instruction::LocalGet(index));
                         return EmittedValue {
@@ -948,6 +1236,15 @@ impl<'a> FunctionEmitter<'a> {
                     return self.emit_binary(function, node);
                 }
 
+                // Computed for-in-key read `obj[c]` over a uniform-repr fixed
+                // shape (Spec 4a Task 3): a dynamic headerless field slot at
+                // `base + c*8`, offset 0. Must precede the static-index and
+                // array lanes below — its base is an object (never an array
+                // binding) and its index is the loop ordinal, not a literal.
+                if let Some((base, index, elem)) = self.computed_forin_object_access(node) {
+                    return self.emit_object_field_read_dynamic(function, base, index, elem);
+                }
+
                 if let Some(result) = self.resolve_static_index_member(node) {
                     return self.emit_static_index_member_result(function, result);
                 }
@@ -1037,6 +1334,14 @@ impl<'a> FunctionEmitter<'a> {
         None
     }
 
+    /// True when `cond` is a bare identifier carrying for-in-key provenance
+    /// (`for_in_key_aliases`) — a "key-or-null" whose truthiness is `value >= 0`
+    /// (Spec 4a Task 4), not the default `!= 0`.
+    pub(crate) fn is_for_in_key_alias_condition(&self, cond: LirNodeId) -> bool {
+        self.bare_identifier_name(cond)
+            .is_some_and(|name| self.for_in_key_aliases.contains(&name))
+    }
+
     pub(crate) fn emit_branch(
         &mut self,
         function: &mut Function,
@@ -1054,23 +1359,58 @@ impl<'a> FunctionEmitter<'a> {
         let then_branch = node.children.get(1).copied();
         let else_branch = node.children.get(2).copied();
 
-        self.reject_string_condition(cond);
-        let condition = self.emit_node(function, cond, true);
+        // Spec 4a Task 4/5: a for-in-key alias condition (`if (last)`) is ALWAYS
+        // the raw ordinal truthiness (`>= 0`), never a string. Read its ordinal
+        // local DIRECTLY, bypassing `emit_value`'s string-materialization arm —
+        // otherwise a key that is ALSO string-used elsewhere (scalar repr lifted
+        // to `String`) would materialize a handle here and truthiness-test it.
+        // (For a key never string-used this is byte-identical to `emit_node`,
+        // which resolves the same `LocalGet` ordinal.) `reject_string_condition`
+        // is skipped for the same reason: the condition is an ordinal, not a
+        // string. Structural recognition via `for_in_key_aliases`.
+        let is_alias_cond = self.is_for_in_key_alias_condition(cond);
+        let condition = if is_alias_cond {
+            let ord_local = self
+                .bare_identifier_name(cond)
+                .and_then(|name| self.locals.get(&name).copied());
+            if let Some(ord_local) = ord_local {
+                function.instruction(&Instruction::LocalGet(ord_local));
+                EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                }
+            } else {
+                self.emit_node(function, cond, true)
+            }
+        } else {
+            self.reject_string_condition(cond);
+            self.emit_node(function, cond, true)
+        };
         if !condition.produced {
             function.instruction(&Instruction::I64Const(0));
         }
-        match condition.shape {
-            ValueShape::Boolean => {
-                function.instruction(&Instruction::I32WrapI64);
-            }
-            ValueShape::Scalar | ValueShape::Unknown | ValueShape::String => {
-                function.instruction(&Instruction::I64Eqz);
-                function.instruction(&Instruction::I32Eqz);
-            }
-            ValueShape::Float => {
-                // f64 truthiness: nonzero is truthy. Leaves an i32 for `If`.
-                function.instruction(&Instruction::F64Const(0.0.into()));
-                function.instruction(&Instruction::F64Ne);
+        // Spec 4a Task 4 null-sentinel truthiness: a for-in-key alias condition
+        // (`if (last)`) holds either a real key ordinal (`>= 0`) or the null
+        // sentinel `-1`. Truthy iff a real key, i.e. `value >= 0` — NOT the
+        // default `!= 0`, which would treat the first-field ordinal `0` as
+        // falsy.
+        if is_alias_cond {
+            function.instruction(&Instruction::I64Const(0));
+            function.instruction(&Instruction::I64GeS);
+        } else {
+            match condition.shape {
+                ValueShape::Boolean => {
+                    function.instruction(&Instruction::I32WrapI64);
+                }
+                ValueShape::Scalar | ValueShape::Unknown | ValueShape::String => {
+                    function.instruction(&Instruction::I64Eqz);
+                    function.instruction(&Instruction::I32Eqz);
+                }
+                ValueShape::Float => {
+                    // f64 truthiness: nonzero is truthy. Leaves an i32 for `If`.
+                    function.instruction(&Instruction::F64Const(0.0.into()));
+                    function.instruction(&Instruction::F64Ne);
+                }
             }
         }
         let if_index = self.push_control_frame(ControlFlowLabelKind::If);

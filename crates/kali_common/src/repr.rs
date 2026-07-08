@@ -250,6 +250,20 @@ impl ReprTable {
         &self.shapes[shape.0 as usize]
     }
 
+    /// If every field of `shape` shares one repr, return it; else `None`.
+    /// Dynamic (runtime-ordinal) computed access `obj[c]` selects a field by a
+    /// runtime index, so it can only lower when a single element type covers
+    /// every slot — a mixed-repr shape must fail closed.
+    pub fn shape_is_uniform_repr(&self, shape: ShapeId) -> Option<Repr> {
+        let fields = self.shape_fields(shape);
+        let first = fields.first()?.1;
+        if fields.iter().all(|(_, r)| *r == first) {
+            Some(first)
+        } else {
+            None
+        }
+    }
+
     /// `(field index, field repr)` for `name` in `shape`; `None` for an
     /// unknown field (callers gate, never miscompile).
     pub fn shape_field(&self, shape: ShapeId, name: &str) -> Option<(usize, Repr)> {

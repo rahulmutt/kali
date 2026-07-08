@@ -33,6 +33,13 @@ pub struct TypeContext {
     /// a for-of iterable or a dynamic-import specifier), which do not reach the
     /// buggy runtime `+` path and therefore compile correctly.
     pub(crate) suppress_string_addition_rejection: bool,
+    /// Spec 4a Task 5 structural default-deny (allowlist): when `true`, a
+    /// for-in-key VALUE identifier read is being resolved in a PROVEN-SAFE
+    /// position (a computed index — handled by NOT resolving the index — an
+    /// `if` truthiness test, or an alias-copy to another key binding), so the
+    /// value-escape reject in `resolve_identifier` is suppressed. Every other
+    /// value read of a non-materialized for-in-key value rejects by default.
+    pub(crate) suppress_forin_key_value_reject: bool,
     pub(crate) repr_table: kali_common::ReprTable,
     /// Stack of enclosing function names; module scope is `_start`.
     pub(crate) current_function: Vec<String>,
@@ -83,6 +90,7 @@ impl TypeContext {
             has_async_generator_function: false,
             has_generator_yield_delegation: false,
             suppress_string_addition_rejection: false,
+            suppress_forin_key_value_reject: false,
             repr_table: kali_common::ReprTable::default(),
             current_function: vec!["_start".to_string()],
             current_function_scopes: Vec::new(),

@@ -835,6 +835,17 @@ impl<'a> FunctionEmitter<'a> {
                     if Self::is_float_literal_text(name) {
                         return true;
                     }
+                    // Module-scope mutable scalar promoted to a global: its
+                    // float-ness is the global's declared repr (its per-function
+                    // `scalar_repr` node is unseeded, so this must win — see
+                    // `collect_module_scalar_globals`). Gated on the name NOT
+                    // being a local/param: a shadowing local/param uses its OWN
+                    // repr (resolved by `scalar_repr` below), not the global's.
+                    if !self.locals.contains_key(name) {
+                        if let Some(&(_, repr)) = self.module_global_slots.get(name) {
+                            return repr == kali_common::Repr::F64;
+                        }
+                    }
                     // Module const inlined at this site: classify by its initializer.
                     if !self.locals.contains_key(name) && self.function_name != "_start" {
                         if let Some(&init) = self.module_const_inits.get(name) {
@@ -880,6 +891,12 @@ impl<'a> FunctionEmitter<'a> {
                             }
                             _ => false,
                         }
+                    } else if let Some((_, _, elem)) = self.computed_forin_object_access(node) {
+                        // Computed for-in-key object read `obj[c]` (Spec 4a
+                        // Task 3): float-ness comes from the uniform element
+                        // repr, mirroring the dynamic-read lane so `+`/store
+                        // selection stays f64 for a float-field shape.
+                        elem == kali_common::Repr::F64
                     } else {
                         // Computed array element read `a[<expr>]`.
                         self.array_read_base_name(node.children[0])

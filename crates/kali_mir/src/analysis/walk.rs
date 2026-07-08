@@ -303,19 +303,32 @@ impl<'a> OwnershipAnalyzer<'a> {
             }
             HirNodeKind::ForInStmt => {
                 // Deliberately NOT `arena_enter_loop()`: codegen's
-                // `loop_preorder_ordinals` (`kali_codegen::lower`) has no LIR
-                // text to recognize a for-in loop by (its `Branch` node
-                // carries no distinguishing text, same as a plain `if`), so
-                // it never advances its ordinal counter for one. If this walk
-                // assigned for-in an ordinal here, MIR's per-function ordinal
-                // sequence would run one-ahead of codegen's for every REAL
-                // loop lexically following a for-in in the same function, and
-                // `loop_arena(fn, ordinal)` would then be queried against the
-                // wrong loop entirely — a fail-OPEN ordinal desync, not merely
-                // "for-in itself has no arena support" (a prior version of
-                // this comment wrongly assumed the two walks "skip for-in
-                // identically"; they did not — this walk assigned it an
-                // ordinal while codegen silently skipped over it).
+                // `loop_preorder_ordinals_walk` (`kali_codegen::lower`)
+                // numbers a loop only if its `Branch` text is in a fixed
+                // allowlist — `Some("for" | "while" | "do-while" | "for-of" |
+                // "for-await-of")` — and that allowlist EXCLUDES `"for-in"`.
+                // (The for-in `Branch` DOES carry distinguishing text now:
+                // Spec 4a's HIR change tags it `"for-in"`, routing it to
+                // `emit_for_in`'s self-contained counted loop. An earlier
+                // version of this comment claimed for-in was skipped because
+                // it "carries no distinguishing text, same as a plain `if`";
+                // that rationale is now FALSE — it is skipped because the
+                // ordinal allowlist omits its text, not because it has none.)
+                // So codegen never advances its ordinal counter for a for-in.
+                // If this walk assigned for-in an ordinal here, MIR's
+                // per-function ordinal sequence would run one-ahead of
+                // codegen's for every REAL loop lexically following a for-in
+                // in the same function, and `loop_arena(fn, ordinal)` would
+                // then be queried against the wrong loop entirely — a
+                // fail-OPEN ordinal desync, not merely "for-in itself has no
+                // arena support".
+                //
+                // GUARDRAIL: these two skips must stay in lockstep. Adding
+                // `"for-in"` to `loop_preorder_ordinals_walk`'s allowlist (or
+                // otherwise numbering for-in on the codegen side) WITHOUT also
+                // calling `arena_enter_loop()` here — or vice versa — would
+                // reintroduce exactly that desync. Neither side may start
+                // numbering for-in unless BOTH do, together.
                 //
                 // This does not weaken escape/veto tracking: `arena_note_*`
                 // (alloc / call / assignment / return) all record their facts

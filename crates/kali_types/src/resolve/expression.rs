@@ -70,7 +70,19 @@ impl TypeContext {
         match expression {
             Expression::Literal(LiteralValue::String(_)) => true,
             Expression::TemplateLiteral(_) => true,
-            Expression::Identifier(name) => self.binding_is_string_typed(name),
+            // A `for..in` key (or alias) used as a VALUE is its field-name
+            // STRING (Spec 4a Task 5) — but ONLY where `repr_infer` actually
+            // lifted its scalar repr to `String` (a string SINK: `return c`,
+            // `console.log(c)`, `+`/equality of a bare key). `identifier_repr_is_string`
+            // reads the SAME solved `scalar(func,name)==String` that codegen's
+            // `emit_value`/`is_string_valued` materialization guard consults, so
+            // types and codegen cover EXACTLY the same set. A for-in key in a
+            // non-sink position (e.g. `strArr[i] = c`, or a ternary arm) is NOT
+            // repr-lifted → false here → codegen emits the raw ordinal and this
+            // predicate agrees (fail-closed, never a raw-ordinal-as-string open).
+            Expression::Identifier(name) => {
+                self.binding_is_string_typed(name) || self.identifier_repr_is_string(name)
+            }
             // Computed element read `a[i]` of an array whose element axis is
             // proven `Repr::String` (Spec 3). Mirror of codegen's
             // `is_string_valued` `dynamic_array_read_base` arm — both classify
@@ -265,6 +277,216 @@ impl TypeContext {
         }
     }
 
+    /// `Some(shape)` iff `name` is a `for..in` key binding over a known
+    /// object shape — the Spec 4a Task 2 dormant provenance registry. Walks
+    /// the scope chain exactly like `is_structural_runtime_array`: stops at
+    /// the tracked function's own boundary (fail-closed; a binding registered
+    /// in an outer, untracked-boundary-crossed function is NOT visible here),
+    /// and only reaches module/global scope when emitting `_start` (no
+    /// tracked function).
+    pub(crate) fn for_in_key_shape(&self, name: &str) -> Option<kali_common::ShapeId> {
+        let tracked_scope = self.current_function_scope();
+        let mut current = self.current_scope_id();
+        loop {
+            let Some(scope_id) = current else {
+                return self.global_scope.for_in_key_bindings.get(name).copied();
+            };
+            let scope = self.scopes.get(&scope_id)?;
+            if scope.scope_type == ScopeType::Function && Some(scope_id) != tracked_scope {
+                // Crossed into a function `current_function_name()` does not
+                // name — fail closed rather than guess.
+                return None;
+            }
+            if let Some(shape) = scope.for_in_key_bindings.get(name) {
+                return Some(*shape);
+            }
+            if scope.scope_type == ScopeType::Function {
+                // Tracked function's own top scope, no hit: a free module
+                // reference this function never registered a key for.
+                return None;
+            }
+            current = scope.parent;
+        }
+    }
+
+    /// Spec 4a Task 3 fail-closed gate for a computed for-in-key object access
+    /// `obj[c]`. Fires ONLY when `c` is a proven `for..in` key
+    /// (`for_in_key_shape`) — a runtime ordinal over a fixed shape — and the
+    /// base `obj` is a KNOWN object (`object_shape_of_expression`). Rejects
+    /// (E5506) when the base's shape does not match the key's shape (the
+    /// ordinal range would be wrong for this base) or is not uniform-repr (a
+    /// runtime ordinal cannot select a per-field type — mixed I64/F64 fields
+    /// must fail closed, never miscompile). A non-object base (array / unknown)
+    /// keeps its existing behavior: `arr[c]` over an array is a valid element
+    /// read. This is the types-side authority the codegen recognizer
+    /// (`computed_forin_object_access`) mirrors — both admit exactly the
+    /// uniform, shape-matched case; codegen fails closed by falling through to
+    /// a static-field read for everything else, which this gate makes
+    /// unreachable. Runs for both the RHS read `= obj[c]` and the store target
+    /// `obj[c] = v` (the assignment dispatch resolves `expr.left` through
+    /// `resolve_member_expression` too).
+    pub(crate) fn reject_nonuniform_forin_key_object_access(&mut self, member: &MemberExpression) {
+        let Some(index) = member.computed_index.as_deref() else {
+            return;
+        };
+        let Expression::Identifier(key) = index else {
+            return;
+        };
+        let Some(obj_shape) = self.object_shape_of_expression(&member.object) else {
+            // Not a known object (an array or an unproven base): leave the
+            // existing element/host member behavior untouched.
+            return;
+        };
+        // The base IS a known fixed-shape object. The ONLY dynamic
+        // (identifier-indexed) access this direct-runtime path supports is a
+        // `for..in` key over the SAME shape whose fields all share ONE NUMERIC
+        // repr. Everything else off that lane fails closed here.
+        let Some(key_shape) = self.for_in_key_shape(key) else {
+            // Row 2: a general dynamic key not derived from `for..in` over this
+            // object (a plain param/local index `obj[k]`) — Spec 4b territory.
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "computed key access `obj[k]` where the key is not a `for..in` key over `obj` is unavailable in the current direct-runtime path (general dynamic string-keyed access); use a `for..in` key over the same object".to_string(),
+            ));
+            return;
+        };
+        if obj_shape != key_shape {
+            // Row 4: the key enumerates a DIFFERENT object than the base — the
+            // ordinal range is wrong for this base.
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "computed key access `obj[c]` where the for..in key enumerates a different object shape than the base is unavailable in the current direct-runtime path".to_string(),
+            ));
+            return;
+        }
+        match self.repr_table.shape_is_uniform_repr(obj_shape) {
+            Some(kali_common::Repr::I64) | Some(kali_common::Repr::F64) => {}
+            // Row 3 (string-into-field materializes a uniform-String shape) and
+            // any object-repr shape: a runtime ordinal only selects a numeric
+            // slot in this lane; a string/object field is out of scope.
+            Some(_) => {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "computed key access `obj[c]` over a fixed shape whose fields are strings or objects is unavailable in the current direct-runtime path (a runtime ordinal only selects a numeric slot); use an object whose fields are all numbers".to_string(),
+                ));
+            }
+            // Row 5: mixed-repr shape — a runtime ordinal cannot pick a
+            // per-field type.
+            None => {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "computed key access `obj[c]` over a mixed-repr fixed shape is unavailable in the current direct-runtime path (a runtime ordinal cannot select a per-field type); use an object whose fields all share one type".to_string(),
+                ));
+            }
+        }
+    }
+
+    /// Fail-closed gate: a `for..in` key (or alias, or declarator value-copy)
+    /// binding used as an operand of `!`, `&&`, `||`, or `??` would be lowered
+    /// with raw integer truthiness (`I64Eqz`/`I64And`/`I64Or`/nullish `Eqz`),
+    /// which INVERTS the null-sentinel (`-1`) semantics AND leaks the raw ordinal
+    /// (`&&`/`||`/`??` value-select an operand) — `!last` with `last == -1`
+    /// (null) must be `true` but `-1` is nonzero, and `d && x` with `d` a key must
+    /// yield `x`, not the ordinal. Only an `if` condition (lowered `>= 0`), a
+    /// computed index (`obj[c]`), and a MATERIALIZED returned value are safe.
+    /// Keys on `is_for_in_key_value` (the full value-provenance predicate — direct
+    /// key + assignment alias + declarator value-copy), NOT bare `for_in_key_shape`
+    /// which misses declarator aliases (`let d = c; d && x`), closing that leak.
+    pub(crate) fn reject_forin_key_boolean_operand(&mut self, expr: &Expression, op: &str) {
+        let mut inner = expr;
+        while let Expression::ParenthesizedExpression(p) = inner {
+            inner = &p.expression;
+        }
+        if let Expression::Identifier(name) = inner {
+            if self.is_for_in_key_value(name) {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    format!(
+                        "a for..in key or alias binding is only usable in an `if` condition, a computed index, or as a returned value; using it as an operand of `{op}` is unavailable in the current direct-runtime path"
+                    ),
+                ));
+            }
+        }
+    }
+
+    /// Fail-closed gate (Spec 4a Task 6, controller handoff H2): a `for..in`
+    /// key or alias binding used as a `while` / `for` / `do-while` condition or
+    /// a ternary TEST is lowered via codegen's DEFAULT `!= 0` truthiness (only
+    /// an `if` condition lowers through the `>= 0` null-sentinel path in
+    /// `emit_branch`), so the `-1` null sentinel would read TRUTHY — a
+    /// fail-OPEN in the same class as the `!`/`&&`/`||`/`??` operand rejects
+    /// but in loop/ternary test positions. fasta uses NONE of these forms
+    /// (only `if (last)`), so reject fail-closed rather than lower `>= 0` here.
+    /// Keyed strictly on a `for_in_key_shape`-carrying identifier: a normal
+    /// `while`/`for`/`do-while`/ternary on any other binding is untouched, and
+    /// `if (last)` (makeCumulative) stays admitted because the `if` arm never
+    /// calls this gate.
+    pub(crate) fn reject_forin_key_test_operand(&mut self, expr: &Expression, context: &str) {
+        let mut inner = expr;
+        while let Expression::ParenthesizedExpression(p) = inner {
+            inner = &p.expression;
+        }
+        if let Expression::Identifier(name) = inner {
+            if self.for_in_key_shape(name).is_some() {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    format!(
+                        "a for..in key or alias binding is only usable in an `if` condition, a computed index, or as a returned value; using it as a {context} is unavailable in the current direct-runtime path (its null sentinel would read truthy)"
+                    ),
+                ));
+            }
+        }
+    }
+
+    /// `true` iff `member` is exactly the accept case of
+    /// `reject_nonuniform_forin_key_object_access`: a computed access `obj[c]`
+    /// where the index `c` is a proven `for..in` key (`for_in_key_shape`), the
+    /// base `obj` is a known object whose shape MATCHES the key's shape, and
+    /// that shape is uniform-repr. Used by the assignment dispatch to ADMIT a
+    /// compound-assign to such a target (`obj[c] += v`) — codegen decomposes it
+    /// to `obj[c] = (obj[c] op v)`, routing both the read and the write through
+    /// Task 3's dynamic slot lane. Anything the gate would reject (shape
+    /// mismatch, mixed-repr, non-key index, non-object base) is NOT admitted
+    /// here and falls through to the fail-closed compound-assign rejection.
+    pub(crate) fn forin_key_member_target_is_uniform(&self, member: &MemberExpression) -> bool {
+        let Some(Expression::Identifier(key)) = member.computed_index.as_deref() else {
+            return false;
+        };
+        let Some(key_shape) = self.for_in_key_shape(key) else {
+            return false;
+        };
+        let Some(obj_shape) = self.object_shape_of_expression(&member.object) else {
+            return false;
+        };
+        obj_shape == key_shape
+            && matches!(
+                self.repr_table.shape_is_uniform_repr(obj_shape),
+                Some(kali_common::Repr::I64) | Some(kali_common::Repr::F64)
+            )
+    }
+
+    /// `Some(shape)` iff `expr` is a bare identifier whose `ReprTable` scalar
+    /// is proven `Repr::Object(shape)` — used to derive the shape a
+    /// `for..in`'s `right` enumerates (Spec 4a Task 2). Reuses the same
+    /// `binding_repr_function_key` scope-walk every other repr-table query in
+    /// this module keys off of, so this never disagrees with codegen's
+    /// per-function `ReprTable` entry. Fail-closed: anything other than a
+    /// bare identifier, or an untracked-function-boundary binding, is `None`.
+    pub(crate) fn object_shape_of_expression(
+        &self,
+        expr: &Expression,
+    ) -> Option<kali_common::ShapeId> {
+        use kali_common::Repr;
+        let Expression::Identifier(name) = expr else {
+            return None;
+        };
+        let func = self.binding_repr_function_key(name)?;
+        match self.repr_table.scalar(&func, name) {
+            Repr::Object(shape) => Some(shape),
+            _ => None,
+        }
+    }
+
     /// True when `expr` is a DECLARATOR init that codegen registers as a runtime
     /// array binding: `new Array(...)`, the bare `Array(...)` call form (both
     /// funnel through codegen's `resolve_array_alloc_call`), or a `.fill(...)`
@@ -325,6 +547,180 @@ impl TypeContext {
         }
     }
 
+    /// Register `name` as a `for..in` key binding over `shape` in the scope
+    /// where it is declared (module/global fallback otherwise). Grow-only,
+    /// mirroring `register_runtime_array_binding` and codegen's insert-only
+    /// registries — Spec 4a Task 2's dormant provenance registry.
+    pub(crate) fn register_for_in_key(&mut self, name: &str, shape: kali_common::ShapeId) {
+        let mut current = self.current_scope_id();
+        while let Some(scope_id) = current {
+            if let Some(scope) = self.scopes.get_mut(&scope_id) {
+                if scope.bindings.contains_key(name) {
+                    scope.for_in_key_bindings.insert(name.to_string(), shape);
+                    return;
+                }
+                current = scope.parent;
+            } else {
+                return;
+            }
+        }
+        if self.global_scope.bindings.contains_key(name) {
+            self.global_scope
+                .for_in_key_bindings
+                .insert(name.to_string(), shape);
+        }
+    }
+
+    /// Spec 4a Task 5 fail-closed: mark `name` as holding a COPY of a `for..in`
+    /// key VALUE (a declarator-init alias `let d = c`, or a chain thereof), for
+    /// the value-escape reject gate only. Mirrors `register_for_in_key`'s
+    /// declaring-scope walk. NOT registered in `for_in_key_bindings` (see the
+    /// `Scope` field doc): this must never admit `table[d]` into the key index
+    /// lane that codegen cannot lower for a declarator alias.
+    pub(crate) fn register_for_in_key_value(&mut self, name: &str) {
+        let mut current = self.current_scope_id();
+        while let Some(scope_id) = current {
+            if let Some(scope) = self.scopes.get_mut(&scope_id) {
+                if scope.bindings.contains_key(name) {
+                    scope
+                        .for_in_key_value_bindings
+                        .insert(name.to_string(), true);
+                    return;
+                }
+                current = scope.parent;
+            } else {
+                return;
+            }
+        }
+        if self.global_scope.bindings.contains_key(name) {
+            self.global_scope
+                .for_in_key_value_bindings
+                .insert(name.to_string(), true);
+        }
+    }
+
+    /// True iff `name` carries `for..in`-key VALUE provenance — either a full
+    /// for-in key/alias (`for_in_key_shape`) or a declarator-init value copy
+    /// (`register_for_in_key_value`). Same tracked-function-boundary scope walk
+    /// as `for_in_key_shape` (fail-closed across an untracked function boundary).
+    pub(crate) fn is_for_in_key_value(&self, name: &str) -> bool {
+        if self.for_in_key_shape(name).is_some() {
+            return true;
+        }
+        let tracked_scope = self.current_function_scope();
+        let mut current = self.current_scope_id();
+        loop {
+            let Some(scope_id) = current else {
+                return self
+                    .global_scope
+                    .for_in_key_value_bindings
+                    .contains_key(name);
+            };
+            let Some(scope) = self.scopes.get(&scope_id) else {
+                return false;
+            };
+            if scope.scope_type == ScopeType::Function && Some(scope_id) != tracked_scope {
+                return false;
+            }
+            if scope.for_in_key_value_bindings.contains_key(name) {
+                return true;
+            }
+            if scope.scope_type == ScopeType::Function {
+                return false;
+            }
+            current = scope.parent;
+        }
+    }
+
+    /// True iff `name` resolves (respecting shadowing) to a `for..in`-key VALUE
+    /// binding ANYWHERE in the enclosing scope chain — INCLUDING across a function
+    /// boundary (a CLOSURE CAPTURE, `let g = () => c`). Unlike `is_for_in_key_value`
+    /// (which fail-closes AT the tracked-function boundary, so a capture reads as
+    /// `false`), this walks to the FIRST scope that binds `name` and reports
+    /// whether THAT scope registered it as a key/alias/value-copy — so a nested
+    /// function's OWN binding named `c` (shadowing) is correctly NOT a key, while a
+    /// captured outer key IS. The default-deny reject in `resolve_identifier` keys
+    /// on this so a captured for-in-key value read rejects (codegen would leak the
+    /// raw ordinal into the closure) rather than escaping every same-function gate.
+    pub(crate) fn for_in_key_value_binding_in_chain(&self, name: &str) -> bool {
+        let mut current = self.current_scope_id();
+        while let Some(scope_id) = current {
+            let Some(scope) = self.scopes.get(&scope_id) else {
+                return false;
+            };
+            if scope.bindings.contains_key(name) {
+                // First scope that binds `name` decides — respects shadowing.
+                return scope.for_in_key_bindings.contains_key(name)
+                    || scope.for_in_key_value_bindings.contains_key(name);
+            }
+            current = scope.parent;
+        }
+        self.global_scope.bindings.contains_key(name)
+            && (self.global_scope.for_in_key_bindings.contains_key(name)
+                || self
+                    .global_scope
+                    .for_in_key_value_bindings
+                    .contains_key(name))
+    }
+
+    /// If `name` (a bare identifier) is used as an RHS of an alias copy — a
+    /// declarator init `let d = <rhs>` or an assignment `d = <rhs>` — and `<rhs>`
+    /// carries for-in-key value provenance, mark the LHS `d` as a value copy too,
+    /// so a later string-escape use of `d` is caught by the reject gate. Only the
+    /// bare-identifier RHS form propagates (an ordinal-domain copy); anything else
+    /// is left alone.
+    pub(crate) fn propagate_for_in_key_value(&mut self, lhs: &str, rhs: &Expression) {
+        if let Expression::Identifier(rhs_name) = rhs {
+            if self.is_for_in_key_value(rhs_name) {
+                self.register_for_in_key_value(lhs);
+            }
+        }
+    }
+
+    /// Spec 4a Task 5 structural default-deny: resolve `expr` at a for-in-key
+    /// PROVEN-SAFE position (an `if` truthiness test, an alias-copy RHS, or an
+    /// assignment/declarator target). If `expr` is EXACTLY a bare for-in-key
+    /// value identifier — `if (last)`, `x = c`, `let x = c` — suppress the
+    /// `resolve_identifier` value-escape reject (the ordinal is the correct
+    /// representation here). Anything more complex (`if (id(c))`, `x = id(c)`,
+    /// `if (r < table[c])`) is resolved normally, so a nested value-escape of the
+    /// key still rejects and a `table[c]` index still stays accepted (its index
+    /// is never resolved as an expression). The suppression is scoped to exactly
+    /// this one identifier read via save/restore.
+    pub(crate) fn resolve_forin_key_safe_position(&mut self, expr: &Expression) {
+        let bare_key = matches!(expr, Expression::Identifier(name)
+            if self.is_for_in_key_value(name));
+        let previous = self.suppress_forin_key_value_reject;
+        if bare_key {
+            self.suppress_forin_key_value_reject = true;
+        }
+        self.resolve_expression(expr);
+        self.suppress_forin_key_value_reject = previous;
+    }
+
+    /// Spec 4a Task 5 allowlist: resolve a STATEMENT-position expression (value
+    /// DISCARDED). If it is an alias-copy `x = <bare for-in-key>` — an identifier
+    /// target assigned a bare key, the ordinal-domain copy that propagates key
+    /// provenance to `x` — suppress the default-deny value-escape reject for its
+    /// bare-key RHS. This is the ONLY position where an assignment's bare-key RHS
+    /// is safe: when the assignment's VALUE ESCAPES (`return (x = c)`), the RHS is
+    /// resolved WITHOUT this suppression and rejects. A member target
+    /// (`obj[c] = last`, a store) or a complex RHS (`x = id(c)`, a nested escape)
+    /// is NOT an alias-copy and resolves normally → rejects.
+    pub(crate) fn resolve_statement_position_expression(&mut self, expr: &Expression) {
+        let alias_copy = matches!(expr, Expression::AssignmentExpression(a)
+            if matches!(a.operator, AssignmentOperator::Assign)
+                && matches!(&a.left, Expression::Identifier(_))
+                && matches!(&a.right, Expression::Identifier(name)
+                    if self.is_for_in_key_value(name)));
+        let previous = self.suppress_forin_key_value_reject;
+        if alias_copy {
+            self.suppress_forin_key_value_reject = true;
+        }
+        self.resolve_expression(expr);
+        self.suppress_forin_key_value_reject = previous;
+    }
+
     /// True iff `name` resolves to a linear-memory array binding whose element
     /// repr is proven `Repr::String` by the inference (Spec 3 store/read/join
     /// lane). Reuses the SAME function-key resolution as
@@ -362,6 +758,10 @@ impl TypeContext {
     pub(crate) fn operand_repr_is_string(&self, operand: &Expression) -> bool {
         use kali_common::Repr;
         match operand {
+            // Spec 4a Task 5: a for-in key materialized as a string is repr-lifted
+            // to `String`, so it is already covered by `identifier_repr_is_string`
+            // (the SAME solved-repr signal codegen consults) — no extra for-in-key
+            // disjunct needed. A non-repr-lifted key stays false, mirroring codegen.
             Expression::Identifier(name) => self.identifier_repr_is_string(name),
             // Computed element read `a[i]` of a proven `Repr::String` array
             // (Spec 3) — same signal codegen's `is_string_valued`
@@ -633,6 +1033,16 @@ impl TypeContext {
     /// const-only distinction (Task 5), so reusing it keeps the two gates
     /// consistent.
     pub(crate) fn expression_is_runtime_string_value(&mut self, expr: &Expression) -> bool {
+        // Spec 4a Task 5: a for-in key materialized as a string is repr-lifted to
+        // `String`, so the `expression_is_string_typed(expr) || operand_repr_is_string
+        // (expr)` check below (both now keyed on `identifier_repr_is_string`, the
+        // SAME solved repr codegen's materialization guard reads) already covers a
+        // seeded key — and a for-in key is never a fold receiver (mutable per
+        // iteration), so the fold-receiver escape does not swallow it. An UNSEEDED
+        // key stays false → codegen emits the raw ordinal → both sides agree
+        // (fail-closed). No unconditional for-in-key arm here (that was the
+        // value-flow fail-open: types must not admit a string where codegen
+        // emits an ordinal).
         if self.expression_is_length_fold_receiver(expr) {
             return false;
         }
@@ -717,7 +1127,16 @@ impl TypeContext {
         // `is_structural_runtime_array` so such a target rejects (fail-closed).
         if member.computed_index.is_some() {
             if let Expression::Identifier(base_name) = &member.object {
-                if self.string_element_array_binding(base_name)
+                // Row 3 (Spec 4a Task 6): a computed store whose base is a
+                // KNOWN fixed-shape object is a `for..in`-key FIELD store, NOT
+                // a Spec-3 string-element array store. The store wires the
+                // value into an array-element node (visit_assignment treats
+                // `base[i] = v` as an element store), so `string_element_array_binding`
+                // reports true here — but the base is an OBJECT, so that accept
+                // path must NOT fire. Storing a runtime string into a numeric
+                // object field is out of scope; fall through to reject.
+                if self.object_shape_of_expression(&member.object).is_none()
+                    && self.string_element_array_binding(base_name)
                     && self.is_structural_runtime_array(base_name)
                 {
                     return;
@@ -925,6 +1344,19 @@ impl TypeContext {
                 self.resolve_expression(&expr.right);
                 self.reject_unsupported_string_variable_addition(expr);
                 self.reject_logical_operand_runtime_string(expr);
+                // `&&`/`||`/`??` parse to a BinaryExpression here (not a
+                // LogicalExpression). A for-in-key alias operand of these is a
+                // fail-closed reject (raw integer truthiness inverts the `-1`
+                // null sentinel).
+                if matches!(expr.operator.as_str(), "&&" | "||" | "??") {
+                    self.reject_forin_key_boolean_operand(&expr.left, &expr.operator);
+                    self.reject_forin_key_boolean_operand(&expr.right, &expr.operator);
+                }
+                // NOTE: a non-materialized for-in-key value as a `+`/equality (or
+                // any other) operand is rejected structurally by the default-deny
+                // in `resolve_identifier` — the operands are resolved as values
+                // above. A materialized direct seeded key (`c + "!"`, `c == "a"`,
+                // repr `String`) is NOT rejected and materializes correctly.
             }
             Expression::UnaryExpression(expr) => {
                 if expr.operator == "delete" {
@@ -933,6 +1365,9 @@ impl TypeContext {
                             return;
                         }
                     }
+                }
+                if expr.operator == "!" {
+                    self.reject_forin_key_boolean_operand(&expr.argument, "!");
                 }
                 self.resolve_expression(&expr.argument)
             }
@@ -956,6 +1391,10 @@ impl TypeContext {
                                 "a runtime string value is unavailable as an array element in the current direct-runtime path; element reads have no string lane yet".to_string(),
                             ));
                         }
+                        // A non-materialized for-in-key value as an array element
+                        // is a value escape — rejected structurally by the
+                        // default-deny in `resolve_identifier` (elements are
+                        // resolved as values above).
                     }
                 }
             }
@@ -981,7 +1420,15 @@ impl TypeContext {
             }
             Expression::UpdateExpression(expr) => self.resolve_update_expression(expr),
             Expression::AssignmentExpression(expr) => {
-                self.resolve_expression(&expr.left);
+                // Spec 4a Task 5 allowlist: the LHS is a WRITE TARGET (never a
+                // value escape) — resolve via the safe-position path so a bare-key
+                // target (`last = …`) is not mis-rejected. The RHS resolves
+                // NORMALLY: a bare-key RHS is a safe ALIAS-COPY only in STATEMENT
+                // position (value discarded) — the enclosing `ExpressionStatement`
+                // / for-init / for-update sets `suppress_forin_key_value_reject`
+                // for that case. A bare-key RHS whose assignment VALUE ESCAPES
+                // (`return (x = c)`) is NOT suppressed → the key rejects.
+                self.resolve_forin_key_safe_position(&expr.left);
                 self.resolve_expression(&expr.right);
 
                 self.reject_runtime_string_store(expr);
@@ -1023,6 +1470,17 @@ impl TypeContext {
                         // registry is grow-only and invalidation does not touch
                         // it, but the ordering keeps intent clear.
                         let right_is_array_shape = self.rhs_is_array_shape(&expr.right);
+                        // Spec 4a Task 2: propagate `for..in` key provenance
+                        // through a bare-identifier alias (`last = c`) —
+                        // computed BEFORE `invalidate_static_binding` for the
+                        // same reason as `right_is_array_shape` above (the
+                        // registry itself is grow-only and untouched by
+                        // invalidation; the ordering just keeps intent
+                        // clear). Dormant: nothing reads this registry yet.
+                        let right_for_in_key_shape = match &expr.right {
+                            Expression::Identifier(rhs_name) => self.for_in_key_shape(rhs_name),
+                            _ => None,
+                        };
                         self.invalidate_static_binding(&name);
                         if right_is_string {
                             self.mark_binding_string_typed(&name);
@@ -1030,8 +1488,34 @@ impl TypeContext {
                         if right_is_array_shape {
                             self.register_runtime_array_binding(&name);
                         }
+                        if let Some(shape) = right_for_in_key_shape {
+                            self.register_for_in_key(&name, shape);
+                        }
+                        // Spec 4a Task 5 fail-closed: propagate for-in-key VALUE
+                        // provenance through an assignment alias whose RHS is a
+                        // declarator-init value copy (`e = d` where `d` is
+                        // `let d = c`) — the assignment-side sibling of the
+                        // declarator-init taint, for the escape reject gate only.
+                        self.propagate_for_in_key_value(&name, &expr.right);
                     }
                     return;
+                }
+
+                // Spec 4a Task 4: compound-assign to a computed for-in-key
+                // object target `obj[c] += v` over a uniform-repr fixed shape is
+                // ADMITTED — codegen decomposes it to `obj[c] = (obj[c] op v)`,
+                // routing both the read of `obj[c]` and the write through Task
+                // 3's dynamic slot lane. The accept condition is exactly the one
+                // `reject_nonuniform_forin_key_object_access` uses for `obj[c] =
+                // v` (base shape proven + shape-matched + uniform-repr + key
+                // index). A non-for-in-key or non-uniform target is NOT admitted
+                // here and still rejects fail-closed below.
+                if !matches!(expr.operator, AssignmentOperator::NullishAssign) {
+                    if let Expression::MemberExpression(member) = &expr.left {
+                        if self.forin_key_member_target_is_uniform(member) {
+                            return;
+                        }
+                    }
                 }
 
                 let Some(name) = self.resolve_update_binding_name(&expr.left) else {
@@ -1066,6 +1550,13 @@ impl TypeContext {
             Expression::LogicalExpression(expr) => {
                 self.resolve_expression(&expr.left);
                 self.resolve_expression(&expr.right);
+                let op_symbol = match expr.operator {
+                    LogicalOperator::And => "&&",
+                    LogicalOperator::Or => "||",
+                    LogicalOperator::Coalesce => "??",
+                };
+                self.reject_forin_key_boolean_operand(&expr.left, op_symbol);
+                self.reject_forin_key_boolean_operand(&expr.right, op_symbol);
             }
             Expression::ConditionalExpression(expr) => {
                 self.resolve_expression(&expr.test);
@@ -1078,6 +1569,10 @@ impl TypeContext {
                 // Reject fail-closed. No base-correct string ternary exists (the
                 // degenerate lowering was always wrong for a string test).
                 self.reject_string_condition_expression(&expr.test);
+                // H2: a for-in-key/alias test in a ternary lowers via default
+                // `!= 0` truthiness (the `>= 0` sentinel path is `if`-only) —
+                // reject fail-closed.
+                self.reject_forin_key_test_operand(&expr.test, "ternary condition");
             }
             Expression::SequenceExpression(expr) => {
                 for subexpr in &expr.expressions {
@@ -1271,6 +1766,32 @@ impl TypeContext {
             return;
         }
 
+        // Spec 4a Task 5 STRUCTURAL DEFAULT-DENY (allowlist): a for-in-key VALUE
+        // read (`is_for_in_key_value` — direct key / assignment alias / declarator
+        // value-copy) whose repr was NOT lifted to `String` (so codegen emits the
+        // raw ORDINAL, never a materialized string handle) is REJECTED in EVERY
+        // value position — EXCEPT the four proven-safe positions where the ordinal
+        // is the correct representation, each recognized WITHOUT reaching this
+        // value-read path: (1) a COMPUTED INDEX `obj[key]` — the index is never
+        // resolved as an expression, so it never arrives here; (2) an `if`
+        // TRUTHINESS test and (3) an ALIAS-COPY RHS/target — resolved via
+        // `resolve_forin_key_safe_position`, which sets `suppress_...`; (4) a
+        // MATERIALIZED direct seeded key — excluded by `!identifier_repr_is_string`
+        // (its repr IS `String`). By construction no un-enumerated value position
+        // can leak the ordinal — the inverse of a sink denylist.
+        if !self.suppress_forin_key_value_reject
+            && self.for_in_key_value_binding_in_chain(name)
+            && !self.identifier_repr_is_string(name)
+        {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "a for..in key value ('{name}') is only usable as a computed index (`obj[{name}]`), an `if` condition, an alias copy to another key binding, or a MATERIALIZED direct key at a return / console.log / `+` / `==` position; every other value use is unavailable in the current direct-runtime path (it would leak the raw ordinal, not the field-name string)"
+                ),
+            ));
+            return;
+        }
+
         if matches!(name, "SharedArrayBuffer" | "Atomics") {
             if self.has_threaded_runtime_profile() {
                 return;
@@ -1326,6 +1847,12 @@ impl TypeContext {
 
     pub(crate) fn resolve_template_literal(&mut self, template: &TemplateLiteral) {
         for expr in &template.expressions {
+            // A for-in-key value in a template interpolation `${c}` is a value
+            // escape — rejected structurally by the default-deny in
+            // `resolve_identifier` (interpolations are resolved as values). Real
+            // templates usually desugar to `+` chains before this pass; a direct
+            // SEEDED key there materializes (repr `String`), an un-seeded one
+            // rejects.
             self.resolve_expression(expr);
         }
     }
@@ -1346,6 +1873,9 @@ impl TypeContext {
                 "a runtime string value is unavailable as an object-literal property value in the current direct-runtime path; use a statically-known string or the later compatibility path".to_string(),
             ));
         }
+        // A non-materialized for-in-key value as an object-property value is a
+        // value escape — rejected structurally by the default-deny in
+        // `resolve_identifier` (the property value is resolved as a value above).
     }
 
     pub(crate) fn resolve_property_name(&mut self, name: &PropertyName) {

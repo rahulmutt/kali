@@ -47,6 +47,13 @@ pub const SYNTHETIC_FUNCTIONS: &[&str] = &[
 pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResult {
     let mut diagnostics = Vec::new();
     let function_plans = collect_functions(lir, &ctx.repr_table, &ctx.arena_table);
+    // Module-scope mutable SCALAR (`var`/`let` numeric) bindings that are read
+    // or written from inside a function are promoted to persistent mutable WASM
+    // globals (indices AFTER the reserved arena globals). A module-only scalar
+    // stays a `_start` local (byte-identical); heap types (object/array/string)
+    // are NEVER promoted — a mutable global heap root is a persistent GC root
+    // the region reclamation does not model, so those stay fail-closed (E5506).
+    let module_global_slots = collect_module_scalar_globals(lir, &ctx.repr_table, &function_plans);
     if function_plans.iter().any(|plan| {
         matches!(
             plan.flavor,
@@ -166,16 +173,21 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
 
     // Keep the emitted order deterministic: imported registration hook first, synthetic entry
     // second, then named functions in source order.
+    let mut start_locals = collect_function_locals(
+        &lir.nodes,
+        lir.root,
+        &ctx.repr_table,
+        &ctx.arena_table,
+        "_start",
+    );
+    // A promoted module scalar lives in its persistent global, not a `_start`
+    // local slot — its declarator init stores through `GlobalSet` (see the
+    // module-global declarator branch in `emit/control_flow.rs`).
+    start_locals.retain(|name| !module_global_slots.contains_key(name));
     let mut all_functions = vec![FunctionPlan {
         name: "_start".to_string(),
         params: Vec::new(),
-        locals: collect_function_locals(
-            &lir.nodes,
-            lir.root,
-            &ctx.repr_table,
-            &ctx.arena_table,
-            "_start",
-        ),
+        locals: start_locals,
         body: lir.root,
         result: false,
         is_entry: true,
@@ -630,6 +642,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             function.body,
             &module_const_inits,
             &module_binding_names,
+            &module_global_slots,
         );
         let coverage_id = ctx.target.coverage.then_some(coverage_id as u32);
         if SYNTHETIC_FUNCTIONS.contains(&function.name.as_str()) {
@@ -703,6 +716,35 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                 shared: false,
             },
             &ConstExpr::i32_const(0),
+        );
+    }
+    // Module-scope mutable scalar globals, appended after g0..g7 at indices
+    // 8, 9, … (matching the ascending indices assigned in
+    // `collect_module_scalar_globals`, which iterates the same sorted-by-name
+    // `BTreeMap`). Each is zero-initialized (`var` hoisting semantics: the
+    // binding reads `undefined`/0 until its declarator line runs `GlobalSet` in
+    // `_start`); the declared wasm type follows the binding's repr.
+    for (i, (index, repr)) in module_global_slots.values().enumerate() {
+        // The map iterates in the same sorted order the indices were assigned
+        // in `collect_module_scalar_globals`, so append position and stored
+        // index MUST stay in lockstep — a future filter divergence that broke
+        // this would silently desync every `GlobalGet`/`GlobalSet`.
+        debug_assert_eq!(
+            *index,
+            RESERVED_GLOBAL_COUNT + i as u32,
+            "module global index/append-order desync"
+        );
+        let (val_type, init) = match repr {
+            kali_common::Repr::F64 => (ValType::F64, ConstExpr::f64_const(0.0.into())),
+            _ => (ValType::I64, ConstExpr::i64_const(0)),
+        };
+        global_section.global(
+            GlobalType {
+                val_type,
+                mutable: true,
+                shared: false,
+            },
+            &init,
         );
     }
 
@@ -1223,6 +1265,184 @@ pub(crate) fn loop_preorder_ordinals(
     ordinals
 }
 
+/// Pre-order, function-scoped ordinal assigned to each `for-in`-text `Branch`
+/// node's LIR id. Completely independent of `loop_preorder_ordinals` (which
+/// deliberately does NOT recognize `for-in` — see that function's doc comment
+/// on the arena-ordinal desync danger of doing so) and never consulted by
+/// `kali_mir`'s escape gate: this ordinal exists ONLY to name a dedicated
+/// per-for-in scratch i64 local (`for_in_ord_local_name`) that holds the
+/// loop's own counter, so nested emission inside the for-in body (e.g. an
+/// object allocation, which reuses the function's generic trailing scratch
+/// local — see `emit_object_allocation`) can never clobber it. Consulted from
+/// exactly two call sites, both inside `kali_codegen`
+/// (`collect_function_locals`, which reserves the local, and
+/// `FunctionEmitter::new`, which resolves it back for `emit_for_in`) — it has
+/// no bearing on arena placement and must never be threaded into
+/// `ArenaTable`/`loop_arena` lookups.
+pub(crate) fn for_in_preorder_ordinals(
+    nodes: &[LirNode],
+    body: LirNodeId,
+) -> HashMap<LirNodeId, u32> {
+    let mut ordinals = HashMap::new();
+    let mut next = 0u32;
+    for_in_preorder_ordinals_walk(nodes, body, &mut next, &mut ordinals);
+    ordinals
+}
+
+/// Structural per-function set of "for-in-key provenance" binding names: every
+/// `for..in` loop key declared in the function, plus every binding aliased
+/// directly from such a key (`last = c`). Codegen's null-sentinel (`-1`) store
+/// and truthiness (`>= 0`) special-cases key off this set — computed once up
+/// front so the `var last = null` init (emitted BEFORE the loop) already
+/// recognizes `last`. Structural twin of the types-side `for..in` key +
+/// `last = c` provenance propagation (mirror binding provenance, not repr).
+pub(crate) fn for_in_key_alias_names(nodes: &[LirNode], body: LirNodeId) -> HashSet<String> {
+    let mut names: HashSet<String> = HashSet::new();
+    for_in_loop_keys_walk(nodes, body, &mut names);
+    // Transitive closure: `y = last` inherits provenance when `last` is already
+    // recognized (a chain of `= <recognized alias>` from a loop key). Iterate to
+    // a fixpoint so codegen recognizes exactly the transitive set the types side
+    // admits (its `last = c` propagation reads a growing registry) — symmetric,
+    // no fail-open on a two-plus-level alias.
+    loop {
+        let before = names.len();
+        let mut next = names.clone();
+        for_in_key_aliases_walk(nodes, body, &names, &mut next);
+        names = next;
+        if names.len() == before {
+            break;
+        }
+    }
+    names
+}
+
+/// The for-in loop key name for a for-in Branch node's `left` child, whether it
+/// is a `var`/`let`/`const` declarator (`for (var c in obj)`) or a bare
+/// identifier (`for (c in obj)`). Free-function twin of
+/// `FunctionEmitter::for_in_key_name`.
+fn for_in_loop_key_name(nodes: &[LirNode], left_id: LirNodeId) -> Option<String> {
+    let left = nodes.get(left_id.0 as usize)?;
+    if left.kind == LirNodeKind::Instruction
+        && matches!(left.text.as_deref(), Some("let" | "var" | "const"))
+    {
+        if let Some(&declarator_id) = left.children.first() {
+            if let Some(name) = nodes
+                .get(declarator_id.0 as usize)
+                .and_then(|n| n.text.clone())
+            {
+                return Some(name).filter(|t| !t.is_empty());
+            }
+        }
+    }
+    left.text.clone().filter(|t| !t.is_empty())
+}
+
+/// Free-function twin of `FunctionEmitter::bare_identifier_name` operating on a
+/// raw node slice (used before any scratch nodes exist).
+fn bare_identifier_name_of(nodes: &[LirNode], id: LirNodeId) -> Option<String> {
+    let target = unwrap_transparent_value(nodes, id);
+    let node = nodes.get(target.0 as usize)?;
+    if node.kind == LirNodeKind::Value && node.children.is_empty() {
+        node.text.clone().filter(|t| !t.is_empty())
+    } else {
+        None
+    }
+}
+
+fn for_in_loop_keys_walk(nodes: &[LirNode], id: LirNodeId, keys: &mut HashSet<String>) {
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return;
+    };
+    if node.kind == LirNodeKind::Branch && node.text.as_deref() == Some("for-in") {
+        if let Some(&left_id) = node.children.first() {
+            if let Some(name) = for_in_loop_key_name(nodes, left_id) {
+                keys.insert(name);
+            }
+        }
+    }
+    for child in &node.children {
+        if is_function_like(nodes, *child) {
+            continue;
+        }
+        for_in_loop_keys_walk(nodes, *child, keys);
+    }
+}
+
+pub(crate) fn for_in_key_aliases_walk(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    keys: &HashSet<String>,
+    out: &mut HashSet<String>,
+) {
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return;
+    };
+    // A direct alias `X = K` where `K` is a for-in loop key: `X` inherits the
+    // key provenance. Represented as a 2-child `=` Value node with a bare
+    // identifier on each side.
+    if node.kind == LirNodeKind::Value
+        && node.children.len() == 2
+        && node.text.as_deref() == Some("=")
+    {
+        if let (Some(lhs), Some(rhs)) = (
+            bare_identifier_name_of(nodes, node.children[0]),
+            bare_identifier_name_of(nodes, node.children[1]),
+        ) {
+            if keys.contains(&rhs) {
+                out.insert(lhs);
+            }
+        }
+    }
+    for child in &node.children {
+        if is_function_like(nodes, *child) {
+            continue;
+        }
+        for_in_key_aliases_walk(nodes, *child, keys, out);
+    }
+}
+
+fn for_in_preorder_ordinals_walk(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    next: &mut u32,
+    ordinals: &mut HashMap<LirNodeId, u32>,
+) {
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return;
+    };
+    if node.kind == LirNodeKind::Branch && node.text.as_deref() == Some("for-in") {
+        ordinals.insert(id, *next);
+        *next += 1;
+    }
+    for child in &node.children {
+        if is_function_like(nodes, *child) {
+            continue;
+        }
+        for_in_preorder_ordinals_walk(nodes, *child, next, ordinals);
+    }
+}
+
+/// Name of the dedicated i64 scratch local holding the `for-in` loop's own
+/// ordinal counter (`for_in_preorder_ordinals`-keyed). The `#` makes this
+/// unrepresentable as a source-level identifier, matching the convention
+/// `arena_save_local_names` uses, so it can never collide with a real binding.
+pub(crate) fn for_in_ord_local_name(ordinal: u32) -> String {
+    format!("__for_in_ord#{ordinal}")
+}
+
+/// Name of the dedicated i64 local holding the base pointer of a `for-in`
+/// loop's per-shape key handle table (Spec 4a Task 5, `emit_key_handle_table`).
+/// The table is bump-allocated once in the loop preheader; this local must
+/// PERSIST across the whole loop body (a `return c`/`c + x` string use loads
+/// `base + ord*8` from it), so it is a dedicated reserved slot — NOT the
+/// function's transient trailing scratch, which body emission (e.g. an
+/// `obj[c] = v` write) reuses and would clobber. Same `#`-name convention +
+/// two-call-site (reserve here, resolve in `emit_for_in`) discipline as
+/// `for_in_ord_local_name`.
+pub(crate) fn for_in_key_table_local_name(ordinal: u32) -> String {
+    format!("__for_in_ktbl#{ordinal}")
+}
+
 /// Names of the three synthetic i32 locals that save/restore the
 /// current-arena trio (`g1`/`g2`/`g3`) around the arena'd loop with pre-order
 /// ordinal `ordinal` in its function. Shared by locals provisioning
@@ -1354,7 +1574,455 @@ pub(crate) fn collect_function_locals(
         locals.push(limit);
     }
 
+    // Reserve one dedicated i64 scratch local per `for-in` loop in this
+    // function (Task 1 of Spec 4a) — see `for_in_preorder_ordinals`'s doc
+    // comment for why this is a wholly separate, codegen-internal counter
+    // from the arena-ordinal one above.
+    let mut for_in_ordinals: Vec<u32> = for_in_preorder_ordinals(nodes, body_id)
+        .into_values()
+        .collect();
+    for_in_ordinals.sort_unstable();
+    for ordinal in for_in_ordinals {
+        locals.push(for_in_ord_local_name(ordinal));
+        // Spec 4a Task 5: a parallel dedicated i64 local per for-in loop for the
+        // key handle-table base pointer (persists across the loop body).
+        locals.push(for_in_key_table_local_name(ordinal));
+    }
+
     locals
+}
+
+/// WASM globals reserved before any module-scope mutable scalar global:
+/// g0 (heap/page frontier) + g1..g7 (arena page-pool state). Module scalar
+/// globals are appended AFTER these, at indices `RESERVED_GLOBAL_COUNT`, +1, …
+pub(crate) const RESERVED_GLOBAL_COUNT: u32 = 8;
+
+/// Promote module-scope mutable SCALAR (`var`/`let` numeric) bindings that are
+/// READ or WRITTEN from inside a function to persistent mutable WASM globals.
+///
+/// Returns `name -> (global_index, repr)`, sorted by name (so the index order
+/// matches the order globals are appended to the `GlobalSection`). Only
+/// numeric (`I64`/`F64`) scalars qualify: an array/object/string module binding
+/// is a heap type, and a mutable global heap root is a persistent GC root the
+/// GC-less region reclamation does not model — those stay fail-closed (E5506).
+/// A `const` is excluded (it stays on the compile-time inline path). A scalar
+/// referenced only at module scope is NOT promoted (it keeps its byte-identical
+/// `_start`-local lowering).
+pub(crate) fn collect_module_scalar_globals(
+    lir: &LirProgram,
+    repr_table: &kali_common::ReprTable,
+    function_plans: &[FunctionPlan],
+) -> BTreeMap<String, (u32, kali_common::Repr)> {
+    // Top-level `var`/`let` numeric scalar declarators (never `const`).
+    let mut candidates: BTreeMap<String, kali_common::Repr> = BTreeMap::new();
+    let mut stack = vec![lir.root];
+    while let Some(id) = stack.pop() {
+        let Some(node) = lir.nodes.get(id.0 as usize) else {
+            continue;
+        };
+        match node.kind {
+            LirNodeKind::Program | LirNodeKind::Block => {
+                stack.extend(node.children.iter().copied());
+            }
+            LirNodeKind::Instruction if matches!(node.text.as_deref(), Some("let" | "var")) => {
+                for declarator_id in &node.children {
+                    let Some(declarator) = lir.nodes.get(declarator_id.0 as usize) else {
+                        continue;
+                    };
+                    let Some(name) = declarator.text.clone() else {
+                        continue;
+                    };
+                    // Heap types stay fail-closed: never promote an array/object
+                    // module binding to a mutable global root.
+                    if repr_table.is_array_binding("_start", &name) {
+                        continue;
+                    }
+                    // `Object(_)` / `String` reprs are heap — leave rejected;
+                    // only a numeric scalar becomes a mutable global.
+                    let repr = repr_table.scalar("_start", &name);
+                    if matches!(repr, kali_common::Repr::I64 | kali_common::Repr::F64) {
+                        candidates.insert(name, repr);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    if candidates.is_empty() {
+        return BTreeMap::new();
+    }
+
+    // Names used ANYWHERE as a member/index base (`o.x`, `a[i]`) are heap
+    // (object/array) bindings — even when repr inference left them a default
+    // `I64` (e.g. a module object mutated only cross-function never proves its
+    // shape). Promoting such a name to a mutable scalar global would fail OPEN:
+    // a member access on an i64 global silently reads 0. Exclude them so those
+    // cases stay fail-closed (E5506), never mis-lowered.
+    let mut heap_base_names: HashSet<String> = HashSet::new();
+    {
+        let mut seen = HashSet::new();
+        collect_member_base_names(&lir.nodes, lir.root, &mut seen, &mut heap_base_names);
+    }
+
+    // POSITIVE scalar proof (the load-bearing gate). A candidate's repr may be
+    // a *default* `I64` for an object whose shape was never proven (e.g. a
+    // module object reassigned `o = {…}` but never member-accessed), so the
+    // I64/`is_array_binding`/member-base checks above are not sufficient — they
+    // are a NEGATIVE heuristic an unproven heap value evades. Promote ONLY when
+    // the binding is PROVABLY numeric: its initializer AND every reassignment
+    // RHS is a numeric expression (numeric literal, arithmetic/bitwise over
+    // numerics, a proven-numeric call, `.length`, …). Any object/array literal,
+    // string, template, `new`, or non-numeric-return call as an init/RHS leaves
+    // the name unpromoted → the existing E5506 module-binding gate = fail-closed
+    // (the safe pre-feature behavior). The capstone's `var rngLast = 42`
+    // (reassigned only to `(rngLast*3877+29573)%139968`) is provably numeric.
+    let mut numeric_ok: HashSet<String> = candidates.keys().cloned().collect();
+    {
+        let mut seen = HashSet::new();
+        scan_numeric_assignments(
+            &lir.nodes,
+            lir.root,
+            "_start",
+            repr_table,
+            &candidates,
+            &mut seen,
+            &mut numeric_ok,
+        );
+    }
+
+    // Only bindings referenced from inside a function need a persistent global;
+    // a module-only scalar stays a `_start` local (byte-identical).
+    let mut referenced: HashSet<String> = HashSet::new();
+    for plan in function_plans {
+        if plan.name == "_start" {
+            continue;
+        }
+        let mut seen = HashSet::new();
+        collect_bare_identifier_names(&lir.nodes, plan.body, &mut seen, &mut referenced);
+    }
+
+    let mut slots = BTreeMap::new();
+    let mut next_index = RESERVED_GLOBAL_COUNT;
+    for (name, repr) in candidates {
+        if referenced.contains(&name)
+            && !heap_base_names.contains(&name)
+            && numeric_ok.contains(&name)
+        {
+            slots.insert(name, (next_index, repr));
+            next_index += 1;
+        }
+    }
+    slots
+}
+
+/// Collect every identifier used as a member/index base — the `o` in `o.x`,
+/// `o.length`, or `o[i]` — anywhere in the subtree at `id`. A member access is
+/// a `Value` node whose first child is the base:
+/// - 1 child + non-empty `text` that is NOT a unary operator (a dot/`.length`
+///   access; a unary `-g`/`!g` also has 1 child + text but is not a base use),
+/// - 2 children + `text` that is NOT a binary operator (a computed `o[i]`; a
+///   binary expression also has 2 children but carries an operator text).
+fn collect_member_base_names(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    seen: &mut HashSet<LirNodeId>,
+    out: &mut HashSet<String>,
+) {
+    if !seen.insert(id) {
+        return;
+    }
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return;
+    };
+    if node.kind == LirNodeKind::Value {
+        let base_child = match node.children.len() {
+            1 => node
+                .text
+                .as_deref()
+                .filter(|text| !text.is_empty() && !is_unary_operator_text(text))
+                .map(|_| node.children[0]),
+            2 => (!is_binary_operator_text(node.text.as_deref().unwrap_or_default()))
+                .then_some(node.children[0]),
+            _ => None,
+        };
+        if let Some(base_child) = base_child {
+            let base = unwrap_transparent_value(nodes, base_child);
+            if let Some(base_node) = nodes.get(base.0 as usize) {
+                if base_node.kind == LirNodeKind::Value && base_node.children.is_empty() {
+                    if let Some(text) = base_node.text.as_deref() {
+                        if !text.is_empty() {
+                            out.insert(text.to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+    for child in &node.children {
+        collect_member_base_names(nodes, *child, seen, out);
+    }
+}
+
+/// A binary operator whose RESULT is always a number (arithmetic, bitwise,
+/// relational, and equality). Used by the positive-scalar promotion proof:
+/// `&&`/`||`/`??` (yield one operand, possibly heap), `,` (yields the RHS),
+/// and `in`/`instanceof` are deliberately NOT here, so a candidate whose RHS
+/// uses them is left unproven (fail-closed).
+fn is_numeric_result_binary_operator(text: &str) -> bool {
+    matches!(
+        text,
+        "+" | "-"
+            | "*"
+            | "/"
+            | "%"
+            | "**"
+            | "&"
+            | "|"
+            | "^"
+            | "<<"
+            | ">>"
+            | ">>>"
+            | "<"
+            | "<="
+            | ">"
+            | ">="
+            | "=="
+            | "==="
+            | "!="
+            | "!=="
+    )
+}
+
+/// An assignment operator (`=` and the compound forms). LHS-targeted; used to
+/// find every reassignment of a promotion candidate.
+fn is_assignment_operator_text(text: &str) -> bool {
+    matches!(
+        text,
+        "=" | "+="
+            | "-="
+            | "*="
+            | "/="
+            | "%="
+            | "**="
+            | "<<="
+            | ">>="
+            | ">>>="
+            | "&="
+            | "|="
+            | "^="
+            | "&&="
+            | "||="
+            | "??="
+    )
+}
+
+/// POSITIVE proof that the expression at `id` yields a plain NUMBER (so a module
+/// binding whose init and every reassignment RHS is numeric can be backed by an
+/// i64/f64 global). Conservative: anything not recognized as numeric returns
+/// `false` (→ the binding is left unpromoted → fail-closed E5506). Rejects the
+/// heap shapes — object/array literal (a childless-text `Value` with children),
+/// string/other non-numeric literal, `.field` member access (except `.length`),
+/// computed member, and a call whose return repr is not proven numeric.
+/// `func` scopes identifier-operand repr lookups to the enclosing function.
+fn is_numeric_expr(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    repr_table: &kali_common::ReprTable,
+    func: &str,
+    depth: usize,
+) -> bool {
+    if depth > 32 {
+        return false;
+    }
+    let id = unwrap_transparent_value(nodes, id);
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return false;
+    };
+    match node.kind {
+        LirNodeKind::Literal => node.text.as_deref().is_some_and(|t| {
+            parse_numeric_literal_value(t).is_some() || matches!(t, "true" | "false")
+        }),
+        LirNodeKind::Call => {
+            // Only a plain named call (`f(...)`) whose return repr is proven
+            // numeric. A member call (`o.m()`) or an unproven return is rejected.
+            let Some(&callee_id) = node.children.first() else {
+                return false;
+            };
+            let callee = unwrap_transparent_value(nodes, callee_id);
+            let Some(callee_node) = nodes.get(callee.0 as usize) else {
+                return false;
+            };
+            if callee_node.kind == LirNodeKind::Value && callee_node.children.is_empty() {
+                if let Some(name) = callee_node.text.as_deref() {
+                    return matches!(
+                        repr_table.return_repr(name),
+                        kali_common::Repr::I64 | kali_common::Repr::F64
+                    );
+                }
+            }
+            false
+        }
+        LirNodeKind::Value => {
+            // Object/array literal: no text + children → heap aggregate.
+            if node.text.is_none() && !node.children.is_empty() {
+                return false;
+            }
+            match node.children.len() {
+                0 => {
+                    let Some(t) = node.text.as_deref() else {
+                        return false;
+                    };
+                    if parse_numeric_literal_value(t).is_some() || matches!(t, "true" | "false") {
+                        return true;
+                    }
+                    // Bare identifier operand: numeric iff its scalar repr is
+                    // numeric AND it is not an array binding. An object/string
+                    // binding (repr `Object`/`String`) is rejected here.
+                    matches!(
+                        repr_table.scalar(func, t),
+                        kali_common::Repr::I64 | kali_common::Repr::F64
+                    ) && !repr_table.is_array_binding(func, t)
+                }
+                1 => {
+                    let t = node.text.as_deref().unwrap_or_default();
+                    if t == "length" {
+                        // `a.length` / `s.length` is a number.
+                        return true;
+                    }
+                    if matches!(
+                        t,
+                        "-" | "+" | "~" | "!" | "prefix++" | "postfix++" | "prefix--" | "postfix--"
+                    ) {
+                        return is_numeric_expr(
+                            nodes,
+                            node.children[0],
+                            repr_table,
+                            func,
+                            depth + 1,
+                        );
+                    }
+                    // `o.field` / `typeof` / `void` / `delete` → not proven numeric.
+                    false
+                }
+                2 => {
+                    let t = node.text.as_deref().unwrap_or_default();
+                    is_numeric_result_binary_operator(t)
+                        && is_numeric_expr(nodes, node.children[0], repr_table, func, depth + 1)
+                        && is_numeric_expr(nodes, node.children[1], repr_table, func, depth + 1)
+                }
+                _ => false,
+            }
+        }
+        _ => false,
+    }
+}
+
+/// Walk the whole program (tracking the enclosing function so identifier-operand
+/// reprs resolve in the right scope) and, for every declarator init and every
+/// reassignment RHS of a promotion `candidate`, drop the name from `numeric_ok`
+/// if that init/RHS is not provably numeric (`is_numeric_expr`).
+#[allow(clippy::too_many_arguments)]
+fn scan_numeric_assignments(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    func: &str,
+    repr_table: &kali_common::ReprTable,
+    candidates: &BTreeMap<String, kali_common::Repr>,
+    seen: &mut HashSet<LirNodeId>,
+    numeric_ok: &mut HashSet<String>,
+) {
+    if !seen.insert(id) {
+        return;
+    }
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return;
+    };
+
+    // Function boundary: descend into the body under the function's own name so
+    // a reassignment's identifier operands resolve in that scope.
+    if let Some((name, _, body_id, _)) = function_shape(nodes, id) {
+        scan_numeric_assignments(
+            nodes, body_id, &name, repr_table, candidates, seen, numeric_ok,
+        );
+        return;
+    }
+
+    // Declarator init (`var`/`let name = init`).
+    if node.kind == LirNodeKind::Instruction && matches!(node.text.as_deref(), Some("let" | "var"))
+    {
+        for declarator_id in &node.children {
+            let Some(declarator) = nodes.get(declarator_id.0 as usize) else {
+                continue;
+            };
+            let Some(name) = declarator.text.as_deref() else {
+                continue;
+            };
+            if candidates.contains_key(name) && numeric_ok.contains(name) {
+                if let Some(&init) = declarator.children.get(1) {
+                    if !is_numeric_expr(nodes, init, repr_table, func, 0) {
+                        numeric_ok.remove(name);
+                    }
+                }
+            }
+        }
+    }
+
+    // Reassignment (`name = rhs`, or a compound `name op= rhs`): its RHS must
+    // also be numeric (a compound over a numeric global stays numeric iff the
+    // RHS is numeric).
+    if node.kind == LirNodeKind::Value
+        && node.children.len() == 2
+        && is_assignment_operator_text(node.text.as_deref().unwrap_or_default())
+    {
+        let lhs = unwrap_transparent_value(nodes, node.children[0]);
+        if let Some(lhs_node) = nodes.get(lhs.0 as usize) {
+            if lhs_node.kind == LirNodeKind::Value && lhs_node.children.is_empty() {
+                if let Some(name) = lhs_node.text.as_deref() {
+                    if candidates.contains_key(name)
+                        && numeric_ok.contains(name)
+                        && !is_numeric_expr(nodes, node.children[1], repr_table, func, 0)
+                    {
+                        numeric_ok.remove(name);
+                    }
+                }
+            }
+        }
+    }
+
+    for child in &node.children {
+        scan_numeric_assignments(
+            nodes, *child, func, repr_table, candidates, seen, numeric_ok,
+        );
+    }
+}
+
+/// Collect every bare identifier name (a childless `Value` node with non-empty
+/// text — an identifier read or an assignment target) in the subtree at `id`.
+/// Over-collection (e.g. numeric-literal texts) is harmless: it only ever
+/// admits MORE names to the promotion set, and a name that is not a module
+/// scalar candidate is ignored by the caller.
+fn collect_bare_identifier_names(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    seen: &mut HashSet<LirNodeId>,
+    out: &mut HashSet<String>,
+) {
+    if !seen.insert(id) {
+        return;
+    }
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return;
+    };
+    if node.kind == LirNodeKind::Value && node.children.is_empty() {
+        if let Some(text) = node.text.as_deref() {
+            if !text.is_empty() {
+                out.insert(text.to_string());
+            }
+        }
+    }
+    for child in &node.children {
+        collect_bare_identifier_names(nodes, *child, seen, out);
+    }
 }
 
 pub(crate) fn collect_array_binding_names(
@@ -1592,6 +2260,26 @@ pub(crate) fn is_binary_operator_text(text: &str) -> bool {
             | "&&="
             | "||="
             | "??="
+    )
+}
+
+/// Unary operator texts a 1-child `Value` node may carry. Used to distinguish a
+/// unary expression (`-g`, `!g`) from a dot/`.length` member access (`o.x`) —
+/// both lower to a 1-child `Value` with a `text`, but only the latter uses `o`
+/// as a heap (object) base (see `collect_member_base_names`).
+pub(crate) fn is_unary_operator_text(text: &str) -> bool {
+    matches!(
+        text,
+        "-" | "+"
+            | "~"
+            | "!"
+            | "void"
+            | "delete"
+            | "typeof"
+            | "prefix++"
+            | "postfix++"
+            | "prefix--"
+            | "postfix--"
     )
 }
 

@@ -49,6 +49,10 @@ impl TypeContext {
         for arg in &expr.args {
             self.resolve_expression(arg);
         }
+        // Spec 4a Task 5: a for-in-key VALUE passed as a call argument is a value
+        // escape — rejected structurally by the default-deny in `resolve_identifier`
+        // (call arguments are resolved as expressions, so a non-materialized key
+        // arrives there and rejects; a materialized direct seeded key does not).
         self.resolve_permission_query_call(expr);
         self.resolve_process_kill_call(expr);
         self.resolve_math_member_call(expr);

@@ -3,9 +3,10 @@
 use crate::Parser;
 use kali_ast::{
     BlockStatement, BreakStatement, CatchClause, ContinueStatement, DebuggerStatement,
-    DoWhileStatement, ExpressionStatement, ForInit, ForOfLefthand, ForOfStatement, ForStatement,
-    IfStatement, ReturnStatement, Statement, SwitchCase, SwitchStatement, ThrowStatement,
-    TryStatement, VariableDeclaration, VariableDeclarator, WhileStatement,
+    DoWhileStatement, ExpressionStatement, ForInLefthand, ForInStatement, ForInit, ForOfLefthand,
+    ForOfStatement, ForStatement, IfStatement, ReturnStatement, Statement, SwitchCase,
+    SwitchStatement, ThrowStatement, TryStatement, VariableDeclaration, VariableDeclarator,
+    WhileStatement,
 };
 use kali_lexer::TokenType;
 use std::boxed::Box;
@@ -87,6 +88,30 @@ impl Parser {
 
         // Advance past the keyword
         let _ = self.stream.advance();
+
+        // Parse the first declarator, then loop over any comma-separated
+        // additional declarators (`var a = 1, b = 2, c;`). Each declarator is a
+        // name plus an optional `= init`; the single trailing semicolon is
+        // consumed once, after the last declarator.
+        let mut declarations = Vec::new();
+        declarations.push(self.parse_variable_declarator()?);
+        while self.stream.accept(TokenType::Comma) {
+            declarations.push(self.parse_variable_declarator()?);
+        }
+
+        // Accept optional semicolon
+        let _ = self.stream.accept(TokenType::Semicolon);
+
+        Some(Statement::VariableDeclaration(VariableDeclaration {
+            kind,
+            declarations,
+        }))
+    }
+
+    /// Parse a single `name` or `name = init` declarator. Shared by every
+    /// comma-separated declarator in a `var`/`let`/`const` statement so the
+    /// block-arrow init special-case applies uniformly to each.
+    fn parse_variable_declarator(&mut self) -> Option<VariableDeclarator> {
         let name_token = self.stream.advance()?;
         let name = name_token.value;
 
@@ -109,13 +134,7 @@ impl Parser {
             None
         };
 
-        // Accept optional semicolon
-        let _ = self.stream.accept(TokenType::Semicolon);
-
-        Some(Statement::VariableDeclaration(VariableDeclaration {
-            kind,
-            declarations: vec![VariableDeclarator { id: name, init }],
-        }))
+        Some(VariableDeclarator { id: name, init })
     }
 
     pub(crate) fn parse_block_statement(&mut self) -> Option<Statement> {
@@ -276,6 +295,34 @@ impl Parser {
                 }));
             }
 
+            // `for (var c in obj) { ... }` — mirrors the `of` arm above, but
+            // produces a `ForInStatement` (enumerate the object's own keys).
+            if init_expr.is_none() && self.stream.current_kind() == Some(&TokenType::In) {
+                let _ = self.stream.advance();
+                let right = self.parse_expression();
+                let _ = self.stream.accept(TokenType::RightParen);
+
+                let body_stmt = self
+                    .parse_statement()
+                    .unwrap_or(Statement::BlockStatement(BlockStatement { body: vec![] }));
+                let body = Box::new(Statement::BlockStatement(Self::wrap_statement_as_block(
+                    body_stmt,
+                )));
+                let _ = self.stream.accept(TokenType::Semicolon);
+
+                return Some(Statement::ForInStatement(ForInStatement {
+                    left: ForInLefthand::VariableDeclaration(VariableDeclaration {
+                        kind,
+                        declarations: vec![VariableDeclarator {
+                            id: name,
+                            init: None,
+                        }],
+                    }),
+                    right,
+                    body,
+                }));
+            }
+
             let _ = self.stream.accept(TokenType::Semicolon);
             let init = Some(ForInit::VariableDeclaration(VariableDeclaration {
                 kind,
@@ -339,6 +386,28 @@ impl Parser {
                 right,
                 body,
                 is_await,
+            }));
+        }
+
+        // `for (c in obj) { ... }` with a pre-declared key binding — mirrors
+        // the expression-form `of` arm above, producing a `ForInStatement`.
+        if self.stream.current_kind() == Some(&TokenType::In) {
+            let _ = self.stream.advance();
+            let right = self.parse_expression();
+            let _ = self.stream.accept(TokenType::RightParen);
+
+            let body_stmt = self
+                .parse_statement()
+                .unwrap_or(Statement::BlockStatement(BlockStatement { body: vec![] }));
+            let body = Box::new(Statement::BlockStatement(Self::wrap_statement_as_block(
+                body_stmt,
+            )));
+            let _ = self.stream.accept(TokenType::Semicolon);
+
+            return Some(Statement::ForInStatement(ForInStatement {
+                left: ForInLefthand::Expression(expr),
+                right,
+                body,
             }));
         }
 

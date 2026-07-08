@@ -11,6 +11,91 @@ pub(crate) fn block_contains_yield_delegation(block: &BlockStatement) -> bool {
     block.body.iter().any(statement_contains_yield_delegation)
 }
 
+/// Extracts the bound identifier from a `for..in` left-hand side, for the
+/// single-declarator `var`/`let`/`const` form (`for (var c in obj)`) AND —
+/// Spec 4a Task 5 R1 — the bare-identifier form (`for (c in obj)`, key
+/// pre-declared). Returns `None` for destructuring / any non-identifier LHS —
+/// fail closed; those binding shapes are not yet reasoned about.
+pub(crate) fn for_in_key_binding_name(left: &ForInLefthand) -> Option<String> {
+    match left {
+        ForInLefthand::VariableDeclaration(decl) if decl.declarations.len() == 1 => {
+            Some(decl.declarations[0].id.clone())
+        }
+        // Spec 4a Task 5 R1: the bare-identifier form `for (c in obj)` (key
+        // pre-declared elsewhere), the shape the capstone's `selectRandom`
+        // uses. Registers the same key provenance as the declaration form.
+        // Destructuring / non-identifier LHS remain fail-closed (`None`).
+        ForInLefthand::Expression(kali_ast::Expression::Identifier(name)) => Some(name.clone()),
+        _ => None,
+    }
+}
+
+/// Collect every plain `<ident> = <ident>` assignment pair reachable inside a
+/// `for..in` loop body, so the resolver can PRE-REGISTER for-in-key aliases
+/// (`last = c`, `y = last`) BEFORE resolving the body. Mirrors codegen's
+/// `for_in_key_alias_names` fixpoint pre-pass: a loop can USE an alias
+/// (`table[last]`) textually BEFORE the `last = c` that defines it (the value
+/// is live from the prior iteration), so a forward, in-order registration
+/// alone would miss it and the Task 6 dynamic-key reject would spuriously fire
+/// on a valid alias (fail-CLOSED, but an over-reject of makeCumulative).
+/// Statement-level assignments cover fasta's `last = c` / `y = last`; an alias
+/// buried in an unwalked expression position stays unregistered and merely
+/// over-rejects (never miscompiles) — the safe direction.
+pub(crate) fn collect_identifier_assignment_pairs(
+    stmt: &Statement,
+    out: &mut Vec<(String, String)>,
+) {
+    fn from_expression(expr: &Expression, out: &mut Vec<(String, String)>) {
+        if let Expression::AssignmentExpression(assign) = expr {
+            if matches!(assign.operator, AssignmentOperator::Assign) {
+                if let (Expression::Identifier(lhs), Expression::Identifier(rhs)) =
+                    (&assign.left, &assign.right)
+                {
+                    out.push((lhs.clone(), rhs.clone()));
+                }
+            }
+        }
+    }
+    match stmt {
+        Statement::ExpressionStatement(e) => from_expression(&e.expression, out),
+        Statement::BlockStatement(b) => {
+            for s in &b.body {
+                collect_identifier_assignment_pairs(s, out);
+            }
+        }
+        Statement::IfStatement(i) => {
+            for s in &i.consequent.body {
+                collect_identifier_assignment_pairs(s, out);
+            }
+            if let Some(alt) = &i.alternate {
+                for s in &alt.body {
+                    collect_identifier_assignment_pairs(s, out);
+                }
+            }
+        }
+        Statement::ForStatement(f) => {
+            for s in &f.body.body {
+                collect_identifier_assignment_pairs(s, out);
+            }
+        }
+        Statement::ForInStatement(f) => collect_identifier_assignment_pairs(&f.body, out),
+        Statement::ForOfStatement(f) => collect_identifier_assignment_pairs(&f.body, out),
+        Statement::WhileStatement(w) => {
+            for s in &w.body.body {
+                collect_identifier_assignment_pairs(s, out);
+            }
+        }
+        Statement::DoWhileStatement(d) => {
+            for s in &d.body.body {
+                collect_identifier_assignment_pairs(s, out);
+            }
+        }
+        Statement::LabeledStatement(l) => collect_identifier_assignment_pairs(&l.body, out),
+        Statement::WithStatement(w) => collect_identifier_assignment_pairs(&w.body, out),
+        _ => {}
+    }
+}
+
 pub(crate) fn statement_contains_yield_delegation(statement: &Statement) -> bool {
     match statement {
         Statement::ExpressionStatement(expression) => {
@@ -325,7 +410,9 @@ impl TypeContext {
     pub(crate) fn resolve_statement(&mut self, statement: &Statement) {
         match statement {
             Statement::ExpressionStatement(ExpressionStatement { expression }) => {
-                self.resolve_expression(expression)
+                // Statement position: the value is discarded, so an alias-copy
+                // `last = c` is a safe ordinal-domain propagation (suppressed).
+                self.resolve_statement_position_expression(expression)
             }
             Statement::BreakStatement(BreakStatement { .. }) => {}
             Statement::ContinueStatement(ContinueStatement { .. }) => {}
@@ -335,6 +422,10 @@ impl TypeContext {
             }
             Statement::ReturnStatement(ReturnStatement { argument }) => {
                 if let Some(argument) = argument {
+                    // Spec 4a Task 5: `return d` for a non-materialized for-in-key
+                    // value is rejected structurally by the default-deny in
+                    // `resolve_identifier` (the argument is resolved as a value);
+                    // a materialized direct key (`return c`, repr `String`) is not.
                     self.resolve_expression(argument);
                 }
             }
@@ -346,7 +437,14 @@ impl TypeContext {
                 consequent,
                 alternate,
             }) => {
-                self.resolve_expression(test);
+                // Spec 4a Task 5 allowlist: an `if` condition is a PROVEN-SAFE
+                // truthiness position for a bare for-in-key value (`if (last)`,
+                // Task 4's `>= 0` lowering) — resolve via the safe-position path
+                // so the default-deny value-escape reject is suppressed for a
+                // bare key. A complex test (`if (r < table[c])`, `if (id(c))`)
+                // resolves normally: the index stays accepted, a nested escape
+                // still rejects.
+                self.resolve_forin_key_safe_position(test);
                 self.resolve_block_statement(consequent);
                 if let Some(alternate) = alternate {
                     self.resolve_block_statement(alternate);
@@ -397,6 +495,10 @@ impl TypeContext {
                 }
                 if let Some(test) = test {
                     self.resolve_expression(test);
+                    // H2: a for-in-key/alias `for (; last;)` condition lowers via
+                    // default `!= 0` truthiness (the `>= 0` sentinel path is
+                    // `if`-only) — reject fail-closed.
+                    self.reject_forin_key_test_operand(test, "for-loop condition");
                 }
                 if let Some(update) = update {
                     self.resolve_expression(update);
@@ -410,9 +512,65 @@ impl TypeContext {
                     ForInLefthand::VariableDeclaration(decl) => {
                         self.resolve_variable_declaration(decl)
                     }
-                    ForInLefthand::Expression(expr) => self.resolve_expression(expr),
+                    // The bare-form key `for (c in obj)` LHS is a binding target,
+                    // not a value read (and is resolved before the key is
+                    // registered) — resolve via the safe-position path so a
+                    // same-named already-registered key is never mis-rejected.
+                    ForInLefthand::Expression(expr) => self.resolve_forin_key_safe_position(expr),
                 }
                 self.resolve_expression(right);
+                // Spec 4a Task 2: tag the key binding with the enumerated
+                // object's shape when known (dormant provenance registry —
+                // unconsumed until Task 3+). Fail-closed: only a `var`/`let`/
+                // `const` single-declarator LHS and a bare-identifier RHS
+                // proven `Repr::Object(shape)` register anything.
+                // Spec 4a Task 6 fail-closed gate: `for..in` only lowers over an
+                // object with a compile-time-known fixed shape. A `None` shape
+                // (an array, a non-object, or an unproven/polymorphic base) has
+                // no field count to count against and no ordinal-to-slot map —
+                // reject rather than miscompile. This is the types-side twin of
+                // codegen's `emit_for_in` shape guard; both fail closed on the
+                // same set. The accept lanes all enumerate a bare-identifier RHS
+                // proven `Repr::Object(shape)` (register below), so this never
+                // over-rejects them.
+                match self.object_shape_of_expression(right) {
+                    Some(shape) => {
+                        if let Some(key_name) = for_in_key_binding_name(left) {
+                            self.register_for_in_key(&key_name, shape);
+                            // Pre-register transitive for-in-key aliases
+                            // (`last = c`, `y = last`) so a computed access
+                            // `table[last]` used BEFORE its defining assignment
+                            // (value live from the prior iteration) still
+                            // resolves as a key rather than tripping the Task 6
+                            // dynamic-key reject. Fixpoint over the body's
+                            // identifier-assignment pairs — the types-side twin
+                            // of codegen's `for_in_key_alias_names`.
+                            let mut pairs = Vec::new();
+                            collect_identifier_assignment_pairs(body, &mut pairs);
+                            let mut registered = std::collections::HashSet::new();
+                            registered.insert(key_name);
+                            loop {
+                                let mut changed = false;
+                                for (lhs, rhs) in &pairs {
+                                    if registered.contains(rhs) && !registered.contains(lhs) {
+                                        self.register_for_in_key(lhs, shape);
+                                        registered.insert(lhs.clone());
+                                        changed = true;
+                                    }
+                                }
+                                if !changed {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    None => {
+                        self.diagnostics.push(Diagnostic::error(
+                            e5::FEATURE_UNAVAILABLE as u32,
+                            "for..in is only supported over an object with a compile-time-known fixed shape in the current direct-runtime path; iterating an array or a value of unknown shape is unavailable".to_string(),
+                        ));
+                    }
+                }
                 self.resolve_loop_body(body);
                 self.pop_scope();
             }
@@ -450,11 +608,19 @@ impl TypeContext {
             }
             Statement::WhileStatement(WhileStatement { test, body }) => {
                 self.resolve_expression(test);
+                // H2: a for-in-key/alias `while (last)` condition lowers via
+                // default `!= 0` truthiness (the `>= 0` sentinel path is
+                // `if`-only) — reject fail-closed.
+                self.reject_forin_key_test_operand(test, "while-loop condition");
                 self.resolve_block_statement(body);
             }
             Statement::DoWhileStatement(DoWhileStatement { body, test }) => {
                 self.resolve_block_statement(body);
                 self.resolve_expression(test);
+                // H2: a for-in-key/alias `do..while (last)` condition lowers via
+                // default `!= 0` truthiness (the `>= 0` sentinel path is
+                // `if`-only) — reject fail-closed.
+                self.reject_forin_key_test_operand(test, "do-while-loop condition");
             }
             Statement::FunctionDeclaration(FunctionDeclaration {
                 name,
@@ -578,7 +744,12 @@ impl TypeContext {
         }
         for declarator in &declaration.declarations {
             if let Some(init) = &declarator.init {
-                self.resolve_expression(init);
+                // Spec 4a Task 5 allowlist: a bare-key declarator init
+                // (`let d = c`) is an ALIAS-COPY (ordinal domain) — resolve via
+                // the safe-position path (suppresses the default-deny reject for
+                // a bare key; `d` is tainted below). A non-bare init
+                // (`let d = id(c)`) resolves normally → the nested escape rejects.
+                self.resolve_forin_key_safe_position(init);
                 if let Some(scope) = self.scopes.get_mut(&target_scope) {
                     scope
                         .mutable_bindings
@@ -601,6 +772,26 @@ impl TypeContext {
                         self.global_scope
                             .static_string_typed
                             .insert(declarator.id.clone(), true);
+                    }
+                }
+                // Spec 4a Task 5 fail-closed: a declarator-init alias
+                // `let d = c` (RHS carries for-in-key value provenance) marks
+                // `d` as a value copy for the value-escape reject gate ONLY
+                // (never the index/truthiness/materialization lanes). Chains
+                // (`let e = d`) propagate because `is_for_in_key_value` is
+                // transitive. Assignment aliases (`d = c`) register in
+                // `for_in_key_bindings` separately.
+                if let Expression::Identifier(rhs_name) = init {
+                    if self.is_for_in_key_value(rhs_name) {
+                        if let Some(scope) = self.scopes.get_mut(&target_scope) {
+                            scope
+                                .for_in_key_value_bindings
+                                .insert(declarator.id.clone(), true);
+                        } else if self.global_scope.contains(&declarator.id) {
+                            self.global_scope
+                                .for_in_key_value_bindings
+                                .insert(declarator.id.clone(), true);
+                        }
                     }
                 }
                 // Track array-literal bindings for EVERY kind (incl. `var`):

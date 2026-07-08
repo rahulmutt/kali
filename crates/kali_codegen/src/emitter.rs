@@ -103,6 +103,48 @@ pub(crate) struct FunctionEmitter<'a> {
     /// construction time and consulted by `emit_loop` to key `arena_table`
     /// and the `__arena_save_*` locals.
     pub(crate) loop_ordinals: HashMap<LirNodeId, u32>,
+    /// Pre-order ordinal of every `for-in` node in this function's body (see
+    /// `crate::lower::for_in_preorder_ordinals`), resolved once at
+    /// construction time and consulted by `emit_for_in` to find its dedicated
+    /// counter local (`crate::lower::for_in_ord_local_name`). Wholly separate
+    /// from `loop_ordinals`/`arena_table` — never consulted for arena
+    /// placement.
+    pub(crate) for_in_ordinals: HashMap<LirNodeId, u32>,
+    /// `for..in` key binding name → the fixed shape its object enumerates,
+    /// recorded by `emit_for_in` BEFORE it emits the loop body (Spec 4a Task
+    /// 3). The codegen-side mirror of `kali_types`'s `for_in_key_bindings`
+    /// registry: the computed-key access recognizer
+    /// (`computed_forin_object_access`) consults it so `obj[c]` lowers to a
+    /// dynamic field slot only when `c` is a for..in key over `obj`'s shape,
+    /// never a same-named static field. Grow-only within this function's
+    /// emitter (each function gets a fresh emitter, so keys never leak across
+    /// functions).
+    pub(crate) for_in_key_shapes: HashMap<String, kali_common::ShapeId>,
+    /// Per-function structural set of "for-in-key provenance" binding names:
+    /// every `for..in` loop key declared in this function, plus every binding
+    /// aliased directly from such a key (`last = c`) — the Spec 4a Task 4
+    /// null-sentinel alias family. Computed ONCE up front (unlike
+    /// `for_in_key_shapes`, which is populated during emission) so the
+    /// `var last = null` init — emitted BEFORE the loop — already recognizes
+    /// `last`. The null-sentinel (`-1`) store and the truthiness (`>= 0`)
+    /// lowering key off this set. Structural twin of the types-side `for..in`
+    /// key + `last = c` provenance propagation (mirror binding provenance, not
+    /// repr — the Spec-3 lesson).
+    pub(crate) for_in_key_aliases: HashSet<String>,
+    /// Spec 4a Task 5: per-for-in-key handle-table base locals. `name -> local`
+    /// where `local` holds the i64 base pointer of an `N*8`-byte table of
+    /// interned field-name string handles (slot `j` = the interned handle of the
+    /// shape's `j`th field), bump-allocated ONCE in the loop preheader
+    /// (`emit_key_handle_table`). A for-in key (or alias) emitted in a
+    /// STRING-VALUE context materializes its field-name string by loading
+    /// `base + ord*8` from this table instead of yielding the raw ordinal. The
+    /// interned handles are compile-time data-segment offsets, so the table only
+    /// stores immutable `i64` handle values — the strings NEVER dangle.
+    /// Registered for the loop key AND its aliases (they enumerate the same
+    /// shape, so one table serves all); materialization is additionally gated on
+    /// the name's scalar repr being `String`, so an alias used only as an ordinal
+    /// (`table[last]`) is never wrongly materialized.
+    pub(crate) for_in_key_handle_tables: HashMap<String, u32>,
     /// Stack of currently-open loop arenas (innermost last) — see
     /// `emitter::ArenaFrame`.
     pub(crate) arena_frames: Vec<ArenaFrame>,
@@ -113,6 +155,12 @@ pub(crate) struct FunctionEmitter<'a> {
     /// ALL top-level binding names (const, let, var), used to gate reads of
     /// module bindings that are not inlinable pure consts.
     pub(crate) module_binding_names: &'a BTreeSet<String>,
+    /// Module-scope mutable SCALAR (`var`/`let` numeric) bindings promoted to
+    /// persistent mutable WASM globals: `name -> (global_index, repr)`. A read
+    /// of such a name (from a function OR module scope) lowers to `GlobalGet`; a
+    /// write to `GlobalSet`; the declarator init in `_start` stores through
+    /// `GlobalSet`. See `kali_codegen::lower::collect_module_scalar_globals`.
+    pub(crate) module_global_slots: &'a BTreeMap<String, (u32, kali_common::Repr)>,
 }
 
 impl<'a> FunctionEmitter<'a> {
@@ -139,8 +187,11 @@ impl<'a> FunctionEmitter<'a> {
         body: LirNodeId,
         module_const_inits: &'a BTreeMap<String, LirNodeId>,
         module_binding_names: &'a BTreeSet<String>,
+        module_global_slots: &'a BTreeMap<String, (u32, kali_common::Repr)>,
     ) -> Self {
         let loop_ordinals = crate::lower::loop_preorder_ordinals(&program.nodes, body);
+        let for_in_ordinals = crate::lower::for_in_preorder_ordinals(&program.nodes, body);
+        let for_in_key_aliases = crate::lower::for_in_key_alias_names(&program.nodes, body);
         let mut locals = BTreeMap::new();
         for (idx, name) in params.iter().enumerate() {
             locals.insert(name.clone(), idx as u32);
@@ -190,9 +241,14 @@ impl<'a> FunctionEmitter<'a> {
             control_frames: Vec::new(),
             loop_frames: Vec::new(),
             loop_ordinals,
+            for_in_ordinals,
+            for_in_key_shapes: HashMap::new(),
+            for_in_key_aliases,
+            for_in_key_handle_tables: HashMap::new(),
             arena_frames: Vec::new(),
             module_const_inits,
             module_binding_names,
+            module_global_slots,
         }
     }
 

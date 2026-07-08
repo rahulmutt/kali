@@ -157,6 +157,15 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// True when `id` resolves (through transparent wrappers) to a `null` or
+    /// `undefined` literal. Used by the Spec 4a Task 4 null-sentinel store: a
+    /// nullish init/reassignment of a for-in-key alias stores `-1`, not `0`.
+    pub(crate) fn is_null_or_undefined_literal(&self, id: LirNodeId) -> bool {
+        let node = self.node(self.unwrap_transparent(id));
+        node.kind == LirNodeKind::Literal
+            && matches!(node.text.as_deref(), Some("null") | Some("undefined"))
+    }
+
     pub(crate) fn assignment_target_name(&self, _node: &LirNode, id: LirNodeId) -> Option<String> {
         let mut current = id;
         loop {
@@ -303,6 +312,21 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
 
+        // Computed for-in-key object write `obj[c] = v` over a uniform-repr
+        // fixed shape (Spec 4a Task 3): a dynamic headerless field slot store
+        // at `base + c*8`, offset 0. Must precede the array-write path below —
+        // both lower as a 2-child computed member, but here the base is an
+        // object (never an array binding) and the index is the loop ordinal.
+        // The static-field store arm above only matches the 1-child dot form,
+        // so the computed bracket form falls through to here.
+        if op == "=" {
+            let left_node = self.node(left).clone();
+            if let Some((base, index, elem)) = self.computed_forin_object_access(&left_node) {
+                self.emit_object_field_write_dynamic(function, base, index, right, elem);
+                return true;
+            }
+        }
+
         // Dynamic array element write: `a[i] = v` where `a` is a linear-memory
         // array. Literal/identifier indices lower to a 1-child member node with
         // the index in `text`; computed indices (`a[r - 1] = v`) lower to a
@@ -401,6 +425,23 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
 
+        // Compound-assign to a computed for-in-key object target `obj[c] op= v`
+        // (Spec 4a Task 4): decompose to `obj[c] = (obj[c] op v)`, routing BOTH
+        // the read of `obj[c]` and the write through Task 3's dynamic slot lane.
+        // The types gate admits exactly the same accept condition
+        // (`forin_key_member_target_is_uniform`) as `obj[c] = v`. Must precede
+        // the `assignment_target_name` fallthrough below, which would otherwise
+        // reject this member target fail-closed (E5506).
+        if matches!(op, "+=" | "-=" | "*=" | "/=" | "%=" | "**=") {
+            let left_node = self.node(left).clone();
+            if let Some((base, index, elem)) = self.computed_forin_object_access(&left_node) {
+                self.emit_object_field_compound_assign_dynamic(
+                    function, base, index, right, elem, op,
+                );
+                return true;
+            }
+        }
+
         let Some(name) = self.assignment_target_name(node, left) else {
             if op == "=" {
                 return false;
@@ -416,6 +457,17 @@ impl<'a> FunctionEmitter<'a> {
             function.instruction(&Instruction::I64Const(0));
             return true;
         };
+        // Module-scope mutable scalar promoted to a persistent global: route the
+        // write through `GlobalSet` (from a function OR module scope). Gated on
+        // the target NOT being a local/param FIRST — a same-named local `var`/
+        // `let` or param shadows the module global and must be written to its own
+        // slot (JS lexical scoping), so this yields to the local lookup below.
+        // (In `_start` a promoted name is never a local, so this still fires.)
+        if !self.locals.contains_key(&name) {
+            if let Some(&(global_index, repr)) = self.module_global_slots.get(&name) {
+                return self.emit_module_global_assignment(function, op, global_index, repr, right);
+            }
+        }
         let Some(index) = self.locals.get(&name).copied() else {
             if op == "=" {
                 return false;
@@ -440,6 +492,36 @@ impl<'a> FunctionEmitter<'a> {
 
         match op {
             "=" => {
+                // Spec 4a Task 4 null-sentinel: reassigning a for-in-key alias
+                // to null/undefined stores `-1`, matching the declarator
+                // null-init, so a later `if (alias)` (lowered to `>= 0`) reads
+                // false. Recognized structurally via `for_in_key_aliases`.
+                if self.for_in_key_aliases.contains(&name)
+                    && self.is_null_or_undefined_literal(right)
+                {
+                    function.instruction(&Instruction::I64Const(-1));
+                    function.instruction(&Instruction::LocalTee(index));
+                    return true;
+                }
+                // Spec 4a Task 5: an alias assignment `last = c` (target and RHS
+                // both for-in-key provenance) copies the raw ORDINAL, never the
+                // materialized string handle — the alias's local must stay an
+                // ordinal so `table[last]` indexes correctly, even when the RHS
+                // key is ALSO used as a string elsewhere (so its scalar repr is
+                // `String` and the generic identifier emit would materialize a
+                // handle). Reads the RHS ordinal local directly, bypassing the
+                // string-materialization arm in `emit_value`.
+                if self.for_in_key_aliases.contains(&name) {
+                    if let Some(rhs_name) = self.bare_identifier_name(right) {
+                        if self.for_in_key_shapes.contains_key(&rhs_name) {
+                            if let Some(&ord_local) = self.locals.get(&rhs_name) {
+                                function.instruction(&Instruction::LocalGet(ord_local));
+                                function.instruction(&Instruction::LocalTee(index));
+                                return true;
+                            }
+                        }
+                    }
+                }
                 // `a = new Array(n)`: same routing as the declarator path
                 // (control_flow.rs:596-610) — the allocation needs a stable
                 // handle in the local, and the binding (re)registers as an
@@ -608,6 +690,103 @@ impl<'a> FunctionEmitter<'a> {
                 true
             }
             _ => false,
+        }
+    }
+
+    /// Assignment (`=` or an arithmetic compound `+= -= *= /= %= **=`) to a
+    /// module-scope mutable scalar promoted to a persistent WASM global. Plain
+    /// `=` emits `<rhs> ; GlobalSet`; a compound decomposes to
+    /// `GlobalGet ; <rhs> ; op ; GlobalSet`. Both leave the stored value on the
+    /// stack (`GlobalGet` after the set), so the assignment EXPRESSION result is
+    /// available — matching the `LocalTee` contract of the local path.
+    ///
+    /// The nullish/logical compounds (`??= &&= ||=`) and `%= **=` on an f64
+    /// global are out of scope for this slice — rejected fail-closed (E5506)
+    /// rather than mis-lowered.
+    pub(crate) fn emit_module_global_assignment(
+        &mut self,
+        function: &mut Function,
+        op: &str,
+        global_index: u32,
+        repr: kali_common::Repr,
+        right: LirNodeId,
+    ) -> bool {
+        let is_f64 = repr == kali_common::Repr::F64;
+        match op {
+            "=" => {
+                let rhs = self.emit_node(function, right, true);
+                if !rhs.produced {
+                    if is_f64 {
+                        function.instruction(&Instruction::F64Const(0.0.into()));
+                    } else {
+                        function.instruction(&Instruction::I64Const(0));
+                    }
+                } else if is_f64 && !self.is_float_valued(right) {
+                    function.instruction(&Instruction::F64ConvertI64S);
+                }
+                function.instruction(&Instruction::GlobalSet(global_index));
+                function.instruction(&Instruction::GlobalGet(global_index));
+                true
+            }
+            "+=" | "-=" | "*=" | "/=" | "%=" | "**=" => {
+                if is_f64 && matches!(op, "%=" | "**=") {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        format!(
+                            "compound assignment '{op}' on a floating-point module global is unavailable in the current phase"
+                        ),
+                    ));
+                    function.instruction(&Instruction::F64Const(0.0.into()));
+                    return true;
+                }
+                function.instruction(&Instruction::GlobalGet(global_index));
+                let rhs = self.emit_node(function, right, true);
+                if is_f64 {
+                    if !rhs.produced {
+                        function.instruction(&Instruction::F64Const(0.0.into()));
+                    } else if !self.is_float_valued(right) {
+                        function.instruction(&Instruction::F64ConvertI64S);
+                    }
+                    match op {
+                        "+=" => function.instruction(&Instruction::F64Add),
+                        "-=" => function.instruction(&Instruction::F64Sub),
+                        "*=" => function.instruction(&Instruction::F64Mul),
+                        "/=" => function.instruction(&Instruction::F64Div),
+                        _ => unreachable!(),
+                    };
+                } else {
+                    if !rhs.produced {
+                        function.instruction(&Instruction::I64Const(0));
+                    }
+                    match op {
+                        "+=" => function.instruction(&Instruction::I64Add),
+                        "-=" => function.instruction(&Instruction::I64Sub),
+                        "*=" => function.instruction(&Instruction::I64Mul),
+                        "/=" => function.instruction(&Instruction::I64DivS),
+                        "%=" => function.instruction(&Instruction::I64RemS),
+                        "**=" => function.instruction(&Instruction::Call(MATH_POW_IMPORT_INDEX)),
+                        _ => unreachable!(),
+                    };
+                }
+                function.instruction(&Instruction::GlobalSet(global_index));
+                function.instruction(&Instruction::GlobalGet(global_index));
+                true
+            }
+            // `??= &&= ||=` on a module global: out of scope, fail-closed.
+            _ => {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    format!(
+                        "assignment operator '{op}' on a module global is unavailable in the current phase"
+                    ),
+                ));
+                if is_f64 {
+                    function.instruction(&Instruction::F64Const(0.0.into()));
+                } else {
+                    function.instruction(&Instruction::I64Const(0));
+                }
+                true
+            }
         }
     }
 }

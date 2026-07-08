@@ -150,6 +150,18 @@ struct ReprInfer {
     /// where the solved repr says `String` — checked fail-closed in
     /// `emit_table` (see `plain_write_targets` for the assignment-shaped twin).
     merge_nodes: Vec<(usize, Vec<usize>)>,
+    /// Active `for..in` key bindings (Spec 4a Task 3): `(func, key_name,
+    /// base_slot)` pushed while visiting a `for (var key in base)` body,
+    /// popped on exit. Lets `visit_member` recognize a computed read
+    /// `base[key]` as a uniform-shape object FIELD read (not an array element
+    /// read) so its result carries the shape's element repr. The repr_infer
+    /// twin of codegen's `for_in_key_shapes` and the resolve-phase
+    /// `for_in_key_bindings` registry.
+    for_in_key_bases: Vec<(String, String, ObjSlot)>,
+    /// Deferred computed uniform-object reads `base[key]` — `(base_slot,
+    /// result_node)`, wired to the shape's field storage in `resolve_objects`
+    /// so the read result carries the (uniform) field repr.
+    uniform_computed_reads: Vec<(ObjSlot, usize)>,
     /// `(func, name)` for every `return <identifier>;` — the function `func`
     /// returns the bare binding `name`. At `emit_table` time, if `name`'s
     /// element node solves `Repr::String`, the return is a String-element
@@ -250,6 +262,32 @@ impl ReprInfer {
     /// Mark `node` as a direct string seed.
     fn add_string_seed(&mut self, node: usize) {
         self.string_seeds.push(node);
+    }
+
+    /// True when `name` is a currently-active `for..in` key of `func` (its
+    /// enclosing `for (key in base)` body is being visited). Spec 4a Task 5.
+    fn is_active_for_in_key(&self, func: &str, name: &str) -> bool {
+        self.for_in_key_bases
+            .iter()
+            .any(|(f, k, _)| f == func && k == name)
+    }
+
+    /// Spec 4a Task 5: if `expr` is a bare identifier that is an active
+    /// `for..in` key used HERE in a string sink (a `return`, a `console.log`
+    /// argument, or a `+`/equality operand), lift its value axis to `String` by
+    /// seeding its scalar node. This makes `return c` solve `Repr::String`
+    /// (so callers/`console.log(selectRandom(...))` treat the result as a
+    /// string) AND makes codegen's `is_string_valued`/materialization fire on
+    /// the key at that sink. The key's ORDINAL role (`table[c]`) is unaffected:
+    /// the ordinal counter local is `i64` regardless (`wasm_type(String) ==
+    /// I64`) and codegen emits the raw ordinal at index sites.
+    fn seed_for_in_key_string_use(&mut self, func: &str, expr: &Expression) {
+        if let Expression::Identifier(name) = expr {
+            if self.is_active_for_in_key(func, name) {
+                let node = self.scalar_node_for(func, name);
+                self.add_string_seed(node);
+            }
+        }
     }
 
     // ---- node accessors (get-or-create) --------------------------------
@@ -614,6 +652,9 @@ impl ReprInfer {
                             ObjSlot::Return(func.to_string()),
                             arg,
                         );
+                        // Spec 4a Task 5: `return c` where `c` is an active
+                        // for-in key lifts the key (hence the return) to String.
+                        self.seed_for_in_key_string_use(func, arg);
                         let rn = self.visit_expr(func, arg);
                         let ret = self.return_node_for(func);
                         self.add_edge(rn, ret);
@@ -651,8 +692,59 @@ impl ReprInfer {
                 self.visit_block(func, &stmt.body);
             }
             Statement::ForInStatement(stmt) => {
+                // `for (key in obj)` observes EVERY field of `obj` at
+                // runtime (Spec 4a Task 1's counted-loop lowering reads the
+                // object's shape field count) even though it never emits a
+                // `.field` `ObjAccess` of its own — so a base that is
+                // otherwise only ever read via a fold-lane compile-time
+                // literal (never field-accessed, never aliased) must still
+                // be forced onto the materialized runtime-object lane here,
+                // or `kali_codegen`'s `object_shape_of_node` will find no
+                // `Repr::Object` entry for it and fail closed (a "no known
+                // shape" diagnostic) even for a perfectly fixed-shape object
+                // literal. Mirrors `visit_assignment`'s whole-object
+                // reassignment branch, which materializes the same way for
+                // the same reason (observable outside the fold lane).
+                let base_slot = self.member_base_slot(func, &stmt.right);
+                if let Some(base) = &base_slot {
+                    self.obj_materialized.insert(base.clone());
+                }
                 self.visit_expr(func, &stmt.right);
+                // Seed a scalar node for the key binding so it has a stable
+                // identity in the repr graph. Deliberately left on the
+                // default (I64) axis — no float/string seed — so the ORDINAL
+                // itself stays i64 (Spec 4a Task 2); the value read THROUGH it
+                // (`base[key]`) is what carries the field repr (Task 3).
+                let mut pushed_key = false;
+                if let ForInLefthand::VariableDeclaration(decl) = &stmt.left {
+                    for d in &decl.declarations {
+                        let _ = self.scalar_node_for(func, &d.id);
+                    }
+                }
+                // Record the key → base provenance for the loop body so
+                // `base[key]` resolves to a uniform-object field read (Task 3)
+                // and a string USE of the key materializes (Task 5). Supports
+                // BOTH the single-declarator declaration form (`for (var c in
+                // obj)`) and — Task 5 R1 — the bare-identifier Expression form
+                // (`for (c in obj)`, the shape the capstone's `selectRandom`
+                // uses). Destructuring / multi-declarator remain deferred.
+                let key_name = match &stmt.left {
+                    ForInLefthand::VariableDeclaration(decl) if decl.declarations.len() == 1 => {
+                        Some(decl.declarations[0].id.clone())
+                    }
+                    ForInLefthand::Expression(Expression::Identifier(name)) => Some(name.clone()),
+                    _ => None,
+                };
+                if let (Some(key), Some(base)) = (key_name, &base_slot) {
+                    let _ = self.scalar_node_for(func, &key);
+                    self.for_in_key_bases
+                        .push((func.to_string(), key, base.clone()));
+                    pushed_key = true;
+                }
                 self.visit_stmt(func, &stmt.body);
+                if pushed_key {
+                    self.for_in_key_bases.pop();
+                }
             }
             Statement::ForOfStatement(stmt) => {
                 self.visit_expr(func, &stmt.right);
@@ -839,6 +931,12 @@ impl ReprInfer {
             Expression::ParenthesizedExpression(inner) => self.visit_expr(func, &inner.expression),
 
             Expression::BinaryExpression(bin) => {
+                // Spec 4a Task 5: a for-in key as a `+` or equality operand is
+                // used as a string (`c + x`, `c == "a"`), so lift it to String.
+                if matches!(bin.operator.as_str(), "+" | "==" | "!=" | "===" | "!==") {
+                    self.seed_for_in_key_string_use(func, &bin.left);
+                    self.seed_for_in_key_string_use(func, &bin.right);
+                }
                 let left = self.visit_expr(func, &bin.left);
                 let right = self.visit_expr(func, &bin.right);
                 let result = self.new_node();
@@ -1072,6 +1170,25 @@ impl ReprInfer {
         // Computed access `a[i]` → array element read.
         if let Some(index) = &member.computed_index {
             self.visit_expr(func, index); // index untouched (i64).
+                                          // Task 3: a computed read `base[key]` where `key` is the active
+                                          // `for..in` key over `base` is a uniform-object FIELD read, not an
+                                          // array element read. Its result carries the shape's (uniform)
+                                          // field repr — wired against field storage in `resolve_objects`.
+            if let (Expression::Identifier(base_name), Expression::Identifier(key_name)) =
+                (&member.object, index.as_ref())
+            {
+                let base = ObjSlot::Binding(func.to_string(), base_name.clone());
+                if self
+                    .for_in_key_bases
+                    .iter()
+                    .any(|(f, k, b)| f == func && k == key_name && *b == base)
+                {
+                    let result = self.new_node();
+                    self.obj_materialized.insert(base.clone());
+                    self.uniform_computed_reads.push((base, result));
+                    return result;
+                }
+            }
             if let Expression::Identifier(name) = &member.object {
                 let elem = self.array_elem_node_for(func, name);
                 let result = self.new_node();
@@ -1265,6 +1382,15 @@ impl ReprInfer {
                         self.new_node()
                     }
                     _ => {
+                        // Spec 4a Task 5: `console.log(c)` (and siblings) print
+                        // the for-in key as a string — lift it to String so
+                        // codegen materializes the field-name handle instead of
+                        // printing the raw ordinal.
+                        if is_console_object(&member.object) {
+                            for arg in &call.args {
+                                self.seed_for_in_key_string_use(func, arg);
+                            }
+                        }
                         self.visit_expr(func, &member.object);
                         for arg in &call.args {
                             self.visit_expr(func, arg);
@@ -1528,6 +1654,23 @@ impl ReprInfer {
                 // into a field must not prove the read result `Repr::String`
                 // (Finding 2).
                 self.add_edge_float_only(field_node, access.other);
+            }
+        }
+
+        // 3b. Wire deferred computed uniform-object reads `base[key]` (Task
+        //     3) through EVERY field's storage: the read result is float iff
+        //     the (uniform) field repr is float. A non-object base has no
+        //     field list — left untouched (fold lane / existing behavior).
+        //     `add_edge_float_only` keeps object fields on the I64/F64 axis
+        //     (no string can prove through a field read).
+        let uniform_reads = std::mem::take(&mut self.uniform_computed_reads);
+        for (base, result) in uniform_reads {
+            let Some(names) = fields_of.get(&base).cloned() else {
+                continue;
+            };
+            for name in &names {
+                let field_node = self.obj_field_node_for(&base, name);
+                self.add_edge_float_only(field_node, result);
             }
         }
 
@@ -2149,6 +2292,10 @@ fn is_float_literal(n: f64) -> bool {
 /// True when `expr` is the `Math` object (`Math` identifier).
 fn is_math_object(expr: &Expression) -> bool {
     matches!(expr, Expression::Identifier(name) if name == "Math")
+}
+
+fn is_console_object(expr: &Expression) -> bool {
+    matches!(expr, Expression::Identifier(name) if name == "console")
 }
 
 /// Extract the constructor identifier name from a `new`-expression callee,
