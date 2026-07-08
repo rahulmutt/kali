@@ -68,12 +68,14 @@ impl<'a> FunctionEmitter<'a> {
         let op = node.text.as_deref().unwrap_or_default();
         let arg = node.children[0];
         // A string operand under a numeric/logical unary op has no correct
-        // lowering: `-`/`+`/`~` would arithmetic on a raw handle; `!` truthiness
+        // lowering: `-`/`~` would arithmetic on a raw handle; `!` truthiness
         // is wrong for a fresh concat handle (empty-string handle is non-zero).
-        // Reject fail-closed. `-`/`+`/`~` reject any string; `!` rejects only a
+        // Reject fail-closed. `-`/`~` reject any string; `!` rejects only a
         // tainted (runtime-concat) string (an interned literal keeps today's
-        // behavior, matching the base compiler).
-        if (matches!(op, "-" | "+" | "~") && self.is_string_valued(arg))
+        // behavior, matching the base compiler). `+` is EXCLUDED here (fasta
+        // Spec 5 Task 6): a string operand under unary `+` takes the inline
+        // decimal-parse coercion in the `"+"` arm below instead of rejecting.
+        if (matches!(op, "-" | "~") && self.is_string_valued(arg))
             || (op == "!" && self.is_runtime_concat_string(arg))
         {
             self.diagnostics.push(Diagnostic::error(
@@ -110,7 +112,12 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::Scalar,
                 }
             }
-            "+" => self.emit_node(function, arg, true),
+            "+" => {
+                if self.is_string_valued(arg) {
+                    return self.emit_string_to_i64_parse(function, arg);
+                }
+                self.emit_node(function, arg, true)
+            }
             "~" => {
                 function.instruction(&Instruction::I64Const(0));
                 let _ = self.emit_node(function, arg, true);
@@ -259,6 +266,68 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             op if op.parse::<usize>().is_ok() || op.parse::<isize>().is_ok() => {
+                // `process.argv[<int literal>]` (Spec 5 Task 5): read the arg's
+                // UTF-8 bytes into a persistent global buffer via `args_get` and
+                // encode a runtime string handle. Must precede the static-slice
+                // and placeholder fall-throughs below, none of which apply to a
+                // host argv element.
+                if let Some(index) = self.is_process_argv_element(node) {
+                    let Some(args_get) = self.args_get_import_index else {
+                        // Probe/emit desync — the conditional `args_get` import
+                        // was not declared. Fail closed rather than emit a bad
+                        // call (the program-wide `program_uses_args_get` probe is
+                        // kept a superset of this recognizer to prevent this).
+                        self.diagnostics.push(Diagnostic::error(
+                            e5::FEATURE_UNAVAILABLE as u32,
+                            "process.argv element read requires the args_get import".to_string(),
+                        ));
+                        function.instruction(&Instruction::I64Const(0));
+                        return EmittedValue {
+                            produced: true,
+                            shape: ValueShape::Scalar,
+                        };
+                    };
+                    // Buffer capacity: args longer than this trap in `args_get`
+                    // (host `write_guest_bytes` errors on overflow); ample for
+                    // CLI ints/paths.
+                    const ARGV_BUF_CAP: i32 = 256;
+                    let buf_local = self.locals[&crate::lower::argv_buf_local_name()];
+                    let len_local = self.locals[&crate::lower::argv_len_local_name()];
+                    // buf = __alloc_global(CAP) — a NEVER-reset (g4/g5/g6) buffer,
+                    // so the string handle it backs can safely outlive any arena
+                    // reset.
+                    function.instruction(&Instruction::I32Const(ARGV_BUF_CAP));
+                    function.instruction(&Instruction::Call(self.alloc_global_fn_index()));
+                    function.instruction(&Instruction::LocalSet(buf_local));
+                    // len = args_get(index, buf, CAP)
+                    function.instruction(&Instruction::I32Const(index as i32));
+                    function.instruction(&Instruction::LocalGet(buf_local));
+                    function.instruction(&Instruction::I32Const(ARGV_BUF_CAP));
+                    function.instruction(&Instruction::Call(args_get));
+                    // clamp len to >= 0 (out-of-range index returns -1 -> empty
+                    // string handle).
+                    function.instruction(&Instruction::LocalTee(len_local));
+                    function.instruction(&Instruction::I32Const(0));
+                    function.instruction(&Instruction::I32LtS);
+                    function.instruction(&Instruction::If(BlockType::Empty));
+                    function.instruction(&Instruction::I32Const(0));
+                    function.instruction(&Instruction::LocalSet(len_local));
+                    function.instruction(&Instruction::End);
+                    // handle = STRING_HANDLE_TAG | (buf << 32) | len
+                    function.instruction(&Instruction::I64Const(crate::STRING_HANDLE_TAG as i64));
+                    function.instruction(&Instruction::LocalGet(buf_local));
+                    function.instruction(&Instruction::I64ExtendI32U);
+                    function.instruction(&Instruction::I64Const(32));
+                    function.instruction(&Instruction::I64Shl);
+                    function.instruction(&Instruction::I64Or);
+                    function.instruction(&Instruction::LocalGet(len_local));
+                    function.instruction(&Instruction::I64ExtendI32U);
+                    function.instruction(&Instruction::I64Or);
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::String,
+                    };
+                }
                 if let Ok(index) = op.parse::<usize>() {
                     if let Some(element) = self.resolve_static_array_slice_element(arg, index) {
                         return self.emit_node(function, element, true);
@@ -438,6 +507,85 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// Inline `Math.trunc(Number(handle))` for a decimal-integer string:
+    /// acc = 0; for p in [offset, offset+len): acc = acc*10 + (byte(p) - '0').
+    /// Non-digit bytes are not expected for the argv-integer path; a leading
+    /// '-' is not handled (fasta's N is non-negative). Produces i64.
+    ///
+    /// Consumes the tagged runtime-string handle `arg` emits (the SAME
+    /// `STRING_HANDLE_TAG | offset<<32 | len` encoding both `process.argv[i]`
+    /// element reads (Task 5) and interned string literals use), so this is
+    /// the codegen counterpart of unary `+` accepting a string operand:
+    /// `emit_unary`'s `"+"` arm calls this only when `is_string_valued(arg)`
+    /// is true, so a non-string/non-numeric operand never reaches here.
+    fn emit_string_to_i64_parse(
+        &mut self,
+        function: &mut Function,
+        arg: LirNodeId,
+    ) -> EmittedValue {
+        let ptr = self.locals[&crate::lower::coerce_ptr_local_name()];
+        let end = self.locals[&crate::lower::coerce_end_local_name()];
+        let acc = self.locals[&crate::lower::coerce_acc_local_name()];
+        // handle on stack -> consume into `acc` (reused as scratch, then zeroed
+        // as the accumulator). Using LocalSet (not Tee) so no handle is left
+        // dangling on the operand stack.
+        let produced = self.emit_node(function, arg, true);
+        if !produced.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
+        function.instruction(&Instruction::LocalSet(acc)); // acc = handle
+                                                           // ptr = (acc >> 32) & 0x7FFF_FFFF   (byte offset)
+        function.instruction(&Instruction::LocalGet(acc));
+        function.instruction(&Instruction::I64Const(32));
+        function.instruction(&Instruction::I64ShrU);
+        function.instruction(&Instruction::I64Const(0x7FFF_FFFF));
+        function.instruction(&Instruction::I64And);
+        function.instruction(&Instruction::LocalSet(ptr));
+        // end = ptr + (acc & 0xFFFF_FFFF)   (offset + len)
+        function.instruction(&Instruction::LocalGet(ptr));
+        function.instruction(&Instruction::LocalGet(acc));
+        function.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+        function.instruction(&Instruction::I64And);
+        function.instruction(&Instruction::I64Add);
+        function.instruction(&Instruction::LocalSet(end));
+        // acc = 0  (now the running accumulator)
+        function.instruction(&Instruction::I64Const(0));
+        function.instruction(&Instruction::LocalSet(acc));
+        // while (ptr < end) { acc = acc*10 + (load8_u(ptr) - 48); ptr += 1; }
+        function.instruction(&Instruction::Block(BlockType::Empty));
+        function.instruction(&Instruction::Loop(BlockType::Empty));
+        function.instruction(&Instruction::LocalGet(ptr));
+        function.instruction(&Instruction::LocalGet(end));
+        function.instruction(&Instruction::I64GeS);
+        function.instruction(&Instruction::BrIf(1)); // break out of block
+        function.instruction(&Instruction::LocalGet(acc));
+        function.instruction(&Instruction::I64Const(10));
+        function.instruction(&Instruction::I64Mul);
+        function.instruction(&Instruction::LocalGet(ptr));
+        function.instruction(&Instruction::I32WrapI64);
+        function.instruction(&Instruction::I64Load8U(MemArg {
+            offset: 0,
+            align: 0,
+            memory_index: 0,
+        }));
+        function.instruction(&Instruction::I64Const(48));
+        function.instruction(&Instruction::I64Sub);
+        function.instruction(&Instruction::I64Add);
+        function.instruction(&Instruction::LocalSet(acc));
+        function.instruction(&Instruction::LocalGet(ptr));
+        function.instruction(&Instruction::I64Const(1));
+        function.instruction(&Instruction::I64Add);
+        function.instruction(&Instruction::LocalSet(ptr));
+        function.instruction(&Instruction::Br(0));
+        function.instruction(&Instruction::End); // loop
+        function.instruction(&Instruction::End); // block
+        function.instruction(&Instruction::LocalGet(acc));
+        EmittedValue {
+            produced: true,
+            shape: ValueShape::Scalar,
+        }
+    }
+
     /// True when `field_value` — a field found via the compile-time fold lane
     /// (`object_literal_field`) — is an object reference that emitting as a
     /// VALUE would silently mislower to `emit_aggregate_literal`'s drop-only
@@ -574,6 +722,13 @@ impl<'a> FunctionEmitter<'a> {
         // Runtime `a.join(sep)` produces a string (Spec 3). Same recognizer the
         // emitter dispatch routes with, so the oracle and emitter agree.
         if self.runtime_join_call_parts(self.node(id)).is_some() {
+            return true;
+        }
+        // `process.argv[<int>]` reads a runtime string handle (Spec 5 Task 5).
+        // Same recognizer the numeric-index emit arm keys on, so `.length` /
+        // console.log / `+`-coercion classify it as a string exactly where the
+        // emit produces one.
+        if self.is_process_argv_element(self.node(id)).is_some() {
             return true;
         }
         let node = self.node(id);

@@ -35,6 +35,55 @@ use kali_common::{Repr, ReprTable, UnionFind};
 /// Synthetic function name for top-level statements, matching codegen's entry.
 const TOP_LEVEL: &str = "_start";
 
+/// `process.argv[<int literal>]` element read (Spec 5 Task 5). Structural
+/// mirror of `TypeContext::is_process_argv_element_expr` / codegen's
+/// `is_process_argv_element`, over a `MemberExpression` so `visit_member` can
+/// register its result as a runtime-string node. Only a static non-negative
+/// integer index qualifies (codegen emits `0` for anything else).
+fn member_is_process_argv_element(member: &kali_ast::MemberExpression) -> bool {
+    let Some(index) = &member.computed_index else {
+        return false;
+    };
+    expr_is_nonneg_int_literal(index) && expr_is_process_argv(&member.object)
+}
+
+fn expr_is_process_argv(expr: &Expression) -> bool {
+    let Expression::MemberExpression(member) = expr else {
+        return false;
+    };
+    if member.computed_index.is_some() || member.property.as_str() != "argv" {
+        return false;
+    }
+    expr_is_process_root(&member.object)
+}
+
+fn expr_is_process_root(expr: &Expression) -> bool {
+    match expr {
+        Expression::Identifier(name) => name == "process",
+        Expression::MemberExpression(member) => {
+            member.computed_index.is_none()
+                && member.property.as_str() == "process"
+                && matches!(&member.object, Expression::Identifier(root) if root == "globalThis")
+        }
+        _ => false,
+    }
+}
+
+/// Mirror of `TypeContext::expression_is_nonneg_int_literal`
+/// (`resolve/expression.rs`) — bounded to `n <= 9007199254740991.0` (2^53 - 1,
+/// `Number.MAX_SAFE_INTEGER`) rather than `i64::MAX as f64` so the accepted
+/// set exactly round-trips through codegen's `str::parse::<i64>()`
+/// (`is_process_argv_element`) with no residual boundary mismatch; see the
+/// comment on the `resolve/expression.rs` twin for the full rationale. Keep
+/// both copies in lockstep.
+fn expr_is_nonneg_int_literal(expr: &Expression) -> bool {
+    matches!(
+        expr,
+        Expression::Literal(LiteralValue::Number(n))
+            if n.fract() == 0.0 && *n >= 0.0 && *n <= 9007199254740991.0
+    )
+}
+
 /// A deferred interprocedural call constraint, resolved after every function
 /// body has been walked (so all param/return/element nodes already exist).
 struct CallEdge {
@@ -158,6 +207,17 @@ struct ReprInfer {
     /// twin of codegen's `for_in_key_shapes` and the resolve-phase
     /// `for_in_key_bindings` registry.
     for_in_key_bases: Vec<(String, String, ObjSlot)>,
+    /// Grow-only `(func, key_name)` for EVERY `for..in` key ever seen in
+    /// `func` — populated when a key is pushed onto `for_in_key_bases` but
+    /// NEVER removed (unlike the lexical stack). Mirrors the resolve-phase
+    /// grow-only `for_in_key_bindings` registry and codegen's grow-only
+    /// `for_in_key_handle_tables`: a key's String-materialization provenance
+    /// persists past the loop body, so a key stored into an array element
+    /// AFTER the loop exits (the fasta `fastaRandom` shape: `for (c in t) ...
+    /// break; line[i] = c`) is still recognized as a string sink. The lexical
+    /// `for_in_key_bases` stack is kept separately for the `base[key]`
+    /// uniform-object read gate, which MUST stay lexically scoped.
+    for_in_key_names: BTreeSet<(String, String)>,
     /// Deferred computed uniform-object reads `base[key]` — `(base_slot,
     /// result_node)`, wired to the shape's field storage in `resolve_objects`
     /// so the read result carries the (uniform) field repr.
@@ -284,6 +344,31 @@ impl ReprInfer {
     fn seed_for_in_key_string_use(&mut self, func: &str, expr: &Expression) {
         if let Expression::Identifier(name) = expr {
             if self.is_active_for_in_key(func, name) {
+                let node = self.scalar_node_for(func, name);
+                self.add_string_seed(node);
+            }
+        }
+    }
+
+    /// Spec 5 Task 2: like `seed_for_in_key_string_use`, but recognizes a
+    /// `for..in` key by its PERSISTENT (grow-only) provenance rather than the
+    /// lexical active-key stack. The fasta `fastaRandom` shape stores the key
+    /// into an array element AFTER the `for..in` exits via `break`
+    /// (`for (c in t) { ... break; } line[i] = c;`), so the store site is
+    /// OUTSIDE the loop body where `is_active_for_in_key` is already false.
+    /// The store is nonetheless a string-materialization sink: lifting the
+    /// key's scalar to `String` makes both the resolve gate's materialized-key
+    /// carve-out (`identifier_repr_is_string`) and codegen's grow-only
+    /// `for_in_key_handle_tables` materialization (gated on the same String
+    /// repr, keyed off the persistent ordinal local) fire on the post-loop
+    /// read. Used ONLY at the array-element store sink (the resolve gate keeps
+    /// every other post-loop key value use fail-closed).
+    fn seed_persisted_for_in_key_string_use(&mut self, func: &str, expr: &Expression) {
+        if let Expression::Identifier(name) = expr {
+            if self
+                .for_in_key_names
+                .contains(&(func.to_string(), name.clone()))
+            {
                 let node = self.scalar_node_for(func, name);
                 self.add_string_seed(node);
             }
@@ -737,6 +822,10 @@ impl ReprInfer {
                 };
                 if let (Some(key), Some(base)) = (key_name, &base_slot) {
                     let _ = self.scalar_node_for(func, &key);
+                    // Grow-only record for the persistent string-sink provenance
+                    // (never popped), separate from the lexical stack below.
+                    self.for_in_key_names
+                        .insert((func.to_string(), key.clone()));
                     self.for_in_key_bases
                         .push((func.to_string(), key, base.clone()));
                     pushed_key = true;
@@ -991,8 +1080,34 @@ impl ReprInfer {
                 }
                 let arg = self.visit_expr(func, &unary.argument);
                 let result = self.new_node();
-                if matches!(unary.operator.as_str(), "-" | "+") {
+                if unary.operator == "-" {
                     self.add_edge(arg, result);
+                } else if unary.operator == "+" {
+                    // fasta Spec 5 Task 6: unary `+` over a runtime-string
+                    // operand (`+process.argv[i]`, or any other proven
+                    // string) takes codegen's inline decimal-parse coercion
+                    // (`emit_string_to_i64_parse`) and ALWAYS yields a
+                    // NUMERIC value — mirroring JS `Number(x)`/`Math.trunc`
+                    // semantics, never a string. A FLOAT-only edge (not the
+                    // full `add_edge`) lets a float-seeded operand still
+                    // float the result (`+x` where `x: f64` stays float),
+                    // but — same discipline as the array-element/object-
+                    // field `add_edge_float_only` uses — does NOT carry the
+                    // STRING axis into `result`. Using the full `add_edge`
+                    // here would let a genuine string-typed operand (e.g.
+                    // `var s = "5"; var n = +s;`) incorrectly solve
+                    // `n: Repr::String`: codegen's `is_string_valued` would
+                    // then treat every LATER read of `n` as a live string
+                    // handle (per the stale `ReprTable` entry) even though
+                    // `n`'s WASM local actually holds the freshly-parsed
+                    // integer written by the coercion — a real miscompile,
+                    // not a diagnostic. Excluding the string axis here means
+                    // `result` (and any scalar it flows into, like `n`) can
+                    // only ever solve `F64` or the `I64` default — never
+                    // `String` — regardless of how string-valued the operand
+                    // is, which is exactly the "coerced to numeric" contract
+                    // codegen's `"+"` arm now implements.
+                    self.add_edge_float_only(arg, result);
                 }
                 result
             }
@@ -1087,6 +1202,20 @@ impl ReprInfer {
                     // the array; an int value into a float array stays int).
                     self.add_edge(rn, elem);
                     self.element_store_sources.push((elem, rn));
+                    // Spec 5: a `for..in` key stored into an array element is a
+                    // string-materialization sink, exactly like `return c` /
+                    // `console.log(c)` / `+`/`==`. Seed the key's scalar node
+                    // String so (a) the element axis lifts to String via the
+                    // edge above (enabling `.join('')` and the
+                    // `string_element_array_binding` gate) and (b) the resolve
+                    // gate's materialized-key carve-out
+                    // (`identifier_repr_is_string`) admits the `c` read after
+                    // the loop. Uses the PERSISTENT (grow-only) provenance,
+                    // not the lexical active-key stack, because the fasta
+                    // shape stores the key AFTER the `for..in` exits via
+                    // `break` (outside the loop body). No-ops unless the RHS
+                    // was seen as a `for..in` key somewhere in `func`.
+                    self.seed_persisted_for_in_key_string_use(func, &assign.right);
                 } else {
                     self.visit_expr(func, &member.object);
                 }
@@ -1170,10 +1299,23 @@ impl ReprInfer {
         // Computed access `a[i]` → array element read.
         if let Some(index) = &member.computed_index {
             self.visit_expr(func, index); // index untouched (i64).
-                                          // Task 3: a computed read `base[key]` where `key` is the active
-                                          // `for..in` key over `base` is a uniform-object FIELD read, not an
-                                          // array element read. Its result carries the shape's (uniform)
-                                          // field repr — wired against field storage in `resolve_objects`.
+                                          // `process.argv[<int>]` (Spec 5 Task 5): a runtime string handle
+                                          // (`args_get`), NOT an array element read. Its base is the
+                                          // `process.argv` member (never a bare array binding), so this must
+                                          // precede the Identifier-base element arm below. Register the read
+                                          // result as a runtime-string node so a consuming binding
+                                          // (`const s = process.argv[i]`) solves `Repr::String`, mirroring
+                                          // the substring/join result registration.
+            if member_is_process_argv_element(member) {
+                self.visit_expr(func, &member.object);
+                let result = self.new_node();
+                self.runtime_string_nodes.push(result);
+                return result;
+            }
+            // Task 3: a computed read `base[key]` where `key` is the active
+            // `for..in` key over `base` is a uniform-object FIELD read, not an
+            // array element read. Its result carries the shape's (uniform)
+            // field repr — wired against field storage in `resolve_objects`.
             if let (Expression::Identifier(base_name), Expression::Identifier(key_name)) =
                 (&member.object, index.as_ref())
             {

@@ -481,6 +481,30 @@ impl<'a> FunctionEmitter<'a> {
                 .is_some_and(|child| self.node(*child).text.as_deref() == Some("process"))
     }
 
+    /// `process.argv[<int literal>]` — a computed element read on the argv
+    /// receiver. Returns the static index. CONFIRMED LIR shape (Spec 5 Task 5,
+    /// verified with a `dbg!` probe): a TWO-child `Value` node `[object, index]`
+    /// (`object` = the `process.argv` receiver, `index` = the index node),
+    /// with the stringified index ALSO carried in `node.text` — a computed
+    /// bracket read, distinct from the one-child dot-access shape (e.g.
+    /// `process.argv.length`). Only a static non-negative integer-literal index
+    /// is supported; anything else (negative, non-literal, non-integer) fails
+    /// closed (falls through to the placeholder, which the caller must not treat
+    /// as a string).
+    pub(crate) fn is_process_argv_element(&self, node: &LirNode) -> Option<i64> {
+        if node.children.len() != 2 {
+            return None;
+        }
+        if is_binary_operator_text(node.text.as_deref().unwrap_or_default()) {
+            return None;
+        }
+        if !self.is_process_argv(node.children[0]) {
+            return None;
+        }
+        let index = parse_number_literal(self.node(node.children[1]).text.as_deref()?)?;
+        (index >= 0).then_some(index)
+    }
+
     pub(crate) fn is_deno_args(&self, id: LirNodeId) -> bool {
         let id = self.unwrap_transparent_value_node(id);
         let node = self.node(id);

@@ -617,7 +617,7 @@ fn analyze_source_file(
     let lexed = lexer.lex_all();
     let mut diagnostics = lexed.diagnostics;
     let mut parser = Parser::new(FileId::new(0), lexed.tokens);
-    let parsed = parser.parse(Some(source_path.to_string_lossy().to_string()));
+    let mut parsed = parser.parse(Some(source_path.to_string_lossy().to_string()));
     diagnostics.extend(parsed.diagnostics);
 
     if has_errors(&diagnostics) {
@@ -631,6 +631,15 @@ fn analyze_source_file(
     if has_errors(&diagnostics) {
         return Err(diagnostics);
     }
+
+    // Object-shape monomorphization (fasta Spec 5). Runs AFTER the export-name
+    // uniqueness check (so the fresh clone names are never treated as public
+    // exports / duplicate names) and BEFORE the resolver → repr_infer, which
+    // then sees each specialized clone as a separate monomorphic function. An
+    // empty plan (no function reached by ≥2 distinct object-param shapes — true
+    // for every current fixture/test) is a hard no-op: the statements pass
+    // through byte-identical.
+    kali_types::monomorphize::monomorphize_statements(&mut parsed.statements);
 
     let mut repr_table = kali_common::ReprTable::default();
     if !is_declaration_only_source_file(source_path) {

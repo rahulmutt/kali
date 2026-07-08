@@ -76,6 +76,7 @@ pub(crate) struct FunctionEmitter<'a> {
     pub(crate) cwd_set_import_index: Option<u32>,
     pub(crate) process_exit_import_index: Option<u32>,
     pub(crate) stdout_write_bytes_import_index: Option<u32>,
+    pub(crate) args_get_import_index: Option<u32>,
     pub(crate) diagnostics: &'a mut Vec<Diagnostic>,
     pub(crate) strings: &'a mut StringPool,
     pub(crate) source_path: Option<PathBuf>,
@@ -175,6 +176,7 @@ impl<'a> FunctionEmitter<'a> {
         cwd_set_import_index: Option<u32>,
         process_exit_import_index: Option<u32>,
         stdout_write_bytes_import_index: Option<u32>,
+        args_get_import_index: Option<u32>,
         diagnostics: &'a mut Vec<Diagnostic>,
         strings: &'a mut StringPool,
         source_path: Option<PathBuf>,
@@ -227,6 +229,7 @@ impl<'a> FunctionEmitter<'a> {
             cwd_set_import_index,
             process_exit_import_index,
             stdout_write_bytes_import_index,
+            args_get_import_index,
             diagnostics,
             strings,
             source_path,
@@ -318,6 +321,16 @@ impl<'a> FunctionEmitter<'a> {
         } else {
             self.functions["__alloc_global"]
         }
+    }
+
+    /// Wasm function index of the persistent global allocator `__alloc_global`
+    /// (the never-reset g4/g5/g6 arena twin of `__alloc`). Used for host-runtime
+    /// buffers that must outlive any `__arena_reset` — e.g. the `process.argv`
+    /// element buffer (Spec 5 Task 5), which backs a string handle that may
+    /// escape the current arena. Unconditional (not gated on `arena_eligible`),
+    /// unlike `alloc_callee_index`.
+    pub(crate) fn alloc_global_fn_index(&self) -> u32 {
+        self.functions["__alloc_global"]
     }
 
     /// Wasm function index of the synthetic `__arena_reset() -> ()` page-pool

@@ -220,6 +220,14 @@ const importObject = {{
     args_len() {{
       return runtimeArgs.length;
     }},
+    args_get(index, outPtr, outCap) {{
+      const value = runtimeArgs[index];
+      if (value === undefined || wasmMemory === null) {{ return -1; }}
+      const bytes = new TextEncoder().encode(String(value));
+      if (bytes.length > outCap) {{ return -1; }}
+      new Uint8Array(wasmMemory.buffer, outPtr, bytes.length).set(bytes);
+      return bytes.length;
+    }},
     process_pid() {{
       return Number(globalThis.process?.pid ?? 0);
     }},
@@ -555,6 +563,14 @@ const importObject = {{
     }},
     args_len() {{
       return runtimeArgs.length;
+    }},
+    args_get(index, outPtr, outCap) {{
+      const value = runtimeArgs[index];
+      if (value === undefined || wasmMemory === null) {{ return -1; }}
+      const bytes = new TextEncoder().encode(String(value));
+      if (bytes.length > outCap) {{ return -1; }}
+      new Uint8Array(wasmMemory.buffer, outPtr, bytes.length).set(bytes);
+      return bytes.length;
     }},
     process_pid() {{
       return Number(globalThis.process?.pid ?? 0);

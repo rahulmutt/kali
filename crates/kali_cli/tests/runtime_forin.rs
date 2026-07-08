@@ -207,6 +207,43 @@ const t = { a: 0.3, c: 0.6, g: 0.95 };\nconsole.log(collect(t));\n";
 }
 
 #[test]
+fn forin_key_stored_into_string_array_after_break_then_joined() {
+    // The fasta `fastaRandom` inner shape: select a key via break, store it
+    // into a preallocated array by index, join. Keys are a,c,g.
+    //   i=0: r=0 -> c=a (break immediately)
+    //   i=1: r=1 -> a(skip),c (break)
+    //   i=2: r=2 -> a,c(skip),g (break)  => "acg"
+    let out = run_source(
+        "function build(t) {\n  var line = new Array(3);\n  for (var i = 0; i < 3; i = i + 1) {\n    var r = i;\n    for (var c in t) { if (r < 1) break; r = r - 1; }\n    line[i] = c;\n  }\n  return line.join(\"\");\n}\nconst t = { a: 1.0, c: 2.0, g: 3.0 };\nconsole.log(build(t));\n",
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "acg\n");
+}
+
+#[test]
+fn forin_key_stored_into_mixed_numeric_array_still_rejects() {
+    // Fail-closed pin for THIS task's sink: a for-in key stored into an array
+    // element (`line[1] = c` — the exact array-store arm this task seeds) while
+    // the SAME array is also used numerically (`line[0] = 3; return line[0] + 1`).
+    // The string-lift of `line`'s element (from the new sink) conflicts with the
+    // numeric element from `line[0] = 3`, so this must REJECT (E5506), never
+    // silently coerce line[0] to a string. Guards the sink against over-firing.
+    // node prints 4; kali must reject rather than miscompile.
+    let out = run_source(
+        "function f(t) {\n  var line = new Array(2);\n  line[0] = 3;\n  for (var c in t) { line[1] = c; break; }\n  return line[0] + 1;\n}\nconst t = { a: 1.0 };\nconsole.log(f(t));\n",
+    );
+    assert!(
+        !out.status.success(),
+        "must reject for-in key stored into a mixed numeric array; stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+}
+
+#[test]
 fn for_in_key_declarator_alias_returned_as_string_is_fail_closed() {
     // Dual-role × alias fail-open guard: a DECLARATOR-init alias `let d = c`
     // used as a string value (`return d`) is NOT materialized by codegen (only
@@ -735,4 +772,35 @@ fn for_in_over_fixed_shape_object_with_bare_key_iterates_once_per_field() {
         String::from_utf8_lossy(&out.stderr)
     );
     assert_eq!(String::from_utf8_lossy(&out.stdout), "3\n");
+}
+
+#[test]
+fn break_targets_the_forin_loop_not_the_enclosing_loop() {
+    // Inner `for..in` breaks after ONE field on every outer iteration.
+    // Correct: break exits the for-in, outer runs twice -> out == 2.
+    // Bug (break targets outer `for`): out == 1.
+    let out = run_source(
+        "function f(t) {\n  var out = 0;\n  for (var i = 0; i < 2; i = i + 1) {\n    for (var c in t) { out = out + 1; break; }\n  }\n  return out;\n}\nconst t = { a: 1, c: 2 };\nconsole.log(f(t));\n",
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "2\n");
+}
+
+#[test]
+fn break_inside_bare_forin_with_no_enclosing_loop() {
+    // A `break` in a for-in with no enclosing loop must target the for-in
+    // (before this task it errored "break outside loop"). Breaks at n==2.
+    let out = run_source(
+        "function f(t) {\n  var n = 0;\n  for (var c in t) { n = n + 1; if (n == 2) break; }\n  return n;\n}\nconst t = { a: 1, c: 2, g: 3 };\nconsole.log(f(t));\n",
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "2\n");
 }

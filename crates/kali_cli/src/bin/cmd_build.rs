@@ -1571,6 +1571,7 @@ const defaultImportObject = {{
       return allocGuestString(new TextEncoder().encode(String(value)));
     }},
     args_len() {{ return 0; }},
+    args_get(_index, _outPtr, _outCap) {{ return -1; }},
     process_pid() {{
       return 0;
     }},
@@ -1835,6 +1836,7 @@ const defaultImportObject = {{
       return allocGuestString(new TextEncoder().encode(String(value)));
     }},
     args_len() {{ return 0; }},
+    args_get(_index, _outPtr, _outCap) {{ return -1; }},
     process_pid() {{
       return 0;
     }},

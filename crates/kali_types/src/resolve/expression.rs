@@ -61,6 +61,89 @@ impl TypeContext {
             .unwrap_or(false)
     }
 
+    /// `process.argv[<int literal>]` — a computed member read with a
+    /// non-negative integer-literal index whose base is the `process.argv`
+    /// receiver (Spec 5 Task 5). Shared key for the string-classification
+    /// predicates below; mirrors codegen's `is_process_argv_element` so types
+    /// and codegen agree on EXACTLY which element reads are runtime strings.
+    /// Only a static non-negative integer index qualifies — a
+    /// non-literal/negative index is NOT claimed as a string (codegen emits the
+    /// `0` placeholder there, so claiming a string would fail open).
+    pub(crate) fn is_process_argv_element_expr(&self, expr: &Expression) -> bool {
+        let Expression::MemberExpression(member) = expr else {
+            return false;
+        };
+        let Some(index) = member.computed_index.as_deref() else {
+            return false;
+        };
+        Self::expression_is_nonneg_int_literal(index)
+            && Self::is_process_argv_member(&member.object)
+    }
+
+    /// Structural `process.argv[<any index>]` — a computed element read whose
+    /// base is the `process.argv` receiver, REGARDLESS of the index. Unlike
+    /// `is_process_argv_element_expr` (which additionally requires a provable
+    /// non-negative integer-literal index), this recognizes the SHAPE alone, so
+    /// the `.length` gate can distinguish "an argv element with an unprovable
+    /// index" (fail closed) from an unrelated computed read (leave alone).
+    fn is_process_argv_computed_element(expr: &Expression) -> bool {
+        let Expression::MemberExpression(member) = expr else {
+            return false;
+        };
+        member.computed_index.is_some() && Self::is_process_argv_member(&member.object)
+    }
+
+    /// `process.argv` (or `globalThis.process.argv`): a non-computed `.argv`
+    /// member read on the process root. Mirror of codegen's `is_process_argv`.
+    fn is_process_argv_member(expr: &Expression) -> bool {
+        let Expression::MemberExpression(member) = expr else {
+            return false;
+        };
+        if member.computed_index.is_some() || member.property.as_str() != "argv" {
+            return false;
+        }
+        Self::is_process_root_expr(&member.object)
+    }
+
+    /// `process` or `globalThis.process`.
+    fn is_process_root_expr(expr: &Expression) -> bool {
+        match expr {
+            Expression::Identifier(name) => name == "process",
+            Expression::MemberExpression(member) => {
+                member.computed_index.is_none()
+                    && member.property.as_str() == "process"
+                    && matches!(&member.object, Expression::Identifier(root) if root == "globalThis")
+            }
+            _ => false,
+        }
+    }
+
+    /// A non-negative integer numeric literal (a valid static argv index).
+    ///
+    /// Bounded to `n <= 9007199254740991.0` (2^53 - 1, `Number.MAX_SAFE_INTEGER`
+    /// — the same "exactly representable in f64" bound already used by this
+    /// crate for `Number.isSafeInteger`, see `static_analysis/number.rs`)
+    /// rather than the naive `n <= i64::MAX as f64`. The naive bound has a
+    /// residual mismatch: `i64::MAX as f64` rounds UP to `2^63` (not
+    /// representable exactly, since `i64::MAX == 2^63 - 1`), so a literal
+    /// whose text is e.g. `9223372036854775808` (`i64::MAX + 1`, out of range)
+    /// parses to the SAME f64 value as `i64::MAX` and would still be
+    /// (wrongly) accepted at that bound — while codegen's `is_process_argv_element`
+    /// parses the literal's TEXT via `str::parse::<i64>()` and correctly
+    /// rejects it as an overflow (`None`). Below `2^53` every whole f64 value
+    /// round-trips to a unique integer text with no precision loss, so
+    /// `text.parse::<i64>()` is GUARANTEED to succeed and reproduce `n` exactly
+    /// — closing the asymmetry with codegen's i64 parse by construction, not
+    /// just by a magnitude guess. (`process.argv` indices are realistically
+    /// tiny, so this bound costs nothing in practice.)
+    fn expression_is_nonneg_int_literal(expr: &Expression) -> bool {
+        matches!(
+            expr,
+            Expression::Literal(LiteralValue::Number(n))
+                if n.fract() == 0.0 && *n >= 0.0 && *n <= 9007199254740991.0
+        )
+    }
+
     /// Semantic string-typedness of an expression: does it evaluate to a string at
     /// runtime? Covers string/template literals, `+` expressions with a string
     /// operand (JS `string + any` is a string), and *identifiers bound to a string
@@ -88,6 +171,11 @@ impl TypeContext {
             // `is_string_valued` `dynamic_array_read_base` arm — both classify
             // the loaded element as a string so the `+`/`.length` gates and the
             // print/concat lowering agree.
+            // `process.argv[<int>]` reads a runtime string handle (Spec 5 Task
+            // 5) — mirror of codegen's `is_string_valued` argv-element arm.
+            Expression::MemberExpression(_) if self.is_process_argv_element_expr(expression) => {
+                true
+            }
             Expression::MemberExpression(member) if member.computed_index.is_some() => {
                 matches!(&member.object, Expression::Identifier(base)
                     if self.string_element_array_binding(base))
@@ -763,6 +851,9 @@ impl TypeContext {
             // (the SAME solved-repr signal codegen consults) — no extra for-in-key
             // disjunct needed. A non-repr-lifted key stays false, mirroring codegen.
             Expression::Identifier(name) => self.identifier_repr_is_string(name),
+            // `process.argv[<int>]` reads a runtime string handle (Spec 5 Task
+            // 5) — same recognizer codegen's numeric-index emit arm keys on.
+            Expression::MemberExpression(_) if self.is_process_argv_element_expr(operand) => true,
             // Computed element read `a[i]` of a proven `Repr::String` array
             // (Spec 3) — same signal codegen's `is_string_valued`
             // `dynamic_array_read_base` arm consults.
@@ -817,6 +908,16 @@ impl TypeContext {
     /// the substring/.length lanes accept. Fail-closed: unknown shapes are false.
     pub(crate) fn expression_repr_is_ascii_string(&self, expr: &Expression) -> bool {
         use kali_common::Repr;
+        // `process.argv[<int>]` (Spec 5 Task 5): codegen's runtime `.length`
+        // returns the handle's BYTE count (low 32 bits), which equals the JS
+        // code-unit count only for ASCII. This lane treats an argv element as
+        // ASCII-provable so `process.argv[i].length` is admitted, matching the
+        // byte-count semantics the emit produces. (A non-ASCII CLI arg would
+        // report its byte length here — the same limitation the emit carries;
+        // fasta and CLI-integer/-path args are ASCII.)
+        if self.is_process_argv_element_expr(expr) {
+            return true;
+        }
         match expr {
             Expression::Identifier(name) => {
                 self.identifier_repr_is_string(name)
@@ -880,6 +981,20 @@ impl TypeContext {
                 Expression::Identifier(callee) => self.repr_table.return_repr(callee) == Repr::I64,
                 _ => false,
             },
+            // `.length` is a legitimate int-typed substring bound whenever the
+            // codegen `.length` lane would actually accept the receiver: a
+            // static-foldable receiver (UTF-16-unit count, correct for any
+            // literal) or an ASCII-provable runtime string (byte count, which
+            // `reject_unprovable_string_length` already proves agrees with the
+            // JS character count). Mirrors that gate's "allowed" condition so
+            // this predicate does not fail-close a bound the `.length` access
+            // itself is legal to read.
+            Expression::MemberExpression(member)
+                if member.computed_index.is_none() && member.property.as_str() == "length" =>
+            {
+                self.expression_is_length_fold_receiver(&member.object)
+                    || self.expression_repr_is_ascii_string(&member.object)
+            }
             _ => false,
         }
     }
@@ -969,6 +1084,13 @@ impl TypeContext {
     /// foldable: it materializes as a real runtime string handle, so it must
     /// still clear the ASCII-provable check below, not bypass it.
     fn expression_is_length_fold_receiver(&self, expr: &Expression) -> bool {
+        // `process.argv[<int>]` is a RUNTIME string value, never a static fold
+        // (Spec 5 Task 5): codegen emits a real `args_get` handle for it, so it
+        // must take the runtime `.length` (handle byte-count) lane, not the
+        // static UTF-16 fold. Reject the fold escape explicitly.
+        if self.is_process_argv_element_expr(expr) {
+            return false;
+        }
         match expr {
             Expression::Identifier(name) => {
                 if self.binding_is_mutable(name) {
@@ -997,6 +1119,25 @@ impl TypeContext {
     /// which counts UTF-16 units and is correct for ANY literal.
     pub(crate) fn reject_unprovable_string_length(&mut self, expr: &MemberExpression) {
         if expr.computed_index.is_some() || expr.property.as_str() != "length" {
+            return;
+        }
+        // `process.argv[<index>].length` where the index is NOT a provable static
+        // argv element (`is_process_argv_element_expr`: a non-negative integer
+        // literal that round-trips through codegen's i64 parse) is a `.length` on
+        // a value that neither side classifies as a string. Codegen has no valid
+        // runtime lane for it, so the static console.log render (`render_length`)
+        // falls through to the argv-element node's CHILD COUNT (a bogus `2`) where
+        // node throws (`argv[huge]` is `undefined`). Fail closed — only the
+        // provable argv-element subset (accepted by the ASCII-string lane below)
+        // may take the runtime `.length`. Completes the both-sides mirror: the
+        // accepted argv-`.length` set is exactly `is_process_argv_element_expr`.
+        if Self::is_process_argv_computed_element(&expr.object)
+            && !self.is_process_argv_element_expr(&expr.object)
+        {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "'.length' on a 'process.argv[i]' element is unavailable unless the index is a static non-negative integer literal (a non-provably-in-range or non-integer index would miscompile to a bogus number where Node throws)".to_string(),
+            ));
             return;
         }
         if self.expression_is_length_fold_receiver(&expr.object) {
@@ -1093,6 +1234,14 @@ impl TypeContext {
         // gate and the array-literal element gate consult directly — recognizes
         // the shape on its own, in lockstep with the other read-side mirrors.
         if let Expression::MemberExpression(member) = expr {
+            // `process.argv[<int>]` is a fresh runtime string handle (Spec 5
+            // Task 5). Subsumed by the `expression_is_string_typed` check above,
+            // but kept explicit so this predicate — the one the F1 store gate
+            // consults directly — recognizes the shape on its own, in lockstep
+            // with the other read-side mirrors.
+            if self.is_process_argv_element_expr(expr) {
+                return true;
+            }
             if member.computed_index.is_some() {
                 if let Expression::Identifier(base) = &member.object {
                     return self.string_element_array_binding(base);
