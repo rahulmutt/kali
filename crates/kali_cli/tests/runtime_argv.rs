@@ -198,3 +198,94 @@ fn process_argv_valid_index_length_still_succeeds() {
     );
     assert_eq!(String::from_utf8_lossy(&out.stdout), "4\n");
 }
+
+// --- Task 6: unary `+` coerces a runtime string to i64 (fasta Spec 5) ---
+
+#[test]
+fn unary_plus_coerces_argv_to_integer() {
+    let out = run_node_source_with_args(
+        "var n = +process.argv[2];\nconsole.log(n + 1);\n",
+        &["1000"],
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "1001\n");
+}
+
+#[test]
+fn unary_plus_coerced_argv_drives_a_loop_count() {
+    let out = run_node_source_with_args(
+        "var n = +process.argv[2];\nvar s = 0;\nfor (var i = 0; i < n; i = i + 1) { s = s + i; }\nconsole.log(s);\n",
+        &["5"],
+    );
+    // 0+1+2+3+4 = 10
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "10\n");
+}
+
+// --- Fail-closed pin: `-`/`~` on a runtime string still reject (the `+`
+// narrowing above must not leak into the other unary operators) ---
+#[test]
+fn unary_minus_on_runtime_argv_string_still_fails_closed() {
+    let out = run_node_source_with_args(
+        "console.log(-process.argv[2]);\n",
+        &["1000"],
+    );
+    assert!(
+        !out.status.success(),
+        "unary '-' on a runtime string must still reject, got stdout: {:?}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("E3200"),
+        "expected E3200, stderr: {stderr}"
+    );
+}
+
+#[test]
+fn unary_bitnot_on_runtime_argv_string_still_fails_closed() {
+    let out = run_node_source_with_args(
+        "console.log(~process.argv[2]);\n",
+        &["1000"],
+    );
+    assert!(
+        !out.status.success(),
+        "unary '~' on a runtime string must still reject, got stdout: {:?}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("E3200"),
+        "expected E3200, stderr: {stderr}"
+    );
+}
+
+// Regression pin for the kali_types both-sides mirror (repr_infer.rs): unary
+// `+` over a STRING-LITERAL-TYPED variable (not just `process.argv[i]`, whose
+// element read never seeded the string repr axis in the first place) must
+// still solve the coerced binding as numeric end-to-end, not just at the
+// `ReprTable` unit-test level. Without the `add_edge_float_only` fix, `n`
+// would solve `Repr::String` and every later read of `n` (here, `n + 1`)
+// would be (mis)treated as a live string handle by codegen even though `n`'s
+// local actually holds the coerced integer.
+#[test]
+fn unary_plus_coerces_a_string_literal_typed_variable_end_to_end() {
+    let out = run_node_source_with_args(
+        "var s = \"5\";\nvar n = +s;\nconsole.log(n + 1);\n",
+        &[],
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "6\n");
+}

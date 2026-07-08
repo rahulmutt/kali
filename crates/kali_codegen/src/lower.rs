@@ -1622,6 +1622,33 @@ pub(crate) fn is_argv_scratch_local_name(name: &str) -> bool {
     name == argv_buf_local_name() || name == argv_len_local_name()
 }
 
+/// Names of the three dedicated i64 scratch locals `emit_string_to_i64_parse`
+/// uses to decode a tagged runtime-string handle and accumulate a base-10
+/// parse (fasta Spec 5 Task 6, `+<runtime string>`): `__coerce_ptr` (byte
+/// cursor), `__coerce_end` (one past the last byte), `__coerce_acc` (handle
+/// scratch, then running accumulator). All three are `i64` — the default
+/// `wasm_type(repr_table.scalar(...))` an unrecorded name gets already
+/// resolves to `Repr::I64`, so (unlike `argv_buf_local_name`/
+/// `argv_len_local_name`, which need i32 and so need `is_argv_scratch_local_name`
+/// to force that) no special-casing is needed in the local-decl `val_type`
+/// lookup. Shared by `collect_function_locals` (reserve) and
+/// `emit_string_to_i64_parse` (resolve by name), so the two cannot disagree on
+/// naming. The `__coerce_*` names are unrepresentable as source identifiers,
+/// so they can never collide with a real binding.
+pub(crate) fn coerce_ptr_local_name() -> String {
+    "__coerce_ptr".to_string()
+}
+
+/// Sibling of `coerce_ptr_local_name`; see its doc comment.
+pub(crate) fn coerce_end_local_name() -> String {
+    "__coerce_end".to_string()
+}
+
+/// Sibling of `coerce_ptr_local_name`; see its doc comment.
+pub(crate) fn coerce_acc_local_name() -> String {
+    "__coerce_acc".to_string()
+}
+
 fn loop_preorder_ordinals_walk(
     nodes: &[LirNode],
     id: LirNodeId,
@@ -1734,7 +1761,55 @@ pub(crate) fn collect_function_locals(
         locals.push(argv_len_local_name());
     }
 
+    // Reserve the three i64 scratch locals `emit_string_to_i64_parse` needs
+    // (fasta Spec 5 Task 6, `+<runtime string>`). Guarded by a STRUCTURAL
+    // "does this body contain any syntactic unary `+`" walk rather than a
+    // precise "is the operand provably string-valued" oracle: the precise
+    // oracle (`FunctionEmitter::is_string_valued`) depends on `self.bindings`
+    // (the fold-lane const-alias map), which does not exist yet at this
+    // locals-provisioning stage — collect_function_locals only has the raw
+    // LIR + `ReprTable`. Reserving on the coarser superset (every unary `+`,
+    // not just the string-operand subset the emitter will actually route
+    // through `emit_string_to_i64_parse`) means the reservation can only ever
+    // be too generous, never too stingy: the emit-time `self.locals[&name]`
+    // lookups in `emit_string_to_i64_parse` can never miss their slot and
+    // panic. The cost is a few unused-but-harmless locals declared for a
+    // `+<numeric>` in the same function — WASM validation does not care about
+    // unused locals.
+    if body_contains_unary_plus(nodes, body_id) {
+        locals.push(coerce_ptr_local_name());
+        locals.push(coerce_end_local_name());
+        locals.push(coerce_acc_local_name());
+    }
+
     locals
+}
+
+/// True iff any node reachable from `body_id` (not descending into nested
+/// function bodies) is a syntactic unary `+` (a single-child `Value` node
+/// whose `text` is exactly `"+"`) — the same node shape `emit_unary`
+/// dispatches on. See the call site in `collect_function_locals` for why this
+/// is deliberately a coarse superset of "unary `+` over a provably
+/// string-valued operand" rather than a precise mirror of it.
+fn body_contains_unary_plus(nodes: &[LirNode], body_id: LirNodeId) -> bool {
+    fn walk(nodes: &[LirNode], id: LirNodeId) -> bool {
+        let Some(node) = nodes.get(id.0 as usize) else {
+            return false;
+        };
+        if node.kind == LirNodeKind::Value
+            && node.children.len() == 1
+            && node.text.as_deref() == Some("+")
+        {
+            return true;
+        }
+        node.children.iter().any(|child| {
+            if is_function_like(nodes, *child) {
+                return false;
+            }
+            walk(nodes, *child)
+        })
+    }
+    walk(nodes, body_id)
 }
 
 /// True iff any node reachable from `body_id` (not descending into nested

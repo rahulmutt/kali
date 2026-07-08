@@ -357,6 +357,50 @@ fn plain_integer_program_has_no_string_repr() {
 }
 
 #[test]
+fn unary_plus_over_a_string_typed_operand_solves_numeric_not_string() {
+    // fasta Spec 5 Task 6: unary `+` coerces a runtime string to a number
+    // (codegen's `emit_string_to_i64_parse`). `s` is a genuine string-typed
+    // binding (a string literal), so this is the general shape the
+    // `add_edge_float_only` fix in `repr_infer.rs`'s `UnaryExpression` arm
+    // guards, not just the `process.argv` special case (which never seeded
+    // the string axis in the first place). Before that fix, `n` would
+    // incorrectly solve `Repr::String` (the full `add_edge` used for `-`
+    // carries the string axis too), which would make codegen's
+    // `is_string_valued` misclassify every later read of `n` as a live
+    // string handle even though `n`'s local actually holds the coerced
+    // integer — a miscompile once codegen accepts `+` on a string operand.
+    let t = reprs("let s = \"5\";\nlet n = +s;\n");
+    assert_eq!(t.scalar("_start", "s"), Repr::String);
+    assert_eq!(t.scalar("_start", "n"), Repr::I64);
+}
+
+#[test]
+fn unary_plus_over_process_argv_element_solves_numeric() {
+    // Sibling of the above, pinning the actual fasta shape: `process.argv[i]`
+    // is a proven runtime string at codegen (`is_string_valued`), but was
+    // never added to `repr_infer`'s string-seed set (only the taint-candidate
+    // list) — so `n` was already `I64` here even before the `+` fix above.
+    // Pinned together so a future change to the argv element's seeding can't
+    // silently regress this without a failing test.
+    let t = reprs("let n = +process.argv[2];\n");
+    assert_eq!(t.scalar("_start", "n"), Repr::I64);
+}
+
+#[test]
+fn unary_minus_over_a_string_typed_operand_still_solves_string_repr_axis() {
+    // Fail-closed pin (does NOT change behavior): unary `-` keeps the FULL
+    // `add_edge` (both axes), unlike `+` above. This is safe only because
+    // codegen's OWN `is_string_valued` guard (operators.rs) unconditionally
+    // rejects `-` over any string-valued operand at emission time,
+    // independent of this repr solve — so this node's `Repr::String`
+    // classification is never actually consumed to emit anything. This test
+    // pins that `-` was NOT touched by the Task 6 narrowing: the general
+    // string-flow edge for `-` behaves exactly as it did before this task.
+    let t = reprs("let s = \"5\";\nlet n = -s;\n");
+    assert_eq!(t.scalar("_start", "n"), Repr::String);
+}
+
+#[test]
 fn mixed_literal_int_and_string_store_is_element_conflict() {
     // Spec 1 pinned s == I64 here via the element-read string-axis exclusion.
     // Spec 3 lifts that exclusion (stores are gated + mixed arrays conflict),

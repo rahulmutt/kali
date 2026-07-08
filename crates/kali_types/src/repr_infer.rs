@@ -1080,8 +1080,34 @@ impl ReprInfer {
                 }
                 let arg = self.visit_expr(func, &unary.argument);
                 let result = self.new_node();
-                if matches!(unary.operator.as_str(), "-" | "+") {
+                if unary.operator == "-" {
                     self.add_edge(arg, result);
+                } else if unary.operator == "+" {
+                    // fasta Spec 5 Task 6: unary `+` over a runtime-string
+                    // operand (`+process.argv[i]`, or any other proven
+                    // string) takes codegen's inline decimal-parse coercion
+                    // (`emit_string_to_i64_parse`) and ALWAYS yields a
+                    // NUMERIC value — mirroring JS `Number(x)`/`Math.trunc`
+                    // semantics, never a string. A FLOAT-only edge (not the
+                    // full `add_edge`) lets a float-seeded operand still
+                    // float the result (`+x` where `x: f64` stays float),
+                    // but — same discipline as the array-element/object-
+                    // field `add_edge_float_only` uses — does NOT carry the
+                    // STRING axis into `result`. Using the full `add_edge`
+                    // here would let a genuine string-typed operand (e.g.
+                    // `var s = "5"; var n = +s;`) incorrectly solve
+                    // `n: Repr::String`: codegen's `is_string_valued` would
+                    // then treat every LATER read of `n` as a live string
+                    // handle (per the stale `ReprTable` entry) even though
+                    // `n`'s WASM local actually holds the freshly-parsed
+                    // integer written by the coercion — a real miscompile,
+                    // not a diagnostic. Excluding the string axis here means
+                    // `result` (and any scalar it flows into, like `n`) can
+                    // only ever solve `F64` or the `I64` default — never
+                    // `String` — regardless of how string-valued the operand
+                    // is, which is exactly the "coerced to numeric" contract
+                    // codegen's `"+"` arm now implements.
+                    self.add_edge_float_only(arg, result);
                 }
                 result
             }

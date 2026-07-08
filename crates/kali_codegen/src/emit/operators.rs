@@ -68,12 +68,14 @@ impl<'a> FunctionEmitter<'a> {
         let op = node.text.as_deref().unwrap_or_default();
         let arg = node.children[0];
         // A string operand under a numeric/logical unary op has no correct
-        // lowering: `-`/`+`/`~` would arithmetic on a raw handle; `!` truthiness
+        // lowering: `-`/`~` would arithmetic on a raw handle; `!` truthiness
         // is wrong for a fresh concat handle (empty-string handle is non-zero).
-        // Reject fail-closed. `-`/`+`/`~` reject any string; `!` rejects only a
+        // Reject fail-closed. `-`/`~` reject any string; `!` rejects only a
         // tainted (runtime-concat) string (an interned literal keeps today's
-        // behavior, matching the base compiler).
-        if (matches!(op, "-" | "+" | "~") && self.is_string_valued(arg))
+        // behavior, matching the base compiler). `+` is EXCLUDED here (fasta
+        // Spec 5 Task 6): a string operand under unary `+` takes the inline
+        // decimal-parse coercion in the `"+"` arm below instead of rejecting.
+        if (matches!(op, "-" | "~") && self.is_string_valued(arg))
             || (op == "!" && self.is_runtime_concat_string(arg))
         {
             self.diagnostics.push(Diagnostic::error(
@@ -110,7 +112,12 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::Scalar,
                 }
             }
-            "+" => self.emit_node(function, arg, true),
+            "+" => {
+                if self.is_string_valued(arg) {
+                    return self.emit_string_to_i64_parse(function, arg);
+                }
+                self.emit_node(function, arg, true)
+            }
             "~" => {
                 function.instruction(&Instruction::I64Const(0));
                 let _ = self.emit_node(function, arg, true);
@@ -497,6 +504,81 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::Unknown,
                 }
             }
+        }
+    }
+
+    /// Inline `Math.trunc(Number(handle))` for a decimal-integer string:
+    /// acc = 0; for p in [offset, offset+len): acc = acc*10 + (byte(p) - '0').
+    /// Non-digit bytes are not expected for the argv-integer path; a leading
+    /// '-' is not handled (fasta's N is non-negative). Produces i64.
+    ///
+    /// Consumes the tagged runtime-string handle `arg` emits (the SAME
+    /// `STRING_HANDLE_TAG | offset<<32 | len` encoding both `process.argv[i]`
+    /// element reads (Task 5) and interned string literals use), so this is
+    /// the codegen counterpart of unary `+` accepting a string operand:
+    /// `emit_unary`'s `"+"` arm calls this only when `is_string_valued(arg)`
+    /// is true, so a non-string/non-numeric operand never reaches here.
+    fn emit_string_to_i64_parse(&mut self, function: &mut Function, arg: LirNodeId) -> EmittedValue {
+        let ptr = self.locals[&crate::lower::coerce_ptr_local_name()];
+        let end = self.locals[&crate::lower::coerce_end_local_name()];
+        let acc = self.locals[&crate::lower::coerce_acc_local_name()];
+        // handle on stack -> consume into `acc` (reused as scratch, then zeroed
+        // as the accumulator). Using LocalSet (not Tee) so no handle is left
+        // dangling on the operand stack.
+        let produced = self.emit_node(function, arg, true);
+        if !produced.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
+        function.instruction(&Instruction::LocalSet(acc)); // acc = handle
+        // ptr = (acc >> 32) & 0x7FFF_FFFF   (byte offset)
+        function.instruction(&Instruction::LocalGet(acc));
+        function.instruction(&Instruction::I64Const(32));
+        function.instruction(&Instruction::I64ShrU);
+        function.instruction(&Instruction::I64Const(0x7FFF_FFFF));
+        function.instruction(&Instruction::I64And);
+        function.instruction(&Instruction::LocalSet(ptr));
+        // end = ptr + (acc & 0xFFFF_FFFF)   (offset + len)
+        function.instruction(&Instruction::LocalGet(ptr));
+        function.instruction(&Instruction::LocalGet(acc));
+        function.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+        function.instruction(&Instruction::I64And);
+        function.instruction(&Instruction::I64Add);
+        function.instruction(&Instruction::LocalSet(end));
+        // acc = 0  (now the running accumulator)
+        function.instruction(&Instruction::I64Const(0));
+        function.instruction(&Instruction::LocalSet(acc));
+        // while (ptr < end) { acc = acc*10 + (load8_u(ptr) - 48); ptr += 1; }
+        function.instruction(&Instruction::Block(BlockType::Empty));
+        function.instruction(&Instruction::Loop(BlockType::Empty));
+        function.instruction(&Instruction::LocalGet(ptr));
+        function.instruction(&Instruction::LocalGet(end));
+        function.instruction(&Instruction::I64GeS);
+        function.instruction(&Instruction::BrIf(1)); // break out of block
+        function.instruction(&Instruction::LocalGet(acc));
+        function.instruction(&Instruction::I64Const(10));
+        function.instruction(&Instruction::I64Mul);
+        function.instruction(&Instruction::LocalGet(ptr));
+        function.instruction(&Instruction::I32WrapI64);
+        function.instruction(&Instruction::I64Load8U(MemArg {
+            offset: 0,
+            align: 0,
+            memory_index: 0,
+        }));
+        function.instruction(&Instruction::I64Const(48));
+        function.instruction(&Instruction::I64Sub);
+        function.instruction(&Instruction::I64Add);
+        function.instruction(&Instruction::LocalSet(acc));
+        function.instruction(&Instruction::LocalGet(ptr));
+        function.instruction(&Instruction::I64Const(1));
+        function.instruction(&Instruction::I64Add);
+        function.instruction(&Instruction::LocalSet(ptr));
+        function.instruction(&Instruction::Br(0));
+        function.instruction(&Instruction::End); // loop
+        function.instruction(&Instruction::End); // block
+        function.instruction(&Instruction::LocalGet(acc));
+        EmittedValue {
+            produced: true,
+            shape: ValueShape::Scalar,
         }
     }
 
