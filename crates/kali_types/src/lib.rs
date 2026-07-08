@@ -7,6 +7,7 @@
 mod builtins;
 mod context;
 mod late_host;
+pub mod monomorphize;
 mod package;
 mod repr_infer;
 mod resolve;
@@ -62,3 +63,7 @@ mod test_support;
 #[cfg(test)]
 #[path = "repr_infer_tests.rs"]
 mod repr_infer_tests;
+
+#[cfg(test)]
+#[path = "monomorphize_tests.rs"]
+mod monomorphize_tests;
