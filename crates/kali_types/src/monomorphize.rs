@@ -53,8 +53,8 @@
 //! today's single-shape behavior and today's E5506 conflict.
 
 use kali_ast::{
-    Expression, ForInit, FunctionDeclaration, ObjectExpression, ObjectPropertyKind, PropertyName,
-    Statement,
+    CallExpression, Expression, ForInit, FunctionDeclaration, ObjectExpression, ObjectPropertyKind,
+    PropertyName, Statement,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -142,6 +142,292 @@ impl MonoPlan {
     pub fn call_bindings(&self) -> &[CallBinding] {
         &self.call_bindings
     }
+
+    /// The fresh clone name for `spec` of `func`, or `None` if `func` is not
+    /// specialized or `spec` is not one of its keys. The index is `spec`'s
+    /// position in the (sorted) key vector, so it is stable and unique.
+    pub fn clone_name(&self, func: &str, spec: &SpecKey) -> Option<String> {
+        let keys = self.specializations.get(func)?;
+        let idx = keys.iter().position(|k| k == spec)?;
+        Some(mangled_name(func, idx))
+    }
+}
+
+/// The fresh name of the `idx`-th specialization of `func`. The `{` / `}` are
+/// **not** valid identifier characters in the lexer (which accepts only
+/// alphanumerics, `_` and `$`), so this can never collide with any user-written
+/// identifier — the parser cannot produce this name. Downstream it is only ever
+/// used as an opaque map key / wasm export name (never re-lexed), so the shape
+/// is free.
+fn mangled_name(func: &str, idx: usize) -> String {
+    format!("{func}${{{idx}}}")
+}
+
+/// Rewrite the callee identifier of selected call sites in one function body,
+/// keyed by the pre-order call ordinal from [`compute_mono_plan`]. This is the
+/// **only** mutation Task 2 performs on the AST; it drives the *mutable* arm of
+/// the shared [`define_call_walk!`] traversal, so its ordinals match the plan's
+/// by construction (see the macro's docs).
+pub fn rewrite_callees_in_body(body: &mut [Statement], renames: &BTreeMap<usize, String>) {
+    if renames.is_empty() {
+        return;
+    }
+    let mut ordinal = 0usize;
+    walk_calls_mut(body, &mut ordinal, &mut |ord, call| {
+        if let Some(name) = renames.get(&ord) {
+            call.callee = Expression::Identifier(name.clone());
+        }
+    });
+}
+
+/// Apply object-shape monomorphization to a parsed program in place.
+///
+/// Computes the [`MonoPlan`] and, if non-empty, clones every function reached by
+/// ≥2 distinct object-param shape tuples once per tuple under a fresh
+/// [`mangled_name`], rewrites every specialized call site (including nested
+/// transitive calls inside a clone) to its matching clone, and drops the now-dead
+/// specialized originals. An **empty plan is a hard no-op** — the statements are
+/// left byte-identical — which is the case for all current fixtures/tests.
+///
+/// After this returns the untouched resolver → repr_infer → codegen pipeline sees
+/// each clone as a separate, monomorphic function (every shape decision keys off
+/// the function name), so no downstream stage needs any change.
+pub fn monomorphize_statements(statements: &mut Vec<Statement>) {
+    let plan = compute_mono_plan(statements);
+    if plan.is_empty() {
+        return;
+    }
+    apply_plan(statements, &plan);
+}
+
+/// Materialize the plan: build clones, rewrite call sites, drop dead originals.
+fn apply_plan(statements: &mut Vec<Statement>, plan: &MonoPlan) {
+    // (caller, caller_spec) -> (ordinal -> fresh callee name).
+    let mut renames: BTreeMap<(String, SpecKey), BTreeMap<usize, String>> = BTreeMap::new();
+    for b in plan.call_bindings() {
+        if let Some(name) = plan.clone_name(&b.callee, &b.callee_spec) {
+            renames
+                .entry((b.caller.clone(), b.caller_spec.clone()))
+                .or_default()
+                .insert(b.ordinal, name);
+        }
+    }
+
+    // Snapshot the original declaration of every specialized function so we can
+    // clone from it after the tree is mutated.
+    let mut originals: BTreeMap<String, FunctionDeclaration> = BTreeMap::new();
+    snapshot_specialized_decls(statements, &plan.specializations, &mut originals);
+
+    // Build the specialized clones, grouped by original function name. Each
+    // clone's body is rewritten for the transitive calls it makes under its own
+    // specialization context.
+    let mut clones_by_func: BTreeMap<String, Vec<Statement>> = BTreeMap::new();
+    for (func, keys) in &plan.specializations {
+        let Some(orig) = originals.get(func) else {
+            continue;
+        };
+        for (idx, key) in keys.iter().enumerate() {
+            let mut cloned = orig.clone();
+            cloned.name = mangled_name(func, idx);
+            if let Some(rmap) = renames.get(&(func.clone(), key.clone())) {
+                rewrite_callees_in_body(&mut cloned.body.body, rmap);
+            }
+            clones_by_func
+                .entry(func.clone())
+                .or_default()
+                .push(Statement::FunctionDeclaration(cloned));
+        }
+    }
+
+    // Rewrite every surviving caller body (module scope + each function's own
+    // unspecialized body) for its calls into specialized callees.
+    rewrite_tree(statements, TOP_LEVEL, &renames);
+    // Replace each now-dead specialized original *in place* with its clones, so
+    // the clones keep the original's declaration position (a declaration-before-
+    // use resolver still sees them ahead of the rewritten call sites).
+    splice_clones(statements, &mut clones_by_func);
+}
+
+/// Recursively rewrite call sites in a caller body and every nested function
+/// body. `caller` names the enclosing function (`_start` at module scope); a
+/// surviving body is always the *unspecialized* context (empty `SpecKey`) — a
+/// specialized function's real bodies are its clones, rewritten separately.
+fn rewrite_tree(
+    body: &mut [Statement],
+    caller: &str,
+    renames: &BTreeMap<(String, SpecKey), BTreeMap<usize, String>>,
+) {
+    if let Some(rmap) = renames.get(&(caller.to_string(), SpecKey::default())) {
+        rewrite_callees_in_body(body, rmap);
+    }
+    for stmt in body.iter_mut() {
+        rewrite_nested_fns(stmt, renames);
+    }
+}
+
+/// Descend a statement's child blocks to find nested function declarations and
+/// rewrite each as its own caller context. Control-flow bodies themselves are
+/// already handled by the enclosing body's [`rewrite_callees_in_body`] walk;
+/// this only re-roots the ordinal counter at each nested *function* boundary
+/// (which the call walk deliberately does not cross).
+fn rewrite_nested_fns(
+    stmt: &mut Statement,
+    renames: &BTreeMap<(String, SpecKey), BTreeMap<usize, String>>,
+) {
+    match stmt {
+        Statement::FunctionDeclaration(f) => {
+            let name = f.name.clone();
+            rewrite_tree(&mut f.body.body, &name, renames);
+        }
+        Statement::IfStatement(s) => {
+            for st in &mut s.consequent.body {
+                rewrite_nested_fns(st, renames);
+            }
+            if let Some(alt) = &mut s.alternate {
+                for st in &mut alt.body {
+                    rewrite_nested_fns(st, renames);
+                }
+            }
+        }
+        Statement::ForStatement(s) => descend_block(&mut s.body.body, renames),
+        Statement::ForInStatement(s) => rewrite_nested_fns(&mut s.body, renames),
+        Statement::ForOfStatement(s) => rewrite_nested_fns(&mut s.body, renames),
+        Statement::WhileStatement(s) => descend_block(&mut s.body.body, renames),
+        Statement::DoWhileStatement(s) => descend_block(&mut s.body.body, renames),
+        Statement::BlockStatement(b) => descend_block(&mut b.body, renames),
+        Statement::LabeledStatement(s) => rewrite_nested_fns(&mut s.body, renames),
+        Statement::TryStatement(s) => {
+            descend_block(&mut s.block.body, renames);
+            if let Some(h) = &mut s.handler {
+                descend_block(&mut h.body.body, renames);
+            }
+            if let Some(f) = &mut s.finalizer {
+                descend_block(&mut f.body, renames);
+            }
+        }
+        Statement::SwitchStatement(s) => {
+            for case in &mut s.cases {
+                descend_block(&mut case.consequent, renames);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn descend_block(
+    body: &mut [Statement],
+    renames: &BTreeMap<(String, SpecKey), BTreeMap<usize, String>>,
+) {
+    for st in body.iter_mut() {
+        rewrite_nested_fns(st, renames);
+    }
+}
+
+/// Clone the declaration of every specialized function, by name (recursively).
+fn snapshot_specialized_decls(
+    stmts: &[Statement],
+    specs: &BTreeMap<String, Vec<SpecKey>>,
+    out: &mut BTreeMap<String, FunctionDeclaration>,
+) {
+    for stmt in stmts {
+        match stmt {
+            Statement::FunctionDeclaration(f) => {
+                if specs.contains_key(&f.name) {
+                    out.entry(f.name.clone()).or_insert_with(|| f.clone());
+                }
+                snapshot_specialized_decls(&f.body.body, specs, out);
+            }
+            Statement::IfStatement(s) => {
+                snapshot_specialized_decls(&s.consequent.body, specs, out);
+                if let Some(alt) = &s.alternate {
+                    snapshot_specialized_decls(&alt.body, specs, out);
+                }
+            }
+            Statement::ForStatement(s) => snapshot_specialized_decls(&s.body.body, specs, out),
+            Statement::ForInStatement(s) => {
+                snapshot_specialized_decls(std::slice::from_ref(&s.body), specs, out)
+            }
+            Statement::ForOfStatement(s) => {
+                snapshot_specialized_decls(std::slice::from_ref(&s.body), specs, out)
+            }
+            Statement::WhileStatement(s) => snapshot_specialized_decls(&s.body.body, specs, out),
+            Statement::DoWhileStatement(s) => snapshot_specialized_decls(&s.body.body, specs, out),
+            Statement::BlockStatement(b) => snapshot_specialized_decls(&b.body, specs, out),
+            Statement::LabeledStatement(s) => {
+                snapshot_specialized_decls(std::slice::from_ref(&s.body), specs, out)
+            }
+            Statement::TryStatement(s) => {
+                snapshot_specialized_decls(&s.block.body, specs, out);
+                if let Some(h) = &s.handler {
+                    snapshot_specialized_decls(&h.body.body, specs, out);
+                }
+                if let Some(f) = &s.finalizer {
+                    snapshot_specialized_decls(&f.body, specs, out);
+                }
+            }
+            Statement::SwitchStatement(s) => {
+                for case in &s.cases {
+                    snapshot_specialized_decls(&case.consequent, specs, out);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+/// Replace every specialized function's (now-dead) original declaration with its
+/// clones, in place, preserving declaration order. Their call sites have all
+/// been rewritten to clones, so the original is unreachable; leaving it would
+/// give repr_infer a shape-less param and re-trigger E5506. Recurses through
+/// every block so a nested declaration is handled too. `clones` is drained as
+/// each function's declaration site is found (each is declared once).
+fn splice_clones(body: &mut Vec<Statement>, clones: &mut BTreeMap<String, Vec<Statement>>) {
+    let mut rebuilt: Vec<Statement> = Vec::with_capacity(body.len());
+    for mut stmt in body.drain(..) {
+        if let Statement::FunctionDeclaration(f) = &stmt {
+            if let Some(fn_clones) = clones.remove(&f.name) {
+                rebuilt.extend(fn_clones);
+                continue; // drop the original; its clones take its place
+            }
+        }
+        splice_clones_in_stmt(&mut stmt, clones);
+        rebuilt.push(stmt);
+    }
+    *body = rebuilt;
+}
+
+fn splice_clones_in_stmt(stmt: &mut Statement, clones: &mut BTreeMap<String, Vec<Statement>>) {
+    match stmt {
+        Statement::FunctionDeclaration(f) => splice_clones(&mut f.body.body, clones),
+        Statement::IfStatement(s) => {
+            splice_clones(&mut s.consequent.body, clones);
+            if let Some(alt) = &mut s.alternate {
+                splice_clones(&mut alt.body, clones);
+            }
+        }
+        Statement::ForStatement(s) => splice_clones(&mut s.body.body, clones),
+        Statement::ForInStatement(s) => splice_clones_in_stmt(&mut s.body, clones),
+        Statement::ForOfStatement(s) => splice_clones_in_stmt(&mut s.body, clones),
+        Statement::WhileStatement(s) => splice_clones(&mut s.body.body, clones),
+        Statement::DoWhileStatement(s) => splice_clones(&mut s.body.body, clones),
+        Statement::BlockStatement(b) => splice_clones(&mut b.body, clones),
+        Statement::LabeledStatement(s) => splice_clones_in_stmt(&mut s.body, clones),
+        Statement::TryStatement(s) => {
+            splice_clones(&mut s.block.body, clones);
+            if let Some(h) = &mut s.handler {
+                splice_clones(&mut h.body.body, clones);
+            }
+            if let Some(f) = &mut s.finalizer {
+                splice_clones(&mut f.body, clones);
+            }
+        }
+        Statement::SwitchStatement(s) => {
+            for case in &mut s.cases {
+                splice_clones(&mut case.consequent, clones);
+            }
+        }
+        _ => {}
+    }
 }
 
 /// Compute the [`MonoPlan`] for a parsed program.
@@ -161,10 +447,15 @@ type Instance = (String, SpecKey);
 
 /// One recognized call within a function body: its pre-order ordinal, the
 /// bare-identifier callee name (if any), and the argument expressions.
-struct CallInfo<'a> {
+///
+/// The argument expressions are owned clones so the enumeration (built by the
+/// shared [`walk_calls`] visitor) carries no borrow of the body — the mutable
+/// rewrite pass ([`rewrite_callees_in_body`]) shares the *same* walk over a
+/// `&mut` body, and decoupling the two lifetimes lets one macro generate both.
+struct CallInfo {
     ordinal: usize,
     callee: Option<String>,
-    args: Vec<&'a Expression>,
+    args: Vec<Expression>,
 }
 
 struct Analyzer<'a> {
@@ -335,7 +626,7 @@ impl<'a> Analyzer<'a> {
                     return ShapeVal::new();
                 }
                 // Return-shape of the callee under the shapes we pass it.
-                match self.callee_ctx(&call.args.iter().collect::<Vec<_>>(), env, returns) {
+                match self.callee_ctx(&call.args, env, returns) {
                     CalleeCtx::Definite(ck) => {
                         returns.get(&(callee.clone(), ck)).cloned().unwrap_or_default()
                     }
@@ -349,7 +640,7 @@ impl<'a> Analyzer<'a> {
     /// The specialization context a call selects from its argument shapes.
     fn callee_ctx(
         &self,
-        args: &[&Expression],
+        args: &[Expression],
         env: &Env,
         returns: &BTreeMap<Instance, ShapeVal>,
     ) -> CalleeCtx {
@@ -379,11 +670,23 @@ impl<'a> Analyzer<'a> {
     }
 
     /// Enumerate every recognized call in a function body, pre-order, without
-    /// descending into nested function declarations.
-    fn calls_of(&self, func: &str) -> Vec<CallInfo<'a>> {
+    /// descending into nested function declarations. Uses the shared
+    /// [`walk_calls`] traversal — the *same* one the mutable rewrite pass uses —
+    /// so call-site ordinals are identical between analysis and rewrite.
+    fn calls_of(&self, func: &str) -> Vec<CallInfo> {
         let mut calls = Vec::new();
         let mut ordinal = 0usize;
-        collect_calls(self.body_of(func), &mut ordinal, &mut calls);
+        walk_calls(self.body_of(func), &mut ordinal, &mut |ordinal, call| {
+            let callee = match &call.callee {
+                Expression::Identifier(name) => Some(name.clone()),
+                _ => None,
+            };
+            calls.push(CallInfo {
+                ordinal,
+                callee,
+                args: call.args.clone(),
+            });
+        });
         calls
     }
 
@@ -716,145 +1019,173 @@ fn collect_returns_in_stmt(stmt: &Statement, f: &mut dyn FnMut(&Expression)) {
     collect_returns(std::slice::from_ref(stmt), f);
 }
 
-/// Enumerate calls in statements pre-order (no nested-fn descent).
-fn collect_calls<'a>(stmts: &'a [Statement], ordinal: &mut usize, out: &mut Vec<CallInfo<'a>>) {
-    for stmt in stmts {
-        collect_calls_in_stmt(stmt, ordinal, out);
-    }
-}
+/// Pre-order `CallExpression` walk, generated **once** for both an immutable
+/// visitor (the plan analyzer's [`Analyzer::calls_of`]) and a mutable visitor
+/// (Task 2's [`rewrite_callees_in_body`]).
+///
+/// Generating both from a single macro body is the lockstep guarantee the whole
+/// monomorphization contract rests on: the recursion shape and — critically —
+/// the `*ordinal += 1` placement are *literally the same source text* for the
+/// analysis walk and the rewrite walk, so a call site's pre-order ordinal is
+/// identical in both. `CallExpression` carries no node id, so this ordinal is
+/// the *only* thing tying a plan `CallBinding` to the physical node the rewrite
+/// mutates; a divergent second walk here would silently route a call site to the
+/// wrong clone (the [[kali-forin-spec4a]] two-walks-in-lockstep fail-open class).
+///
+/// The two arms differ only in the reference kind (`&` vs `&mut`) and what the
+/// visitor is handed; ordinal assignment is on entry to each call, before its
+/// callee and arguments are visited.
+macro_rules! define_call_walk {
+    ($walk_stmts:ident, $walk_stmt:ident, $walk_expr:ident, $($mut_:tt)?) => {
+        fn $walk_stmts(
+            stmts: & $($mut_)? [Statement],
+            ordinal: &mut usize,
+            visit: &mut dyn FnMut(usize, & $($mut_)? CallExpression),
+        ) {
+            for stmt in stmts {
+                $walk_stmt(stmt, ordinal, visit);
+            }
+        }
 
-fn collect_calls_in_stmt<'a>(stmt: &'a Statement, ordinal: &mut usize, out: &mut Vec<CallInfo<'a>>) {
-    match stmt {
-        Statement::ExpressionStatement(es) => calls_in_expr(&es.expression, ordinal, out),
-        Statement::ReturnStatement(r) => {
-            if let Some(arg) = &r.argument {
-                calls_in_expr(arg, ordinal, out);
-            }
-        }
-        Statement::VariableDeclaration(decl) => {
-            for d in &decl.declarations {
-                if let Some(init) = &d.init {
-                    calls_in_expr(init, ordinal, out);
+        fn $walk_stmt(
+            stmt: & $($mut_)? Statement,
+            ordinal: &mut usize,
+            visit: &mut dyn FnMut(usize, & $($mut_)? CallExpression),
+        ) {
+            match stmt {
+                Statement::ExpressionStatement(es) => {
+                    $walk_expr(& $($mut_)? es.expression, ordinal, visit)
                 }
-            }
-        }
-        Statement::IfStatement(s) => {
-            calls_in_expr(&s.test, ordinal, out);
-            collect_calls(&s.consequent.body, ordinal, out);
-            if let Some(alt) = &s.alternate {
-                collect_calls(&alt.body, ordinal, out);
-            }
-        }
-        Statement::ForStatement(s) => {
-            if let Some(ForInit::VariableDeclaration(decl)) = &s.init {
-                for d in &decl.declarations {
-                    if let Some(init) = &d.init {
-                        calls_in_expr(init, ordinal, out);
+                Statement::ReturnStatement(r) => {
+                    if let Some(arg) = & $($mut_)? r.argument {
+                        $walk_expr(arg, ordinal, visit);
                     }
                 }
-            } else if let Some(ForInit::Expression(e)) = &s.init {
-                calls_in_expr(e, ordinal, out);
-            }
-            if let Some(test) = &s.test {
-                calls_in_expr(test, ordinal, out);
-            }
-            if let Some(update) = &s.update {
-                calls_in_expr(update, ordinal, out);
-            }
-            collect_calls(&s.body.body, ordinal, out);
-        }
-        Statement::ForInStatement(s) => {
-            calls_in_expr(&s.right, ordinal, out);
-            collect_calls_in_stmt(&s.body, ordinal, out);
-        }
-        Statement::ForOfStatement(s) => {
-            calls_in_expr(&s.right, ordinal, out);
-            collect_calls_in_stmt(&s.body, ordinal, out);
-        }
-        Statement::WhileStatement(s) => {
-            calls_in_expr(&s.test, ordinal, out);
-            collect_calls(&s.body.body, ordinal, out);
-        }
-        Statement::DoWhileStatement(s) => {
-            collect_calls(&s.body.body, ordinal, out);
-            calls_in_expr(&s.test, ordinal, out);
-        }
-        Statement::BlockStatement(b) => collect_calls(&b.body, ordinal, out),
-        Statement::LabeledStatement(s) => collect_calls_in_stmt(&s.body, ordinal, out),
-        Statement::TryStatement(s) => {
-            collect_calls(&s.block.body, ordinal, out);
-            if let Some(h) = &s.handler {
-                collect_calls(&h.body.body, ordinal, out);
-            }
-            if let Some(f) = &s.finalizer {
-                collect_calls(&f.body, ordinal, out);
-            }
-        }
-        Statement::SwitchStatement(s) => {
-            calls_in_expr(&s.discriminant, ordinal, out);
-            for case in &s.cases {
-                if let Some(test) = &case.test {
-                    calls_in_expr(test, ordinal, out);
+                Statement::VariableDeclaration(decl) => {
+                    for d in & $($mut_)? decl.declarations {
+                        if let Some(init) = & $($mut_)? d.init {
+                            $walk_expr(init, ordinal, visit);
+                        }
+                    }
                 }
-                collect_calls(&case.consequent, ordinal, out);
+                Statement::IfStatement(s) => {
+                    $walk_expr(& $($mut_)? s.test, ordinal, visit);
+                    $walk_stmts(& $($mut_)? s.consequent.body, ordinal, visit);
+                    if let Some(alt) = & $($mut_)? s.alternate {
+                        $walk_stmts(& $($mut_)? alt.body, ordinal, visit);
+                    }
+                }
+                Statement::ForStatement(s) => {
+                    if let Some(ForInit::VariableDeclaration(decl)) = & $($mut_)? s.init {
+                        for d in & $($mut_)? decl.declarations {
+                            if let Some(init) = & $($mut_)? d.init {
+                                $walk_expr(init, ordinal, visit);
+                            }
+                        }
+                    } else if let Some(ForInit::Expression(e)) = & $($mut_)? s.init {
+                        $walk_expr(e, ordinal, visit);
+                    }
+                    if let Some(test) = & $($mut_)? s.test {
+                        $walk_expr(test, ordinal, visit);
+                    }
+                    if let Some(update) = & $($mut_)? s.update {
+                        $walk_expr(update, ordinal, visit);
+                    }
+                    $walk_stmts(& $($mut_)? s.body.body, ordinal, visit);
+                }
+                Statement::ForInStatement(s) => {
+                    $walk_expr(& $($mut_)? s.right, ordinal, visit);
+                    $walk_stmt(& $($mut_)? s.body, ordinal, visit);
+                }
+                Statement::ForOfStatement(s) => {
+                    $walk_expr(& $($mut_)? s.right, ordinal, visit);
+                    $walk_stmt(& $($mut_)? s.body, ordinal, visit);
+                }
+                Statement::WhileStatement(s) => {
+                    $walk_expr(& $($mut_)? s.test, ordinal, visit);
+                    $walk_stmts(& $($mut_)? s.body.body, ordinal, visit);
+                }
+                Statement::DoWhileStatement(s) => {
+                    $walk_stmts(& $($mut_)? s.body.body, ordinal, visit);
+                    $walk_expr(& $($mut_)? s.test, ordinal, visit);
+                }
+                Statement::BlockStatement(b) => $walk_stmts(& $($mut_)? b.body, ordinal, visit),
+                Statement::LabeledStatement(s) => $walk_stmt(& $($mut_)? s.body, ordinal, visit),
+                Statement::TryStatement(s) => {
+                    $walk_stmts(& $($mut_)? s.block.body, ordinal, visit);
+                    if let Some(h) = & $($mut_)? s.handler {
+                        $walk_stmts(& $($mut_)? h.body.body, ordinal, visit);
+                    }
+                    if let Some(f) = & $($mut_)? s.finalizer {
+                        $walk_stmts(& $($mut_)? f.body, ordinal, visit);
+                    }
+                }
+                Statement::SwitchStatement(s) => {
+                    $walk_expr(& $($mut_)? s.discriminant, ordinal, visit);
+                    for case in & $($mut_)? s.cases {
+                        if let Some(test) = & $($mut_)? case.test {
+                            $walk_expr(test, ordinal, visit);
+                        }
+                        $walk_stmts(& $($mut_)? case.consequent, ordinal, visit);
+                    }
+                }
+                Statement::ThrowStatement(s) => $walk_expr(& $($mut_)? s.argument, ordinal, visit),
+                _ => {}
             }
         }
-        Statement::ThrowStatement(s) => calls_in_expr(&s.argument, ordinal, out),
-        _ => {}
-    }
+
+        fn $walk_expr(
+            expr: & $($mut_)? Expression,
+            ordinal: &mut usize,
+            visit: &mut dyn FnMut(usize, & $($mut_)? CallExpression),
+        ) {
+            match expr {
+                Expression::CallExpression(call) => {
+                    let this = *ordinal;
+                    *ordinal += 1;
+                    visit(this, & $($mut_)? **call);
+                    $walk_expr(& $($mut_)? call.callee, ordinal, visit);
+                    for arg in & $($mut_)? call.args {
+                        $walk_expr(arg, ordinal, visit);
+                    }
+                }
+                Expression::BinaryExpression(b) => {
+                    $walk_expr(& $($mut_)? b.left, ordinal, visit);
+                    $walk_expr(& $($mut_)? b.right, ordinal, visit);
+                }
+                Expression::LogicalExpression(l) => {
+                    $walk_expr(& $($mut_)? l.left, ordinal, visit);
+                    $walk_expr(& $($mut_)? l.right, ordinal, visit);
+                }
+                Expression::UnaryExpression(u) => $walk_expr(& $($mut_)? u.argument, ordinal, visit),
+                Expression::ConditionalExpression(c) => {
+                    $walk_expr(& $($mut_)? c.test, ordinal, visit);
+                    $walk_expr(& $($mut_)? c.consequent, ordinal, visit);
+                    $walk_expr(& $($mut_)? c.alternate, ordinal, visit);
+                }
+                Expression::AssignmentExpression(a) => {
+                    $walk_expr(& $($mut_)? a.left, ordinal, visit);
+                    $walk_expr(& $($mut_)? a.right, ordinal, visit);
+                }
+                Expression::ParenthesizedExpression(p) => {
+                    $walk_expr(& $($mut_)? p.expression, ordinal, visit)
+                }
+                Expression::MemberExpression(m) => {
+                    $walk_expr(& $($mut_)? m.object, ordinal, visit);
+                    if let Some(idx) = & $($mut_)? m.computed_index {
+                        $walk_expr(idx, ordinal, visit);
+                    }
+                }
+                Expression::SequenceExpression(s) => {
+                    for e in & $($mut_)? s.expressions {
+                        $walk_expr(e, ordinal, visit);
+                    }
+                }
+                _ => {}
+            }
+        }
+    };
 }
 
-/// Pre-order enumeration of `CallExpression`s within an expression. A call is
-/// assigned its ordinal on entry, before its callee and arguments are visited.
-fn calls_in_expr<'a>(expr: &'a Expression, ordinal: &mut usize, out: &mut Vec<CallInfo<'a>>) {
-    match expr {
-        Expression::CallExpression(call) => {
-            let this = *ordinal;
-            *ordinal += 1;
-            let callee = match &call.callee {
-                Expression::Identifier(name) => Some(name.clone()),
-                _ => None,
-            };
-            out.push(CallInfo {
-                ordinal: this,
-                callee,
-                args: call.args.iter().collect(),
-            });
-            calls_in_expr(&call.callee, ordinal, out);
-            for arg in &call.args {
-                calls_in_expr(arg, ordinal, out);
-            }
-        }
-        Expression::BinaryExpression(b) => {
-            calls_in_expr(&b.left, ordinal, out);
-            calls_in_expr(&b.right, ordinal, out);
-        }
-        Expression::LogicalExpression(l) => {
-            calls_in_expr(&l.left, ordinal, out);
-            calls_in_expr(&l.right, ordinal, out);
-        }
-        Expression::UnaryExpression(u) => calls_in_expr(&u.argument, ordinal, out),
-        Expression::ConditionalExpression(c) => {
-            calls_in_expr(&c.test, ordinal, out);
-            calls_in_expr(&c.consequent, ordinal, out);
-            calls_in_expr(&c.alternate, ordinal, out);
-        }
-        Expression::AssignmentExpression(a) => {
-            calls_in_expr(&a.left, ordinal, out);
-            calls_in_expr(&a.right, ordinal, out);
-        }
-        Expression::ParenthesizedExpression(p) => calls_in_expr(&p.expression, ordinal, out),
-        Expression::MemberExpression(m) => {
-            calls_in_expr(&m.object, ordinal, out);
-            if let Some(idx) = &m.computed_index {
-                calls_in_expr(idx, ordinal, out);
-            }
-        }
-        Expression::SequenceExpression(s) => {
-            for e in &s.expressions {
-                calls_in_expr(e, ordinal, out);
-            }
-        }
-        _ => {}
-    }
-}
+define_call_walk!(walk_calls, walk_call_stmt, walk_call_expr,);
+define_call_walk!(walk_calls_mut, walk_call_stmt_mut, walk_call_expr_mut, mut);
