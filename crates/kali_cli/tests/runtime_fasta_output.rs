@@ -72,3 +72,38 @@ fn fasta_random_shell_matches_node() {
     );
     assert_eq!(String::from_utf8_lossy(&out.stdout), GOLDEN);
 }
+
+const FASTA_REPEAT_SHELL: &str = "\
+function fastaRepeat(n, seq) {
+  var seqi = 0;
+  var lenOut = 60;
+  while (n > 0) {
+    if (n < lenOut) lenOut = n;
+    if (seqi + lenOut < seq.length) {
+      console.log(seq.substring(seqi, seqi + lenOut));
+      seqi = seqi + lenOut;
+    } else {
+      console.log(seq.substring(seqi) + seq.substring(0, lenOut - (seq.length - seqi)));
+      seqi = lenOut - (seq.length - seqi);
+    }
+    n = n - lenOut;
+  }
+}
+var ALU = \"GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG\" + \"GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA\";
+fastaRepeat(120, ALU);
+";
+
+#[test]
+fn fasta_repeat_shell_matches_node() {
+    // ALU here is 84 chars (two 42-char segments). fastaRepeat(120) emits:
+    //   line 1: chars [0,60)               (mid-string branch)
+    //   line 2: chars [60,84)+[0,36)       (wrap-boundary else branch)
+    // GOLDEN: derived by running FASTA_REPEAT_SHELL verbatim under node
+    // v26.4.0 via a temp .mjs file and capturing its exact stdout.
+    // Independently re-derived twice; both runs produced byte-identical
+    // output (no randomness involved -- fully deterministic).
+    const GOLDEN: &str = "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGGGAGGCCGAGGCGGGCGGA\nTCACCTGAGGTCAGGAGTTCGAGAGGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCA\n";
+    let out = run_source(FASTA_REPEAT_SHELL);
+    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    assert_eq!(String::from_utf8_lossy(&out.stdout), GOLDEN);
+}

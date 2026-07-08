@@ -880,6 +880,20 @@ impl TypeContext {
                 Expression::Identifier(callee) => self.repr_table.return_repr(callee) == Repr::I64,
                 _ => false,
             },
+            // `.length` is a legitimate int-typed substring bound whenever the
+            // codegen `.length` lane would actually accept the receiver: a
+            // static-foldable receiver (UTF-16-unit count, correct for any
+            // literal) or an ASCII-provable runtime string (byte count, which
+            // `reject_unprovable_string_length` already proves agrees with the
+            // JS character count). Mirrors that gate's "allowed" condition so
+            // this predicate does not fail-close a bound the `.length` access
+            // itself is legal to read.
+            Expression::MemberExpression(member)
+                if member.computed_index.is_none() && member.property.as_str() == "length" =>
+            {
+                self.expression_is_length_fold_receiver(&member.object)
+                    || self.expression_repr_is_ascii_string(&member.object)
+            }
             _ => false,
         }
     }
