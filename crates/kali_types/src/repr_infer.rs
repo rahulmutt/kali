@@ -69,8 +69,19 @@ fn expr_is_process_root(expr: &Expression) -> bool {
     }
 }
 
+/// Mirror of `TypeContext::expression_is_nonneg_int_literal`
+/// (`resolve/expression.rs`) — bounded to `n <= 9007199254740991.0` (2^53 - 1,
+/// `Number.MAX_SAFE_INTEGER`) rather than `i64::MAX as f64` so the accepted
+/// set exactly round-trips through codegen's `str::parse::<i64>()`
+/// (`is_process_argv_element`) with no residual boundary mismatch; see the
+/// comment on the `resolve/expression.rs` twin for the full rationale. Keep
+/// both copies in lockstep.
 fn expr_is_nonneg_int_literal(expr: &Expression) -> bool {
-    matches!(expr, Expression::Literal(LiteralValue::Number(n)) if n.fract() == 0.0 && *n >= 0.0)
+    matches!(
+        expr,
+        Expression::Literal(LiteralValue::Number(n))
+            if n.fract() == 0.0 && *n >= 0.0 && *n <= 9007199254740991.0
+    )
 }
 
 /// A deferred interprocedural call constraint, resolved after every function

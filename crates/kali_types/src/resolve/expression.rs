@@ -105,8 +105,29 @@ impl TypeContext {
     }
 
     /// A non-negative integer numeric literal (a valid static argv index).
+    ///
+    /// Bounded to `n <= 9007199254740991.0` (2^53 - 1, `Number.MAX_SAFE_INTEGER`
+    /// — the same "exactly representable in f64" bound already used by this
+    /// crate for `Number.isSafeInteger`, see `static_analysis/number.rs`)
+    /// rather than the naive `n <= i64::MAX as f64`. The naive bound has a
+    /// residual mismatch: `i64::MAX as f64` rounds UP to `2^63` (not
+    /// representable exactly, since `i64::MAX == 2^63 - 1`), so a literal
+    /// whose text is e.g. `9223372036854775808` (`i64::MAX + 1`, out of range)
+    /// parses to the SAME f64 value as `i64::MAX` and would still be
+    /// (wrongly) accepted at that bound — while codegen's `is_process_argv_element`
+    /// parses the literal's TEXT via `str::parse::<i64>()` and correctly
+    /// rejects it as an overflow (`None`). Below `2^53` every whole f64 value
+    /// round-trips to a unique integer text with no precision loss, so
+    /// `text.parse::<i64>()` is GUARANTEED to succeed and reproduce `n` exactly
+    /// — closing the asymmetry with codegen's i64 parse by construction, not
+    /// just by a magnitude guess. (`process.argv` indices are realistically
+    /// tiny, so this bound costs nothing in practice.)
     fn expression_is_nonneg_int_literal(expr: &Expression) -> bool {
-        matches!(expr, Expression::Literal(LiteralValue::Number(n)) if n.fract() == 0.0 && *n >= 0.0)
+        matches!(
+            expr,
+            Expression::Literal(LiteralValue::Number(n))
+                if n.fract() == 0.0 && *n >= 0.0 && *n <= 9007199254740991.0
+        )
     }
 
     /// Semantic string-typedness of an expression: does it evaluate to a string at
