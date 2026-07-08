@@ -158,6 +158,17 @@ struct ReprInfer {
     /// twin of codegen's `for_in_key_shapes` and the resolve-phase
     /// `for_in_key_bindings` registry.
     for_in_key_bases: Vec<(String, String, ObjSlot)>,
+    /// Grow-only `(func, key_name)` for EVERY `for..in` key ever seen in
+    /// `func` — populated when a key is pushed onto `for_in_key_bases` but
+    /// NEVER removed (unlike the lexical stack). Mirrors the resolve-phase
+    /// grow-only `for_in_key_bindings` registry and codegen's grow-only
+    /// `for_in_key_handle_tables`: a key's String-materialization provenance
+    /// persists past the loop body, so a key stored into an array element
+    /// AFTER the loop exits (the fasta `fastaRandom` shape: `for (c in t) ...
+    /// break; line[i] = c`) is still recognized as a string sink. The lexical
+    /// `for_in_key_bases` stack is kept separately for the `base[key]`
+    /// uniform-object read gate, which MUST stay lexically scoped.
+    for_in_key_names: BTreeSet<(String, String)>,
     /// Deferred computed uniform-object reads `base[key]` — `(base_slot,
     /// result_node)`, wired to the shape's field storage in `resolve_objects`
     /// so the read result carries the (uniform) field repr.
@@ -284,6 +295,31 @@ impl ReprInfer {
     fn seed_for_in_key_string_use(&mut self, func: &str, expr: &Expression) {
         if let Expression::Identifier(name) = expr {
             if self.is_active_for_in_key(func, name) {
+                let node = self.scalar_node_for(func, name);
+                self.add_string_seed(node);
+            }
+        }
+    }
+
+    /// Spec 5 Task 2: like `seed_for_in_key_string_use`, but recognizes a
+    /// `for..in` key by its PERSISTENT (grow-only) provenance rather than the
+    /// lexical active-key stack. The fasta `fastaRandom` shape stores the key
+    /// into an array element AFTER the `for..in` exits via `break`
+    /// (`for (c in t) { ... break; } line[i] = c;`), so the store site is
+    /// OUTSIDE the loop body where `is_active_for_in_key` is already false.
+    /// The store is nonetheless a string-materialization sink: lifting the
+    /// key's scalar to `String` makes both the resolve gate's materialized-key
+    /// carve-out (`identifier_repr_is_string`) and codegen's grow-only
+    /// `for_in_key_handle_tables` materialization (gated on the same String
+    /// repr, keyed off the persistent ordinal local) fire on the post-loop
+    /// read. Used ONLY at the array-element store sink (the resolve gate keeps
+    /// every other post-loop key value use fail-closed).
+    fn seed_persisted_for_in_key_string_use(&mut self, func: &str, expr: &Expression) {
+        if let Expression::Identifier(name) = expr {
+            if self
+                .for_in_key_names
+                .contains(&(func.to_string(), name.clone()))
+            {
                 let node = self.scalar_node_for(func, name);
                 self.add_string_seed(node);
             }
@@ -737,6 +773,10 @@ impl ReprInfer {
                 };
                 if let (Some(key), Some(base)) = (key_name, &base_slot) {
                     let _ = self.scalar_node_for(func, &key);
+                    // Grow-only record for the persistent string-sink provenance
+                    // (never popped), separate from the lexical stack below.
+                    self.for_in_key_names
+                        .insert((func.to_string(), key.clone()));
                     self.for_in_key_bases
                         .push((func.to_string(), key, base.clone()));
                     pushed_key = true;
@@ -1087,6 +1127,20 @@ impl ReprInfer {
                     // the array; an int value into a float array stays int).
                     self.add_edge(rn, elem);
                     self.element_store_sources.push((elem, rn));
+                    // Spec 5: a `for..in` key stored into an array element is a
+                    // string-materialization sink, exactly like `return c` /
+                    // `console.log(c)` / `+`/`==`. Seed the key's scalar node
+                    // String so (a) the element axis lifts to String via the
+                    // edge above (enabling `.join('')` and the
+                    // `string_element_array_binding` gate) and (b) the resolve
+                    // gate's materialized-key carve-out
+                    // (`identifier_repr_is_string`) admits the `c` read after
+                    // the loop. Uses the PERSISTENT (grow-only) provenance,
+                    // not the lexical active-key stack, because the fasta
+                    // shape stores the key AFTER the `for..in` exits via
+                    // `break` (outside the loop body). No-ops unless the RHS
+                    // was seen as a `for..in` key somewhere in `func`.
+                    self.seed_persisted_for_in_key_string_use(func, &assign.right);
                 } else {
                     self.visit_expr(func, &member.object);
                 }
