@@ -66,6 +66,33 @@ fn transitive_outer_inner_two_shapes_prints_three_then_two() {
 }
 
 #[test]
+fn nested_fn_decl_caller_still_rejects_cleanly() {
+    // Task 7a-2 follow-up (fail-closed guard): `outer` is reached by two
+    // distinct shapes but contains a nested `function helper(){...}`
+    // declaration. Cloning `outer` would duplicate `helper` into two
+    // same-named wasm exports, which wasm validation would reject with an
+    // opaque duplicate-export error. The guard drops `outer` from
+    // specializations instead, so this now fails closed with the existing
+    // clean E5506 conflicting-object-shapes diagnostic (never miscompiles,
+    // never surfaces the opaque wasm error).
+    let src = "function outer(t){ function helper(){ return 1; } var s=0; for(var k in t){ s=s+1; } return s + helper(); }\n\
+               var A={a:1.0,b:2.0,c:3.0}; var B={x:1.0,y:2.0};\n\
+               console.log(outer(A)); console.log(outer(B));\n";
+    let out = run_source(src);
+    assert!(
+        !out.status.success(),
+        "outer with a nested fn decl must fail closed, not miscompile; stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("E5506"),
+        "expected the clean E5506 conflicting-object-shapes diagnostic, not an \
+         opaque downstream error; stderr: {stderr}"
+    );
+}
+
+#[test]
 fn ambiguous_conditional_merge_still_rejects() {
     // Fail-closed pin (design §4): `var o = cond ? A : B; dump(o)` merges two
     // shapes into one slot at one use site — no per-call-site partition exists,

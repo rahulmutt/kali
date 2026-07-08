@@ -785,6 +785,30 @@ impl<'a> Analyzer<'a> {
             if index_sets.len() != 1 {
                 continue;
             }
+            // Fail-closed guard (Task 7a-2 follow-up): a function whose body
+            // contains a nested `function` declaration cannot be safely cloned
+            // per shape. Codegen exports every nested function declaration by
+            // name (`kali_codegen::lower`), so cloning the enclosing function N
+            // times would duplicate the nested declaration into N same-named
+            // wasm exports — wasm validation rejects that with an opaque
+            // duplicate-export error rather than a clean diagnostic. Drop the
+            // function from `specializations` here (before the transitive-bail
+            // pass below) instead: this is a pure narrowing — it only removes a
+            // would-be specialization, never adds one — so if `func` was only
+            // multi-shape because of it, the existing repr_infer E5506
+            // conflicting-object-shapes diagnostic fires downstream instead;
+            // and any callee that was only specialized because of `func`
+            // routing distinct shapes to it gets cleaned up by the transitive
+            // fail-closed post-pass immediately below, which already handles
+            // exactly this "un-specialized multi-shape caller" shape.
+            if self
+                .funcs
+                .get(func.as_str())
+                .map(|f| body_has_nested_fn_decl(&f.body.body))
+                .unwrap_or(false)
+            {
+                continue;
+            }
             specializations.insert(func.clone(), keys.iter().cloned().collect());
         }
 
@@ -922,6 +946,53 @@ fn clean_shape(obj: &ObjectExpression) -> Option<ShapeTuple> {
         names.push(key.clone());
     }
     Some(names)
+}
+
+/// True if `stmts` contains a `function` declaration nested anywhere inside —
+/// directly, or inside a `block`/`if`/`for`/`for-in`/`for-of`/`while`/
+/// `do-while`/`labeled`/`try`/`switch` body. Used by [`Analyzer::build_plan`]
+/// to fail-closed-drop a would-be-specialized function whose clones would
+/// otherwise duplicate a nested declaration into multiple same-named wasm
+/// exports (see the call site's doc comment). One hit is enough, so this does
+/// not need to descend into a found `FunctionDeclaration`'s own body.
+fn body_has_nested_fn_decl(stmts: &[Statement]) -> bool {
+    stmts.iter().any(stmt_has_nested_fn_decl)
+}
+
+fn stmt_has_nested_fn_decl(stmt: &Statement) -> bool {
+    match stmt {
+        Statement::FunctionDeclaration(_) => true,
+        Statement::IfStatement(s) => {
+            body_has_nested_fn_decl(&s.consequent.body)
+                || s
+                    .alternate
+                    .as_ref()
+                    .is_some_and(|alt| body_has_nested_fn_decl(&alt.body))
+        }
+        Statement::ForStatement(s) => body_has_nested_fn_decl(&s.body.body),
+        Statement::ForInStatement(s) => stmt_has_nested_fn_decl(&s.body),
+        Statement::ForOfStatement(s) => stmt_has_nested_fn_decl(&s.body),
+        Statement::WhileStatement(s) => body_has_nested_fn_decl(&s.body.body),
+        Statement::DoWhileStatement(s) => body_has_nested_fn_decl(&s.body.body),
+        Statement::BlockStatement(b) => body_has_nested_fn_decl(&b.body),
+        Statement::LabeledStatement(s) => stmt_has_nested_fn_decl(&s.body),
+        Statement::TryStatement(s) => {
+            body_has_nested_fn_decl(&s.block.body)
+                || s
+                    .handler
+                    .as_ref()
+                    .is_some_and(|h| body_has_nested_fn_decl(&h.body.body))
+                || s
+                    .finalizer
+                    .as_ref()
+                    .is_some_and(|f| body_has_nested_fn_decl(&f.body))
+        }
+        Statement::SwitchStatement(s) => s
+            .cases
+            .iter()
+            .any(|case| body_has_nested_fn_decl(&case.consequent)),
+        _ => false,
+    }
 }
 
 /// Collect every user `FunctionDeclaration` (recursively) by name.

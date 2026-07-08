@@ -240,6 +240,32 @@ fn callee_through_unspecialized_multishape_caller_bails() {
 }
 
 #[test]
+fn nested_fn_decl_caller_is_dropped_from_specializations() {
+    // Task 7a-2 follow-up: `outer` is reached by two distinct shapes (would
+    // normally specialize, like `dump` above) but its body contains a nested
+    // `function helper(){...}` declaration. Cloning `outer` would duplicate
+    // `helper` into every clone, and codegen exports nested functions by name
+    // (kali_codegen lower.rs) — two clones would produce two same-named wasm
+    // exports, which wasm validation rejects with an opaque duplicate-export
+    // error rather than a clean diagnostic. `outer` must be dropped from
+    // specializations (left un-specialized) so the existing E5506
+    // conflicting-object-shapes diagnostic fires downstream instead.
+    let p = plan(
+        "function outer(t){ function helper(){ return 1; } var s=0; for(var k in t){ s=s+1; } return s + helper(); } \
+         var A={a:1.0,b:2.0,c:3.0}; var B={x:1.0,y:2.0}; \
+         console.log(outer(A)); console.log(outer(B));",
+    );
+    assert!(
+        p.specialization_keys("outer").is_none(),
+        "outer contains a nested function declaration and must not be specialized"
+    );
+    assert!(
+        targeted_specs(&p, "outer").is_empty(),
+        "no call binding may target a dropped-from-specialization outer"
+    );
+}
+
+#[test]
 fn no_object_params_is_empty_plan() {
     let p = plan("function add(a,b){return a+b;} console.log(add(1.0,2.0));");
     assert!(p.is_empty());
