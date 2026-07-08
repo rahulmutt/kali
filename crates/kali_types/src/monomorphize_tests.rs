@@ -198,6 +198,48 @@ fn bounded_self_recursion_same_shape_converges_and_specializes() {
 }
 
 #[test]
+fn callee_through_unspecialized_multishape_caller_bails() {
+    // Fail-closed regression (Task 7a-1 follow-up): `f` is ambiguous at the
+    // `f(o)` site so `f` is (correctly) NOT specialized. But `f(A)`/`f(B)`
+    // still seed `g` with two distinct shapes, so a naive fixpoint specializes
+    // `g`. `f`'s single un-cloned body has ONE `g(t)` call site that would then
+    // need two contradictory targets (g${a,b,c} vs g${x,y}) — a broken
+    // call_site → tuple mapping. `g` must be bailed too (empty plan → E5506).
+    let p = plan(
+        "function g(t){var s=0;for(var k in t){s=s+1;}return s;} \
+         function f(t){return g(t);} \
+         var A={a:1.0,b:2.0,c:3.0}; var B={x:1.0,y:2.0}; var cond=1.0; \
+         var o = cond ? A : B; \
+         console.log(f(A)); console.log(f(B)); console.log(f(o));",
+    );
+    assert!(
+        p.specialization_keys("f").is_none(),
+        "f is ambiguous at f(o) and must not be specialized"
+    );
+    assert!(
+        p.specialization_keys("g").is_none(),
+        "g reached only through the un-specialized multi-shape caller f must \
+         be bailed — its single g(t) call site cannot be cleanly routed"
+    );
+    // No call binding may target g (there is no clean site to rewrite).
+    assert!(
+        targeted_specs(&p, "g").is_empty(),
+        "no contradictory call binding may target g"
+    );
+    // No two bindings may collide on (caller, caller_spec, ordinal) with
+    // different callee_spec — the call_site → tuple functional contract.
+    let mut seen: BTreeSet<(String, SpecKey, usize)> = BTreeSet::new();
+    for b in p.call_bindings() {
+        assert!(
+            seen.insert((b.caller.clone(), b.caller_spec.clone(), b.ordinal)),
+            "duplicate (caller, caller_spec, ordinal) key => contradictory \
+             call_site → tuple mapping"
+        );
+    }
+    assert!(p.is_empty());
+}
+
+#[test]
 fn no_object_params_is_empty_plan() {
     let p = plan("function add(a,b){return a+b;} console.log(add(1.0,2.0));");
     assert!(p.is_empty());

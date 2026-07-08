@@ -485,6 +485,59 @@ impl<'a> Analyzer<'a> {
             specializations.insert(func.clone(), keys.iter().cloned().collect());
         }
 
+        // Transitive fail-closed bail (root-cause post-pass). A callee reached
+        // through a caller that is itself un-specialized but has ≥2 distinct
+        // instances is NOT cleanly partitioned: that caller's single un-cloned
+        // body hosts ONE call site that its multiple instances would route to
+        // ≥2 different callee specializations — a broken `call_site → tuple`
+        // mapping. Remove every such callee from the plan.
+        //
+        // A non-`_start` function's instances all carry a non-empty `SpecKey`
+        // (instances are only seeded from `CalleeCtx::Definite`), so
+        // `keys_by_func[func].len() ≥ 2` exactly means "≥2 distinct instances".
+        // A function with ≥2 keys that is absent from `specializations` is
+        // "poly-uncloned" — it bailed on ambiguity, failed the `index_sets`
+        // partition check, or was itself bailed by a previous round here.
+        //
+        // Fixpoint: bailing a callee can itself make that callee poly-uncloned,
+        // cascading to ITS callees. Terminates because every round that changes
+        // anything strictly shrinks `specializations` (a monotone-decreasing,
+        // bounded-below measure).
+        loop {
+            let mut newly_bailed: BTreeSet<String> = BTreeSet::new();
+            for (func, ctx) in instances {
+                if func == TOP_LEVEL {
+                    continue;
+                }
+                let poly = keys_by_func.get(func).map(|k| k.len() >= 2).unwrap_or(false);
+                if !poly || specializations.contains_key(func) {
+                    continue; // not a poly-uncloned caller
+                }
+                let env = self.solve_env(func, ctx, returns);
+                for call in self.calls_of(func) {
+                    let Some(callee) = call.callee else { continue };
+                    if !specializations.contains_key(&callee) {
+                        continue;
+                    }
+                    if let CalleeCtx::Definite(ck) = self.callee_ctx(&call.args, &env, returns) {
+                        let targets_real_spec = specializations
+                            .get(&callee)
+                            .map(|ks| ks.contains(&ck))
+                            .unwrap_or(false);
+                        if targets_real_spec {
+                            newly_bailed.insert(callee.clone());
+                        }
+                    }
+                }
+            }
+            if newly_bailed.is_empty() {
+                break;
+            }
+            for callee in newly_bailed {
+                specializations.remove(&callee);
+            }
+        }
+
         // Call bindings: for every instance, resolve each call whose callee is
         // specialized. The caller_spec is the enclosing context when the caller
         // is itself specialized, else empty (the original body).
