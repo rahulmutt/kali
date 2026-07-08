@@ -736,3 +736,26 @@ fn for_in_over_fixed_shape_object_with_bare_key_iterates_once_per_field() {
     );
     assert_eq!(String::from_utf8_lossy(&out.stdout), "3\n");
 }
+
+#[test]
+fn break_targets_the_forin_loop_not_the_enclosing_loop() {
+    // Inner `for..in` breaks after ONE field on every outer iteration.
+    // Correct: break exits the for-in, outer runs twice -> out == 2.
+    // Bug (break targets outer `for`): out == 1.
+    let out = run_source(
+        "function f(t) {\n  var out = 0;\n  for (var i = 0; i < 2; i = i + 1) {\n    for (var c in t) { out = out + 1; break; }\n  }\n  return out;\n}\nconst t = { a: 1, c: 2 };\nconsole.log(f(t));\n",
+    );
+    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "2\n");
+}
+
+#[test]
+fn break_inside_bare_forin_with_no_enclosing_loop() {
+    // A `break` in a for-in with no enclosing loop must target the for-in
+    // (before this task it errored "break outside loop"). Breaks at n==2.
+    let out = run_source(
+        "function f(t) {\n  var n = 0;\n  for (var c in t) { n = n + 1; if (n == 2) break; }\n  return n;\n}\nconst t = { a: 1, c: 2, g: 3 };\nconsole.log(f(t));\n",
+    );
+    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "2\n");
+}

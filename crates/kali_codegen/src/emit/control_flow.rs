@@ -483,9 +483,18 @@ impl<'a> FunctionEmitter<'a> {
         function.instruction(&Instruction::I64Const(0));
         function.instruction(&Instruction::LocalSet(ord_local));
 
-        // block (break target) { loop (continue target) { ... } }
+        // block (break target) { loop (continue target) { ... } }. Register the
+        // labels so a `break`/`continue` inside the body targets THIS for-in
+        // (not an enclosing loop). No loop-arena ordinal is involved — this is
+        // label bookkeeping only; for..in still takes no arena.
+        let break_index = self.push_control_frame(ControlFlowLabelKind::LoopBreak);
         function.instruction(&Instruction::Block(BlockType::Empty));
+        let continue_index = self.push_control_frame(ControlFlowLabelKind::LoopContinue);
         function.instruction(&Instruction::Loop(BlockType::Empty));
+        self.loop_frames.push(LoopFrame {
+            break_index,
+            continue_index,
+        });
 
         // break when ord >= N
         function.instruction(&Instruction::LocalGet(ord_local));
@@ -511,7 +520,10 @@ impl<'a> FunctionEmitter<'a> {
 
         function.instruction(&Instruction::Br(0)); // back to loop top
         function.instruction(&Instruction::End); // end loop
+        self.loop_frames.pop();
+        self.pop_control_frame(ControlFlowLabelKind::LoopContinue);
         function.instruction(&Instruction::End); // end block
+        self.pop_control_frame(ControlFlowLabelKind::LoopBreak);
 
         EmittedValue {
             produced: false,
