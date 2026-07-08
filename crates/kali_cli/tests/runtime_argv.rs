@@ -120,3 +120,81 @@ fn process_argv_variable_index_never_flows_as_a_real_string() {
     assert_ne!(stdout, "hello\n");
     assert_eq!(stdout, "0\n");
 }
+
+// --- Fail-closed pins: `.length` on an unprovable argv index (Spec 5 Task 5
+//     follow-up 2) ---
+//
+// The bounded-literal fix above kept BOTH the `is_process_argv_element`
+// recognizers (codegen i64 parse) and the kali_types string predicates in
+// lockstep, so `process.argv[<huge>]` is not classified as a string on either
+// side. But the `.length` gate had NO arm for "an argv element whose index is
+// not the provable subset": because such a receiver is (correctly) not a
+// string, `reject_unprovable_string_length` treated it as an unrelated
+// non-string `.length` and stayed silent — and codegen's STATIC console.log
+// render (`render_length`) then folded `process.argv[<huge>].length` to the
+// argv-element node's CHILD COUNT (`2`, its `[argv, index]` children), a bogus
+// number where Node THROWS (`argv[huge]` is `undefined`). A third recognizer
+// lane (the static render fold) outside the string/`.length` mirror. The fix
+// adds a fail-closed arm keyed on the structural `process.argv[<any index>]`
+// shape MINUS the provable-element subset: any argv `.length` whose index is
+// not a static non-negative integer literal that round-trips through codegen's
+// i64 parse now rejects E5506 rather than miscompiling.
+//
+// Behavior below RUN on the rebuilt binary before pinning (not assumed).
+#[test]
+fn process_argv_huge_literal_index_length_fails_closed() {
+    // `process.argv[<huge>].length`: Node throws `TypeError: Cannot read
+    // properties of undefined (reading 'length')` and exits non-zero. Kali must
+    // NOT miscompile it to the child-count `2` — it must fail closed.
+    let out = run_node_source_with_args(
+        "console.log(process.argv[10000000000000000000].length);\n",
+        &["hello"],
+    );
+    assert!(
+        !out.status.success(),
+        "argv[huge].length must fail closed, got stdout: {:?}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("E5506"),
+        "expected E5506, stderr: {stderr}"
+    );
+    // The specific pre-fix miscompile (child-count fold) must never surface.
+    assert_ne!(String::from_utf8_lossy(&out.stdout), "2\n");
+}
+
+#[test]
+fn process_argv_variable_index_length_fails_closed() {
+    // A non-literal (variable) argv index is likewise not a provable element:
+    // `process.argv[i].length` must fail closed for the same reason (the
+    // fail-closed matrix rejects a non-provably-in-range / non-integer index).
+    let out = run_node_source_with_args(
+        "var i = 2;\nconsole.log(process.argv[i].length);\n",
+        &["hello"],
+    );
+    assert!(
+        !out.status.success(),
+        "argv[i].length must fail closed, got stdout: {:?}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    assert!(
+        String::from_utf8_lossy(&out.stderr).contains("E5506"),
+        "expected E5506, stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+#[test]
+fn process_argv_valid_index_length_still_succeeds() {
+    // Regression control for the fix above: the PROVABLE argv-element subset
+    // (a static non-negative integer literal) must keep taking the runtime
+    // string `.length` lane and report the correct byte count.
+    let out = run_node_source_with_args("console.log(process.argv[2].length);\n", &["abcd"]);
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "4\n");
+}

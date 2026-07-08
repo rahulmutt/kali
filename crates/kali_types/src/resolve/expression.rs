@@ -79,6 +79,19 @@ impl TypeContext {
         Self::expression_is_nonneg_int_literal(index) && Self::is_process_argv_member(&member.object)
     }
 
+    /// Structural `process.argv[<any index>]` — a computed element read whose
+    /// base is the `process.argv` receiver, REGARDLESS of the index. Unlike
+    /// `is_process_argv_element_expr` (which additionally requires a provable
+    /// non-negative integer-literal index), this recognizes the SHAPE alone, so
+    /// the `.length` gate can distinguish "an argv element with an unprovable
+    /// index" (fail closed) from an unrelated computed read (leave alone).
+    fn is_process_argv_computed_element(expr: &Expression) -> bool {
+        let Expression::MemberExpression(member) = expr else {
+            return false;
+        };
+        member.computed_index.is_some() && Self::is_process_argv_member(&member.object)
+    }
+
     /// `process.argv` (or `globalThis.process.argv`): a non-computed `.argv`
     /// member read on the process root. Mirror of codegen's `is_process_argv`.
     fn is_process_argv_member(expr: &Expression) -> bool {
@@ -1103,6 +1116,25 @@ impl TypeContext {
     /// which counts UTF-16 units and is correct for ANY literal.
     pub(crate) fn reject_unprovable_string_length(&mut self, expr: &MemberExpression) {
         if expr.computed_index.is_some() || expr.property.as_str() != "length" {
+            return;
+        }
+        // `process.argv[<index>].length` where the index is NOT a provable static
+        // argv element (`is_process_argv_element_expr`: a non-negative integer
+        // literal that round-trips through codegen's i64 parse) is a `.length` on
+        // a value that neither side classifies as a string. Codegen has no valid
+        // runtime lane for it, so the static console.log render (`render_length`)
+        // falls through to the argv-element node's CHILD COUNT (a bogus `2`) where
+        // node throws (`argv[huge]` is `undefined`). Fail closed — only the
+        // provable argv-element subset (accepted by the ASCII-string lane below)
+        // may take the runtime `.length`. Completes the both-sides mirror: the
+        // accepted argv-`.length` set is exactly `is_process_argv_element_expr`.
+        if Self::is_process_argv_computed_element(&expr.object)
+            && !self.is_process_argv_element_expr(&expr.object)
+        {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "'.length' on a 'process.argv[i]' element is unavailable unless the index is a static non-negative integer literal (a non-provably-in-range or non-integer index would miscompile to a bogus number where Node throws)".to_string(),
+            ));
             return;
         }
         if self.expression_is_length_fold_receiver(&expr.object) {
