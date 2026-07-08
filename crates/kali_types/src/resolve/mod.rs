@@ -410,7 +410,9 @@ impl TypeContext {
     pub(crate) fn resolve_statement(&mut self, statement: &Statement) {
         match statement {
             Statement::ExpressionStatement(ExpressionStatement { expression }) => {
-                self.resolve_expression(expression)
+                // Statement position: the value is discarded, so an alias-copy
+                // `last = c` is a safe ordinal-domain propagation (suppressed).
+                self.resolve_statement_position_expression(expression)
             }
             Statement::BreakStatement(BreakStatement { .. }) => {}
             Statement::ContinueStatement(ContinueStatement { .. }) => {}
@@ -420,13 +422,11 @@ impl TypeContext {
             }
             Statement::ReturnStatement(ReturnStatement { argument }) => {
                 if let Some(argument) = argument {
+                    // Spec 4a Task 5: `return d` for a non-materialized for-in-key
+                    // value is rejected structurally by the default-deny in
+                    // `resolve_identifier` (the argument is resolved as a value);
+                    // a materialized direct key (`return c`, repr `String`) is not.
                     self.resolve_expression(argument);
-                    // Spec 4a Task 5 fail-closed: `return d` where `d` is a
-                    // non-materializable for-in-key value (an aliased key) would
-                    // leak the raw ordinal as a bogus string handle. A direct
-                    // seeded key (`return c`) has repr `String` → materialized →
-                    // not rejected.
-                    self.reject_nonmaterializable_forin_key_value(argument);
                 }
             }
             Statement::LabeledStatement(LabeledStatement { body, .. }) => {
@@ -437,7 +437,14 @@ impl TypeContext {
                 consequent,
                 alternate,
             }) => {
-                self.resolve_expression(test);
+                // Spec 4a Task 5 allowlist: an `if` condition is a PROVEN-SAFE
+                // truthiness position for a bare for-in-key value (`if (last)`,
+                // Task 4's `>= 0` lowering) — resolve via the safe-position path
+                // so the default-deny value-escape reject is suppressed for a
+                // bare key. A complex test (`if (r < table[c])`, `if (id(c))`)
+                // resolves normally: the index stays accepted, a nested escape
+                // still rejects.
+                self.resolve_forin_key_safe_position(test);
                 self.resolve_block_statement(consequent);
                 if let Some(alternate) = alternate {
                     self.resolve_block_statement(alternate);
@@ -505,7 +512,11 @@ impl TypeContext {
                     ForInLefthand::VariableDeclaration(decl) => {
                         self.resolve_variable_declaration(decl)
                     }
-                    ForInLefthand::Expression(expr) => self.resolve_expression(expr),
+                    // The bare-form key `for (c in obj)` LHS is a binding target,
+                    // not a value read (and is resolved before the key is
+                    // registered) — resolve via the safe-position path so a
+                    // same-named already-registered key is never mis-rejected.
+                    ForInLefthand::Expression(expr) => self.resolve_forin_key_safe_position(expr),
                 }
                 self.resolve_expression(right);
                 // Spec 4a Task 2: tag the key binding with the enumerated
@@ -733,7 +744,12 @@ impl TypeContext {
         }
         for declarator in &declaration.declarations {
             if let Some(init) = &declarator.init {
-                self.resolve_expression(init);
+                // Spec 4a Task 5 allowlist: a bare-key declarator init
+                // (`let d = c`) is an ALIAS-COPY (ordinal domain) — resolve via
+                // the safe-position path (suppresses the default-deny reject for
+                // a bare key; `d` is tainted below). A non-bare init
+                // (`let d = id(c)`) resolves normally → the nested escape rejects.
+                self.resolve_forin_key_safe_position(init);
                 if let Some(scope) = self.scopes.get_mut(&target_scope) {
                     scope
                         .mutable_bindings

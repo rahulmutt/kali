@@ -49,17 +49,10 @@ impl TypeContext {
         for arg in &expr.args {
             self.resolve_expression(arg);
         }
-        // Spec 4a Task 5 fail-closed: a for-in-key VALUE passed as ANY call
-        // argument (a general user/method call `id(c)`, or `console.log(c)`) is
-        // a value escape — a non-materializable one (an aliased key, or a direct
-        // key passed to a non-console call that is not a repr seed sink) would
-        // leak the raw ordinal across the call boundary. A direct SEEDED key
-        // (`console.log(c)`, repr `String`) is materialized and not rejected.
-        // Call arguments are always value positions (never an index/truthiness/
-        // alias-copy), so rejecting here never touches the ordinal-domain lanes.
-        for arg in &expr.args {
-            self.reject_nonmaterializable_forin_key_value(arg);
-        }
+        // Spec 4a Task 5: a for-in-key VALUE passed as a call argument is a value
+        // escape — rejected structurally by the default-deny in `resolve_identifier`
+        // (call arguments are resolved as expressions, so a non-materialized key
+        // arrives there and rejects; a materialized direct seeded key does not).
         self.resolve_permission_query_call(expr);
         self.resolve_process_kill_call(expr);
         self.resolve_math_member_call(expr);

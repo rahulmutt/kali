@@ -632,6 +632,37 @@ impl TypeContext {
         }
     }
 
+    /// True iff `name` resolves (respecting shadowing) to a `for..in`-key VALUE
+    /// binding ANYWHERE in the enclosing scope chain — INCLUDING across a function
+    /// boundary (a CLOSURE CAPTURE, `let g = () => c`). Unlike `is_for_in_key_value`
+    /// (which fail-closes AT the tracked-function boundary, so a capture reads as
+    /// `false`), this walks to the FIRST scope that binds `name` and reports
+    /// whether THAT scope registered it as a key/alias/value-copy — so a nested
+    /// function's OWN binding named `c` (shadowing) is correctly NOT a key, while a
+    /// captured outer key IS. The default-deny reject in `resolve_identifier` keys
+    /// on this so a captured for-in-key value read rejects (codegen would leak the
+    /// raw ordinal into the closure) rather than escaping every same-function gate.
+    pub(crate) fn for_in_key_value_binding_in_chain(&self, name: &str) -> bool {
+        let mut current = self.current_scope_id();
+        while let Some(scope_id) = current {
+            let Some(scope) = self.scopes.get(&scope_id) else {
+                return false;
+            };
+            if scope.bindings.contains_key(name) {
+                // First scope that binds `name` decides — respects shadowing.
+                return scope.for_in_key_bindings.contains_key(name)
+                    || scope.for_in_key_value_bindings.contains_key(name);
+            }
+            current = scope.parent;
+        }
+        self.global_scope.bindings.contains_key(name)
+            && (self.global_scope.for_in_key_bindings.contains_key(name)
+                || self
+                    .global_scope
+                    .for_in_key_value_bindings
+                    .contains_key(name))
+    }
+
     /// If `name` (a bare identifier) is used as an RHS of an alias copy — a
     /// declarator init `let d = <rhs>` or an assignment `d = <rhs>` — and `<rhs>`
     /// carries for-in-key value provenance, mark the LHS `d` as a value copy too,
@@ -646,85 +677,48 @@ impl TypeContext {
         }
     }
 
-    /// Spec 4a Task 5 fail-closed: does `expr`, used at a value-ESCAPE position,
-    /// FORWARD a non-materializable `for..in`-key VALUE to its own result value?
-    /// True iff some value-forwarding leaf is a bare identifier with for-in-key
-    /// value provenance (`is_for_in_key_value`) whose repr was NOT lifted to
-    /// `String` (`!identifier_repr_is_string` → codegen will NOT materialize it,
-    /// so the raw ordinal would leak). Recurses ONLY through expressions that
-    /// forward the escaping value UNCHANGED to their result: a
-    /// `ParenthesizedExpression` (into its inner); a `ConditionalExpression`
-    /// (into BOTH arms, NOT the test — a truthiness position handled elsewhere);
-    /// a `SequenceExpression` (into its LAST element only — comma yields the
-    /// last, earlier elements are evaluated-and-discarded, not escaped); and a
-    /// `TypeAssertion` / `SatisfiesExpression` (into the asserted expression — a
-    /// cast forwards the value unchanged).
-    ///
-    /// It does NOT recurse into computed/aggregate/call/member forms: those
-    /// produce a NEW value (a field read, a fresh array/object, a call result, a
-    /// number/bool from an operator) rather than forwarding a leaf identifier —
-    /// e.g. `table[c]` is the FIELD value (accepted), `c + x` / `c == x` are
-    /// handled at the `+`/equality sink, call args / array elements / object
-    /// properties are handled at their own sinks. See the completeness proof in
-    /// the task report (every `Expression` variant classified).
-    ///
-    /// A materialized DIRECT key has `identifier_repr_is_string == true`, so the
-    /// leaf check SKIPS it → `return c` / `cond ? c_seeded : d` never over-reject.
-    pub(crate) fn forwards_nonmaterializable_forin_key_value(&self, expr: &Expression) -> bool {
-        match expr {
-            Expression::Identifier(name) => {
-                self.is_for_in_key_value(name) && !self.identifier_repr_is_string(name)
-            }
-            Expression::ParenthesizedExpression(p) => {
-                self.forwards_nonmaterializable_forin_key_value(&p.expression)
-            }
-            Expression::ConditionalExpression(c) => {
-                self.forwards_nonmaterializable_forin_key_value(&c.consequent)
-                    || self.forwards_nonmaterializable_forin_key_value(&c.alternate)
-            }
-            Expression::SequenceExpression(s) => s
-                .expressions
-                .last()
-                .is_some_and(|e| self.forwards_nonmaterializable_forin_key_value(e)),
-            Expression::TypeAssertion(t) => {
-                self.forwards_nonmaterializable_forin_key_value(&t.expression)
-            }
-            Expression::SatisfiesExpression(s) => {
-                self.forwards_nonmaterializable_forin_key_value(&s.expression)
-            }
-            // A PLAIN assignment EXPRESSION `(x = c)` evaluates to the assigned
-            // value, forwarding the RHS — so `return (x = c)` escapes `c`. Recurse
-            // into the RHS. This does NOT over-reject the ordinal-domain STATEMENT
-            // `x = c;` (an `ExpressionStatement`, never a value-escape sink, so
-            // this gate is not invoked on it). Compound `x += c` yields a computed
-            // number (not a forwarded key), so only `Assign` recurses.
-            Expression::AssignmentExpression(a)
-                if matches!(a.operator, AssignmentOperator::Assign) =>
-            {
-                self.forwards_nonmaterializable_forin_key_value(&a.right)
-            }
-            _ => false,
+    /// Spec 4a Task 5 structural default-deny: resolve `expr` at a for-in-key
+    /// PROVEN-SAFE position (an `if` truthiness test, an alias-copy RHS, or an
+    /// assignment/declarator target). If `expr` is EXACTLY a bare for-in-key
+    /// value identifier — `if (last)`, `x = c`, `let x = c` — suppress the
+    /// `resolve_identifier` value-escape reject (the ordinal is the correct
+    /// representation here). Anything more complex (`if (id(c))`, `x = id(c)`,
+    /// `if (r < table[c])`) is resolved normally, so a nested value-escape of the
+    /// key still rejects and a `table[c]` index still stays accepted (its index
+    /// is never resolved as an expression). The suppression is scoped to exactly
+    /// this one identifier read via save/restore.
+    pub(crate) fn resolve_forin_key_safe_position(&mut self, expr: &Expression) {
+        let bare_key = matches!(expr, Expression::Identifier(name)
+            if self.is_for_in_key_value(name));
+        let previous = self.suppress_forin_key_value_reject;
+        if bare_key {
+            self.suppress_forin_key_value_reject = true;
         }
+        self.resolve_expression(expr);
+        self.suppress_forin_key_value_reject = previous;
     }
 
-    /// Spec 4a Task 5 fail-closed value-escape gate: reject (E5506) a `for..in`
-    /// key / alias / value-copy binding used as a STRING/GENERAL VALUE that
-    /// codegen will NOT materialize — INCLUDING one nested inside value-forwarding
-    /// wrappers (`(cond ? c : d)`, `(0, c)`, `((c)))`, casts). Codegen materializes
-    /// ONLY when the repr was lifted to `String` by a seed sink on the DIRECT loop
-    /// key, i.e. exactly when `identifier_repr_is_string` is true; every other
-    /// for-in-key value forwarded to an escape position would leak the RAW ORDINAL
-    /// as a bogus string handle. Called ONLY at value-ESCAPE sinks (return arg,
-    /// call arg, `+`/equality operand, template interpolation, array element,
-    /// object-property value) — NEVER on an index (`table[c]`), a truthiness test
-    /// (`if (c)`), or an alias-copy RHS (`last = c`), which stay ordinal-domain.
-    pub(crate) fn reject_nonmaterializable_forin_key_value(&mut self, expr: &Expression) {
-        if self.forwards_nonmaterializable_forin_key_value(expr) {
-            self.diagnostics.push(Diagnostic::error(
-                e5::FEATURE_UNAVAILABLE as u32,
-                "a for..in key value that is aliased (`let d = c`), nested in a value-forwarding expression (`cond ? c : d`, `(0, c)`), or used at an un-materialized string position (e.g. a template `${c}`) is unavailable in the current direct-runtime path; only a DIRECT key at a return / console.log / `+` / `==` position materializes its field-name string".to_string(),
-            ));
+    /// Spec 4a Task 5 allowlist: resolve a STATEMENT-position expression (value
+    /// DISCARDED). If it is an alias-copy `x = <bare for-in-key>` — an identifier
+    /// target assigned a bare key, the ordinal-domain copy that propagates key
+    /// provenance to `x` — suppress the default-deny value-escape reject for its
+    /// bare-key RHS. This is the ONLY position where an assignment's bare-key RHS
+    /// is safe: when the assignment's VALUE ESCAPES (`return (x = c)`), the RHS is
+    /// resolved WITHOUT this suppression and rejects. A member target
+    /// (`obj[c] = last`, a store) or a complex RHS (`x = id(c)`, a nested escape)
+    /// is NOT an alias-copy and resolves normally → rejects.
+    pub(crate) fn resolve_statement_position_expression(&mut self, expr: &Expression) {
+        let alias_copy = matches!(expr, Expression::AssignmentExpression(a)
+            if matches!(a.operator, AssignmentOperator::Assign)
+                && matches!(&a.left, Expression::Identifier(_))
+                && matches!(&a.right, Expression::Identifier(name)
+                    if self.is_for_in_key_value(name)));
+        let previous = self.suppress_forin_key_value_reject;
+        if alias_copy {
+            self.suppress_forin_key_value_reject = true;
         }
+        self.resolve_expression(expr);
+        self.suppress_forin_key_value_reject = previous;
     }
 
     /// True iff `name` resolves to a linear-memory array binding whose element
@@ -1358,15 +1352,11 @@ impl TypeContext {
                     self.reject_forin_key_boolean_operand(&expr.left, &expr.operator);
                     self.reject_forin_key_boolean_operand(&expr.right, &expr.operator);
                 }
-                // Spec 4a Task 5 fail-closed: `+`/equality is a string value
-                // escape — a NON-materializable for-in-key value operand (an
-                // aliased key, or a direct key whose repr was not lifted) would
-                // leak the raw ordinal. A direct seeded key (repr `String`) is
-                // materialized and NOT rejected here.
-                if matches!(expr.operator.as_str(), "+" | "==" | "!=" | "===" | "!==") {
-                    self.reject_nonmaterializable_forin_key_value(&expr.left);
-                    self.reject_nonmaterializable_forin_key_value(&expr.right);
-                }
+                // NOTE: a non-materialized for-in-key value as a `+`/equality (or
+                // any other) operand is rejected structurally by the default-deny
+                // in `resolve_identifier` — the operands are resolved as values
+                // above. A materialized direct seeded key (`c + "!"`, `c == "a"`,
+                // repr `String`) is NOT rejected and materializes correctly.
             }
             Expression::UnaryExpression(expr) => {
                 if expr.operator == "delete" {
@@ -1401,12 +1391,10 @@ impl TypeContext {
                                 "a runtime string value is unavailable as an array element in the current direct-runtime path; element reads have no string lane yet".to_string(),
                             ));
                         }
-                        // Spec 4a Task 5 fail-closed: an array-literal element is
-                        // a value escape — a non-materializable for-in-key value
-                        // (an aliased key, or an un-lifted direct key) would store
-                        // the raw ordinal. The runtime-string gate above misses it
-                        // (a non-lifted key is not `Repr::String`), so reject here.
-                        self.reject_nonmaterializable_forin_key_value(element_expr);
+                        // A non-materialized for-in-key value as an array element
+                        // is a value escape — rejected structurally by the
+                        // default-deny in `resolve_identifier` (elements are
+                        // resolved as values above).
                     }
                 }
             }
@@ -1432,7 +1420,15 @@ impl TypeContext {
             }
             Expression::UpdateExpression(expr) => self.resolve_update_expression(expr),
             Expression::AssignmentExpression(expr) => {
-                self.resolve_expression(&expr.left);
+                // Spec 4a Task 5 allowlist: the LHS is a WRITE TARGET (never a
+                // value escape) — resolve via the safe-position path so a bare-key
+                // target (`last = …`) is not mis-rejected. The RHS resolves
+                // NORMALLY: a bare-key RHS is a safe ALIAS-COPY only in STATEMENT
+                // position (value discarded) — the enclosing `ExpressionStatement`
+                // / for-init / for-update sets `suppress_forin_key_value_reject`
+                // for that case. A bare-key RHS whose assignment VALUE ESCAPES
+                // (`return (x = c)`) is NOT suppressed → the key rejects.
+                self.resolve_forin_key_safe_position(&expr.left);
                 self.resolve_expression(&expr.right);
 
                 self.reject_runtime_string_store(expr);
@@ -1770,6 +1766,32 @@ impl TypeContext {
             return;
         }
 
+        // Spec 4a Task 5 STRUCTURAL DEFAULT-DENY (allowlist): a for-in-key VALUE
+        // read (`is_for_in_key_value` — direct key / assignment alias / declarator
+        // value-copy) whose repr was NOT lifted to `String` (so codegen emits the
+        // raw ORDINAL, never a materialized string handle) is REJECTED in EVERY
+        // value position — EXCEPT the four proven-safe positions where the ordinal
+        // is the correct representation, each recognized WITHOUT reaching this
+        // value-read path: (1) a COMPUTED INDEX `obj[key]` — the index is never
+        // resolved as an expression, so it never arrives here; (2) an `if`
+        // TRUTHINESS test and (3) an ALIAS-COPY RHS/target — resolved via
+        // `resolve_forin_key_safe_position`, which sets `suppress_...`; (4) a
+        // MATERIALIZED direct seeded key — excluded by `!identifier_repr_is_string`
+        // (its repr IS `String`). By construction no un-enumerated value position
+        // can leak the ordinal — the inverse of a sink denylist.
+        if !self.suppress_forin_key_value_reject
+            && self.for_in_key_value_binding_in_chain(name)
+            && !self.identifier_repr_is_string(name)
+        {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "a for..in key value ('{name}') is only usable as a computed index (`obj[{name}]`), an `if` condition, an alias copy to another key binding, or a MATERIALIZED direct key at a return / console.log / `+` / `==` position; every other value use is unavailable in the current direct-runtime path (it would leak the raw ordinal, not the field-name string)"
+                ),
+            ));
+            return;
+        }
+
         if matches!(name, "SharedArrayBuffer" | "Atomics") {
             if self.has_threaded_runtime_profile() {
                 return;
@@ -1825,13 +1847,13 @@ impl TypeContext {
 
     pub(crate) fn resolve_template_literal(&mut self, template: &TemplateLiteral) {
         for expr in &template.expressions {
+            // A for-in-key value in a template interpolation `${c}` is a value
+            // escape — rejected structurally by the default-deny in
+            // `resolve_identifier` (interpolations are resolved as values). Real
+            // templates usually desugar to `+` chains before this pass; a direct
+            // SEEDED key there materializes (repr `String`), an un-seeded one
+            // rejects.
             self.resolve_expression(expr);
-            // Spec 4a Task 5 fail-closed: a template interpolation `${c}` is a
-            // string value escape but is NOT a repr seed sink, so even a DIRECT
-            // key is not materialized here — reject rather than leak the raw
-            // ordinal. (Real templates usually desugar to `+` chains before this
-            // pass; this covers any raw `TemplateLiteral` that reaches resolve.)
-            self.reject_nonmaterializable_forin_key_value(expr);
         }
     }
 
@@ -1851,13 +1873,9 @@ impl TypeContext {
                 "a runtime string value is unavailable as an object-literal property value in the current direct-runtime path; use a statically-known string or the later compatibility path".to_string(),
             ));
         }
-        // Spec 4a Task 5 fail-closed: an object-literal property value `{k: c}`
-        // is a value escape — a non-materializable for-in-key value would store
-        // the raw ordinal. The runtime-string gate above misses a non-lifted key
-        // (not `Repr::String`), so reject it here.
-        if matches!(property.kind, ObjectPropertyKind::Init) {
-            self.reject_nonmaterializable_forin_key_value(&property.value);
-        }
+        // A non-materialized for-in-key value as an object-property value is a
+        // value escape — rejected structurally by the default-deny in
+        // `resolve_identifier` (the property value is resolved as a value above).
     }
 
     pub(crate) fn resolve_property_name(&mut self, name: &PropertyName) {

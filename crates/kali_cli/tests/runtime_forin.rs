@@ -389,6 +389,60 @@ fn for_in_key_in_nested_ternary_is_fail_closed() {
     );
 }
 
+// Structural default-deny (allowlist): a non-materialized for-in-key value in
+// ANY value position OTHER than the four safe ones (computed index, `if` test,
+// alias-copy, materialized direct key) rejects E5506 by construction — no
+// un-enumerated position can leak. These exercise positions the recursion
+// denylist missed (compound-assign target, unary, optional chain, closure).
+fn forin_leak_case(body: &str) -> std::process::Output {
+    let src = format!(
+        "const t = {{ a: 0.5, c: 0.5 }};\n\
+function id(x) {{ return x; }}\nfunction f(tab) {{ {body} }}\nconsole.log(f(t));\n"
+    );
+    run_source(&src)
+}
+
+#[test]
+fn for_in_key_in_compound_assign_target_value_is_fail_closed() {
+    // `return (x += c)` — compound-assign numeric-target value escape.
+    let out = forin_leak_case("var x = 0; for (var c in tab) { return (x += c); } return 0;");
+    assert!(
+        !out.status.success(),
+        "x += c value escape must fail closed"
+    );
+}
+
+#[test]
+fn for_in_key_numeric_accumulate_is_fail_closed() {
+    // `out += c` where out is numeric — key used as a number, not the ordinal.
+    let out = forin_leak_case("var out = 0; for (var c in tab) { out += c; } return out;");
+    assert!(!out.status.success(), "out += c must fail closed");
+}
+
+#[test]
+fn for_in_key_unary_negate_is_fail_closed() {
+    let out = forin_leak_case("for (var c in tab) { return -c; } return 0;");
+    assert!(!out.status.success(), "-c must fail closed");
+}
+
+#[test]
+fn for_in_key_optional_chain_is_fail_closed() {
+    let out = forin_leak_case("for (var c in tab) { return c?.length; } return 0;");
+    assert!(!out.status.success(), "c?.length must fail closed");
+}
+
+#[test]
+fn for_in_key_closure_capture_is_fail_closed() {
+    // `let g = () => c; return g()` — closure captures the key across a function
+    // boundary; the ordinal would leak into the closure. Rejected via the
+    // scope-chain (capture-aware) for-in-key detection.
+    let out = forin_leak_case("for (var c in tab) { let g = () => c; return g(); } return 0;");
+    assert!(
+        !out.status.success(),
+        "closure capture of a for-in key must fail closed"
+    );
+}
+
 #[test]
 fn for_in_key_in_sequence_expression_is_fail_closed() {
     // `return (0, c)` — the comma operator forwards its LAST element.
@@ -484,7 +538,7 @@ function f(tab) { var d; for (var c in tab) { d = c; return (1 < 2 ? tab[c] : ta
     let out = run_source(src);
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(
-        !stderr.contains("materializes its field-name string"),
+        !stderr.contains("is only usable as a computed index"),
         "field values through a ternary must NOT be over-rejected by the for-in-key value gate; stderr={stderr}"
     );
     assert!(
