@@ -381,20 +381,24 @@ impl TypeContext {
         }
     }
 
-    /// Fail-closed gate: a `for..in` key (or alias) binding used as an operand
-    /// of `!`, `&&`, `||`, or `??` would be lowered with raw integer truthiness
-    /// (`I64Eqz`/`I64And`/`I64Or`/nullish `Eqz`), which INVERTS the null-sentinel
-    /// (`-1`) semantics — `!last` with `last == -1` (null) must be `true`, but
-    /// `-1` is nonzero. Only an `if` condition (lowered `>= 0`), a computed index
-    /// (`obj[c]`), and a returned value are safely handled; these boolean/nullish
-    /// operator contexts are out of scope, so reject rather than miscompile.
+    /// Fail-closed gate: a `for..in` key (or alias, or declarator value-copy)
+    /// binding used as an operand of `!`, `&&`, `||`, or `??` would be lowered
+    /// with raw integer truthiness (`I64Eqz`/`I64And`/`I64Or`/nullish `Eqz`),
+    /// which INVERTS the null-sentinel (`-1`) semantics AND leaks the raw ordinal
+    /// (`&&`/`||`/`??` value-select an operand) — `!last` with `last == -1`
+    /// (null) must be `true` but `-1` is nonzero, and `d && x` with `d` a key must
+    /// yield `x`, not the ordinal. Only an `if` condition (lowered `>= 0`), a
+    /// computed index (`obj[c]`), and a MATERIALIZED returned value are safe.
+    /// Keys on `is_for_in_key_value` (the full value-provenance predicate — direct
+    /// key + assignment alias + declarator value-copy), NOT bare `for_in_key_shape`
+    /// which misses declarator aliases (`let d = c; d && x`), closing that leak.
     pub(crate) fn reject_forin_key_boolean_operand(&mut self, expr: &Expression, op: &str) {
         let mut inner = expr;
         while let Expression::ParenthesizedExpression(p) = inner {
             inner = &p.expression;
         }
         if let Expression::Identifier(name) = inner {
-            if self.for_in_key_shape(name).is_some() {
+            if self.is_for_in_key_value(name) {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
                     format!(
@@ -642,34 +646,84 @@ impl TypeContext {
         }
     }
 
+    /// Spec 4a Task 5 fail-closed: does `expr`, used at a value-ESCAPE position,
+    /// FORWARD a non-materializable `for..in`-key VALUE to its own result value?
+    /// True iff some value-forwarding leaf is a bare identifier with for-in-key
+    /// value provenance (`is_for_in_key_value`) whose repr was NOT lifted to
+    /// `String` (`!identifier_repr_is_string` → codegen will NOT materialize it,
+    /// so the raw ordinal would leak). Recurses ONLY through expressions that
+    /// forward the escaping value UNCHANGED to their result: a
+    /// `ParenthesizedExpression` (into its inner); a `ConditionalExpression`
+    /// (into BOTH arms, NOT the test — a truthiness position handled elsewhere);
+    /// a `SequenceExpression` (into its LAST element only — comma yields the
+    /// last, earlier elements are evaluated-and-discarded, not escaped); and a
+    /// `TypeAssertion` / `SatisfiesExpression` (into the asserted expression — a
+    /// cast forwards the value unchanged).
+    ///
+    /// It does NOT recurse into computed/aggregate/call/member forms: those
+    /// produce a NEW value (a field read, a fresh array/object, a call result, a
+    /// number/bool from an operator) rather than forwarding a leaf identifier —
+    /// e.g. `table[c]` is the FIELD value (accepted), `c + x` / `c == x` are
+    /// handled at the `+`/equality sink, call args / array elements / object
+    /// properties are handled at their own sinks. See the completeness proof in
+    /// the task report (every `Expression` variant classified).
+    ///
+    /// A materialized DIRECT key has `identifier_repr_is_string == true`, so the
+    /// leaf check SKIPS it → `return c` / `cond ? c_seeded : d` never over-reject.
+    pub(crate) fn forwards_nonmaterializable_forin_key_value(&self, expr: &Expression) -> bool {
+        match expr {
+            Expression::Identifier(name) => {
+                self.is_for_in_key_value(name) && !self.identifier_repr_is_string(name)
+            }
+            Expression::ParenthesizedExpression(p) => {
+                self.forwards_nonmaterializable_forin_key_value(&p.expression)
+            }
+            Expression::ConditionalExpression(c) => {
+                self.forwards_nonmaterializable_forin_key_value(&c.consequent)
+                    || self.forwards_nonmaterializable_forin_key_value(&c.alternate)
+            }
+            Expression::SequenceExpression(s) => s
+                .expressions
+                .last()
+                .is_some_and(|e| self.forwards_nonmaterializable_forin_key_value(e)),
+            Expression::TypeAssertion(t) => {
+                self.forwards_nonmaterializable_forin_key_value(&t.expression)
+            }
+            Expression::SatisfiesExpression(s) => {
+                self.forwards_nonmaterializable_forin_key_value(&s.expression)
+            }
+            // A PLAIN assignment EXPRESSION `(x = c)` evaluates to the assigned
+            // value, forwarding the RHS — so `return (x = c)` escapes `c`. Recurse
+            // into the RHS. This does NOT over-reject the ordinal-domain STATEMENT
+            // `x = c;` (an `ExpressionStatement`, never a value-escape sink, so
+            // this gate is not invoked on it). Compound `x += c` yields a computed
+            // number (not a forwarded key), so only `Assign` recurses.
+            Expression::AssignmentExpression(a)
+                if matches!(a.operator, AssignmentOperator::Assign) =>
+            {
+                self.forwards_nonmaterializable_forin_key_value(&a.right)
+            }
+            _ => false,
+        }
+    }
+
     /// Spec 4a Task 5 fail-closed value-escape gate: reject (E5506) a `for..in`
     /// key / alias / value-copy binding used as a STRING/GENERAL VALUE that
-    /// codegen will NOT materialize. Codegen materializes ONLY when the repr was
-    /// lifted to `String` by a seed sink on the DIRECT loop key (return /
-    /// console.log / `+` / `==`/`!=`/`===`/`!==`), i.e. exactly when
-    /// `identifier_repr_is_string(name)` is true. So: reject when the operand is a
-    /// bare identifier with for-in-key value provenance AND its repr is NOT lifted
-    /// to `String` — that is the aliased key (`let d = c; return d`) and the
-    /// direct key at an UN-seeded escape (a template interpolation `${c}`), both
-    /// of which would otherwise leak the RAW ORDINAL as a bogus string handle.
-    /// Called ONLY at value-ESCAPE sinks (return arg, console.log arg,
-    /// `+`/equality operand, template interpolation) — NEVER on an index
-    /// (`table[c]`), a truthiness test (`if (c)`), or an alias-copy RHS
-    /// (`last = c`), which stay in the ordinal domain and must keep compiling.
+    /// codegen will NOT materialize — INCLUDING one nested inside value-forwarding
+    /// wrappers (`(cond ? c : d)`, `(0, c)`, `((c)))`, casts). Codegen materializes
+    /// ONLY when the repr was lifted to `String` by a seed sink on the DIRECT loop
+    /// key, i.e. exactly when `identifier_repr_is_string` is true; every other
+    /// for-in-key value forwarded to an escape position would leak the RAW ORDINAL
+    /// as a bogus string handle. Called ONLY at value-ESCAPE sinks (return arg,
+    /// call arg, `+`/equality operand, template interpolation, array element,
+    /// object-property value) — NEVER on an index (`table[c]`), a truthiness test
+    /// (`if (c)`), or an alias-copy RHS (`last = c`), which stay ordinal-domain.
     pub(crate) fn reject_nonmaterializable_forin_key_value(&mut self, expr: &Expression) {
-        let mut inner = expr;
-        while let Expression::ParenthesizedExpression(p) = inner {
-            inner = &p.expression;
-        }
-        if let Expression::Identifier(name) = inner {
-            if self.is_for_in_key_value(name) && !self.identifier_repr_is_string(name) {
-                self.diagnostics.push(Diagnostic::error(
-                    e5::FEATURE_UNAVAILABLE as u32,
-                    format!(
-                        "a for..in key value that is aliased (`let d = {name}`) or used at an un-materialized string position (e.g. a template `${{{name}}}`) is unavailable in the current direct-runtime path; only a DIRECT key at a return / console.log / `+` / `==` position materializes its field-name string"
-                    ),
-                ));
-            }
+        if self.forwards_nonmaterializable_forin_key_value(expr) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "a for..in key value that is aliased (`let d = c`), nested in a value-forwarding expression (`cond ? c : d`, `(0, c)`), or used at an un-materialized string position (e.g. a template `${c}`) is unavailable in the current direct-runtime path; only a DIRECT key at a return / console.log / `+` / `==` position materializes its field-name string".to_string(),
+            ));
         }
     }
 

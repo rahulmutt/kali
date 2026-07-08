@@ -305,6 +305,195 @@ function f(tab) { for (var c in tab) { let o = { k: c }; return o.k; } return \"
     );
 }
 
+// A for-in-key VALUE nested inside a value-forwarding expression (ternary arm,
+// sequence, paren, cast) must be caught structurally at EVERY sink — the reject
+// helper recurses through forwarding wrappers to the identifier leaves. Each of
+// these leaks the raw ordinal (`0`) pre-fix; node prints `a`.
+const TERN: &str = "1 < 2 ? c : d";
+
+fn forin_ternary_case(body_return: &str) -> std::process::Output {
+    // `d = c` is an assignment alias (in the ordinal domain); the ternary
+    // `1<2?c:d` forwards a non-materializable key value → must fail closed.
+    let src = format!(
+        "const t = {{ a: 0.5, c: 0.5 }};\n\
+function id(x) {{ return x; }}\n\
+function f(tab) {{ var d; for (var c in tab) {{ d = c; {body_return} }} return \"?\"; }}\nconsole.log(f(t));\n"
+    );
+    run_source(&src)
+}
+
+#[test]
+fn for_in_key_in_ternary_arm_at_return_is_fail_closed() {
+    let out = forin_ternary_case(&format!("return ({TERN});"));
+    assert!(
+        !out.status.success() || String::from_utf8_lossy(&out.stdout) == "a\n",
+        "ternary-arm key at return must fail closed; got stdout={:?} stderr={}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+#[test]
+fn for_in_key_in_ternary_arm_at_console_arg_is_fail_closed() {
+    let out = forin_ternary_case(&format!("console.log({TERN}); return \"?\";"));
+    assert!(
+        !out.status.success() || String::from_utf8_lossy(&out.stdout) == "a\n?\n",
+        "ternary-arm key at console arg must fail closed; got stdout={:?} stderr={}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+#[test]
+fn for_in_key_in_ternary_arm_at_general_call_arg_is_fail_closed() {
+    let out = forin_ternary_case(&format!("return id({TERN});"));
+    assert!(
+        !out.status.success() || String::from_utf8_lossy(&out.stdout) == "a\n",
+        "ternary-arm key at general call arg must fail closed; got stdout={:?} stderr={}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+#[test]
+fn for_in_key_in_ternary_arm_at_array_element_is_fail_closed() {
+    let out = forin_ternary_case(&format!("let a = [{TERN}]; return a[0];"));
+    assert!(
+        !out.status.success() || String::from_utf8_lossy(&out.stdout) == "a\n",
+        "ternary-arm key at array element must fail closed; got stdout={:?} stderr={}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+#[test]
+fn for_in_key_in_ternary_arm_at_object_property_is_fail_closed() {
+    let out = forin_ternary_case(&format!("let o = {{ k: {TERN} }}; return o.k;"));
+    assert!(
+        !out.status.success() || String::from_utf8_lossy(&out.stdout) == "a\n",
+        "ternary-arm key at object property must fail closed; got stdout={:?} stderr={}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+#[test]
+fn for_in_key_in_nested_ternary_is_fail_closed() {
+    // `return (a ? (b ? c : d) : e)` — recursion must reach the doubly-nested leaf.
+    let out = forin_ternary_case("return (1 < 2 ? (1 < 2 ? c : d) : d);");
+    assert!(
+        !out.status.success() || String::from_utf8_lossy(&out.stdout) == "a\n",
+        "nested-ternary key must fail closed; got stdout={:?} stderr={}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+#[test]
+fn for_in_key_in_sequence_expression_is_fail_closed() {
+    // `return (0, c)` — the comma operator forwards its LAST element.
+    let src = "const t = { a: 0.5, c: 0.5 };\n\
+function f(tab) { for (var c in tab) { return (0, c); } return \"?\"; }\nconsole.log(f(t));\n";
+    let out = run_source(src);
+    assert!(
+        !out.status.success() || String::from_utf8_lossy(&out.stdout) == "a\n",
+        "sequence-expression key must fail closed; got stdout={:?} stderr={}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+#[test]
+fn for_in_key_in_assignment_expression_value_is_fail_closed() {
+    // `return (x = c)` — a PLAIN assignment EXPRESSION evaluates to the assigned
+    // value, forwarding `c` to the escape. Must fail closed (was `0`). The
+    // ordinal-domain STATEMENT `x = c;` (not a sink) stays compiling.
+    let src = "const t = { a: 0.5, c: 0.5 };\n\
+function f(tab) { var x; for (var c in tab) { return (x = c); } return \"?\"; }\nconsole.log(f(t));\n";
+    let out = run_source(src);
+    // node: "a". Match node OR fail-closed; never the raw ordinal.
+    assert!(
+        !out.status.success() || String::from_utf8_lossy(&out.stdout) == "a\n",
+        "assignment-expression value forwarding a key must fail closed; got stdout={:?} stderr={}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+#[test]
+fn for_in_key_alias_copy_statement_still_compiles() {
+    // Guardrail: the ordinal-domain alias-copy STATEMENT `x = c;` (not a value
+    // escape) must NOT be rejected — proves the assignment-value recursion above
+    // does not over-reject the statement form.
+    let src = "const t = { a: 0.5, c: 0.5 };\n\
+function f(tab) { var x; for (var c in tab) { x = c; } }\nf(t); console.log(\"ok\");\n";
+    let out = run_source(src);
+    assert!(
+        out.status.success() && String::from_utf8_lossy(&out.stdout) == "ok\n",
+        "alias-copy statement `x = c;` must compile (ordinal domain, not over-rejected); stdout={:?} stderr={}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+#[test]
+fn for_in_key_declarator_alias_as_logical_operand_is_fail_closed() {
+    // `&&`/`||`/`??`/`!` value-select or invert truthiness on the raw ordinal.
+    // A DECLARATOR alias (`let d = c`) must reject there too — `reject_forin_key_
+    // boolean_operand` keys on the full value-provenance predicate, not bare
+    // `for_in_key_shape` (which misses declarator aliases). Pre-fix leaked `0`.
+    let src = "const t = { a: 0.5, c: 0.5 };\n\
+function f(tab) { for (var c in tab) { let d = c; return (d && 1); } return 99; }\nconsole.log(f(t));\n";
+    let out = run_source(src);
+    // node: 1 (d is truthy). Match node OR fail-closed; never the raw ordinal 0.
+    assert!(
+        !out.status.success() || String::from_utf8_lossy(&out.stdout) == "1\n",
+        "declarator alias as a logical operand must fail closed, not leak the ordinal; got stdout={:?} stderr={}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+#[test]
+fn for_in_key_index_through_ternary_is_not_over_rejected() {
+    // POSITIVE guard: a for-in key in INDEX position inside a ternary arm
+    // (`tab[c]`) is a FIELD value, NOT a key value — the reject must NOT recurse
+    // into a MemberExpression. `return (cond ? tab[c] : tab.c)` must match node
+    // (0.25), proving field values through a ternary stay accepted.
+    let src = "const t = { a: 0.25, c: 0.75 };\n\
+function f(tab) { for (var c in tab) { return (1 < 2 ? tab[c] : tab.c); } return tab.a; }\nconsole.log(f(t));\n";
+    let out = run_source(src);
+    assert!(
+        out.status.success() && String::from_utf8_lossy(&out.stdout) == "0.25\n",
+        "field value through a ternary must stay accepted and match node; got stdout={:?} stderr={}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+#[test]
+fn for_in_key_alias_index_through_ternary_is_not_over_rejected_by_e5506() {
+    // The reviewer's exact positive form `return (cond ? tab[c] : tab[d])` (both
+    // arms field reads, `d` an assignment-alias index) must NOT be rejected by
+    // the for-in-key-VALUE gate — both arms are index positions. It hits a
+    // SEPARATE pre-existing codegen gap (alias dynamic-read in a ternary-return
+    // → E4201), so assert it either matches node OR fails WITHOUT the value-gate
+    // E5506 (never over-rejected, never a wrong-answer success).
+    let src = "const t = { a: 0.25, c: 0.75 };\n\
+function f(tab) { var d; for (var c in tab) { d = c; return (1 < 2 ? tab[c] : tab[d]); } return tab.a; }\nconsole.log(f(t));\n";
+    let out = run_source(src);
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        !stderr.contains("materializes its field-name string"),
+        "field values through a ternary must NOT be over-rejected by the for-in-key value gate; stderr={stderr}"
+    );
+    assert!(
+        !out.status.success() || String::from_utf8_lossy(&out.stdout) == "0.25\n",
+        "must match node or fail closed, never a wrong-answer success; got stdout={:?}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+}
+
 // ---------------------------------------------------------------------------
 // Task 6: fail-closed matrix. Every out-of-scope for..in shape must FAIL CLOSED
 // (non-zero exit / E5506), never miscompile.
