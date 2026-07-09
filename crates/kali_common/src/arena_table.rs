@@ -11,18 +11,23 @@ use std::collections::BTreeSet;
 
 /// Arena placement decisions, keyed by function name (and loop ordinal).
 ///
-/// Three disjoint decision sets:
+/// Four disjoint decision sets:
 /// - `arena_eligible`: functions whose allocation sites may call `__alloc`
 ///   (the current arena) instead of `__alloc_global`.
 /// - `opens_arena`: functions that should open a function-body arena because
 ///   they have at least one allocation that dies inside them.
 /// - `loop_arena`: `(function, loop_preorder_ordinal)` pairs where the loop
 ///   body should open a per-iteration arena.
+/// - `arena_string_site`: `(function, string_site_preorder_ordinal)` pairs
+///   where a string-producing site (`.join()` or `+`) is proven iteration-local
+///   and may allocate via the current arena (`__alloc`) instead of the global
+///   heap (`__alloc_global`). Misses fail closed.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ArenaTable {
     arena_eligible: BTreeSet<String>,
     opens_arena: BTreeSet<String>,
     loop_arena: BTreeSet<(String, u32)>,
+    arena_string_site: BTreeSet<(String, u32)>,
 }
 
 impl ArenaTable {
@@ -57,6 +62,20 @@ impl ArenaTable {
     /// arena. Misses fail closed.
     pub fn loop_arena(&self, func: &str, ordinal: u32) -> bool {
         self.loop_arena.contains(&(func.to_string(), ordinal))
+    }
+
+    /// Mark the string-producing site with pre-order `site_ordinal` in `func` as
+    /// iteration-local (routable to the current arena). Misses fail closed.
+    pub fn set_arena_string_site(&mut self, func: &str, site_ordinal: u32) {
+        self.arena_string_site
+            .insert((func.to_string(), site_ordinal));
+    }
+
+    /// Whether the string-producing site with pre-order `site_ordinal` in `func`
+    /// is iteration-local. Misses fail closed (`false` == use `__alloc_global`).
+    pub fn arena_string_site(&self, func: &str, site_ordinal: u32) -> bool {
+        self.arena_string_site
+            .contains(&(func.to_string(), site_ordinal))
     }
 }
 
@@ -112,5 +131,18 @@ mod tests {
         table.set_arena_eligible("f");
         table.set_arena_eligible("f");
         assert!(table.arena_eligible("f"));
+    }
+
+    #[test]
+    fn arena_string_site_defaults_closed_and_records() {
+        let mut t = ArenaTable::default();
+        assert!(
+            !t.arena_string_site("f", 0),
+            "miss must fail closed (global)"
+        );
+        t.set_arena_string_site("f", 2);
+        assert!(t.arena_string_site("f", 2));
+        assert!(!t.arena_string_site("f", 1));
+        assert!(!t.arena_string_site("g", 2));
     }
 }
