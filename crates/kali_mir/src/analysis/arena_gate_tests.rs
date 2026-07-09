@@ -6,6 +6,11 @@
 use crate::compute_arena_table;
 use crate::test_support::analyze;
 
+/// Lower `src` to MIR and compute its `ArenaTable` in one step.
+fn arena_table_for(src: &str) -> kali_common::ArenaTable {
+    compute_arena_table(&analyze(src))
+}
+
 // --- Per-function eligibility / fate lattice -------------------------------
 
 #[test]
@@ -839,4 +844,83 @@ fn join_member_call_keeps_loop_arena_even_when_result_flows_outward() {
     );
     let table = compute_arena_table(&mir);
     assert!(table.loop_arena("f", 0));
+}
+
+// --- Spec 7 Task 4b: per-string-site iteration-locality ----------------------
+
+#[test]
+fn join_into_console_log_is_arena_string_site() {
+    // A join whose result is dropped into console.log inside a loop is
+    // iteration-local -> recorded as an arena string site. The single join is
+    // the first (ordinal 0) string-producing node in `r`.
+    let table = arena_table_for(
+        "function r(a){ while (a.length > 0) { console.log(a.join(\"\")); a = new Array(0); } }",
+    );
+    assert!(table.arena_string_site("r", 0));
+}
+
+#[test]
+fn returned_join_is_not_arena_string_site() {
+    // A join whose result is RETURNED escapes -> NOT recorded (fail-closed
+    // global). Its consumer is a `return`, which is neither a drop nor a copy.
+    let table = arena_table_for("function r(a){ return a.join(\"\"); }");
+    assert!(!table.arena_string_site("r", 0));
+}
+
+#[test]
+fn join_operand_of_concat_is_local_but_returned_concat_is_not() {
+    // `a.join("")` is COPIED by the `+` (its bytes move into a fresh string),
+    // so the join operand is iteration-local. The `+` concat RESULT is
+    // RETURNED, so the concat site itself is NOT local. Pre-order numbers the
+    // `+` first (ordinal 0, parent-first) and the join operand second
+    // (ordinal 1).
+    let table = arena_table_for("function r(a){ return a.join(\"\") + \"!\"; }");
+    assert!(!table.arena_string_site("r", 0), "returned concat escapes");
+    assert!(
+        table.arena_string_site("r", 1),
+        "join operand is copied by the concat -> local"
+    );
+}
+
+#[test]
+fn join_bound_to_name_is_not_arena_string_site() {
+    // Bound to a name that outlives the iteration (a `var` declarator) -> the
+    // consumer is a VarDeclarator, not a drop/copy -> fail-closed veto.
+    let table = arena_table_for(
+        "function r(a){ while (a.length > 0) { var x = a.join(\"\"); console.log(x); a = new Array(0); } }",
+    );
+    assert!(!table.arena_string_site("r", 0));
+}
+
+#[test]
+fn join_arg_to_user_call_is_not_arena_string_site() {
+    // Handed to a NON-whitelisted (user) callee that may retain it -> veto.
+    let table = arena_table_for(
+        "function keep(s){ return s; }
+         function r(a){ while (a.length > 0) { keep(a.join(\"\")); a = new Array(0); } }",
+    );
+    assert!(!table.arena_string_site("r", 0));
+}
+
+#[test]
+fn kali_write_stdout_bytes_join_arg_is_local() {
+    // The other whitelisted host sink (`Kali.writeStdoutBytes`) also drops its
+    // argument, so a join handed to it is iteration-local.
+    let table = arena_table_for(
+        "function r(a){ while (a.length > 0) { Kali.writeStdoutBytes(a.join(\"\")); a = new Array(0); } }",
+    );
+    assert!(table.arena_string_site("r", 0));
+}
+
+#[test]
+fn poisoned_function_retains_no_arena_string_sites() {
+    // Two function expressions sharing the name `h` collide in the name-keyed
+    // facts; the collision poisons the merged entry, which must retain NO arena
+    // string sites even though each body's join (into console.log) would be
+    // iteration-local in isolation.
+    let table = arena_table_for(
+        "const a = function h(){ console.log([1].join(\"\")); };
+         const b = function h(){ console.log([2].join(\"\")); };",
+    );
+    assert!(!table.arena_string_site("h", 0));
 }

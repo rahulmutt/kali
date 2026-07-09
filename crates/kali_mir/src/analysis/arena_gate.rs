@@ -84,6 +84,12 @@ pub struct FunctionArenaFacts {
     pub has_unknown_call: bool,
     /// Per-loop facts in pre-order.
     pub loops: Vec<LoopArenaFacts>,
+    /// Pre-order ordinals of the string-producing sites in this function
+    /// (`.join(..)` calls and `+` binaries) proven iteration-local — every
+    /// consumer drops or copies the result (see
+    /// [`OwnershipAnalyzer::arena_collect_string_sites`]). Emptied when the
+    /// function is name-collision poisoned.
+    pub arena_string_sites: BTreeSet<u32>,
 }
 
 // ---------------------------------------------------------------------------
@@ -100,6 +106,9 @@ pub(crate) struct FuncRaw {
     has_unknown_call: bool,
     fresh_heap_bindings: BTreeSet<String>,
     loops: Vec<LoopArenaFacts>,
+    /// Pre-order ordinals of proven iteration-local string sites (see
+    /// [`OwnershipAnalyzer::arena_collect_string_sites`]).
+    string_sites_local: BTreeSet<u32>,
     /// Two same-named function scopes wrote into this entry (the table is
     /// name-keyed, so per-instance decisions are impossible) ⇒ poisoned at
     /// `into_facts`.
@@ -217,6 +226,9 @@ impl ArenaCollector {
                             calls: raw.calls.clone(),
                             has_unknown_call: true,
                             loops: Vec::new(),
+                            // Poisoned: a name-keyed collision cannot tell the
+                            // two instances' sites apart, so retain none.
+                            arena_string_sites: BTreeSet::new(),
                         };
                     }
                     FunctionArenaFacts {
@@ -228,6 +240,7 @@ impl ArenaCollector {
                         calls: raw.calls.clone(),
                         has_unknown_call: raw.has_unknown_call,
                         loops: raw.loops.clone(),
+                        arena_string_sites: raw.string_sites_local.clone(),
                     }
                 })
             })
@@ -567,6 +580,155 @@ impl<'a> OwnershipAnalyzer<'a> {
             HirNodeKind::ObjectExpr | HirNodeKind::ArrayExpr
         )
     }
+
+    // -----------------------------------------------------------------------
+    // Per-string-site iteration-locality (the parallel string-site channel).
+    // -----------------------------------------------------------------------
+
+    /// Assign each string-producing site in the current function's `body` a
+    /// pre-order ordinal and record those proven iteration-local onto the
+    /// function's raw facts. Called once per function scope from `walk.rs`
+    /// (the FunctionDecl/FunctionExpr arms), while the current scope IS that
+    /// function — so `func(label)` keys the right entry (and a poisoned,
+    /// name-collided entry drops these at `into_facts`, just like loops).
+    ///
+    /// ## THE STRING-SITE ORDINAL RULE (both-sides oracle — 4c/4d MUST mirror)
+    ///
+    /// A **string-producing site** is a HIR node that is EITHER:
+    ///   1. a `CallExpr` whose callee (first child) is a `MemberExpr` with
+    ///      method text `"join"` (`recv.join(sep)`), OR
+    ///   2. a `BinaryExpr` with operator text `"+"` (ANY `+`; the walk does
+    ///      NOT distinguish string concat from numeric add — see below).
+    ///
+    /// Sites are numbered **pre-order, function-body-scoped**: the ordinal is
+    /// assigned when the walk first reaches the node, BEFORE descending into
+    /// its children (so a `+` is numbered before its operands), counting up
+    /// from 0 per function. Nested function-like subtrees (`FunctionDecl` /
+    /// `FunctionExpr`) are opaque leaves — never descended into; each function
+    /// numbers its own sites independently. This is the exact discipline of
+    /// `kali_codegen::lower::loop_preorder_ordinals` for loops; 4c's codegen
+    /// ordinal walk over the matching LIR nodes MUST enumerate the same node
+    /// set in the same pre-order, or `arena_string_site(fn, ord)` lookups
+    /// desync and misroute — a fail-OPEN hazard identical to the for-in
+    /// loop-ordinal guardrail. Numeric `+` sites are numbered too (they cost
+    /// an ordinal slot but are never QUERIED by codegen's numeric path); this
+    /// keeps the site set purely syntactic so both sides agree by construction
+    /// WITHOUT duplicating string-type inference into `kali_mir`. Template
+    /// literals are deliberately NOT sites here (out of 4b's scope); 4c/4d
+    /// must not number them either.
+    ///
+    /// ## LOCALITY (default-deny)
+    ///
+    /// A site is iteration-local iff its immediate syntactic consumer (its
+    /// parent) DROPS or COPIES the result:
+    ///
+    /// - DROP: the parent is a whitelisted host call
+    ///   (`console.*` / `Kali.writeStdoutBytes`, via
+    ///   [`is_whitelisted_host_method`]) and the site sits in ARGUMENT position
+    ///   (not the callee slot) — the host serializes and never retains.
+    /// - COPY: the parent is a `+` `BinaryExpr` and the site is an operand —
+    ///   `+` copies the operand's bytes into a fresh string, so the operand's
+    ///   backing dies within the iteration.
+    ///
+    /// EVERY other consumer vetoes (returned, assigned, bound to a declarator,
+    /// stored into a member/element, handed to a user/unknown callee, used as a
+    /// join separator, a bare expression statement, ...) — the result may
+    /// outlive the iteration, so it stays on the global heap. Vetoing is always
+    /// sound; the only cost is unreclaimed memory.
+    pub(crate) fn arena_collect_string_sites(&mut self, body: HirNodeId) {
+        let mut next_ordinal = 0u32;
+        let mut local = BTreeSet::new();
+        // The function root is a veto (non-drop/copy) context.
+        self.string_site_walk(body, false, &mut next_ordinal, &mut local);
+        if local.is_empty() {
+            return;
+        }
+        let label = self.current_scope_label();
+        self.arena.func(&label).string_sites_local.extend(local);
+    }
+
+    /// Pre-order string-site walk. `consumer_drops_or_copies` is the locality
+    /// context THIS node inherits from its parent; it governs only whether
+    /// this node — if it is a site — is recorded local. The context handed to
+    /// each child depends solely on THIS node's kind (a host-call passes DROP
+    /// to its args, a `+` passes COPY to its operands, everything else passes
+    /// VETO), never on the incoming context.
+    fn string_site_walk(
+        &self,
+        node_id: HirNodeId,
+        consumer_drops_or_copies: bool,
+        next_ordinal: &mut u32,
+        local: &mut BTreeSet<u32>,
+    ) {
+        let node = &self.nodes[node_id.0 as usize];
+        // A nested function owns its own ordinal stream — opaque leaf here.
+        if matches!(
+            node.kind,
+            HirNodeKind::FunctionDecl | HirNodeKind::FunctionExpr
+        ) {
+            return;
+        }
+        if self.is_string_producing_site(node_id) {
+            let ordinal = *next_ordinal;
+            *next_ordinal += 1;
+            if consumer_drops_or_copies {
+                local.insert(ordinal);
+            }
+        }
+        // How this node passes locality context down to its children.
+        let is_plus = node.kind == HirNodeKind::BinaryExpr && node.text.as_deref() == Some("+");
+        let is_host_call = self.is_whitelisted_host_call(node_id);
+        let children = node.children.clone();
+        for (index, child) in children.iter().enumerate() {
+            // COPY for every `+` operand; DROP for host-call args (index >= 1,
+            // never the callee at index 0); VETO otherwise.
+            let child_ctx = is_plus || (is_host_call && index >= 1);
+            self.string_site_walk(*child, child_ctx, next_ordinal, local);
+        }
+    }
+
+    /// Whether `node_id` is a string-producing site (see the ordinal rule on
+    /// [`OwnershipAnalyzer::arena_collect_string_sites`]). Mirrors the `"join"`
+    /// / `"+"` recognizers in `classify_value` (escape_flow.rs).
+    fn is_string_producing_site(&self, node_id: HirNodeId) -> bool {
+        let node = &self.nodes[node_id.0 as usize];
+        match node.kind {
+            HirNodeKind::CallExpr => node
+                .children
+                .first()
+                .map(|id| &self.nodes[id.0 as usize])
+                .is_some_and(|callee| {
+                    callee.kind == HirNodeKind::MemberExpr && callee.text.as_deref() == Some("join")
+                }),
+            HirNodeKind::BinaryExpr => node.text.as_deref() == Some("+"),
+            _ => false,
+        }
+    }
+
+    /// Whether `node_id` is a `CallExpr` on a whitelisted, non-retaining host
+    /// method (`console.*` / `Kali.writeStdoutBytes`). Reuses the exact
+    /// receiver/method extraction and [`is_whitelisted_host_method`] recognizer
+    /// used by `arena_note_call_expr`, so the drop-sink set is single-sourced.
+    fn is_whitelisted_host_call(&self, node_id: HirNodeId) -> bool {
+        let node = &self.nodes[node_id.0 as usize];
+        if node.kind != HirNodeKind::CallExpr {
+            return false;
+        }
+        let Some(callee) = node.children.first().map(|id| &self.nodes[id.0 as usize]) else {
+            return false;
+        };
+        if callee.kind != HirNodeKind::MemberExpr {
+            return false;
+        }
+        let method = callee.text.clone().unwrap_or_default();
+        let base_object = callee
+            .children
+            .first()
+            .map(|id| &self.nodes[id.0 as usize])
+            .filter(|base| base.kind == HirNodeKind::Ident)
+            .and_then(|base| base.text.clone());
+        is_whitelisted_host_method(base_object.as_deref(), &method)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -619,6 +781,13 @@ pub fn compute_arena_table(mir: &MirProgram) -> ArenaTable {
             if loop_arena_qualifies(loop_facts, &facts_by_name, &eligible) {
                 table.set_loop_arena(&facts.name, loop_facts.ordinal);
             }
+        }
+
+        // Parallel string-site channel: record every proven iteration-local
+        // site (already emptied for poisoned functions at `into_facts`). This
+        // is behavior-neutral until codegen (4c/4d) reads the channel.
+        for ordinal in &facts.arena_string_sites {
+            table.set_arena_string_site(&facts.name, *ordinal);
         }
     }
 

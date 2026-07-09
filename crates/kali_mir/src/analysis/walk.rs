@@ -112,6 +112,11 @@ impl<'a> OwnershipAnalyzer<'a> {
                 }
                 if let Some(body) = body {
                     self.precollect_scope_bindings(body);
+                    // Parallel string-site channel: number this function's
+                    // string-producing sites (pre-order) and record the
+                    // iteration-local ones. Independent of the ownership walk
+                    // below; see `arena_collect_string_sites`.
+                    self.arena_collect_string_sites(body);
                     self.walk_scope_node(body, UseContext::Normal);
                 }
                 self.pop_scope_and_record();
@@ -149,6 +154,11 @@ impl<'a> OwnershipAnalyzer<'a> {
                 }
                 if let Some(body) = body {
                     self.precollect_scope_bindings(body);
+                    // Parallel string-site channel: number this function's
+                    // string-producing sites (pre-order) and record the
+                    // iteration-local ones. Independent of the ownership walk
+                    // below; see `arena_collect_string_sites`.
+                    self.arena_collect_string_sites(body);
                     self.walk_scope_node(body, UseContext::Normal);
                 }
                 self.pop_scope_and_record();
