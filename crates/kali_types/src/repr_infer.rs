@@ -108,8 +108,10 @@ struct CallEdge {
     /// provably-scalar primitive expression — a number/string/boolean literal, a
     /// template literal, or a binary/unary/update expression (all of which
     /// evaluate to a primitive number/string/boolean, never a heap array or
-    /// object). This is the positive scalar-inflow evidence the
-    /// `scalar_inflow_params` fixpoint seeds from (see `resolve_calls`).
+    /// object). This is the sole positive scalar-inflow evidence
+    /// `scalar_inflow_params` is derived from (see `resolve_calls`); a bare
+    /// identifier argument is NEVER scalar evidence, even when it names a
+    /// param already proven scalar (no pass-through: see `resolve_calls`).
     arg_scalar_syntactic: Vec<bool>,
     /// Result node of the call expression itself (target of the callee's
     /// return-flow edge).
@@ -251,7 +253,9 @@ struct ReprInfer {
     non_scalar_params: BTreeSet<(String, String)>,
     /// `(func, param)` parameters POSITIVELY proven to receive a scalar
     /// (numeric/string/boolean) value by at least one call-site edge. Computed
-    /// by a fixpoint in `resolve_calls`. Every param NOT in this set is left at
+    /// by a single pass in `resolve_calls` (Step 1b) over syntactically-scalar
+    /// arguments only — no propagation/fixpoint, since a bare-identifier
+    /// argument is never scalar evidence. Every param NOT in this set is left at
     /// the default I64 by CONVENTION only (no scalar flow evidence — an array or
     /// object could have reached it via an indirect call shape the array taint
     /// cannot see), so the param compound/update gate must reject it. Copied
@@ -1620,9 +1624,15 @@ impl ReprInfer {
     /// positive scalar-inflow evidence for a param that receives it as an
     /// argument. Conservative (fail-closed): only forms whose result is a
     /// primitive by construction return true. A bare identifier / call /
-    /// member expression is NOT handled here (its scalar-ness is resolved by
-    /// the `scalar_inflow_params` fixpoint / left unproven), and `null`,
-    /// regex, `delete`, array/object literals, spreads, etc. return false.
+    /// member expression is NOT handled here (a bare identifier is never
+    /// treated as scalar evidence — see `resolve_calls` Step 1b — and is
+    /// simply left unproven), and `null`, regex, `delete`, array/object
+    /// literals, spreads, etc. return false. Note this is a claim about JS
+    /// primitive TYPE, not value correctness: e.g. `xs+0` where `xs` is an
+    /// array is syntactically a `BinaryExpression` and so returns true here,
+    /// even though adding an array to a number is a dubious program; that is
+    /// a separate, pre-existing expression-site surface, not this gate's
+    /// concern.
     fn expr_is_syntactic_scalar(expr: &Expression) -> bool {
         match expr {
             Expression::Literal(LiteralValue::Number(_))
@@ -1685,8 +1695,8 @@ impl ReprInfer {
             }
         }
 
-        // Step 1b: compute the POSITIVE scalar-inflow set to a fixpoint. A param
-        // is in this set only when SOME call edge supplies it a provably-scalar
+        // Step 1b: compute the POSITIVE scalar-inflow set. A param is in this
+        // set only when SOME call edge supplies it a syntactically-scalar
         // argument, i.e. actual flow evidence its runtime value is a
         // number/string — NOT the default I64 every unconstrained param carries.
         // The param compound/update gate rejects any param NOT proven here, so
@@ -1697,51 +1707,65 @@ impl ReprInfer {
         // proof allowlist (mirror the Spec 4a lesson: prove safe positions, do
         // not enumerate indirect array sinks).
         //
-        // Scalar evidence at position `k`, for callee param `param_name`:
-        //   - the argument is SYNTACTICALLY a primitive (`arg_scalar_syntactic`:
-        //     a literal / arithmetic / unary / update / template), OR
-        //   - the argument is a bare identifier that is itself a param already
-        //     proven to have scalar inflow (scalar pass-through: `f(n){g(n)}`
-        //     with `f` called on a number) — hence the fixpoint.
+        // Scalar evidence at position `k`, for callee param `param_name`, is
+        // ONLY that the argument is SYNTACTICALLY a primitive
+        // (`arg_scalar_syntactic`: a literal / arithmetic / unary / update /
+        // template). A bare-identifier argument is NEVER scalar evidence —
+        // not even when it names another param already proven to have scalar
+        // inflow. Concretely, `function g(p){p+=1;return p;} function
+        // f(n){return g(n);}` does NOT propagate proof from `f`'s `n` to `g`'s
+        // `p`: `g`'s compound-assign on `p` rejects fail-closed even though
+        // every call to `f` passes a number literal. This is a single pass,
+        // not a fixpoint, because there is nothing to iterate: an
+        // identifier's presence in `scalar_inflow_params` is never consulted,
+        // so no edge's admission can unblock another edge's admission on a
+        // later round.
+        //
+        // (Historical note: an earlier version of this loop attempted a
+        // "scalar pass-through" branch that treated a bare identifier as
+        // scalar evidence when it named an already-proven-scalar param, and
+        // ran to a fixpoint to let that propagate transitively. That branch
+        // was dead code: `arg_obj_slot` returns `Some(ObjSlot::Binding(..))`
+        // for EVERY bare-identifier argument, object-holding or not, so
+        // `arg_is_object` below is true for every identifier argument and the
+        // loop `continue`s before any identifier-based scalar check could
+        // run. It was excised rather than made real. A real pass-through lane
+        // is future work; it must consult actual object/shape info for the
+        // identifier — not mere identifier-ness, since an identifier that
+        // aliases an array/object must never be treated as scalar — and it
+        // must pair the existential "some edge is scalar" proof with an
+        // ALL-EDGES-SCALAR condition before granting the callee param proof,
+        // to avoid mixed-call-site laundering: a param must not be treated as
+        // scalar-proven when even one call site passes it a non-scalar or
+        // unproven argument.)
+        //
         // An argument known to be an ARRAY (a literal `[..]`/`new Array`, or a
-        // bare identifier in `array_bindings`) or an OBJECT (`arg_obj_slots`) is
-        // never scalar evidence and is skipped. A bare-identifier VAR-LOCAL
-        // argument is left UNPROVEN (only params carry inflow membership) —
-        // conservative, and no working lane feeds a compound-target param that
-        // way.
-        loop {
-            let mut changed = false;
-            for edge in &self.calls {
-                let Some(params) = self.functions.get(&edge.callee) else {
+        // bare identifier in `array_bindings`) or an OBJECT (`arg_obj_slots`,
+        // which — per the note above — covers every bare identifier) is never
+        // scalar evidence and is skipped.
+        for edge in &self.calls {
+            let Some(params) = self.functions.get(&edge.callee) else {
+                continue;
+            };
+            for (k, param_name) in params.iter().enumerate() {
+                let key = (edge.callee.clone(), param_name.clone());
+                if self.scalar_inflow_params.contains(&key) {
                     continue;
-                };
-                for (k, param_name) in params.iter().enumerate() {
-                    let key = (edge.callee.clone(), param_name.clone());
-                    if self.scalar_inflow_params.contains(&key) {
-                        continue;
-                    }
-                    // An array or object argument is never scalar evidence.
-                    let ident = edge.arg_array_names.get(k).cloned().flatten();
-                    let arg_is_array = edge.arg_array_literal.get(k).copied().unwrap_or(false)
-                        || ident.as_ref().is_some_and(|(caller, name)| {
-                            array_bindings.contains(&(caller.clone(), name.clone()))
-                        });
-                    let arg_is_object = matches!(edge.arg_obj_slots.get(k), Some(Some(_)));
-                    if arg_is_array || arg_is_object {
-                        continue;
-                    }
-                    let is_scalar = edge.arg_scalar_syntactic.get(k).copied().unwrap_or(false)
-                        || ident.as_ref().is_some_and(|(caller, name)| {
-                            self.scalar_inflow_params
-                                .contains(&(caller.clone(), name.clone()))
-                        });
-                    if is_scalar && self.scalar_inflow_params.insert(key) {
-                        changed = true;
-                    }
                 }
-            }
-            if !changed {
-                break;
+                // An array or object argument is never scalar evidence.
+                let ident = edge.arg_array_names.get(k).cloned().flatten();
+                let arg_is_array = edge.arg_array_literal.get(k).copied().unwrap_or(false)
+                    || ident.as_ref().is_some_and(|(caller, name)| {
+                        array_bindings.contains(&(caller.clone(), name.clone()))
+                    });
+                let arg_is_object = matches!(edge.arg_obj_slots.get(k), Some(Some(_)));
+                if arg_is_array || arg_is_object {
+                    continue;
+                }
+                let is_scalar = edge.arg_scalar_syntactic.get(k).copied().unwrap_or(false);
+                if is_scalar {
+                    self.scalar_inflow_params.insert(key);
+                }
             }
         }
 
