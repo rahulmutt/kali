@@ -171,3 +171,44 @@ fn object_param_compound_rejects() {
         String::from_utf8_lossy(&out.stdout)
     );
 }
+
+// `s++` (update expression) on a STRING parameter. node prints `NaN`; the
+// compound-gate allowlist admits String (it has a compound `+=` lowering),
+// but codegen's update arm (`emit_update_expression`) is I64-only with no
+// string lowering — the narrower update-only gate must reject this fail
+// closed rather than silently print the untouched string `a`.
+#[test]
+fn string_param_update_increment_rejects() {
+    let src = "function f(s){s++;return s;} console.log(f(\"a\"));";
+    let out = run_source(src);
+    assert!(
+        !out.status.success(),
+        "string-param update must reject, got stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    assert!(
+        out.stdout.is_empty(),
+        "string-param update must produce NO stdout, got: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+}
+
+// `x++` (update expression) on a FLOAT parameter. node prints `2.5`; codegen's
+// update arm is I64-only, so pre-narrowing this reached codegen and failed
+// late with an ugly E4201 WASM validation error. The narrower update-only
+// gate must now reject this as a clean compile-time E5506, not E4201.
+#[test]
+fn float_param_update_increment_rejects() {
+    let src = "function f(x){x++;return x;} console.log(f(1.5));";
+    let out = run_source(src);
+    assert!(
+        !out.status.success(),
+        "float-param update must reject, got stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    assert!(
+        out.stdout.is_empty(),
+        "float-param update must produce NO stdout, got: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+}

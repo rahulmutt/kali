@@ -1809,13 +1809,16 @@ impl TypeContext {
                     name
                 ),
             ));
-        } else if !self.compound_update_target_is_scalar(&name) {
-            // Mutable, but NOT a provably-scalar target — `arr++` / `obj++` has
-            // no lowering (numeric increment of a raw heap handle). Fail closed.
+        } else if !self.update_target_is_integer_scalar(&name) {
+            // Mutable, but NOT a provably-integer target — `arr++` / `obj++`
+            // has no lowering (numeric increment of a raw heap handle), and
+            // `x++` on a float or string has no lowering either: codegen's
+            // update arm is I64-only (see `update_target_is_integer_scalar`).
+            // Fail closed.
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
                 format!(
-                    "update expression on binding '{}' is unavailable: it is not a provably scalar number or string (an array or object value has no update lowering)",
+                    "update expression on binding '{}' is unavailable: it is not a provably integer number (an array, object, float, or string value has no update lowering)",
                     name
                 ),
             ));
@@ -1895,6 +1898,27 @@ impl TypeContext {
     /// object-pointer leak cannot recur.
     pub(crate) fn compound_update_target_is_scalar(&self, name: &str) -> bool {
         use kali_common::Repr;
+        self.scalar_target_repr(name, &[Repr::I64, Repr::F64, Repr::String])
+    }
+
+    /// Narrower ALLOWLIST for `++`/`--` (update expression) only: admit ONLY
+    /// when the target provably holds an `I64`. Unlike the compound (`+=` …)
+    /// arm, codegen's update lowering (`emit_update_expression`) emits
+    /// `I64Const(1)` + `I64Add`/`I64Sub` unconditionally — it has NO `F64` or
+    /// `String` lowering. Admitting those reprs here either miscompiles
+    /// silently (a string param increment printed the untouched string
+    /// instead of `NaN`) or is caught late as an ugly WASM validation error
+    /// (E4201) instead of a clean compile-time reject. Reviewer finding,
+    /// fasta Spec 6 Task 1 follow-up 2.
+    pub(crate) fn update_target_is_integer_scalar(&self, name: &str) -> bool {
+        use kali_common::Repr;
+        self.scalar_target_repr(name, &[Repr::I64])
+    }
+
+    /// Shared array/param/repr plumbing for the compound and update gates
+    /// above; `allowed` is the set of scalar reprs the caller's codegen arm
+    /// can actually lower.
+    fn scalar_target_repr(&self, name: &str, allowed: &[kali_common::Repr]) -> bool {
         let Some(func) = self.binding_repr_function_key(name) else {
             // Cannot locate the binding's repr function (e.g. crossing an
             // untracked function scope) — cannot prove scalar, fail closed.
@@ -1906,10 +1930,7 @@ impl TypeContext {
         if self.repr_table.is_non_scalar_param(&func, name) {
             return false;
         }
-        matches!(
-            self.repr_table.scalar(&func, name),
-            Repr::I64 | Repr::F64 | Repr::String
-        )
+        allowed.contains(&self.repr_table.scalar(&func, name))
     }
 
     pub(crate) fn binding_is_mutable(&self, name: &str) -> bool {
