@@ -1696,9 +1696,10 @@ impl ReprInfer {
         }
 
         // Step 1b: compute the POSITIVE scalar-inflow set. A param is in this
-        // set only when SOME call edge supplies it a syntactically-scalar
+        // set only when (a) SOME call edge supplies it a syntactically-scalar
         // argument, i.e. actual flow evidence its runtime value is a
-        // number/string — NOT the default I64 every unconstrained param carries.
+        // number/string — NOT the default I64 every unconstrained param carries
+        // — AND (b) NO call edge supplies it a non-scalar or unproven argument.
         // The param compound/update gate rejects any param NOT proven here, so
         // an array/object that reached the param through an INDIRECT call shape
         // (`f(g())`, a pass-through chain `f(a)->h(a)`, `f(o.a)`) — which the
@@ -1715,11 +1716,36 @@ impl ReprInfer {
         // inflow. Concretely, `function g(p){p+=1;return p;} function
         // f(n){return g(n);}` does NOT propagate proof from `f`'s `n` to `g`'s
         // `p`: `g`'s compound-assign on `p` rejects fail-closed even though
-        // every call to `f` passes a number literal. This is a single pass,
-        // not a fixpoint, because there is nothing to iterate: an
-        // identifier's presence in `scalar_inflow_params` is never consulted,
-        // so no edge's admission can unblock another edge's admission on a
-        // later round.
+        // every call to `f` passes a number literal.
+        //
+        // The ∀ half (Spec 7 Task 1, "existential-laundering closure"): the
+        // existential-only proof above is not enough. `f(5); f(g())` has a
+        // scalar edge (`f(5)`) and an unproven edge (`f(g())`, an indirect
+        // call-result that could deliver a heap handle) for the SAME param —
+        // existential proof alone would admit `p += 1` in `f` on the strength
+        // of the `f(5)` edge alone, even though the `f(g())` edge could hand
+        // `p` a non-scalar at runtime. So a param is proven-scalar iff (some
+        // edge is `arg_scalar_syntactic`) AND (no edge is a VETO). An edge is
+        // a veto when its argument is an ARRAY (`arg_array_literal`, or a
+        // bare identifier in `array_bindings`), an OBJECT (`arg_obj_slots` is
+        // `Some`, which — see the historical note below — covers every bare
+        // identifier), or is simply NOT syntactically scalar (an unproven
+        // indirect form: a call-result, a member read, anything
+        // `arg_scalar_syntactic` didn't recognize). Only a syntactically-
+        // scalar argument is non-veto evidence; every other shape vetoes. A
+        // self-recursive `h(p+1)` passes `p+1`, which IS syntactically scalar
+        // (arithmetic) — not a veto — so a self-recursive proof chain still
+        // closes over itself correctly.
+        //
+        // This requires two passes over `self.calls`, not one: the veto for
+        // a given `(callee, param)` key can be discovered on any edge, in any
+        // order, so both `has_scalar_evidence` and `has_veto` must be fully
+        // accumulated across ALL edges before either can be consulted, unlike
+        // the single existential pass this replaces (which could commit a key
+        // the moment one qualifying edge was seen). There is still no fixpoint
+        // needed beyond that: an identifier's presence in `scalar_inflow_params`
+        // is never consulted, so no edge's admission can unblock another edge's
+        // admission on a later round.
         //
         // (Historical note: an earlier version of this loop attempted a
         // "scalar pass-through" branch that treated a bare identifier as
@@ -1732,40 +1758,39 @@ impl ReprInfer {
         // run. It was excised rather than made real. A real pass-through lane
         // is future work; it must consult actual object/shape info for the
         // identifier — not mere identifier-ness, since an identifier that
-        // aliases an array/object must never be treated as scalar — and it
-        // must pair the existential "some edge is scalar" proof with an
-        // ALL-EDGES-SCALAR condition before granting the callee param proof,
-        // to avoid mixed-call-site laundering: a param must not be treated as
-        // scalar-proven when even one call site passes it a non-scalar or
-        // unproven argument.)
-        //
-        // An argument known to be an ARRAY (a literal `[..]`/`new Array`, or a
-        // bare identifier in `array_bindings`) or an OBJECT (`arg_obj_slots`,
-        // which — per the note above — covers every bare identifier) is never
-        // scalar evidence and is skipped.
+        // aliases an array/object must never be treated as scalar.)
+        let mut scalar_evidence: BTreeSet<(String, String)> = BTreeSet::new();
+        let mut veto: BTreeSet<(String, String)> = BTreeSet::new();
         for edge in &self.calls {
             let Some(params) = self.functions.get(&edge.callee) else {
                 continue;
             };
             for (k, param_name) in params.iter().enumerate() {
                 let key = (edge.callee.clone(), param_name.clone());
-                if self.scalar_inflow_params.contains(&key) {
-                    continue;
-                }
-                // An array or object argument is never scalar evidence.
                 let ident = edge.arg_array_names.get(k).cloned().flatten();
-                let arg_is_array = edge.arg_array_literal.get(k).copied().unwrap_or(false)
+                let is_array = edge.arg_array_literal.get(k).copied().unwrap_or(false)
                     || ident.as_ref().is_some_and(|(caller, name)| {
                         array_bindings.contains(&(caller.clone(), name.clone()))
                     });
-                let arg_is_object = matches!(edge.arg_obj_slots.get(k), Some(Some(_)));
-                if arg_is_array || arg_is_object {
-                    continue;
-                }
+                let is_object = matches!(edge.arg_obj_slots.get(k), Some(Some(_)));
                 let is_scalar = edge.arg_scalar_syntactic.get(k).copied().unwrap_or(false);
+                // Veto: an array/object argument, OR an argument that is
+                // neither proven scalar nor a known array/object — an
+                // unproven indirect form (call-result, member read) that
+                // could deliver a heap handle. Only a syntactically-scalar
+                // argument is non-veto evidence.
+                let is_veto = is_array || is_object || !is_scalar;
                 if is_scalar {
-                    self.scalar_inflow_params.insert(key);
+                    scalar_evidence.insert(key.clone());
                 }
+                if is_veto {
+                    veto.insert(key);
+                }
+            }
+        }
+        for key in scalar_evidence {
+            if !veto.contains(&key) {
+                self.scalar_inflow_params.insert(key);
             }
         }
 
