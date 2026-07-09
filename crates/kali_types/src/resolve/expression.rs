@@ -776,7 +776,16 @@ impl TypeContext {
     /// is never resolved as an expression). The suppression is scoped to exactly
     /// this one identifier read via save/restore.
     pub(crate) fn resolve_forin_key_safe_position(&mut self, expr: &Expression) {
-        let bare_key = matches!(expr, Expression::Identifier(name)
+        // Parentheses are transparent around a write target / test operand —
+        // codegen's `assignment_target_name` unwraps them via
+        // `unwrap_transparent_value`, so `((last)) ??= null` lowers on the same
+        // alias lane as `last ??= null`; unwrap here too or the wrapped form
+        // spuriously over-rejects (fasta Spec 7 Task 3).
+        let mut unwrapped = expr;
+        while let Expression::ParenthesizedExpression(inner) = unwrapped {
+            unwrapped = &inner.expression;
+        }
+        let bare_key = matches!(unwrapped, Expression::Identifier(name)
             if self.is_for_in_key_value(name));
         let previous = self.suppress_forin_key_value_reject;
         if bare_key {
@@ -1712,6 +1721,25 @@ impl TypeContext {
                     };
                     self.diagnostics
                         .push(Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, message));
+                } else if matches!(expr.operator, AssignmentOperator::NullishAssign)
+                    && self.for_in_key_shape(&name).is_none()
+                {
+                    // fasta Spec 7 Task 3: `??=` lowers with `I64Eqz` — a FALSY
+                    // test — and null/undefined both lower to i64 `0` for a
+                    // scalar, so `let x = 0; x ??= 1` miscompiled to `1` (node:
+                    // `0`). A correct nullish test is unrepresentable without a
+                    // nullable-scalar type (out of scope) → reject fail-closed.
+                    // The ONLY admitted target is a for-in-key alias
+                    // (`for_in_key_shape`, the types-side twin of codegen's
+                    // `for_in_key_alias_names`), whose `-1` null sentinel keeps
+                    // null distinct from every valid key ordinal.
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        format!(
+                            "nullish assignment on binding '{}' is unavailable: null and 0 are indistinguishable for a scalar value; only a for-in-key alias with a null sentinel supports `??=`",
+                            name
+                        ),
+                    ));
                 }
             }
             Expression::LogicalExpression(expr) => {

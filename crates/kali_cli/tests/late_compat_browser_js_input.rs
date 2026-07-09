@@ -698,8 +698,11 @@ fn assert_browser_late_threaded_runtime_rejection_for_command(
     }
 }
 
+// fasta Spec 7 Task 3: scalar `??=` rejects fail-closed (null and 0 are
+// indistinguishable for a scalar), so the `??=` pipeline coverage rides the one
+// surviving lowering — a for-in-key ALIAS binding (`-1` null sentinel).
 fn nullish_assignment_source() -> &'static str {
-    "let value = null; value ??= 1; console.log(value);\n"
+    "var table = { a: 1, b: 2 };\nvar last = null;\nfor (var c in table) {\n  last = c;\n}\nlast ??= null;\nif (last) { console.log(\"set\"); }\n"
 }
 
 fn late_eval_compatibility_source() -> &'static str {
