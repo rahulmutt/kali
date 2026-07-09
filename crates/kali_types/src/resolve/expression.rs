@@ -1945,6 +1945,19 @@ impl TypeContext {
         if self.repr_table.is_non_scalar_param(&func, name) {
             return false;
         }
+        // An object-literal-initialized binding whose object is never
+        // field-read anywhere never gets "materialized" into a Repr::Object
+        // shape (see the field doc on `object_initialized_bindings`), so it
+        // stays at the default I64 and would otherwise pass the repr-allowlist
+        // check below unchecked — a compound/update then does integer
+        // arithmetic on the never-materialized value (fasta Spec 7 Task 2: `var
+        // o = {x:1}; o += 1;` printed `1`, node prints `[object Object]1`).
+        // This taint is syntactic (declarator RHS shape), independent of
+        // materialization, so it closes the gap directly rather than depending
+        // on shape inference to see it.
+        if self.repr_table.object_initialized_binding(&func, name) {
+            return false;
+        }
         // Positive-proof for parameters: a param never proven to receive a
         // scalar by a real call edge is unconstrained-default I64, not a proven
         // scalar — fail closed. No-op for var locals (never in this set).

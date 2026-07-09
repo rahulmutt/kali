@@ -261,6 +261,19 @@ struct ReprInfer {
     /// cannot see), so the param compound/update gate must reject it. Copied
     /// (negated) into [`ReprTable::params_lacking_scalar_inflow`] at emit time.
     scalar_inflow_params: BTreeSet<(String, String)>,
+    /// `(func, binding)` var/let/const locals whose declarator RHS is an
+    /// object literal — copied verbatim into
+    /// [`ReprTable::object_initialized_bindings`](kali_common::ReprTable) at
+    /// emit time. Object shape inference only assigns a binding `Repr::Object`
+    /// when the object is "materialized" (reached by a field read elsewhere in
+    /// the program — see `obj_materialized`); an object-initialized binding
+    /// that is never field-read (e.g. `var o = {x:1}; o += 1;`) stays at the
+    /// default `Repr::I64`, so `target_repr_is_one_of`'s repr-allowlist check
+    /// alone cannot see it. This taint is independent of materialization: it
+    /// fires on the syntactic shape of the declarator RHS alone, so the
+    /// resolve-phase compound/update gate can reject fail-closed regardless of
+    /// whether the object ever gets a shape (fasta Spec 7 Task 2).
+    object_initialized_bindings: BTreeSet<(String, String)>,
 }
 
 /// Identity of an object-holding slot for shape/aliasing purposes.
@@ -911,6 +924,12 @@ impl ReprInfer {
     /// (`init -> id`).
     fn visit_declarator_init(&mut self, func: &str, id: &str, init: &Expression) {
         if let Expression::ObjectExpression(obj) = init {
+            // Syntactic taint, independent of materialization — see the field
+            // doc on `object_initialized_bindings`. A compound/update on `id`
+            // must reject even when the object literal is never field-read and
+            // so never gets promoted to `Repr::Object` below.
+            self.object_initialized_bindings
+                .insert((func.to_string(), id.to_string()));
             self.record_object_literal(
                 func,
                 ObjSlot::Binding(func.to_string(), id.to_string()),
@@ -2577,6 +2596,15 @@ impl ReprInfer {
         // resolve-phase param compound/update allowlist.
         for (func, name) in std::mem::take(&mut self.non_scalar_params) {
             table.mark_non_scalar_param(&func, &name);
+        }
+
+        // Object-initialized binding taint: copy verbatim for the
+        // resolve-phase compound/update allowlist (fasta Spec 7 Task 2). See
+        // the field doc on `object_initialized_bindings` — this fires on the
+        // declarator's syntactic shape alone, independent of whether the
+        // object literal is ever materialized into a `Repr::Object` shape.
+        for (func, name) in std::mem::take(&mut self.object_initialized_bindings) {
+            table.mark_object_initialized_binding(&func, &name);
         }
 
         // Positive scalar-inflow proof: every PARAM not proven to receive a
