@@ -918,7 +918,7 @@ impl<'a> FunctionEmitter<'a> {
             }
             LirNodeKind::Literal => emit_literal(function, node.text.as_deref(), self.strings),
             LirNodeKind::Value => self.emit_value(function, &node, want_value),
-            LirNodeKind::Call => self.emit_call(function, &node),
+            LirNodeKind::Call => self.emit_call(function, id, &node),
             LirNodeKind::Branch => match node.text.as_deref() {
                 Some(text) if text.starts_with("break") => {
                     self.emit_break_or_continue(function, false, &node)

@@ -41,6 +41,7 @@ pub const SYNTHETIC_FUNCTIONS: &[&str] = &[
     "__arena_reset",
     "__substring",
     "__join",
+    "__join_arena",
 ];
 
 /// Generate WASM from LIR.
@@ -301,6 +302,22 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         is_entry: false,
         flavor: None,
     });
+    // Arena twin of `__join` (fasta Spec 7 Task 4c): byte-for-byte identical to
+    // `__join` EXCEPT its result is allocated via the current-arena `__alloc`
+    // (dispatch below) instead of `__alloc_global`, so a join whose result the
+    // escape gate proved iteration-local (`arena_string_site`) lands in the
+    // resettable per-iteration arena. Emitted unconditionally (it is tiny; DCE
+    // is not run) — `emit_runtime_join` selects it per site, and any site not
+    // positively granted keeps the global `__join`, so this is fail-closed.
+    all_functions.push(FunctionPlan {
+        name: "__join_arena".to_string(),
+        params: vec!["arr".to_string(), "sep".to_string()],
+        locals: Vec::new(),
+        body: lir.root,
+        result: true,
+        is_entry: false,
+        flavor: None,
+    });
     all_functions.extend(function_plans);
 
     for (idx, function) in all_functions.iter().enumerate() {
@@ -466,7 +483,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                 vec![ValType::I64, ValType::I64, ValType::I64],
                 vec![ValType::I64],
             )
-        } else if function.name == "__join" {
+        } else if matches!(function.name.as_str(), "__join" | "__join_arena") {
             (vec![ValType::I64, ValType::I64], vec![ValType::I64])
         } else if function.name == "__arena_reset" {
             (Vec::new(), Vec::new())
@@ -637,7 +654,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             local_decls.push((2, ValType::I32));
         } else if function.name == "__substring" {
             local_decls.push((1, ValType::I64));
-        } else if function.name == "__join" {
+        } else if matches!(function.name.as_str(), "__join" | "__join_arena") {
             local_decls.push((6, ValType::I64));
         } else {
             for local_name in &function.locals {
@@ -698,13 +715,18 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             // is a source-defined function.
             let page_get_index = function_name_to_index["__page_get"];
             let alloc_global_index = function_name_to_index["__alloc_global"];
+            let alloc_index = function_name_to_index["__alloc"];
             match function.name.as_str() {
                 "__alloc" => emit_bump_body(&mut body, 1, 2, 3, page_get_index),
                 "__alloc_global" => emit_bump_body(&mut body, 4, 5, 6, page_get_index),
                 "__page_get" => emit_page_get_body(&mut body),
                 "__arena_reset" => emit_arena_reset_body(&mut body),
                 "__substring" => emit_substring_body(&mut body),
+                // `__join` allocates its result into the global heap;
+                // `__join_arena` is the same body allocating into the current
+                // (resettable) arena via `__alloc` (fasta Spec 7 Task 4c).
                 "__join" => emit_join_body(&mut body, alloc_global_index),
+                "__join_arena" => emit_join_body(&mut body, alloc_index),
                 other => unreachable!("unhandled synthetic function {other}"),
             }
         } else if function.is_entry {
@@ -1676,6 +1698,103 @@ fn loop_preorder_ordinals_walk(
             continue;
         }
         loop_preorder_ordinals_walk(nodes, *child, next, ordinals);
+    }
+}
+
+/// Pre-order, function-scoped ordinal for each *string-producing site* in the
+/// LIR tree rooted at `body`: the `k`-th such node (in child-array pre-order,
+/// numbered BEFORE descending its own children) gets ordinal `k` (0-based); a
+/// nested function body is an opaque leaf (never descended into — each function
+/// numbers its own sites independently).
+///
+/// ## THE STRING-SITE ORDINAL RULE (codegen mirror of the 4b oracle)
+///
+/// This is the **codegen half of the both-sides oracle** whose analysis half —
+/// which RECORDS the grants this walk QUERIES — is
+/// `kali_mir::analysis::arena_gate::OwnershipAnalyzer::arena_collect_string_sites`.
+/// Read that function's "THE STRING-SITE ORDINAL RULE" doc comment: it is the
+/// authoritative definition; this walk MUST enumerate the identical node set in
+/// the identical order or `arena_string_site(fn, ord)` lookups desync and a
+/// join escaping into the resettable arena becomes a use-after-reset (fail
+/// OPEN). Correspondence rests on every HIR→MIR→LIR lowering being a 1:1
+/// structural copy (same node count, same child order, same `text` — see
+/// `kali_mir::lower` and `kali_lir::lower`), exactly as `loop_preorder_ordinals`
+/// relies on for loop ordinals.
+///
+/// A **string-producing site** (`is_string_site`) is EITHER:
+///   1. `recv.join(sep)` — a `Call` whose callee (first child) is a MemberExpr
+///      with property text `"join"`, OR
+///   2. ANY `+` `BinaryExpr` (numeric `+` included — the site set is purely
+///      syntactic so both sides agree without re-deriving string types here).
+///
+/// LIR collapses many distinct HIR expression kinds into a single `Value` node
+/// carrying the operator/property `text`, so the two HIR shapes 4b matches on
+/// `kind` are reconstructed from `(LirNodeKind, text, child-arity)`:
+///   - `+` `BinaryExpr` → `Value` text `"+"` with **exactly 2 children**
+///     (operands). Unary plus `+x` (`UnaryExpr`, e.g. `+process.argv[2]`) is
+///     also `Value` text `"+"` but has **1 child**, so the arity check excludes
+///     it — mirroring 4b's `kind == BinaryExpr`.
+///   - `.join` MemberExpr callee → the `Call`'s first child is a `Value` text
+///     `"join"` with **>= 1 children** (a MemberExpr always has its receiver as
+///     a child; a bare-identifier callee named `join` is a childless `Value`
+///     and must NOT match) — mirroring 4b's `callee.kind == MemberExpr`.
+///
+/// Template literals are deliberately NOT sites (out of 4b's scope) — they lower
+/// to their own `Value` node, never to `+`, so neither side numbers them.
+///
+/// KNOWN RESIDUAL (fail-closed in practice, unreachable in the supported
+/// subset): a *computed* member access `a["+"]` — property literally `"+"` —
+/// also lowers to a 2-child `Value` text `"+"` and would be over-counted here
+/// but not by 4b (`kind == MemberExpr`). No `"+"`-named field exists in kali's
+/// fixed-shape object model, so this cannot occur in any supported program; the
+/// only realistic 2-child `Value("+")` is a `BinaryExpr`.
+pub(crate) fn string_site_preorder_ordinals(
+    nodes: &[LirNode],
+    body: LirNodeId,
+) -> HashMap<LirNodeId, u32> {
+    let mut ordinals = HashMap::new();
+    let mut next = 0u32;
+    string_site_preorder_ordinals_walk(nodes, body, &mut next, &mut ordinals);
+    ordinals
+}
+
+/// Whether `id` is a string-producing site — see the ordinal rule on
+/// [`string_site_preorder_ordinals`]. Mirrors 4b's `is_string_producing_site`.
+fn is_string_site(nodes: &[LirNode], id: LirNodeId) -> bool {
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return false;
+    };
+    match node.kind {
+        LirNodeKind::Call => node
+            .children
+            .first()
+            .and_then(|c| nodes.get(c.0 as usize))
+            .is_some_and(|callee| {
+                callee.text.as_deref() == Some("join") && !callee.children.is_empty()
+            }),
+        LirNodeKind::Value => node.text.as_deref() == Some("+") && node.children.len() == 2,
+        _ => false,
+    }
+}
+
+fn string_site_preorder_ordinals_walk(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    next: &mut u32,
+    ordinals: &mut HashMap<LirNodeId, u32>,
+) {
+    if is_string_site(nodes, id) {
+        ordinals.insert(id, *next);
+        *next += 1;
+    }
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return;
+    };
+    for child in &node.children {
+        if is_function_like(nodes, *child) {
+            continue;
+        }
+        string_site_preorder_ordinals_walk(nodes, *child, next, ordinals);
     }
 }
 
@@ -3236,11 +3355,15 @@ fn emit_substring_body(func: &mut Function) {
 }
 
 /// `__join(arr, sep) -> i64`: copy every element string (i64 handles in the
-/// array's slots) plus `sep` between them into ONE fresh __alloc_global
-/// buffer; return `TAG | out<<32 | total`. Empty array returns bare TAG
+/// array's slots) plus `sep` between them into ONE fresh buffer allocated via
+/// `alloc_index`; return `TAG | out<<32 | total`. Empty array returns bare TAG
 /// (offset 0, len 0 — a zero-length handle is never dereferenced).
 /// Locals: 0=arr 1=sep (params), 2=n 3=i 4=total 5=out 6=cur 7=h.
-fn emit_join_body(func: &mut Function, alloc_global_index: u32) {
+///
+/// `alloc_index` is `__alloc_global` for the global `__join` and `__alloc`
+/// (current arena) for the `__join_arena` twin (fasta Spec 7 Task 4c) — the
+/// ONLY difference between the two synthetic bodies.
+fn emit_join_body(func: &mut Function, alloc_index: u32) {
     // n = *(arr + 0)
     func.instruction(&Instruction::LocalGet(0));
     func.instruction(&Instruction::I32WrapI64);
@@ -3321,7 +3444,7 @@ fn emit_join_body(func: &mut Function, alloc_global_index: u32) {
     func.instruction(&Instruction::I64Const(-8)); // !7 as two's-complement
     func.instruction(&Instruction::I64And);
     func.instruction(&Instruction::I32WrapI64);
-    func.instruction(&Instruction::Call(alloc_global_index));
+    func.instruction(&Instruction::Call(alloc_index));
     func.instruction(&Instruction::I64ExtendI32U);
     func.instruction(&Instruction::LocalSet(5));
     // cur = out; i = 0

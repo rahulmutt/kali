@@ -104,6 +104,15 @@ pub(crate) struct FunctionEmitter<'a> {
     /// construction time and consulted by `emit_loop` to key `arena_table`
     /// and the `__arena_save_*` locals.
     pub(crate) loop_ordinals: HashMap<LirNodeId, u32>,
+    /// Pre-order ordinal of every string-producing site (`.join(..)` call or
+    /// `+` binary) in this function's body (see
+    /// `crate::lower::string_site_preorder_ordinals`), resolved once at
+    /// construction time — the codegen half of the string-site "both-sides
+    /// oracle". `emit_runtime_join` consults it to key
+    /// `arena_table.arena_string_site` and select the `__join_arena` twin.
+    /// Threaded exactly like `loop_ordinals`: reset per function (each function
+    /// gets a fresh emitter/body), so ordinals never leak across functions.
+    pub(crate) string_site_ordinals: HashMap<LirNodeId, u32>,
     /// Pre-order ordinal of every `for-in` node in this function's body (see
     /// `crate::lower::for_in_preorder_ordinals`), resolved once at
     /// construction time and consulted by `emit_for_in` to find its dedicated
@@ -192,6 +201,8 @@ impl<'a> FunctionEmitter<'a> {
         module_global_slots: &'a BTreeMap<String, (u32, kali_common::Repr)>,
     ) -> Self {
         let loop_ordinals = crate::lower::loop_preorder_ordinals(&program.nodes, body);
+        let string_site_ordinals =
+            crate::lower::string_site_preorder_ordinals(&program.nodes, body);
         let for_in_ordinals = crate::lower::for_in_preorder_ordinals(&program.nodes, body);
         let for_in_key_aliases = crate::lower::for_in_key_alias_names(&program.nodes, body);
         let mut locals = BTreeMap::new();
@@ -244,6 +255,7 @@ impl<'a> FunctionEmitter<'a> {
             control_frames: Vec::new(),
             loop_frames: Vec::new(),
             loop_ordinals,
+            string_site_ordinals,
             for_in_ordinals,
             for_in_key_shapes: HashMap::new(),
             for_in_key_aliases,
@@ -353,6 +365,15 @@ impl<'a> FunctionEmitter<'a> {
     /// all-string-element array into one fresh `__alloc_global` string.
     pub(crate) fn join_fn_index(&self) -> u32 {
         self.functions["__join"]
+    }
+
+    /// Wasm function index of the arena twin of the runtime-join helper
+    /// (`__join_arena(arr, sep) -> i64`, fasta Spec 7 Task 4c): identical to
+    /// `__join` but allocates its result into the current (resettable) arena
+    /// via `__alloc`. Selected by `emit_runtime_join` only for a join site the
+    /// escape gate proved iteration-local (`arena_string_site`).
+    pub(crate) fn join_arena_fn_index(&self) -> u32 {
+        self.functions["__join_arena"]
     }
 
     pub(crate) fn push_control_frame(&mut self, kind: ControlFlowLabelKind) -> usize {
