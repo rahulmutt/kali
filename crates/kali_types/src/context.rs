@@ -327,11 +327,32 @@ impl TypeContext {
         for param in params {
             self.bind_current_scope(param.name.clone());
         }
+        // JS parameters are reassignable (mutable) — the same binding kind as a
+        // `var`/`let` local. Mark them so `binding_is_mutable` reports true and
+        // the fail-closed compound/update-assignment gate admits `n -= x` /
+        // `n++` on a parameter, routing it through the same codegen local lane a
+        // `var` local uses (fasta Spec 6 Task 1).
+        if let Some(scope_id) = self.current_scope_id() {
+            for param in params {
+                self.mark_binding_mutable(scope_id, &param.name);
+            }
+        }
     }
 
     pub(crate) fn bind_name_list(&mut self, names: &[String]) {
         for name in names {
             self.bind_current_scope(name.clone());
+        }
+    }
+
+    /// Mark an already-bound `name` as a mutable binding in `scope_id`. No-op
+    /// if `name` is not bound in that scope. Used to flag function parameters
+    /// mutable after they are bound (they are reassignable in JS).
+    pub(crate) fn mark_binding_mutable(&mut self, scope_id: NodeId, name: &str) {
+        if let Some(scope) = self.scope_mut(scope_id) {
+            if scope.bindings.contains_key(name) {
+                scope.mutable_bindings.insert(name.to_owned(), true);
+            }
         }
     }
 

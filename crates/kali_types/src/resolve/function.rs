@@ -63,6 +63,11 @@ impl TypeContext {
             self.bind_current_scope(method.name.clone());
             self.push_scope(ScopeType::Function);
             self.bind_name_list(&method.params);
+            if let Some(scope_id) = self.current_scope_id() {
+                for param in &method.params {
+                    self.mark_binding_mutable(scope_id, param);
+                }
+            }
             if let Some(body) = &method.body {
                 self.resolve_block_body(body);
             }
