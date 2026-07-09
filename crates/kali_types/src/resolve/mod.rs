@@ -640,6 +640,12 @@ impl TypeContext {
                     self.record_generator_function_lowering(*is_async);
                 }
                 self.bind_name_list(params);
+                // Function-declaration parameters are mutable JS bindings (see
+                // context::bind_function_params) — mark them so a compound/
+                // update assignment on a parameter (`n -= lenOut`) is admitted.
+                for param in params {
+                    self.mark_binding_mutable(function_scope_id, param);
+                }
                 // Structural runtime-array registry (C1): an array-typed
                 // PARAMETER is registered by codegen's emitter (emitter.rs:
                 // `repr_table.is_array_binding(function_name, name)`). Mirror

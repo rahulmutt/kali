@@ -98,6 +98,21 @@ struct CallEdge {
     /// aliases, when one exists: a bare identifier (binding), `arr[i]`
     /// (array element), or a bare-identifier call (callee return).
     arg_obj_slots: Vec<Option<ObjSlot>>,
+    /// For each positional argument, `true` when the argument is SYNTACTICALLY
+    /// a fresh array value — an array literal `[..]`, `new Array(..)`, or
+    /// `Array(..)` — passed directly (no bare identifier to route through the
+    /// array-binding fixpoint). Lets `resolve_calls` taint the callee param as
+    /// non-scalar for `f([1, 2])`-shaped calls.
+    arg_array_literal: Vec<bool>,
+    /// For each positional argument, `true` when the argument is SYNTACTICALLY a
+    /// provably-scalar primitive expression — a number/string/boolean literal, a
+    /// template literal, or a binary/unary/update expression (all of which
+    /// evaluate to a primitive number/string/boolean, never a heap array or
+    /// object). This is the sole positive scalar-inflow evidence
+    /// `scalar_inflow_params` is derived from (see `resolve_calls`); a bare
+    /// identifier argument is NEVER scalar evidence, even when it names a
+    /// param already proven scalar (no pass-through: see `resolve_calls`).
+    arg_scalar_syntactic: Vec<bool>,
     /// Result node of the call expression itself (target of the callee's
     /// return-flow edge).
     result_node: usize,
@@ -231,6 +246,21 @@ struct ReprInfer {
     /// filtered at emit time, keeping the check monotone: int/float array
     /// returns (element node not String) add no conflict.
     array_binding_returns: Vec<(String, String)>,
+    /// `(func, param)` params proven to receive a non-scalar (array) argument
+    /// at some call site — copied verbatim into
+    /// [`ReprTable::non_scalar_params`](kali_common::ReprTable) at emit time.
+    /// The resolve-phase param compound/update gate uses it to fail closed.
+    non_scalar_params: BTreeSet<(String, String)>,
+    /// `(func, param)` parameters POSITIVELY proven to receive a scalar
+    /// (numeric/string/boolean) value by at least one call-site edge. Computed
+    /// by a single pass in `resolve_calls` (Step 1b) over syntactically-scalar
+    /// arguments only — no propagation/fixpoint, since a bare-identifier
+    /// argument is never scalar evidence. Every param NOT in this set is left at
+    /// the default I64 by CONVENTION only (no scalar flow evidence — an array or
+    /// object could have reached it via an indirect call shape the array taint
+    /// cannot see), so the param compound/update gate must reject it. Copied
+    /// (negated) into [`ReprTable::params_lacking_scalar_inflow`] at emit time.
+    scalar_inflow_params: BTreeSet<(String, String)>,
 }
 
 /// Identity of an object-holding slot for shape/aliasing purposes.
@@ -1548,6 +1578,8 @@ impl ReprInfer {
                 let mut arg_nodes = Vec::with_capacity(call.args.len());
                 let mut arg_array_names = Vec::with_capacity(call.args.len());
                 let mut arg_obj_slots = Vec::with_capacity(call.args.len());
+                let mut arg_array_literal = Vec::with_capacity(call.args.len());
+                let mut arg_scalar_syntactic = Vec::with_capacity(call.args.len());
                 for arg in &call.args {
                     if matches!(arg, Expression::ObjectExpression(_)) {
                         self.obj_conflicts.push(
@@ -1556,6 +1588,8 @@ impl ReprInfer {
                         );
                     }
                     arg_obj_slots.push(self.arg_obj_slot(func, arg));
+                    arg_array_literal.push(self.init_is_array(arg));
+                    arg_scalar_syntactic.push(Self::expr_is_syntactic_scalar(arg));
                     arg_nodes.push(self.visit_expr(func, arg));
                     arg_array_names.push(match arg {
                         Expression::Identifier(name) => Some((func.to_string(), name.clone())),
@@ -1568,6 +1602,8 @@ impl ReprInfer {
                     arg_nodes,
                     arg_array_names,
                     arg_obj_slots,
+                    arg_array_literal,
+                    arg_scalar_syntactic,
                     result_node,
                 });
                 result_node
@@ -1580,6 +1616,44 @@ impl ReprInfer {
                 }
                 self.new_node()
             }
+        }
+    }
+
+    /// True when `expr` SYNTACTICALLY evaluates to a primitive scalar
+    /// (number/string/boolean) — never a heap array or object — and so is
+    /// positive scalar-inflow evidence for a param that receives it as an
+    /// argument. Conservative (fail-closed): only forms whose result is a
+    /// primitive by construction return true. A bare identifier / call /
+    /// member expression is NOT handled here (a bare identifier is never
+    /// treated as scalar evidence — see `resolve_calls` Step 1b — and is
+    /// simply left unproven), and `null`, regex, `delete`, array/object
+    /// literals, spreads, etc. return false. Note this is a claim about JS
+    /// primitive TYPE, not value correctness: e.g. `xs+0` where `xs` is an
+    /// array is syntactically a `BinaryExpression` and so returns true here,
+    /// even though adding an array to a number is a dubious program; that is
+    /// a separate, pre-existing expression-site surface, not this gate's
+    /// concern.
+    fn expr_is_syntactic_scalar(expr: &Expression) -> bool {
+        match expr {
+            Expression::Literal(LiteralValue::Number(_))
+            | Expression::Literal(LiteralValue::String(_))
+            | Expression::Literal(LiteralValue::Boolean(_)) => true,
+            // Interpolated/plain template — a string primitive.
+            Expression::TemplateLiteral(_) => true,
+            // Arithmetic/comparison/bitwise/`+` — a number/boolean/string
+            // primitive; never a heap handle.
+            Expression::BinaryExpression(_) => true,
+            // `i++` / `i--` as an expression — a number primitive.
+            Expression::UpdateExpression(_) => true,
+            // `-x`, `+x`, `!x`, `typeof x`, `void x` — a number/boolean/string
+            // primitive. `delete` (a boolean) is excluded only to keep the set
+            // to obviously-numeric coercions; treating it as scalar would be
+            // sound too, but it never feeds an arithmetic param.
+            Expression::UnaryExpression(unary) if unary.operator != "delete" => true,
+            Expression::ParenthesizedExpression(inner) => {
+                Self::expr_is_syntactic_scalar(&inner.expression)
+            }
+            _ => false,
         }
     }
 
@@ -1621,6 +1695,80 @@ impl ReprInfer {
             }
         }
 
+        // Step 1b: compute the POSITIVE scalar-inflow set. A param is in this
+        // set only when SOME call edge supplies it a syntactically-scalar
+        // argument, i.e. actual flow evidence its runtime value is a
+        // number/string — NOT the default I64 every unconstrained param carries.
+        // The param compound/update gate rejects any param NOT proven here, so
+        // an array/object that reached the param through an INDIRECT call shape
+        // (`f(g())`, a pass-through chain `f(a)->h(a)`, `f(o.a)`) — which the
+        // syntactic `non_scalar_params` array taint cannot see — fails closed by
+        // construction instead of silently miscompiling. This is the positive-
+        // proof allowlist (mirror the Spec 4a lesson: prove safe positions, do
+        // not enumerate indirect array sinks).
+        //
+        // Scalar evidence at position `k`, for callee param `param_name`, is
+        // ONLY that the argument is SYNTACTICALLY a primitive
+        // (`arg_scalar_syntactic`: a literal / arithmetic / unary / update /
+        // template). A bare-identifier argument is NEVER scalar evidence —
+        // not even when it names another param already proven to have scalar
+        // inflow. Concretely, `function g(p){p+=1;return p;} function
+        // f(n){return g(n);}` does NOT propagate proof from `f`'s `n` to `g`'s
+        // `p`: `g`'s compound-assign on `p` rejects fail-closed even though
+        // every call to `f` passes a number literal. This is a single pass,
+        // not a fixpoint, because there is nothing to iterate: an
+        // identifier's presence in `scalar_inflow_params` is never consulted,
+        // so no edge's admission can unblock another edge's admission on a
+        // later round.
+        //
+        // (Historical note: an earlier version of this loop attempted a
+        // "scalar pass-through" branch that treated a bare identifier as
+        // scalar evidence when it named an already-proven-scalar param, and
+        // ran to a fixpoint to let that propagate transitively. That branch
+        // was dead code: `arg_obj_slot` returns `Some(ObjSlot::Binding(..))`
+        // for EVERY bare-identifier argument, object-holding or not, so
+        // `arg_is_object` below is true for every identifier argument and the
+        // loop `continue`s before any identifier-based scalar check could
+        // run. It was excised rather than made real. A real pass-through lane
+        // is future work; it must consult actual object/shape info for the
+        // identifier — not mere identifier-ness, since an identifier that
+        // aliases an array/object must never be treated as scalar — and it
+        // must pair the existential "some edge is scalar" proof with an
+        // ALL-EDGES-SCALAR condition before granting the callee param proof,
+        // to avoid mixed-call-site laundering: a param must not be treated as
+        // scalar-proven when even one call site passes it a non-scalar or
+        // unproven argument.)
+        //
+        // An argument known to be an ARRAY (a literal `[..]`/`new Array`, or a
+        // bare identifier in `array_bindings`) or an OBJECT (`arg_obj_slots`,
+        // which — per the note above — covers every bare identifier) is never
+        // scalar evidence and is skipped.
+        for edge in &self.calls {
+            let Some(params) = self.functions.get(&edge.callee) else {
+                continue;
+            };
+            for (k, param_name) in params.iter().enumerate() {
+                let key = (edge.callee.clone(), param_name.clone());
+                if self.scalar_inflow_params.contains(&key) {
+                    continue;
+                }
+                // An array or object argument is never scalar evidence.
+                let ident = edge.arg_array_names.get(k).cloned().flatten();
+                let arg_is_array = edge.arg_array_literal.get(k).copied().unwrap_or(false)
+                    || ident.as_ref().is_some_and(|(caller, name)| {
+                        array_bindings.contains(&(caller.clone(), name.clone()))
+                    });
+                let arg_is_object = matches!(edge.arg_obj_slots.get(k), Some(Some(_)));
+                if arg_is_array || arg_is_object {
+                    continue;
+                }
+                let is_scalar = edge.arg_scalar_syntactic.get(k).copied().unwrap_or(false);
+                if is_scalar {
+                    self.scalar_inflow_params.insert(key);
+                }
+            }
+        }
+
         // Step 2: drain call edges and wire the interprocedural constraints.
         let calls = std::mem::take(&mut self.calls);
         for edge in calls {
@@ -1632,6 +1780,21 @@ impl ReprInfer {
                 let is_array_param =
                     array_bindings.contains(&(edge.callee.clone(), param_name.clone()));
                 let arg_identifier_name = edge.arg_array_names.get(k).cloned().flatten();
+                // Non-scalar taint: this call passes an ARRAY value at position
+                // `k` (a bare-identifier array binding, or a syntactic array
+                // literal / `new Array` / `Array(..)`). The receiving param
+                // therefore holds a heap handle at runtime, not a number — a
+                // compound/update assignment on it must fail closed (the
+                // resolve-phase param compound/update allowlist reads this).
+                let arg_is_array_identifier =
+                    arg_identifier_name.as_ref().is_some_and(|(caller, name)| {
+                        array_bindings.contains(&(caller.clone(), name.clone()))
+                    });
+                let arg_is_array_literal = edge.arg_array_literal.get(k).copied().unwrap_or(false);
+                if arg_is_array_identifier || arg_is_array_literal {
+                    self.non_scalar_params
+                        .insert((edge.callee.clone(), param_name.clone()));
+                }
                 if let Some((caller, name)) = arg_identifier_name.clone().filter(|_| is_array_param)
                 {
                     // Array element flow is bidirectional shared storage: union
@@ -2383,6 +2546,29 @@ impl ReprInfer {
         }
         for message in std::mem::take(&mut self.obj_conflicts) {
             table.add_shape_conflict(message);
+        }
+
+        // Non-scalar (array-argument) param taint: copy verbatim for the
+        // resolve-phase param compound/update allowlist.
+        for (func, name) in std::mem::take(&mut self.non_scalar_params) {
+            table.mark_non_scalar_param(&func, &name);
+        }
+
+        // Positive scalar-inflow proof: every PARAM not proven to receive a
+        // scalar argument by an actual call edge is left at the default I64 by
+        // convention only, so the param compound/update gate must reject it
+        // (`params_lacking_scalar_inflow`). Recorded as the NEGATION of the
+        // proven set, keyed per-parameter, so the gate can query it without
+        // re-deriving param-ness. Never-called functions add all their params.
+        for (func, params) in &self.functions {
+            for name in params {
+                if !self
+                    .scalar_inflow_params
+                    .contains(&(func.clone(), name.clone()))
+                {
+                    table.mark_param_lacking_scalar_inflow(func, name);
+                }
+            }
         }
 
         table
