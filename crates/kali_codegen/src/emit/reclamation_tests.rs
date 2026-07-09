@@ -72,6 +72,76 @@ fn compile_join_program(src: &str, grant_ordinals: &[u32]) -> String {
     wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm")
 }
 
+/// Build the wasm for a one-function string-`+` (concat) program, priming the
+/// `ReprTable`/`ArenaTable` so `x`/`y` are runtime `Repr::String` params — this
+/// makes `x + y` take the runtime `string_concat` path (operators.rs) rather
+/// than a static fold — then print it. Concat routing is at *import* indices
+/// (`STRING_CONCAT_IMPORT_INDEX` vs `STRING_CONCAT_ARENA_IMPORT_INDEX`), so the
+/// tests below assert against those fixed indices rather than an exported func.
+fn compile_concat_program(src: &str, grant_ordinals: &[u32]) -> String {
+    let program = parse_and_lower_lir(src);
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    ctx.repr_table
+        .set_scalar("r", "x", kali_common::Repr::String);
+    ctx.repr_table
+        .set_scalar("r", "y", kali_common::Repr::String);
+    ctx.arena_table.set_arena_eligible("r");
+    for ord in grant_ordinals {
+        ctx.arena_table.set_arena_string_site("r", *ord);
+    }
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+    wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm")
+}
+
+/// A `x + y` concat in a loop whose result is dropped into `console.log` is the
+/// single string site (ordinal 0). With the grant, it routes to the
+/// current-arena `string_concat_arena` import (fasta Spec 7 Task 4d).
+#[test]
+fn granted_concat_in_loop_routes_to_arena_import() {
+    let src = "function r(x, y, n) { while (n > 0) { console.log(x + y); n = n - 1; } }";
+    let text = compile_concat_program(src, &[0]);
+    assert!(
+        calls_function(&text, crate::STRING_CONCAT_ARENA_IMPORT_INDEX),
+        "granted concat site should call string_concat_arena (import {}):\n{text}",
+        crate::STRING_CONCAT_ARENA_IMPORT_INDEX
+    );
+    assert!(
+        !calls_function(&text, crate::STRING_CONCAT_IMPORT_INDEX),
+        "granted concat site must NOT call the global string_concat (import {}):\n{text}",
+        crate::STRING_CONCAT_IMPORT_INDEX
+    );
+}
+
+/// The SAME concat site with NO grant keeps the global `string_concat` import —
+/// fail-closed.
+#[test]
+fn ungranted_concat_stays_on_global_string_concat() {
+    let src = "function r(x, y, n) { while (n > 0) { console.log(x + y); n = n - 1; } }";
+    let text = compile_concat_program(src, &[]);
+    assert!(
+        calls_function(&text, crate::STRING_CONCAT_IMPORT_INDEX),
+        "ungranted concat site should call the global string_concat (import {}):\n{text}",
+        crate::STRING_CONCAT_IMPORT_INDEX
+    );
+    assert!(
+        !calls_function(&text, crate::STRING_CONCAT_ARENA_IMPORT_INDEX),
+        "ungranted concat site must NOT call string_concat_arena (import {}):\n{text}",
+        crate::STRING_CONCAT_ARENA_IMPORT_INDEX
+    );
+}
+
 /// A join in a loop whose result is dropped into `console.log` is the single
 /// string site (ordinal 0). With the grant, it routes to the resettable
 /// `__join_arena` twin.

@@ -656,6 +656,22 @@ pub(crate) fn register_default_host_imports(
         )
         .map_err(|error| host_import_error("string_concat", error))?;
 
+    // Current-arena twin of `string_concat` (fasta Spec 7 Task 4d): identical
+    // except it allocates the result into the resettable current arena via
+    // `alloc_guest_string_current` (`__alloc`). Codegen selects it per concat
+    // site for a `+` whose result the escape gate proved iteration-local.
+    linker
+        .func_wrap(
+            "kali:rt",
+            "string_concat_arena",
+            |mut caller: Caller<'_, KaliHostState>, a: i64, b: i64| -> i64 {
+                let mut bytes = decode_string_handle_bytes(&mut caller, a).unwrap_or_default();
+                bytes.extend(decode_string_handle_bytes(&mut caller, b).unwrap_or_default());
+                alloc_guest_string_current(&mut caller, &bytes).unwrap_or(0)
+            },
+        )
+        .map_err(|error| host_import_error("string_concat_arena", error))?;
+
     linker
         .func_wrap(
             "kali:rt",

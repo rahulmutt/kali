@@ -376,6 +376,29 @@ impl<'a> FunctionEmitter<'a> {
         self.functions["__join_arena"]
     }
 
+    /// Selects the string-concat host import for the concat node `id` (fasta
+    /// Spec 7 Task 4d) — the codegen half of the string-site "both-sides
+    /// oracle", exactly mirroring `emit_runtime_join`'s join selection. Returns
+    /// `STRING_CONCAT_ARENA_IMPORT_INDEX` (current-arena `__alloc`) iff the
+    /// escape gate proved THIS site's result iteration-local, keyed by the
+    /// site's pre-order string-site ordinal (`string_site_ordinals`, the shared
+    /// stream numbered by `crate::lower::string_site_preorder_ordinals`). A miss
+    /// — the node is not a numbered string site (e.g. a `+=` compound-assign
+    /// node, whose text is `"+="` not `"+"`, so `is_string_site` never records
+    /// it), or the site is numbered but ungranted — fails closed to the global
+    /// `STRING_CONCAT_IMPORT_INDEX` (never-reset `__alloc_global`).
+    pub(crate) fn string_concat_import_index(&self, id: LirNodeId) -> u32 {
+        let use_arena = self
+            .string_site_ordinals
+            .get(&id)
+            .is_some_and(|&ord| self.arena_table.arena_string_site(&self.function_name, ord));
+        if use_arena {
+            crate::STRING_CONCAT_ARENA_IMPORT_INDEX
+        } else {
+            crate::STRING_CONCAT_IMPORT_INDEX
+        }
+    }
+
     pub(crate) fn push_control_frame(&mut self, kind: ControlFlowLabelKind) -> usize {
         self.control_frames.push(kind);
         self.control_frames.len() - 1

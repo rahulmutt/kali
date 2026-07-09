@@ -189,6 +189,7 @@ impl<'a> FunctionEmitter<'a> {
     pub(crate) fn emit_assignment(
         &mut self,
         function: &mut Function,
+        id: LirNodeId,
         node: &LirNode,
         op: &str,
         left: LirNodeId,
@@ -632,9 +633,17 @@ impl<'a> FunctionEmitter<'a> {
                     }
                     // `a += e` ≡ `a = a + e`: concatenate the current handle
                     // with the (stringified) rhs and store the fresh handle.
+                    // Per-site arena routing (fasta Spec 7 Task 4d): the `+=`
+                    // node (`id`) has text `"+="`, which `is_string_site` never
+                    // records in the string-site stream, so
+                    // `string_concat_import_index` ALWAYS misses here and fails
+                    // closed to the global `string_concat` — the accumulator
+                    // outlives the iteration (bound to a name), so its result
+                    // must NOT be reclaimed. Routed through the shared selector
+                    // anyway so the two concat sites stay a single oracle.
                     function.instruction(&Instruction::LocalGet(index));
                     self.emit_as_string(function, right);
-                    function.instruction(&Instruction::Call(STRING_CONCAT_IMPORT_INDEX));
+                    function.instruction(&Instruction::Call(self.string_concat_import_index(id)));
                     function.instruction(&Instruction::LocalTee(index));
                     return true;
                 }

@@ -917,7 +917,7 @@ impl<'a> FunctionEmitter<'a> {
                 self.emit_sequence(function, &node.children, false)
             }
             LirNodeKind::Literal => emit_literal(function, node.text.as_deref(), self.strings),
-            LirNodeKind::Value => self.emit_value(function, &node, want_value),
+            LirNodeKind::Value => self.emit_value(function, id, &node, want_value),
             LirNodeKind::Call => self.emit_call(function, id, &node),
             LirNodeKind::Branch => match node.text.as_deref() {
                 Some(text) if text.starts_with("break") => {
@@ -991,6 +991,7 @@ impl<'a> FunctionEmitter<'a> {
     pub(crate) fn emit_value(
         &mut self,
         function: &mut Function,
+        id: LirNodeId,
         node: &LirNode,
         want_value: bool,
     ) -> EmittedValue {
@@ -1245,7 +1246,7 @@ impl<'a> FunctionEmitter<'a> {
                 // stringifies to a bare operator, so `text` cleanly separates the
                 // two shapes.
                 if is_binary_operator_text(node.text.as_deref().unwrap_or_default()) {
-                    return self.emit_binary(function, node);
+                    return self.emit_binary(function, id, node);
                 }
 
                 // Computed for-in-key read `obj[c]` over a uniform-repr fixed
