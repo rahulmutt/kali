@@ -45,16 +45,42 @@ pub struct ReprTable {
     /// distinguish an i64 array param from a scalar param.
     array_bindings: HashSet<(String, String)>,
     /// `(func, param)` parameters that interprocedural call-site flow shows may
-    /// receive a NON-SCALAR argument (an array binding, or a syntactic array
-    /// literal / `new Array` / `Array(...)` passed directly). Such a param holds
-    /// a heap handle, not a number/string, so a compound (`+=`) or update
-    /// (`++`) assignment on it has no lowering — codegen's numeric/string
-    /// compound arm would silently do integer arithmetic on the raw handle (a
-    /// miscompile). The resolve-phase param compound/update gate consults this
-    /// as part of its provably-scalar ALLOWLIST. (Object arguments need no entry
-    /// here: they propagate `Repr::Object` onto the param scalar, which the same
-    /// allowlist already rejects.)
+    /// receive a NON-SCALAR argument. This taint covers EXACTLY the DIRECT array
+    /// shapes visible at the call site: a bare-identifier array binding, or a
+    /// syntactic array literal `[..]` / `new Array(..)` / `Array(..)` passed
+    /// directly. Such a param holds a heap handle, not a number/string, so a
+    /// compound (`+=`) or update (`++`) assignment on it has no lowering —
+    /// codegen's numeric/string compound arm would silently do integer
+    /// arithmetic on the raw handle (a miscompile). (Object arguments need no
+    /// entry here: they propagate `Repr::Object` onto the param scalar, which
+    /// the compound/update allowlist rejects directly.)
+    ///
+    /// This taint does NOT see INDIRECT array delivery — an array via a call
+    /// return (`f(g())`), a pass-through param chain (`f(a)` then `h(a)`), or a
+    /// member expression (`f(o.a)`). Those are closed instead by the
+    /// POSITIVE-PROOF gate ([`params_lacking_scalar_inflow`]): a param is
+    /// admitted for compound/update only when actual flow proved it receives a
+    /// scalar, so an indirectly-delivered array (which leaves the param at the
+    /// default I64, unproven) fails closed. This taint is retained because it
+    /// (a) reports a sharper diagnostic for the direct array shapes and (b) is
+    /// used elsewhere. NOTE: array call-return / pass-through DELIVERY is not
+    /// currently functional at runtime; if it ever becomes so, revisit whether
+    /// this taint should be extended to the indirect shapes (or whether the
+    /// positive-proof gate remains sufficient on its own).
     non_scalar_params: HashSet<(String, String)>,
+    /// `(func, param)` parameters for which NO call-site flow ever supplied a
+    /// provably-scalar argument (a numeric/string/boolean literal, an
+    /// arithmetic/unary/update/template expression, or a bare identifier that
+    /// is itself a scalar-inflow param). Such a param's `Repr::I64` is the
+    /// DEFAULT — left unconstrained — not positive proof it holds a number, so
+    /// an array/object could have reached it through an INDIRECT call shape
+    /// (`f(g())`, a pass-through chain, `f(o.a)`) the `non_scalar_params` taint
+    /// cannot see. The param compound/update gate rejects these fail-closed:
+    /// admission requires a POSITIVELY-proven scalar repr, not the default.
+    /// Only PARAMETERS are ever recorded here (var locals carry declarator-based
+    /// repr evidence and are unaffected). A never-called function's params all
+    /// land here (no flow evidence at all) and correctly reject.
+    params_lacking_scalar_inflow: HashSet<(String, String)>,
     any_float: bool,
     any_string: bool,
     /// `(func, binding)` scalars/params whose `Repr::String` value is a FRESH
@@ -251,6 +277,23 @@ impl ReprTable {
     /// reports false, so its scalar compound/update lowering stays admitted.
     pub fn is_non_scalar_param(&self, func: &str, binding: &str) -> bool {
         self.non_scalar_params
+            .contains(&(func.to_string(), binding.to_string()))
+    }
+
+    /// Record that param `binding` of `func` was NEVER shown, by any call-site
+    /// flow, to receive a provably-scalar argument — see
+    /// [`params_lacking_scalar_inflow`](Self::params_lacking_scalar_inflow).
+    pub fn mark_param_lacking_scalar_inflow(&mut self, func: &str, binding: &str) {
+        self.params_lacking_scalar_inflow
+            .insert((func.to_string(), binding.to_string()));
+    }
+
+    /// True when `binding` is a PARAM of `func` whose scalar repr was never
+    /// positively constrained by an actual scalar-argument call edge (default
+    /// I64, unconstrained). The param compound/update gate rejects these. Only
+    /// parameters are ever recorded, so this is always false for a var local.
+    pub fn param_lacks_scalar_inflow(&self, func: &str, binding: &str) -> bool {
+        self.params_lacking_scalar_inflow
             .contains(&(func.to_string(), binding.to_string()))
     }
 

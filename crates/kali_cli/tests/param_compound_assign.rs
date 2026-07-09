@@ -212,3 +212,105 @@ fn float_param_update_increment_rejects() {
         String::from_utf8_lossy(&out.stdout)
     );
 }
+
+// POSITIVE-PROOF gate (fasta Spec 6 final-review follow-up). The `non_scalar_params`
+// array taint only sees a DIRECT array argument (a bare-identifier array binding
+// or a syntactic `[..]`/`new Array`). A param that receives an array through an
+// INDIRECT call shape keeps the DEFAULT `I64` repr — indistinguishable from a
+// genuine int param — and would pass a repr-only allowlist and miscompile. The
+// gate now admits a compound/update param ONLY when interprocedural flow
+// POSITIVELY proved it receives a scalar; every indirect array shape below is
+// left unproven and rejects. Each reproducer prints a wrong scalar + exit 0 on
+// the pre-fix binary (node disagrees); all must reject fail-closed.
+
+// Indirect array via CALL RETURN: `f(g())` where `g` returns an array. node
+// prints `1,21`; the pre-fix compiler printed `1`.
+#[test]
+fn param_compound_indirect_array_call_return_rejects() {
+    let src = "function g(){return [1,2];} function f(p){p+=1;return p;} console.log(f(g()));";
+    let out = run_source(src);
+    assert!(
+        !out.status.success(),
+        "indirect array (call-return) compound must reject, got stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    assert!(
+        out.stdout.is_empty(),
+        "must produce NO stdout, got: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+}
+
+// Indirect array via a PASS-THROUGH param chain: `f(xs)` -> `h(a)` with the
+// compound on `h`'s param. node prints `1,21`; the pre-fix compiler printed `1`.
+#[test]
+fn param_compound_indirect_array_passthrough_rejects() {
+    let src = "var xs=[1,2]; function h(p){p+=1;return p;} function f(a){return h(a);} console.log(f(xs));";
+    let out = run_source(src);
+    assert!(
+        !out.status.success(),
+        "indirect array (pass-through) compound must reject, got stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    assert!(
+        out.stdout.is_empty(),
+        "must produce NO stdout, got: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+}
+
+// Same pass-through chain but with a `p++` UPDATE. node prints `NaN`; the
+// pre-fix compiler printed `1`.
+#[test]
+fn param_update_indirect_array_passthrough_rejects() {
+    let src = "var xs=[1,2]; function h(p){p++;return p;} function f(a){return h(a);} console.log(f(xs));";
+    let out = run_source(src);
+    assert!(
+        !out.status.success(),
+        "indirect array (pass-through) update must reject, got stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    assert!(
+        out.stdout.is_empty(),
+        "must produce NO stdout, got: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+}
+
+// Indirect array via a MEMBER-EXPRESSION argument: `f(o.a)` where `o.a` is an
+// array. node prints `1,21`; the pre-fix compiler printed a wrong scalar.
+#[test]
+fn param_compound_indirect_array_member_expr_rejects() {
+    let src = "var o={a:[1,2]}; function f(p){p+=1;return p;} console.log(f(o.a));";
+    let out = run_source(src);
+    assert!(
+        !out.status.success(),
+        "indirect array (member-expr) compound must reject, got stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    assert!(
+        out.stdout.is_empty(),
+        "must produce NO stdout, got: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+}
+
+// NEVER-CALLED function: its param has NO call-site flow evidence at all, so the
+// positive-proof gate cannot prove a scalar and rejects. This is acceptable and
+// explicit: pre-branch, an immutable param already rejected any compound/update,
+// so no working program regresses. Documents the positive-proof edge case.
+#[test]
+fn never_called_param_compound_rejects() {
+    let src = "function f(n){n+=1;return n;} console.log(1);";
+    let out = run_source(src);
+    assert!(
+        !out.status.success(),
+        "never-called param compound must reject (no scalar-inflow proof), got stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    assert!(
+        out.stdout.is_empty(),
+        "must produce NO stdout, got: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+}

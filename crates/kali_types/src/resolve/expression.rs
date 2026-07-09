@@ -1898,7 +1898,7 @@ impl TypeContext {
     /// object-pointer leak cannot recur.
     pub(crate) fn compound_update_target_is_scalar(&self, name: &str) -> bool {
         use kali_common::Repr;
-        self.scalar_target_repr(name, &[Repr::I64, Repr::F64, Repr::String])
+        self.target_repr_is_one_of(name, &[Repr::I64, Repr::F64, Repr::String])
     }
 
     /// Narrower ALLOWLIST for `++`/`--` (update expression) only: admit ONLY
@@ -1912,13 +1912,28 @@ impl TypeContext {
     /// fasta Spec 6 Task 1 follow-up 2.
     pub(crate) fn update_target_is_integer_scalar(&self, name: &str) -> bool {
         use kali_common::Repr;
-        self.scalar_target_repr(name, &[Repr::I64])
+        self.target_repr_is_one_of(name, &[Repr::I64])
     }
 
     /// Shared array/param/repr plumbing for the compound and update gates
     /// above; `allowed` is the set of scalar reprs the caller's codegen arm
-    /// can actually lower.
-    fn scalar_target_repr(&self, name: &str, allowed: &[kali_common::Repr]) -> bool {
+    /// can actually lower. Returns `true` only when the target is provably a
+    /// scalar of one of those reprs.
+    ///
+    /// POSITIVE-PROOF (fasta Spec 6 final-review follow-up): for a PARAMETER,
+    /// the `I64` repr is the DEFAULT every unconstrained param carries — it is
+    /// not by itself proof the param holds a number. An array/object can reach a
+    /// param through an INDIRECT call shape (`f(g())`, a pass-through chain
+    /// `f(a)->h(a)`, `f(o.a)`) that the syntactic `is_non_scalar_param` array
+    /// taint never sees; the param then keeps the default `I64` and would pass a
+    /// repr-only allowlist and miscompile. So a param is admitted ONLY when
+    /// interprocedural flow POSITIVELY proved it receives a scalar
+    /// (`param_lacks_scalar_inflow == false`). A never-called function's param
+    /// has no flow evidence at all and correctly rejects (pre-branch, an
+    /// immutable param already rejected any compound/update). VAR LOCALS carry
+    /// declarator-based repr evidence and are never recorded in that set, so
+    /// their admission is unchanged.
+    fn target_repr_is_one_of(&self, name: &str, allowed: &[kali_common::Repr]) -> bool {
         let Some(func) = self.binding_repr_function_key(name) else {
             // Cannot locate the binding's repr function (e.g. crossing an
             // untracked function scope) — cannot prove scalar, fail closed.
@@ -1928,6 +1943,12 @@ impl TypeContext {
             return false;
         }
         if self.repr_table.is_non_scalar_param(&func, name) {
+            return false;
+        }
+        // Positive-proof for parameters: a param never proven to receive a
+        // scalar by a real call edge is unconstrained-default I64, not a proven
+        // scalar — fail closed. No-op for var locals (never in this set).
+        if self.repr_table.param_lacks_scalar_inflow(&func, name) {
             return false;
         }
         allowed.contains(&self.repr_table.scalar(&func, name))
