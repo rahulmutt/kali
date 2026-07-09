@@ -1,0 +1,7 @@
+{
+  "benchmark": "fasta",
+  "version": 1,
+  "sourceFile": "fasta-benchmark-v1.ts",
+  "sourceSha256": "sha256-66cea09e1e3e7ee23792dee729871713e6570d44fe046caf030bc4533c58b4ee",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}

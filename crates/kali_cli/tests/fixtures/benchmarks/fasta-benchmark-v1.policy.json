@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "effects": {
+    "fileSystem": { "read": false, "write": false },
+    "network": { "fetch": false, "connect": false, "listen": false, "maxConnections": null },
+    "process": { "spawn": false, "envRead": false, "envWrite": false },
+    "timer": { "schedule": false, "maxTimeoutMs": null, "maxActiveTimers": null },
+    "eval": false,
+    "random": false,
+    "console": true
+  },
+  "resources": {
+    "maxMemoryMB": null,
+    "maxCpuTimeMs": 64000000,
+    "maxOpenFiles": null,
+    "maxSpawnedProcesses": 0,
+    "maxThreads": 0
+  }
+}
