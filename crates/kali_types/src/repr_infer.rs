@@ -98,6 +98,12 @@ struct CallEdge {
     /// aliases, when one exists: a bare identifier (binding), `arr[i]`
     /// (array element), or a bare-identifier call (callee return).
     arg_obj_slots: Vec<Option<ObjSlot>>,
+    /// For each positional argument, `true` when the argument is SYNTACTICALLY
+    /// a fresh array value — an array literal `[..]`, `new Array(..)`, or
+    /// `Array(..)` — passed directly (no bare identifier to route through the
+    /// array-binding fixpoint). Lets `resolve_calls` taint the callee param as
+    /// non-scalar for `f([1, 2])`-shaped calls.
+    arg_array_literal: Vec<bool>,
     /// Result node of the call expression itself (target of the callee's
     /// return-flow edge).
     result_node: usize,
@@ -231,6 +237,11 @@ struct ReprInfer {
     /// filtered at emit time, keeping the check monotone: int/float array
     /// returns (element node not String) add no conflict.
     array_binding_returns: Vec<(String, String)>,
+    /// `(func, param)` params proven to receive a non-scalar (array) argument
+    /// at some call site — copied verbatim into
+    /// [`ReprTable::non_scalar_params`](kali_common::ReprTable) at emit time.
+    /// The resolve-phase param compound/update gate uses it to fail closed.
+    non_scalar_params: BTreeSet<(String, String)>,
 }
 
 /// Identity of an object-holding slot for shape/aliasing purposes.
@@ -1548,6 +1559,7 @@ impl ReprInfer {
                 let mut arg_nodes = Vec::with_capacity(call.args.len());
                 let mut arg_array_names = Vec::with_capacity(call.args.len());
                 let mut arg_obj_slots = Vec::with_capacity(call.args.len());
+                let mut arg_array_literal = Vec::with_capacity(call.args.len());
                 for arg in &call.args {
                     if matches!(arg, Expression::ObjectExpression(_)) {
                         self.obj_conflicts.push(
@@ -1556,6 +1568,7 @@ impl ReprInfer {
                         );
                     }
                     arg_obj_slots.push(self.arg_obj_slot(func, arg));
+                    arg_array_literal.push(self.init_is_array(arg));
                     arg_nodes.push(self.visit_expr(func, arg));
                     arg_array_names.push(match arg {
                         Expression::Identifier(name) => Some((func.to_string(), name.clone())),
@@ -1568,6 +1581,7 @@ impl ReprInfer {
                     arg_nodes,
                     arg_array_names,
                     arg_obj_slots,
+                    arg_array_literal,
                     result_node,
                 });
                 result_node
@@ -1632,6 +1646,21 @@ impl ReprInfer {
                 let is_array_param =
                     array_bindings.contains(&(edge.callee.clone(), param_name.clone()));
                 let arg_identifier_name = edge.arg_array_names.get(k).cloned().flatten();
+                // Non-scalar taint: this call passes an ARRAY value at position
+                // `k` (a bare-identifier array binding, or a syntactic array
+                // literal / `new Array` / `Array(..)`). The receiving param
+                // therefore holds a heap handle at runtime, not a number — a
+                // compound/update assignment on it must fail closed (the
+                // resolve-phase param compound/update allowlist reads this).
+                let arg_is_array_identifier =
+                    arg_identifier_name.as_ref().is_some_and(|(caller, name)| {
+                        array_bindings.contains(&(caller.clone(), name.clone()))
+                    });
+                let arg_is_array_literal = edge.arg_array_literal.get(k).copied().unwrap_or(false);
+                if arg_is_array_identifier || arg_is_array_literal {
+                    self.non_scalar_params
+                        .insert((edge.callee.clone(), param_name.clone()));
+                }
                 if let Some((caller, name)) = arg_identifier_name.clone().filter(|_| is_array_param)
                 {
                     // Array element flow is bidirectional shared storage: union
@@ -2383,6 +2412,12 @@ impl ReprInfer {
         }
         for message in std::mem::take(&mut self.obj_conflicts) {
             table.add_shape_conflict(message);
+        }
+
+        // Non-scalar (array-argument) param taint: copy verbatim for the
+        // resolve-phase param compound/update allowlist.
+        for (func, name) in std::mem::take(&mut self.non_scalar_params) {
+            table.mark_non_scalar_param(&func, &name);
         }
 
         table

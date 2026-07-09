@@ -44,6 +44,17 @@ pub struct ReprTable {
     /// array's element repr is unset (== default I64), so this is the only way to
     /// distinguish an i64 array param from a scalar param.
     array_bindings: HashSet<(String, String)>,
+    /// `(func, param)` parameters that interprocedural call-site flow shows may
+    /// receive a NON-SCALAR argument (an array binding, or a syntactic array
+    /// literal / `new Array` / `Array(...)` passed directly). Such a param holds
+    /// a heap handle, not a number/string, so a compound (`+=`) or update
+    /// (`++`) assignment on it has no lowering — codegen's numeric/string
+    /// compound arm would silently do integer arithmetic on the raw handle (a
+    /// miscompile). The resolve-phase param compound/update gate consults this
+    /// as part of its provably-scalar ALLOWLIST. (Object arguments need no entry
+    /// here: they propagate `Repr::Object` onto the param scalar, which the same
+    /// allowlist already rejects.)
+    non_scalar_params: HashSet<(String, String)>,
     any_float: bool,
     any_string: bool,
     /// `(func, binding)` scalars/params whose `Repr::String` value is a FRESH
@@ -225,6 +236,21 @@ impl ReprTable {
     /// Defaults to false, so a scalar binding/param reports false.
     pub fn is_array_binding(&self, func: &str, binding: &str) -> bool {
         self.array_bindings
+            .contains(&(func.to_string(), binding.to_string()))
+    }
+
+    /// Record that param `binding` of `func` may receive a non-scalar (array)
+    /// argument at some call site — see [`non_scalar_params`](Self::non_scalar_params).
+    pub fn mark_non_scalar_param(&mut self, func: &str, binding: &str) {
+        self.non_scalar_params
+            .insert((func.to_string(), binding.to_string()));
+    }
+
+    /// True when param `binding` of `func` may receive a non-scalar (array)
+    /// argument. Defaults to false — a param only ever passed numbers/strings
+    /// reports false, so its scalar compound/update lowering stays admitted.
+    pub fn is_non_scalar_param(&self, func: &str, binding: &str) -> bool {
+        self.non_scalar_params
             .contains(&(func.to_string(), binding.to_string()))
     }
 

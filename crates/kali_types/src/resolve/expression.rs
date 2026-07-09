@@ -1694,6 +1694,24 @@ impl TypeContext {
                     };
                     self.diagnostics
                         .push(Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, message));
+                } else if !self.compound_update_target_is_scalar(&name) {
+                    // Mutable, but NOT a provably-scalar target (an array binding,
+                    // an array-argument param, or an object-repr param). No
+                    // compound lowering exists — fail closed rather than emit the
+                    // numeric arm on a heap handle (see the allowlist rationale).
+                    let message = if matches!(expr.operator, AssignmentOperator::NullishAssign) {
+                        format!(
+                            "nullish assignment on binding '{}' is unavailable: it is not a provably scalar number or string (an array or object value has no compound-assignment lowering)",
+                            name
+                        )
+                    } else {
+                        format!(
+                            "compound assignment on binding '{}' is unavailable: it is not a provably scalar number or string (an array or object value has no compound-assignment lowering)",
+                            name
+                        )
+                    };
+                    self.diagnostics
+                        .push(Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, message));
                 }
             }
             Expression::LogicalExpression(expr) => {
@@ -1791,6 +1809,16 @@ impl TypeContext {
                     name
                 ),
             ));
+        } else if !self.compound_update_target_is_scalar(&name) {
+            // Mutable, but NOT a provably-scalar target — `arr++` / `obj++` has
+            // no lowering (numeric increment of a raw heap handle). Fail closed.
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "update expression on binding '{}' is unavailable: it is not a provably scalar number or string (an array or object value has no update lowering)",
+                    name
+                ),
+            ));
         }
     }
 
@@ -1837,6 +1865,51 @@ impl TypeContext {
                 .static_string_typed
                 .insert(name.to_string(), true);
         }
+    }
+
+    /// ALLOWLIST for a compound (`+=` …) / update (`++`/`--`) assignment on a
+    /// binding: admit ONLY when the target provably holds a SCALAR number or
+    /// string that codegen's numeric/string compound lowering can handle.
+    ///
+    /// Marking a named parameter mutable (b4e28478b) removed the mutability
+    /// barrier for the scalar loop-counter shapes fasta needs, but a param's
+    /// array/object-ness is known only from CALL-SITE flow, not its declarator
+    /// — so an array or object argument reaches the SAME numeric compound arm
+    /// and silently miscompiles (integer arithmetic on a raw heap handle; a
+    /// leaked pointer for objects). Rather than denylist every array/object
+    /// sink, this fails closed unless the repr is a PROVABLE scalar:
+    ///
+    /// - `is_array_binding` — a declared array, or a param the array-param
+    ///   fixpoint proved is an array — has no compound lowering.
+    /// - `is_non_scalar_param` — a param call-site flow shows receives an ARRAY
+    ///   argument (identifier array binding or a syntactic `[..]`/`new Array`
+    ///   literal): its scalar repr stays the default `I64`, so only this taint
+    ///   distinguishes it from a genuine int param.
+    /// - the scalar repr must itself be `I64`/`F64`/`String`; an OBJECT-argument
+    ///   param resolves to `Repr::Object` here (the shape flows onto the param
+    ///   scalar), which is not in the allowlist and rejects.
+    ///
+    /// Because the resolve phase runs BEFORE codegen and a rejection stops
+    /// compilation, gating admission here also gates it for codegen — the
+    /// types-accepts/codegen-numeric-fallback divergence that produced the
+    /// object-pointer leak cannot recur.
+    pub(crate) fn compound_update_target_is_scalar(&self, name: &str) -> bool {
+        use kali_common::Repr;
+        let Some(func) = self.binding_repr_function_key(name) else {
+            // Cannot locate the binding's repr function (e.g. crossing an
+            // untracked function scope) — cannot prove scalar, fail closed.
+            return false;
+        };
+        if self.repr_table.is_array_binding(&func, name) {
+            return false;
+        }
+        if self.repr_table.is_non_scalar_param(&func, name) {
+            return false;
+        }
+        matches!(
+            self.repr_table.scalar(&func, name),
+            Repr::I64 | Repr::F64 | Repr::String
+        )
     }
 
     pub(crate) fn binding_is_mutable(&self, name: &str) -> bool {
