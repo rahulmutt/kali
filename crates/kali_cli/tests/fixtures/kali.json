@@ -1,4 +1,8 @@
 {
   "schemaVersion": 1,
-  "exclude": ["benchmarks/fasta-benchmark-v1.ts", "benchmarks/join-loop-peak.ts"]
+  "exclude": [
+    "benchmarks/fasta-benchmark-v1.ts",
+    "benchmarks/join-loop-peak.ts",
+    "benchmarks/string-loop-peak.ts"
+  ]
 }

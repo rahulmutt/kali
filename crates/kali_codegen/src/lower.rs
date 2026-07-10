@@ -1844,7 +1844,15 @@ pub(crate) fn collect_function_locals(
         .collect();
     loop_ordinals.sort_unstable();
     for ordinal in loop_ordinals {
-        if arena_table.loop_arena(function_name, ordinal) {
+        // OR the emit-only `string_arena_loop` channel (fasta Spec 7 Task 4f)
+        // into the SAME save-locals reservation gate `emit_loop`'s `is_arena_loop`
+        // reads: a loop opens a per-iteration arena if EITHER the object/array
+        // `loop_arena` channel OR the string-site channel grants it. Both key on
+        // this identical pre-order loop ordinal, so a loop granted by both still
+        // reserves exactly one save-locals triple (single-open by construction).
+        if arena_table.loop_arena(function_name, ordinal)
+            || arena_table.string_arena_loop(function_name, ordinal)
+        {
             let (page, cursor, limit) = arena_save_local_names(ordinal);
             locals.push(page);
             locals.push(cursor);

@@ -171,8 +171,19 @@ impl<'a> FunctionEmitter<'a> {
         // i.e. no arena — plain `__alloc`/`__alloc_global` routing per
         // `alloc_callee_index`, exactly like before this task.
         let ordinal = self.loop_ordinals.get(&id).copied();
-        let is_arena_loop =
-            ordinal.is_some_and(|ord| self.arena_table.loop_arena(&self.function_name, ord));
+        // A loop opens/resets a per-iteration arena if EITHER channel grants its
+        // ordinal: the object/array `loop_arena` channel OR the emit-only
+        // `string_arena_loop` channel (fasta Spec 7 Task 4f — a loop whose only
+        // reclaimable allocation is a granted string site). OR-ing the two
+        // getters keeps this a SINGLE `is_arena_loop` decision, so the
+        // open/reset/release wiring below fires exactly once even when both
+        // channels grant. `string_arena_loop` changes NO routing decision; it
+        // only rebinds g1/g2/g3 for the loop's dynamic extent (see its
+        // `ArenaTable` doc comment).
+        let is_arena_loop = ordinal.is_some_and(|ord| {
+            self.arena_table.loop_arena(&self.function_name, ord)
+                || self.arena_table.string_arena_loop(&self.function_name, ord)
+        });
         let arena_save_locals = ordinal.filter(|_| is_arena_loop).map(|ord| {
             let (page_name, cursor_name, limit_name) = crate::lower::arena_save_local_names(ord);
             (

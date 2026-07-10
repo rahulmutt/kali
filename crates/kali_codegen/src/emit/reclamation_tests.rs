@@ -105,6 +105,91 @@ fn compile_concat_program(src: &str, grant_ordinals: &[u32]) -> String {
     wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm")
 }
 
+/// Build the wasm for a one-function concat program, additionally priming the
+/// `string_arena_loop` channel (fasta Spec 7 Task 4f) for the given loop
+/// ordinals so `emit_loop` opens/resets a per-iteration arena around them.
+fn compile_concat_program_with_string_arena_loops(
+    src: &str,
+    grant_ordinals: &[u32],
+    string_arena_loops: &[u32],
+) -> String {
+    let program = parse_and_lower_lir(src);
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    ctx.repr_table
+        .set_scalar("r", "x", kali_common::Repr::String);
+    ctx.repr_table
+        .set_scalar("r", "y", kali_common::Repr::String);
+    ctx.arena_table.set_arena_eligible("r");
+    for ord in grant_ordinals {
+        ctx.arena_table.set_arena_string_site("r", *ord);
+    }
+    for ord in string_arena_loops {
+        ctx.arena_table.set_string_arena_loop("r", *ord);
+    }
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+    wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm")
+}
+
+/// Returns the wasm function index of the `__arena_reset` synthetic — the
+/// per-iteration page-recycle call `emit_loop` emits at the top of an arena'd
+/// loop body.
+fn arena_reset_index(text: &str) -> u32 {
+    exported_function_index(text, "__arena_reset").expect("__arena_reset must be exported")
+}
+
+/// fasta Spec 7 Task 4f — the string-site-triggered loop arena. A `while` loop
+/// whose only reclaimable allocation is a granted `+` concat (no object/array
+/// literal — the fasta `fastaRepeat` shape) opens a per-iteration arena SOLELY
+/// via the `string_arena_loop` channel: `emit_loop` must emit
+/// `Call(__arena_reset)` inside the loop AND the concat must still route to the
+/// current-arena `string_concat_arena` import.
+#[test]
+fn string_arena_loop_emits_per_iteration_reset_and_keeps_arena_routing() {
+    let src = "function r(x, y, n) { while (n > 0) { console.log(x + y); n = n - 1; } }";
+    let text = compile_concat_program_with_string_arena_loops(src, &[0], &[0]);
+    assert!(
+        calls_function(&text, arena_reset_index(&text)),
+        "a string_arena_loop must emit a per-iteration Call(__arena_reset):\n{text}"
+    );
+    assert!(
+        calls_function(&text, crate::STRING_CONCAT_ARENA_IMPORT_INDEX),
+        "the granted concat must still route to string_concat_arena (import {}):\n{text}",
+        crate::STRING_CONCAT_ARENA_IMPORT_INDEX
+    );
+}
+
+/// The negative: the SAME loop with a granted string site but NO
+/// `string_arena_loop` grant (and no `loop_arena`) emits no per-iteration
+/// `__arena_reset` — the channel, not the string grant alone, drives the reset.
+#[test]
+fn granted_string_site_without_string_arena_loop_emits_no_reset() {
+    let src = "function r(x, y, n) { while (n > 0) { console.log(x + y); n = n - 1; } }";
+    let text = compile_concat_program_with_string_arena_loops(src, &[0], &[]);
+    assert!(
+        !calls_function(&text, arena_reset_index(&text)),
+        "without the string_arena_loop grant no per-iteration __arena_reset should be emitted:\n{text}"
+    );
+    // The concat still routes to the arena import (routing is decoupled from
+    // open/reset), confirming the reset absence is due to the loop channel, not
+    // a lost grant.
+    assert!(
+        calls_function(&text, crate::STRING_CONCAT_ARENA_IMPORT_INDEX),
+        "the granted concat routing is independent of the loop-arena channel:\n{text}"
+    );
+}
+
 /// A `x + y` concat in a loop whose result is dropped into `console.log` is the
 /// single string site (ordinal 0). With the grant, it routes to the
 /// current-arena `string_concat_arena` import (fasta Spec 7 Task 4d).

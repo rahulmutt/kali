@@ -40,6 +40,44 @@ fn is_whitelisted_host_method(base_object: Option<&str>, method: &str) -> bool {
     base_object == Some("console") || (base_object == Some("Kali") && method == "writeStdoutBytes")
 }
 
+/// The loop node kinds that receive a pre-order arena ordinal — the SINGLE
+/// source of truth for "which loops are numbered", shared by the ownership
+/// walk's `arena_enter_loop` sites (the `ForStmt|WhileStmt|DoWhileStmt` and
+/// `ForOfStmt` arms in `walk.rs`) and the string-site walk's loop-ordinal
+/// re-derivation (`string_site_walk`). `ForInStmt` is deliberately EXCLUDED:
+/// codegen's `loop_preorder_ordinals` allowlist omits `"for-in"`, and both
+/// numbering streams must skip it in lockstep or the ordinal streams desync
+/// (see the `ForInStmt` arm's guardrail comment in `walk.rs`).
+pub(crate) fn is_arena_ordinal_loop_kind(kind: &HirNodeKind) -> bool {
+    matches!(
+        kind,
+        HirNodeKind::ForStmt
+            | HirNodeKind::WhileStmt
+            | HirNodeKind::DoWhileStmt
+            | HirNodeKind::ForOfStmt
+    )
+}
+
+/// Mutable accumulator threaded through [`OwnershipAnalyzer::string_site_walk`].
+/// Bundles the two independent pre-order streams the walk maintains: the
+/// string-site ordinal stream (`next_ordinal` → `local`, the 4b both-sides
+/// oracle) and the loop-ordinal stream (`next_loop_ordinal` + `loop_stack`)
+/// used only to credit each granted site's innermost enclosing loop into
+/// `granted_loops` (the 4f `string_arena_loop` (T) input).
+#[derive(Debug, Default)]
+struct StringSiteWalk {
+    /// Next string-site pre-order ordinal (the 4b/4c/4d oracle stream).
+    next_ordinal: u32,
+    /// Ordinals of proven iteration-local string sites.
+    local: BTreeSet<u32>,
+    /// Next loop pre-order ordinal (mirrors `arena_enter_loop`).
+    next_loop_ordinal: u32,
+    /// Enclosing arena-ordinal loops, innermost last.
+    loop_stack: Vec<u32>,
+    /// Loop ordinals crediting ≥1 granted (innermost) string site.
+    granted_loops: BTreeSet<u32>,
+}
+
 /// Raw per-loop facts collected during the walk (pre-order ordinal keyed).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LoopArenaFacts {
@@ -90,6 +128,11 @@ pub struct FunctionArenaFacts {
     /// [`OwnershipAnalyzer::arena_collect_string_sites`]). Emptied when the
     /// function is name-collision poisoned.
     pub arena_string_sites: BTreeSet<u32>,
+    /// Pre-order loop ordinals whose body contains a granted `arena_string_site`
+    /// (crediting the innermost enclosing loop) — the (T) predicate for
+    /// `string_arena_loop_qualifies` (fasta Spec 7 Task 4f). Emptied for
+    /// name-collision-poisoned functions.
+    pub string_arena_loops: BTreeSet<u32>,
 }
 
 // ---------------------------------------------------------------------------
@@ -109,6 +152,13 @@ pub(crate) struct FuncRaw {
     /// Pre-order ordinals of proven iteration-local string sites (see
     /// [`OwnershipAnalyzer::arena_collect_string_sites`]).
     string_sites_local: BTreeSet<u32>,
+    /// Pre-order loop ordinals whose body (excluding nested functions, and
+    /// crediting the INNERMOST enclosing loop) contains ≥1 proven
+    /// iteration-local string site — the (T) input to `string_arena_loop`
+    /// (fasta Spec 7 Task 4f). Recorded by `arena_collect_string_sites`,
+    /// re-deriving the loop-ordinal stream `arena_enter_loop` assigns. Emptied
+    /// for poisoned (name-collided) functions, like `string_sites_local`.
+    string_arena_loops: BTreeSet<u32>,
     /// Two same-named function scopes wrote into this entry (the table is
     /// name-keyed, so per-instance decisions are impossible) ⇒ poisoned at
     /// `into_facts`.
@@ -229,6 +279,7 @@ impl ArenaCollector {
                             // Poisoned: a name-keyed collision cannot tell the
                             // two instances' sites apart, so retain none.
                             arena_string_sites: BTreeSet::new(),
+                            string_arena_loops: BTreeSet::new(),
                         };
                     }
                     FunctionArenaFacts {
@@ -241,6 +292,7 @@ impl ArenaCollector {
                         has_unknown_call: raw.has_unknown_call,
                         loops: raw.loops.clone(),
                         arena_string_sites: raw.string_sites_local.clone(),
+                        string_arena_loops: raw.string_arena_loops.clone(),
                     }
                 })
             })
@@ -398,11 +450,36 @@ impl<'a> OwnershipAnalyzer<'a> {
         match callee_node.kind {
             HirNodeKind::Ident => {
                 let name = callee_node.text.clone();
-                match name.and_then(|n| self.resolve_function_target(&n)) {
+                match name
+                    .as_deref()
+                    .and_then(|n| self.resolve_function_target(n))
+                {
                     Some(target) => {
                         self.arena_note_call(&target);
                         known_target = Some(target);
                     }
+                    // Builtin `Array(n)` / `new Array(n)` allocation. The parser
+                    // lowers `new Array(n)` to `NewExpr[ CallExpr[Array, n] ]`,
+                    // so the array constructor surfaces here as an *unresolved*
+                    // bare `Array` call. Codegen recognizes exactly this shape
+                    // (`resolve_array_alloc_call`, callee text `"Array"` with no
+                    // children) and lowers it to an array bump-allocation routed
+                    // by `alloc_callee_index` — `__alloc_global` unless the
+                    // enclosing function is `arena_eligible` — NOT a user-body
+                    // call that could allocate-and-retain an argument into the
+                    // current arena. Its escape is already modeled by
+                    // outflow/eligibility (a `line = new Array(n)` reassignment
+                    // to an outer binding still trips `has_outflow`), so it must
+                    // NOT taint `has_unknown_call`. Left untreated it spuriously
+                    // vetoes both `loop_arena` and `string_arena_loop` (fasta
+                    // Spec 7 Task 4f: `fastaRandom`'s `while` reassigns
+                    // `line = new Array(n)`, so without this correction its
+                    // per-iteration string arena never opens and N=25M leaks —
+                    // the investigation's Q5 census missed this taint). Not
+                    // added to `calls` either, so `reaches_alloc_transitively`
+                    // is unaffected. Mirrors the `substring`/`join` non-tainting
+                    // member-call cases below.
+                    None if name.as_deref() == Some("Array") => {}
                     None => self.arena_note_unknown_call(),
                 }
             }
@@ -636,15 +713,16 @@ impl<'a> OwnershipAnalyzer<'a> {
     /// outlive the iteration, so it stays on the global heap. Vetoing is always
     /// sound; the only cost is unreclaimed memory.
     pub(crate) fn arena_collect_string_sites(&mut self, body: HirNodeId) {
-        let mut next_ordinal = 0u32;
-        let mut local = BTreeSet::new();
+        let mut acc = StringSiteWalk::default();
         // The function root is a veto (non-drop/copy) context.
-        self.string_site_walk(body, false, &mut next_ordinal, &mut local);
-        if local.is_empty() {
+        self.string_site_walk(body, false, &mut acc);
+        if acc.local.is_empty() && acc.granted_loops.is_empty() {
             return;
         }
         let label = self.current_scope_label();
-        self.arena.func(&label).string_sites_local.extend(local);
+        let raw = self.arena.func(&label);
+        raw.string_sites_local.extend(acc.local);
+        raw.string_arena_loops.extend(acc.granted_loops);
     }
 
     /// Pre-order string-site walk. `consumer_drops_or_copies` is the locality
@@ -653,15 +731,29 @@ impl<'a> OwnershipAnalyzer<'a> {
     /// each child depends solely on THIS node's kind (a host-call passes DROP
     /// to its args, a `+` passes COPY to its operands, everything else passes
     /// VETO), never on the incoming context.
+    ///
+    /// ## LOOP CORRELATION (fasta Spec 7 Task 4f)
+    ///
+    /// This walk ALSO re-derives the pre-order loop-ordinal stream and records,
+    /// for every GRANTED site, its INNERMOST enclosing loop ordinal
+    /// (`acc.granted_loops`). The re-derivation MUST assign the same ordinals as
+    /// the ownership walk's `arena_enter_loop` — count `for`/`while`/`do-while`/
+    /// `for-of` (via [`is_arena_ordinal_loop_kind`], the single-sourced
+    /// predicate the two `arena_enter_loop` arms in `walk.rs` encode), skip
+    /// `for-in`, treat nested functions as opaque leaves — or the site→loop
+    /// correlation desyncs from codegen's `loop_preorder_ordinals` (a fail-OPEN
+    /// use-after-reset). This walk runs at function-scope entry, BEFORE the
+    /// ownership walk numbers the loops, so the live `arena.loop_stack` is not
+    /// yet populated and cannot be reused — hence the local re-derivation.
     fn string_site_walk(
         &self,
         node_id: HirNodeId,
         consumer_drops_or_copies: bool,
-        next_ordinal: &mut u32,
-        local: &mut BTreeSet<u32>,
+        acc: &mut StringSiteWalk,
     ) {
         let node = &self.nodes[node_id.0 as usize];
-        // A nested function owns its own ordinal stream — opaque leaf here.
+        // A nested function owns its own ordinal stream — opaque leaf here (for
+        // both the string-site and the loop-ordinal streams).
         if matches!(
             node.kind,
             HirNodeKind::FunctionDecl | HirNodeKind::FunctionExpr
@@ -669,11 +761,24 @@ impl<'a> OwnershipAnalyzer<'a> {
             return;
         }
         if self.is_string_producing_site(node_id) {
-            let ordinal = *next_ordinal;
-            *next_ordinal += 1;
+            let ordinal = acc.next_ordinal;
+            acc.next_ordinal += 1;
             if consumer_drops_or_copies {
-                local.insert(ordinal);
+                acc.local.insert(ordinal);
+                // (T): credit the innermost enclosing (arena-ordinal) loop, if
+                // any. A granted site outside every loop belongs to none.
+                if let Some(&inner) = acc.loop_stack.last() {
+                    acc.granted_loops.insert(inner);
+                }
             }
+        }
+        // Assign this node its loop ordinal (if it is an arena-ordinal loop)
+        // and push it as the new innermost context for its subtree.
+        let is_loop = is_arena_ordinal_loop_kind(&node.kind);
+        if is_loop {
+            let loop_ordinal = acc.next_loop_ordinal;
+            acc.next_loop_ordinal += 1;
+            acc.loop_stack.push(loop_ordinal);
         }
         // How this node passes locality context down to its children.
         let is_plus = node.kind == HirNodeKind::BinaryExpr && node.text.as_deref() == Some("+");
@@ -683,7 +788,10 @@ impl<'a> OwnershipAnalyzer<'a> {
             // COPY for every `+` operand; DROP for host-call args (index >= 1,
             // never the callee at index 0); VETO otherwise.
             let child_ctx = is_plus || (is_host_call && index >= 1);
-            self.string_site_walk(*child, child_ctx, next_ordinal, local);
+            self.string_site_walk(*child, child_ctx, acc);
+        }
+        if is_loop {
+            acc.loop_stack.pop();
         }
     }
 
@@ -781,6 +889,20 @@ pub fn compute_arena_table(mir: &MirProgram) -> ArenaTable {
             if loop_arena_qualifies(loop_facts, &facts_by_name, &eligible) {
                 table.set_loop_arena(&facts.name, loop_facts.ordinal);
             }
+            // Independent emit-only channel (fasta Spec 7 Task 4f): open a
+            // per-iteration arena for a loop whose only reclaimable allocation
+            // is a granted string site. This sets NO routing fact and does NOT
+            // set `loop_arena`; codegen OR-s both getters into one single-open
+            // `is_arena_loop` decision.
+            if string_arena_loop_qualifies(
+                &facts.name,
+                loop_facts,
+                &facts.string_arena_loops,
+                &facts_by_name,
+                &eligible,
+            ) {
+                table.set_string_arena_loop(&facts.name, loop_facts.ordinal);
+            }
         }
 
         // Parallel string-site channel: record every proven iteration-local
@@ -823,6 +945,52 @@ fn loop_arena_qualifies(
 
     // An arena is only opened where there is reachable allocation to reclaim.
     reaches_alloc
+}
+
+/// Whether the loop qualifies for the emit-only `string_arena_loop` channel
+/// (fasta Spec 7 Task 4f) — it opens a per-iteration arena SOLELY because its
+/// body contains a granted `arena_string_site`. All of (T) + (V1) + (V2) + (V3)
+/// must hold. `has_outflow` is DELIBERATELY not consulted: outflow of a
+/// `__alloc_global`-routed value is invisible to a string-only arena, and 4b's
+/// default-deny grant means a granted string value can never outflow.
+fn string_arena_loop_qualifies(
+    function: &str,
+    loop_facts: &LoopArenaFacts,
+    string_arena_loops: &BTreeSet<u32>,
+    facts_by_name: &BTreeMap<&str, &FunctionArenaFacts>,
+    eligible: &impl Fn(&str) -> bool,
+) -> bool {
+    // (T) the loop body (crediting the innermost enclosing loop) contains ≥1
+    // granted string site.
+    if !string_arena_loops.contains(&loop_facts.ordinal) {
+        return false;
+    }
+    // (V1) the enclosing function is NOT `arena_eligible`. If it were, its
+    // object/array sites route to `__alloc` and this loop arena could capture
+    // an unproven object; such functions keep `loop_arena` as their only arena
+    // path.
+    if eligible(function) {
+        return false;
+    }
+    // (V2) no unknown/closure/indirect or non-whitelisted host call in the loop
+    // body — an unknown callee could allocate-and-retain via `__alloc`. Same
+    // veto `loop_arena_qualifies` consults.
+    if loop_facts.has_unknown_call {
+        return false;
+    }
+    // (V3) no KNOWN callee reachable from the loop body may allocate. Unlike
+    // `loop_arena_qualifies` (which permits arena-eligible allocating callees,
+    // because an object arena captures their objects safely), a string-only
+    // arena must capture NO non-string `__alloc` at all, so ANY reachable
+    // allocation vetoes. Unknown target ⇒ may-allocate (fail closed in the
+    // helper).
+    for target in &loop_facts.calls {
+        if reaches_alloc_transitively(target, facts_by_name, &mut BTreeSet::new()) {
+            return false;
+        }
+    }
+
+    true
 }
 
 /// Whether calling `name` can (transitively) reach a current-arena allocation.
