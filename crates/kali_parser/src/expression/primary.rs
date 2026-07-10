@@ -194,6 +194,17 @@ impl Parser {
             }
             TokenType::New => {
                 let _ = self.stream.advance();
+                // `new [1,2,3]` — `new` on an array literal is not
+                // constructible (node throws TypeError). Reject fail-closed
+                // BEFORE parsing the callee, so the ArrayExpression unwrap
+                // below can only ever be reached via the call-path desugar
+                // (`Array(a, b, …)` → array literal), never a bracket
+                // literal. Still parse the expression to keep the stream
+                // consistent; the diagnostic rejects the program.
+                if self.stream.current_kind() == Some(&TokenType::LeftBracket) {
+                    self.push_feature_unavailable("`new` on an array literal is not constructible");
+                    return self.parse_call_expression();
+                }
                 let callee = self.parse_call_expression();
                 let mut args = Vec::new();
                 if self.stream.accept(TokenType::LeftParen)
@@ -208,7 +219,10 @@ impl Parser {
                 // `new Array(a, b, …)` desugars identically to
                 // `Array(a, b, …)` — the call-path desugar already turned
                 // the callee into the array literal; `new` adds nothing for
-                // the Array constructor.
+                // the Array constructor. INVARIANT: an ArrayExpression callee
+                // here can only be desugar output — a bracket-literal callee
+                // (`new [...]`) was rejected fail-closed above, before
+                // callee parsing.
                 if matches!(&callee, Expression::ArrayExpression(_)) {
                     return callee;
                 }
