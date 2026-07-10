@@ -233,7 +233,11 @@ scalar local/param (the unrepresentable-nullish case), keeping only the
 `literal.rs:495-505`). NOTE (final-review correction): the alias's truthiness
 tests and `= null` stores were sentinel-aware (`>= 0` / `-1`), but the `??=`
 codegen arm itself still tested `I64Eqz` (falsy, fires on valid ordinal `0`)
-until the final-review fix made it a `-1` sentinel compare (`== -1`). This
+until the final-review fix made it a `-1` sentinel compare (`== -1`); round 2
+additionally made a fired `??= null` store the `-1` sentinel (not the generic
+raw-`0` null lowering) and narrowed the resolve admit to a
+null/undefined-literal RHS, making the admitted `??=` surface
+correct-by-construction. This
 eliminates
 the miscompile and is series-consistent (reject-don't-miscompile). It changes
 the accidentally-"working" `let value = null; value ??= 1` case (currently → 1)

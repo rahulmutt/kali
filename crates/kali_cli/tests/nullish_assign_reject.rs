@@ -57,15 +57,22 @@ fn for_in_key_alias_nullish_assign_still_runs() {
 // POSITIVE-BEHAVIOR pin (despite this file's name): after Spec 7 Task 3 the ONLY
 // `??=` shape that reaches codegen is a for-in-key alias, whose null sentinel is
 // `-1` (key ordinals are 0-based). The `??=` codegen arm previously tested the
-// nullish condition with `I64Eqz` — a FALSY test that fires on ordinal `0` — so
-// `last`, holding the first key's ordinal `0`, was wrongly overwritten with `5`
-// and `table[5]` read garbage (printed `0`; node prints `7`). This pins that the
-// surviving `??=` lane is SENTINEL-AWARE (`== -1`), not falsy. Lives here because
-// this file owns the whole `??=` surface (rejects + the one live lane).
+// nullish condition with `I64Eqz` — a FALSY test that fires on ordinal `0`.
+// This pins that the surviving `??=` lane is SENTINEL-AWARE (`== -1`), not
+// falsy: `last` holds the first key's ordinal `0`, so `last ??= null` must NOT
+// fire (0 is a valid key, not null) and `table[last]` must read key 0's value.
+//
+// DISCRIMINATION: this pin's RHS is `null` (the only RHS the resolve admit now
+// accepts), and a fired `??= null` stores the `-1` sentinel (see the null-RHS
+// store pin below). So under a regressed falsy `I64Eqz` compare, alias == 0
+// FIRES, stores `-1`, and `table[-1]` reads out-of-table garbage (≠ 7) — the
+// pin still catches the falsy-compare bug even though the RHS is null.
+// Lives here because this file owns the whole `??=` surface (rejects + the one
+// live lane).
 #[test]
 fn for_in_key_alias_nullish_assign_sentinel_aware_not_falsy() {
     let out = run_source(
-        "var table = {a:7, b:8};\nvar last = null;\nfor (var c in table) { last = c; break; }\nlast ??= 5;\nconsole.log(table[last]);\n",
+        "var table = {a:7, b:8};\nvar last = null;\nfor (var c in table) { last = c; break; }\nlast ??= null;\nconsole.log(table[last]);\n",
     );
     assert!(
         out.status.success(),
@@ -73,4 +80,44 @@ fn for_in_key_alias_nullish_assign_sentinel_aware_not_falsy() {
         String::from_utf8_lossy(&out.stderr)
     );
     assert_eq!(String::from_utf8_lossy(&out.stdout), "7\n");
+}
+
+// A FIRED `??= null` must store the `-1` null sentinel, not a raw `0` (the
+// generic null lowering): the sentinel-aware compare (pin above) correctly
+// ENTERS the assignment branch when the alias is genuinely null (-1), and a
+// bare-`null` RHS emitted via the generic path would store `0` — a VALID key
+// ordinal — flipping the alias's truthiness from false to true. (Pre-sentinel,
+// the falsy compare never took the branch on -1, which was accidentally
+// correct.) Mirrors the `=` arm's null-store special case (literal.rs).
+// Node prints `falsy`; a raw-0 store prints `truthy`.
+#[test]
+fn for_in_key_alias_fired_nullish_null_rhs_stores_sentinel() {
+    let out = run_source(
+        "var table = {a:1};\nvar last = null;\nvar go = 0;\nfor (var c in table) { if (go) { last = c; } }\nlast ??= null;\nif (last) { console.log(\"truthy\"); } else { console.log(\"falsy\"); }\n",
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "falsy\n");
+}
+
+// A for-in-key alias `??=` with a NON-NULL RHS must reject: if it fired it
+// would store a raw number into an ordinal-repr binding, and every downstream
+// ordinal consumer (`table[last]`, truthiness) diverges from node (which holds
+// a string key or the raw number, e.g. `table[last]` after `??= 1` → node
+// `undefined`). The admit is narrowed to a null/undefined-literal RHS — the
+// only RHS whose fired store (-1 sentinel) is representable.
+#[test]
+fn for_in_key_alias_nullish_assign_non_null_rhs_rejects() {
+    let out = run_source(
+        "var table = {a:7, b:8};\nvar last = null;\nfor (var c in table) { last = c; break; }\nlast ??= 5;\nconsole.log(table[last]);\n",
+    );
+    assert!(!out.status.success(), "expected E5506 reject, got: {out:?}");
+    assert!(
+        String::from_utf8_lossy(&out.stderr).contains("E5506"),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
 }
