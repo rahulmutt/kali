@@ -74,6 +74,25 @@ fn const_bound_assignment_expression_applies_exactly_once() {
     );
 }
 
+// The mutation walk must NOT descend into function-like inits: a mutation
+// inside a const-bound arrow's BODY runs at call time in its own scope and
+// is no init-time side effect. Descending promoted the const to an eager
+// local, a function-like init produces no value, and calls resolved through
+// the phantom zero local — `mk(5)` printed `0` (node: `6`).
+#[test]
+fn const_bound_arrow_with_mutating_body_is_not_promoted() {
+    assert_stdout(
+        "const mk = (n) => { let r = n; r = r + 1; return r; };\nconsole.log(mk(5));\nconsole.log(mk(10));\n",
+        "6\n11\n",
+    );
+    // And the original double-eval closure must still hold in the same
+    // program as a function-like declarator (no cross-interference).
+    assert_stdout(
+        "const mk = (n) => { let r = n; r = r + 1; return r; };\nlet b = 5;\nconst x = ++b;\nconsole.log(mk(1));\nconsole.log(x);\nconsole.log(b);\n",
+        "2\n6\n6\n",
+    );
+}
+
 // The whole unary/update ladder the runtime_smoke unary_prefix fixture pins,
 // as one program — must run clean end to end.
 #[test]

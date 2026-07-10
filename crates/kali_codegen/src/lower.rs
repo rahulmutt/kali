@@ -2803,9 +2803,21 @@ pub(crate) fn is_mutating_operator_text(text: &str) -> bool {
 /// (e.g. `resolve_literal_aggregate`) resolve const-bound call nodes by
 /// shape, and impure user calls are a separate, wider gap tracked outside
 /// this predicate.
+///
+/// The walk must NOT descend into function-like subtrees (mirroring every
+/// sibling recursion in this file): a mutation inside a const-bound arrow's
+/// BODY runs at call time in its own scope — it is not an init-time side
+/// effect, so it creates no double-eval hazard. Descending would promote
+/// `const mk = (n) => { let r = n; r = r + 1; return r; };` to an eager
+/// local, but a function-like init produces no value: a zero placeholder
+/// got stored and calls resolved through the phantom local (`mk(5)` printed
+/// `0`; node says `6`) — a silent miscompile.
 pub(crate) fn declarator_init_contains_mutation(nodes: &[LirNode], init_id: LirNodeId) -> bool {
     fn walk(nodes: &[LirNode], id: LirNodeId, seen: &mut HashSet<LirNodeId>) -> bool {
         if !seen.insert(id) {
+            return false;
+        }
+        if is_function_like(nodes, id) {
             return false;
         }
         let Some(node) = nodes.get(id.0 as usize) else {
