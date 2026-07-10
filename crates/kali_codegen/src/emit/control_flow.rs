@@ -476,18 +476,36 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
 
-        // Spec 4a Task 5: build the per-shape key handle table ONCE, here in the
-        // preheader (never per-iteration). The base is stored in this loop's
-        // dedicated persistent local (`for_in_key_table_local_name`), and the
-        // key + every recognized alias map to it in `for_in_key_handle_tables` so
-        // a STRING-VALUE use of any of them (`return c`) materializes the interned
-        // field-name handle instead of the raw ordinal. Aliases enumerate the
-        // same shape (same ordered field names), so one table serves all.
-        let table_local = self.locals[&crate::lower::for_in_key_table_local_name(ordinal)];
-        self.emit_key_handle_table(function, shape, table_local);
+        // Spec 4a Task 5 / fasta Spec 7 Task 4g: the per-shape key handle table
+        // is MODULE-CONSTANT DATA. Every slot is a compile-time
+        // `encode_string_handle` constant, so the whole table is interned once
+        // into the string-pool's data-segment layout (`intern_key_table`,
+        // deduped by shape) and referenced by a fixed base offset — zero runtime
+        // allocation, O(1) in both N and call count, regardless of loop nesting.
+        // (The old code bump-allocated `N*8` bytes here on EVERY for-in
+        // execution, which for a for-in nested in a loop leaked once per outer
+        // iteration.) The key + every recognized alias map to the base in
+        // `for_in_key_handle_tables` so a STRING-VALUE use of any of them
+        // (`return c`) materializes the interned field-name handle. Aliases
+        // enumerate the same shape (same ordered field names), so one table
+        // serves all.
+        let names: Vec<String> = self
+            .repr_table
+            .shape_fields(shape)
+            .iter()
+            .map(|(name, _)| name.clone())
+            .collect();
+        let handles: Vec<i64> = names
+            .iter()
+            .map(|name| {
+                let (offset, len) = self.strings.intern(name);
+                encode_string_handle(offset, len)
+            })
+            .collect();
+        let table_base = self.strings.intern_key_table(shape, &handles);
         for name in &recognized {
             self.for_in_key_handle_tables
-                .insert(name.clone(), table_local);
+                .insert(name.clone(), table_base);
         }
 
         // preheader: ord = 0
@@ -1042,9 +1060,11 @@ impl<'a> FunctionEmitter<'a> {
                     if let Some(&table_base) = self.for_in_key_handle_tables.get(text) {
                         if self.scalar_repr(text) == kali_common::Repr::String {
                             if let Some(&ord_local) = self.locals.get(text) {
-                                // addr = table_base(i32) + ord*8, load the i64 handle
-                                function.instruction(&Instruction::LocalGet(table_base));
-                                function.instruction(&Instruction::I32WrapI64);
+                                // addr = table_base(const) + ord*8, load the i64
+                                // handle. `table_base` is now a compile-time
+                                // data-segment offset (fasta Spec 7 Task 4g), not
+                                // a runtime local holding a bump-allocated base.
+                                function.instruction(&Instruction::I32Const(table_base as i32));
                                 function.instruction(&Instruction::LocalGet(ord_local));
                                 function.instruction(&Instruction::I32WrapI64);
                                 function.instruction(&Instruction::I32Const(8));

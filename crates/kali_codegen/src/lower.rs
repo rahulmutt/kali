@@ -752,6 +752,20 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             text.as_bytes().iter().copied(),
         );
     }
+    // fasta Spec 7 Task 4g: for-in key handle tables — per-shape blobs of
+    // compile-time-constant `i64` string handles — as module-constant data,
+    // interleaved into the same address space as the string constants above
+    // (their bases came from `StringPool::intern_key_table`, which advanced
+    // `next_offset`). Emitting them here, before `heap_base` is derived from
+    // `next_offset`, keeps them out of the runtime heap entirely (zero
+    // per-execution allocation).
+    for (offset, bytes) in &string_pool.key_table_entries {
+        data_section.active(
+            0,
+            &ConstExpr::i32_const(*offset as i32),
+            bytes.iter().copied(),
+        );
+    }
 
     // Heap base: first 8-aligned byte after interned string data. `__heap`
     // (global index 0, g0) now means the *page frontier* — the first byte of
@@ -1570,19 +1584,6 @@ pub(crate) fn for_in_ord_local_name(ordinal: u32) -> String {
     format!("__for_in_ord#{ordinal}")
 }
 
-/// Name of the dedicated i64 local holding the base pointer of a `for-in`
-/// loop's per-shape key handle table (Spec 4a Task 5, `emit_key_handle_table`).
-/// The table is bump-allocated once in the loop preheader; this local must
-/// PERSIST across the whole loop body (a `return c`/`c + x` string use loads
-/// `base + ord*8` from it), so it is a dedicated reserved slot — NOT the
-/// function's transient trailing scratch, which body emission (e.g. an
-/// `obj[c] = v` write) reuses and would clobber. Same `#`-name convention +
-/// two-call-site (reserve here, resolve in `emit_for_in`) discipline as
-/// `for_in_ord_local_name`.
-pub(crate) fn for_in_key_table_local_name(ordinal: u32) -> String {
-    format!("__for_in_ktbl#{ordinal}")
-}
-
 /// Names of the three synthetic i32 locals that save/restore the
 /// current-arena trio (`g1`/`g2`/`g3`) around the arena'd loop with pre-order
 /// ordinal `ordinal` in its function. Shared by locals provisioning
@@ -1881,9 +1882,10 @@ pub(crate) fn collect_function_locals(
     for_in_ordinals.sort_unstable();
     for ordinal in for_in_ordinals {
         locals.push(for_in_ord_local_name(ordinal));
-        // Spec 4a Task 5: a parallel dedicated i64 local per for-in loop for the
-        // key handle-table base pointer (persists across the loop body).
-        locals.push(for_in_key_table_local_name(ordinal));
+        // fasta Spec 7 Task 4g: no per-for-in key-table BASE local is reserved
+        // anymore — the table is module-constant data referenced by a fixed
+        // offset (`StringPool::intern_key_table`), not a bump-allocated base
+        // held in a runtime local.
     }
 
     // Reserve the two i32 scratch locals for a `process.argv[<int>]` element

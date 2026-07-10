@@ -119,51 +119,6 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    /// Spec 4a Task 5: build the per-shape handle table for a `for..in` key,
-    /// ONCE in the loop preheader. Bump-allocates `N*8` bytes and stores, at
-    /// slot `j`, the interned string handle of the shape's `j`th field name.
-    /// Returns the local holding the (i64) base pointer. A later STRING-VALUE use
-    /// of the key materializes its field name by loading `base + ord*8`.
-    ///
-    /// The stored values are `encode_string_handle(offset, len)` over
-    /// compile-time data-segment offsets from the string pool — immutable
-    /// constants, never runtime-allocated handles — so they NEVER dangle: the
-    /// table merely caches, per ordinal, a handle whose backing bytes live in the
-    /// module's data segment for the whole program. Allocated once (never
-    /// per-iteration), exactly like `emit_object_allocation`'s bump.
-    pub(crate) fn emit_key_handle_table(
-        &mut self,
-        function: &mut Function,
-        shape: kali_common::ShapeId,
-        base_local: u32,
-    ) {
-        let names: Vec<String> = self
-            .repr_table
-            .shape_fields(shape)
-            .iter()
-            .map(|(n, _)| n.clone())
-            .collect();
-        // base = __alloc(N*8), kept i64-extended in the dedicated `base_local`
-        // (the same bump pattern `emit_object_allocation` uses for a heap
-        // object); `base_local` is a reserved persistent slot, not a transient
-        // scratch, so it survives the whole loop body.
-        function.instruction(&Instruction::I32Const((names.len() * 8) as i32));
-        function.instruction(&Instruction::Call(self.alloc_callee_index()));
-        function.instruction(&Instruction::I64ExtendI32U);
-        function.instruction(&Instruction::LocalSet(base_local));
-        for (j, name) in names.iter().enumerate() {
-            let (offset, len) = self.strings.intern(name);
-            function.instruction(&Instruction::LocalGet(base_local));
-            function.instruction(&Instruction::I32WrapI64);
-            function.instruction(&Instruction::I64Const(encode_string_handle(offset, len)));
-            function.instruction(&Instruction::I64Store(MemArg {
-                offset: (j * 8) as u64,
-                align: 3,
-                memory_index: 0,
-            }));
-        }
-    }
-
     /// Spec 4a Task 5: emit a for-in-key identifier's ORDINAL (the raw `i64`
     /// counter in its reserved local), bypassing the STRING-VALUE materialization
     /// in `emit_value`'s identifier arm. Used at the INDEX sites (`table[c]`),

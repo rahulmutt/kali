@@ -149,6 +149,89 @@ fn arena_reset_index(text: &str) -> u32 {
     exported_function_index(text, "__arena_reset").expect("__arena_reset must be exported")
 }
 
+/// Extract the printed body text of the function at `index` — from its
+/// `(func (;index;) …` declaration line up to (but not including) the next
+/// top-level `(func` / `(data` line. Lets a census target ONE user function
+/// instead of the whole module (the synthetic `__join`/`__alloc*` bodies always
+/// contain a `call __alloc_global`, so a module-wide census can't isolate a
+/// user function's own allocation behavior).
+fn function_body_text(text: &str, index: u32) -> String {
+    let decl = format!("(func (;{index};)");
+    let mut lines = text
+        .lines()
+        .skip_while(|l| !l.trim_start().starts_with(&decl));
+    let first = lines.next().expect("function declaration present");
+    let mut out = String::from(first);
+    out.push('\n');
+    for line in lines {
+        let t = line.trim_start();
+        if t.starts_with("(func ") || t.starts_with("(data ") {
+            break;
+        }
+        out.push_str(line);
+        out.push('\n');
+    }
+    out
+}
+
+/// fasta Spec 7 Task 4g — the for-in key handle table is emitted as
+/// MODULE-CONSTANT data, never bump-allocated per for-in execution. A function
+/// whose only global-arena allocation candidate is the for-in key table (a
+/// for-in over a param-typed shape, nested inside a `while` — the fastaRandom
+/// shape) must, after 4g, contain ZERO calls to `__alloc_global` in ITS OWN
+/// body: the table rides the data-segment constant layout at a fixed base. At
+/// HEAD this FAILS (the preheader bump-allocated `N*8` bytes via `__alloc_global`
+/// once per outer iteration).
+#[test]
+fn nested_for_in_key_table_is_module_constant_no_global_alloc() {
+    let src = "function f(t, n) { while (n > 0) { for (var c in t) { } n = n - 1; } }";
+    let program = parse_and_lower_lir(src);
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    // `t` is a param carrying a 3-field fixed shape — the for-in enumerates it.
+    // No arena eligibility is granted, so the OLD table bump would route to
+    // `__alloc_global` (index-selected by `alloc_callee_index`); nothing else in
+    // `f` allocates, making a single `__alloc_global` call the sole tell of the
+    // leak.
+    let shape = ctx.repr_table.intern_shape(vec![
+        ("x".to_string(), kali_common::Repr::String),
+        ("y".to_string(), kali_common::Repr::String),
+        ("z".to_string(), kali_common::Repr::String),
+    ]);
+    ctx.repr_table
+        .set_scalar("f", "t", kali_common::Repr::Object(shape));
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+    let text = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    let alloc_global =
+        exported_function_index(&text, "__alloc_global").expect("__alloc_global must be exported");
+    let f_index = exported_function_index(&text, "f").expect("user function `f` must be exported");
+    let f_body = function_body_text(&text, f_index);
+    assert!(
+        !calls_function(&f_body, alloc_global),
+        "the for-in key table must be module-constant data, not a per-execution \
+         __alloc_global bump inside `f` (index {alloc_global}):\n{f_body}"
+    );
+    // Positive half: the table IS present as module-constant data — three i64
+    // string handles (24 bytes) in a data segment (the `\NN` byte-escape blob
+    // `intern_key_table` emitted). Confirms the census passed because the build
+    // MOVED to constant data, not because the for-in stopped materializing keys.
+    assert!(
+        text.contains("\\01\\00\\00\\00\\00\\10\\00\\80"),
+        "expected the module-constant key table blob in a data segment:\n{text}"
+    );
+}
+
 /// fasta Spec 7 Task 4f — the string-site-triggered loop arena. A `while` loop
 /// whose only reclaimable allocation is a granted `+` concat (no object/array
 /// literal — the fasta `fastaRepeat` shape) opens a per-iteration arena SOLELY

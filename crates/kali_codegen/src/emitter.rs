@@ -141,11 +141,14 @@ pub(crate) struct FunctionEmitter<'a> {
     /// key + `last = c` provenance propagation (mirror binding provenance, not
     /// repr — the Spec-3 lesson).
     pub(crate) for_in_key_aliases: HashSet<String>,
-    /// Spec 4a Task 5: per-for-in-key handle-table base locals. `name -> local`
-    /// where `local` holds the i64 base pointer of an `N*8`-byte table of
+    /// Spec 4a Task 5 / fasta Spec 7 Task 4g: per-for-in-key handle-table base
+    /// OFFSETS. `name -> base` where `base` is the compile-time data-segment
+    /// offset (an `i32.const`, NOT a runtime local) of an `N*8`-byte table of
     /// interned field-name string handles (slot `j` = the interned handle of the
-    /// shape's `j`th field), bump-allocated ONCE in the loop preheader
-    /// (`emit_key_handle_table`). A for-in key (or alias) emitted in a
+    /// shape's `j`th field). The table is MODULE-CONSTANT data, interned once per
+    /// shape via `StringPool::intern_key_table` — zero runtime allocation
+    /// (previously it was bump-allocated on every for-in execution, which leaked
+    /// for a for-in nested in a loop). A for-in key (or alias) emitted in a
     /// STRING-VALUE context materializes its field-name string by loading
     /// `base + ord*8` from this table instead of yielding the raw ordinal. The
     /// interned handles are compile-time data-segment offsets, so the table only
