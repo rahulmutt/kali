@@ -374,3 +374,36 @@ continue/return) is inherited from the existing frame machinery.
 bounded-peak fixture (no object-literal trigger — the fasta shape) pins the
 new channel at two N under one small budget, alongside 4e's object-triggered
 fixture.
+
+## 8. Revision 2026-07-10 (b) — for-in key-table rebuild leak (Task 4g)
+
+**Second N=25M blocker** (found by 4f's acceptance run; mechanism audit in
+`.superpowers/sdd/task-4g-investigation.md`): `emit_for_in` builds the
+per-shape key-handle table (N_keys × 8 bytes) via `alloc_callee_index()` →
+`__alloc_global` in the for-in **preheader** (control_flow.rs:487 →
+object.rs:150-153). The table is a compile-time constant — each slot is a
+data-segment string-handle constant — yet it is rebuilt on every for-in
+EXECUTION. `fastaRandom` nests `for (c in table)` inside the per-character
+loop: 120 B × 60 chars/line × ~316k lines ≈ 2.27 GB of identical tables at
+the trap point (verified against VmHWM 2.19 GB). The global arena is immune
+to every reclamation channel by design, so this must stop allocating, not
+get reclaimed.
+
+**Fix (Task 4g): emit the key table as module-constant data.** Since every
+slot is a compile-time constant handle, the whole table belongs in the
+module's constant-data layout (same discipline as data-segment strings),
+referenced by a constant base — zero runtime allocation, O(1) in both N and
+call count. Fallback if the constant-data layout cannot host non-string
+words cleanly: replace the read-site load (control_flow.rs:1042-1057,
+`table_base + ord*8`) with a constant dispatch (`br_table`/select chain)
+over the statically-known keys — also zero-alloc. Hoisting the build to a
+per-call prologue is REJECTED: it leaves a per-call residue (unbounded for
+hot-called functions), against the branch's structural-bounds theme.
+
+**Soundness:** the stored/read values are unchanged constants; `line[i]=c`
+stores and `join` reads are independent of the table's storage (verified —
+the element store loads the handle value, it never points into the table).
+Outputs of every for-in consumer must stay byte-identical (pinned by
+runtime_forin.rs — incl. the fasta-shaped
+`forin_key_stored_into_string_array_after_break_then_joined` — plus
+runtime_fasta_output.rs and the for-in ??= pin in nullish_assign_reject.rs).
