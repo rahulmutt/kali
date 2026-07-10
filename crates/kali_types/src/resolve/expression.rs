@@ -1106,20 +1106,30 @@ impl TypeContext {
     /// no correct lowering for it (`/` floats unless BOTH operands are
     /// BigInt-literal-valued per `is_bigint_literal_valued`, and `+`/`-`/`*`
     /// share the hole), so `3n * 2` silently floats instead of throwing.
-    /// Reject at compile time (E3202) instead. Scope is syntactic-literal,
-    /// mirroring codegen's own oracle: an operand is "BigInt-valued" here iff
-    /// it is a `BigIntLiteral`, optionally under unary minus or parens. There
-    /// is no const-binding-to-literal chase (`static_values` only tracks
-    /// string values, not a general AST-node-of-initializer lookup) — a
-    /// `const` bound to a BigInt literal is out of scope here, same as the
-    /// unmixed non-literal path's recorded follow-up.
+    /// Reject at compile time (E3202) instead.
+    ///
+    /// The reject requires TWO-SIDED literal PROOF: one operand proven BigInt
+    /// (`is_bigint_literal_expr`) AND the other proven non-BigInt
+    /// (`is_numeric_literal_expr`). An UNPROVEN operand (identifier, call,
+    /// nested expression) on either side means NO reject — "recognizer can't
+    /// prove BigInt" must not be read as "proven non-BigInt", or correct
+    /// all-BigInt code like `const x = 7n; x / 2n` over-rejects. Unproven
+    /// mixes fall back to the pre-existing (wrong, float) path, which is the
+    /// already-recorded follow-up alongside the unmixed non-literal BigInt
+    /// path; there is no const-binding-to-literal chase here
+    /// (`static_values` only tracks string values, not a general
+    /// AST-node-of-initializer lookup). Compound assignment (`x += 3n`) is
+    /// also ungated: its LHS is a binding, never literal-provable, so this
+    /// two-sided gate can never soundly fire there — same follow-up bucket.
     fn reject_mixed_bigint_arithmetic(&mut self, expr: &BinaryExpression) {
         if !matches!(expr.operator.as_str(), "+" | "-" | "*" | "/" | "%" | "**") {
             return;
         }
         let left_bigint = Self::is_bigint_literal_expr(&expr.left);
         let right_bigint = Self::is_bigint_literal_expr(&expr.right);
-        if left_bigint != right_bigint {
+        let left_number = Self::is_numeric_literal_expr(&expr.left);
+        let right_number = Self::is_numeric_literal_expr(&expr.right);
+        if (left_bigint && right_number) || (left_number && right_bigint) {
             self.diagnostics.push(Diagnostic::error(
                 e3::MIXED_BIGINT_ARITHMETIC as u32,
                 format!(
@@ -1142,6 +1152,25 @@ impl TypeContext {
             }
             Expression::ParenthesizedExpression(paren) => {
                 Self::is_bigint_literal_expr(&paren.expression)
+            }
+            _ => false,
+        }
+    }
+
+    /// Literal-scope PROVEN-non-BigInt recognizer, the second side of the
+    /// E3202 two-sided proof: a numeric literal, optionally wrapped in unary
+    /// minus or parentheses — the same shape discipline as
+    /// `is_bigint_literal_expr`. Anything else (identifier, call, nested
+    /// expression) is UNKNOWN, not "non-BigInt", and must not trigger the
+    /// mixed-arithmetic reject.
+    fn is_numeric_literal_expr(expr: &Expression) -> bool {
+        match expr {
+            Expression::Literal(LiteralValue::Number(_)) => true,
+            Expression::UnaryExpression(unary) if unary.operator == "-" => {
+                Self::is_numeric_literal_expr(&unary.argument)
+            }
+            Expression::ParenthesizedExpression(paren) => {
+                Self::is_numeric_literal_expr(&paren.expression)
             }
             _ => false,
         }
