@@ -273,8 +273,38 @@ impl TypeContext {
         self.scopes.get_mut(&scope_id)
     }
 
+    /// Reject-don't-miscompile: a USER binding named `Array` (const/let/var,
+    /// function/class name, parameter, catch/for-of variable, import, ...)
+    /// shadows the built-in `Array`, but the parser's scope-blind
+    /// `Array(a, b, …)` / `new Array(…)` array desugar (and codegen's bare-
+    /// `Array(n)` allocation lane) assume the GLOBAL `Array`. A shadow would
+    /// otherwise silently miscompile the user's `Array(...)` calls (node runs
+    /// the user binding; this branch would produce an array literal /
+    /// allocation). Every USER binding form funnels through `bind_current_scope`
+    /// or `bind_in_scope`, so both call this and fail closed with a clean
+    /// diagnostic. The built-in `Array` itself is registered via `bind_builtin`
+    /// (NOT these paths), so this never fires on compiler setup.
+    /// (Whole-branch review finding I1.) Returns `true` when it rejected.
+    fn reject_builtin_array_shadow(&mut self, name: &str) -> bool {
+        if name != "Array" {
+            return false;
+        }
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "shadowing the built-in `Array` is unavailable in the current \
+             phase: a user binding named `Array` would collide with the \
+             scope-blind `Array(...)` / `new Array(...)` array desugar and \
+             could miscompile; rename the binding"
+                .to_string(),
+        ));
+        true
+    }
+
     pub(crate) fn bind_current_scope(&mut self, name: impl Into<String>) {
         let name = name.into();
+        if self.reject_builtin_array_shadow(&name) {
+            return;
+        }
         let binding_id = self.next_binding_id();
         match self.current_scope_id() {
             Some(scope_id) => {
@@ -297,6 +327,9 @@ impl TypeContext {
 
     pub(crate) fn bind_in_scope(&mut self, scope_id: NodeId, name: impl Into<String>) {
         let name = name.into();
+        if self.reject_builtin_array_shadow(&name) {
+            return;
+        }
         let binding_id = self.next_binding_id();
         let scope = self.scope_mut(scope_id).expect("scope exists");
         if scope.contains(&name) {
