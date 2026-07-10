@@ -854,7 +854,7 @@ impl<'a> FunctionEmitter<'a> {
                         // here).
                         if let Some(name) = declarator.text.clone() {
                             if self.for_in_key_aliases.contains(&name)
-                                && self.is_null_or_undefined_literal(init)
+                                && self.is_null_or_undefined_expr(init)
                             {
                                 if let Some(index) = self.locals.get(&name).copied() {
                                     function.instruction(&Instruction::I64Const(-1));

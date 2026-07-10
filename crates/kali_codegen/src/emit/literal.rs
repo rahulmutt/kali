@@ -157,13 +157,22 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    /// True when `id` resolves (through transparent wrappers) to a `null` or
-    /// `undefined` literal. Used by the Spec 4a Task 4 null-sentinel store: a
-    /// nullish init/reassignment of a for-in-key alias stores `-1`, not `0`.
-    pub(crate) fn is_null_or_undefined_literal(&self, id: LirNodeId) -> bool {
+    /// True when `id` resolves (through transparent wrappers) to a nullish
+    /// expression: the `null`/`undefined` LITERAL forms, or the bare
+    /// identifier `undefined` (which parses as an Identifier → Value node —
+    /// the form the old literal-only recognizer missed, storing ordinal 0
+    /// instead of the -1 sentinel: wrong truthiness). Single recognizer for
+    /// BOTH the types-side admit and the codegen stores, so the twins cannot
+    /// disagree on nullish-ness again (the `??= undefined` reject existed
+    /// only because of that disagreement). Used by the Spec 4a Task 4
+    /// null-sentinel store: a nullish init/reassignment of a for-in-key alias
+    /// stores `-1`, not `0`.
+    pub(crate) fn is_null_or_undefined_expr(&self, id: LirNodeId) -> bool {
         let node = self.node(self.unwrap_transparent(id));
-        node.kind == LirNodeKind::Literal
-            && matches!(node.text.as_deref(), Some("null") | Some("undefined"))
+        if node.kind == LirNodeKind::Literal {
+            return matches!(node.text.as_deref(), Some("null") | Some("undefined"));
+        }
+        self.bare_identifier_name(id).as_deref() == Some("undefined")
     }
 
     pub(crate) fn assignment_target_name(&self, _node: &LirNode, id: LirNodeId) -> Option<String> {
@@ -497,8 +506,7 @@ impl<'a> FunctionEmitter<'a> {
                 // to null/undefined stores `-1`, matching the declarator
                 // null-init, so a later `if (alias)` (lowered to `>= 0`) reads
                 // false. Recognized structurally via `for_in_key_aliases`.
-                if self.for_in_key_aliases.contains(&name)
-                    && self.is_null_or_undefined_literal(right)
+                if self.for_in_key_aliases.contains(&name) && self.is_null_or_undefined_expr(right)
                 {
                     function.instruction(&Instruction::I64Const(-1));
                     function.instruction(&Instruction::LocalTee(index));
@@ -583,17 +591,16 @@ impl<'a> FunctionEmitter<'a> {
                 function.instruction(&Instruction::I64Const(-1));
                 function.instruction(&Instruction::I64Eq);
                 function.instruction(&Instruction::If(BlockType::Result(ValType::I64)));
-                // Fired branch, null-literal RHS: store the `-1` null
-                // sentinel, NOT the generic null lowering (`0` — a VALID key
-                // ordinal, which would flip the alias's truthiness from false
-                // to true). Mirrors the `=` arm's null-store special case
-                // above. Resolve narrows the admitted `??=` RHS to a `null`
-                // LITERAL (bare `undefined` is an Identifier, which this
-                // recognizer does not match — it rejects in resolve so it can
-                // never slip into the generic emit below), so the generic-emit
-                // fallback is defensive only.
-                if self.for_in_key_aliases.contains(&name)
-                    && self.is_null_or_undefined_literal(right)
+                // Fired branch, nullish RHS (`null` literal, `undefined`
+                // literal, or the bare identifier `undefined`): store the
+                // `-1` null sentinel, NOT the generic null lowering (`0` — a
+                // VALID key ordinal, which would flip the alias's truthiness
+                // from false to true). Mirrors the `=` arm's null-store
+                // special case above. Resolve now admits exactly this same
+                // nullish set on the `??=` RHS (`is_null_or_undefined_expr`
+                // is the single recognizer both sides share), so the
+                // generic-emit fallback below is defensive only.
+                if self.for_in_key_aliases.contains(&name) && self.is_null_or_undefined_expr(right)
                 {
                     function.instruction(&Instruction::I64Const(-1));
                 } else {
