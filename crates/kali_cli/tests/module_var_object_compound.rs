@@ -36,6 +36,19 @@ fn object_initialized_binding_compound_rejects() {
     );
 }
 
+// The array-literal declarator lane: an array-initialized binding likewise has
+// no scalar compound lowering and must reject fail-closed (node string-coerces
+// the array; kali cannot).
+#[test]
+fn array_initialized_binding_compound_rejects() {
+    let out = run_source("var a = [1, 2];\na += 1;\nconsole.log(a);\n");
+    assert!(!out.status.success(), "expected E5506 reject, got: {out:?}");
+    assert!(
+        String::from_utf8_lossy(&out.stderr).contains("E5506")
+            || String::from_utf8_lossy(&out.stderr).contains("not a provably scalar")
+    );
+}
+
 // A genuine numeric var local still compiles and runs — the fix must not
 // over-reject scalars.
 #[test]

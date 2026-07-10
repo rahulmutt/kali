@@ -1,6 +1,6 @@
 # fasta Spec 7 — Canonical N=25M via per-line reclamation, + soundness closures
 
-**Status:** design (awaiting review)
+**Status:** design approved 2026-07-09; revised §7/§8 2026-07-10; implemented on branch `fasta-canonical-n25m-spec7`
 **Series:** CLBG fasta (Specs 1–6 shipped; PRs #9–#14). This is the terminal
 milestone of the fasta series — the canonical CLBG input size.
 **Predecessor:** Spec 6 (`docs/superpowers/specs/2026-07-09-fasta-verbatim-vendor-spec6-design.md`,
@@ -99,7 +99,9 @@ allocate via the current-arena allocator, and select **per call site**:
   where `__join` calls `__alloc_global`. Structurally, `emit_join_body` already
   takes an `alloc_index: u32` argument — the twin passes the `__alloc` index.
   Emitted only when at least one call site selects it (no dead function in
-  modules that never arena-route a join). `__substring` needs **no twin** — it
+  modules that never arena-route a join). (Implementation note: `lower.rs`
+  actually emits the twin unconditionally; both twins are tiny, so the
+  dead-function concern was dropped.) `__substring` needs **no twin** — it
   allocates nothing.
 - **`string_concat` (host import):** `__alloc` is *already exported* from every
   module (the export loop at `lower.rs:516-521` exports every synthetic by

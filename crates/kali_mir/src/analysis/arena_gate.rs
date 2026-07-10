@@ -48,6 +48,13 @@ fn is_whitelisted_host_method(base_object: Option<&str>, method: &str) -> bool {
 /// codegen's `loop_preorder_ordinals` allowlist omits `"for-in"`, and both
 /// numbering streams must skip it in lockstep or the ordinal streams desync
 /// (see the `ForInStmt` arm's guardrail comment in `walk.rs`).
+///
+/// GUARDRAIL: this INCLUSION set must stay identical to the loop-kind arms that
+/// call `arena_enter_loop` in `walk.rs` — loop-kind sets must stay identical or
+/// string-site loop attribution desyncs fail-open (the string-site walk here
+/// re-derives loop ordinals through this predicate; the ownership walk numbers
+/// them through those arms — if the two sets diverge, a string site is
+/// attributed to the wrong loop's arena).
 pub(crate) fn is_arena_ordinal_loop_kind(kind: &HirNodeKind) -> bool {
     matches!(
         kind,
@@ -461,9 +468,10 @@ impl<'a> OwnershipAnalyzer<'a> {
                     // Builtin `Array(n)` / `new Array(n)` allocation. The parser
                     // lowers `new Array(n)` to `NewExpr[ CallExpr[Array, n] ]`,
                     // so the array constructor surfaces here as an *unresolved*
-                    // bare `Array` call. Codegen recognizes exactly this shape
-                    // (`resolve_array_alloc_call`, callee text `"Array"` with no
-                    // children) and lowers it to an array bump-allocation routed
+                    // bare `Array` call. Codegen recognizes the ≤1-arg shape
+                    // (`resolve_array_alloc_call`, callee text `"Array"` with a
+                    // single `n` argument — it rejects a >1-arg `Array(..)`) and
+                    // lowers it to an array bump-allocation routed
                     // by `alloc_callee_index` — `__alloc_global` unless the
                     // enclosing function is `arena_eligible` — NOT a user-body
                     // call that could allocate-and-retain an argument into the

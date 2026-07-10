@@ -28,7 +28,8 @@ fn run_fixture_with_policy(source_name: &str, policy_name: &str, n: &str) -> std
 // Bounded-peak reclamation proof (fasta Spec 7 Task 4e). `join-loop-peak.ts`
 // wraps its while loop in a named function (`run`) with a per-iteration
 // heap `marker` object literal, so the loop is granted its own
-// per-iteration arena (Task 6) and its `line.join("") + "!"` string site is
+// per-iteration arena (the binary-trees arena work) and its
+// `line.join("") + "!"` string site is
 // proven iteration-local (Task 4b), routing both the join and the `+`
 // concat to the resettable `__join_arena`/`string_concat_arena` twins
 // (Task 4c/4d) instead of the never-reset global allocator.

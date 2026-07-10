@@ -1756,12 +1756,13 @@ impl ReprInfer {
         // (arithmetic) — not a veto — so a self-recursive proof chain still
         // closes over itself correctly.
         //
-        // This requires two passes over `self.calls`, not one: the veto for
-        // a given `(callee, param)` key can be discovered on any edge, in any
-        // order, so both `has_scalar_evidence` and `has_veto` must be fully
-        // accumulated across ALL edges before either can be consulted, unlike
-        // the single existential pass this replaces (which could commit a key
-        // the moment one qualifying edge was seen). There is still no fixpoint
+        // This requires a single accumulating pass over `self.calls` that
+        // builds two sets (`scalar_evidence` and `veto`) and then takes their
+        // set-difference — not the single existential pass this replaces (which
+        // could commit a key the moment one qualifying edge was seen). The veto
+        // for a given `(callee, param)` key can be discovered on any edge, in
+        // any order, so both sets must be fully accumulated across ALL edges
+        // before the difference is taken. There is still no fixpoint
         // needed beyond that: an identifier's presence in `scalar_inflow_params`
         // is never consulted, so no edge's admission can unblock another edge's
         // admission on a later round.

@@ -179,9 +179,9 @@ fn function_body_text(text: &str, index: u32) -> String {
 /// whose only global-arena allocation candidate is the for-in key table (a
 /// for-in over a param-typed shape, nested inside a `while` — the fastaRandom
 /// shape) must, after 4g, contain ZERO calls to `__alloc_global` in ITS OWN
-/// body: the table rides the data-segment constant layout at a fixed base. At
-/// HEAD this FAILS (the preheader bump-allocated `N*8` bytes via `__alloc_global`
-/// once per outer iteration).
+/// body: the table rides the data-segment constant layout at a fixed base.
+/// Before Task 4g this failed (the preheader bump-allocated `N*8` bytes via
+/// `__alloc_global` once per outer iteration).
 #[test]
 fn nested_for_in_key_table_is_module_constant_no_global_alloc() {
     let src = "function f(t, n) { while (n > 0) { for (var c in t) { } n = n - 1; } }";
