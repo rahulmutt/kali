@@ -302,3 +302,75 @@ All five prior CLBG fixtures byte-identical; full 5-crate gate + fmt + clippy.
 - Any fasta input size beyond the canonical N=25M.
 - The `crates/kali_cli/tests/fixtures/kali.json` nested-project-boundary latency
   (inert; watch item carried in the Spec 6 memory).
+
+---
+
+## 7. Revision 2026-07-10 — §3.1's arena-context assumption falsified; string-site-triggered loop arenas (Task 4f)
+
+**What broke.** §3.1 assumed the twins "reuse the existing
+`arena_eligible`/`loop_arena`/`opens_arena` state that
+`emit_loop`/`emit_function_arena_prologue` already establish" and that fasta's
+lines reset "inside their `while`-loop iteration arenas." Task 5 (canonical
+N=25M pin) proved this false on a fresh release binary: **neither fasta loop
+ever opens an arena**, so granted string sites route through `__alloc` into the
+never-reset boot arena (g1=g2=g3 from module start) and leak — E4000 at N≈4-6M,
+byte-identical to the pre-Task-4 wall (`.superpowers/sdd/task-5-report.md`).
+Two independent causes (arena_gate.rs:797-826):
+- `fastaRepeat`'s loop has no `ArrayExpr`/`ObjectExpr`, so `reaches_alloc`
+  never fires (`NewExpr` doesn't count; walk.rs:232-243).
+- `fastaRandom`'s loop trips the loop-level `has_outflow` veto via
+  `line = new Array(n)` — correctly, for the OBJECT arena (the buffer outlives
+  iterations), but that array routes to `__alloc_global` and a string-only
+  arena would never capture it.
+
+**Mechanism facts the fix rests on** (verified 2026-07-10 by census over the
+emitted fasta wasm; full audit in `.superpowers/sdd/task-4f-investigation.md`):
+1. **Routing and open/reset are decoupled.** `__alloc` vs `__alloc_global` is
+   chosen per-site (`alloc_callee_index` per-function `arena_eligible`;
+   `arena_string_site` per string site). `loop_arena` drives ONLY the
+   open/reset/release emission in `emit_loop` (control_flow.rs:174-183,
+   235-277, 338-342). A new, independent reason to emit open/reset changes no
+   allocation's allocator.
+2. **Capture is unconditional.** Open/reset rebinds g1/g2/g3 for the loop's
+   whole dynamic extent: every `__alloc` executed during an iteration — direct,
+   callee, or synthetic — lands in the loop arena and dies at the reset.
+3. In both fasta loops the ONLY `__alloc` in the dynamic extent is the granted
+   string site itself (concat in `fastaRepeat`, join in `fastaRandom`);
+   every `new Array` is `__alloc_global` (NewExpr never sets `allocates`).
+
+**Fix (Task 4f): a `string_arena_loop` channel.** A loop emits open/reset
+(without setting `loop_arena` or touching any routing fact) iff ALL hold:
+- **(T)** its body (excluding nested function-like subtrees) contains ≥1
+  GRANTED `arena_string_site`, correlated analysis-side by threading the open
+  loop-ordinal stack through `string_site_walk` (single-source; no new
+  codegen-side mirror — codegen keys the channel by the EXISTING two-sided
+  loop-ordinal stream, exactly like `loop_arena`);
+- **(V1)** the enclosing function is NOT `arena_eligible` (else object/array
+  sites route to `__alloc` and an unproven object could be captured; loops in
+  arena-eligible functions keep the existing `loop_arena` machinery as their
+  only arena path);
+- **(V2)** no `has_unknown_call` in the loop body (unknown callee could
+  allocate-and-retain via `__alloc`) — same veto as `loop_arena_qualifies`;
+- **(V3)** no known callee reachable from the loop body may allocate
+  (`reaches_alloc_transitively`, unknown ⇒ may-allocate, fail closed).
+`has_outflow` is deliberately NOT consulted: outflow of `__alloc_global`-routed
+values is invisible to a string-only arena, and granted string sites can never
+outflow by 4b's default-deny grant. Soundness: by V1-V3 the only `__alloc`
+users in the dynamic extent are granted string sites of this function (dead
+within the iteration by 4b) and callees' granted string sites (dead by callee
+return, since a returned/stored string is never granted). A callee that
+`opens_arena` is additionally safe by LIFO save/restore.
+**Accepted slack:** 4b's `+`-site grants are type-blind, so a numeric
+`console.log(a+b)` loop in a non-allocating function may open a pointless —
+but empty and sound — arena; prior fixtures' STDOUT must stay byte-identical
+(the gate checks output, not wasm bytes).
+
+**Codegen surface:** OR the new getter into the two existing `loop_arena`
+gates only: save-local reservation (lower.rs:1846-1853) and `emit_loop`'s
+`is_arena_loop` (control_flow.rs:173-183). Early-exit handling (break/
+continue/return) is inherited from the existing frame machinery.
+
+**Acceptance:** §4.1's canonical N=25M pin becomes reachable; a second
+bounded-peak fixture (no object-literal trigger — the fasta shape) pins the
+new channel at two N under one small budget, alongside 4e's object-triggered
+fixture.
