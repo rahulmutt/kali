@@ -163,6 +163,23 @@ impl Parser {
                     Expression::Identifier(name)
                 }
             }
+            // Contextual keywords that are legal JS binding identifiers
+            // (see `is_binding_name_token`) must also read back as plain
+            // identifier expressions — `const type = 1; console.log(type)`
+            // is valid JS. `Async`/`Yield`/`Await` already have their own
+            // arms above; this covers the rest of the allowlist.
+            TokenType::Type
+            | TokenType::Interface
+            | TokenType::Enum
+            | TokenType::From
+            | TokenType::As
+            | TokenType::Of => {
+                let token = self.stream.advance();
+                let name = token
+                    .map(|t| t.value)
+                    .unwrap_or_else(|| "unknown".to_string());
+                Expression::Identifier(name)
+            }
             TokenType::Function => self.parse_function_expression_with_async(false),
             TokenType::Class => self.parse_class_expression(),
             TokenType::Import => {

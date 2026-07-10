@@ -189,6 +189,24 @@ impl Parser {
         )
     }
 
+    /// Tokens legal as a BINDING name. Deliberately a small default-deny
+    /// allowlist (NOT is_property_name_token minus a denylist): property
+    /// names admit every keyword, binding names admit only identifiers and
+    /// the contextual keywords that are legal JS binding identifiers.
+    pub(crate) fn is_binding_name_token(kind: &TokenType) -> bool {
+        matches!(
+            kind,
+            TokenType::Identifier
+                | TokenType::Type
+                | TokenType::Interface
+                | TokenType::Enum
+                | TokenType::From
+                | TokenType::As
+                | TokenType::Of
+                | TokenType::Async
+        )
+    }
+
     pub(crate) fn parse_optional_chain_expression(&mut self, object: Expression) -> Expression {
         match self.stream.current_kind() {
             Some(TokenType::Identifier) => {

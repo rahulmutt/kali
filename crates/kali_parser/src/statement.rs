@@ -112,6 +112,15 @@ impl Parser {
     /// comma-separated declarator in a `var`/`let`/`const` statement so the
     /// block-arrow init special-case applies uniformly to each.
     fn parse_variable_declarator(&mut self) -> Option<VariableDeclarator> {
+        if !self
+            .stream
+            .current_kind()
+            .is_some_and(Self::is_binding_name_token)
+        {
+            self.push_feature_unavailable("a reserved word cannot be used as a binding name");
+            let _ = self.stream.advance();
+            return None;
+        }
         let name_token = self.stream.advance()?;
         let name = name_token.value;
 
