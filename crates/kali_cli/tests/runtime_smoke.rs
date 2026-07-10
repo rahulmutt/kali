@@ -1885,44 +1885,22 @@ fn assert_browser_bundle_string_primitive_enumeration(filename: &str, json_outpu
     }
     let output = command.arg(&source_path).output().expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}
-stderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-
     if json_output {
-        let envelope = parse_json_stdout(&output);
-        assert_eq!(envelope["schemaVersion"], 1);
-        assert_eq!(envelope["command"], "build");
-        assert_eq!(envelope["exitCode"], 0);
-        let payload = envelope["payload"]
-            .as_object()
-            .expect("build payload object");
-        assert_eq!(payload["artifactKind"], "bundle");
-        assert_eq!(payload["bundleFormat"], "esm");
-        let artifacts = payload["artifacts"].as_array().expect("artifacts array");
-        let kinds: Vec<_> = artifacts
-            .iter()
-            .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
-            .collect();
-        assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
-        assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
-        assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
-        assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["success"], false);
+        assert_eq!(json["errors"][0]["code"], "E5506");
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("E5506"), "stderr: {stderr}");
     }
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    assert_browser_bundle_executes(&bundle_dir, "stringPrimitiveSmoke");
 }
 
 /// Every caller writes the chunk fixture `export function lazyValue() { return 7; }`,
@@ -2702,16 +2680,20 @@ fn assert_object_string_primitive_enumeration_semantics(
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble
+    // now fails CLOSED instead of silently yielding zero placeholders. Where
+    // the callee resolves (run-mode source) the compile-time E5506 reject
+    // fires; in the Kali.test-callback variant the arrow callee is not
+    // resolvable so the preamble's own self-check throw traps at runtime
+    // (E4000, via the fixed print-then-trap `throw`). Both are fail-closed;
+    // silent success was the miscompile.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        output.status.success(),
-        "stdout: {}, stderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        stderr.contains("E5506") || stderr.contains("E4000"),
+        "stderr: {stderr}"
     );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains('2'), "stdout: {stdout}");
 }
-
 fn object_string_primitive_enumeration_semantics_source() -> &'static str {
     r#"const stringKeys = Object.keys('ab');
 const globalThisStringKeys = globalThis.Object["keys"]('ab');
@@ -3263,33 +3245,18 @@ fn assert_json_object_enumeration_semantics(command: &str, filename: &str) {
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], command);
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    if command == "run" {
-        assert_eq!(json["payload"]["exitCode"], 0);
-        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
-        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
-    } else {
-        assert_eq!(json["payload"]["total"], 1);
-        assert_eq!(json["payload"]["passed"], 1);
-        assert_eq!(json["payload"]["failed"], 0);
-        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
-        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
-    }
-    assert_eq!(json["stdout"], "2\n2\n2\n");
-    assert_eq!(json["stderr"], "");
-    assert!(json["errors"].as_array().expect("errors array").is_empty());
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
-
 fn assert_json_object_from_entries_semantics(command: &str, filename: &str) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
@@ -3443,32 +3410,22 @@ fn assert_json_object_string_primitive_enumeration_semantics(
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-
+    // Flipped pin: the fixture's array-literal-argument self-check preamble
+    // now fails CLOSED instead of silently yielding zero placeholders. Where
+    // the callee resolves (run-mode source) the compile-time E5506 reject
+    // fires; in the Kali.test-callback variant the arrow callee is not
+    // resolvable so the preamble's own self-check throw traps at runtime
+    // (E4000, via the fixed print-then-trap `throw`). Both are fail-closed;
+    // silent success was the miscompile.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], command);
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    if command == "run" {
-        assert_eq!(json["payload"]["exitCode"], 0);
-        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
-        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
-    } else {
-        assert_eq!(json["payload"]["total"], 1);
-        assert_eq!(json["payload"]["passed"], 1);
-        assert_eq!(json["payload"]["failed"], 0);
-        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
-        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
-    }
-    assert_eq!(json["stdout"], "2\n");
-    assert_eq!(json["stderr"], "");
+    assert_eq!(json["success"], false);
+    let code = json["errors"][0]["code"].as_str().unwrap_or_default();
+    assert!(
+        code == "E5506" || code == "E4000",
+        "expected fail-closed reject or trap, got: {json}"
+    );
 }
-
 fn object_property_deletion_semantics_source() -> &'static str {
     r#"const obj = { a: 1, b: 2 };
 if (!('a' in obj) || !('b' in obj)) {
@@ -3495,14 +3452,16 @@ fn assert_object_property_deletion_semantics(command: &str, filename: &str) {
         .output()
         .expect("run kali");
 
+    // Flipped pin: binary `in` is rejected fail-closed (E5506): the token was previously
+    // dropped so `'a' in obj` miscompiled to its left operand, and runtime
+    // key presence (after `delete`) is undecidable in the static object model.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
-
 fn assert_json_object_property_deletion_semantics(command: &str, filename: &str) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
@@ -3517,32 +3476,17 @@ fn assert_json_object_property_deletion_semantics(command: &str, filename: &str)
         .output()
         .expect("run kali");
 
+    // Flipped pin: binary `in` is rejected fail-closed (E5506): the token was previously
+    // dropped so `'a' in obj` miscompiled to its left operand, and runtime
+    // key presence (after `delete`) is undecidable in the static object model.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], command);
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    if command == "run" {
-        assert_eq!(json["payload"]["exitCode"], 0);
-        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
-        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
-    } else {
-        assert_eq!(json["payload"]["total"], 1);
-        assert_eq!(json["payload"]["passed"], 1);
-        assert_eq!(json["payload"]["failed"], 0);
-        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
-        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
-    }
-    assert_eq!(json["stdout"], "");
-    assert_eq!(json["stderr"], "");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
-
 fn assert_browser_requested_object_property_deletion_semantics(command: &str, filename: &str) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
@@ -3558,14 +3502,16 @@ fn assert_browser_requested_object_property_deletion_semantics(command: &str, fi
         .output()
         .expect("run kali");
 
+    // Flipped pin: binary `in` is rejected fail-closed (E5506): the token was previously
+    // dropped so `'a' in obj` miscompiled to its left operand, and runtime
+    // key presence (after `delete`) is undecidable in the static object model.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
-
 fn assert_json_browser_requested_object_property_deletion_semantics(command: &str, filename: &str) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
@@ -3583,31 +3529,17 @@ fn assert_json_browser_requested_object_property_deletion_semantics(command: &st
         .output()
         .expect("run kali");
 
+    // Flipped pin: binary `in` is rejected fail-closed (E5506): the token was previously
+    // dropped so `'a' in obj` miscompiled to its left operand, and runtime
+    // key presence (after `delete`) is undecidable in the static object model.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], command);
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    if command == "run" {
-        assert_eq!(json["payload"]["exitCode"], 0);
-        assert_eq!(json["payload"]["hostContract"], "browser-requested");
-        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    } else {
-        assert_eq!(json["payload"]["total"], 1);
-        assert_eq!(json["payload"]["passed"], 1);
-        assert_eq!(json["payload"]["failed"], 0);
-        assert_eq!(json["payload"]["hostContract"], "browser-requested");
-        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    }
-    assert_eq!(json["stdout"], "");
-    assert_eq!(json["stderr"], "");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
-
 fn assert_browser_requested_object_property_deletion_semantics_when_browser_api_surface_is_inherited(
     command: &str,
     filename: &str,
@@ -3636,14 +3568,16 @@ fn assert_browser_requested_object_property_deletion_semantics_when_browser_api_
         .output()
         .expect("run kali");
 
+    // Flipped pin: binary `in` is rejected fail-closed (E5506): the token was previously
+    // dropped so `'a' in obj` miscompiled to its left operand, and runtime
+    // key presence (after `delete`) is undecidable in the static object model.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
-
 fn assert_json_browser_requested_object_property_deletion_semantics_when_browser_api_surface_is_inherited(
     command: &str,
     filename: &str,
@@ -3674,31 +3608,17 @@ fn assert_json_browser_requested_object_property_deletion_semantics_when_browser
         .output()
         .expect("run kali");
 
+    // Flipped pin: binary `in` is rejected fail-closed (E5506): the token was previously
+    // dropped so `'a' in obj` miscompiled to its left operand, and runtime
+    // key presence (after `delete`) is undecidable in the static object model.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], command);
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    if command == "run" {
-        assert_eq!(json["payload"]["exitCode"], 0);
-        assert_eq!(json["payload"]["hostContract"], "browser-requested");
-        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    } else {
-        assert_eq!(json["payload"]["total"], 1);
-        assert_eq!(json["payload"]["passed"], 1);
-        assert_eq!(json["payload"]["failed"], 0);
-        assert_eq!(json["payload"]["hostContract"], "browser-requested");
-        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    }
-    assert_eq!(json["stdout"], "");
-    assert_eq!(json["stderr"], "");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
-
 fn browser_bundle_object_property_deletion_semantics_source() -> &'static str {
     r#"// kali-tree-shake: objectPropertyDeletionSmoke
 async function objectPropertyDeletionSmoke() {
@@ -3781,38 +3701,17 @@ fn assert_json_object_type_and_constructor_semantics(
         .output()
         .expect("run kali");
 
+    // Flipped pin: `instanceof` is rejected fail-closed (E5506): kali has no prototype
+    // chain; the token was previously dropped so the expression miscompiled
+    // to its left operand.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], command);
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    if command == "run" {
-        assert_eq!(json["payload"]["exitCode"], 0);
-        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
-        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
-        assert!(
-            json["stdout"]
-                .as_str()
-                .expect("stdout")
-                .contains("object type ok"),
-            "json: {json}"
-        );
-    } else {
-        assert_eq!(json["payload"]["total"], 1);
-        assert_eq!(json["payload"]["passed"], 1);
-        assert_eq!(json["payload"]["failed"], 0);
-        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
-        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
-        assert_eq!(json["stdout"], "");
-    }
-    assert_eq!(json["stderr"], "");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
-
 fn assert_json_browser_requested_object_type_and_constructor_semantics(
     command: &str,
     filename: &str,
@@ -3838,38 +3737,17 @@ fn assert_json_browser_requested_object_type_and_constructor_semantics(
         .output()
         .expect("run kali");
 
+    // Flipped pin: `instanceof` is rejected fail-closed (E5506): kali has no prototype
+    // chain; the token was previously dropped so the expression miscompiled
+    // to its left operand.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], command);
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    if command == "run" {
-        assert_eq!(json["payload"]["exitCode"], 0);
-        assert_eq!(json["payload"]["hostContract"], "browser-requested");
-        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-        assert!(
-            json["stdout"]
-                .as_str()
-                .expect("stdout")
-                .contains("object type ok"),
-            "json: {json}"
-        );
-    } else {
-        assert_eq!(json["payload"]["total"], 1);
-        assert_eq!(json["payload"]["passed"], 1);
-        assert_eq!(json["payload"]["failed"], 0);
-        assert_eq!(json["payload"]["hostContract"], "browser-requested");
-        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-        assert_eq!(json["stdout"], "");
-    }
-    assert_eq!(json["stderr"], "");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
-
 fn browser_bundle_object_type_and_constructor_semantics_source() -> &'static str {
     r#"// kali-tree-shake: objectTypeSmoke
 function Box() {}
