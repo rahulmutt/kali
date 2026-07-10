@@ -34,18 +34,22 @@ fn fasta_small_n_matches_node_golden() {
     assert_eq!(String::from_utf8_lossy(&output.stdout), GOLDEN);
 }
 
-// Tier 2 — large-N SHA-256. N=2,000,000 (20 MB output, ~1.5s) sits with ~40%
-// byte-headroom below the measured ~N>=4M allocation wall (E4000): the fasta
-// output loops leak their per-line join/substring temporaries — there is NO
-// per-line reclamation yet. Canonical N=25,000,000 (254 MB) awaits fasta
-// Spec 7's arena reclamation; its node reference hash is
-// 6a26f1c843bebd234692ff1bd98ad517dd7df732fe93d2095845a2ddafc9ecee. This
-// interim tier proves the golden-free SHA validation harness against the
-// N=2M node reference.
+// Tier 2 — canonical large-N SHA-256. N=25,000,000 (254,166,745 bytes of
+// output) is the fasta Spec 7 §4.1 canonical pin. It depends on fasta Spec
+// 7's bounded-peak per-string-site arena reclamation (Tasks 4a-4g: the
+// ArenaTable string-site channel, per-site iteration-locality analysis,
+// `__join_arena`/`string_concat_arena` routing, string-site-triggered loop
+// arenas, and module-constant for-in key tables) to keep peak allocator
+// churn bounded well under the wasm32 4 GiB linear-memory ceiling — without
+// it, fastaRepeat's `+`-concat and fastaRandom's `.join("")` loops leak
+// their per-line temporaries and N=25M traps E4000 (see Task 4e's bounded-
+// peak proof and Task 4f/4g's loop-arena-opening fix). The node v26.4.0
+// reference hash below was independently re-derived twice (file-redirected,
+// not piped, to avoid stdout-pipe truncation at this output volume).
 #[test]
 fn fasta_large_n_matches_node_sha256() {
-    const N: &str = "2000000";
-    const NODE_SHA256: &str = "a6b7308b4f7ea37cbaef69bdb05448c8623549978dc24d30e4e197026c1e073a";
+    const N: &str = "25000000";
+    const NODE_SHA256: &str = "6a26f1c843bebd234692ff1bd98ad517dd7df732fe93d2095845a2ddafc9ecee";
     let source = fixture("fasta-benchmark-v1.ts");
     let policy = fixture("fasta-benchmark-v1.policy.json");
     let output = Command::new(kali_bin())
