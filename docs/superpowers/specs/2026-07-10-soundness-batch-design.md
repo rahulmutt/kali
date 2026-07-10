@@ -214,10 +214,16 @@ consumer pattern compiles with the short-circuit baked in:
    `!== null` **reject**: under `===`, undefined ≠ null, so the result is
    constant regardless of the base — a constant-folding admit is a footgun
    better refused.
-3. **`??` / `??=`.** `obj?.x ?? d` → `base == 0 ? d : field`, requiring the
-   field's repr be a proven non-nullish scalar/string so base-nullness is the
-   only nullish source and JS semantics collapse to exactly this select. The
-   result is then a plain value — assignable, printable, passable anywhere.
+3. **`??`.** `obj?.x ?? d` → `base == 0 ? d : field`, requiring the field's
+   repr be a proven non-nullish scalar/string so base-nullness is the only
+   nullish source and JS semantics collapse to exactly this select. The
+   result is then a plain value — assignable, printable, passable anywhere;
+   in particular `v ??= obj?.x ?? d` works because the RHS is a plain value.
+   An optional member can only appear on the **right** of `??=`: `obj?.x` is
+   never a legal assignment target in JS (`obj?.x = e` and `obj?.x ??= e`
+   are SyntaxErrors — the parser rejects them as such), and a bare
+   `v ??= obj?.x` RHS rejects with E5506 (a possibly-undefined store would
+   need sentinel semantics on `v`; out of scope).
 
 ### 4.5 Default-deny
 
@@ -235,10 +241,11 @@ which is why it branches from merged PR-A.
 - **Parse errors** (existing parser-error style): reserved-word binding names,
   unrecognized object-literal property forms, block-bodied arrow outside
   declarator position, `?.(` and `?.[` grammar forms.
-- **New E-code — mixed BigInt arithmetic**: a *program* error (node throws
-  TypeError), not a kali feature gap, so it gets its own code in the E-series
-  rather than hiding under E5506. Exact number assigned at implementation
-  time from the next free slot in `kali_error/src/_error_codes.rs`.
+- **New E-code — mixed BigInt arithmetic: E3202 `MIXED_BIGINT_ARITHMETIC`**
+  (next free slot in the E3200-3299 "Type errors (basic)" range of
+  `kali_error/src/_error_codes.rs`): a *program* error (node throws
+  TypeError), not a kali feature gap, so it lives in the type-error series
+  rather than hiding under E5506.
 - **E5506 FEATURE_UNAVAILABLE** (existing): legal JS outside the admitted
   surface — `?.` chains, `?.` results in non-admitted consumer positions,
   `=== null` comparisons on optional members.
