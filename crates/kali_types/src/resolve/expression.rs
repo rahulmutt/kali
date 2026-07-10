@@ -372,22 +372,6 @@ impl TypeContext {
     /// in an outer, untracked-boundary-crossed function is NOT visible here),
     /// and only reaches module/global scope when emitting `_start` (no
     /// tracked function).
-    /// True iff `expr` is (a possibly parenthesized) `null` or `undefined`
-    /// literal — the types-side twin of codegen's
-    /// `is_null_or_undefined_literal` (`emit/literal.rs`), which unwraps
-    /// transparent wrappers and matches literal text `null`/`undefined`.
-    /// (`undefined` parses as `Identifier("undefined")`, `null` as
-    /// `Literal(Null)`.) Used to narrow the for-in-key alias `??=` admit to a
-    /// null/undefined RHS.
-    fn expression_is_null_or_undefined_literal(expr: &Expression) -> bool {
-        let mut inner = expr;
-        while let Expression::ParenthesizedExpression(p) = inner {
-            inner = &p.expression;
-        }
-        matches!(inner, Expression::Literal(LiteralValue::Null))
-            || matches!(inner, Expression::Identifier(name) if name == "undefined")
-    }
-
     pub(crate) fn for_in_key_shape(&self, name: &str) -> Option<kali_common::ShapeId> {
         let tracked_scope = self.current_function_scope();
         let mut current = self.current_scope_id();
@@ -411,6 +395,24 @@ impl TypeContext {
             }
             current = scope.parent;
         }
+    }
+
+    /// True iff `expr` is (a possibly parenthesized) `null` LITERAL — the
+    /// types-side twin of codegen's `is_null_or_undefined_literal`
+    /// (`emit/literal.rs`). Used to narrow the for-in-key alias `??=` admit.
+    ///
+    /// Deliberately does NOT match bare `undefined`: it parses as
+    /// `Identifier("undefined")`, but codegen's twin only recognizes LITERAL
+    /// nodes, so an admitted `??= undefined` would slip past the sentinel-store
+    /// special case into the generic emit and store raw `0` (a valid key
+    /// ordinal — truthiness flips vs node). `??= undefined` must stay REJECTED
+    /// until both recognizer twins agree on the identifier form.
+    fn expression_is_null_literal(expr: &Expression) -> bool {
+        let mut inner = expr;
+        while let Expression::ParenthesizedExpression(p) = inner {
+            inner = &p.expression;
+        }
+        matches!(inner, Expression::Literal(LiteralValue::Null))
     }
 
     /// Spec 4a Task 3 fail-closed gate for a computed for-in-key object access
@@ -1757,22 +1759,24 @@ impl TypeContext {
                         ),
                     ));
                 } else if matches!(expr.operator, AssignmentOperator::NullishAssign)
-                    && !Self::expression_is_null_or_undefined_literal(&expr.right)
+                    && !Self::expression_is_null_literal(&expr.right)
                 {
-                    // fasta Spec 7 final review round 2: a for-in-key alias
-                    // `??=` is admitted ONLY when the RHS is a null/undefined
-                    // literal. A fired non-null RHS would store a raw number
-                    // into an ordinal-repr binding, so every downstream ordinal
+                    // fasta Spec 7 final review rounds 2-3: a for-in-key alias
+                    // `??=` is admitted ONLY when the RHS is a `null` literal.
+                    // A fired non-null RHS would store a raw number into an
+                    // ordinal-repr binding, so every downstream ordinal
                     // consumer (`table[alias]`, truthiness) diverges from node
                     // (which would hold the raw value, e.g. `table[alias]`
-                    // after `??= 1` → node `undefined`). A null RHS is the one
-                    // fired store codegen can represent (the `-1` sentinel);
-                    // anything else rejects fail-closed with the same E5506
-                    // family as the scalar reject above.
+                    // after `??= 1` → node `undefined`). A null-literal RHS is
+                    // the one fired store codegen can represent (the `-1`
+                    // sentinel); anything else — including bare `undefined`,
+                    // an IDENTIFIER codegen's null recognizer does not match
+                    // (see `expression_is_null_literal`) — rejects fail-closed
+                    // with the same E5506 family as the scalar reject above.
                     self.diagnostics.push(Diagnostic::error(
                         e5::FEATURE_UNAVAILABLE as u32,
                         format!(
-                            "nullish assignment on binding '{}' is unavailable: a for-in-key alias `??=` supports only a null or undefined right-hand side (any other value has no ordinal representation)",
+                            "nullish assignment on binding '{}' is unavailable: a for-in-key alias `??=` supports only a `null` literal right-hand side (any other value has no ordinal representation)",
                             name
                         ),
                     ));

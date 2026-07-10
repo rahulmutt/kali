@@ -583,13 +583,15 @@ impl<'a> FunctionEmitter<'a> {
                 function.instruction(&Instruction::I64Const(-1));
                 function.instruction(&Instruction::I64Eq);
                 function.instruction(&Instruction::If(BlockType::Result(ValType::I64)));
-                // Fired branch, null/undefined RHS: store the `-1` null
+                // Fired branch, null-literal RHS: store the `-1` null
                 // sentinel, NOT the generic null lowering (`0` — a VALID key
                 // ordinal, which would flip the alias's truthiness from false
                 // to true). Mirrors the `=` arm's null-store special case
-                // above. Resolve narrows the admitted `??=` RHS to a
-                // null/undefined literal, so the generic-emit fallback below
-                // is defensive only.
+                // above. Resolve narrows the admitted `??=` RHS to a `null`
+                // LITERAL (bare `undefined` is an Identifier, which this
+                // recognizer does not match — it rejects in resolve so it can
+                // never slip into the generic emit below), so the generic-emit
+                // fallback is defensive only.
                 if self.for_in_key_aliases.contains(&name)
                     && self.is_null_or_undefined_literal(right)
                 {

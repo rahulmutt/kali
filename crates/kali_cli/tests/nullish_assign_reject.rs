@@ -107,12 +107,32 @@ fn for_in_key_alias_fired_nullish_null_rhs_stores_sentinel() {
 // would store a raw number into an ordinal-repr binding, and every downstream
 // ordinal consumer (`table[last]`, truthiness) diverges from node (which holds
 // a string key or the raw number, e.g. `table[last]` after `??= 1` → node
-// `undefined`). The admit is narrowed to a null/undefined-literal RHS — the
-// only RHS whose fired store (-1 sentinel) is representable.
+// `undefined`). The admit is narrowed to a `null`-literal RHS — the only RHS
+// whose fired store (-1 sentinel) is representable.
 #[test]
 fn for_in_key_alias_nullish_assign_non_null_rhs_rejects() {
     let out = run_source(
         "var table = {a:7, b:8};\nvar last = null;\nfor (var c in table) { last = c; break; }\nlast ??= 5;\nconsole.log(table[last]);\n",
+    );
+    assert!(!out.status.success(), "expected E5506 reject, got: {out:?}");
+    assert!(
+        String::from_utf8_lossy(&out.stderr).contains("E5506"),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+// `??= undefined` must ALSO reject: bare `undefined` parses as an IDENTIFIER,
+// not a literal, and codegen's null recognizer (`is_null_or_undefined_literal`)
+// only matches LITERAL nodes — so an admitted `??= undefined` would slip past
+// the sentinel-store special case into the generic emit and store raw `0` (a
+// valid key ordinal): kali `truthy`, node `falsy`. Until BOTH recognizer twins
+// agree on bare `undefined`, the resolve admit accepts only the `null` literal
+// — fail-closed.
+#[test]
+fn for_in_key_alias_nullish_assign_undefined_rhs_rejects() {
+    let out = run_source(
+        "var table = {a:1};\nvar last = null;\nvar go = 0;\nfor (var c in table) { if (go) { last = c; } }\nlast ??= undefined;\nif (last) { console.log(\"truthy\"); } else { console.log(\"falsy\"); }\n",
     );
     assert!(!out.status.success(), "expected E5506 reject, got: {out:?}");
     assert!(
