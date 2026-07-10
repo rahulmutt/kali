@@ -3452,15 +3452,17 @@ fn assert_object_property_deletion_semantics(command: &str, filename: &str) {
         .output()
         .expect("run kali");
 
-    // Flipped pin: binary `in` is rejected fail-closed (E5506): the token was previously
+    // Flipped pin: binary `in` fails closed at EVALUATION (E4000 print-then-trap; E5506 where a compile gate still fires): the token was previously
     // dropped so `'a' in obj` miscompiled to its left operand, and runtime
     // key presence (after `delete`) is undecidable in the static object model.
-    assert!(
-        !output.status.success(),
-        "must be rejected fail-closed: {output:?}"
-    );
+    assert!(!output.status.success(), "must fail closed: {output:?}");
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("E4000")
+            || stderr.contains("E5506")
+            || stderr.contains("RuntimeError: unreachable"),
+        "expected fail-closed trap or reject, stderr: {stderr}"
+    );
 }
 fn assert_json_object_property_deletion_semantics(command: &str, filename: &str) {
     let dir = tempdir().expect("tempdir");
@@ -3476,16 +3478,18 @@ fn assert_json_object_property_deletion_semantics(command: &str, filename: &str)
         .output()
         .expect("run kali");
 
-    // Flipped pin: binary `in` is rejected fail-closed (E5506): the token was previously
+    // Flipped pin: binary `in` fails closed at EVALUATION (E4000 print-then-trap; E5506 where a compile gate still fires): the token was previously
     // dropped so `'a' in obj` miscompiled to its left operand, and runtime
     // key presence (after `delete`) is undecidable in the static object model.
-    assert!(
-        !output.status.success(),
-        "must be rejected fail-closed: {output:?}"
-    );
+    assert!(!output.status.success(), "must fail closed: {output:?}");
     let json = parse_json_stdout(&output);
     assert_eq!(json["success"], false);
-    assert_eq!(json["errors"][0]["code"], "E5506");
+    let code = json["errors"][0]["code"].as_str().unwrap_or_default();
+    let harness_stderr = json["stderr"].as_str().unwrap_or_default();
+    assert!(
+        code == "E4000" || code == "E5506" || harness_stderr.contains("RuntimeError: unreachable"),
+        "expected fail-closed trap or reject, got: {json}"
+    );
 }
 fn assert_browser_requested_object_property_deletion_semantics(command: &str, filename: &str) {
     let dir = tempdir().expect("tempdir");
@@ -3502,15 +3506,17 @@ fn assert_browser_requested_object_property_deletion_semantics(command: &str, fi
         .output()
         .expect("run kali");
 
-    // Flipped pin: binary `in` is rejected fail-closed (E5506): the token was previously
+    // Flipped pin: binary `in` fails closed at EVALUATION (E4000 print-then-trap; E5506 where a compile gate still fires): the token was previously
     // dropped so `'a' in obj` miscompiled to its left operand, and runtime
     // key presence (after `delete`) is undecidable in the static object model.
-    assert!(
-        !output.status.success(),
-        "must be rejected fail-closed: {output:?}"
-    );
+    assert!(!output.status.success(), "must fail closed: {output:?}");
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("E4000")
+            || stderr.contains("E5506")
+            || stderr.contains("RuntimeError: unreachable"),
+        "expected fail-closed trap or reject, stderr: {stderr}"
+    );
 }
 fn assert_json_browser_requested_object_property_deletion_semantics(command: &str, filename: &str) {
     let dir = tempdir().expect("tempdir");
@@ -3529,16 +3535,18 @@ fn assert_json_browser_requested_object_property_deletion_semantics(command: &st
         .output()
         .expect("run kali");
 
-    // Flipped pin: binary `in` is rejected fail-closed (E5506): the token was previously
+    // Flipped pin: binary `in` fails closed at EVALUATION (E4000 print-then-trap; E5506 where a compile gate still fires): the token was previously
     // dropped so `'a' in obj` miscompiled to its left operand, and runtime
     // key presence (after `delete`) is undecidable in the static object model.
-    assert!(
-        !output.status.success(),
-        "must be rejected fail-closed: {output:?}"
-    );
+    assert!(!output.status.success(), "must fail closed: {output:?}");
     let json = parse_json_stdout(&output);
     assert_eq!(json["success"], false);
-    assert_eq!(json["errors"][0]["code"], "E5506");
+    let code = json["errors"][0]["code"].as_str().unwrap_or_default();
+    let harness_stderr = json["stderr"].as_str().unwrap_or_default();
+    assert!(
+        code == "E4000" || code == "E5506" || harness_stderr.contains("RuntimeError: unreachable"),
+        "expected fail-closed trap or reject, got: {json}"
+    );
 }
 fn assert_browser_requested_object_property_deletion_semantics_when_browser_api_surface_is_inherited(
     command: &str,
@@ -3568,15 +3576,17 @@ fn assert_browser_requested_object_property_deletion_semantics_when_browser_api_
         .output()
         .expect("run kali");
 
-    // Flipped pin: binary `in` is rejected fail-closed (E5506): the token was previously
+    // Flipped pin: binary `in` fails closed at EVALUATION (E4000 print-then-trap; E5506 where a compile gate still fires): the token was previously
     // dropped so `'a' in obj` miscompiled to its left operand, and runtime
     // key presence (after `delete`) is undecidable in the static object model.
-    assert!(
-        !output.status.success(),
-        "must be rejected fail-closed: {output:?}"
-    );
+    assert!(!output.status.success(), "must fail closed: {output:?}");
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("E4000")
+            || stderr.contains("E5506")
+            || stderr.contains("RuntimeError: unreachable"),
+        "expected fail-closed trap or reject, stderr: {stderr}"
+    );
 }
 fn assert_json_browser_requested_object_property_deletion_semantics_when_browser_api_surface_is_inherited(
     command: &str,
@@ -3608,16 +3618,18 @@ fn assert_json_browser_requested_object_property_deletion_semantics_when_browser
         .output()
         .expect("run kali");
 
-    // Flipped pin: binary `in` is rejected fail-closed (E5506): the token was previously
+    // Flipped pin: binary `in` fails closed at EVALUATION (E4000 print-then-trap; E5506 where a compile gate still fires): the token was previously
     // dropped so `'a' in obj` miscompiled to its left operand, and runtime
     // key presence (after `delete`) is undecidable in the static object model.
-    assert!(
-        !output.status.success(),
-        "must be rejected fail-closed: {output:?}"
-    );
+    assert!(!output.status.success(), "must fail closed: {output:?}");
     let json = parse_json_stdout(&output);
     assert_eq!(json["success"], false);
-    assert_eq!(json["errors"][0]["code"], "E5506");
+    let code = json["errors"][0]["code"].as_str().unwrap_or_default();
+    let harness_stderr = json["stderr"].as_str().unwrap_or_default();
+    assert!(
+        code == "E4000" || code == "E5506" || harness_stderr.contains("RuntimeError: unreachable"),
+        "expected fail-closed trap or reject, got: {json}"
+    );
 }
 fn browser_bundle_object_property_deletion_semantics_source() -> &'static str {
     r#"// kali-tree-shake: objectPropertyDeletionSmoke
@@ -3701,16 +3713,18 @@ fn assert_json_object_type_and_constructor_semantics(
         .output()
         .expect("run kali");
 
-    // Flipped pin: `instanceof` is rejected fail-closed (E5506): kali has no prototype
+    // Flipped pin: `instanceof` fails closed at EVALUATION (E4000 print-then-trap; E5506 where a compile gate still fires): kali has no prototype
     // chain; the token was previously dropped so the expression miscompiled
     // to its left operand.
-    assert!(
-        !output.status.success(),
-        "must be rejected fail-closed: {output:?}"
-    );
+    assert!(!output.status.success(), "must fail closed: {output:?}");
     let json = parse_json_stdout(&output);
     assert_eq!(json["success"], false);
-    assert_eq!(json["errors"][0]["code"], "E5506");
+    let code = json["errors"][0]["code"].as_str().unwrap_or_default();
+    let harness_stderr = json["stderr"].as_str().unwrap_or_default();
+    assert!(
+        code == "E4000" || code == "E5506" || harness_stderr.contains("RuntimeError: unreachable"),
+        "expected fail-closed trap or reject, got: {json}"
+    );
 }
 fn assert_json_browser_requested_object_type_and_constructor_semantics(
     command: &str,
@@ -3737,16 +3751,18 @@ fn assert_json_browser_requested_object_type_and_constructor_semantics(
         .output()
         .expect("run kali");
 
-    // Flipped pin: `instanceof` is rejected fail-closed (E5506): kali has no prototype
+    // Flipped pin: `instanceof` fails closed at EVALUATION (E4000 print-then-trap; E5506 where a compile gate still fires): kali has no prototype
     // chain; the token was previously dropped so the expression miscompiled
     // to its left operand.
-    assert!(
-        !output.status.success(),
-        "must be rejected fail-closed: {output:?}"
-    );
+    assert!(!output.status.success(), "must fail closed: {output:?}");
     let json = parse_json_stdout(&output);
     assert_eq!(json["success"], false);
-    assert_eq!(json["errors"][0]["code"], "E5506");
+    let code = json["errors"][0]["code"].as_str().unwrap_or_default();
+    let harness_stderr = json["stderr"].as_str().unwrap_or_default();
+    assert!(
+        code == "E4000" || code == "E5506" || harness_stderr.contains("RuntimeError: unreachable"),
+        "expected fail-closed trap or reject, got: {json}"
+    );
 }
 fn browser_bundle_object_type_and_constructor_semantics_source() -> &'static str {
     r#"// kali-tree-shake: objectTypeSmoke

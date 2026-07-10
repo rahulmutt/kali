@@ -646,7 +646,7 @@ fn json_test_supports_web_baseline_structured_clone_and_event_primitives_in_ts_a
             .output()
             .expect("run kali");
 
-        // Flipped pin: `instanceof` is rejected fail-closed (E5506): kali has no prototype
+        // Flipped pin: `instanceof` fails closed at EVALUATION (E4000 print-then-trap; E5506 where a compile gate still fires): kali has no prototype
         // chain; the token was previously dropped so the expression miscompiled
         // to its left operand.
         assert!(
@@ -655,7 +655,14 @@ fn json_test_supports_web_baseline_structured_clone_and_event_primitives_in_ts_a
         );
         let json = parse_json_stdout(&output);
         assert_eq!(json["success"], false);
-        assert_eq!(json["errors"][0]["code"], "E5506");
+        let code = json["errors"][0]["code"].as_str().unwrap_or_default();
+        let harness_stderr = json["stderr"].as_str().unwrap_or_default();
+        assert!(
+            code == "E4000"
+                || code == "E5506"
+                || harness_stderr.contains("RuntimeError: unreachable"),
+            "expected fail-closed trap or reject, got: {json}"
+        );
     }
 }
 
@@ -686,7 +693,7 @@ fn json_test_supports_web_baseline_structured_clone_and_event_primitives_when_br
             .output()
             .expect("run kali");
 
-        // Flipped pin: `instanceof` is rejected fail-closed (E5506): kali has no prototype
+        // Flipped pin: `instanceof` fails closed at EVALUATION (E4000 print-then-trap; E5506 where a compile gate still fires): kali has no prototype
         // chain; the token was previously dropped so the expression miscompiled
         // to its left operand.
         assert!(
@@ -695,7 +702,14 @@ fn json_test_supports_web_baseline_structured_clone_and_event_primitives_when_br
         );
         let json = parse_json_stdout(&output);
         assert_eq!(json["success"], false);
-        assert_eq!(json["errors"][0]["code"], "E5506");
+        let code = json["errors"][0]["code"].as_str().unwrap_or_default();
+        let harness_stderr = json["stderr"].as_str().unwrap_or_default();
+        assert!(
+            code == "E4000"
+                || code == "E5506"
+                || harness_stderr.contains("RuntimeError: unreachable"),
+            "expected fail-closed trap or reject, got: {json}"
+        );
     }
 }
 
@@ -736,7 +750,7 @@ fn json_test_supports_web_baseline_structured_clone_and_event_primitives_when_br
             .output()
             .expect("run kali");
 
-        // Flipped pin: `instanceof` is rejected fail-closed (E5506): kali has no prototype
+        // Flipped pin: `instanceof` fails closed at EVALUATION (E4000 print-then-trap; E5506 where a compile gate still fires): kali has no prototype
         // chain; the token was previously dropped so the expression miscompiled
         // to its left operand.
         assert!(
@@ -745,7 +759,14 @@ fn json_test_supports_web_baseline_structured_clone_and_event_primitives_when_br
         );
         let json = parse_json_stdout(&output);
         assert_eq!(json["success"], false);
-        assert_eq!(json["errors"][0]["code"], "E5506");
+        let code = json["errors"][0]["code"].as_str().unwrap_or_default();
+        let harness_stderr = json["stderr"].as_str().unwrap_or_default();
+        assert!(
+            code == "E4000"
+                || code == "E5506"
+                || harness_stderr.contains("RuntimeError: unreachable"),
+            "expected fail-closed trap or reject, got: {json}"
+        );
     }
 }
 
@@ -9711,15 +9732,17 @@ fn test_supports_object_type_and_constructor_semantics() {
         .output()
         .expect("run kali");
 
-    // Flipped pin: `instanceof` is rejected fail-closed (E5506): kali has no prototype
+    // Flipped pin: `instanceof` fails closed at EVALUATION (E4000 print-then-trap; E5506 where a compile gate still fires): kali has no prototype
     // chain; the token was previously dropped so the expression miscompiled
     // to its left operand.
-    assert!(
-        !output.status.success(),
-        "must be rejected fail-closed: {output:?}"
-    );
+    assert!(!output.status.success(), "must fail closed: {output:?}");
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("E4000")
+            || stderr.contains("E5506")
+            || stderr.contains("RuntimeError: unreachable"),
+        "expected fail-closed trap or reject, stderr: {stderr}"
+    );
 }
 
 #[test]
@@ -9739,15 +9762,17 @@ fn test_supports_object_type_and_constructor_semantics_in_js_input() {
         .output()
         .expect("run kali");
 
-    // Flipped pin: `instanceof` is rejected fail-closed (E5506): kali has no prototype
+    // Flipped pin: `instanceof` fails closed at EVALUATION (E4000 print-then-trap; E5506 where a compile gate still fires): kali has no prototype
     // chain; the token was previously dropped so the expression miscompiled
     // to its left operand.
-    assert!(
-        !output.status.success(),
-        "must be rejected fail-closed: {output:?}"
-    );
+    assert!(!output.status.success(), "must fail closed: {output:?}");
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("E4000")
+            || stderr.contains("E5506")
+            || stderr.contains("RuntimeError: unreachable"),
+        "expected fail-closed trap or reject, stderr: {stderr}"
+    );
 }
 
 #[test]

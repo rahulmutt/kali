@@ -1266,6 +1266,35 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        // Binary `in`/`instanceof` have no sound evaluation: kali's static
+        // object model cannot decide runtime key presence after `delete`,
+        // and there is no prototype chain to walk. The parser used to drop
+        // these tokens silently (the expression miscompiled to its LEFT
+        // operand); now the real AST arrives here and EVALUATION fails
+        // closed with throw's print-then-trap pattern. Deliberately a
+        // runtime trap, not a compile reject: analysis-only commands
+        // (`kali check`) and builds of code whose in/instanceof lines never
+        // execute stay usable (e.g. the browser package corpus), and no
+        // wrong value can ever escape. This arm must precede the
+        // object-misuse gate below — the right operand is typically an
+        // object reference, which would otherwise turn this into a compile
+        // error and break those builds.
+        if matches!(op, "in" | "instanceof") {
+            let message = format!(
+                "Uncaught unsupported `{op}` operator: kali cannot evaluate it (no runtime key-presence or prototype-chain machinery)"
+            );
+            let (offset, len) = self.strings.intern(&message);
+            function.instruction(&Instruction::I64Const(encode_string_handle(offset, len)));
+            function.instruction(&Instruction::Call(crate::CONSOLE_ERROR_IMPORT_INDEX));
+            function.instruction(&Instruction::Unreachable);
+            // Unreachable makes the stack polymorphic; report `produced` so
+            // value-position consumers keep a valid emit shape.
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Unknown,
+            };
+        }
+
         // Object misuse gate: a genuine arithmetic/comparison operator applied
         // to an object reference (e.g. `p + 1`) would silently operate on the
         // raw pointer. `=` and the compound-assignment operators are handled

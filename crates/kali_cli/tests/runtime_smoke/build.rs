@@ -693,15 +693,16 @@ fn build_emits_browser_bundle_object_property_deletion_semantics_in_ts_input() {
         .output()
         .expect("run kali");
 
-    // Flipped pin: binary `in` is rejected fail-closed (E5506): the token was previously
-    // dropped so `'a' in obj` miscompiled to its left operand, and runtime
-    // key presence (after `delete`) is undecidable in the static object model.
+    // Flipped pin (evaluation-trap layering): in/instanceof are runtime
+    // traps, not compile rejects, so the bundle BUILD must succeed —
+    // analysis and builds of code containing them stay usable (the browser
+    // package corpus pins this). Executing the smoke entrypoint traps
+    // fail-closed; that behavior is pinned by soundness_in_operator.rs and
+    // the run/test variants of this family.
     assert!(
-        !output.status.success(),
-        "must be rejected fail-closed: {output:?}"
+        output.status.success(),
+        "bundle build must succeed: {output:?}"
     );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -725,15 +726,16 @@ fn build_emits_browser_bundle_object_property_deletion_semantics_in_js_input() {
         .output()
         .expect("run kali");
 
-    // Flipped pin: binary `in` is rejected fail-closed (E5506): the token was previously
-    // dropped so `'a' in obj` miscompiled to its left operand, and runtime
-    // key presence (after `delete`) is undecidable in the static object model.
+    // Flipped pin (evaluation-trap layering): in/instanceof are runtime
+    // traps, not compile rejects, so the bundle BUILD must succeed —
+    // analysis and builds of code containing them stay usable (the browser
+    // package corpus pins this). Executing the smoke entrypoint traps
+    // fail-closed; that behavior is pinned by soundness_in_operator.rs and
+    // the run/test variants of this family.
     assert!(
-        !output.status.success(),
-        "must be rejected fail-closed: {output:?}"
+        output.status.success(),
+        "bundle build must succeed: {output:?}"
     );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -757,15 +759,16 @@ fn build_emits_browser_bundle_object_type_and_constructor_semantics_in_ts_input(
         .output()
         .expect("run kali");
 
-    // Flipped pin: `instanceof` is rejected fail-closed (E5506): kali has no prototype
-    // chain; the token was previously dropped so the expression miscompiled
-    // to its left operand.
+    // Flipped pin (evaluation-trap layering): in/instanceof are runtime
+    // traps, not compile rejects, so the bundle BUILD must succeed —
+    // analysis and builds of code containing them stay usable (the browser
+    // package corpus pins this). Executing the smoke entrypoint traps
+    // fail-closed; that behavior is pinned by soundness_in_operator.rs and
+    // the run/test variants of this family.
     assert!(
-        !output.status.success(),
-        "must be rejected fail-closed: {output:?}"
+        output.status.success(),
+        "bundle build must succeed: {output:?}"
     );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -789,15 +792,16 @@ fn build_emits_browser_bundle_object_type_and_constructor_semantics_in_js_input(
         .output()
         .expect("run kali");
 
-    // Flipped pin: `instanceof` is rejected fail-closed (E5506): kali has no prototype
-    // chain; the token was previously dropped so the expression miscompiled
-    // to its left operand.
+    // Flipped pin (evaluation-trap layering): in/instanceof are runtime
+    // traps, not compile rejects, so the bundle BUILD must succeed —
+    // analysis and builds of code containing them stay usable (the browser
+    // package corpus pins this). Executing the smoke entrypoint traps
+    // fail-closed; that behavior is pinned by soundness_in_operator.rs and
+    // the run/test variants of this family.
     assert!(
-        !output.status.success(),
-        "must be rejected fail-closed: {output:?}"
+        output.status.success(),
+        "bundle build must succeed: {output:?}"
     );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -823,16 +827,18 @@ fn build_emits_browser_bundle_object_type_and_constructor_semantics_in_json_outp
         .output()
         .expect("run kali");
 
-    // Flipped pin: `instanceof` is rejected fail-closed (E5506): kali has no prototype
-    // chain; the token was previously dropped so the expression miscompiled
-    // to its left operand.
+    // Flipped pin (evaluation-trap layering): in/instanceof are runtime
+    // traps, not compile rejects, so the bundle BUILD must succeed —
+    // analysis and builds of code containing them stay usable (the browser
+    // package corpus pins this). Executing the smoke entrypoint traps
+    // fail-closed; that behavior is pinned by soundness_in_operator.rs and
+    // the run/test variants of this family.
     assert!(
-        !output.status.success(),
-        "must be rejected fail-closed: {output:?}"
+        output.status.success(),
+        "bundle build must succeed: {output:?}"
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["success"], false);
-    assert_eq!(json["errors"][0]["code"], "E5506");
+    assert_eq!(json["success"], true);
 }
 
 #[test]
@@ -3778,15 +3784,16 @@ fn build_emits_browser_bundle_web_baseline_primitives() {
         .output()
         .expect("run kali");
 
-    // Flipped pin: `instanceof` is rejected fail-closed (E5506): kali has no prototype
-    // chain; the token was previously dropped so the expression miscompiled
-    // to its left operand.
+    // Flipped pin (evaluation-trap layering): in/instanceof are runtime
+    // traps, not compile rejects, so the bundle BUILD must succeed —
+    // analysis and builds of code containing them stay usable (the browser
+    // package corpus pins this). Executing the smoke entrypoint traps
+    // fail-closed; that behavior is pinned by soundness_in_operator.rs and
+    // the run/test variants of this family.
     assert!(
-        !output.status.success(),
-        "must be rejected fail-closed: {output:?}"
+        output.status.success(),
+        "bundle build must succeed: {output:?}"
     );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -3805,15 +3812,16 @@ fn build_emits_browser_bundle_web_baseline_primitives_in_js_input() {
         .output()
         .expect("run kali");
 
-    // Flipped pin: `instanceof` is rejected fail-closed (E5506): kali has no prototype
-    // chain; the token was previously dropped so the expression miscompiled
-    // to its left operand.
+    // Flipped pin (evaluation-trap layering): in/instanceof are runtime
+    // traps, not compile rejects, so the bundle BUILD must succeed —
+    // analysis and builds of code containing them stay usable (the browser
+    // package corpus pins this). Executing the smoke entrypoint traps
+    // fail-closed; that behavior is pinned by soundness_in_operator.rs and
+    // the run/test variants of this family.
     assert!(
-        !output.status.success(),
-        "must be rejected fail-closed: {output:?}"
+        output.status.success(),
+        "bundle build must succeed: {output:?}"
     );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -3834,16 +3842,18 @@ fn json_build_emits_browser_bundle_web_baseline_primitives() {
         .output()
         .expect("run kali");
 
-    // Flipped pin: `instanceof` is rejected fail-closed (E5506): kali has no prototype
-    // chain; the token was previously dropped so the expression miscompiled
-    // to its left operand.
+    // Flipped pin (evaluation-trap layering): in/instanceof are runtime
+    // traps, not compile rejects, so the bundle BUILD must succeed —
+    // analysis and builds of code containing them stay usable (the browser
+    // package corpus pins this). Executing the smoke entrypoint traps
+    // fail-closed; that behavior is pinned by soundness_in_operator.rs and
+    // the run/test variants of this family.
     assert!(
-        !output.status.success(),
-        "must be rejected fail-closed: {output:?}"
+        output.status.success(),
+        "bundle build must succeed: {output:?}"
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["success"], false);
-    assert_eq!(json["errors"][0]["code"], "E5506");
+    assert_eq!(json["success"], true);
 }
 
 #[test]
@@ -3864,16 +3874,18 @@ fn json_build_emits_browser_bundle_web_baseline_primitives_in_js_input() {
         .output()
         .expect("run kali");
 
-    // Flipped pin: `instanceof` is rejected fail-closed (E5506): kali has no prototype
-    // chain; the token was previously dropped so the expression miscompiled
-    // to its left operand.
+    // Flipped pin (evaluation-trap layering): in/instanceof are runtime
+    // traps, not compile rejects, so the bundle BUILD must succeed —
+    // analysis and builds of code containing them stay usable (the browser
+    // package corpus pins this). Executing the smoke entrypoint traps
+    // fail-closed; that behavior is pinned by soundness_in_operator.rs and
+    // the run/test variants of this family.
     assert!(
-        !output.status.success(),
-        "must be rejected fail-closed: {output:?}"
+        output.status.success(),
+        "bundle build must succeed: {output:?}"
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["success"], false);
-    assert_eq!(json["errors"][0]["code"], "E5506");
+    assert_eq!(json["success"], true);
 }
 
 #[test]
