@@ -1101,6 +1101,52 @@ impl TypeContext {
         }
     }
 
+    /// Binary arithmetic mixing a BigInt operand with a non-BigInt operand is
+    /// a JS `TypeError` ("Cannot mix BigInt and other types") — codegen has
+    /// no correct lowering for it (`/` floats unless BOTH operands are
+    /// BigInt-literal-valued per `is_bigint_literal_valued`, and `+`/`-`/`*`
+    /// share the hole), so `3n * 2` silently floats instead of throwing.
+    /// Reject at compile time (E3202) instead. Scope is syntactic-literal,
+    /// mirroring codegen's own oracle: an operand is "BigInt-valued" here iff
+    /// it is a `BigIntLiteral`, optionally under unary minus or parens. There
+    /// is no const-binding-to-literal chase (`static_values` only tracks
+    /// string values, not a general AST-node-of-initializer lookup) — a
+    /// `const` bound to a BigInt literal is out of scope here, same as the
+    /// unmixed non-literal path's recorded follow-up.
+    fn reject_mixed_bigint_arithmetic(&mut self, expr: &BinaryExpression) {
+        if !matches!(expr.operator.as_str(), "+" | "-" | "*" | "/" | "%" | "**") {
+            return;
+        }
+        let left_bigint = Self::is_bigint_literal_expr(&expr.left);
+        let right_bigint = Self::is_bigint_literal_expr(&expr.right);
+        if left_bigint != right_bigint {
+            self.diagnostics.push(Diagnostic::error(
+                e3::MIXED_BIGINT_ARITHMETIC as u32,
+                format!(
+                    "cannot mix BigInt and non-BigInt operands in '{}' — convert one side explicitly",
+                    expr.operator
+                ),
+            ));
+        }
+    }
+
+    /// Literal-scope BigInt recognizer mirroring codegen's
+    /// `is_bigint_literal_valued` (`kali_codegen::emit::operators`) on the
+    /// AST: a `BigIntLiteral`, optionally wrapped in unary minus or
+    /// parentheses.
+    fn is_bigint_literal_expr(expr: &Expression) -> bool {
+        match expr {
+            Expression::BigIntLiteral(_) => true,
+            Expression::UnaryExpression(unary) if unary.operator == "-" => {
+                Self::is_bigint_literal_expr(&unary.argument)
+            }
+            Expression::ParenthesizedExpression(paren) => {
+                Self::is_bigint_literal_expr(&paren.expression)
+            }
+            _ => false,
+        }
+    }
+
     /// Reject a string-typed expression used as a ternary condition (fail-closed).
     /// Uses the same string-typedness signal as the `+` gate
     /// (`expression_is_string_typed`), covering string literals/templates, `+`
@@ -1536,6 +1582,7 @@ impl TypeContext {
                 self.resolve_expression(&expr.right);
                 self.reject_unsupported_string_variable_addition(expr);
                 self.reject_logical_operand_runtime_string(expr);
+                self.reject_mixed_bigint_arithmetic(expr);
                 // `&&`/`||`/`??` parse to a BinaryExpression here (not a
                 // LogicalExpression). A for-in-key alias operand of these is a
                 // fail-closed reject (raw integer truthiness inverts the `-1`
