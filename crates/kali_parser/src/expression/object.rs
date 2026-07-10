@@ -21,7 +21,11 @@ impl Parser {
             }
 
             let (key, value) = match self.stream.current_kind().copied() {
-                Some(TokenType::Identifier) => {
+                Some(kind) if Self::is_property_name_token(&kind) => {
+                    // Keyword property keys (`type`, `if`, …) are plain names in JS
+                    // object literals — same key set as `.name` member access
+                    // (is_property_name_token), so literal writes and member reads
+                    // can never disagree again.
                     let name = self
                         .stream
                         .advance()
@@ -67,6 +71,13 @@ impl Parser {
                     }
                 }
                 _ => {
+                    // Fail closed: the old arm advanced-and-continued, silently
+                    // DISCARDING the whole property (keyword keys, spreads, methods —
+                    // anything unrecognized). A property the parser cannot represent
+                    // must reject, never vanish.
+                    self.push_feature_unavailable(
+                        "this object-literal property form is unavailable in the current phase; use `key: value` with an identifier, string, or numeric key",
+                    );
                     let _ = self.stream.advance();
                     continue;
                 }
