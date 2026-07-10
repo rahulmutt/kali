@@ -1230,6 +1230,25 @@ impl ReprInfer {
                     // A reassigned literal is observable through the binding:
                     // the fold lane cannot represent it, so materialize.
                     self.obj_materialized.insert(slot);
+                    // Same syntactic taint as the declarator seed
+                    // (`visit_declarator_init` above) — see the field doc on
+                    // `object_initialized_bindings`. An object-literal RHS
+                    // taints the TARGET binding wherever the assignment
+                    // appears, not just in declarator position: `var o; o =
+                    // {x:1}; o += 1` (no initializer) and `var o = 0; o =
+                    // {x:1}; o += 1` (reassignment) must hit the
+                    // compound/update gate exactly like `var o = {x:1}` does.
+                    // Belt-and-suspenders alongside the eager
+                    // `obj_materialized` insert above: that insert already
+                    // forces `Repr::Object` for THIS exact literal-RHS shape
+                    // via the solve pass, but the syntactic taint is
+                    // independent of materialization/solve-pass plumbing, so
+                    // it keeps closing the gap even if that eager insert is
+                    // ever refactored away. Restricted to a plain identifier
+                    // target by the enclosing `if let Expression::Identifier`
+                    // above — never a member/index target.
+                    self.object_initialized_bindings
+                        .insert((func.to_string(), name.clone()));
                     return self.scalar_node_for(func, name);
                 }
                 self.record_object_flow_from_expr(
