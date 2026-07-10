@@ -367,7 +367,13 @@ impl Parser {
             }));
         }
 
+        // Expression-form head: a trailing `in` here belongs to `for (c in
+        // obj)`, so it must terminate the expression (no_in) instead of being
+        // rejected as the unsupported binary `in` operator.
+        let previous_no_in = self.no_in;
+        self.no_in = true;
         let expr = self.parse_expression();
+        self.no_in = previous_no_in;
         if self.stream.current_kind() == Some(&TokenType::Of) {
             let _ = self.stream.advance();
             let right = self.parse_expression();
@@ -583,6 +589,16 @@ impl Parser {
 
     pub(crate) fn parse_try_statement(&mut self) -> Option<Statement> {
         let _ = self.stream.advance();
+
+        // kali has no exception-unwinding machinery. try/catch/finally
+        // previously lowered to a bogus if-shaped Branch (catch block treated
+        // as an `if` `then` arm) — a silent miscompile that only "passed"
+        // while `throw` was a no-op. Reject fail-closed rather than pretend to
+        // handle exceptions. The tokens are still consumed below so the parse
+        // recovers cleanly and no cascade of secondary errors is emitted.
+        self.push_feature_unavailable(
+            "try/catch/finally is unavailable: kali has no exception-handling machinery",
+        );
 
         let block = self
             .parse_block_statement()

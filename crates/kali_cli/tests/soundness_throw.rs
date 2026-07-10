@@ -33,7 +33,10 @@ fn throw_error_literal_aborts_with_message() {
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(stderr.contains("Uncaught Error: boom"), "stderr: {stderr}");
     let stdout = String::from_utf8_lossy(&out.stdout);
-    assert!(!stdout.contains("after"), "must not execute past throw: {stdout}");
+    assert!(
+        !stdout.contains("after"),
+        "must not execute past throw: {stdout}"
+    );
 }
 
 #[test]
