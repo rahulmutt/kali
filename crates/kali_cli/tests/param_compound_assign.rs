@@ -314,3 +314,75 @@ fn never_called_param_compound_rejects() {
         String::from_utf8_lossy(&out.stdout)
     );
 }
+
+// Existential-laundering closure (Spec 7 Task 1): a scalar edge at one call
+// site must NOT admit a compound assign when ANOTHER edge passes an unproven
+// (indirect, non-syntactically-scalar) argument. `g()` is a call-result → the
+// `f(g())` edge is a veto → `f`'s `p += 1` must reject fail-closed (E5506),
+// even though `f(5)` is a scalar edge. Masked today (indirect delivery gives 0)
+// but must be structurally closed.
+#[test]
+fn mixed_scalar_and_indirect_edges_reject_param_compound() {
+    let out = run_source(
+        "function g() { return {x:1}; }\n\
+         function f(p) { p += 1; return p; }\n\
+         f(5);\n\
+         console.log(f(g()));\n",
+    );
+    assert!(
+        !out.status.success(),
+        "expected E5506 reject, got success: {out:?}"
+    );
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("E5506") || stderr.contains("not a provably scalar"),
+        "expected fail-closed compound-assign diagnostic, stderr: {stderr}"
+    );
+}
+
+// Same laundering shape but with g() returning an ARRAY. This is the variant
+// that actually MISCOMPILED pre-veto (printed `1`, exit 0): the object variant
+// above already rejected via Repr::Object return-flow onto the param, but an
+// array call-return leaves the param at the default I64 repr, so ONLY the
+// ∀-veto (the `f(g())` edge is not syntactically scalar → veto) rejects it.
+// This test pins the veto itself against a revert.
+#[test]
+fn mixed_scalar_and_indirect_array_edges_reject_param_compound() {
+    let out = run_source(
+        "function g() { return [1, 2]; }\n\
+         function f(p) { p += 1; return p; }\n\
+         f(5);\n\
+         console.log(f(g()));\n",
+    );
+    assert!(
+        !out.status.success(),
+        "expected E5506 reject, got success: {out:?}"
+    );
+    assert!(
+        out.stdout.is_empty(),
+        "must produce NO stdout, got: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("E5506") || stderr.contains("not a provably scalar"),
+        "expected fail-closed compound-assign diagnostic, stderr: {stderr}"
+    );
+}
+
+// A purely-scalar call site (fasta's shape: `2*n`, `k+0`) still ADMITS — the
+// ∀-condition must not over-reject genuine scalar flow.
+#[test]
+fn all_scalar_edges_still_admit_param_compound() {
+    let out = run_source(
+        "function f(p) { p += 1; return p; }\n\
+         console.log(f(2 * 3));\n\
+         console.log(f(10 + 0));\n",
+    );
+    assert!(
+        out.status.success(),
+        "expected admit, stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "7\n11\n");
+}

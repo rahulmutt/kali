@@ -40,7 +40,12 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    pub(crate) fn emit_call(&mut self, function: &mut Function, node: &LirNode) -> EmittedValue {
+    pub(crate) fn emit_call(
+        &mut self,
+        function: &mut Function,
+        id: LirNodeId,
+        node: &LirNode,
+    ) -> EmittedValue {
         let Some(callee) = node.children.first().copied() else {
             function.instruction(&Instruction::I64Const(0));
             return EmittedValue {
@@ -761,7 +766,7 @@ impl<'a> FunctionEmitter<'a> {
         // Placed AFTER the static fold lane so literal receivers keep folding;
         // the recognizer's `array_bindings` check already makes them disjoint.
         if let Some((receiver, separator)) = self.runtime_join_call_parts(node) {
-            return self.emit_runtime_join(function, receiver, separator);
+            return self.emit_runtime_join(function, id, receiver, separator);
         }
 
         if let Some(result) = self.resolve_static_array_to_string_call(node) {
@@ -2618,6 +2623,7 @@ impl<'a> FunctionEmitter<'a> {
     fn emit_runtime_join(
         &mut self,
         function: &mut Function,
+        id: LirNodeId,
         receiver: LirNodeId,
         separator: Option<LirNodeId>,
     ) -> EmittedValue {
@@ -2638,7 +2644,22 @@ impl<'a> FunctionEmitter<'a> {
                 function.instruction(&Instruction::I64Const(encode_string_handle(offset, len)));
             }
         }
-        function.instruction(&Instruction::Call(self.join_fn_index()));
+        // Per-site arena routing (fasta Spec 7 Task 4c): select the resettable
+        // `__join_arena` twin iff the escape gate proved THIS join site's result
+        // iteration-local, keyed by the site's pre-order string-site ordinal
+        // (`string_site_ordinals`, the codegen mirror of 4b's stream). A miss
+        // (site not numbered, or not granted) fails closed to the global
+        // `__join`.
+        let use_arena = self
+            .string_site_ordinals
+            .get(&id)
+            .is_some_and(|&ord| self.arena_table.arena_string_site(&self.function_name, ord));
+        let join_index = if use_arena {
+            self.join_arena_fn_index()
+        } else {
+            self.join_fn_index()
+        };
+        function.instruction(&Instruction::Call(join_index));
         EmittedValue {
             produced: true,
             shape: ValueShape::String,
@@ -3251,3 +3272,7 @@ impl<'a> FunctionEmitter<'a> {
 #[cfg(test)]
 #[path = "call_tests.rs"]
 mod call_tests;
+
+#[cfg(test)]
+#[path = "reclamation_tests.rs"]
+mod reclamation_tests;

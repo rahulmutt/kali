@@ -112,6 +112,11 @@ impl<'a> OwnershipAnalyzer<'a> {
                 }
                 if let Some(body) = body {
                     self.precollect_scope_bindings(body);
+                    // Parallel string-site channel: number this function's
+                    // string-producing sites (pre-order) and record the
+                    // iteration-local ones. Independent of the ownership walk
+                    // below; see `arena_collect_string_sites`.
+                    self.arena_collect_string_sites(body);
                     self.walk_scope_node(body, UseContext::Normal);
                 }
                 self.pop_scope_and_record();
@@ -149,6 +154,11 @@ impl<'a> OwnershipAnalyzer<'a> {
                 }
                 if let Some(body) = body {
                     self.precollect_scope_bindings(body);
+                    // Parallel string-site channel: number this function's
+                    // string-producing sites (pre-order) and record the
+                    // iteration-local ones. Independent of the ownership walk
+                    // below; see `arena_collect_string_sites`.
+                    self.arena_collect_string_sites(body);
                     self.walk_scope_node(body, UseContext::Normal);
                 }
                 self.pop_scope_and_record();
@@ -284,6 +294,11 @@ impl<'a> OwnershipAnalyzer<'a> {
                 // so ownership verdicts are unchanged — except that the
                 // loop-head binder (if any) is seeded may-heap first: see
                 // `seed_for_of_loop_var_heap`.
+                //
+                // GUARDRAIL: the set of loop kinds calling `arena_enter_loop`
+                // here must stay identical to `is_arena_ordinal_loop_kind`
+                // (`arena_gate.rs`) — loop-kind sets must stay identical or
+                // string-site loop attribution desyncs fail-open.
                 self.arena_enter_loop();
                 self.seed_for_of_loop_var_heap(&children);
                 for child in children {
@@ -295,6 +310,11 @@ impl<'a> OwnershipAnalyzer<'a> {
                 // Pre-order loop ordinal (matches the order the LIR emitter
                 // walks loops). Child walking is identical to the default arm,
                 // so ownership verdicts are unchanged.
+                //
+                // GUARDRAIL: the set of loop kinds calling `arena_enter_loop`
+                // here must stay identical to `is_arena_ordinal_loop_kind`
+                // (`arena_gate.rs`) — loop-kind sets must stay identical or
+                // string-site loop attribution desyncs fail-open.
                 self.arena_enter_loop();
                 for child in children {
                     self.walk_scope_node(child, context);

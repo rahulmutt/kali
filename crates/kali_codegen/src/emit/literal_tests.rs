@@ -97,8 +97,24 @@ fn compound_assignment_on_immutable_bindings_reports_feature_unavailable() {
 }
 
 #[test]
-fn nullish_assignment_lowers_for_wrapped_mutable_local_binding_targets() {
-    assert_nullish_assignment_lowers("let value = null; ((value)) ??= 1; console.log(value);");
+fn nullish_assignment_lowers_for_wrapped_for_in_key_alias_targets() {
+    // fasta Spec 7 Task 3: scalar `??=` now rejects in resolve (null and 0 are
+    // indistinguishable for a scalar), so the surviving `??=` lowering — and
+    // the only valid "lowers cleanly" pin — is a for-in-key ALIAS target,
+    // whose `-1` null sentinel keeps null distinct from every key ordinal.
+    // The wrapped parens keep this test's transparent-target coverage.
+    assert_nullish_assignment_lowers(
+        "var table = { a: 1, b: 2 }; var last = null; for (var c in table) { last = c; } ((last)) ??= null; if (last) { console.log(1); }",
+        |ctx| {
+            let shape = ctx.repr_table.intern_shape(vec![
+                ("a".to_string(), kali_common::Repr::I64),
+                ("b".to_string(), kali_common::Repr::I64),
+            ]);
+            ctx.repr_table
+                .set_scalar("_start", "table", kali_common::Repr::Object(shape));
+            ctx.arena_table.set_arena_eligible("_start");
+        },
+    );
 }
 
 #[test]

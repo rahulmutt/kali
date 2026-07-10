@@ -171,8 +171,19 @@ impl<'a> FunctionEmitter<'a> {
         // i.e. no arena — plain `__alloc`/`__alloc_global` routing per
         // `alloc_callee_index`, exactly like before this task.
         let ordinal = self.loop_ordinals.get(&id).copied();
-        let is_arena_loop =
-            ordinal.is_some_and(|ord| self.arena_table.loop_arena(&self.function_name, ord));
+        // A loop opens/resets a per-iteration arena if EITHER channel grants its
+        // ordinal: the object/array `loop_arena` channel OR the emit-only
+        // `string_arena_loop` channel (fasta Spec 7 Task 4f — a loop whose only
+        // reclaimable allocation is a granted string site). OR-ing the two
+        // getters keeps this a SINGLE `is_arena_loop` decision, so the
+        // open/reset/release wiring below fires exactly once even when both
+        // channels grant. `string_arena_loop` changes NO routing decision; it
+        // only rebinds g1/g2/g3 for the loop's dynamic extent (see its
+        // `ArenaTable` doc comment).
+        let is_arena_loop = ordinal.is_some_and(|ord| {
+            self.arena_table.loop_arena(&self.function_name, ord)
+                || self.arena_table.string_arena_loop(&self.function_name, ord)
+        });
         let arena_save_locals = ordinal.filter(|_| is_arena_loop).map(|ord| {
             let (page_name, cursor_name, limit_name) = crate::lower::arena_save_local_names(ord);
             (
@@ -465,18 +476,36 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
 
-        // Spec 4a Task 5: build the per-shape key handle table ONCE, here in the
-        // preheader (never per-iteration). The base is stored in this loop's
-        // dedicated persistent local (`for_in_key_table_local_name`), and the
-        // key + every recognized alias map to it in `for_in_key_handle_tables` so
-        // a STRING-VALUE use of any of them (`return c`) materializes the interned
-        // field-name handle instead of the raw ordinal. Aliases enumerate the
-        // same shape (same ordered field names), so one table serves all.
-        let table_local = self.locals[&crate::lower::for_in_key_table_local_name(ordinal)];
-        self.emit_key_handle_table(function, shape, table_local);
+        // Spec 4a Task 5 / fasta Spec 7 Task 4g: the per-shape key handle table
+        // is MODULE-CONSTANT DATA. Every slot is a compile-time
+        // `encode_string_handle` constant, so the whole table is interned once
+        // into the string-pool's data-segment layout (`intern_key_table`,
+        // deduped by shape) and referenced by a fixed base offset — zero runtime
+        // allocation, O(1) in both N and call count, regardless of loop nesting.
+        // (The old code bump-allocated `N*8` bytes here on EVERY for-in
+        // execution, which for a for-in nested in a loop leaked once per outer
+        // iteration.) The key + every recognized alias map to the base in
+        // `for_in_key_handle_tables` so a STRING-VALUE use of any of them
+        // (`return c`) materializes the interned field-name handle. Aliases
+        // enumerate the same shape (same ordered field names), so one table
+        // serves all.
+        let names: Vec<String> = self
+            .repr_table
+            .shape_fields(shape)
+            .iter()
+            .map(|(name, _)| name.clone())
+            .collect();
+        let handles: Vec<i64> = names
+            .iter()
+            .map(|name| {
+                let (offset, len) = self.strings.intern(name);
+                encode_string_handle(offset, len)
+            })
+            .collect();
+        let table_base = self.strings.intern_key_table(shape, &handles);
         for name in &recognized {
             self.for_in_key_handle_tables
-                .insert(name.clone(), table_local);
+                .insert(name.clone(), table_base);
         }
 
         // preheader: ord = 0
@@ -917,8 +946,8 @@ impl<'a> FunctionEmitter<'a> {
                 self.emit_sequence(function, &node.children, false)
             }
             LirNodeKind::Literal => emit_literal(function, node.text.as_deref(), self.strings),
-            LirNodeKind::Value => self.emit_value(function, &node, want_value),
-            LirNodeKind::Call => self.emit_call(function, &node),
+            LirNodeKind::Value => self.emit_value(function, id, &node, want_value),
+            LirNodeKind::Call => self.emit_call(function, id, &node),
             LirNodeKind::Branch => match node.text.as_deref() {
                 Some(text) if text.starts_with("break") => {
                     self.emit_break_or_continue(function, false, &node)
@@ -991,6 +1020,7 @@ impl<'a> FunctionEmitter<'a> {
     pub(crate) fn emit_value(
         &mut self,
         function: &mut Function,
+        id: LirNodeId,
         node: &LirNode,
         want_value: bool,
     ) -> EmittedValue {
@@ -1030,9 +1060,11 @@ impl<'a> FunctionEmitter<'a> {
                     if let Some(&table_base) = self.for_in_key_handle_tables.get(text) {
                         if self.scalar_repr(text) == kali_common::Repr::String {
                             if let Some(&ord_local) = self.locals.get(text) {
-                                // addr = table_base(i32) + ord*8, load the i64 handle
-                                function.instruction(&Instruction::LocalGet(table_base));
-                                function.instruction(&Instruction::I32WrapI64);
+                                // addr = table_base(const) + ord*8, load the i64
+                                // handle. `table_base` is now a compile-time
+                                // data-segment offset (fasta Spec 7 Task 4g), not
+                                // a runtime local holding a bump-allocated base.
+                                function.instruction(&Instruction::I32Const(table_base as i32));
                                 function.instruction(&Instruction::LocalGet(ord_local));
                                 function.instruction(&Instruction::I32WrapI64);
                                 function.instruction(&Instruction::I32Const(8));
@@ -1245,7 +1277,7 @@ impl<'a> FunctionEmitter<'a> {
                 // stringifies to a bare operator, so `text` cleanly separates the
                 // two shapes.
                 if is_binary_operator_text(node.text.as_deref().unwrap_or_default()) {
-                    return self.emit_binary(function, node);
+                    return self.emit_binary(function, id, node);
                 }
 
                 // Computed for-in-key read `obj[c]` over a uniform-repr fixed

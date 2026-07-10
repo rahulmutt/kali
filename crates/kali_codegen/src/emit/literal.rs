@@ -189,6 +189,7 @@ impl<'a> FunctionEmitter<'a> {
     pub(crate) fn emit_assignment(
         &mut self,
         function: &mut Function,
+        id: LirNodeId,
         node: &LirNode,
         op: &str,
         left: LirNodeId,
@@ -573,11 +574,33 @@ impl<'a> FunctionEmitter<'a> {
                 function.instruction(&Instruction::LocalGet(index));
                 function.instruction(&Instruction::LocalSet(temp_local));
                 function.instruction(&Instruction::LocalGet(temp_local));
-                function.instruction(&Instruction::I64Eqz);
+                // Resolve guarantees the only `??=` target reaching codegen is a
+                // for-in-key ALIAS, whose null sentinel is `-1` (key ordinals are
+                // 0-based). The nullish test must be a `-1` sentinel compare, NOT
+                // a falsy `I64Eqz` (which would fire on the valid ordinal `0`,
+                // overwriting the first key). Sibling `||=`/`&&=` below stay
+                // `I64Eqz` — falsy semantics is correct for THEM.
+                function.instruction(&Instruction::I64Const(-1));
+                function.instruction(&Instruction::I64Eq);
                 function.instruction(&Instruction::If(BlockType::Result(ValType::I64)));
-                let rhs = self.emit_node(function, right, true);
-                if !rhs.produced {
-                    function.instruction(&Instruction::I64Const(0));
+                // Fired branch, null-literal RHS: store the `-1` null
+                // sentinel, NOT the generic null lowering (`0` — a VALID key
+                // ordinal, which would flip the alias's truthiness from false
+                // to true). Mirrors the `=` arm's null-store special case
+                // above. Resolve narrows the admitted `??=` RHS to a `null`
+                // LITERAL (bare `undefined` is an Identifier, which this
+                // recognizer does not match — it rejects in resolve so it can
+                // never slip into the generic emit below), so the generic-emit
+                // fallback is defensive only.
+                if self.for_in_key_aliases.contains(&name)
+                    && self.is_null_or_undefined_literal(right)
+                {
+                    function.instruction(&Instruction::I64Const(-1));
+                } else {
+                    let rhs = self.emit_node(function, right, true);
+                    if !rhs.produced {
+                        function.instruction(&Instruction::I64Const(0));
+                    }
                 }
                 function.instruction(&Instruction::Else);
                 function.instruction(&Instruction::LocalGet(temp_local));
@@ -632,9 +655,17 @@ impl<'a> FunctionEmitter<'a> {
                     }
                     // `a += e` ≡ `a = a + e`: concatenate the current handle
                     // with the (stringified) rhs and store the fresh handle.
+                    // Per-site arena routing (fasta Spec 7 Task 4d): the `+=`
+                    // node (`id`) has text `"+="`, which `is_string_site` never
+                    // records in the string-site stream, so
+                    // `string_concat_import_index` ALWAYS misses here and fails
+                    // closed to the global `string_concat` — the accumulator
+                    // outlives the iteration (bound to a name), so its result
+                    // must NOT be reclaimed. Routed through the shared selector
+                    // anyway so the two concat sites stay a single oracle.
                     function.instruction(&Instruction::LocalGet(index));
                     self.emit_as_string(function, right);
-                    function.instruction(&Instruction::Call(STRING_CONCAT_IMPORT_INDEX));
+                    function.instruction(&Instruction::Call(self.string_concat_import_index(id)));
                     function.instruction(&Instruction::LocalTee(index));
                     return true;
                 }

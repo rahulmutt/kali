@@ -81,6 +81,20 @@ pub struct ReprTable {
     /// repr evidence and are unaffected). A never-called function's params all
     /// land here (no flow evidence at all) and correctly reject.
     params_lacking_scalar_inflow: HashSet<(String, String)>,
+    /// `(func, binding)` var/let/const locals whose declarator RHS is an
+    /// object literal. Object shape inference only assigns `Repr::Object`
+    /// when the object is "materialized" (reached by a field read somewhere
+    /// in the program); an object-initialized binding that is never
+    /// field-read (e.g. `var o = {x:1}; o += 1;`) stays at the default
+    /// `Repr::I64`, so the repr-allowlist check in the compound/update gate
+    /// alone cannot see it — it would admit `o += 1` and silently do integer
+    /// arithmetic on the never-materialized value (miscompile: prints `1`
+    /// where node prints `[object Object]1`). This taint is independent of
+    /// materialization: it fires on the syntactic shape of the declarator RHS
+    /// alone, so the gate can reject fail-closed regardless of whether the
+    /// object ever gets a shape. Mirrors [`non_scalar_params`](Self::non_scalar_params)
+    /// (fasta Spec 7 Task 2).
+    object_initialized_bindings: HashSet<(String, String)>,
     any_float: bool,
     any_string: bool,
     /// `(func, binding)` scalars/params whose `Repr::String` value is a FRESH
@@ -294,6 +308,21 @@ impl ReprTable {
     /// parameters are ever recorded, so this is always false for a var local.
     pub fn param_lacks_scalar_inflow(&self, func: &str, binding: &str) -> bool {
         self.params_lacking_scalar_inflow
+            .contains(&(func.to_string(), binding.to_string()))
+    }
+
+    /// Record that `(func, binding)`'s declarator RHS is an object literal —
+    /// see [`object_initialized_bindings`](Self::object_initialized_bindings).
+    pub fn mark_object_initialized_binding(&mut self, func: &str, binding: &str) {
+        self.object_initialized_bindings
+            .insert((func.to_string(), binding.to_string()));
+    }
+
+    /// True when `(func, binding)` was declared with an object-literal
+    /// initializer. Defaults to false — a non-object binding reports false,
+    /// so its scalar compound/update lowering stays gated on repr alone.
+    pub fn object_initialized_binding(&self, func: &str, binding: &str) -> bool {
+        self.object_initialized_bindings
             .contains(&(func.to_string(), binding.to_string()))
     }
 

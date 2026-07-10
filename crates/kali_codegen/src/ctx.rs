@@ -186,6 +186,17 @@ pub(crate) struct StringPool {
     pub(crate) entries: Vec<(u32, String)>,
     pub(crate) offsets: BTreeMap<String, u32>,
     pub(crate) next_offset: u32,
+    /// fasta Spec 7 Task 4g: per-shape for-in KEY TABLES emitted as
+    /// module-constant data (raw `i64` handle blobs), not bump-allocated per
+    /// for-in execution. Each entry is `(base, little-endian bytes)` and is
+    /// written into the data segment at finalize alongside `entries`. They ride
+    /// the SAME `next_offset` address space as interned strings, so each table's
+    /// base is a compile-time constant known at emit time (exactly how a string
+    /// constant gets its offset). `key_table_offsets` dedups by shape across the
+    /// whole module (one table per distinct shape, shared by every for-in site
+    /// and every monomorphized twin over that shape).
+    pub(crate) key_table_entries: Vec<(u32, Vec<u8>)>,
+    pub(crate) key_table_offsets: BTreeMap<kali_common::ShapeId, u32>,
 }
 
 impl StringPool {
@@ -194,6 +205,8 @@ impl StringPool {
             entries: Vec::new(),
             offsets: BTreeMap::new(),
             next_offset: reserved_prefix,
+            key_table_entries: Vec::new(),
+            key_table_offsets: BTreeMap::new(),
         }
     }
 
@@ -209,6 +222,34 @@ impl StringPool {
         self.offsets.insert(text, offset);
         self.next_offset = self.next_offset.saturating_add(len);
         (offset, len)
+    }
+
+    /// Intern a for-in key handle table (fasta Spec 7 Task 4g): a per-shape,
+    /// compile-time-constant array of `i64` string handles (slot `j` = the
+    /// interned handle of the shape's `j`th field name). Returns the table's
+    /// base offset — an 8-aligned data-segment address the read site references
+    /// as an `i32.const`, so the table costs ZERO runtime allocation. Deduped
+    /// by shape: the second for-in over the same shape reuses the first base.
+    ///
+    /// The blob is serialized little-endian to match wasm linear-memory byte
+    /// order, so an `i64.load` at `base + ord*8` observes exactly the handle
+    /// value the old per-execution `i64.store` bump produced. The base is
+    /// 8-aligned (the bump allocator this replaces always returned 8-aligned
+    /// addresses); the ≤7 padding bytes before it stay zero (never emitted).
+    pub(crate) fn intern_key_table(&mut self, shape: kali_common::ShapeId, handles: &[i64]) -> u32 {
+        if let Some(&base) = self.key_table_offsets.get(&shape) {
+            return base;
+        }
+        let base = (self.next_offset + 7) & !7;
+        let mut bytes = Vec::with_capacity(handles.len() * 8);
+        for &handle in handles {
+            bytes.extend_from_slice(&handle.to_le_bytes());
+        }
+        let size = bytes.len() as u32;
+        self.key_table_entries.push((base, bytes));
+        self.key_table_offsets.insert(shape, base);
+        self.next_offset = base.saturating_add(size);
+        base
     }
 }
 

@@ -7,21 +7,28 @@ fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
 }
 
+// fasta Spec 7 Task 3: scalar `??=` rejects fail-closed (null and 0 are
+// indistinguishable for a scalar), so the wrapped `??=` coverage rides the one
+// surviving lowering — a for-in-key ALIAS binding (`-1` null sentinel). The
+// scalar `||=`/`&&=` targets keep their falsy semantics and stay unchanged.
 fn browser_bundle_wrapped_assignment_source() -> &'static str {
     r##"// kali-tree-shake: browserWrappedAssignmentTargets
 export function browserWrappedAssignmentTargets() {
-  let value = null;
-  ((value)) ??= 1;
-  if (value !== 1) {
-    throw new Error(`unexpected wrapped nullish result ${value}`);
+  var table = { a: 1, b: 2 };
+  var last = null;
+  for (var c in table) {
+    last = c;
   }
+  ((last)) ??= null;
+  var nullishOk = 0;
+  if (last) { nullishOk = 1; }
 
   let left = 0;
   ((left)) ||= 1;
   let right = 1;
   ((right)) &&= 2;
-  if (left !== 1 || right !== 2) {
-    throw new Error(`unexpected wrapped logical result ${left} ${right}`);
+  if (nullishOk !== 1 || left !== 1 || right !== 2) {
+    throw new Error(`unexpected wrapped assignment result ${nullishOk} ${left} ${right}`);
   }
 }
 "##

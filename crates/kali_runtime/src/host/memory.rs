@@ -178,6 +178,56 @@ pub(crate) fn alloc_guest_string(
     Ok((STRING_HANDLE_TAG | ((base as u64) << 32) | (bytes.len() as u64)) as i64)
 }
 
+/// Current-arena twin of [`alloc_guest_string`] (fasta Spec 7 Task 4d): byte-
+/// for-byte identical EXCEPT the primary path calls the guest's exported
+/// `__alloc` (the resettable current arena) instead of `__alloc_global`. Used
+/// by the `string_concat_arena` host import for a concat whose result the
+/// escape gate proved iteration-local — the `g1/g2/g3` current-arena trio is
+/// live mid-iteration during the host call, so bumping `__alloc` here places
+/// the result in the arena that `__arena_reset` recycles at the loop boundary.
+/// The stale-module fallback (direct `__heap` bump) and the 8-alignment
+/// rounding are identical to the global helper, so host strings stay 8-aligned
+/// regardless of which arena produced them.
+pub(crate) fn alloc_guest_string_current(
+    caller: &mut Caller<'_, KaliHostState>,
+    bytes: &[u8],
+) -> wasmtime::Result<i64> {
+    let len = i32::try_from(bytes.len())
+        .map_err(|_| wasmtime::Error::msg("guest string allocation length exceeds i32 range"))?;
+    let base = match caller.get_export("__alloc") {
+        Some(Extern::Func(alloc)) => {
+            let typed = alloc.typed::<i32, i32>(&mut *caller).map_err(|error| {
+                wasmtime::Error::msg(format!("__alloc has an unexpected signature: {error}"))
+            })?;
+            let rounded = (len + 7) & !7;
+            typed
+                .call(&mut *caller, rounded)
+                .map_err(|error| wasmtime::Error::msg(format!("__alloc call failed: {error}")))?
+        }
+        _ => {
+            // Fallback for a stale cached module built pre-Task-5 (page-pool
+            // allocator) with no `__alloc` export: bump `__heap` directly,
+            // exactly as `alloc_guest_string`'s fallback does.
+            let global = heap_global(caller)?;
+            let heap_base = global
+                .get(&mut *caller)
+                .i32()
+                .ok_or_else(|| wasmtime::Error::msg("__heap global is not an i32"))?;
+            let next = heap_base
+                .checked_add(len)
+                .ok_or_else(|| wasmtime::Error::msg("guest heap pointer overflow"))?;
+            global.set(&mut *caller, wasmtime::Val::I32(next))?;
+            heap_base
+        }
+    };
+    let memory = guest_memory(caller)?;
+    let start = checked_offset(base)?;
+    memory.write(&mut *caller, start, bytes).map_err(|error| {
+        wasmtime::Error::msg(format!("failed to write guest memory: {}", error))
+    })?;
+    Ok((STRING_HANDLE_TAG | ((base as u64) << 32) | (bytes.len() as u64)) as i64)
+}
+
 pub(crate) fn read_guest_bytes(
     caller: &mut Caller<'_, KaliHostState>,
     ptr: i32,

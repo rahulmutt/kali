@@ -397,6 +397,24 @@ impl TypeContext {
         }
     }
 
+    /// True iff `expr` is (a possibly parenthesized) `null` LITERAL — the
+    /// types-side twin of codegen's `is_null_or_undefined_literal`
+    /// (`emit/literal.rs`). Used to narrow the for-in-key alias `??=` admit.
+    ///
+    /// Deliberately does NOT match bare `undefined`: it parses as
+    /// `Identifier("undefined")`, but codegen's twin only recognizes LITERAL
+    /// nodes, so an admitted `??= undefined` would slip past the sentinel-store
+    /// special case into the generic emit and store raw `0` (a valid key
+    /// ordinal — truthiness flips vs node). `??= undefined` must stay REJECTED
+    /// until both recognizer twins agree on the identifier form.
+    fn expression_is_null_literal(expr: &Expression) -> bool {
+        let mut inner = expr;
+        while let Expression::ParenthesizedExpression(p) = inner {
+            inner = &p.expression;
+        }
+        matches!(inner, Expression::Literal(LiteralValue::Null))
+    }
+
     /// Spec 4a Task 3 fail-closed gate for a computed for-in-key object access
     /// `obj[c]`. Fires ONLY when `c` is a proven `for..in` key
     /// (`for_in_key_shape`) — a runtime ordinal over a fixed shape — and the
@@ -776,7 +794,16 @@ impl TypeContext {
     /// is never resolved as an expression). The suppression is scoped to exactly
     /// this one identifier read via save/restore.
     pub(crate) fn resolve_forin_key_safe_position(&mut self, expr: &Expression) {
-        let bare_key = matches!(expr, Expression::Identifier(name)
+        // Parentheses are transparent around a write target / test operand —
+        // codegen's `assignment_target_name` unwraps them via
+        // `unwrap_transparent_value`, so `((last)) ??= null` lowers on the same
+        // alias lane as `last ??= null`; unwrap here too or the wrapped form
+        // spuriously over-rejects (fasta Spec 7 Task 3).
+        let mut unwrapped = expr;
+        while let Expression::ParenthesizedExpression(inner) = unwrapped {
+            unwrapped = &inner.expression;
+        }
+        let bare_key = matches!(unwrapped, Expression::Identifier(name)
             if self.is_for_in_key_value(name));
         let previous = self.suppress_forin_key_value_reject;
         if bare_key {
@@ -1712,6 +1739,47 @@ impl TypeContext {
                     };
                     self.diagnostics
                         .push(Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, message));
+                } else if matches!(expr.operator, AssignmentOperator::NullishAssign)
+                    && self.for_in_key_shape(&name).is_none()
+                {
+                    // fasta Spec 7 Task 3: `??=` lowers with `I64Eqz` — a FALSY
+                    // test — and null/undefined both lower to i64 `0` for a
+                    // scalar, so `let x = 0; x ??= 1` miscompiled to `1` (node:
+                    // `0`). A correct nullish test is unrepresentable without a
+                    // nullable-scalar type (out of scope) → reject fail-closed.
+                    // The ONLY admitted target is a for-in-key alias
+                    // (`for_in_key_shape`, the types-side twin of codegen's
+                    // `for_in_key_alias_names`), whose `-1` null sentinel keeps
+                    // null distinct from every valid key ordinal.
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        format!(
+                            "nullish assignment on binding '{}' is unavailable: null and 0 are indistinguishable for a scalar value; only a for-in-key alias with a null sentinel supports `??=`",
+                            name
+                        ),
+                    ));
+                } else if matches!(expr.operator, AssignmentOperator::NullishAssign)
+                    && !Self::expression_is_null_literal(&expr.right)
+                {
+                    // fasta Spec 7 final review rounds 2-3: a for-in-key alias
+                    // `??=` is admitted ONLY when the RHS is a `null` literal.
+                    // A fired non-null RHS would store a raw number into an
+                    // ordinal-repr binding, so every downstream ordinal
+                    // consumer (`table[alias]`, truthiness) diverges from node
+                    // (which would hold the raw value, e.g. `table[alias]`
+                    // after `??= 1` → node `undefined`). A null-literal RHS is
+                    // the one fired store codegen can represent (the `-1`
+                    // sentinel); anything else — including bare `undefined`,
+                    // an IDENTIFIER codegen's null recognizer does not match
+                    // (see `expression_is_null_literal`) — rejects fail-closed
+                    // with the same E5506 family as the scalar reject above.
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        format!(
+                            "nullish assignment on binding '{}' is unavailable: a for-in-key alias `??=` supports only a `null` literal right-hand side (any other value has no ordinal representation)",
+                            name
+                        ),
+                    ));
                 }
             }
             Expression::LogicalExpression(expr) => {
@@ -1943,6 +2011,19 @@ impl TypeContext {
             return false;
         }
         if self.repr_table.is_non_scalar_param(&func, name) {
+            return false;
+        }
+        // An object-literal-initialized binding whose object is never
+        // field-read anywhere never gets "materialized" into a Repr::Object
+        // shape (see the field doc on `object_initialized_bindings`), so it
+        // stays at the default I64 and would otherwise pass the repr-allowlist
+        // check below unchecked — a compound/update then does integer
+        // arithmetic on the never-materialized value (fasta Spec 7 Task 2: `var
+        // o = {x:1}; o += 1;` printed `1`, node prints `[object Object]1`).
+        // This taint is syntactic (declarator RHS shape), independent of
+        // materialization, so it closes the gap directly rather than depending
+        // on shape inference to see it.
+        if self.repr_table.object_initialized_binding(&func, name) {
             return false;
         }
         // Positive-proof for parameters: a param never proven to receive a

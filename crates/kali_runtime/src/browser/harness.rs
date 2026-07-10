@@ -112,6 +112,7 @@ const runRegisteredTests = {run_registered_tests};
 let wasmMemory = null;
 let wasmHeap = null;
 let wasmAllocGlobal = null;
+let wasmAllocCurrent = null;
 const collectedTests = [];
 let registeredTestFailures = 0;
 
@@ -130,6 +131,28 @@ function allocGuestString(bytes) {{
   }} else if (wasmHeap !== null) {{
     // Fallback for a stale cached module built pre-Task-5 (page-pool
     // allocator) with no __alloc_global export: bump __heap directly.
+    base = Number(wasmHeap.value);
+    wasmHeap.value = base + bytes.length;
+  }} else {{
+    throw new Error('guest string allocation requires instantiated memory and __heap');
+  }}
+  new Uint8Array(wasmMemory.buffer, base, bytes.length).set(bytes);
+  return 0x8000000000000000n | (BigInt(base) << 32n) | BigInt(bytes.length);
+}}
+
+function allocGuestStringCurrent(bytes) {{
+  if (wasmMemory === null) {{
+    throw new Error('guest string allocation requires instantiated memory and __heap');
+  }}
+  let base;
+  if (wasmAllocCurrent !== null) {{
+    // Current-arena twin of allocGuestString (fasta Spec 7 Task 4d): call the
+    // exported __alloc (resettable current arena) instead of __alloc_global,
+    // 8-aligning the byte length exactly as the global path does.
+    const rounded = (bytes.length + 7) & ~7;
+    base = Number(wasmAllocCurrent(rounded));
+  }} else if (wasmHeap !== null) {{
+    // Stale pre-Task-5 module with no __alloc export: bump __heap directly.
     base = Number(wasmHeap.value);
     wasmHeap.value = base + bytes.length;
   }} else {{
@@ -209,6 +232,14 @@ const importObject = {{
       combined.set(leftBytes, 0);
       combined.set(rightBytes, leftBytes.length);
       return allocGuestString(combined);
+    }},
+    string_concat_arena(left, right) {{
+      const leftBytes = decodeStringHandleBytes(left);
+      const rightBytes = decodeStringHandleBytes(right);
+      const combined = new Uint8Array(leftBytes.length + rightBytes.length);
+      combined.set(leftBytes, 0);
+      combined.set(rightBytes, leftBytes.length);
+      return allocGuestStringCurrent(combined);
     }},
     float_to_fixed(value, digits) {{
       const clampedDigits = Math.min(Math.max(Number(digits), 0), 100);
@@ -304,6 +335,7 @@ const instance = await bundle.loadWithImports(importObject);
 wasmMemory = instance.exports.memory ?? null;
 wasmHeap = instance.exports.__heap ?? null;
 wasmAllocGlobal = instance.exports.__alloc_global ?? null;
+wasmAllocCurrent = instance.exports.__alloc ?? null;
 if (typeof instance.exports._start === 'function') {{
   await instance.exports._start();
 }}
@@ -397,6 +429,7 @@ const runtimeWasm = decodeBase64("{wasm_base64}");
 let wasmMemory = null;
 let wasmHeap = null;
 let wasmAllocGlobal = null;
+let wasmAllocCurrent = null;
 const collectedTests = [];
 let registeredTestFailures = 0;
 
@@ -415,6 +448,28 @@ function allocGuestString(bytes) {{
   }} else if (wasmHeap !== null) {{
     // Fallback for a stale cached module built pre-Task-5 (page-pool
     // allocator) with no __alloc_global export: bump __heap directly.
+    base = Number(wasmHeap.value);
+    wasmHeap.value = base + bytes.length;
+  }} else {{
+    throw new Error('guest string allocation requires instantiated memory and __heap');
+  }}
+  new Uint8Array(wasmMemory.buffer, base, bytes.length).set(bytes);
+  return 0x8000000000000000n | (BigInt(base) << 32n) | BigInt(bytes.length);
+}}
+
+function allocGuestStringCurrent(bytes) {{
+  if (wasmMemory === null) {{
+    throw new Error('guest string allocation requires instantiated memory and __heap');
+  }}
+  let base;
+  if (wasmAllocCurrent !== null) {{
+    // Current-arena twin of allocGuestString (fasta Spec 7 Task 4d): call the
+    // exported __alloc (resettable current arena) instead of __alloc_global,
+    // 8-aligning the byte length exactly as the global path does.
+    const rounded = (bytes.length + 7) & ~7;
+    base = Number(wasmAllocCurrent(rounded));
+  }} else if (wasmHeap !== null) {{
+    // Stale pre-Task-5 module with no __alloc export: bump __heap directly.
     base = Number(wasmHeap.value);
     wasmHeap.value = base + bytes.length;
   }} else {{
@@ -550,6 +605,14 @@ const importObject = {{
       combined.set(rightBytes, leftBytes.length);
       return allocGuestString(combined);
     }},
+    string_concat_arena(left, right) {{
+      const leftBytes = decodeStringHandleBytes(left);
+      const rightBytes = decodeStringHandleBytes(right);
+      const combined = new Uint8Array(leftBytes.length + rightBytes.length);
+      combined.set(leftBytes, 0);
+      combined.set(rightBytes, leftBytes.length);
+      return allocGuestStringCurrent(combined);
+    }},
     float_to_fixed(value, digits) {{
       const clampedDigits = Math.min(Math.max(Number(digits), 0), 100);
       return allocGuestString(new TextEncoder().encode(Number(value).toFixed(clampedDigits)));
@@ -644,6 +707,7 @@ const {{ instance }} = await WebAssembly.instantiate(runtimeWasm, importObject);
 wasmMemory = instance.exports.memory ?? null;
 wasmHeap = instance.exports.__heap ?? null;
 wasmAllocGlobal = instance.exports.__alloc_global ?? null;
+wasmAllocCurrent = instance.exports.__alloc ?? null;
 if (typeof instance.exports._start === 'function') {{
   await instance.exports._start();
 }}

@@ -1150,12 +1150,17 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    pub(crate) fn emit_binary(&mut self, function: &mut Function, node: &LirNode) -> EmittedValue {
+    pub(crate) fn emit_binary(
+        &mut self,
+        function: &mut Function,
+        id: LirNodeId,
+        node: &LirNode,
+    ) -> EmittedValue {
         let op = node.text.as_deref().unwrap_or_default();
         let left = node.children[0];
         let right = node.children[1];
 
-        if self.emit_assignment(function, node, op, left, right) {
+        if self.emit_assignment(function, id, node, op, left, right) {
             return EmittedValue {
                 produced: true,
                 shape: ValueShape::Unknown,
@@ -1219,7 +1224,11 @@ impl<'a> FunctionEmitter<'a> {
         if op == "+" && (self.is_string_valued(left) || self.is_string_valued(right)) {
             self.emit_as_string(function, left);
             self.emit_as_string(function, right);
-            function.instruction(&Instruction::Call(STRING_CONCAT_IMPORT_INDEX));
+            // Per-site arena routing (fasta Spec 7 Task 4d): select the
+            // current-arena `string_concat_arena` import iff the escape gate
+            // proved THIS `+` site's result iteration-local; a miss fails closed
+            // to the global `string_concat`. Mirrors `emit_runtime_join`.
+            function.instruction(&Instruction::Call(self.string_concat_import_index(id)));
             return EmittedValue {
                 produced: true,
                 shape: ValueShape::String,

@@ -6,6 +6,11 @@
 use crate::compute_arena_table;
 use crate::test_support::analyze;
 
+/// Lower `src` to MIR and compute its `ArenaTable` in one step.
+fn arena_table_for(src: &str) -> kali_common::ArenaTable {
+    compute_arena_table(&analyze(src))
+}
+
 // --- Per-function eligibility / fate lattice -------------------------------
 
 #[test]
@@ -839,4 +844,233 @@ fn join_member_call_keeps_loop_arena_even_when_result_flows_outward() {
     );
     let table = compute_arena_table(&mir);
     assert!(table.loop_arena("f", 0));
+}
+
+// --- Spec 7 Task 4b: per-string-site iteration-locality ----------------------
+
+#[test]
+fn join_into_console_log_is_arena_string_site() {
+    // A join whose result is dropped into console.log inside a loop is
+    // iteration-local -> recorded as an arena string site. The single join is
+    // the first (ordinal 0) string-producing node in `r`.
+    let table = arena_table_for(
+        "function r(a){ while (a.length > 0) { console.log(a.join(\"\")); a = new Array(0); } }",
+    );
+    assert!(table.arena_string_site("r", 0));
+}
+
+#[test]
+fn returned_join_is_not_arena_string_site() {
+    // A join whose result is RETURNED escapes -> NOT recorded (fail-closed
+    // global). Its consumer is a `return`, which is neither a drop nor a copy.
+    let table = arena_table_for("function r(a){ return a.join(\"\"); }");
+    assert!(!table.arena_string_site("r", 0));
+}
+
+#[test]
+fn join_operand_of_concat_is_local_but_returned_concat_is_not() {
+    // `a.join("")` is COPIED by the `+` (its bytes move into a fresh string),
+    // so the join operand is iteration-local. The `+` concat RESULT is
+    // RETURNED, so the concat site itself is NOT local. Pre-order numbers the
+    // `+` first (ordinal 0, parent-first) and the join operand second
+    // (ordinal 1).
+    let table = arena_table_for("function r(a){ return a.join(\"\") + \"!\"; }");
+    assert!(!table.arena_string_site("r", 0), "returned concat escapes");
+    assert!(
+        table.arena_string_site("r", 1),
+        "join operand is copied by the concat -> local"
+    );
+}
+
+#[test]
+fn join_bound_to_name_is_not_arena_string_site() {
+    // Bound to a name that outlives the iteration (a `var` declarator) -> the
+    // consumer is a VarDeclarator, not a drop/copy -> fail-closed veto.
+    let table = arena_table_for(
+        "function r(a){ while (a.length > 0) { var x = a.join(\"\"); console.log(x); a = new Array(0); } }",
+    );
+    assert!(!table.arena_string_site("r", 0));
+}
+
+#[test]
+fn join_arg_to_user_call_is_not_arena_string_site() {
+    // Handed to a NON-whitelisted (user) callee that may retain it -> veto.
+    let table = arena_table_for(
+        "function keep(s){ return s; }
+         function r(a){ while (a.length > 0) { keep(a.join(\"\")); a = new Array(0); } }",
+    );
+    assert!(!table.arena_string_site("r", 0));
+}
+
+#[test]
+fn kali_write_stdout_bytes_join_arg_is_local() {
+    // The other whitelisted host sink (`Kali.writeStdoutBytes`) also drops its
+    // argument, so a join handed to it is iteration-local.
+    let table = arena_table_for(
+        "function r(a){ while (a.length > 0) { Kali.writeStdoutBytes(a.join(\"\")); a = new Array(0); } }",
+    );
+    assert!(table.arena_string_site("r", 0));
+}
+
+#[test]
+fn poisoned_function_retains_no_arena_string_sites() {
+    // Two function expressions sharing the name `h` collide in the name-keyed
+    // facts; the collision poisons the merged entry, which must retain NO arena
+    // string sites even though each body's join (into console.log) would be
+    // iteration-local in isolation.
+    let table = arena_table_for(
+        "const a = function h(){ console.log([1].join(\"\")); };
+         const b = function h(){ console.log([2].join(\"\")); };",
+    );
+    assert!(!table.arena_string_site("h", 0));
+}
+
+// --- Spec 7 Task 4f: string-site-triggered per-iteration loop arenas ----------
+//
+// A loop whose body contains a GRANTED `arena_string_site` opens/resets a
+// per-iteration arena (emit-only), gated fail-closed by V1-V3. These pins fix
+// the qualifier: (T) innermost-enclosing-loop correlation of granted sites,
+// (V1) the enclosing function is not `arena_eligible`, (V2) no unknown call,
+// (V3) no known callee may allocate. `has_outflow` is deliberately NOT
+// consulted (design §7).
+
+#[test]
+fn string_arena_loop_fasta_repeat_shape_concat_into_console_log() {
+    // (a) fastaRepeat shape: a `while` loop whose only reclaimable allocation is
+    // a granted `+` concat dropped into console.log — no object/array literal,
+    // no user call. `loop_arena` never fires here (nothing sets `allocates`);
+    // the string channel must open the loop's per-iteration arena at ordinal 0.
+    let table = arena_table_for(
+        "function r(a, n) { while (n > 0) { console.log(a + \"!\"); n = n - 1; } }",
+    );
+    assert!(
+        table.string_arena_loop("r", 0),
+        "granted concat in the while loop must open a string arena at ordinal 0"
+    );
+    // It did NOT go through the `loop_arena` channel (no object/array alloc).
+    assert!(!table.loop_arena("r", 0));
+}
+
+#[test]
+fn string_arena_loop_fasta_random_shape_outflow_does_not_veto() {
+    // (b) fastaRandom shape: a granted `.join("")` into console.log, PLUS a
+    // reassignment of an outer-declared var to a fresh `new Array(5)` (outflow!)
+    // PLUS a call to a known, non-allocating user fn. The outflow must NOT veto
+    // (a string-only arena never captures the `__alloc_global` array), and the
+    // known non-allocating callee passes V3.
+    let table = arena_table_for(
+        "function helper(z) { return z; }
+         function r(a, n) {
+           var x = a;
+           while (n > 0) {
+             console.log(x.join(\"\"));
+             x = new Array(5);
+             helper(n);
+             n = n - 1;
+           }
+         }",
+    );
+    assert!(
+        table.string_arena_loop("r", 0),
+        "join into console.log opens a string arena despite the array outflow"
+    );
+    assert!(
+        !table.loop_arena("r", 0),
+        "outflow must veto the object loop_arena"
+    );
+}
+
+#[test]
+fn string_arena_loop_vetoed_when_function_is_arena_eligible() {
+    // (c) V1: the enclosing function allocates an object literal (dies inside →
+    // `arena_eligible`), so object sites route to `__alloc`; a string-only
+    // arena could then capture an unproven object. The channel must NOT fire
+    // even though the join is granted.
+    let table = arena_table_for(
+        "function r(a, n) {
+           var o = { v: 1 };
+           while (n > 0) { console.log(a.join(\"\")); n = n - 1; }
+           return o.v;
+         }",
+    );
+    assert!(
+        table.arena_eligible("r"),
+        "the object literal makes r arena_eligible"
+    );
+    assert!(
+        !table.string_arena_loop("r", 0),
+        "V1: an arena_eligible function must not open a string-only loop arena"
+    );
+}
+
+#[test]
+fn string_arena_loop_vetoed_on_unknown_call() {
+    // (d) V2: an unknown (member-callee) call in the loop body could
+    // allocate-and-retain via `__alloc`. Veto.
+    let table = arena_table_for(
+        "function r(a, n, o) {
+           while (n > 0) { console.log(a.join(\"\")); o.m(); n = n - 1; }
+         }",
+    );
+    assert!(
+        !table.string_arena_loop("r", 0),
+        "V2: an unknown call in the loop body vetoes the string arena"
+    );
+}
+
+#[test]
+fn string_arena_loop_vetoed_when_known_callee_allocates() {
+    // (e) V3: a known callee that allocates an object escapes into the caller's
+    // (loop) current arena — a non-string value the reset would recycle. Veto.
+    let table = arena_table_for(
+        "function mk() { return { v: 1 }; }
+         function r(a, n) {
+           while (n > 0) { console.log(a.join(\"\")); mk(); n = n - 1; }
+         }",
+    );
+    assert!(
+        !table.string_arena_loop("r", 0),
+        "V3: a known allocating callee vetoes the string arena"
+    );
+}
+
+#[test]
+fn string_arena_loop_not_set_without_granted_site() {
+    // (f) T: the join is ASSIGNED to an outer-declared binding (not dropped or
+    // copied), so it is NOT a granted `arena_string_site`. With no granted site
+    // in the loop, the channel must not fire.
+    let table = arena_table_for(
+        "function r(a, n) {
+           var out;
+           while (n > 0) { out = a.join(\"\"); n = n - 1; }
+           return out;
+         }",
+    );
+    assert!(
+        !table.string_arena_loop("r", 0),
+        "T: no granted string site in the loop → no string arena"
+    );
+}
+
+#[test]
+fn string_arena_loop_charges_innermost_enclosing_loop() {
+    // (g) T's innermost rule: a granted site inside a NESTED loop belongs to the
+    // INNER loop (ordinal 1), not the outer `while` (ordinal 0). The outer loop
+    // has no granted site of its own, so only the inner one opens an arena.
+    let table = arena_table_for(
+        "function r(a, n) {
+           while (n > 0) {
+             for (var i = 0; i < 3; i = i + 1) { console.log(a.join(\"\")); }
+             n = n - 1;
+           }
+         }",
+    );
+    assert!(
+        table.string_arena_loop("r", 1),
+        "the granted site's innermost enclosing loop (ordinal 1) opens the arena"
+    );
+    assert!(
+        !table.string_arena_loop("r", 0),
+        "the outer loop has no granted site of its own → not set"
+    );
 }

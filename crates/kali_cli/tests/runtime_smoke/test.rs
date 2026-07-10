@@ -11480,7 +11480,9 @@ fn test_supports_nullish_assignment_in_browser_api_surface_with_harness_js_input
     let source_path = dir.path().join("smoke.test.js");
     fs::write(
         &source_path,
-        r#"Kali.test('browser nullish assignment', () => { let value = null; value ??= 1; return value; });
+        // fasta Spec 7 Task 3: scalar `??=` rejects fail-closed; the surviving
+        // `??=` lowering is a for-in-key ALIAS binding (`-1` null sentinel).
+        r#"Kali.test('browser nullish assignment', () => { var table = { a: 1, b: 2 }; var last = null; for (var c in table) { last = c; } last ??= null; if (last) { return 1; } return 0; });
 "#,
     )
     .expect("write source");
@@ -11505,7 +11507,9 @@ fn json_test_supports_nullish_assignment_in_browser_api_surface_with_harness_js_
     let source_path = dir.path().join("smoke.test.js");
     fs::write(
         &source_path,
-        r#"Kali.test('browser nullish assignment', () => { let value = null; value ??= 1; return value; });
+        // fasta Spec 7 Task 3: scalar `??=` rejects fail-closed; the surviving
+        // `??=` lowering is a for-in-key ALIAS binding (`-1` null sentinel).
+        r#"Kali.test('browser nullish assignment', () => { var table = { a: 1, b: 2 }; var last = null; for (var c in table) { last = c; } last ??= null; if (last) { return 1; } return 0; });
 "#,
     )
     .expect("write source");
@@ -11536,7 +11540,9 @@ fn test_supports_nullish_assignment_in_browser_api_surface_with_harness_ts_input
     let source_path = dir.path().join("smoke.test.ts");
     fs::write(
         &source_path,
-        r#"Kali.test('browser nullish assignment', () => { let value = null; value ??= 1; return value; });
+        // fasta Spec 7 Task 3: scalar `??=` rejects fail-closed; the surviving
+        // `??=` lowering is a for-in-key ALIAS binding (`-1` null sentinel).
+        r#"Kali.test('browser nullish assignment', () => { var table = { a: 1, b: 2 }; var last = null; for (var c in table) { last = c; } last ??= null; if (last) { return 1; } return 0; });
 "#,
     )
     .expect("write source");
@@ -11561,7 +11567,9 @@ fn json_test_supports_nullish_assignment_in_browser_api_surface_with_harness_ts_
     let source_path = dir.path().join("smoke.test.ts");
     fs::write(
         &source_path,
-        r#"Kali.test('browser nullish assignment', () => { let value = null; value ??= 1; return value; });
+        // fasta Spec 7 Task 3: scalar `??=` rejects fail-closed; the surviving
+        // `??=` lowering is a for-in-key ALIAS binding (`-1` null sentinel).
+        r#"Kali.test('browser nullish assignment', () => { var table = { a: 1, b: 2 }; var last = null; for (var c in table) { last = c; } last ??= null; if (last) { return 1; } return 0; });
 "#,
     )
     .expect("write source");

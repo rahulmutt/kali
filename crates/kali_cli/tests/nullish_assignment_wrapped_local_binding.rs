@@ -7,15 +7,24 @@ fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
 }
 
+// fasta Spec 7 Task 3: scalar `??=` rejects fail-closed (null and 0 are
+// indistinguishable for a scalar), so the wrapped-target coverage rides the one
+// surviving `??=` lowering — a for-in-key ALIAS binding (`-1` null sentinel).
+// The parenthesized target is the point of this suite and is preserved.
 fn wrapped_nullish_assignment_run_source() -> &'static str {
-    "let value = null; ((value)) ??= 1; console.log(value);\n"
+    "var table = { a: 1, b: 2 };\nvar last = null;\nfor (var c in table) {\n  last = c;\n}\n((last)) ??= null;\nif (last) { console.log(\"set\"); }\n"
 }
 
 fn wrapped_nullish_assignment_test_source() -> &'static str {
     r#"Kali.test('wrapped nullish assignment', () => {
-  let value = null;
-  ((value)) ??= 1;
-  return value;
+  var table = { a: 1, b: 2 };
+  var last = null;
+  for (var c in table) {
+    last = c;
+  }
+  ((last)) ??= null;
+  if (last) { return 1; }
+  return 0;
 });
 "#
 }

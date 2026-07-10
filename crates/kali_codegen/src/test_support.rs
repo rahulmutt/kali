@@ -44,13 +44,18 @@ pub(crate) fn parse_and_lower_lir(source: &str) -> LirProgram {
     kali_lir::LirLowerer::new().lower_program(&mir)
 }
 
-pub(crate) fn assert_nullish_assignment_lowers(source: &str) {
+/// `setup` mirrors the real compiler driver's context priming (e.g. the
+/// `kali_types`-produced `ReprTable` shape entries a `for..in` fixture needs —
+/// `parse_and_lower_lir` runs no type inference; see
+/// `computed_forin_key_access_uses_headerless_offset_zero` for the pattern).
+pub(crate) fn assert_nullish_assignment_lowers(source: &str, setup: impl FnOnce(&mut CodegenCtx)) {
     let program = parse_and_lower_lir(source);
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,
         compat_eval: false,
         coverage: false,
     });
+    setup(&mut ctx);
     let result = lower_lir_to_wasm(&mut ctx, &program);
 
     assert!(

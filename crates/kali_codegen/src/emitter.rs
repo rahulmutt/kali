@@ -104,6 +104,15 @@ pub(crate) struct FunctionEmitter<'a> {
     /// construction time and consulted by `emit_loop` to key `arena_table`
     /// and the `__arena_save_*` locals.
     pub(crate) loop_ordinals: HashMap<LirNodeId, u32>,
+    /// Pre-order ordinal of every string-producing site (`.join(..)` call or
+    /// `+` binary) in this function's body (see
+    /// `crate::lower::string_site_preorder_ordinals`), resolved once at
+    /// construction time — the codegen half of the string-site "both-sides
+    /// oracle". `emit_runtime_join` consults it to key
+    /// `arena_table.arena_string_site` and select the `__join_arena` twin.
+    /// Threaded exactly like `loop_ordinals`: reset per function (each function
+    /// gets a fresh emitter/body), so ordinals never leak across functions.
+    pub(crate) string_site_ordinals: HashMap<LirNodeId, u32>,
     /// Pre-order ordinal of every `for-in` node in this function's body (see
     /// `crate::lower::for_in_preorder_ordinals`), resolved once at
     /// construction time and consulted by `emit_for_in` to find its dedicated
@@ -132,11 +141,14 @@ pub(crate) struct FunctionEmitter<'a> {
     /// key + `last = c` provenance propagation (mirror binding provenance, not
     /// repr — the Spec-3 lesson).
     pub(crate) for_in_key_aliases: HashSet<String>,
-    /// Spec 4a Task 5: per-for-in-key handle-table base locals. `name -> local`
-    /// where `local` holds the i64 base pointer of an `N*8`-byte table of
+    /// Spec 4a Task 5 / fasta Spec 7 Task 4g: per-for-in-key handle-table base
+    /// OFFSETS. `name -> base` where `base` is the compile-time data-segment
+    /// offset (an `i32.const`, NOT a runtime local) of an `N*8`-byte table of
     /// interned field-name string handles (slot `j` = the interned handle of the
-    /// shape's `j`th field), bump-allocated ONCE in the loop preheader
-    /// (`emit_key_handle_table`). A for-in key (or alias) emitted in a
+    /// shape's `j`th field). The table is MODULE-CONSTANT data, interned once per
+    /// shape via `StringPool::intern_key_table` — zero runtime allocation
+    /// (previously it was bump-allocated on every for-in execution, which leaked
+    /// for a for-in nested in a loop). A for-in key (or alias) emitted in a
     /// STRING-VALUE context materializes its field-name string by loading
     /// `base + ord*8` from this table instead of yielding the raw ordinal. The
     /// interned handles are compile-time data-segment offsets, so the table only
@@ -192,6 +204,8 @@ impl<'a> FunctionEmitter<'a> {
         module_global_slots: &'a BTreeMap<String, (u32, kali_common::Repr)>,
     ) -> Self {
         let loop_ordinals = crate::lower::loop_preorder_ordinals(&program.nodes, body);
+        let string_site_ordinals =
+            crate::lower::string_site_preorder_ordinals(&program.nodes, body);
         let for_in_ordinals = crate::lower::for_in_preorder_ordinals(&program.nodes, body);
         let for_in_key_aliases = crate::lower::for_in_key_alias_names(&program.nodes, body);
         let mut locals = BTreeMap::new();
@@ -244,6 +258,7 @@ impl<'a> FunctionEmitter<'a> {
             control_frames: Vec::new(),
             loop_frames: Vec::new(),
             loop_ordinals,
+            string_site_ordinals,
             for_in_ordinals,
             for_in_key_shapes: HashMap::new(),
             for_in_key_aliases,
@@ -353,6 +368,38 @@ impl<'a> FunctionEmitter<'a> {
     /// all-string-element array into one fresh `__alloc_global` string.
     pub(crate) fn join_fn_index(&self) -> u32 {
         self.functions["__join"]
+    }
+
+    /// Wasm function index of the arena twin of the runtime-join helper
+    /// (`__join_arena(arr, sep) -> i64`, fasta Spec 7 Task 4c): identical to
+    /// `__join` but allocates its result into the current (resettable) arena
+    /// via `__alloc`. Selected by `emit_runtime_join` only for a join site the
+    /// escape gate proved iteration-local (`arena_string_site`).
+    pub(crate) fn join_arena_fn_index(&self) -> u32 {
+        self.functions["__join_arena"]
+    }
+
+    /// Selects the string-concat host import for the concat node `id` (fasta
+    /// Spec 7 Task 4d) — the codegen half of the string-site "both-sides
+    /// oracle", exactly mirroring `emit_runtime_join`'s join selection. Returns
+    /// `STRING_CONCAT_ARENA_IMPORT_INDEX` (current-arena `__alloc`) iff the
+    /// escape gate proved THIS site's result iteration-local, keyed by the
+    /// site's pre-order string-site ordinal (`string_site_ordinals`, the shared
+    /// stream numbered by `crate::lower::string_site_preorder_ordinals`). A miss
+    /// — the node is not a numbered string site (e.g. a `+=` compound-assign
+    /// node, whose text is `"+="` not `"+"`, so `is_string_site` never records
+    /// it), or the site is numbered but ungranted — fails closed to the global
+    /// `STRING_CONCAT_IMPORT_INDEX` (never-reset `__alloc_global`).
+    pub(crate) fn string_concat_import_index(&self, id: LirNodeId) -> u32 {
+        let use_arena = self
+            .string_site_ordinals
+            .get(&id)
+            .is_some_and(|&ord| self.arena_table.arena_string_site(&self.function_name, ord));
+        if use_arena {
+            crate::STRING_CONCAT_ARENA_IMPORT_INDEX
+        } else {
+            crate::STRING_CONCAT_IMPORT_INDEX
+        }
     }
 
     pub(crate) fn push_control_frame(&mut self, kind: ControlFlowLabelKind) -> usize {

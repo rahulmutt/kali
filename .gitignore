@@ -28,3 +28,6 @@ devenv.local.yaml
 
 .ralph/
 .lake
+
+# Kali fixture build cache (per-fixture compiled artifacts)
+crates/kali_cli/tests/fixtures/.kali-cache/

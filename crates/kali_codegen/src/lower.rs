@@ -41,6 +41,7 @@ pub const SYNTHETIC_FUNCTIONS: &[&str] = &[
     "__arena_reset",
     "__substring",
     "__join",
+    "__join_arena",
 ];
 
 /// Generate WASM from LIR.
@@ -301,6 +302,22 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         is_entry: false,
         flavor: None,
     });
+    // Arena twin of `__join` (fasta Spec 7 Task 4c): byte-for-byte identical to
+    // `__join` EXCEPT its result is allocated via the current-arena `__alloc`
+    // (dispatch below) instead of `__alloc_global`, so a join whose result the
+    // escape gate proved iteration-local (`arena_string_site`) lands in the
+    // resettable per-iteration arena. Emitted unconditionally (it is tiny; DCE
+    // is not run) — `emit_runtime_join` selects it per site, and any site not
+    // positively granted keeps the global `__join`, so this is fail-closed.
+    all_functions.push(FunctionPlan {
+        name: "__join_arena".to_string(),
+        params: vec!["arr".to_string(), "sep".to_string()],
+        locals: Vec::new(),
+        body: lir.root,
+        result: true,
+        is_entry: false,
+        flavor: None,
+    });
     all_functions.extend(function_plans);
 
     for (idx, function) in all_functions.iter().enumerate() {
@@ -363,18 +380,23 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     import_section.import("kali:rt", "cwd", EntityType::Function(6));
     import_section.import("kali:rt", "math_clz32", EntityType::Function(4));
     import_section.import("kali:rt", "math_pow", EntityType::Function(3));
-    // Four unconditional runtime helpers occupy fixed import indices 17 through 20
+    // Five unconditional runtime helpers occupy fixed import indices 17 through 21
     // (see INT_TO_STRING_IMPORT_INDEX / STRING_CONCAT_IMPORT_INDEX /
-    // FLOAT_TO_FIXED_IMPORT_INDEX / FLOAT_TO_STRING_IMPORT_INDEX). They are registered
-    // here, before the conditional coverage/env/process imports, so the relative
-    // bookkeeping below (all expressed against COVERAGE_HIT_IMPORT_INDEX = 21) stays
-    // consistent. int_to_string is (i64) -> i64 (type 4); string_concat is
-    // (i64, i64) -> i64 (type 3); float_to_fixed is (f64, i32) -> i64 (type 8);
-    // float_to_string is (f64) -> i64 (type 9).
+    // FLOAT_TO_FIXED_IMPORT_INDEX / FLOAT_TO_STRING_IMPORT_INDEX /
+    // STRING_CONCAT_ARENA_IMPORT_INDEX). They are registered here, before the
+    // conditional coverage/env/process imports, so the relative bookkeeping below
+    // (all expressed against COVERAGE_HIT_IMPORT_INDEX = 22) stays consistent.
+    // int_to_string is (i64) -> i64 (type 4); string_concat is (i64, i64) -> i64
+    // (type 3); float_to_fixed is (f64, i32) -> i64 (type 8); float_to_string is
+    // (f64) -> i64 (type 9). `string_concat_arena` (fasta Spec 7 Task 4d) is the
+    // current-arena twin of `string_concat` and reuses its exact signature (type
+    // 3); it is appended LAST among the always-present imports so no earlier fixed
+    // import index shifts.
     import_section.import("kali:rt", "int_to_string", EntityType::Function(4));
     import_section.import("kali:rt", "string_concat", EntityType::Function(3));
     import_section.import("kali:rt", "float_to_fixed", EntityType::Function(8));
     import_section.import("kali:rt", "float_to_string", EntityType::Function(9));
+    import_section.import("kali:rt", "string_concat_arena", EntityType::Function(3));
     if ctx.target.coverage {
         import_section.import("kali:rt", "coverage_hit", EntityType::Function(0));
     }
@@ -466,7 +488,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                 vec![ValType::I64, ValType::I64, ValType::I64],
                 vec![ValType::I64],
             )
-        } else if function.name == "__join" {
+        } else if matches!(function.name.as_str(), "__join" | "__join_arena") {
             (vec![ValType::I64, ValType::I64], vec![ValType::I64])
         } else if function.name == "__arena_reset" {
             (Vec::new(), Vec::new())
@@ -637,7 +659,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             local_decls.push((2, ValType::I32));
         } else if function.name == "__substring" {
             local_decls.push((1, ValType::I64));
-        } else if function.name == "__join" {
+        } else if matches!(function.name.as_str(), "__join" | "__join_arena") {
             local_decls.push((6, ValType::I64));
         } else {
             for local_name in &function.locals {
@@ -698,13 +720,18 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             // is a source-defined function.
             let page_get_index = function_name_to_index["__page_get"];
             let alloc_global_index = function_name_to_index["__alloc_global"];
+            let alloc_index = function_name_to_index["__alloc"];
             match function.name.as_str() {
                 "__alloc" => emit_bump_body(&mut body, 1, 2, 3, page_get_index),
                 "__alloc_global" => emit_bump_body(&mut body, 4, 5, 6, page_get_index),
                 "__page_get" => emit_page_get_body(&mut body),
                 "__arena_reset" => emit_arena_reset_body(&mut body),
                 "__substring" => emit_substring_body(&mut body),
+                // `__join` allocates its result into the global heap;
+                // `__join_arena` is the same body allocating into the current
+                // (resettable) arena via `__alloc` (fasta Spec 7 Task 4c).
                 "__join" => emit_join_body(&mut body, alloc_global_index),
+                "__join_arena" => emit_join_body(&mut body, alloc_index),
                 other => unreachable!("unhandled synthetic function {other}"),
             }
         } else if function.is_entry {
@@ -723,6 +750,20 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             0,
             &ConstExpr::i32_const(*offset as i32),
             text.as_bytes().iter().copied(),
+        );
+    }
+    // fasta Spec 7 Task 4g: for-in key handle tables — per-shape blobs of
+    // compile-time-constant `i64` string handles — as module-constant data,
+    // interleaved into the same address space as the string constants above
+    // (their bases came from `StringPool::intern_key_table`, which advanced
+    // `next_offset`). Emitting them here, before `heap_base` is derived from
+    // `next_offset`, keeps them out of the runtime heap entirely (zero
+    // per-execution allocation).
+    for (offset, bytes) in &string_pool.key_table_entries {
+        data_section.active(
+            0,
+            &ConstExpr::i32_const(*offset as i32),
+            bytes.iter().copied(),
         );
     }
 
@@ -1543,19 +1584,6 @@ pub(crate) fn for_in_ord_local_name(ordinal: u32) -> String {
     format!("__for_in_ord#{ordinal}")
 }
 
-/// Name of the dedicated i64 local holding the base pointer of a `for-in`
-/// loop's per-shape key handle table (Spec 4a Task 5, `emit_key_handle_table`).
-/// The table is bump-allocated once in the loop preheader; this local must
-/// PERSIST across the whole loop body (a `return c`/`c + x` string use loads
-/// `base + ord*8` from it), so it is a dedicated reserved slot — NOT the
-/// function's transient trailing scratch, which body emission (e.g. an
-/// `obj[c] = v` write) reuses and would clobber. Same `#`-name convention +
-/// two-call-site (reserve here, resolve in `emit_for_in`) discipline as
-/// `for_in_ord_local_name`.
-pub(crate) fn for_in_key_table_local_name(ordinal: u32) -> String {
-    format!("__for_in_ktbl#{ordinal}")
-}
-
 /// Names of the three synthetic i32 locals that save/restore the
 /// current-arena trio (`g1`/`g2`/`g3`) around the arena'd loop with pre-order
 /// ordinal `ordinal` in its function. Shared by locals provisioning
@@ -1679,6 +1707,103 @@ fn loop_preorder_ordinals_walk(
     }
 }
 
+/// Pre-order, function-scoped ordinal for each *string-producing site* in the
+/// LIR tree rooted at `body`: the `k`-th such node (in child-array pre-order,
+/// numbered BEFORE descending its own children) gets ordinal `k` (0-based); a
+/// nested function body is an opaque leaf (never descended into — each function
+/// numbers its own sites independently).
+///
+/// ## THE STRING-SITE ORDINAL RULE (codegen mirror of the 4b oracle)
+///
+/// This is the **codegen half of the both-sides oracle** whose analysis half —
+/// which RECORDS the grants this walk QUERIES — is
+/// `kali_mir::analysis::arena_gate::OwnershipAnalyzer::arena_collect_string_sites`.
+/// Read that function's "THE STRING-SITE ORDINAL RULE" doc comment: it is the
+/// authoritative definition; this walk MUST enumerate the identical node set in
+/// the identical order or `arena_string_site(fn, ord)` lookups desync and a
+/// join escaping into the resettable arena becomes a use-after-reset (fail
+/// OPEN). Correspondence rests on every HIR→MIR→LIR lowering being a 1:1
+/// structural copy (same node count, same child order, same `text` — see
+/// `kali_mir::lower` and `kali_lir::lower`), exactly as `loop_preorder_ordinals`
+/// relies on for loop ordinals.
+///
+/// A **string-producing site** (`is_string_site`) is EITHER:
+///   1. `recv.join(sep)` — a `Call` whose callee (first child) is a MemberExpr
+///      with property text `"join"`, OR
+///   2. ANY `+` `BinaryExpr` (numeric `+` included — the site set is purely
+///      syntactic so both sides agree without re-deriving string types here).
+///
+/// LIR collapses many distinct HIR expression kinds into a single `Value` node
+/// carrying the operator/property `text`, so the two HIR shapes 4b matches on
+/// `kind` are reconstructed from `(LirNodeKind, text, child-arity)`:
+///   - `+` `BinaryExpr` → `Value` text `"+"` with **exactly 2 children**
+///     (operands). Unary plus `+x` (`UnaryExpr`, e.g. `+process.argv[2]`) is
+///     also `Value` text `"+"` but has **1 child**, so the arity check excludes
+///     it — mirroring 4b's `kind == BinaryExpr`.
+///   - `.join` MemberExpr callee → the `Call`'s first child is a `Value` text
+///     `"join"` with **>= 1 children** (a MemberExpr always has its receiver as
+///     a child; a bare-identifier callee named `join` is a childless `Value`
+///     and must NOT match) — mirroring 4b's `callee.kind == MemberExpr`.
+///
+/// Template literals are deliberately NOT sites (out of 4b's scope) — they lower
+/// to their own `Value` node, never to `+`, so neither side numbers them.
+///
+/// KNOWN RESIDUAL (fail-closed in practice, unreachable in the supported
+/// subset): a *computed* member access `a["+"]` — property literally `"+"` —
+/// also lowers to a 2-child `Value` text `"+"` and would be over-counted here
+/// but not by 4b (`kind == MemberExpr`). No `"+"`-named field exists in kali's
+/// fixed-shape object model, so this cannot occur in any supported program; the
+/// only realistic 2-child `Value("+")` is a `BinaryExpr`.
+pub(crate) fn string_site_preorder_ordinals(
+    nodes: &[LirNode],
+    body: LirNodeId,
+) -> HashMap<LirNodeId, u32> {
+    let mut ordinals = HashMap::new();
+    let mut next = 0u32;
+    string_site_preorder_ordinals_walk(nodes, body, &mut next, &mut ordinals);
+    ordinals
+}
+
+/// Whether `id` is a string-producing site — see the ordinal rule on
+/// [`string_site_preorder_ordinals`]. Mirrors 4b's `is_string_producing_site`.
+fn is_string_site(nodes: &[LirNode], id: LirNodeId) -> bool {
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return false;
+    };
+    match node.kind {
+        LirNodeKind::Call => node
+            .children
+            .first()
+            .and_then(|c| nodes.get(c.0 as usize))
+            .is_some_and(|callee| {
+                callee.text.as_deref() == Some("join") && !callee.children.is_empty()
+            }),
+        LirNodeKind::Value => node.text.as_deref() == Some("+") && node.children.len() == 2,
+        _ => false,
+    }
+}
+
+fn string_site_preorder_ordinals_walk(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    next: &mut u32,
+    ordinals: &mut HashMap<LirNodeId, u32>,
+) {
+    if is_string_site(nodes, id) {
+        ordinals.insert(id, *next);
+        *next += 1;
+    }
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return;
+    };
+    for child in &node.children {
+        if is_function_like(nodes, *child) {
+            continue;
+        }
+        string_site_preorder_ordinals_walk(nodes, *child, next, ordinals);
+    }
+}
+
 pub(crate) fn collect_function_locals(
     nodes: &[LirNode],
     body_id: LirNodeId,
@@ -1720,7 +1845,15 @@ pub(crate) fn collect_function_locals(
         .collect();
     loop_ordinals.sort_unstable();
     for ordinal in loop_ordinals {
-        if arena_table.loop_arena(function_name, ordinal) {
+        // OR the emit-only `string_arena_loop` channel (fasta Spec 7 Task 4f)
+        // into the SAME save-locals reservation gate `emit_loop`'s `is_arena_loop`
+        // reads: a loop opens a per-iteration arena if EITHER the object/array
+        // `loop_arena` channel OR the string-site channel grants it. Both key on
+        // this identical pre-order loop ordinal, so a loop granted by both still
+        // reserves exactly one save-locals triple (single-open by construction).
+        if arena_table.loop_arena(function_name, ordinal)
+            || arena_table.string_arena_loop(function_name, ordinal)
+        {
             let (page, cursor, limit) = arena_save_local_names(ordinal);
             locals.push(page);
             locals.push(cursor);
@@ -1749,9 +1882,10 @@ pub(crate) fn collect_function_locals(
     for_in_ordinals.sort_unstable();
     for ordinal in for_in_ordinals {
         locals.push(for_in_ord_local_name(ordinal));
-        // Spec 4a Task 5: a parallel dedicated i64 local per for-in loop for the
-        // key handle-table base pointer (persists across the loop body).
-        locals.push(for_in_key_table_local_name(ordinal));
+        // fasta Spec 7 Task 4g: no per-for-in key-table BASE local is reserved
+        // anymore — the table is module-constant data referenced by a fixed
+        // offset (`StringPool::intern_key_table`), not a bump-allocated base
+        // held in a runtime local.
     }
 
     // Reserve the two i32 scratch locals for a `process.argv[<int>]` element
@@ -3236,11 +3370,15 @@ fn emit_substring_body(func: &mut Function) {
 }
 
 /// `__join(arr, sep) -> i64`: copy every element string (i64 handles in the
-/// array's slots) plus `sep` between them into ONE fresh __alloc_global
-/// buffer; return `TAG | out<<32 | total`. Empty array returns bare TAG
+/// array's slots) plus `sep` between them into ONE fresh buffer allocated via
+/// `alloc_index`; return `TAG | out<<32 | total`. Empty array returns bare TAG
 /// (offset 0, len 0 — a zero-length handle is never dereferenced).
 /// Locals: 0=arr 1=sep (params), 2=n 3=i 4=total 5=out 6=cur 7=h.
-fn emit_join_body(func: &mut Function, alloc_global_index: u32) {
+///
+/// `alloc_index` is `__alloc_global` for the global `__join` and `__alloc`
+/// (current arena) for the `__join_arena` twin (fasta Spec 7 Task 4c) — the
+/// ONLY difference between the two synthetic bodies.
+fn emit_join_body(func: &mut Function, alloc_index: u32) {
     // n = *(arr + 0)
     func.instruction(&Instruction::LocalGet(0));
     func.instruction(&Instruction::I32WrapI64);
@@ -3321,7 +3459,7 @@ fn emit_join_body(func: &mut Function, alloc_global_index: u32) {
     func.instruction(&Instruction::I64Const(-8)); // !7 as two's-complement
     func.instruction(&Instruction::I64And);
     func.instruction(&Instruction::I32WrapI64);
-    func.instruction(&Instruction::Call(alloc_global_index));
+    func.instruction(&Instruction::Call(alloc_index));
     func.instruction(&Instruction::I64ExtendI32U);
     func.instruction(&Instruction::LocalSet(5));
     // cur = out; i = 0
