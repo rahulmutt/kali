@@ -205,6 +205,13 @@ impl Parser {
                     }
                     let _ = self.stream.accept(TokenType::RightParen);
                 }
+                // `new Array(a, b, …)` desugars identically to
+                // `Array(a, b, …)` — the call-path desugar already turned
+                // the callee into the array literal; `new` adds nothing for
+                // the Array constructor.
+                if matches!(&callee, Expression::ArrayExpression(_)) {
+                    return callee;
+                }
                 Expression::NewExpression(Box::new(kali_ast::NewExpression { callee, args }))
             }
             _ => {

@@ -2,8 +2,8 @@
 
 use crate::Parser;
 use kali_ast::{
-    CallExpression, Expression, MemberExpression, SatisfiesExpression, TypeAssertion,
-    UpdateExpression, UpdateOperator,
+    ArrayExpression, CallExpression, Expression, ExpressionOrSpread, MemberExpression,
+    SatisfiesExpression, TypeAssertion, UpdateExpression, UpdateOperator,
 };
 use kali_lexer::TokenType;
 use std::boxed::Box;
@@ -27,8 +27,25 @@ impl Parser {
                         }
                         let _ = self.stream.accept(TokenType::RightParen);
                     }
-                    expr =
-                        Expression::CallExpression(Box::new(CallExpression { callee: expr, args }));
+                    // `Array(e1, …, en)` with n >= 2 IS the array literal
+                    // `[e1, …, en]` (JS semantics; single-arg `Array(n)` is a
+                    // length). Desugar at parse time so BOTH twins (types on
+                    // the AST, codegen downstream) see a plain
+                    // `ArrayExpression` and every array-literal gate applies
+                    // fail-closed by construction — no new recognizer
+                    // surface.
+                    let is_array_call = args.len() >= 2
+                        && matches!(&expr, Expression::Identifier(name) if name == "Array");
+                    expr = if is_array_call {
+                        Expression::ArrayExpression(ArrayExpression {
+                            elements: args
+                                .drain(..)
+                                .map(|arg| Some(ExpressionOrSpread::Expression(arg)))
+                                .collect(),
+                        })
+                    } else {
+                        Expression::CallExpression(Box::new(CallExpression { callee: expr, args }))
+                    };
                 }
                 Some(TokenType::LeftBracket) => {
                     let _ = self.stream.advance();

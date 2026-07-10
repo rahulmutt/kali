@@ -611,13 +611,23 @@ impl TypeContext {
         match expr {
             // `new Array(n)`: callee is the `CallExpression` `Array(n)` (see
             // `rhs_is_array_shape`); bare `new Array` is the Identifier form.
+            // Arity <= 1 only: `Array(n)` is a length allocation. n >= 2 is
+            // desugared to an `ArrayExpression` at parse time and must never
+            // register through this arm either.
             Expression::NewExpression(new_expr) => {
                 matches!(&new_expr.callee, Expression::Identifier(name) if name == "Array")
                     || matches!(&new_expr.callee, Expression::CallExpression(call)
-                        if matches!(&call.callee, Expression::Identifier(name) if name == "Array"))
+                        if matches!(&call.callee, Expression::Identifier(name) if name == "Array")
+                            && call.args.len() <= 1)
             }
             Expression::CallExpression(call) => {
-                if matches!(&call.callee, Expression::Identifier(name) if name == "Array") {
+                // Arity <= 1 only: `Array(n)` is a length allocation. n >= 2 is
+                // desugared to an ArrayExpression at parse time and must never
+                // register through THIS arm (codegen's resolve_array_alloc_call
+                // twin also bails at >1 arg — keep the pair in lockstep).
+                if matches!(&call.callee, Expression::Identifier(name) if name == "Array")
+                    && call.args.len() <= 1
+                {
                     return true;
                 }
                 // `<recv>.fill(v)` — recv is a fresh `new Array(n)`/`Array(n)`
