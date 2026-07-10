@@ -50,3 +50,19 @@ fn contextual_keyword_bindings_still_work() {
     assert!(out.status.success(), "{out:?}");
     assert_eq!(String::from_utf8_lossy(&out.stdout).trim(), "6");
 }
+
+// Bind+read symmetry pin for the ENTIRE `is_binding_name_token` allowlist:
+// every token legal in binding position must also read back as a plain
+// identifier expression. The bind gate (statement.rs via call.rs allowlist)
+// and the readback arms (primary.rs) are hand-mirrored — a token added to
+// one side without the other silently miscompiles (readback falls into the
+// primary catch-all and yields Identifier("unknown"), i.e. 0), so this pins
+// all 8 tokens end-to-end with an exact sum only correct reads can produce.
+#[test]
+fn full_binding_allowlist_binds_and_reads_back() {
+    let out = run_source(
+        "const plain = 1;\nconst type = 2;\nconst interface = 3;\nconst enum = 4;\nconst from = 5;\nconst as = 6;\nconst of = 7;\nconst async = 8;\nconsole.log(plain + type + interface + enum + from + as + of + async);\n",
+    );
+    assert!(out.status.success(), "{out:?}");
+    assert_eq!(String::from_utf8_lossy(&out.stdout).trim(), "36", "{out:?}");
+}
