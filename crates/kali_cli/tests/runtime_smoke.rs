@@ -4819,10 +4819,6 @@ fn assert_build_supports_math_hypot_on_perfect_square_integer_literal_sums(filen
     );
 }
 
-fn assert_unsupported_math_member_calls_rejection_text(stderr: &str) {
-    assert_unsupported_math_member_calls_rejection_text_for_method(stderr, "Math.sqrt");
-}
-
 fn assert_unsupported_math_member_calls_rejection_text_for_method(
     stderr: &str,
     expected_method: &str,
@@ -4830,10 +4826,6 @@ fn assert_unsupported_math_member_calls_rejection_text_for_method(
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(stderr.contains(expected_method), "stderr: {stderr}");
     assert!(stderr.contains("later compatibility"), "stderr: {stderr}");
-}
-
-fn assert_unsupported_math_member_calls_rejection_json(errors: &[Value]) {
-    assert_unsupported_math_member_calls_rejection_json_for_method(errors, "Math.sqrt");
 }
 
 fn assert_unsupported_math_member_calls_rejection_json_for_method(
@@ -4897,13 +4889,6 @@ fn assert_browser_for_await_array_iteration(output: &str) {
 
 fn assert_browser_for_await_array_iteration_json(success: bool) {
     assert!(success);
-}
-
-fn assert_set_and_map_iteration(stdout: &str) {
-    assert!(
-        stdout.contains("set and map constructor iteration ok"),
-        "stdout: {stdout}"
-    );
 }
 
 fn set_and_map_iteration_run_source() -> &'static str {
