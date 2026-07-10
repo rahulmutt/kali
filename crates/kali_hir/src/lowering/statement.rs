@@ -103,9 +103,9 @@ impl HirLowerer {
                 // Text "throw" survives MIR ControlFlow → LIR Branch so codegen's
                 // text-keyed Branch dispatch can lower it (a None-text Branch falls
                 // into the generic arm, which is how throw was a silent no-op).
-                let id =
-                    self.builder
-                        .alloc_text(HirNodeKind::ThrowStmt, None, "throw".to_string());
+                let id = self
+                    .builder
+                    .alloc_text(HirNodeKind::ThrowStmt, None, "throw".to_string());
                 push_child!(self, id, self.lower_expression(argument));
                 id
             }
