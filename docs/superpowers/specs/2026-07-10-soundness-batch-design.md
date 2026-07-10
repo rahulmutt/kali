@@ -155,6 +155,23 @@ Fix: the bail becomes a **targeted parse error** naming the real limitation
 initializer"). Safe because `=>` followed by `{` has no other legal parse.
 Full generalization stays deferred.
 
+**REVISED during planning (2026-07-10, live-verified):** the "no other legal
+parse" premise was falsified. A zero-param block arrow in call-argument
+position doesn't just misparse — its body **flattens into module scope and
+executes once** (`foo("x", () => { console.log(42) })` prints 42 though `foo`
+never invokes its callback), a silent wrong-execution miscompile, and
+`Kali.test` callbacks depended on that flatten. A blanket parse error would
+therefore reject every suite Kali.test callback. Revised fix (user-approved):
+block-bodied arrows parse as unnamed `FunctionExpression` in ALL expression
+positions (the declarator desugar, generalized) — the inline
+`function () {}` form already has correct semantics in both Kali.test and
+ordinary-argument positions, so the desugar inherits a proven lane. Companion
+fail-closed gate: an anonymous function argument to any callee other than
+`Kali.test` rejects with E5506, because invoking a function-valued param that
+received an *anonymous* function silently no-ops (verified; named functions
+dispatch via monomorphization, anonymous ones have no name to key on). Real
+indirect calls remain a recorded follow-up.
+
 ### 3.9 Taint seed widening + two unwritten pins (item 10)
 
 The Explore sweep falsified the "verified rejecting" note from Spec 7:
