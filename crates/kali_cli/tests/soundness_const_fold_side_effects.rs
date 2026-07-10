@@ -124,6 +124,19 @@ fn typeof_provable_lane_matches_node() {
     );
 }
 
+// Whole-branch review finding I2: `typeof <bigint literal>` must be "bigint",
+// not "number". The provable-lane numeric arm strips the trailing `n` suffix
+// (parse_numeric_literal_value), so `5n` used to classify as "number". The
+// BigInt arm now precedes it. node: `typeof 5n === "bigint"`, `typeof -5n ===
+// "bigint"`; plain `42` stays "number".
+#[test]
+fn typeof_bigint_literal_is_bigint_not_number() {
+    assert_stdout(
+        "console.log(typeof 5n);\nconsole.log(typeof -5n);\nconsole.log(typeof 42);\n",
+        "bigint\nbigint\nnumber\n",
+    );
+}
+
 // `typeof f()` must still evaluate f exactly once (JS evaluates the operand).
 #[test]
 fn typeof_direct_call_operand_still_evaluates() {

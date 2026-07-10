@@ -749,6 +749,14 @@ impl<'a> FunctionEmitter<'a> {
     ///   guessing "number" from it could miscompile).
     fn typeof_static_text(&self, arg: LirNodeId) -> Option<&'static str> {
         let arg = self.unwrap_transparent(arg);
+        // A BigInt literal (`5n`, `-5n`) is `typeof === "bigint"`, NOT
+        // "number". This MUST precede the float/numeric arms below:
+        // `parse_numeric_literal_value` strips the trailing `n` suffix
+        // (intrinsics/number.rs), so the final numeric arm would otherwise
+        // misclassify `5n` as "number" (node: "bigint").
+        if self.is_bigint_literal_valued(arg) {
+            return Some("bigint");
+        }
         // A proven float value is always a JS number: F64 is never used as an
         // internal handle/ordinal repr, so this classification cannot leak an
         // internal representation (unlike I64, which IS used for handles and
