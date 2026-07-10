@@ -1,0 +1,175 @@
+diff --git a/crates/kali_parser/src/expression/primary.rs b/crates/kali_parser/src/expression/primary.rs
+index d7f877c68..4a44afc3c 100644
+--- a/crates/kali_parser/src/expression/primary.rs
++++ b/crates/kali_parser/src/expression/primary.rs
+@@ -2,8 +2,8 @@
+ 
+ use crate::Parser;
+ use kali_ast::{
+-    ArrayExpression, ArrowFunctionExpression, Expression, ExpressionOrSpread, FunctionParam,
+-    ImportExpression, ParenthesizedExpression, SpreadElement,
++    ArrayExpression, ArrowFunctionExpression, Expression, ExpressionOrSpread, FunctionExpression,
++    FunctionParam, ImportExpression, ParenthesizedExpression, SpreadElement, Statement,
+ };
+ use kali_common::template::split_template_literal;
+ use kali_error::{_error_codes::e2, diagnostic::Diagnostic};
+@@ -23,19 +23,40 @@ impl Parser {
+                 let name = token
+                     .map(|t| t.value)
+                     .unwrap_or_else(|| "unknown".to_string());
+-                if self.stream.current_kind() == Some(&TokenType::Arrow)
+-                    && self.stream.peek_next_kind() != Some(&TokenType::LeftBrace)
+-                {
+-                    let _ = self.stream.advance();
+-                    let body = self.parse_arrow_function_body_expression();
+-                    return Expression::ArrowFunctionExpression(Box::new(
+-                        ArrowFunctionExpression {
+-                            params: vec![FunctionParam { name }],
+-                            body,
+-                            is_async: false,
+-                            returnType: None,
+-                        },
+-                    ));
++                if self.stream.current_kind() == Some(&TokenType::Arrow) {
++                    if self.stream.peek_next_kind() == Some(&TokenType::LeftBrace) {
++                        // Single-param block-bodied arrow `x => { … }`: parse
++                        // into the SAME unnamed `FunctionExpression` desugar the
++                        // paren form uses (declaration.rs:318). Before this it
++                        // fell through to the identifier return, so the `{ … }`
++                        // reparsed as an object literal / block in the outer
++                        // scope (baffling diagnostics, or a body that flattened
++                        // and executed once at the wrong scope).
++                        let _ = self.stream.advance(); // consume `=>`
++                        if let Some(Statement::BlockStatement(block)) = self.parse_block_statement()
++                        {
++                            return Expression::FunctionExpression(Box::new(FunctionExpression {
++                                id: None,
++                                params: vec![FunctionParam { name }],
++                                body: Some(Box::new(block)),
++                                is_async: false,
++                                generator: false,
++                            }));
++                        }
++                        // Unparseable block: fall through to the identifier
++                        // return — resolve will produce its normal diagnostics.
++                    } else {
++                        let _ = self.stream.advance();
++                        let body = self.parse_arrow_function_body_expression();
++                        return Expression::ArrowFunctionExpression(Box::new(
++                            ArrowFunctionExpression {
++                                params: vec![FunctionParam { name }],
++                                body,
++                                is_async: false,
++                                returnType: None,
++                            },
++                        ));
++                    }
+                 }
+                 Expression::Identifier(name)
+             }
+@@ -76,6 +97,17 @@ impl Parser {
+                 Expression::Literal(kali_ast::LiteralValue::String(value))
+             }
+             TokenType::LeftParen => {
++                // Block-bodied arrows in ANY expression position parse as an
++                // unnamed `FunctionExpression` — the same desugar the declarator
++                // init uses. Before this, non-declarator positions fell through:
++                // params reparsed against the outer scope (E3100 noise) and a
++                // zero-param body FLATTENED into module scope and executed once
++                // (silent wrong execution — Kali.test only "worked" via that).
++                // Try the block form FIRST so `(a) => { … }` never reaches the
++                // expression-bodied arrow / parenthesized fallthrough below.
++                if let Some(expr) = self.try_parse_block_arrow_function_expression() {
++                    return expr;
++                }
+                 if let Some(expr) = self.try_parse_arrow_function_expression() {
+                     return expr;
+                 }
+diff --git a/crates/kali_types/src/resolve/call.rs b/crates/kali_types/src/resolve/call.rs
+index bf2299f15..bb8f8ee7b 100644
+--- a/crates/kali_types/src/resolve/call.rs
++++ b/crates/kali_types/src/resolve/call.rs
+@@ -49,6 +49,7 @@ impl TypeContext {
+         for arg in &expr.args {
+             self.resolve_expression(arg);
+         }
++        self.reject_anonymous_function_argument(expr);
+         // Spec 4a Task 5: a for-in-key VALUE passed as a call argument is a value
+         // escape — rejected structurally by the default-deny in `resolve_identifier`
+         // (call arguments are resolved as expressions, so a non-materialized key
+@@ -82,6 +83,75 @@ impl TypeContext {
+         self.resolve_promise_member_call(expr);
+     }
+ 
++    /// Fail-closed anonymous-function-argument gate.
++    ///
++    /// An anonymous function expression (`function () { … }`, i.e. `id == None`)
++    /// or an arrow (`() => …`, `x => { … }`) passed as a call argument compiles
++    /// to a real standalone wasm function — but the ONLY way an in-wasm call can
++    /// reach a callback is monomorphized dispatch keyed on the callback's
++    /// function NAME (a named function passed as a param works this way). An
++    /// anonymous function has no name to key on, so invoking such a param
++    /// (`cb(5)`) silently no-ops (verified). Reject those args so the limitation
++    /// is a clean diagnostic instead of silent wrong behavior.
++    ///
++    /// SCOPE: reject only when the callee is a plain identifier that is NOT a
++    /// builtin global — i.e. a user-defined function, the exact shape that goes
++    /// through the name-keyed dispatch lane. Everything that legitimately
++    /// consumes an anonymous callback is deliberately exempt:
++    ///   * `Kali.test(name, cb)` — a MEMBER call; its callback is invoked BY THE
++    ///     HOST via the `__kali_callback_<index>` export, never an in-wasm call.
++    ///   * array callbacks `arr.map/filter/find/some/every/reduce/…` — MEMBER
++    ///     calls, statically folded (the callback is never lowered as a real
++    ///     function).
++    ///   * promise `p.then/catch/finally` — MEMBER calls, runtime-driven.
++    ///   * builtin identifier consumers `queueMicrotask` / `setTimeout` /
++    ///     `setInterval` — the runtime invokes their callback.
++    ///
++    /// Placed AFTER callee + argument resolution so a callee that independently
++    /// rejects (e.g. an unsupported late-object-model global such as
++    /// `FinalizationRegistry(() => {})`) surfaces its own diagnostic FIRST.
++    pub(crate) fn reject_anonymous_function_argument(&mut self, expr: &CallExpression) {
++        let Expression::Identifier(callee_name) = &expr.callee else {
++            return;
++        };
++        // Only a callee BOUND to a user-defined function reaches the name-keyed
++        // dispatch lane. Skip when the identifier is:
++        //   * unbound — a typo, or a recognized-but-unsupported global such as
++        //     `FinalizationRegistry` that rejects via its OWN late-object-model
++        //     diagnostic; a second diagnostic here would double-count the error
++        //     (and it is not a silent-no-op miscompile — the program already
++        //     rejects), so leave its own error to stand.
++        //   * a builtin global — `queueMicrotask` / `setTimeout` / `setInterval`
++        //     are bound but invoke their callback through the runtime.
++        if self.resolve_name(callee_name).is_none() || Self::is_builtin_global_name(callee_name) {
++            return;
++        }
++        for arg in &expr.args {
++            let anonymous_fn = match arg {
++                Expression::FunctionExpression(func) => func.id.is_none(),
++                Expression::ArrowFunctionExpression(_) => true,
++                _ => false,
++            };
++            if anonymous_fn {
++                self.diagnostics.push(Diagnostic::error(
++                    e5::FEATURE_UNAVAILABLE as u32,
++                    "an anonymous function as a call argument is unavailable in the current \
++                     phase (nothing can invoke it); declare a named function and pass its name"
++                        .to_string(),
++                ));
++            }
++        }
++    }
++
++    /// Whether `name` is a builtin global (base surface or the node surface).
++    /// Checked as a static superset — a name that is a builtin under EITHER
++    /// surface is treated as builtin — so the anonymous-argument gate never
++    /// mis-rejects a callback handed to a runtime consumer that only exists on
++    /// one surface.
++    fn is_builtin_global_name(name: &str) -> bool {
++        builtin_globals().contains(&name) || node_builtin_globals().contains(&name)
++    }
++
+     pub(crate) fn call_member_access_name(expression: &Expression) -> Option<String> {
+         match expression {
+             Expression::MemberExpression(member) => Self::member_access_name(member),
