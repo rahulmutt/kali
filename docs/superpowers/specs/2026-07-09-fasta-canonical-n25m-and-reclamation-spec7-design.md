@@ -228,7 +228,11 @@ new nullable-scalar representation, which is out of scope.
 **Fix (decided): reject scalar `??=` fail-closed.** Emit E5506 for `??=` on any
 scalar local/param (the unrepresentable-nullish case), keeping only the
 **for-in-key-alias** path, which has a real null sentinel (`-1`,
-`literal.rs:495-505`) and already lowers `null`/`0` distinctly. This eliminates
+`literal.rs:495-505`). NOTE (final-review correction): the alias's truthiness
+tests and `= null` stores were sentinel-aware (`>= 0` / `-1`), but the `??=`
+codegen arm itself still tested `I64Eqz` (falsy, fires on valid ordinal `0`)
+until the final-review fix made it a `-1` sentinel compare (`== -1`). This
+eliminates
 the miscompile and is series-consistent (reject-don't-miscompile). It changes
 the accidentally-"working" `let value = null; value ??= 1` case (currently → 1)
 to a clean reject — acceptable, since that only "worked" because null happened to

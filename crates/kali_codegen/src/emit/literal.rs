@@ -574,7 +574,14 @@ impl<'a> FunctionEmitter<'a> {
                 function.instruction(&Instruction::LocalGet(index));
                 function.instruction(&Instruction::LocalSet(temp_local));
                 function.instruction(&Instruction::LocalGet(temp_local));
-                function.instruction(&Instruction::I64Eqz);
+                // Resolve guarantees the only `??=` target reaching codegen is a
+                // for-in-key ALIAS, whose null sentinel is `-1` (key ordinals are
+                // 0-based). The nullish test must be a `-1` sentinel compare, NOT
+                // a falsy `I64Eqz` (which would fire on the valid ordinal `0`,
+                // overwriting the first key). Sibling `||=`/`&&=` below stay
+                // `I64Eqz` — falsy semantics is correct for THEM.
+                function.instruction(&Instruction::I64Const(-1));
+                function.instruction(&Instruction::I64Eq);
                 function.instruction(&Instruction::If(BlockType::Result(ValType::I64)));
                 let rhs = self.emit_node(function, right, true);
                 if !rhs.produced {

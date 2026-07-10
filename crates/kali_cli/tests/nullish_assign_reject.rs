@@ -53,3 +53,24 @@ fn for_in_key_alias_nullish_assign_still_runs() {
     );
     assert_eq!(String::from_utf8_lossy(&out.stdout), "set\n");
 }
+
+// POSITIVE-BEHAVIOR pin (despite this file's name): after Spec 7 Task 3 the ONLY
+// `??=` shape that reaches codegen is a for-in-key alias, whose null sentinel is
+// `-1` (key ordinals are 0-based). The `??=` codegen arm previously tested the
+// nullish condition with `I64Eqz` — a FALSY test that fires on ordinal `0` — so
+// `last`, holding the first key's ordinal `0`, was wrongly overwritten with `5`
+// and `table[5]` read garbage (printed `0`; node prints `7`). This pins that the
+// surviving `??=` lane is SENTINEL-AWARE (`== -1`), not falsy. Lives here because
+// this file owns the whole `??=` surface (rejects + the one live lane).
+#[test]
+fn for_in_key_alias_nullish_assign_sentinel_aware_not_falsy() {
+    let out = run_source(
+        "var table = {a:7, b:8};\nvar last = null;\nfor (var c in table) { last = c; break; }\nlast ??= 5;\nconsole.log(table[last]);\n",
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "7\n");
+}
