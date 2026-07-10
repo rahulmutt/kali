@@ -2557,6 +2557,7 @@ pub(crate) fn collect_function_locals_from_node(
                 && !is_materialized_object
                 && !is_materialized_object_array
                 && !is_materialized_factory_return
+                && !declarator_init_contains_mutation(nodes, init)
             {
                 continue;
             }
@@ -2760,6 +2761,62 @@ pub(crate) fn declarator_init_is_array_alloc(nodes: &[LirNode], init_id: LirNode
         };
         return callee_node.text.as_deref() == Some("Array") && callee_node.children.is_empty();
     }
+}
+
+/// True iff the operator text mutates a binding when evaluated: the four
+/// update forms (`++x` / `x++` / `--x` / `x--`) and every assignment operator.
+/// `==`/`===` are comparisons, NOT mutations, and must stay out of this list.
+pub(crate) fn is_mutating_operator_text(text: &str) -> bool {
+    matches!(
+        text,
+        "prefix++"
+            | "postfix++"
+            | "prefix--"
+            | "postfix--"
+            | "="
+            | "+="
+            | "-="
+            | "*="
+            | "/="
+            | "%="
+            | "**="
+            | "<<="
+            | ">>="
+            | ">>>="
+            | "&="
+            | "|="
+            | "^="
+            | "&&="
+            | "||="
+            | "??="
+    )
+}
+
+/// Returns true if the init expression subtree contains a mutating operator
+/// (update expression or assignment). A `const` bound to such an init MUST be
+/// promoted to an eager local: the default `const` fold lane re-emits the
+/// bound init node at every read site, which re-applies the side effect —
+/// `let b = 5; const x = ++b;` used to increment `b` once at the declaration
+/// (value dropped) and once more per read of `x` (observed `x == 7, b == 7`;
+/// node says `6, 6`). Same class as the factory-return promotion above.
+/// Calls are deliberately NOT promoted here: structural recognizer lanes
+/// (e.g. `resolve_literal_aggregate`) resolve const-bound call nodes by
+/// shape, and impure user calls are a separate, wider gap tracked outside
+/// this predicate.
+pub(crate) fn declarator_init_contains_mutation(nodes: &[LirNode], init_id: LirNodeId) -> bool {
+    fn walk(nodes: &[LirNode], id: LirNodeId, seen: &mut HashSet<LirNodeId>) -> bool {
+        if !seen.insert(id) {
+            return false;
+        }
+        let Some(node) = nodes.get(id.0 as usize) else {
+            return false;
+        };
+        if node.text.as_deref().is_some_and(is_mutating_operator_text) {
+            return true;
+        }
+        node.children.iter().any(|&child| walk(nodes, child, seen))
+    }
+    walk(nodes, init_id, &mut HashSet::new())
 }
 
 /// Returns true if `init_id` (after unwrapping genuine sequence wrappers) is

@@ -2256,6 +2256,48 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         for (arg_index, arg) in node.children.iter().skip(1).enumerate() {
+            // An UNMATERIALIZED array literal (a direct `f([1, 2])` argument,
+            // or a fold-lane `const arr = [1, 2]` alias) has no runtime
+            // representation: `emit_aggregate_literal` pushes a zero
+            // placeholder, so every element read in the callee silently
+            // yielded 0 (`g([1, 2]) { return items[0] }` → 0, node says 1).
+            // Materialized arrays (`new Array(n)`, `.fill()`, object-element
+            // literals) live in locals — NOT the fold-lane `bindings` map that
+            // `resolve_literal_aggregate` follows — and pass a real handle,
+            // so they are untouched here. REJECT-DON'T-MISCOMPILE.
+            if resolved.is_some() {
+                // Shape-strict: `new X(1)` and `[X, 1]` are the SAME LIR shape
+                // (textless Value), so `is_array_literal` alone would also
+                // catch NewExpr nodes (observed: the release pipeline leaves
+                // `new Array(3)` unrecognized and this reject misfired on it).
+                // Requiring every element to be a Literal keeps the reject on
+                // the proven array-literal class (`f([1, 2])`) and leaves
+                // call-shaped nodes on their pre-existing lanes.
+                let fold_lane_array = self
+                    .resolve_literal_aggregate(*arg)
+                    .map(|id| self.node(id).clone())
+                    .is_some_and(|aggregate| {
+                        self.is_array_literal(&aggregate)
+                            && !aggregate.children.is_empty()
+                            && aggregate.children.iter().all(|&child| {
+                                self.node(self.unwrap_transparent(child)).kind
+                                    == LirNodeKind::Literal
+                            })
+                    });
+                if fold_lane_array {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        format!(
+                            "passing an array literal to function '{callee_name}' is unavailable in the current direct-runtime path (the callee would read zero placeholders, not the elements); allocate with `new Array(n)` and assign elements instead"
+                        ),
+                    ));
+                    function.instruction(&Instruction::I64Const(0));
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Unknown,
+                    };
+                }
+            }
             let produced = self.emit_node(function, *arg, true);
             // A function-valued argument (e.g. an arrow, compiled as a
             // standalone function and skipped by `is_function_like` here)

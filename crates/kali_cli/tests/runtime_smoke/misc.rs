@@ -1519,10 +1519,11 @@ fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
             "folded-arithmetic-variant-js",
         ),
         ("string-concatenation-benchmark-v1", "string-concatenation"),
-        (
-            "array-literal-arguments-benchmark-v1",
-            "array-literal-arguments",
-        ),
+        // "array-literal-arguments-benchmark-v1" is deliberately NOT in this
+        // list: passing an array literal to a function is now rejected
+        // fail-closed (the callee read zero placeholders, a silent
+        // miscompile), so that fixture pins the reject in
+        // `array_literal_arguments_benchmark_is_rejected_fail_closed` below.
         (
             "template-literal-concatenation-benchmark-v1",
             "template-literal-concatenation",
@@ -1541,6 +1542,43 @@ fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
         ("nbody-benchmark-v1", "nbody"),
     ] {
         assert_optimization_benchmark_fixture(fixture_stem, benchmark_name);
+    }
+}
+
+// Flipped pin: this benchmark's construct — an array literal passed as a
+// function argument — used to "build" by pushing a zero placeholder, so the
+// callee's element reads silently yielded 0 (`consumeArray([1, 2], 1)` → 1;
+// node says 4). That is now rejected fail-closed (E5506) in every build mode.
+#[test]
+fn array_literal_arguments_benchmark_is_rejected_fail_closed() {
+    let dir = tempdir().expect("tempdir");
+    let source_fixture = fixture_path("benchmarks/array-literal-arguments-benchmark-v1.js");
+    let source = fs::read_to_string(&source_fixture).expect("read benchmark source");
+    let source_path = dir.path().join("array-literal-arguments-benchmark-v1.js");
+    fs::write(&source_path, source).expect("write benchmark source");
+
+    for mode_flag in ["--fast", "--release", "--release-advanced"] {
+        let out_dir = dir
+            .path()
+            .join(format!("out-{}", mode_flag.trim_start_matches('-')));
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("build")
+            .arg(mode_flag)
+            .arg("--out-dir")
+            .arg(&out_dir)
+            .arg(&source_path)
+            .output()
+            .expect("run kali build");
+        assert!(
+            !output.status.success(),
+            "{mode_flag}: array-literal argument must be rejected, not miscompiled"
+        );
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("E5506") && stderr.contains("array literal"),
+            "{mode_flag}: stderr: {stderr}"
+        );
     }
 }
 

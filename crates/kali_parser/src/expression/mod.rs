@@ -95,6 +95,19 @@ impl Parser {
                     argument,
                 }))
             }
+            // `typeof <expr>` was previously NOT parsed as a unary operator, so
+            // the token fell through to the primary parser as a bare
+            // identifier — `typeof value` read the undefined identifier
+            // `typeof` (zero placeholder) and dropped `value`. Parse it as a
+            // real unary expression; codegen's provable lane classifies it.
+            Some(TokenType::Typeof) => {
+                let _ = self.stream.advance();
+                let argument = self.parse_unary_expression();
+                Expression::UnaryExpression(Box::new(UnaryExpression {
+                    operator: "typeof".to_string(),
+                    argument,
+                }))
+            }
             Some(TokenType::Plus) => {
                 if self
                     .stream
@@ -172,6 +185,18 @@ impl Parser {
                 // Shift operators bind tighter than relational/equality but looser
                 // than additive, per JS operator precedence.
                 TokenType::LtLt | TokenType::GtGt => Some(7),
+                // Binary `in`/`instanceof` have no sound lowering (kali's
+                // object model cannot decide runtime key presence after
+                // `delete`, nor prototype chains). Previously these were not
+                // binary operators here, so `'a' in obj` parsed as `'a'` and
+                // `in obj` was silently dropped — the expression miscompiled
+                // to its LEFT operand. Recognize them at relational precedence
+                // and reject fail-closed in the op_str match below. A trailing
+                // `in` inside a `for (expr in obj)` head must still terminate
+                // the expression so the for-in statement parser can consume
+                // it — that is the `no_in` guard.
+                TokenType::In if !self.no_in => Some(6),
+                TokenType::InstanceOf => Some(6),
                 TokenType::Plus | TokenType::Minus => Some(8),
                 TokenType::Star | TokenType::Slash | TokenType::Percent => Some(9),
                 TokenType::StarStar => Some(10),
@@ -216,6 +241,18 @@ impl Parser {
                     TokenType::Gt => ">",
                     TokenType::LtEq => "<=",
                     TokenType::GtEq => ">=",
+                    TokenType::In => {
+                        self.push_feature_unavailable(
+                            "the binary `in` operator is unavailable: runtime property presence is undecidable in kali's static object model",
+                        );
+                        "in"
+                    }
+                    TokenType::InstanceOf => {
+                        self.push_feature_unavailable(
+                            "the `instanceof` operator is unavailable: kali has no prototype-chain machinery",
+                        );
+                        "instanceof"
+                    }
                     _ => {
                         // Not a binary operator we handle
                         break;

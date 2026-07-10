@@ -149,6 +149,54 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::Unknown,
                 }
             }
+            "typeof" => {
+                // Provable lane: resolve the operand through the const-fold
+                // binding chain and classify statically-known shapes, emitting
+                // the interned type-name string handle (same single-handle
+                // shape console.error consumes; interned handles are deduped,
+                // so `typeof v === 'undefined'` compares equal handles).
+                // Previously `typeof` fell into the generic warning+0
+                // placeholder below, so `typeof (void expr)` compared as `0`
+                // — never equal to any string. The unproven case keeps that
+                // pre-existing placeholder fallback unchanged.
+                if let Some(type_text) = self.typeof_static_text(arg) {
+                    // JS evaluates the operand before classifying it. A bare
+                    // identifier or literal read has no side effect (and a
+                    // fold-lane const identifier must NOT be re-emitted — that
+                    // would re-run its init's effects), but a direct
+                    // expression operand (`typeof f()`) must run exactly once.
+                    let operand = self.unwrap_transparent(arg);
+                    let operand_node = self.node(operand).clone();
+                    let is_effect_free_read = operand_node.kind == LirNodeKind::Literal
+                        || (operand_node.kind == LirNodeKind::Value
+                            && operand_node.children.is_empty());
+                    if !is_effect_free_read {
+                        let produced = self.emit_node(function, arg, true);
+                        if produced.produced {
+                            function.instruction(&Instruction::Drop);
+                        }
+                    }
+                    let (offset, len) = self.strings.intern(type_text);
+                    function.instruction(&Instruction::I64Const(encode_string_handle(offset, len)));
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::String,
+                    };
+                }
+                self.diagnostics.push(Diagnostic::warning(
+                    e8::UNIMPLEMENTED as u32,
+                    format!("unsupported unary operator '{}'", op),
+                ));
+                let produced = self.emit_node(function, arg, true);
+                if produced.produced {
+                    function.instruction(&Instruction::Drop);
+                }
+                function.instruction(&Instruction::I64Const(0));
+                EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Unknown,
+                }
+            }
             "delete" => {
                 if let Some(key_text) = process_env_property_key(&self.program.nodes, arg) {
                     let Some(import_index) = self.env_delete_import_index else {
@@ -685,6 +733,57 @@ impl<'a> FunctionEmitter<'a> {
                 continue;
             }
             return id;
+        }
+    }
+
+    /// Statically-provable `typeof` result. Resolves the operand through the
+    /// const-fold binding chain (`resolve_literal_aggregate` follows
+    /// `self.bindings`), then classifies:
+    /// - `void <expr>` → "undefined" (void ALWAYS evaluates to undefined)
+    /// - literal `undefined` → "undefined", `null` → "object" (JS quirk),
+    ///   `true`/`false` → "boolean", quoted string → "string",
+    ///   numeric → "number"
+    /// - anything else → None (caller keeps the pre-existing placeholder
+    ///   fallback; identifiers with runtime-only values are NOT classified
+    ///   from reprs here — an I64 repr may be an internal handle/ordinal, so
+    ///   guessing "number" from it could miscompile).
+    fn typeof_static_text(&self, arg: LirNodeId) -> Option<&'static str> {
+        let arg = self.unwrap_transparent(arg);
+        // A proven float value is always a JS number: F64 is never used as an
+        // internal handle/ordinal repr, so this classification cannot leak an
+        // internal representation (unlike I64, which IS used for handles and
+        // stays unclassified below).
+        if self.is_float_valued(arg) {
+            return Some("number");
+        }
+        let resolved = self.resolve_literal_aggregate(arg).unwrap_or(arg);
+        let resolved = self.unwrap_transparent(resolved);
+        let node = self.node(resolved);
+        if node.text.as_deref() == Some("void") && node.children.len() == 1 {
+            return Some("undefined");
+        }
+        // Bare `undefined` / `NaN` / `Infinity` lower as identifiers (a
+        // childless Value), not literals; classify the exact global names.
+        if node.kind == LirNodeKind::Value && node.children.is_empty() {
+            return match node.text.as_deref() {
+                Some("undefined") => Some("undefined"),
+                Some("NaN") | Some("Infinity") => Some("number"),
+                _ => None,
+            };
+        }
+        if node.kind != LirNodeKind::Literal {
+            return None;
+        }
+        let text = node.text.as_deref()?;
+        let unquoted = text.trim_matches(|c| c == '"' || c == '\'');
+        if unquoted.len() != text.len() {
+            return Some("string");
+        }
+        match text {
+            "undefined" => Some("undefined"),
+            "null" => Some("object"),
+            "true" | "false" => Some("boolean"),
+            _ => crate::intrinsics::parse_numeric_literal_value(text).map(|_| "number"),
         }
     }
 

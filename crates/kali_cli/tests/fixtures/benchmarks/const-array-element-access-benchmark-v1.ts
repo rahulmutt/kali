@@ -4,7 +4,10 @@ function entry() {
   const layer2 = (bag) => layer1(bag);
   const layer3 = (bag) => layer2(bag);
   const folded = (1 + 2) + (3 + 4) + (5 + 6);
-  const bag = [1, 2, 3];
+  const bag = new Array(3);
+  bag[0] = 1;
+  bag[1] = 2;
+  bag[2] = 3;
   return layer3(bag) + folded + layer3(bag);
 }
 
