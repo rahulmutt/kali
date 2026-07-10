@@ -1510,6 +1510,27 @@ impl<'a> FunctionEmitter<'a> {
                     }
                 } else {
                     // BigInt `/`: truncation toward zero is exactly `i64.div_s`.
+                    // A zero divisor traps in wasm anyway; test it explicitly
+                    // first so the abort carries node's message (RangeError)
+                    // instead of the generic unreachable envelope. The divisor
+                    // is on top of stack; stash it in the function's
+                    // general-purpose scratch local (`self.locals.len()` —
+                    // the same slot the `??=` arm at literal.rs uses, already
+                    // reserved by `lower.rs`'s two-trailing-i64-scratch-locals
+                    // convention, so no new local declaration is needed) so it
+                    // can be tested and then reused as the actual divisor.
+                    let divisor_local = self.locals.len() as u32;
+                    function.instruction(&Instruction::LocalSet(divisor_local));
+                    function.instruction(&Instruction::LocalGet(divisor_local));
+                    function.instruction(&Instruction::I64Eqz);
+                    function.instruction(&Instruction::If(BlockType::Empty));
+                    let message = "RangeError: Division by zero".to_string();
+                    let (offset, len) = self.strings.intern(&message);
+                    function.instruction(&Instruction::I64Const(encode_string_handle(offset, len)));
+                    function.instruction(&Instruction::Call(crate::CONSOLE_ERROR_IMPORT_INDEX));
+                    function.instruction(&Instruction::Unreachable);
+                    function.instruction(&Instruction::End);
+                    function.instruction(&Instruction::LocalGet(divisor_local));
                     function.instruction(&Instruction::I64DivS);
                     EmittedValue {
                         produced: true,
