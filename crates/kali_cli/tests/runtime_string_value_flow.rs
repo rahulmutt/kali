@@ -92,16 +92,19 @@ fn consumed_mixed_return_used_as_string_is_rejected() {
 // ---- Final-review Finding 1: proven-string values in non-`+` consumers ----
 
 #[test]
-fn concat_result_equality_is_rejected() {
-    // `b == "xy"` compares a FRESH runtime concat handle against the interned
-    // "xy" by handle identity → wrong (base rejected the `+` with E3200; the
-    // narrowed head printed 0). Must reject fail-closed.
+fn concat_result_equality_compares_content() {
+    // RE-PIN (throw-fallout Stage 1): `b == "xy"` on a FRESH runtime concat
+    // handle is now CONTENT equality via `__streq` (node: true). The old pin
+    // asserted the E3200 fail-closed reject that Stage 1 lifted. kali prints
+    // the comparison as `1` (same pre-existing boolean-print lane
+    // `interned_literal_equality_is_preserved` pins).
     let out = run_source("let a = \"x\";\nlet b = a + \"y\";\nconsole.log(b == \"xy\");\n");
     assert!(
-        !out.status.success(),
-        "equality on a runtime concat result must be rejected; stdout: {}",
-        String::from_utf8_lossy(&out.stdout)
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
     );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "1\n");
 }
 
 #[test]

@@ -91,20 +91,20 @@ fn string_ternary_as_concat_operand_prints() {
 }
 
 #[test]
-fn string_ternary_equality_is_rejected() {
-    // Fail-closed pin: `==` on a string-armed ternary must reject, not
-    // handle-compare. Pre-fix this silently printed the WRONG branch ("2":
-    // two equal-valued concat results have different handles) with exit 0;
-    // the `is_string_valued` ternary arm makes `is_runtime_concat_string`'s
-    // fallback classify the ternary as a runtime string, tripping the
-    // equality gate in `emit_binary`.
+fn string_ternary_equality_compares_content() {
+    // RE-PIN (throw-fallout Stage 1): `==` on a string-armed ternary is now
+    // content equality via `__streq` — the taken arm "a"+"z" equals "az"
+    // (node: prints 1). Pre-Stage-1 this was the fail-closed E3200 reject
+    // (and before THAT, a silent wrong-branch handle compare).
     let out = run_source(
         "let c = 1;\nlet x = \"z\";\nif ((c > 0 ? \"a\" + x : \"b\" + x) == \"az\") { console.log(1); } else { console.log(2); }\n",
     );
     assert!(
-        !out.status.success(),
-        "string-armed ternary == must be rejected, not compared by handle"
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
     );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "1\n");
 }
 
 #[test]

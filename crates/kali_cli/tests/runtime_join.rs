@@ -152,14 +152,18 @@ fn static_receiver_with_variable_separator_is_rejected_not_silent() {
 }
 
 #[test]
-fn join_result_equality_is_rejected() {
+fn join_result_equality_compares_content() {
+    // RE-PIN (throw-fallout Stage 1): a fresh `__join` buffer now compares by
+    // content via `__streq` (node: prints 1).
     let out = run_source(
         "const a = new Array(1);\na[0] = \"x\";\nif (a.join(\"\") == \"x\") {\n  console.log(1);\n}\n",
     );
     assert!(
-        !out.status.success(),
-        "join results are runtime concat — identity == must reject"
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
     );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "1\n");
 }
 
 #[test]
