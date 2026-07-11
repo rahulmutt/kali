@@ -1,5 +1,5 @@
 [tools]
-rust = "1.96.1"
+rust = "1.97.0"
 
 [tasks.lean-proofs]
 description = "Build the Lean proofs through devenv"
