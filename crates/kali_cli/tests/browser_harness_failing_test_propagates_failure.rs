@@ -8,9 +8,10 @@ fn kali_bin() -> String {
 }
 
 /// A registered test whose self-check fails via `throw`. Under the print-then-
-/// trap `throw` lowering this traps in the guest; the browser JS harness
-/// catches the trap and counts it into the summary's `testsFailed` without
-/// producing a compile/trap diagnostic — the exact trap-swallow class.
+/// trap `throw` lowering, the test's body executes inline during `_start` and
+/// the trap escapes the JS harness's per-callback try/catch, killing the process
+/// before the summary is written. The Rust crash-lane counts this as a failed
+/// test (no compile/trap diagnostic) — the exact trap-swallow class.
 fn failing_browser_test_source() -> &'static str {
     r#"Kali.test('self-check throw propagates as a failure', () => {
   const actual = 1;
