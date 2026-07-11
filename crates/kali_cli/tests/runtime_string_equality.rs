@@ -272,6 +272,19 @@ fn for_in_key_equality() {
     // reserved local" reject (only var/let keys are in the admitted surface),
     // so the key is `let`-bound. Neither gap is equality-related; node
     // semantics are identical across the spellings. node v26.5.0: prints "ok".
+    //
+    // VERDICT (empirically settled, post-Task-5 review probe): behavior pin,
+    // NOT load-bearing for Stage 1. Built the pre-__streq binary at 031fcda37
+    // (last commit before the equality arm) and ran this exact fixture: it
+    // also printed "ok" (exit 0, no stderr) — byte-identical to the
+    // current-branch result. The for-in key's handle comes from Spec 4a's
+    // interned key table and coincides with the literal "b"/"a" handle, so
+    // `===` passes by pre-existing handle identity regardless of __streq.
+    // Content-equality load-bearing coverage for for-in keys is carried by
+    // nothing yet — recorded in throw-fallout-stage1-triage.md (Task 5
+    // discoveries) as an open gap; candidate shape would need a for-in key
+    // handle that does NOT coincide with any interned literal (not built
+    // here).
     let out = run_source(
         "const o = { b: 1, a: 2 };\nlet matched = 0;\nfor (let k in o) {\n  if (k === \"b\") { matched = matched + 1; }\n  if (k === \"a\") { matched = matched + 1; }\n}\nif (matched !== 2) { throw new Error(\"for-in key equality failed\"); }\nconsole.log(\"ok\");\n",
     );
