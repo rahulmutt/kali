@@ -27,7 +27,8 @@ splits into two broken lanes:
 ## Decision (maintainer-approved)
 
 - **Lift + re-pin:** Stage 1 replaces *both* lanes with real content
-  comparison — including deleting the E3200 equality reject — and re-pins the
+  comparison — preempting the E3200 equality reject for both-string
+  operands — and re-pins the
   main-green tests that assert that reject (same honest re-pin move as
   Stage 0's 43).
 - **Approach A:** a `__streq` synthetic wasm function; ALL both-string equality
@@ -93,22 +94,28 @@ Follows the `__substring`/`__join` synthetic pattern exactly:
   string handles, `Call(streq_fn_index())`; for `!=`/`!==` append negation
   (`I64Eqz` + extend) matching the existing `!=` idiom.
 - The equality branch of the reject lane (`is_runtime_concat_string` check at
-  `operators.rs:1408-1427`) is **deleted**. Handle-identity `i64.eq` on strings
-  ceases to exist as a semantics; it survives only as the fast path *inside*
-  `__streq`. Content equality is defined at one choke point — no provenance
-  chasing (the Spec-4a structural default-deny lesson).
+  `operators.rs:1408-1427`) is **preempted**: both-string equality returns from
+  the new arm and never reaches it. The reject itself is **retained** as the
+  fail-closed backstop for the residue — a tainted string against a NON-string
+  operand (e.g. `("a"+s) == 5`), which must keep rejecting per Error handling
+  below. Handle-identity `i64.eq` on strings ceases to exist as a semantics; it
+  survives only as the fast path *inside* `__streq`. Content equality is
+  defined at one choke point — no provenance chasing (the Spec-4a structural
+  default-deny lesson).
 - Order/arith string rejects in the same lane are untouched.
 
 ### Types-side mirror (`crates/kali_types/src/resolve/expression.rs`)
 
-The equality dispatch that fail-closes tainted-string equality today is updated
-in lockstep: both-provably-string equality admitted; mixed or unproven operands
-keep rejecting E3200. The hand-mirrored oracle pair — codegen
-`is_string_valued` (`operators.rs:808-887`) ↔ types
-`operand_repr_is_string` (`expression.rs:889-937`) — must classify every
-operand form identically (literal, identifier repr, ternary, `substring`/`join`
-call, `process.argv` element, computed string-array element, parenthesized), or
-the gate fails open. Both classification changes land as one reviewed unit.
+Code-reading during planning established that `kali_types` has **no
+equality-specific gate**: the E3200 equality reject lives only in codegen
+(`operators.rs:1410`); the types-side rejecters cover `+`, logical operands,
+truthiness, `.length`, and stores — none fires on an equality operand. The
+mirror obligation for this stage is therefore **verification, not code
+change**: fixtures per operand form (literal, identifier repr, ternary,
+`substring`/`join` call, `process.argv` element, computed string-array element)
+prove admitted forms compile-and-run and non-admitted forms still diagnose. The
+hand-mirrored oracle pair — codegen `is_string_valued` (`operators.rs:808-887`)
+↔ types `operand_repr_is_string` (`expression.rs:889-937`) — is untouched.
 
 ## Data flow (end to end)
 
@@ -125,8 +132,9 @@ byte-for-byte with node.
   handles.
 - Exactly-one-side string proven, or string-valued but unproven repr: unchanged
   behavior (mixed lane as today; unproven forms keep their existing E3200
-  rejects). No new diagnostics introduced; the only diagnostic *removed* is the
-  equality taint-reject.
+  rejects). No new diagnostics introduced; the equality taint-reject no longer
+  fires for both-string operands (preempted) but still guards the mixed-tainted
+  residue.
 
 ## Re-pin policy
 
