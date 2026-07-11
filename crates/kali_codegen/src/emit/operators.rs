@@ -886,6 +886,28 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// True when `id` is a `Deno.env.get(...)` call — the SAME recognizer the
+    /// call emitter routes with (`env_get_import_index`, intrinsics/host.rs),
+    /// so this lane and the emission agree by construction. Its runtime value
+    /// is a tagged string handle OR 0 (missing variable → JS `undefined`);
+    /// `__streq`'s tag guard makes the 0 case unequal to every real string,
+    /// which matches node (`undefined === s` is false for every string `s`).
+    /// Deliberately NOT an `is_string_valued` arm: in `+`/`.length`/store
+    /// positions a maybe-0 value must keep failing closed; only the equality
+    /// lane (where `__streq` is total over 0) consults this.
+    pub(crate) fn is_env_get_string_call(&self, id: LirNodeId) -> bool {
+        let id = self.unwrap_transparent(id);
+        let node = self.node(id);
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+        let Some(callee) = node.children.first().copied() else {
+            return false;
+        };
+        let callee_node = self.node(self.unwrap_transparent(callee));
+        self.env_get_import_index(callee_node).is_some()
+    }
+
     /// True when `id` is a string value backed by a FRESH runtime
     /// `string_concat` handle (a `+` expression, an interpolated template, a
     /// `Repr::String`-tainted identifier/call), as opposed to an interned
@@ -1379,10 +1401,17 @@ impl<'a> FunctionEmitter<'a> {
         // Handle-identity `i64.eq` on strings survives only as the fast path
         // INSIDE `__streq`. Anything not both-string (mixed, unproven) falls
         // through to the fail-closed reject below, unchanged.
-        if matches!(op, "==" | "!=" | "===" | "!==")
-            && self.is_string_valued(left)
-            && self.is_string_valued(right)
-        {
+        let is_equality_op = matches!(op, "==" | "!=" | "===" | "!==");
+        let left_string = is_equality_op && self.is_string_valued(left);
+        let right_string = is_equality_op && self.is_string_valued(right);
+        let left_env = is_equality_op && !left_string && self.is_env_get_string_call(left);
+        let right_env = is_equality_op && !right_string && self.is_env_get_string_call(right);
+        // At most ONE env-get operand: both env.get results materialize into
+        // the SAME reserved buffer (call.rs env lane), so env-vs-env would
+        // read the second call's bytes twice and spuriously equal any two
+        // same-length values. Env-vs-env keeps today's path (follow-up
+        // F-Stage1-2 in the Stage 1 triage doc).
+        if (left_string || left_env) && (right_string || right_env) && !(left_env && right_env) {
             for operand in [left, right] {
                 let emitted = self.emit_node(function, operand, true);
                 if !emitted.produced {

@@ -39,7 +39,7 @@ Any #2/#3-listed name matching one of these patterns (e.g. the `frozen_object_en
 ## Follow-ups opened this stage
 
 - **F-Stage1-1 — mixed-type `==` coercion (spec §Scope).** `"5" == 5` style coercing equality is out of scope; a proven string vs non-string operand keeps today's fail-closed E3200 reject (tainted) or accidental-correct strict compare (untainted, Task 6 pin). Recorded in the spec; candidate for a later numeric-coercion lane.
-<!-- F-Stage1-2 appended by Task 4. -->
+- **F-Stage1-2 — env-vs-env equality is unsound (pre-existing).** `Deno.env.get(a) == Deno.env.get(b)` compares two handles aliasing the SAME reserved buffer (call.rs env lane, buffer offset 0): on `main` the identity compare is wrong for equal-length differing values, and Stage 1 deliberately does NOT route env-vs-env through `__streq` (the second call overwrites the first's bytes pre-compare). Fix requires per-call buffers or copy-out — host-wiring family, candidate for Stage 3.
 
 ## Stage checkpoint (filled by Task 7)
 

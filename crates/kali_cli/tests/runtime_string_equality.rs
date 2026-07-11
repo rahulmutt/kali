@@ -168,3 +168,71 @@ fn negated_inequality_true_for_unequal_strings() {
     );
     assert_ok(&out);
 }
+
+fn run_source_with_env(src: &str, key: &str, value: Option<&str>) -> std::process::Output {
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let dir = std::env::temp_dir().join(format!(
+        "kali-streq-env-{}-{}-{}",
+        std::process::id(),
+        COUNTER.fetch_add(1, Ordering::Relaxed),
+        src.len()
+    ));
+    std::fs::create_dir_all(&dir).expect("create temp dir");
+    let path = dir.join("main.ts");
+    std::fs::write(&path, src).expect("write source");
+    let mut cmd = Command::new(kali_bin());
+    cmd.arg("run").arg(&path).env_remove(key);
+    if let Some(value) = value {
+        cmd.env(key, value);
+    }
+    cmd.output().expect("run kali")
+}
+
+// Node analog for derivation: `process.env.K` (node has no Deno global);
+// semantics asserted are plain JS string/undefined equality.
+
+#[test]
+fn env_get_equality_matches_set_value() {
+    // node analog: process.env.K = "y"; process.env.K === "y" → true.
+    let out = run_source_with_env(
+        "if (Deno.env.get(\"KALI_STREQ_A\") !== \"y\") { throw new Error(\"env equality failed\"); }\nconsole.log(\"ok\");\n",
+        "KALI_STREQ_A",
+        Some("y"),
+    );
+    assert_ok(&out);
+}
+
+#[test]
+fn env_get_equality_rejects_different_value() {
+    // node analog: env K = "z"; K === "y" → false.
+    let out = run_source_with_env(
+        "if (Deno.env.get(\"KALI_STREQ_B\") === \"y\") { throw new Error(\"different env value compared equal\"); }\nconsole.log(\"ok\");\n",
+        "KALI_STREQ_B",
+        Some("z"),
+    );
+    assert_ok(&out);
+}
+
+#[test]
+fn env_get_missing_is_unequal_to_every_string() {
+    // node analog: undefined === "y" → false, and undefined === "" → false
+    // (the __streq TAG guard: a 0 result is not a string handle).
+    let out = run_source_with_env(
+        "if (Deno.env.get(\"KALI_STREQ_MISSING\") === \"y\") { throw new Error(\"missing env equalled a string\"); }\nif (Deno.env.get(\"KALI_STREQ_MISSING\") === \"\") { throw new Error(\"missing env equalled empty string\"); }\nconsole.log(\"ok\");\n",
+        "KALI_STREQ_MISSING",
+        None,
+    );
+    assert_ok(&out);
+}
+
+#[test]
+fn env_get_empty_value_equals_empty_literal() {
+    // node analog: env K = ""; K === "" → true (present-but-empty is a REAL
+    // empty string, distinct from missing/undefined).
+    let out = run_source_with_env(
+        "if (Deno.env.get(\"KALI_STREQ_EMPTY\") !== \"\") { throw new Error(\"empty env value unequal to empty literal\"); }\nconsole.log(\"ok\");\n",
+        "KALI_STREQ_EMPTY",
+        Some(""),
+    );
+    assert_ok(&out);
+}
