@@ -21,3 +21,6 @@ mod test_runner;
 
 #[path = "execute_tests/host_env.rs"]
 mod host_env;
+
+#[path = "execute_tests/browser_tests_failed.rs"]
+mod browser_tests_failed;

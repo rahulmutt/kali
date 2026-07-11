@@ -363,6 +363,26 @@ impl RuntimeCtx {
     }
 }
 
+/// Failed-test accounting for a browser-harness `kali test` run. The JS
+/// harness's per-callback try/catch feeds `testsFailed` through the summary
+/// file, but a test body that executes inline during `_start` (the flattened
+/// callback lane) traps OUTSIDE that try/catch and kills the harness process
+/// before the summary is emitted, reporting zero failures. A non-zero harness
+/// exit with no failure otherwise accounted must count as (at least) one
+/// failed test — otherwise `kali test` reports a crashed run as passing.
+/// (throw-fallout Stage 0: harness trap-swallow, crash lane.)
+fn browser_tests_failed(
+    reported_tests_failed: usize,
+    run_registered_tests: bool,
+    harness_status_success: bool,
+) -> usize {
+    if run_registered_tests && !harness_status_success && reported_tests_failed == 0 {
+        1
+    } else {
+        reported_tests_failed
+    }
+}
+
 pub(crate) fn execute_browser_runtime(
     runtime: &RuntimeCtx,
     wasm_bytes: &[u8],
@@ -397,7 +417,11 @@ pub(crate) fn execute_browser_runtime(
             outcome.status.code().unwrap_or(1)
         },
         tests_run,
-        tests_failed: outcome.tests_failed,
+        tests_failed: browser_tests_failed(
+            outcome.tests_failed,
+            run_registered_tests,
+            outcome.status.success(),
+        ),
         stdout: outcome.stdout,
         // The browser harness does not (yet) plumb a raw binary-stdout sink;
         // `Kali.writeStdoutBytes` is host-only for this task (see spec follow-up).
