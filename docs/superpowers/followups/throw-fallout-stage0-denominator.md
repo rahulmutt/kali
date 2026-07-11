@@ -1133,3 +1133,43 @@ Buckets are name-pattern primary assignments; the raw inventory warned buckets o
   - `test_supports_array_callback_identity_slices_in_browser_api_surface_with_harness_ts_input`
   - `test_supports_array_callback_identity_slices_in_browser_api_surface_with_harness_tsx_input`
 
+
+## Stage 1 drain (runtime string equality)
+
+**Date:** 2026-07-11 · **Commits:** fa98055ec (triage), 031fcda37 (`__streq` synthetic), 76165a395 + b210915cd (equality arm + negation pin), 21f818bf2 (5 re-pins), 918ed8313 + ed2e2eb80 (env lane + F-Stage1-3), f57fc868f + f6c8f25ca (enumeration-key pins + revert-sensitivity probe), 86c1ae772 (re-mask/backstop pins), b98365992 (census-list sync)
+
+| measure | count |
+|---|---|
+| pre-stage failing set (Task 0 enumeration) | 977 |
+| post-stage failing set | 974 |
+| drained by Stage 1 | 3 |
+| #2/#3 entries remaining (overlap → later stages) | 653 |
+| tests re-pinned (equality-reject pins, node-derived) | 5 |
+
+Newly-red vs pre-stage: none (gate requirement). The raw post enumeration (976, at 86c1ae772)
+contained two stage-introduced census regressions — the hand-mirrored `SYNTHETIC_FUNCTIONS`
+exclusion list in `count_tag_boxing_ops` (runtime_smoke.rs) was missing `__streq` — fixed
+test-side in b98365992 (both re-run green; grep-swept, no other mirror of the list exists).
+
+Remaining red by bucket: #1 async/Promise 169 · #2/#3 enumeration+string-equality 653 ·
+#4 delete+reinsert 46 · #5 performance.now 21 · #6 web crypto 18 · H coverage LinkError 2 ·
+K process.kill probe 4 · #7 dynamic import 32 · #8 short-circuit 13 · #10 array push 16
+(sum 974).
+
+**The plan's "drain dominated by #2/#3" expectation was falsified.** The 3 drained names are
+the #2/#3-listed `Deno.env` accept-lane tests (Task 4's env-equality lane). The rest of the
+#2/#3 bucket is multi-blocked: its fixture families fail on causes OUTSIDE equality — the
+`[]`+`.push` silent no-op (Stage 4; e.g. `browser_object_keys_harness` 41, `for_of_object_keys_iteration`
+54 — Task 7 spot-check confirmed the keys-harness fixtures throw `keys.length !== 2`, the push
+symptom, not a key-compare mismatch), `for_await`/async sequence wrappers (Stage 7), frozen/
+delete-reinsert staleness (Stage 2), and the quoted-key repr gap (F-Stage1-4). Stage 0's
+name-pattern bucketing attributed them to equality; the per-test root causes say otherwise.
+Stage 1's `__streq` lane is a NECESSARY prerequisite for those fixtures (their self-checks
+compare enumeration keys against literals after iterating) but not sufficient — they green
+only when their primary blockers lift in Stages 2/4/7. The stage's soundness value is carried
+by the 21-test `runtime_string_equality` suite, the 5 node-derived re-pins, and the closed
+silent handle-identity-equality miscompile class, not by denominator movement.
+
+Follow-ups opened: F-Stage1-1 (mixed `==` coercion, spec), F-Stage1-2 (env-vs-env equality),
+F-Stage1-3 (bound-alias env.get silent compare), F-Stage1-4 (quoted-key repr shape) — all in
+the Stage 1 triage doc.
