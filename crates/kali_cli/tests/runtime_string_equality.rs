@@ -156,3 +156,15 @@ fn double_negation_lanes_agree() {
     );
     assert_ok(&out);
 }
+
+#[test]
+fn negated_inequality_true_for_unequal_strings() {
+    // node: ("x"+"z") != "xy" → true and ("x"+"z") !== "xy" → true. The other
+    // tests only pin the negation lane's FALSE side (equal strings) or use
+    // ===/== for unequal operands; this pins the negation TRUE outcome, so a
+    // constant-false `!=`/`!==` lowering cannot pass the suite.
+    let out = run_source(
+        "let a = \"x\";\nlet b = a + \"z\";\nif (b != \"xy\") { if (b !== \"xy\") { console.log(\"ok\"); } else { throw new Error(\"strict negation false for unequal\"); } } else { throw new Error(\"loose negation false for unequal\"); }\n",
+    );
+    assert_ok(&out);
+}
