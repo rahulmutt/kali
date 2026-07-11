@@ -30,10 +30,11 @@ pub(crate) fn generator_lowering_unavailable_message(
 
 /// Names of every hand-emitted synthetic wasm function (not lowered from
 /// source LIR): the page-pool allocator family, plus the runtime-substring
-/// helper (Spec 2). Used to exclude them from coverage instrumentation (see
-/// the `kali:coverage` custom-section count below) and, in later tasks,
-/// anywhere else code needs to distinguish a real source-defined function
-/// from these fixed compiler-internal slots.
+/// helper (Spec 2), the runtime-join pair (Spec 3 / fasta Spec 7), and the
+/// runtime string-equality helper (throw-fallout Stage 1). Used to exclude
+/// them from coverage instrumentation (see the `kali:coverage` custom-section
+/// count below) and, in later tasks, anywhere else code needs to distinguish
+/// a real source-defined function from these fixed compiler-internal slots.
 pub const SYNTHETIC_FUNCTIONS: &[&str] = &[
     "__alloc",
     "__alloc_global",
@@ -42,6 +43,7 @@ pub const SYNTHETIC_FUNCTIONS: &[&str] = &[
     "__substring",
     "__join",
     "__join_arena",
+    "__streq",
 ];
 
 /// Generate WASM from LIR.
@@ -312,6 +314,22 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     all_functions.push(FunctionPlan {
         name: "__join_arena".to_string(),
         params: vec!["arr".to_string(), "sep".to_string()],
+        locals: Vec::new(),
+        body: lir.root,
+        result: true,
+        is_entry: false,
+        flavor: None,
+    });
+    // Synthetic runtime string equality `__streq(a: i64, b: i64) -> i64`
+    // (throw-fallout Stage 1): content comparison of two tagged string
+    // handles — 1 when equal, 0 when not. Handle-identity fast path, then a
+    // string-tag guard (a 0/untagged operand — e.g. a missing `Deno.env.get`
+    // — is unequal to every real string), then length pre-check, then a
+    // byte-compare loop. Same inert-placeholder pattern as the synthetics
+    // above; body hand-emitted by `emit_streq_body`.
+    all_functions.push(FunctionPlan {
+        name: "__streq".to_string(),
+        params: vec!["a".to_string(), "b".to_string()],
         locals: Vec::new(),
         body: lir.root,
         result: true,
@@ -650,6 +668,8 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         //   `__join` (`emit_join_body`, Spec 3): 6 i64 — `n`, `i`, `total`,
         //     `out`, `cur`, `h` (locals 2-7; locals 0-1 are its `arr`/`sep`
         //     params).
+        //   `__streq` (`emit_streq_body`): 4 i64 — `len`, `i`, `pa`, `pb`
+        //     (locals 2-5; locals 0-1 are its `a`/`b` params).
         let mut local_decls: Vec<(u32, ValType)> = Vec::new();
         if matches!(function.name.as_str(), "__alloc" | "__alloc_global") {
             local_decls.push((2, ValType::I32));
@@ -659,6 +679,8 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             local_decls.push((2, ValType::I32));
         } else if function.name == "__substring" {
             local_decls.push((1, ValType::I64));
+        } else if function.name == "__streq" {
+            local_decls.push((4, ValType::I64));
         } else if matches!(function.name.as_str(), "__join" | "__join_arena") {
             local_decls.push((6, ValType::I64));
         } else {
@@ -732,6 +754,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                 // (resettable) arena via `__alloc` (fasta Spec 7 Task 4c).
                 "__join" => emit_join_body(&mut body, alloc_global_index),
                 "__join_arena" => emit_join_body(&mut body, alloc_index),
+                "__streq" => emit_streq_body(&mut body),
                 other => unreachable!("unhandled synthetic function {other}"),
             }
         } else if function.is_entry {
@@ -3436,6 +3459,126 @@ fn emit_substring_body(func: &mut Function) {
     func.instruction(&Instruction::LocalGet(1));
     func.instruction(&Instruction::I64Sub);
     func.instruction(&Instruction::I64Or);
+}
+
+/// `__streq(a, b) -> i64`: content equality of two tagged string handles —
+/// 1 when equal, 0 when not (throw-fallout Stage 1). Locals: 0 = a, 1 = b
+/// (params), 2 = len, 3 = i, 4 = pa, 5 = pb.
+///
+/// Order of checks:
+///   1. identical handles → 1 (interned-vs-interned and aliased handles);
+///   2. string-tag guard: unless BOTH operands carry `STRING_HANDLE_TAG`,
+///      they are not two live strings (e.g. a missing `Deno.env.get` is 0)
+///      → 0 (the identical case already returned);
+///   3. length mismatch (low 32 bits) → 0;
+///   4. len == 0 → 1 (two empty strings are equal at ANY offsets);
+///   5. byte loop over the two decoded offsets — first mismatch → 0, loop
+///      completion → 1.
+///
+/// Offsets are decoded exactly as the runtime does (`(h >> 32) & 0x7FFF_FFFF`
+/// — masked, mirroring `read_guest_string_handle` in
+/// kali_runtime/src/host/memory.rs), matching `emit_substring_body`.
+///
+/// NO `i64.eqz` anywhere in this body: like `__join` (see the comment in
+/// `emit_join_body`), `__streq` is present in every module and
+/// `boolean_branches_use_the_layout_fast_path` asserts module-wide printed
+/// text contains no `i64.eqz`. Zero-tests use `i64.const 0` + `i64.eq`.
+fn emit_streq_body(func: &mut Function) {
+    // 1. if a == b return 1
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::Return);
+    func.instruction(&Instruction::End);
+    // 2. if (a & b & TAG) == 0 return 0  — not two tagged strings
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I64Const(crate::STRING_HANDLE_TAG as i64));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::Return);
+    func.instruction(&Instruction::End);
+    // 3. len = a & 0xFFFF_FFFF; if len != (b & 0xFFFF_FFFF) return 0
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::LocalSet(2));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64Ne);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::Return);
+    func.instruction(&Instruction::End);
+    // 4. if len == 0 return 1
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::Return);
+    func.instruction(&Instruction::End);
+    // pa = (a >> 32) & 0x7FFF_FFFF; pb = (b >> 32) & 0x7FFF_FFFF
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I64Const(32));
+    func.instruction(&Instruction::I64ShrU);
+    func.instruction(&Instruction::I64Const(0x7FFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Const(32));
+    func.instruction(&Instruction::I64ShrU);
+    func.instruction(&Instruction::I64Const(0x7FFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::LocalSet(5));
+    // i = 0
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(3));
+    // 5. loop: if *(pa+i) != *(pb+i) return 0; i += 1; continue while i < len
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load8U(MemArg {
+        offset: 0,
+        align: 0,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load8U(MemArg {
+        offset: 0,
+        align: 0,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::I64Ne);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::Return);
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64LtS);
+    func.instruction(&Instruction::BrIf(0));
+    func.instruction(&Instruction::End);
+    // all len bytes equal
+    func.instruction(&Instruction::I64Const(1));
+    // NO trailing End — the dispatch loop appends it (same as every synthetic).
 }
 
 /// `__join(arr, sep) -> i64`: copy every element string (i64 handles in the

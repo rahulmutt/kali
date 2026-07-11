@@ -379,6 +379,15 @@ impl<'a> FunctionEmitter<'a> {
         self.functions["__join_arena"]
     }
 
+    /// Wasm function index of the synthetic runtime string-equality helper
+    /// (`__streq(a, b) -> i64`, throw-fallout Stage 1): content comparison of
+    /// two tagged string handles (identity fast path, tag guard, length
+    /// pre-check, byte loop). Called by `emit_binary`'s both-string equality
+    /// arm.
+    pub(crate) fn streq_fn_index(&self) -> u32 {
+        self.functions["__streq"]
+    }
+
     /// Selects the string-concat host import for the concat node `id` (fasta
     /// Spec 7 Task 4d) — the codegen half of the string-site "both-sides
     /// oracle", exactly mirroring `emit_runtime_join`'s join selection. Returns
