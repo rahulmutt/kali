@@ -297,3 +297,76 @@ fn for_in_key_equality() {
 // non-equality gap — recorded as expected-to-remain in
 // docs/superpowers/followups/throw-fallout-stage1-triage.md rather than
 // pinned wrong here.
+
+// ---- Invariant 3 (no re-masking) + fail-closed backstops ----
+
+#[test]
+fn wrong_comparison_self_check_still_fails() {
+    // Invariant 3: the fix must not re-silence self-check throws. A comparison
+    // that is genuinely false must take the throw path and fail the run
+    // (print-then-trap → non-zero exit).
+    //
+    // Empirically verified against the branch's debug binary (built at
+    // f6c8f25ca, matching CARGO_BIN_EXE_kali's profile): the QUOTED key
+    // `{ "b": 1 }` compiles and runs cleanly through this shape — no E5506
+    // reject. Object.keys(...) produces "b"; "b" !== "nope" is true; the
+    // throw fires: exit 1, stderr "Uncaught Error: honest failure", empty
+    // stdout. The brief's quoted-key contingency did not trigger; kept
+    // verbatim, no substitution to unquoted `{ b: 1 }` needed.
+    let out = run_source(
+        "const keys = Object.keys({ \"b\": 1 });\nif (keys[0] !== \"nope\") {\n  throw new Error(\"honest failure\");\n}\nconsole.log(\"unreachable ok\");\n",
+    );
+    assert!(
+        !out.status.success(),
+        "a false comparison's throw must fail the run; stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    let printed = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(
+        printed.contains("honest failure"),
+        "throw's print-then-trap message missing; combined output: {printed}"
+    );
+    assert!(
+        !String::from_utf8_lossy(&out.stdout).contains("unreachable ok"),
+        "execution continued past a throw"
+    );
+}
+
+#[test]
+fn mixed_tainted_equality_still_rejects_e3200() {
+    // Fail-closed backstop: a tainted string against a NON-string operand
+    // still hits the E3200 reject (the Task 2 arm requires BOTH sides
+    // string-proven; the reject lane below it is retained for this residue).
+    let out = run_source(
+        "function f(s) {\n  if ((s + \"y\") == 5) {\n    console.log(1);\n  }\n}\nf(\"x\");\n",
+    );
+    assert!(
+        !out.status.success(),
+        "mixed tainted-string == number must stay rejected; stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("E3200"), "expected E3200, stderr: {stderr}");
+}
+
+#[test]
+fn proven_string_vs_number_strict_equality_unchanged() {
+    // Mixed lane pin (spec: out of scope, unchanged): an UNTAINTED proven
+    // string against a number keeps today's handle-vs-number compare, which
+    // agrees with node for `===` (false). node: "hi" === 5 → false. The `==`
+    // coercion divergence ("5" == 5) is follow-up F-Stage1-1, NOT fixed here.
+    //
+    // Empirically verified: this expression is outside the Task 2 lane
+    // (requires both sides string-proven), so branch == main for it. The
+    // branch binary compiles it to the accidental-correct compare (does not
+    // reject at the types layer): exit 0, stdout "ok\n". Kept the brief's
+    // "ok path" pin verbatim; the E3200-reject reshape was not needed.
+    let out = run_source(
+        "let s = \"hi\";\nif (s === 5) { throw new Error(\"string equalled number\"); }\nconsole.log(\"ok\");\n",
+    );
+    assert_ok(&out);
+}
