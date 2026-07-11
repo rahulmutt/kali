@@ -1453,14 +1453,14 @@ fn json_test_merges_missing_tests_failed_from_browser_summary_stdout_when_browse
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(
         json["payload"],
         serde_json::json!({
@@ -1514,14 +1514,14 @@ fn json_test_uses_padded_browser_summary_labels_when_browser_harness_is_configur
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 4);
@@ -1950,14 +1950,14 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_has_invalid_tests_fa
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 7);
@@ -2000,14 +2000,14 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_has_non_integer_test
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 7);
@@ -2050,14 +2050,14 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_has_non_integer_test
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 7);
@@ -2100,14 +2100,14 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_has_invalid_labels_w
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 4);
@@ -2150,14 +2150,14 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_has_invalid_labels_a
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 8);
@@ -2200,14 +2200,14 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_has_invalid_array_it
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 8);
@@ -2250,14 +2250,14 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_has_invalid_args_whe
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 8);
@@ -2300,14 +2300,14 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_has_invalid_array_it
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 8);
@@ -2350,14 +2350,14 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_has_invalid_tests_ar
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 8);
@@ -2400,14 +2400,14 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_has_invalid_tests_ar
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 8);
@@ -2450,14 +2450,14 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_has_invalid_args_whe
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 8);
@@ -2500,14 +2500,14 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_has_invalid_labels_w
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 4);
@@ -2550,14 +2550,14 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_has_invalid_labels_a
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 8);
@@ -2650,14 +2650,14 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_is_incomplete_when_b
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 1);
