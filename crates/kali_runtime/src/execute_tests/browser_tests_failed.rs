@@ -19,3 +19,8 @@ fn clean_pass_stays_zero() {
 fn non_test_lane_crash_is_untouched() {
     assert_eq!(browser_tests_failed(0, false, false), 0);
 }
+
+#[test]
+fn reported_failures_with_clean_exit_pass_through() {
+    assert_eq!(browser_tests_failed(2, true, true), 2);
+}

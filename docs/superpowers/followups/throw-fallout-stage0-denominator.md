@@ -1,6 +1,6 @@
 # throw-fallout Stage 0 — the true denominator (failing-set snapshot)
 
-**Date:** 2026-07-11  ·  **Branch:** `soundness-batch1-pra` (post Stage 0 Tasks 1–3, re-pin commit included)  ·  **Baseline:** `main` worktree at `/workspace/.worktrees/kali-main` (b48a067d3)
+**Date:** 2026-07-11  ·  **Branch:** `soundness-batch1-pra` (post Stage 0 Tasks 1–3, re-pin commit included)  ·  **Baseline:** `main` worktree at `/workspace/.worktrees/kali-main` (b48a067d3; machine-local path)
 
 This snapshot supersedes the raw 922 of `throw-fallout-project.md` as the working target. Later stages drain against **this** list.
 
@@ -30,6 +30,10 @@ The brief's grep (162 candidate files) surfaced **no** throwing-`Kali.test`-asse
 ## Gate mechanics caveat (record for every later stage)
 
 `cargo test --workspace` **fail-fasts at the first failing test binary** (it stopped after 12 of 338 binaries, 16 failures). The verdict command stays `cargo test --workspace`, but **enumerating** the failing set requires `cargo test --workspace --no-fail-fast`. All counts here come from the `--no-fail-fast` enumeration; the prior 922 was necessarily produced the same way.
+
+## Stage 0 follow-ups and residual risks
+
+- **HTML/CDP harness crash-lane residual risk:** The crash-lane accounting (`browser_tests_failed`, kali_runtime/src/execute.rs) trips on "harness process exit ≠ 0 with zero reported failures"; the HTML/CDP (Chromium) harness lane shares this logic, but an HTML/CDP driver that caught an in-page trap and wrote a zero-failure summary while still exiting 0 would remain swallowed. Stage 0's reproducer exercises only the node `.mjs` lane; the host-wiring stage (Stage 3) must confirm the CDP driver surfaces guest traps as a non-zero exit.
 
 ## The denominator, bucketed by design-doc classes
 
