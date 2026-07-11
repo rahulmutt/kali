@@ -306,15 +306,31 @@ fn wrong_comparison_self_check_still_fails() {
     // that is genuinely false must take the throw path and fail the run
     // (print-then-trap → non-zero exit).
     //
-    // Empirically verified against the branch's debug binary (built at
-    // f6c8f25ca, matching CARGO_BIN_EXE_kali's profile): the QUOTED key
-    // `{ "b": 1 }` compiles and runs cleanly through this shape — no E5506
-    // reject. Object.keys(...) produces "b"; "b" !== "nope" is true; the
-    // throw fires: exit 1, stderr "Uncaught Error: honest failure", empty
-    // stdout. The brief's quoted-key contingency did not trigger; kept
-    // verbatim, no substitution to unquoted `{ b: 1 }` needed.
+    // Re-anchored (Stage 1 final-review fix wave) off a genuine fresh-string
+    // content mismatch (`"no" + "pe"` !== "yes") rather than the original
+    // quoted-key `Object.keys({ "b": 1 })` shape. That original shape only
+    // "passed" for the wrong reason: quoted-key `Object.keys` element reads
+    // are a PRE-EXISTING SILENT MISCOMPILE (F-Stage1-4's silent facet, see
+    // the Stage 1 triage doc) — `keys[0]` reads back as garbage (`0`, an i64,
+    // not a string handle) and `keys.length` is wrong too. The old test threw
+    // only because the __streq TAG guard treats a non-string-handle operand
+    // as automatically unequal to "nope" (garbage-vs-string, not a real
+    // content mismatch), so it exercised the tag-guard-on-garbage path rather
+    // than genuine string content inequality — not what Invariant 3 is
+    // supposed to pin. Measured directly (fresh `cargo build -p kali_cli`,
+    // debug binary, `kali run` on `const keys = Object.keys({ "b": 1 });
+    // console.log(keys.length); console.log(keys[0]);`): prints `2` then `0`
+    // (exit 0, no diagnostic); node v26.5.0 on the same source prints `1`
+    // then `b`.
+    //
+    // The re-anchored fixture: node v26.5.0 confirms `"no" + "pe" !== "yes"`
+    // is true, so the throw fires (exit 1, stderr "Error: honest failure").
+    // On the branch debug binary: exit 1, stderr "Uncaught Error: honest
+    // failure" + the E4000 trap line, empty stdout — matches all three
+    // assertions below (non-zero exit; "honest failure" in combined output;
+    // no "unreachable ok" in stdout).
     let out = run_source(
-        "const keys = Object.keys({ \"b\": 1 });\nif (keys[0] !== \"nope\") {\n  throw new Error(\"honest failure\");\n}\nconsole.log(\"unreachable ok\");\n",
+        "let k = \"no\" + \"pe\";\nif (k !== \"yes\") {\n  throw new Error(\"honest failure\");\n}\nconsole.log(\"unreachable ok\");\n",
     );
     assert!(
         !out.status.success(),
