@@ -394,7 +394,7 @@ pub(crate) fn test_command(
                 "threadTopology": thread_topology,
             })
         };
-        let success = diagnostics.is_empty();
+        let success = test_run_succeeded(diagnostics.is_empty(), failed);
         let (errors, warnings) = shared::split_and_convert_diagnostics(&diagnostics, None, None);
         validate_test_payload_value(&payload)
             .expect("constructed test payload must satisfy schema-v1 shape");
@@ -416,7 +416,7 @@ pub(crate) fn test_command(
         if !captured_stderr.is_empty() {
             eprint!("{}", captured_stderr);
         }
-        if diagnostics.is_empty() {
+        if test_run_succeeded(diagnostics.is_empty(), failed) {
             if coverage {
                 let functions_total = coverage_reports
                     .iter()
@@ -441,11 +441,21 @@ pub(crate) fn test_command(
         }
     }
 
-    if diagnostics.is_empty() {
+    if test_run_succeeded(diagnostics.is_empty(), failed) {
         Ok(())
     } else {
         Err(1)
     }
+}
+
+/// A `kali test` run succeeds only when it produced no diagnostics AND every
+/// registered test passed. Test failures reported purely through the run
+/// summary — e.g. a browser-harness callback trap the JS harness catches and
+/// counts into `testsFailed` — increment `failed` without pushing a
+/// diagnostic, so `diagnostics.is_empty()` alone must not decide success.
+/// (throw-fallout Stage 0: harness trap-swallow.)
+fn test_run_succeeded(diagnostics_empty: bool, failed: usize) -> bool {
+    diagnostics_empty && failed == 0
 }
 
 fn coverage_function_count_from_wasm(bytes: &[u8]) -> Option<usize> {
@@ -491,5 +501,32 @@ fn coverage_percent(covered: usize, total: usize) -> f64 {
         100.0
     } else {
         (covered as f64 / total as f64) * 100.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::test_run_succeeded;
+
+    #[test]
+    fn clean_run_with_no_failures_succeeds() {
+        assert!(test_run_succeeded(true, 0));
+    }
+
+    #[test]
+    fn diagnostics_present_is_a_failure() {
+        assert!(!test_run_succeeded(false, 0));
+    }
+
+    #[test]
+    fn test_failures_without_diagnostics_are_a_failure() {
+        // The trap-swallow class: a browser callback trap increments `failed`
+        // through the run summary without pushing a diagnostic.
+        assert!(!test_run_succeeded(true, 1));
+    }
+
+    #[test]
+    fn both_diagnostics_and_failures_is_a_failure() {
+        assert!(!test_run_succeeded(false, 2));
     }
 }
