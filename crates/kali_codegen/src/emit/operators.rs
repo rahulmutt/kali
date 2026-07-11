@@ -1371,6 +1371,39 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        // Runtime string equality (throw-fallout Stage 1): when BOTH operands
+        // are proven string-valued, `==`/`===` (and the negations) are CONTENT
+        // equality — `__streq` compares length + bytes with a handle-identity
+        // fast path, so fresh runtime handles (enumeration keys, concat,
+        // substring, join, argv) compare by VALUE, matching node.
+        // Handle-identity `i64.eq` on strings survives only as the fast path
+        // INSIDE `__streq`. Anything not both-string (mixed, unproven) falls
+        // through to the fail-closed reject below, unchanged.
+        if matches!(op, "==" | "!=" | "===" | "!==")
+            && self.is_string_valued(left)
+            && self.is_string_valued(right)
+        {
+            for operand in [left, right] {
+                let emitted = self.emit_node(function, operand, true);
+                if !emitted.produced {
+                    function.instruction(&Instruction::I64Const(0));
+                }
+            }
+            function.instruction(&Instruction::Call(self.streq_fn_index()));
+            if matches!(op, "!=" | "!==") {
+                // Negate WITHOUT `i64.eqz` (module-wide printed-text pin in
+                // pipeline_basics::boolean_branches_use_the_layout_fast_path):
+                // `__streq` returns exactly 0 or 1, so `== 0` is the complement.
+                function.instruction(&Instruction::I64Const(0));
+                function.instruction(&Instruction::I64Eq);
+                function.instruction(&Instruction::I64ExtendI32U);
+            }
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Boolean,
+            };
+        }
+
         // A string operand in a NON-`+` position has no correct lowering here.
         // Static string folds have already returned above (relational literal
         // folds, `===`/`!==` bigint folds), so a string operand reaching this
@@ -1378,10 +1411,12 @@ impl<'a> FunctionEmitter<'a> {
         // result is worse than a compile error):
         //   - Relational / arithmetic / bitwise / logical: compare or combine
         //     RAW handles — always wrong. Reject ANY string-valued operand.
-        //   - Equality (`== != === !==`): identity-comparing handles is correct
-        //     ONLY for interned literal constants; a fresh runtime concat handle
-        //     is not the interned handle of the same text. Reject only a tainted
-        //     (runtime-concat-derived) operand, preserving `s == "hi"` etc.
+        //   - Equality (`== != === !==`): a BOTH-proven-string equality was
+        //     already content-compared via `__streq` above (Stage 1) and never
+        //     reaches here. The taint reject below survives as the fail-closed
+        //     BACKSTOP for the residue: a tainted string against a NON-string
+        //     operand (e.g. `("a"+s) == 5`), where neither identity compare nor
+        //     `__streq` is meaningful.
         // NOTE: `&&`/`||`/`??` are deliberately EXCLUDED — they are
         // value-SELECTING (return one operand unchanged, a valid string result)
         // and are statically folded in string-fold positions (e.g. dynamic
