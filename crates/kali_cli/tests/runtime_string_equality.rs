@@ -236,3 +236,51 @@ fn env_get_empty_value_equals_empty_literal() {
     );
     assert_ok(&out);
 }
+
+// The headline #2/#3 bucket shapes (throw-fallout denominator): enumeration
+// keys are FRESH runtime buffers; `!==` against an interned literal was true
+// by handle identity even when the text matched. All node-derived.
+
+#[test]
+fn object_keys_element_equality() {
+    // The browser_object_keys_harness self-check shape, round-tripped through
+    // the SUPPORTED string-element array lane (`new Array(2)` + indexed store)
+    // instead of `[]`+push — push into a `[]` literal is a pre-existing
+    // silent no-op (bucket #10, Stage 4; see the Stage 1 triage doc),
+    // unrelated to equality. node v26.5.0: prints "ok".
+    let out = run_source(
+        "const values = { \"b\": 1, \"a\": 2 };\nconst keys = new Array(2);\nlet i = 0;\nfor (const key of Object.keys(values)) {\n  keys[i] = key;\n  i = i + 1;\n}\nif (keys.length !== 2 || keys[0] !== \"b\" || keys[1] !== \"a\") {\n  throw new Error(\"unexpected Object.keys iteration semantics\");\n}\nconsole.log(\"ok\");\n",
+    );
+    assert_ok(&out);
+}
+
+#[test]
+fn object_keys_loop_variable_equality() {
+    // Direct compare of the for-of binding (no array round-trip).
+    let out = run_source(
+        "const o = { \"b\": 1, \"a\": 2 };\nlet seen = 0;\nfor (const key of Object.keys(o)) {\n  if (seen === 0 && key !== \"b\") { throw new Error(\"first key mismatch\"); }\n  seen = seen + 1;\n}\nif (seen !== 2) { throw new Error(\"key count mismatch\"); }\nconsole.log(\"ok\");\n",
+    );
+    assert_ok(&out);
+}
+
+#[test]
+fn for_in_key_equality() {
+    // Spec 4a materialized for-in keys are repr-lifted `String`. UNQUOTED
+    // object-literal keys (`{ b: 1, a: 2 }`): quoted keys never materialize a
+    // Repr::Object shape (F-Stage1-4, pre-existing, fail-closed E5506 —
+    // triage doc), and a `const`-bound for-in key hits the pre-existing "no
+    // reserved local" reject (only var/let keys are in the admitted surface),
+    // so the key is `let`-bound. Neither gap is equality-related; node
+    // semantics are identical across the spellings. node v26.5.0: prints "ok".
+    let out = run_source(
+        "const o = { b: 1, a: 2 };\nlet matched = 0;\nfor (let k in o) {\n  if (k === \"b\") { matched = matched + 1; }\n  if (k === \"a\") { matched = matched + 1; }\n}\nif (matched !== 2) { throw new Error(\"for-in key equality failed\"); }\nconsole.log(\"ok\");\n",
+    );
+    assert_ok(&out);
+}
+
+// `object_entries_key_equality` (the fourth brief shape, `pair[0]` collected
+// via `names.push(...)`) is intentionally ABSENT: its `[]`+push round-trip is
+// blocked by the pre-existing push-no-op lane (bucket #10, Stage 4), a
+// non-equality gap — recorded as expected-to-remain in
+// docs/superpowers/followups/throw-fallout-stage1-triage.md rather than
+// pinned wrong here.
