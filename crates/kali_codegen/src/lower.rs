@@ -82,6 +82,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     let uses_process_exit = program_uses_process_exit(lir);
     let uses_stdout_write_bytes = program_uses_stdout_write_bytes(lir);
     let uses_args_get = program_uses_args_get(lir);
+    let uses_performance_now = program_uses_performance_now(lir);
     let uses_env_access = uses_env_get || uses_env_has || uses_env_set || uses_env_delete;
     let function_index_offset = crate::FUNCTION_INDEX_OFFSET
         + if ctx.target.coverage { 1 } else { 0 }
@@ -92,7 +93,8 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         + if uses_cwd_set { 1 } else { 0 }
         + if uses_process_exit { 1 } else { 0 }
         + if uses_stdout_write_bytes { 1 } else { 0 }
-        + if uses_args_get { 1 } else { 0 };
+        + if uses_args_get { 1 } else { 0 }
+        + if uses_performance_now { 1 } else { 0 };
     let env_get_type_index = if uses_env_access { Some(6) } else { None };
     let env_has_type_index = if uses_env_has { Some(7) } else { None };
     let cwd_set_type_index = if uses_cwd_set { Some(5) } else { None };
@@ -190,6 +192,26 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                 + if uses_cwd_set { 1 } else { 0 }
                 + if uses_process_exit { 1 } else { 0 }
                 + if uses_stdout_write_bytes { 1 } else { 0 },
+        )
+    } else {
+        None
+    };
+    // `performance_now` is appended AFTER `args_get` in the import section below,
+    // so its index sums every preceding conditional-import flag in the same
+    // declaration order (coverage, env_set, env_delete, env_get, env_has,
+    // cwd_set, process_exit, stdout_write_bytes, args_get).
+    let performance_now_import_index = if uses_performance_now {
+        Some(
+            crate::COVERAGE_HIT_IMPORT_INDEX
+                + if ctx.target.coverage { 1 } else { 0 }
+                + if uses_env_set { 1 } else { 0 }
+                + if uses_env_delete { 1 } else { 0 }
+                + if uses_env_get { 1 } else { 0 }
+                + if uses_env_has { 1 } else { 0 }
+                + if uses_cwd_set { 1 } else { 0 }
+                + if uses_process_exit { 1 } else { 0 }
+                + if uses_stdout_write_bytes { 1 } else { 0 }
+                + if uses_args_get { 1 } else { 0 },
         )
     } else {
         None
@@ -380,6 +402,11 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         vec![ValType::I32, ValType::I32, ValType::I32],
         vec![ValType::I32],
     );
+    // Type 11: performance_now `() -> f64` (throw-fallout Stage 3 bucket #5) —
+    // returns a monotonic millisecond timestamp. Registered unconditionally so
+    // the type index is stable; the import itself is conditional (see below).
+    const PERFORMANCE_NOW_TYPE_INDEX: u32 = 11;
+    type_section.ty().function(vec![], vec![ValType::F64]);
     let mut import_section = ImportSection::new();
     import_section.import("kali:rt", "test_register", EntityType::Function(0));
     import_section.import("kali:rt", "console_log", EntityType::Function(1));
@@ -471,6 +498,16 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             EntityType::Function(ARGS_GET_TYPE_INDEX),
         );
     }
+    if performance_now_import_index.is_some() {
+        // `() -> f64`: returns a monotonic millisecond timestamp. Appended AFTER
+        // `args_get`, so it takes the next import index (summing every preceding
+        // conditional-import flag including `args_get`).
+        import_section.import(
+            "kali:rt",
+            "performance_now",
+            EntityType::Function(PERFORMANCE_NOW_TYPE_INDEX),
+        );
+    }
     // Function signatures are repr-directed: each param/result ValType comes from
     // the repr table (defaulting to I64). Two functions with equal arity but
     // differing float shapes need distinct wasm types, so the dedup key is the
@@ -526,9 +563,9 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             idx
         } else {
             // Function-signature types begin right after the fixed types
-            // (0..=ARGS_GET_TYPE_INDEX): args_get (type 10) is the last fixed
-            // type, so repr-directed function types start at index 11.
-            let idx = function_types.len() as u32 + ARGS_GET_TYPE_INDEX + 1;
+            // (0..=PERFORMANCE_NOW_TYPE_INDEX): performance_now (type 11) is the
+            // last fixed type, so repr-directed function types start at index 12.
+            let idx = function_types.len() as u32 + PERFORMANCE_NOW_TYPE_INDEX + 1;
             type_section.ty().function(params, results);
             function_types.insert(key, idx);
             idx
@@ -720,6 +757,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             process_exit_import_index,
             stdout_write_bytes_import_index,
             args_get_import_index,
+            performance_now_import_index,
             &mut diagnostics,
             &mut string_pool,
             ctx.source_path.clone(),
@@ -1240,6 +1278,37 @@ pub(crate) fn program_uses_args_get(lir: &LirProgram) -> bool {
     lir.nodes
         .iter()
         .any(|node| node_is_process_argv_element(&lir.nodes, node))
+}
+
+/// Program-wide probe for a `performance.now()` call (throw-fallout Stage 3
+/// bucket #5). Mirrors `FunctionEmitter::performance_now_import_index`
+/// structurally over raw nodes (callee text `"now"`, object text
+/// `"performance"`). Kept a SUPERSET of the emit recognizer: were this ever
+/// false where emit fires, the conditional `performance_now` import would be
+/// undeclared and emitting a `Call` to it would be invalid wasm — so
+/// over-inclusiveness here is the safe side.
+pub(crate) fn program_uses_performance_now(lir: &LirProgram) -> bool {
+    lir.nodes.iter().any(|node| {
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+        let Some(callee) = node.children.first() else {
+            return false;
+        };
+        let Some(callee_node) = lir.nodes.get(callee.0 as usize) else {
+            return false;
+        };
+        if callee_node.text.as_deref() != Some("now") {
+            return false;
+        }
+        let Some(object) = callee_node.children.first() else {
+            return false;
+        };
+        let Some(object_node) = lir.nodes.get(object.0 as usize) else {
+            return false;
+        };
+        object_node.text.as_deref() == Some("performance")
+    })
 }
 
 /// Follows empty-text single-child `Value` wrapper nodes, mirroring
@@ -2580,6 +2649,7 @@ pub(crate) fn collect_function_locals_from_node(
                 && !is_materialized_object
                 && !is_materialized_object_array
                 && !is_materialized_factory_return
+                && !declarator_init_is_performance_now(nodes, init)
                 && !declarator_init_contains_mutation(nodes, init)
             {
                 continue;
@@ -2917,6 +2987,55 @@ pub(crate) fn declarator_init_is_object_literal(nodes: &[LirNode], init_id: LirN
 /// otherwise the const would fold to re-evaluating the call at every use
 /// site, silently duplicating the returned object (see
 /// `is_materialized_factory_return` below).
+/// True iff `init_id` (after unwrapping sequence wrappers) is a
+/// `performance.now()` call (callee text `"now"`, object text `"performance"`).
+/// Such a const initializer is IMPURE (each call returns a different monotonic
+/// timestamp), so — like `is_materialized_factory_return` — it must be promoted
+/// to a local slot and evaluated ONCE at its declaration, never fold-inlined and
+/// re-called at each use site (which would call `performance.now()` again and
+/// silently reorder `a`/`b` in a `b < a` comparison — a nondeterminism
+/// miscompile, not just a missed optimization). Mirrors
+/// `program_uses_performance_now` / the codegen recognizer's shape.
+pub(crate) fn declarator_init_is_performance_now(nodes: &[LirNode], init_id: LirNodeId) -> bool {
+    let mut id = init_id;
+    let mut guard = 0;
+    loop {
+        let Some(node) = nodes.get(id.0 as usize) else {
+            return false;
+        };
+        if node.kind == LirNodeKind::Value
+            && node.text.as_deref() == Some("")
+            && !node.children.is_empty()
+        {
+            id = *node.children.last().expect("sequence wrapper has a child");
+            guard += 1;
+            if guard > 64 {
+                return false;
+            }
+            continue;
+        }
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+        let Some(callee) = node.children.first().copied() else {
+            return false;
+        };
+        let Some(callee_node) = nodes.get(callee.0 as usize) else {
+            return false;
+        };
+        if callee_node.text.as_deref() != Some("now") {
+            return false;
+        }
+        let Some(object) = callee_node.children.first().copied() else {
+            return false;
+        };
+        let Some(object_node) = nodes.get(object.0 as usize) else {
+            return false;
+        };
+        return object_node.text.as_deref() == Some("performance");
+    }
+}
+
 pub(crate) fn declarator_init_call_callee_name(
     nodes: &[LirNode],
     init_id: LirNodeId,

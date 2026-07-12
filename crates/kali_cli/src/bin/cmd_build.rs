@@ -1584,6 +1584,9 @@ const defaultImportObject = {{
     }},
     args_len() {{ return 0; }},
     args_get(_index, _outPtr, _outCap) {{ return -1; }},
+    performance_now() {{
+      return performance.now();
+    }},
     process_pid() {{
       return 0;
     }},
@@ -1886,6 +1889,9 @@ const defaultImportObject = {{
     }},
     args_len() {{ return 0; }},
     args_get(_index, _outPtr, _outCap) {{ return -1; }},
+    performance_now() {{
+      return performance.now();
+    }},
     process_pid() {{
       return 0;
     }},

@@ -76,6 +76,32 @@ impl TypeContext {
         }
     }
 
+    /// throw-fallout Stage 3 bucket #5: admit `performance.now()` (no args) and
+    /// reject unsupported argument shapes with `FEATURE_UNAVAILABLE`, symmetric
+    /// with the codegen recognizer (`FunctionEmitter::performance_now_import_index`
+    /// and its `emit_call` arm). `performance` is already a baseline browser host
+    /// global (see `builtins.rs`), so the callee resolves; this arm only guards
+    /// the argument shape.
+    pub(crate) fn resolve_performance_now_call(&mut self, expr: &CallExpression) {
+        let Some(callee_name) = self.resolve_static_callable_name(&expr.callee) else {
+            return;
+        };
+
+        if !matches!(
+            callee_name.as_str(),
+            "performance.now" | "globalThis.performance.now"
+        ) {
+            return;
+        }
+
+        if !expr.args.is_empty() {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "performance.now() does not accept arguments in the current phase".to_string(),
+            ));
+        }
+    }
+
     pub(crate) fn resolve_permissions_query_descriptor_name(
         &self,
         expr: &Expression,

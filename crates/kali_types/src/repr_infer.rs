@@ -1545,6 +1545,20 @@ impl ReprInfer {
                         self.add_seed(result);
                         result
                     }
+                    // `performance.now()` returns an f64 millisecond timestamp
+                    // (throw-fallout Stage 3 bucket #5) — seed the result float so
+                    // a binding it flows into (and any `<`/arithmetic consumer)
+                    // lowers on the f64 path. Mirrors the codegen recognizer
+                    // (`FunctionEmitter::performance_now_import_index` +
+                    // `is_float_valued`'s `performance.now` arm).
+                    "now" if is_performance_object(&member.object) => {
+                        for arg in &call.args {
+                            self.visit_expr(func, arg);
+                        }
+                        let result = self.new_node();
+                        self.add_seed(result);
+                        result
+                    }
                     "toFixed" => {
                         // The receiver is a float.
                         let recv = self.visit_expr(func, &member.object);
@@ -2729,6 +2743,11 @@ fn is_float_literal(n: f64) -> bool {
 /// True when `expr` is the `Math` object (`Math` identifier).
 fn is_math_object(expr: &Expression) -> bool {
     matches!(expr, Expression::Identifier(name) if name == "Math")
+}
+
+/// True when `expr` is the `performance` object (`performance` identifier).
+fn is_performance_object(expr: &Expression) -> bool {
+    matches!(expr, Expression::Identifier(name) if name == "performance")
 }
 
 fn is_console_object(expr: &Expression) -> bool {

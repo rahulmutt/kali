@@ -1110,6 +1110,19 @@ impl<'a> FunctionEmitter<'a> {
                 };
                 let callee = self.unwrap_transparent(callee);
                 let callee_node = self.node(callee);
+                // `performance.now()` is f64 at runtime (`kali:rt performance_now`
+                // returns f64). Mirror the repr-inference float seed
+                // (`repr_infer.rs`'s `"now"` arm) so `<`/arithmetic consumers pick
+                // the f64 instruction shape even when the call is inlined at the
+                // use site rather than stored into a float local.
+                if callee_node.text.as_deref() == Some("now") {
+                    if let Some(object) = callee_node.children.first().copied() {
+                        let object_node = self.node(self.unwrap_transparent(object));
+                        if object_node.text.as_deref() == Some("performance") {
+                            return true;
+                        }
+                    }
+                }
                 if callee_node.text.as_deref() == Some("sqrt") && self.is_math_object(callee_node) {
                     // `Math.sqrt(x)` is f64 at runtime (`F64Sqrt`) UNLESS `x` is a
                     // statically-known perfect square, in which case codegen still

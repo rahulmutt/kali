@@ -200,6 +200,21 @@ impl<'a> FunctionEmitter<'a> {
         self.process_exit_import_index
     }
 
+    pub(crate) fn performance_now_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+        let method = callee_node.text.as_deref()?;
+        if method != "now" {
+            return None;
+        }
+
+        let object = callee_node.children.first().copied()?;
+        let object_node = self.node(object);
+        if object_node.text.as_deref() != Some("performance") {
+            return None;
+        }
+
+        self.performance_now_import_index
+    }
+
     pub(crate) fn render_console_call(&self, node: &LirNode) -> Option<String> {
         let args = node.children.iter().skip(1).copied().collect::<Vec<_>>();
         self.render_console_arguments(&args)

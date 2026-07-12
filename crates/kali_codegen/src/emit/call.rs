@@ -2270,6 +2270,27 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if let Some(import_index) = self.performance_now_import_index(&callee_node) {
+            // `performance.now()` takes no arguments; any argument is an
+            // unsupported shape (symmetric with the kali_types admission arm).
+            if node.children.len() > 1 {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "performance.now() does not accept arguments in the current phase".to_string(),
+                ));
+                function.instruction(&Instruction::F64Const(0.0.into()));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Float,
+                };
+            }
+            function.instruction(&Instruction::Call(import_index));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Float,
+            };
+        }
+
         if self.is_process_kill(&callee_node) {
             let mut args = node.children.iter().skip(1);
             let Some(pid_expr) = args.next() else {

@@ -55,6 +55,7 @@ impl TypeContext {
         // arrives there and rejects; a materialized direct seeded key does not).
         self.resolve_permission_query_call(expr);
         self.resolve_process_kill_call(expr);
+        self.resolve_performance_now_call(expr);
         self.resolve_math_member_call(expr);
         self.resolve_array_callback_member_call(expr);
         self.resolve_array_search_member_call(expr);
