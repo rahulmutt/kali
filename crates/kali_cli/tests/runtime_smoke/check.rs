@@ -4004,6 +4004,30 @@ fn check_supports_frozen_object_enumeration_spread_in_browser_api_surface_in_js_
                 output.arg("--api").arg("browser").arg(&source_path);
                 let output = output.output().expect("run kali");
 
+                // Throw-fallout Stage 2 Lane D: `build` runs full codegen and
+                // now correctly rejects this source's bracket-root VALUE-POSITION
+                // object-enumeration reads (`bracketRootValues.length` etc. over
+                // `Object.freeze((globalThis["Object"]))["values"](frozen)`) with
+                // the E5506 fail-closed backstop — that construct was already
+                // silently wrong at runtime (see the sibling `run`/`test`
+                // execution variants of this exact source, pre-existing red).
+                // `check` never reaches codegen, so it is unaffected.
+                if command == "build" {
+                    assert!(!output.status.success());
+                    assert_ne!(output.status.code(), Some(0));
+                    if output_json {
+                        let json = parse_json_stdout(&output);
+                        assert_eq!(json["schemaVersion"], 1);
+                        assert_eq!(json["command"], command);
+                        assert_eq!(json["success"], false);
+                        assert!(!json["errors"].as_array().expect("errors array").is_empty());
+                    } else {
+                        let stderr = String::from_utf8_lossy(&output.stderr);
+                        assert!(stderr.contains("E5506"), "stderr: {stderr}");
+                    }
+                    continue;
+                }
+
                 assert!(
                     output.status.success(),
                     "stderr: {}",
@@ -4060,6 +4084,26 @@ fn check_supports_frozen_object_enumeration_spread_in_inherited_browser_api_surf
                 }
                 output.arg(&source_path);
                 let output = output.output().expect("run kali");
+
+                // Throw-fallout Stage 2 Lane D: see the sibling (explicit
+                // `--api browser`) test above for why `build` now rejects
+                // this source's bracket-root VALUE-POSITION object-enumeration
+                // reads with the E5506 fail-closed backstop.
+                if command == "build" {
+                    assert!(!output.status.success());
+                    assert_ne!(output.status.code(), Some(0));
+                    if output_json {
+                        let json = parse_json_stdout(&output);
+                        assert_eq!(json["schemaVersion"], 1);
+                        assert_eq!(json["command"], command);
+                        assert_eq!(json["success"], false);
+                        assert!(!json["errors"].as_array().expect("errors array").is_empty());
+                    } else {
+                        let stderr = String::from_utf8_lossy(&output.stderr);
+                        assert!(stderr.contains("E5506"), "stderr: {stderr}");
+                    }
+                    continue;
+                }
 
                 assert!(
                     output.status.success(),

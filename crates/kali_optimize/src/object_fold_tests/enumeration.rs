@@ -22,7 +22,7 @@ fn release_folds_object_keys_calls_over_literal_object_shapes() {
         .iter()
         .map(|id| program.nodes[id.0 as usize].text.as_deref().unwrap())
         .collect();
-    assert_eq!(keys, vec!["\"1\"", "\"2\"", "b"]);
+    assert_eq!(keys, vec!["\"1\"", "\"2\"", "\"b\""]);
 }
 
 #[test]
@@ -55,7 +55,7 @@ fn release_folds_object_entries_calls_over_literal_object_shapes() {
         .collect();
     assert_eq!(
         entries,
-        vec![vec!["\"1\"", "4"], vec!["\"2\"", "2"], vec!["b", "1"]]
+        vec![vec!["\"1\"", "4"], vec!["\"2\"", "2"], vec!["\"b\"", "1"]]
     );
 }
 
@@ -444,7 +444,7 @@ fn release_advanced_folds_global_this_object_enumeration_calls_over_string_liter
 #[test]
 fn release_folds_bracketed_global_this_object_enumeration_calls_over_literal_object_shapes() {
     for (callee_name, expected) in [
-        (r#"["keys"]"#, vec!["\"1\"", "\"2\"", "b"]),
+        (r#"["keys"]"#, vec!["\"1\"", "\"2\"", "\"b\""]),
         (r#"["values"]"#, vec!["4", "2", "1"]),
     ] {
         let mut builder = LirBuilder::new();
@@ -498,7 +498,7 @@ fn release_folds_bracketed_global_this_object_enumeration_calls_over_literal_obj
         .collect();
     assert_eq!(
         entries,
-        vec![vec!["\"1\"", "4"], vec!["\"2\"", "2"], vec!["b", "1"]]
+        vec![vec!["\"1\"", "4"], vec!["\"2\"", "2"], vec!["\"b\"", "1"]]
     );
 }
 
@@ -648,8 +648,8 @@ fn release_advanced_folds_bracketed_global_this_object_enumeration_calls_over_st
 #[test]
 fn fast_folds_object_enumeration_calls_over_literal_object_shapes() {
     for (callee_name, expected) in [
-        ("keys", vec!["\"1\"", "\"2\"", "b"]),
-        ("entries", vec!["\"1\"", "4", "\"2\"", "2", "b", "1"]),
+        ("keys", vec!["\"1\"", "\"2\"", "\"b\""]),
+        ("entries", vec!["\"1\"", "4", "\"2\"", "2", "\"b\"", "1"]),
         ("values", vec!["4", "2", "1"]),
     ] {
         let mut builder = LirBuilder::new();
@@ -694,8 +694,8 @@ fn fast_folds_object_enumeration_calls_over_literal_object_shapes() {
 #[test]
 fn release_folds_object_enumeration_calls_over_const_bound_literal_object_shapes() {
     for (callee_name, expected) in [
-        ("keys", vec!["\"1\"", "\"2\"", "b"]),
-        ("entries", vec!["\"1\"", "4", "\"2\"", "2", "b", "1"]),
+        ("keys", vec!["\"1\"", "\"2\"", "\"b\""]),
+        ("entries", vec!["\"1\"", "4", "\"2\"", "2", "\"b\"", "1"]),
         ("values", vec!["4", "2", "1"]),
     ] {
         let mut builder = LirBuilder::new();
@@ -741,8 +741,8 @@ fn release_folds_object_enumeration_calls_over_const_bound_literal_object_shapes
 #[test]
 fn release_folds_object_enumeration_calls_over_wrapped_const_bound_literal_object_shapes() {
     for (callee_name, expected) in [
-        ("keys", vec!["\"1\"", "\"2\"", "b"]),
-        ("entries", vec!["\"1\"", "4", "\"2\"", "2", "b", "1"]),
+        ("keys", vec!["\"1\"", "\"2\"", "\"b\""]),
+        ("entries", vec!["\"1\"", "4", "\"2\"", "2", "\"b\"", "1"]),
         ("values", vec!["4", "2", "1"]),
     ] {
         let mut builder = LirBuilder::new();
@@ -788,8 +788,8 @@ fn release_folds_object_enumeration_calls_over_wrapped_const_bound_literal_objec
 #[test]
 fn release_folds_object_enumeration_calls_over_const_alias_chains() {
     for (callee_name, expected) in [
-        ("keys", vec!["\"1\"", "\"2\"", "b"]),
-        ("entries", vec!["\"1\"", "4", "\"2\"", "2", "b", "1"]),
+        ("keys", vec!["\"1\"", "\"2\"", "\"b\""]),
+        ("entries", vec!["\"1\"", "4", "\"2\"", "2", "\"b\"", "1"]),
         ("values", vec!["4", "2", "1"]),
     ] {
         let mut builder = LirBuilder::new();
@@ -836,8 +836,8 @@ fn release_folds_object_enumeration_calls_over_const_alias_chains() {
 #[test]
 fn release_advanced_folds_object_enumeration_calls_over_const_alias_chains() {
     for (callee_name, expected) in [
-        ("keys", vec!["\"1\"", "\"2\"", "b"]),
-        ("entries", vec!["\"1\"", "4", "\"2\"", "2", "b", "1"]),
+        ("keys", vec!["\"1\"", "\"2\"", "\"b\""]),
+        ("entries", vec!["\"1\"", "4", "\"2\"", "2", "\"b\"", "1"]),
         ("values", vec!["4", "2", "1"]),
     ] {
         let mut builder = LirBuilder::new();
@@ -884,8 +884,8 @@ fn release_advanced_folds_object_enumeration_calls_over_const_alias_chains() {
 #[test]
 fn release_advanced_folds_object_enumeration_calls_over_const_bound_literal_object_shapes() {
     for (callee_name, expected) in [
-        ("keys", vec!["\"1\"", "\"2\"", "b"]),
-        ("entries", vec!["\"1\"", "4", "\"2\"", "2", "b", "1"]),
+        ("keys", vec!["\"1\"", "\"2\"", "\"b\""]),
+        ("entries", vec!["\"1\"", "4", "\"2\"", "2", "\"b\"", "1"]),
         ("values", vec!["4", "2", "1"]),
     ] {
         let mut builder = LirBuilder::new();
@@ -931,8 +931,8 @@ fn release_advanced_folds_object_enumeration_calls_over_const_bound_literal_obje
 #[test]
 fn release_advanced_folds_object_enumeration_calls_over_frozen_literal_object_shapes() {
     for (callee_name, expected) in [
-        ("keys", vec!["\"1\"", "\"2\"", "b"]),
-        ("entries", vec!["\"1\"", "4", "\"2\"", "2", "b", "1"]),
+        ("keys", vec!["\"1\"", "\"2\"", "\"b\""]),
+        ("entries", vec!["\"1\"", "4", "\"2\"", "2", "\"b\"", "1"]),
         ("values", vec!["4", "2", "1"]),
     ] {
         let mut builder = LirBuilder::new();
@@ -1000,8 +1000,8 @@ fn release_advanced_folds_object_enumeration_calls_over_frozen_literal_object_sh
 #[test]
 fn release_advanced_folds_object_enumeration_calls_over_literal_object_shapes() {
     for (callee_name, expected) in [
-        ("keys", vec!["\"1\"", "\"2\"", "b"]),
-        ("entries", vec!["\"1\"", "4", "\"2\"", "2", "b", "1"]),
+        ("keys", vec!["\"1\"", "\"2\"", "\"b\""]),
+        ("entries", vec!["\"1\"", "4", "\"2\"", "2", "\"b\"", "1"]),
         ("values", vec!["4", "2", "1"]),
     ] {
         let mut builder = LirBuilder::new();

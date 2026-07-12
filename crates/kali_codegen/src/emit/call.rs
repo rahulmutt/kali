@@ -2353,6 +2353,33 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
 
+        // Fail-closed backstop (throw-fallout Stage 2 Lane D): an
+        // `Object.keys`/`Object.values`/`Object.entries`/`Reflect.ownKeys`
+        // call that reaches this generic placeholder fallback means the
+        // `kali_optimize` constant fold declined to fold it (unknown-shape
+        // operand, or a `__proto__`-keyed literal the fold refuses to
+        // enumerate — see the carve-out in `object_fold.rs`). The generic
+        // fallback below is a WARNING-level zero placeholder that lets the
+        // build exit 0 with a silently wrong value — exactly the
+        // `keys.length`/`keys[0]` miscompile this lane exists to close.
+        // Reject with a hard error instead of ever emitting the phantom
+        // zero placeholder for a call this codebase recognizes as object
+        // enumeration.
+        if self.is_object_enumeration_call(node).is_some() {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "Object enumeration is only supported where the object has a compile-time-known fixed shape".to_string(),
+            ));
+            for _ in node.children.iter().skip(1) {
+                function.instruction(&Instruction::Drop);
+            }
+            function.instruction(&Instruction::I64Const(0));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Unknown,
+            };
+        }
+
         self.push_placeholder_fallback_diagnostic("call target", callee_name);
         for _ in node.children.iter().skip(1) {
             function.instruction(&Instruction::Drop);

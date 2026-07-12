@@ -109,18 +109,38 @@ impl Optimizer {
         }
 
         let properties = self.ordered_object_literal_properties(program, object_id)?;
+        // Honest fail-closed residue (throw-fallout Stage 2 Lane D, carried
+        // over from Lane A's repr-shape carve-out): `__proto__` (identifier
+        // OR quoted-string form) is JS's PROTOTYPE SETTER, not an own
+        // property key — `Object.keys({ "__proto__": 1, "a": 2 })` is
+        // `["a"]` in node, never `["__proto__", "a"]`. The enumeration fold
+        // reads LIR property text directly (it never consults repr shapes),
+        // so it must replicate the carve-out here at its own key-admission
+        // point: never fold an enumeration over an object literal carrying a
+        // `__proto__` key. Leave the call unfolded so it falls through to
+        // the reject/backstop lane instead of ever emitting the phantom key.
+        if properties
+            .iter()
+            .any(|(key, _)| key.trim_matches('"') == "__proto__")
+        {
+            return None;
+        }
         match callee_name.as_str() {
             "Object.keys" | "globalThis.Object.keys" => {
                 let mut elements = Vec::with_capacity(properties.len());
                 for (key, _) in properties {
-                    elements.push(self.clone_string_literal(program, key));
+                    elements.push(
+                        self.clone_string_literal(program, format!("{:?}", key.trim_matches('"'))),
+                    );
                 }
                 Some(self.push_array_literal(program, elements))
             }
             "Reflect.ownKeys" | "globalThis.Reflect.ownKeys" => {
                 let mut elements = Vec::with_capacity(properties.len());
                 for (key, _) in properties {
-                    elements.push(self.clone_string_literal(program, key));
+                    elements.push(
+                        self.clone_string_literal(program, format!("{:?}", key.trim_matches('"'))),
+                    );
                 }
                 Some(self.push_array_literal(program, elements))
             }
@@ -139,7 +159,8 @@ impl Optimizer {
             "Object.entries" | "globalThis.Object.entries" => {
                 let mut elements = Vec::with_capacity(properties.len());
                 for (key, value) in properties {
-                    let key_id = self.clone_string_literal(program, key);
+                    let key_id =
+                        self.clone_string_literal(program, format!("{:?}", key.trim_matches('"')));
                     let value_id = self.clone_subtree_with_substitution(
                         program,
                         value,
@@ -296,9 +317,22 @@ impl Optimizer {
             }
 
             let node = program.nodes.get(id.0 as usize)?;
+            // Guard (throw-fallout Stage 2 Lane D): a bona fide object
+            // literal with exactly ONE property is ALSO a `Value` node with
+            // one child and no text (its lone `init`-tagged property node) —
+            // structurally indistinguishable, at this generic check, from a
+            // transparent grouping/chain wrapper around a single inner
+            // expression. Without this guard the loop below tunnels straight
+            // through the one-property object literal into its property
+            // node, so `Object.keys({ "b": 1 })` (and any single-property
+            // enumeration/hasOwn target) resolves to the WRONG node instead
+            // of the object literal — a silent miscompile, not merely a
+            // missed fold. Never unwrap past a node that is itself a valid
+            // object literal.
             if node.kind == LirNodeKind::Value
                 && node.children.len() == 1
                 && node.text.as_deref().is_none_or(|text| text.is_empty())
+                && !self.is_object_literal(program, id)
             {
                 id = node.children[0];
                 continue;
