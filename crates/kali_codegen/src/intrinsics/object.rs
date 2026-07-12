@@ -235,6 +235,22 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             LirNodeKind::Value if node.children.len() == 1 => match node.text.as_deref() {
+                // A single-element ARRAY literal `[x]` is a text-less one-child
+                // `Value` — structurally identical, at this node, to a
+                // transparent grouping/sequence wrapper around a single inner
+                // expression. It is NOT identity-transparent: `[x]` is a fresh
+                // array object, never its lone element. Without the
+                // `!is_array_literal` guard this arm tunnels straight through
+                // the array into element `x`, so `[x].length` (and the folded
+                // `Object.keys(singleKeyObject).length`) resolves to `x`'s
+                // STRING length instead of the array length 1 — a silent
+                // miscompile, not a missed fold (throw-fallout Stage 2 review
+                // fix). The `Some("")` sequence-wrapper case stays transparent
+                // (a sequence's value IS its last element). A one-property
+                // OBJECT literal is also a text-less one-child `Value`, but its
+                // lone child is an `init` node with no scalar identity, so it
+                // already resolves to `None` — leave it on the unwrap path.
+                None if self.is_array_literal(node) => None,
                 None | Some("") => self.resolve_static_object_identity_value(node.children[0]),
                 Some("+") => match self.resolve_static_object_identity_value(node.children[0]) {
                     Some(StaticObjectIdentityValue::BigInt(_)) => None,

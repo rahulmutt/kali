@@ -46,3 +46,52 @@ fn unrecognized_property_form_rejects() {
         "spread property must reject, got: {out:?}"
     );
 }
+
+// A single-element ARRAY literal `[x]` is a text-less one-child `Value`,
+// structurally identical to a transparent sequence/grouping wrapper. Codegen's
+// receiver classifiers (`unwrap_transparent`, `resolve_static_object_identity_value`)
+// tunneled straight through it into element `x`, so `.length` read `x`'s STRING
+// length instead of the array length 1 — a silent wrong answer (exit 0).
+// (throw-fallout Stage 2 review fix.)
+#[test]
+fn single_element_string_array_length_reports_one() {
+    // node: 1 (the array has one element). Pre-fix kali: 6 ("abcdef".length).
+    let out = run_source("const a = [\"abcdef\"];\nconsole.log(a.length);\n");
+    assert!(out.status.success(), "{out:?}");
+    assert_eq!(String::from_utf8_lossy(&out.stdout).trim(), "1");
+}
+
+// The folded `Object.keys(singleKeyObject)` is a one-element array literal, so
+// it hit the exact same single-element tunneling. `"OTHER".length` is 5, which
+// silently replaced the array length 1.
+#[test]
+fn single_key_object_keys_length_reports_one() {
+    // node: 1. Pre-fix kali: 5 ("OTHER".length).
+    let out = run_source("console.log(Object.keys({ OTHER: \"2\" }).length);\n");
+    assert!(out.status.success(), "{out:?}");
+    assert_eq!(String::from_utf8_lossy(&out.stdout).trim(), "1");
+}
+
+// The delete-timeline lane rebuilds the literal down to a single key, then folds
+// `Object.keys` over it — the enumeration-fold + delete-timeline shape this
+// review fix exists to make honest.
+#[test]
+fn single_key_delete_timeline_keys_length_reports_one() {
+    // node: 1. Pre-fix kali: 5 ("OTHER".length after delete).
+    let out = run_source(
+        "const cfg = { PATH: \"1\", OTHER: \"2\" };\ndelete cfg.PATH;\nconsole.log(Object.keys(cfg).length);\n",
+    );
+    assert!(out.status.success(), "{out:?}");
+    assert_eq!(String::from_utf8_lossy(&out.stdout).trim(), "1");
+}
+
+// The `[0]` element read and the `Object.values` variant were already correct;
+// pin them so the fix does not regress the neighboring lanes.
+#[test]
+fn single_key_delete_timeline_neighbors_stay_correct() {
+    let out = run_source(
+        "const cfg = { PATH: \"1\", OTHER: \"2\" };\ndelete cfg.PATH;\nconsole.log(Object.keys(cfg)[0]);\nconsole.log(Object.values(cfg)[0]);\nconsole.log(Object.values(cfg).length);\n",
+    );
+    assert!(out.status.success(), "{out:?}");
+    assert_eq!(String::from_utf8_lossy(&out.stdout).trim(), "OTHER\n2\n1");
+}
