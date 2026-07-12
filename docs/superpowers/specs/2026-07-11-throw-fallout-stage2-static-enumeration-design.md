@@ -25,6 +25,13 @@ exactly like Stage 1's #2/#3 bucket turned out to be:
 - `delete obj.prop` on a plain object is an UNIMPLEMENTED **warning** +
   evaluate-and-drop no-op (`crates/kali_codegen/src/emit/operators.rs:200`;
   only the `process.env` lane is real) — a silent-miscompile factory.
+  **Planning-time correction (LIR probe, 2026-07-12):** it is worse — the
+  parser has NO `TokenType::Delete` arm in `parse_unary_expression`
+  (the same historical bug the `typeof` comment at
+  `crates/kali_parser/src/expression/mod.rs:98-102` documents), so `delete`
+  is swallowed before the AST, `delete r.b;` compiles as a bare member
+  read, and the codegen arm above is dead code on the standard pipeline.
+  Lane C therefore starts with a parser fix; see the implementation plan.
 - Enumeration (`Object.keys/values/entries`, `Reflect.ownKeys`) is a
   **compile-time constant fold** (`crates/kali_optimize/src/object_fold.rs`)
   over constant object-literal bindings. `collect_constant_bindings` treats a
