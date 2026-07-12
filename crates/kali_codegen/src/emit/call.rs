@@ -893,9 +893,24 @@ impl<'a> FunctionEmitter<'a> {
             };
 
             let Some(has_own) = self.static_object_has_own(object_id, &key) else {
+                // Placeholder backstop: `Object.hasOwn` folds only when the
+                // receiver's own-key set is statically provable (object literal,
+                // `Object.fromEntries` of literal entries, or a materialized
+                // fixed-shape object — e.g. a quoted-key object since Lane A).
+                // An unprovable receiver (`Object.hasOwn(globalThis, "a")`, a
+                // dynamic namespace) previously returned `produced: false` while
+                // emitting NOTHING: harmless in statement position but a stack
+                // underflow in a VALUE position (inside a `!`/`||` condition),
+                // which produced an invalid module. Emit a DEFINED placeholder
+                // (`0`) so the stack shape is always valid — dropped in
+                // statement position, a `false` in value position — instead of
+                // either the old stack-corrupting silence or a hard reject that
+                // would break the permissive statement-position dynamic-helper
+                // probes (throw-fallout Stage 2 checkpoint regression fix).
+                function.instruction(&Instruction::I64Const(0));
                 return EmittedValue {
-                    produced: false,
-                    shape: ValueShape::Unknown,
+                    produced: true,
+                    shape: ValueShape::Boolean,
                 };
             };
 

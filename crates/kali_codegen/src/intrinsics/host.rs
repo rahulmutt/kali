@@ -558,6 +558,24 @@ impl<'a> FunctionEmitter<'a> {
             return Some(parts.len().to_string());
         }
 
+        // Array literal (inline, via a `const` binding, or through transparent
+        // wrappers): `[x].length` is the ELEMENT COUNT, not the string length of
+        // a lone element `x`. This MUST precede the string-identity fold below —
+        // that fold tunnels a single-element array `[x]` straight into element
+        // `x` and would report `x`'s UTF-16 length (e.g. `["abcdef"].length` →
+        // 6, or the folded `Object.keys(singleKeyObject).length` → the key's
+        // length) instead of 1. Placing the carve-out in this `.length` consumer
+        // (rather than in the shared `unwrap_transparent` /
+        // `resolve_static_object_identity_value` helpers) keeps every other
+        // consumer's legitimate one-child-wrapper tunneling intact
+        // (throw-fallout Stage 2 checkpoint regression fix).
+        if let Some(aggregate_id) = self.resolve_literal_aggregate(*id) {
+            let aggregate = self.node(aggregate_id);
+            if self.is_array_literal(aggregate) {
+                return Some(aggregate.children.len().to_string());
+            }
+        }
+
         if let Some(StaticObjectIdentityValue::String(value)) =
             self.resolve_static_object_identity_value(*id)
         {

@@ -724,20 +724,20 @@ impl<'a> FunctionEmitter<'a> {
         let mut guard = 0;
         loop {
             let node = self.node(id);
-            // A single-element ARRAY literal `[x]` is a text-less one-child
-            // `Value`, structurally identical here to a transparent
-            // sequence/grouping wrapper. It is NOT transparent: `[x]` is a
-            // fresh array object, never its lone element. Tunneling through it
-            // makes downstream classifiers (`is_string_valued`, `typeof`, …)
-            // treat `[x]` as `x`, so `["s"].length` / the folded
-            // `Object.keys(singleKeyObject).length` reads element `x`'s string
-            // length instead of the array length 1 (throw-fallout Stage 2
-            // review fix). A `Some("")` sequence wrapper is NOT an array literal
-            // (its text is non-None), so it stays transparent as before.
+            // NOTE: a single-element ARRAY literal `[x]` is ALSO a text-less
+            // one-child `Value` here, structurally identical to a transparent
+            // sequence/grouping/`new` wrapper — this generic helper tunnels
+            // through both. That is correct for identity/`typeof`/`+` consumers
+            // (which want the wrapped expression) but WRONG for a `.length`
+            // read, where `[x]` is a fresh array of length 1, not `x`. The
+            // array-length carve-out therefore lives in the `.length` consumer
+            // (`render_length`), NOT here — see throw-fallout Stage 2. Guarding
+            // it here instead misclassifies every legitimate textless one-child
+            // wrapper (e.g. `new Error("m")`) as an array literal and refuses to
+            // tunnel, silently breaking those consumers.
             if node.kind == LirNodeKind::Value
                 && node.children.len() == 1
                 && node.text.as_deref().is_none_or(|text| text.is_empty())
-                && !self.is_array_literal(node)
             {
                 id = node.children[0];
                 guard += 1;

@@ -64,7 +64,7 @@ impl Optimizer {
             return None;
         }
 
-        let object_id =
+        let mut object_id =
             self.resolve_constant_binding(program, *snapshot.children.get(1)?, bindings)?;
         if let Some(ConstantValue::String(string_text)) = literal_value(program, object_id) {
             if let Some(mode) = string_mode {
@@ -102,6 +102,38 @@ impl Optimizer {
                     _ => unreachable!(),
                 }
                 return Some(self.push_array_literal(program, elements));
+            }
+        }
+        // The operand may be an `Object.fromEntries([literal entries])` call
+        // that has not yet been materialized into an object literal (fold
+        // ordering: the enumeration site can be visited before the
+        // `fromEntries` binding is folded). Materialize it here so an
+        // enumeration over a fromEntries result FOLDS — matching the plain
+        // object-literal path — instead of declining and hitting codegen's
+        // E5506 fail-closed backstop. Only the recognized `Object.fromEntries`
+        // callee shape materializes; an obscured/frozen-bracket-root callable
+        // is not a fromEntries call here and still declines (throw-fallout
+        // Stage 2 Lane D backstop preserved for genuinely-unfoldable shapes).
+        if !self.is_object_literal(program, object_id) {
+            let operand = program.nodes.get(object_id.0 as usize)?.clone();
+            if operand.kind == LirNodeKind::Call {
+                if let Some(operand_callee_id) = operand.children.first().copied() {
+                    let operand_callee_id = self
+                        .resolve_constant_binding(program, operand_callee_id, bindings)
+                        .unwrap_or(operand_callee_id);
+                    if let Some(operand_callee) =
+                        program.nodes.get(operand_callee_id.0 as usize).cloned()
+                    {
+                        if let Some(materialized) = self.fold_object_from_entries_call(
+                            program,
+                            &operand,
+                            &operand_callee,
+                            bindings,
+                        ) {
+                            object_id = materialized;
+                        }
+                    }
+                }
             }
         }
         if !self.is_object_literal(program, object_id) {
@@ -251,6 +283,18 @@ impl Optimizer {
         let Some(callee_id) = snapshot.children.first().copied() else {
             return;
         };
+        // Resolve the callee through `Object.freeze`/const-binding wrappers
+        // (the same unwrap `inline.rs`'s fold path already applies) so a
+        // FROZEN-CALLABLE enumeration — `Object.freeze(Object.values)(obj)`,
+        // `Object.freeze(globalThis["Object"]["values"])(obj)` — is recognized
+        // as its underlying `Object.values`/`keys`/`entries` and folds, rather
+        // than declining and hitting codegen's E5506 fail-closed backstop. A
+        // callee that does NOT resolve to a recognized enumeration member (an
+        // obscured bracket-root callable) still declines here, preserving the
+        // Lane D reject for genuinely-unfoldable shapes.
+        let callee_id = self
+            .resolve_constant_binding(program, callee_id, bindings)
+            .unwrap_or(callee_id);
         let Some(callee_node) = program.nodes.get(callee_id.0 as usize).cloned() else {
             return;
         };
@@ -397,7 +441,17 @@ impl Optimizer {
             let resolved = self
                 .resolve_constant_binding(program, init, env)
                 .unwrap_or(init);
-            if self.is_specializable_binding(program, resolved) {
+            if self.is_specializable_binding(program, resolved)
+                || self.is_object_from_entries_call_node(program, resolved)
+            {
+                // A `const o = Object.fromEntries([literal entries])` binding is
+                // not itself a specializable literal, but its enumeration IS
+                // statically foldable — record it so an `Object.values(o)` etc.
+                // resolves the operand to the fromEntries call and materializes
+                // it in the enumeration fold (Fast mode runs no inline pass, so
+                // this is the only point the binding becomes visible). Without
+                // it the operand stops at the bare identifier and the
+                // enumeration declines into codegen's E5506 backstop.
                 env.bindings.insert(name, resolved);
             }
         }
@@ -405,6 +459,33 @@ impl Optimizer {
         for child in snapshot.children {
             self.collect_constant_bindings_into(program, child, env);
         }
+    }
+
+    /// True when `id` is an `Object.fromEntries(...)` / bracketed-equivalent
+    /// call node (the operand shape the enumeration fold can materialize into
+    /// an object literal).
+    pub(crate) fn is_object_from_entries_call_node(
+        &self,
+        program: &LirProgram,
+        id: LirNodeId,
+    ) -> bool {
+        let Some(node) = program.nodes.get(id.0 as usize) else {
+            return false;
+        };
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+        let Some(callee_id) = node.children.first().copied() else {
+            return false;
+        };
+        let Some(callee_node) = program.nodes.get(callee_id.0 as usize) else {
+            return false;
+        };
+        matches!(
+            self.normalized_member_access_name(program, callee_node)
+                .as_deref(),
+            Some("Object.fromEntries") | Some("globalThis.Object.fromEntries")
+        )
     }
 
     /// Names that are the base of any member store (`x.k = v`) or member
