@@ -494,6 +494,24 @@ impl ReprInfer {
                     return;
                 }
             };
+            // Honest fail-closed residue (throw-fallout Stage 2 Lane A
+            // review): `__proto__` (identifier OR quoted-string form,
+            // non-computed) is JS's PROTOTYPE SETTER, not an own-property
+            // key — `{ "__proto__": 1, "a": 2 }` creates no own `__proto__`
+            // property at all (node's `for..in` prints only `a`). kali has
+            // no prototype chain to model that semantic, so admitting
+            // `__proto__` into the shape would silently enumerate a phantom
+            // own key — a miscompile. Route it to the same deferred-conflict
+            // arm as an unsupported numeric key instead of ever admitting it.
+            if key == "__proto__" {
+                self.obj_pending_conflicts.insert(
+                    slot.clone(),
+                    format!(
+                        "object literal for {slot:?} uses a '__proto__' key, which sets the prototype in JS (not an own property) and is unavailable in the current phase"
+                    ),
+                );
+                return;
+            }
             let key = &key;
             if !matches!(prop.kind, kali_ast::ObjectPropertyKind::Init) {
                 self.obj_pending_conflicts.insert(

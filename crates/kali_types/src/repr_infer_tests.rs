@@ -208,6 +208,45 @@ fn quoted_string_keys_materialize_the_same_shape_as_identifier_keys() {
 }
 
 #[test]
+fn quoted_proto_key_object_literal_fails_closed_not_a_phantom_own_property() {
+    // CRITICAL (Stage 2 Lane A review): an object-literal `__proto__` key
+    // (identifier OR string-literal form, non-computed) is JS's PROTOTYPE
+    // SETTER — it creates NO own property. node's `for..in` on
+    // `{ "__proto__": 1, "a": 2 }` prints only `a`. kali has no prototype
+    // model, so materializing `__proto__` as an ordinary field and
+    // enumerating it would be a miscompile. Must fail closed (a deferred
+    // conflict, promoted to a real conflict by the `for..in`) rather than
+    // ever materialize a shape.
+    let t =
+        reprs("const o = { \"__proto__\": 1, \"a\": 2 };\nfor (var k in o) { console.log(k); }\n");
+    assert!(
+        !matches!(t.scalar("_start", "o"), Repr::Object(_)),
+        "a __proto__-keyed literal must never materialize a shape"
+    );
+    assert!(
+        !t.shape_conflicts().is_empty(),
+        "a __proto__-keyed literal must record a conflict instead of enumerating a phantom own key"
+    );
+}
+
+#[test]
+fn identifier_proto_key_object_literal_fails_closed_not_a_phantom_own_property() {
+    // Same as above but the identifier form `{ __proto__: 1, a: 2 }`. This
+    // form was ALREADY a miscompile before Task 3 (pre-existing) — both
+    // forms share the same key-admission choke point, so this fix closes it
+    // too.
+    let t = reprs("const o = { __proto__: 1, a: 2 };\nfor (var k in o) { console.log(k); }\n");
+    assert!(
+        !matches!(t.scalar("_start", "o"), Repr::Object(_)),
+        "a __proto__-keyed literal must never materialize a shape"
+    );
+    assert!(
+        !t.shape_conflicts().is_empty(),
+        "a __proto__-keyed literal must record a conflict instead of enumerating a phantom own key"
+    );
+}
+
+#[test]
 fn shape_mismatch_reassignment_is_a_conflict() {
     let t = reprs("let p = { x: 1.0 };\np = { y: 2.0 };\np.y = 3.0;\n");
     assert!(!t.shape_conflicts().is_empty());
