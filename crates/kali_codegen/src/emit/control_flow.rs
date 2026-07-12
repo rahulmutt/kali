@@ -1034,6 +1034,24 @@ impl<'a> FunctionEmitter<'a> {
             return self.emit_conditional(function, node, want_value);
         }
 
+        // Bare value-position `process.kill` (uncalled member reference, e.g.
+        // `!process.kill`): Node exposes `process.kill` as a function, which is
+        // truthy. Kali has no first-class function values, so the historical
+        // path lowered this member read to a `0` placeholder — making the
+        // supported liveness-probe guards `!process.kill` throw. Emit a truthy
+        // sentinel scoped EXACTLY to the `process.kill` receiver shapes the call
+        // arm recognizes (`is_process_kill`), so no other member read is
+        // affected. (Known latent divergence: `console.log(process.kill)` would
+        // print `1`, not `[Function: kill]`; no fixture reads a bare
+        // `process.kill` outside truthiness position.)
+        if self.is_process_kill(node) {
+            function.instruction(&Instruction::I64Const(1));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Boolean,
+            };
+        }
+
         if self.is_supported_callable_reference(node) {
             function.instruction(&Instruction::I64Const(0));
             return EmittedValue {

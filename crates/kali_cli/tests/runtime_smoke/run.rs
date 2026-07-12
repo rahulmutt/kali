@@ -868,7 +868,13 @@ fn run_rejects_late_object_model_revocable_calls_in_json() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
-    assert_eq!(errors.len(), 5);
+    // 7 = the five direct `Proxy.revocable` alias forms + the two
+    // `Object.freeze(globalThis?.Proxy.revocable)(…)` optional-chain forms.
+    // The optional-chain forms are now correctly recognized as
+    // `globalThis.Proxy.revocable` and rejected; the historical parser DROPPED
+    // the `?.Proxy` property, silently collapsing them to `globalThis.revocable`
+    // (unrecognized — a miscompile of the unavailable late-API reject).
+    assert_eq!(errors.len(), 7);
     assert!(errors.iter().all(|error| error["code"] == "E5506"));
     let messages = errors
         .iter()
