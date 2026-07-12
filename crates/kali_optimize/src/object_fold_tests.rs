@@ -10,3 +10,6 @@ mod reflect_own_keys;
 
 #[path = "object_fold_tests/object_has_own.rs"]
 mod object_has_own;
+
+#[path = "object_fold_tests/timeline.rs"]
+mod timeline;

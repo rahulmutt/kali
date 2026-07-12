@@ -162,8 +162,7 @@ impl Optimizer {
         program: &mut LirProgram,
         allow_generic_specialization: bool,
     ) {
-        let mut constant_bindings = self.collect_constant_bindings(program, program.root);
-        self.fold_object_enumeration_calls(program, program.root, &constant_bindings);
+        self.fold_object_enumeration_calls_ordered(program);
 
         match self.level {
             OptimizationLevel::Fast | OptimizationLevel::Default => {}
@@ -182,8 +181,12 @@ impl Optimizer {
                     &mut binding_env,
                 );
 
-                constant_bindings = self.collect_constant_bindings(program, program.root);
-                self.fold_object_enumeration_calls(program, program.root, &constant_bindings);
+                let mut constant_bindings = self.collect_constant_bindings(program, program.root);
+                let mutated = self.collect_mutated_binding_names(program);
+                constant_bindings
+                    .bindings
+                    .retain(|name, _| !mutated.contains(name));
+                self.fold_object_enumeration_calls_ordered(program);
 
                 self.optimize_node(
                     program,

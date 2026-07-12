@@ -406,6 +406,452 @@ impl Optimizer {
             self.collect_constant_bindings_into(program, child, env);
         }
     }
+
+    /// Names that are the base of any member store (`x.k = v`) or member
+    /// delete (`delete x.k`) anywhere in the program. Name-based and
+    /// shadowing-blind BY DESIGN: a shadowed name over-approximates to
+    /// "mutated", which only ever DISABLES folding (fail-closed direction).
+    pub(crate) fn collect_mutated_binding_names(&self, program: &LirProgram) -> BTreeSet<String> {
+        let mut names = BTreeSet::new();
+        for node in &program.nodes {
+            let is_store = node.kind == LirNodeKind::Value
+                && node.text.as_deref() == Some("=")
+                && node.children.len() == 2;
+            let is_delete = node.kind == LirNodeKind::Value
+                && node.text.as_deref() == Some("delete")
+                && node.children.len() == 1;
+            if !is_store && !is_delete {
+                continue;
+            }
+            let member = node.children[0];
+            if let Some((base, _key)) = self.dot_member_base_and_key(program, member) {
+                names.insert(base);
+            }
+        }
+        names
+    }
+
+    /// `x.k` dot-member: node text = key, exactly one child = bare
+    /// identifier base. Computed access (`x[expr]`, 2 children) returns
+    /// None — outside the timeline lane.
+    fn dot_member_base_and_key(
+        &self,
+        program: &LirProgram,
+        id: LirNodeId,
+    ) -> Option<(String, String)> {
+        let node = program.nodes.get(id.0 as usize)?;
+        if node.kind != LirNodeKind::Value || node.children.len() != 1 {
+            return None;
+        }
+        let key = node.text.as_deref()?.to_string();
+        let base_node = program.nodes.get(node.children[0].0 as usize)?;
+        if base_node.kind != LirNodeKind::Value || !base_node.children.is_empty() {
+            return None;
+        }
+        Some((base_node.text.as_deref()?.to_string(), key))
+    }
+
+    /// Order-aware enumeration folding (throw-fallout Stage 2, Lane C).
+    ///
+    /// Non-mutated bindings keep the exact old flat (order-blind,
+    /// forward-reference-friendly) behavior. Mutated bindings are eligible
+    /// for the static shape timeline iff EVERY occurrence of the name sits at
+    /// a permitted straight-line top-level site (its own const declarator, a
+    /// `delete x.k` / `x.k = v` base, or an enumeration-call object argument).
+    /// Eligible mutated bindings fold against a per-program-point snapshot;
+    /// ineligible mutated bindings — and any binding that aliases a mutated
+    /// binding's initial literal — are excluded from the fold env entirely
+    /// (killing every stale fold). Their deletes are left in place for
+    /// codegen's default-deny arm; consumed deletes are erased to empty
+    /// blocks so they never reach codegen.
+    pub(crate) fn fold_object_enumeration_calls_ordered(&self, program: &mut LirProgram) {
+        let mutated = self.collect_mutated_binding_names(program);
+        if mutated.is_empty() {
+            // No member stores/deletes at all: exact old flat behavior.
+            let env = self.collect_constant_bindings(program, program.root);
+            self.fold_object_enumeration_calls(program, program.root, &env);
+            return;
+        }
+
+        let eligible = self.timeline_eligible_bindings(program, &mutated);
+
+        // Global flat env. Non-mutated bindings keep their order-blind
+        // folding. Drop (a) every mutated name and (b) any binding that
+        // resolves to the SAME node id as a mutated binding — i.e. an alias
+        // of a mutated object literal, which would otherwise fold against the
+        // stale pre-mutation snapshot. Eligible mutated names are re-seeded
+        // at their declaration point below.
+        let full = self.collect_constant_bindings(program, program.root);
+        let mutated_ids: BTreeSet<u32> = full
+            .bindings
+            .iter()
+            .filter(|(name, _)| mutated.contains(*name))
+            .map(|(_, id)| id.0)
+            .collect();
+        let mut env = full;
+        env.bindings
+            .retain(|name, id| !mutated.contains(name) && !mutated_ids.contains(&id.0));
+
+        let root_children = program.nodes[program.root.0 as usize].children.clone();
+        for stmt in root_children {
+            // 1. const decl of an eligible mutated binding → seed its snapshot
+            //    from the literal (the timeline starts here).
+            if let Some((name, init)) = self.extract_const_binding(program, stmt) {
+                if eligible.contains(&name) {
+                    let resolved = self
+                        .resolve_constant_binding(program, init, &env)
+                        .unwrap_or(init);
+                    if self.is_specializable_binding(program, resolved) {
+                        env.bindings.insert(name, resolved);
+                    } else {
+                        // Non-literal init for a mutated binding: cannot track.
+                        env.bindings.remove(&name);
+                    }
+                }
+            }
+
+            // 2. timeline mutation → advance the binding's snapshot literal.
+            if let Some((kind, name, key, value)) = self.as_timeline_mutation(program, stmt) {
+                if eligible.contains(&name) {
+                    let applied = env.bindings.get(&name).copied().and_then(|current| {
+                        self.apply_timeline_mutation(program, current, kind, &key, value)
+                    });
+                    match applied {
+                        Some(next) => {
+                            env.bindings.insert(name.clone(), next);
+                            if kind == TimelineMutation::Delete {
+                                self.erase_statement(program, stmt);
+                                continue; // erased: nothing left to fold in it
+                            }
+                        }
+                        None => {
+                            // Could not maintain the snapshot: drop the binding
+                            // so no later enumeration folds against a stale
+                            // shape (fail-closed).
+                            env.bindings.remove(&name);
+                        }
+                    }
+                }
+            }
+
+            // 3. fold enumeration calls inside this statement against the env
+            //    as of THIS program point.
+            self.fold_object_enumeration_calls(program, stmt, &env);
+        }
+    }
+
+    /// Unwrap statement wrappers (`Value`, empty text, exactly one child) —
+    /// the same deref rule `resolve_constant_binding` uses, including its
+    /// refusal to tunnel through a genuine single-property object literal.
+    fn unwrap_statement_wrapper(&self, program: &LirProgram, mut id: LirNodeId) -> LirNodeId {
+        loop {
+            let Some(node) = program.nodes.get(id.0 as usize) else {
+                break;
+            };
+            if node.kind == LirNodeKind::Value
+                && node.children.len() == 1
+                && node.text.as_deref().is_none_or(|text| text.is_empty())
+                && !self.is_object_literal(program, id)
+            {
+                id = node.children[0];
+            } else {
+                break;
+            }
+        }
+        id
+    }
+
+    /// Classify a top-level statement as a timeline mutation:
+    /// `delete x.k` → `(Delete, base, key, None)`,
+    /// `x.k = v` → `(Store, base, key, Some(value))`.
+    fn as_timeline_mutation(
+        &self,
+        program: &LirProgram,
+        stmt: LirNodeId,
+    ) -> Option<(TimelineMutation, String, String, Option<LirNodeId>)> {
+        let inner = self.unwrap_statement_wrapper(program, stmt);
+        let node = program.nodes.get(inner.0 as usize)?;
+        if node.kind != LirNodeKind::Value {
+            return None;
+        }
+        match node.text.as_deref() {
+            Some("delete") if node.children.len() == 1 => {
+                let (base, key) = self.dot_member_base_and_key(program, node.children[0])?;
+                Some((TimelineMutation::Delete, base, key, None))
+            }
+            Some("=") if node.children.len() == 2 => {
+                let (base, key) = self.dot_member_base_and_key(program, node.children[0])?;
+                Some((TimelineMutation::Store, base, key, Some(node.children[1])))
+            }
+            _ => None,
+        }
+    }
+
+    /// Apply a timeline mutation to `current` (an object literal snapshot),
+    /// returning a freshly-built literal in SOURCE (insertion) order. Delete
+    /// removes the key; Store updates it in place when present or appends at
+    /// the END (reinsertion order restarts). The enumeration fold does the ES
+    /// sort at fold time, exactly as it does for source literals. Never
+    /// applies a `__proto__` mutation (fail-closed; the caller keeps such a
+    /// binding out of the eligible set anyway).
+    fn apply_timeline_mutation(
+        &self,
+        program: &mut LirProgram,
+        current: LirNodeId,
+        kind: TimelineMutation,
+        key: &str,
+        value: Option<LirNodeId>,
+    ) -> Option<LirNodeId> {
+        let normalized_key = key.trim_matches('"');
+        if normalized_key == "__proto__" {
+            return None;
+        }
+        let mut properties = self.source_order_object_properties(program, current)?;
+        match kind {
+            TimelineMutation::Delete => {
+                properties
+                    .retain(|(existing_key, _)| existing_key.trim_matches('"') != normalized_key);
+            }
+            TimelineMutation::Store => {
+                let value = value?;
+                if let Some(slot) = properties
+                    .iter_mut()
+                    .find(|(existing_key, _)| existing_key.trim_matches('"') == normalized_key)
+                {
+                    slot.1 = value;
+                } else {
+                    properties.push((key.to_string(), value));
+                }
+            }
+        }
+        Some(self.push_object_literal(program, properties))
+    }
+
+    /// Object-literal properties in SOURCE order (no ES sort) — insertion
+    /// order preserved so timeline appends land last.
+    fn source_order_object_properties(
+        &self,
+        program: &LirProgram,
+        id: LirNodeId,
+    ) -> Option<Vec<(String, LirNodeId)>> {
+        if !self.is_object_literal(program, id) {
+            return None;
+        }
+        let node = program.nodes.get(id.0 as usize)?;
+        let mut properties = Vec::new();
+        for property in node.children.iter().copied() {
+            let property_node = program.nodes.get(property.0 as usize)?;
+            if property_node.children.len() != 2 {
+                continue;
+            }
+            let key_node = program.nodes.get(property_node.children[0].0 as usize)?;
+            let key = key_node.text.as_deref()?.to_string();
+            properties.push((key, property_node.children[1]));
+        }
+        Some(properties)
+    }
+
+    /// Erase a consumed statement to an empty `Block` so codegen never sees
+    /// the delete (Task 6's default-deny arm enforces the invariant).
+    fn erase_statement(&self, program: &mut LirProgram, stmt: LirNodeId) {
+        program.nodes[stmt.0 as usize] = LirNode {
+            kind: LirNodeKind::Block,
+            text: None,
+            children: vec![],
+            function_flavor: None,
+        };
+    }
+
+    /// The mutated bindings that qualify for the static shape timeline:
+    /// every occurrence of the name sits at a permitted straight-line
+    /// top-level site, and no timeline mutation touches `__proto__`.
+    pub(crate) fn timeline_eligible_bindings(
+        &self,
+        program: &LirProgram,
+        mutated: &BTreeSet<String>,
+    ) -> BTreeSet<String> {
+        if mutated.is_empty() {
+            return BTreeSet::new();
+        }
+
+        // Total occurrences of each mutated name anywhere in the program.
+        let mut total: BTreeMap<String, usize> = BTreeMap::new();
+        for node in &program.nodes {
+            if node.kind == LirNodeKind::Value && node.children.is_empty() {
+                if let Some(text) = node.text.as_deref() {
+                    if mutated.contains(text) {
+                        *total.entry(text.to_string()).or_insert(0) += 1;
+                    }
+                }
+            }
+        }
+
+        // Permitted occurrence node ids + names disqualified by a __proto__
+        // mutation. The walk stops at Branch nodes and function definitions,
+        // so any occurrence buried there stays unpermitted and drives its
+        // binding ineligible (the count cross-check below is what makes this
+        // nesting-blindness safe).
+        let mut permitted: BTreeSet<u32> = BTreeSet::new();
+        let mut disqualified: BTreeSet<String> = BTreeSet::new();
+        let root_children = program.nodes[program.root.0 as usize].children.clone();
+        for stmt in root_children {
+            self.collect_permitted_occurrences(
+                program,
+                stmt,
+                mutated,
+                &mut permitted,
+                &mut disqualified,
+            );
+        }
+
+        let mut permitted_count: BTreeMap<String, usize> = BTreeMap::new();
+        for id in &permitted {
+            if let Some(node) = program.nodes.get(*id as usize) {
+                if let Some(text) = node.text.as_deref() {
+                    *permitted_count.entry(text.to_string()).or_insert(0) += 1;
+                }
+            }
+        }
+
+        mutated
+            .iter()
+            .filter(|name| !disqualified.contains(*name))
+            .filter(|name| {
+                total.get(*name).copied().unwrap_or(0)
+                    == permitted_count.get(*name).copied().unwrap_or(0)
+            })
+            .cloned()
+            .collect()
+    }
+
+    fn collect_permitted_occurrences(
+        &self,
+        program: &LirProgram,
+        id: LirNodeId,
+        mutated: &BTreeSet<String>,
+        permitted: &mut BTreeSet<u32>,
+        disqualified: &mut BTreeSet<String>,
+    ) {
+        let Some(node) = program.nodes.get(id.0 as usize) else {
+            return;
+        };
+        // Non-straight-line regions: do NOT descend. Any mutated-name
+        // occurrence inside stays unpermitted, forcing the binding ineligible.
+        if node.kind == LirNodeKind::Branch {
+            return;
+        }
+        if self.function_summary(program, id).is_some() {
+            return;
+        }
+
+        // (a) const declarator's own name child.
+        if node.kind == LirNodeKind::Instruction && node.children.len() >= 2 {
+            if let Some(name) = node.text.as_deref() {
+                let name_node = node.children[0];
+                if mutated.contains(name)
+                    && program.nodes.get(name_node.0 as usize).is_some_and(|n| {
+                        n.kind == LirNodeKind::Value
+                            && n.children.is_empty()
+                            && n.text.as_deref() == Some(name)
+                    })
+                {
+                    permitted.insert(name_node.0);
+                }
+            }
+        }
+
+        // (b) timeline-mutation base position (delete x.k / x.k = v).
+        if let Some((base_id, key)) = self.member_mutation_base_node(program, id) {
+            if let Some(base_node) = program.nodes.get(base_id.0 as usize) {
+                if let Some(base_name) = base_node.text.as_deref() {
+                    if mutated.contains(base_name) {
+                        permitted.insert(base_id.0);
+                        if key.trim_matches('"') == "__proto__" {
+                            disqualified.insert(base_name.to_string());
+                        }
+                    }
+                }
+            }
+        }
+
+        // (c) enumeration-call object argument.
+        if node.kind == LirNodeKind::Call && node.children.len() == 2 {
+            let callee = node.children[0];
+            if self.is_enumeration_callee(program, callee) {
+                let arg = node.children[1];
+                if program.nodes.get(arg.0 as usize).is_some_and(|n| {
+                    n.kind == LirNodeKind::Value
+                        && n.children.is_empty()
+                        && n.text.as_deref().is_some_and(|t| mutated.contains(t))
+                }) {
+                    permitted.insert(arg.0);
+                }
+            }
+        }
+
+        let children = node.children.clone();
+        for child in children {
+            self.collect_permitted_occurrences(program, child, mutated, permitted, disqualified);
+        }
+    }
+
+    /// The base identifier node id + key of a raw `delete x.k` / `x.k = v`
+    /// node (not statement-unwrapped — used by the occurrence walk).
+    fn member_mutation_base_node(
+        &self,
+        program: &LirProgram,
+        id: LirNodeId,
+    ) -> Option<(LirNodeId, String)> {
+        let node = program.nodes.get(id.0 as usize)?;
+        if node.kind != LirNodeKind::Value {
+            return None;
+        }
+        let member = match node.text.as_deref() {
+            Some("delete") if node.children.len() == 1 => node.children[0],
+            Some("=") if node.children.len() == 2 => node.children[0],
+            _ => return None,
+        };
+        let member_node = program.nodes.get(member.0 as usize)?;
+        if member_node.kind != LirNodeKind::Value || member_node.children.len() != 1 {
+            return None;
+        }
+        let key = member_node.text.as_deref()?.to_string();
+        let base_id = member_node.children[0];
+        let base_node = program.nodes.get(base_id.0 as usize)?;
+        if base_node.kind != LirNodeKind::Value
+            || !base_node.children.is_empty()
+            || base_node.text.is_none()
+        {
+            return None;
+        }
+        Some((base_id, key))
+    }
+
+    fn is_enumeration_callee(&self, program: &LirProgram, callee: LirNodeId) -> bool {
+        let Some(node) = program.nodes.get(callee.0 as usize) else {
+            return false;
+        };
+        let Some(name) = self.normalized_member_access_name(program, node) else {
+            return false;
+        };
+        matches!(
+            name.as_str(),
+            "Object.keys"
+                | "globalThis.Object.keys"
+                | "Object.values"
+                | "globalThis.Object.values"
+                | "Object.entries"
+                | "globalThis.Object.entries"
+                | "Reflect.ownKeys"
+                | "globalThis.Reflect.ownKeys"
+        )
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TimelineMutation {
+    Delete,
+    Store,
 }
 
 #[cfg(test)]
