@@ -1,5 +1,34 @@
 use crate::*;
 
+/// ES own-property enumeration order key: `Some(n)` when `key` is an
+/// array-index-like string (canonical base-10, no leading zeros, `< 2^32-1`),
+/// `None` otherwise. Strips one level of `"` quoting first — LIR literal
+/// text keeps source quoting, while AST/repr key text is unquoted; both
+/// layers must classify identically (throw-fallout Stage 2, Lane B).
+pub fn property_order_key(key: &str) -> Option<u64> {
+    let normalized = key.trim_matches('"');
+    if normalized.is_empty() || (normalized.len() > 1 && normalized.starts_with('0')) {
+        return None;
+    }
+    let value = normalized.parse::<u64>().ok()?;
+    (value < u32::MAX as u64).then_some(value)
+}
+
+/// Stable in-place ES enumeration-order sort: array-index-like keys first in
+/// ascending numeric order, then every other key in insertion order. The ONE
+/// ordering used by the optimizer's enumeration fold, kali_types shape field
+/// lists, and codegen key tables — divergence is impossible by construction.
+pub fn sort_properties_es_order<T>(properties: &mut [(String, T)]) {
+    properties.sort_by(|(left, _), (right, _)| {
+        match (property_order_key(left), property_order_key(right)) {
+            (Some(l), Some(r)) => l.cmp(&r),
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => std::cmp::Ordering::Equal, // sort_by is stable
+        }
+    });
+}
+
 /// Canonical frozen callable aliases for the supported `Object.hasOwn` helper slice.
 pub const fn object_has_own_frozen_callable_aliases() -> &'static [&'static str] {
     &[

@@ -145,13 +145,8 @@ impl Optimizer {
     }
 
     pub(crate) fn object_property_order_key(key: &str) -> Option<u64> {
-        let normalized = key.trim_matches('"');
-        if normalized.is_empty() || (normalized.len() > 1 && normalized.starts_with('0')) {
-            return None;
-        }
-
-        let value = normalized.parse::<u64>().ok()?;
-        (value < u32::MAX as u64).then_some(value)
+        // Single source of truth (throw-fallout Stage 2, Lane B).
+        kali_common::property_order_key(key)
     }
 }
 
