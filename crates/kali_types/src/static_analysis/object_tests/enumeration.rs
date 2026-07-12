@@ -447,3 +447,36 @@ for (const entry of globalThis['Object']['entries'](entries)) { console.log(entr
         result.diagnostics
     );
 }
+
+#[test]
+fn test_resolution_supports_short_circuit_and_ternary_frozen_callable_selection_in_js_input() {
+    // Pin (throw-fallout Stage 2 drain fix): the enumeration lane's
+    // types-side gate resolves short-circuit (`??`/`&&`/`||`) and ternary
+    // frozen-callable selection through the shared static oracle
+    // (`resolve_static_callable_name`) — these forms must resolve with no
+    // diagnostics, exactly like the plain `Object.freeze(Reflect.ownKeys)`
+    // spelling. (The optimizer fold mirrors the same rule; see
+    // `kali_optimize::object_fold_tests::reflect_own_keys`.)
+    let dir = fixtures::tempdir();
+    let source_path = dir.path().join("main.js");
+    let source = r#"const obj = { "b": 1, "2": 2, "a": 3, "1": 4 };
+const nullishKeys = Object.freeze((null ?? globalThis.Reflect.ownKeys))(obj);
+const logicalAndKeys = Object.freeze((true && globalThis.Reflect.ownKeys))(obj);
+const logicalOrKeys = Object.freeze((false || globalThis.Reflect.ownKeys))(obj);
+const conditionalKeys = Object.freeze((true ? Reflect.ownKeys : Reflect.ownKeys))(obj);
+console.log(nullishKeys.length, logicalAndKeys.length, logicalOrKeys.length, conditionalKeys.length);"#;
+    fs::write(&source_path, source).unwrap();
+
+    let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
+    let tokens = lexer.lex_all().tokens;
+    let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+    let statements = parser.parse(None).statements;
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}

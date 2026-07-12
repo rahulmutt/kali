@@ -2682,13 +2682,27 @@ fn assert_object_string_primitive_enumeration_semantics(
         .output()
         .expect("run kali");
 
-    // Flipped pin: the fixture's array-literal-argument self-check preamble
-    // now fails CLOSED instead of silently yielding zero placeholders. Where
-    // the callee resolves (run-mode source) the compile-time E5506 reject
-    // fires; in the Kali.test-callback variant the arrow callee is not
-    // resolvable so the preamble's own self-check throw traps at runtime
-    // (E4000, via the fixed print-then-trap `throw`). Both are fail-closed;
-    // silent success was the miscompile.
+    // Split pin (throw-fallout Stage 2 selection-callee drain):
+    // - run-mode source still carries the array-literal-argument preamble
+    //   (`consumeArray([1n, 2n], 1n)`), which fails CLOSED at compile time
+    //   (E5506) instead of silently yielding zero placeholders.
+    // - test-mode source has no such preamble; its only former blocker was
+    //   the ternary callable selection `(true ? Object.values : Object.values)('ab')`,
+    //   which the enumeration fold now resolves through the shared static
+    //   callable oracle. The fixture executes with node-identical semantics
+    //   (its own self-check throws on any divergence) and prints
+    //   `2` + `ok 1` — node-verified un-flip, not a re-mask.
+    if command == "test" {
+        assert!(
+            output.status.success(),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("2\nok 1"), "stdout: {stdout}");
+        return;
+    }
     assert!(!output.status.success(), "must fail closed: {output:?}");
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
@@ -3412,13 +3426,31 @@ fn assert_json_object_string_primitive_enumeration_semantics(
         .output()
         .expect("run kali");
 
-    // Flipped pin: the fixture's array-literal-argument self-check preamble
-    // now fails CLOSED instead of silently yielding zero placeholders. Where
-    // the callee resolves (run-mode source) the compile-time E5506 reject
-    // fires; in the Kali.test-callback variant the arrow callee is not
-    // resolvable so the preamble's own self-check throw traps at runtime
-    // (E4000, via the fixed print-then-trap `throw`). Both are fail-closed;
-    // silent success was the miscompile.
+    // Split pin (throw-fallout Stage 2 selection-callee drain) — see
+    // `assert_object_string_primitive_enumeration_semantics`: run-mode still
+    // fails closed on the array-literal-argument preamble; test-mode now
+    // executes with node-identical semantics after the enumeration fold
+    // learned ternary callable selection (node-verified un-flip).
+    if command == "test" {
+        assert!(
+            output.status.success(),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["success"], true);
+        assert!(json["errors"].as_array().expect("errors array").is_empty());
+        // JSON mode reports the runner verdict in the payload (the human
+        // "ok 1" line is not part of the captured program stdout).
+        assert_eq!(json["payload"]["passed"], 1);
+        assert_eq!(json["payload"]["failed"], 0);
+        assert!(
+            json["stdout"].as_str().expect("stdout").contains("2\n"),
+            "json: {json}"
+        );
+        return;
+    }
     assert!(!output.status.success(), "must fail closed: {output:?}");
     let json = parse_json_stdout(&output);
     assert_eq!(json["success"], false);
