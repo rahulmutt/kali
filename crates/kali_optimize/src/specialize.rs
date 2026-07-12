@@ -1,6 +1,19 @@
 use crate::*;
 
 impl Optimizer {
+    /// Entry point: computes the program-wide mutated-binding-name set ONCE
+    /// (the same shared `collect_mutated_binding_names` scan the ordered fold
+    /// and the release inline env use — not a fourth hand-rolled scan) and
+    /// threads it through the recursive walk. A mutated binding must NEVER
+    /// enter the specialization env: substituting its PRE-MUTATION literal
+    /// over a later identifier occurrence (`Object.keys(s)` where
+    /// `const s = r` and `r` was stored to) manufactures a literal-receiver
+    /// enumeration that every downstream fold folds unconditionally — stale
+    /// release wasm with exit 0 — and literal-substitutes out-of-lane
+    /// delete/store bases that codegen's default-deny arm must see. Excluding
+    /// the name only DISABLES substitution (fail-closed); eligible mutated
+    /// bindings were already folded to literals by the ordered pass, which
+    /// runs before specialization.
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn specialize_layout_bindings(
         &self,
@@ -11,6 +24,24 @@ impl Optimizer {
         scope: &str,
         plan: &SpecializationPlan,
         env: &mut BindingEnv,
+    ) {
+        let mutated = self.collect_mutated_binding_names(program);
+        self.specialize_layout_bindings_inner(
+            program, id, tracker, owner, scope, plan, env, &mutated,
+        );
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn specialize_layout_bindings_inner(
+        &self,
+        program: &mut LirProgram,
+        id: LirNodeId,
+        tracker: &mut SpecializationTracker,
+        owner: &str,
+        scope: &str,
+        plan: &SpecializationPlan,
+        env: &mut BindingEnv,
+        mutated: &BTreeSet<String>,
     ) {
         let snapshot = program.nodes[id.0 as usize].clone();
         let is_function_scope = matches!(snapshot.kind, LirNodeKind::Instruction)
@@ -33,7 +64,7 @@ impl Optimizer {
                     scope
                 };
                 for child in snapshot.children {
-                    self.specialize_layout_bindings(
+                    self.specialize_layout_bindings_inner(
                         program,
                         child,
                         tracker,
@@ -41,10 +72,15 @@ impl Optimizer {
                         next_scope,
                         plan,
                         &mut local_env,
+                        mutated,
                     );
 
                     if let Some((name, init)) = self.extract_const_binding(program, child) {
-                        if self.is_specializable_binding(program, init) {
+                        // Mutated bindings never enter the spec env (see the
+                        // entry-point doc comment): fail-closed, no stale
+                        // pre-mutation literal substitution.
+                        if !mutated.contains(&name) && self.is_specializable_binding(program, init)
+                        {
                             local_env.bindings.insert(name, init);
                         }
                     }
@@ -56,7 +92,7 @@ impl Optimizer {
                 let next_owner = snapshot.text.as_deref().unwrap_or(owner);
                 let next_scope = snapshot.text.as_deref().unwrap_or(scope);
                 for child in snapshot.children {
-                    self.specialize_layout_bindings(
+                    self.specialize_layout_bindings_inner(
                         program,
                         child,
                         tracker,
@@ -64,10 +100,14 @@ impl Optimizer {
                         next_scope,
                         plan,
                         &mut local_env,
+                        mutated,
                     );
 
                     if let Some((name, init)) = self.extract_const_binding(program, child) {
-                        if self.is_specializable_binding(program, init) {
+                        // Mutated bindings never enter the spec env (see the
+                        // entry-point doc comment).
+                        if !mutated.contains(&name) && self.is_specializable_binding(program, init)
+                        {
                             local_env.bindings.insert(name, init);
                         }
                     }
@@ -83,8 +123,8 @@ impl Optimizer {
                     let key = format!("bind:{}:{}", name, node_signature(program, bound));
                     if tracker.allow(owner, key) {
                         program.nodes[id.0 as usize] = program.nodes[bound.0 as usize].clone();
-                        self.specialize_layout_bindings(
-                            program, id, tracker, owner, scope, plan, env,
+                        self.specialize_layout_bindings_inner(
+                            program, id, tracker, owner, scope, plan, env, mutated,
                         );
                     }
                 }
@@ -93,7 +133,9 @@ impl Optimizer {
         }
 
         for child in snapshot.children {
-            self.specialize_layout_bindings(program, child, tracker, owner, scope, plan, env);
+            self.specialize_layout_bindings_inner(
+                program, child, tracker, owner, scope, plan, env, mutated,
+            );
         }
 
         let _ = self.fold_layout_member_access(program, id, tracker, owner, env);

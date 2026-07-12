@@ -325,16 +325,13 @@ fn build_alias_of_mutated_program() -> (LirProgram, LirNodeId) {
     )
 }
 
-// NOTE (I3): the full release DRIVER harness does not cleanly isolate this
-// bug. `specialize_layout_bindings` runs before the driver's inline-path env is
-// built and inlines the const `r`'s literal into the store's member base, so by
-// that point `collect_mutated_binding_names` finds no bare-identifier base and
-// returns empty — the strip has nothing to act on (a synthetic-LIR artifact;
-// real front-end programs like Probe 3 retain the base and the alias e2e case
-// fails closed via the field-store / join E5506 backstops). So I3 is covered
-// here by a UNIT test on the SHARED `strip_mutated_bindings` env-strip that both
-// the ordered pass and the release inline path call — asserting an alias of a
-// mutated binding is dropped from the fold env.
+// I3 is covered at two levels: the UNIT test below on the SHARED
+// `strip_mutated_bindings` env-strip that the ordered pass and the release
+// inline path both call, and the full-driver release test after it (which
+// requires the specialization-env strip in specialize.rs — without it,
+// `specialize_layout_bindings` clones r's stale pre-mutation literal over the
+// `r` occurrence in `const s = r`, `s` re-binds to that clone, and every
+// downstream fold folds the literal-receiver enumeration unconditionally).
 #[test]
 fn strip_mutated_bindings_drops_names_and_aliases() {
     let (program, _keys_call) = build_alias_of_mutated_program();
@@ -357,5 +354,43 @@ fn strip_mutated_bindings_drops_names_and_aliases() {
     assert!(
         !env.bindings.contains_key("s"),
         "alias s (resolves to r's literal id) dropped"
+    );
+}
+
+/// Full release-driver path over all three stale classes (fix wave 2).
+/// `specialize_layout_bindings` is a THIRD hand-rolled constant env; without
+/// mutated-name awareness it substitutes the PRE-MUTATION literal over every
+/// bound identifier occurrence at --release, turning `Object.keys(s)` into a
+/// literal-receiver enumeration that every downstream fold folds
+/// unconditionally — stale wasm with exit 0. The spec env must exclude
+/// mutated bindings so all three classes stay unfolded Calls (fail-closed via
+/// codegen's E5506 backstops).
+#[test]
+fn release_specialization_never_substitutes_mutated_binding_literals() {
+    // Alias class: const r = {a:1}; r.b = 2; const s = r; Object.keys(s)
+    let (mut program, keys_call) = build_alias_of_mutated_program();
+    Optimizer::new(OptimizationLevel::Release).optimize_program(&mut program);
+    assert_eq!(
+        program.nodes[keys_call.0 as usize].kind,
+        LirNodeKind::Call,
+        "alias of mutated binding must not fold stale at release"
+    );
+
+    // Block-nested store class.
+    let (mut program, values_call) = build_block_nested_store_program();
+    Optimizer::new(OptimizationLevel::Release).optimize_program(&mut program);
+    assert_eq!(
+        program.nodes[values_call.0 as usize].kind,
+        LirNodeKind::Call,
+        "block-nested store must not fold stale at release"
+    );
+
+    // Computed store class.
+    let (mut program, values_call) = build_computed_store_program();
+    Optimizer::new(OptimizationLevel::Release).optimize_program(&mut program);
+    assert_eq!(
+        program.nodes[values_call.0 as usize].kind,
+        LirNodeKind::Call,
+        "computed store must not fold stale at release"
     );
 }
