@@ -1034,6 +1034,19 @@ impl<'a> FunctionEmitter<'a> {
             return self.emit_conditional(function, node, want_value);
         }
 
+        // `await <operand>` — marker text "await" set by the HIR lowering
+        // (throw-fallout Stage 3 Task 4). Kali has no microtask machinery and no
+        // genuinely-pending promise in the current phase, so every operand settles
+        // synchronously: the await's value IS the operand's value. Pass it through
+        // by emitting the child and KEEPING its produced value (the historical
+        // text-less aggregate path dropped it and pushed `0`, so `await
+        // Promise.resolve(7)` yielded 0). This is fully transparent — it never
+        // masks the operand's own failure mode, since emitting the child still hits
+        // whatever reject/trap that child would hit on its own.
+        if node.text.as_deref() == Some("await") && node.children.len() == 1 {
+            return self.emit_node(function, node.children[0], want_value);
+        }
+
         // Bare value-position `process.kill` (uncalled member reference, e.g.
         // `!process.kill`): Node exposes `process.kill` as a function, which is
         // truthy. Kali has no first-class function values, so the historical

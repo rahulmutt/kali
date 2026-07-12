@@ -161,7 +161,17 @@ impl HirLowerer {
                 id
             }
             Expression::AwaitExpression(expr) => {
-                let id = self.builder.alloc(HirNodeKind::AwaitExpr, None);
+                // Mark the await node with a distinct `"await"` text marker so
+                // codegen can dispatch a value-passthrough arm for it. Without a
+                // marker the node is a text-less 1-child `Value`, indistinguishable
+                // from a single-element array literal `[x]` or a grouping wrapper —
+                // and the text-less aggregate path DROPS the operand and pushes 0
+                // (throw-fallout Stage 3 Task 4). The marker keeps await
+                // unambiguous while transparent-unwrap helpers still tunnel through
+                // it (see `unwrap_transparent_value_node`).
+                let id = self
+                    .builder
+                    .alloc_text(HirNodeKind::AwaitExpr, None, "await");
                 push_child!(self, id, self.lower_expression(&expr.argument));
                 id
             }

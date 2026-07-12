@@ -40,6 +40,34 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// `Promise.resolve` (or `globalThis.Promise.resolve`) callee recognizer.
+    /// `Promise.resolve(v)` synchronously settles to `v`; a bare `Promise.resolve()`
+    /// settles to unit. Consumed by the await value-passthrough lane (Stage 3
+    /// Task 4). Scoped to the exact `Promise` receiver so no other `.resolve`
+    /// member call is affected.
+    pub(crate) fn is_promise_resolve(&self, callee_node: &LirNode) -> bool {
+        if callee_node.text.as_deref() != Some("resolve") {
+            return false;
+        }
+        let Some(object) = callee_node.children.first().copied() else {
+            return false;
+        };
+        self.is_promise_root(object)
+    }
+
+    /// The `Promise` global, spelled either as the bare `Promise` identifier or as
+    /// `globalThis.Promise`.
+    fn is_promise_root(&self, id: LirNodeId) -> bool {
+        let node = self.node(id);
+        if node.text.as_deref() != Some("Promise") {
+            return false;
+        }
+        match node.children.first().copied() {
+            None => true,
+            Some(root) => self.node(root).text.as_deref() == Some("globalThis"),
+        }
+    }
+
     pub(crate) fn is_console_assert(&self, callee_node: &LirNode) -> bool {
         let Some(method) = callee_node.text.as_deref() else {
             return false;

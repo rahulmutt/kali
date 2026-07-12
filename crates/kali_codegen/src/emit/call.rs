@@ -118,6 +118,21 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        // `Promise.resolve(v)` synchronously settles to `v`; a bare
+        // `Promise.resolve()` settles to unit (no value). This recognizer makes the
+        // await value-passthrough lane (Stage 3 Task 4) yield `v` for
+        // `await Promise.resolve(v)` instead of the historical `0`. Not general
+        // Promise/microtask semantics — those are Stage 7.
+        if self.is_promise_resolve(&callee_node) {
+            if let Some(arg) = node.children.get(1).copied() {
+                return self.emit_node(function, arg, true);
+            }
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
+
         let callee_name = callee_node.text.as_deref().unwrap_or_default();
         let resolved = self.functions.get(callee_name).copied();
 
@@ -3184,7 +3199,14 @@ impl<'a> FunctionEmitter<'a> {
             let node = self.node(id);
             if node.kind == LirNodeKind::Value
                 && node.children.len() == 1
-                && node.text.as_deref().is_none_or(|text| text.is_empty())
+                && node
+                    .text
+                    .as_deref()
+                    // A text-less/empty 1-child `Value` is a grouping/sequence
+                    // wrapper; the `"await"` marker (Stage 3 Task 4) is a
+                    // synchronously-settled passthrough — both tunnel to the child
+                    // for static-reference resolution (e.g. `await globalThis.Object`).
+                    .is_none_or(|text| text.is_empty() || text == "await")
             {
                 id = node.children[0];
                 continue;

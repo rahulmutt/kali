@@ -8485,6 +8485,94 @@ fn run_supports_array_literal_length_in_js_input() {
 }
 
 #[test]
+fn run_passes_through_synchronously_settled_await_of_promise_resolve_value() {
+    // throw-fallout Stage 3 Task 4: `await Promise.resolve(v)` synchronously
+    // settles to `v`. Historically `await` dropped its operand and yielded `0`,
+    // so `result` was 0 and the guard threw. Assert node-parity stdout `7`.
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "async function m(){ const v = await Promise.resolve(7); if (v !== 7) throw new Error('x'); console.log(v); } m();\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout.trim(), "7", "stdout: {stdout}");
+}
+
+#[test]
+fn run_supports_bare_await_of_promise_resolve_as_a_sequencing_point() {
+    // `await Promise.resolve()` with no value is a synchronous no-op sequencing
+    // point; the following `console.log('ok')` still runs.
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "async function m(){ await Promise.resolve(); console.log('ok'); } m();\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout.trim(), "ok", "stdout: {stdout}");
+}
+
+#[test]
+fn run_passes_through_synchronously_settled_await_of_a_non_promise_operand() {
+    // await is fully transparent for kali's synchronous phase: `await (3 + 4)`
+    // yields the operand's value `7`, not the historical `0`.
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "async function m(){ const v = await (3 + 4); console.log(v); } m();\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout.trim(), "7", "stdout: {stdout}");
+}
+
+#[test]
 fn run_supports_process_argv_slice_length_in_js_input_on_node_api_surface() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");

@@ -221,3 +221,12 @@ silent miscompile.
   subtle.digest needs recognizer + a new `kali:rt` `crypto_subtle_digest` host import.
 - (Task 4 note) `await Promise.resolve()` already flattens+runs; keep the regression-pin lane
   minimal — do not build a full await machine where a pin suffices.
+- (Task 4 controller refinement, resolved as REAL not pin) The triage note above under-tested
+  value-CARRYING await. Only the *bare* `await Promise.resolve()` (unused value) worked; every
+  value-consuming await was silently broken: `await Promise.resolve(7)` → `0`, `await (3+4)` → `0`,
+  `await f()` → `0`. MECHANISM: HIR `AwaitExpr` was a text-less 1-child `Value`, so codegen's
+  text-less aggregate path DROPPED the operand and pushed `I64Const(0)`. This makes await
+  value-passthrough a hard PREREQUISITE for Task 7 (`const digest = await crypto.subtle.digest(...)`
+  consumes the value; a `0` digest fails the `byteLength !== 32` guard). Task 4 shipped as a real
+  implementation: `"await"` HIR marker + value-passthrough emit arm + `Promise.resolve(v)`
+  recognizer + kali_types mirror. Fixed 15 pre-existing red runtime_smoke tests, 0 regressions.
