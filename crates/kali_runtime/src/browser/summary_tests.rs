@@ -10,3 +10,6 @@ mod bundle;
 
 #[path = "summary_tests/requested.rs"]
 mod requested;
+
+#[path = "summary_tests/coverage.rs"]
+mod coverage;

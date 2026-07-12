@@ -81,6 +81,59 @@ fn browser_requested_test_runtime_can_execute_registered_callbacks() {
     assert!(outcome.stdout.contains("11"), "stdout: {}", outcome.stdout);
 }
 
+#[test]
+fn browser_requested_runtime_threads_recorded_coverage_hits_into_runtime_outcome() {
+    // Real end-to-end regression test for the beyond-scope fix in
+    // `execute_browser_runtime` (crate-root `execute.rs`): `RuntimeOutcome.coverage_hits`
+    // used to be hardcoded to `Vec::new()` for the browser lane, silently
+    // discarding whatever `BrowserRuntimeExecutionOutcome.coverage_hits` the
+    // harness reported. This drives the real `coverage_hit` `kali:rt` import
+    // (host-wired in every browser harness list) through the real node
+    // harness and asserts the recorded ids survive all the way out to
+    // `RuntimeOutcome.coverage_hits` — a revert of that threading back to
+    // `Vec::new()` must fail this test.
+    let runtime = RuntimeCtx::with_host_context_with_api_surface(
+        None,
+        vec![],
+        capture_env(),
+        PathBuf::from("."),
+        "browser",
+    );
+    let wasm = compile_wat(
+        r#"
+            (module
+                (import "kali:rt" "coverage_hit" (func $coverage_hit (param i32)))
+                (func (export "_start")
+                    i32.const 3
+                    call $coverage_hit
+                    i32.const 7
+                    call $coverage_hit))
+            "#,
+    );
+
+    let outcome = execute_browser_runtime(
+        &runtime,
+        &wasm,
+        false,
+        runtime.canonical_runtime_profiles(),
+        "node",
+    )
+    .expect("browser runtime outcome");
+
+    assert_eq!(outcome.exit_code, 0);
+    let mut coverage_hits = outcome.coverage_hits.clone();
+    coverage_hits.sort_unstable();
+    assert_eq!(
+        coverage_hits,
+        vec![3, 7],
+        "RuntimeOutcome.coverage_hits must carry the coverage ids the guest reported through \
+         `kali:rt` coverage_hit, threaded from BrowserRuntimeExecutionOutcome.coverage_hits; \
+         got {:?} (stdout: {})",
+        outcome.coverage_hits,
+        outcome.stdout
+    );
+}
+
 #[cfg(unix)]
 #[test]
 fn browser_runtime_execution_helper_uses_html_entrypoint_for_browser_executables() {
