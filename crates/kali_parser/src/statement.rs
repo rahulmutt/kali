@@ -73,7 +73,17 @@ impl Parser {
             | TokenType::Template
             | TokenType::Backtick
             | TokenType::LeftParen
-            | TokenType::New => self.parse_expression_statement(),
+            | TokenType::New
+            // Statement-position `delete <expr>;` was previously absent from
+            // this dispatch table entirely: `parse_statement` returned `None`
+            // for the `delete` token, so the top-level loop silently
+            // discarded it (see `parse` in parser.rs) and re-parsed the
+            // remaining tokens as their own statement — `delete r.a;` ran as
+            // a bare `r.a;` member read. Route it to the same expression-
+            // statement path as every other unary-expression starter so the
+            // new `TokenType::Delete` arm in `parse_unary_expression` is
+            // actually reachable in statement position (throw-fallout Stage 2).
+            | TokenType::Delete => self.parse_expression_statement(),
             _ => None,
         }
     }

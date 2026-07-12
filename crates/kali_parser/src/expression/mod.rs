@@ -108,6 +108,21 @@ impl Parser {
                     argument,
                 }))
             }
+            // `delete <expr>` was previously NOT parsed as a unary operator
+            // (same historical bug as `typeof` above): the token fell through
+            // to the primary parser, was swallowed, and `delete r.b` compiled
+            // as a bare member read — a silent no-op with no diagnostic.
+            // Parse it as a real unary expression; the optimizer's static
+            // shape timeline consumes the provable lane and codegen
+            // default-denies the rest (throw-fallout Stage 2).
+            Some(TokenType::Delete) => {
+                let _ = self.stream.advance();
+                let argument = self.parse_unary_expression();
+                Expression::UnaryExpression(Box::new(UnaryExpression {
+                    operator: "delete".to_string(),
+                    argument,
+                }))
+            }
             Some(TokenType::Plus) => {
                 if self
                     .stream
