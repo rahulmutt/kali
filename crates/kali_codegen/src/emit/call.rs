@@ -3292,6 +3292,10 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// Resolve a short-circuit (`??`/`&&`/`||`) or ternary (`?`) callable
+    /// SELECTION to the node it statically selects. This rule is mirrored
+    /// in `kali_optimize::helpers::Optimizer::callable_selection_member_access_name`
+    /// — keep them synchronized.
     pub(crate) fn resolve_transparent_callable_node(&self, id: LirNodeId) -> Option<LirNodeId> {
         let mut id = self.resolve_bound_node(id);
         let mut seen = HashSet::new();

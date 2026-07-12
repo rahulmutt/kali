@@ -147,6 +147,10 @@ impl TypeContext {
         }
     }
 
+    /// Resolve a short-circuit (`??`/`&&`/`||`) or ternary (`?`) callable
+    /// SELECTION to the identifier it statically selects. This rule is mirrored
+    /// in `kali_optimize::helpers::Optimizer::callable_selection_member_access_name`
+    /// — keep them synchronized.
     pub(crate) fn resolve_static_callable_name(&self, expression: &Expression) -> Option<String> {
         let expression = Self::unwrap_static_callable_expression(expression);
         if let Expression::ConditionalExpression(expr) = expression {
