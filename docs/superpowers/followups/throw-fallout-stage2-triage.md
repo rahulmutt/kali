@@ -155,8 +155,34 @@ element/length reads.
 
 ## Follow-ups opened this stage
 
-(filled by later tasks)
-
-- Candidate (from triage finding 3): array-literal-as-call-argument element reads
-  (`f([1n,2n])` then `items[0]` in callee; also enumeration-result-as-argument indexing) —
-  outside Lanes A–D, currently E5506 fail-closed.
+- (triage finding 3) Array-literal-as-call-argument element reads (`f([1n,2n])` then `items[0]`
+  in callee; also enumeration-result-as-argument indexing) — outside Lanes A–D, currently E5506
+  fail-closed.
+- (Task 4 review) Object keys containing embedded `"` or `\` still silently miscompile
+  (`{ "\"x": 1 }` → wrong key text + wrong length; the fold's `trim_matches('"')` normalization
+  over-trims). Pre-existing class shared with the string-mode fold branch. Direction: fail-closed
+  on keys whose quote-encode/decode round-trip isn't identity; migrate legacy hand-built fixtures
+  to unquoted front-end text so the provenance-blind trim can be dropped.
+- (Task 5 reviews) Function-scoped delete+reinsert is conservatively E5506 (out of the top-level
+  straight-line lane by design); a future per-function scoped eligibility lane could admit it.
+- (Task 5 fix wave) `kali_types::is_static_array_iteration_target` optimistically admits
+  `Object.values(r).join` at check time — closed codegen-side (`is_object_enumeration_join_receiver`
+  E5506 backstop); cleaner fix is types-side mutation-eligibility parity.
+- (Task 5 fix wave 2) `is_specializable_binding` widening caveat: the release spec-env strip is
+  name-level only, justified because that predicate rejects identifier inits today — if ever
+  widened to alias chains, mirror the id-level half of `strip_mutated_bindings` in.
+- (Task 6b fix, e8822cee4) Single-element-array-literal transparent-wrapper tunneling closed in
+  TWO codegen classifiers (`unwrap_transparent`, `resolve_static_object_identity_value`).
+  RECORD CORRECTION vs the fix report: `typeof ["x"]` was NOT "identical pre-fix" — pre-fix
+  printed `string`, post-fix prints `0` (node: `object`); a lateral move between two silent wrong
+  answers into the pre-existing unproven-placeholder lane. Follow-up: `typeof <array-literal>`
+  should classify `"object"` or fail closed.
+- (Task 6b verification) Sequence-expression string binding `.length` miscompile:
+  `const s=("a","abc"); s.length` → kali `2` vs node `3` (pre-existing, 2-child node, untouched
+  by the fix).
+- (Task 6b fix report) `a[0]+a[0]` over a static string array → garbage number (pre-existing).
+- (Task 1 review) Statement-position `typeof` is still latently swallowed by `parse_statement`'s
+  dispatch (the exact class Task 1 fixed for `delete`) — pre-existing.
+- (Task 1 report) `compile.rs` discards warning diagnostics on the successful-build path, so
+  E8001-class warnings are invisible via the CLI (pre-existing; Stage-2 default-denies are
+  errors, unaffected).
