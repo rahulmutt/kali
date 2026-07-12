@@ -1198,14 +1198,14 @@ Drained (51), by family:
 - frozen `enumeration_spread_semantics` 8 (run+test, js/ts + browser-harness jsx/tsx).
 - `object_entries_semantics` 3, string-primitive browser enumeration 2 (self-check fixtures
   green end-to-end).
-- `wrapped_object_enumeration` accepts 12 — bonus drain from the checkpoint-regression fix
+- `wrapped_object_enumeration` accepts 8 — bonus drain from the checkpoint-regression fix
   (the enumeration fold now materializes `Object.fromEntries` operands and unwraps
   `Object.freeze` callees in Fast mode).
 
 Bucket accounting: the #4 bucket (46) drained 30 (24+4+2); its 16 residuals are the
 tail-replay browser-run lanes above. The #4-adjacent frozen 44 drained 8 (spread-semantics);
 the rest remain multi-blocked on `[]`+`.push` (Stage 4) and the array-as-function-argument
-element-read gap (outside Stages 1–7 lanes so far, triage finding 3). The 17 remaining
+element-read gap (outside Stages 1–7 lanes so far, triage finding 3). The 13 remaining
 drains were #2/#3-bucket names unblocked as side effects (wrapped-enumeration accepts,
 entries semantics, string-primitive enumeration).
 
