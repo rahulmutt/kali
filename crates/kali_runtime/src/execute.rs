@@ -427,7 +427,7 @@ pub(crate) fn execute_browser_runtime(
         // `Kali.writeStdoutBytes` is host-only for this task (see spec follow-up).
         stdout_bytes: Vec::new(),
         stderr: outcome.stderr,
-        coverage_hits: Vec::new(),
+        coverage_hits: outcome.coverage_hits,
         runtime_profiles: normalized_runtime_profiles,
         host_contract: outcome.host_contract,
         runtime_backend: outcome.runtime_backend,

@@ -1548,10 +1548,14 @@ fn generate_browser_bundle_js(
 const bundleBaseUrl = import.meta.url;
 const dynamicImportTargets = new Map([
 {dynamic_import_entries}]);
+const coverageHits = [];
 
 const defaultImportObject = {{
   "kali:rt": {{
     test_register() {{}},
+    coverage_hit(id) {{
+      coverageHits.push(Number(id));
+    }},
     int_to_string(value) {{
       return allocGuestString(new TextEncoder().encode(String(value)));
     }},
@@ -1846,10 +1850,14 @@ const wasmUrl = new URL("./{wasm_file}", pathToFileURL(__filename));
 const bundleBaseUrl = pathToFileURL(__filename);
 const dynamicImportTargets = new Map([
 {dynamic_import_entries}]);
+const coverageHits = [];
 
 const defaultImportObject = {{
   "kali:rt": {{
     test_register() {{}},
+    coverage_hit(id) {{
+      coverageHits.push(Number(id));
+    }},
     int_to_string(value) {{
       return allocGuestString(new TextEncoder().encode(String(value)));
     }},

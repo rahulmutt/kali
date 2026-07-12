@@ -115,6 +115,7 @@ let wasmAllocGlobal = null;
 let wasmAllocCurrent = null;
 const collectedTests = [];
 let registeredTestFailures = 0;
+const coverageHits = [];
 
 function allocGuestString(bytes) {{
   if (wasmMemory === null) {{
@@ -221,6 +222,9 @@ const importObject = {{
   "kali:rt": {{
     test_register(val) {{
       collectedTests.push(formatConsoleValue(val));
+    }},
+    coverage_hit(id) {{
+      coverageHits.push(Number(id));
     }},
     int_to_string(value) {{
       return allocGuestString(new TextEncoder().encode(String(value)));
@@ -356,7 +360,7 @@ if (runRegisteredTests) {{
 }}
 let summaryEmissionError = null;
 try {{
-  await emitBrowserRuntimeSummary({{ args: runtimeArgs, hostContract: "browser-requested", runtimeBackend: "browser-harness", tests: collectedTests, testsFailed: registeredTestFailures }});
+  await emitBrowserRuntimeSummary({{ args: runtimeArgs, hostContract: "browser-requested", runtimeBackend: "browser-harness", tests: collectedTests, testsFailed: registeredTestFailures, coverageHits }});
 }} catch (error) {{
   summaryEmissionError = error;
 }}
@@ -432,6 +436,7 @@ let wasmAllocGlobal = null;
 let wasmAllocCurrent = null;
 const collectedTests = [];
 let registeredTestFailures = 0;
+const coverageHits = [];
 
 function allocGuestString(bytes) {{
   if (wasmMemory === null) {{
@@ -594,6 +599,9 @@ const importObject = {{
     test_register(val) {{
       collectedTests.push(formatConsoleValue(val));
     }},
+    coverage_hit(id) {{
+      coverageHits.push(Number(id));
+    }},
     int_to_string(value) {{
       return allocGuestString(new TextEncoder().encode(String(value)));
     }},
@@ -728,7 +736,7 @@ if (runRegisteredTests) {{
 }}
 let summaryEmissionError = null;
 try {{
-  await emitBrowserRuntimeSummary({{ args: runtimeArgs, hostContract: "browser-requested", runtimeBackend: "browser-harness", tests: collectedTests, testsFailed: registeredTestFailures, threadTopology }});
+  await emitBrowserRuntimeSummary({{ args: runtimeArgs, hostContract: "browser-requested", runtimeBackend: "browser-harness", tests: collectedTests, testsFailed: registeredTestFailures, threadTopology, coverageHits }});
 }} catch (error) {{
   summaryEmissionError = error;
 }}
