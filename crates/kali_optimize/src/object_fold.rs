@@ -424,11 +424,79 @@ impl Optimizer {
                 continue;
             }
             let member = node.children[0];
+            // Dot member (`x.k`) — the timeline-lane base+key form.
             if let Some((base, _key)) = self.dot_member_base_and_key(program, member) {
+                names.insert(base);
+                continue;
+            }
+            // Computed member (`x[expr]`, 2-child member node) is invisible to
+            // `dot_member_base_and_key` but STILL mutates its base. Walk the
+            // member expression's first-child spine conservatively: if any bare
+            // identifier bottoms out under it, mark that identifier mutated.
+            // Over-marking is safe (it only ever DISABLES folding); and because
+            // `as_timeline_mutation`/`member_mutation_base_node` stay dot-only,
+            // the computed store's base occurrence goes uncredited → the binding
+            // is ineligible → its enumerations fail closed instead of folding
+            // the stale pre-store shape. (ONLY the mutated-name scan changes;
+            // the timeline application lane must not admit computed stores.)
+            if let Some(base) = self.member_chain_base_identifier(program, member) {
                 names.insert(base);
             }
         }
         names
+    }
+
+    /// Conservatively walk a member expression's first-child (base) spine and
+    /// return the bare identifier it bottoms out at, if any. Handles both dot
+    /// (`x.k`, 1-child) and computed (`x[expr]`, 2-child) member nodes, and
+    /// nested chains (`x.a[b].c`). Returns None if the spine does not reach a
+    /// bare identifier. Used ONLY by the mutated-name scan (over-approximation),
+    /// never by the timeline application lane.
+    fn member_chain_base_identifier(
+        &self,
+        program: &LirProgram,
+        member: LirNodeId,
+    ) -> Option<String> {
+        let mut id = member;
+        let mut seen = BTreeSet::new();
+        loop {
+            if !seen.insert(id.0) {
+                return None;
+            }
+            let node = program.nodes.get(id.0 as usize)?;
+            if node.kind != LirNodeKind::Value {
+                return None;
+            }
+            // Bare identifier: a Value leaf carrying text.
+            if node.children.is_empty() {
+                return node.text.as_deref().map(|text| text.to_string());
+            }
+            // Member-like node (dot = 1 child, computed = 2 children): descend
+            // the base (first child) spine. Anything else is not a member chain.
+            if node.children.len() == 1 || node.children.len() == 2 {
+                id = node.children[0];
+                continue;
+            }
+            return None;
+        }
+    }
+
+    /// Strip from `env` (a) every mutated name and (b) any binding whose
+    /// resolved node id equals a mutated binding's literal id — i.e. an alias
+    /// (`const s = r`) of a mutated object literal, which would otherwise fold
+    /// against the stale pre-mutation snapshot. Shared by the ordered pass and
+    /// the release inline path so BOTH fail closed on stale aliases identically
+    /// (do not hand-roll a second scan). `mutated_ids` is computed before the
+    /// retain so mutated names are still present to seed it.
+    pub(crate) fn strip_mutated_bindings(&self, env: &mut BindingEnv, mutated: &BTreeSet<String>) {
+        let mutated_ids: BTreeSet<u32> = env
+            .bindings
+            .iter()
+            .filter(|(name, _)| mutated.contains(*name))
+            .map(|(_, id)| id.0)
+            .collect();
+        env.bindings
+            .retain(|name, id| !mutated.contains(name) && !mutated_ids.contains(&id.0));
     }
 
     /// `x.k` dot-member: node text = key, exactly one child = bare
@@ -481,16 +549,8 @@ impl Optimizer {
         // of a mutated object literal, which would otherwise fold against the
         // stale pre-mutation snapshot. Eligible mutated names are re-seeded
         // at their declaration point below.
-        let full = self.collect_constant_bindings(program, program.root);
-        let mutated_ids: BTreeSet<u32> = full
-            .bindings
-            .iter()
-            .filter(|(name, _)| mutated.contains(*name))
-            .map(|(_, id)| id.0)
-            .collect();
-        let mut env = full;
-        env.bindings
-            .retain(|name, id| !mutated.contains(name) && !mutated_ids.contains(&id.0));
+        let mut env = self.collect_constant_bindings(program, program.root);
+        self.strip_mutated_bindings(&mut env, &mutated);
 
         let root_children = program.nodes[program.root.0 as usize].children.clone();
         for stmt in root_children {
@@ -737,7 +797,15 @@ impl Optimizer {
         };
         // Non-straight-line regions: do NOT descend. Any mutated-name
         // occurrence inside stays unpermitted, forcing the binding ineligible.
-        if node.kind == LirNodeKind::Branch {
+        // `Block` is a nested lexical scope (a bare `{ ... }`) — a store buried
+        // there is applied by no direct-root-child timeline step, so crediting
+        // its base would leave the binding eligible yet folded against the
+        // stale pre-block shape. The GLOBAL occurrence counter in
+        // `timeline_eligible_bindings` still counts inside blocks (it scans all
+        // nodes flatly), so stopping here leaves the block occurrence uncredited
+        // → count mismatch → ineligible. Count everywhere, credit only
+        // straight-line: that asymmetry is the safety mechanism.
+        if node.kind == LirNodeKind::Branch || node.kind == LirNodeKind::Block {
             return;
         }
         if self.function_summary(program, id).is_some() {

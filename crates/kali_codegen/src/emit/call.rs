@@ -769,6 +769,33 @@ impl<'a> FunctionEmitter<'a> {
             return self.emit_runtime_join(function, id, receiver, separator);
         }
 
+        // Fail-closed backstop (throw-fallout Stage 2, Lane C review): a `.join`
+        // whose receiver is an object-enumeration call
+        // (`Object.values(r).join(...)`) that the `kali_optimize` fold DECLINED
+        // to fold — because `r` is mutated (a block-nested/computed store) or
+        // its shape is otherwise not compile-time-fixed — reaches here with no
+        // static-array fold and no runtime-array-binding lowering. The generic
+        // fallthrough below would emit a silent `0` (the `.join` twin of the
+        // `keys.length`/`keys[0]` miscompile). `kali_types`'
+        // `is_static_array_iteration_target` optimistically accepts such a
+        // receiver at check time, trusting a fold that the optimizer soundly
+        // declines — a hand-mirror break. Reject with the SAME enumeration
+        // E5506 the `Object.values(r)[idx]` path takes (call.rs generic
+        // fallback). Foldable enumerations are already replaced by array
+        // literals before this point, so this only fires on genuinely-unfoldable
+        // receivers.
+        if self.is_object_enumeration_join_receiver(node) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "Object enumeration is only supported where the object has a compile-time-known fixed shape".to_string(),
+            ));
+            function.instruction(&Instruction::Unreachable);
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
+
         if let Some(result) = self.resolve_static_array_to_string_call(node) {
             let literal = self.alloc_scratch_node(
                 LirNodeKind::Literal,
@@ -2633,6 +2660,33 @@ impl<'a> FunctionEmitter<'a> {
             return None;
         }
         Some((receiver, node.children.get(1).copied()))
+    }
+
+    /// `true` iff `node` is a `<recv>.join(sep?)` call whose receiver `<recv>`
+    /// is itself an object-enumeration call (`Object.keys/values/entries`,
+    /// `Reflect.ownKeys`). Used by the join fail-closed backstop: such a
+    /// receiver only survives to codegen when the optimizer declined to fold the
+    /// enumeration (mutated / non-fixed-shape object); a `.values.join(...)`
+    /// MEMBER receiver is a different shape and does NOT match here.
+    fn is_object_enumeration_join_receiver(&self, node: &LirNode) -> bool {
+        if node.kind != LirNodeKind::Call || !(1..=2).contains(&node.children.len()) {
+            return false;
+        }
+        let Some(callee) = node.children.first().copied() else {
+            return false;
+        };
+        let Some(callee) = self.resolve_transparent_callable_node(callee) else {
+            return false;
+        };
+        let callee_node = self.node(callee);
+        if callee_node.text.as_deref() != Some("join") {
+            return false;
+        }
+        let Some(receiver) = callee_node.children.first().copied() else {
+            return false;
+        };
+        self.is_object_enumeration_call(self.node(receiver))
+            .is_some()
     }
 
     /// Lower `<recv>.toFixed(<digits>)` to `<recv as f64>; I32Const(digits);

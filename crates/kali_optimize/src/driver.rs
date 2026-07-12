@@ -183,9 +183,12 @@ impl Optimizer {
 
                 let mut constant_bindings = self.collect_constant_bindings(program, program.root);
                 let mutated = self.collect_mutated_binding_names(program);
-                constant_bindings
-                    .bindings
-                    .retain(|name, _| !mutated.contains(name));
+                // Mirror the ordered pass's alias-id strip (same shared helper):
+                // drop mutated NAMES *and* any alias binding whose resolved id
+                // points at a mutated binding's literal, else inline.rs folds
+                // `Object.keys(s)` (s = alias of a mutated r) against a stale
+                // snapshot. Fail-closed.
+                self.strip_mutated_bindings(&mut constant_bindings, &mutated);
                 self.fold_object_enumeration_calls_ordered(program);
 
                 self.optimize_node(
