@@ -228,14 +228,17 @@ impl<'a> FunctionEmitter<'a> {
                     };
                 }
 
-                self.diagnostics.push(Diagnostic::warning(
-                    e8::UNIMPLEMENTED as u32,
-                    format!("unsupported unary operator '{}'", op),
+                // Default-deny (throw-fallout Stage 2, Lane C): every
+                // in-lane `delete` was consumed and erased by the
+                // optimizer's static shape timeline, so a `delete`
+                // reaching codegen is outside the provable lane. Reject —
+                // the pre-Stage-2 warning+no-op silently preserved stale
+                // shapes (and before the parser fix, `delete` was
+                // swallowed entirely).
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "the 'delete' operator is only supported on a const-bound fixed-shape object literal in straight-line top-level code whose enumerations are compile-time known; this 'delete' is outside that lane".to_string(),
                 ));
-                let produced = self.emit_node(function, arg, true);
-                if produced.produced {
-                    function.instruction(&Instruction::Drop);
-                }
                 function.instruction(&Instruction::I64Const(0));
                 EmittedValue {
                     produced: true,

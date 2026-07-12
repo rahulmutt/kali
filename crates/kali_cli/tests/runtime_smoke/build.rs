@@ -693,16 +693,22 @@ fn build_emits_browser_bundle_object_property_deletion_semantics_in_ts_input() {
         .output()
         .expect("run kali");
 
-    // Flipped pin (evaluation-trap layering): in/instanceof are runtime
-    // traps, not compile rejects, so the bundle BUILD must succeed —
-    // analysis and builds of code containing them stay usable (the browser
-    // package corpus pins this). Executing the smoke entrypoint traps
-    // fail-closed; that behavior is pinned by soundness_in_operator.rs and
-    // the run/test variants of this family.
+    // Re-pinned (throw-fallout Stage 2 Lane C): `delete obj.a` here is used
+    // in expression position (`!== true`), not a straight-line top-level
+    // statement, so it is outside the optimizer's static shape timeline
+    // and now reaches codegen's default-deny fallback — the bundle BUILD
+    // must fail closed with E5506, not silently succeed with a stale
+    // no-op. Previously (pre-Lane-C) `delete` here was just an E8001
+    // warning + no-op, so the build succeeded; that was the very hole
+    // this lane closes. `in`/`instanceof` elsewhere in this fixture are
+    // still evaluation-time traps, unaffected by this change.
     assert!(
-        output.status.success(),
-        "bundle build must succeed: {output:?}"
+        !output.status.success(),
+        "bundle build must fail closed: {output:?}"
     );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(stderr.contains("delete"), "stderr: {stderr}");
 }
 
 #[test]
@@ -726,16 +732,17 @@ fn build_emits_browser_bundle_object_property_deletion_semantics_in_js_input() {
         .output()
         .expect("run kali");
 
-    // Flipped pin (evaluation-trap layering): in/instanceof are runtime
-    // traps, not compile rejects, so the bundle BUILD must succeed —
-    // analysis and builds of code containing them stay usable (the browser
-    // package corpus pins this). Executing the smoke entrypoint traps
-    // fail-closed; that behavior is pinned by soundness_in_operator.rs and
-    // the run/test variants of this family.
+    // Re-pinned (throw-fallout Stage 2 Lane C): see the `_in_ts_input`
+    // sibling above — `delete obj.a` here is expression-position, outside
+    // the static shape timeline, and now hits codegen's default-deny
+    // fallback, so the bundle BUILD must fail closed with E5506.
     assert!(
-        output.status.success(),
-        "bundle build must succeed: {output:?}"
+        !output.status.success(),
+        "bundle build must fail closed: {output:?}"
     );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(stderr.contains("delete"), "stderr: {stderr}");
 }
 
 #[test]
