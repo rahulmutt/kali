@@ -186,3 +186,27 @@ element/length reads.
 - (Task 1 report) `compile.rs` discards warning diagnostics on the successful-build path, so
   E8001-class warnings are invisible via the CLI (pre-existing; Stage-2 default-denies are
   errors, unaffected).
+
+## Checkpoint additions (Task 8)
+
+Verdict command (`cargo test --workspace`, the exact CI command): exit 101, first failing
+binary `array_callback_identity_browser_harness` (16/16, #10 array/for-of bucket) — same
+first-fail as the Stage 1 checkpoint; expected mid-program state until later stages drain
+their buckets.
+
+Late follow-ups (regression-fix wave b60f5b707):
+- Unprovable `Object.hasOwn` receivers now emit a defined `false`/0 placeholder instead of the
+  pre-existing value-position stack corruption. Trade-off consciously matches the codebase's
+  zero-placeholder convention but is a possibly-wrong `false` on genuinely-dynamic receivers
+  (e.g. `globalThis`) — a hard reject is more sound and should be revisited when the
+  dynamic-helper probe pins allow it.
+- Browser-runtime tail-replay defect (post-loop tail replays 4×, breakContinueCount 0): holds
+  the 16 `browser_reflect_own_keys run::` lanes red; pre-existing (zero-selection reproducer
+  traps on pre-stage build); needs its own lane (candidate for the Stage 3 host-wiring work or
+  its own follow-up stage).
+- Process lesson (gate round 1): three stage-introduced regressions lived in binaries no
+  per-task gate executed (soundness_throw, runtime_string_equality, object_has_own_js_input,
+  browser_number_predicates_bundle, src build_tests). Per-task targeted gates are necessary,
+  not sufficient — the full `--no-fail-fast` enumeration is the only real gate, and probe
+  payloads must avoid length-1 coincidences (two separate reviews were fooled by
+  `"x".length == 1 == [x].length`).

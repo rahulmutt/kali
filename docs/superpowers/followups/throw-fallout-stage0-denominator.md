@@ -1173,3 +1173,52 @@ silent handle-identity-equality miscompile class, not by denominator movement.
 Follow-ups opened: F-Stage1-1 (mixed `==` coercion, spec), F-Stage1-2 (env-vs-env equality),
 F-Stage1-3 (bound-alias env.get silent compare), F-Stage1-4 (quoted-key repr shape) — all in
 the Stage 1 triage doc.
+
+## Stage 2 drain (static object enumeration)
+
+Span: `f0d4bcf14..b60f5b707` (branch `soundness-batch1-pra`). Gate at checkpoint (round 2,
+authoritative): pre **974 → post 923**; newly-red vs the pre set: **EMPTY** (comm -13 = 0);
+drained **51**. Main worktree re-verified `b48a067d3` (0 failures) at stage start and checkpoint.
+
+Checkpoint honesty note: gate ROUND 1 (before commit b60f5b707) showed 25 newly-red names —
+three independent stage-introduced regressions (from commits e8822cee4, 36b7a86d7, 9f21efff5,
+bisected via worktree parents) that the per-task family gates never executed (their owning
+binaries were outside every task's targeted run set). All three were fixed at their choke
+points in b60f5b707 and round 2 is clean. Lesson recorded: per-task gates on named binaries
+are necessary but not sufficient; only the full enumeration is the gate.
+
+Drained (51), by family:
+- `browser_reflect_own_keys` 24 of 40: all 8 `build::` + all 16 `test::` lanes. The 16
+  `run::` lanes stay red on a PRE-EXISTING browser-runtime tail-replay defect (post-loop tail
+  replays 4×, `breakContinueCount` 0) — evidenced by a zero-selection-form reproducer that
+  traps identically on the pre-stage build; needs its own lane (follow-up in the Stage 2
+  triage doc).
+- `reflect_own_keys_js_input` 4 of 4 — family fully green (5/5 with the always-green check).
+- `runtime_smoke` direct-iteration 2 of 2 (#4 bucket complete except the browser-run lanes).
+- frozen `enumeration_spread_semantics` 8 (run+test, js/ts + browser-harness jsx/tsx).
+- `object_entries_semantics` 3, string-primitive browser enumeration 2 (self-check fixtures
+  green end-to-end).
+- `wrapped_object_enumeration` accepts 12 — bonus drain from the checkpoint-regression fix
+  (the enumeration fold now materializes `Object.fromEntries` operands and unwraps
+  `Object.freeze` callees in Fast mode).
+
+Bucket accounting: the #4 bucket (46) drained 30 (24+4+2); its 16 residuals are the
+tail-replay browser-run lanes above. The #4-adjacent frozen 44 drained 8 (spread-semantics);
+the rest remain multi-blocked on `[]`+`.push` (Stage 4) and the array-as-function-argument
+element-read gap (outside Stages 1–7 lanes so far, triage finding 3). The 17 remaining
+drains were #2/#3-bucket names unblocked as side effects (wrapped-enumeration accepts,
+entries semantics, string-primitive enumeration).
+
+Forecast vs actual: the triage forecast a floor of 4, core 46, ceiling 58–70. Actual 51 —
+above core because the regression-fix wave's fromEntries materialization greened fixtures
+the attribution had left in #2/#3, below ceiling because the browser-run tail-replay defect
+(unknown at triage time) holds 16 names and the frozen entries/values/has_own subsets remain
+push-blocked or argument-read-blocked as the attribution predicted.
+
+The stage's soundness value beyond denominator movement: the parser-swallowed `delete`
+(silent no-op class) is closed end-to-end; static enumeration reads (`length`/element/nested
+entries tuples) tell the truth at every optimization level; quoted keys and ES integer-first
+ordering are honest (F-Stage1-4 closed); `__proto__` fails closed at both repr and fold
+admission points; four previously-invisible stale-fold lanes (flat env, inline env,
+specialization env, release substitution) are all mutation-aware; out-of-lane `delete` is a
+hard E5506 at all levels.
