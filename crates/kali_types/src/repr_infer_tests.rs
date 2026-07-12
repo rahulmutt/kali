@@ -184,6 +184,30 @@ bump(bodies);\n";
 }
 
 #[test]
+fn quoted_string_keys_materialize_the_same_shape_as_identifier_keys() {
+    // F-Stage1-4: `{ "b": 1, "a": 2 }` previously recorded a deferred
+    // "non-identifier property name" conflict and never materialized a
+    // shape; the byte-identical program with unquoted keys worked. Quoted
+    // and unquoted keys are the same object in JS.
+    // Field order is ES enumeration order: array-index-like keys first,
+    // ascending; then insertion order.
+    // { "b": 1, "2": 2, "a": 3, "1": 4 } -> fields ["1", "2", "b", "a"]
+    let t = reprs(
+        "const o = { \"b\": 1, \"2\": 2, \"a\": 3, \"1\": 4 };\nfor (var k in o) { console.log(k); }\n",
+    );
+    let Repr::Object(shape) = t.scalar("_start", "o") else {
+        panic!("o should be an object binding with a materialized shape");
+    };
+    let names: Vec<&str> = t
+        .shape_fields(shape)
+        .iter()
+        .map(|(name, _)| name.as_str())
+        .collect();
+    assert_eq!(names, vec!["1", "2", "b", "a"]);
+    assert!(t.shape_conflicts().is_empty());
+}
+
+#[test]
 fn shape_mismatch_reassignment_is_a_conflict() {
     let t = reprs("let p = { x: 1.0 };\np = { y: 2.0 };\np.y = 3.0;\n");
     assert!(!t.shape_conflicts().is_empty());

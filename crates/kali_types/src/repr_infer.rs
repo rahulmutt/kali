@@ -461,12 +461,12 @@ impl ReprInfer {
 
     /// Record an object literal initializing `slot`: remember its ordered
     /// field names, visit each value, and wire `value -> field storage`
-    /// float edges. Unsupported property forms (non-identifier key,
-    /// getter/setter, nested object) record a *deferred* structural conflict
-    /// keyed by `slot` and return WITHOUT a field list — the slot then never
-    /// materializes on its own, so a read-only fold-lane literal keeps today's
-    /// behavior. The deferred message is promoted to a real gate conflict only
-    /// if the slot is later forced onto the object lane (`resolve_objects`).
+    /// float edges. Unsupported property forms (numeric key, getter/setter,
+    /// nested object) record a *deferred* structural conflict keyed by `slot`
+    /// and return WITHOUT a field list — the slot then never materializes on
+    /// its own, so a read-only fold-lane literal keeps today's behavior. The
+    /// deferred message is promoted to a real gate conflict only if the slot
+    /// is later forced onto the object lane (`resolve_objects`).
     fn record_object_literal(
         &mut self,
         func: &str,
@@ -475,15 +475,26 @@ impl ReprInfer {
     ) {
         let mut names = Vec::new();
         for prop in &obj.properties {
-            let kali_ast::PropertyName::Identifier(key) = &prop.key else {
-                self.obj_pending_conflicts.insert(
-                    slot.clone(),
-                    format!(
-                        "object literal for {slot:?} uses a non-identifier property name, which is unavailable in the current phase"
-                    ),
-                );
-                return;
+            let key = match &prop.key {
+                kali_ast::PropertyName::Identifier(key) | kali_ast::PropertyName::String(key) => {
+                    key.clone()
+                }
+                kali_ast::PropertyName::Number(_) => {
+                    // Honest fail-closed residue: unquoted numeric keys
+                    // (`{ 1: x }`) stay off the shape lane until a fixture
+                    // needs them (f64 canonicalization is its own problem).
+                    // Quoted numeric-LIKE strings ("1") are ordinary string
+                    // keys and are admitted above (throw-fallout Stage 2).
+                    self.obj_pending_conflicts.insert(
+                        slot.clone(),
+                        format!(
+                            "object literal for {slot:?} uses a numeric property name, which is unavailable in the current phase"
+                        ),
+                    );
+                    return;
+                }
             };
+            let key = &key;
             if !matches!(prop.kind, kali_ast::ObjectPropertyKind::Init) {
                 self.obj_pending_conflicts.insert(
                     slot.clone(),
@@ -505,6 +516,13 @@ impl ReprInfer {
             self.add_edge(value_node, field_node);
             names.push(key.clone());
         }
+        // ES enumeration order (throw-fallout Stage 2, Lane B): one shared
+        // ordering across shape fields, key tables, and the enumeration
+        // fold. A no-op for identifier-only shapes (identifiers can't be
+        // array-index-like), so pre-existing shapes are byte-identical.
+        let mut keyed: Vec<(String, ())> = names.into_iter().map(|n| (n, ())).collect();
+        kali_common::sort_properties_es_order(&mut keyed);
+        let names: Vec<String> = keyed.into_iter().map(|(n, ())| n).collect();
         match self.obj_literal_fields.entry(slot.clone()) {
             std::collections::btree_map::Entry::Occupied(existing) => {
                 if *existing.get() != names {
