@@ -85,6 +85,34 @@ fn single_key_delete_timeline_keys_length_reports_one() {
     assert_eq!(String::from_utf8_lossy(&out.stdout).trim(), "1");
 }
 
+// A folded `Object.entries(obj)` is an array of 2-element `[key, value]` array
+// literals. The flat element read `es[i]` yields the inner array literal, but
+// the codegen static-index lane never resolved that inner literal, so the
+// NESTED read `es[i][0]` / `es[i][1]` fell through to the runtime-array path and
+// returned a placeholder `0` for EVERY key and value (`es.length` was correct;
+// `Object.keys`/`Object.values` flat reads were correct). Resolving a static
+// index member through `resolve_literal_aggregate` lets `es[i][j]` fold against
+// the inner tuple. (throw-fallout Stage 2 Lane D gap.)
+#[test]
+fn object_entries_nested_tuple_element_reads_report_true_elements() {
+    // node: `a 1 / b 2 / c 3`. Pre-fix kali: `0 0 / 0 0 / 0 0`.
+    let out = run_source(
+        "const es = Object.entries({ a: 1, b: 2, c: 3 });\nconsole.log(es[0][0], es[0][1]);\nconsole.log(es[1][0], es[1][1]);\nconsole.log(es[2][0], es[2][1]);\n",
+    );
+    assert!(out.status.success(), "{out:?}");
+    assert_eq!(String::from_utf8_lossy(&out.stdout).trim(), "a 1\nb 2\nc 3");
+}
+
+// The inline (unbound) form of the same nested read — `Object.entries({...})[0][0]`
+// with no intervening `const` binding — must also fold to the real key.
+#[test]
+fn object_entries_inline_nested_tuple_element_reads_report_true_elements() {
+    // node: `a`. Pre-fix kali: `0`.
+    let out = run_source("console.log(Object.entries({ a: 1, b: 2, c: 3 })[0][0]);\n");
+    assert!(out.status.success(), "{out:?}");
+    assert_eq!(String::from_utf8_lossy(&out.stdout).trim(), "a");
+}
+
 // The `[0]` element read and the `Object.values` variant were already correct;
 // pin them so the fix does not regress the neighboring lanes.
 #[test]

@@ -153,6 +153,21 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
 
+            // A static index member `arr[k]` whose base resolves to an array
+            // literal resolves to the indexed ELEMENT node. This lets a nested
+            // index (`arr[i][j]`) fold against the inner literal — the shape a
+            // folded `Object.entries(obj)` produces (an array of `[key, value]`
+            // 2-tuple literals), where `es[i][0]` / `es[i][1]` must read the
+            // real key/value, not a runtime-array placeholder. Only `Node`
+            // results are aggregates and continue; `String`/`Undefined`
+            // elements are terminal and fall through to the return below.
+            if let Some(StaticIndexMemberResult::Node(inner)) =
+                self.resolve_static_index_member(node)
+            {
+                id = inner;
+                continue;
+            }
+
             return Some(id);
         }
     }
