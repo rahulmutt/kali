@@ -604,10 +604,7 @@ impl Optimizer {
     /// the same deref rule `resolve_constant_binding` uses, including its
     /// refusal to tunnel through a genuine single-property object literal.
     fn unwrap_statement_wrapper(&self, program: &LirProgram, mut id: LirNodeId) -> LirNodeId {
-        loop {
-            let Some(node) = program.nodes.get(id.0 as usize) else {
-                break;
-            };
+        while let Some(node) = program.nodes.get(id.0 as usize) {
             if node.kind == LirNodeKind::Value
                 && node.children.len() == 1
                 && node.text.as_deref().is_none_or(|text| text.is_empty())
