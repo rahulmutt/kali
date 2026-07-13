@@ -2282,6 +2282,24 @@ pub(crate) fn collect_function_locals(
         locals.push(growable_scratch_local_name());
     }
 
+    // Reserve a real i64 loop-variable local for every runtime `for..of` over a
+    // growable array (throw-fallout Stage 4 Task 4), plus the shared
+    // index/length counter pair — but only when at least one such loop exists,
+    // so functions without one stay byte-identical. The static-unroll lane
+    // binds its loop var to a compile-time node; the runtime counted loop needs
+    // a wasm LOCAL so the body's reads of the loop var resolve to it.
+    let for_of_growable_vars =
+        for_of_growable_loop_var_names(nodes, body_id, repr_table, function_name);
+    if !for_of_growable_vars.is_empty() {
+        for var in for_of_growable_vars {
+            if !locals.contains(&var) {
+                locals.push(var);
+            }
+        }
+        locals.push(growable_foreach_index_local_name());
+        locals.push(growable_foreach_len_local_name());
+    }
+
     locals
 }
 
@@ -2292,6 +2310,111 @@ pub(crate) fn collect_function_locals(
 /// `ReprTable` entry), which is exactly what the helpers store in it.
 pub(crate) fn growable_scratch_local_name() -> String {
     "__growable_scratch".to_string()
+}
+
+/// Name of the shared i64 loop-index counter local for the runtime `for..of`
+/// over a growable array (throw-fallout Stage 4 Task 4). ONE shared slot per
+/// function suffices: the counted-loop lane fails closed on a growable
+/// `for..of` lexically NESTED inside another (see the emit guard), so two
+/// growable `for..of` loops in the same function never overlap in time and can
+/// reuse the same counter/length scratch. Reserved by `collect_function_locals`
+/// and resolved by `emit_for_of_array_iteration`'s runtime branch.
+pub(crate) fn growable_foreach_index_local_name() -> String {
+    "__growable_foreach_index".to_string()
+}
+
+/// Name of the shared i64 snapshot-length local for the runtime `for..of` over
+/// a growable array (throw-fallout Stage 4 Task 4). The iteration count is
+/// snapshotted ONCE before the loop (per the design), so a body that pushes to
+/// a DIFFERENT array is unaffected; see `growable_foreach_index_local_name` for
+/// why one shared slot per function is sound.
+pub(crate) fn growable_foreach_len_local_name() -> String {
+    "__growable_foreach_len".to_string()
+}
+
+/// Loop-variable names of every `for..of` (`for-await-of` excluded — it fails
+/// closed) whose iterable is a bare-identifier GROWABLE array binding of
+/// `function_name`, reachable from `body_id` without descending into nested
+/// function bodies (throw-fallout Stage 4 Task 4). Each such loop var must get
+/// a real wasm LOCAL so the body's reads resolve to it (the static-unroll lane
+/// binds the loop var to a compile-time node instead). Structural twin of the
+/// emit-side runtime-lane guard in `emit_for_of_array_iteration`: both key on
+/// "bare identifier iterable + `is_growable_array_binding`", so the reservation
+/// exists exactly where the runtime branch resolves a slot. Element repr is NOT
+/// consulted here — a String-element growable `for..of` never reaches codegen
+/// (the resolve gate aborts the compile), and an over-reserved unused local is
+/// harmless.
+fn for_of_growable_loop_var_names(
+    nodes: &[LirNode],
+    body_id: LirNodeId,
+    repr_table: &kali_common::ReprTable,
+    function_name: &str,
+) -> Vec<String> {
+    let mut names = Vec::new();
+    for_of_growable_loop_var_names_walk(nodes, body_id, repr_table, function_name, &mut names);
+    names
+}
+
+/// Raw-node twin of `FunctionEmitter::for_of_binding_name_from_node`: the
+/// loop-variable name of a `for..of` left node, whether a `const`/`let`/`var`
+/// declaration or a bare identifier, transparently unwrapping empty-text /
+/// `await` `Value` wrappers. Kept in lockstep with the emitter version so the
+/// reserved local and the resolved slot always name the same binding.
+fn for_of_loop_var_name_of(nodes: &[LirNode], id: LirNodeId) -> Option<String> {
+    let node = nodes.get(id.0 as usize)?;
+    if node.children.is_empty() {
+        return node.text.clone().filter(|t| !t.is_empty());
+    }
+    if matches!(node.text.as_deref(), Some("const" | "let" | "var")) {
+        let declarator = *node.children.first()?;
+        return nodes
+            .get(declarator.0 as usize)
+            .and_then(|n| n.text.clone())
+            .filter(|t| !t.is_empty());
+    }
+    if node.text.as_deref().is_some_and(|t| t.is_empty()) && !node.children.is_empty() {
+        return for_of_loop_var_name_of(nodes, *node.children.last()?);
+    }
+    if (node.text.is_none() || node.text.as_deref() == Some("await")) && node.children.len() == 1 {
+        return for_of_loop_var_name_of(nodes, node.children[0]);
+    }
+    None
+}
+
+fn for_of_growable_loop_var_names_walk(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    repr_table: &kali_common::ReprTable,
+    function_name: &str,
+    names: &mut Vec<String>,
+) {
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return;
+    };
+    if node.kind == LirNodeKind::Branch && node.text.as_deref() == Some("for-of") {
+        let iterable_is_growable = node
+            .children
+            .get(1)
+            .and_then(|&iterable| bare_identifier_name_of(nodes, iterable))
+            .is_some_and(|name| repr_table.is_growable_array_binding(function_name, &name));
+        if iterable_is_growable {
+            if let Some(var) = node
+                .children
+                .first()
+                .and_then(|&left| for_of_loop_var_name_of(nodes, left))
+            {
+                if !names.contains(&var) {
+                    names.push(var);
+                }
+            }
+        }
+    }
+    for child in &node.children {
+        if is_function_like(nodes, *child) {
+            continue;
+        }
+        for_of_growable_loop_var_names_walk(nodes, *child, repr_table, function_name, names);
+    }
 }
 
 /// True iff any bare identifier reachable from `init` (not descending into

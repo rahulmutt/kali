@@ -102,6 +102,37 @@ fn run_supports_growable_array_seeded_literal_declarator_in_js_and_ts_input() {
     }
 }
 
+/// Task 4: `for (const v of o)` over a growable array runs a real runtime
+/// counted loop (not a compile-time unroll of the stale declarator literal).
+/// The SAME growable is exercised as a for-of source AND `out` is both a push
+/// sink inside the body and a for-of source of its own — the fixture's exact
+/// shape.
+fn growable_for_of_source() -> &'static str {
+    r#"function main() {
+  const o = [];
+  o.push(10);
+  o.push(20);
+  o.push(30);
+  const out = [];
+  for (const v of o) {
+    out.push(v);
+  }
+  console.log(out.length);
+  for (const v of out) {
+    console.log(v);
+  }
+}
+main();
+"#
+}
+
+#[test]
+fn run_supports_for_of_over_growable_array_in_js_and_ts_input() {
+    for extension in ["js", "ts"] {
+        assert_run_stdout(growable_for_of_source(), extension, "3\n10\n20\n30\n");
+    }
+}
+
 /// Task 3: uniform-String pushes promote with element repr `String` — the
 /// index-read result feeding `console.log` is treated as a string handle.
 fn growable_string_push_source() -> &'static str {

@@ -1125,6 +1125,146 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// Runtime counted `for..of` over a growable (push-accumulated) array
+    /// (throw-fallout Stage 4 Task 4): `i = 0; n = len(handle); loop { if i >= n
+    /// break; v = data[i]; i += 1; body }`. `i` and `n` are shared per-function
+    /// i64 scratch locals; the loop var `v` is a real wasm local so the body's
+    /// reads resolve to it (via `emit_value`'s `locals` lookup) — unlike the
+    /// static-unroll lane, which substitutes a compile-time node per iteration.
+    ///
+    /// The increment is emitted BEFORE the body (not after), so an unlabeled
+    /// `continue` — which `emit_break_or_continue` lowers to a `Br` back to the
+    /// `Loop` top, exactly like the plain `for`-loop lane — has already advanced
+    /// the index and therefore visits the NEXT element, not the same one. `break`
+    /// exits the enclosing `Block`. Both reuse the standard control-frame /
+    /// `LoopFrame` scaffolding, so they resolve identically to every other loop.
+    fn emit_for_of_growable_runtime_loop(
+        &mut self,
+        function: &mut Function,
+        node: &LirNode,
+        iterable_id: LirNodeId,
+        handle_name: String,
+    ) -> EmittedValue {
+        // Fail closed: a growable `for..of` lexically NESTED inside another
+        // would share the single index/length scratch pair, clobbering the
+        // outer loop's counter — a silent miscompile. (Codegen-side guard; the
+        // resolve gate admits the shape, so this is a fail-CLOSED both-sides
+        // asymmetry, listed in the report — never a fail-open.)
+        if self.growable_for_of_active {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "a for-of over a growable array nested inside another for-of over a growable array is unavailable in the current phase; use an index loop over `.length` or the later compatibility path".to_string(),
+            ));
+            function.instruction(&Instruction::Unreachable);
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
+
+        // Defensive both-sides mirror of the resolve i64-element gate: a
+        // String-element growable `for..of` never reaches codegen (the resolve
+        // gate aborts the compile), but never emit a loop that would store a raw
+        // string handle into an i64-printed loop var if that gate ever regresses.
+        if self.array_elem_repr(&handle_name) != kali_common::Repr::I64 {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "for-of over a growable array of non-integer elements is unavailable in the current phase".to_string(),
+            ));
+            function.instruction(&Instruction::Unreachable);
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
+
+        let Some(loop_name) = self.for_of_binding_name(node) else {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "for-of array iteration lowering is unavailable unless the loop target is a single variable declaration or identifier binding; use a supported loop form or the later compatibility path",
+            ));
+            function.instruction(&Instruction::Unreachable);
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        };
+        let Some(loop_local) = self.locals.get(&loop_name).copied() else {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "growable for-of loop variable `{loop_name}` has no local slot; iteration lowering is unavailable"
+                ),
+            ));
+            function.instruction(&Instruction::Unreachable);
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        };
+        let index_local = self.locals[&crate::lower::growable_foreach_index_local_name()];
+        let len_local = self.locals[&crate::lower::growable_foreach_len_local_name()];
+        let body = node.children.get(2).copied();
+
+        // i = 0
+        function.instruction(&Instruction::I64Const(0));
+        function.instruction(&Instruction::LocalSet(index_local));
+        // n = len(handle)  — snapshotted ONCE (a body that pushes to a
+        // different array is unaffected; pushing to the array being iterated
+        // does not extend this loop, matching the design's fixed count).
+        self.emit_growable_length(function, iterable_id);
+        function.instruction(&Instruction::LocalSet(len_local));
+
+        let break_index = self.push_control_frame(ControlFlowLabelKind::LoopBreak);
+        function.instruction(&Instruction::Block(BlockType::Empty));
+        let continue_index = self.push_control_frame(ControlFlowLabelKind::LoopContinue);
+        function.instruction(&Instruction::Loop(BlockType::Empty));
+        self.loop_frames.push(LoopFrame {
+            break_index,
+            continue_index,
+        });
+
+        // if i >= n break
+        function.instruction(&Instruction::LocalGet(index_local));
+        function.instruction(&Instruction::LocalGet(len_local));
+        function.instruction(&Instruction::I64GeS);
+        let break_depth = self.control_frame_depth(break_index);
+        function.instruction(&Instruction::BrIf(break_depth));
+
+        // v = data[i]
+        self.emit_growable_index_read_at_local(function, iterable_id, index_local);
+        function.instruction(&Instruction::LocalSet(loop_local));
+
+        // i += 1  (BEFORE the body — makes `continue` visit the next element)
+        function.instruction(&Instruction::LocalGet(index_local));
+        function.instruction(&Instruction::I64Const(1));
+        function.instruction(&Instruction::I64Add);
+        function.instruction(&Instruction::LocalSet(index_local));
+
+        // body
+        let previous_active = self.growable_for_of_active;
+        self.growable_for_of_active = true;
+        if let Some(body) = body {
+            let _ = self.emit_node(function, body, false);
+        }
+        self.growable_for_of_active = previous_active;
+
+        // back-edge to the loop top
+        let continue_depth = self.control_frame_depth(continue_index);
+        function.instruction(&Instruction::Br(continue_depth));
+
+        function.instruction(&Instruction::End); // end loop
+        self.loop_frames.pop();
+        self.pop_control_frame(ControlFlowLabelKind::LoopContinue);
+        function.instruction(&Instruction::End); // end block
+        self.pop_control_frame(ControlFlowLabelKind::LoopBreak);
+
+        EmittedValue {
+            produced: false,
+            shape: ValueShape::Unknown,
+        }
+    }
+
     pub(crate) fn emit_for_of_array_iteration(
         &mut self,
         function: &mut Function,
@@ -1141,6 +1281,26 @@ impl<'a> FunctionEmitter<'a> {
                 shape: ValueShape::Unknown,
             };
         };
+
+        // Runtime growable lane (throw-fallout Stage 4 Task 4): a bare-identifier
+        // iterable that names a GROWABLE array binding runs a REAL wasm counted
+        // loop over the live handle, NOT the compile-time static unroll below
+        // (which would fold the stale declarator literal). Keyed on the SAME
+        // predicate the types-side resolve gate admits (bare identifier +
+        // growable binding), so the two never desync. Every other iterable —
+        // literal arrays, map/filter/Array.from/spread/flatMap over literals,
+        // Object.keys/values/entries, string iterables — keeps the static lane
+        // byte-identically.
+        if let Some(handle_name) = self.bare_identifier_name(array_id) {
+            if self.is_growable_array(&handle_name) {
+                return self.emit_for_of_growable_runtime_loop(
+                    function,
+                    node,
+                    array_id,
+                    handle_name,
+                );
+            }
+        }
 
         let mut array_id = array_id;
         if let Some(resolved) = self.resolve_literal_aggregate(array_id) {

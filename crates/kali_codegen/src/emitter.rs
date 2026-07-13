@@ -107,6 +107,14 @@ pub(crate) struct FunctionEmitter<'a> {
     /// DISJOINT from `array_bindings` (a separate tagged-header layout; the
     /// two lanes must never conflate).
     pub(crate) growable_array_bindings: HashSet<String>,
+    /// True while emitting the body of a runtime `for..of` over a growable
+    /// array (throw-fallout Stage 4 Task 4). A growable `for..of` lexically
+    /// NESTED inside another fails closed (E5506): the shared index/length
+    /// scratch pair (`growable_foreach_index_local_name`) would otherwise be
+    /// clobbered by the inner loop and silently miscompile the outer counter.
+    /// Per-function scoped (fresh emitter per function), so a growable `for..of`
+    /// in a nested FUNCTION is a separate emitter and never blocked.
+    pub(crate) growable_for_of_active: bool,
     pub(crate) reported_placeholder_fallbacks: HashSet<String>,
     pub(crate) control_frames: Vec<ControlFlowLabelKind>,
     pub(crate) loop_frames: Vec<LoopFrame>,
@@ -289,6 +297,7 @@ impl<'a> FunctionEmitter<'a> {
             bindings: BTreeMap::new(),
             array_bindings,
             growable_array_bindings,
+            growable_for_of_active: false,
             reported_placeholder_fallbacks: HashSet::new(),
             control_frames: Vec::new(),
             loop_frames: Vec::new(),

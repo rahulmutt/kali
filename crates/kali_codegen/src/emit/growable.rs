@@ -405,6 +405,49 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// Runtime `for..of` element load `data[index]` where `index` is a wasm
+    /// i64 LOCAL (not a LIR node) — the counted-loop lane (throw-fallout Stage 4
+    /// Task 4). Decodes `handle` (the bare-identifier growable iterable, which
+    /// resolves to the binding's handle local) to `hdr_ptr`, loads `data_ptr`
+    /// (`hdr+16`), and loads the i64 element at `data_ptr + index*8`. Leaves the
+    /// element on the stack. Sibling of `emit_growable_index_read`, which takes
+    /// the index as a LIR node; the loop index has no LIR node, so this variant
+    /// reads it straight from a local.
+    pub(crate) fn emit_growable_index_read_at_local(
+        &mut self,
+        function: &mut Function,
+        handle: LirNodeId,
+        index_local: u32,
+    ) -> EmittedValue {
+        let base = self.emit_node(function, handle, true);
+        if !base.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
+        function.instruction(&Instruction::I64Const(GROWABLE_HANDLE_MASK));
+        function.instruction(&Instruction::I64And);
+        function.instruction(&Instruction::I32WrapI64);
+        function.instruction(&Instruction::I64Load(MemArg {
+            offset: 16,
+            align: 3,
+            memory_index: 0,
+        }));
+        function.instruction(&Instruction::I32WrapI64);
+        function.instruction(&Instruction::LocalGet(index_local));
+        function.instruction(&Instruction::I32WrapI64);
+        function.instruction(&Instruction::I32Const(8));
+        function.instruction(&Instruction::I32Mul);
+        function.instruction(&Instruction::I32Add);
+        function.instruction(&Instruction::I64Load(MemArg {
+            offset: 0,
+            align: 3,
+            memory_index: 0,
+        }));
+        EmittedValue {
+            produced: true,
+            shape: ValueShape::Scalar,
+        }
+    }
+
     /// `(base_name, args)` iff `node` is a `<growable>.push(…)` member call
     /// over a bare-identifier growable receiver — the codegen half of the
     /// push recognizer (mirrors `runtime_join_call_parts`' shape). Arity is

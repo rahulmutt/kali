@@ -580,30 +580,66 @@ impl TypeContext {
                 body,
                 is_await,
             }) => {
-                // Growable-array receiver (throw-fallout Stage 4): a
-                // promoted push-accumulated array has NO for..of lowering
-                // yet (Task 4). It MUST NOT take the static lane below —
+                // Growable-array receiver (throw-fallout Stage 4 Task 4): a
+                // promoted push-accumulated array iterates a REAL runtime
+                // counted loop in codegen (`i=0; n=len; loop { v=data[i]; body;
+                // i++ }`), NOT the static-unroll lane below —
                 // `is_static_array_iteration_target` still sees the stale
-                // declarator literal and would silently unroll ZERO
-                // iterations over an array that now really accumulates.
-                // Reject fail-closed instead (E5506, never a silent wrong
-                // answer).
+                // declarator literal and would silently unroll ZERO iterations
+                // over an array that now really accumulates. Admit it here (the
+                // codegen runtime branch keys on the SAME predicate — bare
+                // identifier + growable binding) instead of taking the static
+                // path. Only the I64 element repr is admitted; a String-element
+                // growable still fails closed (the loop-var string repr is not
+                // wired this stage — Task brief authorizes fail-closed), as does
+                // `for-await-of` and an unsupported loop target.
                 {
                     let mut rhs = right;
                     while let Expression::ParenthesizedExpression(inner) = rhs {
                         rhs = &inner.expression;
                     }
-                    if matches!(rhs, Expression::Identifier(name) if self.is_growable_array_binding(name))
-                    {
-                        let loop_kind = if *is_await { "for-await-of" } else { "for-of" };
-                        self.diagnostics.push(Diagnostic::error(
-                            e5::FEATURE_UNAVAILABLE as u32,
-                            format!(
-                                "{} iteration over a growable (push-accumulated) array is unavailable in the current phase; use an index loop over `.length` or the later compatibility path",
-                                loop_kind
-                            ),
-                        ));
-                        return;
+                    if let Expression::Identifier(name) = rhs {
+                        if self.is_growable_array_binding(name) {
+                            let left_is_supported = match left {
+                                ForOfLefthand::VariableDeclaration(_) => true,
+                                ForOfLefthand::Expression(expression) => {
+                                    self.is_simple_for_of_binding_expression(expression)
+                                }
+                            };
+                            let elem_is_i64 = self
+                                .binding_repr_function_key(name)
+                                .map(|func| {
+                                    self.repr_table.array_element(&func, name)
+                                        == kali_common::Repr::I64
+                                })
+                                .unwrap_or(false);
+                            if left_is_supported && elem_is_i64 && !*is_await {
+                                // ADMIT: resolve the loop var + RHS + body
+                                // exactly like the static lane's admit path.
+                                // The codegen runtime branch emits the counted
+                                // loop.
+                                self.push_scope(ScopeType::Block);
+                                if let ForOfLefthand::VariableDeclaration(decl) = left {
+                                    self.resolve_variable_declaration(decl)
+                                }
+                                self.resolve_static_string_fold_position(right);
+                                self.resolve_loop_body(body);
+                                self.pop_scope();
+                                return;
+                            }
+                            // Fail closed: String element repr, unsupported loop
+                            // target, or `for-await-of` — never a silent wrong
+                            // answer (and never the stale-literal static unroll).
+                            let loop_kind = if *is_await { "for-await-of" } else { "for-of" };
+                            self.diagnostics.push(Diagnostic::error(
+                                e5::FEATURE_UNAVAILABLE as u32,
+                                format!(
+                                    "{} iteration over a growable (push-accumulated) array is unavailable in the current phase unless the loop target is a variable/identifier binding and elements are integers; use an index loop over `.length` or the later compatibility path",
+                                    loop_kind
+                                ),
+                            ));
+                            return;
+                        }
                     }
                 }
                 let left_is_supported = match left {
