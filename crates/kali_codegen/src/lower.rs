@@ -43,6 +43,8 @@ pub const SYNTHETIC_FUNCTIONS: &[&str] = &[
     "__substring",
     "__join",
     "__join_arena",
+    "__join_growable_i64",
+    "__join_growable_str",
     "__streq",
 ];
 
@@ -412,6 +414,35 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         is_entry: false,
         flavor: None,
     });
+    // Growable-array join synthetics (throw-fallout Stage 4 Task 5):
+    // `__join_growable_i64` / `__join_growable_str` (arr: i64, sep: i64) ->
+    // i64 — the growable-layout analogue of `__join`. The receiver is a
+    // TAGGED growable handle (header indirection: `n=*(hdr+0)`,
+    // `data=*(hdr+16)`, elem `=*(data+i*8)`); the `_i64` variant additionally
+    // renders each raw i64 slot to a decimal string via `int_to_string`
+    // before measuring/copying. Both allocate their result into the global
+    // heap (`__alloc_global`) — a join result must outlive any arena reset,
+    // exactly as `__join` does. `emit_runtime_join` selects the pair member
+    // by the growable binding's element repr. Same inert-placeholder pattern
+    // as the synthetics above; bodies hand-emitted by `emit_join_growable_body`.
+    all_functions.push(FunctionPlan {
+        name: "__join_growable_i64".to_string(),
+        params: vec!["arr".to_string(), "sep".to_string()],
+        locals: Vec::new(),
+        body: lir.root,
+        result: true,
+        is_entry: false,
+        flavor: None,
+    });
+    all_functions.push(FunctionPlan {
+        name: "__join_growable_str".to_string(),
+        params: vec!["arr".to_string(), "sep".to_string()],
+        locals: Vec::new(),
+        body: lir.root,
+        result: true,
+        is_entry: false,
+        flavor: None,
+    });
     // Synthetic runtime string equality `__streq(a: i64, b: i64) -> i64`
     // (throw-fallout Stage 1): content comparison of two tagged string
     // handles — 1 when equal, 0 when not. Handle-identity fast path, then a
@@ -662,7 +693,10 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                 vec![ValType::I64, ValType::I64, ValType::I64],
                 vec![ValType::I64],
             )
-        } else if matches!(function.name.as_str(), "__join" | "__join_arena") {
+        } else if matches!(
+            function.name.as_str(),
+            "__join" | "__join_arena" | "__join_growable_i64" | "__join_growable_str"
+        ) {
             (vec![ValType::I64, ValType::I64], vec![ValType::I64])
         } else if function.name == "__arena_reset" {
             (Vec::new(), Vec::new())
@@ -840,6 +874,14 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             local_decls.push((4, ValType::I64));
         } else if matches!(function.name.as_str(), "__join" | "__join_arena") {
             local_decls.push((6, ValType::I64));
+        } else if matches!(
+            function.name.as_str(),
+            "__join_growable_i64" | "__join_growable_str"
+        ) {
+            // `emit_join_growable_body`: 7 i64 — `n`, `i`, `total`, `out`,
+            // `cur`, `h`, `data` (locals 2-8; locals 0-1 are `arr`/`sep`). One
+            // more than `__join` for the cached header→`data` pointer.
+            local_decls.push((7, ValType::I64));
         } else {
             for local_name in &function.locals {
                 // A `__arena_save_*` local (Step 2 of loop-arena provisioning)
@@ -915,6 +957,15 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                 // (resettable) arena via `__alloc` (fasta Spec 7 Task 4c).
                 "__join" => emit_join_body(&mut body, alloc_global_index),
                 "__join_arena" => emit_join_body(&mut body, alloc_index),
+                // Growable-array join (Task 5): always `__alloc_global` (the
+                // result must not dangle across an arena reset); the `_i64`
+                // variant renders each raw slot via `int_to_string`.
+                "__join_growable_i64" => {
+                    emit_join_growable_body(&mut body, alloc_global_index, true)
+                }
+                "__join_growable_str" => {
+                    emit_join_growable_body(&mut body, alloc_global_index, false)
+                }
                 "__streq" => emit_streq_body(&mut body),
                 other => unreachable!("unhandled synthetic function {other}"),
             }
@@ -4455,6 +4506,216 @@ fn emit_join_body(func: &mut Function, alloc_index: u32) {
     func.instruction(&Instruction::LocalGet(4));
     func.instruction(&Instruction::I64Or);
     // NO trailing End — the dispatch loop appends it (lower.rs:631).
+}
+
+/// `__join_growable_i64(arr, sep) -> i64` / `__join_growable_str(arr, sep) ->
+/// i64` (throw-fallout Stage 4 Task 5): the growable-array analogue of
+/// `emit_join_body`. Same two-pass `memory.copy` join into ONE fresh
+/// `__alloc_global` string, but over the tagged-handle GROWABLE layout:
+///
+///   * the receiver `arr` is a TAGGED handle (`ARRAY_HANDLE_TAG`), so the
+///     header pointer is `arr & !TAG` (masked), NOT `arr` directly;
+///   * `n = *(hdr+0)`, `data = *(hdr+16)` (header indirection), and each
+///     element handle is `*(data + i*8)` (offset 0, NOT the inline `+8`);
+///   * when `render_int` is set the raw i64 slot is a NUMBER, not a string
+///     handle — it is rendered to a decimal string handle by the runtime
+///     `int_to_string` import (fixed index 17, always present) BEFORE its
+///     bytes are measured/copied. `int_to_string` renders negatives with a
+///     `-` sign, matching node; each call `__alloc`s a fresh guest string, so
+///     the pass-1 (length) and pass-2 (copy) calls never alias. (For a large
+///     array the double render leaks the pass-1 strings into the global heap —
+///     GC-less by design, reclaimed only by arena scope; the target fixtures
+///     are small.)
+///
+/// `render_int == false` is the String-element body (`__join_growable_str`):
+/// the slot already IS a string handle, copied verbatim.
+///
+/// Locals: 0=arr 1=sep (params), 2=n 3=i 4=total 5=out 6=cur 7=h 8=data —
+/// one more (`data`) than `emit_join_body` for the cached header→data pointer.
+/// `alloc_index` is `__alloc_global` (a join result must not dangle across an
+/// arena reset — same rule as the global `__join`).
+fn emit_join_growable_body(func: &mut Function, alloc_index: u32, render_int: bool) {
+    let mask = !(crate::ARRAY_HANDLE_TAG) as i64;
+    // hdr = arr & !TAG (masked header pointer, reused below via I32WrapI64).
+    // n = *(hdr + 0)
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I64Const(mask));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(2));
+    // data = *(hdr + 16)
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I64Const(mask));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 16,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(8));
+    // if n == 0 return TAG (empty string). Explicit I64Const(0)+I64Eq (never
+    // I64Eqz) — same whole-module `boolean_branches_use_the_layout_fast_path`
+    // constraint as `emit_join_body`; these synthetics are present in every
+    // module too.
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::I64Const(crate::STRING_HANDLE_TAG as i64));
+    func.instruction(&Instruction::Return);
+    func.instruction(&Instruction::End);
+    // total = 0; i = 0
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(3));
+    // pass 1: total += len(render(elem_i)) for each i
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    emit_growable_join_element_handle(func, render_int);
+    func.instruction(&Instruction::LocalSet(7));
+    //   total = total + (h & 0xFFFF_FFFF)
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(4));
+    //   i += 1; continue while i < n
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64LtS);
+    func.instruction(&Instruction::BrIf(0));
+    func.instruction(&Instruction::End);
+    // total += (sep & 0xFFFF_FFFF) * (n - 1)
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Sub);
+    func.instruction(&Instruction::I64Mul);
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(4));
+    // out = zext(alloc(wrap((total + 7) & !7)))
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I64Const(7));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::I64Const(-8)); // !7
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::Call(alloc_index));
+    func.instruction(&Instruction::I64ExtendI32U);
+    func.instruction(&Instruction::LocalSet(5));
+    // cur = out; i = 0
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::LocalSet(6));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(3));
+    // pass 2: copy elements, separator between them
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    emit_growable_join_element_handle(func, render_int);
+    func.instruction(&Instruction::LocalSet(7));
+    //   memory.copy(dst=cur, src=(h>>32)&0x7FFF_FFFF, len=h&0xFFFF_FFFF)
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I64Const(32));
+    func.instruction(&Instruction::I64ShrU);
+    func.instruction(&Instruction::I64Const(0x7FFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::MemoryCopy {
+        src_mem: 0,
+        dst_mem: 0,
+    });
+    //   cur += len(h)
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(6));
+    //   i += 1
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(3));
+    //   if i < n { copy separator; continue }
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64LtS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Const(32));
+    func.instruction(&Instruction::I64ShrU);
+    func.instruction(&Instruction::I64Const(0x7FFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::MemoryCopy {
+        src_mem: 0,
+        dst_mem: 0,
+    });
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(6));
+    func.instruction(&Instruction::Br(1));
+    func.instruction(&Instruction::End); // If
+    func.instruction(&Instruction::End); // Loop
+                                         // TAG | out << 32 | total
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I64Const(32));
+    func.instruction(&Instruction::I64Shl);
+    func.instruction(&Instruction::I64Const(crate::STRING_HANDLE_TAG as i64));
+    func.instruction(&Instruction::I64Or);
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I64Or);
+    // NO trailing End — the dispatch loop appends it.
+}
+
+/// Push the string handle of growable element `i` onto the stack: load the raw
+/// i64 slot `*(data + i*8)` (data = local 8, i = local 3), then — for the i64
+/// body — coerce it to a decimal-string handle via `int_to_string`. The String
+/// body's slot is already a handle, so it is left as-is.
+fn emit_growable_join_element_handle(func: &mut Function, render_int: bool) {
+    // raw = *(data + (i << 3))
+    func.instruction(&Instruction::LocalGet(8));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(3));
+    func.instruction(&Instruction::I64Shl);
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    if render_int {
+        func.instruction(&Instruction::Call(crate::INT_TO_STRING_IMPORT_INDEX));
+    }
 }
 
 pub(crate) fn top_level_children(lir: &LirProgram) -> Vec<LirNodeId> {

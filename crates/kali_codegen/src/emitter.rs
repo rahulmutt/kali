@@ -435,6 +435,25 @@ impl<'a> FunctionEmitter<'a> {
         self.functions["__join_arena"]
     }
 
+    /// Wasm function index of the growable-array integer-join synthetic
+    /// (`__join_growable_i64(arr, sep) -> i64`, Task 5): joins a tagged
+    /// growable handle whose slots are raw i64 numbers, rendering each via
+    /// `int_to_string` before the byte copy. Selected by `emit_runtime_join`
+    /// for a growable receiver whose element repr is (default) `I64`.
+    pub(crate) fn join_growable_i64_fn_index(&self) -> u32 {
+        self.functions["__join_growable_i64"]
+    }
+
+    /// Wasm function index of the growable-array string-join synthetic
+    /// (`__join_growable_str(arr, sep) -> i64`, Task 5): joins a tagged
+    /// growable handle whose slots are already string handles (the byte
+    /// `memory.copy` path over the header-indirected layout). Selected by
+    /// `emit_runtime_join` for a growable receiver whose element repr is
+    /// `String`.
+    pub(crate) fn join_growable_str_fn_index(&self) -> u32 {
+        self.functions["__join_growable_str"]
+    }
+
     /// Wasm function index of the synthetic runtime string-equality helper
     /// (`__streq(a, b) -> i64`, throw-fallout Stage 1): content comparison of
     /// two tagged string handles (identity fast path, tag guard, length

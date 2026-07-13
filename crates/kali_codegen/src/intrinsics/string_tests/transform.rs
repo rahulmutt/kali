@@ -48,7 +48,11 @@ fn supported_static_string_concat_lowers_ascii_literals() {
 
     let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
     assert!(printed.contains("hello"), "{printed}");
-    assert_eq!(printed.matches("call 1").count(), 3, "{printed}");
+    // Match `call 1` at end-of-line so the count is exactly the index-1
+    // (console.log) calls and is NOT polluted by the `call 17` substring —
+    // `int_to_string` is now called by the always-present growable-int-join
+    // synthetic `__join_growable_i64` (Task 5) in every module.
+    assert_eq!(printed.matches("call 1\n").count(), 3, "{printed}");
 }
 
 #[test]

@@ -813,29 +813,53 @@ impl TypeContext {
         if member.property.as_str() != "join" {
             return;
         }
-        // Growable-array receiver (throw-fallout Stage 4): a promoted
-        // push-accumulated array has NO `.join` lowering yet (Task 5). It
-        // MUST NOT take the static fold lane below —
-        // `is_static_array_iteration_target` still sees the stale declarator
-        // literal and would silently fold `""` over an array that now really
-        // accumulates. Reject fail-closed instead (E5506, never a silent
-        // wrong answer).
+        // Growable-array receiver (throw-fallout Stage 4 Task 5): a promoted
+        // push-accumulated array joins through the header-indirected
+        // `__join_growable_*` synthetic. Admit it HERE (before the static fold
+        // lane, whose `is_static_array_iteration_target` still sees the stale
+        // declarator literal and would silently fold `""` over an array that
+        // now really accumulates). Both element reprs the growable lane
+        // supports are admissible: I64 (rendered as ASCII decimal digits) and
+        // String (byte-copied — but only when all-ASCII, since `__join` counts
+        // bytes). The separator must be a proven-ASCII string for the same
+        // byte-count reason. Anything else fails closed (E5506) — never a
+        // silent wrong answer, and never the static fold below. This is the
+        // types half of the both-sides mirror whose codegen half is
+        // `runtime_join_call_parts`' `is_growable_array` admission +
+        // `emit_runtime_join`'s repr-directed synthetic selection.
         {
             let mut receiver = &member.object;
             while let Expression::ParenthesizedExpression(inner) = receiver {
                 receiver = &inner.expression;
             }
-            if matches!(receiver, Expression::Identifier(name) if self.is_growable_array_binding(name))
-            {
-                self.resolve_expression(&member.object);
-                for arg in &expr.args {
-                    self.resolve_expression(arg);
+            if let Expression::Identifier(name) = receiver {
+                if self.is_growable_array_binding(name) {
+                    let name = name.as_str();
+                    self.resolve_expression(&member.object);
+                    for arg in &expr.args {
+                        self.resolve_expression(arg);
+                    }
+                    let supported_arg_count = matches!(expr.args.len(), 0 | 1);
+                    let separator_ok = expr.args.first().is_none_or(|argument| {
+                        self.resolve_static_string_expression(argument)
+                            .map(|s| s.is_ascii())
+                            .unwrap_or_else(|| self.expression_repr_is_ascii_string(argument))
+                    });
+                    // A String-element growable must additionally have all
+                    // proven-ASCII elements; an I64-element growable renders
+                    // ASCII decimals, so it carries no element ASCII concern
+                    // (`string_element_array_binding` is false for it).
+                    let elements_ok = !self.string_element_array_binding(name)
+                        || !self.array_element_non_ascii(name);
+                    if supported_arg_count && separator_ok && elements_ok {
+                        return;
+                    }
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        "Array.prototype.join on a growable array is unavailable unless it has at most one argument that is a proven-ASCII string separator and its String elements are all proven ASCII in the current phase; use an index loop over `.length` or the later compatibility path".to_string(),
+                    ));
+                    return;
                 }
-                self.diagnostics.push(Diagnostic::error(
-                    e5::FEATURE_UNAVAILABLE as u32,
-                    "Array.prototype.join on a growable (push-accumulated) array is unavailable in the current phase; use an index loop over `.length` or the later compatibility path".to_string(),
-                ));
-                return;
             }
         }
 

@@ -3013,6 +3013,16 @@ impl<'a> FunctionEmitter<'a> {
         let receiver = callee_node.children.first().copied()?;
         let receiver_node = self.node(self.unwrap_transparent(receiver));
         let base = receiver_node.text.as_deref()?;
+        // Growable receiver (throw-fallout Stage 4 Task 5): a tagged-handle
+        // growable array admits for BOTH element reprs — `I64` (rendered via
+        // `int_to_string`) and `String`. Checked FIRST and independently of
+        // `array_bindings`: the two lanes are layout-distinct, and
+        // `emit_runtime_join` re-derives the growable-ness to pick the
+        // header-indirected `__join_growable_*` synthetic. Float growables
+        // never promote, so no float element repr can reach here.
+        if self.is_growable_array(base) {
+            return Some((receiver, node.children.get(1).copied()));
+        }
         if !self.array_bindings.contains(base) {
             return None;
         }
@@ -3127,20 +3137,41 @@ impl<'a> FunctionEmitter<'a> {
                 function.instruction(&Instruction::I64Const(encode_string_handle(offset, len)));
             }
         }
-        // Per-site arena routing (fasta Spec 7 Task 4c): select the resettable
-        // `__join_arena` twin iff the escape gate proved THIS join site's result
-        // iteration-local, keyed by the site's pre-order string-site ordinal
-        // (`string_site_ordinals`, the codegen mirror of 4b's stream). A miss
-        // (site not numbered, or not granted) fails closed to the global
-        // `__join`.
-        let use_arena = self
-            .string_site_ordinals
-            .get(&id)
-            .is_some_and(|&ord| self.arena_table.arena_string_site(&self.function_name, ord));
-        let join_index = if use_arena {
-            self.join_arena_fn_index()
+        // Growable receiver (Task 5): a tagged-handle growable array joins
+        // through the header-indirected `__join_growable_*` synthetic, picked
+        // by the binding's element repr (`String` → the string-handle copy
+        // body; default `I64` → the `int_to_string`-render body). Both allocate
+        // globally (no arena twin this task — a join result must outlive any
+        // reset), so the arena routing below is bypassed. The base name is
+        // re-derived exactly as `runtime_join_call_parts` recognized it.
+        let growable_base = self
+            .node(self.unwrap_transparent(receiver))
+            .text
+            .as_deref()
+            .filter(|base| self.is_growable_array(base))
+            .map(str::to_string);
+        let join_index = if let Some(base) = growable_base {
+            if self.array_elem_repr(&base) == kali_common::Repr::String {
+                self.join_growable_str_fn_index()
+            } else {
+                self.join_growable_i64_fn_index()
+            }
         } else {
-            self.join_fn_index()
+            // Per-site arena routing (fasta Spec 7 Task 4c): select the
+            // resettable `__join_arena` twin iff the escape gate proved THIS
+            // join site's result iteration-local, keyed by the site's pre-order
+            // string-site ordinal (`string_site_ordinals`, the codegen mirror
+            // of 4b's stream). A miss (site not numbered, or not granted) fails
+            // closed to the global `__join`.
+            let use_arena = self
+                .string_site_ordinals
+                .get(&id)
+                .is_some_and(|&ord| self.arena_table.arena_string_site(&self.function_name, ord));
+            if use_arena {
+                self.join_arena_fn_index()
+            } else {
+                self.join_fn_index()
+            }
         };
         function.instruction(&Instruction::Call(join_index));
         EmittedValue {

@@ -220,6 +220,86 @@ main();
 "#
 }
 
+/// Task 5: `x.join(sep)` over a growable i64 array renders each element as a
+/// decimal string (runtime `int_to_string`) and copies the separator between
+/// them — two calls with different separators (`","` then `"\n"`) prove the
+/// separator is a real runtime argument, not baked in.
+fn growable_int_join_source() -> &'static str {
+    r#"function main() {
+  const o = [];
+  o.push(1);
+  o.push(2);
+  o.push(3);
+  console.log(o.join(","));
+  console.log(o.join("\n"));
+}
+main();
+"#
+}
+
+#[test]
+fn run_supports_growable_array_int_join_in_js_and_ts_input() {
+    for extension in ["js", "ts"] {
+        assert_run_stdout(growable_int_join_source(), extension, "1,2,3\n1\n2\n3\n");
+    }
+}
+
+/// Task 5: `x.join(sep)` over a growable String array copies each element
+/// string handle plus the separator between them (the byte `memory.copy` path,
+/// adjusted for the growable header indirection).
+fn growable_string_join_source() -> &'static str {
+    r#"function main() {
+  const o = [];
+  o.push("a");
+  o.push("b");
+  console.log(o.join(","));
+}
+main();
+"#
+}
+
+#[test]
+fn run_supports_growable_array_string_join_in_js_and_ts_input() {
+    for extension in ["js", "ts"] {
+        assert_run_stdout(growable_string_join_source(), extension, "a,b\n");
+    }
+}
+
+/// Task 5 edge parity vs node: negative integers render with a sign, an empty
+/// array joins to the empty string, a single element emits no separator, and an
+/// empty separator concatenates. All checked byte-for-byte against node.
+fn growable_join_edges_source() -> &'static str {
+    r#"function main() {
+  const neg = [];
+  neg.push(-5);
+  neg.push(2);
+  neg.push(-3);
+  console.log(neg.join(","));
+  const empty = [];
+  console.log(empty.join(","));
+  const single = [];
+  single.push(7);
+  console.log(single.join(","));
+  const cat = [];
+  cat.push(1);
+  cat.push(2);
+  console.log(cat.join(""));
+}
+main();
+"#
+}
+
+#[test]
+fn run_supports_growable_array_join_edges_in_js_and_ts_input() {
+    for extension in ["js", "ts"] {
+        assert_run_stdout(
+            growable_join_edges_source(),
+            extension,
+            "-5,2,-3\n\n7\n12\n",
+        );
+    }
+}
+
 #[test]
 fn run_rejects_growable_array_mixed_i64_and_string_push_in_js_and_ts_input() {
     for extension in ["js", "ts"] {
