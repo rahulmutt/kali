@@ -1741,11 +1741,21 @@ impl ReprInfer {
                     // either way (same visits, same fresh result node):
                     // candidacy only adds bookkeeping, so a binding that
                     // fails the later repr gate keeps today's inference
-                    // exactly. Element-node wiring is deliberately NOT added
-                    // in this i64 lane — promotion REQUIRES every pushed
-                    // value to solve plain i64, so the element axis stays at
-                    // the I64 default by construction; Task 3 (string
-                    // elements) adds the wiring + String relaxation.
+                    // exactly. Task 3 (string elements): the pushed value's
+                    // node is ALSO unioned into the receiver's element node
+                    // (`array_elem_node_for`) as a store-direction edge,
+                    // exactly mirroring `note_array_init`'s per-element
+                    // literal wiring — so a uniform-String push set solves
+                    // `array_element(func,name) == Repr::String` through the
+                    // SAME "Array elements" emit-time pass every other array
+                    // uses, and a MIXED I64+String push set trips that same
+                    // pass's existing mixed-store detection
+                    // (`element_store_sources`) into `add_shape_conflict`
+                    // (E5506) instead of silently falling back to the
+                    // pre-promotion no-op lane. Element-node wiring for a
+                    // PURE i64 push set is a no-op for the string/float axes
+                    // (an int literal seeds neither), so uniform-i64
+                    // candidates are unaffected.
                     "push" => {
                         if is_console_object(&member.object) {
                             for arg in &call.args {
@@ -1775,6 +1785,14 @@ impl ReprInfer {
                                     Expression::Identifier(id) => Some(id.clone()),
                                     _ => None,
                                 };
+                                // Element-node wiring (Task 3): store-direction
+                                // edge, verbatim on `note_array_init`'s literal
+                                // element wiring (`element_store_sources` feeds
+                                // the shared mixed-store detection in
+                                // `emit_table`'s "Array elements" pass).
+                                let elem = self.array_elem_node_for(func, name);
+                                self.add_edge(arg_nodes[0], elem);
+                                self.element_store_sources.push((elem, arg_nodes[0]));
                                 self.growable_pushes.push((
                                     func.to_string(),
                                     name.clone(),
@@ -2914,13 +2932,20 @@ impl ReprInfer {
 
         // Growable-array promotion (throw-fallout Stage 4) — the repr half
         // of the gate, over the Phase A3 syntactic candidates. A candidate
-        // promotes iff its element axis and EVERY pushed value solve plain
-        // i64 (never float/string/object, and an identifier argument never
-        // names a function/array/object/for-in-key binding). A candidate
-        // that fails here simply does not promote: the table carries no
-        // growable entry, so the binding keeps the pre-existing plain lane
-        // byte-identically (Task 3 relaxes elements to String; Task 6 sweeps
-        // the residual fail-open pushes to E5506).
+        // promotes iff its element axis and EVERY pushed value solve either
+        // uniformly plain i64 or uniformly String (never float/object, and
+        // an identifier argument never names a function/array/object/for-in-
+        // key binding). Mixed I64+String pushes are NOT silently left
+        // unpromoted: the push arm's element-node wiring feeds the SAME
+        // "Array elements" pass above, whose existing mixed-store detection
+        // already called `table.add_shape_conflict` for this element before
+        // this loop runs (E5506, aborts the compile — see `compile.rs`), so
+        // a mixed candidate reaching `pushes_ok` below is harmless dead
+        // weight (the conflict already recorded wins). A candidate that
+        // fails here for any OTHER reason (float, object, identifier guard)
+        // simply does not promote: the table carries no growable entry, so
+        // the binding keeps the pre-existing plain lane byte-identically
+        // (Task 6 sweeps the residual fail-open pushes to E5506).
         let growable_candidates: Vec<(String, String)> =
             self.growable_candidates.iter().cloned().collect();
         for (func, name) in growable_candidates {
@@ -2933,11 +2958,30 @@ impl ReprInfer {
             if pushes.is_empty() {
                 continue;
             }
-            // Element axis (populated by literal seeds) must stay plain.
+            // Element axis (populated by literal seeds and — Task 3 — pushed
+            // values) must never be float: I64 and String are the only
+            // growable element reprs this stage's codegen supports (F64
+            // fails closed by simply not promoting, unchanged from Task 2).
+            // A String-reachable element additionally must not be a MIXED
+            // store: the same `element_store_sources` mixed-store check the
+            // "Array elements" pass above already ran (and, if mixed,
+            // already recorded an `add_shape_conflict` that aborts the whole
+            // compile before codegen — see `compile.rs`) is re-consulted
+            // here so the table itself never claims a binding is BOTH
+            // growable-promoted and element-conflicted.
             if let Some(&elem) = self.array_elem_node.get(&(func.clone(), name.clone())) {
                 let rep = self.uf.find(elem);
-                if string[rep] || float[rep] {
+                if float[rep] {
                     continue;
+                }
+                if string[rep] {
+                    let mixed_store = self
+                        .element_store_sources
+                        .iter()
+                        .any(|(e, s)| self.uf.find(*e) == rep && !string[self.uf.find(*s)]);
+                    if mixed_store {
+                        continue;
+                    }
                 }
             }
             // Object-shaped elements fail closed (defensive: the syntactic
@@ -2950,7 +2994,7 @@ impl ReprInfer {
             }
             let pushes_ok = pushes.iter().all(|(vnode, arg_identifier)| {
                 let rep = self.uf.find(*vnode);
-                if string[rep] || float[rep] {
+                if float[rep] {
                     return false;
                 }
                 match arg_identifier {

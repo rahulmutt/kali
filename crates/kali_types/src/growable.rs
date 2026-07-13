@@ -152,6 +152,22 @@ fn scalar_value_shape_ok(expr: &Expression, allow_identifiers: bool) -> bool {
     }
 }
 
+/// Task 3: shape admitted specifically as a `.push` ARGUMENT — everything
+/// `scalar_value_shape_ok` admits, PLUS a bare string literal. Deliberately
+/// NOT folded into `scalar_value_shape_ok` itself: that function is also
+/// used for array-literal SEEDS and computed INDICES, neither of which this
+/// task relaxes (a string seed/element-repr-union for seeded literals and a
+/// string computed index are both out of scope here — indices must stay
+/// numeric, and seeded-string-literal declarators are not part of this
+/// task's target fixture). A string identifier push is already admitted via
+/// `scalar_value_shape_ok`'s `allow_identifiers` arm (repr-checked later).
+fn push_argument_shape_ok(expr: &Expression, allow_identifiers: bool) -> bool {
+    matches!(
+        strip_parens(expr),
+        Expression::Literal(LiteralValue::String(_))
+    ) || scalar_value_shape_ok(expr, allow_identifiers)
+}
+
 fn strip_parens(expr: &Expression) -> &Expression {
     let mut current = expr;
     while let Expression::ParenthesizedExpression(inner) = current {
@@ -374,10 +390,11 @@ impl Scan {
                             if let Expression::Identifier(name) = strip_parens(&member.object) {
                                 match member.property.as_str() {
                                     // `x.push(v)` — safe receiver iff exactly
-                                    // one scalar-shaped argument.
+                                    // one scalar- or string-literal-shaped
+                                    // argument (Task 3: string elements).
                                     "push"
                                         if call.args.len() == 1
-                                            && scalar_value_shape_ok(&call.args[0], true) =>
+                                            && push_argument_shape_ok(&call.args[0], true) =>
                                     {
                                         let arg = strip_parens(&call.args[0]);
                                         self.pushes.push(GrowablePushSite {

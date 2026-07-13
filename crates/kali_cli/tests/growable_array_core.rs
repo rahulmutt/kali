@@ -101,3 +101,70 @@ fn run_supports_growable_array_seeded_literal_declarator_in_js_and_ts_input() {
         assert_run_stdout(growable_seeded_literal_source(), extension, "3\n5\n9\n");
     }
 }
+
+/// Task 3: uniform-String pushes promote with element repr `String` — the
+/// index-read result feeding `console.log` is treated as a string handle.
+fn growable_string_push_source() -> &'static str {
+    r#"function main() {
+  const o = [];
+  o.push("a");
+  o.push("b");
+  console.log(o[0]);
+  console.log(o.length);
+}
+main();
+"#
+}
+
+#[test]
+fn run_supports_growable_array_string_push_in_js_and_ts_input() {
+    for extension in ["js", "ts"] {
+        assert_run_stdout(growable_string_push_source(), extension, "a\n2\n");
+    }
+}
+
+/// Task 3 fail-closed: a MIXED i64+String push set is a shape conflict
+/// (E5506) at compile time — never a silent fall-back to the pre-promotion
+/// no-op lane (which would print `undefined`/`0` and exit 0).
+fn growable_mixed_push_source() -> &'static str {
+    r#"function main() {
+  const o = [];
+  o.push(1);
+  o.push("a");
+  console.log(o.length);
+}
+main();
+"#
+}
+
+#[test]
+fn run_rejects_growable_array_mixed_i64_and_string_push_in_js_and_ts_input() {
+    for extension in ["js", "ts"] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join(format!("smoke.test.{extension}"));
+        fs::write(&source_path, growable_mixed_push_source()).expect("write source");
+
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("run")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(
+            !output.status.success(),
+            "expected a mixed i64/String push set to be rejected, not silently run"
+        );
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            stdout.is_empty(),
+            "expected NO stdout (never a silent wrong-output run): {stdout}"
+        );
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("E5506"), "stderr: {stderr}");
+        assert!(
+            stderr.contains("used as both strings and numbers"),
+            "stderr: {stderr}"
+        );
+    }
+}

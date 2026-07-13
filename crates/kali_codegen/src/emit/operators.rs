@@ -871,6 +871,15 @@ impl<'a> FunctionEmitter<'a> {
         if let Some(base) = self.dynamic_array_read_base(self.node(id)) {
             return self.array_elem_repr(&base) == kali_common::Repr::String;
         }
+        // Computed element read `o[i]` of a GROWABLE array (throw-fallout
+        // Stage 4 Task 3) whose element axis is proven `Repr::String` — the
+        // growable mirror of the arm immediately above, keyed on the
+        // growable oracle (`growable_array_read_base`) instead of the plain
+        // one, so `console.log`/`+`/`==`/ternary all treat a pushed string
+        // handle read back out of a growable array as a string.
+        if let Some(base) = self.growable_array_read_base(self.node(id)) {
+            return self.array_elem_repr(&base) == kali_common::Repr::String;
+        }
         // Runtime `a.join(sep)` produces a string (Spec 3). Same recognizer the
         // emitter dispatch routes with, so the oracle and emitter agree.
         if self.runtime_join_call_parts(self.node(id)).is_some() {

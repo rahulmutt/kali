@@ -827,10 +827,6 @@ fn growable_promotion_accepts_identifier_and_arithmetic_pushes() {
 
 #[test]
 fn growable_promotion_blocks_non_i64_pushes() {
-    // String push: Task 3's lane, not this one.
-    let t =
-        reprs("function main() { const o = []; o.push(\"a\"); console.log(o.length); }\nmain();\n");
-    assert!(!t.is_growable_array_binding("main", "o"));
     // Float push.
     let t =
         reprs("function main() { const o = []; o.push(1.5); console.log(o.length); }\nmain();\n");
@@ -843,6 +839,59 @@ fn growable_promotion_blocks_non_i64_pushes() {
     // Undeclared identifier push (`undefined` has no i64 value).
     let t = reprs(
         "function main() { const o = []; o.push(undefined); console.log(o.length); }\nmain();\n",
+    );
+    assert!(!t.is_growable_array_binding("main", "o"));
+}
+
+#[test]
+fn growable_promotion_promotes_uniform_string_pushes() {
+    // Task 3: a uniform-String push set promotes, with the element axis
+    // solving `Repr::String` (deliberate flip of the pre-Task-3 pin above,
+    // which used to assert a string push blocks promotion — see the Task 3
+    // report for the recorded intent).
+    let t = reprs(
+        "function main() { const o = []; o.push(\"a\"); o.push(\"b\"); \
+         console.log(o[0]); console.log(o.length); }\nmain();\n",
+    );
+    assert!(t.is_growable_array_binding("main", "o"));
+    assert_eq!(t.array_element("main", "o"), Repr::String);
+    assert!(t.shape_conflicts().is_empty());
+}
+
+#[test]
+fn growable_promotion_accepts_string_identifier_pushes() {
+    // A declared (non-function/array/object/for-in-key) string-valued
+    // identifier push is allowed — the Task 2 identifier guard is
+    // repr-agnostic and stays intact for the String lane too.
+    let t = reprs(
+        "function main() { const s = \"x\"; const o = []; o.push(s); \
+         console.log(o.length); }\nmain();\n",
+    );
+    assert!(t.is_growable_array_binding("main", "o"));
+    assert_eq!(t.array_element("main", "o"), Repr::String);
+}
+
+#[test]
+fn growable_promotion_rejects_mixed_i64_and_string_pushes() {
+    // Task 3 fail-closed requirement: a MIXED i64+String push set on the
+    // SAME growable candidate must not silently fall back to the
+    // pre-promotion no-op lane — it is a shape conflict (E5506), mirroring
+    // the pre-existing mixed-store rejection idiom for ordinary array
+    // element stores.
+    let t = reprs(
+        "function main() { const o = []; o.push(1); o.push(\"a\"); \
+         console.log(o.length); }\nmain();\n",
+    );
+    assert!(
+        !t.shape_conflicts().is_empty(),
+        "expected a shape conflict for a mixed i64/String push set"
+    );
+    assert!(
+        t.shape_conflicts()
+            .iter()
+            .any(|m| m.contains("used as both strings and numbers")),
+        "shape_conflicts: {:?}",
+        t.shape_conflicts()
     );
     assert!(!t.is_growable_array_binding("main", "o"));
 }
