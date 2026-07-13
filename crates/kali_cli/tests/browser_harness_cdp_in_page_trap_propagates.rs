@@ -19,12 +19,24 @@
 //! CDP, with a registered `Kali.test` whose body traps at runtime
 //! (`throw` lowers to a WASM `unreachable`, i.e. `RuntimeError: unreachable`).
 //!
-//! Outcome: the production page ALREADY propagates. The guest trap surfaces to
-//! the driver as an uncaught `RuntimeError: unreachable` exception and the page
-//! never signals a clean completion, so no consumer can read the crashed run as
-//! a pass. This test pins that behavior: it fails if the page is ever changed to
-//! swallow the trap (e.g. catch it and signal a clean "done", or emit a
-//! zero-failure summary despite the crash).
+//! Outcome: the production HTML-harness PAGE CONTENT surfaces the guest trap as
+//! an uncaught `Runtime.exceptionThrown` (kind "exception") — NOT swallowed into
+//! a caught-and-reported `console.error` (kind "error") — so the Stage-0 SWALLOW
+//! class is confirmed absent for the harness-page content driven under CDP. This
+//! test pins that behavior: it fails if the page is ever changed to catch the
+//! trap and report it only via `console.error`.
+//!
+//! Scope note: this does NOT confirm the *production* HTML-lane entrypoint is
+//! functional end-to-end. The production launcher
+//! (`kali_runtime::browser::execute::BrowserHarnessInvocation::launch_with_env`)
+//! is a bare `chromium <file-url>` `.output()` spawn with no CDP driver at all —
+//! it neither propagates nor swallows a trap, it just hangs. This test drives
+//! the harness page content directly through the test-only `cdp_driver` (the
+//! only functional CDP driver in the repo) to answer the narrower, still
+//! load-bearing question of whether the page itself would swallow a trap if a
+//! real CDP driver were wired up. Productionizing a real CDP driver for
+//! `launch_with_env` is tracked separately (see
+//! `docs/superpowers/followups/throw-fallout-stage3-triage.md`).
 //!
 //! Gated on real Chromium (`#[ignore]` + a runtime presence check), like the
 //! sibling `browser_cdp_smoke.rs`, so it skips cleanly where no browser exists.
@@ -120,17 +132,18 @@ fn browser_harness_cdp_in_page_trap_surfaces_and_is_not_swallowed() {
         .expect("run page");
     browser.close().expect("close");
 
-    // 4a. A crashed run must NEVER signal a clean completion. The harness page
-    //     installs no completion binding on a trap; a swallow that caught the
-    //     trap and signalled "done" would flip this to `true`.
-    assert!(
-        !outcome.completed,
-        "a trapping registered test must not report a clean completion; console: {:?}",
-        outcome.console
-    );
-
-    // 4b. The guest trap must be SURFACED to the driver as an uncaught
-    //     exception, not silently discarded.
+    // 4a. THE discriminating assertion: the guest trap must be SURFACED to the
+    //     driver as an uncaught CDP `Runtime.exceptionThrown` (kind
+    //     "exception"), not silently discarded. This is what actually
+    //     distinguishes a surfaced crash from a swallowed one: a swallow that
+    //     caught the trap in the per-callback try/catch (the Stage-0 shape)
+    //     would report it via `console.error` instead, which this driver
+    //     captures as kind "error", not "exception" — so a swallow-catch
+    //     would fail this assertion. (`outcome.completed` is NOT checked here:
+    //     this page — `browser_runtime_harness_page`, the production HTML
+    //     entrypoint — never references the `__kaliHarnessDone` binding at
+    //     all, so `completed` is structurally always `false` regardless of
+    //     pass/fail/swallow and has no discriminating power for this page.)
     let surfaced_trap = outcome.console.iter().any(|line| {
         line.kind == "exception"
             && line.text.contains("RuntimeError")
@@ -142,8 +155,13 @@ fn browser_harness_cdp_in_page_trap_surfaces_and_is_not_swallowed() {
         outcome.console
     );
 
-    // 4c. The crash must not be masked as a zero-failure pass: if any harness
-    //     summary was emitted, it must not claim `testsFailed: 0`.
+    // 4b. DEFENSIVE, not actively exercised by this run: the trap occurs
+    //     during `_start()`, before the registered-test loop / summary
+    //     emission is ever reached, so `outcome.console` will not contain a
+    //     browser-harness summary line here and this loop body will not
+    //     execute. Kept in case a future trap fixture traps *after* the
+    //     summary is emitted, so a masked-as-zero-failures summary would
+    //     still be caught.
     for line in &outcome.console {
         if let Some(summary) = parse_harness_summary(&line.text) {
             let tests_failed = summary.get("testsFailed").and_then(Value::as_u64);

@@ -280,3 +280,30 @@ silent miscompile.
 - `typeof X` should be `is_string_valued` (see above) so `+`-concat of a typeof result stays a
   string; needs the symmetric kali_types `expression_is_string_typed`/`operand_repr_is_string` arm to
   avoid an E3200 desync.
+
+## Follow-ups opened by Task 9 (CDP/HTML crash-lane reproducer, review pass)
+
+Task 9 (`crates/kali_cli/tests/browser_harness_cdp_in_page_trap_propagates.rs`) confirmed the
+production HTML-harness *page content* surfaces an in-page guest trap as an uncaught
+`Runtime.exceptionThrown` (kind "exception") rather than swallowing it — but it drove that page
+through the test-only `cdp_driver`, not the production launcher. Review of that gap surfaced two
+tracked production-CDP-driver items, neither of which is a swallow (both are non-functional-lane
+gaps):
+
+- **(a) The production HTML/`--api browser` entrypoint has NO CDP driver.**
+  `BrowserHarnessInvocation::launch_with_env` (`crates/kali_runtime/src/browser/execute.rs:66-115`)
+  is a bare `Command::new(chromium).arg(<file-url>).output()` spawn — no `--headless`/CDP/dump-dom
+  wiring. A real run (`KALI_BROWSER_BUNDLE_HARNESS_COMMAND=chromium --headless --no-sandbox
+  --disable-gpu`) launches Chromium, loads the page, and then **HANGS forever** (observed
+  `EXIT=124` under a 90s timeout in the Task-9 investigation) — it never captures console, never
+  reads a summary, never returns. This is a non-functional lane, not a swallow (a hang cannot be
+  read as a silent pass by any consumer), but it means `kali test --api browser` with a
+  Chromium-named harness command is currently unusable in production.
+- **(b) Productionize a real CDP driver for the browser HTML lane.** Wire a real CDP driver (the
+  test-only `crates/kali_cli/tests/cdp_driver/` module is the reference implementation — see also
+  `browser_cdp_smoke.rs`) into `BrowserHarnessInvocation::launch_with_env` so the
+  `kali test --api browser` CLI path with `KALI_BROWSER_BUNDLE_HARNESS_COMMAND=chromium` actually
+  completes and reports success/exitCode (currently it either fails for the wrong reason —
+  "No usable sandbox!" — with a bare `chromium <url>` command, or hangs with flags that let
+  Chromium start). Until this lands, the CDP/HTML lane's Stage-0-swallow-freedom is proven only at
+  the page-content level (Task 9's reproducer), not end-to-end through the CLI.
