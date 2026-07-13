@@ -307,3 +307,117 @@ gaps):
   "No usable sandbox!" — with a bare `chromium <url>` command, or hangs with flags that let
   Chromium start). Until this lands, the CDP/HTML lane's Stage-0-swallow-freedom is proven only at
   the page-content level (Task 9's reproducer), not end-to-end through the CLI.
+
+---
+
+## Checkpoint (Task 10) — full gate + drain snapshot — **STAGE BLOCKED: 19 regressions**
+
+**Measured on a fresh branch binary at HEAD `766f4ae32` (all 9 impl tasks landed).**
+`cargo build -p kali_cli` then `cargo test --workspace --no-fail-fast` enumeration
+(`stage3-post.txt`, sorted). Main worktree (`b48a067d3`) = 0 FAILED (`stage3-main.txt`, empty —
+gate NOT poisoned; the throw-unmask project-wide fallout is expected and is NOT this stage's gate).
+
+- **Pre (stage entry, `73c1ef3b3`): 923 FAILED** (`stage3-pre.txt`).
+- **Post (`766f4ae32`): 853 FAILED** (`stage3-post.txt`).
+- Arithmetic: `923 − 89 drained + 19 newly-red = 853` (exact).
+
+### ⛔ PRIMARY GATE — FAILED (newly-red vs the 923 stage entry MUST be empty; it is NOT)
+
+`comm -13 <(sort stage3-pre.txt) <(sort stage3-post.txt)` = **19 names** that PASSED at stage
+entry and are RED at HEAD = **Stage-3 regressions**. Two independent root causes, both bisected on
+freshly-built worktree binaries (parent green → commit red):
+
+**Regression A — Task 4 await lane (`e8922229c`) — 16 tests.** The `AwaitExpr` HIR lowering gained
+a `text="await"` marker (was a text-less transparent 1-child `Value`). The **compile-time
+static-argument recognizers** that require a statically-known literal —
+`Math.atan2` (needs static zero numerator + non-negative denominator) and `Number.isSafeInteger`
+(needs a static primitive) — previously **tunneled through the text-less await wrapper** to reach
+the literal; the marker made `await <literal>` **opaque**, so they now reject with **E5506**. The
+fixtures deliberately probe await-wrapped static args: `Math.atan2(await 0, await 1)` and
+`Number.isSafeInteger(await alias)` (`kali_common/src/number.rs:96`). Bisect: green at
+`726b4f351` (parent), red at `e8922229c`.
+  - `browser_math_atan2_global_this_root`: 6 (`{build,json_build,run,test}_*_global_this_math_atan2_await_wrapped_zero_slice_*`)
+  - `kali_cli --lib build::tests::supports_math::...atan2...await_wrappers_{in_browser_api_surface_in_ts,in_js}_input`: 2
+  - `browser_number_predicates_bundle`: 8 (`{build,json_build}_emits_browser_number_predicates_in_{js,jsx,ts,tsx}_input`)
+  - **This is the exact Task-4 tension:** the await marker *fixes* runtime value-passthrough (+48
+    bonus drain below) but *severs* the static-literal tunneling path. The fix is to make the
+    static-argument recognizers (and the kali_types transparent-wrapper unwrap) treat a
+    `text=="await"` single-child node as transparent **for compile-time static-literal resolution**,
+    mirroring the runtime passthrough.
+
+**Regression B — Task 7 `crypto.subtle.digest` (`94e6d22e2`) — 3 tests.** Task 7 added a
+**compile-time E5506** rejecting `crypto.subtle.digest` calls that don't match "string algorithm
+name + `TextEncoder().encode(<string>)` buffer". A `web-baseline` corpus package uses
+`subtle.digest` in a non-conforming form; **before** Task 7 it compiled + deployed (the gap was a
+*runtime* `unreachable` trap, not a compile error), so the corpus "checkable and deployable" test
+passed. The new hard reject makes it red. Bisect: green at `23586b2da` (parent), red at
+`94e6d22e2`.
+  - `package_corpus::browser_corpus::browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_deployable_through_host{,_on_js_input,_on_js_input_when_the_browser_api_surface_is_inherited}` (3)
+  - Resolution options (either closes the gate): widen the recognizer to accept the corpus
+    package's `subtle.digest` shape, OR update the corpus fixture to the supported shape. Note the
+    reject is arguably *more* sound (reject-don't-miscompile), but it broke a stage-entry-green test,
+    so per the gate it is a regression that must be resolved, not silently accepted.
+
+**Per the twice-learned lesson (memory `ci-gate-vs-poisoned-baseline`, Stage-2 checkpoint): the
+per-task gates that reported "0 regressions" were necessary but NOT sufficient — this full
+enumeration is the only real gate, and it caught both regressions the per-task subsets missed.**
+**The stage is NOT closed.** Both regressions need a fix task (re-open Task 4 static-literal
+tunneling + Task 7 corpus-shape) before Stage 3 can certify.
+
+### DRAINED (in PRE not POST) — 89 names, fully reconciled
+
+`comm -23 <(sort stage3-pre.txt) <(sort stage3-post.txt)` = 89. Disjoint partition (each name to
+exactly one bucket), reconciled against the Task-10 brief's expectation:
+
+| bucket | drained | expected | note |
+|---|---|---|---|
+| #5 performance.now | 21 | 21 | full drain ✓ |
+| #6 web crypto | 14 | 18 − 4 | **carve-out holds:** the 4 `build::*_crypto_web_apis*` bundle tests **stay red** (pre-existing `const x = crypto.getRandomValues(buf)` array-binding gap, m-T6-3/Task-7 follow-up; confirmed red before this stage). 14 of 18 drain. ✓ |
+| H coverage_hit | 2 | 2 | ✓ |
+| K process.kill | 4 | 4 | ✓ |
+| **Task-4 await bonus** | **48** | ~15 | **DRIFT +33** — see below |
+| **total** | **89** | | |
+
+**Task-4 await bonus = 48 (brief estimated ~15) — honest drift, +33.** Task 4's await
+value-passthrough fixed every pre-existing failure whose fixture passed an **await-wrapped
+argument**, far beyond the 15 `async`/`await`-named runtime_smoke tests:
+  - `object_is` family: **24** (`Object.is(await alias, -0)`, `Object.is(await globalThis.Object, …)` — `browser_object_is_bundle.rs:18`, alias-chain harness, bundle build/json variants)
+  - `math_round` family: **9** (`Math.round(await …)` identity literals + global-this root)
+  - `async`/`await`-named runtime_smoke: **15** (the originally-estimated set)
+  These were red at stage entry because pre-Task-4 `await` dropped its operand → `0` → wrong
+  predicate result → guard threw. Value-passthrough makes them correct. **No unattributed drain;
+  no expected-drain that failed to drain** (every named target that was supposed to drain did,
+  modulo the documented 4 crypto_web_apis carve-out).
+
+### Step 1 — flipped-pin crypto re-verification (honest, no silent flip)
+
+The runtime_smoke enumeration "flipped-pin" fixtures embedding `crypto.getRandomValues` (Stage-2
+triage §"Flipped pin"; e.g. `test.rs:4025`, `run.rs:2264`, …) assert `!success` + `E5506`. Verified
+empirically on the HEAD binary:
+  - **Full fixture still rejects fail-closed (E5506), exit 1** — now via TWO surviving constructs:
+    the object-enumeration reassignment `obj["a"]=3` (E5506 fixed-shape) **and** the array-literal
+    call arg `consumeArray([1n,2n],1n)` (E5506 "passing an array literal … reads zero placeholders").
+  - **`crypto.getRandomValues(bytes)` ALONE now PASSES** (exit 0, `ok 1`) — Task 6 works.
+  - **array-literal-arg ALONE still rejects (E5506).**
+  Conclusion: **no silent flip.** The pins were already honestly re-anchored (during Task 6) on the
+  genuine remaining rejection cause (array-literal-arg), which the comment already states; crypto is
+  no longer the reject cause but the file still rejects on the array-arg gap, so the E5506 assertion
+  remains genuine. No assertion change was warranted; the `object_enumeration_semantics_when_browser`
+  pins are green in `stage3-post.txt` (0 present), confirming they hold.
+
+### Step 4 — exact CI command (fail-fast) verdict
+
+`cargo test --workspace` → **exit 101**, first-failing binary **`kali_cli --lib`** at
+`build::tests::supports_math::...atan2...await_wrappers_...` (2 failed of 973). **This first-fail
+moved EARLIER than prior checkpoints** (Stage-1/2 first-fail was
+`array_callback_identity_browser_harness`) — a direct symptom of Regression A landing in the `--lib`
+unit tests, further evidence the gate is genuinely red rather than mid-program bucket residue.
+
+### Follow-ups surfaced this stage (beyond the two BLOCKING regressions)
+
+- **Production-CDP-driver items (a)/(b)** — filed by Task 9 above (non-functional lane, not swallows).
+- Deferred per-task Minors (not gate-blocking): `?.` short-circuit not modeled; paren-Promise-receiver
+  asymmetry; `globalThis.performance.now` alias; multi-level env aliases; `typeof` String-repr
+  divergence + `+ typeof` int-coercion; sequence-expression `process.kill` receiver silent-0
+  (soundness, blocks no test); `const x = crypto.getRandomValues(buf)` array-binding (the 4
+  crypto_web_apis carve-out).
