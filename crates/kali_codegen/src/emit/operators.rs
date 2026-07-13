@@ -946,8 +946,89 @@ impl<'a> FunctionEmitter<'a> {
         let Some(callee) = node.children.first().copied() else {
             return false;
         };
-        let callee_node = self.node(self.unwrap_transparent(callee));
+        // Resolve the callee through bound aliases BEFORE the env_get check
+        // (F-Stage1-3), mirroring how `emit_call` resolves its callee
+        // (`resolve_bound_member_callable_node`, call.rs). Without this a bound
+        // member-callable alias — `const g = Deno.env.get; g("K")` — is NOT
+        // recognized as an env-get string call, so `g("K") === "y"` falls
+        // through to a raw handle-identity compare (silently wrong) instead of
+        // the `__streq` content-equality lane, even though the ACTUAL call
+        // emission already resolves `g` to the real env-get import.
+        let resolved = self
+            .resolve_bound_member_callable_node(callee)
+            .unwrap_or_else(|| self.unwrap_transparent(callee));
+        let callee_node = self.node(resolved);
         self.env_get_import_index(callee_node).is_some()
+    }
+
+    /// Relocate the env-get string handle currently on top of the value stack
+    /// to a fresh `__alloc_global` heap buffer, rewriting its offset field to
+    /// point there, and leave the RELOCATED handle on the stack (F-Stage1-2).
+    ///
+    /// Every `Deno.env.get` writes its result into the single reserved buffer
+    /// [0,4096) and returns a handle with offset field 0 (call.rs env lane). In
+    /// an env-vs-env compare the second `env.get` overwrites that buffer before
+    /// `__streq` runs, so the LEFT operand's bytes must be copied out first.
+    /// `__alloc_global` gives a region disjoint from [0,4096) AND from the
+    /// interned string pool, and never reclaims, so the copy survives the
+    /// compare (the current arena is never reset mid-expression).
+    ///
+    /// A missing env var yields a 0 handle (JS `undefined`); it is passed
+    /// through UNCHANGED so `undefined === undefined` stays true and the
+    /// `__streq` tag guard keeps `undefined === s` false — turning 0 into a
+    /// tagged empty-string handle here would break both.
+    ///
+    /// Uses the two trailing i64 scratch locals (`self.locals.len()` and `+1`),
+    /// live only within this sequence; the following right-operand `env.get`
+    /// reuses `self.locals.len()` transiently after this returns.
+    fn emit_env_get_streq_relocate(&mut self, function: &mut Function) {
+        let handle_local = self.locals.len() as u32;
+        let dst_local = handle_local + 1;
+        // Stash the incoming handle; keep a copy on the stack for the 0-guard.
+        function.instruction(&Instruction::LocalTee(handle_local));
+        function.instruction(&Instruction::I64Const(0));
+        function.instruction(&Instruction::I64Eq);
+        function.instruction(&Instruction::If(BlockType::Result(ValType::I64)));
+        // Missing env var (undefined) → pass the 0 handle through unchanged.
+        function.instruction(&Instruction::I64Const(0));
+        function.instruction(&Instruction::Else);
+        // dst = __alloc_global(len), len = handle & 0xFFFF_FFFF.
+        function.instruction(&Instruction::LocalGet(handle_local));
+        function.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+        function.instruction(&Instruction::I64And);
+        function.instruction(&Instruction::I32WrapI64);
+        function.instruction(&Instruction::Call(self.alloc_global_fn_index()));
+        function.instruction(&Instruction::I64ExtendI32U);
+        function.instruction(&Instruction::LocalSet(dst_local));
+        // memory.copy(dst, src=(handle>>32)&0x7FFF_FFFF, len=handle&0xFFFF_FFFF).
+        // Offset decode mirrors `emit_streq_body` / `read_guest_string_handle`.
+        function.instruction(&Instruction::LocalGet(dst_local));
+        function.instruction(&Instruction::I32WrapI64);
+        function.instruction(&Instruction::LocalGet(handle_local));
+        function.instruction(&Instruction::I64Const(32));
+        function.instruction(&Instruction::I64ShrU);
+        function.instruction(&Instruction::I64Const(0x7FFF_FFFF));
+        function.instruction(&Instruction::I64And);
+        function.instruction(&Instruction::I32WrapI64);
+        function.instruction(&Instruction::LocalGet(handle_local));
+        function.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+        function.instruction(&Instruction::I64And);
+        function.instruction(&Instruction::I32WrapI64);
+        function.instruction(&Instruction::MemoryCopy {
+            src_mem: 0,
+            dst_mem: 0,
+        });
+        // new handle = TAG | (dst << 32) | (handle & 0xFFFF_FFFF).
+        function.instruction(&Instruction::I64Const(STRING_HANDLE_TAG as i64));
+        function.instruction(&Instruction::LocalGet(dst_local));
+        function.instruction(&Instruction::I64Const(32));
+        function.instruction(&Instruction::I64Shl);
+        function.instruction(&Instruction::I64Or);
+        function.instruction(&Instruction::LocalGet(handle_local));
+        function.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+        function.instruction(&Instruction::I64And);
+        function.instruction(&Instruction::I64Or);
+        function.instruction(&Instruction::End);
     }
 
     /// True when `id` is a string value backed by a FRESH runtime
@@ -1461,17 +1542,26 @@ impl<'a> FunctionEmitter<'a> {
         let right_string = is_equality_op && self.is_string_valued(right);
         let left_env = is_equality_op && !left_string && self.is_env_get_string_call(left);
         let right_env = is_equality_op && !right_string && self.is_env_get_string_call(right);
-        // At most ONE env-get operand: both env.get results materialize into
-        // the SAME reserved buffer (call.rs env lane), so env-vs-env would
-        // read the second call's bytes twice and spuriously equal any two
-        // same-length values. Env-vs-env keeps today's path (follow-up
-        // F-Stage1-2 in the Stage 1 triage doc).
-        if (left_string || left_env) && (right_string || right_env) && !(left_env && right_env) {
-            for operand in [left, right] {
-                let emitted = self.emit_node(function, operand, true);
-                if !emitted.produced {
-                    function.instruction(&Instruction::I64Const(0));
-                }
+        // ENV-VS-ENV (F-Stage1-2): both `Deno.env.get` results materialize into
+        // the SAME reserved buffer [0,4096) (call.rs env lane), so the second
+        // call OVERWRITES the first — a naive compare would read the second
+        // call's bytes for BOTH sides and spuriously report any two same-length
+        // values equal. Admit env-vs-env by RELOCATING the left result to a
+        // fresh `__alloc_global` heap copy (distinct from [0,4096) and from the
+        // interned string pool) BEFORE emitting the right operand, so `__streq`
+        // reads the correct distinct bytes for each side.
+        let both_env = left_env && right_env;
+        if (left_string || left_env) && (right_string || right_env) {
+            let left_emitted = self.emit_node(function, left, true);
+            if !left_emitted.produced {
+                function.instruction(&Instruction::I64Const(0));
+            }
+            if both_env {
+                self.emit_env_get_streq_relocate(function);
+            }
+            let right_emitted = self.emit_node(function, right, true);
+            if !right_emitted.produced {
+                function.instruction(&Instruction::I64Const(0));
             }
             function.instruction(&Instruction::Call(self.streq_fn_index()));
             if matches!(op, "!=" | "!==") {

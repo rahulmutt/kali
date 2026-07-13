@@ -1075,46 +1075,87 @@ pub(crate) fn collect_functions(
     plans
 }
 
+/// Structural check: is node `id` a `Deno.env.<method>` member node
+/// (`globalThis.Deno.env.<method>` also accepted)? Factors the shared shape the
+/// env-* import probes recognize.
+fn node_is_deno_env_member(lir: &LirProgram, id: LirNodeId, method: &str) -> bool {
+    let Some(member_node) = lir.nodes.get(id.0 as usize) else {
+        return false;
+    };
+    if member_node.text.as_deref() != Some(method) {
+        return false;
+    }
+    let Some(object) = member_node.children.first() else {
+        return false;
+    };
+    let Some(object_node) = lir.nodes.get(object.0 as usize) else {
+        return false;
+    };
+    if object_node.text.as_deref() != Some("env") {
+        return false;
+    }
+    let Some(root) = object_node.children.first() else {
+        return false;
+    };
+    let Some(root_node) = lir.nodes.get(root.0 as usize) else {
+        return false;
+    };
+    root_node.text.as_deref() == Some("Deno")
+        || (root_node.text.as_deref() == Some("globalThis")
+            && root_node.children.first().is_some_and(|child| {
+                lir.nodes
+                    .get(child.0 as usize)
+                    .is_some_and(|deno| deno.text.as_deref() == Some("Deno"))
+            }))
+}
+
+/// Names bound (via a declarator) to a `Deno.env.<method>` member — e.g.
+/// `const g = Deno.env.get` yields `g` for method `"get"`. A declarator lowers
+/// to an `Instruction` node whose `text` is the bound name and whose
+/// `children[1]` is the initializer (`children[0]` is the name value). Used so
+/// the env-* import probe sees THROUGH a bound alias `g(...)` (F-Stage1-3),
+/// matching the emitter's `resolve_bound_member_callable_node` at the call site.
+fn deno_env_member_alias_names<'a>(lir: &'a LirProgram, method: &str) -> Vec<&'a str> {
+    lir.nodes
+        .iter()
+        .filter_map(|node| {
+            if node.kind != LirNodeKind::Instruction || node.children.len() < 2 {
+                return None;
+            }
+            if node_is_deno_env_member(lir, node.children[1], method) {
+                node.text.as_deref()
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
 pub(crate) fn program_uses_env_get(lir: &LirProgram) -> bool {
+    let alias_names = deno_env_member_alias_names(lir, "get");
     lir.nodes.iter().any(|node| {
         if node.kind != LirNodeKind::Call {
             return false;
         }
-
         let Some(callee) = node.children.first() else {
             return false;
         };
-        let Some(callee_node) = lir.nodes.get(callee.0 as usize) else {
-            return false;
-        };
-        if callee_node.text.as_deref() != Some("get") {
-            return false;
+        // Direct `Deno.env.get(...)` call.
+        if node_is_deno_env_member(lir, *callee, "get") {
+            return true;
         }
-
-        let Some(object) = callee_node.children.first() else {
-            return false;
-        };
-        let Some(object_node) = lir.nodes.get(object.0 as usize) else {
-            return false;
-        };
-        if object_node.text.as_deref() != Some("env") {
-            return false;
+        // Bound alias `const g = Deno.env.get; g(...)`: the call's callee is a
+        // bare identifier whose name was bound to a `Deno.env.get` member. Only
+        // an ACTUAL invocation of the alias flips the probe, so an unused alias
+        // never emits the import.
+        if let Some(callee_node) = lir.nodes.get(callee.0 as usize) {
+            if callee_node.children.is_empty() {
+                if let Some(name) = callee_node.text.as_deref() {
+                    return alias_names.contains(&name);
+                }
+            }
         }
-
-        let Some(root) = object_node.children.first() else {
-            return false;
-        };
-        let Some(root_node) = lir.nodes.get(root.0 as usize) else {
-            return false;
-        };
-
-        root_node.text.as_deref() == Some("Deno")
-            || (root_node.text.as_deref() == Some("globalThis")
-                && root_node.children.first().is_some_and(|child| {
-                    lir.nodes
-                        .get(child.0 as usize)
-                        .is_some_and(|deno| deno.text.as_deref() == Some("Deno"))
-                }))
+        false
     })
 }
 

@@ -237,6 +237,63 @@ fn env_get_empty_value_equals_empty_literal() {
     assert_ok(&out);
 }
 
+fn run_source_with_two_env(
+    src: &str,
+    key_a: &str,
+    value_a: &str,
+    key_b: &str,
+    value_b: &str,
+) -> std::process::Output {
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let dir = std::env::temp_dir().join(format!(
+        "kali-streq-env2-{}-{}-{}",
+        std::process::id(),
+        COUNTER.fetch_add(1, Ordering::Relaxed),
+        src.len()
+    ));
+    std::fs::create_dir_all(&dir).expect("create temp dir");
+    let path = dir.join("main.ts");
+    std::fs::write(&path, src).expect("write source");
+    Command::new(kali_bin())
+        .arg("run")
+        .arg(&path)
+        .env(key_a, value_a)
+        .env(key_b, value_b)
+        .output()
+        .expect("run kali")
+}
+
+#[test]
+fn env_get_vs_env_get_compares_content_not_shared_buffer() {
+    // F-Stage1-2: BOTH operands are `Deno.env.get`, same length ("foo"/"bar").
+    // Before the fix both env.get results materialized into the SINGLE reserved
+    // buffer [0,4096) with identical handles (offset 0, len 3), so identity
+    // `i64.eq` reported them EQUAL and the throw fired. node analog:
+    // process.env.A ("foo") === process.env.B ("bar") → false.
+    let out = run_source_with_two_env(
+        "if (Deno.env.get(\"KALI_STREQ_ENVA\") === Deno.env.get(\"KALI_STREQ_ENVB\")) { throw new Error(\"distinct env values compared equal\"); }\nconsole.log(\"ok\");\n",
+        "KALI_STREQ_ENVA",
+        "foo",
+        "KALI_STREQ_ENVB",
+        "bar",
+    );
+    assert_ok(&out);
+}
+
+#[test]
+fn bound_alias_env_get_routes_through_streq() {
+    // F-Stage1-3: `const g = Deno.env.get; g("K") === "y"` must route through
+    // __streq (content equality), not an identity compare of the raw env-get
+    // handle against the interned literal. node analog: const g =
+    // process.env.get-ish; g("K") === "y" → true when K = "y".
+    let out = run_source_with_env(
+        "const g = Deno.env.get;\nif (g(\"KALI_STREQ_ALIAS\") !== \"y\") { throw new Error(\"bound-alias env equality failed\"); }\nconsole.log(\"ok\");\n",
+        "KALI_STREQ_ALIAS",
+        Some("y"),
+    );
+    assert_ok(&out);
+}
+
 // The headline #2/#3 bucket shapes (throw-fallout denominator): enumeration
 // keys are FRESH runtime buffers; `!==` against an interned literal was true
 // by handle identity even when the text matched. All node-derived.
