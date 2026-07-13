@@ -1476,7 +1476,9 @@ impl<'a> FunctionEmitter<'a> {
                 .for_of_binding_name_from_node(*node.children.last().expect("wrapper child"));
         }
 
-        if node.text.is_none() && node.children.len() == 1 {
+        if (node.text.is_none() || node.text.as_deref() == Some("await"))
+            && node.children.len() == 1
+        {
             return self.for_of_binding_name_from_node(node.children[0]);
         }
 

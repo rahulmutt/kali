@@ -1002,6 +1002,74 @@ fn run_rejects_late_object_model_globals_in_json() {
     }
 }
 
+/// throw-fallout Stage 3 whole-stage review, FINDING #1: a static-numeric
+/// recognizer (`resolve_static_numeric_value`) must tunnel the `await` marker
+/// so `String.fromCharCode(await 65)` folds to the code unit (65 -> "A"),
+/// NOT the silent-0 placeholder a missed unwrap arm produced. `await` of a
+/// non-thenable literal is identity in Node (`await 65 === 65`), so this is a
+/// node-parity fold, not a runtime-async feature.
+#[test]
+fn run_folds_from_char_code_through_await_marker() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "async function main() {\n  console.log(String.fromCharCode(await 65));\n}\nmain();\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout).trim_end(),
+        "A",
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+/// Companion static-numeric-through-await probe on a second recognizer:
+/// `String.fromCodePoint(await 66)` -> "B".
+#[test]
+fn run_folds_from_code_point_through_await_marker() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "async function main() {\n  console.log(String.fromCodePoint(await 66));\n}\nmain();\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout).trim_end(),
+        "B",
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 #[test]
 fn run_executes_the_hello_fixture() {
     let output = Command::new(kali_bin())

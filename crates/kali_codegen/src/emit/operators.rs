@@ -765,7 +765,10 @@ impl<'a> FunctionEmitter<'a> {
             // tunnel, silently breaking those consumers.
             if node.kind == LirNodeKind::Value
                 && node.children.len() == 1
-                && node.text.as_deref().is_none_or(|text| text.is_empty())
+                && node
+                    .text
+                    .as_deref()
+                    .is_none_or(|text| text.is_empty() || text == "await")
             {
                 id = node.children[0];
                 guard += 1;

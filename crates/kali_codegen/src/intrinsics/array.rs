@@ -94,7 +94,10 @@ impl<'a> FunctionEmitter<'a> {
         let mut current = node;
         while current.kind == LirNodeKind::Value
             && current.children.len() == 1
-            && current.text.as_deref().is_none_or(|text| text.is_empty())
+            && current
+                .text
+                .as_deref()
+                .is_none_or(|text| text.is_empty() || text == "await")
         {
             let Some(child) = current.children.first().copied() else {
                 return false;
@@ -270,7 +273,10 @@ impl<'a> FunctionEmitter<'a> {
         let node = self.node(id);
         if node.kind == LirNodeKind::Value
             && node.children.len() == 1
-            && node.text.as_deref().is_none_or(|text| text.is_empty())
+            && node
+                .text
+                .as_deref()
+                .is_none_or(|text| text.is_empty() || text == "await")
         {
             return self.resolve_static_array_callback_truthiness_expr(
                 node.children[0],
@@ -401,7 +407,10 @@ impl<'a> FunctionEmitter<'a> {
         let node = self.node(id);
         if node.kind == LirNodeKind::Value
             && node.children.len() == 1
-            && node.text.as_deref().is_none_or(|text| text.is_empty())
+            && node
+                .text
+                .as_deref()
+                .is_none_or(|text| text.is_empty() || text == "await")
         {
             return self.resolve_static_array_callback_identity_operand(
                 node.children[0],
@@ -452,7 +461,7 @@ impl<'a> FunctionEmitter<'a> {
                         )
                         .map(|number| -number);
                 }
-                None | Some("") => {
+                None | Some("") | Some("await") => {
                     return self.resolve_static_array_callback_numeric_operand(
                         node.children[0],
                         param_name,
@@ -934,7 +943,10 @@ impl<'a> FunctionEmitter<'a> {
         let mut current = node;
         while current.kind == LirNodeKind::Value
             && current.children.len() == 1
-            && current.text.as_deref().is_none_or(|text| text.is_empty())
+            && current
+                .text
+                .as_deref()
+                .is_none_or(|text| text.is_empty() || text == "await")
         {
             current = self.node(current.children[0]);
         }
@@ -1150,7 +1162,10 @@ impl<'a> FunctionEmitter<'a> {
         };
 
         let mut array = self.node(array_id).clone();
-        if array.kind == LirNodeKind::Value && array.text.is_none() && array.children.len() == 1 {
+        if array.kind == LirNodeKind::Value
+            && (array.text.is_none() || array.text.as_deref() == Some("await"))
+            && array.children.len() == 1
+        {
             let child_id = array.children[0];
             let child = self.node(child_id).clone();
             if self.is_array_literal(&child) {

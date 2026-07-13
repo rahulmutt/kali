@@ -35,7 +35,10 @@ impl<'a> FunctionEmitter<'a> {
             return self.resolve_set_constructor_call(self.node(argument));
         }
 
-        if node.kind == LirNodeKind::Value && node.text.is_none() && node.children.len() == 1 {
+        if node.kind == LirNodeKind::Value
+            && (node.text.is_none() || node.text.as_deref() == Some("await"))
+            && node.children.len() == 1
+        {
             return self.resolve_set_constructor_call(self.node(node.children[0]));
         }
 
@@ -243,7 +246,10 @@ impl<'a> FunctionEmitter<'a> {
             return self.resolve_map_constructor_call(self.node(argument));
         }
 
-        if node.kind == LirNodeKind::Value && node.text.is_none() && node.children.len() == 1 {
+        if node.kind == LirNodeKind::Value
+            && (node.text.is_none() || node.text.as_deref() == Some("await"))
+            && node.children.len() == 1
+        {
             return self.resolve_map_constructor_call(self.node(node.children[0]));
         }
 

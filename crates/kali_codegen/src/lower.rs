@@ -1572,7 +1572,10 @@ fn unwrap_transparent_value_node_raw(nodes: &[LirNode], mut id: LirNodeId) -> Li
         };
         if node.kind == LirNodeKind::Value
             && node.children.len() == 1
-            && node.text.as_deref().is_none_or(|text| text.is_empty())
+            && node
+                .text
+                .as_deref()
+                .is_none_or(|text| text.is_empty() || text == "await")
         {
             id = node.children[0];
             continue;
@@ -3062,7 +3065,10 @@ fn unwrap_transparent_value(nodes: &[LirNode], mut id: LirNodeId) -> LirNodeId {
         };
         if node.kind == LirNodeKind::Value
             && node.children.len() == 1
-            && node.text.as_deref().is_none_or(|text| text.is_empty())
+            && node
+                .text
+                .as_deref()
+                .is_none_or(|text| text.is_empty() || text == "await")
         {
             id = node.children[0];
             guard += 1;
@@ -3093,7 +3099,10 @@ pub(crate) fn declarator_init_is_array_alloc(nodes: &[LirNode], init_id: LirNode
         };
         if node.kind == LirNodeKind::Value
             && node.children.len() == 1
-            && node.text.as_deref().is_none_or(|text| text.is_empty())
+            && node
+                .text
+                .as_deref()
+                .is_none_or(|text| text.is_empty() || text == "await")
         {
             id = node.children[0];
             guard += 1;
@@ -3479,7 +3488,10 @@ pub(crate) fn declarator_init_is_array_fill(nodes: &[LirNode], init_id: LirNodeI
         };
         if node.kind == LirNodeKind::Value
             && node.children.len() == 1
-            && node.text.as_deref().is_none_or(|text| text.is_empty())
+            && node
+                .text
+                .as_deref()
+                .is_none_or(|text| text.is_empty() || text == "await")
         {
             id = node.children[0];
             guard += 1;
