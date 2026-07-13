@@ -266,6 +266,18 @@ const importObject = {{
     performance_now() {{
       return performance.now();
     }},
+    crypto_get_random_values(outPtr, outLen) {{
+      if (wasmMemory === null) {{ return 0; }}
+      crypto.getRandomValues(new Uint8Array(wasmMemory.buffer, outPtr, outLen));
+      return outLen;
+    }},
+    crypto_random_uuid(outPtr, outCap) {{
+      if (wasmMemory === null) {{ return 0; }}
+      const bytes = new TextEncoder().encode(crypto.randomUUID());
+      if (bytes.length > outCap) {{ return -1; }}
+      new Uint8Array(wasmMemory.buffer, outPtr, bytes.length).set(bytes);
+      return bytes.length;
+    }},
     process_pid() {{
       return Number(globalThis.process?.pid ?? 0);
     }},
@@ -648,6 +660,18 @@ const importObject = {{
     }},
     performance_now() {{
       return performance.now();
+    }},
+    crypto_get_random_values(outPtr, outLen) {{
+      if (wasmMemory === null) {{ return 0; }}
+      crypto.getRandomValues(new Uint8Array(wasmMemory.buffer, outPtr, outLen));
+      return outLen;
+    }},
+    crypto_random_uuid(outPtr, outCap) {{
+      if (wasmMemory === null) {{ return 0; }}
+      const bytes = new TextEncoder().encode(crypto.randomUUID());
+      if (bytes.length > outCap) {{ return -1; }}
+      new Uint8Array(wasmMemory.buffer, outPtr, bytes.length).set(bytes);
+      return bytes.length;
     }},
     process_pid() {{
       return Number(globalThis.process?.pid ?? 0);

@@ -83,6 +83,8 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     let uses_stdout_write_bytes = program_uses_stdout_write_bytes(lir);
     let uses_args_get = program_uses_args_get(lir);
     let uses_performance_now = program_uses_performance_now(lir);
+    let uses_crypto_get_random_values = program_uses_crypto_get_random_values(lir);
+    let uses_crypto_random_uuid = program_uses_crypto_random_uuid(lir);
     let uses_env_access = uses_env_get || uses_env_has || uses_env_set || uses_env_delete;
     let function_index_offset = crate::FUNCTION_INDEX_OFFSET
         + if ctx.target.coverage { 1 } else { 0 }
@@ -94,7 +96,9 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         + if uses_process_exit { 1 } else { 0 }
         + if uses_stdout_write_bytes { 1 } else { 0 }
         + if uses_args_get { 1 } else { 0 }
-        + if uses_performance_now { 1 } else { 0 };
+        + if uses_performance_now { 1 } else { 0 }
+        + if uses_crypto_get_random_values { 1 } else { 0 }
+        + if uses_crypto_random_uuid { 1 } else { 0 };
     let env_get_type_index = if uses_env_access { Some(6) } else { None };
     let env_has_type_index = if uses_env_has { Some(7) } else { None };
     let cwd_set_type_index = if uses_cwd_set { Some(5) } else { None };
@@ -212,6 +216,48 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                 + if uses_process_exit { 1 } else { 0 }
                 + if uses_stdout_write_bytes { 1 } else { 0 }
                 + if uses_args_get { 1 } else { 0 },
+        )
+    } else {
+        None
+    };
+    // `crypto_get_random_values` is appended AFTER `performance_now` in the import
+    // section below, so its index sums every preceding conditional-import flag in
+    // the same declaration order (coverage, env_set, env_delete, env_get, env_has,
+    // cwd_set, process_exit, stdout_write_bytes, args_get, performance_now).
+    let crypto_get_random_values_import_index = if uses_crypto_get_random_values {
+        Some(
+            crate::COVERAGE_HIT_IMPORT_INDEX
+                + if ctx.target.coverage { 1 } else { 0 }
+                + if uses_env_set { 1 } else { 0 }
+                + if uses_env_delete { 1 } else { 0 }
+                + if uses_env_get { 1 } else { 0 }
+                + if uses_env_has { 1 } else { 0 }
+                + if uses_cwd_set { 1 } else { 0 }
+                + if uses_process_exit { 1 } else { 0 }
+                + if uses_stdout_write_bytes { 1 } else { 0 }
+                + if uses_args_get { 1 } else { 0 }
+                + if uses_performance_now { 1 } else { 0 },
+        )
+    } else {
+        None
+    };
+    // `crypto_random_uuid` is appended AFTER `crypto_get_random_values` in the
+    // import section below, so its index additionally sums
+    // `uses_crypto_get_random_values`.
+    let crypto_random_uuid_import_index = if uses_crypto_random_uuid {
+        Some(
+            crate::COVERAGE_HIT_IMPORT_INDEX
+                + if ctx.target.coverage { 1 } else { 0 }
+                + if uses_env_set { 1 } else { 0 }
+                + if uses_env_delete { 1 } else { 0 }
+                + if uses_env_get { 1 } else { 0 }
+                + if uses_env_has { 1 } else { 0 }
+                + if uses_cwd_set { 1 } else { 0 }
+                + if uses_process_exit { 1 } else { 0 }
+                + if uses_stdout_write_bytes { 1 } else { 0 }
+                + if uses_args_get { 1 } else { 0 }
+                + if uses_performance_now { 1 } else { 0 }
+                + if uses_crypto_get_random_values { 1 } else { 0 },
         )
     } else {
         None
@@ -508,6 +554,23 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             EntityType::Function(PERFORMANCE_NOW_TYPE_INDEX),
         );
     }
+    if crypto_get_random_values_import_index.is_some() {
+        // `(out_ptr: i32, out_len: i32) -> i32`: fills `out_len` random bytes at
+        // `out_ptr` in guest memory (in place) and returns `out_len`. Reuses the
+        // existing `(i32, i32) -> i32` signature (type 7); no new type is added.
+        // Appended AFTER `performance_now`, so it takes the next import index.
+        import_section.import(
+            "kali:rt",
+            "crypto_get_random_values",
+            EntityType::Function(7),
+        );
+    }
+    if crypto_random_uuid_import_index.is_some() {
+        // `(out_ptr: i32, out_cap: i32) -> i32`: writes the UUID string's UTF-8
+        // bytes at `out_ptr` (bounded by `out_cap`) and returns the byte count.
+        // Reuses type 7. Appended AFTER `crypto_get_random_values`.
+        import_section.import("kali:rt", "crypto_random_uuid", EntityType::Function(7));
+    }
     // Function signatures are repr-directed: each param/result ValType comes from
     // the repr table (defaulting to I64). Two functions with equal arity but
     // differing float shapes need distinct wasm types, so the dedup key is the
@@ -758,6 +821,8 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             stdout_write_bytes_import_index,
             args_get_import_index,
             performance_now_import_index,
+            crypto_get_random_values_import_index,
+            crypto_random_uuid_import_index,
             &mut diagnostics,
             &mut string_pool,
             ctx.source_path.clone(),
@@ -1308,6 +1373,53 @@ pub(crate) fn program_uses_performance_now(lir: &LirProgram) -> bool {
             return false;
         };
         object_node.text.as_deref() == Some("performance")
+    })
+}
+
+/// Program-wide probe for a `crypto.getRandomValues(buf)` call (throw-fallout
+/// Stage 3 bucket #6). Mirrors
+/// `FunctionEmitter::crypto_get_random_values_import_index` structurally over raw
+/// nodes (callee text `"getRandomValues"`, object text `"crypto"`). Kept a
+/// SUPERSET of the emit recognizer: were this ever false where emit fires, the
+/// conditional `crypto_get_random_values` import would be undeclared and emitting
+/// a `Call` to it would be invalid wasm — so over-inclusiveness here is the safe
+/// side.
+pub(crate) fn program_uses_crypto_get_random_values(lir: &LirProgram) -> bool {
+    program_uses_crypto_method(lir, "getRandomValues")
+}
+
+/// Program-wide probe for a `crypto.randomUUID()` call (throw-fallout Stage 3
+/// bucket #6). Mirrors `FunctionEmitter::crypto_random_uuid_import_index`
+/// structurally over raw nodes (callee text `"randomUUID"`, object text
+/// `"crypto"`). Kept a SUPERSET of the emit recognizer (same rationale as
+/// `program_uses_crypto_get_random_values`).
+pub(crate) fn program_uses_crypto_random_uuid(lir: &LirProgram) -> bool {
+    program_uses_crypto_method(lir, "randomUUID")
+}
+
+/// Shared body for the two `crypto.<method>()` program-wide probes: a `Call`
+/// whose callee is a member with `text == method` and object text `"crypto"`.
+fn program_uses_crypto_method(lir: &LirProgram, method: &str) -> bool {
+    lir.nodes.iter().any(|node| {
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+        let Some(callee) = node.children.first() else {
+            return false;
+        };
+        let Some(callee_node) = lir.nodes.get(callee.0 as usize) else {
+            return false;
+        };
+        if callee_node.text.as_deref() != Some(method) {
+            return false;
+        }
+        let Some(object) = callee_node.children.first() else {
+            return false;
+        };
+        let Some(object_node) = lir.nodes.get(object.0 as usize) else {
+            return false;
+        };
+        object_node.text.as_deref() == Some("crypto")
     })
 }
 
@@ -2650,6 +2762,7 @@ pub(crate) fn collect_function_locals_from_node(
                 && !is_materialized_object_array
                 && !is_materialized_factory_return
                 && !declarator_init_is_performance_now(nodes, init)
+                && !declarator_init_is_crypto_call(nodes, init)
                 && !declarator_init_contains_mutation(nodes, init)
             {
                 continue;
@@ -2823,7 +2936,14 @@ fn unwrap_transparent_value(nodes: &[LirNode], mut id: LirNodeId) -> LirNodeId {
 }
 
 /// Returns true if `init_id` (after unwrapping transparent value wrappers) is a
-/// `new Array(n)` / `Array(n)` allocation call (callee identifier `Array`, 0 or 1 arg).
+/// `new Array(n)` / `Array(n)` allocation call (callee identifier `Array`, 0 or 1
+/// arg) OR a `Uint8Array` typed-array constructor (bare `new Uint8Array(n)` or
+/// `globalThis["Uint8Array"]` form) — the raw-node mirror of
+/// `FunctionEmitter::is_array_like_constructor` (throw-fallout Stage 3 bucket #6).
+/// This MUST stay in lockstep with that emit recognizer: it is what grants the
+/// declarator its stable array-handle local slot, so a `Uint8Array` binding whose
+/// alloc emit fires but whose local is not collected would read/write through an
+/// undefined identifier.
 pub(crate) fn declarator_init_is_array_alloc(nodes: &[LirNode], init_id: LirNodeId) -> bool {
     let mut id = init_id;
     let mut guard = 0;
@@ -2852,7 +2972,17 @@ pub(crate) fn declarator_init_is_array_alloc(nodes: &[LirNode], init_id: LirNode
         let Some(callee_node) = nodes.get(callee.0 as usize) else {
             return false;
         };
-        return callee_node.text.as_deref() == Some("Array") && callee_node.children.is_empty();
+        return match callee_node.text.as_deref() {
+            Some("Array") => callee_node.children.is_empty(),
+            Some("Uint8Array") => {
+                callee_node.children.is_empty()
+                    || callee_node.children.first().is_some_and(|obj| {
+                        nodes.get(obj.0 as usize).and_then(|n| n.text.as_deref())
+                            == Some("globalThis")
+                    })
+            }
+            _ => false,
+        };
     }
 }
 
@@ -3033,6 +3163,60 @@ pub(crate) fn declarator_init_is_performance_now(nodes: &[LirNode], init_id: Lir
             return false;
         };
         return object_node.text.as_deref() == Some("performance");
+    }
+}
+
+/// True iff `init_id` (after unwrapping sequence wrappers) is a
+/// `crypto.getRandomValues(...)` or `crypto.randomUUID()` call (throw-fallout
+/// Stage 3 bucket #6). Both are IMPURE (each `Call` yields fresh random bytes /
+/// a fresh UUID), so — exactly like `declarator_init_is_performance_now` — a
+/// `const` initializer of this shape must be PROMOTED to a local slot and
+/// evaluated ONCE at its declaration, never fold-inlined and re-called at each
+/// use site (which would call the host again per use: a distinct-value
+/// nondeterminism miscompile AND, for `randomUUID`, would leave the use site
+/// with a bare-call result whose String repr the binding never records — so
+/// `.length` / `typeof` misresolve). Mirrors the codegen recognizers'
+/// `getRandomValues`/`randomUUID` + `crypto` object shape.
+pub(crate) fn declarator_init_is_crypto_call(nodes: &[LirNode], init_id: LirNodeId) -> bool {
+    let mut id = init_id;
+    let mut guard = 0;
+    loop {
+        let Some(node) = nodes.get(id.0 as usize) else {
+            return false;
+        };
+        if node.kind == LirNodeKind::Value
+            && node.text.as_deref() == Some("")
+            && !node.children.is_empty()
+        {
+            id = *node.children.last().expect("sequence wrapper has a child");
+            guard += 1;
+            if guard > 64 {
+                return false;
+            }
+            continue;
+        }
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+        let Some(callee) = node.children.first().copied() else {
+            return false;
+        };
+        let Some(callee_node) = nodes.get(callee.0 as usize) else {
+            return false;
+        };
+        if !matches!(
+            callee_node.text.as_deref(),
+            Some("getRandomValues") | Some("randomUUID")
+        ) {
+            return false;
+        }
+        let Some(object) = callee_node.children.first().copied() else {
+            return false;
+        };
+        let Some(object_node) = nodes.get(object.0 as usize) else {
+            return false;
+        };
+        return object_node.text.as_deref() == Some("crypto");
     }
 }
 

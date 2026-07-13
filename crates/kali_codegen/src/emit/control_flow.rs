@@ -1282,6 +1282,30 @@ impl<'a> FunctionEmitter<'a> {
                     }
                 }
 
+                // Typed-array `.byteLength` (throw-fallout Stage 3 bucket #6): for
+                // the `Uint8Array` representation (an i64-element linear-memory
+                // array; see `is_array_like_constructor`) `byteLength` equals the
+                // element count, so it reads the same i64 length header at `+0` of
+                // the base handle as `.length`. Only fires for a known array
+                // binding; other receivers fall through to their existing paths.
+                if node.text.as_deref() == Some("byteLength") {
+                    let base_id = node.children[0];
+                    if let Some(base_name) = self.assignment_target_name(node, base_id) {
+                        if self.array_bindings.contains(&base_name) {
+                            self.emit_array_base_address(function, base_id);
+                            function.instruction(&Instruction::I64Load(MemArg {
+                                offset: 0,
+                                align: 3,
+                                memory_index: 0,
+                            }));
+                            return EmittedValue {
+                                produced: true,
+                                shape: ValueShape::Scalar,
+                            };
+                        }
+                    }
+                }
+
                 // Dynamic array element read: `a[i]` where `a` is a linear-memory
                 // array. Recognizer shared with the string oracles via
                 // `dynamic_array_read_base` (same guard: non-empty, non-`length`

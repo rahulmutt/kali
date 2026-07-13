@@ -56,6 +56,7 @@ impl TypeContext {
         self.resolve_permission_query_call(expr);
         self.resolve_process_kill_call(expr);
         self.resolve_performance_now_call(expr);
+        self.resolve_crypto_call(expr);
         self.resolve_math_member_call(expr);
         self.resolve_array_callback_member_call(expr);
         self.resolve_array_search_member_call(expr);

@@ -102,6 +102,38 @@ impl TypeContext {
         }
     }
 
+    /// throw-fallout Stage 3 bucket #6: admit `crypto.getRandomValues(<buffer>)`
+    /// (exactly one argument) and `crypto.randomUUID()` (no arguments), rejecting
+    /// the unsupported argument shapes with `FEATURE_UNAVAILABLE`. Symmetric with
+    /// the codegen recognizers (`FunctionEmitter::crypto_get_random_values_import_index`
+    /// / `crypto_random_uuid_import_index` and their `emit_call` arms). `crypto`
+    /// is already a baseline browser host global (see `builtins.rs`), so the
+    /// callee resolves; this arm only guards the argument shape.
+    pub(crate) fn resolve_crypto_call(&mut self, expr: &CallExpression) {
+        let Some(callee_name) = self.resolve_static_callable_name(&expr.callee) else {
+            return;
+        };
+
+        match callee_name.as_str() {
+            "crypto.getRandomValues" | "globalThis.crypto.getRandomValues"
+                if expr.args.is_empty() =>
+            {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "crypto.getRandomValues requires a typed-array buffer argument in the current phase"
+                        .to_string(),
+                ));
+            }
+            "crypto.randomUUID" | "globalThis.crypto.randomUUID" if !expr.args.is_empty() => {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "crypto.randomUUID() does not accept arguments in the current phase".to_string(),
+                ));
+            }
+            _ => {}
+        }
+    }
+
     pub(crate) fn resolve_permissions_query_descriptor_name(
         &self,
         expr: &Expression,

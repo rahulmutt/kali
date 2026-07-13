@@ -16,3 +16,6 @@ mod process;
 
 #[path = "host_tests/perf.rs"]
 mod perf;
+
+#[path = "host_tests/crypto.rs"]
+mod crypto;

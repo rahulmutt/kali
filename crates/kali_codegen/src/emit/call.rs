@@ -2291,6 +2291,118 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if let Some(import_index) = self.crypto_get_random_values_import_index(&callee_node) {
+            // `crypto.getRandomValues(buf)`: the argument is an i64 array handle
+            // whose low 32 bits are the linear-memory base (i64 length header at
+            // `+0`, element bytes at `+8`). Decode it to `(ptr = base + 8, len =
+            // length header)`, fill the buffer IN PLACE via the host, and
+            // re-produce the ORIGINAL handle (JS `getRandomValues` returns the
+            // same buffer it was given). Mirrors the args_get buffer ptr/len
+            // split; symmetric with the kali_types admission arm.
+            let mut args = node.children.iter().skip(1);
+            let Some(buf_expr) = args.next() else {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "crypto.getRandomValues requires a typed-array buffer argument in the current phase"
+                        .to_string(),
+                ));
+                function.instruction(&Instruction::I64Const(0));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                };
+            };
+            // General-purpose i64 scratch local (see the `+ 2` extra-locals count
+            // in `lower.rs`): holds the buffer handle so it is evaluated once and
+            // reused for the ptr, the length load, and the returned value.
+            let handle_local = self.locals.len() as u32;
+            let produced = self.emit_node(function, *buf_expr, true);
+            if !produced.produced {
+                function.instruction(&Instruction::I64Const(0));
+            }
+            function.instruction(&Instruction::LocalSet(handle_local));
+            // ptr = (handle low 32 bits) + 8 — skip the i64 length header.
+            function.instruction(&Instruction::LocalGet(handle_local));
+            function.instruction(&Instruction::I32WrapI64);
+            function.instruction(&Instruction::I32Const(8));
+            function.instruction(&Instruction::I32Add);
+            // len = length header (i64 @ +0 of the base) wrapped to i32.
+            function.instruction(&Instruction::LocalGet(handle_local));
+            function.instruction(&Instruction::I32WrapI64);
+            function.instruction(&Instruction::I64Load(MemArg {
+                offset: 0,
+                align: 3,
+                memory_index: 0,
+            }));
+            function.instruction(&Instruction::I32WrapI64);
+            function.instruction(&Instruction::Call(import_index));
+            // Discard the returned byte count; the fixture wants the buffer back.
+            function.instruction(&Instruction::Drop);
+            // Any extra arguments are an unsupported shape; evaluate + drop for
+            // side effects (the kali_types arm rejects them with a diagnostic).
+            for arg in args {
+                let _ = self.emit_node(function, *arg, true);
+                function.instruction(&Instruction::Drop);
+            }
+            function.instruction(&Instruction::LocalGet(handle_local));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Scalar,
+            };
+        }
+
+        if let Some(import_index) = self.crypto_random_uuid_import_index(&callee_node) {
+            // `crypto.randomUUID()`: allocate a fixed-cap NEVER-reset buffer (so
+            // the string handle it backs safely outlives any arena reset), have
+            // the host write the UUID's UTF-8 bytes into it, and build a tagged
+            // string handle from `(buf, returned byte length)`. Mirrors the argv
+            // string-handle construction (`operators.rs`).
+            if node.children.len() > 1 {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "crypto.randomUUID() does not accept arguments in the current phase"
+                        .to_string(),
+                ));
+                function.instruction(&Instruction::I64Const(0));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::String,
+                };
+            }
+            // Canonical UUID is 36 bytes; round up to a comfortable cap. The host
+            // returns -1 (via write_guest_bytes) if the UUID overflows `cap`.
+            const UUID_BUF_CAP: i32 = 40;
+            // Two i64 scratch locals (general-purpose + array-alloc slot): hold
+            // the buffer base and the returned byte length. Both are i64-typed,
+            // so the i32 alloc result / byte count are extended on store.
+            let buf_local = self.locals.len() as u32;
+            let len_local = buf_local + 1;
+            // buf = __alloc_global(CAP)
+            function.instruction(&Instruction::I32Const(UUID_BUF_CAP));
+            function.instruction(&Instruction::Call(self.alloc_global_fn_index()));
+            function.instruction(&Instruction::I64ExtendI32U);
+            function.instruction(&Instruction::LocalSet(buf_local));
+            // len = crypto_random_uuid(buf, CAP)
+            function.instruction(&Instruction::LocalGet(buf_local));
+            function.instruction(&Instruction::I32WrapI64);
+            function.instruction(&Instruction::I32Const(UUID_BUF_CAP));
+            function.instruction(&Instruction::Call(import_index));
+            function.instruction(&Instruction::I64ExtendI32U);
+            function.instruction(&Instruction::LocalSet(len_local));
+            // handle = STRING_HANDLE_TAG | (buf << 32) | len
+            function.instruction(&Instruction::I64Const(STRING_HANDLE_TAG as i64));
+            function.instruction(&Instruction::LocalGet(buf_local));
+            function.instruction(&Instruction::I64Const(32));
+            function.instruction(&Instruction::I64Shl);
+            function.instruction(&Instruction::I64Or);
+            function.instruction(&Instruction::LocalGet(len_local));
+            function.instruction(&Instruction::I64Or);
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::String,
+            };
+        }
+
         if self.is_process_kill(&callee_node) {
             let mut args = node.children.iter().skip(1);
             let Some(pid_expr) = args.next() else {
@@ -2480,10 +2592,32 @@ impl<'a> FunctionEmitter<'a> {
         }
         let callee = node.children.first().copied()?;
         let callee_node = self.node(callee);
-        if callee_node.text.as_deref() != Some("Array") || !callee_node.children.is_empty() {
+        if !self.is_array_like_constructor(callee_node) {
             return None;
         }
         Some(node.children.get(1).copied())
+    }
+
+    /// `Array(n)` / `new Array(n)` (bare `Array`), or the `Uint8Array`
+    /// typed-array constructor in bare (`new Uint8Array(n)`) or
+    /// `globalThis["Uint8Array"]` form (throw-fallout Stage 3 bucket #6). A
+    /// `Uint8Array(n)` lowers to the same i64-element linear-memory array as
+    /// `Array(n)`: the crypto fixtures only observe `.length` / `.byteLength`
+    /// (both `== n`, read from the i64 length header) and hand the buffer to
+    /// `crypto.getRandomValues`, which fills it in place via the host; no
+    /// per-element byte addressing is exercised.
+    fn is_array_like_constructor(&self, callee_node: &LirNode) -> bool {
+        match callee_node.text.as_deref() {
+            Some("Array") => callee_node.children.is_empty(),
+            Some("Uint8Array") => {
+                callee_node.children.is_empty()
+                    || callee_node
+                        .children
+                        .first()
+                        .is_some_and(|&obj| self.node(obj).text.as_deref() == Some("globalThis"))
+            }
+            _ => false,
+        }
     }
 
     /// If `id` (after unwrapping transparent value wrappers) is a bare identifier

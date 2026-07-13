@@ -97,7 +97,12 @@ fn browser_import_list_sources() -> Vec<(&'static str, String)> {
 #[test]
 fn browser_import_lists_declare_all_host_wired_kalirt_members() {
     // Members every browser importObject must expose (conditional imports the guest may emit).
-    const REQUIRED: &[&str] = &["coverage_hit", "performance_now"];
+    const REQUIRED: &[&str] = &[
+        "coverage_hit",
+        "performance_now",
+        "crypto_get_random_values",
+        "crypto_random_uuid",
+    ];
     for (label, src) in browser_import_list_sources() {
         for member in REQUIRED {
             assert!(

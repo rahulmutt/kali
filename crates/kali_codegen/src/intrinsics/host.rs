@@ -215,6 +215,37 @@ impl<'a> FunctionEmitter<'a> {
         self.performance_now_import_index
     }
 
+    /// Recognize `crypto.getRandomValues(<buffer>)` (throw-fallout Stage 3 bucket
+    /// #6): callee method text `"getRandomValues"`, object text `"crypto"`.
+    /// Mirrors the `program_uses_crypto_get_random_values` probe and the
+    /// kali_types admission arm (`resolve_crypto_call`).
+    pub(crate) fn crypto_get_random_values_import_index(
+        &self,
+        callee_node: &LirNode,
+    ) -> Option<u32> {
+        if callee_node.text.as_deref()? != "getRandomValues" {
+            return None;
+        }
+        let object = callee_node.children.first().copied()?;
+        if self.node(object).text.as_deref() != Some("crypto") {
+            return None;
+        }
+        self.crypto_get_random_values_import_index
+    }
+
+    /// Recognize `crypto.randomUUID()` (throw-fallout Stage 3 bucket #6): callee
+    /// method text `"randomUUID"`, object text `"crypto"`.
+    pub(crate) fn crypto_random_uuid_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+        if callee_node.text.as_deref()? != "randomUUID" {
+            return None;
+        }
+        let object = callee_node.children.first().copied()?;
+        if self.node(object).text.as_deref() != Some("crypto") {
+            return None;
+        }
+        self.crypto_random_uuid_import_index
+    }
+
     pub(crate) fn render_console_call(&self, node: &LirNode) -> Option<String> {
         let args = node.children.iter().skip(1).copied().collect::<Vec<_>>();
         self.render_console_arguments(&args)

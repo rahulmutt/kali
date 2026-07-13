@@ -1559,6 +1559,23 @@ impl ReprInfer {
                         self.add_seed(result);
                         result
                     }
+                    // `crypto.randomUUID()` returns a runtime (non-interned)
+                    // string (throw-fallout Stage 3 bucket #6) — seed the result
+                    // `String` and mark it a runtime string node so a binding it
+                    // flows into resolves `Repr::String` (making `.length` read
+                    // the handle byte count and `typeof === 'string'` hold).
+                    // Mirrors the codegen recognizer
+                    // (`FunctionEmitter::crypto_random_uuid_import_index`) + emit
+                    // arm, which builds a tagged string handle.
+                    "randomUUID" if is_crypto_object(&member.object) => {
+                        for arg in &call.args {
+                            self.visit_expr(func, arg);
+                        }
+                        let result = self.new_node();
+                        self.add_string_seed(result);
+                        self.runtime_string_nodes.push(result);
+                        result
+                    }
                     "toFixed" => {
                         // The receiver is a float.
                         let recv = self.visit_expr(func, &member.object);
@@ -2748,6 +2765,11 @@ fn is_math_object(expr: &Expression) -> bool {
 /// True when `expr` is the `performance` object (`performance` identifier).
 fn is_performance_object(expr: &Expression) -> bool {
     matches!(expr, Expression::Identifier(name) if name == "performance")
+}
+
+/// True when `expr` is the `crypto` object (`crypto` identifier).
+fn is_crypto_object(expr: &Expression) -> bool {
+    matches!(expr, Expression::Identifier(name) if name == "crypto")
 }
 
 fn is_console_object(expr: &Expression) -> bool {
