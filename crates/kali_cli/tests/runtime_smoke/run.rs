@@ -8949,6 +8949,9 @@ fn run_supports_browser_web_crypto_subtle_digest_and_random_uuid_when_browser_ha
         &source_path,
         r#"async function main() {
   const bytes = new TextEncoder().encode('browser crypto');
+  if (bytes.byteLength !== 14) {
+    throw new Error(`unexpected encoded length ${bytes.byteLength}`);
+  }
   const digest = await crypto.subtle.digest('SHA-256', bytes);
   const uuid = crypto.randomUUID();
   if (digest.byteLength !== 32) {
@@ -9004,6 +9007,9 @@ fn run_supports_browser_web_crypto_subtle_digest_and_random_uuid_when_browser_ha
         &source_path,
         r#"async function main() {
   const bytes = new TextEncoder().encode('browser crypto');
+  if (bytes.byteLength !== 14) {
+    throw new Error(`unexpected encoded length ${bytes.byteLength}`);
+  }
   const digest = await crypto.subtle.digest('SHA-256', bytes);
   const uuid = crypto.randomUUID();
   if (digest.byteLength !== 32) {
