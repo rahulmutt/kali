@@ -580,6 +580,32 @@ impl TypeContext {
                 body,
                 is_await,
             }) => {
+                // Growable-array receiver (throw-fallout Stage 4): a
+                // promoted push-accumulated array has NO for..of lowering
+                // yet (Task 4). It MUST NOT take the static lane below —
+                // `is_static_array_iteration_target` still sees the stale
+                // declarator literal and would silently unroll ZERO
+                // iterations over an array that now really accumulates.
+                // Reject fail-closed instead (E5506, never a silent wrong
+                // answer).
+                {
+                    let mut rhs = right;
+                    while let Expression::ParenthesizedExpression(inner) = rhs {
+                        rhs = &inner.expression;
+                    }
+                    if matches!(rhs, Expression::Identifier(name) if self.is_growable_array_binding(name))
+                    {
+                        let loop_kind = if *is_await { "for-await-of" } else { "for-of" };
+                        self.diagnostics.push(Diagnostic::error(
+                            e5::FEATURE_UNAVAILABLE as u32,
+                            format!(
+                                "{} iteration over a growable (push-accumulated) array is unavailable in the current phase; use an index loop over `.length` or the later compatibility path",
+                                loop_kind
+                            ),
+                        ));
+                        return;
+                    }
+                }
                 let left_is_supported = match left {
                     ForOfLefthand::VariableDeclaration(_) => true,
                     ForOfLefthand::Expression(expression) => {
@@ -812,6 +838,21 @@ impl TypeContext {
                         self.global_scope
                             .array_literal_bindings
                             .insert(declarator.id.clone(), true);
+                    }
+                    // Growable-array promotion (throw-fallout Stage 4): the
+                    // repr inference already adjudicated the safe-position
+                    // allowlist + i64 element proof (see `crate::growable` +
+                    // `repr_infer`'s emit gate); mirror the promotion into
+                    // the scope registry so the resolve-phase gates
+                    // (`for..of`, `.join`) can key on it.
+                    if self
+                        .binding_repr_function_key(&declarator.id)
+                        .is_some_and(|func| {
+                            self.repr_table
+                                .is_growable_array_binding(&func, &declarator.id)
+                        })
+                    {
+                        self.register_growable_array_binding(&declarator.id);
                     }
                 }
                 // Structural runtime-array registry (C1): register a declarator

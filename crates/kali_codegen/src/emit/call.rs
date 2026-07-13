@@ -768,6 +768,15 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
 
+        // Growable runtime array `.push` (throw-fallout Stage 4): a
+        // bare-identifier receiver recognized by the growable both-sides
+        // oracle appends for real (geometric growth) and yields the new
+        // length — the miscompile this stage kills was exactly this call
+        // falling through to the generic drop-args no-op.
+        if let Some((base_name, args)) = self.growable_push_call_parts(node) {
+            return self.emit_growable_push_call(function, &base_name, &args);
+        }
+
         if let Some(result) = self.resolve_static_array_join_call(node) {
             let literal = self.alloc_scratch_node(
                 LirNodeKind::Literal,

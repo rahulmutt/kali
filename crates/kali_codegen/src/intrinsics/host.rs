@@ -729,10 +729,11 @@ impl<'a> FunctionEmitter<'a> {
                 if let Some(bound) = self.bindings.get(text).copied() {
                     return self.render_length(&bound);
                 }
-                if self.array_bindings.contains(text) {
-                    // Runtime array: the length header isn't statically known;
-                    // defer to dynamic emission (the `a.length` header load)
-                    // instead of baking in a wrong constant.
+                if self.array_bindings.contains(text) || self.is_growable_array(text) {
+                    // Runtime (plain or growable) array: the length isn't
+                    // statically known; defer to dynamic emission (the
+                    // respective `.length` header-load lane) instead of
+                    // baking in a wrong constant.
                     return None;
                 }
                 return Some("0".to_string());

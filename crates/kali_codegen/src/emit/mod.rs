@@ -2,6 +2,7 @@
 
 mod call;
 mod control_flow;
+mod growable;
 mod literal;
 mod object;
 mod operators;

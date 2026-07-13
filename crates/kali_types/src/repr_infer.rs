@@ -274,6 +274,20 @@ struct ReprInfer {
     /// resolve-phase compound/update gate can reject fail-closed regardless of
     /// whether the object ever gets a shape (fasta Spec 7 Task 2).
     object_initialized_bindings: BTreeSet<(String, String)>,
+    /// Syntactic growable-array candidates `(func, binding)` from the Stage 4
+    /// choke-point predicate ([`crate::growable::growable_array_candidates`]),
+    /// computed in Phase A3 before any body walk. The `.push` visit arm
+    /// records pushed-value nodes ONLY for these; a non-candidate receiver
+    /// keeps today's repr graph byte-identically (zero behavior change for
+    /// any binding that does not promote).
+    growable_candidates: BTreeSet<(String, String)>,
+    /// Pushed-value evidence for growable candidates: `(func, binding,
+    /// value_node, value_identifier)` per recognized single-argument `.push`
+    /// site, adjudicated at `emit_table` time — promotion requires EVERY
+    /// pushed value to solve plain i64 (never float/string, and an identifier
+    /// argument must not name a function/array/object/for-in-key binding,
+    /// whose raw handle/ordinal would be stored as a number: a miscompile).
+    growable_pushes: Vec<(String, String, usize, Option<String>)>,
 }
 
 /// Identity of an object-holding slot for shape/aliasing purposes.
@@ -314,6 +328,13 @@ pub fn infer_reprs(statements: &[Statement]) -> ReprTable {
     // in Phase B can distinguish a local read from a module-scope read
     // regardless of source order.
     infer.collect_local_names(TOP_LEVEL, statements);
+
+    // Phase A3 (throw-fallout Stage 4): syntactic growable-array candidates
+    // per function — the choke-point safe-position allowlist. Purely
+    // syntactic here; the repr half of the gate runs in `emit_table` once
+    // the axes are solved. Module scope (`_start`) is deliberately not
+    // analyzed: a module-level push receiver keeps the plain lane.
+    infer.collect_growable_candidates(statements);
 
     // Phase B: walk bodies. Top-level non-function statements run under the
     // synthetic `_start`; each `FunctionDeclaration` runs under its own name.
@@ -668,6 +689,57 @@ impl ReprInfer {
                 }
                 if let Some(finalizer) = &node.finalizer {
                     self.collect_functions(&finalizer.body);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    // ---- Phase A3: growable-array candidate collection -------------------
+
+    /// Walk every `FunctionDeclaration` (recursively, mirroring
+    /// `collect_functions_in_stmt`'s traversal) and run the Stage 4
+    /// choke-point predicate over its body. Function names are flat (as
+    /// everywhere in this pass), so monomorphized `f${N}` clones are
+    /// analyzed independently.
+    fn collect_growable_candidates(&mut self, statements: &[Statement]) {
+        for stmt in statements {
+            self.collect_growable_candidates_in_stmt(stmt);
+        }
+    }
+
+    fn collect_growable_candidates_in_stmt(&mut self, stmt: &Statement) {
+        match stmt {
+            Statement::FunctionDeclaration(func) => {
+                let (candidates, _pushes) =
+                    crate::growable::growable_array_candidates(&func.params, &func.body.body);
+                for name in candidates {
+                    self.growable_candidates.insert((func.name.clone(), name));
+                }
+                self.collect_growable_candidates(&func.body.body);
+            }
+            Statement::BlockStatement(block) => self.collect_growable_candidates(&block.body),
+            Statement::IfStatement(node) => {
+                self.collect_growable_candidates(&node.consequent.body);
+                if let Some(alt) = &node.alternate {
+                    self.collect_growable_candidates(&alt.body);
+                }
+            }
+            Statement::ForStatement(node) => self.collect_growable_candidates(&node.body.body),
+            Statement::ForInStatement(node) => self.collect_growable_candidates_in_stmt(&node.body),
+            Statement::ForOfStatement(node) => self.collect_growable_candidates_in_stmt(&node.body),
+            Statement::WhileStatement(node) => self.collect_growable_candidates(&node.body.body),
+            Statement::DoWhileStatement(node) => self.collect_growable_candidates(&node.body.body),
+            Statement::LabeledStatement(node) => {
+                self.collect_growable_candidates_in_stmt(&node.body)
+            }
+            Statement::TryStatement(node) => {
+                self.collect_growable_candidates(&node.block.body);
+                if let Some(handler) = &node.handler {
+                    self.collect_growable_candidates(&handler.body.body);
+                }
+                if let Some(finalizer) = &node.finalizer {
+                    self.collect_growable_candidates(&finalizer.body);
                 }
             }
             _ => {}
@@ -1662,6 +1734,59 @@ impl ReprInfer {
                         self.runtime_string_nodes.push(result);
                         result
                     }
+                    // `a.push(v)` — throw-fallout Stage 4 growable lane. For
+                    // a syntactic growable CANDIDATE receiver, record the
+                    // pushed value's node for the emit-time promotion gate.
+                    // The repr GRAPH is byte-identical to the generic `_` arm
+                    // either way (same visits, same fresh result node):
+                    // candidacy only adds bookkeeping, so a binding that
+                    // fails the later repr gate keeps today's inference
+                    // exactly. Element-node wiring is deliberately NOT added
+                    // in this i64 lane — promotion REQUIRES every pushed
+                    // value to solve plain i64, so the element axis stays at
+                    // the I64 default by construction; Task 3 (string
+                    // elements) adds the wiring + String relaxation.
+                    "push" => {
+                        if is_console_object(&member.object) {
+                            for arg in &call.args {
+                                self.seed_for_in_key_string_use(func, arg);
+                            }
+                        }
+                        self.visit_expr(func, &member.object);
+                        let mut arg_nodes = Vec::with_capacity(call.args.len());
+                        for arg in &call.args {
+                            arg_nodes.push(self.visit_expr(func, arg));
+                        }
+                        let mut receiver = &member.object;
+                        while let Expression::ParenthesizedExpression(inner) = receiver {
+                            receiver = &inner.expression;
+                        }
+                        if let Expression::Identifier(name) = receiver {
+                            if call.args.len() == 1
+                                && self
+                                    .growable_candidates
+                                    .contains(&(func.to_string(), name.clone()))
+                            {
+                                let mut arg = &call.args[0];
+                                while let Expression::ParenthesizedExpression(inner) = arg {
+                                    arg = &inner.expression;
+                                }
+                                let arg_identifier = match arg {
+                                    Expression::Identifier(id) => Some(id.clone()),
+                                    _ => None,
+                                };
+                                self.growable_pushes.push((
+                                    func.to_string(),
+                                    name.clone(),
+                                    arg_nodes[0],
+                                    arg_identifier,
+                                ));
+                            }
+                        }
+                        // `.push` returns the array's new length (i64) — a
+                        // fresh plain node.
+                        self.new_node()
+                    }
                     "join" => {
                         // `a.join(sep)` implies `a`'s elements are strings.
                         // String-seed the receiver's element node so an
@@ -1673,9 +1798,24 @@ impl ReprInfer {
                         // element node rather than a fresh one is what makes
                         // both facts fall out of the existing element solve
                         // (emit_table: mixed_store || float => conflict).
+                        //
+                        // EXCEPT a growable CANDIDATE receiver (throw-fallout
+                        // Stage 4): joining a push-accumulated i64 array does
+                        // NOT imply string elements (the growable join, Task
+                        // 5, renders numbers) — seeding String here would veto
+                        // the i64 promotion gate for every pushed-and-joined
+                        // binding (the stage's target fixture shape). The
+                        // resolve-phase growable join gate rejects the call
+                        // E5506 until Task 5 lowers it, so no string-element
+                        // proof is needed for these receivers.
                         if let Expression::Identifier(name) = &member.object {
-                            let elem = self.array_elem_node_for(func, name);
-                            self.add_string_seed(elem);
+                            if !self
+                                .growable_candidates
+                                .contains(&(func.to_string(), name.clone()))
+                            {
+                                let elem = self.array_elem_node_for(func, name);
+                                self.add_string_seed(elem);
+                            }
                         } else {
                             self.visit_expr(func, &member.object);
                         }
@@ -2772,7 +2912,100 @@ impl ReprInfer {
             }
         }
 
+        // Growable-array promotion (throw-fallout Stage 4) — the repr half
+        // of the gate, over the Phase A3 syntactic candidates. A candidate
+        // promotes iff its element axis and EVERY pushed value solve plain
+        // i64 (never float/string/object, and an identifier argument never
+        // names a function/array/object/for-in-key binding). A candidate
+        // that fails here simply does not promote: the table carries no
+        // growable entry, so the binding keeps the pre-existing plain lane
+        // byte-identically (Task 3 relaxes elements to String; Task 6 sweeps
+        // the residual fail-open pushes to E5506).
+        let growable_candidates: Vec<(String, String)> =
+            self.growable_candidates.iter().cloned().collect();
+        for (func, name) in growable_candidates {
+            let pushes: Vec<(usize, Option<String>)> = self
+                .growable_pushes
+                .iter()
+                .filter(|(f, n, _, _)| *f == func && *n == name)
+                .map(|(_, _, vnode, arg)| (*vnode, arg.clone()))
+                .collect();
+            if pushes.is_empty() {
+                continue;
+            }
+            // Element axis (populated by literal seeds) must stay plain.
+            if let Some(&elem) = self.array_elem_node.get(&(func.clone(), name.clone())) {
+                let rep = self.uf.find(elem);
+                if string[rep] || float[rep] {
+                    continue;
+                }
+            }
+            // Object-shaped elements fail closed (defensive: the syntactic
+            // seed allowlist already excludes object literals/identifiers).
+            let elem_slot = ObjSlot::ArrayElem(func.clone(), name.clone());
+            if self.obj_materialized.contains(&elem_slot)
+                || self.obj_fields_of.contains_key(&elem_slot)
+            {
+                continue;
+            }
+            let pushes_ok = pushes.iter().all(|(vnode, arg_identifier)| {
+                let rep = self.uf.find(*vnode);
+                if string[rep] || float[rep] {
+                    return false;
+                }
+                match arg_identifier {
+                    None => true,
+                    Some(arg) => self.growable_push_identifier_ok(&func, arg),
+                }
+            });
+            if pushes_ok {
+                table.set_growable_array_binding(&func, &name);
+            }
+        }
+
         table
+    }
+
+    /// True when identifier `name`, pushed into a growable candidate inside
+    /// `func`, provably holds a plain scalar: it must be a DECLARED binding
+    /// (an undeclared name — `undefined`, `NaN`, … — has no i64 value), and
+    /// must not name a function reference, an array binding, an
+    /// object-shaped binding, or a `for..in` key (all of whose raw
+    /// handles/ordinals would be stored and read back as numbers — silent
+    /// miscompiles). Float/string-ness is separately covered by the pushed
+    /// value node's solved axes at the call site of this check.
+    fn growable_push_identifier_ok(&self, func: &str, name: &str) -> bool {
+        if self.functions.contains_key(name) {
+            return false;
+        }
+        let local = self.is_locally_declared(func, name);
+        if !local && !self.is_locally_declared(TOP_LEVEL, name) {
+            return false;
+        }
+        // Same local-vs-module scope resolution as `visit_expr`'s
+        // `Identifier` arm.
+        let scope = if func != TOP_LEVEL && !local {
+            TOP_LEVEL
+        } else {
+            func
+        };
+        if self
+            .for_in_key_names
+            .contains(&(scope.to_string(), name.to_string()))
+            || self
+                .for_in_key_names
+                .contains(&(func.to_string(), name.to_string()))
+        {
+            return false;
+        }
+        if self
+            .array_elem_node
+            .contains_key(&(scope.to_string(), name.to_string()))
+        {
+            return false;
+        }
+        let slot = ObjSlot::Binding(scope.to_string(), name.to_string());
+        !self.obj_materialized.contains(&slot) && !self.obj_fields_of.contains_key(&slot)
     }
 }
 

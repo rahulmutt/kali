@@ -294,7 +294,7 @@ impl TypeContext {
     ///   `current_function_scope()` (an arrow/function-expression/method/`export
     ///   default function` body that does not push onto `current_function`):
     ///   neither table lookup is safe, so callers FAIL CLOSED.
-    fn binding_repr_function_key(&self, name: &str) -> Option<String> {
+    pub(crate) fn binding_repr_function_key(&self, name: &str) -> Option<String> {
         let tracked_scope = self.current_function_scope();
         let mut current = self.current_scope_id();
         loop {
@@ -359,6 +359,39 @@ impl TypeContext {
             if scope.scope_type == ScopeType::Function {
                 // Tracked function's own top scope, no hit: a free module
                 // reference codegen's emitter for this function never registers.
+                return false;
+            }
+            current = scope.parent;
+        }
+    }
+
+    /// True iff `name` is registered as a GROWABLE runtime-array binding in
+    /// the CURRENT function (throw-fallout Stage 4) — the types-side mirror
+    /// of codegen's emitter `growable_array_bindings` set. Scope-walk twin
+    /// of `is_structural_runtime_array` (same fail-closed rules: crossing an
+    /// untracked function-shaped scope ⇒ `false`; module/global scope is
+    /// reachable only under `_start`).
+    pub(crate) fn is_growable_array_binding(&self, name: &str) -> bool {
+        let tracked_scope = self.current_function_scope();
+        let mut current = self.current_scope_id();
+        loop {
+            let Some(scope_id) = current else {
+                return self.global_scope.growable_array_bindings.contains_key(name);
+            };
+            let Some(scope) = self.scopes.get(&scope_id) else {
+                return false;
+            };
+            if scope.scope_type == ScopeType::Function && Some(scope_id) != tracked_scope {
+                // Crossed into a function `current_function_name()` does not
+                // name — fail closed rather than guess.
+                return false;
+            }
+            if scope.growable_array_bindings.contains_key(name) {
+                return true;
+            }
+            if scope.scope_type == ScopeType::Function {
+                // Tracked function's own top scope, no hit: a free module
+                // reference this function's emitter never registers.
                 return false;
             }
             current = scope.parent;
@@ -665,6 +698,30 @@ impl TypeContext {
         if self.global_scope.bindings.contains_key(name) {
             self.global_scope
                 .runtime_array_bindings
+                .insert(name.to_string(), true);
+        }
+    }
+
+    /// Register `name` as a GROWABLE runtime-array binding in the scope
+    /// where it is declared (module/global fallback otherwise). Grow-only,
+    /// mirroring `register_runtime_array_binding` and codegen's insert-only
+    /// `growable_array_bindings` — throw-fallout Stage 4.
+    pub(crate) fn register_growable_array_binding(&mut self, name: &str) {
+        let mut current = self.current_scope_id();
+        while let Some(scope_id) = current {
+            if let Some(scope) = self.scopes.get_mut(&scope_id) {
+                if scope.bindings.contains_key(name) {
+                    scope.growable_array_bindings.insert(name.to_string(), true);
+                    return;
+                }
+                current = scope.parent;
+            } else {
+                return;
+            }
+        }
+        if self.global_scope.bindings.contains_key(name) {
+            self.global_scope
+                .growable_array_bindings
                 .insert(name.to_string(), true);
         }
     }

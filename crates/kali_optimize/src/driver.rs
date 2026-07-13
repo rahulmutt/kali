@@ -43,6 +43,17 @@ pub struct Optimizer {
     pub(crate) level: OptimizationLevel,
     pub(crate) max_specializations: usize,
     pub(crate) profile_data: Option<ProfileData>,
+    /// Names of growable (push-accumulated) runtime-array bindings
+    /// (throw-fallout Stage 4), from
+    /// `kali_common::ReprTable::growable_array_binding_names`. `push` is a
+    /// mutation the member-store scan cannot see (it is a Call, not a
+    /// store), so these names are folded into `collect_mutated_binding_names`'
+    /// result — otherwise every constant-binding env would inline/fold the
+    /// stale declarator literal (`o.length` → `0`, `o[0]` → `undefined`)
+    /// over an array that now really accumulates at runtime. Name-based and
+    /// shadowing-blind like the mutated scan itself: over-marking only ever
+    /// DISABLES folding (fail-closed direction).
+    pub(crate) growable_array_bindings: BTreeSet<String>,
 }
 
 impl Optimizer {
@@ -52,6 +63,7 @@ impl Optimizer {
             level,
             max_specializations: 16,
             profile_data: None,
+            growable_array_bindings: BTreeSet::new(),
         }
     }
 
@@ -61,7 +73,15 @@ impl Optimizer {
             level,
             max_specializations,
             profile_data: None,
+            growable_array_bindings: BTreeSet::new(),
         }
+    }
+
+    /// Attach the growable-array binding names (see the field doc). Chained
+    /// like `with_profile_data`.
+    pub fn with_growable_array_bindings(mut self, names: BTreeSet<String>) -> Self {
+        self.growable_array_bindings = names;
+        self
     }
 
     /// Return the configured specialization cap.

@@ -813,6 +813,31 @@ impl TypeContext {
         if member.property.as_str() != "join" {
             return;
         }
+        // Growable-array receiver (throw-fallout Stage 4): a promoted
+        // push-accumulated array has NO `.join` lowering yet (Task 5). It
+        // MUST NOT take the static fold lane below —
+        // `is_static_array_iteration_target` still sees the stale declarator
+        // literal and would silently fold `""` over an array that now really
+        // accumulates. Reject fail-closed instead (E5506, never a silent
+        // wrong answer).
+        {
+            let mut receiver = &member.object;
+            while let Expression::ParenthesizedExpression(inner) = receiver {
+                receiver = &inner.expression;
+            }
+            if matches!(receiver, Expression::Identifier(name) if self.is_growable_array_binding(name))
+            {
+                self.resolve_expression(&member.object);
+                for arg in &expr.args {
+                    self.resolve_expression(arg);
+                }
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Array.prototype.join on a growable (push-accumulated) array is unavailable in the current phase; use an index loop over `.length` or the later compatibility path".to_string(),
+                ));
+                return;
+            }
+        }
 
         let supported_arg_count = matches!(expr.args.len(), 0 | 1);
 

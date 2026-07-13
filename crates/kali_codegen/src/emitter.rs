@@ -100,6 +100,13 @@ pub(crate) struct FunctionEmitter<'a> {
     pub(crate) bindings: BTreeMap<String, LirNodeId>,
     /// Names of locals that hold a linear-memory array handle (`new Array(n)`).
     pub(crate) array_bindings: HashSet<String>,
+    /// Names of locals that hold a GROWABLE runtime-array tagged handle
+    /// (throw-fallout Stage 4) — the codegen half of the growable both-sides
+    /// oracle, populated at construction from
+    /// `repr_table.is_growable_array_binding` for every param/local name.
+    /// DISJOINT from `array_bindings` (a separate tagged-header layout; the
+    /// two lanes must never conflate).
+    pub(crate) growable_array_bindings: HashSet<String>,
     pub(crate) reported_placeholder_fallbacks: HashSet<String>,
     pub(crate) control_frames: Vec<ControlFlowLabelKind>,
     pub(crate) loop_frames: Vec<LoopFrame>,
@@ -239,6 +246,21 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
 
+        // Register GROWABLE array bindings (throw-fallout Stage 4) for every
+        // param/local name the repr inference promoted. Unlike the plain
+        // `array_bindings` set above (params only; declarators register at
+        // their declaration site), growable membership is decided entirely by
+        // the repr table (the types-side promotion), so both params and
+        // declarator locals are seeded here — declarator emission relies on
+        // membership BEFORE its own statement is reached (locals collection
+        // promoted the binding to a slot for the same reason).
+        let mut growable_array_bindings = HashSet::new();
+        for name in params.iter().chain(local_names.iter()) {
+            if repr_table.is_growable_array_binding(function_name, name) {
+                growable_array_bindings.insert(name.clone());
+            }
+        }
+
         Self {
             program,
             node_lookup: &program.nodes,
@@ -266,6 +288,7 @@ impl<'a> FunctionEmitter<'a> {
             locals,
             bindings: BTreeMap::new(),
             array_bindings,
+            growable_array_bindings,
             reported_placeholder_fallbacks: HashSet::new(),
             control_frames: Vec::new(),
             loop_frames: Vec::new(),
@@ -331,6 +354,13 @@ impl<'a> FunctionEmitter<'a> {
     /// current function.
     pub(crate) fn array_elem_repr(&self, name: &str) -> kali_common::Repr {
         self.repr_table.array_element(&self.function_name, name)
+    }
+
+    /// True when `name` is a GROWABLE runtime-array binding of the current
+    /// function (throw-fallout Stage 4) — the codegen half of the growable
+    /// both-sides oracle, mirroring `repr_table.is_growable_array_binding`.
+    pub(crate) fn is_growable_array(&self, name: &str) -> bool {
+        self.growable_array_bindings.contains(name)
     }
 
     /// Wasm function index of the allocator an allocation site in the

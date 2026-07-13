@@ -1,0 +1,547 @@
+//! Growable runtime-array candidate analysis (throw-fallout Stage 4).
+//!
+//! THE single choke-point predicate for the growable-array lane:
+//! [`growable_array_candidates`] decides, purely syntactically, which
+//! `const`/`let` array-literal bindings of one function are ALLOWED to be
+//! promoted to codegen's growable (push-accumulated) tagged-handle lane.
+//! Promotion is an ALLOWLIST of safe positions — the program-history lesson
+//! (`kali-forin-spec4a`): for "an internal repr must not escape", allowlist
+//! the safe positions at one choke point; never denylist sinks.
+//!
+//! A binding is a candidate iff:
+//! - it is declared EXACTLY ONCE in the function (params and nested
+//!   declarations of the same name count against it — shadowing would make
+//!   the name-based occurrence scan unsound), by a `const` or `let`
+//!   declarator whose init is an array literal of scalar-shaped seeds
+//!   (numeric/boolean literals and arithmetic over them — Task 2's i64 lane;
+//!   Task 3 relaxes seeds/pushes to strings),
+//! - it has at least one `.push` occurrence, and
+//! - EVERY occurrence of its name anywhere in the function body — including
+//!   inside nested functions/closures, where NO position is safe (a capture
+//!   is an escape) — is one of the safe growable positions:
+//!   * the declarator init itself,
+//!   * `x.push(v)` receiver (exactly one scalar-shaped argument),
+//!   * `x.length` read,
+//!   * `x[i]` index READ (never an index write),
+//!   * `for..of` RHS iterable (rejected fail-closed E5506 until Task 4),
+//!   * `x.join(sep)` receiver, 0/1 args (rejected fail-closed E5506 until
+//!     Task 5).
+//!
+//! ANY other occurrence — a bare read, call argument, `return x`, a store
+//! into an object/array, reassignment or compound assignment of the binding,
+//! an index write `x[i] = v`, a non-push/join method receiver, `delete`,
+//!  `for..in` RHS, `++`/`--` — disqualifies the name: NO promotion, and the
+//! binding keeps the pre-existing plain lane byte-identically (the fail-open
+//! push no-op it had before this stage; Task 6 sweeps those to E5506).
+//!
+//! The scanner is an EXHAUSTIVE match over `kali_ast`'s `Statement` and
+//! `Expression` enums with no wildcard arm, so adding a new AST variant
+//! forces a decision here (default-deny by construction). Statement/
+//! expression kinds this analysis cannot cheaply see through (classes, JSX
+//! trees, `with`, enums, import/export) POISON the whole function — no
+//! candidate is promoted in it (sound: promotion misses only ever keep the
+//! old behavior).
+//!
+//! The candidate set is SYNTACTIC (pre-repr): `kali_types::repr_infer`
+//! intersects it with the solved repr axes at `emit_table` time (every
+//! pushed value and the element axis must prove plain i64, never
+//! float/string/object/array/function) before recording the promotion into
+//! [`kali_common::ReprTable::set_growable_array_binding`].
+
+use std::collections::{BTreeMap, BTreeSet};
+
+use kali_ast::{
+    Expression, ExpressionOrSpread, ForInLefthand, ForInit, ForOfLefthand, LiteralValue, Statement,
+};
+
+/// One recognized `candidate.push(<scalar-shaped arg>)` occurrence, in
+/// source order. `repr_infer` uses these to find the pushed-value repr nodes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct GrowablePushSite {
+    /// Receiver binding name.
+    pub(crate) name: String,
+    /// The pushed argument, when it is a bare identifier — checked against
+    /// object/array/function bindings at `emit_table` time (a raw handle
+    /// stored as an element would read back as a number: a miscompile).
+    pub(crate) arg_identifier: Option<String>,
+}
+
+#[derive(Debug, Default)]
+struct DeclInfo {
+    /// How many declarations of this name the function contains (params,
+    /// declarators, catch params, nested functions'/closures' declarations
+    /// and params all count — any count > 1 disqualifies).
+    count: usize,
+    /// True when the single declaration is a `const`/`let` declarator whose
+    /// init is an array literal of scalar-shaped seeds.
+    growable_shape: bool,
+}
+
+#[derive(Debug, Default)]
+struct Scan {
+    decls: BTreeMap<String, DeclInfo>,
+    /// Names with at least one occurrence outside the safe-position allowlist.
+    unsafe_names: BTreeSet<String>,
+    /// Clean `.push` receivers, in source order.
+    pushes: Vec<GrowablePushSite>,
+    /// A construct the scanner cannot see through appeared: no candidates.
+    poisoned: bool,
+}
+
+/// Names of `func_params` + statements' bindings eligible for growable
+/// promotion, plus their recognized push sites. See the module doc — this is
+/// the choke-point predicate Tasks 3–6 extend.
+pub(crate) fn growable_array_candidates(
+    func_params: &[String],
+    body: &[Statement],
+) -> (BTreeSet<String>, Vec<GrowablePushSite>) {
+    let mut scan = Scan::default();
+    for param in func_params {
+        scan.declare(param, false);
+    }
+    for stmt in body {
+        scan.stmt(stmt, false);
+    }
+    if scan.poisoned {
+        return (BTreeSet::new(), Vec::new());
+    }
+    let candidates: BTreeSet<String> = scan
+        .decls
+        .iter()
+        .filter(|(name, info)| {
+            info.count == 1
+                && info.growable_shape
+                && !scan.unsafe_names.contains(*name)
+                && scan.pushes.iter().any(|push| &push.name == *name)
+        })
+        .map(|(name, _)| name.clone())
+        .collect();
+    let pushes = scan
+        .pushes
+        .into_iter()
+        .filter(|push| candidates.contains(&push.name))
+        .collect();
+    (candidates, pushes)
+}
+
+/// True for the scalar-shaped expressions admitted as push arguments, array
+/// seeds, and computed indices in Task 2's i64 lane: numeric literals, bare
+/// identifiers (`allow_identifiers` — repr-checked later at `emit_table`),
+/// and unary/binary arithmetic over such. Everything else (calls, members,
+/// objects, arrays, strings, booleans, templates, …) is out — it could
+/// deliver a value this lane would store raw and read back wrong.
+fn scalar_value_shape_ok(expr: &Expression, allow_identifiers: bool) -> bool {
+    match expr {
+        Expression::Literal(LiteralValue::Number(_)) => true,
+        Expression::Identifier(_) => allow_identifiers,
+        Expression::ParenthesizedExpression(inner) => {
+            scalar_value_shape_ok(&inner.expression, allow_identifiers)
+        }
+        Expression::UnaryExpression(unary) => {
+            matches!(unary.operator.as_str(), "-" | "+" | "~")
+                && scalar_value_shape_ok(&unary.argument, allow_identifiers)
+        }
+        Expression::BinaryExpression(binary) => {
+            matches!(
+                binary.operator.as_str(),
+                "+" | "-" | "*" | "/" | "%" | "**" | "&" | "|" | "^" | "<<" | ">>" | ">>>"
+            ) && scalar_value_shape_ok(&binary.left, allow_identifiers)
+                && scalar_value_shape_ok(&binary.right, allow_identifiers)
+        }
+        _ => false,
+    }
+}
+
+fn strip_parens(expr: &Expression) -> &Expression {
+    let mut current = expr;
+    while let Expression::ParenthesizedExpression(inner) = current {
+        current = &inner.expression;
+    }
+    current
+}
+
+impl Scan {
+    fn declare(&mut self, name: &str, growable_shape: bool) {
+        let info = self.decls.entry(name.to_string()).or_default();
+        info.count += 1;
+        info.growable_shape = growable_shape && info.count == 1;
+    }
+
+    fn mark_unsafe(&mut self, name: &str) {
+        self.unsafe_names.insert(name.to_string());
+    }
+
+    fn block(&mut self, block: &kali_ast::BlockStatement, nested: bool) {
+        for stmt in &block.body {
+            self.stmt(stmt, nested);
+        }
+    }
+
+    fn stmt(&mut self, stmt: &Statement, nested: bool) {
+        match stmt {
+            Statement::ExpressionStatement(s) => self.expr(&s.expression, nested),
+            Statement::BreakStatement(_)
+            | Statement::ContinueStatement(_)
+            | Statement::DebuggerStatement(_) => {}
+            // `with` rebinds free identifiers dynamically — the name-based
+            // occurrence scan is unsound under it. Poison.
+            Statement::WithStatement(_) => self.poisoned = true,
+            Statement::ReturnStatement(s) => {
+                if let Some(arg) = &s.argument {
+                    self.expr(arg, nested);
+                }
+            }
+            Statement::LabeledStatement(s) => self.stmt(&s.body, nested),
+            Statement::IfStatement(s) => {
+                self.expr(&s.test, nested);
+                self.block(&s.consequent, nested);
+                if let Some(alt) = &s.alternate {
+                    self.block(alt, nested);
+                }
+            }
+            Statement::SwitchStatement(s) => {
+                self.expr(&s.discriminant, nested);
+                for case in &s.cases {
+                    if let Some(test) = &case.test {
+                        self.expr(test, nested);
+                    }
+                    for stmt in &case.consequent {
+                        self.stmt(stmt, nested);
+                    }
+                }
+            }
+            Statement::ThrowStatement(s) => self.expr(&s.argument, nested),
+            Statement::TryStatement(s) => {
+                self.block(&s.block, nested);
+                if let Some(handler) = &s.handler {
+                    // The catch param is a declaration (it shadows within the
+                    // handler; count it so a same-named candidate disqualifies).
+                    self.declare(&handler.param, false);
+                    self.block(&handler.body, nested);
+                }
+                if let Some(finalizer) = &s.finalizer {
+                    self.block(finalizer, nested);
+                }
+            }
+            Statement::BlockStatement(s) => self.block(s, nested),
+            Statement::ForStatement(s) => {
+                match &s.init {
+                    Some(ForInit::VariableDeclaration(decl)) => {
+                        self.variable_declaration(decl, nested)
+                    }
+                    Some(ForInit::Expression(expr)) => self.expr(expr, nested),
+                    None => {}
+                }
+                if let Some(test) = &s.test {
+                    self.expr(test, nested);
+                }
+                if let Some(update) = &s.update {
+                    self.expr(update, nested);
+                }
+                self.block(&s.body, nested);
+            }
+            Statement::ForInStatement(s) => {
+                match &s.left {
+                    ForInLefthand::VariableDeclaration(decl) => {
+                        self.variable_declaration(decl, nested)
+                    }
+                    // Bare-identifier key: a WRITE to that name each
+                    // iteration — the plain expr scan marks it unsafe.
+                    ForInLefthand::Expression(expr) => self.expr(expr, nested),
+                }
+                // `for..in` over a growable array is NOT in the allowlist
+                // (only for..of is): the plain expr scan marks an identifier
+                // RHS unsafe.
+                self.expr(&s.right, nested);
+                self.stmt(&s.body, nested);
+            }
+            Statement::ForOfStatement(s) => {
+                match &s.left {
+                    ForOfLefthand::VariableDeclaration(decl) => {
+                        self.variable_declaration(decl, nested)
+                    }
+                    ForOfLefthand::Expression(expr) => self.expr(expr, nested),
+                }
+                // for..of RHS is a SAFE position for a bare identifier (the
+                // full stage surface; fail-closed E5506 until Task 4 lowers
+                // it — see the resolve-phase for..of gate).
+                if nested || !matches!(strip_parens(&s.right), Expression::Identifier(_)) {
+                    self.expr(&s.right, nested);
+                }
+                self.stmt(&s.body, nested);
+            }
+            Statement::WhileStatement(s) => {
+                self.expr(&s.test, nested);
+                self.block(&s.body, nested);
+            }
+            Statement::DoWhileStatement(s) => {
+                self.block(&s.body, nested);
+                self.expr(&s.test, nested);
+            }
+            Statement::FunctionDeclaration(decl) => {
+                // The nested function's name shadows/collides at function
+                // scope; its params + body occurrences are all scanned in
+                // nested mode (no safe positions inside a closure — a
+                // captured growable handle is an escape).
+                self.declare(&decl.name, false);
+                for param in &decl.params {
+                    self.declare(param, false);
+                }
+                self.block(&decl.body, true);
+            }
+            // Class bodies (methods, field initializers) are not walked by
+            // this analysis: poison rather than risk missing an occurrence.
+            Statement::ClassDeclaration(_) => self.poisoned = true,
+            Statement::VariableDeclaration(decl) => self.variable_declaration(decl, nested),
+            Statement::ImportDeclaration(_)
+            | Statement::ExportAll(_)
+            | Statement::ExportNamed(_)
+            | Statement::ExportDefault(_)
+            | Statement::EnumDeclaration(_) => self.poisoned = true,
+            // Type-only declarations carry no runtime identifier references.
+            Statement::TypeAliasDeclaration(_) | Statement::InterfaceDeclaration(_) => {}
+        }
+    }
+
+    fn variable_declaration(&mut self, decl: &kali_ast::VariableDeclaration, nested: bool) {
+        for declarator in &decl.declarations {
+            let growable_shape = !nested
+                && matches!(decl.kind.as_str(), "const" | "let")
+                && declarator.init.as_ref().is_some_and(|init| {
+                    matches!(init, Expression::ArrayExpression(array)
+                    if array.elements.iter().all(|element| matches!(
+                        element,
+                        Some(ExpressionOrSpread::Expression(expr))
+                            // Seeds admit NO identifiers: an identifier
+                            // seed could deliver an object/array handle
+                            // the emit-time repr gate cannot see on the
+                            // element axis.
+                            if scalar_value_shape_ok(expr, false)
+                    )))
+                });
+            self.declare(&declarator.id, growable_shape);
+            if let Some(init) = &declarator.init {
+                self.expr(init, nested);
+            }
+        }
+    }
+
+    /// Marks the write-target base of an assignment/update: a bare
+    /// identifier target is a reassignment; a member target (`x[i] = v`,
+    /// `x.f = v`, `x[i]++`) mutates its base outside the allowlist (index
+    /// WRITES are not lowered by this lane). Subexpressions (computed
+    /// indices, nested bases) are scanned normally.
+    fn write_target(&mut self, target: &Expression, nested: bool) {
+        match strip_parens(target) {
+            Expression::Identifier(name) => self.mark_unsafe(name),
+            Expression::MemberExpression(member) => {
+                match strip_parens(&member.object) {
+                    Expression::Identifier(name) => self.mark_unsafe(name),
+                    other => self.expr(other, nested),
+                }
+                if let Some(index) = &member.computed_index {
+                    self.expr(index, nested);
+                }
+            }
+            // Any other target shape: scan it plainly — every identifier
+            // inside marks unsafe.
+            other => self.expr(other, nested),
+        }
+    }
+
+    fn expr(&mut self, expr: &Expression, nested: bool) {
+        match expr {
+            // THE identifier choke point: any bare occurrence that was not
+            // consumed by a safe-position arm above lands here → unsafe.
+            Expression::Identifier(name) => self.mark_unsafe(name),
+            Expression::Literal(_) | Expression::BigIntLiteral(_) => {}
+            Expression::BinaryExpression(e) => {
+                self.expr(&e.left, nested);
+                self.expr(&e.right, nested);
+            }
+            Expression::UnaryExpression(e) => {
+                if e.operator == "delete" {
+                    // `delete x[i]` / `delete x.f` mutates the base.
+                    self.write_target(&e.argument, nested);
+                } else {
+                    self.expr(&e.argument, nested);
+                }
+            }
+            Expression::CallExpression(call) => {
+                if !nested {
+                    if let Expression::MemberExpression(member) = strip_parens(&call.callee) {
+                        if member.computed_index.is_none() {
+                            if let Expression::Identifier(name) = strip_parens(&member.object) {
+                                match member.property.as_str() {
+                                    // `x.push(v)` — safe receiver iff exactly
+                                    // one scalar-shaped argument.
+                                    "push"
+                                        if call.args.len() == 1
+                                            && scalar_value_shape_ok(&call.args[0], true) =>
+                                    {
+                                        let arg = strip_parens(&call.args[0]);
+                                        self.pushes.push(GrowablePushSite {
+                                            name: name.clone(),
+                                            arg_identifier: match arg {
+                                                Expression::Identifier(id) => Some(id.clone()),
+                                                _ => None,
+                                            },
+                                        });
+                                        // Occurrences INSIDE the argument are
+                                        // classified normally (`x.push(x)`
+                                        // still marks `x` unsafe).
+                                        self.expr(&call.args[0], nested);
+                                        return;
+                                    }
+                                    // `x.join(sep)` — safe receiver (Task 5
+                                    // lowers; E5506 until then).
+                                    "join" if call.args.len() <= 1 => {
+                                        for arg in &call.args {
+                                            self.expr(arg, nested);
+                                        }
+                                        return;
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
+                    }
+                }
+                self.expr(&call.callee, nested);
+                for arg in &call.args {
+                    self.expr(arg, nested);
+                }
+            }
+            Expression::MemberExpression(member) => {
+                if !nested {
+                    if let Expression::Identifier(name) = strip_parens(&member.object) {
+                        if let Some(index) = &member.computed_index {
+                            // `x[i]` index READ — safe base; the index must
+                            // itself be scalar-shaped (a string index like
+                            // `x["length"]` has no growable lowering).
+                            if scalar_value_shape_ok(index, true) {
+                                self.expr(index, nested);
+                                return;
+                            }
+                            self.mark_unsafe(name);
+                            self.expr(index, nested);
+                            return;
+                        }
+                        // `x.length` read, or `x[0]` parsed with the index
+                        // stringified into `property`.
+                        if member.property == "length" || member.property.parse::<u64>().is_ok() {
+                            return;
+                        }
+                        // Any other dot member (`x.pop`, `x.map`, …) — not in
+                        // the allowlist.
+                        self.mark_unsafe(name);
+                        return;
+                    }
+                }
+                self.expr(&member.object, nested);
+                if let Some(index) = &member.computed_index {
+                    self.expr(index, nested);
+                }
+            }
+            Expression::ArrayExpression(array) => {
+                for element in &array.elements {
+                    match element {
+                        Some(ExpressionOrSpread::Expression(expr)) => self.expr(expr, nested),
+                        Some(ExpressionOrSpread::Spread(spread)) => {
+                            self.expr(&spread.argument, nested)
+                        }
+                        Some(ExpressionOrSpread::Empty) | None => {}
+                    }
+                }
+            }
+            Expression::ObjectExpression(object) => {
+                for property in &object.properties {
+                    self.expr(&property.value, nested);
+                }
+            }
+            Expression::FunctionExpression(func) => {
+                if let Some(id) = &func.id {
+                    self.declare(id, false);
+                }
+                for param in &func.params {
+                    self.declare(&param.name, false);
+                }
+                if let Some(body) = &func.body {
+                    self.block(body, true);
+                }
+            }
+            Expression::ArrowFunctionExpression(arrow) => {
+                for param in &arrow.params {
+                    self.declare(&param.name, false);
+                }
+                self.expr(&arrow.body, true);
+            }
+            Expression::ClassExpression(_) => self.poisoned = true,
+            Expression::NewExpression(e) => {
+                self.expr(&e.callee, nested);
+                for arg in &e.args {
+                    self.expr(arg, nested);
+                }
+            }
+            Expression::MetaProperty(_) => {}
+            Expression::TemplateLiteral(template) => {
+                for expr in &template.expressions {
+                    self.expr(expr, nested);
+                }
+            }
+            Expression::TaggedTemplateExpression(e) => {
+                self.expr(&e.tag, nested);
+                for expr in &e.template.expressions {
+                    self.expr(expr, nested);
+                }
+            }
+            Expression::UpdateExpression(e) => self.write_target(&e.argument, nested),
+            Expression::AssignmentExpression(e) => {
+                self.write_target(&e.left, nested);
+                self.expr(&e.right, nested);
+            }
+            Expression::LogicalExpression(e) => {
+                self.expr(&e.left, nested);
+                self.expr(&e.right, nested);
+            }
+            Expression::ConditionalExpression(e) => {
+                self.expr(&e.test, nested);
+                self.expr(&e.consequent, nested);
+                self.expr(&e.alternate, nested);
+            }
+            Expression::SequenceExpression(e) => {
+                for expr in &e.expressions {
+                    self.expr(expr, nested);
+                }
+            }
+            Expression::ParenthesizedExpression(e) => self.expr(&e.expression, nested),
+            Expression::YieldExpression(e) => {
+                if let Some(arg) = &e.argument {
+                    self.expr(arg, nested);
+                }
+            }
+            Expression::AwaitExpression(e) => self.expr(&e.argument, nested),
+            Expression::OptionalChainExpression(e) => match e.inner.as_ref() {
+                kali_ast::OptionalChainInner::NonNull { object, .. } => self.expr(object, nested),
+            },
+            Expression::ChainExpression(e) => self.expr(&e.expression, nested),
+            Expression::SpreadElement(e) => self.expr(&e.argument, nested),
+            Expression::RestElement(e) => self.expr(&e.argument, nested),
+            Expression::ImportExpression(e) => self.expr(&e.source, nested),
+            Expression::DecoratedExpression(e) => self.expr(&e.expression, nested),
+            // JSX trees embed expressions this analysis does not walk:
+            // poison rather than risk missing an occurrence.
+            Expression::JsxElement(_) | Expression::JsxFragment(_) => self.poisoned = true,
+            Expression::JsxEmptyExpression => {}
+            Expression::TypeAssertion(e) => self.expr(&e.expression, nested),
+            Expression::SatisfiesExpression(e) => self.expr(&e.expression, nested),
+            Expression::ThisExpression
+            | Expression::SuperExpression
+            | Expression::PrivateIdentifier(_) => {}
+        }
+    }
+}
+
+#[cfg(test)]
+#[path = "growable_tests.rs"]
+mod growable_tests;

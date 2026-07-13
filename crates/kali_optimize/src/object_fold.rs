@@ -493,7 +493,12 @@ impl Optimizer {
     /// shadowing-blind BY DESIGN: a shadowed name over-approximates to
     /// "mutated", which only ever DISABLES folding (fail-closed direction).
     pub(crate) fn collect_mutated_binding_names(&self, program: &LirProgram) -> BTreeSet<String> {
-        let mut names = BTreeSet::new();
+        // Growable (push-accumulated) arrays mutate through `.push` — a Call
+        // the member-store scan below cannot see. Seed their names as
+        // mutated so no constant-binding env ever inlines/folds the stale
+        // declarator literal (throw-fallout Stage 4). This is the single
+        // choke point every mutation-aware env flows through.
+        let mut names = self.growable_array_bindings.clone();
         for node in &program.nodes {
             let is_store = node.kind == LirNodeKind::Value
                 && node.text.as_deref() == Some("=")

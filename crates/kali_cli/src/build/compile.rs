@@ -464,7 +464,13 @@ fn compile_source_file_uncached(
         BuildMode::Release => OptimizationLevel::Release,
         BuildMode::ReleaseAdvanced => OptimizationLevel::ReleaseAdvanced,
     };
-    let optimizer = Optimizer::with_max_specializations(optimization_level, max_specializations);
+    let optimizer = Optimizer::with_max_specializations(optimization_level, max_specializations)
+        // Growable (push-accumulated) array bindings mutate through `.push`
+        // (throw-fallout Stage 4): the optimizer must treat them as mutated,
+        // else its constant-binding envs inline/fold the stale declarator
+        // literal (`o.length` → 0, `o[0]` → undefined) over the runtime
+        // contents.
+        .with_growable_array_bindings(analyzed.repr_table.growable_array_binding_names());
     let optimizer = if let Some(profile_data) = profile_data {
         optimizer.with_profile_data(profile_data.clone())
     } else {

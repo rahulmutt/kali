@@ -129,3 +129,24 @@ fn repr_table_records_string_element_axis_and_provenance() {
     t.mark_array_element_concat_tainted("_start", "a");
     assert!(t.is_array_element_concat_tainted("_start", "a"));
 }
+
+#[test]
+fn repr_table_records_growable_array_bindings() {
+    let mut t = ReprTable::default();
+    // Unset pairs report false (fail-closed: plain lane).
+    assert!(!t.is_growable_array_binding("main", "o"));
+    t.set_growable_array_binding("main", "o");
+    assert!(t.is_growable_array_binding("main", "o"));
+    // Keyed by BOTH function and binding.
+    assert!(!t.is_growable_array_binding("other", "o"));
+    assert!(!t.is_growable_array_binding("main", "p"));
+    // The growable axis never affects `is_empty` (an all-integer program
+    // with a growable array keeps codegen's i64 fast paths).
+    assert!(t.is_empty());
+    // Name enumeration for the optimizer's mutated-name scan.
+    t.set_growable_array_binding("f", "keys");
+    let names = t.growable_array_binding_names();
+    assert!(names.contains("o"));
+    assert!(names.contains("keys"));
+    assert_eq!(names.len(), 2);
+}

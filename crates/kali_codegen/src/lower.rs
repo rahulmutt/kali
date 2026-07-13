@@ -2267,7 +2267,59 @@ pub(crate) fn collect_function_locals(
         locals.push(coerce_acc_local_name());
     }
 
+    // Reserve the dedicated i64 scratch local the growable-array emit
+    // helpers need (throw-fallout Stage 4): `emit_growable_alloc` holds the
+    // header pointer across seed-element emission and `emit_growable_push`
+    // across value emission — both of which may internally clobber the two
+    // generic trailing scratch slots. One slot per function suffices (the
+    // helpers never nest their own use of it across an `emit_node` call).
+    // Guarded on the function actually having a growable binding, so
+    // functions without one are byte-identical.
+    if locals
+        .iter()
+        .any(|name| repr_table.is_growable_array_binding(function_name, name))
+    {
+        locals.push(growable_scratch_local_name());
+    }
+
     locals
+}
+
+/// Name of the dedicated i64 scratch local shared by the growable-array emit
+/// helpers (throw-fallout Stage 4). Shared by `collect_function_locals`
+/// (reserve) and `crate::emit::growable` (resolve) — same discipline as
+/// `for_in_ord_local_name` and the argv scratch pair. Default-typed i64 (no
+/// `ReprTable` entry), which is exactly what the helpers store in it.
+pub(crate) fn growable_scratch_local_name() -> String {
+    "__growable_scratch".to_string()
+}
+
+/// True iff any bare identifier reachable from `init` (not descending into
+/// nested function bodies) names a GROWABLE array binding of `function_name`
+/// (throw-fallout Stage 4). Coarse ON PURPOSE (any mention, not just
+/// `.length`/index read shapes): it only ever PROMOTES a const to an
+/// eagerly-evaluated local, which is the semantically-correct JS evaluation
+/// order for every init.
+fn declarator_init_mentions_growable(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    repr_table: &kali_common::ReprTable,
+    function_name: &str,
+) -> bool {
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return false;
+    };
+    if node.kind == LirNodeKind::Value && node.children.is_empty() {
+        if let Some(text) = node.text.as_deref() {
+            if repr_table.is_growable_array_binding(function_name, text) {
+                return true;
+            }
+        }
+    }
+    node.children.iter().any(|child| {
+        !is_function_like(nodes, *child)
+            && declarator_init_mentions_growable(nodes, *child, repr_table, function_name)
+    })
 }
 
 /// True iff any node reachable from `body_id` (not descending into nested
@@ -2898,12 +2950,28 @@ pub(crate) fn collect_function_locals_from_node(
                         _ => false,
                     }
                 });
+            // A growable (push-accumulated) array binding needs a stable
+            // local slot for its tagged handle regardless of `const`
+            // (throw-fallout Stage 4) — push/length/index all read it back.
+            let is_growable_array = declarator_node
+                .text
+                .as_deref()
+                .is_some_and(|name| repr_table.is_growable_array_binding(function_name, name));
+            // A const whose init READS a growable array (`const n = o.length`
+            // / `o[i]`) must be evaluated EAGERLY into a local: the fold-lane
+            // alias would re-emit the read at every use site, observing a
+            // LATER length/element after more pushes — a stale-alias
+            // miscompile (the growable twin of `declarator_init_is_array_read`).
+            let reads_growable_array =
+                declarator_init_mentions_growable(nodes, init, repr_table, function_name);
             if !declarator_init_is_array_alloc(nodes, init)
                 && !declarator_init_is_array_fill(nodes, init)
                 && !declarator_init_is_array_read(nodes, init, array_names)
                 && !is_materialized_object
                 && !is_materialized_object_array
                 && !is_materialized_factory_return
+                && !is_growable_array
+                && !reads_growable_array
                 && !declarator_init_is_performance_now(nodes, init)
                 && !declarator_init_is_crypto_call(nodes, init)
                 && !declarator_init_contains_mutation(nodes, init)

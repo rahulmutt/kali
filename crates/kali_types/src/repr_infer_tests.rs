@@ -802,3 +802,59 @@ fn for_in_key_is_seeded_and_not_a_string_repr_by_default() {
         reprs("function m(table) { for (var c in table) { let z = c; } }\nm({ a: 1, c: 2 });\n");
     assert_eq!(t.scalar("m", "c"), Repr::I64);
 }
+
+// ---- throw-fallout Stage 4: growable-array promotion gate ----
+
+#[test]
+fn growable_promotion_fires_for_safe_numeric_push_bindings() {
+    let t = reprs(
+        "function main() { const o = []; o.push(1); o.push(2); \
+         console.log(o.length); console.log(o[0]); }\nmain();\n",
+    );
+    assert!(t.is_growable_array_binding("main", "o"));
+}
+
+#[test]
+fn growable_promotion_accepts_identifier_and_arithmetic_pushes() {
+    let t = reprs(
+        "function main() { const o = []; \
+         for (let i = 0; i < 10; i++) { o.push(i * 2); } \
+         for (const item of [1, 2]) { o.push(item); } \
+         console.log(o.length); }\nmain();\n",
+    );
+    assert!(t.is_growable_array_binding("main", "o"));
+}
+
+#[test]
+fn growable_promotion_blocks_non_i64_pushes() {
+    // String push: Task 3's lane, not this one.
+    let t =
+        reprs("function main() { const o = []; o.push(\"a\"); console.log(o.length); }\nmain();\n");
+    assert!(!t.is_growable_array_binding("main", "o"));
+    // Float push.
+    let t =
+        reprs("function main() { const o = []; o.push(1.5); console.log(o.length); }\nmain();\n");
+    assert!(!t.is_growable_array_binding("main", "o"));
+    // Float-solved identifier push.
+    let t = reprs(
+        "function main() { const f = 1 / 2; const o = []; o.push(f); console.log(o.length); }\nmain();\n",
+    );
+    assert!(!t.is_growable_array_binding("main", "o"));
+    // Undeclared identifier push (`undefined` has no i64 value).
+    let t = reprs(
+        "function main() { const o = []; o.push(undefined); console.log(o.length); }\nmain();\n",
+    );
+    assert!(!t.is_growable_array_binding("main", "o"));
+}
+
+#[test]
+fn growable_promotion_blocks_escaping_and_module_scope_bindings() {
+    // Escaping (call argument) — not a candidate.
+    let t = reprs(
+        "function f(x) { return x; }\nfunction main() { const o = []; o.push(1); f(o); }\nmain();\n",
+    );
+    assert!(!t.is_growable_array_binding("main", "o"));
+    // Module-scope push receiver — deliberately not analyzed.
+    let t = reprs("const o = [];\no.push(1);\nconsole.log(o.length);\n");
+    assert!(!t.is_growable_array_binding("_start", "o"));
+}

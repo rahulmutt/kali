@@ -74,6 +74,15 @@ const COVERAGE_HIT_IMPORT_INDEX: u32 = 22;
 const FUNCTION_INDEX_OFFSET: u32 = 22;
 const ENV_GET_BUFFER_RESERVED: u32 = 4096;
 const STRING_HANDLE_TAG: u64 = 0x8000_0000_0000_0000;
+/// Tag bit 62 marks a GROWABLE runtime-array handle (throw-fallout Stage 4):
+/// `handle = zero_extend(hdr_ptr) | ARRAY_HANDLE_TAG`, where `hdr_ptr` (low
+/// 32 bits) addresses the 24-byte header `[len:i64 @+0][cap:i64 @+8]
+/// [data_ptr:i64 @+16]`. Distinct from `STRING_HANDLE_TAG` (bit 63) and from
+/// the plain-array lane's UNtagged `[len][elem…]` base pointers. Decode:
+/// `(handle & !ARRAY_HANDLE_TAG)` then `I32WrapI64` (the string-decode
+/// idiom; realloc rewrites `data_ptr` INSIDE the header, so the handle is
+/// stable across growth).
+pub(crate) const ARRAY_HANDLE_TAG: u64 = 0x4000_0000_0000_0000;
 
 pub use lower::lower_lir_to_wasm;
 pub(crate) use lower::{

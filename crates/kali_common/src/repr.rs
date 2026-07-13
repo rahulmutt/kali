@@ -44,6 +44,16 @@ pub struct ReprTable {
     /// array's element repr is unset (== default I64), so this is the only way to
     /// distinguish an i64 array param from a scalar param.
     array_bindings: HashSet<(String, String)>,
+    /// `(func, binding)` pairs promoted to the GROWABLE runtime-array lane
+    /// (throw-fallout Stage 4): a `const`/`let` array-literal binding whose
+    /// every occurrence in its function is a safe growable position
+    /// (declarator init, `.push(v)` receiver, `.length` read, `x[i]` index
+    /// read, `for..of` RHS, `.join(sep)` receiver) and whose pushed/seeded
+    /// elements all prove i64. Codegen lowers such a binding to a tagged
+    /// header handle (`ARRAY_HANDLE_TAG`) with real `push` accumulation —
+    /// a SEPARATE lane from `array_bindings`' inline `[len][elem…]` layout.
+    /// Misses fail closed (not growable == the pre-existing plain lane).
+    growable_array_bindings: HashSet<(String, String)>,
     /// `(func, param)` parameters that interprocedural call-site flow shows may
     /// receive a NON-SCALAR argument. This taint covers EXACTLY the DIRECT array
     /// shapes visible at the call site: a bare-identifier array binding, or a
@@ -277,6 +287,34 @@ impl ReprTable {
     pub fn is_array_binding(&self, func: &str, binding: &str) -> bool {
         self.array_bindings
             .contains(&(func.to_string(), binding.to_string()))
+    }
+
+    /// Record that `(func, binding)` was promoted to the growable
+    /// runtime-array lane — see
+    /// [`growable_array_bindings`](Self::growable_array_bindings).
+    pub fn set_growable_array_binding(&mut self, func: &str, binding: &str) {
+        self.growable_array_bindings
+            .insert((func.to_string(), binding.to_string()));
+    }
+
+    /// True when `(func, binding)` was promoted to the growable runtime-array
+    /// lane. Defaults to false, so an unpromoted binding reports false (the
+    /// pre-existing plain lane).
+    pub fn is_growable_array_binding(&self, func: &str, binding: &str) -> bool {
+        self.growable_array_bindings
+            .contains(&(func.to_string(), binding.to_string()))
+    }
+
+    /// Distinct NAMES of every growable-array binding across all functions.
+    /// Consumed by the optimizer to treat a growable binding as mutated
+    /// (name-based and shadowing-blind, matching the optimizer's own mutated
+    /// scan) so its stale declarator literal is never inlined/folded over the
+    /// push-accumulated runtime contents.
+    pub fn growable_array_binding_names(&self) -> std::collections::BTreeSet<String> {
+        self.growable_array_bindings
+            .iter()
+            .map(|(_, binding)| binding.clone())
+            .collect()
     }
 
     /// Record that param `binding` of `func` may receive a non-scalar (array)

@@ -749,6 +749,73 @@ impl<'a> FunctionEmitter<'a> {
                             }
                         }
 
+                        // Growable runtime array declarator (throw-fallout
+                        // Stage 4): `const/let x = []` / `[seed…]` promoted
+                        // by the types-side growable gate lowers to a real
+                        // header+data allocation with the tagged handle in
+                        // the binding's local — never the aggregate no-op
+                        // fold lane. Deliberately BEFORE the object-array
+                        // branch below: the two lanes are disjoint by the
+                        // promotion gate (i64 elements only), and the
+                        // growable oracle must win for its bindings.
+                        if let Some(name) = declarator.text.clone() {
+                            if self.is_growable_array(&name) {
+                                let aggregate = self
+                                    .resolve_literal_aggregate(init)
+                                    .map(|id| self.node(id).clone())
+                                    .filter(|node| self.is_array_literal(node));
+                                let (Some(aggregate), Some(index)) =
+                                    (aggregate, self.locals.get(&name).copied())
+                                else {
+                                    // Promotion admitted exactly this shape;
+                                    // anything else here is a gate/provisioning
+                                    // bug — fail closed, never a silent no-op.
+                                    self.diagnostics.push(Diagnostic::error(
+                                        e5::FEATURE_UNAVAILABLE as u32,
+                                        format!(
+                                            "growable array `{name}` must be declared with an array-literal initializer and a local slot"
+                                        ),
+                                    ));
+                                    function.instruction(&Instruction::Unreachable);
+                                    continue;
+                                };
+                                let seed_len = aggregate.children.len();
+                                let cap = seed_len.max(crate::emit::growable::GROWABLE_INITIAL_CAP);
+                                let allocated = self.emit_growable_alloc(function, seed_len, cap);
+                                if !allocated.produced {
+                                    function.instruction(&Instruction::I64Const(0));
+                                }
+                                function.instruction(&Instruction::LocalSet(index));
+                                // Seed elements: *(data_ptr + i*8) = seed_i.
+                                // The promotion gate admits only scalar-shaped
+                                // (never float/string/object) seeds.
+                                for (i, child) in aggregate.children.iter().copied().enumerate() {
+                                    function.instruction(&Instruction::LocalGet(index));
+                                    function.instruction(&Instruction::I64Const(
+                                        !(crate::ARRAY_HANDLE_TAG) as i64,
+                                    ));
+                                    function.instruction(&Instruction::I64And);
+                                    function.instruction(&Instruction::I32WrapI64);
+                                    function.instruction(&Instruction::I64Load(MemArg {
+                                        offset: 16,
+                                        align: 3,
+                                        memory_index: 0,
+                                    }));
+                                    function.instruction(&Instruction::I32WrapI64);
+                                    let produced = self.emit_node(function, child, true);
+                                    if !produced.produced {
+                                        function.instruction(&Instruction::I64Const(0));
+                                    }
+                                    function.instruction(&Instruction::I64Store(MemArg {
+                                        offset: (i * 8) as u64,
+                                        align: 3,
+                                        memory_index: 0,
+                                    }));
+                                }
+                                continue;
+                            }
+                        }
+
                         // Array literal of object references:
                         // `const bodies = [ … ]` with element repr
                         // Object(shape) — allocate the array, then
@@ -1292,6 +1359,13 @@ impl<'a> FunctionEmitter<'a> {
                         };
                     }
                     if let Some(base_name) = self.assignment_target_name(node, base_id) {
+                        // Growable runtime array `.length` (throw-fallout
+                        // Stage 4): decode the tagged handle, read `hdr.len`.
+                        // Must win before the plain-array lane — the two
+                        // layouts differ (tagged header vs inline base).
+                        if self.is_growable_array(&base_name) {
+                            return self.emit_growable_length(function, base_id);
+                        }
                         if self.array_bindings.contains(&base_name) {
                             self.emit_array_base_address(function, base_id);
                             function.instruction(&Instruction::I64Load(MemArg {
@@ -1355,6 +1429,18 @@ impl<'a> FunctionEmitter<'a> {
                     }
                 }
 
+                // Growable runtime array element read `x[i]` (throw-fallout
+                // Stage 4): literal/identifier index in `text`. Must win
+                // before the plain-array recognizer below (disjoint oracles;
+                // a growable base is never in `array_bindings`) and before
+                // the generic unary fallback that would silently mis-emit.
+                if self.growable_array_read_base(node).is_some() {
+                    let index_text = node.text.as_deref().unwrap_or_default().to_string();
+                    let index_node =
+                        self.alloc_scratch_node(LirNodeKind::Value, Some(index_text), vec![]);
+                    return self.emit_growable_index_read(function, node.children[0], index_node);
+                }
+
                 // Dynamic array element read: `a[i]` where `a` is a linear-memory
                 // array. Recognizer shared with the string oracles via
                 // `dynamic_array_read_base` (same guard: non-empty, non-`length`
@@ -1396,6 +1482,17 @@ impl<'a> FunctionEmitter<'a> {
 
                 if let Some(result) = self.resolve_static_index_member(node) {
                     return self.emit_static_index_member_result(function, result);
+                }
+
+                // Growable runtime array computed read `x[<expr>]`
+                // (throw-fallout Stage 4) — the 2-child twin of the 1-child
+                // growable arm above; same ordering rationale.
+                if self.growable_array_read_base(node).is_some() {
+                    return self.emit_growable_index_read(
+                        function,
+                        node.children[0],
+                        node.children[1],
+                    );
                 }
 
                 // Dynamic linear-memory read `a[<expr>]` when the base is an array

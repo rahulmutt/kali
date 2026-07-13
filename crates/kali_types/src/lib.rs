@@ -6,6 +6,7 @@
 
 mod builtins;
 mod context;
+mod growable;
 mod late_host;
 pub mod monomorphize;
 mod package;
