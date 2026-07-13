@@ -102,6 +102,7 @@ fn browser_import_lists_declare_all_host_wired_kalirt_members() {
         "performance_now",
         "crypto_get_random_values",
         "crypto_random_uuid",
+        "crypto_subtle_digest",
     ];
     for (label, src) in browser_import_list_sources() {
         for member in REQUIRED {

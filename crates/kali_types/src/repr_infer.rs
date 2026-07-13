@@ -1243,6 +1243,24 @@ impl ReprInfer {
             Expression::CallExpression(call) => self.visit_call(func, call),
 
             Expression::NewExpression(new_expr) => {
+                // `new TextEncoder().encode(<string>)` (throw-fallout Stage 3
+                // bucket #6 part 2): the parser hoists the `new` to wrap the whole
+                // member-call chain, so this arrives as a `NewExpression` whose
+                // callee is the `.encode` call. It is a thin reinterpret of the
+                // input string handle to a contiguous byte buffer — seed the result
+                // `String` (+ runtime string) so a binding it flows into resolves
+                // `Repr::String` (making `.byteLength` read the low-32 byte count
+                // and the digest input gate accept it). Mirrors codegen's LIR-level
+                // `is_text_encoder_encode` + emit passthrough.
+                if let Some(encode_call) = text_encoder_encode_new(expr) {
+                    for arg in &encode_call.args {
+                        self.visit_expr(func, arg);
+                    }
+                    let result = self.new_node();
+                    self.add_string_seed(result);
+                    self.runtime_string_nodes.push(result);
+                    return result;
+                }
                 // Constructor arguments are visited for edges (e.g. `new Array`
                 // length is an int). The handle itself is i64.
                 for arg in &new_expr.args {
@@ -1250,6 +1268,15 @@ impl ReprInfer {
                 }
                 self.new_node()
             }
+
+            // `await <expr>` synchronously settles to `<expr>`'s value in kali's
+            // current phase (throw-fallout Stage 3 Task 4 — mirrors the codegen
+            // await value-passthrough). The await is fully transparent for repr:
+            // return the operand's node so a binding it flows into
+            // (`const d = await crypto.subtle.digest(...)`) inherits the operand's
+            // repr (e.g. `Repr::String`) instead of a fresh, permanently-unseeded
+            // int node.
+            Expression::AwaitExpression(await_expr) => self.visit_expr(func, &await_expr.argument),
 
             // Any other expression kind is a fresh (int) node.
             _ => self.new_node(),
@@ -1568,6 +1595,40 @@ impl ReprInfer {
                     // (`FunctionEmitter::crypto_random_uuid_import_index`) + emit
                     // arm, which builds a tagged string handle.
                     "randomUUID" if is_crypto_object(&member.object) => {
+                        for arg in &call.args {
+                            self.visit_expr(func, arg);
+                        }
+                        let result = self.new_node();
+                        self.add_string_seed(result);
+                        self.runtime_string_nodes.push(result);
+                        result
+                    }
+                    // `crypto.subtle.digest(algo, bytes)` returns a runtime byte
+                    // buffer (throw-fallout Stage 3 bucket #6 part 2). Codegen
+                    // represents it as a tagged string handle whose `.byteLength`
+                    // reads the digest byte count off the low 32 bits, so seed the
+                    // result `String` + mark it a runtime string node — the binding
+                    // it flows into (`const d = await ...digest(...)`, transparent
+                    // through the `AwaitExpression` arm above) resolves
+                    // `Repr::String`. Mirrors the codegen recognizer
+                    // (`crypto_subtle_digest_import_index`) + emit arm.
+                    "digest" if is_crypto_subtle_object(&member.object) => {
+                        for arg in &call.args {
+                            self.visit_expr(func, arg);
+                        }
+                        let result = self.new_node();
+                        self.add_string_seed(result);
+                        self.runtime_string_nodes.push(result);
+                        result
+                    }
+                    // `new TextEncoder().encode(<string>)` is a thin reinterpret of
+                    // the input string handle to a contiguous byte buffer
+                    // (throw-fallout Stage 3 bucket #6 part 2). Codegen returns the
+                    // string handle unchanged, so the result carries `Repr::String`
+                    // and `.byteLength` reads the same low-32 byte count as
+                    // `.length`. Mirrors the codegen `is_text_encoder_encode` +
+                    // emit arm.
+                    "encode" if is_text_encoder_ctor(&member.object) => {
                         for arg in &call.args {
                             self.visit_expr(func, arg);
                         }
@@ -2770,6 +2831,60 @@ fn is_performance_object(expr: &Expression) -> bool {
 /// True when `expr` is the `crypto` object (`crypto` identifier).
 fn is_crypto_object(expr: &Expression) -> bool {
     matches!(expr, Expression::Identifier(name) if name == "crypto")
+}
+
+/// True when `expr` is the `crypto.subtle` object (member `subtle` off the
+/// `crypto` identifier).
+fn is_crypto_subtle_object(expr: &Expression) -> bool {
+    matches!(
+        expr,
+        Expression::MemberExpression(member)
+            if member.computed_index.is_none()
+                && member.property.as_str() == "subtle"
+                && is_crypto_object(&member.object)
+    )
+}
+
+/// True when `expr` invokes the `TextEncoder` constructor — either
+/// `new TextEncoder()` (NewExpression) or the bare `TextEncoder()` call the
+/// parser leaves as the object of the `.encode` member when it hoists the `new`
+/// to wrap the whole `new TextEncoder().encode(...)` chain (see
+/// `text_encoder_encode_new`).
+fn is_text_encoder_ctor(expr: &Expression) -> bool {
+    match expr {
+        Expression::NewExpression(new_expr) => {
+            matches!(&new_expr.callee, Expression::Identifier(name) if name == "TextEncoder")
+        }
+        Expression::CallExpression(call) => {
+            matches!(&call.callee, Expression::Identifier(name) if name == "TextEncoder")
+        }
+        _ => false,
+    }
+}
+
+/// Recognize the `new TextEncoder().encode(<string>)` expression. The kali parser
+/// hoists the `new` to wrap the entire member-call chain, so the surface syntax
+/// parses as `new (TextEncoder().encode(args))`: a `NewExpression` whose callee is
+/// the `.encode` `CallExpression`. Returns that inner encode call when `expr`
+/// matches, so the repr arm can seed its result `String`.
+fn text_encoder_encode_new(expr: &Expression) -> Option<&kali_ast::CallExpression> {
+    let Expression::NewExpression(new_expr) = expr else {
+        return None;
+    };
+    let Expression::CallExpression(call) = &new_expr.callee else {
+        return None;
+    };
+    let Expression::MemberExpression(member) = &call.callee else {
+        return None;
+    };
+    if member.computed_index.is_some() || member.property.as_str() != "encode" {
+        return None;
+    }
+    if is_text_encoder_ctor(&member.object) {
+        Some(call)
+    } else {
+        None
+    }
 }
 
 fn is_console_object(expr: &Expression) -> bool {

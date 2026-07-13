@@ -1599,6 +1599,27 @@ const defaultImportObject = {{
       new Uint8Array(wasmMemory.buffer, outPtr, bytes.length).set(bytes);
       return bytes.length;
     }},
+    crypto_subtle_digest(algoPtr, algoLen, inPtr, inLen, outPtr, outCap) {{
+      // `crypto.subtle.digest` is async in browsers, but the guest await lane
+      // sequences it synchronously — resolve it with node's SYNCHRONOUS
+      // `node:crypto` `createHash` (available in ESM + CJS via
+      // `process.getBuiltinModule`). In a real browser this stays null and
+      // returns -1 (browser digest is out of scope for this phase).
+      const nodeCrypto = globalThis.process?.getBuiltinModule?.("node:crypto") ?? null;
+      if (wasmMemory === null || nodeCrypto === null) {{ return -1; }}
+      const mem = new Uint8Array(wasmMemory.buffer);
+      const algo = new TextDecoder()
+        .decode(mem.slice(algoPtr, algoPtr + algoLen))
+        .replace(/-/g, '')
+        .toLowerCase();
+      const digest = nodeCrypto
+        .createHash(algo)
+        .update(mem.slice(inPtr, inPtr + inLen))
+        .digest();
+      if (digest.length > outCap) {{ return -1; }}
+      new Uint8Array(wasmMemory.buffer, outPtr, digest.length).set(digest);
+      return digest.length;
+    }},
     process_pid() {{
       return 0;
     }},
@@ -1915,6 +1936,27 @@ const defaultImportObject = {{
       if (bytes.length > outCap) {{ return -1; }}
       new Uint8Array(wasmMemory.buffer, outPtr, bytes.length).set(bytes);
       return bytes.length;
+    }},
+    crypto_subtle_digest(algoPtr, algoLen, inPtr, inLen, outPtr, outCap) {{
+      // `crypto.subtle.digest` is async in browsers, but the guest await lane
+      // sequences it synchronously — resolve it with node's SYNCHRONOUS
+      // `node:crypto` `createHash` (available in ESM + CJS via
+      // `process.getBuiltinModule`). In a real browser this stays null and
+      // returns -1 (browser digest is out of scope for this phase).
+      const nodeCrypto = globalThis.process?.getBuiltinModule?.("node:crypto") ?? null;
+      if (wasmMemory === null || nodeCrypto === null) {{ return -1; }}
+      const mem = new Uint8Array(wasmMemory.buffer);
+      const algo = new TextDecoder()
+        .decode(mem.slice(algoPtr, algoPtr + algoLen))
+        .replace(/-/g, '')
+        .toLowerCase();
+      const digest = nodeCrypto
+        .createHash(algo)
+        .update(mem.slice(inPtr, inPtr + inLen))
+        .digest();
+      if (digest.length > outCap) {{ return -1; }}
+      new Uint8Array(wasmMemory.buffer, outPtr, digest.length).set(digest);
+      return digest.length;
     }},
     process_pid() {{
       return 0;

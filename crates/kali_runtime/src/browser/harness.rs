@@ -218,6 +218,17 @@ async function emitBrowserRuntimeSummary(summary) {{
   console.log(serialized);
 }}
 
+// throw-fallout Stage 3 bucket #6 part 2: `crypto.subtle.digest` is ASYNC in
+// browsers, but the guest await lane sequences the host call SYNCHRONOUSLY, so
+// the host must return the digest bytes immediately. Preload node's SYNCHRONOUS
+// `node:crypto` `createHash` (top-level await, node-only); in a real browser
+// this stays null and `crypto_subtle_digest` returns -1 (browser digest is out
+// of scope for this phase — no fixture exercises it).
+const kaliNodeCreateHash =
+  globalThis.process?.versions?.node !== undefined
+    ? (await import('node:crypto')).createHash
+    : null;
+
 const importObject = {{
   "kali:rt": {{
     test_register(val) {{
@@ -277,6 +288,20 @@ const importObject = {{
       if (bytes.length > outCap) {{ return -1; }}
       new Uint8Array(wasmMemory.buffer, outPtr, bytes.length).set(bytes);
       return bytes.length;
+    }},
+    crypto_subtle_digest(algoPtr, algoLen, inPtr, inLen, outPtr, outCap) {{
+      if (wasmMemory === null || kaliNodeCreateHash === null) {{ return -1; }}
+      const mem = new Uint8Array(wasmMemory.buffer);
+      const algo = new TextDecoder()
+        .decode(mem.slice(algoPtr, algoPtr + algoLen))
+        .replace(/-/g, '')
+        .toLowerCase();
+      const digest = kaliNodeCreateHash(algo)
+        .update(mem.slice(inPtr, inPtr + inLen))
+        .digest();
+      if (digest.length > outCap) {{ return -1; }}
+      new Uint8Array(wasmMemory.buffer, outPtr, digest.length).set(digest);
+      return digest.length;
     }},
     process_pid() {{
       return Number(globalThis.process?.pid ?? 0);
@@ -609,6 +634,17 @@ async function emitBrowserRuntimeSummary(summary) {{
   console.log(serialized);
 }}
 
+// throw-fallout Stage 3 bucket #6 part 2: `crypto.subtle.digest` is ASYNC in
+// browsers, but the guest await lane sequences the host call SYNCHRONOUSLY, so
+// the host must return the digest bytes immediately. Preload node's SYNCHRONOUS
+// `node:crypto` `createHash` (top-level await, node-only); in a real browser
+// this stays null and `crypto_subtle_digest` returns -1 (browser digest is out
+// of scope for this phase — no fixture exercises it).
+const kaliNodeCreateHash =
+  globalThis.process?.versions?.node !== undefined
+    ? (await import('node:crypto')).createHash
+    : null;
+
 const importObject = {{
   "kali:rt": {{
     test_register(val) {{
@@ -672,6 +708,20 @@ const importObject = {{
       if (bytes.length > outCap) {{ return -1; }}
       new Uint8Array(wasmMemory.buffer, outPtr, bytes.length).set(bytes);
       return bytes.length;
+    }},
+    crypto_subtle_digest(algoPtr, algoLen, inPtr, inLen, outPtr, outCap) {{
+      if (wasmMemory === null || kaliNodeCreateHash === null) {{ return -1; }}
+      const mem = new Uint8Array(wasmMemory.buffer);
+      const algo = new TextDecoder()
+        .decode(mem.slice(algoPtr, algoPtr + algoLen))
+        .replace(/-/g, '')
+        .toLowerCase();
+      const digest = kaliNodeCreateHash(algo)
+        .update(mem.slice(inPtr, inPtr + inLen))
+        .digest();
+      if (digest.length > outCap) {{ return -1; }}
+      new Uint8Array(wasmMemory.buffer, outPtr, digest.length).set(digest);
+      return digest.length;
     }},
     process_pid() {{
       return Number(globalThis.process?.pid ?? 0);

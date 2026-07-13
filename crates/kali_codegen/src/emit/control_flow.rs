@@ -1026,6 +1026,31 @@ impl<'a> FunctionEmitter<'a> {
         want_value: bool,
     ) -> EmittedValue {
         if node.text.is_none() {
+            // `new TextEncoder().encode(<string>)` (throw-fallout Stage 3 bucket #6
+            // part 2): the parser hoists the `new` to wrap the whole member-call
+            // chain, so this arrives as a text-less 1-child wrapper (the `new`)
+            // around the `.encode` `Call`. The generic text-less aggregate path
+            // below DROPS its operand and pushes `0` (the "unsupported `new`
+            // returns an empty object" placeholder) — which would discard the
+            // encoded byte buffer and store `0` into the binding, so the digest
+            // input reads empty. Instead, pass through to the encode call (whose
+            // emit arm reinterprets the string handle to a contiguous byte
+            // buffer). Mirrors the `await` marker passthrough below. Scoped
+            // strictly to a child whose callee is `is_text_encoder_encode`, so a
+            // genuine `new SomeClass()` (or any other text-less aggregate) keeps
+            // the drop-and-push-0 fallback.
+            if node.children.len() == 1 {
+                let child = node.children[0];
+                let child_node = self.node(child).clone();
+                if child_node.kind == LirNodeKind::Call {
+                    if let Some(callee) = child_node.children.first().copied() {
+                        let callee_node = self.node(callee).clone();
+                        if self.is_text_encoder_encode(&callee_node) {
+                            return self.emit_node(function, child, want_value);
+                        }
+                    }
+                }
+            }
             return self.emit_aggregate_literal(function, node, want_value);
         }
 
@@ -1290,6 +1315,30 @@ impl<'a> FunctionEmitter<'a> {
                 // binding; other receivers fall through to their existing paths.
                 if node.text.as_deref() == Some("byteLength") {
                     let base_id = node.children[0];
+                    // String-backed byte buffer (throw-fallout Stage 3 bucket #6
+                    // part 2): `new TextEncoder().encode(<string>)` and
+                    // `crypto.subtle.digest(...)` both produce tagged string
+                    // handles (`STRING_HANDLE_TAG | (buf << 32) | len`) whose low
+                    // 32 bits are the byte count. `byteLength` reads it the same
+                    // way `.length` does for a string handle (mirrors the string
+                    // `.length` arm above). MUST win before the array
+                    // interpretation below — these bindings resolve `Repr::String`,
+                    // not an array handle. Excludes a static-string receiver (none
+                    // arises here, but symmetric with the `.length` guard).
+                    if self.is_string_valued(base_id)
+                        && self.resolve_static_object_identity_value(base_id).is_none()
+                    {
+                        let base = self.emit_node(function, base_id, true);
+                        if !base.produced {
+                            function.instruction(&Instruction::I64Const(0));
+                        }
+                        function.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+                        function.instruction(&Instruction::I64And);
+                        return EmittedValue {
+                            produced: true,
+                            shape: ValueShape::Scalar,
+                        };
+                    }
                     if let Some(base_name) = self.assignment_target_name(node, base_id) {
                         if self.array_bindings.contains(&base_name) {
                             self.emit_array_base_address(function, base_id);

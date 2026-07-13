@@ -246,6 +246,50 @@ impl<'a> FunctionEmitter<'a> {
         self.crypto_random_uuid_import_index
     }
 
+    /// Recognize `crypto.subtle.digest(algo, bytes)` (throw-fallout Stage 3 bucket
+    /// #6 part 2): callee method text `"digest"`, object text `"subtle"`,
+    /// grand-object text `"crypto"`. Mirrors the `program_uses_crypto_subtle_digest`
+    /// probe and the kali_types admission arm (`resolve_crypto_call`).
+    pub(crate) fn crypto_subtle_digest_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+        if callee_node.text.as_deref()? != "digest" {
+            return None;
+        }
+        let subtle = callee_node.children.first().copied()?;
+        let subtle_node = self.node(subtle);
+        if subtle_node.text.as_deref() != Some("subtle") {
+            return None;
+        }
+        let crypto = subtle_node.children.first().copied()?;
+        if self.node(crypto).text.as_deref() != Some("crypto") {
+            return None;
+        }
+        self.crypto_subtle_digest_import_index
+    }
+
+    /// Recognize `new TextEncoder().encode(<string>)` (throw-fallout Stage 3 bucket
+    /// #6 part 2): callee method text `"encode"` whose object is a
+    /// `new TextEncoder()` construction (a `Call` node whose own callee text is
+    /// `"TextEncoder"`). A pure GUEST-SIDE reinterpret — no host import — so this
+    /// returns a bool rather than an import index. Mirrors the raw-node arm in
+    /// `declarator_init_is_crypto_call` and the kali_types admission arm.
+    pub(crate) fn is_text_encoder_encode(&self, callee_node: &LirNode) -> bool {
+        if callee_node.text.as_deref() != Some("encode") {
+            return false;
+        }
+        let Some(object) = callee_node.children.first().copied() else {
+            return false;
+        };
+        let object_node = self.node(object);
+        if object_node.kind != LirNodeKind::Call {
+            return false;
+        }
+        object_node
+            .children
+            .first()
+            .map(|&ctor| self.node(ctor).text.as_deref() == Some("TextEncoder"))
+            .unwrap_or(false)
+    }
+
     pub(crate) fn render_console_call(&self, node: &LirNode) -> Option<String> {
         let args = node.children.iter().skip(1).copied().collect::<Vec<_>>();
         self.render_console_arguments(&args)

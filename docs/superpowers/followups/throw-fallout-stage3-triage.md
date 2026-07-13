@@ -230,3 +230,53 @@ silent miscompile.
   consumes the value; a `0` digest fails the `byteLength !== 32` guard). Task 4 shipped as a real
   implementation: `"await"` HIR marker + value-passthrough emit arm + `Promise.resolve(v)`
   recognizer + kali_types mirror. Fixed 15 pre-existing red runtime_smoke tests, 0 regressions.
+
+## Task 7 (crypto.subtle.digest + TextEncoder) — scope expansion + mechanism notes
+
+- **User-approved scope expansion beyond the plan's Task 7.** The plan assumed only
+  `crypto.subtle.digest` + a new host import were missing. Pinning the fixture on a fresh binary
+  (Tasks 4-6 in) showed `new TextEncoder().encode("browser crypto").byteLength` → **0** (node: 14):
+  `TextEncoder().encode` was *completely unrecognized* in codegen. Task 7 therefore delivered BOTH
+  (A) `TextEncoder().encode(str)` → a contiguous byte buffer whose `.byteLength` == the UTF-8 byte
+  count, AND (B) the `crypto.subtle.digest` recognizer + new `kali:rt crypto_subtle_digest` host
+  import.
+
+- **Digest input is CONTIGUOUS string bytes (sidesteps m-T6-2).** A kali string is already a tagged
+  contiguous byte-buffer handle (`STRING_HANDLE_TAG | (buf<<32) | len`, `len` UTF-8 bytes at `buf`).
+  `TextEncoder().encode(<string>)` is a THIN REINTERPRET: the encoded buffer IS the argument's
+  string handle, so the digest arm reads `(in_ptr,in_len)` off contiguous bytes. This deliberately
+  does NOT route through `new Uint8Array(n)` (Task 6's m-T6-2: i64-stride elements, not contiguous),
+  which the digest host could not read as raw bytes. Verified end-to-end: the host receives the real
+  14 bytes `"browser crypto"`; SHA-256 hex matches node byte-for-byte.
+
+- **Parser quirk: `new TextEncoder().encode(x)` parses as `new (TextEncoder().encode(x))`.** The
+  `new` is hoisted to wrap the whole member-call chain (AST: `NewExpression{callee: CallExpr{callee:
+  MemberExpr{object: CallExpr(TextEncoder), property:"encode"}}}`; LIR: a text-less 1-child `Value`
+  wrapper — the `new` — around the `.encode` `Call`). The text-less-aggregate emit path DROPS its
+  operand and pushes `0` (the "unsupported `new` → empty object" placeholder), so the encoded buffer
+  was silently discarded and the binding stored `0` — the digest then hashed EMPTY input, yet
+  `byteLength===32` still passed (SHA-256 is always 32 bytes) — a green-for-the-wrong-reason trap.
+  Fixed with an encode passthrough in `emit_value` (scoped to a child whose callee is
+  `is_text_encoder_encode`) + a `NewExpression`-arm in `repr_infer` + `is_text_encoder_ctor`
+  accepting both `new TextEncoder()` and the bare `TextEncoder()` object form.
+
+- **`typeof <runtime-string>` was `0`.** Latent pre-existing gap (also hit `typeof ("a"+s)`):
+  `typeof` only classified STATIC operands, so a runtime string (`crypto.randomUUID()`, digest/encode
+  buffers, concat) fell to the placeholder `0`, failing the fixture's `typeof uuid !== 'string'`
+  guard. Fixed with an `is_string_valued` arm in the `typeof` emitter (interned "string" handle).
+  KNOWN latent divergence: the String-repr digest/encode BYTE BUFFERS also match and would report
+  "string" where node reports "object"; no fixture applies `typeof` to them. KNOWN residual: `typeof
+  X` is not yet `is_string_valued`, so `"x" + typeof y` int-coerces the "string" handle (misprints a
+  raw number); no target fixture uses `+ typeof` — follow-up.
+
+## Follow-ups opened by Task 7 (not green-blockers for the subtle_digest targets)
+
+- **`const x = crypto.getRandomValues(buf)` reads `x.length`/`x.byteLength` as `0`** (getRandomValues
+  result flowing into a `const` is not registered as an array binding). PRE-EXISTING (confirmed via
+  git-stash: red before Task 7, unchanged by it). This is the sole remaining blocker for the 4
+  `build_emits_browser_bundle_crypto_web_apis*` bundle tests, whose `digestSmoke` uses SHA-512 (my
+  digest returns 64 correctly) but trips the `filledBytes.length !== 8` guard. Task-6 domain
+  (getRandomValues), out of Task 7 scope.
+- `typeof X` should be `is_string_valued` (see above) so `+`-concat of a typeof result stays a
+  string; needs the symmetric kali_types `expression_is_string_typed`/`operand_repr_is_string` arm to
+  avoid an E3200 desync.

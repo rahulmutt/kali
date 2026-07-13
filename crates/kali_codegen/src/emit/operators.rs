@@ -183,6 +183,34 @@ impl<'a> FunctionEmitter<'a> {
                         shape: ValueShape::String,
                     };
                 }
+                // Runtime string lane: an operand `is_string_valued` proves (but
+                // whose value is only known at run time — `crypto.randomUUID()`, a
+                // `+` concat, a substring, a String-returning call) is
+                // `typeof === "string"`. Emit the interned "string" handle after
+                // evaluating the operand for side effects, mirroring the static
+                // lane's effect-free-read discipline. (Known latent divergence: the
+                // String-repr digest/encode BYTE BUFFERS also match here and would
+                // report "string" where node reports "object"; no fixture applies
+                // `typeof` to them.)
+                if self.is_string_valued(arg) {
+                    let operand = self.unwrap_transparent(arg);
+                    let operand_node = self.node(operand).clone();
+                    let is_effect_free_read = operand_node.kind == LirNodeKind::Literal
+                        || (operand_node.kind == LirNodeKind::Value
+                            && operand_node.children.is_empty());
+                    if !is_effect_free_read {
+                        let produced = self.emit_node(function, arg, true);
+                        if produced.produced {
+                            function.instruction(&Instruction::Drop);
+                        }
+                    }
+                    let (offset, len) = self.strings.intern("string");
+                    function.instruction(&Instruction::I64Const(encode_string_handle(offset, len)));
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::String,
+                    };
+                }
                 self.diagnostics.push(Diagnostic::warning(
                     e8::UNIMPLEMENTED as u32,
                     format!("unsupported unary operator '{}'", op),

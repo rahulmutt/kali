@@ -103,13 +103,55 @@ impl TypeContext {
     }
 
     /// throw-fallout Stage 3 bucket #6: admit `crypto.getRandomValues(<buffer>)`
-    /// (exactly one argument) and `crypto.randomUUID()` (no arguments), rejecting
-    /// the unsupported argument shapes with `FEATURE_UNAVAILABLE`. Symmetric with
-    /// the codegen recognizers (`FunctionEmitter::crypto_get_random_values_import_index`
-    /// / `crypto_random_uuid_import_index` and their `emit_call` arms). `crypto`
-    /// is already a baseline browser host global (see `builtins.rs`), so the
-    /// callee resolves; this arm only guards the argument shape.
+    /// (exactly one argument), `crypto.randomUUID()` (no arguments),
+    /// `crypto.subtle.digest(<string>, <buffer>)`, and
+    /// `new TextEncoder().encode(<string>)`, rejecting the unsupported
+    /// argument/algorithm shapes with `FEATURE_UNAVAILABLE`. Symmetric with the
+    /// codegen recognizers (`crypto_get_random_values_import_index` /
+    /// `crypto_random_uuid_import_index` / `crypto_subtle_digest_import_index` /
+    /// `is_text_encoder_encode` and their `emit_call` arms). `crypto` /
+    /// `TextEncoder` are baseline host globals (see `builtins.rs`), so the callee
+    /// resolves; this arm only guards the argument shape.
     pub(crate) fn resolve_crypto_call(&mut self, expr: &CallExpression) {
+        // `crypto.subtle.digest(algo, bytes)` and `new TextEncoder().encode(str)`
+        // are recognized STRUCTURALLY (their callee objects — a `crypto.subtle`
+        // member chain and a `new TextEncoder()` construction — are not static
+        // references `resolve_static_callable_name` names). Codegen accepts a
+        // string algorithm/argument and a string-backed byte buffer; reject
+        // everything else symmetrically.
+        if let Expression::MemberExpression(member) = &expr.callee {
+            if member.computed_index.is_none() {
+                match member.property.as_str() {
+                    "digest" if Self::is_crypto_subtle_object(&member.object) => {
+                        let ok = expr.args.len() == 2
+                            && self.expression_is_string_typed(&expr.args[0])
+                            && self.expression_is_string_typed(&expr.args[1]);
+                        if !ok {
+                            self.diagnostics.push(Diagnostic::error(
+                                e5::FEATURE_UNAVAILABLE as u32,
+                                "crypto.subtle.digest only accepts a string algorithm name and a TextEncoder().encode(<string>) buffer in the current phase"
+                                    .to_string(),
+                            ));
+                        }
+                        return;
+                    }
+                    "encode" if Self::is_new_text_encoder(&member.object) => {
+                        let ok =
+                            expr.args.len() == 1 && self.expression_is_string_typed(&expr.args[0]);
+                        if !ok {
+                            self.diagnostics.push(Diagnostic::error(
+                                e5::FEATURE_UNAVAILABLE as u32,
+                                "TextEncoder().encode only accepts a single string argument in the current phase"
+                                    .to_string(),
+                            ));
+                        }
+                        return;
+                    }
+                    _ => {}
+                }
+            }
+        }
+
         let Some(callee_name) = self.resolve_static_callable_name(&expr.callee) else {
             return;
         };
@@ -127,10 +169,38 @@ impl TypeContext {
             "crypto.randomUUID" | "globalThis.crypto.randomUUID" if !expr.args.is_empty() => {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
-                    "crypto.randomUUID() does not accept arguments in the current phase".to_string(),
+                    "crypto.randomUUID() does not accept arguments in the current phase"
+                        .to_string(),
                 ));
             }
             _ => {}
+        }
+    }
+
+    /// True when `expr` is the `crypto.subtle` object (member `subtle` off the
+    /// `crypto` identifier). Structural mirror of `repr_infer::is_crypto_subtle_object`.
+    fn is_crypto_subtle_object(expr: &Expression) -> bool {
+        matches!(
+            expr,
+            Expression::MemberExpression(member)
+                if member.computed_index.is_none()
+                    && member.property.as_str() == "subtle"
+                    && matches!(&member.object, Expression::Identifier(name) if name == "crypto")
+        )
+    }
+
+    /// True when `expr` invokes the `TextEncoder` constructor — `new TextEncoder()`
+    /// or the bare `TextEncoder()` call the parser leaves as the `.encode` object
+    /// when it hoists the `new`. Structural mirror of `repr_infer::is_text_encoder_ctor`.
+    fn is_new_text_encoder(expr: &Expression) -> bool {
+        match expr {
+            Expression::NewExpression(new_expr) => {
+                matches!(&new_expr.callee, Expression::Identifier(name) if name == "TextEncoder")
+            }
+            Expression::CallExpression(call) => {
+                matches!(&call.callee, Expression::Identifier(name) if name == "TextEncoder")
+            }
+            _ => false,
         }
     }
 

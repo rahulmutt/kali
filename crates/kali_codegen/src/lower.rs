@@ -85,6 +85,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     let uses_performance_now = program_uses_performance_now(lir);
     let uses_crypto_get_random_values = program_uses_crypto_get_random_values(lir);
     let uses_crypto_random_uuid = program_uses_crypto_random_uuid(lir);
+    let uses_crypto_subtle_digest = program_uses_crypto_subtle_digest(lir);
     let uses_env_access = uses_env_get || uses_env_has || uses_env_set || uses_env_delete;
     let function_index_offset = crate::FUNCTION_INDEX_OFFSET
         + if ctx.target.coverage { 1 } else { 0 }
@@ -98,7 +99,8 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         + if uses_args_get { 1 } else { 0 }
         + if uses_performance_now { 1 } else { 0 }
         + if uses_crypto_get_random_values { 1 } else { 0 }
-        + if uses_crypto_random_uuid { 1 } else { 0 };
+        + if uses_crypto_random_uuid { 1 } else { 0 }
+        + if uses_crypto_subtle_digest { 1 } else { 0 };
     let env_get_type_index = if uses_env_access { Some(6) } else { None };
     let env_has_type_index = if uses_env_has { Some(7) } else { None };
     let cwd_set_type_index = if uses_cwd_set { Some(5) } else { None };
@@ -258,6 +260,28 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                 + if uses_args_get { 1 } else { 0 }
                 + if uses_performance_now { 1 } else { 0 }
                 + if uses_crypto_get_random_values { 1 } else { 0 },
+        )
+    } else {
+        None
+    };
+    // `crypto_subtle_digest` is appended AFTER `crypto_random_uuid` in the import
+    // section below, so its index additionally sums both preceding crypto flags
+    // (`uses_crypto_get_random_values` + `uses_crypto_random_uuid`).
+    let crypto_subtle_digest_import_index = if uses_crypto_subtle_digest {
+        Some(
+            crate::COVERAGE_HIT_IMPORT_INDEX
+                + if ctx.target.coverage { 1 } else { 0 }
+                + if uses_env_set { 1 } else { 0 }
+                + if uses_env_delete { 1 } else { 0 }
+                + if uses_env_get { 1 } else { 0 }
+                + if uses_env_has { 1 } else { 0 }
+                + if uses_cwd_set { 1 } else { 0 }
+                + if uses_process_exit { 1 } else { 0 }
+                + if uses_stdout_write_bytes { 1 } else { 0 }
+                + if uses_args_get { 1 } else { 0 }
+                + if uses_performance_now { 1 } else { 0 }
+                + if uses_crypto_get_random_values { 1 } else { 0 }
+                + if uses_crypto_random_uuid { 1 } else { 0 },
         )
     } else {
         None
@@ -453,6 +477,27 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     // the type index is stable; the import itself is conditional (see below).
     const PERFORMANCE_NOW_TYPE_INDEX: u32 = 11;
     type_section.ty().function(vec![], vec![ValType::F64]);
+    // Type 12: crypto_subtle_digest
+    // `(algo_ptr: i32, algo_len: i32, in_ptr: i32, in_len: i32, out_ptr: i32,
+    // out_cap: i32) -> i32` (throw-fallout Stage 3 bucket #6 part 2) — reads the
+    // algorithm name + input bytes from guest memory, writes the raw digest bytes
+    // at `out_ptr` (bounded by `out_cap`), and returns the digest byte length.
+    // This is a NEW fixed signature (no existing type matches the 6-i32-arg
+    // shape), registered unconditionally so the type index is stable; the import
+    // itself is conditional (see below). Because it is the last fixed type, the
+    // repr-directed function types start at index 13 (see the dedup base below).
+    const CRYPTO_SUBTLE_DIGEST_TYPE_INDEX: u32 = 12;
+    type_section.ty().function(
+        vec![
+            ValType::I32,
+            ValType::I32,
+            ValType::I32,
+            ValType::I32,
+            ValType::I32,
+            ValType::I32,
+        ],
+        vec![ValType::I32],
+    );
     let mut import_section = ImportSection::new();
     import_section.import("kali:rt", "test_register", EntityType::Function(0));
     import_section.import("kali:rt", "console_log", EntityType::Function(1));
@@ -571,6 +616,17 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         // Reuses type 7. Appended AFTER `crypto_get_random_values`.
         import_section.import("kali:rt", "crypto_random_uuid", EntityType::Function(7));
     }
+    if crypto_subtle_digest_import_index.is_some() {
+        // `(algo_ptr, algo_len, in_ptr, in_len, out_ptr, out_cap) -> i32`: computes
+        // the digest of the input bytes and writes the raw digest at `out_ptr`,
+        // returning its length. Uses the new type 12. Appended AFTER
+        // `crypto_random_uuid`, so it takes the next import index.
+        import_section.import(
+            "kali:rt",
+            "crypto_subtle_digest",
+            EntityType::Function(CRYPTO_SUBTLE_DIGEST_TYPE_INDEX),
+        );
+    }
     // Function signatures are repr-directed: each param/result ValType comes from
     // the repr table (defaulting to I64). Two functions with equal arity but
     // differing float shapes need distinct wasm types, so the dedup key is the
@@ -626,9 +682,10 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             idx
         } else {
             // Function-signature types begin right after the fixed types
-            // (0..=PERFORMANCE_NOW_TYPE_INDEX): performance_now (type 11) is the
-            // last fixed type, so repr-directed function types start at index 12.
-            let idx = function_types.len() as u32 + PERFORMANCE_NOW_TYPE_INDEX + 1;
+            // (0..=CRYPTO_SUBTLE_DIGEST_TYPE_INDEX): crypto_subtle_digest (type
+            // 12) is now the last fixed type, so repr-directed function types
+            // start at index 13.
+            let idx = function_types.len() as u32 + CRYPTO_SUBTLE_DIGEST_TYPE_INDEX + 1;
             type_section.ty().function(params, results);
             function_types.insert(key, idx);
             idx
@@ -823,6 +880,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             performance_now_import_index,
             crypto_get_random_values_import_index,
             crypto_random_uuid_import_index,
+            crypto_subtle_digest_import_index,
             &mut diagnostics,
             &mut string_pool,
             ctx.source_path.clone(),
@@ -1420,6 +1478,47 @@ fn program_uses_crypto_method(lir: &LirProgram, method: &str) -> bool {
             return false;
         };
         object_node.text.as_deref() == Some("crypto")
+    })
+}
+
+/// Program-wide probe for a `crypto.subtle.digest(algo, bytes)` call (throw-fallout
+/// Stage 3 bucket #6 part 2). Mirrors
+/// `FunctionEmitter::crypto_subtle_digest_import_index` structurally over raw
+/// nodes (callee text `"digest"`, object text `"subtle"`, grand-object text
+/// `"crypto"`). Kept a SUPERSET of the emit recognizer (same rationale as the
+/// other crypto probes): were this false where emit fires, the conditional
+/// `crypto_subtle_digest` import would be undeclared and emitting a `Call` to it
+/// would be invalid wasm.
+pub(crate) fn program_uses_crypto_subtle_digest(lir: &LirProgram) -> bool {
+    lir.nodes.iter().any(|node| {
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+        let Some(callee) = node.children.first() else {
+            return false;
+        };
+        let Some(callee_node) = lir.nodes.get(callee.0 as usize) else {
+            return false;
+        };
+        if callee_node.text.as_deref() != Some("digest") {
+            return false;
+        }
+        let Some(subtle) = callee_node.children.first() else {
+            return false;
+        };
+        let Some(subtle_node) = lir.nodes.get(subtle.0 as usize) else {
+            return false;
+        };
+        if subtle_node.text.as_deref() != Some("subtle") {
+            return false;
+        }
+        let Some(crypto) = subtle_node.children.first() else {
+            return false;
+        };
+        let Some(crypto_node) = lir.nodes.get(crypto.0 as usize) else {
+            return false;
+        };
+        crypto_node.text.as_deref() == Some("crypto")
     })
 }
 
@@ -3166,17 +3265,23 @@ pub(crate) fn declarator_init_is_performance_now(nodes: &[LirNode], init_id: Lir
     }
 }
 
-/// True iff `init_id` (after unwrapping sequence wrappers) is a
-/// `crypto.getRandomValues(...)` or `crypto.randomUUID()` call (throw-fallout
-/// Stage 3 bucket #6). Both are IMPURE (each `Call` yields fresh random bytes /
-/// a fresh UUID), so — exactly like `declarator_init_is_performance_now` — a
+/// True iff `init_id` (after unwrapping transparent value / `await` wrappers) is
+/// a `crypto.getRandomValues(...)`, `crypto.randomUUID()`,
+/// `crypto.subtle.digest(...)`, or `new TextEncoder().encode(...)` call
+/// (throw-fallout Stage 3 bucket #6). The two random calls are IMPURE (each
+/// `Call` yields fresh bytes / a fresh UUID); `digest`/`encode` are deterministic
+/// but produce a fresh RUNTIME STRING handle whose `String` repr the binding must
+/// record. In every case — exactly like `declarator_init_is_performance_now` — a
 /// `const` initializer of this shape must be PROMOTED to a local slot and
-/// evaluated ONCE at its declaration, never fold-inlined and re-called at each
-/// use site (which would call the host again per use: a distinct-value
-/// nondeterminism miscompile AND, for `randomUUID`, would leave the use site
-/// with a bare-call result whose String repr the binding never records — so
-/// `.length` / `typeof` misresolve). Mirrors the codegen recognizers'
-/// `getRandomValues`/`randomUUID` + `crypto` object shape.
+/// evaluated ONCE at its declaration, never fold-inlined and re-emitted at each
+/// use site (for the random calls: a distinct-value nondeterminism miscompile
+/// AND host re-call per use; for `digest`: a redundant host call + a fresh
+/// `__alloc_global` buffer per use; for all of them a use-site bare-call result
+/// whose String repr the binding never records — so `.byteLength` / `.length` /
+/// `typeof` misresolve). `digest` arrives `await`-wrapped
+/// (`const d = await crypto.subtle.digest(...)`), so the unwrap loop also tunnels
+/// the `"await"` marker (Stage 3 Task 4). Mirrors the codegen recognizers'
+/// `getRandomValues`/`randomUUID`/`subtle.digest`/`TextEncoder().encode` shapes.
 pub(crate) fn declarator_init_is_crypto_call(nodes: &[LirNode], init_id: LirNodeId) -> bool {
     let mut id = init_id;
     let mut guard = 0;
@@ -3184,11 +3289,16 @@ pub(crate) fn declarator_init_is_crypto_call(nodes: &[LirNode], init_id: LirNode
         let Some(node) = nodes.get(id.0 as usize) else {
             return false;
         };
+        // Tunnel transparent value/sequence wrappers (text None or empty) and the
+        // synchronously-settled `await` marker (text "await", one child).
         if node.kind == LirNodeKind::Value
-            && node.text.as_deref() == Some("")
             && !node.children.is_empty()
+            && node
+                .text
+                .as_deref()
+                .is_none_or(|text| text.is_empty() || text == "await")
         {
-            id = *node.children.last().expect("sequence wrapper has a child");
+            id = *node.children.last().expect("wrapper has a child");
             guard += 1;
             if guard > 64 {
                 return false;
@@ -3204,19 +3314,52 @@ pub(crate) fn declarator_init_is_crypto_call(nodes: &[LirNode], init_id: LirNode
         let Some(callee_node) = nodes.get(callee.0 as usize) else {
             return false;
         };
-        if !matches!(
-            callee_node.text.as_deref(),
-            Some("getRandomValues") | Some("randomUUID")
-        ) {
-            return false;
-        }
-        let Some(object) = callee_node.children.first().copied() else {
-            return false;
+        // `crypto.getRandomValues`/`crypto.randomUUID` (object `crypto`);
+        // `crypto.subtle.digest` (object `subtle` -> grand-object `crypto`);
+        // `new TextEncoder().encode` (object is a `new TextEncoder()` Call).
+        return match callee_node.text.as_deref() {
+            Some("getRandomValues") | Some("randomUUID") => {
+                callee_node
+                    .children
+                    .first()
+                    .and_then(|&o| nodes.get(o.0 as usize))
+                    .and_then(|n| n.text.as_deref())
+                    == Some("crypto")
+            }
+            Some("digest") => {
+                let Some(subtle_node) = callee_node
+                    .children
+                    .first()
+                    .and_then(|&o| nodes.get(o.0 as usize))
+                else {
+                    return false;
+                };
+                subtle_node.text.as_deref() == Some("subtle")
+                    && subtle_node
+                        .children
+                        .first()
+                        .and_then(|&o| nodes.get(o.0 as usize))
+                        .and_then(|n| n.text.as_deref())
+                        == Some("crypto")
+            }
+            Some("encode") => {
+                let Some(ctor_call) = callee_node
+                    .children
+                    .first()
+                    .and_then(|&o| nodes.get(o.0 as usize))
+                else {
+                    return false;
+                };
+                ctor_call.kind == LirNodeKind::Call
+                    && ctor_call
+                        .children
+                        .first()
+                        .and_then(|&c| nodes.get(c.0 as usize))
+                        .and_then(|n| n.text.as_deref())
+                        == Some("TextEncoder")
+            }
+            _ => false,
         };
-        let Some(object_node) = nodes.get(object.0 as usize) else {
-            return false;
-        };
-        return object_node.text.as_deref() == Some("crypto");
     }
 }
 

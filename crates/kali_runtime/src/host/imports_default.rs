@@ -182,6 +182,56 @@ pub(crate) fn register_default_host_imports(
     linker
         .func_wrap(
             "kali:rt",
+            "crypto_subtle_digest",
+            |mut caller: Caller<'_, KaliHostState>,
+             algo_ptr: i32,
+             algo_len: i32,
+             in_ptr: i32,
+             in_len: i32,
+             out_ptr: i32,
+             out_cap: i32|
+             -> wasmtime::Result<i32> {
+                // `SubtleCrypto::digest` is deterministic and reads no ambient
+                // entropy, but it is a Web Crypto operation like getRandomValues /
+                // randomUUID, so it is gated under the same `Random` host operation
+                // for policy consistency across the crypto imports.
+                enforce_operation(caller.data_mut(), HostOperation::Random)?;
+                let algorithm = read_guest_string(&mut caller, algo_ptr, algo_len)?;
+                let input = read_guest_bytes(&mut caller, in_ptr, in_len)?;
+                let digest = SubtleCrypto
+                    .digest(&algorithm, &input)
+                    .map_err(|error| wasmtime::Error::msg(error.to_string()))?;
+                write_guest_bytes(&mut caller, out_ptr, out_cap, &digest)
+            },
+        )
+        .map_err(|error| host_import_error("crypto_subtle_digest", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
+            "cryptoSubtleDigest",
+            |mut caller: Caller<'_, KaliHostState>,
+             algo_ptr: i32,
+             algo_len: i32,
+             in_ptr: i32,
+             in_len: i32,
+             out_ptr: i32,
+             out_cap: i32|
+             -> wasmtime::Result<i32> {
+                enforce_operation(caller.data_mut(), HostOperation::Random)?;
+                let algorithm = read_guest_string(&mut caller, algo_ptr, algo_len)?;
+                let input = read_guest_bytes(&mut caller, in_ptr, in_len)?;
+                let digest = SubtleCrypto
+                    .digest(&algorithm, &input)
+                    .map_err(|error| wasmtime::Error::msg(error.to_string()))?;
+                write_guest_bytes(&mut caller, out_ptr, out_cap, &digest)
+            },
+        )
+        .map_err(|error| host_import_error("cryptoSubtleDigest", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
             "thread_spawn",
             |mut caller: Caller<'_, KaliHostState>,
              script_url_ptr: i32,

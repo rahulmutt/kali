@@ -2403,6 +2403,144 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if let Some(import_index) = self.crypto_subtle_digest_import_index(&callee_node) {
+            // `crypto.subtle.digest(algo, bytes)`: `algo` is a string handle (a
+            // string literal) and `bytes` is the CONTIGUOUS byte buffer produced
+            // by `new TextEncoder().encode(<string>)` — itself a reinterpret of a
+            // string handle, so BOTH operands are `STRING_HANDLE_TAG | (buf << 32)
+            // | len` handles whose `(buf, len)` name contiguous UTF-8 bytes. Decode
+            // each to a `(ptr, len)` i32 pair, allocate a NEVER-reset output buffer
+            // (max digest = 64 bytes for SHA-512), have the host write the raw
+            // digest bytes and return the length, then build a tagged handle from
+            // `(out_buf, returned_len)` so `.byteLength` reads the digest length
+            // off the low 32 bits (see the string-valued `.byteLength` arm).
+            let mut args = node.children.iter().skip(1);
+            let (Some(&algo_expr), Some(&input_expr)) = (args.next(), args.next()) else {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "crypto.subtle.digest requires an algorithm name and an input buffer in the current phase"
+                        .to_string(),
+                ));
+                function.instruction(&Instruction::I64Const(0));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                };
+            };
+            if args.next().is_some() {
+                // Extra arguments are an unsupported shape. The kali_types arm
+                // rejects the same set symmetrically; the string-ness of the
+                // algorithm/input operands is likewise gated there (types is the
+                // reject oracle, like the getRandomValues/randomUUID arms), so this
+                // arm assumes valid string-handle operands once the structural
+                // recognizer + arity match.
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "crypto.subtle.digest only accepts a string algorithm name and a TextEncoder().encode(<string>) buffer in the current phase"
+                        .to_string(),
+                ));
+                function.instruction(&Instruction::I64Const(0));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                };
+            }
+            // Two i64 scratch locals (general-purpose + array-alloc slot):
+            // `handle_local` holds each string handle in turn (algo, then input,
+            // then the returned digest length), `buf_local` holds the output
+            // buffer base.
+            let handle_local = self.locals.len() as u32;
+            let buf_local = handle_local + 1;
+            const DIGEST_BUF_CAP: i32 = 64;
+            // --- algo (algo_ptr, algo_len) ---
+            let produced = self.emit_node(function, algo_expr, true);
+            if !produced.produced {
+                function.instruction(&Instruction::I64Const(0));
+            }
+            function.instruction(&Instruction::LocalSet(handle_local));
+            self.emit_string_handle_ptr(function, handle_local);
+            self.emit_string_handle_len(function, handle_local);
+            // --- input (in_ptr, in_len) ---
+            let produced = self.emit_node(function, input_expr, true);
+            if !produced.produced {
+                function.instruction(&Instruction::I64Const(0));
+            }
+            function.instruction(&Instruction::LocalSet(handle_local));
+            self.emit_string_handle_ptr(function, handle_local);
+            self.emit_string_handle_len(function, handle_local);
+            // --- output buffer (out_ptr, out_cap) ---
+            function.instruction(&Instruction::I32Const(DIGEST_BUF_CAP));
+            function.instruction(&Instruction::Call(self.alloc_global_fn_index()));
+            function.instruction(&Instruction::I64ExtendI32U);
+            function.instruction(&Instruction::LocalSet(buf_local));
+            function.instruction(&Instruction::LocalGet(buf_local));
+            function.instruction(&Instruction::I32WrapI64);
+            function.instruction(&Instruction::I32Const(DIGEST_BUF_CAP));
+            // len = crypto_subtle_digest(algo_ptr, algo_len, in_ptr, in_len, out_ptr, out_cap)
+            function.instruction(&Instruction::Call(import_index));
+            function.instruction(&Instruction::I64ExtendI32U);
+            function.instruction(&Instruction::LocalSet(handle_local));
+            // handle = STRING_HANDLE_TAG | (out_buf << 32) | len
+            function.instruction(&Instruction::I64Const(STRING_HANDLE_TAG as i64));
+            function.instruction(&Instruction::LocalGet(buf_local));
+            function.instruction(&Instruction::I64Const(32));
+            function.instruction(&Instruction::I64Shl);
+            function.instruction(&Instruction::I64Or);
+            function.instruction(&Instruction::LocalGet(handle_local));
+            function.instruction(&Instruction::I64Or);
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::String,
+            };
+        }
+
+        if self.is_text_encoder_encode(&callee_node) {
+            // `new TextEncoder().encode(<string>)`: a thin reinterpret. A kali
+            // string is ALREADY a tagged CONTIGUOUS byte-buffer handle
+            // (`STRING_HANDLE_TAG | (buf << 32) | len`, `len` UTF-8 bytes at
+            // `buf`), so the encoded byte buffer IS the argument's string handle —
+            // its `(buf, len)` already names the contiguous UTF-8 bytes and
+            // `.byteLength` reads the same low-32 byte count as `.length`. This
+            // deliberately does NOT route through `new Uint8Array(n)` (i64-stride
+            // elements — not contiguous bytes the digest host can read).
+            let mut args = node.children.iter().skip(1);
+            let Some(&input_expr) = args.next() else {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "TextEncoder().encode requires a string argument in the current phase"
+                        .to_string(),
+                ));
+                function.instruction(&Instruction::I64Const(0));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::String,
+                };
+            };
+            if args.next().is_some() {
+                // Extra arguments are an unsupported shape; the kali_types arm
+                // rejects a non-string argument symmetrically (types is the reject
+                // oracle), so this passthrough assumes a string-handle operand.
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "TextEncoder().encode only accepts a single string argument in the current phase"
+                        .to_string(),
+                ));
+                function.instruction(&Instruction::I64Const(0));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::String,
+                };
+            }
+            let produced = self.emit_node(function, input_expr, true);
+            if !produced.produced {
+                function.instruction(&Instruction::I64Const(0));
+            }
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::String,
+            };
+        }
+
         if self.is_process_kill(&callee_node) {
             let mut args = node.children.iter().skip(1);
             let Some(pid_expr) = args.next() else {
@@ -2596,6 +2734,30 @@ impl<'a> FunctionEmitter<'a> {
             return None;
         }
         Some(node.children.get(1).copied())
+    }
+
+    /// Push the i32 linear-memory pointer of a tagged string handle held in
+    /// `handle_local` (an i64 local): `((handle >> 32) & 0x7fff_ffff) as i32`.
+    /// Matches the host's `read_guest_string_handle` decode (offset = bits
+    /// 32..=62). Shared by the `crypto.subtle.digest` operand decode.
+    fn emit_string_handle_ptr(&self, function: &mut Function, handle_local: u32) {
+        function.instruction(&Instruction::LocalGet(handle_local));
+        function.instruction(&Instruction::I64Const(32));
+        function.instruction(&Instruction::I64ShrU);
+        function.instruction(&Instruction::I64Const(0x7fff_ffff));
+        function.instruction(&Instruction::I64And);
+        function.instruction(&Instruction::I32WrapI64);
+    }
+
+    /// Push the i32 byte length of a tagged string handle held in `handle_local`
+    /// (an i64 local): `(handle & 0xffff_ffff) as i32` (the low-32 byte count,
+    /// same field `.length` reads). Shared by the `crypto.subtle.digest` operand
+    /// decode.
+    fn emit_string_handle_len(&self, function: &mut Function, handle_local: u32) {
+        function.instruction(&Instruction::LocalGet(handle_local));
+        function.instruction(&Instruction::I64Const(0xffff_ffff));
+        function.instruction(&Instruction::I64And);
+        function.instruction(&Instruction::I32WrapI64);
     }
 
     /// `Array(n)` / `new Array(n)` (bare `Array`), or the `Uint8Array`
