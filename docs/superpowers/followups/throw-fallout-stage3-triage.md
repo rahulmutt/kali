@@ -421,3 +421,18 @@ unit tests, further evidence the gate is genuinely red rather than mid-program b
   divergence + `+ typeof` int-coercion; sequence-expression `process.kill` receiver silent-0
   (soundness, blocks no test); `const x = crypto.getRandomValues(buf)` array-binding (the 4
   crypto_web_apis carve-out).
+
+## Stage-3 checkpoint — GATE RE-RUN after regression fixes (RESOLVED)
+
+The initial checkpoint (837b8b803) recorded a FAILED primary gate: 923→853 with **19 Stage-3 regressions** (newly-red vs the 923 stage entry). Both were bisected and fixed:
+
+- **Regression A** (16 tests) — Task 4's `text="await"` HIR marker made the await wrapper opaque to static-literal recognizers (`Math.atan2`, `Number.isSafeInteger`) that tunneled through the old text-less wrapper. Fix `b823377c6`: two read-only `Option`-returning resolvers (`render_static_value` host.rs, `resolve_static_object_identity_value` object.rs) now tunnel through the `"await"` marker; emit dispatch untouched (aggregate-drop bug not reintroduced).
+- **Regression B** (3 tests) — Task 7's `!expression_is_string_typed` reject on the `TextEncoder().encode` + `crypto.subtle.digest` types arms hard-E5506'd the corpus's runtime-input `encode(describe(count))`, breaking a previously checkable+deployable web-baseline-primitives package. Fix `9c22123df`: both types arms narrowed to arity-only rejects (mirroring the already-tolerant codegen); unsupported runtime-input shapes fall back to the prior placeholder/reinterpret lane (no new miscompile — the corpus never executes them; supported literal-input lowering unchanged).
+
+**Gate re-run at `9c22123df` (Fix A + Fix B):**
+- post = **834** = 923 − 89 drained + **0 newly-red**.
+- **PRIMARY GATE: newly-red vs the 923 stage entry = 0** ✅ — zero Stage-3 regressions.
+- Drained = **89**: perf.now 21, crypto 14 (of 18; the 4 `crypto_web_apis` bundle tests stay red — pre-existing `const x = getRandomValues(buf)` array-binding gap), coverage_hit 2, process.kill 4, Task-4 await value-passthrough bonus 48 (object_is 24 + math_round 9 + async/await-named 15 — all await-wrapped-arg fixtures).
+- The bare-`chromium` production HTML entrypoint hang + no-production-CDP-driver items remain filed follow-ups (Task 9). Denominator **923 → 834**. Branch stays UNMERGED (PR #16 draft/held).
+
+**LESSON RE-CONFIRMED (Stage 2):** per-task reviews reported "0 regressions" for Tasks 4 and 7, but the full `--no-fail-fast` enumeration caught both — the workspace gate is the only sufficient regression check, never a per-task subset.
