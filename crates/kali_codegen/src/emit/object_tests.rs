@@ -74,3 +74,52 @@ fn computed_forin_key_access_uses_headerless_offset_zero() {
         .validate_all(&result.wasm_bytes)
         .expect("generated wasm should validate");
 }
+
+/// throw-fallout Stage 3 whole-stage review, FINDING #2: a generic optional-chain
+/// member access (`o?.b?.c`) that is NOT a recognized host-call/intrinsic must
+/// join the SAME fail-closed object-shape path as the non-optional `o.b.c`
+/// (E5506, "no statically inferred object shape"). Task 3 made `?.` a
+/// transparent alias for `.` at the parser; the optional LIR wrapper must not
+/// route generic member reads to the silent-0 placeholder. Both forms MUST
+/// reject identically — a silent 0 for the optional form is a miscompile.
+fn nested_member_read_reports_no_static_object_shape(source: &str) -> Vec<Diagnostic> {
+    let program = parse_and_lower_lir(source);
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    lower_lir_to_wasm(&mut ctx, &program).diagnostics
+}
+
+#[test]
+fn nested_plain_member_read_fails_closed_with_object_shape_e5506() {
+    let diagnostics =
+        nested_member_read_reports_no_static_object_shape("const o = {b:{c:42}};\no.b.c;\n");
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.is_error()
+                && diagnostic.code == Some(5506)
+                && diagnostic
+                    .message
+                    .contains("no statically inferred object shape")
+        }),
+        "expected E5506 for o.b.c: {diagnostics:?}"
+    );
+}
+
+#[test]
+fn nested_optional_chain_member_read_fails_closed_identically_to_plain() {
+    let diagnostics =
+        nested_member_read_reports_no_static_object_shape("const o = {b:{c:42}};\no?.b?.c;\n");
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.is_error()
+                && diagnostic.code == Some(5506)
+                && diagnostic
+                    .message
+                    .contains("no statically inferred object shape")
+        }),
+        "o?.b?.c must fail closed with E5506 like o.b.c, not silently return 0: {diagnostics:?}"
+    );
+}

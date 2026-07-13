@@ -242,16 +242,28 @@ impl HirLowerer {
     }
 
     pub(crate) fn lower_optional_chain(&mut self, expr: &OptionalChainExpression) -> HirNodeId {
-        let id = self.builder.alloc(HirNodeKind::OptionalChain, None);
+        // Lower the optional-chain short-circuit marker TRANSPARENTLY: emit the
+        // receiver directly with no wrapper node. Task 3 kept `?.` as a
+        // transparent alias for `.` (the property is preserved as a real
+        // `MemberExpression`), and host-call / intrinsic / revocable recognition
+        // runs at the AST level (`call_member_access_name`, `resolve_static_*`
+        // in kali_types, which tunnel `OptionalChainExpression`), NOT via this
+        // wrapper. A distinct LIR wrapper node is textless and one-child —
+        // structurally IDENTICAL to a single-element array literal `[x]` — so a
+        // GENERIC optional-chain member read (`o?.b?.c`) resolved DIFFERENTLY
+        // from `o.b.c`, turning `o.b.c`'s safe E5506 fail-closed into a silent
+        // `0`. Lowering transparently makes `o?.b?.c` byte-identical to `o.b.c`
+        // at HIR/LIR: it fail-closes IDENTICALLY (E5506), while `process?.kill`
+        // and the `globalThis?.Proxy.revocable` reject keep working (same
+        // receiver shape as the non-optional form). True runtime nullish
+        // short-circuit is a deferred item — throw-fallout Stage 3 whole-stage
+        // review FINDING #2.
         match expr.inner.as_ref() {
             OptionalChainInner::NonNull {
                 object,
                 optional: _,
-            } => {
-                push_child!(self, id, self.lower_expression(object));
-            }
+            } => self.lower_expression(object),
         }
-        id
     }
 
     pub(crate) fn lower_update_expression(&mut self, expr: &UpdateExpression) -> HirNodeId {
