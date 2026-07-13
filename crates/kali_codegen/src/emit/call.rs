@@ -2429,11 +2429,13 @@ impl<'a> FunctionEmitter<'a> {
             };
             if args.next().is_some() {
                 // Extra arguments are an unsupported shape. The kali_types arm
-                // rejects the same set symmetrically; the string-ness of the
-                // algorithm/input operands is likewise gated there (types is the
-                // reject oracle, like the getRandomValues/randomUUID arms), so this
-                // arm assumes valid string-handle operands once the structural
-                // recognizer + arity match.
+                // rejects the same arity set symmetrically (both sides reject ONLY
+                // on arity — missing / extra args — never on operand string-ness, so
+                // a runtime/imported-call input like `encode(describe(count))` falls
+                // through here and lowers as a reinterpret, matching the pre-recognizer
+                // placeholder that deployed). Once the structural recognizer + arity
+                // match, this arm assumes string-handle operands (their `(buf, len)`
+                // names contiguous UTF-8 bytes by provenance).
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
                     "crypto.subtle.digest only accepts a string algorithm name and a TextEncoder().encode(<string>) buffer in the current phase"
@@ -2518,8 +2520,10 @@ impl<'a> FunctionEmitter<'a> {
             };
             if args.next().is_some() {
                 // Extra arguments are an unsupported shape; the kali_types arm
-                // rejects a non-string argument symmetrically (types is the reject
-                // oracle), so this passthrough assumes a string-handle operand.
+                // rejects the same arity mismatch symmetrically (both sides reject
+                // ONLY on arity, never on operand string-ness — a runtime/imported
+                // input falls through and reinterprets, as the pre-recognizer
+                // placeholder did), so this passthrough assumes a string-handle operand.
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
                     "TextEncoder().encode only accepts a single string argument in the current phase"

@@ -123,25 +123,40 @@ impl TypeContext {
             if member.computed_index.is_none() {
                 match member.property.as_str() {
                     "digest" if Self::is_crypto_subtle_object(&member.object) => {
-                        let ok = expr.args.len() == 2
-                            && self.expression_is_string_typed(&expr.args[0])
-                            && self.expression_is_string_typed(&expr.args[1]);
-                        if !ok {
+                        // Mirror codegen's `crypto_subtle_digest` arm EXACTLY: it
+                        // recognizes-and-lowers any structural `crypto.subtle.digest`
+                        // and rejects ONLY on arity (missing / extra arguments), never
+                        // on operand string-ness. A previous string-typed gate here
+                        // HARD-REJECTED (E5506) well-formed-but-not-statically-string
+                        // shapes — e.g. `crypto.subtle.digest('SHA-256', encode(f(x)))`
+                        // where the input flows from an imported/runtime call — which
+                        // codegen tolerantly lowers and which the pre-recognizer phase
+                        // compiled as an unrecognized placeholder that checked, built,
+                        // and deployed. Those unsupported-but-well-formed shapes now
+                        // fall through here (no E5506) so deployability is preserved;
+                        // only an arity mismatch (which codegen ALSO rejects) errors.
+                        if expr.args.len() != 2 {
                             self.diagnostics.push(Diagnostic::error(
                                 e5::FEATURE_UNAVAILABLE as u32,
-                                "crypto.subtle.digest only accepts a string algorithm name and a TextEncoder().encode(<string>) buffer in the current phase"
+                                "crypto.subtle.digest requires exactly a string algorithm name and an input buffer in the current phase"
                                     .to_string(),
                             ));
                         }
                         return;
                     }
                     "encode" if Self::is_new_text_encoder(&member.object) => {
-                        let ok =
-                            expr.args.len() == 1 && self.expression_is_string_typed(&expr.args[0]);
-                        if !ok {
+                        // Mirror codegen's `is_text_encoder_encode` arm EXACTLY: it
+                        // reinterprets any structural `new TextEncoder().encode(x)` and
+                        // rejects ONLY on arity (missing / extra arguments), never on
+                        // operand string-ness. See the `digest` arm above — the prior
+                        // string-typed gate over-rejected runtime/imported-call inputs
+                        // (`encode(describe(count))`) that codegen tolerantly lowers and
+                        // that previously deployed as a placeholder. Fall through for
+                        // those; error only on an arity mismatch codegen also rejects.
+                        if expr.args.len() != 1 {
                             self.diagnostics.push(Diagnostic::error(
                                 e5::FEATURE_UNAVAILABLE as u32,
-                                "TextEncoder().encode only accepts a single string argument in the current phase"
+                                "TextEncoder().encode requires exactly a single argument in the current phase"
                                     .to_string(),
                             ));
                         }
