@@ -246,7 +246,13 @@ impl<'a> FunctionEmitter<'a> {
                 // one-child wrappers (throw-fallout Stage 2). A one-property
                 // OBJECT literal's lone child is an `init` node with no scalar
                 // identity, so it already resolves to `None`.
-                None | Some("") => self.resolve_static_object_identity_value(node.children[0]),
+                // `"await"` (Stage 3 Task 4) marks a synchronously-settled
+                // passthrough wrapper; an identity consumer tunnels through it to
+                // the awaited operand exactly like a text-less grouping wrapper
+                // (e.g. `Number.isSafeInteger(await alias)`).
+                None | Some("") | Some("await") => {
+                    self.resolve_static_object_identity_value(node.children[0])
+                }
                 Some("+") => match self.resolve_static_object_identity_value(node.children[0]) {
                     Some(StaticObjectIdentityValue::BigInt(_)) => None,
                     other => other,

@@ -410,7 +410,16 @@ impl<'a> FunctionEmitter<'a> {
                         StaticIndexMemberResult::String(value) => Some(value),
                         StaticIndexMemberResult::Undefined => Some("undefined".to_string()),
                     }
-                } else if node.text.is_none() {
+                } else if node
+                    .text
+                    .as_deref()
+                    // A text-less wrapper renders as its child (1 child) or the
+                    // aggregate element count. The `"await"` marker (Stage 3
+                    // Task 4) is a synchronously-settled passthrough — it always
+                    // wraps a single operand, so it tunnels to that child for
+                    // static rendering (e.g. `Math.atan2(await 0, await 1)`).
+                    .is_none_or(|text| text.is_empty() || text == "await")
+                {
                     if node.children.len() == 1 {
                         self.render_static_value(node.children[0])
                     } else {
