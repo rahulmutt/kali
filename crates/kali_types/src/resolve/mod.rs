@@ -613,6 +613,27 @@ impl TypeContext {
                                         == kali_common::Repr::I64
                                 })
                                 .unwrap_or(false);
+                            // Self-push reject (review fix): a `<name>.push(...)`
+                            // anywhere in the body pushes into the array being
+                            // iterated — node GROWS the iteration, the counted
+                            // loop's once-snapshotted length does not: a silent
+                            // node-divergent miscompile if admitted. Fail closed
+                            // (E5506). Name-based and conservative (a shadowing
+                            // redeclaration still rejects); a push on a DIFFERENT
+                            // binding (`out.push(v)`) stays admitted. Codegen
+                            // carries a defensive by-construction mirror in
+                            // `emit_growable_push_call`.
+                            if crate::growable::statement_contains_push_on(body, name) {
+                                let loop_kind = if *is_await { "for-await-of" } else { "for-of" };
+                                self.diagnostics.push(Diagnostic::error(
+                                    e5::FEATURE_UNAVAILABLE as u32,
+                                    format!(
+                                        "pushing to a growable array inside a {} loop iterating that same array is unavailable in the current phase (the iteration count is fixed at loop entry, diverging from JS growth semantics); use an index loop over `.length` or the later compatibility path",
+                                        loop_kind
+                                    ),
+                                ));
+                                return;
+                            }
                             if left_is_supported && elem_is_i64 && !*is_await {
                                 // ADMIT: resolve the loop var + RHS + body
                                 // exactly like the static lane's admit path.

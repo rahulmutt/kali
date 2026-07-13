@@ -133,6 +133,58 @@ fn run_supports_for_of_over_growable_array_in_js_and_ts_input() {
     }
 }
 
+/// Task 4 fail-closed (review fix): pushing into the array being iterated
+/// grows the iteration under node but NOT under the counted loop's
+/// once-snapshotted length — must reject E5506 at compile time, never run
+/// with fixed-count semantics (node prints 5; the miscompile printed 2).
+fn growable_self_push_in_for_of_source() -> &'static str {
+    r#"function main() {
+  const o = [];
+  o.push(1);
+  o.push(2);
+  let count = 0;
+  for (const v of o) {
+    count++;
+    if (o.length < 5) o.push(v);
+  }
+  console.log(count);
+}
+main();
+"#
+}
+
+#[test]
+fn run_rejects_push_into_the_growable_array_being_iterated_in_js_and_ts_input() {
+    for extension in ["js", "ts"] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join(format!("smoke.test.{extension}"));
+        fs::write(&source_path, growable_self_push_in_for_of_source()).expect("write source");
+
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("run")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(
+            !output.status.success(),
+            "expected a self-push for-of to be rejected, not silently run with a fixed count"
+        );
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            stdout.is_empty(),
+            "expected NO stdout (never a silent node-divergent run): {stdout}"
+        );
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("E5506"), "stderr: {stderr}");
+        assert!(
+            stderr.contains("iterating"),
+            "expected the self-push-specific message, stderr: {stderr}"
+        );
+    }
+}
+
 /// Task 3: uniform-String pushes promote with element repr `String` — the
 /// index-read result feeding `console.log` is treated as a string handle.
 fn growable_string_push_source() -> &'static str {

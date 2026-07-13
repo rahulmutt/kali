@@ -107,14 +107,19 @@ pub(crate) struct FunctionEmitter<'a> {
     /// DISJOINT from `array_bindings` (a separate tagged-header layout; the
     /// two lanes must never conflate).
     pub(crate) growable_array_bindings: HashSet<String>,
-    /// True while emitting the body of a runtime `for..of` over a growable
-    /// array (throw-fallout Stage 4 Task 4). A growable `for..of` lexically
-    /// NESTED inside another fails closed (E5506): the shared index/length
-    /// scratch pair (`growable_foreach_index_local_name`) would otherwise be
-    /// clobbered by the inner loop and silently miscompile the outer counter.
-    /// Per-function scoped (fresh emitter per function), so a growable `for..of`
-    /// in a nested FUNCTION is a separate emitter and never blocked.
-    pub(crate) growable_for_of_active: bool,
+    /// `Some(<iterated binding name>)` while emitting the body of a runtime
+    /// `for..of` over a growable array (throw-fallout Stage 4 Task 4). Two
+    /// fail-closed guards key on it: (1) a growable `for..of` lexically NESTED
+    /// inside another rejects E5506 — the shared index/length scratch pair
+    /// (`growable_foreach_index_local_name`) would otherwise be clobbered by
+    /// the inner loop and silently miscompile the outer counter; (2) a `.push`
+    /// on the SAME binding being iterated rejects E5506 in
+    /// `emit_growable_push_call` — the by-construction mirror of the
+    /// resolve-time self-push reject (node grows the iteration; the counted
+    /// loop's once-snapshotted length does not). Per-function scoped (fresh
+    /// emitter per function), so a growable `for..of` in a nested FUNCTION is
+    /// a separate emitter and never blocked.
+    pub(crate) growable_for_of_active: Option<String>,
     pub(crate) reported_placeholder_fallbacks: HashSet<String>,
     pub(crate) control_frames: Vec<ControlFlowLabelKind>,
     pub(crate) loop_frames: Vec<LoopFrame>,
@@ -297,7 +302,7 @@ impl<'a> FunctionEmitter<'a> {
             bindings: BTreeMap::new(),
             array_bindings,
             growable_array_bindings,
-            growable_for_of_active: false,
+            growable_for_of_active: None,
             reported_placeholder_fallbacks: HashSet::new(),
             control_frames: Vec::new(),
             loop_frames: Vec::new(),

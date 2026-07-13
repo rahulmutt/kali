@@ -1150,7 +1150,7 @@ impl<'a> FunctionEmitter<'a> {
         // outer loop's counter — a silent miscompile. (Codegen-side guard; the
         // resolve gate admits the shape, so this is a fail-CLOSED both-sides
         // asymmetry, listed in the report — never a fail-open.)
-        if self.growable_for_of_active {
+        if self.growable_for_of_active.is_some() {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
                 "a for-of over a growable array nested inside another for-of over a growable array is unavailable in the current phase; use an index loop over `.length` or the later compatibility path".to_string(),
@@ -1202,8 +1202,27 @@ impl<'a> FunctionEmitter<'a> {
                 shape: ValueShape::Unknown,
             };
         };
-        let index_local = self.locals[&crate::lower::growable_foreach_index_local_name()];
-        let len_local = self.locals[&crate::lower::growable_foreach_len_local_name()];
+        // Reserved by `collect_function_locals`' `for_of_growable_loop_var_names`
+        // walk (the structural twin of this lane's guard). A miss is a
+        // reserve/resolve twin desync — fail closed (E5506), never panic.
+        let (Some(index_local), Some(len_local)) = (
+            self.locals
+                .get(&crate::lower::growable_foreach_index_local_name())
+                .copied(),
+            self.locals
+                .get(&crate::lower::growable_foreach_len_local_name())
+                .copied(),
+        ) else {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "growable for-of index/length scratch locals were not reserved; iteration lowering is unavailable".to_string(),
+            ));
+            function.instruction(&Instruction::Unreachable);
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        };
         let body = node.children.get(2).copied();
 
         // i = 0
@@ -1241,9 +1260,10 @@ impl<'a> FunctionEmitter<'a> {
         function.instruction(&Instruction::I64Add);
         function.instruction(&Instruction::LocalSet(index_local));
 
-        // body
-        let previous_active = self.growable_for_of_active;
-        self.growable_for_of_active = true;
+        // body — with the iterated binding name active, so the nesting guard
+        // above and `emit_growable_push_call`'s same-binding self-push guard
+        // both see it.
+        let previous_active = self.growable_for_of_active.replace(handle_name.clone());
         if let Some(body) = body {
             let _ = self.emit_node(function, body, false);
         }

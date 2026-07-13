@@ -483,6 +483,28 @@ impl<'a> FunctionEmitter<'a> {
         base_name: &str,
         args: &[LirNodeId],
     ) -> EmittedValue {
+        // Self-push guard (Stage 4 Task 4 review fix): a push onto the array a
+        // runtime `for..of` is CURRENTLY iterating grows the array under node
+        // but not the counted loop's once-snapshotted length — a silent
+        // node-divergent miscompile. The resolve-phase for..of gate already
+        // rejects this shape (its syntactic body walk); this is the
+        // by-construction codegen mirror — every growable push emission flows
+        // through here, so nothing the walk might miss can slip past. Pushes
+        // onto a DIFFERENT binding (the target fixture's `out.push(v)` inside
+        // `for (const v of o)`) are unaffected.
+        if self.growable_for_of_active.as_deref() == Some(base_name) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "pushing to growable array `{base_name}` inside a for-of loop iterating it is unavailable in the current phase (the iteration count is fixed at loop entry, diverging from JS growth semantics); use an index loop over `.length` or the later compatibility path"
+                ),
+            ));
+            function.instruction(&Instruction::Unreachable);
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
         let Some(handle_local) = self.locals.get(base_name).copied() else {
             // No local slot: provisioning bug — fail closed, never a silent
             // no-op.
