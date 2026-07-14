@@ -619,7 +619,7 @@ fn analyze_source_file(
         )]);
     }
 
-    let lexer = Lexer::new(FileId::new(0), source);
+    let lexer = Lexer::new(FileId::new(0), source.clone());
     let lexed = lexer.lex_all();
     let mut diagnostics = lexed.diagnostics;
     let mut parser = Parser::new(FileId::new(0), lexed.tokens);
@@ -634,6 +634,21 @@ fn analyze_source_file(
         &parsed.statements,
         source_path,
     ));
+    if has_errors(&diagnostics) {
+        return Err(diagnostics);
+    }
+
+    // AST module-linking (throw-fallout Stage 5). Runs BEFORE monomorphize so
+    // linked functions participate in specialization, and AFTER export-name
+    // validation (mangled `__link` names must not collide — the pass
+    // re-checks). No provenance found (the overwhelming majority of sources)
+    // is a guaranteed no-op.
+    crate::build::module_link::link_provable_module_namespaces(
+        source_path,
+        &source,
+        &mut parsed.statements,
+        &mut diagnostics,
+    );
     if has_errors(&diagnostics) {
         return Err(diagnostics);
     }
@@ -923,4 +938,110 @@ pub fn validate_runtime_profiles(
     }
 
     Ok(normalized.into_iter().collect())
+}
+
+#[cfg(test)]
+mod module_link_wiring_tests {
+    // Exercises `analyze_source_file`'s ACTUAL wiring of
+    // `module_link::link_provable_module_namespaces` (throw-fallout Stage 5
+    // Task 7) — the module_link.rs unit tests call the pass function
+    // directly and never touch this file's insertion point, so they cannot
+    // catch a wiring mistake here (call omitted, wrong argument, wrong
+    // ordering relative to `monomorphize_statements`/export-name
+    // validation). These two tests compile through the REAL
+    // `analyze_source_file` entry point instead.
+    use super::*;
+    use kali_ast::{Expression, Statement};
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[test]
+    fn analyze_source_file_links_namespace_import_end_to_end() {
+        let dir = tempdir().expect("tempdir");
+        fs::write(
+            dir.path().join("util.js"),
+            "export function greet() { return 'hi'; }\n",
+        )
+        .expect("write util.js");
+        let main_path = dir.path().join("main.js");
+        fs::write(
+            &main_path,
+            r#"import * as ns from "./util.js";
+console.log(ns.greet());
+"#,
+        )
+        .expect("write main.js");
+
+        let analyzed = analyze_source_file(&main_path, ApiSurface::Node, &[], false, false)
+            .expect("compilation must succeed: the namespace import is fully provable");
+
+        // Proves the wiring actually ran (not just that the source happened
+        // to compile for an unrelated reason): the mangled linked clone
+        // must be present in the analyzed statements, and the call site
+        // must reference it — exactly what `link_provable_module_namespaces`
+        // is responsible for producing before `monomorphize_statements` runs.
+        let has_linked_clone = analyzed.statements.iter().any(|statement| {
+            matches!(
+                statement,
+                Statement::FunctionDeclaration(function) if function.name == "__link0_greet"
+            )
+        });
+        assert!(
+            has_linked_clone,
+            "expected the wiring to append `__link0_greet`, got {:#?}",
+            analyzed.statements
+        );
+        let call_rewritten = analyzed.statements.iter().any(|statement| match statement {
+            Statement::ExpressionStatement(stmt) => matches!(
+                stmt.expression.as_ref(),
+                Expression::CallExpression(call)
+                    if matches!(
+                        &call.args.first(),
+                        Some(Expression::CallExpression(inner))
+                            if inner.callee == Expression::Identifier("__link0_greet".to_string())
+                    )
+            ),
+            _ => false,
+        });
+        assert!(
+            call_rewritten,
+            "expected `ns.greet()` to be rewritten to `__link0_greet()`, got {:#?}",
+            analyzed.statements
+        );
+    }
+
+    #[test]
+    fn analyze_source_file_denies_leftover_namespace_binding_reference() {
+        let dir = tempdir().expect("tempdir");
+        fs::write(
+            dir.path().join("lazy.js"),
+            "export function lazyValue() { return 7; }\n",
+        )
+        .expect("write lazy.js");
+        let main_path = dir.path().join("main.js");
+        fs::write(
+            &main_path,
+            r#"async function main() {
+    const chunk = await import("./lazy.js");
+    console.log(chunk);
+}
+main();
+"#,
+        )
+        .expect("write main.js");
+
+        let diagnostics = match analyze_source_file(&main_path, ApiSurface::Node, &[], false, false)
+        {
+            Ok(_) => panic!("a leftover bare `chunk` value use must fail the build"),
+            Err(diagnostics) => diagnostics,
+        };
+
+        assert!(
+            diagnostics
+                .iter()
+                .any(|d| d.code == Some(e5::FEATURE_UNAVAILABLE as u32)
+                    && d.message.contains("chunk")),
+            "expected an E5506 naming `chunk`, got {diagnostics:?}"
+        );
+    }
 }

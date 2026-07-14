@@ -19,6 +19,8 @@ use kali_error::{_error_codes::e5, Diagnostic};
 use kali_lexer::{Lexer, Token, TokenType};
 use kali_parser::Parser;
 
+use super::helpers::has_errors;
+
 /// Provenance-proven module-namespace bindings discovered in one source file.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct NamespaceProvenance {
@@ -511,18 +513,29 @@ fn register(
     );
 }
 
-/// Appends mangled clones of `module.all_functions` to `statements`.
-/// Mangle: `__link{module.index}_{original_name}`. Sibling references inside
-/// cloned bodies are renamed to their mangled forms.
+/// Prepends mangled clones of `module.all_functions` to the FRONT of
+/// `statements`. Mangle: `__link{module.index}_{original_name}`. Sibling
+/// references inside cloned bodies are renamed to their mangled forms.
 /// Err = mangled-name collision with an already-declared entry name (E5506).
 ///
 /// Ordering: the collision guard runs first, over every function in
 /// `module.all_functions`, and the sibling-rename walk (which can also
 /// fail — a bare, non-call reference to a sibling name) runs entirely
-/// against local clones before anything is appended. `statements` is only
-/// ever mutated once, via a single `extend` at the very end, after every
-/// fallible step has already succeeded — so any `Err` return leaves
+/// against local clones before anything is spliced in. `statements` is
+/// only ever mutated once, via a single `splice` at the very end, after
+/// every fallible step has already succeeded — so any `Err` return leaves
 /// `statements` byte-identical to how it was passed in.
+///
+/// FRONT, not the end: this resolver has no forward-declaration hoisting —
+/// a top-level identifier must be textually declared before any use, even
+/// a use inside a not-yet-invoked function body (this is a pre-existing,
+/// general resolver property, verified independently of module-linking
+/// entirely: a plain `function f() { return helper(); } function helper()
+/// { return 1; }` with no linked module involved at all already fails to
+/// resolve `helper` there). A linked function must therefore be declared
+/// before the entry module's EARLIEST possible use site, which can be its
+/// very first statement (`import * as ns from "./x"; const v =
+/// ns.export();`) — appending at the end left every such use unresolvable.
 pub fn append_linked_functions(
     statements: &mut Vec<Statement>,
     module: &LinkedModuleAst,
@@ -562,7 +575,7 @@ pub fn append_linked_functions(
         cloned.push(Statement::FunctionDeclaration(clone));
     }
 
-    statements.extend(cloned);
+    statements.splice(0..0, cloned);
     Ok(())
 }
 
@@ -1912,6 +1925,710 @@ fn unquote(value: &str) -> String {
     }
 }
 
+// ---- default-deny leftovers + shadowing guard + pipeline entry point (Task 7) ----
+//
+// Two concerns close the value-leak class left open by Tasks 3-6:
+//
+//   1. `deny_unrewritten_uses` walks the POST-append, POST-rewrite AST for
+//      any `Expression::Identifier` (or JSX-name / re-export reference)
+//      whose name is a provenance-proven namespace binding. Tasks 5/6 only
+//      ever REPLACE or REJECT specific `ns.member` shapes (a call callee, a
+//      `typeof` argument); nothing before this task ever looked at a BARE
+//      reference to the binding itself (`console.log(chunk)`, `chunk +
+//      ''`, `const alias = chunk`, `f(chunk)`, `return chunk`, or even a
+//      bare non-call `ns.member` property read) — every one of those
+//      silently fell through to the resolver, which today just treats
+//      `chunk` as an ordinary local bound to whatever the specifier-fold
+//      literal was, printing the raw specifier string. This walk closes
+//      that: every SUCH identifier is denied, full stop — including one
+//      already sitting inside a `MemberExpression` Task 6 rejected for its
+//      own reason (a non-export call, a computed access): this pass makes
+//      no attempt to distinguish "already-diagnosed leftover" from
+//      "never-considered leftover", it default-denies EVERY leftover.
+//
+//   2. The shadowing guard closes a carried-over Task 6 gap: Task 6's
+//      rewrite walk has NO lexical-scope awareness for the `ns` NAME
+//      itself (see `rewrite_expression`'s `MemberExpression` arm — it
+//      matches `Identifier(ns)` purely by STRING equality against
+//      `provenance.bindings`, the same way Task 5's sibling-rename walk
+//      matches purely by string equality against `renames`). A local
+//      binding that reuses the SAME name as a namespace binding
+//      (`const chunk = await import(...); { const chunk = 5; }`) would
+//      make `chunk`'s rewrite silently ambiguous — a use of the INNER
+//      `chunk` could get folded/rewritten as if it were still the OUTER
+//      namespace binding. This mirrors Task 5's `check_binding` shadowing
+//      guard (`append_linked_functions`'s sibling-rename walk, 12 binding
+//      positions) but keyed by PROVENANCE NAME instead of a linked-module
+//      rename map, and — since the ambiguity is about the ENTRY module's
+//      OWN lexical scoping, not a cloned linked-function body — it runs
+//      over the pristine entry `statements` BEFORE `append_linked_functions`
+//      adds any clones, so a linked module's own unrelated internal locals
+//      can never produce a false positive here.
+//
+// Both concerns share one exhaustive, read-only, non-fallible traversal
+// (`census_statements`/`census_block`/`census_statement`/`census_expression`/
+// the `census_jsx_*` family below) that mirrors the EXACT node coverage of
+// the sibling-rename walk (Task 5) and the rewrite walk (Task 6) — same
+// shape, no `_ =>` arm on either `Statement` or `Expression` — but keyed by
+// two callbacks instead of a rename map:
+//   - `on_identifier`: fired for every `Expression::Identifier` VALUE
+//     reference, AND for the two other value-level-by-string-name
+//     positions Task 5's own walk already treats as references rather than
+//     bindings (`JsxName::Identifier` — see `check_bare_reference` above —
+//     and `ExportSpecifier::local`, which re-exports an EXISTING outer
+//     binding's current value, exactly like a bare `Identifier` read).
+//   - `on_binding`: fired for every binding-INTRODUCING name at the exact
+//     same positions Task 5's `check_binding` covers (declarator ids —
+//     which also covers `for`/`for-in`/`for-of` variable-declaration
+//     lefthands — function/class names, function/arrow/class-method/catch
+//     params), PLUS every `ImportDeclaration` specifier's local name (a
+//     position Task 5 never needed to cover, since a nested import inside
+//     a CLONED linked-function body is rejected outright there — but here,
+//     in the ENTRY module, an ordinary — if rare — second import statement
+//     naming the same local as a provenance binding is exactly the shadow
+//     case `on_binding` exists to catch).
+
+fn census_import_specifier(specifier: &ImportSpecifier, on_binding: &mut dyn FnMut(&str)) {
+    match specifier {
+        ImportSpecifier::Default(local) => on_binding(local),
+        ImportSpecifier::Named(specifiers) => {
+            for spec in specifiers {
+                on_binding(&spec.local);
+            }
+        }
+        ImportSpecifier::Namespace(local) => on_binding(local),
+        ImportSpecifier::Type(specifiers) => {
+            for spec in specifiers {
+                on_binding(&spec.local);
+            }
+        }
+        // No local binding at all: `import "mod";`.
+        ImportSpecifier::SideEffect => {}
+    }
+}
+
+fn census_statements(
+    statements: &[Statement],
+    on_identifier: &mut dyn FnMut(&str),
+    on_binding: &mut dyn FnMut(&str),
+) {
+    for statement in statements {
+        census_statement(statement, on_identifier, on_binding);
+    }
+}
+
+fn census_block(
+    block: &BlockStatement,
+    on_identifier: &mut dyn FnMut(&str),
+    on_binding: &mut dyn FnMut(&str),
+) {
+    for statement in &block.body {
+        census_statement(statement, on_identifier, on_binding);
+    }
+}
+
+fn census_var_decl(
+    decl: &VariableDeclaration,
+    on_identifier: &mut dyn FnMut(&str),
+    on_binding: &mut dyn FnMut(&str),
+) {
+    // `decl.kind` carries no name at all.
+    for declarator in &decl.declarations {
+        on_binding(&declarator.id);
+        if let Some(init) = &declarator.init {
+            census_expression(init, on_identifier, on_binding);
+        }
+    }
+}
+
+fn census_class_body(
+    body: &ClassBody,
+    on_identifier: &mut dyn FnMut(&str),
+    on_binding: &mut dyn FnMut(&str),
+) {
+    for method in &body.methods {
+        // `method.name` is a property key, never a value-level identifier
+        // lookup.
+        for param in &method.params {
+            on_binding(param);
+        }
+        if let Some(method_body) = &method.body {
+            census_block(method_body, on_identifier, on_binding);
+        }
+    }
+}
+
+fn census_statement(
+    statement: &Statement,
+    on_identifier: &mut dyn FnMut(&str),
+    on_binding: &mut dyn FnMut(&str),
+) {
+    match statement {
+        Statement::ExpressionStatement(stmt) => {
+            census_expression(&stmt.expression, on_identifier, on_binding)
+        }
+        // `label` is a control-flow target name, never a value lookup.
+        Statement::BreakStatement(_) => {}
+        Statement::ContinueStatement(_) => {}
+        Statement::WithStatement(stmt) => {
+            census_expression(&stmt.object, on_identifier, on_binding);
+            census_statement(&stmt.body, on_identifier, on_binding);
+        }
+        Statement::ReturnStatement(stmt) => {
+            if let Some(argument) = &stmt.argument {
+                census_expression(argument, on_identifier, on_binding);
+            }
+        }
+        Statement::LabeledStatement(stmt) => {
+            census_statement(&stmt.body, on_identifier, on_binding)
+        }
+        Statement::IfStatement(stmt) => {
+            census_expression(&stmt.test, on_identifier, on_binding);
+            census_block(&stmt.consequent, on_identifier, on_binding);
+            if let Some(alternate) = &stmt.alternate {
+                census_block(alternate, on_identifier, on_binding);
+            }
+        }
+        Statement::SwitchStatement(stmt) => {
+            census_expression(&stmt.discriminant, on_identifier, on_binding);
+            for case in &stmt.cases {
+                if let Some(test) = &case.test {
+                    census_expression(test, on_identifier, on_binding);
+                }
+                for consequent in &case.consequent {
+                    census_statement(consequent, on_identifier, on_binding);
+                }
+            }
+        }
+        Statement::ThrowStatement(stmt) => {
+            census_expression(&stmt.argument, on_identifier, on_binding)
+        }
+        Statement::TryStatement(stmt) => {
+            census_block(&stmt.block, on_identifier, on_binding);
+            if let Some(handler) = &stmt.handler {
+                on_binding(&handler.param);
+                census_block(&handler.body, on_identifier, on_binding);
+            }
+            if let Some(finalizer) = &stmt.finalizer {
+                census_block(finalizer, on_identifier, on_binding);
+            }
+        }
+        // No fields at all.
+        Statement::DebuggerStatement(_) => {}
+        Statement::BlockStatement(stmt) => census_block(stmt, on_identifier, on_binding),
+        Statement::ForStatement(stmt) => {
+            match &stmt.init {
+                Some(ForInit::VariableDeclaration(decl)) => {
+                    census_var_decl(decl, on_identifier, on_binding)
+                }
+                Some(ForInit::Expression(expr)) => {
+                    census_expression(expr, on_identifier, on_binding)
+                }
+                None => {}
+            }
+            if let Some(test) = &stmt.test {
+                census_expression(test, on_identifier, on_binding);
+            }
+            if let Some(update) = &stmt.update {
+                census_expression(update, on_identifier, on_binding);
+            }
+            census_block(&stmt.body, on_identifier, on_binding);
+        }
+        Statement::ForInStatement(stmt) => {
+            match &stmt.left {
+                ForInLefthand::VariableDeclaration(decl) => {
+                    census_var_decl(decl, on_identifier, on_binding)
+                }
+                ForInLefthand::Expression(expr) => {
+                    census_expression(expr, on_identifier, on_binding)
+                }
+            }
+            census_expression(&stmt.right, on_identifier, on_binding);
+            census_statement(&stmt.body, on_identifier, on_binding);
+        }
+        Statement::ForOfStatement(stmt) => {
+            match &stmt.left {
+                ForOfLefthand::VariableDeclaration(decl) => {
+                    census_var_decl(decl, on_identifier, on_binding)
+                }
+                ForOfLefthand::Expression(expr) => {
+                    census_expression(expr, on_identifier, on_binding)
+                }
+            }
+            census_expression(&stmt.right, on_identifier, on_binding);
+            // `is_await` carries no name.
+            census_statement(&stmt.body, on_identifier, on_binding);
+        }
+        Statement::WhileStatement(stmt) => {
+            census_expression(&stmt.test, on_identifier, on_binding);
+            census_block(&stmt.body, on_identifier, on_binding);
+        }
+        Statement::DoWhileStatement(stmt) => {
+            census_block(&stmt.body, on_identifier, on_binding);
+            census_expression(&stmt.test, on_identifier, on_binding);
+        }
+        Statement::FunctionDeclaration(function) => {
+            on_binding(&function.name);
+            for param in &function.params {
+                on_binding(param);
+            }
+            census_block(&function.body, on_identifier, on_binding);
+        }
+        Statement::ClassDeclaration(class) => {
+            on_binding(&class.name);
+            census_class_body(&class.body, on_identifier, on_binding);
+        }
+        Statement::VariableDeclaration(decl) => census_var_decl(decl, on_identifier, on_binding),
+        Statement::ImportDeclaration(decl) => {
+            for specifier in &decl.specifiers {
+                census_import_specifier(specifier, on_binding);
+            }
+        }
+        // `ExportAllDeclaration { source: String }` — no identifier-bearing
+        // field of any kind (same citation as `rewrite_statement`'s
+        // `Statement::ExportAll` arm above).
+        Statement::ExportAll(_) => {}
+        Statement::ExportNamed(export) => {
+            for specifier in &export.specifiers {
+                // `ExportSpecifier { local, exported }` — `local` names an
+                // EXISTING outer binding being re-exported (`export {
+                // chunk }` reads `chunk`'s current value), a value-level
+                // reference exactly like a bare `Identifier`; `exported` is
+                // only the re-exported PUBLIC name, never resolved locally.
+                on_identifier(&specifier.local);
+            }
+        }
+        Statement::ExportDefault(export) => match export {
+            ExportDefaultDeclaration::Expression(expr) => {
+                census_expression(expr, on_identifier, on_binding)
+            }
+            ExportDefaultDeclaration::FunctionDeclaration(function) => {
+                on_binding(&function.name);
+                for param in &function.params {
+                    on_binding(param);
+                }
+                census_block(&function.body, on_identifier, on_binding);
+            }
+            ExportDefaultDeclaration::ClassDeclaration(class) => {
+                on_binding(&class.name);
+                census_class_body(&class.body, on_identifier, on_binding);
+            }
+        },
+        Statement::EnumDeclaration(decl) => {
+            on_binding(&decl.name);
+            for member in &decl.members {
+                // `member.name` is a declaration, not a reference.
+                if let Some(value) = &member.value {
+                    census_expression(value, on_identifier, on_binding);
+                }
+            }
+        }
+        // TypeScript type syntax only — no identifier-bearing `Expression`
+        // content.
+        Statement::TypeAliasDeclaration(_) => {}
+        Statement::InterfaceDeclaration(_) => {}
+    }
+}
+
+fn census_expression_or_spread(
+    element: &ExpressionOrSpread,
+    on_identifier: &mut dyn FnMut(&str),
+    on_binding: &mut dyn FnMut(&str),
+) {
+    match element {
+        ExpressionOrSpread::Expression(expr) => census_expression(expr, on_identifier, on_binding),
+        ExpressionOrSpread::Spread(spread) => {
+            census_expression(&spread.argument, on_identifier, on_binding)
+        }
+        ExpressionOrSpread::Empty => {}
+    }
+}
+
+fn census_expression(
+    expr: &Expression,
+    on_identifier: &mut dyn FnMut(&str),
+    on_binding: &mut dyn FnMut(&str),
+) {
+    match expr {
+        Expression::Identifier(name) => on_identifier(name),
+        // A literal value carries no identifier reference.
+        Expression::Literal(_) => {}
+        Expression::BinaryExpression(binary) => {
+            census_expression(&binary.left, on_identifier, on_binding);
+            census_expression(&binary.right, on_identifier, on_binding);
+        }
+        Expression::UnaryExpression(unary) => {
+            census_expression(&unary.argument, on_identifier, on_binding)
+        }
+        Expression::CallExpression(call) => {
+            census_expression(&call.callee, on_identifier, on_binding);
+            for arg in &call.args {
+                census_expression(arg, on_identifier, on_binding);
+            }
+        }
+        Expression::MemberExpression(member) => {
+            // `member.property` is a static field-name string, never a
+            // reference. `member.object` IS a value-level reference — a
+            // bare `ns.member`/`chunk.member` read is exactly the kind of
+            // leftover leak this pass exists to close, so it is walked
+            // exactly like any other expression, with no special-casing.
+            census_expression(&member.object, on_identifier, on_binding);
+            if let Some(index) = &member.computed_index {
+                census_expression(index, on_identifier, on_binding);
+            }
+        }
+        Expression::ArrayExpression(array) => {
+            for element in array.elements.iter().flatten() {
+                census_expression_or_spread(element, on_identifier, on_binding);
+            }
+        }
+        Expression::ObjectExpression(object) => {
+            for property in &object.properties {
+                // `property.key` is a static property name, never a
+                // reference.
+                census_expression(&property.value, on_identifier, on_binding);
+            }
+        }
+        Expression::FunctionExpression(function) => {
+            if let Some(id) = &function.id {
+                on_binding(id);
+            }
+            for param in &function.params {
+                on_binding(&param.name);
+            }
+            if let Some(body) = &function.body {
+                census_block(body, on_identifier, on_binding);
+            }
+        }
+        Expression::ArrowFunctionExpression(arrow) => {
+            for param in &arrow.params {
+                on_binding(&param.name);
+            }
+            census_expression(&arrow.body, on_identifier, on_binding);
+        }
+        Expression::ClassExpression(class) => {
+            if let Some(id) = &class.id {
+                on_binding(id);
+            }
+            census_class_body(&class.body, on_identifier, on_binding);
+        }
+        Expression::NewExpression(new_expr) => {
+            census_expression(&new_expr.callee, on_identifier, on_binding);
+            for arg in &new_expr.args {
+                census_expression(arg, on_identifier, on_binding);
+            }
+        }
+        // `meta`/`property` are fixed keyword strings (e.g. `import.meta`),
+        // never identifier lookups.
+        Expression::MetaProperty(_) => {}
+        Expression::TemplateLiteral(template) => {
+            // `template.quasis` are literal string chunks, not references.
+            for expression in &template.expressions {
+                census_expression(expression, on_identifier, on_binding);
+            }
+        }
+        Expression::TaggedTemplateExpression(tagged) => {
+            census_expression(&tagged.tag, on_identifier, on_binding);
+            for expression in &tagged.template.expressions {
+                census_expression(expression, on_identifier, on_binding);
+            }
+        }
+        Expression::UpdateExpression(update) => {
+            census_expression(&update.argument, on_identifier, on_binding)
+        }
+        Expression::AssignmentExpression(assignment) => {
+            census_expression(&assignment.left, on_identifier, on_binding);
+            census_expression(&assignment.right, on_identifier, on_binding);
+        }
+        Expression::LogicalExpression(logical) => {
+            census_expression(&logical.left, on_identifier, on_binding);
+            census_expression(&logical.right, on_identifier, on_binding);
+        }
+        Expression::ConditionalExpression(conditional) => {
+            census_expression(&conditional.test, on_identifier, on_binding);
+            census_expression(&conditional.consequent, on_identifier, on_binding);
+            census_expression(&conditional.alternate, on_identifier, on_binding);
+        }
+        Expression::SequenceExpression(sequence) => {
+            for expression in &sequence.expressions {
+                census_expression(expression, on_identifier, on_binding);
+            }
+        }
+        Expression::ParenthesizedExpression(parenthesized) => {
+            census_expression(&parenthesized.expression, on_identifier, on_binding)
+        }
+        Expression::YieldExpression(yield_expr) => {
+            if let Some(argument) = &yield_expr.argument {
+                census_expression(argument, on_identifier, on_binding);
+            }
+        }
+        Expression::AwaitExpression(await_expr) => {
+            census_expression(&await_expr.argument, on_identifier, on_binding)
+        }
+        Expression::OptionalChainExpression(chain) => match chain.inner.as_ref() {
+            OptionalChainInner::NonNull { object, .. } => {
+                census_expression(object, on_identifier, on_binding)
+            }
+        },
+        Expression::ChainExpression(chain) => {
+            census_expression(&chain.expression, on_identifier, on_binding)
+        }
+        Expression::SpreadElement(spread) => {
+            census_expression(&spread.argument, on_identifier, on_binding)
+        }
+        Expression::RestElement(rest) => {
+            census_expression(&rest.argument, on_identifier, on_binding)
+        }
+        Expression::ImportExpression(import_expr) => {
+            census_expression(&import_expr.source, on_identifier, on_binding)
+        }
+        Expression::DecoratedExpression(decorated) => {
+            census_expression(&decorated.expression, on_identifier, on_binding)
+        }
+        Expression::JsxElement(element) => census_jsx_element(element, on_identifier, on_binding),
+        Expression::JsxFragment(fragment) => {
+            census_jsx_fragment(fragment, on_identifier, on_binding)
+        }
+        // No content at all.
+        Expression::JsxEmptyExpression => {}
+        Expression::TypeAssertion(assertion) => {
+            // `assertion.type_name` is TypeScript type syntax, not a value reference.
+            census_expression(&assertion.expression, on_identifier, on_binding)
+        }
+        Expression::SatisfiesExpression(satisfies) => {
+            // `satisfies.type_name` is TypeScript type syntax, not a value reference.
+            census_expression(&satisfies.expression, on_identifier, on_binding)
+        }
+        // `this`/`super` are keywords, never identifier lookups.
+        Expression::ThisExpression => {}
+        Expression::SuperExpression => {}
+        // A private class-field name (`#foo`) is a distinct namespace from
+        // top-level bindings — cannot alias a namespace binding.
+        Expression::PrivateIdentifier(_) => {}
+        // A literal numeric value, not a reference.
+        Expression::BigIntLiteral(_) => {}
+    }
+}
+
+fn census_jsx_element(
+    element: &JsxElement,
+    on_identifier: &mut dyn FnMut(&str),
+    on_binding: &mut dyn FnMut(&str),
+) {
+    census_jsx_name(&element.opening_element.name, on_identifier);
+    for attribute in &element.opening_element.attributes {
+        census_jsx_attribute_item(attribute, on_identifier, on_binding);
+    }
+    for child in &element.children {
+        census_jsx_child(child, on_identifier, on_binding);
+    }
+    if let Some(closing) = &element.closing_element {
+        census_jsx_name(&closing.name, on_identifier);
+    }
+}
+
+fn census_jsx_fragment(
+    fragment: &JsxFragment,
+    on_identifier: &mut dyn FnMut(&str),
+    on_binding: &mut dyn FnMut(&str),
+) {
+    for child in &fragment.children {
+        census_jsx_child(child, on_identifier, on_binding);
+    }
+}
+
+/// `JsxName::Identifier` is a real value-level lookup (see
+/// `walk_jsx_name`'s doc comment above) even though it is a plain `String`
+/// field rather than an `Expression::Identifier` node — routed to
+/// `on_identifier`, never `on_binding`.
+fn census_jsx_name(name: &JsxName, on_identifier: &mut dyn FnMut(&str)) {
+    match name {
+        JsxName::Identifier(identifier) => on_identifier(identifier),
+        JsxName::JsxClosedElement(closing) => census_jsx_name(&closing.name, on_identifier),
+    }
+}
+
+fn census_jsx_attribute_item(
+    item: &JsxAttributeItem,
+    on_identifier: &mut dyn FnMut(&str),
+    on_binding: &mut dyn FnMut(&str),
+) {
+    match item {
+        JsxAttributeItem::JsxAttribute(attribute) => {
+            census_jsx_name(&attribute.name, on_identifier);
+            census_jsx_attribute_value(&attribute.value, on_identifier, on_binding);
+        }
+        JsxAttributeItem::JsxSpreadAttribute(spread) => {
+            census_expression(&spread.argument, on_identifier, on_binding)
+        }
+    }
+}
+
+fn census_jsx_attribute_value(
+    value: &JsxAttributeValue,
+    on_identifier: &mut dyn FnMut(&str),
+    on_binding: &mut dyn FnMut(&str),
+) {
+    match value {
+        // A plain string literal attribute value, not a reference.
+        JsxAttributeValue::String(_) => {}
+        JsxAttributeValue::JsxElement(element) => {
+            census_jsx_element(element, on_identifier, on_binding)
+        }
+        JsxAttributeValue::JsxExpression(container) => {
+            census_jsx_expression_container(container, on_identifier, on_binding)
+        }
+    }
+}
+
+fn census_jsx_expression_container(
+    container: &JsxExpressionContainer,
+    on_identifier: &mut dyn FnMut(&str),
+    on_binding: &mut dyn FnMut(&str),
+) {
+    if let Some(expression) = &container.expression {
+        census_expression(expression, on_identifier, on_binding);
+    }
+}
+
+fn census_jsx_child(
+    child: &JsxChild,
+    on_identifier: &mut dyn FnMut(&str),
+    on_binding: &mut dyn FnMut(&str),
+) {
+    match child {
+        // Literal text content, not a reference.
+        JsxChild::JsxText(_) => {}
+        JsxChild::JsxExpression(container) => {
+            census_jsx_expression_container(container, on_identifier, on_binding)
+        }
+        JsxChild::JsxElement(element) => census_jsx_element(element, on_identifier, on_binding),
+        JsxChild::JsxFragment(fragment) => census_jsx_fragment(fragment, on_identifier, on_binding),
+    }
+}
+
+fn unrewritten_namespace_binding_error(name: &str) -> Diagnostic {
+    Diagnostic::error(
+        e5::FEATURE_UNAVAILABLE as u32,
+        format!(
+            "namespace binding '{name}' is only usable as `{name}.member` (a proven export access, rewritten at compile time) or `typeof {name}.member`; every other value use is unavailable in the current direct-runtime path (it would leak the raw specifier/namespace value, not a real export)"
+        ),
+    )
+}
+
+fn shadowed_namespace_binding_error(name: &str) -> Diagnostic {
+    Diagnostic::error(
+        e5::FEATURE_UNAVAILABLE as u32,
+        format!(
+            "namespace binding '{name}' is shadowed by a second binding of the same name elsewhere in this file — unsupported (this pass has no lexical-scope awareness, so it cannot tell a local rebinding of '{name}' apart from the provenance-proven namespace binding; rename the local binding to avoid the name '{name}')"
+        ),
+    )
+}
+
+/// Denies every remaining `Expression::Identifier` (or JSX-name /
+/// re-export) reference whose name is a provenance-proven namespace
+/// binding, in the POST-append, POST-rewrite AST. A successful Task 6
+/// rewrite (a call-callee rename, or a `typeof` fold) always REPLACES the
+/// whole node containing the binding's name, so the happy path here finds
+/// none at all; a Task 6 REJECT (non-export call, computed access) leaves
+/// its `MemberExpression` node untouched, so this walk still finds and
+/// flags the `object` identifier inside it too — see the module-level doc
+/// comment above for why that intentional double-diagnosis is acceptable.
+fn deny_unrewritten_uses(
+    statements: &[Statement],
+    provenance: &NamespaceProvenance,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let mut on_identifier = |name: &str| {
+        if provenance.bindings.contains_key(name) {
+            diagnostics.push(unrewritten_namespace_binding_error(name));
+        }
+    };
+    let mut on_binding = |_: &str| {};
+    census_statements(statements, &mut on_identifier, &mut on_binding);
+}
+
+/// Rejects any provenance-proven namespace binding name that is bound a
+/// SECOND time anywhere in the pristine entry `statements` (before
+/// `append_linked_functions` adds any linked-module clones) — see the
+/// module-level doc comment above for why this must run on the PRISTINE
+/// entry AST rather than the post-append one.
+fn deny_shadowed_bindings(
+    statements: &[Statement],
+    provenance: &NamespaceProvenance,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+    let mut on_identifier = |_: &str| {};
+    let mut on_binding = |name: &str| {
+        *counts.entry(name.to_string()).or_insert(0) += 1;
+    };
+    census_statements(statements, &mut on_identifier, &mut on_binding);
+    for name in provenance.bindings.keys() {
+        if counts.get(name).copied().unwrap_or(0) > 1 {
+            diagnostics.push(shadowed_namespace_binding_error(name));
+        }
+    }
+}
+
+/// The single public entry point `compile.rs` calls. Runs collect → shadow
+/// guard → load → append → rewrite → deny. Pushes diagnostics into
+/// `diagnostics`; never silently rewrites partially — every fallible step
+/// (`load_linked_module`, `append_linked_functions`) stops the pipeline
+/// before any further step runs once it has failed (mirroring
+/// `append_linked_functions`'s own guard-before-mutate contract, so
+/// `statements` is never left in a state some diagnostic doesn't already
+/// account for). No provenance found → guaranteed no-op: `statements` is
+/// returned untouched (this is the load-bearing case — the pass runs on
+/// EVERY compile, and the overwhelming majority of sources have no
+/// namespace bindings at all).
+pub fn link_provable_module_namespaces(
+    source_path: &Path,
+    source_contents: &str,
+    statements: &mut Vec<Statement>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let provenance = collect_namespace_provenance(source_path, source_contents, statements);
+    if provenance.bindings.is_empty() {
+        return;
+    }
+
+    deny_shadowed_bindings(statements, &provenance, diagnostics);
+    if has_errors(diagnostics) {
+        return;
+    }
+
+    let mut modules: BTreeMap<usize, LinkedModuleAst> = BTreeMap::new();
+    for linked in provenance.bindings.values() {
+        if modules.contains_key(&linked.index) {
+            continue;
+        }
+        match load_linked_module(linked) {
+            Ok(loaded) => {
+                modules.insert(linked.index, loaded);
+            }
+            Err(diagnostic) => diagnostics.push(diagnostic),
+        }
+    }
+    if has_errors(diagnostics) {
+        return;
+    }
+
+    for module in modules.values() {
+        if let Err(diagnostic) = append_linked_functions(statements, module) {
+            diagnostics.push(diagnostic);
+            return;
+        }
+    }
+
+    rewrite_namespace_uses(statements, &provenance, &modules, diagnostics);
+    if has_errors(diagnostics) {
+        return;
+    }
+
+    deny_unrewritten_uses(statements, &provenance, diagnostics);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2673,6 +3390,41 @@ mod tests {
         );
     }
 
+    /// This resolver has NO forward-declaration hoisting: a top-level
+    /// identifier must be textually declared before any use, even a use
+    /// inside a not-yet-invoked function body (verified independently of
+    /// this feature entirely — a plain `function f() { return helper(); }
+    /// function helper() { return 1; }` with no module-linking involved at
+    /// all already fails to resolve `helper` with the SAME E3100). A linked
+    /// function therefore MUST be inserted before the entry module's
+    /// EARLIEST possible use site, which can be its very first statement
+    /// (`import * as ns from "./x"; const v = ns.export();`) — appending at
+    /// the end (the pre-fix behavior) left every such use unresolvable.
+    #[test]
+    fn append_linked_functions_inserts_clones_before_existing_statements() {
+        let module = build_module(0, "export function lazyValue() { return 7; }");
+        let mut statements = parse("console.log('already here');");
+        let before_len = statements.len();
+
+        append_linked_functions(&mut statements, &module).expect("append should succeed");
+
+        assert_eq!(statements.len(), before_len + 1);
+        match &statements[0] {
+            Statement::FunctionDeclaration(function) => {
+                assert_eq!(function.name, "__link0_lazyValue");
+            }
+            other => panic!(
+                "expected the linked clone to be inserted BEFORE the pre-existing statement, got {other:?} at position 0"
+            ),
+        }
+        match &statements[1] {
+            Statement::ExpressionStatement(_) => {}
+            other => {
+                panic!("expected the original statement to survive at position 1, got {other:?}")
+            }
+        }
+    }
+
     #[test]
     fn append_linked_functions_still_renames_genuine_sibling_call_no_shadow() {
         // Positive control: no shadow anywhere, so the existing rename
@@ -3077,6 +3829,278 @@ mod tests {
         assert_eq!(
             statements, before,
             "a namespace-free program must be left byte-identical"
+        );
+    }
+
+    // ---- link_provable_module_namespaces (Task 7) ----
+
+    fn find_diagnostic_containing<'a>(
+        diagnostics: &'a [Diagnostic],
+        needle: &str,
+    ) -> &'a Diagnostic {
+        diagnostics
+            .iter()
+            .find(|d| d.message.contains(needle))
+            .unwrap_or_else(|| {
+                panic!("expected a diagnostic containing {needle:?}, got {diagnostics:?}")
+            })
+    }
+
+    #[test]
+    fn link_provable_module_namespaces_is_a_no_op_without_namespace_bindings() {
+        let (_dir, main_js) = fixture_dir();
+        let source = "function add(a, b) { return a + b; } console.log(add(1, 2));";
+        let mut statements = parse(source);
+        let before = statements.clone();
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
+        assert_eq!(
+            statements, before,
+            "a namespace-free source must be left byte-identical (no-op guarantee)"
+        );
+    }
+
+    #[test]
+    fn link_provable_module_namespaces_leaves_bare_dynamic_import_statement_untouched() {
+        let (_dir, main_js) = fixture_dir();
+        let source = r#"
+            async function main() {
+                await import("./lazy.js");
+            }
+            main();
+        "#;
+        let mut statements = parse(source);
+        let before = statements.clone();
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
+        assert_eq!(
+            statements, before,
+            "a bindingless `await import(...)` statement must stay untouched"
+        );
+    }
+
+    #[test]
+    fn link_provable_module_namespaces_allows_export_call_end_to_end() {
+        let (_dir, main_js) = fixture_dir();
+        let source = r#"
+            import * as ns from "./util.js";
+            console.log(ns.greet());
+        "#;
+        let mut statements = parse(source);
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
+        // The linked module's `greet` clone is appended, and the call site
+        // is rewritten to the mangled identifier — no leftover `ns` at all.
+        let _ = find_function(&statements, "__link0_greet");
+        let call_statement = statements
+            .iter()
+            .find(|statement| matches!(statement, Statement::ExpressionStatement(_)))
+            .expect("expected an ExpressionStatement somewhere in statements");
+        match call_statement {
+            Statement::ExpressionStatement(stmt) => match stmt.expression.as_ref() {
+                Expression::CallExpression(call) => {
+                    assert_eq!(call.args.len(), 1);
+                    match &call.args[0] {
+                        Expression::CallExpression(inner) => {
+                            assert_eq!(
+                                inner.callee,
+                                Expression::Identifier("__link0_greet".to_string())
+                            );
+                        }
+                        other => panic!("expected a CallExpression argument, got {other:?}"),
+                    }
+                }
+                other => panic!("expected a CallExpression, got {other:?}"),
+            },
+            other => panic!("expected an ExpressionStatement, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn link_provable_module_namespaces_denies_console_log_of_namespace_binding() {
+        let (_dir, main_js) = fixture_dir();
+        let source = r#"
+            async function main() {
+                const chunk = await import("./lazy.js");
+                console.log(chunk);
+            }
+            main();
+        "#;
+        let mut statements = parse(source);
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(has_errors(&diagnostics), "diagnostics: {diagnostics:?}");
+        let diagnostic = find_diagnostic_containing(&diagnostics, "chunk");
+        assert_eq!(diagnostic.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+    }
+
+    #[test]
+    fn link_provable_module_namespaces_denies_string_coercion_of_namespace_binding() {
+        let (_dir, main_js) = fixture_dir();
+        let source = r#"
+            async function main() {
+                const chunk = await import("./lazy.js");
+                const s = chunk + '';
+            }
+            main();
+        "#;
+        let mut statements = parse(source);
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(has_errors(&diagnostics), "diagnostics: {diagnostics:?}");
+        let diagnostic = find_diagnostic_containing(&diagnostics, "chunk");
+        assert_eq!(diagnostic.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+    }
+
+    #[test]
+    fn link_provable_module_namespaces_denies_alias_copy_of_namespace_binding() {
+        let (_dir, main_js) = fixture_dir();
+        let source = r#"
+            async function main() {
+                const chunk = await import("./lazy.js");
+                const alias = chunk;
+            }
+            main();
+        "#;
+        let mut statements = parse(source);
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(has_errors(&diagnostics), "diagnostics: {diagnostics:?}");
+        let diagnostic = find_diagnostic_containing(&diagnostics, "chunk");
+        assert_eq!(diagnostic.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+    }
+
+    #[test]
+    fn link_provable_module_namespaces_denies_argument_escape_of_namespace_binding() {
+        let (_dir, main_js) = fixture_dir();
+        let source = r#"
+            function f(x) {}
+            async function main() {
+                const chunk = await import("./lazy.js");
+                f(chunk);
+            }
+            main();
+        "#;
+        let mut statements = parse(source);
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(has_errors(&diagnostics), "diagnostics: {diagnostics:?}");
+        let diagnostic = find_diagnostic_containing(&diagnostics, "chunk");
+        assert_eq!(diagnostic.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+    }
+
+    #[test]
+    fn link_provable_module_namespaces_denies_return_escape_of_namespace_binding() {
+        let (_dir, main_js) = fixture_dir();
+        let source = r#"
+            async function main() {
+                const chunk = await import("./lazy.js");
+                return chunk;
+            }
+            main();
+        "#;
+        let mut statements = parse(source);
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(has_errors(&diagnostics), "diagnostics: {diagnostics:?}");
+        let diagnostic = find_diagnostic_containing(&diagnostics, "chunk");
+        assert_eq!(diagnostic.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+    }
+
+    #[test]
+    fn link_provable_module_namespaces_rejects_shadowing_of_namespace_binding() {
+        let (_dir, main_js) = fixture_dir();
+        let source = r#"
+            async function main() {
+                const chunk = await import("./lazy.js");
+                {
+                    const chunk = 5;
+                }
+            }
+            main();
+        "#;
+        let mut statements = parse(source);
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(has_errors(&diagnostics), "diagnostics: {diagnostics:?}");
+        let diagnostic = find_diagnostic_containing(&diagnostics, "chunk");
+        assert_eq!(diagnostic.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+        assert!(
+            diagnostic.message.contains("shadow"),
+            "message must explain the shadow: {}",
+            diagnostic.message
+        );
+    }
+
+    #[test]
+    fn link_provable_module_namespaces_rejects_parameter_shadowing_namespace_binding() {
+        let (_dir, main_js) = fixture_dir();
+        let source = r#"
+            function f(chunk) { return chunk; }
+            async function main() {
+                const chunk = await import("./lazy.js");
+                f(1);
+            }
+            main();
+        "#;
+        let mut statements = parse(source);
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(has_errors(&diagnostics), "diagnostics: {diagnostics:?}");
+        let diagnostic = find_diagnostic_containing(&diagnostics, "chunk");
+        assert_eq!(diagnostic.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+        assert!(
+            diagnostic.message.contains("shadow"),
+            "message must explain the shadow: {}",
+            diagnostic.message
+        );
+    }
+
+    #[test]
+    fn link_provable_module_namespaces_leaves_statements_untouched_on_shadow_reject() {
+        let (_dir, main_js) = fixture_dir();
+        let source = r#"
+            async function main() {
+                const chunk = await import("./lazy.js");
+                {
+                    const chunk = 5;
+                }
+            }
+            main();
+        "#;
+        let mut statements = parse(source);
+        let before = statements.clone();
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(has_errors(&diagnostics));
+        assert_eq!(
+            statements, before,
+            "a shadow reject must stop the pipeline before any mutation (load/append/rewrite never run)"
         );
     }
 }
