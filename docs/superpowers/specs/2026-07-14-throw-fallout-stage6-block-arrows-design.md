@@ -146,7 +146,38 @@ arrow body must be the same fact codegen reads back.
 
 **In:** repr-tracking for arrow / function-expression / class-method / `export default function`
 bodies; the parse patch (block arrows in all expression positions); `reject_anonymous_function_argument`;
-the `Kali.test` callback lane becoming real (bodies stop executing inline in `_start`).
+the `Kali.test` callback lane becoming real (bodies stop executing inline in `_start`); **and wiring
+the callback consumers — see §4.1, which is a soundness requirement, not an extra.**
+
+### 4.1 Un-flattening without wiring would trade one silent miscompile for another
+
+Measured this session: the **host** provides `setTimeout` (`imports_default.rs:815`) and
+`queue_microtask` (`:878`), but **codegen never imports or calls either** (`grep` over
+`crates/kali_codegen/src` for `setTimeout|queueMicrotask` → **empty**).
+
+So these callbacks "work" today *only* by accident of the flatten: the body is spliced into the
+enclosing scope and executes inline. Un-flatten it, and the body becomes a real compiled function
+that **nothing ever calls** — the callback silently never runs. That is not a fix; it is a *different*
+silent miscompile, and one the legacy fixtures would happily stay green through.
+
+Therefore this stage must also **wire the consumers it un-flattens**:
+
+- `queueMicrotask(cb)` → resolve `cb` to its wasm function index and call the host `queue_microtask`
+  import (the index-by-name mechanism already exists: `kali_test_callback_index`,
+  `crates/kali_codegen/src/intrinsics/host.rs:761`). Add the import **conditionally**, at the end of
+  the conditional chain in `lower.rs`, so no existing import or function index shifts.
+- `setTimeout` / `setInterval` → same treatment, or an explicit `E5506` if the argument shapes are out
+  of lane. **Silently dropping the callback is not an option.**
+
+**Default-deny at the choke point:** an anonymous function argument reaching a callback consumer that
+is *not* wired must **fail closed (`E5506`)**, never compile to a function nobody calls. The
+`reject_anonymous_function_argument` guard is where this lives, and its builtin-consumer exemption
+list must be exactly the set of consumers actually wired — an exemption without a wire is a fail-open.
+
+**This does not, by itself, drain the 22 `queue_microtask` names.** Their fixture reads the flag
+*after* `await Promise.resolve()` inside the same async body, which still requires real `await`
+suspension (the re-sequenced async stage). Wiring makes the deferral **honest**; it does not make the
+await yield. Stated explicitly so nobody expects a drain from this and re-runs the §6.1 mistake.
 
 **Out (unchanged, deferred):** the async ordering core and everything in the Stage-6a spec (now
 re-sequenced *after* this stage); the four Promise combinators; `const`-bound-call double evaluation
