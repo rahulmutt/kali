@@ -511,6 +511,579 @@ fn register(
     );
 }
 
+/// Appends mangled clones of `module.all_functions` to `statements`.
+/// Mangle: `__link{module.index}_{original_name}`. Sibling references inside
+/// cloned bodies are renamed to their mangled forms.
+/// Err = mangled-name collision with an already-declared entry name (E5506).
+///
+/// Ordering: the collision guard runs first, over every function in
+/// `module.all_functions`, and the sibling-rename walk (which can also
+/// fail — a bare, non-call reference to a sibling name) runs entirely
+/// against local clones before anything is appended. `statements` is only
+/// ever mutated once, via a single `extend` at the very end, after every
+/// fallible step has already succeeded — so any `Err` return leaves
+/// `statements` byte-identical to how it was passed in.
+pub fn append_linked_functions(
+    statements: &mut Vec<Statement>,
+    module: &LinkedModuleAst,
+) -> Result<(), Diagnostic> {
+    let renames: BTreeMap<String, String> = module
+        .all_functions
+        .keys()
+        .map(|name| (name.clone(), mangled_link_name(module.index, name)))
+        .collect();
+
+    let declared = collect_declared_names(statements);
+    for mangled in renames.values() {
+        if declared.contains(mangled) {
+            return Err(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "linked module function `{mangled}` cannot be appended: an entry declaration already uses that name"
+                ),
+            ));
+        }
+    }
+
+    let mut cloned: Vec<Statement> = Vec::with_capacity(module.all_functions.len());
+    for (name, function) in &module.all_functions {
+        let mut clone = function.clone();
+        clone.name = renames.get(name).cloned().expect(
+            "name is a key of module.all_functions, and renames is built from those same keys",
+        );
+        walk_block(&mut clone.body, &renames)?;
+        cloned.push(Statement::FunctionDeclaration(clone));
+    }
+
+    statements.extend(cloned);
+    Ok(())
+}
+
+/// `__link{index}_{name}`. See `LinkedModule::index` for the stable-ordinal
+/// contract.
+fn mangled_link_name(index: usize, name: &str) -> String {
+    format!("__link{index}_{name}")
+}
+
+/// Every name a mangled clone could collide with: top-level function
+/// declaration names and top-level variable declarator ids. Intentionally
+/// narrow (unlike the rename/deny walk below, which must be exhaustive) —
+/// this mirrors the brief's literal collision surface: "FunctionDeclaration
+/// names + variable declarator ids" in `statements`.
+fn collect_declared_names(statements: &[Statement]) -> BTreeSet<String> {
+    let mut names = BTreeSet::new();
+    for statement in statements {
+        match statement {
+            Statement::FunctionDeclaration(function) => {
+                names.insert(function.name.clone());
+            }
+            Statement::VariableDeclaration(decl) => {
+                for declarator in &decl.declarations {
+                    names.insert(declarator.id.clone());
+                }
+            }
+            _ => {}
+        }
+    }
+    names
+}
+
+/// The diagnostic for a bare (non-call) reference to a sibling linked
+/// function name found inside a cloned body — the fail-closed half of the
+/// sibling rename. Without this, an un-renamed bare reference (`const g =
+/// helper;`, `f(helper)`, `return helper;`) would silently resolve to
+/// whatever `helper` means in the ENTRY module's scope (nothing, or worse,
+/// an unrelated entry binding of the same name) rather than the linked
+/// module's `helper`.
+fn bare_sibling_reference_error(name: &str) -> Diagnostic {
+    Diagnostic::error(
+        e5::FEATURE_UNAVAILABLE as u32,
+        format!(
+            "linked module function `{name}` aliases a sibling export — unsupported (only direct calls `{name}(...)` are rewritten; a bare reference cannot be resolved without the linked module's scope)"
+        ),
+    )
+}
+
+fn check_bare_reference(name: &str, renames: &BTreeMap<String, String>) -> Result<(), Diagnostic> {
+    if renames.contains_key(name) {
+        Err(bare_sibling_reference_error(name))
+    } else {
+        Ok(())
+    }
+}
+
+// ---- sibling-callee rename / bare-reference-deny walk ----
+//
+// Mirrors the traversal SHAPE of `kali_types::monomorphize::walk_calls_mut`
+// (renames a call's callee identifier) but is local to this module, keyed by
+// name (not call ordinal), and — unlike that walk, which silently skips any
+// node kind it doesn't special-case — is written as an EXHAUSTIVE `match`
+// with no `_ =>` arm on either `Statement` or `Expression`, so the compiler
+// forces a decision at every current and future variant. Every arm that
+// cannot contain an `Identifier` reference is still matched explicitly, with
+// a comment explaining why it is a no-op.
+//
+// `is_callee` is true for exactly one call site below: the direct `callee`
+// slot of a `CallExpression`. Every other recursive call passes `false` —
+// nothing else is ever "the callee of a call" by definition, even when it
+// sits underneath one (e.g. the object of a member-expression callee like
+// `helper.foo()`, or the callee of a `new` expression, both correctly fail
+// closed as bare references rather than being silently renamed).
+
+fn walk_block(
+    block: &mut BlockStatement,
+    renames: &BTreeMap<String, String>,
+) -> Result<(), Diagnostic> {
+    for statement in &mut block.body {
+        walk_statement(statement, renames)?;
+    }
+    Ok(())
+}
+
+fn walk_var_decl(
+    decl: &mut VariableDeclaration,
+    renames: &BTreeMap<String, String>,
+) -> Result<(), Diagnostic> {
+    // `decl.kind` (var/let/const) carries no identifier reference.
+    for declarator in &mut decl.declarations {
+        // `declarator.id` is the name being BOUND, not a reference.
+        if let Some(init) = &mut declarator.init {
+            walk_expression(init, renames, false)?;
+        }
+    }
+    Ok(())
+}
+
+fn walk_class_body(
+    body: &mut ClassBody,
+    renames: &BTreeMap<String, String>,
+) -> Result<(), Diagnostic> {
+    for method in &mut body.methods {
+        // `method.name` and `method.params` are declarations, not references.
+        if let Some(method_body) = &mut method.body {
+            walk_block(method_body, renames)?;
+        }
+    }
+    Ok(())
+}
+
+fn walk_statement(
+    statement: &mut Statement,
+    renames: &BTreeMap<String, String>,
+) -> Result<(), Diagnostic> {
+    match statement {
+        Statement::ExpressionStatement(stmt) => {
+            walk_expression(&mut stmt.expression, renames, false)
+        }
+        // `label` is a control-flow target name in its own label namespace,
+        // never a value/identifier lookup.
+        Statement::BreakStatement(_) => Ok(()),
+        Statement::ContinueStatement(_) => Ok(()),
+        Statement::WithStatement(stmt) => {
+            walk_expression(&mut stmt.object, renames, false)?;
+            walk_statement(&mut stmt.body, renames)
+        }
+        Statement::ReturnStatement(stmt) => {
+            if let Some(argument) = &mut stmt.argument {
+                walk_expression(argument, renames, false)?;
+            }
+            Ok(())
+        }
+        // `label` is a label-namespace name, not a value lookup.
+        Statement::LabeledStatement(stmt) => walk_statement(&mut stmt.body, renames),
+        Statement::IfStatement(stmt) => {
+            walk_expression(&mut stmt.test, renames, false)?;
+            walk_block(&mut stmt.consequent, renames)?;
+            if let Some(alternate) = &mut stmt.alternate {
+                walk_block(alternate, renames)?;
+            }
+            Ok(())
+        }
+        Statement::SwitchStatement(stmt) => {
+            walk_expression(&mut stmt.discriminant, renames, false)?;
+            for case in &mut stmt.cases {
+                if let Some(test) = &mut case.test {
+                    walk_expression(test, renames, false)?;
+                }
+                for consequent in &mut case.consequent {
+                    walk_statement(consequent, renames)?;
+                }
+            }
+            Ok(())
+        }
+        Statement::ThrowStatement(stmt) => walk_expression(&mut stmt.argument, renames, false),
+        Statement::TryStatement(stmt) => {
+            walk_block(&mut stmt.block, renames)?;
+            if let Some(handler) = &mut stmt.handler {
+                // `handler.param` is the caught-error BINDING name, not a reference.
+                walk_block(&mut handler.body, renames)?;
+            }
+            if let Some(finalizer) = &mut stmt.finalizer {
+                walk_block(finalizer, renames)?;
+            }
+            Ok(())
+        }
+        // No fields at all.
+        Statement::DebuggerStatement(_) => Ok(()),
+        Statement::BlockStatement(stmt) => walk_block(stmt, renames),
+        Statement::ForStatement(stmt) => {
+            match &mut stmt.init {
+                Some(ForInit::VariableDeclaration(decl)) => walk_var_decl(decl, renames)?,
+                Some(ForInit::Expression(expr)) => walk_expression(expr, renames, false)?,
+                None => {}
+            }
+            if let Some(test) = &mut stmt.test {
+                walk_expression(test, renames, false)?;
+            }
+            if let Some(update) = &mut stmt.update {
+                walk_expression(update, renames, false)?;
+            }
+            walk_block(&mut stmt.body, renames)
+        }
+        Statement::ForInStatement(stmt) => {
+            match &mut stmt.left {
+                ForInLefthand::VariableDeclaration(decl) => walk_var_decl(decl, renames)?,
+                ForInLefthand::Expression(expr) => walk_expression(expr, renames, false)?,
+            }
+            walk_expression(&mut stmt.right, renames, false)?;
+            walk_statement(&mut stmt.body, renames)
+        }
+        Statement::ForOfStatement(stmt) => {
+            match &mut stmt.left {
+                ForOfLefthand::VariableDeclaration(decl) => walk_var_decl(decl, renames)?,
+                ForOfLefthand::Expression(expr) => walk_expression(expr, renames, false)?,
+            }
+            walk_expression(&mut stmt.right, renames, false)?;
+            // `is_await` carries no identifier reference.
+            walk_statement(&mut stmt.body, renames)
+        }
+        Statement::WhileStatement(stmt) => {
+            walk_expression(&mut stmt.test, renames, false)?;
+            walk_block(&mut stmt.body, renames)
+        }
+        Statement::DoWhileStatement(stmt) => {
+            walk_block(&mut stmt.body, renames)?;
+            walk_expression(&mut stmt.test, renames, false)
+        }
+        // A nested function declaration: its own `name`/`params` are
+        // declarations, not references; its body is walked in the same
+        // (unscoped) manner as everything else — see the module-level rename
+        // walk's doc comment for the shadowing caveat this shares with
+        // `monomorphize::rewrite_callees_in_body`.
+        Statement::FunctionDeclaration(function) => walk_block(&mut function.body, renames),
+        Statement::ClassDeclaration(class) => walk_class_body(&mut class.body, renames),
+        Statement::VariableDeclaration(decl) => walk_var_decl(decl, renames),
+        // Plain string fields only (specifiers/source) — no `Expression`
+        // content, and the parser only ever produces this at module top
+        // level (never inside a function body we would walk into here).
+        Statement::ImportDeclaration(_) => Ok(()),
+        Statement::ExportAll(_) => Ok(()),
+        // `ExportSpecifier { local, exported }` are plain re-export name
+        // strings, not `Expression` positions; same top-level-only caveat as
+        // `ImportDeclaration` above.
+        Statement::ExportNamed(_) => Ok(()),
+        Statement::ExportDefault(export) => match export {
+            ExportDefaultDeclaration::Expression(expr) => walk_expression(expr, renames, false),
+            ExportDefaultDeclaration::FunctionDeclaration(function) => {
+                walk_block(&mut function.body, renames)
+            }
+            ExportDefaultDeclaration::ClassDeclaration(class) => {
+                walk_class_body(&mut class.body, renames)
+            }
+        },
+        Statement::EnumDeclaration(decl) => {
+            for member in &mut decl.members {
+                // `member.name` is a declaration, not a reference.
+                if let Some(value) = &mut member.value {
+                    walk_expression(value, renames, false)?;
+                }
+            }
+            Ok(())
+        }
+        // TypeScript type syntax only (`type_annotation: String`) — no
+        // `Expression` content to walk.
+        Statement::TypeAliasDeclaration(_) => Ok(()),
+        Statement::InterfaceDeclaration(_) => Ok(()),
+    }
+}
+
+fn walk_expression_or_spread(
+    element: &mut ExpressionOrSpread,
+    renames: &BTreeMap<String, String>,
+) -> Result<(), Diagnostic> {
+    match element {
+        ExpressionOrSpread::Expression(expr) => walk_expression(expr, renames, false),
+        ExpressionOrSpread::Spread(spread) => walk_expression(&mut spread.argument, renames, false),
+        ExpressionOrSpread::Empty => Ok(()),
+    }
+}
+
+fn walk_expression(
+    expr: &mut Expression,
+    renames: &BTreeMap<String, String>,
+    is_callee: bool,
+) -> Result<(), Diagnostic> {
+    match expr {
+        Expression::Identifier(name) => {
+            if let Some(mangled) = renames.get(name.as_str()) {
+                if is_callee {
+                    *name = mangled.clone();
+                } else {
+                    return Err(bare_sibling_reference_error(name));
+                }
+            }
+            Ok(())
+        }
+        // A literal value carries no identifier reference.
+        Expression::Literal(_) => Ok(()),
+        Expression::BinaryExpression(binary) => {
+            walk_expression(&mut binary.left, renames, false)?;
+            walk_expression(&mut binary.right, renames, false)
+        }
+        Expression::UnaryExpression(unary) => walk_expression(&mut unary.argument, renames, false),
+        Expression::CallExpression(call) => {
+            // The ONLY position that is ever a "callee" for this walk.
+            walk_expression(&mut call.callee, renames, true)?;
+            for arg in &mut call.args {
+                walk_expression(arg, renames, false)?;
+            }
+            Ok(())
+        }
+        Expression::MemberExpression(member) => {
+            // `member.property` is a static field-name string, not a
+            // reference; `helper.foo()`'s `helper` is `member.object`, which
+            // IS a value-level reference and is walked as non-callee below
+            // (so it fails closed as a bare reference, since only the
+            // literal `Identifier` callee slot of a `CallExpression` is
+            // rewritable).
+            walk_expression(&mut member.object, renames, false)?;
+            if let Some(index) = &mut member.computed_index {
+                walk_expression(index, renames, false)?;
+            }
+            Ok(())
+        }
+        Expression::ArrayExpression(array) => {
+            for element in array.elements.iter_mut().flatten() {
+                walk_expression_or_spread(element, renames)?;
+            }
+            Ok(())
+        }
+        Expression::ObjectExpression(object) => {
+            for property in &mut object.properties {
+                // `property.key` (`PropertyName::Identifier` included) is a
+                // static property NAME, never a value lookup, even when
+                // spelled the same as a sibling function.
+                walk_expression(&mut property.value, renames, false)?;
+            }
+            Ok(())
+        }
+        Expression::FunctionExpression(function) => {
+            // `function.id`/`function.params` are declarations, not references.
+            if let Some(body) = &mut function.body {
+                walk_block(body, renames)?;
+            }
+            Ok(())
+        }
+        Expression::ArrowFunctionExpression(arrow) => {
+            // `arrow.params` are declarations, not references.
+            walk_expression(&mut arrow.body, renames, false)
+        }
+        Expression::ClassExpression(class) => {
+            // `class.id` is a declaration, not a reference.
+            walk_class_body(&mut class.body, renames)
+        }
+        Expression::NewExpression(new_expr) => {
+            // `new helper()`'s callee is walked as non-callee: only a plain
+            // `CallExpression` callee is rewritten by this pass, so a `new`
+            // callee referencing a sibling fails closed as a bare reference
+            // rather than being silently (and wrongly, since `new` and call
+            // semantics differ) rewritten.
+            walk_expression(&mut new_expr.callee, renames, false)?;
+            for arg in &mut new_expr.args {
+                walk_expression(arg, renames, false)?;
+            }
+            Ok(())
+        }
+        // `meta`/`property` are fixed keyword strings (e.g. `import.meta`),
+        // never identifier lookups.
+        Expression::MetaProperty(_) => Ok(()),
+        Expression::TemplateLiteral(template) => {
+            // `template.quasis` are literal string chunks, not references.
+            for expression in &mut template.expressions {
+                walk_expression(expression, renames, false)?;
+            }
+            Ok(())
+        }
+        Expression::TaggedTemplateExpression(tagged) => {
+            walk_expression(&mut tagged.tag, renames, false)?;
+            for expression in &mut tagged.template.expressions {
+                walk_expression(expression, renames, false)?;
+            }
+            Ok(())
+        }
+        Expression::UpdateExpression(update) => {
+            walk_expression(&mut update.argument, renames, false)
+        }
+        Expression::AssignmentExpression(assignment) => {
+            walk_expression(&mut assignment.left, renames, false)?;
+            walk_expression(&mut assignment.right, renames, false)
+        }
+        Expression::LogicalExpression(logical) => {
+            walk_expression(&mut logical.left, renames, false)?;
+            walk_expression(&mut logical.right, renames, false)
+        }
+        Expression::ConditionalExpression(conditional) => {
+            walk_expression(&mut conditional.test, renames, false)?;
+            walk_expression(&mut conditional.consequent, renames, false)?;
+            walk_expression(&mut conditional.alternate, renames, false)
+        }
+        Expression::SequenceExpression(sequence) => {
+            for expression in &mut sequence.expressions {
+                walk_expression(expression, renames, false)?;
+            }
+            Ok(())
+        }
+        Expression::ParenthesizedExpression(parenthesized) => {
+            walk_expression(&mut parenthesized.expression, renames, false)
+        }
+        Expression::YieldExpression(yield_expr) => {
+            if let Some(argument) = &mut yield_expr.argument {
+                walk_expression(argument, renames, false)?;
+            }
+            Ok(())
+        }
+        Expression::AwaitExpression(await_expr) => {
+            walk_expression(&mut await_expr.argument, renames, false)
+        }
+        Expression::OptionalChainExpression(chain) => match chain.inner.as_mut() {
+            OptionalChainInner::NonNull { object, .. } => walk_expression(object, renames, false),
+        },
+        Expression::ChainExpression(chain) => {
+            walk_expression(&mut chain.expression, renames, false)
+        }
+        Expression::SpreadElement(spread) => walk_expression(&mut spread.argument, renames, false),
+        Expression::RestElement(rest) => walk_expression(&mut rest.argument, renames, false),
+        Expression::ImportExpression(import_expr) => {
+            walk_expression(&mut import_expr.source, renames, false)
+        }
+        Expression::DecoratedExpression(decorated) => {
+            walk_expression(&mut decorated.expression, renames, false)
+        }
+        Expression::JsxElement(element) => walk_jsx_element(element, renames),
+        Expression::JsxFragment(fragment) => walk_jsx_fragment(fragment, renames),
+        // No content at all.
+        Expression::JsxEmptyExpression => Ok(()),
+        Expression::TypeAssertion(assertion) => {
+            // `assertion.type_name` is TypeScript type syntax, not a value reference.
+            walk_expression(&mut assertion.expression, renames, false)
+        }
+        Expression::SatisfiesExpression(satisfies) => {
+            // `satisfies.type_name` is TypeScript type syntax, not a value reference.
+            walk_expression(&mut satisfies.expression, renames, false)
+        }
+        // `this`/`super` are keywords, never identifier lookups.
+        Expression::ThisExpression => Ok(()),
+        Expression::SuperExpression => Ok(()),
+        // A private class-field name (`#foo`) is a distinct namespace from
+        // top-level function bindings — cannot alias a sibling function.
+        Expression::PrivateIdentifier(_) => Ok(()),
+        // A literal numeric value, not a reference.
+        Expression::BigIntLiteral(_) => Ok(()),
+    }
+}
+
+fn walk_jsx_element(
+    element: &mut JsxElement,
+    renames: &BTreeMap<String, String>,
+) -> Result<(), Diagnostic> {
+    walk_jsx_name(&mut element.opening_element.name, renames)?;
+    for attribute in &mut element.opening_element.attributes {
+        walk_jsx_attribute_item(attribute, renames)?;
+    }
+    for child in &mut element.children {
+        walk_jsx_child(child, renames)?;
+    }
+    if let Some(closing) = &mut element.closing_element {
+        walk_jsx_name(&mut closing.name, renames)?;
+    }
+    Ok(())
+}
+
+fn walk_jsx_fragment(
+    fragment: &mut JsxFragment,
+    renames: &BTreeMap<String, String>,
+) -> Result<(), Diagnostic> {
+    for child in &mut fragment.children {
+        walk_jsx_child(child, renames)?;
+    }
+    Ok(())
+}
+
+/// `JsxName::Identifier` is a real value-level lookup in JSX semantics (a
+/// capitalized tag name resolves against an in-scope binding, e.g. a
+/// component function) even though it is a plain `String` field rather than
+/// an `Expression::Identifier` node. It can never legally be a call callee
+/// in this walk's sense, so a sibling match here always fails closed as a
+/// bare reference — never silently renamed.
+fn walk_jsx_name(name: &mut JsxName, renames: &BTreeMap<String, String>) -> Result<(), Diagnostic> {
+    match name {
+        JsxName::Identifier(identifier) => check_bare_reference(identifier, renames),
+        JsxName::JsxClosedElement(closing) => walk_jsx_name(&mut closing.name, renames),
+    }
+}
+
+fn walk_jsx_attribute_item(
+    item: &mut JsxAttributeItem,
+    renames: &BTreeMap<String, String>,
+) -> Result<(), Diagnostic> {
+    match item {
+        JsxAttributeItem::JsxAttribute(attribute) => {
+            walk_jsx_name(&mut attribute.name, renames)?;
+            walk_jsx_attribute_value(&mut attribute.value, renames)
+        }
+        JsxAttributeItem::JsxSpreadAttribute(spread) => {
+            walk_expression(&mut spread.argument, renames, false)
+        }
+    }
+}
+
+fn walk_jsx_attribute_value(
+    value: &mut JsxAttributeValue,
+    renames: &BTreeMap<String, String>,
+) -> Result<(), Diagnostic> {
+    match value {
+        // A plain string literal attribute value, not a reference.
+        JsxAttributeValue::String(_) => Ok(()),
+        JsxAttributeValue::JsxElement(element) => walk_jsx_element(element, renames),
+        JsxAttributeValue::JsxExpression(container) => {
+            walk_jsx_expression_container(container, renames)
+        }
+    }
+}
+
+fn walk_jsx_expression_container(
+    container: &mut JsxExpressionContainer,
+    renames: &BTreeMap<String, String>,
+) -> Result<(), Diagnostic> {
+    if let Some(expression) = &mut container.expression {
+        walk_expression(expression, renames, false)?;
+    }
+    Ok(())
+}
+
+fn walk_jsx_child(
+    child: &mut JsxChild,
+    renames: &BTreeMap<String, String>,
+) -> Result<(), Diagnostic> {
+    match child {
+        // Literal text content, not a reference.
+        JsxChild::JsxText(_) => Ok(()),
+        JsxChild::JsxExpression(container) => walk_jsx_expression_container(container, renames),
+        JsxChild::JsxElement(element) => walk_jsx_element(element, renames),
+        JsxChild::JsxFragment(fragment) => walk_jsx_fragment(fragment, renames),
+    }
+}
+
 /// Strips a single layer of matching `'`/`"`/`` ` `` quoting, mirroring
 /// `eval::unquote_string_literal` (private to that module, so re-implemented
 /// here rather than exposed cross-module for one call site).
@@ -964,6 +1537,154 @@ mod tests {
             error.message.contains('f'),
             "message must name the duplicated function: {}",
             error.message
+        );
+    }
+
+    // ---- append_linked_functions (Task 5) ----
+
+    /// Builds a `LinkedModuleAst` directly from source, without touching
+    /// disk — `append_linked_functions` only reads `module.all_functions`
+    /// and `module.index`, so `exports` is left empty (irrelevant here).
+    fn build_module(index: usize, source: &str) -> LinkedModuleAst {
+        let mut all_functions = BTreeMap::new();
+        for statement in parse(source) {
+            if let Statement::FunctionDeclaration(function) = statement {
+                all_functions.insert(function.name.clone(), function);
+            }
+        }
+        LinkedModuleAst {
+            index,
+            exports: BTreeMap::new(),
+            all_functions,
+        }
+    }
+
+    fn find_function<'a>(statements: &'a [Statement], name: &str) -> &'a FunctionDeclaration {
+        statements
+            .iter()
+            .find_map(|statement| match statement {
+                Statement::FunctionDeclaration(function) if function.name == name => Some(function),
+                _ => None,
+            })
+            .unwrap_or_else(|| {
+                panic!("expected a FunctionDeclaration named `{name}` in {statements:?}")
+            })
+    }
+
+    #[test]
+    fn append_linked_functions_appends_mangled_clone_with_identical_body() {
+        let module = build_module(0, "export function lazyValue() { return 7; }");
+        let original = module.all_functions.get("lazyValue").unwrap().clone();
+        let mut statements: Vec<Statement> = Vec::new();
+
+        append_linked_functions(&mut statements, &module).expect("append should succeed");
+
+        assert_eq!(statements.len(), 1);
+        let clone = find_function(&statements, "__link0_lazyValue");
+        assert_eq!(
+            clone.body, original.body,
+            "body must be otherwise identical"
+        );
+        assert_eq!(clone.params, original.params);
+        assert_eq!(clone.is_async, original.is_async);
+        assert_eq!(clone.generator, original.generator);
+    }
+
+    #[test]
+    fn append_linked_functions_renames_sibling_callee() {
+        let module = build_module(
+            0,
+            "function helper() { return 1; } export function f() { return helper(); }",
+        );
+        let mut statements: Vec<Statement> = Vec::new();
+
+        append_linked_functions(&mut statements, &module).expect("append should succeed");
+
+        // Both the export and the private helper are appended.
+        let _ = find_function(&statements, "__link0_helper");
+        let f_clone = find_function(&statements, "__link0_f");
+        match &f_clone.body.body[..] {
+            [Statement::ReturnStatement(r)] => {
+                match r.argument.as_ref().expect("return has an argument") {
+                    Expression::CallExpression(call) => match &call.callee {
+                        Expression::Identifier(name) => assert_eq!(
+                        name, "__link0_helper",
+                        "the call inside __link0_f's body must be renamed to the mangled helper"
+                    ),
+                        other => panic!("expected an Identifier callee, got {other:?}"),
+                    },
+                    other => panic!("expected a CallExpression, got {other:?}"),
+                }
+            }
+            other => panic!("expected a single ReturnStatement body, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn append_linked_functions_rejects_name_collision() {
+        let module = build_module(0, "export function lazyValue() { return 7; }");
+        let mut statements = parse("function __link0_lazyValue() {}");
+
+        let error = append_linked_functions(&mut statements, &module)
+            .expect_err("a mangled-name collision must be rejected");
+
+        assert_eq!(error.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+        assert!(
+            error.message.contains("__link0_lazyValue"),
+            "message must name the colliding identifier: {}",
+            error.message
+        );
+    }
+
+    #[test]
+    fn append_linked_functions_leaves_statements_unchanged_on_collision() {
+        let module = build_module(0, "export function lazyValue() { return 7; }");
+        let mut statements = parse("function __link0_lazyValue() {}");
+        let before = statements.clone();
+
+        let result = append_linked_functions(&mut statements, &module);
+
+        assert!(result.is_err());
+        assert_eq!(
+            statements, before,
+            "a colliding module must never partially mutate `statements`"
+        );
+    }
+
+    #[test]
+    fn append_linked_functions_rejects_bare_sibling_reference() {
+        let module = build_module(
+            0,
+            "function helper() { return 1; } export function f() { const g = helper; return g(); }",
+        );
+        let mut statements: Vec<Statement> = Vec::new();
+
+        let error = append_linked_functions(&mut statements, &module)
+            .expect_err("a bare (non-call) reference to a sibling function must be rejected");
+
+        assert_eq!(error.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+        assert!(
+            error.message.contains("helper"),
+            "message must name the aliased sibling: {}",
+            error.message
+        );
+    }
+
+    #[test]
+    fn append_linked_functions_leaves_statements_unchanged_on_bare_reference_reject() {
+        let module = build_module(
+            0,
+            "function helper() { return 1; } export function f() { return helper; }",
+        );
+        let mut statements: Vec<Statement> = Vec::new();
+        let before = statements.clone();
+
+        let result = append_linked_functions(&mut statements, &module);
+
+        assert!(result.is_err());
+        assert_eq!(
+            statements, before,
+            "a rejected sibling-alias must never partially mutate `statements`"
         );
     }
 }
