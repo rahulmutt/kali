@@ -343,6 +343,18 @@ pub struct LinkedModuleAst {
     pub exports: BTreeMap<String, FunctionDeclaration>,
     /// ALL top-level function names (exports + private helpers).
     pub all_functions: BTreeMap<String, FunctionDeclaration>,
+    /// Every name in `all_functions`, in the order the functions were
+    /// declared in the module's SOURCE. `all_functions` alone cannot serve
+    /// this purpose — it is a `BTreeMap`, so iterating it yields alphabetical
+    /// key order, unrelated to source order. This is the tie-break
+    /// `append_linked_functions`'s dependency-order topological sort uses
+    /// when the intra-module call graph doesn't fully constrain relative
+    /// order between two functions (see that function's doc comment).
+    /// Always the same set of names as `all_functions.keys()`, just in a
+    /// different order — populated alongside `all_functions` in the same
+    /// loop, in both `load_linked_module` and the `build_module` test
+    /// helper.
+    pub declaration_order: Vec<String>,
 }
 
 /// Reads, lexes, and parses `module.path`, then purity-gates it: EVERY
@@ -403,6 +415,7 @@ pub fn load_linked_module(module: &LinkedModule) -> Result<LinkedModuleAst, Diag
     }
 
     let mut all_functions: BTreeMap<String, FunctionDeclaration> = BTreeMap::new();
+    let mut declaration_order: Vec<String> = Vec::new();
     for statement in &parsed.statements {
         match statement {
             Statement::FunctionDeclaration(function)
@@ -419,6 +432,7 @@ pub fn load_linked_module(module: &LinkedModule) -> Result<LinkedModuleAst, Diag
                     ));
                 }
                 all_functions.insert(function.name.clone(), function.clone());
+                declaration_order.push(function.name.clone());
             }
             other => {
                 return Err(Diagnostic::error(
@@ -443,6 +457,7 @@ pub fn load_linked_module(module: &LinkedModule) -> Result<LinkedModuleAst, Diag
         index: module.index,
         exports,
         all_functions,
+        declaration_order,
     })
 }
 
@@ -514,15 +529,22 @@ fn register(
 }
 
 /// Prepends mangled clones of `module.all_functions` to the FRONT of
-/// `statements`. Mangle: `__link{module.index}_{original_name}`. Sibling
-/// references inside cloned bodies are renamed to their mangled forms.
-/// Err = mangled-name collision with an already-declared entry name (E5506).
+/// `statements`, in DEPENDENCY order (every callee declared before any
+/// linked sibling that calls it — see `topo_sort_dependency_order` below).
+/// Mangle: `__link{module.index}_{original_name}`. Sibling references inside
+/// cloned bodies are renamed to their mangled forms. Err = a mangled-name
+/// collision with an already-declared entry name, OR an intra-module call
+/// cycle no declaration order could satisfy (both E5506).
 ///
 /// Ordering: the collision guard runs first, over every function in
-/// `module.all_functions`, and the sibling-rename walk (which can also
+/// `module.all_functions`; then the sibling-rename walk (which can also
 /// fail — a bare, non-call reference to a sibling name) runs entirely
-/// against local clones before anything is spliced in. `statements` is
-/// only ever mutated once, via a single `splice` at the very end, after
+/// against local clones and simultaneously records the intra-module call
+/// graph (using `census_block`, the same traversal `deny_unrewritten_uses`
+/// below reuses for a different purpose); then the dependency-order
+/// topological sort runs (which can also fail, on a cycle) — all of this
+/// against local clones/data, before anything is spliced in. `statements`
+/// is only ever mutated once, via a single `splice` at the very end, after
 /// every fallible step has already succeeded — so any `Err` return leaves
 /// `statements` byte-identical to how it was passed in.
 ///
@@ -536,6 +558,22 @@ fn register(
 /// before the entry module's EARLIEST possible use site, which can be its
 /// very first statement (`import * as ns from "./x"; const v =
 /// ns.export();`) — appending at the end left every such use unresolvable.
+///
+/// DEPENDENCY order, not `module.all_functions`'s alphabetical `BTreeMap`
+/// key order: the same no-hoisting property above applies BETWEEN two
+/// linked clones too. `module.all_functions` iterates alphabetically, which
+/// is unrelated to which clone calls which — `function helper() { return
+/// 1n; } export function f() { return helper(); }` clones as `__link0_f`
+/// (alphabetically first) and `__link0_helper` (alphabetically second), so
+/// appending in that order put the CALLER before its CALLEE and made the
+/// resulting program fail to resolve `__link0_helper` — exactly the
+/// no-hoisting failure this function's whole FRONT-placement strategy
+/// exists to avoid, just one level down (between clones, not just
+/// clone-vs-entry). A full topological sort of the intra-module call graph,
+/// tie-broken by the module's own SOURCE declaration order (not
+/// alphabetical), is required to guarantee callee-before-caller regardless
+/// of which order the two functions happen to be declared in the linked
+/// module's source.
 pub fn append_linked_functions(
     statements: &mut Vec<Statement>,
     module: &LinkedModuleAst,
@@ -558,7 +596,18 @@ pub fn append_linked_functions(
         }
     }
 
-    let mut cloned: Vec<Statement> = Vec::with_capacity(module.all_functions.len());
+    // mangled name -> original name, the reverse of `renames` — used below
+    // to translate a renamed call-callee reference found in an
+    // ALREADY-CLONED body back to the original name for the dependency
+    // graph (the graph is keyed by original names, matching
+    // `module.declaration_order`).
+    let mangled_to_original: BTreeMap<String, String> = renames
+        .iter()
+        .map(|(original, mangled)| (mangled.clone(), original.clone()))
+        .collect();
+
+    let mut clones: BTreeMap<String, FunctionDeclaration> = BTreeMap::new();
+    let mut edges: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     for (name, function) in &module.all_functions {
         let mut clone = function.clone();
         clone.name = renames.get(name).cloned().expect(
@@ -572,11 +621,191 @@ pub fn append_linked_functions(
             check_binding(param, &renames)?;
         }
         walk_block(&mut clone.body, &renames)?;
-        cloned.push(Statement::FunctionDeclaration(clone));
+
+        // Every mangled sibling name still present in `clone.body` after the
+        // walk above MUST be a renamed call-callee reference: the walk
+        // itself already rejects (as a bare-reference or shadowing error)
+        // every other way a sibling name could survive into the clone. Self
+        // edges (a function calling itself) are excluded here — see
+        // `topo_sort_dependency_order`'s doc comment for why plain
+        // self-recursion needs no ordering constraint.
+        let mut called = BTreeSet::new();
+        census_block(
+            &clone.body,
+            &mut |identifier| {
+                if let Some(original) = mangled_to_original.get(identifier) {
+                    called.insert(original.clone());
+                }
+            },
+            &mut |_binding| {},
+        );
+        called.remove(name);
+        edges.insert(name.clone(), called);
+
+        clones.insert(name.clone(), clone);
     }
+
+    let order = topo_sort_dependency_order(module, &edges)?;
+
+    let cloned: Vec<Statement> = order
+        .into_iter()
+        .map(|name| {
+            Statement::FunctionDeclaration(clones.remove(&name).unwrap_or_else(|| {
+                panic!(
+                    "topo_sort_dependency_order's result is a permutation of module.declaration_order, and every one of those names has a clone: missing `{name}`"
+                )
+            }))
+        })
+        .collect();
 
     statements.splice(0..0, cloned);
     Ok(())
+}
+
+/// Orders `module.declaration_order`'s names so every callee (per `edges`,
+/// which already excludes self-edges) appears before any linked sibling
+/// that calls it. Ties — functions with no dependency relationship to each
+/// other — are broken by the module's own SOURCE declaration order (never
+/// alphabetically): a plain Kahn's-algorithm-style scheduling pass that, at
+/// each step, picks the EARLIEST-declared not-yet-emitted name whose
+/// dependencies are all already emitted.
+///
+/// Err (E5506) if `edges` (excluding self-edges) contains a cycle — mutual
+/// or indirect recursion among the linked module's own functions. This
+/// resolver has no forward-declaration hoisting (see
+/// `append_linked_functions`'s doc comment), so a cycle has NO valid
+/// declaration order at all: whichever member of the cycle is placed last
+/// still needs an as-yet-undeclared sibling. Verified independently of
+/// module-linking entirely — `function isEven(n) { return n === 0 ? true :
+/// isOdd(n - 1); } function isOdd(n) { return n === 0 ? false : isEven(n -
+/// 1); }` already fails to resolve `isOdd` with the same E3100 this
+/// function pre-empts here at compile time, for either declaration order.
+///
+/// Self-recursion (a function calling itself, e.g. `function f(n) { return
+/// n <= 1 ? 1 : n * f(n - 1); }`) is a DIFFERENT case, deliberately not
+/// treated as a cycle: verified independently of module-linking too — that
+/// exact fixture runs and matches node byte-for-byte with plain kali,
+/// because by the time `f`'s body actually CALLS `f`, `f` itself has
+/// already been fully declared (the call is inside the body, not in a
+/// sibling's body needing `f` to exist before `f` does) — no hoisting is
+/// needed for a function to call itself. `edges` already has self-edges
+/// stripped by the caller for exactly this reason, so this function never
+/// sees them as a dependency to satisfy or a cycle to reject.
+fn topo_sort_dependency_order(
+    module: &LinkedModuleAst,
+    edges: &BTreeMap<String, BTreeSet<String>>,
+) -> Result<Vec<String>, Diagnostic> {
+    if let Some(cycle) = find_call_cycle(&module.declaration_order, edges) {
+        return Err(call_cycle_error(module, &cycle));
+    }
+
+    let mut emitted: BTreeSet<String> = BTreeSet::new();
+    let mut order: Vec<String> = Vec::with_capacity(module.declaration_order.len());
+    while order.len() < module.declaration_order.len() {
+        let next = module.declaration_order.iter().find(|name| {
+            !emitted.contains(name.as_str())
+                && edges
+                    .get(name.as_str())
+                    .is_none_or(|deps| deps.iter().all(|dep| emitted.contains(dep)))
+        });
+        let Some(next) = next else {
+            unreachable!(
+                "find_call_cycle reported no cycle in `edges`, so a DAG topological order always \
+                 has an unemitted node with every dependency already emitted at each step; \
+                 module.declaration_order = {:?}, edges = {edges:?}, emitted so far = {emitted:?}",
+                module.declaration_order
+            );
+        };
+        emitted.insert(next.clone());
+        order.push(next.clone());
+    }
+    Ok(order)
+}
+
+/// Depth-first cycle detection over `edges` (self-edges already excluded by
+/// the caller), restricted to `names` (every node, even one with no
+/// outgoing OR incoming edges, still needs a color entry so the outer scan
+/// below terminates). Returns the first cycle found, as the ordered list of
+/// participant names (the closed walk from the cycle's first revisited node
+/// back to itself, in traversal order) — `None` if `edges` is a DAG.
+/// Standard white/gray/black DFS coloring: gray = currently on the
+/// recursion stack (an edge back into gray is a cycle); black = fully
+/// explored (safe to skip).
+fn find_call_cycle(
+    names: &[String],
+    edges: &BTreeMap<String, BTreeSet<String>>,
+) -> Option<Vec<String>> {
+    #[derive(Clone, Copy, PartialEq)]
+    enum Color {
+        White,
+        Gray,
+        Black,
+    }
+
+    fn visit(
+        node: &str,
+        edges: &BTreeMap<String, BTreeSet<String>>,
+        colors: &mut BTreeMap<String, Color>,
+        stack: &mut Vec<String>,
+    ) -> Option<Vec<String>> {
+        colors.insert(node.to_string(), Color::Gray);
+        stack.push(node.to_string());
+        if let Some(deps) = edges.get(node) {
+            for dep in deps {
+                match colors.get(dep.as_str()).copied().unwrap_or(Color::White) {
+                    Color::Gray => {
+                        let start = stack
+                            .iter()
+                            .position(|on_stack| on_stack == dep)
+                            .expect("dep is Color::Gray, so it must currently be on `stack`");
+                        return Some(stack[start..].to_vec());
+                    }
+                    Color::Black => {}
+                    Color::White => {
+                        if let Some(cycle) = visit(dep, edges, colors, stack) {
+                            return Some(cycle);
+                        }
+                    }
+                }
+            }
+        }
+        stack.pop();
+        colors.insert(node.to_string(), Color::Black);
+        None
+    }
+
+    let mut colors: BTreeMap<String, Color> = BTreeMap::new();
+    for name in names {
+        if colors.get(name).copied().unwrap_or(Color::White) == Color::White {
+            let mut stack = Vec::new();
+            if let Some(cycle) = visit(name, edges, &mut colors, &mut stack) {
+                return Some(cycle);
+            }
+        }
+    }
+    None
+}
+
+/// The diagnostic for an intra-module call cycle `topo_sort_dependency_order`
+/// rejects — names every participant (as its mangled, `__link{index}_`-
+/// prefixed form, matching what a downstream diagnostic reader would
+/// actually see appended to their program) and the module by its stable
+/// ordinal (`LinkedModuleAst` has no source path of its own to name it by —
+/// see that struct's doc comment; the mangled names it prints already encode
+/// the same ordinal).
+fn call_cycle_error(module: &LinkedModuleAst, cycle: &[String]) -> Diagnostic {
+    let participants: Vec<String> = cycle
+        .iter()
+        .map(|name| mangled_link_name(module.index, name))
+        .collect();
+    Diagnostic::error(
+        e5::FEATURE_UNAVAILABLE as u32,
+        format!(
+            "linked module (index {}) cannot be linked: functions {} form a call cycle (mutual or indirect recursion) — this resolver has no forward-declaration hoisting, so no declaration order exists that would let every call resolve; only direct self-recursion (a function calling itself) is supported",
+            module.index,
+            participants.join(" -> "),
+        ),
+    )
 }
 
 /// `__link{index}_{name}`. See `LinkedModule::index` for the stable-ordinal
@@ -3075,8 +3304,10 @@ mod tests {
     /// and `module.index`, so `exports` is left empty (irrelevant here).
     fn build_module(index: usize, source: &str) -> LinkedModuleAst {
         let mut all_functions = BTreeMap::new();
+        let mut declaration_order = Vec::new();
         for statement in parse(source) {
             if let Statement::FunctionDeclaration(function) = statement {
+                declaration_order.push(function.name.clone());
                 all_functions.insert(function.name.clone(), function);
             }
         }
@@ -3084,6 +3315,7 @@ mod tests {
             index,
             exports: BTreeMap::new(),
             all_functions,
+            declaration_order,
         }
     }
 
@@ -3486,6 +3718,193 @@ mod tests {
             other => {
                 panic!("expected a single nested ExportDefault(Expression) body, got {other:?}")
             }
+        }
+    }
+
+    // ---- dependency-order topological sort (Important review finding fix) ----
+    //
+    // `module.all_functions` is a `BTreeMap`, so iterating it (the pre-fix
+    // behavior) emits clones in ALPHABETICAL name order — unrelated to which
+    // clone calls which. Whenever a caller happens to sort before its
+    // callee, the resolver's no-hoisting property (see
+    // `append_linked_functions`'s doc comment) makes the appended program
+    // fail to resolve the callee, EVEN THOUGH `append_linked_functions`
+    // itself reports success (the failure only surfaces later, in the
+    // resolver). These tests assert the CLONE POSITIONS directly, for both
+    // possible source declaration orders — proving the fix is genuinely
+    // dependency-driven, not accidentally correct for only one order.
+
+    fn position_of(statements: &[Statement], name: &str) -> usize {
+        statements
+            .iter()
+            .position(|statement| {
+                matches!(statement, Statement::FunctionDeclaration(function) if function.name == name)
+            })
+            .unwrap_or_else(|| panic!("expected a FunctionDeclaration named `{name}` in {statements:?}"))
+    }
+
+    #[test]
+    fn append_linked_functions_orders_callee_before_caller_when_callee_declared_first() {
+        // `helper` is declared BEFORE `f` in source — alphabetical order
+        // ("f" < "helper") would ALSO happen to put helper's clone first
+        // here, so this alone doesn't distinguish a real fix from the old
+        // alphabetical accident; it's the companion reverse-order test below
+        // that does. Kept as the direct mirror of the plan's own mandated
+        // shape (Task 4/5 fixture).
+        let module = build_module(
+            0,
+            "function helper() { return 1n; } export function f() { return helper(); }",
+        );
+        let mut statements: Vec<Statement> = Vec::new();
+
+        append_linked_functions(&mut statements, &module).expect("append should succeed");
+
+        let helper_pos = position_of(&statements, "__link0_helper");
+        let f_pos = position_of(&statements, "__link0_f");
+        assert!(
+            helper_pos < f_pos,
+            "callee __link0_helper must be declared before caller __link0_f, got positions {helper_pos} and {f_pos} in {statements:?}"
+        );
+    }
+
+    #[test]
+    fn append_linked_functions_orders_callee_before_caller_when_caller_declared_first() {
+        // The reverse source order: `f` (the caller) is declared BEFORE
+        // `helper` (the callee). Alphabetical `BTreeMap` order ALSO puts `f`
+        // first here (same as source order) — so the pre-fix code emitted
+        // callee-after-caller in this exact shape, which is precisely the
+        // plan's own mandated fixture (Task 4/5) and reproduces the defect:
+        // `E5506`/`E3100` on `__link0_helper` before the fix. A correct
+        // dependency-order sort must still place `helper` first here, EVEN
+        // THOUGH that's the opposite of both alphabetical AND source order.
+        let module = build_module(
+            0,
+            "export function f() { return helper(); } function helper() { return 1n; }",
+        );
+        let mut statements: Vec<Statement> = Vec::new();
+
+        append_linked_functions(&mut statements, &module).expect("append should succeed");
+
+        let helper_pos = position_of(&statements, "__link0_helper");
+        let f_pos = position_of(&statements, "__link0_f");
+        assert!(
+            helper_pos < f_pos,
+            "callee __link0_helper must be declared before caller __link0_f, got positions {helper_pos} and {f_pos} in {statements:?}"
+        );
+    }
+
+    #[test]
+    fn append_linked_functions_orders_by_declaration_when_call_graph_has_no_edges() {
+        // Two functions with NO call relationship at all: the topological
+        // sort has no constraint to satisfy, so the tie-break — the
+        // module's own SOURCE declaration order — must decide, not
+        // alphabetical `BTreeMap` order ("second" < "zzzfirst"
+        // alphabetically, but "zzzfirst" is declared first in source).
+        let module = build_module(
+            0,
+            "export function zzzfirst() { return 1n; } export function second() { return 2n; }",
+        );
+        let mut statements: Vec<Statement> = Vec::new();
+
+        append_linked_functions(&mut statements, &module).expect("append should succeed");
+
+        let first_pos = position_of(&statements, "__link0_zzzfirst");
+        let second_pos = position_of(&statements, "__link0_second");
+        assert!(
+            first_pos < second_pos,
+            "with no call-graph constraint, source declaration order must be preserved: got positions {first_pos} and {second_pos} in {statements:?}"
+        );
+    }
+
+    #[test]
+    fn append_linked_functions_rejects_mutual_recursion_cycle() {
+        // Verified independently of module-linking: `function isEven(n) {
+        // return n === 0 ? true : isOdd(n - 1); } function isOdd(n) { return
+        // n === 0 ? false : isEven(n - 1); }` already fails to resolve
+        // `isOdd` with E3100 in PLAIN kali (no linking involved) for either
+        // declaration order — there is no order that makes both calls
+        // resolve. `append_linked_functions` must reject this fail-closed
+        // at compile time instead of emitting a broken order.
+        let module = build_module(
+            0,
+            "function isEven(n) { return n === 0 ? true : isOdd(n - 1); } function isOdd(n) { return n === 0 ? false : isEven(n - 1); }",
+        );
+        let mut statements: Vec<Statement> = Vec::new();
+
+        let error = append_linked_functions(&mut statements, &module)
+            .expect_err("a mutual-recursion call cycle must be rejected");
+
+        assert_eq!(error.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+        assert!(
+            error.message.contains("isEven") && error.message.contains("isOdd"),
+            "message must name both cycle participants: {}",
+            error.message
+        );
+        assert!(
+            error.message.contains("cycle"),
+            "message must describe this as a cycle: {}",
+            error.message
+        );
+    }
+
+    #[test]
+    fn append_linked_functions_leaves_statements_unchanged_on_cycle_reject() {
+        let module = build_module(
+            0,
+            "function isEven(n) { return n === 0 ? true : isOdd(n - 1); } function isOdd(n) { return n === 0 ? false : isEven(n - 1); }",
+        );
+        let mut statements: Vec<Statement> = Vec::new();
+        let before = statements.clone();
+
+        let result = append_linked_functions(&mut statements, &module);
+
+        assert!(result.is_err());
+        assert_eq!(
+            statements, before,
+            "a rejected call cycle must never partially mutate `statements`"
+        );
+    }
+
+    #[test]
+    fn append_linked_functions_supports_self_recursion() {
+        // Verified independently of module-linking: `function f(n) { return
+        // n <= 1 ? 1 : n * f(n - 1); }` runs and matches node byte-for-byte
+        // in plain kali — self-recursion needs no forward-declaration
+        // hoisting, since by the time `f`'s body calls `f`, `f` itself is
+        // already fully declared. A self-edge must NOT be treated as a
+        // cycle (which would wrongly reject a working program) and must NOT
+        // block the topological sort.
+        let module = build_module(
+            0,
+            "export function f(n) { return n <= 1 ? 1 : n * f(n - 1); }",
+        );
+        let mut statements: Vec<Statement> = Vec::new();
+
+        append_linked_functions(&mut statements, &module)
+            .expect("self-recursion must be accepted, not treated as a cycle");
+
+        let f_clone = find_function(&statements, "__link0_f");
+        // The self-call inside the clone's own body must still be renamed
+        // to the mangled self-reference (this already worked before this
+        // fix — the sibling-rename walk's `renames` map always included the
+        // function's own name — this test pins it stays true post-fix).
+        match &f_clone.body.body[..] {
+            [Statement::ReturnStatement(r)] => match r.argument.as_ref().unwrap() {
+                Expression::ConditionalExpression(cond) => match cond.alternate.as_ref() {
+                    Expression::BinaryExpression(binary) => match binary.right.as_ref() {
+                        Expression::CallExpression(call) => match &call.callee {
+                            Expression::Identifier(name) => {
+                                assert_eq!(name, "__link0_f")
+                            }
+                            other => panic!("expected an Identifier callee, got {other:?}"),
+                        },
+                        other => panic!("expected a CallExpression, got {other:?}"),
+                    },
+                    other => panic!("expected a BinaryExpression, got {other:?}"),
+                },
+                other => panic!("expected a ConditionalExpression, got {other:?}"),
+            },
+            other => panic!("expected a single ReturnStatement body, got {other:?}"),
         }
     }
 
