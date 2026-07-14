@@ -54,6 +54,21 @@ use kali_ast::{
     Expression, ExpressionOrSpread, ForInLefthand, ForInit, ForOfLefthand, LiteralValue, Statement,
 };
 
+/// Why a growable-shape `.push` receiver failed promotion (Task 6): drives
+/// which E5506 message `repr_infer` emits, so the diagnostic names the actual
+/// problem instead of enumerating positions that don't apply.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum GrowableRejectKind {
+    /// The binding appears in a position outside the safe allowlist
+    /// (escape/alias/computed-or-optional push/closure capture/non-`push`
+    /// mutator).
+    UnsafePosition,
+    /// Every position is safe, but at least one `.push` CALL itself is
+    /// malformed for this lane (wrong argument count, or an argument shape —
+    /// object/array literal, call, member, … — the lane cannot store).
+    UnsupportedPush,
+}
+
 /// One recognized `candidate.push(<scalar-shaped arg>)` occurrence, in
 /// source order. `repr_infer` uses these to find the pushed-value repr nodes.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -90,6 +105,13 @@ struct Scan {
     /// here but fails promotion (not a candidate) is the silent-poison class:
     /// it must fail closed (E5506), never keep the pre-existing push-no-op.
     push_receiver_mentions: BTreeSet<String>,
+    /// Receivers of a well-positioned dot-`.push` CALL whose call is itself
+    /// malformed for this lane (wrong arity, or an argument shape the lane
+    /// cannot store — object/array literal, call, member, …). Disqualifies
+    /// candidacy (the malformed push would no-op at runtime while clean ones
+    /// accumulate — divergent semantics) and routes the reject to the
+    /// argument-specific message instead of the position enumeration.
+    malformed_push_receivers: BTreeSet<String>,
     /// A construct the scanner cannot see through appeared: no candidates.
     poisoned: bool,
 }
@@ -100,7 +122,11 @@ struct Scan {
 pub(crate) fn growable_array_candidates(
     func_params: &[String],
     body: &[Statement],
-) -> (BTreeSet<String>, Vec<GrowablePushSite>, BTreeSet<String>) {
+) -> (
+    BTreeSet<String>,
+    Vec<GrowablePushSite>,
+    BTreeMap<String, GrowableRejectKind>,
+) {
     let mut scan = Scan::default();
     for param in func_params {
         scan.declare(param, false);
@@ -109,7 +135,7 @@ pub(crate) fn growable_array_candidates(
         scan.stmt(stmt, false);
     }
     if scan.poisoned {
-        return (BTreeSet::new(), Vec::new(), BTreeSet::new());
+        return (BTreeSet::new(), Vec::new(), BTreeMap::new());
     }
     let candidates: BTreeSet<String> = scan
         .decls
@@ -118,6 +144,7 @@ pub(crate) fn growable_array_candidates(
             info.count == 1
                 && info.growable_shape
                 && !scan.unsafe_names.contains(*name)
+                && !scan.malformed_push_receivers.contains(*name)
                 && scan.pushes.iter().any(|push| &push.name == *name)
         })
         .map(|(name, _)| name.clone())
@@ -127,10 +154,14 @@ pub(crate) fn growable_array_candidates(
     // that is a `.push` RECEIVER but is NOT a promotable candidate — because
     // some occurrence sits outside the safe-position allowlist (escaping via
     // `return`/alias, a computed `["push"]`/optional-chain call, closure
-    // capture, a non-`push` mutator like `.pop()`, or a wrong-arity push). The
-    // pre-existing plain lane silently no-ops the pushes, so `length`/`x[i]`
-    // reads diverge from node: this must fail closed (E5506), not run.
-    let rejects: BTreeSet<String> = scan
+    // capture, a non-`push` mutator like `.pop()`) or a `.push` CALL itself is
+    // malformed (wrong arity / unsupported argument shape). The pre-existing
+    // plain lane silently no-ops the pushes, so `length`/`x[i]` reads diverge
+    // from node: this must fail closed (E5506), not run. The kind picks the
+    // accurate message: an unsafe position wins (its message is truthful even
+    // when a malformed push also exists); a malformed push with all positions
+    // safe gets the argument-specific message.
+    let rejects: BTreeMap<String, GrowableRejectKind> = scan
         .push_receiver_mentions
         .iter()
         .filter(|name| {
@@ -140,7 +171,19 @@ pub(crate) fn growable_array_candidates(
                     .get(*name)
                     .is_some_and(|info| info.count == 1 && info.growable_shape)
         })
-        .cloned()
+        .map(|name| {
+            let kind = if scan.unsafe_names.contains(name) {
+                GrowableRejectKind::UnsafePosition
+            } else if scan.malformed_push_receivers.contains(name) {
+                GrowableRejectKind::UnsupportedPush
+            } else {
+                // Belt: a mention that is neither unsafe nor malformed should
+                // have been a candidate; if it wasn't (future scanner drift),
+                // the position message is the conservative default.
+                GrowableRejectKind::UnsafePosition
+            };
+            (name.clone(), kind)
+        })
         .collect();
     let pushes = scan
         .pushes
@@ -697,6 +740,22 @@ impl Scan {
                                         // classified normally (`x.push(x)`
                                         // still marks `x` unsafe).
                                         self.expr(&call.args[0], nested);
+                                        return;
+                                    }
+                                    // `x.push(…)` in a safe POSITION but with a
+                                    // malformed CALL (wrong arity, or an
+                                    // argument shape the lane cannot store —
+                                    // `x.push({a:1})`, `x.push(1,2)`, …). Task
+                                    // 6: a dedicated cause, so the reject's
+                                    // diagnostic names the argument problem
+                                    // instead of enumerating inapplicable
+                                    // positions. Arguments are still scanned
+                                    // normally.
+                                    "push" => {
+                                        self.malformed_push_receivers.insert(name.clone());
+                                        for arg in &call.args {
+                                            self.expr(arg, nested);
+                                        }
                                         return;
                                     }
                                     // `x.join(sep)` — safe receiver (Task 5

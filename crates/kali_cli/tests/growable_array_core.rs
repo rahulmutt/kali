@@ -331,3 +331,32 @@ fn run_rejects_growable_array_mixed_i64_and_string_push_in_js_and_ts_input() {
         );
     }
 }
+
+/// Task 6 review fix (truthful enumeration-key inference): `for..of` over
+/// `Object.keys(<string>)` iterates STRINGS, so a growable receiver pushing the
+/// loop variable promotes with a String element axis and a bare `.join`
+/// renders content ("0,1") — previously the element axis solved I64 and join
+/// printed the raw string-handle bits. Byte-for-byte vs node.
+fn growable_enumeration_key_join_source() -> &'static str {
+    r#"function main() {
+  const keys = [];
+  for (const key of Object.keys("ab")) {
+    keys.push(key);
+  }
+  console.log(keys.length);
+  console.log(keys.join(","));
+}
+main();
+"#
+}
+
+#[test]
+fn run_supports_join_over_enumeration_key_pushes_in_js_and_ts_input() {
+    for extension in ["js", "ts"] {
+        assert_run_stdout(
+            growable_enumeration_key_join_source(),
+            extension,
+            "2\n0,1\n",
+        );
+    }
+}

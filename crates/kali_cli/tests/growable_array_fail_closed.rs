@@ -130,3 +130,50 @@ fn float_element_push_fails_closed() {
         "function m(){const o=[];o.push(1.5);o.push(2.5);console.log(o.length);}m();",
     );
 }
+
+/// Repr-gate class (review fix): pushing an object-LITERAL-bound identifier
+/// stored the raw object pointer as an i64 element — `o[0]` printed the
+/// pointer's low bits (`0`) while node prints `{ a: 1 }`. The identifier guard
+/// previously failed open because a never-field-read literal reaches neither
+/// `obj_materialized` nor `obj_fields_of` (both consumed before the promotion
+/// loop anyway); the dedicated `obj_literal_slots` set closes it.
+#[test]
+fn object_identifier_push_fails_closed() {
+    assert_fail_closed_e5506(
+        "function m(){const obj={a:1};const o=[];o.push(obj);console.log(o[0]);}m();",
+    );
+}
+
+/// Review fix (accurate diagnostics): a malformed `.push` CALL (object-literal
+/// argument / wrong arity) rejects with the argument-specific message, not the
+/// unsafe-position enumeration (no position applies to `o.push({a:1})`).
+#[test]
+fn malformed_push_call_reports_the_push_not_a_position() {
+    for source in [
+        "function m(){const o=[];o.push({a:1});console.log(o.length);}m();",
+        "function m(){const o=[];o.push(1,2);console.log(o.length);}m();",
+    ] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join("smoke.test.js");
+        fs::write(&source_path, source).expect("write source");
+
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("run")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(!output.status.success(), "expected E5506: {output:?}");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("error[E5506]"), "stderr: {stderr}");
+        assert!(
+            stderr.contains("has a `.push` call"),
+            "expected the argument-specific message, stderr: {stderr}"
+        );
+        assert!(
+            !stderr.contains("appears in a position"),
+            "must not blame a position, stderr: {stderr}"
+        );
+    }
+}

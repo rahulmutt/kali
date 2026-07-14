@@ -19,11 +19,44 @@ fn candidates(src: &str) -> Vec<String> {
 }
 
 /// The Task 6 fail-closed reject set: growable-shape `.push` receivers that
-/// could not promote (some occurrence is outside the safe-position allowlist).
+/// could not promote (an occurrence outside the safe-position allowlist, or a
+/// malformed `.push` call).
 fn rejects(src: &str) -> Vec<String> {
     let (params, body) = func_body(src);
     let (_, _, rejects) = growable_array_candidates(&params, &body);
+    rejects.into_keys().collect()
+}
+
+/// Reject kinds, for asserting the diagnostic routing (position vs push).
+fn reject_kinds(src: &str) -> Vec<(String, super::GrowableRejectKind)> {
+    let (params, body) = func_body(src);
+    let (_, _, rejects) = growable_array_candidates(&params, &body);
     rejects.into_iter().collect()
+}
+
+#[test]
+fn reject_kind_routes_position_vs_malformed_push() {
+    use super::GrowableRejectKind::{UnsafePosition, UnsupportedPush};
+    // Escape → position kind.
+    assert_eq!(
+        reject_kinds("function m() { const o = []; o.push(1); return o; }"),
+        vec![("o".to_string(), UnsafePosition)]
+    );
+    // Object-literal argument → push kind (no position applies).
+    assert_eq!(
+        reject_kinds("function m() { const o = []; o.push({a: 1}); }"),
+        vec![("o".to_string(), UnsupportedPush)]
+    );
+    // Wrong arity → push kind.
+    assert_eq!(
+        reject_kinds("function m() { const o = []; o.push(1, 2); }"),
+        vec![("o".to_string(), UnsupportedPush)]
+    );
+    // Malformed push AND an unsafe position → position kind wins.
+    assert_eq!(
+        reject_kinds("function m() { const o = []; o.push(1, 2); return o; }"),
+        vec![("o".to_string(), UnsafePosition)]
+    );
 }
 
 #[test]

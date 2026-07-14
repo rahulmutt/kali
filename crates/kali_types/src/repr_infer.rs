@@ -185,6 +185,14 @@ struct ReprInfer {
     calls: Vec<CallEdge>,
     /// Ordered field names of each slot directly initialized by an object literal.
     obj_literal_fields: BTreeMap<ObjSlot, Vec<String>>,
+    /// EVERY slot that was ever directly initialized by an object literal,
+    /// including literals `record_object_literal` bails on (numeric key,
+    /// `__proto__`, getter/setter, nested object) without filling
+    /// `obj_literal_fields`. Never `mem::take`n — safe to consult in late
+    /// `emit_table` phases (Task 6 review fix: the growable push-identifier
+    /// guard must see object-literal bindings whose fields are never read,
+    /// or `o.push(obj)` stores a raw object pointer as an i64 element).
+    obj_literal_slots: BTreeSet<ObjSlot>,
     /// Bidirectional object-aliasing flows (assignment, array element,
     /// arg↔param, return↔call-site). Harmless for scalar slots: flows only
     /// take effect for slots proven to hold object literals.
@@ -288,13 +296,15 @@ struct ReprInfer {
     /// argument must not name a function/array/object/for-in-key binding,
     /// whose raw handle/ordinal would be stored as a number: a miscompile).
     growable_pushes: Vec<(String, String, usize, Option<String>)>,
-    /// Task 6 fail-closed rejects `(func, binding)`: growable-SHAPE bindings
-    /// that are `.push` receivers but cannot promote because some occurrence is
-    /// outside the safe-position allowlist (escape/alias/computed-or-optional
-    /// push/closure-capture/non-push-mutator/wrong-arity). Each becomes an
-    /// E5506 `shape_conflict` at `emit_table` time — the pre-existing
-    /// push-no-op lane is a silent miscompile and must fail closed.
-    growable_rejects: BTreeSet<(String, String)>,
+    /// Task 6 fail-closed rejects `(func, binding) -> kind`: growable-SHAPE
+    /// bindings that are `.push` receivers but cannot promote — either some
+    /// occurrence is outside the safe-position allowlist (escape/alias/
+    /// computed-or-optional push/closure-capture/non-push-mutator) or a
+    /// `.push` call itself is malformed (wrong arity/unsupported argument).
+    /// Each becomes an E5506 `shape_conflict` at `emit_table` time, with the
+    /// kind picking the accurate message — the pre-existing push-no-op lane
+    /// is a silent miscompile and must fail closed.
+    growable_rejects: BTreeMap<(String, String), crate::growable::GrowableRejectKind>,
 }
 
 /// Identity of an object-holding slot for shape/aliasing purposes.
@@ -501,6 +511,11 @@ impl ReprInfer {
         slot: ObjSlot,
         obj: &kali_ast::ObjectExpression,
     ) {
+        // Before ANY early return: remember that this slot held an object
+        // literal (see the `obj_literal_slots` field doc — the growable
+        // push-identifier guard consults this, and it must cover literal
+        // forms the shape recorder bails on).
+        self.obj_literal_slots.insert(slot.clone());
         let mut names = Vec::new();
         for prop in &obj.properties {
             let key = match &prop.key {
@@ -723,8 +738,9 @@ impl ReprInfer {
                 for name in candidates {
                     self.growable_candidates.insert((func.name.clone(), name));
                 }
-                for name in rejects {
-                    self.growable_rejects.insert((func.name.clone(), name));
+                for (name, kind) in rejects {
+                    self.growable_rejects
+                        .insert((func.name.clone(), name), kind);
                 }
                 self.collect_growable_candidates(&func.body.body);
             }
@@ -997,6 +1013,31 @@ impl ReprInfer {
                 }
             }
             Statement::ForOfStatement(stmt) => {
+                // Task 6 review fix (truthful inference): `for (const k of
+                // Object.keys(x))` iterates STRINGS at runtime (JS enumeration
+                // keys are always strings; `Object.values(<string literal>)`
+                // yields that string's characters). The loop variable's node
+                // previously stayed plain, so a growable receiver of
+                // `o.push(k)` promoted with an I64 element axis while the
+                // runtime pushed string handles — a bare `o.join(",")`
+                // rendered the raw handle bits. Seed the loop variable String
+                // so the element axis solves truthfully.
+                if for_of_iterates_strings(&stmt.right) {
+                    let loop_var = match &stmt.left {
+                        kali_ast::ForOfLefthand::VariableDeclaration(decl) => decl
+                            .declarations
+                            .first()
+                            .map(|declarator| declarator.id.clone()),
+                        kali_ast::ForOfLefthand::Expression(expr) => match expr {
+                            Expression::Identifier(name) => Some(name.clone()),
+                            _ => None,
+                        },
+                    };
+                    if let Some(loop_var) = loop_var {
+                        let node = self.scalar_node_for(func, &loop_var);
+                        self.add_string_seed(node);
+                    }
+                }
                 self.visit_expr(func, &stmt.right);
                 self.visit_stmt(func, &stmt.body);
             }
@@ -2999,10 +3040,12 @@ impl ReprInfer {
             }
             // Object-shaped elements fail closed (defensive: the syntactic
             // seed allowlist already excludes object literals/identifiers).
+            // Task 6 review fix: `self.obj_materialized`/`self.obj_fields_of`
+            // were `mem::take`n earlier in this function (object-shape
+            // emission), so consulting `self` here was DEAD — use the taken
+            // locals (`materialized`/`fields_of`) instead.
             let elem_slot = ObjSlot::ArrayElem(func.clone(), name.clone());
-            if self.obj_materialized.contains(&elem_slot)
-                || self.obj_fields_of.contains_key(&elem_slot)
-            {
+            if materialized.contains(&elem_slot) || fields_of.contains_key(&elem_slot) {
                 // Object-shaped elements are unsupported. Task 6: fail closed.
                 table.add_shape_conflict(growable_unsupported_element_message(&func, &name));
                 continue;
@@ -3014,7 +3057,9 @@ impl ReprInfer {
                 }
                 match arg_identifier {
                     None => true,
-                    Some(arg) => self.growable_push_identifier_ok(&func, arg),
+                    Some(arg) => {
+                        self.growable_push_identifier_ok(&func, arg, &fields_of, &materialized)
+                    }
                 }
             });
             if pushes_ok {
@@ -3029,14 +3074,26 @@ impl ReprInfer {
         }
 
         // Task 6 fail-closed reject: growable-SHAPE `.push` receivers that
-        // could not become candidates (some occurrence is outside the
-        // safe-position allowlist). These never reach the promotion loop above
-        // (they are not in `growable_candidates`), so they are reported here so
-        // the silent push-no-op lane cannot survive.
-        let growable_rejects: Vec<(String, String)> =
-            self.growable_rejects.iter().cloned().collect();
-        for (func, name) in growable_rejects {
-            table.add_shape_conflict(growable_unsupported_position_message(&func, &name));
+        // could not become candidates (an occurrence outside the safe-position
+        // allowlist, or a malformed `.push` call). These never reach the
+        // promotion loop above (they are not in `growable_candidates`), so
+        // they are reported here so the silent push-no-op lane cannot survive.
+        // The scanner's kind picks the accurate message.
+        let growable_rejects: Vec<(String, String, crate::growable::GrowableRejectKind)> = self
+            .growable_rejects
+            .iter()
+            .map(|((func, name), kind)| (func.clone(), name.clone(), *kind))
+            .collect();
+        for (func, name, kind) in growable_rejects {
+            let message = match kind {
+                crate::growable::GrowableRejectKind::UnsafePosition => {
+                    growable_unsupported_position_message(&func, &name)
+                }
+                crate::growable::GrowableRejectKind::UnsupportedPush => {
+                    growable_unsupported_push_message(&func, &name)
+                }
+            };
+            table.add_shape_conflict(message);
         }
 
         table
@@ -3050,7 +3107,13 @@ impl ReprInfer {
     /// handles/ordinals would be stored and read back as numbers — silent
     /// miscompiles). Float/string-ness is separately covered by the pushed
     /// value node's solved axes at the call site of this check.
-    fn growable_push_identifier_ok(&self, func: &str, name: &str) -> bool {
+    fn growable_push_identifier_ok(
+        &self,
+        func: &str,
+        name: &str,
+        fields_of: &BTreeMap<ObjSlot, Vec<String>>,
+        materialized: &BTreeSet<ObjSlot>,
+    ) -> bool {
         if self.functions.contains_key(name) {
             return false;
         }
@@ -3081,7 +3144,22 @@ impl ReprInfer {
             return false;
         }
         let slot = ObjSlot::Binding(scope.to_string(), name.to_string());
-        !self.obj_materialized.contains(&slot) && !self.obj_fields_of.contains_key(&slot)
+        let func_slot = ObjSlot::Binding(func.to_string(), name.to_string());
+        // Task 6 review fix (silent-miscompile close): an object-LITERAL-bound
+        // name (`const obj = {a:1}; o.push(obj)`) reaches
+        // `obj_materialized`/`obj_fields_of` only when its fields are READ
+        // somewhere (`resolve_objects`); a never-field-read literal passed
+        // this guard and its raw object pointer was stored as an i64 element
+        // (`o[0]` printed the pointer's low bits vs node's `{ a: 1 }`).
+        // `obj_literal_slots` covers every literal-bound slot and is never
+        // `mem::take`n (unlike `object_initialized_bindings`, `obj_fields_of`
+        // and `obj_materialized`, all consumed earlier in `emit_table` —
+        // which also made the two checks below dead; they now consult the
+        // taken locals passed in by the promotion loop).
+        if self.obj_literal_slots.contains(&slot) || self.obj_literal_slots.contains(&func_slot) {
+            return false;
+        }
+        !materialized.contains(&slot) && !fields_of.contains_key(&slot)
     }
 }
 
@@ -3122,9 +3200,9 @@ fn returning_string_array_message(func: &str, name: &str) -> String {
 
 /// Task 6 fail-closed message for a growable-shape `.push` receiver used in an
 /// unsupported POSITION (escape/alias/computed-or-optional push/closure
-/// capture/non-`push` mutator/wrong-arity). Names the binding and enumerates
-/// the unsupported positions so the user can move the binding onto the
-/// supported surface (`.push`/`.length`/`x[i]` read/`for..of`/`.join`).
+/// capture/non-`push` mutator). Names the binding and enumerates the
+/// unsupported positions so the user can move the binding onto the supported
+/// surface (`.push`/`.length`/`x[i]` read/`for..of`/`.join`).
 fn growable_unsupported_position_message(func: &str, name: &str) -> String {
     let scope = if func == TOP_LEVEL {
         "at module scope".to_string()
@@ -3134,9 +3212,27 @@ fn growable_unsupported_position_message(func: &str, name: &str) -> String {
     format!(
         "growable array `{name}` {scope} uses `.push` but also appears in a position the \
          growable-array lane does not support (escaping via `return` or an alias, a computed \
-         `[\"push\"]` or optional-chain `?.push` call, capture by a nested function, a non-`push` \
-         mutator such as `.pop()`, or a `.push` with the wrong argument count); only `.push(v)`, \
-         `.length`, `x[i]` reads, `for..of`, and `.join` are available"
+         `[\"push\"]` or optional-chain `?.push` call, capture by a nested function, or a \
+         non-`push` mutator such as `.pop()`); only `.push(v)`, `.length`, `x[i]` reads, \
+         `for..of`, and `.join` are available"
+    )
+}
+
+/// Task 6 fail-closed message for a growable-shape receiver whose `.push` CALL
+/// itself is malformed (wrong argument count, or an argument expression shape
+/// the lane cannot store). Distinct from the position message so `o.push({a:1})`
+/// is not blamed on positions that do not apply.
+fn growable_unsupported_push_message(func: &str, name: &str) -> String {
+    let scope = if func == TOP_LEVEL {
+        "at module scope".to_string()
+    } else {
+        format!("in `{func}`")
+    };
+    format!(
+        "growable array `{name}` {scope} has a `.push` call the growable-array lane does not \
+         support (exactly one argument is required, and it must be a number, a string literal, \
+         an identifier, or arithmetic over those — not an object/array literal, call, or member \
+         expression)"
     )
 }
 
@@ -3165,6 +3261,86 @@ fn is_float_literal(n: f64) -> bool {
 /// True when `expr` is the `Math` object (`Math` identifier).
 fn is_math_object(expr: &Expression) -> bool {
     matches!(expr, Expression::Identifier(name) if name == "Math")
+}
+
+/// Strip `ParenthesizedExpression` wrappers (Task 6 enumeration recognizer).
+fn strip_parenthesized(expr: &Expression) -> &Expression {
+    let mut current = expr;
+    while let Expression::ParenthesizedExpression(inner) = current {
+        current = &inner.expression;
+    }
+    current
+}
+
+/// The enumeration-namespace root of `expr`: `Some("Object")`/`Some("Reflect")`
+/// for the `Object`/`Reflect` identifiers or their `globalThis` member forms
+/// (`globalThis.Object`, `globalThis["Object"]`, `globalThis['Object']` — the
+/// parser normalizes computed string properties into `property`). Syntactic
+/// twin of the resolver's `resolve_static_callable_name` root spellings
+/// (`static_analysis/array.rs::is_static_object_enumeration_iteration_target`).
+fn enumeration_namespace_root(expr: &Expression) -> Option<&str> {
+    match strip_parenthesized(expr) {
+        Expression::Identifier(name) if name == "Object" || name == "Reflect" => Some(name),
+        Expression::MemberExpression(member)
+            if (member.property == "Object" || member.property == "Reflect")
+                && matches!(
+                    strip_parenthesized(&member.object),
+                    Expression::Identifier(root) if root == "globalThis"
+                ) =>
+        {
+            Some(&member.property)
+        }
+        _ => None,
+    }
+}
+
+/// True when a `for..of`/`for await..of` RHS iterates STRING items at runtime
+/// (Task 6 review fix — truthful loop-variable inference for enumeration
+/// sources): `Object.keys(x)` (enumeration keys are always strings in JS,
+/// whatever `x` is), `Reflect.ownKeys(x)` (ditto — kali has no symbols), and
+/// `Object.values(<string literal>)` (a string's values are its characters).
+/// `Object.entries` yields ARRAYS — never admitted. Recognizes the same
+/// receiver spellings the resolver's enumeration gate admits (dot/bracket
+/// `globalThis` roots, parenthesization, and the `Object.freeze(<callable>)`
+/// wrapper), conservatively returning `false` for anything else.
+fn for_of_iterates_strings(rhs: &Expression) -> bool {
+    let Expression::CallExpression(call) = strip_parenthesized(rhs) else {
+        return false;
+    };
+    // `Object.freeze(<callable>)(operand)` — unwrap the freeze wrapper.
+    let callee = strip_parenthesized(&call.callee);
+    let member_expr = match callee {
+        Expression::CallExpression(inner) => {
+            let is_freeze_wrap = matches!(
+                strip_parenthesized(&inner.callee),
+                Expression::MemberExpression(freeze)
+                    if freeze.property == "freeze"
+                        && enumeration_namespace_root(&freeze.object) == Some("Object")
+            ) && inner.args.len() == 1;
+            if !is_freeze_wrap {
+                return false;
+            }
+            strip_parenthesized(&inner.args[0])
+        }
+        other => other,
+    };
+    let Expression::MemberExpression(member) = member_expr else {
+        return false;
+    };
+    match (
+        enumeration_namespace_root(&member.object),
+        member.property.as_str(),
+    ) {
+        (Some("Object"), "keys") | (Some("Reflect"), "ownKeys") => true,
+        (Some("Object"), "values") => {
+            call.args.len() == 1
+                && matches!(
+                    strip_parenthesized(&call.args[0]),
+                    Expression::Literal(kali_ast::LiteralValue::String(_))
+                )
+        }
+        _ => false,
+    }
 }
 
 /// True when `expr` is the `performance` object (`performance` identifier).
