@@ -8890,8 +8890,20 @@ main();
     assert!(stdout.contains("main loaded"), "stdout: {stdout}");
 }
 
+// Flipped pin (Stage 5 module-link, Task 7 re-pin): this fixture's `lazy.ts`
+// is `export const value = 7;` — a non-function export. `node` runs this
+// program and prints `7` then `main loaded`. Before Stage 5's link pass
+// existed, kali also exited 0 and printed `main loaded`, but `chunk.value`
+// silently miscompiled to `0` — a wrong value the test never asserted
+// because it only checked for `"main loaded"` in stdout, so it was
+// fake-green over a silent miscompile. Stage 5's `load_linked_module`
+// purity gate honestly rejects non-`export function` top-level statements
+// (E5506) at compile time instead of silently mis-evaluating the member
+// read; supporting non-function (const-value) exports is a documented
+// follow-up, not yet implemented. This test now pins the honest
+// fail-closed reject.
 #[test]
-fn json_run_supports_literal_string_dynamic_import_targets_in_ts_input() {
+fn json_run_rejects_non_function_export_dynamic_import_target_in_ts_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(dir.path().join("lazy.ts"), "export const value = 7;").expect("write lazy chunk");
@@ -8917,30 +8929,48 @@ main();
         .expect("run kali");
 
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "run");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["exitCode"], 0);
-    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
-    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(!errors.is_empty(), "errors: {errors:?}");
     assert!(
-        json["stdout"]
-            .as_str()
-            .expect("stdout")
-            .contains("main loaded"),
-        "json: {json}"
+        errors.iter().any(|error| error["code"] == "E5506"),
+        "errors: {errors:?}"
     );
-    assert_eq!(json["stderr"], "");
+    assert!(
+        errors.iter().any(|error| error["message"]
+            .as_str()
+            .expect("error message")
+            .contains("lazy.ts")),
+        "errors: {errors:?}"
+    );
+    assert!(
+        errors.iter().any(|error| error["message"]
+            .as_str()
+            .expect("error message")
+            .contains("non-function statement")),
+        "errors: {errors:?}"
+    );
 }
 
+// Flipped pin (Stage 5 module-link, Task 7 re-pin): this fixture's `lazy.js`
+// is `export const value = 7;` — a non-function export. `node` runs this
+// program and prints `7` then `main loaded`. Before Stage 5's link pass
+// existed, kali also exited 0 and printed `main loaded`, but `chunk.value`
+// silently miscompiled to `0` — a wrong value the test never asserted
+// because it only checked for `"main loaded"` in stdout, so it was
+// fake-green over a silent miscompile. Stage 5's `load_linked_module`
+// purity gate honestly rejects non-`export function` top-level statements
+// (E5506) at compile time instead of silently mis-evaluating the member
+// read; supporting non-function (const-value) exports is a documented
+// follow-up, not yet implemented. This test now pins the honest
+// fail-closed reject.
 #[test]
-fn json_run_supports_literal_string_dynamic_import_targets_in_js_input() {
+fn json_run_rejects_non_function_export_dynamic_import_target_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(dir.path().join("lazy.js"), "export const value = 7;").expect("write lazy chunk");
@@ -8966,26 +8996,32 @@ main();
         .expect("run kali");
 
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "run");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["exitCode"], 0);
-    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
-    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(!errors.is_empty(), "errors: {errors:?}");
     assert!(
-        json["stdout"]
-            .as_str()
-            .expect("stdout")
-            .contains("main loaded"),
-        "json: {json}"
+        errors.iter().any(|error| error["code"] == "E5506"),
+        "errors: {errors:?}"
     );
-    assert_eq!(json["stderr"], "");
+    assert!(
+        errors.iter().any(|error| error["message"]
+            .as_str()
+            .expect("error message")
+            .contains("lazy.js")),
+        "errors: {errors:?}"
+    );
+    assert!(
+        errors.iter().any(|error| error["message"]
+            .as_str()
+            .expect("error message")
+            .contains("non-function statement")),
+        "errors: {errors:?}"
+    );
 }
 
 #[test]
