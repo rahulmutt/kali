@@ -14,8 +14,81 @@ fn func_body(src: &str) -> (Vec<String>, Vec<Statement>) {
 
 fn candidates(src: &str) -> Vec<String> {
     let (params, body) = func_body(src);
-    let (set, _) = growable_array_candidates(&params, &body);
+    let (set, _, _) = growable_array_candidates(&params, &body);
     set.into_iter().collect()
+}
+
+/// The Task 6 fail-closed reject set: growable-shape `.push` receivers that
+/// could not promote (some occurrence is outside the safe-position allowlist).
+fn rejects(src: &str) -> Vec<String> {
+    let (params, body) = func_body(src);
+    let (_, _, rejects) = growable_array_candidates(&params, &body);
+    rejects.into_iter().collect()
+}
+
+#[test]
+fn escaping_via_return_is_a_reject_not_a_candidate() {
+    let src = "function make() { const o = []; o.push(1); return o; }";
+    assert!(candidates(src).is_empty());
+    assert_eq!(rejects(src), vec!["o".to_string()]);
+}
+
+#[test]
+fn alias_binding_is_a_reject() {
+    let src = "function m() { const o = []; o.push(1); const p = o; }";
+    assert_eq!(rejects(src), vec!["o".to_string()]);
+}
+
+#[test]
+fn computed_push_call_is_a_reject_without_any_clean_push() {
+    // No clean `.push` occurrence exists, so `o` is never a candidate — the
+    // push-receiver-mention scan still catches `o["push"](..)`.
+    let src = "function m() { const o = []; o[\"push\"](1); o[\"push\"](2); }";
+    assert!(candidates(src).is_empty());
+    assert_eq!(rejects(src), vec!["o".to_string()]);
+}
+
+#[test]
+fn optional_chain_push_call_is_a_reject() {
+    let src = "function m() { const o = []; o?.push(1); o?.push(2); }";
+    assert_eq!(rejects(src), vec!["o".to_string()]);
+}
+
+#[test]
+fn closure_capture_push_is_a_reject() {
+    let src = "function m() { const o = []; o.push(1); const f = () => o.push(2); }";
+    assert_eq!(rejects(src), vec!["o".to_string()]);
+}
+
+#[test]
+fn pop_mutator_is_a_reject() {
+    let src = "function m() { const o = []; o.push(1); o.pop(); }";
+    assert_eq!(rejects(src), vec!["o".to_string()]);
+}
+
+#[test]
+fn wrong_arity_push_is_a_reject() {
+    let src = "function m() { const o = []; o.push(1, 2); }";
+    assert_eq!(rejects(src), vec!["o".to_string()]);
+}
+
+#[test]
+fn a_promoted_candidate_is_never_a_reject() {
+    // A binding used only in safe positions promotes and must NOT be rejected.
+    let src = "function m() { const o = []; o.push(1); console.log(o.length); }";
+    assert_eq!(candidates(src), vec!["o".to_string()]);
+    assert!(rejects(src).is_empty());
+}
+
+#[test]
+fn a_non_growable_shape_push_receiver_is_not_a_reject() {
+    // A param (not a `const [] ` declaration) is not growable-shape, so a
+    // `.push` on it stays on the pre-existing lane byte-identically (protects
+    // the ~29 existing `.push` test files whose receivers are params/plain
+    // arrays, never `const o = []`).
+    let src = "function m(o) { o.push(1); return o; }";
+    assert!(rejects(src).is_empty());
+    assert!(candidates(src).is_empty());
 }
 
 #[test]
@@ -111,7 +184,7 @@ fn push_sites_report_identifier_arguments() {
         "function main() { const o = []; for (const item of [1, 2]) { o.push(item); } \
          console.log(o.length); }",
     );
-    let (set, pushes) = growable_array_candidates(&params, &body);
+    let (set, pushes, _) = growable_array_candidates(&params, &body);
     assert!(set.contains("o"));
     assert_eq!(pushes.len(), 1);
     assert_eq!(pushes[0].name, "o");

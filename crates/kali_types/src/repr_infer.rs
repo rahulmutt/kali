@@ -288,6 +288,13 @@ struct ReprInfer {
     /// argument must not name a function/array/object/for-in-key binding,
     /// whose raw handle/ordinal would be stored as a number: a miscompile).
     growable_pushes: Vec<(String, String, usize, Option<String>)>,
+    /// Task 6 fail-closed rejects `(func, binding)`: growable-SHAPE bindings
+    /// that are `.push` receivers but cannot promote because some occurrence is
+    /// outside the safe-position allowlist (escape/alias/computed-or-optional
+    /// push/closure-capture/non-push-mutator/wrong-arity). Each becomes an
+    /// E5506 `shape_conflict` at `emit_table` time — the pre-existing
+    /// push-no-op lane is a silent miscompile and must fail closed.
+    growable_rejects: BTreeSet<(String, String)>,
 }
 
 /// Identity of an object-holding slot for shape/aliasing purposes.
@@ -711,10 +718,13 @@ impl ReprInfer {
     fn collect_growable_candidates_in_stmt(&mut self, stmt: &Statement) {
         match stmt {
             Statement::FunctionDeclaration(func) => {
-                let (candidates, _pushes) =
+                let (candidates, _pushes, rejects) =
                     crate::growable::growable_array_candidates(&func.params, &func.body.body);
                 for name in candidates {
                     self.growable_candidates.insert((func.name.clone(), name));
+                }
+                for name in rejects {
+                    self.growable_rejects.insert((func.name.clone(), name));
                 }
                 self.collect_growable_candidates(&func.body.body);
             }
@@ -2943,9 +2953,9 @@ impl ReprInfer {
         // a mixed candidate reaching `pushes_ok` below is harmless dead
         // weight (the conflict already recorded wins). A candidate that
         // fails here for any OTHER reason (float, object, identifier guard)
-        // simply does not promote: the table carries no growable entry, so
-        // the binding keeps the pre-existing plain lane byte-identically
-        // (Task 6 sweeps the residual fail-open pushes to E5506).
+        // no longer silently keeps the pre-existing plain lane: Task 6 records
+        // an `add_shape_conflict` (E5506) on those paths too, so an
+        // unsupported-element push receiver fails closed instead of no-opping.
         let growable_candidates: Vec<(String, String)> =
             self.growable_candidates.iter().cloned().collect();
         for (func, name) in growable_candidates {
@@ -2972,6 +2982,9 @@ impl ReprInfer {
             if let Some(&elem) = self.array_elem_node.get(&(func.clone(), name.clone())) {
                 let rep = self.uf.find(elem);
                 if float[rep] {
+                    // Float elements are unsupported (constraints doc: F64
+                    // fails closed). Task 6: reject rather than silently no-op.
+                    table.add_shape_conflict(growable_unsupported_element_message(&func, &name));
                     continue;
                 }
                 if string[rep] {
@@ -2990,6 +3003,8 @@ impl ReprInfer {
             if self.obj_materialized.contains(&elem_slot)
                 || self.obj_fields_of.contains_key(&elem_slot)
             {
+                // Object-shaped elements are unsupported. Task 6: fail closed.
+                table.add_shape_conflict(growable_unsupported_element_message(&func, &name));
                 continue;
             }
             let pushes_ok = pushes.iter().all(|(vnode, arg_identifier)| {
@@ -3004,7 +3019,24 @@ impl ReprInfer {
             });
             if pushes_ok {
                 table.set_growable_array_binding(&func, &name);
+            } else {
+                // A pushed value is float, or an identifier naming a
+                // function/array/object/for-in-key binding whose raw
+                // handle/ordinal would be stored and read back as a number.
+                // Task 6: fail closed rather than silently no-op the pushes.
+                table.add_shape_conflict(growable_unsupported_element_message(&func, &name));
             }
+        }
+
+        // Task 6 fail-closed reject: growable-SHAPE `.push` receivers that
+        // could not become candidates (some occurrence is outside the
+        // safe-position allowlist). These never reach the promotion loop above
+        // (they are not in `growable_candidates`), so they are reported here so
+        // the silent push-no-op lane cannot survive.
+        let growable_rejects: Vec<(String, String)> =
+            self.growable_rejects.iter().cloned().collect();
+        for (func, name) in growable_rejects {
+            table.add_shape_conflict(growable_unsupported_position_message(&func, &name));
         }
 
         table
@@ -3086,6 +3118,41 @@ fn returning_string_array_message(func: &str, name: &str) -> String {
             "returning `{name}` whose elements are strings from `{func}` is unavailable in the current direct-runtime path"
         )
     }
+}
+
+/// Task 6 fail-closed message for a growable-shape `.push` receiver used in an
+/// unsupported POSITION (escape/alias/computed-or-optional push/closure
+/// capture/non-`push` mutator/wrong-arity). Names the binding and enumerates
+/// the unsupported positions so the user can move the binding onto the
+/// supported surface (`.push`/`.length`/`x[i]` read/`for..of`/`.join`).
+fn growable_unsupported_position_message(func: &str, name: &str) -> String {
+    let scope = if func == TOP_LEVEL {
+        "at module scope".to_string()
+    } else {
+        format!("in `{func}`")
+    };
+    format!(
+        "growable array `{name}` {scope} uses `.push` but also appears in a position the \
+         growable-array lane does not support (escaping via `return` or an alias, a computed \
+         `[\"push\"]` or optional-chain `?.push` call, capture by a nested function, a non-`push` \
+         mutator such as `.pop()`, or a `.push` with the wrong argument count); only `.push(v)`, \
+         `.length`, `x[i]` reads, `for..of`, and `.join` are available"
+    )
+}
+
+/// Task 6 fail-closed message for a growable-shape `.push` receiver whose
+/// ELEMENT repr is unsupported (float, object, or an identifier push that names
+/// a function/array/object/for-in-key binding). Names the binding.
+fn growable_unsupported_element_message(func: &str, name: &str) -> String {
+    let scope = if func == TOP_LEVEL {
+        "at module scope".to_string()
+    } else {
+        format!("in `{func}`")
+    };
+    format!(
+        "growable array `{name}` {scope} pushes an unsupported element (only integer and string \
+         elements are available; float, object, and handle-valued pushes fail closed)"
+    )
 }
 
 /// Classify a numeric literal value as a float seed. The AST stores literals as

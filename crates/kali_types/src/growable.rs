@@ -84,6 +84,12 @@ struct Scan {
     unsafe_names: BTreeSet<String>,
     /// Clean `.push` receivers, in source order.
     pushes: Vec<GrowablePushSite>,
+    /// Every identifier that appears as the base of a `.push`/`["push"]`/
+    /// `?.push` CALL, in ANY position or nesting and regardless of argument
+    /// shape/arity (Task 6). A growable-shape binding that is a push receiver
+    /// here but fails promotion (not a candidate) is the silent-poison class:
+    /// it must fail closed (E5506), never keep the pre-existing push-no-op.
+    push_receiver_mentions: BTreeSet<String>,
     /// A construct the scanner cannot see through appeared: no candidates.
     poisoned: bool,
 }
@@ -94,7 +100,7 @@ struct Scan {
 pub(crate) fn growable_array_candidates(
     func_params: &[String],
     body: &[Statement],
-) -> (BTreeSet<String>, Vec<GrowablePushSite>) {
+) -> (BTreeSet<String>, Vec<GrowablePushSite>, BTreeSet<String>) {
     let mut scan = Scan::default();
     for param in func_params {
         scan.declare(param, false);
@@ -103,7 +109,7 @@ pub(crate) fn growable_array_candidates(
         scan.stmt(stmt, false);
     }
     if scan.poisoned {
-        return (BTreeSet::new(), Vec::new());
+        return (BTreeSet::new(), Vec::new(), BTreeSet::new());
     }
     let candidates: BTreeSet<String> = scan
         .decls
@@ -116,12 +122,32 @@ pub(crate) fn growable_array_candidates(
         })
         .map(|(name, _)| name.clone())
         .collect();
+    // Task 6 fail-closed reject set: a binding with the growable SHAPE
+    // (declared exactly once as a `const`/`let` array-literal of scalar seeds)
+    // that is a `.push` RECEIVER but is NOT a promotable candidate — because
+    // some occurrence sits outside the safe-position allowlist (escaping via
+    // `return`/alias, a computed `["push"]`/optional-chain call, closure
+    // capture, a non-`push` mutator like `.pop()`, or a wrong-arity push). The
+    // pre-existing plain lane silently no-ops the pushes, so `length`/`x[i]`
+    // reads diverge from node: this must fail closed (E5506), not run.
+    let rejects: BTreeSet<String> = scan
+        .push_receiver_mentions
+        .iter()
+        .filter(|name| {
+            !candidates.contains(*name)
+                && scan
+                    .decls
+                    .get(*name)
+                    .is_some_and(|info| info.count == 1 && info.growable_shape)
+        })
+        .cloned()
+        .collect();
     let pushes = scan
         .pushes
         .into_iter()
         .filter(|push| candidates.contains(&push.name))
         .collect();
-    (candidates, pushes)
+    (candidates, pushes, rejects)
 }
 
 /// True when `stmt` (a `for..of` BODY) contains any `<name>.push(...)` call —
@@ -400,6 +426,39 @@ fn strip_parens(expr: &Expression) -> &Expression {
     current
 }
 
+/// Strips parentheses AND optional-chain (`?.`) `NonNull` wrappers to reach the
+/// underlying expression — so `(o)`, `o?.` and `(o)?.` all resolve to `o`.
+fn strip_parens_and_optional(expr: &Expression) -> &Expression {
+    let mut current = expr;
+    loop {
+        match current {
+            Expression::ParenthesizedExpression(inner) => current = &inner.expression,
+            Expression::OptionalChainExpression(chain) => match chain.inner.as_ref() {
+                kali_ast::OptionalChainInner::NonNull { object, .. } => current = object,
+            },
+            _ => return current,
+        }
+    }
+}
+
+/// The base identifier receiving a `.push` call in ANY recognized form —
+/// `o.push(..)`, `o["push"](..)` (computed member, `property` normalized to
+/// `"push"`), or `o?.push(..)` (optional-chain object) — regardless of the
+/// argument shape or arity. Task 6 records these as push-receiver MENTIONS: a
+/// growable-shape binding mentioned here that does not promote is a silent
+/// miscompile to fail closed. A non-identifier base (`a.b.push(..)`,
+/// `f().push(..)`) is not a bare-binding push and returns `None`.
+fn push_receiver_base(call: &kali_ast::CallExpression) -> Option<&str> {
+    if let Expression::MemberExpression(member) = strip_parens(&call.callee) {
+        if member.property == "push" {
+            if let Expression::Identifier(name) = strip_parens_and_optional(&member.object) {
+                return Some(name);
+            }
+        }
+    }
+    None
+}
+
 impl Scan {
     fn declare(&mut self, name: &str, growable_shape: bool) {
         let info = self.decls.entry(name.to_string()).or_default();
@@ -608,6 +667,12 @@ impl Scan {
                 }
             }
             Expression::CallExpression(call) => {
+                // Task 6: record EVERY push-receiver mention (any form/nesting)
+                // so a growable-shape binding that is a push receiver but does
+                // not promote fails closed rather than silently no-opping.
+                if let Some(base) = push_receiver_base(call) {
+                    self.push_receiver_mentions.insert(base.to_string());
+                }
                 if !nested {
                     if let Expression::MemberExpression(member) = strip_parens(&call.callee) {
                         if member.computed_index.is_none() {
