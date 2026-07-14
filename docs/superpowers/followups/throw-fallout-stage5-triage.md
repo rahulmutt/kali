@@ -659,3 +659,142 @@ crates/kali_cli/src/build/module_link.rs` → empty after revert.
 addition) — `crates/kali_cli/src/build/module_link.rs` is byte-identical to pre-sabotage. Both full
 verification-contract commands were re-run on the reverted product and confirmed green a second
 time (11/0, 45/0, 26/0, fmt clean) before committing.
+
+---
+
+## Task 9 — full-workspace gate CHECKPOINT (763 → 731; PRIMARY GATE = 0; CERTIFIED)
+
+Fresh branch binary (`cargo build -p kali_cli`). Two independent full-workspace enumerations
+(`cargo test --workspace --no-fail-fast`, `sort -u` per the Task-1 duplicate-name pitfall),
+diffed against `stage5-pre.txt` (763, the Stage-5 entry set) and cross-checked against a main
+worktree (`/workspace/.worktrees/kali-main`, main @ `b48a067d3`).
+
+### Gate numbers
+
+Runnable gate commands (enumeration capture = Task 1's pipeline; `$SCRATCH` =
+`/tmp/claude-1000/-workspace/97a0bee9-31d7-46ad-b248-5a0a9280cec2/scratchpad`, holding
+`stage5-pre.txt`, the 763-name sorted stage-entry set):
+
+```bash
+cargo build -p kali_cli
+
+cargo test --workspace --no-fail-fast 2>&1 \
+  | grep -E '^test .* \.\.\. FAILED' | sed -E 's/^test (.*) \.\.\. FAILED$/\1/' \
+  | sort -u > "$SCRATCH/stage5-post-run1.txt"
+cargo test --workspace --no-fail-fast 2>&1 \
+  | grep -E '^test .* \.\.\. FAILED' | sed -E 's/^test (.*) \.\.\. FAILED$/\1/' \
+  | sort -u > "$SCRATCH/stage5-post-run2.txt"
+diff "$SCRATCH/stage5-post-run1.txt" "$SCRATCH/stage5-post-run2.txt"   # must be empty (zero drift)
+sort -u "$SCRATCH/stage5-post-run1.txt" "$SCRATCH/stage5-post-run2.txt" > "$SCRATCH/stage5-post.txt"
+
+comm -13 "$SCRATCH/stage5-pre.txt" "$SCRATCH/stage5-post.txt"   # PRIMARY GATE: newly-red — must print NOTHING
+comm -23 "$SCRATCH/stage5-pre.txt" "$SCRATCH/stage5-post.txt"   # drain: red at entry, green now
+
+# main cross-check
+cargo test --workspace --no-fail-fast 2>&1 \
+  | grep -E '^test .* \.\.\. FAILED' | sed -E 's/^test (.*) \.\.\. FAILED$/\1/' \
+  | sort -u > "$SCRATCH/main-post.txt"   # run inside /workspace/.worktrees/kali-main
+comm -13 "$SCRATCH/main-post.txt" "$SCRATCH/stage5-post.txt" | comm -13 "$SCRATCH/stage5-pre.txt" -
+```
+
+- Stage-5 entry (`stage5-pre.txt`): **763** unique failing names.
+- Stage-5 exit (`stage5-post.txt`, union of two runs — both runs independently 731, union 731,
+  zero drift): **731**.
+- **PRIMARY GATE** `comm -13 stage5-pre.txt stage5-post.txt` (newly-red) = **EMPTY (0)** →
+  CERTIFIED.
+- **Drained** `comm -23` = **32**, and `grep -c dynamic_import` on the drain list = **32** →
+  the drain is EXACTLY bucket #7, nothing else moved.
+- 763 − 32 = 731 — matches the plan's predicted target exit denominator exactly.
+- **Main-worktree cross-check** (`/workspace/.worktrees/kali-main`, main @ `b48a067d3`): main
+  enumerates **0** failing. The plan's cross-check formula
+  `comm -13 main-post.txt stage5-post.txt | comm -13 stage5-pre.txt -` = **EMPTY** (nothing
+  red on-branch/green-on-main beyond what stage entry already carried). The branch's 731 are
+  the known pre-existing throw-unmask backlog (memory: `ci-gate-vs-poisoned-baseline`; PR #16
+  stays draft).
+- **Import-list drift — correction for a future reader**: the plan's check
+  (`git diff main -- crates/kali_runtime/src/browser/harness.rs crates/kali_cli/src/bin/cmd_build.rs
+  | grep -c "kali:rt"`) returns 4, which reads at first glance like Stage-5 drift. It is a BASE
+  ARTIFACT, not a Stage-5 change: those 4 lines are Stage-3's crypto/performance host imports
+  already committed on the branch before Stage 5 started. Diffed against the Stage-5 base
+  `ad7ab7c92` instead of `main`, both files are **untouched by Stage 5** (empty diffstat, 0
+  `kali:rt` lines). Do not chase this as a Stage-5 import-sync bug — check against `ad7ab7c92`,
+  not `main`, when re-verifying.
+
+### Isolation runs on the fresh binary (spot-check, independent of the enumeration)
+
+- `browser_template_literal_dynamic_import_harness` → **26 passed / 0 failed**.
+- `runtime_smoke dynamic_import` → **45 passed / 0 failed** (39 previously-green + 6 drained).
+- `module_namespace_link` → **11/11**.
+
+### Drain bucket table (32) — with per-bucket mechanism and isolation evidence
+
+| bucket | # | mechanism | spot-check (isolation run on fresh binary) | verdict |
+|---|---|---|---|---|
+| 7a. `browser_template_literal_dynamic_import_harness` | 26 | AST module-link pass (`crates/kali_cli/src/build/module_link.rs`) folds `typeof chunk.lazyValue` to a real `"function"` literal and rewrites `chunk.lazyValue()` into a direct call to the linked, mangled `__link{N}_lazyValue` — the fixtures' `if (typeof chunk.lazyValue !== 'function') throw` guard stops firing and the call really runs. All template-literal / sequence-wrapped / `Object.freeze`-wrapped specifier shapes, run+test+json variants across js/ts/jsx/tsx | `cargo test -p kali_cli --test browser_template_literal_dynamic_import_harness` (harness=node) → **26 passed; 0 failed** | real (mechanism), see honesty caveat below |
+| 7b. `runtime_smoke` dynamic-import file-specifier + directory-index targets | 6 | same AST fold/link mechanism, under the browser harness | `cargo test -p kali_cli --test runtime_smoke -- dynamic_import` → **45 passed; 0 failed** (39 pre-existing green + these 6 newly-green) | real (mechanism), see honesty caveat below |
+
+Total drained = 26 + 6 = **32**, matching `grep -c dynamic_import` on the drain list exactly —
+confirms the drain is bucket #7 in its entirety and nothing else moved.
+
+**Honesty caveat (load-bearing):** these 32 legacy fixtures cannot themselves distinguish a real
+call from the old fail-open `0` — their chunk is `export function lazyValue() { return 0n; }`
+and they assert `contains("0")`, which is also what the pre-Stage-5 fail-open path printed. The
+32-count and the isolation pass-rates above are true and reproducible, but they are not by
+themselves proof of correctness. The load-bearing distinguishable evidence is
+`crates/kali_cli/tests/module_namespace_link.rs` (11 tests, exact-stdout + byte-compared against
+real `node`, non-vacuity proven by two adversarial re-mask probes in the Task-8 section above) —
+that suite is what proves the AST fold performs a genuine call and genuine typeof resolution, not
+merely a different route to the same `0`.
+
+### Task-2 typeof flip status (recorded here for the gate record)
+
+**REVERTED** (commit `f14d5c071`) per the plan's decision rule — the codegen-level generic
+`typeof` fallback measured 8 newly-red with no cheap provable-lane extension available, and
+bucket C would have forced a build-capability regression. The census is retained as the
+follow-up's sizing evidence (see the Task 2 section above). Bucket A's
+`typeof indexedDB !== 'undefined'` remains a LIVE wrong-branch miscompile — highest-value
+follow-up item. Stage 5's namespace-member typeof surface is closed STRUCTURALLY by the Task-6
+AST fold and does not depend on that codegen flip — proven here again: after the revert,
+`module_namespace_link` 11/11, harness 26/0, `dynamic_import` 45/0, all on this checkpoint's
+fresh binary.
+
+### Two pre-existing silent miscompiles found during the stage (not caused by it, zero import code)
+
+- (A) `String(<bigint>)` → `0`, even for a plain non-import repro: `const v = 7n;
+  console.log(String(v))` prints `0` (node prints `7`).
+- (B) A `const` bound to a CALL re-evaluates the call at every use: `const v = f();
+  console.log(v)` runs `f` TWICE (duplicate side effects), not once.
+
+Both are unrelated to dynamic-import/module-linking; they forced the Task-8 fixture override
+(Number return, called directly at the log site, to route around (A) and (B) rather than being
+blocked by them).
+
+### kali has NO forward-hoisting of top-level function declarations
+
+`function a(){return b();} function b(){}` → `E3100` with zero imports involved (node prints
+`7` for the analogous numeric repro). This drove Task 7's dependency-ordered clone emission
+(topological, callee-before-caller; cycles → E5506; self-recursion supported) inside
+`append_linked_functions`.
+
+### Follow-up inventory (carried out of Stage 5, unresolved)
+
+- Statement-form `await import()` — chunk-never-runs divergence vs the expression form.
+- Static named import `import { f } from './m'; f()` still fail-open (no namespace binding
+  built for it — out of this lane's scope).
+- Non-function export kinds (`export const ...`) unsupported → E5506 (2 tests re-pinned
+  honestly in commit `77c9c99b3`, with node-vs-kali evidence: node prints `7`, pre-stage kali
+  printed `0`).
+- `let`-bound namespaces not walked for provenance.
+- Async-ARROW bodies not walked for provenance (fail-closed, conservative).
+- Bucket A `typeof indexedDB !== 'undefined'` wrong-branch miscompile (highest-value follow-up,
+  see Task-2 census).
+- (A) `String(<bigint>)` → `0` and (B) call-bound `const` double-evaluation, both above — neither
+  is import/module-linking-specific; file as general codegen follow-ups.
+
+### fmt + CI command
+
+`cargo fmt --all -- --check` clean (controller-verified alongside the gate numbers above).
+`cargo test --workspace` (fail-fast) still exits non-zero at the first pre-existing failing
+binary — EXPECTED; the program gate is the enumerated `comm -13` diff against `stage5-pre.txt`,
+not the exit code (memory: `ci-gate-vs-poisoned-baseline`). Branch stays UNMERGED (PR #16 held
+draft) pending the throw-fallout project's completion.
