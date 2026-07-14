@@ -467,3 +467,132 @@ returned 1 where node returns 0.
 
 - `$SCRATCH/stage5-typeof-census.txt` (771), `$SCRATCH/stage5-typeof-newlyred.txt` (8).
 - Newly-red list = exactly the 8 names above; newly-green = 0.
+
+---
+
+## Task 8 — distinguishable-value acceptance suite + adversarial re-mask probes
+
+### What was added
+
+`crates/kali_cli/tests/module_namespace_link.rs` extended from 2 tests (Task-7 dependency-order
+pins) to 13: 5 GREEN distinguishable-value tests (each proves a real call into the linked
+module's body ran and its actual return value propagated — not the pre-stage fail-open `0`),
+3 REJECT tests (E5506, exit != 0), and 1 GREEN guard (unchanged pre-existing statement-form
+behavior). All 5 GREEN tests additionally run the identical fixture under a real `node` and
+assert kali's stdout byte-matches node's — every fixture used is plain, valid, unmodified ES.
+
+Per the controller's mandatory fixture override (superseding the task-8 brief): fixtures return
+a plain `Number` (`return 7`, not `7n`) and call the linked function DIRECTLY at the
+`console.log` site (never through an intermediate `const`), to route around two pre-existing,
+unrelated kali codegen bugs — `String(<bigint>)` folds to `0`, and a `const` bound to a call
+re-evaluates the call at every use (duplicating side effects) — that would otherwise corrupt the
+expected output for reasons having nothing to do with this stage.
+
+### Test results (fresh binary, `cargo build -p kali_cli` at working-tree HEAD)
+
+```
+cargo test -p kali_cli --test module_namespace_link -- --test-threads=4
+```
+→ **11 passed; 0 failed** (the file's own count: the 2 pre-existing Task-7 pins +
+9 new Task-8 tests — the brief listed exactly 5 GREEN + 3 REJECT + 1 GREEN-guard = 9; final file
+has 11 tests total). Full list: `impure_target_module_rejected`, `namespace_value_leak_rejected`,
+`non_export_member_call_rejected`, `run_supports_namespace_linked_sibling_call_export_declared_before_helper`,
+`run_supports_namespace_linked_sibling_call_helper_declared_before_export`,
+`statement_form_side_effect_import_stays_green`, `static_namespace_member_call_runs_body_and_returns_value`,
+`two_modules_same_export_name_route_to_respective_bodies`,
+`dynamic_import_template_literal_specifier_variant`, `dynamic_import_member_call_runs_body_and_returns_value`,
+`typeof_missing_member_is_undefined_string` — all `ok`.
+
+Every GREEN test's kali stdout was verified byte-identical to a real `node` run of the same
+fixture (asserted in-test, not just eyeballed) — e.g. `static_namespace_member_call_runs_body_and_returns_value`
+and node both print `inside lazyValue\n7\nmain loaded\n`.
+
+Verification contract (all four commands, exact expected results, all met):
+
+```
+cargo test -p kali_cli --test module_namespace_link -- --test-threads=4       # 11 passed, 0 failed
+cargo test -p kali_cli --test runtime_smoke dynamic_import -- --test-threads=4 # 45 passed, 0 failed
+cargo test -p kali_cli --test browser_template_literal_dynamic_import_harness -- --test-threads=4 # 26 passed, 0 failed
+cargo fmt --check -p kali_cli                                                  # clean, no output
+```
+
+### Adversarial re-mask probe 1 — typeof fold always "undefined"
+
+**Sabotage** (`crates/kali_cli/src/build/module_link.rs`, `try_fold_typeof_namespace_member`):
+replaced the real `module.exports.contains_key(...)` branch with an unconditional `"undefined"`
+literal (kept the map lookup as a discarded `let _ = ...;` so the diff was a single-purpose
+behavioral change, not a structural one).
+
+**Rebuild:** `cargo build -p kali_cli` → succeeds (no type errors; this is a pure logic
+regression, not a compile break — exactly the shape a review could miss without a live oracle).
+
+**Command:** `/workspace/target/debug/kali run main.js` against the
+`static_namespace_member_call_runs_body_and_returns_value` fixture (which asserts
+`typeof ns.lazyValue !== 'function'` and throws `Error('missing lazyValue export')` if so).
+
+**Observed failure (honest trap fired, as required):**
+```
+Uncaught Error: missing lazyValue export
+error[E4000]: runtime trap (unreachable — allocation failure or an unsupported-path guard): error while executing at wasm backtrace:
+    0:  0x479 - <unknown>!<wasm function 22>
+exit=1
+```
+
+**Full-file confirmation:** `cargo test -p kali_cli --test module_namespace_link -- --test-threads=4`
+→ **7 passed; 4 failed** under sabotage. The 4 failures were exactly the distinguishable tests
+that depend on a correct typeof fold: `static_namespace_member_call_runs_body_and_returns_value`,
+`dynamic_import_member_call_runs_body_and_returns_value`,
+`dynamic_import_template_literal_specifier_variant` (all three guard on `typeof ns.lazyValue`/
+`typeof chunk.lazyValue` before calling), and `typeof_missing_member_is_undefined_string` (asserted
+`"undefined\nfunction\n"`, got `"undefined\nundefined\n"` — the "real export" branch silently
+became indistinguishable from "missing member").
+
+**Revert:** restored the original `if module.exports.contains_key(&member.property) { "function" }
+else { "undefined" }` branch. `git diff --stat crates/kali_cli/src/build/module_link.rs` → empty
+(byte-identical to pre-sabotage) after revert.
+
+### Adversarial re-mask probe 2 — `append_linked_functions` skips appending
+
+**Sabotage** (`crates/kali_cli/src/build/module_link.rs`, `append_linked_functions`): replaced the
+final `statements.splice(0..0, cloned); Ok(())` with `let _ = cloned; Ok(())` — every fallible step
+(collision guard, sibling rename, topo sort) still runs and still succeeds, but the mangled clones
+are computed and then discarded instead of spliced into `statements`. Every namespace call site is
+still rewritten to `__link{N}_{name}` by `rewrite_namespace_uses` (that pass runs downstream,
+unaffected by this sabotage) — so the rewritten calls now target a mangled name that was never
+declared anywhere in the program.
+
+**Rebuild:** `cargo build -p kali_cli` → succeeds.
+
+**Command:** `/workspace/target/debug/kali run main.js` against the same
+`static_namespace_member_call_runs_body_and_returns_value` fixture.
+
+**Observed failure (as required — no `inside lazyValue` in stdout; resolver catches the dangling reference):**
+```
+error[E3100]: undefined identifier '__link0_lazyValue'
+  = help: declare the name in the current module or import it
+exit=1
+```
+
+**Full-file confirmation:** `cargo test -p kali_cli --test module_namespace_link -- --test-threads=4`
+→ **5 passed; 6 failed** under sabotage. Failures: both pre-existing Task-7 dependency-order pins
+(`run_supports_namespace_linked_sibling_call_export_declared_before_helper`,
+`run_supports_namespace_linked_sibling_call_helper_declared_before_export` — also depend on the
+append), plus 4 Task-8 distinguishable tests that call through a linked namespace
+(`static_namespace_member_call_runs_body_and_returns_value`,
+`dynamic_import_member_call_runs_body_and_returns_value`,
+`dynamic_import_template_literal_specifier_variant`,
+`two_modules_same_export_name_route_to_respective_bodies`). The 3 REJECT tests, the typeof-only
+test, and the statement-form GREEN guard correctly stayed green (none of them depend on a
+successful append) — confirming the probe's failure surface is precisely "genuine linked calls",
+not a blanket build break that would mask the finding's precision.
+
+**Revert:** restored `statements.splice(0..0, cloned); Ok(())`. `git diff --stat
+crates/kali_cli/src/build/module_link.rs` → empty after revert.
+
+### Post-probe cleanliness
+
+`git status --short` after both probes' reverts: only
+`crates/kali_cli/tests/module_namespace_link.rs` shows as modified (the intended Task-8 test
+addition) — `crates/kali_cli/src/build/module_link.rs` is byte-identical to pre-sabotage. Both full
+verification-contract commands were re-run on the reverted product and confirmed green a second
+time (11/0, 45/0, 26/0, fmt clean) before committing.

@@ -15,12 +15,30 @@
 //! file starts minimal, with just the two dependency-order pins the Task 7
 //! fix requires.)
 
-use std::{fs, process::Command};
+use std::{
+    fs,
+    path::Path,
+    process::{Command, Output},
+};
 
 use tempfile::tempdir;
 
 fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
+}
+
+/// Runs `node <main_path>` with `dir` as the working directory (so relative
+/// `import`/`import()` specifiers resolve the same way they do for the kali
+/// invocation under test). Every fixture this helper is called on is valid,
+/// unmodified ES that node can execute directly — no kali-specific rewriting
+/// involved — so a straight `node` run is a faithful oracle for "what should
+/// this program actually print".
+fn node_output(dir: &Path, main_path: &Path) -> Output {
+    Command::new("node")
+        .current_dir(dir)
+        .arg(main_path)
+        .output()
+        .expect("run node")
 }
 
 /// `helper` is declared BEFORE `f` in the linked module's source (`f` calls
@@ -119,4 +137,505 @@ console.log("main loaded");
         String::from_utf8_lossy(&output.stdout),
         "inside helper\n7\nmain loaded\n"
     );
+}
+
+// ---- Task 8: distinguishable-value acceptance suite ----
+//
+// The two tests above (and the 32 legacy bucket-#7 tests, unmodified by this
+// task) only assert BUILDABILITY or "the program doesn't crash" — none of
+// them distinguish a genuine call into the linked module's body from the
+// pre-stage fail-open behavior, which silently returned an integer `0`
+// wherever a namespace member read/call should have resolved (see the
+// stage's triage doc, "Baseline reproducers" section, for the empirical
+// `0`-instead-of-`7` mirage this replaces). Every GREEN fixture below is
+// deliberately built so a regression back to `0` is impossible to miss: each
+// linked function has a body side effect (`console.log("inside …")`) AND
+// returns a non-zero, non-default value, and the assertions check BOTH the
+// side effect ran and the value it returned actually reached `console.log`.
+//
+// Fixture-shape note (overrides the task brief — see task-8-brief.md and the
+// controller's fixture override): the brief's original fixtures used
+// `console.log(String(ns.lazyValue()))` and a `const value = await
+// chunk.lazyValue()` binding. Both trip PRE-EXISTING, unrelated kali codegen
+// bugs (`String(<bigint>)` folds to `0`; a `const` bound to a call
+// re-evaluates the call at every use, duplicating side effects) that would
+// corrupt the expected output for reasons that have nothing to do with this
+// stage. Every fixture below instead: (a) returns a plain `Number` (`return
+// 7`, never `7n`), and (b) calls the linked function DIRECTLY at the
+// `console.log` call site, never through an intermediate `const`.
+
+/// `import * as ns from "./util.js"` + a direct `console.log(ns.lazyValue())`
+/// call. Distinguishable from the pre-stage fail-open `0`: node and kali must
+/// both print `inside lazyValue` (the body ran) then `7` (the real return
+/// value, not a falsy placeholder).
+#[test]
+fn static_namespace_member_call_runs_body_and_returns_value() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(
+        dir.path().join("util.js"),
+        r#"export function lazyValue() { console.log("inside lazyValue"); return 7; }
+"#,
+    )
+    .expect("write util.js");
+    let main_path = dir.path().join("main.js");
+    fs::write(
+        &main_path,
+        r#"import * as ns from "./util.js";
+if (typeof ns.lazyValue !== 'function') { throw new Error('missing lazyValue export'); }
+console.log(ns.lazyValue());
+console.log("main loaded");
+"#,
+    )
+    .expect("write main.js");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&main_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout, "inside lazyValue\n7\nmain loaded\n");
+
+    let node = node_output(dir.path(), &main_path);
+    assert!(
+        node.status.success(),
+        "node stderr: {}",
+        String::from_utf8_lossy(&node.stderr)
+    );
+    assert_eq!(
+        stdout,
+        String::from_utf8_lossy(&node.stdout),
+        "kali must byte-match node"
+    );
+}
+
+/// `const chunk = await import("./lazy.js")` (the const binding IS the
+/// provenance-proven binding — required and fine; Bug B, the corrupted
+/// fixture the brief originally specified, is about binding a CALL's
+/// result, not the import expression itself) + a direct
+/// `await chunk.lazyValue()` call at the `console.log` site, run through the
+/// browser lane (`--api browser`, `KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node`)
+/// since a dynamic `await import(...)` only resolves through that lane.
+#[test]
+fn dynamic_import_member_call_runs_body_and_returns_value() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(
+        dir.path().join("lazy.js"),
+        r#"export function lazyValue() { console.log("inside lazyValue"); return 7; }
+"#,
+    )
+    .expect("write lazy.js");
+    let main_path = dir.path().join("main.js");
+    fs::write(
+        &main_path,
+        r#"async function main() {
+  const chunk = await import("./lazy.js");
+  if (typeof chunk.lazyValue !== 'function') { throw new Error('missing lazyValue export'); }
+  console.log(await chunk.lazyValue());
+  console.log("main loaded");
+}
+main();
+"#,
+    )
+    .expect("write main.js");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg("--max-threads")
+        .arg("0")
+        .arg("--max-spawned-processes")
+        .arg("0")
+        .arg(&main_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout, "inside lazyValue\n7\nmain loaded\n");
+
+    // This fixture is plain, valid ES (no kali-specific syntax) — a direct
+    // `node main.js` run (no browser lane needed) is a faithful oracle.
+    let node = node_output(dir.path(), &main_path);
+    assert!(
+        node.status.success(),
+        "node stderr: {}",
+        String::from_utf8_lossy(&node.stderr)
+    );
+    assert_eq!(
+        stdout,
+        String::from_utf8_lossy(&node.stdout),
+        "kali must byte-match node"
+    );
+}
+
+/// Same shape as the previous test, but the specifier is a template literal
+/// built from a `const` (`` `./${name}` ``) rather than a bare string
+/// literal — the dominant shape in the 32-name legacy bucket (26 of 32 names
+/// are template-literal-harness tests per the triage doc).
+#[test]
+fn dynamic_import_template_literal_specifier_variant() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(
+        dir.path().join("lazy.js"),
+        r#"export function lazyValue() { console.log("inside lazyValue"); return 7; }
+"#,
+    )
+    .expect("write lazy.js");
+    let main_path = dir.path().join("main.js");
+    fs::write(
+        &main_path,
+        r#"async function main() {
+  const name = "lazy.js";
+  const chunk = await import(`./${name}`);
+  if (typeof chunk.lazyValue !== 'function') { throw new Error('missing lazyValue export'); }
+  console.log(await chunk.lazyValue());
+  console.log("main loaded");
+}
+main();
+"#,
+    )
+    .expect("write main.js");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg("--max-threads")
+        .arg("0")
+        .arg("--max-spawned-processes")
+        .arg("0")
+        .arg(&main_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout, "inside lazyValue\n7\nmain loaded\n");
+
+    let node = node_output(dir.path(), &main_path);
+    assert!(
+        node.status.success(),
+        "node stderr: {}",
+        String::from_utf8_lossy(&node.stderr)
+    );
+    assert_eq!(
+        stdout,
+        String::from_utf8_lossy(&node.stdout),
+        "kali must byte-match node"
+    );
+}
+
+/// `typeof ns.missing` (a real, non-exported name) must fold to
+/// `"undefined"`, and `typeof ns.lazyValue` (a real export) to `"function"` —
+/// proving the typeof fold distinguishes members that exist from ones that
+/// don't, rather than defaulting both to the same value.
+#[test]
+fn typeof_missing_member_is_undefined_string() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(
+        dir.path().join("util.js"),
+        r#"export function lazyValue() { console.log("inside lazyValue"); return 7; }
+"#,
+    )
+    .expect("write util.js");
+    let main_path = dir.path().join("main.js");
+    fs::write(
+        &main_path,
+        r#"import * as ns from "./util.js";
+console.log(typeof ns.missing);
+console.log(typeof ns.lazyValue);
+"#,
+    )
+    .expect("write main.js");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&main_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout, "undefined\nfunction\n");
+
+    let node = node_output(dir.path(), &main_path);
+    assert!(
+        node.status.success(),
+        "node stderr: {}",
+        String::from_utf8_lossy(&node.stderr)
+    );
+    assert_eq!(
+        stdout,
+        String::from_utf8_lossy(&node.stdout),
+        "kali must byte-match node"
+    );
+}
+
+/// Two DIFFERENT linked modules export a function with the SAME name
+/// (`tag`). Each namespace's call must route to its OWN module's body — this
+/// is the acceptance proof for per-module mangling (`__link{index}_{name}`):
+/// if either mangling or the call-callee rewrite were confused about which
+/// module a binding belongs to, this would call the wrong body (or the same
+/// body twice) instead of `inside A`/`1` then `inside B`/`2`.
+#[test]
+fn two_modules_same_export_name_route_to_respective_bodies() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(
+        dir.path().join("a.js"),
+        r#"export function tag() { console.log("inside A"); return 1; }
+"#,
+    )
+    .expect("write a.js");
+    fs::write(
+        dir.path().join("b.js"),
+        r#"export function tag() { console.log("inside B"); return 2; }
+"#,
+    )
+    .expect("write b.js");
+    let main_path = dir.path().join("main.js");
+    fs::write(
+        &main_path,
+        r#"import * as a from "./a.js";
+import * as b from "./b.js";
+console.log(a.tag());
+console.log(b.tag());
+"#,
+    )
+    .expect("write main.js");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&main_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout, "inside A\n1\ninside B\n2\n");
+
+    let node = node_output(dir.path(), &main_path);
+    assert!(
+        node.status.success(),
+        "node stderr: {}",
+        String::from_utf8_lossy(&node.stderr)
+    );
+    assert_eq!(
+        stdout,
+        String::from_utf8_lossy(&node.stdout),
+        "kali must byte-match node"
+    );
+}
+
+/// `console.log(chunk)` — leaking the raw namespace binding value itself.
+/// Pre-stage, this printed the raw specifier string (a silent fail-open);
+/// this pass must reject it at compile time (E5506) instead.
+#[test]
+fn namespace_value_leak_rejected() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(
+        dir.path().join("lazy.js"),
+        r#"export function lazyValue() { console.log("inside lazyValue"); return 7; }
+"#,
+    )
+    .expect("write lazy.js");
+    let main_path = dir.path().join("main.js");
+    fs::write(
+        &main_path,
+        r#"async function main() {
+  const chunk = await import("./lazy.js");
+  console.log(chunk);
+}
+main();
+"#,
+    )
+    .expect("write main.js");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&main_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        !output.status.success(),
+        "expected a non-zero exit; stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("E5506"),
+        "expected E5506 in stderr, got: {stderr}"
+    );
+}
+
+/// `chunk.notAnExport()` — calling a member that is not a real export of the
+/// linked module (node raises a `TypeError` here at runtime; this pass
+/// rejects it at compile time instead).
+#[test]
+fn non_export_member_call_rejected() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(
+        dir.path().join("lazy.js"),
+        r#"export function lazyValue() { console.log("inside lazyValue"); return 7; }
+function notAnExport() { return 1; }
+"#,
+    )
+    .expect("write lazy.js");
+    let main_path = dir.path().join("main.js");
+    fs::write(
+        &main_path,
+        r#"async function main() {
+  const chunk = await import("./lazy.js");
+  chunk.notAnExport();
+}
+main();
+"#,
+    )
+    .expect("write main.js");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&main_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        !output.status.success(),
+        "expected a non-zero exit; stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("E5506"),
+        "expected E5506 in stderr, got: {stderr}"
+    );
+}
+
+/// A namespace binding whose target module has a top-level statement other
+/// than a plain `export function` declaration (here, a top-level
+/// `console.log` — an impure/non-function top level) must be rejected: the
+/// module-linking purity gate cannot safely append (and thus cannot safely
+/// prove the shape of) a module it can't fully account for.
+#[test]
+fn impure_target_module_rejected() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(
+        dir.path().join("lazy.js"),
+        r#"console.log("top level side effect");
+export function lazyValue() { console.log("inside lazyValue"); return 7; }
+"#,
+    )
+    .expect("write lazy.js");
+    let main_path = dir.path().join("main.js");
+    fs::write(
+        &main_path,
+        r#"async function main() {
+  const chunk = await import("./lazy.js");
+  console.log(await chunk.lazyValue());
+}
+main();
+"#,
+    )
+    .expect("write main.js");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&main_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        !output.status.success(),
+        "expected a non-zero exit; stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("E5506"),
+        "expected E5506 in stderr, got: {stderr}"
+    );
+}
+
+/// GREEN guard: the pre-existing "statement-form" `await import(...)` (no
+/// binding at all — no provenance is even collected, so this pass is a
+/// no-op) must stay green exactly as it did before this stage. This
+/// documents, rather than asserts away, a pre-existing and unrelated
+/// divergence: the imported chunk's top-level `console.log("lazy loaded")`
+/// never actually runs under kali (node DOES run it — verified separately),
+/// so this test deliberately does NOT assert "lazy loaded" appears in
+/// stdout, only that the program still completes and reaches "main loaded".
+#[test]
+fn statement_form_side_effect_import_stays_green() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(
+        dir.path().join("lazy.js"),
+        "console.log(\"lazy loaded\");\n",
+    )
+    .expect("write lazy.js");
+    let main_path = dir.path().join("main.js");
+    fs::write(
+        &main_path,
+        r#"async function main() {
+  await import("./lazy.js");
+  console.log("main loaded");
+}
+main();
+"#,
+    )
+    .expect("write main.js");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&main_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("main loaded"), "stdout: {stdout}");
 }
