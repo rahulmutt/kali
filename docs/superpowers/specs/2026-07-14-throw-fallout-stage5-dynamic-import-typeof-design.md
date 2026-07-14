@@ -36,21 +36,29 @@ Ground truth established by pipeline trace + fresh-binary reproducers:
   `I64Const(0)` plus an `e8::UNIMPLEMENTED` *warning* and keeps compiling.
   `0 !== <interned 'function' handle>` is always true → guard throws. This is
   the silent-miscompile class the program exists to kill.
-- **The member call already works.** Reproducer: dropping the typeof guard,
-  `await chunk.lazyValue()` returns `0n` and `String(value)` prints `0`,
-  byte-identical to node. Static `import { f }` cross-module calls and static
-  `import * as ns; ns.f()` calls are also green. Only `typeof ns.member`
-  fails — statically and dynamically alike.
+- **The member call is a MIRAGE (falsified during planning).** An initial
+  probe with a `0n`-returning export looked green, but a distinguishable
+  probe (`return 7n` + `console.log("inside lazyValue")` in the body) shows
+  the body NEVER runs and the call produces constant `0` — for the dynamic
+  form, static `import * as ns; ns.f()`, AND static named
+  `import { f } from './x.js'; f()` alike. Cross-module calls do not exist
+  in the wasm lane; the linked graph is diagnostics-only. The 32 fixtures'
+  guards compare against `0n`, which the fail-open `0` fakes — so a
+  typeof-only fix would drain the bucket fraudulently (umbrella Invariant 3
+  forbids it). Confirmed soundness holes: `ns.notAnExport()` silently
+  returns 0 (node: TypeError); `console.log(chunk)` prints the specifier
+  string `./lazy.js` (node: the namespace object).
 
-So the drain hinges on one narrow fix (`typeof` over a provable namespace
-member) plus soundness closures around it.
+So the honest drain needs TWO lanes: the `typeof` fold AND a real
+provenance-routed member-call lane, plus soundness closures around both.
 
-## Approach (chosen: A — provenance-tracked namespace typeof fold)
+## Approach (chosen: A-expanded — provenance typeof fold + AST-level call linking)
 
-Rejected alternatives: (B) full namespace value semantics through HIR/MIR/
-codegen — a new repr axis for zero additional drain this stage; (C) real
-runtime dynamic linking (new host import, cross-instance calls, two memories)
-— Stage-7-scale machinery, overkill while calls already route statically.
+User re-approved the expanded scope 2026-07-14 after the call-lane mirage was
+discovered. Rejected alternatives: (B) full namespace value semantics through
+HIR/MIR/codegen — a new repr axis, far larger; (C) real runtime dynamic
+linking (new host import, cross-instance calls, two memories) — Stage-7-scale
+machinery; (D) typeof-only — fake green, disqualified by Invariant 3.
 
 ### Components
 
@@ -84,10 +92,25 @@ runtime dynamic linking (new host import, cross-instance calls, two memories)
    - Large → revert the generic flip, close fail-open for namespace-member
      operands only, and file the closure as a follow-up with the measured
      census attached.
-5. **Call-lane soundness audit.** The already-working member call must be
-   shown to route by provenance, not name coincidence: probes for
-   `chunk.notAnExport()` failing closed and for two chunks exporting the
-   same name resolving to their respective targets.
+5. **Namespace member-call lane via AST-level module linking** (the Spec-5
+   monomorphization playbook: AST-level cloning before the resolver, zero
+   codegen/repr edits, everything keys on function name). Before resolution,
+   for each provenance-proven namespace binding whose module qualifies, pull
+   the resolved module's exported function declarations into the entry AST
+   under mangled names keyed by (module, export) — e.g. `__mod<N>_lazyValue`
+   — deduped per module, and rewrite proven `ns.member(...)` call sites to
+   direct calls of the mangled name. Purity gate: only modules whose
+   top level consists purely of export-function declarations enter the lane;
+   any other top-level statement, nested import, or non-function export →
+   fail-closed E5506. `ns.notAnExport()` → fail-closed E-code (today:
+   silent 0). Chunk artifact emission is unchanged — the linked copy serves
+   the wasm execution path; the emitted chunk still serves real browsers.
+6. **Static named-import calls (`import { f }; f()`) are the same fail-open
+   class** (discovered by probe; body never runs, call yields 0). In-stage
+   fix ONLY if the census shows cheap collateral (the same linking pass
+   naturally covers it); otherwise documented follow-up with the census
+   attached — but any lane this stage touches must leave no silent-0 path
+   behind (fix or E-code, never the status quo) on the surfaces it claims.
 
 ## Data flow & error handling
 
@@ -99,16 +122,24 @@ green tests depend on it) keep current behavior; the new lane engages only
 when the namespace value is consumed.
 
 Fixture-shape flow: fold specifier (existing) → resolve module in linked
-graph (existing) → binding gets namespace provenance (new) → `typeof
-x.member` folds from the module's export table on both mirrored sides (new)
-→ member call routes as today (audited) → returned scalar flows through the
-existing BigInt/`String()` lanes (verified green).
+graph (existing) → binding gets namespace provenance (new) → qualifying
+module's exported functions linked into the entry AST under mangled names,
+proven call sites rewritten to direct calls (new) → `typeof x.member` folds
+from the module's export table on both mirrored sides (new) → returned value
+flows through the existing single-module function-call lanes (params, reprs,
+arenas — all unchanged by construction since linked functions are ordinary
+AST functions).
 
 Reject-don't-miscompile uniformly:
 
 - non-foldable specifier → existing `FEATURE_UNAVAILABLE` reject (unchanged)
 - unresolvable specifier → existing `DYNAMIC_IMPORT_NOT_IN_LINKED_GRAPH`
+  (E4008; `FEATURE_UNAVAILABLE` is E5506 — both in
+  `crates/kali_error/src/_error_codes.rs:86,102`)
 - namespace binding outside allowlisted positions → compile-time E-code
+- member call on a name the module does not export → E-code (today silent 0)
+- target module fails the purity gate (top-level statements, nested imports,
+  non-function exports) → E5506
 - `typeof` on non-function export kinds → E-code
 - (pending measurement) generic unproved `typeof` → E-code, never silent `0`
 
@@ -129,12 +160,19 @@ stage adds no execution machinery) and Stage 7 promise/microtask semantics.
 
 ## Testing
 
-- **TDD per lane, red probes first:** typeof fold; missing member →
+- **Distinguishable-value probes are MANDATORY acceptance evidence.** The
+  fixtures' `0n` returns cannot distinguish a real call from the fail-open
+  `0` (that coincidence hid the mirage). Every call-lane test must use a
+  return value ≠ 0 (e.g. `7n`) AND a body side effect
+  (`console.log("inside …")`) asserted against node output.
+- **TDD per lane, red probes first:** call lane (distinguishable probe, both
+  static-namespace and dynamic forms); typeof fold; missing member →
   `'undefined'`; each allowlist reject; `chunk.notAnExport()` fail-closed;
-  same-name-two-chunks routing.
-- **Adversarial re-mask probe:** sabotage the fold (function member reports
-  `'undefined'`), rebuild, confirm the fixture guard's throw fires as an
-  honest trap — proves real typeof answers, not a re-silenced guard.
+  same-name-two-chunks routing to respective targets; purity-gate rejects.
+- **Adversarial re-mask probes:** (a) sabotage the fold (function member
+  reports `'undefined'`) → fixture guard's throw must fire; (b) sabotage the
+  link (call routes to a stub returning 0) → distinguishable probe must go
+  red. Proves real answers, not re-silenced guards.
 - **Isolation runs:** all 32 targets; guard families that must stay green
   (39 statement-form/literal dynamic-import tests, JS-side loader tests,
   static-import suites).
