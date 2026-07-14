@@ -654,6 +654,58 @@ fn check_binding(name: &str, renames: &BTreeMap<String, String>) -> Result<(), D
     }
 }
 
+/// The diagnostic for a nested `import` declaration found inside a cloned
+/// linked-module function body.
+///
+/// A nested import is not valid ES to begin with, but this parser accepts it
+/// uncritically: `parse_statement` routes `TokenType::Import` to
+/// `parse_import_declaration()` unconditionally
+/// (`crates/kali_parser/src/statement.rs:45-51`), and a function body parses
+/// through the exact same generic `parse_block_statement`/`parse_statement`
+/// loop as a module's top level (`parse_function_declaration_with_async`
+/// calls `self.parse_block_statement()` at
+/// `crates/kali_parser/src/declaration.rs:84`, and that loop itself is
+/// `crates/kali_parser/src/statement.rs:159-178`) — there is no
+/// "function-body context" that restricts which statement kinds are legal
+/// there. `load_linked_module`'s purity gate only restricts a linked
+/// module's TOP-LEVEL statements, never what a function body inside it
+/// contains, so a nested import surviving into a cloned body must be
+/// rejected HERE. Left as a no-op, its local binding(s) would go unrenamed
+/// while a bare reference to the same name elsewhere in the body could
+/// still be silently rewritten to a sibling linked function of that name —
+/// the wrong-call-target class this pass exists to close.
+fn nested_import_error(source: &str) -> Diagnostic {
+    Diagnostic::error(
+        e5::FEATURE_UNAVAILABLE as u32,
+        format!(
+            "linked module function body contains a nested `import` declaration (source `{source}`) — unsupported: a nested import inside a cloned linked-function body cannot be safely renamed or rejected per-binding by this pass, so the whole module is rejected"
+        ),
+    )
+}
+
+/// The diagnostic for a nested named `export { ... }` declaration found
+/// inside a cloned linked-module function body.
+///
+/// Verified reachable the same way as `nested_import_error` above:
+/// `parse_statement` routes `TokenType::Export` to
+/// `parse_export_declaration()` unconditionally
+/// (`crates/kali_parser/src/statement.rs:33`), which itself returns
+/// `Statement::ExportNamed` for a `{ ... }` specifier list
+/// (`crates/kali_parser/src/module.rs:161-180`), and nothing about parsing a
+/// function body restricts which statement kinds are legal inside it (same
+/// citation as `nested_import_error`). A bare `export { x }` re-export
+/// specifier names a LOCAL binding by string
+/// (`ExportSpecifier { local, exported }`,
+/// `crates/kali_ast/src/module.rs:63-66`) exactly the way this pass's own
+/// bare-reference check treats an `Identifier` reference — so it is
+/// rejected outright rather than left as an unverified no-op.
+fn nested_export_named_error() -> Diagnostic {
+    Diagnostic::error(
+        e5::FEATURE_UNAVAILABLE as u32,
+        "linked module function body contains a nested named `export` declaration — unsupported: nested exports are not valid ES; this parser accepts them anyway, and this pass cannot safely resolve or reject their local-binding references per-specifier, so the whole module is rejected".to_string(),
+    )
+}
+
 // ---- sibling-callee rename / bare-reference-deny walk ----
 //
 // Mirrors the traversal SHAPE of `kali_types::monomorphize::walk_calls_mut`
@@ -836,15 +888,27 @@ fn walk_statement(
             walk_class_body(&mut class.body, renames)
         }
         Statement::VariableDeclaration(decl) => walk_var_decl(decl, renames),
-        // Plain string fields only (specifiers/source) — no `Expression`
-        // content, and the parser only ever produces this at module top
-        // level (never inside a function body we would walk into here).
-        Statement::ImportDeclaration(_) => Ok(()),
+        // A nested import is reachable inside a cloned function body (see
+        // `nested_import_error`'s doc comment for the parser citation
+        // proving this) and introduces local bindings this walk cannot
+        // safely rename or verify non-colliding — reject outright rather
+        // than silently leaving them un-renamed.
+        Statement::ImportDeclaration(decl) => Err(nested_import_error(&decl.source)),
+        // `ExportAllDeclaration` holds only a `source: String`
+        // (`crates/kali_ast/src/module.rs:70-72`) — no identifier-bearing
+        // field of any kind. Even though this parser accepts a nested
+        // `export * from "..."` the same way it accepts a nested
+        // import/named-export (`TokenType::Export` routes through the same
+        // unrestricted `parse_statement` loop — see `nested_import_error`'s
+        // doc comment), there is no reference here that could ever alias a
+        // sibling linked function, so this is verified safe as a no-op
+        // regardless of nesting depth.
         Statement::ExportAll(_) => Ok(()),
-        // `ExportSpecifier { local, exported }` are plain re-export name
-        // strings, not `Expression` positions; same top-level-only caveat as
-        // `ImportDeclaration` above.
-        Statement::ExportNamed(_) => Ok(()),
+        // A nested named export is reachable the same way (see
+        // `nested_export_named_error`'s doc comment for the parser
+        // citation) and its specifiers name a local binding by string —
+        // reject outright rather than silently leaving it unresolved.
+        Statement::ExportNamed(_) => Err(nested_export_named_error()),
         Statement::ExportDefault(export) => match export {
             ExportDefaultDeclaration::Expression(expr) => walk_expression(expr, renames, false),
             ExportDefaultDeclaration::FunctionDeclaration(function) => {
@@ -1845,6 +1909,109 @@ mod tests {
         );
     }
 
+    // ---- nested import/export inside a cloned body (CRITICAL round-2 finding) ----
+    //
+    // The rename/deny walk previously treated `Statement::ImportDeclaration`
+    // and `Statement::ExportNamed` as unconditional no-ops on the claim that
+    // the parser "only ever produces this at module top level". That claim
+    // is false: `parse_statement` (`crates/kali_parser/src/statement.rs:45-51`
+    // for `TokenType::Import`, `:33` for `TokenType::Export`) routes both
+    // unconditionally, and a function body parses through the exact same
+    // generic `parse_block_statement`/`parse_statement` loop as module top
+    // level (`crates/kali_parser/src/statement.rs:159-178`,
+    // `crates/kali_parser/src/declaration.rs:84`). A nested import's local
+    // bindings went unrenamed while calls to the SAME name elsewhere in the
+    // body were still silently rewritten to a sibling linked function's
+    // mangled name — the same wrong-call-target class the sibling-rename
+    // walk exists to close. These must reject closed instead.
+
+    #[test]
+    fn append_linked_functions_rejects_nested_import_in_cloned_body() {
+        // The exact probe from the finding: `helper` is locally imported
+        // from another module inside `f`'s body, but the un-walked
+        // `ImportDeclaration` leaves the local binding named `helper`
+        // pointing at "./evil" while the call `helper()` still gets
+        // silently renamed to `__link0_helper` — the SIBLING's `helper`,
+        // not the locally-imported one.
+        let module = build_module(
+            0,
+            r#"function helper() { return 1n; } export function f() { import { helper } from "./evil"; return helper(); }"#,
+        );
+        let mut statements: Vec<Statement> = Vec::new();
+
+        let error = append_linked_functions(&mut statements, &module)
+            .expect_err("a nested import inside a cloned function body must be rejected");
+
+        assert_eq!(error.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+        assert!(
+            error.message.contains("import"),
+            "message must name the offending construct: {}",
+            error.message
+        );
+    }
+
+    #[test]
+    fn append_linked_functions_leaves_statements_unchanged_on_nested_import_reject() {
+        let module = build_module(
+            0,
+            r#"function helper() { return 1n; } export function f() { import { helper } from "./evil"; return helper(); }"#,
+        );
+        let mut statements: Vec<Statement> = Vec::new();
+        let before = statements.clone();
+
+        let result = append_linked_functions(&mut statements, &module);
+
+        assert!(result.is_err());
+        assert_eq!(
+            statements, before,
+            "a rejected nested import must never partially mutate `statements`"
+        );
+    }
+
+    #[test]
+    fn append_linked_functions_rejects_nested_named_export_in_cloned_body() {
+        // Same reachability proof as the nested-import case, but for
+        // `Statement::ExportNamed`: `export { helper };` inside `f`'s body
+        // parses cleanly (no diagnostics) via the same unrestricted
+        // `parse_statement` loop, and `ExportSpecifier { local, exported }`
+        // names a local binding by string exactly like a bare `Identifier`
+        // reference would — so a nested one must reject rather than being a
+        // silent no-op.
+        let module = build_module(
+            0,
+            "function helper() { return 1n; } export function f() { export { helper }; return helper(); }",
+        );
+        let mut statements: Vec<Statement> = Vec::new();
+
+        let error = append_linked_functions(&mut statements, &module)
+            .expect_err("a nested named export inside a cloned function body must be rejected");
+
+        assert_eq!(error.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+        assert!(
+            error.message.contains("export"),
+            "message must name the offending construct: {}",
+            error.message
+        );
+    }
+
+    #[test]
+    fn append_linked_functions_leaves_statements_unchanged_on_nested_named_export_reject() {
+        let module = build_module(
+            0,
+            "function helper() { return 1n; } export function f() { export { helper }; return helper(); }",
+        );
+        let mut statements: Vec<Statement> = Vec::new();
+        let before = statements.clone();
+
+        let result = append_linked_functions(&mut statements, &module);
+
+        assert!(result.is_err());
+        assert_eq!(
+            statements, before,
+            "a rejected nested named export must never partially mutate `statements`"
+        );
+    }
+
     #[test]
     fn append_linked_functions_still_renames_genuine_sibling_call_no_shadow() {
         // Positive control: no shadow anywhere, so the existing rename
@@ -1871,6 +2038,41 @@ mod tests {
                 }
             }
             other => panic!("expected a single ReturnStatement body, got {other:?}"),
+        }
+    }
+
+    /// Positive control: `Statement::ExportDefault` is reachable nested the
+    /// same way as `ImportDeclaration`/`ExportNamed` (same unrestricted
+    /// `parse_statement` loop), but its match arm was never a no-op — it
+    /// already recursively walks all three `ExportDefaultDeclaration`
+    /// variants (`Expression`/`FunctionDeclaration`/`ClassDeclaration`), so a
+    /// sibling call nested inside one is already correctly renamed rather
+    /// than silently left wrong. No fix was needed here; this test records
+    /// the verification.
+    #[test]
+    fn append_linked_functions_already_renames_sibling_call_inside_nested_export_default() {
+        let module = build_module(
+            0,
+            "function helper() { return 1n; } export function f() { export default helper(); }",
+        );
+        let mut statements: Vec<Statement> = Vec::new();
+
+        append_linked_functions(&mut statements, &module).expect("append should succeed");
+
+        let f_clone = find_function(&statements, "__link0_f");
+        match &f_clone.body.body[..] {
+            [Statement::ExportDefault(ExportDefaultDeclaration::Expression(
+                Expression::CallExpression(call),
+            ))] => match &call.callee {
+                Expression::Identifier(name) => assert_eq!(
+                    name, "__link0_helper",
+                    "the call inside the nested `export default` must already be renamed"
+                ),
+                other => panic!("expected an Identifier callee, got {other:?}"),
+            },
+            other => {
+                panic!("expected a single nested ExportDefault(Expression) body, got {other:?}")
+            }
         }
     }
 }
