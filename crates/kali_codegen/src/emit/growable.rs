@@ -559,4 +559,26 @@ impl<'a> FunctionEmitter<'a> {
             _ => None,
         }
     }
+
+    /// True when any node in `id`'s subtree names a growable binding of this
+    /// function (Task 6 re-review fix): the multi-argument console lowering
+    /// fail-closes when an argument reads a growable array, because the
+    /// dynamic console lane prints only the first argument and silently drops
+    /// the rest (pre-existing lane limitation; the growable lane is new this
+    /// stage, so it must not ship into it). Identifier texts in LIR are bare
+    /// names; string literals keep their quotes, so a same-spelled string
+    /// literal never false-positives.
+    pub(crate) fn subtree_mentions_growable(&self, id: LirNodeId) -> bool {
+        let node = self.node(id);
+        if node
+            .text
+            .as_deref()
+            .is_some_and(|text| self.is_growable_array(text))
+        {
+            return true;
+        }
+        node.children
+            .iter()
+            .any(|child| self.subtree_mentions_growable(*child))
+    }
 }

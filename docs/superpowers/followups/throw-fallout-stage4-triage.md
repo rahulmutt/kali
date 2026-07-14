@@ -257,3 +257,26 @@ unsupported element — correct: the growable lane cannot read back array-valued
 
 The 16 sequence-wrappers tests in the same file were red BEFORE Task 6 (pre-existing, in
 the stage's 834/765 baseline family) and remain red — untouched by this adjudication.
+
+## Task 6 re-review — follow-up records (pre-existing classes found while closing the review holes)
+
+- **Dynamic multi-argument `console.log` prints only the FIRST argument** (pre-existing,
+  NOT growable-specific): when the whole call cannot fold statically, the dynamic console
+  lane (`emit/call.rs` console arm) emits the first argument, calls the one-value console
+  import, and emits+DROPS the rest. Reproducers (all exit 0, silent):
+  `let x=5;x=6;console.log("len",x)` → `len` (node `len 6`); `function f(x){console.log("v",x)}f(7)`
+  → `v` (node `v 7`); `const a=new Array(3);a[0]=1;console.log("len",a.length)` → `len`
+  (node `len 3`); runtime-string first arg likewise. Static folds (`console.log(1,2,3)`)
+  are byte-correct, which masked the class. The Task 6 re-review fix fail-closes ONLY the
+  growable-reading subset (E5506 — the growable lane is new this stage and must not ship
+  into the hole); the general lane keeps its pre-existing behavior byte-identically because
+  a correct fix (runtime space-joined stringification of mixed dynamic values) or a general
+  reject would each flip currently-green tests pinned to today's output — needs its own
+  adjudicated pass.
+- **Ternary/logical object-literal bindings are a pre-existing broken class independent of
+  `.push`**: `function f(c){const obj=c?{a:1}:{b:2};console.log(obj.a);}f(1)` prints `0`
+  (node `1`) — no arrays involved. Such bindings also pass the growable push-identifier
+  guard (`record_object_literal` runs on the branch literals' own slots, not the binding
+  slot), so `o.push(obj)` with a ternary-bound `obj` still promotes; not stage-blocking
+  because the class is broken before any push is reached, but the guard hole should close
+  together with the class fix. Documented follow-up.

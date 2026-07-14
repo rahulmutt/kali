@@ -360,3 +360,34 @@ fn run_supports_join_over_enumeration_key_pushes_in_js_and_ts_input() {
         );
     }
 }
+
+/// Task 6 re-review fix (values-operand twin): `Object.values(<const string
+/// binding>)` iterates the string's characters — the resolver resolves static
+/// string EXPRESSIONS (not just literals), and the repr twin now mirrors it
+/// with a flow edge, so the growable promotes with a String element axis and
+/// a bare `.join` renders content byte-for-byte vs node (previously raw
+/// string-handle bits).
+fn growable_values_const_binding_join_source() -> &'static str {
+    r#"function main() {
+  const s = "ab";
+  const o = [];
+  for (const v of Object.values(s)) {
+    o.push(v);
+  }
+  console.log(o.length);
+  console.log(o.join(","));
+}
+main();
+"#
+}
+
+#[test]
+fn run_supports_join_over_values_of_const_string_binding_in_js_and_ts_input() {
+    for extension in ["js", "ts"] {
+        assert_run_stdout(
+            growable_values_const_binding_join_source(),
+            extension,
+            "2\na,b\n",
+        );
+    }
+}

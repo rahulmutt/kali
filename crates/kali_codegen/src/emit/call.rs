@@ -215,6 +215,36 @@ impl<'a> FunctionEmitter<'a> {
                 };
             }
 
+            // Stage 4 Task 6 re-review fix: the dynamic lane below emits ONLY
+            // the first argument and drops the rest — a pre-existing lane
+            // limitation. For a MULTI-argument call whose arguments read a
+            // GROWABLE array (a lane new in this stage, so nothing green can
+            // depend on it), that would be a brand-new silent divergence
+            // (`console.log(o.length, o[0])` printed `2`, node `2 1`): fail
+            // closed instead. Non-growable multi-arg calls keep the
+            // pre-existing behavior byte-identically (documented follow-up in
+            // the stage triage doc).
+            if node.children.len() > 2
+                && node
+                    .children
+                    .iter()
+                    .skip(1)
+                    .any(|arg| self.subtree_mentions_growable(*arg))
+            {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "console output of multiple arguments where one reads a growable array is \
+                     unavailable in the current phase (the runtime console lane prints a single \
+                     value); log the values separately or join them into one string"
+                        .to_string(),
+                ));
+                function.instruction(&Instruction::Unreachable);
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            }
+
             let mut args = node.children.iter().skip(1);
             if let Some(first_arg) = args.next() {
                 self.emit_console_argument(function, *first_arg);

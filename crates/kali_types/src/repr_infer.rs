@@ -1015,14 +1015,18 @@ impl ReprInfer {
             Statement::ForOfStatement(stmt) => {
                 // Task 6 review fix (truthful inference): `for (const k of
                 // Object.keys(x))` iterates STRINGS at runtime (JS enumeration
-                // keys are always strings; `Object.values(<string literal>)`
-                // yields that string's characters). The loop variable's node
+                // keys are always strings; `Object.values(<string>)` yields
+                // that string's characters). The loop variable's node
                 // previously stayed plain, so a growable receiver of
                 // `o.push(k)` promoted with an I64 element axis while the
                 // runtime pushed string handles — a bare `o.join(",")`
                 // rendered the raw handle bits. Seed the loop variable String
-                // so the element axis solves truthfully.
-                if for_of_iterates_strings(&stmt.right) {
+                // (or, for `Object.values(<identifier>)`, flow the operand
+                // binding's node into it — string operands seed transitively,
+                // object identities stay plain) so the element axis solves
+                // truthfully.
+                let string_items = for_of_string_items(&stmt.right);
+                if !matches!(string_items, ForOfStringItems::No) {
                     let loop_var = match &stmt.left {
                         kali_ast::ForOfLefthand::VariableDeclaration(decl) => decl
                             .declarations
@@ -1035,7 +1039,25 @@ impl ReprInfer {
                     };
                     if let Some(loop_var) = loop_var {
                         let node = self.scalar_node_for(func, &loop_var);
-                        self.add_string_seed(node);
+                        match string_items {
+                            ForOfStringItems::Seed => self.add_string_seed(node),
+                            ForOfStringItems::ValuesOperandIdentifier(name) => {
+                                // Same local-vs-module scope resolution as
+                                // `visit_expr`'s `Identifier` arm.
+                                let name = name.to_string();
+                                let scope = if func != TOP_LEVEL
+                                    && !self.is_locally_declared(func, &name)
+                                    && self.is_locally_declared(TOP_LEVEL, &name)
+                                {
+                                    TOP_LEVEL
+                                } else {
+                                    func
+                                };
+                                let operand = self.scalar_node_for(scope, &name);
+                                self.add_edge(operand, node);
+                            }
+                            ForOfStringItems::No => {}
+                        }
                     }
                 }
                 self.visit_expr(func, &stmt.right);
@@ -3294,18 +3316,39 @@ fn enumeration_namespace_root(expr: &Expression) -> Option<&str> {
     }
 }
 
-/// True when a `for..of`/`for await..of` RHS iterates STRING items at runtime
-/// (Task 6 review fix — truthful loop-variable inference for enumeration
-/// sources): `Object.keys(x)` (enumeration keys are always strings in JS,
-/// whatever `x` is), `Reflect.ownKeys(x)` (ditto — kali has no symbols), and
-/// `Object.values(<string literal>)` (a string's values are its characters).
-/// `Object.entries` yields ARRAYS — never admitted. Recognizes the same
-/// receiver spellings the resolver's enumeration gate admits (dot/bracket
-/// `globalThis` roots, parenthesization, and the `Object.freeze(<callable>)`
-/// wrapper), conservatively returning `false` for anything else.
-fn for_of_iterates_strings(rhs: &Expression) -> bool {
+/// How a `for..of`/`for await..of` RHS relates the loop variable to the
+/// String axis (Task 6 review fixes — truthful loop-variable inference for
+/// enumeration sources).
+enum ForOfStringItems<'a> {
+    /// Not a recognized string-yielding enumeration source.
+    No,
+    /// Items are strings by construction: seed the loop variable String.
+    Seed,
+    /// `Object.values(<identifier>)`: the items are strings iff the operand
+    /// binding is a string — mirrored with a flow edge `operand -> loop var`
+    /// (an object/numeric operand's node stays plain, so nothing seeds).
+    ValuesOperandIdentifier(&'a str),
+}
+
+/// Classify a `for..of`/`for await..of` RHS: `Object.keys(x)` (enumeration
+/// keys are always strings in JS, whatever `x` is) and `Reflect.ownKeys(x)`
+/// (ditto — kali has no symbols) always seed; `Object.values(op)` yields the
+/// operand's characters when the operand is a STRING — a string literal or a
+/// `+` concat with a static-string side seeds directly, and an identifier
+/// operand is mirrored with a flow edge (re-review fix: the resolver's
+/// `resolve_static_object_keys_target` resolves static string EXPRESSIONS
+/// incl. const bindings, so the earlier literal-only twin desynced — a
+/// `const s = "ab"` operand promoted an I64 element axis while the runtime
+/// pushed string handles and a bare `.join` rendered handle bits).
+/// `Object.values(<object identity>)` deliberately does NOT seed (field
+/// values keep their own reprs). `Object.entries` yields ARRAYS — never
+/// admitted. Recognizes the same receiver spellings the resolver's
+/// enumeration gate admits (dot/bracket `globalThis` roots, parenthesization,
+/// and the `Object.freeze(<callable>)` wrapper), conservatively `No` for
+/// anything else.
+fn for_of_string_items(rhs: &Expression) -> ForOfStringItems<'_> {
     let Expression::CallExpression(call) = strip_parenthesized(rhs) else {
-        return false;
+        return ForOfStringItems::No;
     };
     // `Object.freeze(<callable>)(operand)` — unwrap the freeze wrapper.
     let callee = strip_parenthesized(&call.callee);
@@ -3318,26 +3361,44 @@ fn for_of_iterates_strings(rhs: &Expression) -> bool {
                         && enumeration_namespace_root(&freeze.object) == Some("Object")
             ) && inner.args.len() == 1;
             if !is_freeze_wrap {
-                return false;
+                return ForOfStringItems::No;
             }
             strip_parenthesized(&inner.args[0])
         }
         other => other,
     };
     let Expression::MemberExpression(member) = member_expr else {
-        return false;
+        return ForOfStringItems::No;
     };
     match (
         enumeration_namespace_root(&member.object),
         member.property.as_str(),
     ) {
-        (Some("Object"), "keys") | (Some("Reflect"), "ownKeys") => true,
-        (Some("Object"), "values") => {
-            call.args.len() == 1
-                && matches!(
-                    strip_parenthesized(&call.args[0]),
-                    Expression::Literal(kali_ast::LiteralValue::String(_))
-                )
+        (Some("Object"), "keys") | (Some("Reflect"), "ownKeys") => ForOfStringItems::Seed,
+        (Some("Object"), "values") if call.args.len() == 1 => {
+            match strip_parenthesized(&call.args[0]) {
+                Expression::Literal(kali_ast::LiteralValue::String(_)) => ForOfStringItems::Seed,
+                // `"a" + x` is ALWAYS a string in JS (concat when either
+                // side is a string), so its values are its characters.
+                binary @ Expression::BinaryExpression(_) if is_static_string_concat(binary) => {
+                    ForOfStringItems::Seed
+                }
+                Expression::Identifier(name) => ForOfStringItems::ValuesOperandIdentifier(name),
+                _ => ForOfStringItems::No,
+            }
+        }
+        _ => ForOfStringItems::No,
+    }
+}
+
+/// True when `expr` is a static string, or a `+` expression with at least one
+/// static-STRING side (recursively through parens/nested `+`) — a string
+/// concatenation by JS semantics regardless of the other side.
+fn is_static_string_concat(expr: &Expression) -> bool {
+    match strip_parenthesized(expr) {
+        Expression::Literal(kali_ast::LiteralValue::String(_)) => true,
+        Expression::BinaryExpression(binary) if binary.operator == "+" => {
+            is_static_string_concat(&binary.left) || is_static_string_concat(&binary.right)
         }
         _ => false,
     }

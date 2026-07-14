@@ -177,3 +177,47 @@ fn malformed_push_call_reports_the_push_not_a_position() {
         );
     }
 }
+
+/// Task 6 re-review fix: the dynamic console lane prints only its FIRST
+/// argument (pre-existing lane limitation), so a multi-argument
+/// `console.log` reading a growable array silently DROPPED the remaining
+/// arguments (`console.log(o.length, o[0])` printed `2`, node `2 1`). The
+/// growable lane is new this stage and must not ship into that hole: such
+/// calls fail closed (E5506). Single-argument growable logs and static
+/// multi-argument folds are unaffected.
+#[test]
+fn multi_arg_console_log_with_growable_read_fails_closed() {
+    for source in [
+        "function m(){const o=[];o.push(1);o.push(2);console.log(o.length,o[0]);}m();",
+        "function m(){const o=[];o.push(1);console.log(\"len\",o.length);}m();",
+    ] {
+        for extension in ["js", "ts"] {
+            let dir = tempdir().expect("tempdir");
+            let source_path = dir.path().join(format!("smoke.test.{extension}"));
+            fs::write(&source_path, source).expect("write source");
+
+            let output = Command::new(kali_bin())
+                .current_dir(dir.path())
+                .arg("run")
+                .arg(&source_path)
+                .output()
+                .expect("run kali");
+
+            assert!(
+                !output.status.success(),
+                "expected E5506, not a silent argument drop ({extension}): {output:?}"
+            );
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            assert!(
+                stdout.is_empty(),
+                "expected NO stdout ({extension}): {stdout}"
+            );
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            assert!(stderr.contains("error[E5506]"), "stderr: {stderr}");
+            assert!(
+                stderr.contains("console output of multiple arguments"),
+                "expected the console-specific message, stderr: {stderr}"
+            );
+        }
+    }
+}
