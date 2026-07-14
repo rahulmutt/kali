@@ -209,3 +209,46 @@ tainted; keep the receiver a recognized-synthetic, not an unknown-callee arg.)
 - `$SCRATCH/stage4-main.txt` — main-worktree failing set (0 lines).
 - `$SCRATCH/stage4-pre.txt` — branch failing set (834 lines, sorted).
 - `$SCRATCH/s4-*.js` + paired `.out`/`.err` — the ten probes above with recorded outputs.
+
+## Task 6 adjudication — the 16 fake-green `for await` enumeration compile tests (Option B, coordinator-ruled)
+
+Task 6's fail-closed reject (E5506 for a growable-shape `.push` receiver appearing in an
+unsupported position) turned 16 then-green `kali_cli` compile-only tests red, all in
+`crates/kali_cli/tests/browser_for_await_object_string_enumeration_browser_smoke.rs`:
+
+```
+{build,check,json_build,json_check}_supports_for_await_object_string_enumeration_in_browser_{bundle,analysis}_context_in_{js,jsx,ts,tsx}_input
+```
+
+**Why they were fake-green:** the fixture passed its pushed collectors to assert helper
+functions (`assertObjectKeysIteration(bracketedKeys)` — a call-argument escape). Under the
+pre-Stage-4 push-no-op the collectors stayed length 0, so the program compiled but would
+have thrown at runtime (`length 0 !== 2`); these build/check tests assert compilation only
+and never executed it. The reject exposes exactly that: a `.push`-using program whose
+pushes silently no-op.
+
+**Remedy (preferred rewrite, not a repin):** the assert helpers were inlined at each
+collector as `length` + index-read string guards (`keys.length !== 2 || keys[0] !== '0' ||
+keys[1] !== '1'`) — all safe growable positions — so every collector now legitimately
+promotes to the real growable lane. Runtime parity of the rewritten fixture was verified
+byte-for-byte against node on a runnable replica (`kali run` prints `replica ok`, exits 0,
+identical to node), and all 8 browser-context compile commands (`check --api browser`,
+`build --api browser --bundle` × js/jsx/ts/tsx) exit 0. The `entries` collectors keep
+length-only guards: their elements are arrays (`[k, v]`), and any `entry[0]` read in the
+function marks `entry` as an array binding, fail-closing `entries.push(entry)` (E5506
+unsupported element — correct: the growable lane cannot read back array-valued elements).
+
+**Notes recorded while probing the rewrite (follow-up material, pre-existing lanes):**
+- A `.join` guard was NOT usable: a growable promoted with an I64 element axis whose pushed
+  identifier is a runtime STRING (e.g. a `for await (const key of Object.keys('ab'))` loop
+  variable) stores string handles in i64 slots; `join` then renders the raw handle bits
+  (`-9223354444668731391,…`). Index-read string comparisons avoid this because the
+  comparison string-seeds the element axis (whole lane solves String, content-correct).
+  The underlying "identifier push whose runtime value is a string but whose repr solves
+  plain" hole predates Task 6 and survives it for join-only readers — silent-miscompile
+  follow-up for the stage record.
+- `entriesSeen += entry[0] + entry[1]` accumulator rejects (E5506 string/number conflict) —
+  enumeration-entry elements solve numeric; pre-existing repr limit, honest reject.
+
+The 16 sequence-wrappers tests in the same file were red BEFORE Task 6 (pre-existing, in
+the stage's 834/765 baseline family) and remain red — untouched by this adjudication.
