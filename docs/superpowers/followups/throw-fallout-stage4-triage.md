@@ -280,3 +280,79 @@ the stage's 834/765 baseline family) and remain red — untouched by this adjudi
   slot), so `o.push(obj)` with a ternary-bound `obj` still promotes; not stage-blocking
   because the class is broken before any push is reached, but the guard hole should close
   together with the class fix. Documented follow-up.
+
+---
+
+## Task 7 — full-workspace gate CHECKPOINT (834 → 783; PRIMARY GATE = 0; CERTIFIED)
+
+Fresh branch binary (`cargo build -p kali_cli`), node v26.5.0. Two full enumerations
+(`cargo test --workspace --no-fail-fast`), diffed against `stage4-pre.txt` (834) / main
+worktree (0 failures).
+
+### Gate numbers
+- **PRIMARY GATE** `comm -13 pre post` (newly-red vs stage entry) = **EMPTY (0)** → CERTIFIED.
+- Denominator **834 → 783** measured (net 51 drained; 50 real + 1 output-interleaving false-drain
+  ⇒ true failing ≈ 784). Expected 818 did NOT hold — as the deviation brief anticipated, Tasks 2–6
+  drain far more than the 16 targets (growable push/join/length/for-of now work inside other
+  failing fixtures too).
+- **16 targets** (`array_callback_identity_slices_in_browser_api_surface_with_harness`
+  {run,test,json_run,json_test}×{js,jsx,ts,tsx}) ALL drained + independently green (16/16).
+
+### One newly-red found and closed during the checkpoint (test-side census, NOT a product regression)
+Run 1 flagged `misc::optimization_benchmark_suite_tracks_compile_time_size_and_speed` and
+`misc::release_hot_paths_stay_unboxed_without_tag_checks` (both assert `count_tag_boxing_ops == 0`).
+The test-side `SYNTHETIC_FUNCTIONS` allowlist (`runtime_smoke.rs:802`) had not been synced with the
+two Stage-4 always-emitted synthetics `__join_growable_i64` / `__join_growable_str` (added
+`9083e5b72`), whose bodies legitimately use `I64And` (handle/length masking) exactly like the
+already-excluded `__join`/`__join_arena`/`__streq`. WAT census of the hot-path release wasm proved
+the user `hot` function has **0** boxing ops; all 58 masking ops live in synthetics
+(`__substring`=5, `__join`=10, `__join_arena`=10, `__join_growable_i64`=12, `__join_growable_str`=12,
+`__streq`=9). The compiler is correct; the census miscounted 24 synthetic ops. **Fix = the
+documented Stage-1 test-mirror sync** (add both names to `SYNTHETIC_FUNCTIONS`); both green after,
+no other test moved, PRIMARY GATE empty on re-run.
+
+### Drain bucket table (51 net; 50 real + 1 false)
+| bucket | # | mechanism | verdict |
+|---|---|---|---|
+| targets | 16 | growable push + for-of + join real | 16/16 green |
+| for-of / for-await break+continue collectors | 24 | `items.push(v)` in break/continue bodies accumulates; guard `items.length!==1 \|\| items[0]!==1` passes (real guard) | real |
+| integer-like object-keys iteration | 6 | enumeration → push collector → length/index/join | real |
+| browser-bundle async/await sequencing | 4 | await-result push collector accumulates | real |
+| array_from_set_map_break_continue | 1 | **FALSE DRAIN** — deterministic `E5506 try/catch`, unrelated to growable arrays; FAILED line dropped by parallel cross-binary output interleaving (`in pre=1 post=0`, fails 4/4 in isolation) | false-drain artifact |
+
+Interleaving can only DROP FAILED lines (shrink post) — it cannot fabricate a newly-red name, so
+the empty PRIMARY GATE holds. Drain wobble 51↔53 across the two runs is the same interleaving noise.
+
+### Adversarial whole-stage review (fresh binary vs node, byte-for-byte) — CLEAN
+All function-scoped (growable lane is per-function-arena by design). push+join(`,` & `\n`), 100-push
+realloc boundary (length/`o[99]`/`o[50]`/join.length all match), string-element join, for-of growable
+as source AND sink, seeded `[10,20]`+realloc-crossing push — all MATCH node.
+- **CARRIED 2a Arena UAF:** fn-scope growable realloc'd via `acc.push(i)` inside a loop that
+  allocates a per-iter `tmp` (loop-arena), read AFTER the loop → `20 / 0,1,…,19 / 0,19`, MATCH — no
+  use-after-reset (push in a loop-arena frame routes realloc to `__alloc_global`, growable.rs:160-168).
+- **Re-masking check:** patched push len-increment `I64Const(1)→I64Const(0)`, rebuilt → reduced
+  harness guard `throw` fires → honest E4000 unreachable, exit 1; length reads `0` not `100`. Guard
+  IS reachable ⇒ green is REAL accumulation, not a re-silenced self-check. Reverted (git clean).
+- **CARRIED 2b browser-import sync:** `int_to_string` (used by `__join_growable_i64`) is a fixed
+  always-present import (index 17, shared with pre-existing `__join`) and present in ALL FOUR
+  `kali:rt` lists (cmd_build.rs:1559/1897, harness.rs:240/656) — no edit needed. Browser-lane int
+  join (`--api browser`, harness=node) → `success:true exitCode:0` (`__join_growable_i64`), string
+  join likewise (`__join_growable_str`); reduced harness → `success:true`. No LinkError.
+
+### fmt + CI command
+`cargo fmt --all -- --check` clean. `cargo test --workspace` (fail-fast) exits 101 at the first
+pre-existing failing binary — EXPECTED; the program gate is the enumerated diff, not the exit code
+(`ci-gate-vs-poisoned-baseline`). Branch stays UNMERGED (PR #16 held draft).
+
+### Follow-ups opened / carried at the Task-7 gate
+- **Module/top-level growable push silently no-ops** (`const o=[];o.push(1)` at module scope prints
+  length `0`, node `2`) — pre-existing (documented at stage entry), outside the function-scoped
+  supported surface; should E5506 or promote. NOT a Stage-4 regression (same pre/post).
+- **OOB growable index read** returns the raw slot, not JS `undefined` (Task-2 deferred; no target
+  indexes OOB).
+- **map/filter materialization to a growable** (repro D) still fail-closed.
+- **Extra mutators** pop/shift/splice unsupported (E5506).
+- **Cross-arena / escaping growables** fail-closed (receiver-only recognition); F64/Object element
+  reprs fail-closed.
+- **Enumeration false-drains** from cross-binary output interleaving — a future gate should either
+  serialize the FAILED capture or tolerate ±2-3 drain noise (never affects newly-red).

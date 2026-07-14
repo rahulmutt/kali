@@ -789,16 +789,20 @@ fn count_tag_boxing_ops(bytes: &[u8]) -> usize {
     // This census guards USER hot paths against tag-check/untag boxing ops.
     // The hand-emitted synthetic runtime helpers (`kali_codegen`'s
     // `SYNTHETIC_FUNCTIONS`: the `__alloc` page-pool family plus
-    // `__substring`, `__join`, its `__join_arena` twin, and the string-equality
-    // helper `__streq` (throw-fallout Stage 1)) are compiler-internal fixed
-    // slots present in EVERY module regardless of what the source does —
-    // `__substring`'s handle-field masking, `__join`'s (and the identical
-    // `__join_arena`'s) length-field masking / two-pass copy loop, and `__streq`'s
-    // tag guard and offset masking legitimately use `I64And` — so their bodies
-    // are excluded here, exactly as they are excluded from coverage
-    // instrumentation in the compiler itself. Imports and exports precede the
-    // code section in the wasm binary format, so a single pass sees the full
-    // exclusion set before the first body.
+    // `__substring`, `__join`, its `__join_arena` twin, the string-equality
+    // helper `__streq` (throw-fallout Stage 1), and the runtime-length growable
+    // join twins `__join_growable_i64` / `__join_growable_str` (throw-fallout
+    // Stage 4)) are compiler-internal fixed slots present in EVERY module
+    // regardless of what the source does — `__substring`'s handle-field masking,
+    // `__join`'s (and the identical `__join_arena`'s) length-field masking /
+    // two-pass copy loop, `__streq`'s tag guard and offset masking, and the
+    // growable-join twins' handle/length-field masking legitimately use `I64And`
+    // — so their bodies are excluded here, exactly as they are excluded from
+    // coverage instrumentation in the compiler itself. Imports and exports
+    // precede the code section in the wasm binary format, so a single pass sees
+    // the full exclusion set before the first body. (Stage-1 lesson: this
+    // test-side mirror MUST sync with every new synthetic or the census
+    // miscounts synthetic masking as user boxing.)
     const SYNTHETIC_FUNCTIONS: &[&str] = &[
         "__alloc",
         "__alloc_global",
@@ -808,6 +812,8 @@ fn count_tag_boxing_ops(bytes: &[u8]) -> usize {
         "__join",
         "__join_arena",
         "__streq",
+        "__join_growable_i64",
+        "__join_growable_str",
     ];
     let mut imported_functions = 0u32;
     let mut synthetic_indices = Vec::new();
