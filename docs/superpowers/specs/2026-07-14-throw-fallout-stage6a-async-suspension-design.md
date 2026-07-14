@@ -163,8 +163,11 @@ silently renamed (Stage 5 shipped a live wrong-call-target miscompile through ex
 ### Fail-closed — hard `E5506` (Stage 6a)
 
 `new Promise(executor)` · `.then` / `.catch` / `.finally` · `Promise.reject` · async arrows · async
-methods · async generators · top-level `await` · **the four combinators** · **`await` / `for await`
-inside a `try` region** (§3.2.1) · `await` of any operand not on the allowlist.
+methods · async generators · **the four combinators** · **`await` / `for await` inside a `try` region
+within an async function** (§3.2.1) · `await` of any operand not on the allowlist.
+
+**Not denied, by decision:** `for await` outside an async function — left degenerate, a known residual
+divergence (§3.2.2).
 
 **Combinators failing closed for one stage is deliberate.** Those 128 names are red *today* for the
 wrong reason (`await Promise.all([...])` silently returns `0`). Under 6a they are red for an honest
@@ -199,39 +202,70 @@ hold, but it is a **triage item to verify empirically, not assume** (a swallowed
 would be a silent fail-open). Rejection-as-a-value is Stage 6b's problem (`Promise.reject`,
 `allSettled`).
 
-### 3.2.1 Suspension inside a `try` region — E5506 in 6a
+### 3.2.1 Suspension inside a `try` region — E5506, but ONLY inside an async function
 
-Measured, not assumed: **25 `try` blocks in the fixture corpus contain an `await`**, and every one is
-a **`for await` loop inside `try`/`catch`/`finally`** with `throw` / `return` / `continue` in the loop
-body (the `object_enumeration_finalization` family — 12 of those names are in the current failing
-set).
+Measured, not assumed: **25 `try` blocks in the fixture corpus contain an `await`**, all of them
+`for await` loops inside `try`/`catch`/`finally` with `throw` / `return` / `continue` in the loop body.
 
-This is genuinely hard. Splitting a body at a suspension point that sits **inside a `try` region**
-means the continuation runs as a *separate function* and the handler context is lost — a `throw` node
-catches would instead trap, and a `finally` would not run. That is a silent divergence, i.e. exactly
-what this program refuses.
+Splitting a body at a suspension point inside a **`try` region** means the continuation runs as a
+*separate function* and the handler context is lost — a `throw` node catches would instead trap, and
+a `finally` would not run. A silent divergence, i.e. exactly what this program refuses.
 
-**Rule for 6a: `await` / `for await` lexically inside a `try` block is `E5506` fail-closed.**
-Preserving try regions across continuations (a real state machine with handler re-establishment) is
-deferred to a later stage and recorded in the follow-up inventory.
+**Rule for 6a: `await` / `for await` lexically inside a `try` block, *within an `async function`*, is
+`E5506` fail-closed.** Try-region-preserving continuations (handler re-establishment across a
+suspension) are deferred and recorded in the follow-up inventory. The affected tests
+(`object_enumeration_finalization`, 2 native + browser variants) are **already red**, so this costs no
+newly-red — verify per name at triage.
 
-**Mandatory triage measurement before implementing:** enumerate every test whose fixture has an
-`await` inside a `try` region and record its **current** red/green state. The 12 known
-`object_enumeration_finalization` names are already red, so rejecting them adds **no newly-red** — but
-if any such test is currently **green**, an E5506 flip makes it newly-red and **violates the primary
-gate**. In that case the decision rule is the Stage-5 `typeof` rule: measure the census, and if no
-cheap in-lane fix exists, **revert the flip** rather than trade a passing capability for a failing one.
+### 3.2.2 `for await` OUTSIDE an async function — a KNOWN residual divergence, deliberately NOT denied
+
+This one falsified an earlier draft of this spec and is recorded loudly rather than buried.
+
+`ForOfStatement` carries an **`is_await: bool`** field (`crates/kali_ast/src/statement.rs:136`), so a
+top-level `for await` **is** visible to an AST census — the pass cannot pretend it isn't there.
+And **10 currently-GREEN tests** in `crates/kali_cli/tests/for_of_array_iteration_spread.rs`
+(`array_from_iteration_body`, `browser_harness_array_from_source`,
+`array_from_set_map_break_continue_body`) use `for await (const value of Array.from(values))` **at top
+level**, outside any async function, where it currently degenerates to a plain synchronous `for..of`.
+
+Three options, all bad in different ways:
+
+1. **Reject (E5506)** → those 10 green tests turn **newly-red**. That is a **capability regression**
+   (kali could no longer build a program it builds today) and it **violates the primary gate**.
+2. **Transform** → requires suspending `_start` itself (splitting top-level code into continuations),
+   which is a materially larger change than 6a and is not justified by any failing test.
+3. **Leave it degenerate** → keeps the 10 tests green, costs nothing, and preserves a **residual
+   divergence**: the loop does not yield to the microtask queue per iteration, so ordering differs
+   from node *only if a microtask is queued concurrently at top level* — which no fixture does.
+
+**Decision: option 3.** This is precisely the Stage-5 `typeof` bucket-C situation, and the house
+decision rule from that stage applies verbatim: *measure the census; if the only landable flip trades
+a passing capability for a failing one, do not flip — record the sizing evidence and defer.*
+
+**This is a live, known fail-open, and it is stated here as such.** `for await` outside an async
+function is allowlisted as "left degenerate", is **not** transformed, and is **not** denied. It goes in
+the follow-up inventory with these 10 test names attached as its sizing evidence. A doc that claimed
+"fail-closed by construction" while this was live would itself be the defect (Stage-5 corollary).
 
 ### 3.3 `Kali.test` must settle async callbacks — or 6a is unsound
 
-Today the harness calls a test callback and watches for a trap. Once `await` genuinely suspends, an
-async callback **returns immediately with a pending promise, body not yet run**, and the harness
-reports `passed`. A `throw` in an async self-check would be **silently swallowed** — which is
-precisely the Stage-0 trap-swallow fail-open, resurrected by this very change.
+**Corrected against the code — an earlier draft of this spec overstated the failure mode.** The
+native test lane **already drains the event loop after each test callback**
+(`crates/kali_runtime/src/execute.rs:326`, inside the per-test loop), so once `await` suspends, an
+async body still *runs* during that drain. The failure mode is therefore **not** a silent `passed`.
 
-So the harness must **settle the returned promise** — drain the event loop, inspect the promise's
-final state, fail the test if it rejected/trapped — before reporting. In **both** the native runner
-(`kali_runtime`) and the browser harness JS. This lands in 6a or 6a is unsound; it is not deferrable.
+The real defect is **misattribution**. Verified baseline (fresh binary, today's eager semantics): a
+`Kali.test` whose async callback throws after an `await` reports `FAILED 1`, exit 1 — correctly
+attributed to the named test. Once `await` suspends, that throw moves **into the drain**, and
+`drain_event_loop`'s error path does `return Err(vec![diagnostic])` — aborting the whole run rather
+than incrementing `tests_failed` for the named test. Exit stays non-zero, but `tests_run` /
+`tests_failed` and the JSON envelope no longer describe what happened — and that envelope's honesty is
+exactly what Stage 0 fixed and pinned across 43 re-pinned tests.
+
+So the harness must **attribute a drain-time trap to the test that was running**: settle the returned
+promise, and on rejection/trap increment `tests_failed` for that named test rather than aborting. In
+**both** the native runner (`kali_runtime`) and the browser harness JS. This lands in 6a or 6a
+reports dishonest test envelopes; it is not deferrable.
 
 ### 3.4 Interaction with Stage 5 — ordering is load-bearing
 
@@ -349,6 +383,8 @@ Ignoring these corrupts expected output for reasons that have **nothing to do wi
 
 `Promise.all` / `allSettled` / `any` / `race` (the 128) · `Promise.reject` and rejection-as-a-value ·
 `new Promise(executor)` · `.then`/`.catch`/`.finally` · async generators · async arrows/methods ·
-top-level `await` · **try-region-preserving continuations** (§3.2.1) · real async I/O.
+**try-region-preserving continuations** (§3.2.1) · **suspending top-level code, which is what a
+faithful top-level `for await` would require** (§3.2.2 — carries a live residual divergence, with the
+10 green test names as sizing evidence) · real async I/O.
 
 Bucket #8 (`&&`/`||` short-circuit, 13 names) remains earmarked for PR-B and is untouched.
