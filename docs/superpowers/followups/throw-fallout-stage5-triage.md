@@ -475,7 +475,7 @@ returned 1 where node returns 0.
 ### What was added
 
 `crates/kali_cli/tests/module_namespace_link.rs` extended from 2 tests (Task-7 dependency-order
-pins) to 13: 5 GREEN distinguishable-value tests (each proves a real call into the linked
+pins) to 11 (2 + 9 new): 5 GREEN distinguishable-value tests (each proves a real call into the linked
 module's body ran and its actual return value propagated — not the pre-stage fail-open `0`),
 3 REJECT tests (E5506, exit != 0), and 1 GREEN guard (unchanged pre-existing statement-form
 behavior). All 5 GREEN tests additionally run the identical fixture under a real `node` and

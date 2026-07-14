@@ -637,5 +637,11 @@ main();
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("main loaded"), "stdout: {stdout}");
+    // Exact, not `contains`: this pins the pre-existing chunk-never-runs
+    // divergence. `lazy.js` has a top-level `console.log("lazy loaded")` that
+    // node WOULD run; kali does not. Asserting the exact stdout means that if
+    // kali ever starts executing a statement-form chunk's top level, this test
+    // fails and the divergence is re-examined deliberately, rather than
+    // silently satisfying a `contains("main loaded")` check.
+    assert_eq!(stdout, "main loaded\n", "stdout: {stdout}");
 }
