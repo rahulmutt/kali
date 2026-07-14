@@ -328,3 +328,142 @@ dynamically resolve to undefined/0 at runtime.
    --max-threads 0 --max-spawned-processes 0` with `KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node`
    (the same node-backed browser-lane harness the test suite uses) — no CDP/real-browser eval
    was needed for this triage; the mirage reproduces identically to the plain (non-browser) lane.
+
+---
+
+## Task 2 — generic `typeof` fallback flipped fail-closed (E5506) + census
+
+### What changed
+
+`crates/kali_codegen/src/emit/operators.rs` `"typeof"` arm, final fallback only: the generic
+warning (`e8::UNIMPLEMENTED`, "unsupported unary operator 'typeof'") + silent `I64Const(0)`
+placeholder is now a **compile error**:
+
+> `error[E5506]: typeof is only supported on statically-provable operands in the current
+> direct-runtime path (this operand's type cannot be proven; a silent placeholder would
+> miscompile comparisons)`
+
+The placeholder instruction is still emitted so the wasm stays structurally valid (mirrors the
+`delete` default-deny arm's handling); the error diagnostic fails the build at
+`kali_cli::build_source_file` (`has_errors` ⇒ `Err`, no artifact). The `delete`/`void` arms and
+every other operator's fallback are untouched. Reproducer test (red-first):
+`unsupported_typeof_operand_rejects_unproven_member_read` in
+`crates/kali_codegen/src/emit/operators_tests.rs` — RED under the old code (two E8001 warnings,
+successful compile), GREEN after the flip. `cargo test -p kali_codegen`: 356 passed, 0 failed.
+
+### Census (full workspace, fresh binary)
+
+```bash
+cargo build -p kali_cli
+cargo test --workspace --no-fail-fast 2>&1 \
+  | grep -E '^test .* \.\.\. FAILED' | sed -E 's/^test (.*) \.\.\. FAILED$/\1/' \
+  | sort -u > "$SCRATCH/stage5-typeof-census.txt"        # NOTE sort -u (Task-1 dupe pitfall)
+comm -13 "$SCRATCH/stage5-pre.txt" "$SCRATCH/stage5-typeof-census.txt"   # newly-red
+comm -23 "$SCRATCH/stage5-pre.txt" "$SCRATCH/stage5-typeof-census.txt"   # newly-green
+```
+
+- `stage5-typeof-census.txt`: **771** unique FAILED names (baseline 763).
+- **Newly-red: 8. Newly-green: 0.** (763 + 8 = 771, exact.)
+
+All 8 isolation-run 2/2 RED (two full passes over all three owning binaries, `--exact`); every
+failure message contains the new E5506 text verbatim, so attribution to this flip is direct.
+
+### Newly-red names, mechanism per bucket
+
+**Bucket A — `package_corpus` browser corpus, 3 names** (RED 2/2 in isolation):
+
+```
+browser_corpus::browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_deployable_through_host
+browser_corpus::browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_deployable_through_host_on_js_input
+browser_corpus::browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_deployable_through_host_on_js_input_when_the_browser_api_surface_is_inherited
+```
+
+Mechanism: the shared web-baseline interop fixture (`write_web_baseline_interop_source`,
+`crates/kali_cli/tests/package_corpus.rs:201`) contains the canonical feature-detection idiom
+`if (typeof indexedDB !== 'undefined') { ... }`. `indexedDB` is an identifier that resolves to
+nothing in kali (its guard body's calls all hit the W3100/E3100 zero-placeholder lane), so
+`typeof indexedDB` is unproven → E5506 → `kali check`/`kali build --bundle` now fail; the tests
+pin build success for ~70 corpus packages. **This was a LIVE miscompile before the flip**: the
+placeholder `0` compares `!== "undefined"` as TRUE, so kali took the guard branch node skips —
+the exact bucket-#7 wrong-branch class, previously invisible because the test only pinned
+buildability.
+
+**Bucket B — `runtime_smoke` build, 3 names** (RED 2/2 in isolation):
+
+```
+build::build_emits_browser_bundle_object_type_and_constructor_semantics_in_js_input
+build::build_emits_browser_bundle_object_type_and_constructor_semantics_in_json_output
+build::build_emits_browser_bundle_object_type_and_constructor_semantics_in_ts_input
+```
+
+Mechanism: fixture (`browser_bundle_object_type_and_constructor_semantics_source`,
+`crates/kali_cli/tests/runtime_smoke.rs:3807`) does `typeof box` (where `box = new Box()`) and
+`typeof Box` (a module-level `function Box() {}` declaration) — two unproven operands, E5506
+fires twice per build. (`typeof null` in the same fixture is already provable → "object".) The
+tests pin "bundle build must succeed" (evaluation-trap layering for `in`/`instanceof`); the
+typeof operands rode along on the fail-open lane.
+
+**Bucket C — `node_api_surface` library builds, 2 names** (RED 2/2 in isolation):
+
+```
+explicit::explicit_node_api_surface_builds_library_artifacts_in_js_input
+inherited::inherited_node_api_surface_builds_library_artifacts_in_js_input
+```
+
+Mechanism: fixture (`crates/kali_cli/tests/node_api_surface/{explicit,inherited}.rs`) is
+`import * as path from 'node:path'; import * as timers from 'node:timers';` +
+`typeof path.basename === 'function' && typeof timers.clearInterval === 'function' ? 0 : 1`.
+The namespaces are unresolved at codegen (W3100 "undefined identifier 'path'/'timers'"), so the
+member-read typeof operands are unproven → E5506 ×2 → the `--lib` build fails; the tests pin
+build success. This is precisely the Stage-5 namespace-member-typeof shape, but over **node
+builtins**, which the Task-6 AST module-link rewrite (user modules with real files) will NOT
+cover. Note the old behavior was also a silent lie: placeholder `0 !== "function"` ⇒ `describe()`
+returned 1 where node returns 0.
+
+### Decision: **KEEP** (rule applied)
+
+- Newly-red = 8 ≤ ~8. Every name is explainable as exactly the rule's mechanism: "green test
+  compiled an unproven typeof and silently took the 0 branch" (bucket A demonstrably took the
+  WRONG branch; buckets B/C pinned buildability of silently-miscompiling comparisons).
+- No fix is a one-liner provable-lane extension (the brief's in-task threshold — "a new literal
+  kind in `typeof_static_text`"): every bucket needs either a positive resolver oracle with
+  default-deny shadow guards, a pair of new operand classifications, or a product/pin decision.
+  So none was done inside Task 2; all are filed below and MUST land before Task 9's gate
+  (checkpoint demands 0 newly-red) — if any proves unlandable, that flips this decision to
+  REVERT at that point.
+
+### Fix-or-extend items (all pre-Task-9 obligations)
+
+1. **[typeof-F1] Unresolvable bare identifier → `"undefined"`** (closes bucket A, 3 names).
+   JS-correct (`typeof undeclared` is `"undefined"`, the one non-throwing undeclared read) and
+   truthful in kali's closed world (the same fall-through that today emits W3100 + placeholder
+   proves the name resolves to nothing). MUST be implemented at the identifier-resolution
+   choke point / by reusing the actual fall-through conclusion — NOT a hand-mirrored predicate
+   (Spec-2 lesson: mirrored oracles fail open; Spec-4a lesson: allowlist at the single read
+   site). Default-deny: locals, fold-bindings, module bindings/globals, function names, host
+   globals all win first.
+2. **[typeof-F2] Identifier resolving to a source-level function declaration → `"function"`**
+   (half of bucket B). Guards: not shadowed by local/binding/module binding/global slot;
+   allowlist source-declared functions only (the `functions` map also contains synthetics
+   (`__join*`, `__streq`, …) and monomorphized `f${N}` clones — classify from the LIR
+   function-declaration node, not map membership).
+3. **[typeof-F3] `new F()` result → `"object"`** (other half of bucket B), gated on `F`
+   resolving to a source function declaration whose body provably cannot return a function
+   (constructor returning a non-function object still yields "object"; returning a primitive is
+   ignored by `new`; only a function-returning constructor breaks the classification).
+   Conservative first cut: no `return <expr>` at all (the fixture's `function Box() {}`
+   qualifies).
+4. **[typeof-F4] Bucket C decision needed** (2 names): `typeof <member>` over an unsupported
+   node-builtin namespace cannot be proven without implementing the builtin. Options:
+   (a) re-pin both tests to expect fail-closed E5506 (house precedent: Stage-2 Lane-C `delete`
+   re-pins in the same test families) — trivially landable, honest, but changes what the tests
+   pin (library builds of node-builtin feature-detection code fail until the surface exists);
+   (b) fold node-builtin namespaces into the Task-6 module-link design as a synthetic module
+   surface. (a) is the default if (b) doesn't land in-stage. These 2 names are NOT covered by
+   items 1–3 (the base identifiers are namespace imports, not undeclared globals — classifying
+   them "undefined" would trade one silent node-divergence for another).
+
+### Artifacts
+
+- `$SCRATCH/stage5-typeof-census.txt` (771), `$SCRATCH/stage5-typeof-newlyred.txt` (8).
+- Newly-red list = exactly the 8 names above; newly-green = 0.

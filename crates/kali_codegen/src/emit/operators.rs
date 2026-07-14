@@ -211,14 +211,16 @@ impl<'a> FunctionEmitter<'a> {
                         shape: ValueShape::String,
                     };
                 }
-                self.diagnostics.push(Diagnostic::warning(
-                    e8::UNIMPLEMENTED as u32,
-                    format!("unsupported unary operator '{}'", op),
+                // Fail-closed (throw-fallout Stage 5): an unproven `typeof`
+                // operand used to compile to a silent `I64Const(0)`
+                // placeholder — never equal to any interned type-name
+                // string, so every `typeof x === '...'` guard silently took
+                // the wrong branch (bucket #7's root enabler). Reject at
+                // compile time instead.
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "typeof is only supported on statically-provable operands in the current direct-runtime path (this operand's type cannot be proven; a silent placeholder would miscompile comparisons)".to_string(),
                 ));
-                let produced = self.emit_node(function, arg, true);
-                if produced.produced {
-                    function.instruction(&Instruction::Drop);
-                }
                 function.instruction(&Instruction::I64Const(0));
                 EmittedValue {
                     produced: true,
