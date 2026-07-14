@@ -925,3 +925,446 @@ console.log(ns.calc());
         "kali must byte-match node"
     );
 }
+
+// ---- C2 remainder (second whole-branch review round): ImportExpression position allowlist ----
+//
+// The first C2 fix (`deny_unproven_namespace_binding_candidates`) is a DENYLIST OF BINDING
+// SHAPES — it only records a candidate at a `VariableDeclarator.init` or a relative
+// `import * as` specifier. Anything reaching a member access through some OTHER route was never
+// recorded at all, so it fell straight through to the pre-stage silent `0` — exit 0, no
+// diagnostic. Every fixture below prints `42` under node (real, distinguishable output — never
+// the `0` the pre-fix fail-open produced) and must now be REJECTED (E5506) by
+// `deny_import_expressions_outside_allowlist`'s position-based default-deny.
+
+/// Assignment form: `c = await import(...)`, not a declarator init.
+#[test]
+fn assignment_form_dynamic_import_is_rejected() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(
+        dir.path().join("util.js"),
+        "export function greet() { return 42; }\n",
+    )
+    .expect("write util.js");
+    let main_path = dir.path().join("main.js");
+    fs::write(
+        &main_path,
+        r#"async function main() {
+  let c;
+  c = await import("./util.js");
+  console.log(c.greet());
+}
+main();
+"#,
+    )
+    .expect("write main.js");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&main_path)
+        .output()
+        .expect("run kali");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        !output.status.success(),
+        "expected a compile-time reject, not the silent pre-stage `0`; stdout: {stdout}"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("E5506"),
+        "expected E5506 in stderr, got: {stderr}"
+    );
+    assert!(
+        stdout.is_empty(),
+        "a rejected build must print nothing at all; stdout: {stdout}"
+    );
+
+    let node = node_output(dir.path(), &main_path);
+    assert!(
+        node.status.success(),
+        "node stderr: {}",
+        String::from_utf8_lossy(&node.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&node.stdout), "42\n");
+}
+
+/// Same assignment-form binding, but read through `typeof c.greet` instead of a call — both
+/// value-escape routes through the same un-tracked assignment RHS must be rejected.
+#[test]
+fn assignment_form_dynamic_import_typeof_is_rejected() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(
+        dir.path().join("util.js"),
+        "export function greet() { return 42; }\n",
+    )
+    .expect("write util.js");
+    let main_path = dir.path().join("main.js");
+    fs::write(
+        &main_path,
+        r#"async function main() {
+  let c;
+  c = await import("./util.js");
+  console.log(typeof c.greet);
+}
+main();
+"#,
+    )
+    .expect("write main.js");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&main_path)
+        .output()
+        .expect("run kali");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        !output.status.success(),
+        "expected a compile-time reject, not the silent pre-stage `0`; stdout: {stdout}"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("E5506"),
+        "expected E5506 in stderr, got: {stderr}"
+    );
+
+    let node = node_output(dir.path(), &main_path);
+    assert!(
+        node.status.success(),
+        "node stderr: {}",
+        String::from_utf8_lossy(&node.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&node.stdout), "function\n");
+}
+
+/// Inline member access on the import result — no binding at all:
+/// `(await import(...)).greet()`.
+#[test]
+fn inline_member_access_on_import_result_is_rejected() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(
+        dir.path().join("util.js"),
+        "export function greet() { return 42; }\n",
+    )
+    .expect("write util.js");
+    let main_path = dir.path().join("main.js");
+    fs::write(
+        &main_path,
+        r#"async function main() {
+  console.log((await import("./util.js")).greet());
+}
+main();
+"#,
+    )
+    .expect("write main.js");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&main_path)
+        .output()
+        .expect("run kali");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        !output.status.success(),
+        "expected a compile-time reject, not the silent pre-stage `0`; stdout: {stdout}"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("E5506"),
+        "expected E5506 in stderr, got: {stderr}"
+    );
+    assert!(
+        stdout.is_empty(),
+        "a rejected build must print nothing at all; stdout: {stdout}"
+    );
+
+    let node = node_output(dir.path(), &main_path);
+    assert!(
+        node.status.success(),
+        "node stderr: {}",
+        String::from_utf8_lossy(&node.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&node.stdout), "42\n");
+}
+
+/// Sequence-expression init: `const c = (0, await import(...))` — the whole `await import(...)`
+/// is buried inside a `SequenceExpression`, not the direct (mod-parens) declarator init
+/// `as_await_import_source` recognizes.
+#[test]
+fn sequence_expression_init_dynamic_import_is_rejected() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(
+        dir.path().join("util.js"),
+        "export function greet() { return 42; }\n",
+    )
+    .expect("write util.js");
+    let main_path = dir.path().join("main.js");
+    fs::write(
+        &main_path,
+        r#"async function main() {
+  const c = (0, await import("./util.js"));
+  console.log(c.greet());
+}
+main();
+"#,
+    )
+    .expect("write main.js");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&main_path)
+        .output()
+        .expect("run kali");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        !output.status.success(),
+        "expected a compile-time reject, not the silent pre-stage `0`; stdout: {stdout}"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("E5506"),
+        "expected E5506 in stderr, got: {stderr}"
+    );
+
+    let node = node_output(dir.path(), &main_path);
+    assert!(
+        node.status.success(),
+        "node stderr: {}",
+        String::from_utf8_lossy(&node.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&node.stdout), "42\n");
+}
+
+/// Member/property sink: `box.m = await import(...)`, then `box.m.greet()`.
+#[test]
+fn member_sink_dynamic_import_is_rejected() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(
+        dir.path().join("util.js"),
+        "export function greet() { return 42; }\n",
+    )
+    .expect("write util.js");
+    let main_path = dir.path().join("main.js");
+    fs::write(
+        &main_path,
+        r#"async function main() {
+  const box = { m: null };
+  box.m = await import("./util.js");
+  console.log(box.m.greet());
+}
+main();
+"#,
+    )
+    .expect("write main.js");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&main_path)
+        .output()
+        .expect("run kali");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        !output.status.success(),
+        "expected a compile-time reject, not the silent pre-stage `0`; stdout: {stdout}"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("E5506"),
+        "expected E5506 in stderr, got: {stderr}"
+    );
+
+    let node = node_output(dir.path(), &main_path);
+    assert!(
+        node.status.success(),
+        "node stderr: {}",
+        String::from_utf8_lossy(&node.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&node.stdout), "42\n");
+}
+
+// ---- C2 remainder, GREEN guards: the new allowlist gate must not over-reach ----
+
+/// Positive control: bindingless statement-form `await import(...)` must stay green (39 tests
+/// beyond this file depend on this).
+#[test]
+fn position_allowlist_leaves_bindingless_statement_form_green() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(
+        dir.path().join("lazy.js"),
+        "console.log(\"lazy loaded\");\n",
+    )
+    .expect("write lazy.js");
+    let main_path = dir.path().join("main.js");
+    fs::write(
+        &main_path,
+        r#"async function main() {
+  await import("./lazy.js");
+  console.log("main loaded");
+}
+main();
+"#,
+    )
+    .expect("write main.js");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&main_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "main loaded\n");
+}
+
+/// Positive control: the proven `const ns = await import("./x")` lane must still link and run for
+/// real, distinguishable output.
+#[test]
+fn position_allowlist_leaves_proven_const_lane_green() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(
+        dir.path().join("util.js"),
+        "export function greet() { return 42; }\n",
+    )
+    .expect("write util.js");
+    let main_path = dir.path().join("main.js");
+    fs::write(
+        &main_path,
+        r#"async function main() {
+  const chunk = await import("./util.js");
+  console.log(chunk.greet());
+}
+main();
+"#,
+    )
+    .expect("write main.js");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&main_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout, "42\n");
+
+    let node = node_output(dir.path(), &main_path);
+    assert!(
+        node.status.success(),
+        "node stderr: {}",
+        String::from_utf8_lossy(&node.stderr)
+    );
+    assert_eq!(
+        stdout,
+        String::from_utf8_lossy(&node.stdout),
+        "kali must byte-match node"
+    );
+}
+
+/// Positive control: `Object.freeze(...)`-wrapped specifier (a drained bucket-#7 fixture shape)
+/// must still link and run.
+#[test]
+fn position_allowlist_leaves_object_freeze_wrapped_specifier_green() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(
+        dir.path().join("util.js"),
+        "export function greet() { return 42; }\n",
+    )
+    .expect("write util.js");
+    let main_path = dir.path().join("main.js");
+    fs::write(
+        &main_path,
+        r#"async function main() {
+  const chunk = await import(Object.freeze("./util.js"));
+  console.log(chunk.greet());
+}
+main();
+"#,
+    )
+    .expect("write main.js");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&main_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout, "42\n");
+
+    let node = node_output(dir.path(), &main_path);
+    assert!(
+        node.status.success(),
+        "node stderr: {}",
+        String::from_utf8_lossy(&node.stderr)
+    );
+    assert_eq!(
+        stdout,
+        String::from_utf8_lossy(&node.stdout),
+        "kali must byte-match node"
+    );
+}
+
+/// Positive control: an unused, unprovable (`let`-bound) namespace binding must not be denied by
+/// the new position gate — the declarator-init position is allowlisted regardless of `kind`;
+/// whether it earns real provenance (and the "unused is harmless" exemption) is the pre-existing
+/// pipeline's job.
+#[test]
+fn position_allowlist_leaves_unused_unprovable_binding_green() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(dir.path().join("impure.js"), "export const VERSION = 1n;\n")
+        .expect("write impure.js");
+    let main_path = dir.path().join("main.js");
+    fs::write(
+        &main_path,
+        r#"async function main() {
+  let c = await import("./impure.js");
+  console.log("main loaded");
+}
+main();
+"#,
+    )
+    .expect("write main.js");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&main_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "main loaded\n");
+}

@@ -2268,6 +2268,513 @@ fn unquote(value: &str) -> String {
     }
 }
 
+// ---- ImportExpression position allowlist (C2 remainder — second review round) ----
+//
+// The C2 default-deny above (`deny_unproven_namespace_binding_candidates`) is a DENYLIST OF
+// BINDING SHAPES: it only ever looks for an `ImportExpression` at the two exact spots
+// `signal_var_decl`/`signal_statement` know to check — a `VariableDeclarator.init` (any kind, any
+// depth) and a relative `import * as ns from "./x"` specifier. Any `import(...)` whose value
+// reaches a member access by some OTHER route was never even recorded as a "candidate" at all, so
+// it fell through both `collect_namespace_provenance` (no provenance) AND the C2 candidate deny
+// (never in `signals.candidates`) straight to the pre-stage silent `0` — five such fail-opens,
+// all probe-proven on a fresh binary (a second whole-branch review round; util.js exports
+// `greet() { return 42; }`):
+//   - `let c; c = await import(...); c.greet()`            (assignment, not a declarator init)
+//   - same, `typeof c.greet`
+//   - `(await import(...)).greet()`                         (inline member access, no binding)
+//   - `const c = (0, await import(...)); c.greet()`          (sequence-expression init)
+//   - `box.m = await import(...); box.m.greet()`             (member/property sink)
+//
+// This walk closes the class BY CONSTRUCTION instead of enumerating more shapes: it censuses
+// EVERY `Expression::ImportExpression` node in the program, at any depth, and default-denies each
+// one whose SYNTACTIC POSITION is not on a two-item allowlist — (a) the `init` of a
+// `VariableDeclarator`, of any `kind` and at any nesting depth (mod `ParenthesizedExpression`/
+// `AwaitExpression` wrapping around either layer, exactly what `as_await_import_source` already
+// tolerates for the proven lane), or (b) a bindingless statement-level expression (`await
+// import(...);` / `import(...);`, same wrapping tolerance) used purely for side effects (39 green
+// tests — `browser_template_literal_dynamic_import_harness` + `runtime_smoke dynamic_import` —
+// depend on this staying untouched). Deliberately NOT gated on whether the declarator's binding
+// ever actually EARNS provenance (const vs. let/var, foldable vs. not, shadowed vs. not) — that
+// question, and the "unused is harmless" exemption for it, are already correctly owned by
+// `collect_namespace_provenance` / `deny_unproven_namespace_binding_candidates` above; this walk's
+// only job is to catch the positions NEITHER of those ever looks at, so it runs UNCONDITIONALLY
+// (no usage check) for every position outside the allowlist. Every other position — an
+// assignment's right-hand side, a sequence-expression element, an inline member access on the
+// import's own result, a member/property-assignment sink, a call argument, a return value, an
+// array/object element, an arrow-function body, or anywhere else an `Expression` can appear — is
+// denied (E5506) the instant an `ImportExpression` is found there, regardless of whether its
+// value is ever read afterward: unlike a namespace BINDING (which is harmless if truly unused),
+// these positions have no binding at all to check for use — the import expression's value is
+// already being produced and handed somewhere the instant it's evaluated.
+//
+// Mirrors the exhaustive, no-`_=>`-arm traversal shape of `walk_*`/`rewrite_*`/`census_*`/
+// `signal_*` above (same node coverage on both `Statement` and `Expression`), threading one extra
+// `bool` (`allowed_root`) instead of a callback: `true` at exactly the two allowlisted root
+// positions (a `VariableDeclarator.init`, an `ExpressionStatement.expression`), preserved across a
+// `ParenthesizedExpression`/`AwaitExpression` unwrap (mirroring `as_await_import_source`'s own
+// tolerance), and reset to `false` for every other child position — including the `.source` field
+// of an `ImportExpression` itself, and the body of a `FunctionExpression`/`ArrowFunctionExpression`
+// (so `async () => await import(...)`'s body is a denied position too, since binding that ARROW,
+// not its eventual import result, is what a declarator init would actually capture there).
+fn deny_import_expressions_outside_allowlist(
+    statements: &[Statement],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for statement in statements {
+        deny_import_positions_statement(statement, diagnostics);
+    }
+}
+
+fn import_expression_outside_allowlist_error() -> Diagnostic {
+    Diagnostic::error(
+        e5::FEATURE_UNAVAILABLE as u32,
+        "`import(...)` is only supported as the init of a `const`/`let`/`var` declarator (`const ns \
+         = await import(<foldable specifier>)`, the proven-linkable lane) or as a bindingless \
+         statement (`await import(\"./x.js\");`, for side effects only) — every other position (an \
+         assignment's right-hand side, a sequence-expression element, an inline member access on \
+         the import's own result, a member/property-assignment sink, a call argument, a return \
+         value, an array/object element, an arrow-function body, or anywhere else) would let the \
+         raw import/namespace value escape into that position and is unavailable in the current \
+         direct-runtime path"
+            .to_string(),
+    )
+}
+
+fn deny_import_positions_block(block: &BlockStatement, diagnostics: &mut Vec<Diagnostic>) {
+    for statement in &block.body {
+        deny_import_positions_statement(statement, diagnostics);
+    }
+}
+
+fn deny_import_positions_var_decl(decl: &VariableDeclaration, diagnostics: &mut Vec<Diagnostic>) {
+    // `decl.kind` (var/let/const) is deliberately NOT checked here — the allowlist covers a
+    // declarator init of ANY kind; whether it goes on to actually earn provenance is a separate
+    // concern the pre-existing pipeline already owns (see the section doc comment above).
+    for declarator in &decl.declarations {
+        if let Some(init) = &declarator.init {
+            deny_import_positions_expression(init, true, diagnostics);
+        }
+    }
+}
+
+fn deny_import_positions_class_body(body: &ClassBody, diagnostics: &mut Vec<Diagnostic>) {
+    for method in &body.methods {
+        if let Some(method_body) = &method.body {
+            deny_import_positions_block(method_body, diagnostics);
+        }
+    }
+}
+
+fn deny_import_positions_statement(statement: &Statement, diagnostics: &mut Vec<Diagnostic>) {
+    match statement {
+        // The ONLY other allowlisted root: a bindingless statement-level
+        // expression — `await import(...);` / `import(...);` for side
+        // effects.
+        Statement::ExpressionStatement(stmt) => {
+            deny_import_positions_expression(&stmt.expression, true, diagnostics)
+        }
+        // `label` is a control-flow target name, never an `Expression`.
+        Statement::BreakStatement(_) => {}
+        Statement::ContinueStatement(_) => {}
+        Statement::WithStatement(stmt) => {
+            deny_import_positions_expression(&stmt.object, false, diagnostics);
+            deny_import_positions_statement(&stmt.body, diagnostics);
+        }
+        Statement::ReturnStatement(stmt) => {
+            if let Some(argument) = &stmt.argument {
+                // A return-value escape — never a bindingless statement or
+                // a declarator init.
+                deny_import_positions_expression(argument, false, diagnostics);
+            }
+        }
+        Statement::LabeledStatement(stmt) => {
+            deny_import_positions_statement(&stmt.body, diagnostics)
+        }
+        Statement::IfStatement(stmt) => {
+            deny_import_positions_expression(&stmt.test, false, diagnostics);
+            deny_import_positions_block(&stmt.consequent, diagnostics);
+            if let Some(alternate) = &stmt.alternate {
+                deny_import_positions_block(alternate, diagnostics);
+            }
+        }
+        Statement::SwitchStatement(stmt) => {
+            deny_import_positions_expression(&stmt.discriminant, false, diagnostics);
+            for case in &stmt.cases {
+                if let Some(test) = &case.test {
+                    deny_import_positions_expression(test, false, diagnostics);
+                }
+                for consequent in &case.consequent {
+                    deny_import_positions_statement(consequent, diagnostics);
+                }
+            }
+        }
+        Statement::ThrowStatement(stmt) => {
+            deny_import_positions_expression(&stmt.argument, false, diagnostics)
+        }
+        Statement::TryStatement(stmt) => {
+            deny_import_positions_block(&stmt.block, diagnostics);
+            if let Some(handler) = &stmt.handler {
+                deny_import_positions_block(&handler.body, diagnostics);
+            }
+            if let Some(finalizer) = &stmt.finalizer {
+                deny_import_positions_block(finalizer, diagnostics);
+            }
+        }
+        // No fields at all.
+        Statement::DebuggerStatement(_) => {}
+        Statement::BlockStatement(stmt) => deny_import_positions_block(stmt, diagnostics),
+        Statement::ForStatement(stmt) => {
+            match &stmt.init {
+                Some(ForInit::VariableDeclaration(decl)) => {
+                    deny_import_positions_var_decl(decl, diagnostics)
+                }
+                Some(ForInit::Expression(expr)) => {
+                    deny_import_positions_expression(expr, false, diagnostics)
+                }
+                None => {}
+            }
+            if let Some(test) = &stmt.test {
+                deny_import_positions_expression(test, false, diagnostics);
+            }
+            if let Some(update) = &stmt.update {
+                deny_import_positions_expression(update, false, diagnostics);
+            }
+            deny_import_positions_block(&stmt.body, diagnostics);
+        }
+        Statement::ForInStatement(stmt) => {
+            match &stmt.left {
+                ForInLefthand::VariableDeclaration(decl) => {
+                    deny_import_positions_var_decl(decl, diagnostics)
+                }
+                ForInLefthand::Expression(expr) => {
+                    deny_import_positions_expression(expr, false, diagnostics)
+                }
+            }
+            deny_import_positions_expression(&stmt.right, false, diagnostics);
+            deny_import_positions_statement(&stmt.body, diagnostics);
+        }
+        Statement::ForOfStatement(stmt) => {
+            match &stmt.left {
+                ForOfLefthand::VariableDeclaration(decl) => {
+                    deny_import_positions_var_decl(decl, diagnostics)
+                }
+                ForOfLefthand::Expression(expr) => {
+                    deny_import_positions_expression(expr, false, diagnostics)
+                }
+            }
+            deny_import_positions_expression(&stmt.right, false, diagnostics);
+            // `is_await` carries no `Expression` content.
+            deny_import_positions_statement(&stmt.body, diagnostics);
+        }
+        Statement::WhileStatement(stmt) => {
+            deny_import_positions_expression(&stmt.test, false, diagnostics);
+            deny_import_positions_block(&stmt.body, diagnostics);
+        }
+        Statement::DoWhileStatement(stmt) => {
+            deny_import_positions_block(&stmt.body, diagnostics);
+            deny_import_positions_expression(&stmt.test, false, diagnostics);
+        }
+        // `function.name`/`function.params` carry no `Expression` content.
+        Statement::FunctionDeclaration(function) => {
+            deny_import_positions_block(&function.body, diagnostics)
+        }
+        Statement::ClassDeclaration(class) => {
+            deny_import_positions_class_body(&class.body, diagnostics)
+        }
+        Statement::VariableDeclaration(decl) => deny_import_positions_var_decl(decl, diagnostics),
+        // `ImportDeclaration`/`ExportAllDeclaration`/`ExportNamedDeclaration` are the STATIC
+        // import/export syntax — every field is a `String`/specifier-name, never an
+        // `Expression::ImportExpression`-bearing node (same citation as `rewrite_statement`'s
+        // equivalent arms above).
+        Statement::ImportDeclaration(_) => {}
+        Statement::ExportAll(_) => {}
+        Statement::ExportNamed(_) => {}
+        Statement::ExportDefault(export) => match export {
+            ExportDefaultDeclaration::Expression(expr) => {
+                deny_import_positions_expression(expr, false, diagnostics)
+            }
+            ExportDefaultDeclaration::FunctionDeclaration(function) => {
+                deny_import_positions_block(&function.body, diagnostics)
+            }
+            ExportDefaultDeclaration::ClassDeclaration(class) => {
+                deny_import_positions_class_body(&class.body, diagnostics)
+            }
+        },
+        Statement::EnumDeclaration(decl) => {
+            for member in &decl.members {
+                if let Some(value) = &member.value {
+                    deny_import_positions_expression(value, false, diagnostics);
+                }
+            }
+        }
+        // TypeScript type syntax only — no `Expression` content to walk.
+        Statement::TypeAliasDeclaration(_) => {}
+        Statement::InterfaceDeclaration(_) => {}
+    }
+}
+
+fn deny_import_positions_expression_or_spread(
+    element: &ExpressionOrSpread,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    match element {
+        ExpressionOrSpread::Expression(expr) => {
+            deny_import_positions_expression(expr, false, diagnostics)
+        }
+        ExpressionOrSpread::Spread(spread) => {
+            deny_import_positions_expression(&spread.argument, false, diagnostics)
+        }
+        ExpressionOrSpread::Empty => {}
+    }
+}
+
+/// `allowed_root` is `true` only when `expr` sits at one of the two
+/// allowlisted positions — see the section doc comment above for the exact
+/// rules (unwrap tolerance, why usage doesn't gate this walk, why an arrow
+/// body is always denied). Every recursive call below passes `false` except
+/// the `ParenthesizedExpression` unwrap arm, which propagates whatever
+/// `allowed_root` it was called with unchanged.
+///
+/// This walk ONLY ever denies the compound shape `await import(<expr>)` (mod
+/// `ParenthesizedExpression` wrapping around either layer) — exactly what
+/// `as_await_import_source` recognizes for the proven lane elsewhere. A
+/// BARE, non-awaited `import(<expr>)` is a wholly separate, PRE-EXISTING
+/// feature (a raw `Promise`-returning dynamic import, lowered by its own
+/// codegen path with its own literal-specifier requirement — see e.g.
+/// `runtime_smoke`'s `non_literal_dynamic_import_targets` family, which
+/// returns a bare `import(specifier)` from a `Kali.test` callback and
+/// expects THAT check's diagnostic) that this pass must never shadow: none
+/// of the five fail-open probes this walk exists to close ever omit
+/// `await`, and a bare `import(...)` member access (`import(x).member`)
+/// would already throw in real JS (`Promise` has no such member) rather than
+/// silently returning a falsy default, so there is no soundness gain in
+/// denying it here — only a message-preemption regression to avoid.
+fn deny_import_positions_expression(
+    expr: &Expression,
+    allowed_root: bool,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    match expr {
+        Expression::ParenthesizedExpression(inner) => {
+            deny_import_positions_expression(&inner.expression, allowed_root, diagnostics)
+        }
+        Expression::AwaitExpression(await_expr) => match unwrap_parens(&await_expr.argument) {
+            Expression::ImportExpression(import_expr) => {
+                if !allowed_root {
+                    diagnostics.push(import_expression_outside_allowlist_error());
+                }
+                // The specifier itself is never an allowed root regardless
+                // of this node's own position — defense in depth for a
+                // pathological nested `import(import(...))`.
+                deny_import_positions_expression(&import_expr.source, false, diagnostics);
+            }
+            // `await <anything else>` — not a dynamic import at all;
+            // `allowed_root` never applies past a plain `await`.
+            _ => deny_import_positions_expression(&await_expr.argument, false, diagnostics),
+        },
+        // A BARE (non-awaited) `import(...)` — the separate, pre-existing
+        // feature described in the doc comment above. Never denied here,
+        // regardless of position; still walked (its `.source` field) for
+        // defense in depth.
+        Expression::ImportExpression(import_expr) => {
+            deny_import_positions_expression(&import_expr.source, false, diagnostics);
+        }
+        // A bare identifier carries no further `Expression` content.
+        Expression::Identifier(_) => {}
+        Expression::Literal(_) => {}
+        Expression::BinaryExpression(binary) => {
+            deny_import_positions_expression(&binary.left, false, diagnostics);
+            deny_import_positions_expression(&binary.right, false, diagnostics);
+        }
+        Expression::UnaryExpression(unary) => {
+            deny_import_positions_expression(&unary.argument, false, diagnostics)
+        }
+        Expression::CallExpression(call) => {
+            deny_import_positions_expression(&call.callee, false, diagnostics);
+            for arg in &call.args {
+                deny_import_positions_expression(arg, false, diagnostics);
+            }
+        }
+        Expression::MemberExpression(member) => {
+            deny_import_positions_expression(&member.object, false, diagnostics);
+            if let Some(index) = &member.computed_index {
+                deny_import_positions_expression(index, false, diagnostics);
+            }
+        }
+        Expression::ArrayExpression(array) => {
+            for element in array.elements.iter().flatten() {
+                deny_import_positions_expression_or_spread(element, diagnostics);
+            }
+        }
+        Expression::ObjectExpression(object) => {
+            for property in &object.properties {
+                deny_import_positions_expression(&property.value, false, diagnostics);
+            }
+        }
+        Expression::FunctionExpression(function) => {
+            if let Some(body) = &function.body {
+                deny_import_positions_block(body, diagnostics);
+            }
+        }
+        Expression::ArrowFunctionExpression(arrow) => {
+            deny_import_positions_expression(&arrow.body, false, diagnostics)
+        }
+        Expression::ClassExpression(class) => {
+            deny_import_positions_class_body(&class.body, diagnostics)
+        }
+        Expression::NewExpression(new_expr) => {
+            deny_import_positions_expression(&new_expr.callee, false, diagnostics);
+            for arg in &new_expr.args {
+                deny_import_positions_expression(arg, false, diagnostics);
+            }
+        }
+        // `meta`/`property` are fixed keyword strings (e.g. `import.meta`),
+        // never identifier lookups.
+        Expression::MetaProperty(_) => {}
+        Expression::TemplateLiteral(template) => {
+            for expression in &template.expressions {
+                deny_import_positions_expression(expression, false, diagnostics);
+            }
+        }
+        Expression::TaggedTemplateExpression(tagged) => {
+            deny_import_positions_expression(&tagged.tag, false, diagnostics);
+            for expression in &tagged.template.expressions {
+                deny_import_positions_expression(expression, false, diagnostics);
+            }
+        }
+        Expression::UpdateExpression(update) => {
+            deny_import_positions_expression(&update.argument, false, diagnostics)
+        }
+        Expression::AssignmentExpression(assignment) => {
+            deny_import_positions_expression(&assignment.left, false, diagnostics);
+            deny_import_positions_expression(&assignment.right, false, diagnostics);
+        }
+        Expression::LogicalExpression(logical) => {
+            deny_import_positions_expression(&logical.left, false, diagnostics);
+            deny_import_positions_expression(&logical.right, false, diagnostics);
+        }
+        Expression::ConditionalExpression(conditional) => {
+            deny_import_positions_expression(&conditional.test, false, diagnostics);
+            deny_import_positions_expression(&conditional.consequent, false, diagnostics);
+            deny_import_positions_expression(&conditional.alternate, false, diagnostics);
+        }
+        Expression::SequenceExpression(sequence) => {
+            for expression in &sequence.expressions {
+                deny_import_positions_expression(expression, false, diagnostics);
+            }
+        }
+        Expression::YieldExpression(yield_expr) => {
+            if let Some(argument) = &yield_expr.argument {
+                deny_import_positions_expression(argument, false, diagnostics);
+            }
+        }
+        Expression::OptionalChainExpression(chain) => match chain.inner.as_ref() {
+            OptionalChainInner::NonNull { object, .. } => {
+                deny_import_positions_expression(object, false, diagnostics)
+            }
+        },
+        Expression::ChainExpression(chain) => {
+            deny_import_positions_expression(&chain.expression, false, diagnostics)
+        }
+        Expression::SpreadElement(spread) => {
+            deny_import_positions_expression(&spread.argument, false, diagnostics)
+        }
+        Expression::RestElement(rest) => {
+            deny_import_positions_expression(&rest.argument, false, diagnostics)
+        }
+        Expression::DecoratedExpression(decorated) => {
+            deny_import_positions_expression(&decorated.expression, false, diagnostics)
+        }
+        Expression::JsxElement(element) => deny_import_positions_jsx_element(element, diagnostics),
+        Expression::JsxFragment(fragment) => {
+            deny_import_positions_jsx_fragment(fragment, diagnostics)
+        }
+        // No content at all.
+        Expression::JsxEmptyExpression => {}
+        Expression::TypeAssertion(assertion) => {
+            // `assertion.type_name` is TypeScript type syntax, not a value reference.
+            deny_import_positions_expression(&assertion.expression, false, diagnostics)
+        }
+        Expression::SatisfiesExpression(satisfies) => {
+            // `satisfies.type_name` is TypeScript type syntax, not a value reference.
+            deny_import_positions_expression(&satisfies.expression, false, diagnostics)
+        }
+        // `this`/`super` are keywords, never identifier lookups.
+        Expression::ThisExpression => {}
+        Expression::SuperExpression => {}
+        // A private class-field name (`#foo`) carries no `Expression` content.
+        Expression::PrivateIdentifier(_) => {}
+        // A literal numeric value, not a reference.
+        Expression::BigIntLiteral(_) => {}
+    }
+}
+
+fn deny_import_positions_jsx_element(element: &JsxElement, diagnostics: &mut Vec<Diagnostic>) {
+    for attribute in &element.opening_element.attributes {
+        deny_import_positions_jsx_attribute_item(attribute, diagnostics);
+    }
+    for child in &element.children {
+        deny_import_positions_jsx_child(child, diagnostics);
+    }
+}
+
+fn deny_import_positions_jsx_fragment(fragment: &JsxFragment, diagnostics: &mut Vec<Diagnostic>) {
+    for child in &fragment.children {
+        deny_import_positions_jsx_child(child, diagnostics);
+    }
+}
+
+fn deny_import_positions_jsx_attribute_item(
+    item: &JsxAttributeItem,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    match item {
+        JsxAttributeItem::JsxAttribute(attribute) => {
+            deny_import_positions_jsx_attribute_value(&attribute.value, diagnostics)
+        }
+        JsxAttributeItem::JsxSpreadAttribute(spread) => {
+            deny_import_positions_expression(&spread.argument, false, diagnostics)
+        }
+    }
+}
+
+fn deny_import_positions_jsx_attribute_value(
+    value: &JsxAttributeValue,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    match value {
+        JsxAttributeValue::String(_) => {}
+        JsxAttributeValue::JsxElement(element) => {
+            deny_import_positions_jsx_element(element, diagnostics)
+        }
+        JsxAttributeValue::JsxExpression(container) => {
+            deny_import_positions_jsx_expression_container(container, diagnostics)
+        }
+    }
+}
+
+fn deny_import_positions_jsx_expression_container(
+    container: &JsxExpressionContainer,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if let Some(expression) = &container.expression {
+        deny_import_positions_expression(expression, false, diagnostics);
+    }
+}
+
+fn deny_import_positions_jsx_child(child: &JsxChild, diagnostics: &mut Vec<Diagnostic>) {
+    match child {
+        JsxChild::JsxText(_) => {}
+        JsxChild::JsxExpression(container) => {
+            deny_import_positions_jsx_expression_container(container, diagnostics)
+        }
+        JsxChild::JsxElement(element) => deny_import_positions_jsx_element(element, diagnostics),
+        JsxChild::JsxFragment(fragment) => {
+            deny_import_positions_jsx_fragment(fragment, diagnostics)
+        }
+    }
+}
+
 // ---- default-deny leftovers + shadowing guard + pipeline entry point (Task 7) ----
 //
 // Two concerns close the value-leak class left open by Tasks 3-6:
@@ -3432,10 +3939,21 @@ pub fn link_provable_module_namespaces(
     statements: &mut Vec<Statement>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
+    // C2 (position allowlist, second review round): runs FIRST and
+    // UNCONDITIONALLY — it doesn't need `provenance` at all, since it denies
+    // by SYNTACTIC POSITION, not by binding shape or usage. See
+    // `deny_import_positions_expression`'s section doc comment above for why
+    // this is a separate, earlier gate from the binding-shape deny below.
+    deny_import_expressions_outside_allowlist(statements, diagnostics);
+    if has_errors(diagnostics) {
+        return;
+    }
+
     let provenance = collect_namespace_provenance(source_path, source_contents, statements);
 
-    // C2: MUST run before the `bindings.is_empty()` early return below —
-    // see `deny_unproven_namespace_binding_candidates`'s doc comment.
+    // C2 (binding-shape deny): MUST run before the `bindings.is_empty()`
+    // early return below — see `deny_unproven_namespace_binding_candidates`'s
+    // doc comment.
     deny_unproven_namespace_binding_candidates(statements, &provenance, diagnostics);
     if has_errors(diagnostics) {
         return;
@@ -5505,5 +6023,198 @@ mod tests {
             "a linked module's own internal local must not be denied: {diagnostics:?}"
         );
         let _ = find_function(&statements, "__link0_calc");
+    }
+
+    // ---- C2 remainder (second review round): ImportExpression position allowlist ----
+    //
+    // Each shape below was a LIVE fail-open on the pre-fix code: neither
+    // `collect_namespace_provenance` nor `deny_unproven_namespace_binding_candidates` ever
+    // recorded an `ImportExpression` reached through anything other than a
+    // `VariableDeclarator.init` or a relative `import * as` specifier, so these five silently fell
+    // through to the pre-stage `0` — exit 0, no diagnostic. Post-fix,
+    // `deny_import_expressions_outside_allowlist` denies every one of them (E5506) by SYNTACTIC
+    // POSITION, unconditionally.
+
+    #[test]
+    fn link_provable_module_namespaces_denies_assignment_form_dynamic_import() {
+        let (_dir, main_js) = fixture_dir();
+        let source = r#"
+            async function main() {
+                let c;
+                c = await import("./util.js");
+                console.log(c.greet());
+            }
+            main();
+        "#;
+        let mut statements = parse(source);
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(has_errors(&diagnostics), "diagnostics: {diagnostics:?}");
+        let diagnostic = find_diagnostic_containing(&diagnostics, "import(...)");
+        assert_eq!(diagnostic.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+    }
+
+    #[test]
+    fn link_provable_module_namespaces_denies_assignment_form_dynamic_import_typeof() {
+        let (_dir, main_js) = fixture_dir();
+        let source = r#"
+            async function main() {
+                let c;
+                c = await import("./util.js");
+                console.log(typeof c.greet);
+            }
+            main();
+        "#;
+        let mut statements = parse(source);
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(has_errors(&diagnostics), "diagnostics: {diagnostics:?}");
+        let diagnostic = find_diagnostic_containing(&diagnostics, "import(...)");
+        assert_eq!(diagnostic.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+    }
+
+    #[test]
+    fn link_provable_module_namespaces_denies_inline_member_access_on_import_result() {
+        let (_dir, main_js) = fixture_dir();
+        let source = r#"
+            async function main() {
+                console.log((await import("./util.js")).greet());
+            }
+            main();
+        "#;
+        let mut statements = parse(source);
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(has_errors(&diagnostics), "diagnostics: {diagnostics:?}");
+        let diagnostic = find_diagnostic_containing(&diagnostics, "import(...)");
+        assert_eq!(diagnostic.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+    }
+
+    #[test]
+    fn link_provable_module_namespaces_denies_sequence_expression_init_dynamic_import() {
+        let (_dir, main_js) = fixture_dir();
+        let source = r#"
+            async function main() {
+                const c = (0, await import("./util.js"));
+                console.log(c.greet());
+            }
+            main();
+        "#;
+        let mut statements = parse(source);
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(has_errors(&diagnostics), "diagnostics: {diagnostics:?}");
+        let diagnostic = find_diagnostic_containing(&diagnostics, "import(...)");
+        assert_eq!(diagnostic.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+    }
+
+    #[test]
+    fn link_provable_module_namespaces_denies_member_sink_dynamic_import() {
+        let (_dir, main_js) = fixture_dir();
+        let source = r#"
+            async function main() {
+                const box = { m: null };
+                box.m = await import("./util.js");
+                console.log(box.m.greet());
+            }
+            main();
+        "#;
+        let mut statements = parse(source);
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(has_errors(&diagnostics), "diagnostics: {diagnostics:?}");
+        let diagnostic = find_diagnostic_containing(&diagnostics, "import(...)");
+        assert_eq!(diagnostic.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+    }
+
+    // ---- C2 remainder, GREEN guards: the new allowlist gate must not over-reach ----
+
+    #[test]
+    fn link_provable_module_namespaces_position_allowlist_allows_bindingless_statement_form() {
+        let (_dir, main_js) = fixture_dir();
+        let source = r#"
+            async function main() {
+                await import("./lazy.js");
+            }
+            main();
+        "#;
+        let mut statements = parse(source);
+        let before = statements.clone();
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
+        assert_eq!(statements, before);
+    }
+
+    #[test]
+    fn link_provable_module_namespaces_position_allowlist_allows_proven_const_lane() {
+        let (_dir, main_js) = fixture_dir();
+        let source = r#"
+            async function main() {
+                const chunk = await import("./util.js");
+                console.log(chunk.greet());
+            }
+            main();
+        "#;
+        let mut statements = parse(source);
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
+        let _ = find_function(&statements, "__link0_greet");
+    }
+
+    #[test]
+    fn link_provable_module_namespaces_position_allowlist_allows_unused_unprovable_binding() {
+        let (_dir, main_js) = fixture_dir();
+        // Declarator-init position IS on the allowlist regardless of `kind` — whether it earns
+        // real provenance (and the separate "unused is harmless" exemption) is the pre-existing
+        // pipeline's job, not this position gate's.
+        let source = r#"
+            async function main() {
+                let c = await import("./util.js");
+            }
+            main();
+        "#;
+        let mut statements = parse(source);
+        let before = statements.clone();
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
+        assert_eq!(statements, before);
+    }
+
+    #[test]
+    fn link_provable_module_namespaces_position_allowlist_allows_object_freeze_wrapped_specifier() {
+        let (_dir, main_js) = fixture_dir();
+        let source = r#"
+            async function main() {
+                const chunk = await import(Object.freeze("./util.js"));
+                console.log(chunk.greet());
+            }
+            main();
+        "#;
+        let mut statements = parse(source);
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
+        let _ = find_function(&statements, "__link0_greet");
     }
 }

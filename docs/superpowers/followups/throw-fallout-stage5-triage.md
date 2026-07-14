@@ -809,6 +809,14 @@ blocked by them).
   So `let`-bound / block-nested / async-arrow / non-foldable-specifier namespaces remain
   UNLINKABLE (a real feature gap: kali rejects programs node runs) — but they are now honestly
   REJECTED rather than silently mis-evaluated.
+  **CORRECTION #2 (second whole-branch review round — this list was itself INCOMPLETE).** This
+  bullet's "genuinely remains open" list was accurate about binding SHAPES but silent about
+  binding-FREE and non-declarator-init routes: this fix (`deny_unproven_namespace_binding_
+  candidates`) is a DENYLIST keyed off exactly two recorded shapes (a `VariableDeclarator.init`,
+  or an `import * as` specifier) — an `ImportExpression` reached any other way was never even a
+  candidate, so it ALSO fell through to the pre-stage silent `0`, undocumented here until the
+  second review round found it. See Task 10 below for the five additional fail-open shapes and
+  the position-allowlist fix that closes them.
 - **Specifier-fold scope blindness (final whole-branch review, C1 — FIXED).** The fold
   (`fold_import_specifier`) resolved a bare `Identifier` straight out of a const map that a
   function body inherited from module scope (`local_consts = module_consts.clone()`) and never
@@ -841,6 +849,132 @@ blocked by them).
   see Task-2 census).
 - (A) `String(<bigint>)` → `0` and (B) call-bound `const` double-evaluation, both above — neither
   is import/module-linking-specific; file as general codegen follow-ups.
+
+## Task 10 — C2 remainder: ImportExpression position allowlist (second whole-branch review round)
+
+A second whole-branch review re-examined C2 after the Task-9 checkpoint and found the fix
+implemented in commit `e8edbf226` was a **DENYLIST OF BINDING SHAPES**, not the **ALLOWLIST AT
+THE CHOKE POINT** this repo's own for-in-key value-escape lesson calls for. `deny_unproven_
+namespace_binding_candidates`'s `BindingSignals::candidates` census only ever records an
+`ImportExpression` reached through exactly two routes — a `VariableDeclarator.init`, or a
+relative `import * as` specifier. Any `await import(...)` whose value reached a member access by
+some OTHER route was never recorded as a candidate at all, so it fell through both provenance
+collection AND the C2 deny straight back to the pre-stage silent `0` — five such fail-opens, all
+probe-proven on a fresh binary (`util.js` exports `greet() { return 42; }`; every cell is exit 0,
+no diagnostic, wrong value, pre-fix):
+
+| probe | node | pre-fix kali |
+|---|---|---|
+| `let c; c = await import("./util.js"); console.log(c.greet())` (assignment, not a declarator init) | `42` | `0` |
+| same, `console.log(typeof c.greet)` | `function` | `0` |
+| `console.log((await import("./util.js")).greet())` (inline member access, no binding) | `42` | `0` |
+| `const c = (0, await import("./util.js")); c.greet()` (sequence-expression init) | `42` | `0` |
+| `const box = {m:null}; box.m = await import("./util.js"); box.m.greet()` (member sink) | `42` | `0` |
+
+### The fix
+
+`deny_import_expressions_outside_allowlist` (`crates/kali_cli/src/build/module_link.rs`) censuses
+**every** `Expression::ImportExpression` node in the entry AST, at any depth, via an exhaustive
+(no `_ =>` arm) traversal mirroring `walk_*`/`rewrite_*`/`census_*`/`signal_*`'s existing shape,
+threading one `bool` (`allowed_root`) instead of a callback. It runs FIRST, unconditionally,
+before provenance is even collected — it denies by SYNTACTIC POSITION, not by binding shape or
+usage.
+
+**What it denies:** the compound shape `await import(<expr>)` (mod `ParenthesizedExpression`
+wrapping around either layer — the same tolerance `as_await_import_source` already has) found
+anywhere EXCEPT the two allowlisted roots below. Concretely: an assignment's right-hand side, a
+sequence-expression element, an inline member access on the import's own result, a
+member/property-assignment sink, a call argument, a return value, an array/object element, an
+arrow-function body, or anywhere else an `Expression` can appear. Denied UNCONDITIONALLY —
+regardless of whether the value is ever read afterward — because, unlike a namespace BINDING
+(harmless if truly unused), these positions have no binding to check for use at all: the value is
+already produced and handed somewhere the instant it's evaluated.
+
+**The allowlist (exactly two positions):**
+- (a) the `init` of a `VariableDeclarator`, of ANY `kind` (const/let/var) and at any nesting
+  depth. Deliberately NOT gated on whether the binding goes on to actually EARN provenance
+  (`const` vs. `let`/`var`, foldable vs. not, shadowed vs. not, used vs. unused) — that question,
+  and the "unused is harmless" exemption for it, are already correctly owned by
+  `collect_namespace_provenance` / `deny_unproven_namespace_binding_candidates`; this gate's only
+  job is the positions NEITHER of those ever looks at.
+- (b) a bindingless statement-level expression (`await import(...);` / `import(...);`, side
+  effects only — 39 green tests depend on this staying untouched).
+
+**Scoped to `await`-wrapped import only.** A BARE, non-awaited `import(<expr>)` is a wholly
+separate, pre-existing feature (a raw `Promise`-returning dynamic import with its own
+literal-specifier codegen requirement — see `runtime_smoke`'s `non_literal_dynamic_import_targets`
+family, which returns a bare `import(specifier)` from a `Kali.test` callback and pins THAT check's
+own diagnostic text). The first implementation of this fix denied by position regardless of
+`await`, which regressed those two tests (my new diagnostic preempted the resolver's, before the
+resolver's check ever ran — `link_provable_module_namespaces` returns early on error, so
+`compile.rs` never reaches `resolve_statements_in_file`). Fixed by keying the deny off the exact
+compound shape `AwaitExpression` wrapping (mod parens) an `ImportExpression`, leaving a bare
+`import(...)` completely untouched by this pass at every position — none of the five fail-open
+probes above omit `await`, and a bare `import(x).member` would already throw in real JS (`Promise`
+has no such member), so there is no soundness gain in denying it, only a message-preemption
+regression to avoid.
+
+### Two known over-rejections (both fail-closed, both reject a program node runs fine)
+
+Neither is fixed by this task — recorded here per the reviewer's requirement, so a future reader
+doesn't rediscover them as a surprise:
+
+1. **The C2 `used` set is name-keyed, not binding-keyed.** `deny_unproven_namespace_binding_
+   candidates` censuses `Expression::Identifier` reads by NAME only, with no lexical-scope
+   awareness — so an unrelated, unshadowing binding of the SAME NAME anywhere in the file makes an
+   otherwise-harmless unused candidate look "used" and denies it. Probe: `if (true) { let c =
+   await import("./util.js"); } const c = 5; console.log(c);` → kali: E5506 (rejects); node: `5`.
+   The inner `c` is a dead, unprovable candidate that nothing ever reads — but the outer,
+   completely unrelated `const c` read trips the name-keyed `used` check.
+2. **C1's "bound exactly once in the whole file" gate is file-global, not scope-aware.**
+   `fold_import_specifier`'s `Identifier` arm (and `is_object_freeze_callee`'s `Object` check) via
+   `compute_binding_counts` counts bindings across the ENTIRE file, not per-scope — so an
+   unrelated, non-shadowing second binding of the same name ANYWHERE in the file blocks a fold
+   that would otherwise be perfectly legitimate and unambiguous. Probe:  `const spec = "./a.js";
+   async function load() { const c = await import(spec); return c.which(); } console.log(await
+   load()); { const spec = "./b.js"; }` — the block-scoped inner `spec` (never read, never in
+   scope where `load` resolves its own `spec`) still bumps `spec`'s file-wide count to 2, so
+   `load`'s `spec` reference is treated as unprovable and the whole program is rejected (E5506),
+   even though node resolves `load`'s `spec` unambiguously to `"./a.js"` and prints the real
+   `which()` result.
+
+Both are pre-existing (this task did not introduce either — C1 shipped in `e8edbf226`, and the C2
+`used`-set logic shipped in the original C2 fix before that) and both are FAIL-CLOSED (a spurious
+reject, never a wrong value) — a real feature gap (kali rejects programs node runs), not a
+soundness hole. Deferred; would need real lexical-scope tracking to close precisely.
+
+### Separate follow-up: a PRE-EXISTING, unrelated miscompile (zero imports involved)
+
+Found by the same review round while probing member-call shapes; NOT fixed here (out of scope —
+recorded for a future pass):
+
+```js
+const box = { go: function () { return 42; } };
+console.log(box.go());
+```
+
+kali prints `0`; node prints `42`. Exit 0, no diagnostic, wrong value — an object-literal method
+call silently yields the wrong result. Verified on the fresh binary built for this task
+(`/workspace/target/debug/kali run obj.js` → `0`; `node obj.js` → `42`). Zero namespace/dynamic-
+import machinery involved; this is a general object/method-call codegen bug, unrelated to Stage 5
+except for having been found alongside it.
+
+### Verification (fresh binary, working tree at this task's HEAD)
+
+```
+cargo test -p kali_cli --lib build::module_link:: -- --test-threads=4     # 89 passed, 0 failed
+cargo test -p kali_cli --test module_namespace_link -- --test-threads=4   # 25 passed, 0 failed
+cargo test -p kali_cli --test runtime_smoke dynamic_import -- --test-threads=4          # 45 passed, 0 failed
+cargo test -p kali_cli --test browser_template_literal_dynamic_import_harness -- --test-threads=4  # 26 passed, 0 failed
+cargo test -p kali_cli --test node_api_surface -- --test-threads=4        # 45 passed, 0 failed
+cargo build --workspace                                                   # clean
+cargo fmt --check -p kali_cli                                              # clean
+```
+
+All 5 fail-open probes re-run on the rebuilt binary and confirmed REJECTING (E5506, exit 1,
+empty stdout) instead of printing `0`; all 4 positive controls (bindingless statement form, the
+proven `const` lane, an unused unprovable binding, an `Object.freeze`-wrapped specifier)
+re-confirmed still green with real, distinguishable output (not `0`).
 
 ### fmt + CI command
 
