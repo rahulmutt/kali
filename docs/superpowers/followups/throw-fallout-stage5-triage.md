@@ -1070,3 +1070,46 @@ stdout) instead of the silent `0`/dropped-callback; all 4 positive controls (bin
 form, the proven `const` lane, an unused unprovable binding, an `Object.freeze`-wrapped specifier)
 re-confirmed still green with real, distinguishable output; the non-literal `import(specifier)`
 diagnostic (`let specifier; import(specifier);`) re-confirmed unchanged.
+
+## Adversarial soundness sweep (post-fix, ~50 probes) — namespace lane SOUND
+
+Final adversarial hunt on the Stage-5 lane (HEAD `9e43e1762`), after four fix rounds. **Verdict: no
+silent-wrongness route remains.** ~50 probes across value-laundering (fn argument / return / array /
+object / closure / alias / `await` alias / destructure), the full position-allowlist perimeter
+(assignment RHS, object + array literal, call arg, sequence, ternary, direct-member, return),
+out-of-reach binding scopes (IIFE, function-expression, async arrow, class method, nested block,
+nested fn decl), wrong-module selection (2 dynamic, 2 static, mixed, ordinal skew from an unused
+module), specifier folds (template, `+` concat, declared-after-use), clone-body scope capture, and
+every name-collision axis (helper↔entry, sibling↔entry, mangled-name↔entry, binding↔fn-name,
+cross-module same-named privates). Every in-scope route either produced the CORRECT value or failed
+closed (`E5506`/`E3100`, exit 1). The JSX family (the one traversal mirror the sweep did not reach)
+was probed separately by the controller: `ns.greet()` in a JSX attribute, a JSX child, and a bare
+`ns` in an attribute all reject `E5506` — fail-closed, never a silent value.
+
+The load-bearing invariant: **any use the rewrite does not fix, the position census still sees** — so
+the failure mode is a diagnostic, not a wrong value.
+
+### PRE-EXISTING silent miscompiles found during the sweep (NOT Stage 5; each reproduces with ZERO import statements, where `module_link` provably early-returns)
+
+These are new throw-fallout bucket candidates — all are silent wrong values at exit 0, the program's
+core target class. Verified independent of this stage:
+
+| # | program | node | kali |
+|---|---|---|---|
+| 1 | `import { greet } from "./util.js"; greet()` | `42` | **`0`** |
+| 2 | `class C { run() { return 42; } } new C().run()` | `42` | **`0`** |
+| 3 | `const g = () => () => 42; g()()` | `42` | **`0`** |
+| 4 | `function f(v = 42) { return v; } f()` | `42` | **(empty)** |
+| 5 | `function h(){return 42} console.log(h(), h())` | `42 42` | **`42`** (2nd arg dropped) |
+| 6 | `const box = { go: function(){ return 42; } }; box.go()` | `42` | **`0`** |
+
+**#1 is the largest**: `resolve_import_declaration` (`crates/kali_types/src/resolve/mod.rs:991`) binds
+imported names into scope but never links any code, so EVERY cross-file static named/default import
+silently evaluates to `0`. Confirmed byte-identical on `main` (predates this branch entirely).
+Stage 5 strictly improves its own lane — `import * as ns` + `ns.greet()` was silent `0` on main and is
+now either correct or `E5506`.
+
+**#2 is a review trap worth knowing**: because class-method bodies unconditionally return `0`, a
+namespace call written inside a class method (`class C { run() { return ns.greet(); } }`) yields a
+silent `0` — **the Stage-5 link is correct there; the class-method lowering eats the result.** Anyone
+spot-checking Stage 5 through a class method will see a false positive.
