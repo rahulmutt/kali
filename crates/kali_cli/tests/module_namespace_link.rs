@@ -1368,3 +1368,113 @@ main();
     );
     assert_eq!(String::from_utf8_lossy(&output.stdout), "main loaded\n");
 }
+
+// ---- Stage 5 sibling (third review round): a BARE, non-awaited import() laundered through a
+// binding escaped both the position allowlist and the C2 candidate census — `await` applied to a
+// separately-bound identifier (`const p = import(...); ...; await p`) never syntactically wraps
+// the `ImportExpression`, so neither gate ever saw it. Pre-fix, every shape below was exit 0, no
+// diagnostic, silent `0` instead of the real linked value; node prints `42` for all of them.
+
+/// `const p = import(...)` (bare) followed by `await p` on the separately-bound identifier — the
+/// core probe the reviewer traced this whole class back to.
+#[test]
+fn bare_import_laundered_through_await_binding_is_rejected() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(
+        dir.path().join("util.js"),
+        "export function greet() { return 42; }\n",
+    )
+    .expect("write util.js");
+    let main_path = dir.path().join("main.js");
+    fs::write(
+        &main_path,
+        r#"async function main() {
+  const p = import("./util.js");
+  const c = await p;
+  console.log(c.greet());
+}
+main();
+"#,
+    )
+    .expect("write main.js");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&main_path)
+        .output()
+        .expect("run kali");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        !output.status.success(),
+        "expected a compile-time reject, not the silent pre-stage `0`; stdout: {stdout}"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("E5506"),
+        "expected E5506 in stderr, got: {stderr}"
+    );
+    assert!(
+        stdout.is_empty(),
+        "a rejected build must print nothing at all; stdout: {stdout}"
+    );
+
+    let node = node_output(dir.path(), &main_path);
+    assert!(
+        node.status.success(),
+        "node stderr: {}",
+        String::from_utf8_lossy(&node.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&node.stdout), "42\n");
+}
+
+/// `import(...).then(cb)` — the bare import's own `Promise` receiver is a non-allowlisted
+/// position (a `MemberExpression.object` under a call callee), and pre-fix the callback was
+/// silently dropped: no output at all, rather than the `42` node prints.
+#[test]
+fn bare_import_then_callback_receiver_is_rejected() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(
+        dir.path().join("util.js"),
+        "export function greet() { return 42; }\n",
+    )
+    .expect("write util.js");
+    let main_path = dir.path().join("main.js");
+    fs::write(
+        &main_path,
+        r#"import("./util.js").then(c => console.log(c.greet()));
+"#,
+    )
+    .expect("write main.js");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&main_path)
+        .output()
+        .expect("run kali");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        !output.status.success(),
+        "expected a compile-time reject, not the silent pre-stage dropped callback; stdout: {stdout}"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("E5506"),
+        "expected E5506 in stderr, got: {stderr}"
+    );
+    assert!(
+        stdout.is_empty(),
+        "a rejected build must print nothing at all; stdout: {stdout}"
+    );
+
+    let node = node_output(dir.path(), &main_path);
+    assert!(
+        node.status.success(),
+        "node stderr: {}",
+        String::from_utf8_lossy(&node.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&node.stdout), "42\n");
+}

@@ -2285,6 +2285,14 @@ fn unquote(value: &str) -> String {
 //   - `const c = (0, await import(...)); c.greet()`          (sequence-expression init)
 //   - `box.m = await import(...); box.m.greet()`             (member/property sink)
 //
+// THIRD review round: a verification review found this walk's own `Expression::ImportExpression`
+// arm (see its doc comment below) claimed a BARE, non-awaited `import(...)` needed no denial at
+// any position — that claim was FALSE. `await p` on a separately-bound identifier never
+// syntactically wraps the `ImportExpression` at all, so a bare import laundered through a binding
+// escaped both this walk AND `signal_var_decl`'s candidate census (which only recognized the
+// `AwaitExpression`-wrapped shape). Both gates are now fixed to also catch the bare shape — see
+// `is_foldable_import_specifier` and `signal_var_decl` below.
+//
 // This walk closes the class BY CONSTRUCTION instead of enumerating more shapes: it censuses
 // EVERY `Expression::ImportExpression` node in the program, at any depth, and default-denies each
 // one whose SYNTACTIC POSITION is not on a two-item allowlist — (a) the `init` of a
@@ -2513,6 +2521,39 @@ fn deny_import_positions_statement(statement: &Statement, diagnostics: &mut Vec<
     }
 }
 
+/// A self-contained (no whole-file `consts`/`bound_counts` context available at this call site)
+/// SUBSET of `fold_import_specifier`'s literal-oriented folds: a string literal, optionally
+/// `ParenthesizedExpression`-wrapped (via `unwrap_parens`), `SequenceExpression`-tailed (JS comma
+/// operator — last element only), or `+`-concatenated with another such foldable operand.
+/// Deliberately excludes `fold_import_specifier`'s `Identifier` const-lookup and
+/// `Object.freeze(...)` arms — both require the scope-aware `consts`/`bound_counts` maps this
+/// syntax-only deny walk never builds — but every fail-open shape this gate exists to close (see
+/// the section doc comment above) uses a bare string literal directly, so this narrower check is
+/// sufficient to close them without also having to thread that context through the entire
+/// `deny_import_positions_*` traversal.
+///
+/// Gating the bare-`ImportExpression` deny on this (instead of denying unconditionally, the way
+/// the `AwaitExpression` arm already does) is what keeps the pre-existing `non-literal dynamic
+/// import()` resolver diagnostic (`kali_types::resolve::expression::resolve_import_expression`)
+/// intact for a genuinely non-literal specifier reached from a non-allowlisted position — e.g.
+/// `return import(specifier)` inside an arrow body, where `specifier` is an untyped local (see
+/// `browser_non_literal_dynamic_import_harness_jsx_tsx.rs`, which this gate must leave unchanged).
+fn is_foldable_import_specifier(expr: &Expression) -> bool {
+    match unwrap_parens(expr) {
+        Expression::Literal(LiteralValue::String(_)) => true,
+        Expression::SequenceExpression(seq) => seq
+            .expressions
+            .last()
+            .map(is_foldable_import_specifier)
+            .unwrap_or(false),
+        Expression::BinaryExpression(binary) if binary.operator == "+" => {
+            is_foldable_import_specifier(&binary.left)
+                && is_foldable_import_specifier(&binary.right)
+        }
+        _ => false,
+    }
+}
+
 fn deny_import_positions_expression_or_spread(
     element: &ExpressionOrSpread,
     diagnostics: &mut Vec<Diagnostic>,
@@ -2535,20 +2576,28 @@ fn deny_import_positions_expression_or_spread(
 /// the `ParenthesizedExpression` unwrap arm, which propagates whatever
 /// `allowed_root` it was called with unchanged.
 ///
-/// This walk ONLY ever denies the compound shape `await import(<expr>)` (mod
-/// `ParenthesizedExpression` wrapping around either layer) — exactly what
-/// `as_await_import_source` recognizes for the proven lane elsewhere. A
-/// BARE, non-awaited `import(<expr>)` is a wholly separate, PRE-EXISTING
-/// feature (a raw `Promise`-returning dynamic import, lowered by its own
-/// codegen path with its own literal-specifier requirement — see e.g.
-/// `runtime_smoke`'s `non_literal_dynamic_import_targets` family, which
-/// returns a bare `import(specifier)` from a `Kali.test` callback and
-/// expects THAT check's diagnostic) that this pass must never shadow: none
-/// of the five fail-open probes this walk exists to close ever omit
-/// `await`, and a bare `import(...)` member access (`import(x).member`)
-/// would already throw in real JS (`Promise` has no such member) rather than
-/// silently returning a falsy default, so there is no soundness gain in
-/// denying it here — only a message-preemption regression to avoid.
+/// This walk denies two shapes at any non-allowlisted position: the compound
+/// `await import(<expr>)` (mod `ParenthesizedExpression` wrapping around
+/// either layer — exactly what `as_await_import_source` recognizes for the
+/// proven lane elsewhere), AND, as of the fix for the third review round's
+/// finding, a BARE, non-awaited `import(<expr>)` whose specifier is
+/// FOLDABLE (see `is_foldable_import_specifier`). The bare shape used to be
+/// claimed exempt here on the theory that "none of the fail-open probes
+/// ever omit `await`, and a bare `import(x).member` would already throw in
+/// real JS" — that reasoning covered only a DIRECT member access on the
+/// import expression itself; it never accounted for `await` applied to a
+/// separately-bound identifier (`const p = import(...); ...; await p`),
+/// where `await` never syntactically wraps the `ImportExpression` at all.
+/// That gap let a bare `import()` laundered through a binding reach a
+/// member access completely undetected (probe-proven: `const p =
+/// import("./util.js"); const c = await p; c.greet()` and five siblings —
+/// see `module_namespace_link.rs`'s bare-import test block). The foldability
+/// gate exists only to avoid pre-empting the separate, pre-existing
+/// non-literal-specifier diagnostic (`kali_types::resolve::expression::
+/// resolve_import_expression`) that a genuinely non-literal bare `import()`
+/// at a non-allowlisted position (e.g. `return import(specifier)`) must
+/// still produce unchanged — see
+/// `browser_non_literal_dynamic_import_harness_jsx_tsx.rs`.
 fn deny_import_positions_expression(
     expr: &Expression,
     allowed_root: bool,
@@ -2572,11 +2621,14 @@ fn deny_import_positions_expression(
             // `allowed_root` never applies past a plain `await`.
             _ => deny_import_positions_expression(&await_expr.argument, false, diagnostics),
         },
-        // A BARE (non-awaited) `import(...)` — the separate, pre-existing
-        // feature described in the doc comment above. Never denied here,
-        // regardless of position; still walked (its `.source` field) for
-        // defense in depth.
+        // A BARE (non-awaited) `import(...)`. Denied at a non-allowlisted position when its
+        // specifier is foldable — see the doc comment above and `is_foldable_import_specifier`.
+        // A non-foldable specifier here is left alone so the pre-existing resolver diagnostic
+        // (`resolve_import_expression`'s "non-literal dynamic import()") still fires unpre-empted.
         Expression::ImportExpression(import_expr) => {
+            if !allowed_root && is_foldable_import_specifier(&import_expr.source) {
+                diagnostics.push(import_expression_outside_allowlist_error());
+            }
             deny_import_positions_expression(&import_expr.source, false, diagnostics);
         }
         // A bare identifier carries no further `Expression` content.
@@ -3475,6 +3527,16 @@ struct BindingSignals {
     ///     is (modulo `ParenthesizedExpression` wrapping around either
     ///     layer) `await import(<any specifier expression>)`, whether or
     ///     not the specifier actually folds.
+    ///   - a `VariableDeclarator` of ANY kind whose `init` is (modulo the
+    ///     same wrapping) a BARE, non-awaited `import(<any specifier>)` —
+    ///     added for the third review round's finding: `const p =
+    ///     import(...)` followed by a separately-bound `await p` never
+    ///     produces an `AwaitExpression`-wrapped `ImportExpression` at all
+    ///     (the `await` applies to the identifier `p`, not to the import
+    ///     expression), so without this arm the binding was invisible to
+    ///     this census — and thus to `deny_unproven_namespace_binding_
+    ///     candidates` below — even though it goes on to be used exactly
+    ///     like the proven lane.
     ///
     /// A candidate with NO provenance that is also USED is the final
     /// whole-branch review's C2 finding — see
@@ -3533,12 +3595,25 @@ fn signal_var_decl(decl: &VariableDeclaration, signals: &mut BindingSignals) {
     // signal exists to catch (C2's `let`-bound probe).
     for declarator in &decl.declarations {
         if let Some(init) = &declarator.init {
-            if as_await_import_source(init).is_some() {
+            if is_namespace_candidate_init(init) {
                 signals.candidates.insert(declarator.id.clone());
             }
             signal_expression(init, signals);
         }
     }
+}
+
+/// True when `init` is (mod `ParenthesizedExpression` wrapping around either layer) either
+/// `await import(<any specifier>)` OR a BARE `import(<any specifier>)` — the two declarator-init
+/// shapes `BindingSignals::candidates` must record, regardless of whether the specifier ever
+/// folds. The bare-shape half closes the third review round's finding: `await` applied to a
+/// binding that already holds an unawaited import result (`const p = import(...); ...; await p`)
+/// never syntactically wraps the `ImportExpression`, so a check limited to
+/// `as_await_import_source` alone missed it — the binding still goes on to be read exactly like
+/// the proven `const ns = await import(...)` lane, just one `await` later.
+fn is_namespace_candidate_init(init: &Expression) -> bool {
+    as_await_import_source(init).is_some()
+        || matches!(unwrap_parens(init), Expression::ImportExpression(_))
 }
 
 fn signal_class_body(body: &ClassBody, signals: &mut BindingSignals) {
@@ -6216,5 +6291,189 @@ mod tests {
 
         assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
         let _ = find_function(&statements, "__link0_greet");
+    }
+
+    // ---- Stage 5 sibling (third review round): a BARE, non-awaited import() laundered through
+    // a binding escaped both the position allowlist and the C2 candidate census, since `await`
+    // applied to a separately-bound identifier never syntactically wraps the `ImportExpression`.
+    // Every probe below was a LIVE fail-open on the pre-fix code — exit 0, no diagnostic, silent
+    // `0` instead of the real linked value (probe-proven on a fresh binary; util.js exports
+    // `greet() { return 42; }`).
+
+    #[test]
+    fn link_provable_module_namespaces_denies_bare_import_laundered_through_await_binding() {
+        let (_dir, main_js) = fixture_dir();
+        let source = r#"
+            async function main() {
+                const p = import("./util.js");
+                const c = await p;
+                console.log(c.greet());
+            }
+            main();
+        "#;
+        let mut statements = parse(source);
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(has_errors(&diagnostics), "diagnostics: {diagnostics:?}");
+        assert!(
+            diagnostics
+                .iter()
+                .any(|d| d.code == Some(e5::FEATURE_UNAVAILABLE as u32)),
+            "diagnostics: {diagnostics:?}"
+        );
+    }
+
+    #[test]
+    fn link_provable_module_namespaces_denies_bare_import_laundered_through_await_binding_typeof() {
+        let (_dir, main_js) = fixture_dir();
+        let source = r#"
+            async function main() {
+                const p = import("./util.js");
+                const c = await p;
+                console.log(typeof c.greet);
+            }
+            main();
+        "#;
+        let mut statements = parse(source);
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(has_errors(&diagnostics), "diagnostics: {diagnostics:?}");
+        assert!(
+            diagnostics
+                .iter()
+                .any(|d| d.code == Some(e5::FEATURE_UNAVAILABLE as u32)),
+            "diagnostics: {diagnostics:?}"
+        );
+    }
+
+    #[test]
+    fn link_provable_module_namespaces_denies_bare_import_inline_await_of_binding() {
+        let (_dir, main_js) = fixture_dir();
+        let source = r#"
+            async function main() {
+                const p = import("./util.js");
+                console.log(typeof (await p).greet);
+            }
+            main();
+        "#;
+        let mut statements = parse(source);
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(has_errors(&diagnostics), "diagnostics: {diagnostics:?}");
+        assert!(
+            diagnostics
+                .iter()
+                .any(|d| d.code == Some(e5::FEATURE_UNAVAILABLE as u32)),
+            "diagnostics: {diagnostics:?}"
+        );
+    }
+
+    #[test]
+    fn link_provable_module_namespaces_denies_bare_import_assignment_form() {
+        let (_dir, main_js) = fixture_dir();
+        let source = r#"
+            async function main() {
+                let p;
+                p = import("./util.js");
+                const c = await p;
+                c.greet();
+            }
+            main();
+        "#;
+        let mut statements = parse(source);
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(has_errors(&diagnostics), "diagnostics: {diagnostics:?}");
+        let diagnostic = find_diagnostic_containing(&diagnostics, "import(...)");
+        assert_eq!(diagnostic.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+    }
+
+    #[test]
+    fn link_provable_module_namespaces_denies_bare_import_inside_promise_all_array() {
+        let (_dir, main_js) = fixture_dir();
+        let source = r#"
+            async function main() {
+                const mods = await Promise.all([import("./util.js")]);
+                mods[0].greet();
+            }
+            main();
+        "#;
+        let mut statements = parse(source);
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(has_errors(&diagnostics), "diagnostics: {diagnostics:?}");
+        let diagnostic = find_diagnostic_containing(&diagnostics, "import(...)");
+        assert_eq!(diagnostic.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+    }
+
+    #[test]
+    fn link_provable_module_namespaces_denies_bare_import_inside_promise_resolve_argument() {
+        let (_dir, main_js) = fixture_dir();
+        let source = r#"
+            async function main() {
+                const c = await Promise.resolve(import("./util.js"));
+                c.greet();
+            }
+            main();
+        "#;
+        let mut statements = parse(source);
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(has_errors(&diagnostics), "diagnostics: {diagnostics:?}");
+        let diagnostic = find_diagnostic_containing(&diagnostics, "import(...)");
+        assert_eq!(diagnostic.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+    }
+
+    #[test]
+    fn link_provable_module_namespaces_denies_bare_import_then_callback_receiver() {
+        let (_dir, main_js) = fixture_dir();
+        let source = r#"
+            async function main() {
+                import("./util.js").then(c => console.log(c.greet()));
+            }
+            main();
+        "#;
+        let mut statements = parse(source);
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(has_errors(&diagnostics), "diagnostics: {diagnostics:?}");
+        let diagnostic = find_diagnostic_containing(&diagnostics, "import(...)");
+        assert_eq!(diagnostic.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+    }
+
+    // ---- positive control: an unused bare import() declarator init stays harmless ----
+
+    #[test]
+    fn link_provable_module_namespaces_leaves_unused_bare_import_declarator_untouched() {
+        let (_dir, main_js) = fixture_dir();
+        let source = r#"
+            async function main() {
+                const p = import("./util.js");
+                console.log("main loaded");
+            }
+            main();
+        "#;
+        let mut statements = parse(source);
+        let before = statements.clone();
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
+        assert_eq!(statements, before);
     }
 }

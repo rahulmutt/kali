@@ -900,19 +900,20 @@ already produced and handed somewhere the instant it's evaluated.
 - (b) a bindingless statement-level expression (`await import(...);` / `import(...);`, side
   effects only — 39 green tests depend on this staying untouched).
 
-**Scoped to `await`-wrapped import only.** A BARE, non-awaited `import(<expr>)` is a wholly
-separate, pre-existing feature (a raw `Promise`-returning dynamic import with its own
-literal-specifier codegen requirement — see `runtime_smoke`'s `non_literal_dynamic_import_targets`
-family, which returns a bare `import(specifier)` from a `Kali.test` callback and pins THAT check's
-own diagnostic text). The first implementation of this fix denied by position regardless of
-`await`, which regressed those two tests (my new diagnostic preempted the resolver's, before the
-resolver's check ever ran — `link_provable_module_namespaces` returns early on error, so
-`compile.rs` never reaches `resolve_statements_in_file`). Fixed by keying the deny off the exact
-compound shape `AwaitExpression` wrapping (mod parens) an `ImportExpression`, leaving a bare
-`import(...)` completely untouched by this pass at every position — none of the five fail-open
-probes above omit `await`, and a bare `import(x).member` would already throw in real JS (`Promise`
-has no such member), so there is no soundness gain in denying it, only a message-preemption
-regression to avoid.
+**`await`-wrapped import only — CORRECTED, this claim was FALSE.** This task originally scoped the
+deny to the exact compound shape `AwaitExpression` wrapping (mod parens) an `ImportExpression`,
+leaving a bare, non-awaited `import(<expr>)` completely untouched by this pass at every position.
+The stated justification was that none of the five fail-open probes above omit `await`, and that a
+bare `import(x).member` would already throw in real JS (`Promise` has no such member), so there was
+supposedly no soundness gain in denying the bare shape.
+
+That reasoning only accounted for a DIRECT member access on the import expression's own result. It
+never accounted for `await` applied to a *separately-bound identifier* — `const p = import(...);
+...; await p` — where `await` never syntactically wraps the `ImportExpression` node at all. A third
+whole-branch verification review traced exactly this: a bare `import()` laundered through a binding
+escaped BOTH this position allowlist AND the C2 candidate census (`signal_var_decl` only recognized
+`AwaitExpression`-wrapped inits), reproducing the identical pre-stage silent `0` this whole task
+exists to close. See Task 11 below — this is now DENIED, not exempted.
 
 ### Two known over-rejections (both fail-closed, both reject a program node runs fine)
 
@@ -983,3 +984,89 @@ re-confirmed still green with real, distinguishable output (not `0`).
 binary — EXPECTED; the program gate is the enumerated `comm -13` diff against `stage5-pre.txt`,
 not the exit code (memory: `ci-gate-vs-poisoned-baseline`). Branch stays UNMERGED (PR #16 held
 draft) pending the throw-fallout project's completion.
+
+## Task 11 — C2 remainder, third review round: bare `import()` laundered through a binding
+
+A third whole-branch verification review re-examined Task 10's own carve-out (the "Scoped to
+`await`-wrapped import only" claim, corrected in place above) and found it FALSE: a BARE,
+non-awaited `import(...)` reaching a member access via a **separately-bound identifier** escaped
+both of Task 10's gates. Seven such fail-opens, all probe-proven on a fresh binary (`util.js`
+exports `greet() { return 42; }`; every cell is exit 0, no diagnostic, silent `0` or a dropped
+callback, pre-fix):
+
+| probe | node | pre-fix kali |
+|---|---|---|
+| `const p = import("./util.js"); const c = await p; console.log(c.greet())` | `42` | `0` |
+| same, `console.log(typeof c.greet)` | `function` | `0` |
+| `const p = import("./util.js"); console.log(typeof (await p).greet)` | `function` | `0` |
+| `let p; p = import("./util.js"); const c = await p; c.greet()` | `42` | `0` |
+| `const mods = await Promise.all([import("./util.js")]); mods[0].greet()` | `42` | `0` |
+| `const c = await Promise.resolve(import("./util.js")); c.greet()` | `42` | `0` |
+| `import("./util.js").then(c => console.log(c.greet()))` | `42` | (no output at all — callback silently dropped) |
+
+**Root cause.** `deny_import_positions_expression`'s `Expression::ImportExpression` arm (the bare,
+non-awaited case) never denied at any position, on the theory (now corrected above) that the bare
+shape was out of scope. And `signal_var_decl`'s C2 candidate census only recorded a declarator
+init as a candidate via `as_await_import_source`, which requires an `AwaitExpression` node — a bare
+`import(...)` declarator init was invisible to it. So `const p = import(...)` followed by `await p`
+satisfied neither gate: `p` earns no provenance (only `await import(...)` does, in
+`collect_const_await_import`), is never flagged as a namespace-shaped candidate, and its value
+(the raw, un-namespace-linked import result) flows straight through to member access.
+
+### The fix (`crates/kali_cli/src/build/module_link.rs`)
+
+Two changes, both scoped by the same "don't regress the non-literal diagnostic" constraint Task 10
+already established:
+
+1. **`signal_var_decl`** now records a C2 candidate for a declarator init that is `is_namespace_
+   candidate_init` — either the pre-existing `await import(...)` shape, OR (new) a bare `import(...)`
+   (mod `ParenthesizedExpression` wrapping), regardless of whether the specifier folds. An
+   unprovable-but-USED candidate is denied by the pre-existing `deny_unproven_namespace_binding_
+   candidates`, exactly as it already does for the `await`-wrapped shape; an unused one stays
+   harmless (unchanged exemption). This closes the first three probes (declarator-init position is
+   allowlisted, so the position gate below never sees them — only the candidate census does).
+2. **`deny_import_positions_expression`'s bare `Expression::ImportExpression` arm** now denies at a
+   non-allowlisted position, gated on `is_foldable_import_specifier` (a self-contained subset of
+   `fold_import_specifier`'s literal-oriented folds — string literal, optionally parenthesized,
+   sequence-tailed, or `+`-concatenated; deliberately excludes the `Identifier`/`Object.freeze` arms,
+   which need whole-file `consts`/`bound_counts` context this walk doesn't have). This closes the
+   remaining four probes: an assignment RHS, a `Promise.all([...])` array element, a
+   `Promise.resolve(...)` call argument, and a `.then(cb)` receiver (a `MemberExpression.object`
+   under a call callee) are all non-allowlisted positions.
+
+The foldability gate on change 2 is what keeps the pre-existing non-literal-specifier diagnostic
+(`kali_types::resolve::expression::resolve_import_expression`'s "non-literal dynamic import()")
+intact for a genuinely non-literal bare `import()` reached from a non-allowlisted position (e.g.
+`return import(specifier)` inside `browser_non_literal_dynamic_import_harness_jsx_tsx.rs`'s fixture)
+— re-verified unchanged (see Verification below).
+
+Both newly-denied shape families fail closed with the existing `E5506` diagnostics
+(`unproven_namespace_binding_error` for the candidate-census route, `import_expression_outside_
+allowlist_error` for the position-gate route) — no new "link a promise-laundered namespace" lane was
+built; rejecting is the correct and in-scope behavior here.
+
+### What remains open
+
+Nothing from this specific bare-import-laundering class is known to remain open — all seven
+probe-proven shapes are now denied, and the two pre-existing, unrelated over-rejections and the
+unrelated object-method-call miscompile documented above (Task 10) are unaffected by this change and
+still open exactly as recorded there.
+
+### Verification (fresh binary, working tree at this task's HEAD)
+
+```
+cargo test -p kali_cli --lib build::module_link:: -- --test-threads=4                      # 97 passed, 0 failed
+cargo test -p kali_cli --test module_namespace_link -- --test-threads=4                    # 27 passed, 0 failed
+cargo test -p kali_cli --test runtime_smoke dynamic_import -- --test-threads=4              # 45 passed, 0 failed
+cargo test -p kali_cli --test browser_template_literal_dynamic_import_harness -- --test-threads=4  # 26 passed, 0 failed
+cargo test -p kali_cli --test browser_non_literal_dynamic_import_harness_jsx_tsx -- --test-threads=4  # 2 passed, 0 failed (unchanged)
+cargo test -p kali_cli --test node_api_surface -- --test-threads=4                          # 45 passed, 0 failed
+cargo build --workspace                                                                     # clean
+cargo fmt --check -p kali_cli                                                                # clean
+```
+
+All 7 fail-open probes re-run on the rebuilt binary and confirmed REJECTING (E5506, exit 1, empty
+stdout) instead of the silent `0`/dropped-callback; all 4 positive controls (bindingless statement
+form, the proven `const` lane, an unused unprovable binding, an `Object.freeze`-wrapped specifier)
+re-confirmed still green with real, distinguishable output; the non-literal `import(specifier)`
+diagnostic (`let specifier; import(specifier);`) re-confirmed unchanged.
