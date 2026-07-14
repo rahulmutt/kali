@@ -645,3 +645,283 @@ main();
     // silently satisfying a `contains("main loaded")` check.
     assert_eq!(stdout, "main loaded\n", "stdout: {stdout}");
 }
+
+/// C1 (final whole-branch review): the specifier fold was SCOPE-BLIND — a
+/// function PARAM named the same as a module-scope `const` specifier string
+/// never displaced that const in the fold's inherited map, so `await
+/// import(spec)` inside `load(spec)` linked the module the OUTER `spec`
+/// named, not the one the CALLER actually passed. This exact fixture printed
+/// `111` under kali (a.js — the module-scope const's target) against node's
+/// `222` (b.js — the argument's target): a silent WRONG-MODULE link, exit 0,
+/// no diagnostic. (The review's own probe used BigInt returns; this file's
+/// established convention is a plain `Number` return — see the header note —
+/// because `console.log(<bigint>)` is a PRE-EXISTING, unrelated kali/node
+/// formatting divergence (`2` vs `2n`) that would corrupt the oracle
+/// comparison for reasons unrelated to module linking. The wrong-module class
+/// under test is identical either way.)
+///
+/// Post-fix the fold is gated on "bound exactly once in the whole file", so
+/// `spec` (bound twice: the const AND the param) is unprovable, the binding
+/// earns no provenance, and C2's default-deny rejects the USE at compile time
+/// (E5506). A fail-closed reject is the intended outcome here — preferred, per
+/// the review, over hand-rolling lexical-scope tracking to link it "correctly".
+#[test]
+fn param_shadowed_dynamic_import_specifier_is_rejected_not_silently_mislinked() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(
+        dir.path().join("a.js"),
+        "export function which() { return 111; }\n",
+    )
+    .expect("write a.js");
+    fs::write(
+        dir.path().join("b.js"),
+        "export function which() { return 222; }\nexport function onlyInB() { return 1; }\n",
+    )
+    .expect("write b.js");
+    let main_path = dir.path().join("main.js");
+    fs::write(
+        &main_path,
+        r#"const spec = "./a.js";
+async function load(spec) {
+  const c = await import(spec);
+  return c.which();
+}
+async function main() { console.log(await load("./b.js")); }
+main();
+"#,
+    )
+    .expect("write main.js");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&main_path)
+        .output()
+        .expect("run kali");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        !output.status.success(),
+        "expected a compile-time reject, not a silent link; stdout: {stdout}"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("E5506"),
+        "expected E5506 in stderr, got: {stderr}"
+    );
+    // The pre-fix wrong-module answer must not be produced under ANY exit
+    // status: `111` was a.js's `which()` (the module-scope const's target),
+    // where node — whose real oracle output is asserted below — says `222`.
+    assert!(
+        !stdout.contains("111"),
+        "the wrong-module value must never be printed; stdout: {stdout}"
+    );
+
+    // node oracle: the argument (`./b.js`) wins, so the true answer is 222.
+    let node = node_output(dir.path(), &main_path);
+    assert!(
+        node.status.success(),
+        "node stderr: {}",
+        String::from_utf8_lossy(&node.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&node.stdout), "222\n");
+}
+
+/// C2 (final whole-branch review), `let`-bound shape: `collect_namespace_
+/// provenance` proves only `const` bindings, so a `let`-bound dynamic import
+/// earned no provenance — and, pre-fix, an empty provenance map made the whole
+/// pass early-return, falling straight through to the pre-stage fail-open. This
+/// exact fixture printed `0` under kali (a raw namespace/specifier value coerced
+/// to a number) against node's `42`, with exit 0 and NO diagnostic.
+///
+/// Post-fix, an un-proven but USED namespace-shaped binding is default-denied
+/// (E5506) — the binding is namespace-shaped and its value is read, so it is
+/// exactly the "would leak a raw value" class this stage exists to close.
+#[test]
+fn let_bound_dynamic_import_namespace_binding_is_rejected() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(
+        dir.path().join("util.js"),
+        "export function greet() { return 42; }\n",
+    )
+    .expect("write util.js");
+    let main_path = dir.path().join("main.js");
+    fs::write(
+        &main_path,
+        r#"async function main() {
+  let c = await import("./util.js");
+  console.log(c.greet());
+}
+main();
+"#,
+    )
+    .expect("write main.js");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&main_path)
+        .output()
+        .expect("run kali");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        !output.status.success(),
+        "expected a compile-time reject, not the silent pre-stage `0`; stdout: {stdout}"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("E5506"),
+        "expected E5506 in stderr, got: {stderr}"
+    );
+    assert!(
+        stdout.is_empty(),
+        "a rejected build must print nothing at all; stdout: {stdout}"
+    );
+
+    // node oracle: the real answer is 42 — never the `0` kali used to print.
+    let node = node_output(dir.path(), &main_path);
+    assert!(
+        node.status.success(),
+        "node stderr: {}",
+        String::from_utf8_lossy(&node.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&node.stdout), "42\n");
+}
+
+/// C2 scoping, GREEN guard: an un-provable namespace binding that is never
+/// USED must NOT be denied (node runs it fine, and denying it would only
+/// create new reds). Composes with I1: unused ⇒ neither loaded nor denied,
+/// so even an impure target module is harmless here.
+#[test]
+fn unused_unprovable_namespace_binding_stays_green() {
+    let dir = tempdir().expect("tempdir");
+    // Impure (a top-level `export const` fails the purity gate) AND the
+    // binding is `let`-bound (unprovable) — but nothing reads `c`.
+    fs::write(dir.path().join("impure.js"), "export const VERSION = 1n;\n")
+        .expect("write impure.js");
+    let main_path = dir.path().join("main.js");
+    fs::write(
+        &main_path,
+        r#"async function main() {
+  let c = await import("./impure.js");
+  console.log("main loaded");
+}
+main();
+"#,
+    )
+    .expect("write main.js");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&main_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "main loaded\n");
+}
+
+/// I1 (final whole-branch review), GREEN guard: a STATIC namespace import of
+/// a module that would fail the purity gate must not be loaded (or gated) at
+/// all while its binding is unused. Pre-fix this was a hard E5506 build
+/// failure on a program node runs without complaint.
+#[test]
+fn unused_static_namespace_import_of_impure_module_stays_green() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(dir.path().join("impure.js"), "export const VERSION = 1n;\n")
+        .expect("write impure.js");
+    let main_path = dir.path().join("main.js");
+    fs::write(
+        &main_path,
+        r#"import * as ns from "./impure.js";
+console.log("main loaded");
+"#,
+    )
+    .expect("write main.js");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&main_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout, "main loaded\n");
+
+    let node = node_output(dir.path(), &main_path);
+    assert!(
+        node.status.success(),
+        "node stderr: {}",
+        String::from_utf8_lossy(&node.stderr)
+    );
+    assert_eq!(
+        stdout,
+        String::from_utf8_lossy(&node.stdout),
+        "kali must byte-match node"
+    );
+}
+
+/// Minor (final whole-branch review): `deny_unrewritten_uses` used to walk the
+/// SPLICED-IN clone bodies too, so a linked module's own internal local that
+/// happened to share a name with an entry provenance binding was wrongly
+/// E5506'd — even though the two live in different files and different scopes.
+/// Node runs this fine; so must kali, byte-for-byte.
+#[test]
+fn linked_module_internal_local_sharing_the_binding_name_stays_green() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(
+        dir.path().join("lib.js"),
+        "export function calc() { const ns = 2; return ns; }\n",
+    )
+    .expect("write lib.js");
+    let main_path = dir.path().join("main.js");
+    fs::write(
+        &main_path,
+        r#"import * as ns from "./lib.js";
+console.log(ns.calc());
+"#,
+    )
+    .expect("write main.js");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&main_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout, "2\n");
+
+    let node = node_output(dir.path(), &main_path);
+    assert!(
+        node.status.success(),
+        "node stderr: {}",
+        String::from_utf8_lossy(&node.stderr)
+    );
+    assert_eq!(
+        stdout,
+        String::from_utf8_lossy(&node.stdout),
+        "kali must byte-match node"
+    );
+}

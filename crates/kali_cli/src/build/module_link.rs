@@ -4,11 +4,28 @@
 //! "./x"` and `const c = await import(<foldable specifier>)`) and records
 //! which on-disk module each binding provably refers to. Everything outside
 //! the proven lane yields NO provenance (the binding is simply absent from
-//! the map) — fail-closed by construction; later stages (Tasks 6-7) are
-//! responsible for rejecting proven-absent uses.
+//! the map). By itself, "no provenance" is NOT fail-closed — a binding the
+//! collector can't reach or can't fold is just as absent from the map as one
+//! that was never namespace-shaped at all, and used to fall through to the
+//! pre-stage silent behavior unexamined. Fail-closed-by-construction is a
+//! property of the PIPELINE as a whole, not of this collector in isolation:
+//! `link_provable_module_namespaces` default-denies (E5506) every USED
+//! binding that looks namespace-shaped (a relative `import * as`, or a
+//! declarator whose init is `await import(...)`, of ANY depth/kind) but
+//! never earned provenance here — see that function's doc comment, and the
+//! final whole-branch review that found and closed this gap (C2 in
+//! `docs/superpowers/followups/throw-fallout-stage5-triage.md`). Within the
+//! proven lane itself, every `Identifier`/`Object` name this collector folds
+//! is also required to be bound EXACTLY ONCE across the whole file (see
+//! `fold_import_specifier`'s doc comment) — a scope-blind fold that ignored
+//! a param/let/var shadow of the same name was the review's C1 finding, and
+//! linked the WRONG module silently.
 //!
-//! This module only *detects* provenance. Module loading, AST cloning under
-//! mangled `__link{N}_{name}` names, and use-site rewriting are later tasks.
+//! `collect_namespace_provenance` only *detects* provenance; the rest of the
+//! pipeline (module loading + purity gate, AST cloning under mangled
+//! `__link{N}_{name}` names, use-site rewriting, and the two default-denies)
+//! lives in this module too — `link_provable_module_namespaces` is the single
+//! entry point that sequences them.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -63,6 +80,23 @@ pub fn collect_namespace_provenance(
     // re-lexing is needed here).
     let _ = source_contents;
 
+    // Whole-file, any-depth binding census (params, let/var/const locals,
+    // nested function/class names, catch params, for-in/for-of loop vars,
+    // ImportDeclaration specifiers, ...) — reused as the C1 fix's
+    // "allowlist at the choke point" gate: `fold_import_specifier` and
+    // `is_object_freeze_callee` below only ever trust an `Identifier` name
+    // whose count here proves it is NOT rebound/shadowed anywhere in the
+    // file (see `fold_import_specifier`'s doc comment). This is the SAME
+    // census `deny_shadowed_bindings` already runs (below) to guard the
+    // NAMESPACE BINDING name itself — reusing it here, instead of
+    // hand-rolling scope tracking for the SPECIFIER-FOLD consts, closes the
+    // final whole-branch review's C1 finding: `local_consts =
+    // module_consts.clone()` (below) never removed a function's own params
+    // or a shadowing local from the inherited map, so a fold could silently
+    // resolve an `Identifier` to the WRONG (module-scope) value instead of
+    // the shadowing local.
+    let bound_counts = compute_binding_counts(statements);
+
     // (a) module-scope single-declarator string consts, for template parts.
     let mut module_consts: BTreeMap<String, String> = BTreeMap::new();
     for statement in statements {
@@ -97,6 +131,7 @@ pub fn collect_namespace_provenance(
                 collect_const_await_import(
                     decl,
                     &module_consts,
+                    &bound_counts,
                     source_path,
                     &mut bindings,
                     &mut path_index,
@@ -120,6 +155,7 @@ pub fn collect_namespace_provenance(
                         collect_const_await_import(
                             var_decl,
                             &local_consts,
+                            &bound_counts,
                             source_path,
                             &mut bindings,
                             &mut path_index,
@@ -174,6 +210,7 @@ fn collect_namespace_import(
 fn collect_const_await_import(
     decl: &VariableDeclaration,
     visible_consts: &BTreeMap<String, String>,
+    bound_counts: &BTreeMap<String, usize>,
     source_path: &Path,
     bindings: &mut BTreeMap<String, LinkedModule>,
     path_index: &mut BTreeMap<PathBuf, usize>,
@@ -189,7 +226,8 @@ fn collect_const_await_import(
         let Some(specifier_expr) = as_await_import_source(init) else {
             continue;
         };
-        let Some(specifier) = fold_import_specifier(specifier_expr, visible_consts) else {
+        let Some(specifier) = fold_import_specifier(specifier_expr, visible_consts, bound_counts)
+        else {
             continue;
         };
         if let Some(target) =
@@ -240,31 +278,62 @@ fn unwrap_parens(expr: &Expression) -> &Expression {
 /// the literal operator string, so they are matched there — and plain
 /// `Identifier` const lookups. Everything else is unprovable and returns
 /// `None`.
-fn fold_import_specifier(expr: &Expression, consts: &BTreeMap<String, String>) -> Option<String> {
+///
+/// `Identifier` lookups are gated by `bound_counts` (the whole-file, any-
+/// depth binding census `compute_binding_counts` produces): a name is only
+/// trusted as "the module-scope (or same-function) const `consts` recorded"
+/// if it is bound EXACTLY ONCE anywhere in the entire file. `consts` itself
+/// has no scope awareness — `collect_namespace_provenance` seeds a
+/// function's `local_consts` with `module_consts.clone()` and never removes
+/// a name the function rebinds (a param, or a shadowing `let`/`var`/second
+/// `const`) — so without this gate, an `Identifier` reference inside a
+/// function whose PARAMETER reuses a module-scope const's name would
+/// silently resolve to the OUTER const instead of the parameter, linking
+/// the wrong module entirely (final whole-branch review finding C1). This
+/// is the same "allowlist at the exact choke point" fix the repo's own
+/// for-in-key value-escape lesson establishes: reusing
+/// `deny_shadowed_bindings`'s existing exhaustive census here, rather than
+/// hand-rolling scope tracking for this fold, is what makes the allowlist
+/// correct by construction instead of by enumeration.
+fn fold_import_specifier(
+    expr: &Expression,
+    consts: &BTreeMap<String, String>,
+    bound_counts: &BTreeMap<String, usize>,
+) -> Option<String> {
     match expr {
         Expression::Literal(LiteralValue::String(value)) => Some(unquote(value)),
         Expression::ParenthesizedExpression(inner) => {
-            fold_import_specifier(&inner.expression, consts)
+            fold_import_specifier(&inner.expression, consts, bound_counts)
         }
         Expression::SequenceExpression(seq) => seq
             .expressions
             .last()
-            .and_then(|last| fold_import_specifier(last, consts)),
+            .and_then(|last| fold_import_specifier(last, consts, bound_counts)),
         Expression::CallExpression(call) => {
-            if call.args.len() == 1 && is_object_freeze_callee(&call.callee) {
-                fold_import_specifier(&call.args[0], consts)
+            if call.args.len() == 1 && is_object_freeze_callee(&call.callee, bound_counts) {
+                fold_import_specifier(&call.args[0], consts, bound_counts)
             } else {
                 None
             }
         }
-        Expression::Identifier(name) => consts.get(name).cloned(),
+        Expression::Identifier(name) => {
+            if bound_counts.get(name.as_str()).copied().unwrap_or(0) != 1 {
+                // Either never bound (impossible if it's a key of `consts`,
+                // since `consts` is itself built from a real declarator) or
+                // bound MORE than once somewhere in the file (a param, a
+                // shadowing local, ...) — either way, not provably still
+                // the outer const by the time this reference is reached.
+                return None;
+            }
+            consts.get(name).cloned()
+        }
         Expression::BinaryExpression(binary) => match binary.operator.as_str() {
             "+" => {
-                let left = fold_import_specifier(&binary.left, consts)?;
-                let right = fold_import_specifier(&binary.right, consts)?;
+                let left = fold_import_specifier(&binary.left, consts, bound_counts)?;
+                let right = fold_import_specifier(&binary.right, consts, bound_counts)?;
                 Some(format!("{left}{right}"))
             }
-            "??" | "&&" | "||" => fold_logical(binary, consts),
+            "??" | "&&" | "||" => fold_logical(binary, consts, bound_counts),
             _ => None,
         },
         _ => None,
@@ -277,28 +346,32 @@ fn fold_import_specifier(expr: &Expression, consts: &BTreeMap<String, String>) -
 /// literal we can classify directly (`null`, a boolean, a number, or a
 /// string). A non-literal left-hand side (e.g. an identifier or call) makes
 /// the branch unprovable, so this fails closed to `None`.
-fn fold_logical(binary: &BinaryExpression, consts: &BTreeMap<String, String>) -> Option<String> {
+fn fold_logical(
+    binary: &BinaryExpression,
+    consts: &BTreeMap<String, String>,
+    bound_counts: &BTreeMap<String, usize>,
+) -> Option<String> {
     let (nullish, truthy) = literal_truthiness(&binary.left)?;
     match binary.operator.as_str() {
         "??" => {
             if nullish {
-                fold_import_specifier(&binary.right, consts)
+                fold_import_specifier(&binary.right, consts, bound_counts)
             } else {
-                fold_import_specifier(&binary.left, consts)
+                fold_import_specifier(&binary.left, consts, bound_counts)
             }
         }
         "&&" => {
             if truthy {
-                fold_import_specifier(&binary.right, consts)
+                fold_import_specifier(&binary.right, consts, bound_counts)
             } else {
-                fold_import_specifier(&binary.left, consts)
+                fold_import_specifier(&binary.left, consts, bound_counts)
             }
         }
         "||" => {
             if truthy {
-                fold_import_specifier(&binary.left, consts)
+                fold_import_specifier(&binary.left, consts, bound_counts)
             } else {
-                fold_import_specifier(&binary.right, consts)
+                fold_import_specifier(&binary.right, consts, bound_counts)
             }
         }
         _ => None,
@@ -320,16 +393,26 @@ fn literal_truthiness(expr: &Expression) -> Option<(bool, bool)> {
     }
 }
 
-fn is_object_freeze_callee(callee: &Expression) -> bool {
+fn is_object_freeze_callee(callee: &Expression, bound_counts: &BTreeMap<String, usize>) -> bool {
     // Intentionally broad: matches `property == "freeze"` for either dot
     // (`Object.freeze`) or computed (`Object["freeze"]`) access without
     // further discriminating the two — both are the same provable callee
     // for this fold's purposes, so no additional check is warranted.
+    //
+    // `bound_counts.get("Object")` must be ABSENT (never locally bound
+    // anywhere in the file) for this to fire — the same "bound exactly
+    // once" allowlist `fold_import_specifier`'s `Identifier` arm applies to
+    // a module-scope const, generalized to a global builtin's expected own-
+    // binding count of ZERO: a program that shadows `Object` (e.g. a
+    // parameter or local literally named `Object`) cannot be assumed to
+    // still mean the real global here (final whole-branch review finding
+    // C1's `is_object_freeze_callee` half).
     matches!(
         callee,
         Expression::MemberExpression(member)
             if member.property == "freeze"
                 && matches!(&member.object, Expression::Identifier(name) if name == "Object")
+                && bound_counts.get("Object").copied().unwrap_or(0) == 0
     )
 }
 
@@ -577,7 +660,7 @@ fn register(
 pub fn append_linked_functions(
     statements: &mut Vec<Statement>,
     module: &LinkedModuleAst,
-) -> Result<(), Diagnostic> {
+) -> Result<usize, Diagnostic> {
     let renames: BTreeMap<String, String> = module
         .all_functions
         .keys()
@@ -658,8 +741,20 @@ pub fn append_linked_functions(
         })
         .collect();
 
+    let appended = cloned.len();
     statements.splice(0..0, cloned);
-    Ok(())
+    // `Ok(appended)` — the number of clones just spliced onto the FRONT of
+    // `statements`, i.e. `statements[..appended]` is exactly this call's
+    // splice and `statements[appended..]` is the caller's own statements
+    // byte-identical to what was passed in. The caller
+    // (`link_provable_module_namespaces`) accumulates this across every
+    // linked module it appends so `deny_unrewritten_uses` can skip over
+    // every clone body and only census the entry's OWN statements — see
+    // that call site's comment for the over-deny this closes (final
+    // whole-branch review's "Minor" finding: a linked module's internal
+    // local sharing a name with an entry provenance binding was wrongly
+    // E5506'd, even though the two are unrelated).
+    Ok(appended)
 }
 
 /// Orders `module.declaration_order`'s names so every callee (per `edges`,
@@ -1493,8 +1588,21 @@ fn walk_jsx_child(
 
 /// Rewrites proven uses of namespace bindings in place; pushes E5506
 /// diagnostics for uses of non-exported members.
+///
+/// `statements` is a SLICE, not the whole post-append `Vec`: the pipeline
+/// passes only the ENTRY module's own statements (`statements[clone_count..]`
+/// — see `link_provable_module_namespaces`). A spliced-in linked-module
+/// clone body is in the LINKED module's lexical scope, never the entry's, so
+/// an `x.foo()` inside a clone that happens to spell an entry provenance
+/// binding's name is NOT a namespace access and must not be rewritten (the
+/// same wrong-scope class the final whole-branch review's "Minor" finding
+/// closes for `deny_unrewritten_uses`). This also keeps
+/// `try_fold_typeof_namespace_member`/`try_rewrite_namespace_call_callee`'s
+/// "every proven binding has a loaded module" invariant true under the I1
+/// load gate: a proven binding is only LOADED when it has a member-use-site
+/// shape in the ENTRY program, so only entry statements may be rewritten.
 pub fn rewrite_namespace_uses(
-    statements: &mut Vec<Statement>,
+    statements: &mut [Statement],
     provenance: &NamespaceProvenance,
     modules: &BTreeMap<usize, LinkedModuleAst>,
     diagnostics: &mut Vec<Diagnostic>,
@@ -1569,7 +1677,10 @@ fn try_fold_typeof_namespace_member(
         return None;
     }
     let module = modules.get(&linked.index).expect(
-        "every provenance-proven binding must have a corresponding loaded module in `modules`",
+        "a proven binding reaching this member-access shape in the ENTRY program is exactly the \
+         condition the I1 load gate loads its module under (`BindingSignals::member_access_sites`), \
+         and only entry statements are rewritten (see `rewrite_namespace_uses`), so its module is \
+         always in `modules` here",
     );
     let literal = if module.exports.contains_key(&member.property) {
         "function"
@@ -1612,7 +1723,10 @@ fn try_rewrite_namespace_call_callee(
     }
     let property = member.property.clone();
     let module = modules.get(&linked.index).expect(
-        "every provenance-proven binding must have a corresponding loaded module in `modules`",
+        "a proven binding reaching this member-access shape in the ENTRY program is exactly the \
+         condition the I1 load gate loads its module under (`BindingSignals::member_access_sites`), \
+         and only entry statements are rewritten (see `rewrite_namespace_uses`), so its module is \
+         always in `modules` here",
     );
     if module.exports.contains_key(&property) {
         *callee = Expression::Identifier(mangled_link_name(linked.index, &property));
@@ -2777,6 +2891,33 @@ fn deny_unrewritten_uses(
     census_statements(statements, &mut on_identifier, &mut on_binding);
 }
 
+/// Whole-file, any-depth binding census: every name BOUND anywhere in
+/// `statements` (a declarator id — plain, `for`, or `for-in`/`for-of` —
+/// function/class name, function/arrow/class-method/catch param, or
+/// `ImportDeclaration` specifier local), counted by how many times it is
+/// bound. Shared by two different gates that both reduce to the same
+/// question, "is this name provably NOT rebound/shadowed anywhere in this
+/// file?":
+///   - `deny_shadowed_bindings` (below): a provenance-proven NAMESPACE
+///     BINDING name (`ns`/`chunk`) bound more than once anywhere is a
+///     shadow — the pass has no lexical-scope awareness, so it can't tell a
+///     local rebinding apart from the real namespace binding.
+///   - `fold_import_specifier`/`is_object_freeze_callee` (collection time):
+///     an `Identifier` this pass folds while PROVING provenance (a
+///     specifier-part const, or the `Object` in `Object.freeze(...)`) must
+///     be bound exactly once (a const) or zero times (the `Object` global)
+///     — see `fold_import_specifier`'s doc comment for the C1 finding this
+///     closes.
+fn compute_binding_counts(statements: &[Statement]) -> BTreeMap<String, usize> {
+    let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+    let mut on_identifier = |_: &str| {};
+    let mut on_binding = |name: &str| {
+        *counts.entry(name.to_string()).or_insert(0) += 1;
+    };
+    census_statements(statements, &mut on_identifier, &mut on_binding);
+    counts
+}
+
 /// Rejects any provenance-proven namespace binding name that is bound a
 /// SECOND time anywhere in the pristine entry `statements` (before
 /// `append_linked_functions` adds any linked-module clones) — see the
@@ -2787,12 +2928,7 @@ fn deny_shadowed_bindings(
     provenance: &NamespaceProvenance,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    let mut counts: BTreeMap<String, usize> = BTreeMap::new();
-    let mut on_identifier = |_: &str| {};
-    let mut on_binding = |name: &str| {
-        *counts.entry(name.to_string()).or_insert(0) += 1;
-    };
-    census_statements(statements, &mut on_identifier, &mut on_binding);
+    let counts = compute_binding_counts(statements);
     for name in provenance.bindings.keys() {
         if counts.get(name).copied().unwrap_or(0) > 1 {
             diagnostics.push(shadowed_namespace_binding_error(name));
@@ -2800,17 +2936,496 @@ fn deny_shadowed_bindings(
     }
 }
 
-/// The single public entry point `compile.rs` calls. Runs collect → shadow
-/// guard → load → append → rewrite → deny. Pushes diagnostics into
-/// `diagnostics`; never silently rewrites partially — every fallible step
-/// (`load_linked_module`, `append_linked_functions`) stops the pipeline
-/// before any further step runs once it has failed (mirroring
-/// `append_linked_functions`'s own guard-before-mutate contract, so
-/// `statements` is never left in a state some diagnostic doesn't already
-/// account for). No provenance found → guaranteed no-op: `statements` is
-/// returned untouched (this is the load-bearing case — the pass runs on
-/// EVERY compile, and the overwhelming majority of sources have no
-/// namespace bindings at all).
+// ---- C2 default-deny + I1 load-gating signals (final whole-branch review) ----
+//
+// `collect_namespace_provenance`'s reach is deliberately narrow (top-level
+// statements, plus the DIRECT statement children of a top-level function
+// body — see its own doc comment). Anything outside that reach — a binding
+// one block deeper (`if (true) { const c = await import(...) }`), a
+// `let`-bound dynamic import, or a `const` whose specifier isn't foldable
+// (`await import(cond ? a : b)`) — earns NO provenance, exactly like any
+// binding that was never namespace-shaped in the first place. Pre-fix, that
+// made `provenance.bindings` empty and the WHOLE pipeline returned early,
+// falling through to the pre-stage silent behavior (a raw specifier/
+// namespace value, or `typeof` always folding to `"undefined"`).
+//
+// `BindingSignals` is a SEPARATE, self-contained traversal (its own
+// `signal_*` family below) rather than an addition to the shared `census_*`
+// family above — so this new, WIDER-reaching pass (it must find bindings
+// `collect_namespace_provenance` itself never reaches) cannot regress
+// `deny_shadowed_bindings`/`deny_unrewritten_uses`, which must keep seeing
+// exactly the traversal they see today. It mirrors the same exhaustive,
+// no-`_=>`-arm style as `walk_*`/`rewrite_*`/`census_*`.
+#[derive(Default)]
+struct BindingSignals {
+    /// Every binding name shaped like a namespace import, ANYWHERE in the
+    /// file at any nesting depth:
+    ///   - `import * as <name> from "<./ or ../ source>"` — a non-relative
+    ///     source (`import * as path from "node:path"`) is a separate,
+    ///     pre-existing lane (see the `node_api_surface` tests) and is
+    ///     NEVER a candidate here.
+    ///   - a `VariableDeclarator` of ANY kind (const/let/var) whose `init`
+    ///     is (modulo `ParenthesizedExpression` wrapping around either
+    ///     layer) `await import(<any specifier expression>)`, whether or
+    ///     not the specifier actually folds.
+    ///
+    /// A candidate with NO provenance that is also USED is the final
+    /// whole-branch review's C2 finding — see
+    /// `deny_unproven_namespace_binding_candidates` below.
+    candidates: BTreeSet<String>,
+    /// Every name appearing as the OBJECT of a member access anywhere in the
+    /// file — `<name>.member`, `<name>.member(...)`, `typeof <name>.member`,
+    /// or even computed `<name>[expr]` (structural only; no provenance or
+    /// export check). Used to gate I1: a proven binding with NO member
+    /// access anywhere has no possible use site for a linked export, so its
+    /// module is never loaded (and so never purity-gated) — a namespace
+    /// import nothing reads must not hard-fail a build node runs happily
+    /// (final whole-branch review finding I1).
+    ///
+    /// Deliberately WIDER than the two shapes Task 6 actually rewrites
+    /// (`typeof <ns>.member` / `<ns>.member(...)`): a bare, non-call member
+    /// READ (`console.log(chunk.value)`) is not rewritable, but it IS a use
+    /// of the module, and the honest diagnostic for it is the purity gate's
+    /// (`module '<path>' ... contains a non-function statement`) — which
+    /// only exists if the module was LOADED. Narrowing this set to just the
+    /// rewritable shapes would still fail closed, but would downgrade that
+    /// precise, module-naming diagnostic to the generic leftover-deny one
+    /// (caught by `runtime_smoke`'s
+    /// `json_run_rejects_non_function_export_dynamic_import_target_in_*_input`
+    /// pins, which assert the purity-gate message by content).
+    ///
+    /// Being wider is also what keeps
+    /// `try_fold_typeof_namespace_member`/`try_rewrite_namespace_call_callee`'s
+    /// "a proven binding reaching a rewrite always has a loaded module"
+    /// invariant true: both of those shapes are strict SUBSETS of this one.
+    member_access_sites: BTreeSet<String>,
+}
+
+fn collect_binding_signals(statements: &[Statement]) -> BindingSignals {
+    let mut signals = BindingSignals::default();
+    signal_statements(statements, &mut signals);
+    signals
+}
+
+fn signal_statements(statements: &[Statement], signals: &mut BindingSignals) {
+    for statement in statements {
+        signal_statement(statement, signals);
+    }
+}
+
+fn signal_block(block: &BlockStatement, signals: &mut BindingSignals) {
+    for statement in &block.body {
+        signal_statement(statement, signals);
+    }
+}
+
+fn signal_var_decl(decl: &VariableDeclaration, signals: &mut BindingSignals) {
+    // `decl.kind` (var/let/const) is deliberately NOT checked here — unlike
+    // `collect_const_await_import`, a candidate must be found regardless of
+    // kind, since a `let`/`var` binding is exactly one of the shapes this
+    // signal exists to catch (C2's `let`-bound probe).
+    for declarator in &decl.declarations {
+        if let Some(init) = &declarator.init {
+            if as_await_import_source(init).is_some() {
+                signals.candidates.insert(declarator.id.clone());
+            }
+            signal_expression(init, signals);
+        }
+    }
+}
+
+fn signal_class_body(body: &ClassBody, signals: &mut BindingSignals) {
+    for method in &body.methods {
+        if let Some(method_body) = &method.body {
+            signal_block(method_body, signals);
+        }
+    }
+}
+
+fn signal_statement(statement: &Statement, signals: &mut BindingSignals) {
+    match statement {
+        Statement::ExpressionStatement(stmt) => signal_expression(&stmt.expression, signals),
+        Statement::BreakStatement(_) => {}
+        Statement::ContinueStatement(_) => {}
+        Statement::WithStatement(stmt) => {
+            signal_expression(&stmt.object, signals);
+            signal_statement(&stmt.body, signals);
+        }
+        Statement::ReturnStatement(stmt) => {
+            if let Some(argument) = &stmt.argument {
+                signal_expression(argument, signals);
+            }
+        }
+        Statement::LabeledStatement(stmt) => signal_statement(&stmt.body, signals),
+        Statement::IfStatement(stmt) => {
+            signal_expression(&stmt.test, signals);
+            signal_block(&stmt.consequent, signals);
+            if let Some(alternate) = &stmt.alternate {
+                signal_block(alternate, signals);
+            }
+        }
+        Statement::SwitchStatement(stmt) => {
+            signal_expression(&stmt.discriminant, signals);
+            for case in &stmt.cases {
+                if let Some(test) = &case.test {
+                    signal_expression(test, signals);
+                }
+                for consequent in &case.consequent {
+                    signal_statement(consequent, signals);
+                }
+            }
+        }
+        Statement::ThrowStatement(stmt) => signal_expression(&stmt.argument, signals),
+        Statement::TryStatement(stmt) => {
+            signal_block(&stmt.block, signals);
+            if let Some(handler) = &stmt.handler {
+                signal_block(&handler.body, signals);
+            }
+            if let Some(finalizer) = &stmt.finalizer {
+                signal_block(finalizer, signals);
+            }
+        }
+        Statement::DebuggerStatement(_) => {}
+        Statement::BlockStatement(stmt) => signal_block(stmt, signals),
+        Statement::ForStatement(stmt) => {
+            match &stmt.init {
+                Some(ForInit::VariableDeclaration(decl)) => signal_var_decl(decl, signals),
+                Some(ForInit::Expression(expr)) => signal_expression(expr, signals),
+                None => {}
+            }
+            if let Some(test) = &stmt.test {
+                signal_expression(test, signals);
+            }
+            if let Some(update) = &stmt.update {
+                signal_expression(update, signals);
+            }
+            signal_block(&stmt.body, signals);
+        }
+        Statement::ForInStatement(stmt) => {
+            match &stmt.left {
+                ForInLefthand::VariableDeclaration(decl) => signal_var_decl(decl, signals),
+                ForInLefthand::Expression(expr) => signal_expression(expr, signals),
+            }
+            signal_expression(&stmt.right, signals);
+            signal_statement(&stmt.body, signals);
+        }
+        Statement::ForOfStatement(stmt) => {
+            match &stmt.left {
+                ForOfLefthand::VariableDeclaration(decl) => signal_var_decl(decl, signals),
+                ForOfLefthand::Expression(expr) => signal_expression(expr, signals),
+            }
+            signal_expression(&stmt.right, signals);
+            signal_statement(&stmt.body, signals);
+        }
+        Statement::WhileStatement(stmt) => {
+            signal_expression(&stmt.test, signals);
+            signal_block(&stmt.body, signals);
+        }
+        Statement::DoWhileStatement(stmt) => {
+            signal_block(&stmt.body, signals);
+            signal_expression(&stmt.test, signals);
+        }
+        Statement::FunctionDeclaration(function) => signal_block(&function.body, signals),
+        Statement::ClassDeclaration(class) => signal_class_body(&class.body, signals),
+        Statement::VariableDeclaration(decl) => signal_var_decl(decl, signals),
+        Statement::ImportDeclaration(decl) => {
+            if decl.source.starts_with("./") || decl.source.starts_with("../") {
+                for specifier in &decl.specifiers {
+                    if let ImportSpecifier::Namespace(local) = specifier {
+                        signals.candidates.insert(local.clone());
+                    }
+                }
+            }
+        }
+        // `ExportAllDeclaration { source: String }` — no candidate/use shape
+        // of any kind (same citation as `census_statement`'s arm above).
+        Statement::ExportAll(_) => {}
+        // A re-export's `local` name IS a value-level reference (see
+        // `census_statement`'s `ExportNamed` arm), but it can never be a
+        // `typeof`/call-member shape by itself — nothing to record here.
+        Statement::ExportNamed(_) => {}
+        Statement::ExportDefault(export) => match export {
+            ExportDefaultDeclaration::Expression(expr) => signal_expression(expr, signals),
+            ExportDefaultDeclaration::FunctionDeclaration(function) => {
+                signal_block(&function.body, signals)
+            }
+            ExportDefaultDeclaration::ClassDeclaration(class) => {
+                signal_class_body(&class.body, signals)
+            }
+        },
+        Statement::EnumDeclaration(decl) => {
+            for member in &decl.members {
+                if let Some(value) = &member.value {
+                    signal_expression(value, signals);
+                }
+            }
+        }
+        Statement::TypeAliasDeclaration(_) => {}
+        Statement::InterfaceDeclaration(_) => {}
+    }
+}
+
+fn signal_expression_or_spread(element: &ExpressionOrSpread, signals: &mut BindingSignals) {
+    match element {
+        ExpressionOrSpread::Expression(expr) => signal_expression(expr, signals),
+        ExpressionOrSpread::Spread(spread) => signal_expression(&spread.argument, signals),
+        ExpressionOrSpread::Empty => {}
+    }
+}
+
+fn signal_expression(expr: &Expression, signals: &mut BindingSignals) {
+    match expr {
+        // A bare identifier is never itself a candidate/use-site shape.
+        Expression::Identifier(_) => {}
+        Expression::Literal(_) => {}
+        Expression::BinaryExpression(binary) => {
+            signal_expression(&binary.left, signals);
+            signal_expression(&binary.right, signals);
+        }
+        Expression::UnaryExpression(unary) => signal_expression(&unary.argument, signals),
+        Expression::CallExpression(call) => {
+            signal_expression(&call.callee, signals);
+            for arg in &call.args {
+                signal_expression(arg, signals);
+            }
+        }
+        Expression::MemberExpression(member) => {
+            // The single choke point for `member_access_sites`: EVERY member
+            // access whose object is a bare identifier is recorded here, so
+            // the `typeof <ns>.m` and `<ns>.m(...)` shapes Task 6 rewrites
+            // (which are just this node under a `UnaryExpression`/
+            // `CallExpression` parent, both of which recurse into it) are
+            // covered by construction, with no per-shape mirror to keep in
+            // sync.
+            if let Expression::Identifier(name) = &member.object {
+                signals.member_access_sites.insert(name.clone());
+            }
+            signal_expression(&member.object, signals);
+            if let Some(index) = &member.computed_index {
+                signal_expression(index, signals);
+            }
+        }
+        Expression::ArrayExpression(array) => {
+            for element in array.elements.iter().flatten() {
+                signal_expression_or_spread(element, signals);
+            }
+        }
+        Expression::ObjectExpression(object) => {
+            for property in &object.properties {
+                signal_expression(&property.value, signals);
+            }
+        }
+        Expression::FunctionExpression(function) => {
+            if let Some(body) = &function.body {
+                signal_block(body, signals);
+            }
+        }
+        Expression::ArrowFunctionExpression(arrow) => signal_expression(&arrow.body, signals),
+        Expression::ClassExpression(class) => signal_class_body(&class.body, signals),
+        Expression::NewExpression(new_expr) => {
+            // `new ns.Ctor(...)` is deliberately NOT a call-callee shape
+            // here, matching `rewrite_expression`'s own `NewExpression` arm
+            // (its callee is walked/rewritten as an ordinary member
+            // expression, never a namespace-member call-callee fold).
+            signal_expression(&new_expr.callee, signals);
+            for arg in &new_expr.args {
+                signal_expression(arg, signals);
+            }
+        }
+        Expression::MetaProperty(_) => {}
+        Expression::TemplateLiteral(template) => {
+            for expression in &template.expressions {
+                signal_expression(expression, signals);
+            }
+        }
+        Expression::TaggedTemplateExpression(tagged) => {
+            signal_expression(&tagged.tag, signals);
+            for expression in &tagged.template.expressions {
+                signal_expression(expression, signals);
+            }
+        }
+        Expression::UpdateExpression(update) => signal_expression(&update.argument, signals),
+        Expression::AssignmentExpression(assignment) => {
+            signal_expression(&assignment.left, signals);
+            signal_expression(&assignment.right, signals);
+        }
+        Expression::LogicalExpression(logical) => {
+            signal_expression(&logical.left, signals);
+            signal_expression(&logical.right, signals);
+        }
+        Expression::ConditionalExpression(conditional) => {
+            signal_expression(&conditional.test, signals);
+            signal_expression(&conditional.consequent, signals);
+            signal_expression(&conditional.alternate, signals);
+        }
+        Expression::SequenceExpression(sequence) => {
+            for expression in &sequence.expressions {
+                signal_expression(expression, signals);
+            }
+        }
+        Expression::ParenthesizedExpression(parenthesized) => {
+            signal_expression(&parenthesized.expression, signals)
+        }
+        Expression::YieldExpression(yield_expr) => {
+            if let Some(argument) = &yield_expr.argument {
+                signal_expression(argument, signals);
+            }
+        }
+        Expression::AwaitExpression(await_expr) => signal_expression(&await_expr.argument, signals),
+        Expression::OptionalChainExpression(chain) => match chain.inner.as_ref() {
+            OptionalChainInner::NonNull { object, .. } => signal_expression(object, signals),
+        },
+        Expression::ChainExpression(chain) => signal_expression(&chain.expression, signals),
+        Expression::SpreadElement(spread) => signal_expression(&spread.argument, signals),
+        Expression::RestElement(rest) => signal_expression(&rest.argument, signals),
+        Expression::ImportExpression(import_expr) => {
+            signal_expression(&import_expr.source, signals)
+        }
+        Expression::DecoratedExpression(decorated) => {
+            signal_expression(&decorated.expression, signals)
+        }
+        Expression::JsxElement(element) => signal_jsx_element(element, signals),
+        Expression::JsxFragment(fragment) => signal_jsx_fragment(fragment, signals),
+        Expression::JsxEmptyExpression => {}
+        Expression::TypeAssertion(assertion) => signal_expression(&assertion.expression, signals),
+        Expression::SatisfiesExpression(satisfies) => {
+            signal_expression(&satisfies.expression, signals)
+        }
+        Expression::ThisExpression => {}
+        Expression::SuperExpression => {}
+        Expression::PrivateIdentifier(_) => {}
+        Expression::BigIntLiteral(_) => {}
+    }
+}
+
+fn signal_jsx_element(element: &JsxElement, signals: &mut BindingSignals) {
+    for attribute in &element.opening_element.attributes {
+        signal_jsx_attribute_item(attribute, signals);
+    }
+    for child in &element.children {
+        signal_jsx_child(child, signals);
+    }
+}
+
+fn signal_jsx_fragment(fragment: &JsxFragment, signals: &mut BindingSignals) {
+    for child in &fragment.children {
+        signal_jsx_child(child, signals);
+    }
+}
+
+fn signal_jsx_attribute_item(item: &JsxAttributeItem, signals: &mut BindingSignals) {
+    match item {
+        JsxAttributeItem::JsxAttribute(attribute) => {
+            signal_jsx_attribute_value(&attribute.value, signals)
+        }
+        JsxAttributeItem::JsxSpreadAttribute(spread) => {
+            signal_expression(&spread.argument, signals)
+        }
+    }
+}
+
+fn signal_jsx_attribute_value(value: &JsxAttributeValue, signals: &mut BindingSignals) {
+    match value {
+        JsxAttributeValue::String(_) => {}
+        JsxAttributeValue::JsxElement(element) => signal_jsx_element(element, signals),
+        JsxAttributeValue::JsxExpression(container) => {
+            signal_jsx_expression_container(container, signals)
+        }
+    }
+}
+
+fn signal_jsx_expression_container(
+    container: &JsxExpressionContainer,
+    signals: &mut BindingSignals,
+) {
+    if let Some(expression) = &container.expression {
+        signal_expression(expression, signals);
+    }
+}
+
+fn signal_jsx_child(child: &JsxChild, signals: &mut BindingSignals) {
+    match child {
+        JsxChild::JsxText(_) => {}
+        JsxChild::JsxExpression(container) => signal_jsx_expression_container(container, signals),
+        JsxChild::JsxElement(element) => signal_jsx_element(element, signals),
+        JsxChild::JsxFragment(fragment) => signal_jsx_fragment(fragment, signals),
+    }
+}
+
+fn unproven_namespace_binding_error(name: &str) -> Diagnostic {
+    Diagnostic::error(
+        e5::FEATURE_UNAVAILABLE as u32,
+        format!(
+            "namespace binding '{name}' cannot be linked: no provable module namespace was found for it — only a relative `import * as {name} from \"./...\"`, or `const {name} = await import(<foldable specifier>)`, both UNSHADOWED and within this pass's provenance-collection reach, can be linked for member access; falling through silently here would leak a raw specifier/namespace value (or fold every `typeof {name}.member` to \"undefined\") instead of rejecting"
+        ),
+    )
+}
+
+/// C2 default-deny: closes the pre-stage fail-open for any binding that
+/// LOOKS namespace-shaped (`BindingSignals::candidates`) but that
+/// `collect_namespace_provenance`'s narrower reach could not prove
+/// provenance for.
+///
+/// MUST run before `link_provable_module_namespaces`'s
+/// `provenance.bindings.is_empty()` early return: a file whose ONLY
+/// namespace-shaped binding the collector could not prove has an EMPTY
+/// `provenance.bindings` map, and the pre-fix pipeline treated an empty map
+/// as "no namespace bindings at all" and returned immediately — silently
+/// falling through to the pre-stage raw-specifier-string behavior (final
+/// whole-branch review finding C2, all three probe shapes: one block
+/// deeper inside an `if`, `let`-bound, and a non-foldable ternary
+/// specifier).
+///
+/// Deliberately narrow in the two ways the review's own scoping note
+/// requires (both needed to avoid regressing green tests):
+///   - a candidate already proven (`provenance.bindings` contains it) is
+///     skipped — handled by the normal proven-lane pipeline instead.
+///   - a candidate with NO provenance that is never referenced by a plain
+///     `Expression::Identifier` anywhere outside its own binding position is
+///     skipped too: an UNUSED un-provable binding is harmless, and denying
+///     it would only create new regressions (e.g. the existing
+///     `link_provable_module_namespaces_leaves_bare_dynamic_import_statement_untouched`
+///     green test relies on exactly this for the no-binding statement form;
+///     an unused BOUND-but-unprovable case is the same "harmless" logic one
+///     level up).
+fn deny_unproven_namespace_binding_candidates(
+    statements: &[Statement],
+    provenance: &NamespaceProvenance,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let signals = collect_binding_signals(statements);
+    if signals.candidates.is_empty() {
+        return;
+    }
+
+    let mut used: BTreeSet<String> = BTreeSet::new();
+    let mut on_identifier = |name: &str| {
+        used.insert(name.to_string());
+    };
+    let mut on_binding = |_: &str| {};
+    census_statements(statements, &mut on_identifier, &mut on_binding);
+
+    for name in &signals.candidates {
+        if provenance.bindings.contains_key(name) {
+            continue;
+        }
+        if used.contains(name) {
+            diagnostics.push(unproven_namespace_binding_error(name));
+        }
+    }
+}
+
+/// The single public entry point `compile.rs` calls. Runs collect → C2
+/// default-deny → shadow guard → load → append → rewrite → deny. Pushes
+/// diagnostics into `diagnostics`; never silently rewrites partially —
+/// every fallible step (`load_linked_module`, `append_linked_functions`)
+/// stops the pipeline before any further step runs once it has failed
+/// (mirroring `append_linked_functions`'s own guard-before-mutate contract,
+/// so `statements` is never left in a state some diagnostic doesn't already
+/// account for). No provenance AND no unproven-but-used candidate found →
+/// guaranteed no-op: `statements` is returned untouched (this is the
+/// load-bearing case — the pass runs on EVERY compile, and the overwhelming
+/// majority of sources have no namespace bindings at all).
 pub fn link_provable_module_namespaces(
     source_path: &Path,
     source_contents: &str,
@@ -2818,6 +3433,14 @@ pub fn link_provable_module_namespaces(
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     let provenance = collect_namespace_provenance(source_path, source_contents, statements);
+
+    // C2: MUST run before the `bindings.is_empty()` early return below —
+    // see `deny_unproven_namespace_binding_candidates`'s doc comment.
+    deny_unproven_namespace_binding_candidates(statements, &provenance, diagnostics);
+    if has_errors(diagnostics) {
+        return;
+    }
+
     if provenance.bindings.is_empty() {
         return;
     }
@@ -2827,9 +3450,35 @@ pub fn link_provable_module_namespaces(
         return;
     }
 
+    // I1: only load (and purity-gate) a module for a binding that is
+    // actually USED as a namespace — i.e. has at least one member access
+    // (`<name>.member`, `<name>.member(...)`, `typeof <name>.member`, ...)
+    // anywhere in the pristine entry program. Computed on the SAME pristine
+    // `statements` `deny_shadowed_bindings` just ran over, BEFORE
+    // `append_linked_functions` splices any clones in. An unused binding has
+    // no such site and would otherwise eagerly load + purity-gate a module
+    // nothing in the program reads — turning a program node runs fine into a
+    // hard E5506 build failure (final whole-branch review finding I1). This
+    // composes with C2: an unused, unprovable binding is neither loaded nor
+    // denied.
+    let signals = collect_binding_signals(statements);
+    let mut index_has_use_site: BTreeMap<usize, bool> = BTreeMap::new();
+    for (name, linked) in &provenance.bindings {
+        let has_use = signals.member_access_sites.contains(name);
+        let entry = index_has_use_site.entry(linked.index).or_insert(false);
+        *entry = *entry || has_use;
+    }
+
     let mut modules: BTreeMap<usize, LinkedModuleAst> = BTreeMap::new();
     for linked in provenance.bindings.values() {
         if modules.contains_key(&linked.index) {
+            continue;
+        }
+        if !index_has_use_site
+            .get(&linked.index)
+            .copied()
+            .unwrap_or(false)
+        {
             continue;
         }
         match load_linked_module(linked) {
@@ -2843,19 +3492,34 @@ pub fn link_provable_module_namespaces(
         return;
     }
 
+    // Minor fix: track how many clones each `append_linked_functions` call
+    // splices onto the FRONT of `statements`, so `deny_unrewritten_uses`
+    // below can skip over every clone body and only census the entry's OWN
+    // statements — without this, a linked module's internal local sharing a
+    // name with an entry provenance binding was wrongly E5506'd even though
+    // the two are unrelated (final whole-branch review's "Minor" finding).
+    let mut clone_count = 0usize;
     for module in modules.values() {
-        if let Err(diagnostic) = append_linked_functions(statements, module) {
-            diagnostics.push(diagnostic);
-            return;
+        match append_linked_functions(statements, module) {
+            Ok(appended) => clone_count += appended,
+            Err(diagnostic) => {
+                diagnostics.push(diagnostic);
+                return;
+            }
         }
     }
 
-    rewrite_namespace_uses(statements, &provenance, &modules, diagnostics);
+    rewrite_namespace_uses(
+        &mut statements[clone_count..],
+        &provenance,
+        &modules,
+        diagnostics,
+    );
     if has_errors(diagnostics) {
         return;
     }
 
-    deny_unrewritten_uses(statements, &provenance, diagnostics);
+    deny_unrewritten_uses(&statements[clone_count..], &provenance, diagnostics);
 }
 
 #[cfg(test)]
@@ -4521,5 +5185,325 @@ mod tests {
             statements, before,
             "a shadow reject must stop the pipeline before any mutation (load/append/rewrite never run)"
         );
+    }
+
+    // ---- C1: the specifier fold is scope-blind without the bound-once gate ----
+    //
+    // `collect_namespace_provenance` seeds a function body's const map with
+    // `module_consts.clone()` and NEVER removes a name the function rebinds.
+    // Pre-fix, `fold_import_specifier`'s `Identifier` arm read that stale
+    // module-scope value straight out of the map, so a PARAM (or a shadowing
+    // `let`) named the same as a module-scope specifier const silently linked
+    // the WRONG module — a real, distinguishable, wrong-value divergence from
+    // node (the reviewer's probe: kali printed a.js's `111`, node printed
+    // b.js's `222n`), with exit 0 and no diagnostic. The bound-exactly-once
+    // allowlist makes every one of these unprovable instead, so no provenance
+    // is earned (and C2's default-deny below then rejects the USE).
+
+    #[test]
+    fn const_await_import_whose_specifier_const_is_shadowed_by_a_param_is_not_proven() {
+        let (_dir, main_js) = fixture_dir();
+        // `spec` is bound TWICE: the module-scope const, and `load`'s param.
+        // The param wins at the `await import(spec)` site under real JS
+        // scoping, so the module-scope const's value ("./util.js") is NOT
+        // provably what this specifier evaluates to.
+        let source = r#"
+            const spec = "./util.js";
+            async function load(spec) {
+                const c = await import(spec);
+                return c.greet();
+            }
+        "#;
+        let statements = parse(source);
+        let provenance = collect_namespace_provenance(&main_js, source, &statements);
+        assert_eq!(
+            provenance.bindings.get("c"),
+            None,
+            "a param-shadowed specifier const must not fold — it would link the WRONG module"
+        );
+    }
+
+    #[test]
+    fn const_await_import_whose_specifier_const_is_shadowed_by_a_let_is_not_proven() {
+        let (_dir, main_js) = fixture_dir();
+        let source = r#"
+            const spec = "./util.js";
+            async function load() {
+                let spec = pickAtRuntime();
+                const c = await import(spec);
+                return c.greet();
+            }
+        "#;
+        let statements = parse(source);
+        let provenance = collect_namespace_provenance(&main_js, source, &statements);
+        assert_eq!(
+            provenance.bindings.get("c"),
+            None,
+            "a let-shadowed specifier const must not fold — it would link the WRONG module"
+        );
+    }
+
+    #[test]
+    fn object_freeze_fold_with_a_shadowed_object_binding_is_not_proven() {
+        let (_dir, main_js) = fixture_dir();
+        // `Object` is locally bound — `Object.freeze(...)` here is NOT
+        // provably the real global's `freeze`, so the fold through it must
+        // fail closed (the `is_object_freeze_callee` half of C1).
+        let source = r#"
+            async function main(Object) {
+                const c = await import(Object.freeze("./lazy.js"));
+                return c.lazyValue();
+            }
+        "#;
+        let statements = parse(source);
+        let provenance = collect_namespace_provenance(&main_js, source, &statements);
+        assert_eq!(
+            provenance.bindings.get("c"),
+            None,
+            "a shadowed `Object` must not license the Object.freeze fold"
+        );
+    }
+
+    #[test]
+    fn link_provable_module_namespaces_denies_param_shadowed_specifier_binding() {
+        let (_dir, main_js) = fixture_dir();
+        let source = r#"
+            const spec = "./util.js";
+            async function load(spec) {
+                const c = await import(spec);
+                return c.greet();
+            }
+            load("./lazy.js");
+        "#;
+        let mut statements = parse(source);
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        // Fail-CLOSED (a reject), never a silent link to the wrong module.
+        assert!(has_errors(&diagnostics), "diagnostics: {diagnostics:?}");
+        let diagnostic = find_diagnostic_containing(&diagnostics, "'c'");
+        assert_eq!(diagnostic.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+    }
+
+    // ---- C2: default-deny every USED namespace-shaped binding with no provenance ----
+    //
+    // Each of these three shapes is outside `collect_namespace_provenance`'s
+    // reach or fold, so `provenance.bindings` is EMPTY — pre-fix, the whole
+    // pipeline early-returned on `bindings.is_empty()` and the program fell
+    // through to the pre-stage silent fail-open (printing `0`, and folding
+    // `typeof c.member` to `0` too, where node prints `42n` / `"function"`).
+
+    #[test]
+    fn link_provable_module_namespaces_denies_block_nested_unproven_namespace_binding() {
+        let (_dir, main_js) = fixture_dir();
+        let source = r#"
+            async function main() {
+                if (true) {
+                    const c = await import("./util.js");
+                    console.log(c.greet());
+                }
+            }
+            main();
+        "#;
+        let mut statements = parse(source);
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(has_errors(&diagnostics), "diagnostics: {diagnostics:?}");
+        let diagnostic = find_diagnostic_containing(&diagnostics, "'c'");
+        assert_eq!(diagnostic.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+    }
+
+    #[test]
+    fn link_provable_module_namespaces_denies_let_bound_unproven_namespace_binding() {
+        let (_dir, main_js) = fixture_dir();
+        let source = r#"
+            async function main() {
+                let c = await import("./util.js");
+                console.log(c.greet());
+            }
+            main();
+        "#;
+        let mut statements = parse(source);
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(has_errors(&diagnostics), "diagnostics: {diagnostics:?}");
+        let diagnostic = find_diagnostic_containing(&diagnostics, "'c'");
+        assert_eq!(diagnostic.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+    }
+
+    #[test]
+    fn link_provable_module_namespaces_denies_non_foldable_specifier_namespace_binding() {
+        let (_dir, main_js) = fixture_dir();
+        // A ternary specifier: not a shape `fold_import_specifier` proves,
+        // even though BOTH arms happen to name the same real module — the
+        // fold is structural, and "both arms agree" is not a proof it makes.
+        let source = r#"
+            async function main() {
+                const c = await import(true ? "./util.js" : "./util.js");
+                console.log(c.greet());
+            }
+            main();
+        "#;
+        let mut statements = parse(source);
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(has_errors(&diagnostics), "diagnostics: {diagnostics:?}");
+        let diagnostic = find_diagnostic_containing(&diagnostics, "'c'");
+        assert_eq!(diagnostic.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+    }
+
+    #[test]
+    fn link_provable_module_namespaces_denies_typeof_of_unproven_namespace_binding() {
+        let (_dir, main_js) = fixture_dir();
+        // The typeof-fold half of C2: pre-fix this silently folded to the
+        // pre-stage value (`0`), where node says `"function"`.
+        let source = r#"
+            async function main() {
+                let c = await import("./util.js");
+                console.log(typeof c.greet);
+            }
+            main();
+        "#;
+        let mut statements = parse(source);
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(has_errors(&diagnostics), "diagnostics: {diagnostics:?}");
+        let diagnostic = find_diagnostic_containing(&diagnostics, "'c'");
+        assert_eq!(diagnostic.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+    }
+
+    // ---- C2 scoping: the deny must NOT over-reach (each of these is a green lane) ----
+
+    #[test]
+    fn link_provable_module_namespaces_does_not_deny_unused_unproven_namespace_binding() {
+        let (_dir, main_js) = fixture_dir();
+        // Un-provable (`let`-bound) AND never used — harmless, so it must
+        // stay a no-op. Denying it would create new reds for no soundness
+        // gain (there is no value to leak if nothing reads it).
+        let source = r#"
+            async function main() {
+                let c = await import("./util.js");
+            }
+            main();
+        "#;
+        let mut statements = parse(source);
+        let before = statements.clone();
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
+        assert_eq!(statements, before);
+    }
+
+    #[test]
+    fn link_provable_module_namespaces_does_not_deny_non_relative_namespace_import() {
+        let (_dir, main_js) = fixture_dir();
+        // `import * as path from "node:path"` is a SEPARATE, pre-existing
+        // lane (the `node_api_surface` tests) — a bare/`node:` specifier is
+        // never a candidate for this pass's deny, used or not.
+        let source = r#"
+            import * as path from "node:path";
+            export function describe() { return typeof path.basename === 'function' ? 0 : 1; }
+        "#;
+        let mut statements = parse(source);
+        let before = statements.clone();
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
+        assert_eq!(statements, before);
+    }
+
+    // ---- I1: an unused proven binding must not eagerly load + purity-gate ----
+
+    #[test]
+    fn link_provable_module_namespaces_does_not_load_module_for_unused_namespace_binding() {
+        let (dir, main_js) = fixture_dir();
+        // `impure.js` would FAIL the purity gate (a top-level `export const`
+        // is not a plain `export function`) — but nothing in the entry uses
+        // `ns`, so the module must never be loaded or gated at all. Node
+        // runs this program fine; a hard E5506 build failure here was the
+        // review's I1 finding.
+        fs::write(dir.path().join("impure.js"), "export const VERSION = 1n;\n")
+            .expect("write impure.js");
+        let source = r#"
+            import * as ns from "./impure.js";
+            console.log("hello");
+        "#;
+        let mut statements = parse(source);
+        let before = statements.clone();
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
+        assert_eq!(
+            statements, before,
+            "an unused namespace binding must leave the program untouched (no load, no append)"
+        );
+    }
+
+    #[test]
+    fn link_provable_module_namespaces_still_loads_module_for_used_namespace_binding() {
+        let (dir, main_js) = fixture_dir();
+        // The I1 gate's positive control: the SAME impure module, but now
+        // with a real member use site — it MUST still be loaded and rejected
+        // by the purity gate (the gate narrows WHEN a module is loaded, never
+        // WHETHER a used one is checked).
+        fs::write(dir.path().join("impure.js"), "export const VERSION = 1n;\n")
+            .expect("write impure.js");
+        let source = r#"
+            import * as ns from "./impure.js";
+            console.log(ns.VERSION());
+        "#;
+        let mut statements = parse(source);
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(has_errors(&diagnostics), "diagnostics: {diagnostics:?}");
+        let diagnostic = find_diagnostic_containing(&diagnostics, "impure.js");
+        assert_eq!(diagnostic.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+    }
+
+    // ---- Minor: the leftover-deny must not walk the SPLICED-IN clone bodies ----
+
+    #[test]
+    fn link_provable_module_namespaces_allows_linked_module_local_sharing_the_binding_name() {
+        let (dir, main_js) = fixture_dir();
+        // `lib.js`'s `calc` has an internal local named `ns` — completely
+        // unrelated to the ENTRY's `ns` namespace binding (different file,
+        // different scope). Pre-fix, `deny_unrewritten_uses` walked the
+        // spliced-in clone body too and E5506'd that innocent local.
+        fs::write(
+            dir.path().join("lib.js"),
+            "export function calc() { const ns = 2n; return ns; }\n",
+        )
+        .expect("write lib.js");
+        let source = r#"
+            import * as ns from "./lib.js";
+            console.log(ns.calc());
+        "#;
+        let mut statements = parse(source);
+        let mut diagnostics = Vec::new();
+
+        link_provable_module_namespaces(&main_js, source, &mut statements, &mut diagnostics);
+
+        assert!(
+            diagnostics.is_empty(),
+            "a linked module's own internal local must not be denied: {diagnostics:?}"
+        );
+        let _ = find_function(&statements, "__link0_calc");
     }
 }

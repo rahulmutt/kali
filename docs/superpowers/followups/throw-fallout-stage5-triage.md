@@ -783,9 +783,60 @@ blocked by them).
   built for it — out of this lane's scope).
 - Non-function export kinds (`export const ...`) unsupported → E5506 (2 tests re-pinned
   honestly in commit `77c9c99b3`, with node-vs-kali evidence: node prints `7`, pre-stage kali
-  printed `0`).
-- `let`-bound namespaces not walked for provenance.
-- Async-ARROW bodies not walked for provenance (fail-closed, conservative).
+  printed `0`). NOTE: this diagnostic (the `load_linked_module` purity gate, which names the
+  module path and the offending construct) now only fires when the binding is actually USED —
+  see the I1 fix below.
+- **CORRECTION (final whole-branch review).** The two entries that previously stood here —
+  "`let`-bound namespaces not walked for provenance" and "Async-ARROW bodies not walked for
+  provenance (**fail-closed, conservative**)" — were WRONG about the direction of the failure.
+  Neither was fail-closed: a namespace binding the collector could not reach or could not fold
+  earned no provenance, `link_provable_module_namespaces` early-returned on
+  `provenance.bindings.is_empty()`, and the program fell straight through to the PRE-STAGE
+  FAIL-OPEN (probe: `let c = await import("./util.js"); console.log(c.greet())` printed `0`,
+  and `typeof c.greet` folded to `0`, where node prints `42n` / `"function"` — exit 0, no
+  diagnostic). "No provenance" is the ABSENCE of a signal, not a rejection; only an explicit
+  deny is fail-closed. **Now denied** (E5506, `deny_unproven_namespace_binding_candidates`):
+  every binding that is namespace-SHAPED (a relative `import * as`, or any declarator — `const`
+  / `let` / `var`, at ANY nesting depth, including inside an async-arrow body — whose init is
+  `await import(...)`), that earned NO provenance, and that is USED anywhere. What is
+  deliberately NOT denied, and genuinely remains open:
+  - an UNUSED un-provable binding (harmless — nothing reads its value; also never loads its
+    module, per I1 below);
+  - non-relative namespace imports (`import * as path from "node:path"`, bare specifiers) —
+    a separate, pre-existing lane (`node_api_surface`), untouched by this deny;
+  - statement-form `await import("./x.js")` with NO binding (the chunk-never-runs divergence
+    above) — still untouched.
+  So `let`-bound / block-nested / async-arrow / non-foldable-specifier namespaces remain
+  UNLINKABLE (a real feature gap: kali rejects programs node runs) — but they are now honestly
+  REJECTED rather than silently mis-evaluated.
+- **Specifier-fold scope blindness (final whole-branch review, C1 — FIXED).** The fold
+  (`fold_import_specifier`) resolved a bare `Identifier` straight out of a const map that a
+  function body inherited from module scope (`local_consts = module_consts.clone()`) and never
+  removed rebound names from — so a function PARAM (or a shadowing `let`/`var`) named the same
+  as a module-scope specifier const silently linked the WRONG MODULE (probe: `const spec =
+  "./a.js"; async function load(spec) { const c = await import(spec); return c.which(); }` +
+  `load("./b.js")` printed a.js's `111` under kali against node's `222n`, exit 0, no
+  diagnostic; it also poisoned the typeof fold). Fixed by an allowlist at the choke point: an
+  `Identifier` only folds when the whole-file binding census (`compute_binding_counts`, the
+  same one `deny_shadowed_bindings` already used) proves it is bound EXACTLY ONCE; `Object` in
+  `Object.freeze(...)` must be bound ZERO times. Shadowed ⇒ unprovable ⇒ no provenance ⇒ the
+  deny above rejects the use.
+- **Eager module load for an UNUSED binding (final whole-branch review, I1 — FIXED).** The pass
+  loaded and purity-gated a linked module even when nothing in the entry read it, so
+  `import * as ns from "./impure.js"` with `ns` unused was a hard E5506 build failure on a
+  program node runs fine. A module is now loaded only when its binding has ≥1 member-access
+  site in the entry.
+- **Two hand-mirrored specifier folds (I3 — DEFERRED, no fix).** `module_link::fold_import_specifier`
+  and `kali_types::resolve::expression::resolve_static_import_source` are independent,
+  hand-mirrored implementations of the same "fold a dynamic-import specifier to a string" job.
+  This is WHY no gate fired on C1: the resolver's fold has the identical scope blindness, so it
+  agreed with the module-link pass on the same WRONG path, and every downstream check
+  (chunk emission, the browser harness) was self-consistently wrong. Only the C1 fix's census
+  gate is in `module_link`; the resolver's fold is unchanged and remains scope-blind for its own
+  (chunk-emission) purposes. Unifying them behind one shared, census-gated fold is the real
+  fix and is deferred.
+- **Parser `_ => None` silent statement drop (I2 — DEFERRED, no fix).** Should become a hard
+  diagnostic; broad blast radius, separate change.
 - Bucket A `typeof indexedDB !== 'undefined'` wrong-branch miscompile (highest-value follow-up,
   see Task-2 census).
 - (A) `String(<bigint>)` → `0` and (B) call-bound `const` double-evaluation, both above — neither
