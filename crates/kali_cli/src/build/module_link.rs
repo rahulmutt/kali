@@ -551,6 +551,13 @@ pub fn append_linked_functions(
         clone.name = renames.get(name).cloned().expect(
             "name is a key of module.all_functions, and renames is built from those same keys",
         );
+        // The linked function's OWN parameters are a binding-introducing
+        // position `walk_block` never sees (it only walks `clone.body`), so
+        // they are checked here for a shadowing collision with a sibling
+        // linked function before the body walk runs.
+        for param in &clone.params {
+            check_binding(param, &renames)?;
+        }
         walk_block(&mut clone.body, &renames)?;
         cloned.push(Statement::FunctionDeclaration(clone));
     }
@@ -612,6 +619,41 @@ fn check_bare_reference(name: &str, renames: &BTreeMap<String, String>) -> Resul
     }
 }
 
+/// The diagnostic for a cloned body INTRODUCING a binding (a param, a
+/// `const`/`let`/`var` local, a nested function/class name, a catch-clause
+/// param, a for-in/for-of loop variable, ...) whose name collides with a
+/// sibling linked-function name — the shadowing fail-open this walk closes.
+///
+/// This walk has no lexical-scope awareness (see the module-level doc
+/// comment above `walk_block`): it cannot tell a local rebinding of `name`
+/// apart from a genuine call to the linked module's `name`, so every call
+/// site spelled `name(...)` anywhere in the cloned body would still get
+/// silently rewritten to the sibling's mangled name even though, under real
+/// JS lexical scoping, some or all of those calls should have resolved to
+/// the local rebinding instead. Rejecting the whole module closed — even
+/// when the shadow is lexically disjoint from every call — is intentional:
+/// conservative and fail-closed beats scope-precise and subtly wrong.
+fn shadowing_binding_error(name: &str) -> Diagnostic {
+    Diagnostic::error(
+        e5::FEATURE_UNAVAILABLE as u32,
+        format!(
+            "linked module function `{name}` cannot be linked: a local binding named `{name}` inside a cloned function body would shadow it — unsupported (this pass's rename walk has no lexical-scope awareness, so it cannot tell a local rebinding of `{name}` apart from a genuine call to the linked module's `{name}`; rename the local binding to avoid the sibling name)"
+        ),
+    )
+}
+
+/// Rejects `name` if it collides with a sibling linked-function name.
+/// Call this at EVERY binding-introducing position visited by the walk
+/// below (declarator ids, params, nested function/class names, catch
+/// params, for-in/for-of loop vars, ...) — see `shadowing_binding_error`.
+fn check_binding(name: &str, renames: &BTreeMap<String, String>) -> Result<(), Diagnostic> {
+    if renames.contains_key(name) {
+        Err(shadowing_binding_error(name))
+    } else {
+        Ok(())
+    }
+}
+
 // ---- sibling-callee rename / bare-reference-deny walk ----
 //
 // Mirrors the traversal SHAPE of `kali_types::monomorphize::walk_calls_mut`
@@ -646,7 +688,12 @@ fn walk_var_decl(
 ) -> Result<(), Diagnostic> {
     // `decl.kind` (var/let/const) carries no identifier reference.
     for declarator in &mut decl.declarations {
-        // `declarator.id` is the name being BOUND, not a reference.
+        // `declarator.id` is the name being BOUND, not a reference — but a
+        // bound name that collides with a sibling linked function is a
+        // shadow (see `shadowing_binding_error`), so it is checked, not
+        // renamed. Covers plain var/let/const, `for (let x ...; ...)` init,
+        // and `for (const x in/of ...)` lefthand — all route through here.
+        check_binding(&declarator.id, renames)?;
         if let Some(init) = &mut declarator.init {
             walk_expression(init, renames, false)?;
         }
@@ -659,7 +706,13 @@ fn walk_class_body(
     renames: &BTreeMap<String, String>,
 ) -> Result<(), Diagnostic> {
     for method in &mut body.methods {
-        // `method.name` and `method.params` are declarations, not references.
+        // `method.name` is a property key, never a value-level identifier
+        // lookup, so it cannot alias a sibling function — not checked.
+        // `method.params` DOES introduce local bindings visible inside the
+        // method body, so each is checked for a shadowing collision.
+        for param in &method.params {
+            check_binding(param, renames)?;
+        }
         if let Some(method_body) = &mut method.body {
             walk_block(method_body, renames)?;
         }
@@ -715,7 +768,9 @@ fn walk_statement(
         Statement::TryStatement(stmt) => {
             walk_block(&mut stmt.block, renames)?;
             if let Some(handler) = &mut stmt.handler {
-                // `handler.param` is the caught-error BINDING name, not a reference.
+                // `handler.param` is the caught-error BINDING name — a
+                // shadowing collision, not a reference, so it is checked.
+                check_binding(&handler.param, renames)?;
                 walk_block(&mut handler.body, renames)?;
             }
             if let Some(finalizer) = &mut stmt.finalizer {
@@ -765,13 +820,21 @@ fn walk_statement(
             walk_block(&mut stmt.body, renames)?;
             walk_expression(&mut stmt.test, renames, false)
         }
-        // A nested function declaration: its own `name`/`params` are
-        // declarations, not references; its body is walked in the same
-        // (unscoped) manner as everything else — see the module-level rename
-        // walk's doc comment for the shadowing caveat this shares with
-        // `monomorphize::rewrite_callees_in_body`.
-        Statement::FunctionDeclaration(function) => walk_block(&mut function.body, renames),
-        Statement::ClassDeclaration(class) => walk_class_body(&mut class.body, renames),
+        // A nested function declaration: its own `name` and `params` are
+        // declarations, not references — but each is checked for a
+        // shadowing collision with a sibling linked function before its
+        // body is walked in the same (unscoped) manner as everything else.
+        Statement::FunctionDeclaration(function) => {
+            check_binding(&function.name, renames)?;
+            for param in &function.params {
+                check_binding(param, renames)?;
+            }
+            walk_block(&mut function.body, renames)
+        }
+        Statement::ClassDeclaration(class) => {
+            check_binding(&class.name, renames)?;
+            walk_class_body(&mut class.body, renames)
+        }
         Statement::VariableDeclaration(decl) => walk_var_decl(decl, renames),
         // Plain string fields only (specifiers/source) — no `Expression`
         // content, and the parser only ever produces this at module top
@@ -785,13 +848,21 @@ fn walk_statement(
         Statement::ExportDefault(export) => match export {
             ExportDefaultDeclaration::Expression(expr) => walk_expression(expr, renames, false),
             ExportDefaultDeclaration::FunctionDeclaration(function) => {
+                check_binding(&function.name, renames)?;
+                for param in &function.params {
+                    check_binding(param, renames)?;
+                }
                 walk_block(&mut function.body, renames)
             }
             ExportDefaultDeclaration::ClassDeclaration(class) => {
+                check_binding(&class.name, renames)?;
                 walk_class_body(&mut class.body, renames)
             }
         },
         Statement::EnumDeclaration(decl) => {
+            // `decl.name` is the enum's own declared name — a
+            // shadowing collision, not a reference, so it is checked.
+            check_binding(&decl.name, renames)?;
             for member in &mut decl.members {
                 // `member.name` is a declaration, not a reference.
                 if let Some(value) = &mut member.value {
@@ -878,18 +949,33 @@ fn walk_expression(
             Ok(())
         }
         Expression::FunctionExpression(function) => {
-            // `function.id`/`function.params` are declarations, not references.
+            // `function.id`/`function.params` are declarations, not
+            // references — but each is checked for a shadowing collision.
+            if let Some(id) = &function.id {
+                check_binding(id, renames)?;
+            }
+            for param in &function.params {
+                check_binding(&param.name, renames)?;
+            }
             if let Some(body) = &mut function.body {
                 walk_block(body, renames)?;
             }
             Ok(())
         }
         Expression::ArrowFunctionExpression(arrow) => {
-            // `arrow.params` are declarations, not references.
+            // `arrow.params` are declarations, not references — but each is
+            // checked for a shadowing collision.
+            for param in &arrow.params {
+                check_binding(&param.name, renames)?;
+            }
             walk_expression(&mut arrow.body, renames, false)
         }
         Expression::ClassExpression(class) => {
-            // `class.id` is a declaration, not a reference.
+            // `class.id` is a declaration, not a reference — but it is
+            // checked for a shadowing collision.
+            if let Some(id) = &class.id {
+                check_binding(id, renames)?;
+            }
             walk_class_body(&mut class.body, renames)
         }
         Expression::NewExpression(new_expr) => {
@@ -1686,5 +1772,105 @@ mod tests {
             statements, before,
             "a rejected sibling-alias must never partially mutate `statements`"
         );
+    }
+
+    // ---- shadowing fail-open (CRITICAL review finding) ----
+    //
+    // The rename walk has no lexical-scope awareness. Before the fix below,
+    // a cloned body that locally REBINDS a sibling linked-function name (a
+    // `const`/`let`/`var` local, a function parameter, a nested function
+    // declaration, a catch-clause param, a for-in/for-of loop variable, a
+    // class name, ...) still had every CALL of that name silently rewritten
+    // to the mangled sibling — a silent wrong-call-target miscompile. These
+    // tests must reject closed instead.
+
+    #[test]
+    fn append_linked_functions_rejects_local_const_shadowing_sibling() {
+        // The exact probe from the finding: `helper` is locally rebound to
+        // an arrow function, but the un-walked declarator id leaves the
+        // local binding named `helper` while the call `helper()` gets
+        // silently renamed to `__link0_helper` — the SIBLING's `helper`,
+        // not the local arrow.
+        let module = build_module(
+            0,
+            "function helper() { return 1n; } export function f() { const helper = () => 2n; return helper(); }",
+        );
+        let mut statements: Vec<Statement> = Vec::new();
+
+        let error = append_linked_functions(&mut statements, &module)
+            .expect_err("a local binding shadowing a sibling linked function must be rejected");
+
+        assert_eq!(error.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+        assert!(
+            error.message.contains("helper"),
+            "message must name the shadowed linked function: {}",
+            error.message
+        );
+    }
+
+    #[test]
+    fn append_linked_functions_rejects_parameter_shadowing_sibling() {
+        let module = build_module(
+            0,
+            "function helper() { return 1n; } export function f(helper) { return helper(); }",
+        );
+        let mut statements: Vec<Statement> = Vec::new();
+
+        let error = append_linked_functions(&mut statements, &module)
+            .expect_err("a parameter shadowing a sibling linked function must be rejected");
+
+        assert_eq!(error.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+        assert!(
+            error.message.contains("helper"),
+            "message must name the shadowed linked function: {}",
+            error.message
+        );
+    }
+
+    #[test]
+    fn append_linked_functions_leaves_statements_unchanged_on_shadow_reject() {
+        let module = build_module(
+            0,
+            "function helper() { return 1n; } export function f() { const helper = () => 2n; return helper(); }",
+        );
+        let mut statements: Vec<Statement> = Vec::new();
+        let before = statements.clone();
+
+        let result = append_linked_functions(&mut statements, &module);
+
+        assert!(result.is_err());
+        assert_eq!(
+            statements, before,
+            "a rejected shadow must never partially mutate `statements`"
+        );
+    }
+
+    #[test]
+    fn append_linked_functions_still_renames_genuine_sibling_call_no_shadow() {
+        // Positive control: no shadow anywhere, so the existing rename
+        // behavior must be unaffected by the new shadow check.
+        let module = build_module(
+            0,
+            "function helper() { return 1; } export function f() { return helper(); }",
+        );
+        let mut statements: Vec<Statement> = Vec::new();
+
+        append_linked_functions(&mut statements, &module).expect("append should succeed");
+
+        let f_clone = find_function(&statements, "__link0_f");
+        match &f_clone.body.body[..] {
+            [Statement::ReturnStatement(r)] => {
+                match r.argument.as_ref().expect("return has an argument") {
+                    Expression::CallExpression(call) => match &call.callee {
+                        Expression::Identifier(name) => {
+                            assert_eq!(name, "__link0_helper")
+                        }
+                        other => panic!("expected an Identifier callee, got {other:?}"),
+                    },
+                    other => panic!("expected a CallExpression, got {other:?}"),
+                }
+            }
+            other => panic!("expected a single ReturnStatement body, got {other:?}"),
+        }
     }
 }
