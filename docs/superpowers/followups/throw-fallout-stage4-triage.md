@@ -244,9 +244,14 @@ unsupported element — correct: the growable lane cannot read back array-valued
   variable) stores string handles in i64 slots; `join` then renders the raw handle bits
   (`-9223354444668731391,…`). Index-read string comparisons avoid this because the
   comparison string-seeds the element axis (whole lane solves String, content-correct).
-  The underlying "identifier push whose runtime value is a string but whose repr solves
-  plain" hole predates Task 6 and survives it for join-only readers — silent-miscompile
-  follow-up for the stage record.
+  **CLOSED by the Task 6 review fix** (`3096875af`): string-yielding enumeration RHS
+  (`Object.keys(x)`, `Reflect.ownKeys(x)`, `Object.values(<string literal>)`) now
+  string-seeds the for-of/for-await loop variable in repr inference, so the element axis
+  solves String truthfully and a bare `.join(",")` renders `0,1` byte-for-byte vs node
+  (pinned in `growable_array_core.rs`). The same review fix closed the object-literal
+  identifier push fail-open (`o.push(obj)` stored a raw object pointer; the guard's
+  object checks were dead post-`mem::take` — now E5506 via `obj_literal_slots`) and gave
+  malformed `.push` calls their own argument-specific E5506 message.
 - `entriesSeen += entry[0] + entry[1]` accumulator rejects (E5506 string/number conflict) —
   enumeration-entry elements solve numeric; pre-existing repr limit, honest reject.
 
