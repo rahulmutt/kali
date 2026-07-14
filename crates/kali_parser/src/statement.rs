@@ -83,7 +83,20 @@ impl Parser {
             // statement path as every other unary-expression starter so the
             // new `TokenType::Delete` arm in `parse_unary_expression` is
             // actually reachable in statement position (throw-fallout Stage 2).
-            | TokenType::Delete => self.parse_expression_statement(),
+            | TokenType::Delete
+            // Same bug class, found in Stage 5's namespace-typeof-fold work:
+            // `typeof <expr>;` in STATEMENT position (not, e.g., after `=` or
+            // inside a call argument, both of which already worked — see
+            // `parse_unary_expression`'s `TokenType::Typeof` arm) was absent
+            // from this dispatch table, so `parse_statement` returned `None`
+            // for the leading `typeof` token, the top-level/block loop
+            // silently discarded it (see `parse_block_statement` above and
+            // `parse` in parser.rs), and re-parsed the remainder as its own
+            // statement — `typeof ns.lazyValue;` silently ran as a bare
+            // `ns.lazyValue;` member read, dropping the operator entirely
+            // (worse than the pre-fix `delete` bug: no placeholder node
+            // survives at all). Route it the same way.
+            | TokenType::Typeof => self.parse_expression_statement(),
             _ => None,
         }
     }

@@ -1234,6 +1234,667 @@ fn walk_jsx_child(
     }
 }
 
+// ---- namespace-use rewrite walk (Task 6) ----
+//
+// Deep pre-order walk over `Statement`/`Expression` mirroring the exhaustive
+// traversal SHAPE of the sibling-rename walk above
+// (`walk_block`/`walk_statement`/`walk_expression`) — same node coverage, no
+// `_ =>` arm on either enum, so the compiler forces a decision at every
+// current and future variant — but keyed by namespace-binding provenance
+// instead of a sibling-rename map, and non-fallible: instead of aborting on
+// the first problem it accumulates E5506 diagnostics into `diagnostics` and
+// keeps walking (the caller fails the build if `diagnostics` is non-empty
+// afterward). Unlike the rename walk, this one has no binding/shadowing
+// concerns of its own to check — it only ever *reads* structural shape
+// (`ns.member` / `typeof ns.member` / `ns.member(...)`), so most arms are
+// pure recursion with no per-node guard.
+
+/// Rewrites proven uses of namespace bindings in place; pushes E5506
+/// diagnostics for uses of non-exported members.
+pub fn rewrite_namespace_uses(
+    statements: &mut Vec<Statement>,
+    provenance: &NamespaceProvenance,
+    modules: &BTreeMap<usize, LinkedModuleAst>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for statement in statements.iter_mut() {
+        rewrite_statement(statement, provenance, modules, diagnostics);
+    }
+}
+
+/// The `"function"`/`"undefined"` fold target, constructed with the SAME
+/// quoting convention the lexer/parser use for a plain string-literal token:
+/// `crates/kali_lexer/src/string.rs:9-53` (`lex_string`) pushes the opening
+/// AND closing quote characters into the token's `value` verbatim (never
+/// stripped), and `crates/kali_parser/src/expression/primary.rs:76` wraps
+/// that raw token value straight into `LiteralValue::String` with no further
+/// processing. This is PROVEN, not merely asserted by convention, by the
+/// `folded_string_literal_matches_parser_construction` test below, which
+/// parses an equivalent literal and asserts `Expression` equality.
+fn string_literal_expression(value: &str) -> Expression {
+    Expression::Literal(LiteralValue::String(format!("\"{value}\"")))
+}
+
+fn computed_member_access_error(module_path: &Path) -> Diagnostic {
+    Diagnostic::error(
+        e5::FEATURE_UNAVAILABLE as u32,
+        format!(
+            "module '{}': computed member access on a module namespace is unavailable — only a plain `ns.member` (dot access with a literal name) can be folded or linked",
+            module_path.display()
+        ),
+    )
+}
+
+fn non_export_error(module_path: &Path, property: &str) -> Diagnostic {
+    Diagnostic::error(
+        e5::FEATURE_UNAVAILABLE as u32,
+        format!(
+            "module '{}' does not export '{}'",
+            module_path.display(),
+            property
+        ),
+    )
+}
+
+/// If `argument` is `MemberExpression { object: Identifier(ns), property,
+/// computed_index: None }` with `ns` a proven namespace binding, folds the
+/// WHOLE `typeof` expression to a string-literal `Expression` replacement:
+/// `"function"` if `property` is a true export, `"undefined"` otherwise —
+/// the namespace is SEALED, so a non-exported name (including a genuinely
+/// private helper linked only for sibling calls) genuinely evaluates to
+/// `undefined` at runtime, matching node — never a `TypeError`, unlike a
+/// non-exported CALL (see `try_rewrite_namespace_call_callee`). Computed
+/// access (`typeof ns[expr]`) pushes an E5506 reject instead and returns
+/// `None` — the node is left as-is; the caller still walks into it
+/// afterward for deeper issues nested inside the computed index. Returns
+/// `None` for anything that is not this exact shape (no namespace binding
+/// involved at all) — the caller falls back to ordinary recursion.
+fn try_fold_typeof_namespace_member(
+    argument: &Expression,
+    provenance: &NamespaceProvenance,
+    modules: &BTreeMap<usize, LinkedModuleAst>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<Expression> {
+    let Expression::MemberExpression(member) = argument else {
+        return None;
+    };
+    let Expression::Identifier(ns) = &member.object else {
+        return None;
+    };
+    let linked = provenance.bindings.get(ns)?.clone();
+    if member.computed_index.is_some() {
+        diagnostics.push(computed_member_access_error(&linked.path));
+        return None;
+    }
+    let module = modules.get(&linked.index).expect(
+        "every provenance-proven binding must have a corresponding loaded module in `modules`",
+    );
+    let literal = if module.exports.contains_key(&member.property) {
+        "function"
+    } else {
+        "undefined"
+    };
+    Some(string_literal_expression(literal))
+}
+
+/// If `callee` is `MemberExpression { object: Identifier(ns), property,
+/// computed_index: None }` with `ns` a proven namespace binding, either
+/// rewrites `callee` in place to `Identifier(mangled)` (`property` is a true
+/// export) or pushes an E5506 reject (`property` is absent from `exports` —
+/// including a genuinely-linked PRIVATE helper present in `all_functions`,
+/// which must reject exactly like a wholly unknown name: it was linked only
+/// so exported bodies could call it, never for outside namespace access) and
+/// leaves `callee` untouched (the build fails on the diagnostic; node itself
+/// raises a `TypeError` here at runtime, which this pass rejects at compile
+/// time instead). Computed access (`ns[expr](...)`) pushes the same
+/// computed-access E5506 instead. Does nothing at all (no diagnostic, no
+/// rewrite) for anything that is not this exact shape.
+fn try_rewrite_namespace_call_callee(
+    callee: &mut Expression,
+    provenance: &NamespaceProvenance,
+    modules: &BTreeMap<usize, LinkedModuleAst>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Expression::MemberExpression(member) = callee else {
+        return;
+    };
+    let Expression::Identifier(ns) = &member.object else {
+        return;
+    };
+    let Some(linked) = provenance.bindings.get(ns).cloned() else {
+        return;
+    };
+    if member.computed_index.is_some() {
+        diagnostics.push(computed_member_access_error(&linked.path));
+        return;
+    }
+    let property = member.property.clone();
+    let module = modules.get(&linked.index).expect(
+        "every provenance-proven binding must have a corresponding loaded module in `modules`",
+    );
+    if module.exports.contains_key(&property) {
+        *callee = Expression::Identifier(mangled_link_name(linked.index, &property));
+    } else {
+        diagnostics.push(non_export_error(&linked.path, &property));
+    }
+}
+
+fn rewrite_block(
+    block: &mut BlockStatement,
+    provenance: &NamespaceProvenance,
+    modules: &BTreeMap<usize, LinkedModuleAst>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for statement in &mut block.body {
+        rewrite_statement(statement, provenance, modules, diagnostics);
+    }
+}
+
+fn rewrite_var_decl(
+    decl: &mut VariableDeclaration,
+    provenance: &NamespaceProvenance,
+    modules: &BTreeMap<usize, LinkedModuleAst>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    // `decl.kind` and each `declarator.id` carry no `Expression` content.
+    for declarator in &mut decl.declarations {
+        if let Some(init) = &mut declarator.init {
+            rewrite_expression(init, provenance, modules, diagnostics);
+        }
+    }
+}
+
+fn rewrite_class_body(
+    body: &mut ClassBody,
+    provenance: &NamespaceProvenance,
+    modules: &BTreeMap<usize, LinkedModuleAst>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for method in &mut body.methods {
+        // `method.name`/`method.params` carry no `Expression` content.
+        if let Some(method_body) = &mut method.body {
+            rewrite_block(method_body, provenance, modules, diagnostics);
+        }
+    }
+}
+
+fn rewrite_statement(
+    statement: &mut Statement,
+    provenance: &NamespaceProvenance,
+    modules: &BTreeMap<usize, LinkedModuleAst>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    match statement {
+        Statement::ExpressionStatement(stmt) => {
+            rewrite_expression(&mut stmt.expression, provenance, modules, diagnostics)
+        }
+        // `label` is a control-flow target name, never an `Expression`.
+        Statement::BreakStatement(_) => {}
+        Statement::ContinueStatement(_) => {}
+        Statement::WithStatement(stmt) => {
+            rewrite_expression(&mut stmt.object, provenance, modules, diagnostics);
+            rewrite_statement(&mut stmt.body, provenance, modules, diagnostics);
+        }
+        Statement::ReturnStatement(stmt) => {
+            if let Some(argument) = &mut stmt.argument {
+                rewrite_expression(argument, provenance, modules, diagnostics);
+            }
+        }
+        Statement::LabeledStatement(stmt) => {
+            rewrite_statement(&mut stmt.body, provenance, modules, diagnostics)
+        }
+        Statement::IfStatement(stmt) => {
+            rewrite_expression(&mut stmt.test, provenance, modules, diagnostics);
+            rewrite_block(&mut stmt.consequent, provenance, modules, diagnostics);
+            if let Some(alternate) = &mut stmt.alternate {
+                rewrite_block(alternate, provenance, modules, diagnostics);
+            }
+        }
+        Statement::SwitchStatement(stmt) => {
+            rewrite_expression(&mut stmt.discriminant, provenance, modules, diagnostics);
+            for case in &mut stmt.cases {
+                if let Some(test) = &mut case.test {
+                    rewrite_expression(test, provenance, modules, diagnostics);
+                }
+                for consequent in &mut case.consequent {
+                    rewrite_statement(consequent, provenance, modules, diagnostics);
+                }
+            }
+        }
+        Statement::ThrowStatement(stmt) => {
+            rewrite_expression(&mut stmt.argument, provenance, modules, diagnostics)
+        }
+        Statement::TryStatement(stmt) => {
+            rewrite_block(&mut stmt.block, provenance, modules, diagnostics);
+            if let Some(handler) = &mut stmt.handler {
+                // `handler.param` is the caught-error binding name, not an
+                // `Expression`.
+                rewrite_block(&mut handler.body, provenance, modules, diagnostics);
+            }
+            if let Some(finalizer) = &mut stmt.finalizer {
+                rewrite_block(finalizer, provenance, modules, diagnostics);
+            }
+        }
+        // No fields at all.
+        Statement::DebuggerStatement(_) => {}
+        Statement::BlockStatement(stmt) => rewrite_block(stmt, provenance, modules, diagnostics),
+        Statement::ForStatement(stmt) => {
+            match &mut stmt.init {
+                Some(ForInit::VariableDeclaration(decl)) => {
+                    rewrite_var_decl(decl, provenance, modules, diagnostics)
+                }
+                Some(ForInit::Expression(expr)) => {
+                    rewrite_expression(expr, provenance, modules, diagnostics)
+                }
+                None => {}
+            }
+            if let Some(test) = &mut stmt.test {
+                rewrite_expression(test, provenance, modules, diagnostics);
+            }
+            if let Some(update) = &mut stmt.update {
+                rewrite_expression(update, provenance, modules, diagnostics);
+            }
+            rewrite_block(&mut stmt.body, provenance, modules, diagnostics);
+        }
+        Statement::ForInStatement(stmt) => {
+            match &mut stmt.left {
+                ForInLefthand::VariableDeclaration(decl) => {
+                    rewrite_var_decl(decl, provenance, modules, diagnostics)
+                }
+                ForInLefthand::Expression(expr) => {
+                    rewrite_expression(expr, provenance, modules, diagnostics)
+                }
+            }
+            rewrite_expression(&mut stmt.right, provenance, modules, diagnostics);
+            rewrite_statement(&mut stmt.body, provenance, modules, diagnostics);
+        }
+        Statement::ForOfStatement(stmt) => {
+            match &mut stmt.left {
+                ForOfLefthand::VariableDeclaration(decl) => {
+                    rewrite_var_decl(decl, provenance, modules, diagnostics)
+                }
+                ForOfLefthand::Expression(expr) => {
+                    rewrite_expression(expr, provenance, modules, diagnostics)
+                }
+            }
+            rewrite_expression(&mut stmt.right, provenance, modules, diagnostics);
+            // `is_await` carries no `Expression` content.
+            rewrite_statement(&mut stmt.body, provenance, modules, diagnostics);
+        }
+        Statement::WhileStatement(stmt) => {
+            rewrite_expression(&mut stmt.test, provenance, modules, diagnostics);
+            rewrite_block(&mut stmt.body, provenance, modules, diagnostics);
+        }
+        Statement::DoWhileStatement(stmt) => {
+            rewrite_block(&mut stmt.body, provenance, modules, diagnostics);
+            rewrite_expression(&mut stmt.test, provenance, modules, diagnostics);
+        }
+        // `function.name`/`function.params` carry no `Expression` content.
+        Statement::FunctionDeclaration(function) => {
+            rewrite_block(&mut function.body, provenance, modules, diagnostics)
+        }
+        Statement::ClassDeclaration(class) => {
+            rewrite_class_body(&mut class.body, provenance, modules, diagnostics)
+        }
+        Statement::VariableDeclaration(decl) => {
+            rewrite_var_decl(decl, provenance, modules, diagnostics)
+        }
+        // `ImportDeclaration { specifiers: Vec<ImportSpecifier>, source:
+        // String }` (`crates/kali_ast/src/module.rs:7-10`) — every field is
+        // a `String`/specifier-name, never an `Expression`. Unlike the
+        // sibling-rename walk above (which cares about a nested import
+        // because it introduces a local BINDING that could shadow a mangled
+        // sibling name), this walk has no binding/shadowing concept at all
+        // — it only ever looks for `ns.member` shape, which cannot occur
+        // inside these string-only fields regardless of nesting depth. A
+        // verified no-op, not an unverified one.
+        Statement::ImportDeclaration(_) => {}
+        // `ExportAllDeclaration { source: String }`
+        // (`crates/kali_ast/src/module.rs:69-72`) — same reasoning as above.
+        Statement::ExportAll(_) => {}
+        // `ExportNamedDeclaration { specifiers: Vec<ExportSpecifier>,
+        // source: Option<String> }` and `ExportSpecifier { local: String,
+        // exported: String }` (`crates/kali_ast/src/module.rs:56-66`) — same
+        // reasoning as above: string-only fields, no `Expression` content.
+        Statement::ExportNamed(_) => {}
+        Statement::ExportDefault(export) => match export {
+            ExportDefaultDeclaration::Expression(expr) => {
+                rewrite_expression(expr, provenance, modules, diagnostics)
+            }
+            ExportDefaultDeclaration::FunctionDeclaration(function) => {
+                rewrite_block(&mut function.body, provenance, modules, diagnostics)
+            }
+            ExportDefaultDeclaration::ClassDeclaration(class) => {
+                rewrite_class_body(&mut class.body, provenance, modules, diagnostics)
+            }
+        },
+        Statement::EnumDeclaration(decl) => {
+            // `decl.name`/`member.name` are declaration names, not
+            // `Expression`s.
+            for member in &mut decl.members {
+                if let Some(value) = &mut member.value {
+                    rewrite_expression(value, provenance, modules, diagnostics);
+                }
+            }
+        }
+        // TypeScript type syntax only — no `Expression` content to walk.
+        Statement::TypeAliasDeclaration(_) => {}
+        Statement::InterfaceDeclaration(_) => {}
+    }
+}
+
+fn rewrite_expression_or_spread(
+    element: &mut ExpressionOrSpread,
+    provenance: &NamespaceProvenance,
+    modules: &BTreeMap<usize, LinkedModuleAst>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    match element {
+        ExpressionOrSpread::Expression(expr) => {
+            rewrite_expression(expr, provenance, modules, diagnostics)
+        }
+        ExpressionOrSpread::Spread(spread) => {
+            rewrite_expression(&mut spread.argument, provenance, modules, diagnostics)
+        }
+        ExpressionOrSpread::Empty => {}
+    }
+}
+
+fn rewrite_expression(
+    expr: &mut Expression,
+    provenance: &NamespaceProvenance,
+    modules: &BTreeMap<usize, LinkedModuleAst>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    match expr {
+        // A bare identifier reference is never, by itself, a rewritable
+        // `ns.member` shape (that requires a `MemberExpression` wrapper) —
+        // leftover bare `ns` uses are Task 7's default-deny, not this
+        // task's job.
+        Expression::Identifier(_) => {}
+        // A literal value carries no further `Expression` content.
+        Expression::Literal(_) => {}
+        Expression::BinaryExpression(binary) => {
+            rewrite_expression(&mut binary.left, provenance, modules, diagnostics);
+            rewrite_expression(&mut binary.right, provenance, modules, diagnostics);
+        }
+        Expression::UnaryExpression(unary) => {
+            if unary.operator == "typeof" {
+                if let Some(replacement) = try_fold_typeof_namespace_member(
+                    &unary.argument,
+                    provenance,
+                    modules,
+                    diagnostics,
+                ) {
+                    *expr = replacement;
+                    return;
+                }
+            }
+            rewrite_expression(&mut unary.argument, provenance, modules, diagnostics);
+        }
+        Expression::CallExpression(call) => {
+            // The ONLY position this walk special-cases: the direct
+            // `callee` slot of a `CallExpression`. If it names a namespace
+            // binding, this either rewrites it in place or pushes a
+            // diagnostic (leaving it untouched); either way, walking it
+            // again immediately below is always safe — a rewritten
+            // `Identifier` has nothing left to walk (no-op above), and a
+            // left-untouched `MemberExpression` gets the same generic
+            // structural walk any other member expression would (reaching
+            // a computed index's nested content, for defense in depth).
+            try_rewrite_namespace_call_callee(&mut call.callee, provenance, modules, diagnostics);
+            rewrite_expression(&mut call.callee, provenance, modules, diagnostics);
+            for arg in &mut call.args {
+                rewrite_expression(arg, provenance, modules, diagnostics);
+            }
+        }
+        Expression::MemberExpression(member) => {
+            // No special-casing here: a bare `ns.member` (not the argument
+            // of `typeof`, not a call callee) is a leftover use for Task 7.
+            // `member.property` is a static field-name string, never a
+            // reference.
+            rewrite_expression(&mut member.object, provenance, modules, diagnostics);
+            if let Some(index) = &mut member.computed_index {
+                rewrite_expression(index, provenance, modules, diagnostics);
+            }
+        }
+        Expression::ArrayExpression(array) => {
+            for element in array.elements.iter_mut().flatten() {
+                rewrite_expression_or_spread(element, provenance, modules, diagnostics);
+            }
+        }
+        Expression::ObjectExpression(object) => {
+            for property in &mut object.properties {
+                // `property.key` is a static property name, never a
+                // reference.
+                rewrite_expression(&mut property.value, provenance, modules, diagnostics);
+            }
+        }
+        Expression::FunctionExpression(function) => {
+            // `function.id`/`function.params` carry no `Expression` content.
+            if let Some(body) = &mut function.body {
+                rewrite_block(body, provenance, modules, diagnostics);
+            }
+        }
+        Expression::ArrowFunctionExpression(arrow) => {
+            // `arrow.params` carry no `Expression` content.
+            rewrite_expression(&mut arrow.body, provenance, modules, diagnostics);
+        }
+        Expression::ClassExpression(class) => {
+            // `class.id` carries no `Expression` content.
+            rewrite_class_body(&mut class.body, provenance, modules, diagnostics)
+        }
+        Expression::NewExpression(new_expr) => {
+            // `new ns.Thing()` is deliberately NOT special-cased — only a
+            // plain `CallExpression` callee is rewritten by this pass (per
+            // the brief), so a `new` callee naming a namespace binding
+            // falls through untouched here, same as any other leftover use.
+            rewrite_expression(&mut new_expr.callee, provenance, modules, diagnostics);
+            for arg in &mut new_expr.args {
+                rewrite_expression(arg, provenance, modules, diagnostics);
+            }
+        }
+        // `meta`/`property` are fixed keyword strings (e.g. `import.meta`),
+        // never identifier lookups.
+        Expression::MetaProperty(_) => {}
+        Expression::TemplateLiteral(template) => {
+            // `template.quasis` are literal string chunks, not references.
+            for expression in &mut template.expressions {
+                rewrite_expression(expression, provenance, modules, diagnostics);
+            }
+        }
+        Expression::TaggedTemplateExpression(tagged) => {
+            rewrite_expression(&mut tagged.tag, provenance, modules, diagnostics);
+            for expression in &mut tagged.template.expressions {
+                rewrite_expression(expression, provenance, modules, diagnostics);
+            }
+        }
+        Expression::UpdateExpression(update) => {
+            rewrite_expression(&mut update.argument, provenance, modules, diagnostics)
+        }
+        Expression::AssignmentExpression(assignment) => {
+            rewrite_expression(&mut assignment.left, provenance, modules, diagnostics);
+            rewrite_expression(&mut assignment.right, provenance, modules, diagnostics);
+        }
+        Expression::LogicalExpression(logical) => {
+            rewrite_expression(&mut logical.left, provenance, modules, diagnostics);
+            rewrite_expression(&mut logical.right, provenance, modules, diagnostics);
+        }
+        Expression::ConditionalExpression(conditional) => {
+            rewrite_expression(&mut conditional.test, provenance, modules, diagnostics);
+            rewrite_expression(
+                &mut conditional.consequent,
+                provenance,
+                modules,
+                diagnostics,
+            );
+            rewrite_expression(&mut conditional.alternate, provenance, modules, diagnostics);
+        }
+        Expression::SequenceExpression(sequence) => {
+            for expression in &mut sequence.expressions {
+                rewrite_expression(expression, provenance, modules, diagnostics);
+            }
+        }
+        Expression::ParenthesizedExpression(parenthesized) => rewrite_expression(
+            &mut parenthesized.expression,
+            provenance,
+            modules,
+            diagnostics,
+        ),
+        Expression::YieldExpression(yield_expr) => {
+            if let Some(argument) = &mut yield_expr.argument {
+                rewrite_expression(argument, provenance, modules, diagnostics);
+            }
+        }
+        Expression::AwaitExpression(await_expr) => {
+            // The `await` wrapper itself is never touched — only its
+            // `argument` is walked, so a rewrite deep inside (e.g. `await
+            // ns.lazyValue()`, where `argument` is the `CallExpression`)
+            // leaves this node structurally intact.
+            rewrite_expression(&mut await_expr.argument, provenance, modules, diagnostics)
+        }
+        Expression::OptionalChainExpression(chain) => match chain.inner.as_mut() {
+            OptionalChainInner::NonNull { object, .. } => {
+                rewrite_expression(object, provenance, modules, diagnostics)
+            }
+        },
+        Expression::ChainExpression(chain) => {
+            rewrite_expression(&mut chain.expression, provenance, modules, diagnostics)
+        }
+        Expression::SpreadElement(spread) => {
+            rewrite_expression(&mut spread.argument, provenance, modules, diagnostics)
+        }
+        Expression::RestElement(rest) => {
+            rewrite_expression(&mut rest.argument, provenance, modules, diagnostics)
+        }
+        Expression::ImportExpression(import_expr) => {
+            rewrite_expression(&mut import_expr.source, provenance, modules, diagnostics)
+        }
+        Expression::DecoratedExpression(decorated) => {
+            rewrite_expression(&mut decorated.expression, provenance, modules, diagnostics)
+        }
+        Expression::JsxElement(element) => {
+            rewrite_jsx_element(element, provenance, modules, diagnostics)
+        }
+        Expression::JsxFragment(fragment) => {
+            rewrite_jsx_fragment(fragment, provenance, modules, diagnostics)
+        }
+        // No content at all.
+        Expression::JsxEmptyExpression => {}
+        Expression::TypeAssertion(assertion) => {
+            // `assertion.type_name` is TypeScript type syntax, not a value reference.
+            rewrite_expression(&mut assertion.expression, provenance, modules, diagnostics)
+        }
+        Expression::SatisfiesExpression(satisfies) => {
+            // `satisfies.type_name` is TypeScript type syntax, not a value reference.
+            rewrite_expression(&mut satisfies.expression, provenance, modules, diagnostics)
+        }
+        // `this`/`super` are keywords, never identifier lookups.
+        Expression::ThisExpression => {}
+        Expression::SuperExpression => {}
+        // A private class-field name (`#foo`) can never be a namespace
+        // binding.
+        Expression::PrivateIdentifier(_) => {}
+        // A literal numeric value, not a reference.
+        Expression::BigIntLiteral(_) => {}
+    }
+}
+
+fn rewrite_jsx_element(
+    element: &mut JsxElement,
+    provenance: &NamespaceProvenance,
+    modules: &BTreeMap<usize, LinkedModuleAst>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    // `opening_element.name`/`closing_element.name` (`JsxName`) hold only
+    // tag-name strings at every depth (`Identifier(String)` or a nested
+    // `JsxClosedElement` wrapping another `JsxName`) — no `Expression`
+    // content anywhere in that type, so nothing to walk there.
+    for attribute in &mut element.opening_element.attributes {
+        rewrite_jsx_attribute_item(attribute, provenance, modules, diagnostics);
+    }
+    for child in &mut element.children {
+        rewrite_jsx_child(child, provenance, modules, diagnostics);
+    }
+}
+
+fn rewrite_jsx_fragment(
+    fragment: &mut JsxFragment,
+    provenance: &NamespaceProvenance,
+    modules: &BTreeMap<usize, LinkedModuleAst>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for child in &mut fragment.children {
+        rewrite_jsx_child(child, provenance, modules, diagnostics);
+    }
+}
+
+fn rewrite_jsx_attribute_item(
+    item: &mut JsxAttributeItem,
+    provenance: &NamespaceProvenance,
+    modules: &BTreeMap<usize, LinkedModuleAst>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    match item {
+        JsxAttributeItem::JsxAttribute(attribute) => {
+            rewrite_jsx_attribute_value(&mut attribute.value, provenance, modules, diagnostics)
+        }
+        JsxAttributeItem::JsxSpreadAttribute(spread) => {
+            rewrite_expression(&mut spread.argument, provenance, modules, diagnostics)
+        }
+    }
+}
+
+fn rewrite_jsx_attribute_value(
+    value: &mut JsxAttributeValue,
+    provenance: &NamespaceProvenance,
+    modules: &BTreeMap<usize, LinkedModuleAst>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    match value {
+        // A plain string literal attribute value, not a reference.
+        JsxAttributeValue::String(_) => {}
+        JsxAttributeValue::JsxElement(element) => {
+            rewrite_jsx_element(element, provenance, modules, diagnostics)
+        }
+        JsxAttributeValue::JsxExpression(container) => {
+            rewrite_jsx_expression_container(container, provenance, modules, diagnostics)
+        }
+    }
+}
+
+fn rewrite_jsx_expression_container(
+    container: &mut JsxExpressionContainer,
+    provenance: &NamespaceProvenance,
+    modules: &BTreeMap<usize, LinkedModuleAst>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if let Some(expression) = &mut container.expression {
+        rewrite_expression(expression, provenance, modules, diagnostics);
+    }
+}
+
+fn rewrite_jsx_child(
+    child: &mut JsxChild,
+    provenance: &NamespaceProvenance,
+    modules: &BTreeMap<usize, LinkedModuleAst>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    match child {
+        // Literal text content, not a reference.
+        JsxChild::JsxText(_) => {}
+        JsxChild::JsxExpression(container) => {
+            rewrite_jsx_expression_container(container, provenance, modules, diagnostics)
+        }
+        JsxChild::JsxElement(element) => {
+            rewrite_jsx_element(element, provenance, modules, diagnostics)
+        }
+        JsxChild::JsxFragment(fragment) => {
+            rewrite_jsx_fragment(fragment, provenance, modules, diagnostics)
+        }
+    }
+}
+
 /// Strips a single layer of matching `'`/`"`/`` ` `` quoting, mirroring
 /// `eval::unquote_string_literal` (private to that module, so re-implemented
 /// here rather than exposed cross-module for one call site).
@@ -2074,5 +2735,348 @@ mod tests {
                 panic!("expected a single nested ExportDefault(Expression) body, got {other:?}")
             }
         }
+    }
+
+    // ---- rewrite_namespace_uses (Task 6) ----
+
+    /// Builds `(tempdir, provenance, modules)` for a `main.js` that does
+    /// `import * as ns from "./lazy.js"` against a `lazy.js` fixture whose
+    /// source declares:
+    ///   export function lazyValue(a, b) { return a + b; }
+    ///   function helper() { return 1n; }
+    ///   export function f() { return helper(); }
+    /// `helper` is deliberately a REAL function in the linked module (it
+    /// exists in `all_functions`) but never exported — this gives
+    /// `ns.helper()`/`typeof ns.helper` a genuine private-helper case to
+    /// reject/fold against, distinct from `ns.notAnExport` (a name absent
+    /// from the module entirely). Both must be treated identically by the
+    /// rules under test.
+    fn rewrite_fixture() -> (
+        TempDir,
+        NamespaceProvenance,
+        BTreeMap<usize, LinkedModuleAst>,
+    ) {
+        let dir = tempdir().expect("tempdir");
+        let module = write_module(
+            &dir,
+            "lazy.js",
+            "export function lazyValue(a, b) { return a + b; } function helper() { return 1n; } export function f() { return helper(); }",
+        );
+        let main_js = dir.path().join("main.js");
+        let source = r#"import * as ns from "./lazy.js";"#;
+        let statements = parse(source);
+        let provenance = collect_namespace_provenance(&main_js, source, &statements);
+        let loaded = load_linked_module(&module).expect("fixture module should load");
+        let mut modules = BTreeMap::new();
+        modules.insert(loaded.index, loaded);
+        (dir, provenance, modules)
+    }
+
+    #[test]
+    fn folded_string_literal_matches_parser_construction_for_function_and_undefined() {
+        // Proves the quoting convention by PARSING an equivalent literal and
+        // asserting `Expression` equality — not merely assuming it — so a
+        // downstream `typeof x !== 'function'` comparison sees the same
+        // literal shape the parser itself would build.
+        for value in ["function", "undefined"] {
+            let source = format!("(\"{value}\");");
+            let statements = parse(&source);
+            let parsed_literal = match &statements[..] {
+                [Statement::ExpressionStatement(stmt)] => match stmt.expression.as_ref() {
+                    Expression::ParenthesizedExpression(inner) => (*inner.expression).clone(),
+                    other => panic!("expected a ParenthesizedExpression, got {other:?}"),
+                },
+                other => panic!("expected a single ExpressionStatement, got {other:?}"),
+            };
+            assert_eq!(
+                parsed_literal,
+                string_literal_expression(value),
+                "constructed literal for {value:?} must equal the parser's own construction"
+            );
+        }
+    }
+
+    #[test]
+    fn rewrite_namespace_uses_folds_typeof_of_export_to_function_literal() {
+        let (_dir, provenance, modules) = rewrite_fixture();
+        let mut statements = parse("typeof ns.lazyValue;");
+        let mut diagnostics = Vec::new();
+
+        rewrite_namespace_uses(&mut statements, &provenance, &modules, &mut diagnostics);
+
+        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
+        match &statements[..] {
+            [Statement::ExpressionStatement(stmt)] => {
+                assert_eq!(*stmt.expression, string_literal_expression("function"));
+            }
+            other => panic!("expected a single ExpressionStatement, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn rewrite_namespace_uses_folds_typeof_of_missing_member_to_undefined_literal() {
+        let (_dir, provenance, modules) = rewrite_fixture();
+        let mut statements = parse("typeof ns.missing;");
+        let mut diagnostics = Vec::new();
+
+        rewrite_namespace_uses(&mut statements, &provenance, &modules, &mut diagnostics);
+
+        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
+        match &statements[..] {
+            [Statement::ExpressionStatement(stmt)] => {
+                assert_eq!(*stmt.expression, string_literal_expression("undefined"));
+            }
+            other => panic!("expected a single ExpressionStatement, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn rewrite_namespace_uses_folds_typeof_of_private_helper_to_undefined_literal() {
+        // `helper` is a real function of the linked module but not exported
+        // — the sealed namespace genuinely has no `helper` property from the
+        // outside, so `typeof ns.helper` must fold to "undefined" exactly
+        // like a wholly-absent name, not reject.
+        let (_dir, provenance, modules) = rewrite_fixture();
+        let mut statements = parse("typeof ns.helper;");
+        let mut diagnostics = Vec::new();
+
+        rewrite_namespace_uses(&mut statements, &provenance, &modules, &mut diagnostics);
+
+        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
+        match &statements[..] {
+            [Statement::ExpressionStatement(stmt)] => {
+                assert_eq!(*stmt.expression, string_literal_expression("undefined"));
+            }
+            other => panic!("expected a single ExpressionStatement, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn rewrite_namespace_uses_rewrites_export_call_to_mangled_identifier() {
+        let (_dir, provenance, modules) = rewrite_fixture();
+        let mut statements = parse("ns.lazyValue(a, b);");
+        let mut diagnostics = Vec::new();
+
+        rewrite_namespace_uses(&mut statements, &provenance, &modules, &mut diagnostics);
+
+        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
+        match &statements[..] {
+            [Statement::ExpressionStatement(stmt)] => match stmt.expression.as_ref() {
+                Expression::CallExpression(call) => {
+                    assert_eq!(
+                        call.callee,
+                        Expression::Identifier("__link0_lazyValue".to_string())
+                    );
+                    assert_eq!(
+                        call.args,
+                        vec![
+                            Expression::Identifier("a".to_string()),
+                            Expression::Identifier("b".to_string()),
+                        ]
+                    );
+                }
+                other => panic!("expected a CallExpression, got {other:?}"),
+            },
+            other => panic!("expected a single ExpressionStatement, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn rewrite_namespace_uses_preserves_await_wrapper_around_rewritten_call() {
+        let (_dir, provenance, modules) = rewrite_fixture();
+        let mut statements = parse(
+            r#"
+                async function main() {
+                    await ns.lazyValue(1, 2);
+                }
+            "#,
+        );
+        let mut diagnostics = Vec::new();
+
+        rewrite_namespace_uses(&mut statements, &provenance, &modules, &mut diagnostics);
+
+        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
+        let function = find_function(&statements, "main");
+        match &function.body.body[..] {
+            [Statement::ExpressionStatement(stmt)] => match stmt.expression.as_ref() {
+                Expression::AwaitExpression(await_expr) => match &await_expr.argument {
+                    Expression::CallExpression(call) => {
+                        assert_eq!(
+                            call.callee,
+                            Expression::Identifier("__link0_lazyValue".to_string())
+                        );
+                    }
+                    other => panic!("expected a CallExpression under await, got {other:?}"),
+                },
+                other => panic!("expected an AwaitExpression, got {other:?}"),
+            },
+            other => panic!("expected a single ExpressionStatement, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn rewrite_namespace_uses_rejects_call_to_non_exported_name() {
+        let (dir, provenance, modules) = rewrite_fixture();
+        let mut statements = parse("ns.notAnExport();");
+        let mut diagnostics = Vec::new();
+
+        rewrite_namespace_uses(&mut statements, &provenance, &modules, &mut diagnostics);
+
+        assert_eq!(diagnostics.len(), 1, "diagnostics: {diagnostics:?}");
+        assert_eq!(diagnostics[0].code, Some(e5::FEATURE_UNAVAILABLE as u32));
+        let expected_path = canonical(&dir, "lazy.js").display().to_string();
+        assert!(
+            diagnostics[0].message.contains(&expected_path),
+            "message must name the module path: {}",
+            diagnostics[0].message
+        );
+        assert!(
+            diagnostics[0].message.contains("notAnExport"),
+            "message must name the missing export: {}",
+            diagnostics[0].message
+        );
+        // The rejected call site is left untouched.
+        match &statements[..] {
+            [Statement::ExpressionStatement(stmt)] => match stmt.expression.as_ref() {
+                Expression::CallExpression(call) => {
+                    assert_eq!(
+                        call.callee,
+                        Expression::MemberExpression(Box::new(MemberExpression {
+                            object: Expression::Identifier("ns".to_string()),
+                            property: "notAnExport".to_string(),
+                            computed_index: None,
+                        }))
+                    );
+                }
+                other => panic!("expected a CallExpression, got {other:?}"),
+            },
+            other => panic!("expected a single ExpressionStatement, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn rewrite_namespace_uses_rejects_call_to_private_helper() {
+        let (dir, provenance, modules) = rewrite_fixture();
+        let mut statements = parse("ns.helper();");
+        let mut diagnostics = Vec::new();
+
+        rewrite_namespace_uses(&mut statements, &provenance, &modules, &mut diagnostics);
+
+        assert_eq!(diagnostics.len(), 1, "diagnostics: {diagnostics:?}");
+        assert_eq!(diagnostics[0].code, Some(e5::FEATURE_UNAVAILABLE as u32));
+        let expected_path = canonical(&dir, "lazy.js").display().to_string();
+        assert!(diagnostics[0].message.contains(&expected_path));
+        assert!(
+            diagnostics[0].message.contains("helper"),
+            "message must name the private helper: {}",
+            diagnostics[0].message
+        );
+    }
+
+    #[test]
+    fn rewrite_namespace_uses_rejects_computed_call_access() {
+        let (dir, provenance, modules) = rewrite_fixture();
+        let mut statements = parse(r#"ns["lazyValue"](1, 2);"#);
+        let mut diagnostics = Vec::new();
+
+        rewrite_namespace_uses(&mut statements, &provenance, &modules, &mut diagnostics);
+
+        assert_eq!(diagnostics.len(), 1, "diagnostics: {diagnostics:?}");
+        assert_eq!(diagnostics[0].code, Some(e5::FEATURE_UNAVAILABLE as u32));
+        assert!(diagnostics[0].message.contains("computed member access"));
+        let expected_path = canonical(&dir, "lazy.js").display().to_string();
+        assert!(diagnostics[0].message.contains(&expected_path));
+    }
+
+    #[test]
+    fn rewrite_namespace_uses_rejects_computed_typeof_access() {
+        let (dir, provenance, modules) = rewrite_fixture();
+        let mut statements = parse(r#"typeof ns["lazyValue"];"#);
+        let mut diagnostics = Vec::new();
+
+        rewrite_namespace_uses(&mut statements, &provenance, &modules, &mut diagnostics);
+
+        assert_eq!(diagnostics.len(), 1, "diagnostics: {diagnostics:?}");
+        assert_eq!(diagnostics[0].code, Some(e5::FEATURE_UNAVAILABLE as u32));
+        assert!(diagnostics[0].message.contains("computed member access"));
+        let expected_path = canonical(&dir, "lazy.js").display().to_string();
+        assert!(diagnostics[0].message.contains(&expected_path));
+        // Left unfolded — still a `typeof` over the untouched computed member.
+        match &statements[..] {
+            [Statement::ExpressionStatement(stmt)] => {
+                assert!(matches!(
+                    stmt.expression.as_ref(),
+                    Expression::UnaryExpression(_)
+                ));
+            }
+            other => panic!("expected a single ExpressionStatement, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn rewrite_namespace_uses_reaches_nested_arrow_and_call_arg_positions() {
+        // Proves the deep pre-order walk reaches function bodies, arrow
+        // bodies, and call-argument positions — the exact class of place
+        // Task 5's walk was twice found to miss.
+        let (_dir, provenance, modules) = rewrite_fixture();
+        let mut statements = parse(
+            r#"
+                function outer() {
+                    const check = () => typeof ns.lazyValue;
+                    return other(ns.lazyValue(1, 2), check());
+                }
+            "#,
+        );
+        let mut diagnostics = Vec::new();
+
+        rewrite_namespace_uses(&mut statements, &provenance, &modules, &mut diagnostics);
+
+        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
+        let outer = find_function(&statements, "outer");
+        match &outer.body.body[0] {
+            Statement::VariableDeclaration(decl) => match &decl.declarations[0].init {
+                Some(Expression::ArrowFunctionExpression(arrow)) => {
+                    assert_eq!(arrow.body, string_literal_expression("function"));
+                }
+                other => panic!("expected an arrow function init, got {other:?}"),
+            },
+            other => panic!("expected a VariableDeclaration, got {other:?}"),
+        }
+        match &outer.body.body[1] {
+            Statement::ReturnStatement(stmt) => match stmt.argument.as_ref().unwrap() {
+                Expression::CallExpression(call) => match &call.args[0] {
+                    Expression::CallExpression(inner) => {
+                        assert_eq!(
+                            inner.callee,
+                            Expression::Identifier("__link0_lazyValue".to_string())
+                        );
+                    }
+                    other => panic!("expected a nested CallExpression, got {other:?}"),
+                },
+                other => panic!("expected a CallExpression, got {other:?}"),
+            },
+            other => panic!("expected a ReturnStatement, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn rewrite_namespace_uses_leaves_namespace_free_program_unchanged() {
+        let (_dir, provenance, modules) = rewrite_fixture();
+        let source = r#"
+            function add(a, b) { return a + b; }
+            const x = typeof add;
+            console.log(add(1, 2));
+        "#;
+        let mut statements = parse(source);
+        let before = statements.clone();
+        let mut diagnostics = Vec::new();
+
+        rewrite_namespace_uses(&mut statements, &provenance, &modules, &mut diagnostics);
+
+        assert!(diagnostics.is_empty(), "diagnostics: {diagnostics:?}");
+        assert_eq!(
+            statements, before,
+            "a namespace-free program must be left byte-identical"
+        );
     }
 }
