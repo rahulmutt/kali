@@ -406,6 +406,16 @@ pub fn load_linked_module(module: &LinkedModule) -> Result<LinkedModuleAst, Diag
             Statement::FunctionDeclaration(function)
                 if !function.is_async && !function.generator =>
             {
+                if all_functions.contains_key(&function.name) {
+                    return Err(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        format!(
+                            "module '{}' cannot be linked for namespace member access: its top level declares `{}` more than once — a later private redefinition would silently overwrite an exported declaration of the same name",
+                            path.display(),
+                            function.name,
+                        ),
+                    ));
+                }
                 all_functions.insert(function.name.clone(), function.clone());
             }
             other => {
@@ -933,6 +943,26 @@ mod tests {
         assert!(
             error.message.contains("class"),
             "message must name the offending construct: {}",
+            error.message
+        );
+    }
+
+    /// Closes the fail-open where a private redefinition of an exported
+    /// top-level function name silently overwrote the exported body in
+    /// `all_functions` while the token scan still reported the name as
+    /// exported (proven from the FIRST, genuinely-`export`ed declaration).
+    /// Without a duplicate-name guard, `exports = {f: <private redefinition's
+    /// body>}` — a downstream `ns.f()` would link against a body that was
+    /// never actually exported.
+    #[test]
+    fn load_linked_module_rejects_duplicate_top_level_function_name() {
+        let error = assert_rejected(
+            "export function f() { return 1n; } function f() { return 2n; }",
+            "main.js",
+        );
+        assert!(
+            error.message.contains('f'),
+            "message must name the duplicated function: {}",
             error.message
         );
     }
