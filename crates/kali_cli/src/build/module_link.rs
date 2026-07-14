@@ -10,10 +10,14 @@
 //! This module only *detects* provenance. Module loading, AST cloning under
 //! mangled `__link{N}_{name}` names, and use-site rewriting are later tasks.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 use kali_ast::*;
+use kali_common::FileId;
+use kali_error::{_error_codes::e5, Diagnostic};
+use kali_lexer::{Lexer, Token, TokenType};
+use kali_parser::Parser;
 
 /// Provenance-proven module-namespace bindings discovered in one source file.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -325,6 +329,155 @@ fn is_object_freeze_callee(callee: &Expression) -> bool {
             if member.property == "freeze"
                 && matches!(&member.object, Expression::Identifier(name) if name == "Object")
     )
+}
+
+/// A parsed, purity-gated linked module: its true exports (token-scan
+/// proven) plus every top-level function (exports + private helpers), for
+/// Task 5's sibling-callee renames.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct LinkedModuleAst {
+    pub index: usize,
+    /// export name → the parsed function declaration.
+    pub exports: BTreeMap<String, FunctionDeclaration>,
+    /// ALL top-level function names (exports + private helpers).
+    pub all_functions: BTreeMap<String, FunctionDeclaration>,
+}
+
+/// Reads, lexes, and parses `module.path`, then purity-gates it: EVERY
+/// top-level statement must be a plain (non-async, non-generator)
+/// `function` declaration. Anything else — a bare top-level statement, an
+/// import, `export const`, an async or generator function, a class, etc. —
+/// fails closed with an `E5506 FEATURE_UNAVAILABLE` diagnostic naming the
+/// module path and the offending construct.
+///
+/// Because the parser erases the `export` marker (a plain `export function
+/// f() {}` and a private `function f() {}` produce the identical
+/// `Statement::FunctionDeclaration` node — see `kali_parser::module`
+/// around the `TokenType::Function` branch), the TRUE export set cannot be
+/// read off the AST. Instead this token-scans the already-lexed source for
+/// `Export` immediately followed by `Function` immediately followed by an
+/// `Identifier`, collects those identifiers as the proven export names, and
+/// intersects that set with `all_functions` (a defensive belt-and-braces
+/// narrowing, since every name the scan finds must also be a real top-level
+/// function to end up in `exports`).
+pub fn load_linked_module(module: &LinkedModule) -> Result<LinkedModuleAst, Diagnostic> {
+    let path = &module.path;
+
+    let source = std::fs::read_to_string(path).map_err(|error| {
+        Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            format!(
+                "module '{}' cannot be linked for namespace member access: failed to read the file: {error}",
+                path.display()
+            ),
+        )
+    })?;
+
+    let lexed = Lexer::new(FileId::new(0), source).lex_all();
+    if !lexed.diagnostics.is_empty() {
+        return Err(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            format!(
+                "module '{}' cannot be linked for namespace member access: it failed to lex: {:?}",
+                path.display(),
+                lexed.diagnostics
+            ),
+        ));
+    }
+
+    let export_names = scan_exported_function_names(&lexed.tokens);
+
+    let mut parser = Parser::new(FileId::new(0), lexed.tokens);
+    let parsed = parser.parse(Some(path.to_string_lossy().to_string()));
+    if !parsed.diagnostics.is_empty() {
+        return Err(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            format!(
+                "module '{}' cannot be linked for namespace member access: it failed to parse: {:?}",
+                path.display(),
+                parsed.diagnostics
+            ),
+        ));
+    }
+
+    let mut all_functions: BTreeMap<String, FunctionDeclaration> = BTreeMap::new();
+    for statement in &parsed.statements {
+        match statement {
+            Statement::FunctionDeclaration(function)
+                if !function.is_async && !function.generator =>
+            {
+                all_functions.insert(function.name.clone(), function.clone());
+            }
+            other => {
+                return Err(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    format!(
+                        "module '{}' cannot be linked for namespace member access: its top level contains {} — only plain `export function` declarations are supported in the current direct-runtime path",
+                        path.display(),
+                        describe_statement(other),
+                    ),
+                ));
+            }
+        }
+    }
+
+    let exports = all_functions
+        .iter()
+        .filter(|(name, _)| export_names.contains(*name))
+        .map(|(name, function)| (name.clone(), function.clone()))
+        .collect();
+
+    Ok(LinkedModuleAst {
+        index: module.index,
+        exports,
+        all_functions,
+    })
+}
+
+/// Token-scans `tokens` for `export function <name>` sequences and returns
+/// the set of proven export names. `export async function <name>` and
+/// `export function* <name>` are not matched here — those shapes are
+/// already rejected by the purity gate in `load_linked_module` before this
+/// set is ever intersected against `all_functions`, so there is no export
+/// they could wrongly license.
+fn scan_exported_function_names(tokens: &[Token]) -> BTreeSet<String> {
+    let mut names = BTreeSet::new();
+    for window in tokens.windows(3) {
+        if window[0].kind == TokenType::Export
+            && window[1].kind == TokenType::Function
+            && window[2].kind == TokenType::Identifier
+        {
+            names.insert(window[2].value.clone());
+        }
+    }
+    names
+}
+
+/// Produces a short human-readable label for the purity-gate rejection
+/// message, naming the offending top-level construct.
+fn describe_statement(statement: &Statement) -> String {
+    match statement {
+        Statement::FunctionDeclaration(function) if function.is_async => {
+            "an async function declaration".to_string()
+        }
+        Statement::FunctionDeclaration(function) if function.generator => {
+            "a generator function declaration".to_string()
+        }
+        Statement::ClassDeclaration(_) => "a class declaration".to_string(),
+        Statement::ImportDeclaration(_) => "an import declaration".to_string(),
+        Statement::VariableDeclaration(decl) => {
+            format!("a `{}` declaration", decl.kind)
+        }
+        other => {
+            // Fallback for anything else (ExpressionStatement — including
+            // the parser's fallback parse of `export const ...`,
+            // ExportNamed, ExportDefault, ExportAll, or any future
+            // statement kind): default-deny by construction, labeled
+            // generically as "a non-function statement".
+            let _ = other;
+            "a non-function statement".to_string()
+        }
+    }
 }
 
 fn register(
@@ -643,5 +796,144 @@ mod tests {
         };
         assert_eq!(provenance.bindings.get("a"), Some(&expected));
         assert_eq!(provenance.bindings.get("b"), Some(&expected));
+    }
+
+    // ---- load_linked_module: purity gate + true-export census (Task 4) ----
+
+    fn write_module(dir: &TempDir, name: &str, source: &str) -> LinkedModule {
+        fs::write(dir.path().join(name), source).expect("write fixture module");
+        LinkedModule {
+            path: canonical(dir, name),
+            index: 0,
+        }
+    }
+
+    #[test]
+    fn load_linked_module_accepts_single_exported_function() {
+        let dir = tempdir().expect("tempdir");
+        let module = write_module(
+            &dir,
+            "lazy.js",
+            "export function lazyValue() { return 7n; }",
+        );
+        let loaded = load_linked_module(&module).expect("module should load");
+        assert_eq!(loaded.index, 0);
+        assert_eq!(
+            loaded.exports.keys().cloned().collect::<Vec<_>>(),
+            vec!["lazyValue".to_string()]
+        );
+        assert_eq!(
+            loaded.all_functions.keys().cloned().collect::<Vec<_>>(),
+            vec!["lazyValue".to_string()]
+        );
+    }
+
+    /// This is THE test that proves the true-export census is driven by the
+    /// token scan and not by "every top-level function is an export": if
+    /// `load_linked_module` instead treated `all_functions` as the export
+    /// set, `helper` (never preceded by `export` in the source) would wrongly
+    /// appear in `exports` too, and a downstream `ns.helper()` use would
+    /// wrongly link against a private implementation detail (a fail-open).
+    #[test]
+    fn load_linked_module_true_export_census_excludes_private_helper() {
+        let dir = tempdir().expect("tempdir");
+        let module = write_module(
+            &dir,
+            "util.js",
+            "function helper() { return 1n; } export function f() { return helper(); }",
+        );
+        let loaded = load_linked_module(&module).expect("module should load");
+        assert_eq!(
+            loaded.exports.keys().cloned().collect::<Vec<_>>(),
+            vec!["f".to_string()],
+            "helper must NOT be counted as an export"
+        );
+        assert_eq!(
+            loaded.all_functions.keys().cloned().collect::<Vec<_>>(),
+            vec!["f".to_string(), "helper".to_string()],
+            "all_functions must retain the private helper for Task 5 sibling-callee renames"
+        );
+    }
+
+    fn assert_rejected(source: &str, name: &str) -> Diagnostic {
+        let dir = tempdir().expect("tempdir");
+        let module = write_module(&dir, name, source);
+        let error = load_linked_module(&module).expect_err("module must be rejected");
+        assert_eq!(error.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+        let path_string = module.path.display().to_string();
+        assert!(
+            error.message.contains(path_string.as_str()),
+            "message must name the module path: {}",
+            error.message
+        );
+        error
+    }
+
+    #[test]
+    fn load_linked_module_rejects_top_level_statement() {
+        let error = assert_rejected("console.log('boot'); export function f() {}", "main.js");
+        assert!(
+            error.message.contains("top level") || error.message.contains("statement"),
+            "message must name the offending construct: {}",
+            error.message
+        );
+    }
+
+    #[test]
+    fn load_linked_module_rejects_top_level_import() {
+        let error = assert_rejected(
+            "import { x } from './other.js'; export function f() {}",
+            "main.js",
+        );
+        assert!(
+            error.message.contains("import"),
+            "message must name the offending construct: {}",
+            error.message
+        );
+    }
+
+    #[test]
+    fn load_linked_module_rejects_non_function_export() {
+        // The parser erases `export` and has no dedicated node for a `const`
+        // that follows it (module.rs falls through to a generic expression
+        // statement here), so this rejects as an ordinary top-level
+        // statement rather than under a `const`-specific label — the
+        // allowlist gate still fails closed regardless of the exact label.
+        let error = assert_rejected("export const value = 7;", "main.js");
+        assert!(
+            error.message.contains("top level") || error.message.contains("statement"),
+            "message must name the offending construct: {}",
+            error.message
+        );
+    }
+
+    #[test]
+    fn load_linked_module_rejects_async_export() {
+        let error = assert_rejected("export async function f() {}", "main.js");
+        assert!(
+            error.message.contains("async"),
+            "message must name the offending construct: {}",
+            error.message
+        );
+    }
+
+    #[test]
+    fn load_linked_module_rejects_generator_export() {
+        let error = assert_rejected("export function* f() {}", "main.js");
+        assert!(
+            error.message.contains("generator"),
+            "message must name the offending construct: {}",
+            error.message
+        );
+    }
+
+    #[test]
+    fn load_linked_module_rejects_class() {
+        let error = assert_rejected("export class C {}", "main.js");
+        assert!(
+            error.message.contains("class"),
+            "message must name the offending construct: {}",
+            error.message
+        );
     }
 }
