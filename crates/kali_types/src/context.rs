@@ -44,13 +44,13 @@ pub struct TypeContext {
     /// Stack of enclosing function names; module scope is `_start`.
     pub(crate) current_function: Vec<String>,
     /// Stack of scope ids parallel to `current_function`: the `ScopeType::Function`
-    /// scope pushed alongside each named `FunctionDeclaration` entry. Lets
-    /// `current_function_scope` tell whether the scope chain at a given
-    /// resolution point ever crosses an UNTRACKED function-shaped scope (an
-    /// arrow function, function expression, class method, or
-    /// `export default function` — none of which push onto `current_function`,
-    /// see Task 3/4 follow-up) before reaching the scope that
-    /// `current_function_name()` actually names.
+    /// scope pushed alongside each entry — named `FunctionDeclaration`s, function
+    /// expressions, arrow functions, and class methods all push here (repr-tracked
+    /// as of Task 3). Lets `current_function_scope` tell whether the scope chain
+    /// at a given resolution point ever crosses the one remaining UNTRACKED
+    /// function-shaped scope — anonymous `export default function() {}` (its body
+    /// is not pushed, see `resolve_export_default`; deferred) — before reaching
+    /// the scope that `current_function_name()` actually names.
     pub(crate) current_function_scopes: Vec<NodeId>,
 }
 
@@ -101,8 +101,8 @@ impl TypeContext {
     /// at module scope). Consumed by the `E3200` gate's `operand_repr_is_string`
     /// (`resolve/expression.rs`) — see `current_function_scope` for the
     /// companion scope-id check that guards against misattributing a name to
-    /// this function when the scope chain actually crosses an untracked
-    /// (arrow/function-expression/class-method) function boundary first.
+    /// this function when the scope chain actually crosses the one remaining
+    /// untracked (anonymous `export default function`) boundary first.
     pub(crate) fn current_function_name(&self) -> &str {
         self.current_function
             .last()
@@ -111,13 +111,14 @@ impl TypeContext {
     }
 
     /// The `ScopeType::Function` scope id that corresponds EXACTLY to
-    /// `current_function_name()` — `None` at module scope (`_start`). Only
-    /// named `FunctionDeclaration`s push here (mirroring `current_function`);
-    /// an arrow function, function expression, class method, or
-    /// `export default function` scope is never this value, so comparing a
-    /// scope id encountered while walking the scope chain against this lets
-    /// callers detect "we are inside a function `current_function_name()`
-    /// does not actually name" and fail closed instead of guessing.
+    /// `current_function_name()` — `None` at module scope (`_start`). Named
+    /// `FunctionDeclaration`s, function expressions, arrow functions, and
+    /// class methods all push here (mirroring `current_function`); only an
+    /// anonymous `export default function` scope is never this value, so
+    /// comparing a scope id encountered while walking the scope chain against
+    /// this lets callers detect "we are inside a function
+    /// `current_function_name()` does not actually name" and fail closed
+    /// instead of guessing.
     pub(crate) fn current_function_scope(&self) -> Option<NodeId> {
         self.current_function_scopes.last().copied()
     }

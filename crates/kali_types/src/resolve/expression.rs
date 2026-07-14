@@ -262,9 +262,9 @@ impl TypeContext {
     ///   module-level binding: consult `scalar("_start", name)`, mirroring
     ///   codegen's fallback.
     /// - If, before either of the above, we reach a `ScopeType::Function`
-    ///   scope that is NOT `current_function_scope()` — an arrow function,
-    ///   function expression, class method, or `export default function`,
-    ///   none of which push onto `current_function` (see
+    ///   scope that is NOT `current_function_scope()` — the anonymous
+    ///   `export default function` body, the one function-shaped scope that
+    ///   does not push onto `current_function` (see
     ///   `TypeContext::current_function_scope`'s doc) — `current_function_name()`
     ///   does not actually name the function whose body we are in, so neither
     ///   table lookup above is safe: a same-named module binding or a
