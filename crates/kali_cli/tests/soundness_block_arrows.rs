@@ -160,3 +160,31 @@ console.log("ok");
         String::from_utf8_lossy(&out.stderr)
     );
 }
+
+/// Stage 5 recorded `class C { run(){ return 42; } } new C().run()` → 0.
+/// Class-method bodies are one of the untracked function-shaped scopes
+/// (kali_types/src/context.rs:48-54), so Task 3 is the HYPOTHESISED root cause.
+/// This test decides it either way.
+///
+/// VERDICT (Task 4, fresh binary at this commit): the hypothesis is
+/// FALSIFIED. Task 3's repr-tracking did not touch this path — kali still
+/// prints `0` where node prints `42`. Root cause is a SEPARATE lowering gap
+/// (class-method `return` value is dropped, not a repr-tracking problem);
+/// see docs/superpowers/followups/throw-fallout-stage6-triage.md section 9.
+/// Left `#[ignore]`d with assertions intact per the task brief — do not
+/// widen this stage to chase it.
+#[test]
+#[ignore = "class-method return lowering — separate root cause, see stage6 triage"]
+fn class_method_bodies_return_their_value() {
+    let out = run_kali(
+        r#"class C {
+  run() {
+    return 42;
+  }
+}
+console.log(new C().run());
+"#,
+    );
+    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "42\n");
+}

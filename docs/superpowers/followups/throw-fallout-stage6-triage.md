@@ -383,3 +383,78 @@ comm -13 "$SCRATCH/stage6-pre.txt" "$SCRATCH/stage6-post.txt"   # must be empty
 ```
 
 Never plain `sort`. Always `--no-fail-fast`. Always re-run on a freshly built binary.
+
+---
+
+## 9. Task 4 — the class-method corollary, decided: hypothesis FALSIFIED
+
+**Test:** `class_method_bodies_return_their_value` in
+`crates/kali_cli/tests/soundness_block_arrows.rs` (Stage-5 reproducer, added verbatim per the
+task-4 brief).
+
+**Hypothesis under test:** Task 3 repr-tracked class-method bodies (comment at
+`kali_types/src/context.rs:48` — "class methods all push here (repr-tracked as of Task 3)"), so
+maybe it *also* fixed the Stage-5 Probe-2 silent miscompile (`class C { run(){ return 42; } }
+new C().run()` → `0` instead of `42`), which was filed as "pre-existing" before Task 3 landed.
+
+**Method:** built a fresh `kali_cli` binary at this commit (which already includes Task 3), ran
+the focused test, then independently ran the raw two-line reproducer through the fresh binary and
+compared to `node` as oracle.
+
+**Verdict: FALSIFIED.** The miscompile is still live, unchanged.
+
+Focused-test output (`cargo test -p kali_cli --test soundness_block_arrows -- --test-threads=4
+--ignored`):
+
+```
+running 1 test
+test class_method_bodies_return_their_value ... FAILED
+
+---- class_method_bodies_return_their_value stdout ----
+thread 'class_method_bodies_return_their_value' panicked at crates/kali_cli/tests/soundness_block_arrows.rs:189:5:
+assertion `left == right` failed
+  left: "0\n"
+ right: "42\n"
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out
+```
+
+Raw reproducer, independently run against the same fresh binary:
+
+```js
+class C {
+  run() {
+    return 42;
+  }
+}
+console.log(new C().run());
+```
+
+| | node (oracle) | kali (fresh, post-Task-3) |
+|---|---|---|
+| stdout | `42` | `0` |
+| exit code | 0 | 0 (no diagnostic — still silent) |
+
+Before/after framing requested by the brief:
+
+| | before (Stage 5, pre-Task-3) | after (now, Task 4, post-Task-3) |
+|---|---|---|
+| kali output | `0` | `0` — **unchanged** |
+| node output | `42` | `42` |
+
+**Reading:** Task 3's repr-tracking made class-method-body *bindings* (locals, params, compound
+assignment, etc.) provably-scalar inside the method scope — it did not touch `return`-value
+propagation out of a class method back to the call site. `current_function_scopes` (context.rs)
+now includes the method's scope for repr purposes, but the codegen/HIR path that lowers a class
+method's `return <expr>` into the value handed back to `new C().run()` is a **separate,
+still-open lowering gap** — grep shows `MethodDefinition` lowering lives in
+`crates/kali_hir/src/lowering/statement.rs`, distinct from the repr-tracking context Task 3
+changed. This is a genuinely different root cause from the block-arrow-flatten class Stage 6
+exists to close, and per the task brief it is **filed, not fixed** — chasing it would widen this
+stage.
+
+**Disposition:** test kept in the suite, `#[ignore = "class-method return lowering — separate
+root cause, see stage6 triage"]`, assertions intact (`out.status.success()` and
+`stdout == "42\n"` both still present and still fire when run with `--ignored`). This keeps the
+Stage-5 Probe-2 finding alive as a reproducible, automatically-runnable pin rather than a stale
+prose note, without blocking Stage 6's green gate.
