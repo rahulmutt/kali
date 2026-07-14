@@ -290,6 +290,18 @@ Fresh branch binary (`cargo build -p kali_cli`), node v26.5.0. Two full enumerat
 worktree (0 failures).
 
 ### Gate numbers
+
+Runnable gate commands (enumeration capture = Task 1's pipeline; `$SCRATCH` holds
+`stage4-pre.txt`, the 834-name sorted stage-entry set):
+
+```bash
+cargo test --workspace --no-fail-fast 2>&1 \
+  | grep -E '^test .* \.\.\. FAILED' | sed -E 's/^test (.*) \.\.\. FAILED$/\1/' \
+  | sort > "$SCRATCH/stage4-post.txt"
+comm -13 "$SCRATCH/stage4-pre.txt" "$SCRATCH/stage4-post.txt"   # PRIMARY GATE: newly-red — must print NOTHING
+comm -23 "$SCRATCH/stage4-pre.txt" "$SCRATCH/stage4-post.txt"   # drain: red at entry, green now
+```
+
 - **PRIMARY GATE** `comm -13 pre post` (newly-red vs stage entry) = **EMPTY (0)** → CERTIFIED.
 - Denominator **834 → 783** measured (net 51 drained; 50 real + 1 output-interleaving false-drain
   ⇒ true failing ≈ 784). Expected 818 did NOT hold — as the deviation brief anticipated, Tasks 2–6
@@ -311,14 +323,19 @@ the user `hot` function has **0** boxing ops; all 58 masking ops live in synthet
 documented Stage-1 test-mirror sync** (add both names to `SYNTHETIC_FUNCTIONS`); both green after,
 no other test moved, PRIMARY GATE empty on re-run.
 
-### Drain bucket table (51 net; 50 real + 1 false)
-| bucket | # | mechanism | verdict |
-|---|---|---|---|
-| targets | 16 | growable push + for-of + join real | 16/16 green |
-| for-of / for-await break+continue collectors | 24 | `items.push(v)` in break/continue bodies accumulates; guard `items.length!==1 \|\| items[0]!==1` passes (real guard) | real |
-| integer-like object-keys iteration | 6 | enumeration → push collector → length/index/join | real |
-| browser-bundle async/await sequencing | 4 | await-result push collector accumulates | real |
-| array_from_set_map_break_continue | 1 | **FALSE DRAIN** — deterministic `E5506 try/catch`, unrelated to growable arrays; FAILED line dropped by parallel cross-binary output interleaving (`in pre=1 post=0`, fails 4/4 in isolation) | false-drain artifact |
+### Drain bucket table (51 net; 50 real + 1 false) — with per-bucket isolation-run spot-check evidence
+
+Every bucket was re-run in ISOLATION on the fresh binary (single test binary, exact name filters,
+`KALI_BROWSER_BUNDLE_HARNESS_COMMAND=node` where the fixture is a browser-harness run test) —
+the enumeration's drain claim is never trusted on its own (interleaving noise, below).
+
+| bucket | # | mechanism | spot-check (isolation run on fresh binary) | verdict |
+|---|---|---|---|---|
+| 0. targets | 16 | growable push + for-of + join real | `cargo test -p kali_cli --test array_callback_identity_browser_harness` (harness=node) → **`16 passed; 0 failed`** | real |
+| 1. for-of / for-await break+continue collectors | 24 | `items.push(v)` in break/continue loop bodies now accumulates; fixture guard `items.length!==1 \|\| items[0]!==1 → throw` passes (real accumulation guard, verified in `browser_for_of_array_iteration_break_continue_harness.rs:19-87`) | whole binary `browser_for_of_array_iteration_break_continue_harness` (harness=node) → **`24 passed; 8 failed`** — the 24 passes are exactly the 24 drained names; the 8 fails are the `test_`/`json_test_ for_of` siblings present in BOTH pre (8) and post (8), i.e. still-red, NOT drained (membership counts checked in both files) | real |
+| 2. integer-like object-keys iteration | 6 | enumeration → push collector → length/index/join real | `browser_object_keys_integer_like_iteration` filtered to the 2 drained `run_supports`/`json_run_supports` names (harness=node) → **`4 passed`** incl. exact-name runs `1 passed` each; the 4 drained `build`/`json_build` names in the same binary → **`4 passed; 0 failed`** | real |
+| 3. browser-bundle async/await sequencing | 4 | await-result push collector accumulates | `runtime_smoke -- build::build_emits_browser_bundle_async_await_sequencing build::json_build_emits_browser_bundle_async_await_sequencing` → **`4 passed; 0 failed`** (both bare + `_in_js_input` variants) | real |
+| 4. `json_run_supports_browser_harness_array_from_set_map_break_continue_in_js_ts_jsx_and_tsx_input` | 1 | **FALSE DRAIN** — fails deterministically on `E5506: try/catch/finally is unavailable`, unrelated to growable arrays; its FAILED line was dropped from the workspace enumeration by parallel cross-binary output interleaving | `for_of_array_iteration_spread` exact-name → **FAILED 4/4 consecutive runs with harness=node AND 3/3 without** (`for_of_array_iteration_spread.rs:246`, JSON shows the three E5506 try/catch errors); membership: in pre = 1, in post = 0 | false-drain artifact |
 
 Interleaving can only DROP FAILED lines (shrink post) — it cannot fabricate a newly-red name, so
 the empty PRIMARY GATE holds. Drain wobble 51↔53 across the two runs is the same interleaving noise.
