@@ -566,6 +566,21 @@ fn assign_names_statement(
                 assign_names_expression(expr, counter, taken)
             }
             ExportDefaultDeclaration::FunctionDeclaration(function) => {
+                // Task 3 (B): `export default function () {}` (anonymous)
+                // parses with `name: ""` (`kali_ast::FunctionDeclaration.name`
+                // is a plain `String`, never `Option`). `kali_hir` already
+                // falls back to a synthetic name for this exact empty-name
+                // case (`lowering/statement.rs`'s `FunctionDeclaration` arm,
+                // reached via `lower_export_default` routing through
+                // `Statement::FunctionDeclaration`) — mirror that fallback
+                // HERE, in the shared pre-pass, so `kali_types`'s
+                // `resolve_export_default` (`resolve/mod.rs`, which binds the
+                // scope under the RAW `func.name` with no fallback of its
+                // own) binds under the SAME name `kali_hir` mints, instead of
+                // the two crates diverging on an empty-string key.
+                if function.name.is_empty() {
+                    function.name = fresh_name(counter, taken);
+                }
                 assign_names_block(&mut function.body, counter, taken)
             }
             ExportDefaultDeclaration::ClassDeclaration(class) => {

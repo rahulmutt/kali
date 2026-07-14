@@ -647,3 +647,76 @@ fn running_twice_is_a_no_op_the_second_time() {
 
     assert_eq!(statements, first_pass);
 }
+
+/// Task 3 (B): `export default function () {}` (anonymous) parses to a
+/// `FunctionDeclaration` with `name: ""` — `kali_ast::FunctionDeclaration.name`
+/// is a plain `String`, never `Option`, so there is no `None` for this pass
+/// to fill via the usual `expr.id` path; it is the literal empty string.
+/// `kali_hir` already falls back to a synthetic name for this exact
+/// empty-name case (`lowering/statement.rs`'s `FunctionDeclaration` arm,
+/// reached via `lower_export_default`'s `Statement::FunctionDeclaration`
+/// routing), but `kali_types::resolve_export_default` binds the function's
+/// scope directly under the raw (possibly empty) `func.name` with no
+/// fallback of its own (`resolve/mod.rs`) — so before this fix the two
+/// crates disagreed on the name for this node. The pre-pass must fill
+/// `function.name` here too, under the SAME shared counter as every other
+/// anonymous node, so both sides agree.
+#[test]
+fn export_default_anonymous_function_declaration_gets_a_name() {
+    let mut statements = vec![Statement::ExportDefault(
+        ExportDefaultDeclaration::FunctionDeclaration(FunctionDeclaration {
+            name: String::new(),
+            params: vec![],
+            body: Box::new(block(vec![return_stmt(lit(1.0))])),
+            is_async: false,
+            generator: false,
+        }),
+    )];
+
+    name_anonymous_functions(&mut statements);
+
+    let Statement::ExportDefault(ExportDefaultDeclaration::FunctionDeclaration(function)) =
+        &statements[0]
+    else {
+        panic!(
+            "expected an ExportDefault(FunctionDeclaration), got {:?}",
+            statements[0]
+        );
+    };
+    assert!(
+        !function.name.is_empty(),
+        "anonymous export-default function must be named by the pre-pass"
+    );
+    assert!(
+        function.name.starts_with("__kali_fn_"),
+        "expected the shared synthetic-name convention, got {:?}",
+        function.name
+    );
+}
+
+/// A NAMED `export default function foo() {}` must keep its own name — the
+/// fill only applies to the anonymous (`name: ""`) case.
+#[test]
+fn export_default_named_function_declaration_keeps_its_name() {
+    let mut statements = vec![Statement::ExportDefault(
+        ExportDefaultDeclaration::FunctionDeclaration(FunctionDeclaration {
+            name: "foo".to_string(),
+            params: vec![],
+            body: Box::new(block(vec![return_stmt(lit(1.0))])),
+            is_async: false,
+            generator: false,
+        }),
+    )];
+
+    name_anonymous_functions(&mut statements);
+
+    let Statement::ExportDefault(ExportDefaultDeclaration::FunctionDeclaration(function)) =
+        &statements[0]
+    else {
+        panic!(
+            "expected an ExportDefault(FunctionDeclaration), got {:?}",
+            statements[0]
+        );
+    };
+    assert_eq!(function.name, "foo");
+}
