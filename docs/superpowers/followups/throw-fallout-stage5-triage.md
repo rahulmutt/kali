@@ -331,25 +331,39 @@ dynamically resolve to undefined/0 at runtime.
 
 ---
 
-## Task 2 — generic `typeof` fallback flipped fail-closed (E5506) + census
+## Task 2 — generic `typeof` fallback measured fail-closed (E5506), then REVERTED
 
-### What changed
+**Final status: REVERTED.** This section originally documented a flip-and-keep. The flip was
+implemented, census-measured (8 newly-red, 0 newly-green — evidence retained below as the
+deferred follow-up's sizing data), and — per the Task-2 decision rule ("measure, close if
+cheap, otherwise revert") — reverted once neither the implementer nor an independent reviewer
+found a same-stage cheap fix for any of the three newly-red buckets. See "Decision: REVERTED"
+below for the full rationale. The "what changed" writeup immediately below describes the flip
+AS IT WAS WHILE LIVE, for evidentiary/historical purposes only — it does NOT describe the
+current state of `operators.rs`, which is back to its pre-Task-2 form (verified byte-identical
+to `e2bd098b5~1`).
+
+### What changed (historical — while the flip was live)
 
 `crates/kali_codegen/src/emit/operators.rs` `"typeof"` arm, final fallback only: the generic
 warning (`e8::UNIMPLEMENTED`, "unsupported unary operator 'typeof'") + silent `I64Const(0)`
-placeholder is now a **compile error**:
+placeholder was made a **compile error**:
 
 > `error[E5506]: typeof is only supported on statically-provable operands in the current
 > direct-runtime path (this operand's type cannot be proven; a silent placeholder would
 > miscompile comparisons)`
 
-The placeholder instruction is still emitted so the wasm stays structurally valid (mirrors the
-`delete` default-deny arm's handling); the error diagnostic fails the build at
+The placeholder instruction was still emitted so the wasm stayed structurally valid (mirrors the
+`delete` default-deny arm's handling); the error diagnostic failed the build at
 `kali_cli::build_source_file` (`has_errors` ⇒ `Err`, no artifact). The `delete`/`void` arms and
-every other operator's fallback are untouched. Reproducer test (red-first):
+every other operator's fallback were untouched. Reproducer test (red-first):
 `unsupported_typeof_operand_rejects_unproven_member_read` in
-`crates/kali_codegen/src/emit/operators_tests.rs` — RED under the old code (two E8001 warnings,
-successful compile), GREEN after the flip. `cargo test -p kali_codegen`: 356 passed, 0 failed.
+`crates/kali_codegen/src/emit/operators_tests.rs` — RED under the pre-flip code (two E8001
+warnings, successful compile), GREEN while the flip was live. `cargo test -p kali_codegen` while
+live: 356 passed, 0 failed. **Now that the flip is reverted, this test is kept but marked
+`#[ignore = "generic typeof fail-open closure deferred; census attached in stage5 triage"]`**
+(assertions untouched, ready to un-ignore when a real fix lands) — current
+`cargo test -p kali_codegen`: 355 passed, 0 failed, 1 ignored.
 
 ### Census (full workspace, fresh binary)
 
@@ -420,19 +434,64 @@ builtins**, which the Task-6 AST module-link rewrite (user modules with real fil
 cover. Note the old behavior was also a silent lie: placeholder `0 !== "function"` ⇒ `describe()`
 returned 1 where node returns 0.
 
-### Decision: **KEEP** (rule applied)
+### Decision: **REVERTED** (rule applied — final)
 
-- Newly-red = 8 ≤ ~8. Every name is explainable as exactly the rule's mechanism: "green test
-  compiled an unproven typeof and silently took the 0 branch" (bucket A demonstrably took the
-  WRONG branch; buckets B/C pinned buildability of silently-miscompiling comparisons).
-- No fix is a one-liner provable-lane extension (the brief's in-task threshold — "a new literal
-  kind in `typeof_static_text`"): every bucket needs either a positive resolver oracle with
-  default-deny shadow guards, a pair of new operand classifications, or a product/pin decision.
-  So none was done inside Task 2; all are filed below and MUST land before Task 9's gate
-  (checkpoint demands 0 newly-red) — if any proves unlandable, that flips this decision to
-  REVERT at that point.
+The flip was measured (8 newly-red, 0 newly-green, mechanism per bucket below), then reverted.
+`crates/kali_codegen/src/emit/operators.rs`'s `"typeof"` arm final fallback is restored to its
+pre-Task-2 form (generic `e8::UNIMPLEMENTED` warning + operand-eval/`Drop` + `I64Const(0)`
+placeholder), byte-identical to `e2bd098b5~1`. The reproducer test
+`unsupported_typeof_operand_rejects_unproven_member_read` in
+`crates/kali_codegen/src/emit/operators_tests.rs` is kept but marked
+`#[ignore = "generic typeof fail-open closure deferred; census attached in stage5 triage"]` —
+its assertions are untouched so it can be un-ignored the moment a real fix lands.
 
-### Fix-or-extend items (all pre-Task-9 obligations)
+**Why revert, not keep-and-fix-later:**
+
+- (a) **Census is the sizing evidence, not an in-stage obligation.** Newly-red = 8, all
+  attributable to exactly one mechanism (unproven `typeof` operand that used to silently
+  fall through to a `0` placeholder — see the three bucket writeups below, unchanged). This
+  sizing data is preserved here for whoever picks up the deferred follow-up; it is NOT being
+  treated as something Stage 5 must clear.
+- (b) **No cheap provable-lane extension exists for any bucket.** Bucket A needs a resolver
+  oracle for unresolvable-identifier-as-"undefined" wired at the identifier-resolution choke
+  point (default-deny, not a hand-mirrored predicate — see typeof-F1). Bucket B needs two new
+  operand classifications (source-function-declaration → "function", `new F()` with a
+  non-function-returning constructor → "object" — typeof-F2/F3) that `typeof_static_text`
+  structurally cannot reach without new machinery. Neither implementer nor reviewer judged
+  either a same-stage one-liner.
+- (c) **Bucket C would force a capability regression, not just an unlanded nice-to-have.**
+  The only landable option for `typeof path.basename` / `typeof timers.clearInterval` over
+  unresolved `node:*` builtin namespaces is to re-pin the two `node_api_surface` tests to
+  expect a fail-closed E5506 reject — but that makes kali unable to BUILD a realistic node
+  library fixture that exercises this exact (very common) feature-detection idiom. Trading a
+  passing "kali can build this library" test for a failing one is a real regression in what
+  kali can do, not a neutral test-suite edit, so it was rejected as the in-stage move.
+- **Net effect of reverting:** the 8 tests return to green (their pre-flip state) by construction
+  — the fallback is textually identical to what they were passing against before Task 2's
+  commit. Verified directly (see the task-2-revert-report for exact commands/output): all 8
+  green in isolation, plus `cargo test -p kali_codegen` 355 passed/0 failed/1 ignored.
+
+**bucket A's `typeof indexedDB` remains a LIVE, UNCLOSED wrong-branch miscompile** — this is
+the single highest-value item in the deferred follow-up. Pre-flip (and now again, post-revert),
+`typeof indexedDB !== 'undefined'` compiles to a silent `I64Const(0)` placeholder that compares
+`!== "undefined"` as **true**, so kali takes the guard's "feature present" branch when the
+correct branch is "feature absent" — a real behavioral divergence from node with no compile-time
+signal, not merely an unimplemented feature. typeof-F1 (unresolvable bare identifier →
+`"undefined"`) is the fix that closes it; it was not implemented in Stage 5 because it needs the
+identifier-resolution choke-point treatment described below, not a codegen one-liner.
+
+**Stage 5's own namespace-member-typeof surface is unaffected by this revert.** `typeof
+ns.member` / `typeof chunk.member` over a Task-6-linked module namespace is folded to a string
+literal AT THE AST LEVEL by `rewrite_namespace_uses` / `try_fold_typeof_namespace_member`
+(`crates/kali_cli/src/build/module_link.rs`) BEFORE codegen ever sees a `typeof` node for that
+operand — so the generic codegen fallback (kept vs. reverted) never executes on Stage 5's own
+target set. This is structural, not incidental: check 3 in the verification contract
+(`module_namespace_link` 11/11, `browser_template_literal_dynamic_import_harness` 26/0,
+`runtime_smoke dynamic_import` 45/0, all unchanged after the revert) is the direct proof — had
+Stage 5's typeof lane secretly depended on the codegen flip, reverting it would have turned some
+of those 82 tests red, and none did.
+
+### Fix-or-extend items (deferred follow-up scope — NOT Stage-5 obligations)
 
 1. **[typeof-F1] Unresolvable bare identifier → `"undefined"`** (closes bucket A, 3 names).
    JS-correct (`typeof undeclared` is `"undefined"`, the one non-throwing undeclared read) and
@@ -456,12 +515,16 @@ returned 1 where node returns 0.
 4. **[typeof-F4] Bucket C decision needed** (2 names): `typeof <member>` over an unsupported
    node-builtin namespace cannot be proven without implementing the builtin. Options:
    (a) re-pin both tests to expect fail-closed E5506 (house precedent: Stage-2 Lane-C `delete`
-   re-pins in the same test families) — trivially landable, honest, but changes what the tests
-   pin (library builds of node-builtin feature-detection code fail until the surface exists);
+   re-pins in the same test families) — trivially landable and honest, but this is precisely the
+   option Task 2 rejected as a build-capability regression (kali could no longer build a
+   realistic node-library fixture that uses this common feature-detection idiom), which is why
+   Task 2 reverted rather than taking this path itself;
    (b) fold node-builtin namespaces into the Task-6 module-link design as a synthetic module
-   surface. (a) is the default if (b) doesn't land in-stage. These 2 names are NOT covered by
-   items 1–3 (the base identifiers are namespace imports, not undeclared globals — classifying
-   them "undefined" would trade one silent node-divergence for another).
+   surface, so `typeof path.basename` resolves the same way a real linked module's member would
+   — preserves buildability. (b) is the only option that avoids a capability regression, and is
+   the recommended starting point for the follow-up. These 2 names are NOT covered by items 1–3
+   (the base identifiers are namespace imports, not undeclared globals — classifying them
+   "undefined" would trade one silent node-divergence for another).
 
 ### Artifacts
 
