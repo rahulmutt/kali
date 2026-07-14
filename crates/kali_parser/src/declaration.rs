@@ -278,6 +278,7 @@ impl Parser {
         let body = self.parse_arrow_function_body_expression();
         Some(Expression::ArrowFunctionExpression(Box::new(
             ArrowFunctionExpression {
+                id: None,
                 params: params
                     .into_iter()
                     .map(|name| FunctionParam { name })

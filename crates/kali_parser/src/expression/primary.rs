@@ -30,6 +30,7 @@ impl Parser {
                     let body = self.parse_arrow_function_body_expression();
                     return Expression::ArrowFunctionExpression(Box::new(
                         ArrowFunctionExpression {
+                            id: None,
                             params: vec![FunctionParam { name }],
                             body,
                             is_async: false,

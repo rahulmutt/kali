@@ -143,6 +143,14 @@ pub struct FunctionParam {
 #[allow(non_snake_case)]
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ArrowFunctionExpression {
+    /// Synthetic `__kali_fn_{N}` identity assigned by the pre-resolver
+    /// `name_anonymous_functions` AST pass (mirrors `FunctionExpression.id`,
+    /// but arrows have no source-level named-function-expression syntax, so
+    /// the parser always produces `None` here). `kali_types` and `kali_hir`
+    /// both key on this name once it is assigned — see
+    /// `crates/kali_cli/src/build/name_anon_functions.rs`.
+    #[serde(default)]
+    pub id: Option<String>,
     pub params: Vec<FunctionParam>,
     pub body: Expression,
     pub is_async: bool,

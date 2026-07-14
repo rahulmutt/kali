@@ -662,6 +662,17 @@ fn analyze_source_file(
     // through byte-identical.
     kali_types::monomorphize::monomorphize_statements(&mut parsed.statements);
 
+    // Name every anonymous function-shaped node BEFORE the resolver, so kali_types
+    // (binding_repr_function_key) and kali_hir (synthetic function names) key on the
+    // SAME name. Re-deriving HIR's counter inside kali_types would be a
+    // hand-mirrored oracle — this repo has shipped two of those, and both failed OPEN.
+    // Runs AFTER monomorphize (not before): monomorphize clones whole function ASTs
+    // to specialize them, and naming first would mean every clone's inner anonymous
+    // nodes shared the SAME `__kali_fn_N` id — a collision this pass exists to
+    // prevent, not create. Running after means each specialized clone gets its own,
+    // independently-numbered names.
+    crate::build::name_anon_functions::name_anonymous_functions(&mut parsed.statements);
+
     let mut repr_table = kali_common::ReprTable::default();
     if !is_declaration_only_source_file(source_path) {
         let mut resolver = TypeContext::with_base_path_and_api_surface_and_runtime_profiles(

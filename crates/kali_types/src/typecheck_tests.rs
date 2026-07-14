@@ -75,6 +75,7 @@ fn test_resolution_accepts_arrow_function_return_type_annotations() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::ArrowFunctionExpression(Box::new(
                 ArrowFunctionExpression {
+                    id: None,
                     params: vec![FunctionParam {
                         name: "value".to_string(),
                     }],
@@ -102,6 +103,7 @@ fn test_resolution_accepts_async_arrow_function_return_type_annotations() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::ArrowFunctionExpression(Box::new(
                 ArrowFunctionExpression {
+                    id: None,
                     params: vec![FunctionParam {
                         name: "value".to_string(),
                     }],
