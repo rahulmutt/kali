@@ -6,6 +6,7 @@ mod eval;
 mod exports;
 mod helpers;
 mod metadata;
+pub mod module_link;
 mod paths;
 mod wit;
 

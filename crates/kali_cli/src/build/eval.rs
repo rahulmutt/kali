@@ -330,7 +330,7 @@ fn find_token_call_end(tokens: &[Token], start: usize) -> Option<usize> {
     None
 }
 
-fn resolve_dynamic_import_target(source: &Path, specifier: &str) -> Option<PathBuf> {
+pub(crate) fn resolve_dynamic_import_target(source: &Path, specifier: &str) -> Option<PathBuf> {
     let specifier = specifier.trim();
     if !(specifier.starts_with("./") || specifier.starts_with("../")) {
         return None;
