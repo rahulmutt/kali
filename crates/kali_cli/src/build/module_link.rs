@@ -98,6 +98,13 @@ pub fn collect_namespace_provenance(
                 );
             }
             Statement::FunctionDeclaration(decl) => {
+                // No `is_async` guard here by design: a non-async function
+                // body cannot contain a real `AwaitExpression` node (the
+                // parser only produces that node under `in_async_function`
+                // gating), so `as_await_import_source` below simply never
+                // matches inside a non-async body — walking it unconditionally
+                // is a no-op there, not a soundness gap.
+                //
                 // Consts visible to a declarator inside this body = the
                 // module-scope consts, plus any consts declared earlier in
                 // this SAME function body (accumulated below in order).
@@ -308,6 +315,10 @@ fn literal_truthiness(expr: &Expression) -> Option<(bool, bool)> {
 }
 
 fn is_object_freeze_callee(callee: &Expression) -> bool {
+    // Intentionally broad: matches `property == "freeze"` for either dot
+    // (`Object.freeze`) or computed (`Object["freeze"]`) access without
+    // further discriminating the two — both are the same provable callee
+    // for this fold's purposes, so no additional check is warranted.
     matches!(
         callee,
         Expression::MemberExpression(member)
@@ -590,5 +601,47 @@ mod tests {
         let statements = parse(source);
         let provenance = collect_namespace_provenance(&main_js, source, &statements);
         assert_eq!(provenance.bindings.get("c"), None);
+    }
+
+    // ---- register(): shared-target index reuse ----
+
+    #[test]
+    fn two_bindings_of_the_same_module_share_one_index() {
+        let (dir, main_js) = fixture_dir();
+        let source = r#"
+            import * as a from "./util.js";
+            import * as b from "./util.js";
+        "#;
+        let statements = parse(source);
+        let provenance = collect_namespace_provenance(&main_js, source, &statements);
+        let expected = LinkedModule {
+            path: canonical(&dir, "util.js"),
+            index: 0,
+        };
+        assert_eq!(provenance.bindings.get("a"), Some(&expected));
+        assert_eq!(provenance.bindings.get("b"), Some(&expected));
+    }
+
+    #[test]
+    fn two_different_specifiers_resolving_to_the_same_file_share_one_index() {
+        let (dir, main_js) = fixture_dir();
+        // "sub" must exist as a real on-disk directory for the OS to resolve
+        // the ".." traversal in "./sub/../util.js" down to the same file
+        // canonicalized by "./util.js" (resolve_dynamic_import_target checks
+        // `is_file()` before canonicalizing, so a non-existent intermediate
+        // directory would make this specifier fail to resolve at all).
+        fs::create_dir(dir.path().join("sub")).expect("create sub dir");
+        let source = r#"
+            import * as a from "./util.js";
+            import * as b from "./sub/../util.js";
+        "#;
+        let statements = parse(source);
+        let provenance = collect_namespace_provenance(&main_js, source, &statements);
+        let expected = LinkedModule {
+            path: canonical(&dir, "util.js"),
+            index: 0,
+        };
+        assert_eq!(provenance.bindings.get("a"), Some(&expected));
+        assert_eq!(provenance.bindings.get("b"), Some(&expected));
     }
 }
