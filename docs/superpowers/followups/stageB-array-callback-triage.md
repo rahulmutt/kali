@@ -79,13 +79,60 @@ parallel unwrapped `run_*` variants pass. **Without a self-check guard the same
 corruption is SILENT** (wrong value, exit 0) — that is the real user-facing
 miscompile this stage must close.
 
-## 5. Root-cause direction (to be pinned to a line in Task 2)
+## 5. Root cause — CONFIRMED (Task 2)
 
-Reframed from the plan's refuted "loop-ordinal keying divergence": array/heap-object
-locals are not materialized/tracked when their declaring scope is an
-arrow/function-expression body under the un-flatten — the growable-array header
-(`[len][cap][data_ptr]`) / heap-object base slot is never allocated in that
-frame, so length and elements read back as `0`. Category-identical to gaps A/C:
-the un-flatten introduces a scope kind codegen does not fully handle. Task 2
-pins the exact `file:line`; Task 3 fixes correct-lowering (materialize the frame)
-or, if intractable in-stage, fails closed E5506.
+Full evidence + wat/instrumentation dumps: `.superpowers/sdd/task-2-report.md`.
+
+**Mechanism (exact site):** codegen picks the growable-array lane per binding
+from `repr_table.is_growable_array_binding(function_name, name)`
+(`crates/kali_codegen/src/emitter.rs:277-282`). That table is filled by the
+choke-point predicate `growable_array_candidates`
+(`crates/kali_types/src/growable.rs:122`), which the repr-inference walker runs
+**only** on `Statement::FunctionDeclaration` nodes:
+`collect_growable_candidates_in_stmt`
+(**`crates/kali_types/src/repr_infer.rs:733-772`**) has a lone
+`FunctionDeclaration` arm (line 735) and a terminal `_ => {}` arm (line 771) that
+swallows `Statement::VariableDeclaration` **without descending into its
+initializer expression**. Arrows / function-expressions are *expressions* (the
+init of `const f = …`), so the predicate never runs on their bodies — yet those
+bodies ARE emitted as standalone wasm functions named `__kali_fn_{N}`
+(`name_anon_functions`, `crates/kali_cli/src/build/compile.rs:674`, before the
+repr pass). Codegen then queries `is_growable_array_binding("__kali_fn_0","o")`
+→ **false** → the array literal + `.push` lower to the poison lane
+(`i64.const 0`; the whole growable sequence is absent from the wat), so
+`.length`/`o[i]` read back `0`. Two sibling walkers share the gap:
+`collect_functions_in_stmt` (`repr_infer.rs:~690-717`) and
+`collect_local_names_in_stmt` (`repr_infer.rs:788-796`).
+
+**Instrumentation proof:** working `function f` → `DBGSCAN … 'f' -> {"o"}` +
+`DBGEMIT function 'f' … growable={"o"}`; broken arrow → **no** `DBGSCAN` line
+(predicate never ran) + `DBGEMIT function '__kali_fn_0' locals=["o"] growable={}`.
+
+**(a)** Defect site: `repr_infer.rs:733-772` (the `_ => {}` arm at 771 never
+descends into fn-expr/arrow inits; the predicate is invoked only in the
+`FunctionDeclaration` arm at 735). Consumer that reads `false`:
+`emitter.rs:277-282`. **(b)** `function` declarations hit the explicit
+`FunctionDeclaration` arm keyed on `func.name`, which matches the emitted name —
+so promotion reaches codegen; scalars never consult the growable table (plain
+wasm locals), so they are scope-independent. **(c)** **Contained — no missing
+region capability.** The growable runtime lane already works (the fn-decl path
+proves it); the array local does not escape (no closure capture needed). The only
+gap is analysis *traversal*, and the synthetic `__kali_fn_{N}` name is already
+assigned at the AST level before repr-inference, so keying the predicate on it
+matches codegen by construction.
+
+**Note — bug is PRE-EXISTING, not introduced by the patch.** On the clean branch
+(patch reverted), a plain function-expression `const f = function(){ let o=[];
+o.push(1); o.push(2); console.log(o.length) }; f()` already silently miscompiles
+(kali `0` vs node `2`). The un-flatten only *widens* the trigger to block-arrows
+(which previously mis-parsed).
+
+**Recommendation: correct-lowering** — extend the three
+`FunctionDeclaration`-only repr-inference walkers to descend into
+function-expression / arrow bodies (keyed on their synthetic `__kali_fn_{N}`
+name) and run the existing predicate. The fn-expr shape gives a clean-branch,
+non-`#[ignore]` regression test to gate the fix now; the block-arrow fixture
+stays `#[ignore]`'d until Stage D. Fail-closed E5506 is the sound fallback only
+if Task 3 finds the repr-axis (Phase B) intersection needs more than a traversal
+extension — it would convert the silent wrong answer to a loud diagnostic without
+regressing any currently-working program (the affected shapes miscompile today).
