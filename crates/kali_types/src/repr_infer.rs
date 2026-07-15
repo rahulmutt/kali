@@ -1763,6 +1763,21 @@ impl ReprInfer {
             }
 
             // Any other expression kind is a fresh (int) node.
+            //
+            // LOCKSTEP BOUND (walk 4 vs walks 1-3): this `_` arm does NOT
+            // recurse into general sub-expressions, so a fn-expr/arrow nested in
+            // an `ArrayExpression`/`ObjectExpression` element, a ternary branch,
+            // or an assignment RHS is registered by the three Phase-A walkers
+            // (they share the exhaustive `descend_stmt_fns`/`descend_expr_fns`)
+            // but is NOT Phase-B-seeded here. This is currently sound because
+            // codegen never INVOKES a callback reached only through those
+            // positions (they are silent no-ops today), so no reachable body
+            // goes unseeded. When Stage C/D make such call shapes invocable
+            // (closure capture / deferred callbacks), a string-element growable
+            // array in such a body would silently lower to i64 — at that point
+            // walk 4 MUST route fn-expr discovery through `descend_expr_fns`
+            // (or those positions must fail closed E5506). Do not let this arm
+            // start swallowing an invocable nested body silently.
             _ => self.new_node(),
         }
     }
