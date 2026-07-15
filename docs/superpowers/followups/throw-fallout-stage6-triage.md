@@ -458,3 +458,66 @@ root cause, see stage6 triage"]`, assertions intact (`out.status.success()` and
 `stdout == "42\n"` both still present and still fire when run with `--ignored`). This keeps the
 Stage-5 Probe-2 finding alive as a reproducible, automatically-runnable pin rather than a stale
 prose note, without blocking Stage 6's green gate.
+
+---
+
+## §10. Stage 6 outcome — un-flatten DEFERRED; landed portion is Tasks 1–4 (sound)
+
+**Status: the stage's landed deliverable is the repr-tracking foundation (Tasks 1–4). The
+un-flatten itself (Task 5) is deferred to a new multi-stage capability project (user decision,
+2026-07-15).**
+
+### What landed (committed, reviewed, behavior-neutral — 731 → 731, 0 newly-red, 0 drain)
+
+| Task | Commit | What |
+|---|---|---|
+| 1 | `5a0cc82a0` | Triage: entry 731 pinned; parse defect pinned; **patch-only blast radius MEASURED = 63 newly-red / 0 newly-green** (plan predicted 16 — a ~4× undercount). |
+| 2 | `d294ba8e6` | `name_anonymous_functions` AST pre-pass: `ArrowFunctionExpression.id` + `__kali_fn_{N}` assigned before the resolver so `kali_types`/`kali_hir` share one key. Exhaustive walk, two-pass collision guard, runs after `monomorphize`. |
+| 3 | `51de2bb7a` + `52c4bc11e` | Repr-track fn-expr/arrow/class-method bodies (3-site mirror of the `FunctionDeclaration` arm). Fixed `.expect()`→safe fallback; closed the anon-`export default function` naming divergence; corrected stale untracked-scope doc comments. |
+| 4 | `3b12dc6cc` | Class-method-return corollary: **hypothesis FALSIFIED** — `new C().run()` still returns 0 (return-value lowering, a separate root cause). Test `#[ignore]`'d, assertions intact. |
+
+Tasks 1–4 leave the branch exactly as sound as it was: no new silent miscompiles, repr-tracking
+now correct for function-shaped scopes. The un-flatten is a prerequisite-heavy feature, not a
+diff these tasks could safely carry.
+
+### Why Task 5 (un-flatten) could not land — the plan's premise was falsified
+
+The plan assumed Task 3's repr-tracking would make the 63 predicted regressions not happen, so
+landing the parse patch would be clean. **It is not.** Applying the un-flatten + wiring
+(all independently verified correct — see the WIP patch) produces **22 newly-red**; after the 2
+user-approved re-pins, **20 remain, tracing to THREE structural gaps repr-tracking does not
+touch**:
+
+| Gap | Newly-red | Fails how | Fix size |
+|---|---|---|---|
+| **A. `repr_infer.rs` never walks function bodies** (object-shape + string-seed proofs unavailable for anything declared inside a callback) | 8 | Closed (E5506) | Large: ~800-line exhaustive expr walk × 3 collectors + function-scope threading through a 3487-line whole-program flow-graph pass + BFS re-verification. |
+| **B. Array-callback nested-function miscompile** (named `FunctionDeclaration` inside an un-flattened callback + 2+ array-callback for-of loops) | 8 | **SILENT** (empty stdout, exit 0 via `queueMicrotask`; node prints `1,2,3,4`) | Unknown — not yet root-caused to a line; likely a per-function keying collision in codegen loop/arena machinery. |
+| **C. No closure-capture mechanism** (`count += 1` where `count` is an *enclosing function's* local, mutated from inside a callback) | 4 | Closed (E5506 at `emit/literal.rs:496`) | Large: kali has NO closure/environment model (only module-scope `module_global_slots`). Needs slot-promotion of captured fn-scope scalars or an environment-pointer model. |
+
+The un-flatten essentially reveals that **kali has no closure model**, and that whole-program
+repr inference and parts of codegen were only correct because the flatten kept every callback body
+at module scope. Partial-landing is out: it would trade today's silent miscompile (callback bodies
+running inline at the wrong time) for a *new* one (gap B).
+
+### The independently-verified Task 5 work (preserved, not committed)
+
+`docs/superpowers/followups/task5-block-arrows-WIP.patch` (605 lines). All sound, no fail-open
+found: hand-applied parser un-flatten; **fixed a real patch bug** (`reject_anonymous_function_argument`
+detected anonymity via `id.is_none()`, which Task 2's pre-pass had silently defeated — now keys on
+the `__kali_fn_` synthetic marker); wired `queueMicrotask` (recognizer + emit + conditional import,
+no index shift, callback VERIFIED to run during `drain_event_loop` byte-for-byte vs node);
+`setTimeout`/`setInterval` carved out of the builtin exemption → fail closed E5506. This patch is
+the seed for the new project's final "land the un-flatten" stage.
+
+### The new project (user decision 2026-07-15): build the capabilities, THEN land un-flatten
+
+- **Stage A** — `repr_infer.rs` walks fn-expr/arrow/class-method bodies (closes gap A; covers BOTH
+  the object-shape and string-seed symptoms as one architectural fix).
+- **Stage B** — root-cause + fix the array-callback nested-function SILENT miscompile (gap B).
+- **Stage C** — closure capture of enclosing function-scope locals (gap C).
+- **Stage D** — land the un-flatten + wiring (rebase the WIP patch onto A/B/C) and re-gate.
+
+**Whole-branch review of Tasks 1–4** is deferred to Stage D, where the un-flatten exercises this
+foundation for real and everything re-gates together; each of Tasks 1–4 was already independently
+task-reviewed with deep verification, and they are behavior-neutral, so a separate review now would
+re-verify a foundation nothing yet stresses.
