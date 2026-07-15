@@ -140,7 +140,10 @@ regressing any currently-working program (the affected shapes miscompile today).
 ## 6. Stage close-out (Task 4)
 
 **Resolution:** correct-lowering (not fail-closed). The fix extends `repr_infer`'s
-four walks to descend into fn-expr/arrow bodies keyed on `__kali_fn_{N}` — see §5.
+four walks to descend into fn-expr/arrow bodies keyed on `__kali_fn_{N}` — see §5
+(walks 1–3 via one shared exhaustive `descend_expr_fns`; walk 4 via its own
+`visit_expr` recursion, which covers all reachable callback positions but leaves
+a few exotic positions to Stage C/D — see `stageAB-followups.md` F-AB-2).
 Fix commit `a889637d8`; walk-4 tripwire `102b625d7`; follow-ups `54c50aa14`.
 
 **Merge note:** gap B was found to be a strict SUBSET of Stage A (both are the

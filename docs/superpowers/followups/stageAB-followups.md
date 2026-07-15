@@ -24,19 +24,36 @@ return-value repr for expression-bodied arrows, or fail closed E5506.
 
 ## F-AB-2 — latent walk-4 vs walks-1–3 lockstep divergence (tripwire planted)
 
-`visit_expr`'s `_ => self.new_node()` catch-all (`repr_infer.rs`, arm documented
-in place) does not recurse into general sub-expressions, so a fn-expr/arrow
-nested in an `ArrayExpression`/`ObjectExpression` element, a ternary branch, or an
-assignment RHS is registered by the three Phase-A walkers (shared
-`descend_stmt_fns`/`descend_expr_fns`) but **not Phase-B-seeded** by walk 4.
+Walk 4 (Phase B `visit_stmt`/`visit_expr`) rides its OWN recursion, not the
+shared `descend_expr_fns` of walks 1–3, ending in `_ => self.new_node()`
+(`repr_infer.rs`, arm documented in place). It has no `ArrayExpression`/
+`ObjectExpression` arm, so a bare/generic array-or-object literal reaching that
+`_` arm is not recursed into.
 
-**Sound today:** codegen never invokes a callback reached only through those
-positions (`obj.f()`, `cbs[0]()`, `let f; f=function…; f()`, ternary-init are
-silent no-ops, exit 0), so no reachable body goes unseeded — reviewer verified.
+**Already seeded by walk 4 (NOT gaps — verified against the code):** the common
+callback positions all reach the fn-expr/arrow arms — **call arguments**
+(`arr.map(cb)`, `Kali.test(name, cb)`, `queueMicrotask(cb)`; `visit_call` visits
+args via `visit_expr`), **ternary branches** (`ConditionalExpression`),
+**assignment RHS** (`visit_assignment`), **declarator-init array elements**
+(`note_array_init`), and **object-property values** (`record_object_literal`).
+
+**The genuine unseeded positions (narrow, exotic):** a fn-expr inside an object
+literal passed **directly as a call arg** (`foo({f: () => {…}})` — `visit_expr`'s
+`_` arm), a **spread arg** (`foo(...[() => {}])`), a **tagged-template / yield /
+optional-chain** operand, and a **bare or doubly-nested array literal**. These
+are registered by walks 1–3 but not Phase-B-seeded by walk 4.
+
+**Sound today:** codegen never INVOKES a callback reached only through those
+exotic positions (silent no-ops, exit 0), so no reachable body goes unseeded —
+reviewer-verified.
 
 **Becomes an ACTIVE silent miscompile** when Stage C/D (closure capture /
-deferred callbacks) make those call shapes invocable: a string-element growable
-array in such a body would silently lower to i64. **Stage C/D MUST** route walk
-4's fn-expr discovery through the exhaustive `descend_expr_fns` (or fail those
-positions closed E5506) before enabling those call shapes. A tripwire comment is
-planted at the catch-all arm so this cannot be missed.
+deferred callbacks) make those shapes invocable: a string-element growable array
+in such a body would silently lower to i64. **Stage C/D MUST** seed those
+specific positions — via a dedicated Phase-B pass reaching ONLY what `visit_expr`
+misses (a blanket re-descent through `descend_expr_fns` would double-visit the
+already-seeded positions above and risk a spurious mixed-store E5506 regression)
+— or fail them closed E5506, before enabling those shapes. A tripwire comment is
+planted at the `_` arm so this cannot be missed. When Stage C/D lands, enforce the
+lockstep mechanically: assert the `__kali_fn_N` set discovered by walks 1–3 equals
+the set walk 4 seeds.

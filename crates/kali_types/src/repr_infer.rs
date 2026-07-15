@@ -381,9 +381,13 @@ pub fn infer_reprs(statements: &[Statement]) -> ReprTable {
 /// `collect_local_names_in_stmt`, `collect_growable_candidates_in_stmt`) share
 /// ONE expression-descent (`descend_stmt_fns` → `descend_expr_fns`) so they
 /// cannot drift; the per-walk registration differs and is dispatched by this
-/// tag in `register_nested_fn`. Phase B's `visit_stmt`/`visit_expr` already
-/// traverses every expression, so it carries its OWN fn-expr/arrow arm in
-/// `visit_expr` — the fourth walk that must stay in LOCKSTEP with these three.
+/// tag in `register_nested_fn`. Phase B's `visit_stmt`/`visit_expr` carries its
+/// OWN fn-expr/arrow arm in `visit_expr` — the fourth walk that must stay in
+/// LOCKSTEP with these three. Unlike walks 1-3 it rides its OWN recursion (not
+/// the shared `descend_expr_fns`): it seeds every fn-expr/arrow it REACHES, but
+/// its `_ => new_node()` arm does not recurse into bare `ArrayExpression`/
+/// `ObjectExpression`/spread operands, so a few exotic positions are covered by
+/// walks 1-3 yet not walk 4 — see the bound at that `_` arm and F-AB-2.
 #[derive(Clone, Copy)]
 enum NestedFnWalk {
     /// `collect_functions_in_stmt`: register `(__kali_fn_N, params)` and a
@@ -1764,20 +1768,28 @@ impl ReprInfer {
 
             // Any other expression kind is a fresh (int) node.
             //
-            // LOCKSTEP BOUND (walk 4 vs walks 1-3): this `_` arm does NOT
-            // recurse into general sub-expressions, so a fn-expr/arrow nested in
-            // an `ArrayExpression`/`ObjectExpression` element, a ternary branch,
-            // or an assignment RHS is registered by the three Phase-A walkers
-            // (they share the exhaustive `descend_stmt_fns`/`descend_expr_fns`)
-            // but is NOT Phase-B-seeded here. This is currently sound because
-            // codegen never INVOKES a callback reached only through those
-            // positions (they are silent no-ops today), so no reachable body
-            // goes unseeded. When Stage C/D make such call shapes invocable
-            // (closure capture / deferred callbacks), a string-element growable
-            // array in such a body would silently lower to i64 — at that point
-            // walk 4 MUST route fn-expr discovery through `descend_expr_fns`
-            // (or those positions must fail closed E5506). Do not let this arm
-            // start swallowing an invocable nested body silently.
+            // LOCKSTEP BOUND (walk 4 vs walks 1-3): this `_` arm does NOT recurse
+            // into a bare `ArrayExpression`/`ObjectExpression`/spread operand
+            // reached generically here (visit_expr has no arm for them). The
+            // COMMON callback positions ARE already seeded elsewhere in Phase B:
+            // call arguments (`arr.map(cb)`, `Kali.test(name, cb)` — visit_call
+            // visits args via visit_expr), ternary branches (ConditionalExpression),
+            // assignment RHS (visit_assignment), declarator-init array elements
+            // (note_array_init), and object-property values (record_object_literal)
+            // all reach the fn-expr/arrow arms above. The genuinely UNSEEDED
+            // positions are narrow and exotic: a fn-expr inside an object literal
+            // passed directly as a call arg (`foo({f: () => {…}})`), a spread arg
+            // (`foo(...[() => {}])`), a tagged-template / yield / optional-chain
+            // operand, and a bare or doubly-nested array literal. Those are
+            // registered by walks 1-3 (shared `descend_expr_fns`) but not
+            // Phase-B-seeded here. Sound today: codegen never INVOKES a callback
+            // reached only through those positions (silent no-ops). When Stage C/D
+            // make such shapes invocable, a string-element growable array in such a
+            // body would silently lower to i64 — at that point seed those specific
+            // positions (a dedicated Phase-B pass reaching ONLY what visit_expr
+            // misses; a blanket re-descent would double-visit the already-seeded
+            // positions and risk a spurious mixed-store E5506) or fail them closed.
+            // Do not let this arm start swallowing an invocable nested body silently.
             _ => self.new_node(),
         }
     }
