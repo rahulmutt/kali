@@ -27,8 +27,8 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use kali_ast::{
-    AssignmentOperator, BlockStatement, Expression, ForInLefthand, ForInit, ForOfLefthand,
-    LiteralValue, Statement,
+    AssignmentOperator, BlockStatement, Expression, ExpressionOrSpread, ForInLefthand, ForInit,
+    ForOfLefthand, LiteralValue, OptionalChainInner, Statement,
 };
 use kali_common::{Repr, ReprTable, UnionFind};
 
@@ -371,6 +371,32 @@ pub fn infer_reprs(statements: &[Statement]) -> ReprTable {
     infer.emit_table()
 }
 
+/// Selects which Phase-A walk a shared nested-fn-body descent is running for.
+///
+/// `name_anon_functions` assigns every function-expression / arrow a synthetic
+/// `__kali_fn_{N}` id IN PLACE (it does not hoist), so those bodies live in
+/// EXPRESSION positions — primarily a `VariableDeclaration` declarator `init`
+/// (`const f = () => {…}`), but structurally anywhere an expression can appear.
+/// The three statement-only Phase-A walkers (`collect_functions_in_stmt`,
+/// `collect_local_names_in_stmt`, `collect_growable_candidates_in_stmt`) share
+/// ONE expression-descent (`descend_stmt_fns` → `descend_expr_fns`) so they
+/// cannot drift; the per-walk registration differs and is dispatched by this
+/// tag in `register_nested_fn`. Phase B's `visit_stmt`/`visit_expr` already
+/// traverses every expression, so it carries its OWN fn-expr/arrow arm in
+/// `visit_expr` — the fourth walk that must stay in LOCKSTEP with these three.
+#[derive(Clone, Copy)]
+enum NestedFnWalk {
+    /// `collect_functions_in_stmt`: register `(__kali_fn_N, params)` and a
+    /// scalar node per param.
+    Functions,
+    /// `collect_local_names_in_stmt`: register the nested body's own locals
+    /// (params + declarators) under `__kali_fn_N`.
+    LocalNames,
+    /// `collect_growable_candidates_in_stmt`: run the Stage-4 growable
+    /// choke-point predicate over the nested body, keyed on `__kali_fn_N`.
+    Growable,
+}
+
 impl ReprInfer {
     // ---- node / edge / seed constructors -------------------------------
 
@@ -681,6 +707,9 @@ impl ReprInfer {
     }
 
     fn collect_functions_in_stmt(&mut self, stmt: &Statement) {
+        // LOCKSTEP walk 1/4: descend into any fn-expr/arrow in this statement's
+        // expressions (see the shared-descent note above `register_nested_fn`).
+        self.descend_stmt_fns(NestedFnWalk::Functions, stmt);
         match stmt {
             Statement::FunctionDeclaration(func) => {
                 self.functions
@@ -731,6 +760,9 @@ impl ReprInfer {
     }
 
     fn collect_growable_candidates_in_stmt(&mut self, stmt: &Statement) {
+        // LOCKSTEP walk 3/4: descend into any fn-expr/arrow in this statement's
+        // expressions (see the shared-descent note above `register_nested_fn`).
+        self.descend_stmt_fns(NestedFnWalk::Growable, stmt);
         match stmt {
             Statement::FunctionDeclaration(func) => {
                 let (candidates, _pushes, rejects) =
@@ -772,6 +804,284 @@ impl ReprInfer {
         }
     }
 
+    // ---- Shared nested-fn-body descent (walks 1–3) ----------------------
+    //
+    // `name_anon_functions` names every fn-expr/arrow `__kali_fn_{N}` IN PLACE
+    // (no hoist), so those bodies sit in EXPRESSION positions the three
+    // statement-only Phase-A walkers above never reach. The three walkers each
+    // call `descend_stmt_fns` (which forwards a statement's DIRECT expressions
+    // to the shared, exhaustive `descend_expr_fns`); `register_nested_fn` then
+    // does the per-walk registration keyed on `__kali_fn_N`, EXACTLY as each
+    // walk's `FunctionDeclaration` arm registers under `decl.name`. Keeping the
+    // find-the-fn logic in ONE place is deliberate: the bug this closes was
+    // FOUR hand-mirrored walks silently disagreeing. Phase B's
+    // `visit_stmt`/`visit_expr` is the fourth walk and must stay in lockstep —
+    // it carries its own fn-expr/arrow arm in `visit_expr` (see there).
+
+    /// Do the per-walk registration for one nested fn-expr/arrow body found at
+    /// `id` (`__kali_fn_N`) with `params`, then recurse into its body with the
+    /// SAME walk so deeper nested fns are found. `body` is `Some` for a
+    /// block-bodied fn-expr/block-arrow (the failing `const f = () => {…}`
+    /// shape parses as a `FunctionExpression` with a `BlockStatement`); it is
+    /// `None` for an expression-bodied arrow (`x => x + 1`), which has no
+    /// statements — only params to register (its body expression is descended
+    /// for further nested fns by the caller).
+    fn register_nested_fn(
+        &mut self,
+        walk: NestedFnWalk,
+        id: &str,
+        params: &[String],
+        body: Option<&BlockStatement>,
+    ) {
+        match walk {
+            // Mirrors `collect_functions_in_stmt`'s `FunctionDeclaration` arm.
+            NestedFnWalk::Functions => {
+                self.functions.insert(id.to_string(), params.to_vec());
+                for param in params {
+                    self.scalar_node_for(id, param);
+                }
+                if let Some(body) = body {
+                    self.collect_functions(&body.body);
+                }
+            }
+            // Mirrors `collect_local_names_in_stmt`'s `FunctionDeclaration` arm.
+            NestedFnWalk::LocalNames => {
+                let entry = self.local_names.entry(id.to_string()).or_default();
+                for param in params {
+                    entry.insert(param.clone());
+                }
+                if let Some(body) = body {
+                    self.collect_local_names(id, &body.body);
+                }
+            }
+            // Mirrors `collect_growable_candidates_in_stmt`'s
+            // `FunctionDeclaration` arm. An expression-bodied arrow has no
+            // statements, so it cannot host a growable push receiver.
+            NestedFnWalk::Growable => {
+                if let Some(body) = body {
+                    let (candidates, _pushes, rejects) =
+                        crate::growable::growable_array_candidates(params, &body.body);
+                    for name in candidates {
+                        self.growable_candidates.insert((id.to_string(), name));
+                    }
+                    for (name, kind) in rejects {
+                        self.growable_rejects.insert((id.to_string(), name), kind);
+                    }
+                    self.collect_growable_candidates(&body.body);
+                }
+            }
+        }
+    }
+
+    /// Forward every DIRECT expression of `stmt` (not its child statements —
+    /// the walker's own statement recursion covers those) to
+    /// `descend_expr_fns`. Coverage is deliberately the SAME statement reach as
+    /// the three walkers' existing `FunctionDeclaration` traversal: `switch`
+    /// case bodies and `with` bodies are not descended by those walkers today
+    /// (a pre-existing boundary shared with fn-DECLARATIONS — see the walkers'
+    /// `_ => {}` arms), so a fn-expr buried in a `switch`-case statement stays
+    /// out of scope here too, consistent with existing behavior.
+    fn descend_stmt_fns(&mut self, walk: NestedFnWalk, stmt: &Statement) {
+        match stmt {
+            Statement::ExpressionStatement(s) => self.descend_expr_fns(walk, &s.expression),
+            Statement::ReturnStatement(s) => {
+                if let Some(arg) = &s.argument {
+                    self.descend_expr_fns(walk, arg);
+                }
+            }
+            Statement::ThrowStatement(s) => self.descend_expr_fns(walk, &s.argument),
+            Statement::IfStatement(s) => self.descend_expr_fns(walk, &s.test),
+            Statement::WhileStatement(s) => self.descend_expr_fns(walk, &s.test),
+            Statement::DoWhileStatement(s) => self.descend_expr_fns(walk, &s.test),
+            Statement::SwitchStatement(s) => {
+                self.descend_expr_fns(walk, &s.discriminant);
+                for case in &s.cases {
+                    if let Some(test) = &case.test {
+                        self.descend_expr_fns(walk, test);
+                    }
+                    // case.consequent statements are NOT recursed — see the
+                    // switch boundary note on this fn.
+                }
+            }
+            Statement::ForStatement(s) => {
+                if let Some(init) = &s.init {
+                    match init {
+                        ForInit::VariableDeclaration(decl) => {
+                            for d in &decl.declarations {
+                                if let Some(i) = &d.init {
+                                    self.descend_expr_fns(walk, i);
+                                }
+                            }
+                        }
+                        ForInit::Expression(e) => self.descend_expr_fns(walk, e),
+                    }
+                }
+                if let Some(test) = &s.test {
+                    self.descend_expr_fns(walk, test);
+                }
+                if let Some(update) = &s.update {
+                    self.descend_expr_fns(walk, update);
+                }
+            }
+            Statement::ForInStatement(s) => self.descend_expr_fns(walk, &s.right),
+            Statement::ForOfStatement(s) => self.descend_expr_fns(walk, &s.right),
+            Statement::VariableDeclaration(decl) => {
+                for d in &decl.declarations {
+                    if let Some(init) = &d.init {
+                        self.descend_expr_fns(walk, init);
+                    }
+                }
+            }
+            Statement::ExportDefault(kali_ast::ExportDefaultDeclaration::Expression(e)) => {
+                self.descend_expr_fns(walk, e)
+            }
+            // No direct expressions to scan (statement containers are recursed
+            // by the walker itself; the rest hold no expression):
+            // FunctionDeclaration/ClassDeclaration/Block/Labeled/Try/For*-body,
+            // Break/Continue/Debugger/Import/ExportAll/ExportNamed/Enum/Type/
+            // Interface/With/ExportDefault{Function,Class}. `with` is
+            // unsupported elsewhere in the pass (repr_infer.rs).
+            _ => {}
+        }
+    }
+
+    /// Structurally recurse an expression, dispatching `register_nested_fn` at
+    /// every fn-expr / arrow. The arm set mirrors `assign_names_expression`
+    /// (`kali_cli/src/build/name_anon_functions.rs:616`) EXHAUSTIVELY so descent
+    /// is not a positional denylist: a fn-expr/arrow is found wherever an
+    /// expression can appear. Every no-op arm is explicit and cited — there is
+    /// NO bare `_` that could silently swallow a fn-expr-bearing expression.
+    fn descend_expr_fns(&mut self, walk: NestedFnWalk, expr: &Expression) {
+        match expr {
+            Expression::FunctionExpression(f) => {
+                if let (Some(id), Some(body)) = (f.id.as_deref(), f.body.as_deref()) {
+                    let params: Vec<String> = f.params.iter().map(|p| p.name.clone()).collect();
+                    self.register_nested_fn(walk, id, &params, Some(body));
+                }
+            }
+            Expression::ArrowFunctionExpression(a) => {
+                if let Some(id) = a.id.as_deref() {
+                    let params: Vec<String> = a.params.iter().map(|p| p.name.clone()).collect();
+                    // Expression-bodied arrow: register params (no statements),
+                    // then descend the body expression for deeper nested fns
+                    // (they key on their OWN id, so the arrow's scope is
+                    // irrelevant to walks 1–3).
+                    self.register_nested_fn(walk, id, &params, None);
+                    self.descend_expr_fns(walk, &a.body);
+                }
+            }
+            Expression::ParenthesizedExpression(inner) => {
+                self.descend_expr_fns(walk, &inner.expression)
+            }
+            Expression::AwaitExpression(e) => self.descend_expr_fns(walk, &e.argument),
+            Expression::ImportExpression(e) => self.descend_expr_fns(walk, &e.source),
+            Expression::BinaryExpression(e) => {
+                self.descend_expr_fns(walk, &e.left);
+                self.descend_expr_fns(walk, &e.right);
+            }
+            Expression::LogicalExpression(e) => {
+                self.descend_expr_fns(walk, &e.left);
+                self.descend_expr_fns(walk, &e.right);
+            }
+            Expression::AssignmentExpression(e) => {
+                self.descend_expr_fns(walk, &e.left);
+                self.descend_expr_fns(walk, &e.right);
+            }
+            Expression::UnaryExpression(e) => self.descend_expr_fns(walk, &e.argument),
+            Expression::UpdateExpression(e) => self.descend_expr_fns(walk, &e.argument),
+            Expression::CallExpression(e) => {
+                self.descend_expr_fns(walk, &e.callee);
+                for arg in &e.args {
+                    self.descend_expr_fns(walk, arg);
+                }
+            }
+            Expression::NewExpression(e) => {
+                self.descend_expr_fns(walk, &e.callee);
+                for arg in &e.args {
+                    self.descend_expr_fns(walk, arg);
+                }
+            }
+            Expression::MemberExpression(e) => {
+                self.descend_expr_fns(walk, &e.object);
+                if let Some(index) = &e.computed_index {
+                    self.descend_expr_fns(walk, index);
+                }
+            }
+            Expression::ArrayExpression(e) => {
+                for element in e.elements.iter().flatten() {
+                    self.descend_expr_or_spread_fns(walk, element);
+                }
+            }
+            Expression::ObjectExpression(e) => {
+                for property in &e.properties {
+                    self.descend_expr_fns(walk, &property.value);
+                }
+            }
+            Expression::TemplateLiteral(e) => {
+                for expression in &e.expressions {
+                    self.descend_expr_fns(walk, expression);
+                }
+            }
+            Expression::TaggedTemplateExpression(e) => {
+                self.descend_expr_fns(walk, &e.tag);
+                for expression in &e.template.expressions {
+                    self.descend_expr_fns(walk, expression);
+                }
+            }
+            Expression::ConditionalExpression(e) => {
+                self.descend_expr_fns(walk, &e.test);
+                self.descend_expr_fns(walk, &e.consequent);
+                self.descend_expr_fns(walk, &e.alternate);
+            }
+            Expression::SequenceExpression(e) => {
+                for expression in &e.expressions {
+                    self.descend_expr_fns(walk, expression);
+                }
+            }
+            Expression::YieldExpression(e) => {
+                if let Some(argument) = &e.argument {
+                    self.descend_expr_fns(walk, argument);
+                }
+            }
+            Expression::OptionalChainExpression(chain) => match chain.inner.as_ref() {
+                OptionalChainInner::NonNull { object, .. } => self.descend_expr_fns(walk, object),
+            },
+            Expression::ChainExpression(e) => self.descend_expr_fns(walk, &e.expression),
+            Expression::SpreadElement(e) => self.descend_expr_fns(walk, &e.argument),
+            Expression::RestElement(e) => self.descend_expr_fns(walk, &e.argument),
+            Expression::DecoratedExpression(e) => self.descend_expr_fns(walk, &e.expression),
+            Expression::TypeAssertion(e) => self.descend_expr_fns(walk, &e.expression),
+            Expression::SatisfiesExpression(e) => self.descend_expr_fns(walk, &e.expression),
+            // `ClassExpression` — class-method bodies are OUT of scope for this
+            // pass (separate root cause; the corresponding class-method test is
+            // `#[ignore]`'d). Deliberately not descended.
+            Expression::ClassExpression(_) => {}
+            // JSX is not compiled by kali (JS→wasm benchmark target); a fn-expr
+            // embedded in JSX would be unreachable to codegen anyway. Explicit
+            // no-op rather than a bare `_` so a future JSX target must revisit
+            // this deliberately.
+            Expression::JsxElement(_)
+            | Expression::JsxFragment(_)
+            | Expression::JsxEmptyExpression => {}
+            // Leaf expressions — no sub-expression can hold a fn-expr/arrow.
+            Expression::Identifier(_)
+            | Expression::Literal(_)
+            | Expression::BigIntLiteral(_)
+            | Expression::MetaProperty(_)
+            | Expression::ThisExpression
+            | Expression::SuperExpression
+            | Expression::PrivateIdentifier(_) => {}
+        }
+    }
+
+    fn descend_expr_or_spread_fns(&mut self, walk: NestedFnWalk, element: &ExpressionOrSpread) {
+        match element {
+            ExpressionOrSpread::Expression(expr) => self.descend_expr_fns(walk, expr),
+            ExpressionOrSpread::Spread(spread) => self.descend_expr_fns(walk, &spread.argument),
+            ExpressionOrSpread::Empty => {}
+        }
+    }
+
     // ---- Phase A2: local-name collection --------------------------------
 
     /// Populate `local_names` for `func`'s own scope (module scope when
@@ -786,6 +1096,11 @@ impl ReprInfer {
     }
 
     fn collect_local_names_in_stmt(&mut self, func: &str, stmt: &Statement) {
+        // LOCKSTEP walk 2/4: descend into any fn-expr/arrow in this statement's
+        // expressions (see the shared-descent note above `register_nested_fn`).
+        // Nested bodies register their locals under their OWN `__kali_fn_N`, so
+        // the outer `func` scope is intentionally not threaded through.
+        self.descend_stmt_fns(NestedFnWalk::LocalNames, stmt);
         match stmt {
             Statement::FunctionDeclaration(decl) => {
                 let entry = self.local_names.entry(decl.name.clone()).or_default();
@@ -1422,6 +1737,30 @@ impl ReprInfer {
             // repr (e.g. `Repr::String`) instead of a fresh, permanently-unseeded
             // int node.
             Expression::AwaitExpression(await_expr) => self.visit_expr(func, &await_expr.argument),
+
+            // LOCKSTEP walk 4/4: descend into a fn-expr / arrow body under its
+            // synthetic `__kali_fn_N` id so object-shape (`for..in`),
+            // String-repr, and growable seeding inside nested bodies run
+            // exactly as they do for a `FunctionDeclaration` (whose arm at the
+            // top of `visit_stmt` does the same). The three Phase-A walkers do
+            // the matching signature/local/growable registration via the shared
+            // `descend_stmt_fns` (see the note above `register_nested_fn`). The
+            // fn value itself is an i64 handle: return a fresh node.
+            Expression::FunctionExpression(f) => {
+                if let (Some(id), Some(body)) = (f.id.as_deref(), f.body.as_deref()) {
+                    self.visit_block(id, body);
+                }
+                self.new_node()
+            }
+            Expression::ArrowFunctionExpression(a) => {
+                if let Some(id) = a.id.as_deref() {
+                    // Expression-bodied arrow (`x => x + 1`): visit its body
+                    // expression under the arrow's own scope so its seeds/edges
+                    // (e.g. a string `+`) are registered under `__kali_fn_N`.
+                    self.visit_expr(id, &a.body);
+                }
+                self.new_node()
+            }
 
             // Any other expression kind is a fresh (int) node.
             _ => self.new_node(),
