@@ -136,3 +136,51 @@ stays `#[ignore]`'d until Stage D. Fail-closed E5506 is the sound fallback only
 if Task 3 finds the repr-axis (Phase B) intersection needs more than a traversal
 extension — it would convert the silent wrong answer to a loud diagnostic without
 regressing any currently-working program (the affected shapes miscompile today).
+
+## 6. Stage close-out (Task 4)
+
+**Resolution:** correct-lowering (not fail-closed). The fix extends `repr_infer`'s
+four walks to descend into fn-expr/arrow bodies keyed on `__kali_fn_{N}` — see §5.
+Fix commit `a889637d8`; walk-4 tripwire `102b625d7`; follow-ups `54c50aa14`.
+
+**Merge note:** gap B was found to be a strict SUBSET of Stage A (both are the
+same `repr_infer` non-descent gap on different repr axes). Per user decision
+(2026-07-15) the two were merged: this one fix closes gap B (silent
+growable-array → correct) AND gap A (fail-closed object-shape/`for..in` + String
+→ correct). Both verified vs `node`.
+
+**Regression fixtures:** `crates/kali_cli/tests/soundness_ab_repr_nested_bodies.rs`
+(4 tests: B1/B2 growable in fn-expr/arrow → correct; A1 `for..in` in body; A2
+String in body). RED→GREEN + re-mask proven. Boundary cells from §3 are covered
+by the growable/scope matrix; the brief's original `[7,8].length`/`const k`
+example shapes were replaced with descent-isolating shapes after they were shown
+to be pre-existing orthogonal codegen gaps (reproduce at module scope and in
+plain function declarations) — documented in the test file.
+
+**Independence:**
+- **From Stage A:** N/A — merged in (B ⊆ A).
+- **From Stage C:** confirmed orthogonal. The fix touches only
+  `crates/kali_types/src/repr_infer.rs` (+ the test file), not the closure-capture
+  site (`emit/literal.rs`). A Stage-C shape (`count += 1` where `count` is an
+  enclosing-fn local, mutated from a callback) still fails closed E5506 (exit 1),
+  not a silent miscompile — unchanged by this fix.
+
+**Stage gate (PRIMARY — zero newly-red vs 731):**
+- Two independent full-workspace `--no-fail-fast` enumerations (`sort -u`):
+  run1 = 731, run2 = 731, **zero drift**. Union = 731.
+- `comm -13 stageB-pre stageB-post` = **EMPTY** (zero newly-red). ✅
+- `comm -23` (drain) = empty (measured, not forecast): the failure set is
+  identical to baseline. The fix is behavior-neutral on the existing suite while
+  adding green regression coverage and closing the gap-A/B miscompile classes
+  (the un-flatten that exercises most fn-expr/arrow bodies is not yet landed, so
+  no existing suite test sat on these axes).
+- Main-worktree cross-check (`/workspace/.worktrees/kali-main` @ `b48a067d3`):
+  0 failures; cross-check filter = empty. ✅
+
+**Entry → exit: 731 → 731, zero newly-red, zero drain.**
+
+**Follow-ups (Minor, from the Task 3 review — see `stageAB-followups.md`):**
+F-AB-1 pre-existing expression-bodied-arrow return-value silent miscompile (not
+introduced here). F-AB-2 latent walk-4 vs walks-1–3 divergence (not reachable
+today; tripwire planted; Stage C/D must act before making those call shapes
+invocable).
