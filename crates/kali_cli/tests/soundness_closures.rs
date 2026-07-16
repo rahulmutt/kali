@@ -617,3 +617,50 @@ fn deferred_queue_microtask_non_capturing_callback_still_runs() {
     );
     assert_eq!(String::from_utf8_lossy(&out.stdout), "sync\n");
 }
+
+/// setInterval capturing callback → fail closed (Finding B). The guard
+/// allowlists `setInterval` alongside the other three scheduling surfaces, but
+/// no fixture exercised it before this pin. Same class: codegen emits no call
+/// to `setInterval`, so a capturing callback would be silently dropped; base
+/// a57cd09d5 rejected E5506 on the `base += 1` capture-write.
+#[test]
+fn deferred_set_interval_capturing_callback_fails_closed() {
+    assert_e5506(
+        "function outer(){ let base = 5; setInterval(function(){ base += 1; console.log(\"iv=\"+base); }, 0); console.log(\"sync=\"+base); } outer();\n",
+    );
+}
+
+/// Finding C — INDIRECT capturing callback via a binding: the callback is a
+/// function VALUE held in a local (`let cb = function(){…}`) and passed by name
+/// (`setTimeout(cb, 0)`), not inline. The guard resolves `cb` to its
+/// `__kali_fn_N` plan through declaration provenance (`fn_valued_locals`) and
+/// sees the non-empty `captured`, so it fails closed just like the inline form.
+/// Before the widening this compiled and silently printed `0` (the callback +
+/// its captured `base` dropped); base a57cd09d5 rejected E5506 on the identical
+/// `base += 1` capture-write (the binding indirection does not change what the
+/// callback captures), so this is the SAME reject-don't-miscompile shape.
+#[test]
+fn deferred_set_timeout_indirect_capturing_callback_fails_closed() {
+    assert_e5506(
+        "function outer(){ let base = 0; let cb = function(){ base += 1; }; setTimeout(cb, 0); console.log(base); } outer();\n",
+    );
+}
+
+/// Finding C boundary — INDIRECT NON-capturing callback via a binding: the
+/// local holds a closure that captures NOTHING, so its plan has an empty
+/// `captured` and the guard does NOT fire. Silently dropped at base too
+/// (pre-existing, out of scope) — must keep running, proving the widened
+/// (binding-provenance) resolution stays capture-gated, not identifier-gated.
+/// kali drops the callback and prints only the sync line.
+#[test]
+fn deferred_set_timeout_indirect_non_capturing_callback_still_runs() {
+    let out = run_kali(
+        "function outer(){ let cb = function(){ console.log(\"cb\"); }; setTimeout(cb, 0); console.log(\"sync\"); } outer();\n",
+    );
+    assert!(
+        out.status.success(),
+        "indirect non-capturing setTimeout must not fail closed; stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "sync\n");
+}

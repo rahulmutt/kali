@@ -159,14 +159,24 @@ DIVERGENCE from node are labelled with their class and follow-up.
 | l | `module_global_compound_assign_still_routes_to_global` | module-scope capture (spec §3.3 case 4) | `1` | `1` | ✅ sound (unchanged) |
 | m | `recursion_distinct_envs_is_preexisting_escaping_zero` | returned closures `make(10)`/`make(20)` | `10 20` | `0 0` | ⚠️ PRE-EXISTING escaping-closure miscompile |
 | n | `returned_closure_late_read_is_preexisting_escaping_zero` | closure returned + late-read after loop scratch | `7` | `0` | ⚠️ PRE-EXISTING escaping-closure miscompile |
-| o | `deferred_queue_microtask_capture_callback_dropped_preexisting_gap` | `queueMicrotask(cb)` | `sync=5`/`mt=6` | `sync=5` | ⚠️ event/timer-lowering gap (callback dropped) |
-| p | `deferred_set_timeout_capture_callback_dropped_preexisting_gap` | `setTimeout(cb,0)` | `sync=5`/`st=6` | `sync=5` | ⚠️ event/timer-lowering gap (callback dropped) |
-| q | `deferred_add_event_listener_capture_callback_dropped_preexisting_gap` | `addEventListener`+`dispatchEvent` | `ev=6`/`sync=6` | `sync=5` | ⚠️ event/timer-lowering gap (listener dropped) |
+| o | `deferred_queue_microtask_capturing_callback_fails_closed` | `queueMicrotask(fn)` capturing | `sync=5`/`mt=6` | E5506 | ✅ fail-closed (Concern-2 re-close of the unmasked gap) |
+| p | `deferred_set_timeout_capturing_callback_fails_closed` | `setTimeout(fn,0)` capturing | `sync=5`/`st=6` | E5506 | ✅ fail-closed (Concern-2 re-close) |
+| q | `deferred_add_event_listener_capturing_callback_fails_closed` | `addEventListener`+`dispatchEvent` capturing | `ev=6`/`sync=6` | E5506 | ✅ fail-closed (Concern-2 re-close) |
+| q2 | `deferred_set_interval_capturing_callback_fails_closed` | `setInterval(fn,0)` capturing | `sync=5`/`iv=6` | E5506 | ✅ fail-closed (Finding B — 4th surface pinned) |
+| q3 | `deferred_set_timeout_indirect_capturing_callback_fails_closed` | `let cb=fn; setTimeout(cb,0)` capturing | `1` | E5506 | ✅ fail-closed (Finding C — indirect binding resolved by provenance) |
+| bg1 | `deferred_queue_microtask_module_scope_capture_still_runs` | module-global `count+=1` via `queueMicrotask` | `sync=0`/`mt=1` | `sync=0` (runs) | ✅ boundary guard — module global has empty `captured`, guard does NOT fire |
+| bg2 | `deferred_queue_microtask_non_capturing_callback_still_runs` | non-capturing inline callback | `sync`/`mt` | `sync` (runs) | ✅ boundary guard — empty `captured`, guard does NOT fire |
+| bg3 | `deferred_set_timeout_indirect_non_capturing_callback_still_runs` | `let cb=nonCapturingFn; setTimeout(cb,0)` | `sync`/`cb` | `sync` (runs) | ✅ boundary guard (Finding C) — provenance resolves cb, empty `captured`, runs |
 | r | `array_callback_capture_fails_closed` | `[..].map(cb)` capture | `12,13,14`… | E5506 | ✅ fail-closed (array-callback ABI stage) |
 | s | `exotic_array_element_indirect_call_is_preexisting_zero_not_garbage` | `arr[0]()` capture-INDEPENDENT | `9` | `0` | ⚠️ PRE-EXISTING indirect-call zero (out of sweep-fix scope, amendment 3c) |
 
-Rows a–l are sound (node parity or correct fail-closed). Rows m–s are
-divergences, each pinned so a future stage trips the tripwire. Their
+Rows a–l are sound (node parity or correct fail-closed). Rows o/p/q/q2/q3 are
+now CORRECT FAIL-CLOSED (E5506) after the Concern-2 fix + Finding B/C follow-ups
+(the guard rejects capturing callbacks to un-emittable scheduling surfaces —
+inline AND indirect-via-binding); rows bg1–bg3 are boundary guards proving the
+guard is capture-gated (module-global / non-capturing / indirect-non-capturing
+callbacks still run). Rows m, n, s remain PRE-EXISTING escaping/indirect-call
+zero divergences, each pinned so a future stage trips the tripwire. Their
 classification (pre-existing vs introduced) is §7.
 
 ## 7. Divergence classification — base cross-check (a57cd09d5)
@@ -236,6 +246,25 @@ callback is ALWAYS dropped (node always fires it). The distinguishing axis is
 capture (fail-closed) vs no-capture (pre-existing silent drop), NOT lane and NOT
 module-vs-function scope. Rows o/p/q retargeted to E5506 fail-closed pins
 (`deferred_{queue_microtask,set_timeout,add_event_listener}_capturing_callback_fails_closed`).
+
+**Post-review follow-ups (Findings B/C).** Two boundary cases the initial fix
+left open, both now closed at the SAME choke point:
+- **Finding B — `setInterval` unpinned.** The guard already allowlisted
+  `setInterval` (4th scheduling surface) but no fixture exercised it. Pinned by
+  `deferred_set_interval_capturing_callback_fails_closed` (E5506).
+- **Finding C — indirect capturing callback.** `call_has_capturing_closure_arg`
+  originally resolved only the DIRECT inline form (`setTimeout(function(){…})`,
+  where the arg node's own text is the `__kali_fn_N` plan key). The INDIRECT
+  form `let cb = function(){ base += 1; }; setTimeout(cb, 0)` passed the callback
+  by binding name; on the pre-fix binary it COMPILED and silently printed `0`
+  (callback + captured `base` dropped) — the SAME reject-don't-miscompile class
+  (base a57cd09d5 rejected E5506 on the identical `base += 1` capture-write; the
+  binding indirection does not change what is captured). The guard was WIDENED
+  to resolve an identifier argument to its closure plan by DECLARATION PROVENANCE
+  (`fn_valued_locals`, recorded at declaration-emit time — not name-guessing);
+  a capturing indirect callback now fails closed E5506, while a non-capturing
+  indirect callback (empty `captured`) still runs unchanged. Pinned by
+  `deferred_set_timeout_indirect_{capturing_callback_fails_closed,non_capturing_callback_still_runs}`.
 
 ## 8. Headline test — NON-FLIP (deferred, with evidence)
 
