@@ -231,7 +231,10 @@ const kaliNodeCreateHash =
 
 const importObject = {{
   "kali:rt": {{
-    test_register(val) {{
+    test_register(val, _envPtr) {{
+      // `_envPtr` (Stage C C3): the guest's `current_env` at registration. The
+      // browser harness runs registered tests synchronously and has no closure
+      // env chain, so it is accepted for import-signature parity and ignored.
       collectedTests.push(formatConsoleValue(val));
     }},
     coverage_hit(id) {{
@@ -647,7 +650,10 @@ const kaliNodeCreateHash =
 
 const importObject = {{
   "kali:rt": {{
-    test_register(val) {{
+    test_register(val, _envPtr) {{
+      // `_envPtr` (Stage C C3): the guest's `current_env` at registration. The
+      // browser harness runs registered tests synchronously and has no closure
+      // env chain, so it is accepted for import-signature parity and ignored.
       collectedTests.push(formatConsoleValue(val));
     }},
     coverage_hit(id) {{

@@ -33,20 +33,26 @@ pub struct KaliHostState {
     pub stderr: String,
     /// Pending one-shot and repeating timers.
     pub pending_timers: BTreeMap<u32, ScheduledTimer>,
-    /// Pending microtask callbacks.
-    pub pending_microtasks: VecDeque<i32>,
+    /// Pending microtask callbacks, each paired with the `current_env` value
+    /// captured at scheduling time (Stage C C3). `invoke_callback` restores that
+    /// env before running the callback so a captured binding resolves.
+    pub pending_microtasks: VecDeque<(i32, i64)>,
     /// Timer ids that were cleared while a callback was firing.
     pub cancelled_timers: HashSet<u32>,
     /// Deterministic worker/thread topology used by the threaded runtime plumbing.
     pub thread_topology: ThreadRuntimeTopology,
     /// Monotonic timer id counter.
     pub next_timer_id: u32,
-    /// Registered test callbacks collected from guest-side `Kali.test(...)` calls.
-    pub registered_tests: Vec<i32>,
+    /// Registered test callbacks collected from guest-side `Kali.test(...)`
+    /// calls, each paired with the `current_env` captured at registration time
+    /// (Stage C C3) so a capturing test callback resolves its enclosing bindings.
+    pub registered_tests: Vec<(i32, i64)>,
     /// Coverage hit ordinals recorded by instrumented guest modules.
     pub coverage_hits: BTreeSet<u32>,
-    /// Registered Node-style event callbacks collected from guest-side `EventEmitter` calls.
-    pub event_listeners: BTreeMap<String, Vec<i32>>,
+    /// Registered Node-style event callbacks collected from guest-side
+    /// `EventEmitter` calls, each paired with the `current_env` captured at
+    /// registration time (Stage C C3), forwarded to the microtask on emit.
+    pub event_listeners: BTreeMap<String, Vec<(i32, i64)>>,
     /// Memory/table limits for the current store.
     pub store_limits: wasmtime::StoreLimits,
     /// The most recent policy/resource diagnostic produced by a host operation.
@@ -68,6 +74,9 @@ pub struct KaliHostState {
 pub struct ScheduledTimer {
     /// Guest callback id.
     pub callback_id: i32,
+    /// `current_env` captured at scheduling time (Stage C C3); restored into the
+    /// `current_env` global by `invoke_callback` before the callback runs.
+    pub env_ptr: i64,
     /// When the timer should fire.
     pub due_at: Instant,
     /// Repeat interval for setInterval-like timers.
@@ -205,6 +214,7 @@ impl KaliHostState {
         callback_id: i32,
         delay_ms: i32,
         repeat: bool,
+        env_ptr: i64,
     ) -> wasmtime::Result<i32> {
         if delay_ms < 0 {
             return Err(wasmtime::Error::msg("timer delay must be non-negative"));
@@ -234,6 +244,7 @@ impl KaliHostState {
             timer_id,
             ScheduledTimer {
                 callback_id,
+                env_ptr,
                 due_at: Instant::now() + delay,
                 repeat_interval: repeat.then_some(delay),
             },
@@ -251,22 +262,23 @@ impl KaliHostState {
         Ok(())
     }
 
-    pub(crate) fn queue_microtask(&mut self, callback_id: i32) {
-        self.pending_microtasks.push_back(callback_id);
+    pub(crate) fn queue_microtask(&mut self, callback_id: i32, env_ptr: i64) {
+        self.pending_microtasks.push_back((callback_id, env_ptr));
     }
 
     pub(crate) fn register_event_listener(
         &mut self,
         event_type: impl Into<String>,
         callback_id: i32,
+        env_ptr: i64,
     ) {
         self.event_listeners
             .entry(event_type.into())
             .or_default()
-            .push(callback_id);
+            .push((callback_id, env_ptr));
     }
 
-    pub(crate) fn event_listener_callbacks(&self, event_type: &str) -> Vec<i32> {
+    pub(crate) fn event_listener_callbacks(&self, event_type: &str) -> Vec<(i32, i64)> {
         self.event_listeners
             .get(event_type)
             .cloned()

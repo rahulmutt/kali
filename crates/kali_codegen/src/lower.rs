@@ -516,7 +516,8 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     // This is a NEW fixed signature (no existing type matches the 6-i32-arg
     // shape), registered unconditionally so the type index is stable; the import
     // itself is conditional (see below). Because it is the last fixed type, the
-    // repr-directed function types start at index 13 (see the dedup base below).
+    // repr-directed function types start after the last fixed type (see the
+    // dedup base below).
     const CRYPTO_SUBTLE_DIGEST_TYPE_INDEX: u32 = 12;
     type_section.ty().function(
         vec![
@@ -529,8 +530,21 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         ],
         vec![ValType::I32],
     );
+    // Type 13: test_register `(callback_index: i32, env_ptr: i64) -> ()`
+    // (Stage C C3). The trailing `env_ptr` carries the `current_env` active at
+    // registration so a capturing `Kali.test(...)` callback resolves its
+    // enclosing bindings when the host invokes it later. This is now the last
+    // fixed type, so the repr-directed function types start at index 14.
+    const TEST_REGISTER_TYPE_INDEX: u32 = 13;
+    type_section
+        .ty()
+        .function(vec![ValType::I32, ValType::I64], Vec::new());
     let mut import_section = ImportSection::new();
-    import_section.import("kali:rt", "test_register", EntityType::Function(0));
+    import_section.import(
+        "kali:rt",
+        "test_register",
+        EntityType::Function(TEST_REGISTER_TYPE_INDEX),
+    );
     import_section.import("kali:rt", "console_log", EntityType::Function(1));
     import_section.import("kali:rt", "console_error", EntityType::Function(1));
     import_section.import("kali:rt", "console_warn", EntityType::Function(1));
@@ -716,10 +730,9 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             idx
         } else {
             // Function-signature types begin right after the fixed types
-            // (0..=CRYPTO_SUBTLE_DIGEST_TYPE_INDEX): crypto_subtle_digest (type
-            // 12) is now the last fixed type, so repr-directed function types
-            // start at index 13.
-            let idx = function_types.len() as u32 + CRYPTO_SUBTLE_DIGEST_TYPE_INDEX + 1;
+            // (0..=TEST_REGISTER_TYPE_INDEX): test_register (type 13) is now the
+            // last fixed type, so repr-directed function types start at index 14.
+            let idx = function_types.len() as u32 + TEST_REGISTER_TYPE_INDEX + 1;
             type_section.ty().function(params, results);
             function_types.insert(key, idx);
             idx
@@ -744,6 +757,16 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     let mut export_section = ExportSection::new();
     export_section.export("memory", ExportKind::Memory, 0);
     export_section.export("__heap", ExportKind::Global, 0);
+    // Export g8 (`current_env`, Stage C closures) under a stable name so the
+    // host can set it to a deferred callback's captured `env_ptr` before the
+    // nullary `__kali_callback_<idx>` call and restore it after (Phase C3,
+    // `invoke_callback`). A guest that owns no promotable env still exports this
+    // (harmless): the value stays 0 and the host's set/restore is a no-op.
+    export_section.export(
+        "__current_env",
+        ExportKind::Global,
+        crate::closure::CURRENT_ENV_GLOBAL,
+    );
     for function in &all_functions {
         if function.is_entry {
             export_section.export("_start", ExportKind::Func, function_name_to_index["_start"]);

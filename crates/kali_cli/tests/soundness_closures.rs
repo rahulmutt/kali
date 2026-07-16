@@ -25,6 +25,26 @@ fn run_kali(source: &str) -> std::process::Output {
         .expect("run kali")
 }
 
+/// Run a `*.test.js` fixture through the `kali test` harness. Registered
+/// `Kali.test(...)` callbacks are the ONE deferred-callback surface codegen
+/// actually emits (`test_register`); they are invoked LATER (after the
+/// registering function has returned) via `invoke_callback`, exactly the
+/// deferred path Phase C3 threads `env_ptr` through. `kali run` cannot exercise
+/// this because codegen emits no call to `queueMicrotask`/`setTimeout` (those
+/// host imports exist but no generated module imports them), so the brief's
+/// `queueMicrotask` fixture never schedules anything — see the Task 6 report.
+fn run_kali_test(source: &str) -> std::process::Output {
+    let dir = tempdir().expect("tempdir");
+    let path = dir.path().join("main.test.js");
+    fs::write(&path, source).expect("write source");
+    Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&path)
+        .output()
+        .expect("run kali test")
+}
+
 /// Assert the program is REJECTED with `E5506` (the reject-don't-miscompile
 /// contract) rather than silently producing a value.
 fn assert_e5506(source: &str) {
@@ -246,4 +266,32 @@ fn sync_heap_capture_reassign_through_capture_rejected() {
     assert_e5506(
         "function outer(){ let obj = { n: 1 }; function wr(){ obj = { n: 9 }; } wr(); console.log(obj.n); } outer();\n",
     );
+}
+
+/// Phase C3 (deferred host threading). A `Kali.test(...)` callback captures an
+/// enclosing scalar (`base`) of its registering function and reads it back when
+/// the host invokes it LATER — after the registering function has returned. The
+/// callback runs through `invoke_callback`, which must set `current_env` to the
+/// `env_ptr` captured at registration time (the registering activation's env
+/// record, threaded through the `test_register` import) so the read resolves to
+/// the live cell instead of env 0.
+///
+/// Two independent suites with different captured values assert BOTH that each
+/// callback runs with its OWN env AND that `invoke_callback` restores the prior
+/// `current_env` between callbacks (no env leaks across the queue). Pre-C3 both
+/// callbacks read `current_env` = 0 and printed `a=0` / `b=0` (silent
+/// read-zero — the C3 deferred-callback bug). node prints `a=41` / `b=7`.
+#[test]
+fn deferred_test_callback_runs_with_its_env() {
+    let out = run_kali_test(
+        "function suiteA(){ let base = 41; Kali.test(\"a\", function(){ console.log(\"a=\"+base); }); }\nfunction suiteB(){ let base = 7; Kali.test(\"b\", function(){ console.log(\"b=\"+base); }); }\nsuiteA();\nsuiteB();\n",
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let s = String::from_utf8_lossy(&out.stdout);
+    assert!(s.contains("a=41"), "stdout: {}", s);
+    assert!(s.contains("b=7"), "stdout: {}", s);
 }

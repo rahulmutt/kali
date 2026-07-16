@@ -248,8 +248,17 @@ pub(crate) fn register_default_host_imports(
         .func_wrap(
             "kali:rt",
             "test_register",
-            |mut caller: Caller<'_, KaliHostState>, callback_id: i32| -> wasmtime::Result<()> {
-                caller.data_mut().registered_tests.push(callback_id);
+            // Trailing `env_ptr` (Stage C C3): the `current_env` active at
+            // registration, so a capturing `Kali.test(...)` callback resolves
+            // its enclosing bindings when the host invokes it later.
+            |mut caller: Caller<'_, KaliHostState>,
+             callback_id: i32,
+             env_ptr: i64|
+             -> wasmtime::Result<()> {
+                caller
+                    .data_mut()
+                    .registered_tests
+                    .push((callback_id, env_ptr));
                 Ok(())
             },
         )
@@ -800,11 +809,12 @@ pub(crate) fn register_default_host_imports(
             |mut caller: Caller<'_, KaliHostState>,
              callback_id: i32,
              delay_ms: i32,
-             repeat: i32|
+             repeat: i32,
+             env_ptr: i64|
              -> wasmtime::Result<i32> {
                 caller
                     .data_mut()
-                    .schedule_timer(callback_id, delay_ms, repeat != 0)
+                    .schedule_timer(callback_id, delay_ms, repeat != 0, env_ptr)
             },
         )
         .map_err(|error| host_import_error("timer_set", error))?;
@@ -815,11 +825,12 @@ pub(crate) fn register_default_host_imports(
             "setTimeout",
             |mut caller: Caller<'_, KaliHostState>,
              callback_id: i32,
-             delay_ms: i32|
+             delay_ms: i32,
+             env_ptr: i64|
              -> wasmtime::Result<i32> {
                 caller
                     .data_mut()
-                    .schedule_timer(callback_id, delay_ms, false)
+                    .schedule_timer(callback_id, delay_ms, false, env_ptr)
             },
         )
         .map_err(|error| host_import_error("setTimeout", error))?;
@@ -830,11 +841,12 @@ pub(crate) fn register_default_host_imports(
             "setInterval",
             |mut caller: Caller<'_, KaliHostState>,
              callback_id: i32,
-             delay_ms: i32|
+             delay_ms: i32,
+             env_ptr: i64|
              -> wasmtime::Result<i32> {
                 caller
                     .data_mut()
-                    .schedule_timer(callback_id, delay_ms, true)
+                    .schedule_timer(callback_id, delay_ms, true, env_ptr)
             },
         )
         .map_err(|error| host_import_error("setInterval", error))?;
@@ -876,8 +888,11 @@ pub(crate) fn register_default_host_imports(
         .func_wrap(
             "kali:rt",
             "queue_microtask",
-            |mut caller: Caller<'_, KaliHostState>, callback_id: i32| -> wasmtime::Result<()> {
-                caller.data_mut().queue_microtask(callback_id);
+            |mut caller: Caller<'_, KaliHostState>,
+             callback_id: i32,
+             env_ptr: i64|
+             -> wasmtime::Result<()> {
+                caller.data_mut().queue_microtask(callback_id, env_ptr);
                 Ok(())
             },
         )
@@ -887,8 +902,11 @@ pub(crate) fn register_default_host_imports(
         .func_wrap(
             "kali:rt",
             "queueMicrotask",
-            |mut caller: Caller<'_, KaliHostState>, callback_id: i32| -> wasmtime::Result<()> {
-                caller.data_mut().queue_microtask(callback_id);
+            |mut caller: Caller<'_, KaliHostState>,
+             callback_id: i32,
+             env_ptr: i64|
+             -> wasmtime::Result<()> {
+                caller.data_mut().queue_microtask(callback_id, env_ptr);
                 Ok(())
             },
         )

@@ -25,13 +25,13 @@ pub(crate) fn drain_event_loop(
     store: &mut Store<KaliHostState>,
 ) -> Result<(), Diagnostic> {
     loop {
-        let microtask_id = {
+        let microtask = {
             let state = store.data_mut();
             state.pending_microtasks.pop_front()
         };
 
-        if let Some(callback_id) = microtask_id {
-            invoke_callback(instance, store, callback_id)?;
+        if let Some((callback_id, env_ptr)) = microtask {
+            invoke_callback(instance, store, callback_id, env_ptr)?;
             continue;
         }
 
@@ -59,7 +59,7 @@ pub(crate) fn drain_event_loop(
             state.pending_timers.remove(&timer_id);
         }
 
-        invoke_callback(instance, store, timer.callback_id)?;
+        invoke_callback(instance, store, timer.callback_id, timer.env_ptr)?;
 
         if let Some(interval) = timer.repeat_interval {
             let cancelled = {
@@ -73,6 +73,7 @@ pub(crate) fn drain_event_loop(
                     timer_id,
                     ScheduledTimer {
                         callback_id: timer.callback_id,
+                        env_ptr: timer.env_ptr,
                         due_at: Instant::now() + interval,
                         repeat_interval: Some(interval),
                     },
@@ -85,6 +86,44 @@ pub(crate) fn drain_event_loop(
 }
 
 pub(crate) fn invoke_callback(
+    instance: &Instance,
+    store: &mut Store<KaliHostState>,
+    callback_id: i32,
+    env_ptr: i64,
+) -> Result<(), Diagnostic> {
+    // Stage C C3: a deferred callback must run with the `current_env` that was
+    // active when it was scheduled (its capturing activation's env record),
+    // not whatever the global happens to hold at drain time. Set the exported
+    // `__current_env` global to the stored `env_ptr` before the nullary call and
+    // RESTORE the previous value after, so queued/nested callbacks never leak
+    // envs into each other. Modules that own no promotable env (the hand-written
+    // runtime WAT fixtures, and any guest with no captures) export no
+    // `__current_env` global; `get_global` returns `None` and this whole
+    // save/set/restore dance is a no-op, exactly like baseline.
+    let env_global = instance.get_global(&mut *store, "__current_env");
+    let saved_env = env_global.map(|global| global.get(&mut *store));
+    if let Some(global) = env_global {
+        // `set` fails only on a type/immutability mismatch; the global is a
+        // mutable i64 by construction, so a failure is a codegen bug, not a
+        // guest-reachable condition. Surface it rather than silently miscompile.
+        global
+            .set(&mut *store, Val::I64(env_ptr))
+            .map_err(|error| runtime_error_diagnostic(format!(
+                "failed to set __current_env before callback: {error}"
+            )))?;
+    }
+
+    let result = invoke_callback_inner(instance, store, callback_id);
+
+    if let (Some(global), Some(prev)) = (env_global, saved_env) {
+        // Restore on BOTH the ok and error paths (before propagating), so a
+        // trapping callback still leaves `current_env` as its caller expects.
+        let _ = global.set(&mut *store, prev);
+    }
+    result
+}
+
+fn invoke_callback_inner(
     instance: &Instance,
     store: &mut Store<KaliHostState>,
     callback_id: i32,

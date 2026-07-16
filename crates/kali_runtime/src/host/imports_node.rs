@@ -552,15 +552,19 @@ pub(crate) fn register_node_host_imports(
         .func_wrap(
             "kali:node",
             "event_on",
+            // Trailing `env_ptr` (Stage C C3): the `current_env` active at
+            // `addEventListener`/`on` time, stored beside the callback and
+            // forwarded to the microtask on `emit`.
             move |mut caller: Caller<'_, KaliHostState>,
                   event_ptr: i32,
                   event_len: i32,
-                  callback_id: i32|
+                  callback_id: i32,
+                  env_ptr: i64|
                   -> wasmtime::Result<i32> {
                 let event_type = read_guest_string(&mut caller, event_ptr, event_len)?;
                 caller
                     .data_mut()
-                    .register_event_listener(event_type, callback_id);
+                    .register_event_listener(event_type, callback_id, env_ptr);
                 Ok(0)
             },
         )
@@ -590,8 +594,8 @@ pub(crate) fn register_node_host_imports(
                   -> wasmtime::Result<i32> {
                 let event_type = read_guest_string(&mut caller, event_ptr, event_len)?;
                 let callback_ids = caller.data().event_listener_callbacks(&event_type);
-                for callback_id in &callback_ids {
-                    caller.data_mut().queue_microtask(*callback_id);
+                for (callback_id, env_ptr) in &callback_ids {
+                    caller.data_mut().queue_microtask(*callback_id, *env_ptr);
                 }
                 Ok(callback_ids.len() as i32)
             },

@@ -1552,7 +1552,7 @@ const coverageHits = [];
 
 const defaultImportObject = {{
   "kali:rt": {{
-    test_register() {{}},
+    test_register(_val, _envPtr) {{}},
     coverage_hit(id) {{
       coverageHits.push(Number(id));
     }},
@@ -1890,7 +1890,7 @@ const coverageHits = [];
 
 const defaultImportObject = {{
   "kali:rt": {{
-    test_register() {{}},
+    test_register(_val, _envPtr) {{}},
     coverage_hit(id) {{
       coverageHits.push(Number(id));
     }},

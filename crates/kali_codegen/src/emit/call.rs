@@ -61,6 +61,12 @@ impl<'a> FunctionEmitter<'a> {
         if self.is_kali_test_call(&callee_node) {
             if let Some(callback_index) = self.kali_test_callback_index(node) {
                 function.instruction(&Instruction::I32Const(callback_index as i32));
+                // Trailing `env_ptr` arg (Stage C C3): the `current_env` active
+                // at registration — the registering activation's env record when
+                // `Kali.test` runs inside a capturing function, else 0. The host
+                // restores it before invoking this callback so its captures
+                // resolve (deferred-callback env threading).
+                function.instruction(&Instruction::GlobalGet(self.current_env_global()));
                 function.instruction(&Instruction::Call(TEST_REGISTER_IMPORT_INDEX));
                 return EmittedValue {
                     produced: false,

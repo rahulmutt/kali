@@ -294,9 +294,9 @@ impl RuntimeCtx {
 
         let mut tests_run = 0usize;
         let mut tests_failed = 0usize;
-        for callback_id in registered_tests {
+        for (callback_id, env_ptr) in registered_tests {
             tests_run += 1;
-            match invoke_callback(&instance, &mut store, callback_id) {
+            match invoke_callback(&instance, &mut store, callback_id, env_ptr) {
                 Ok(()) => {}
                 Err(diagnostic) => {
                     if let Some(exit_code) = store.data_mut().take_pending_exit_code() {
