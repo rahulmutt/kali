@@ -138,10 +138,30 @@ These are pinned as permanent tests in `crates/kali_cli/tests/soundness_closures
 `sync_scalar_capture_read_returns_value_not_zero`,
 `sync_heap_capture_reads_field`, plus the module-global companions).
 
+> **⚠ Framing correction (final stage review, §13).** The close-out's implicit
+> claim that the SYNCHRONOUS capture surface was sound was FALSIFIED: the rows
+> above are all OWNER-DIRECT or transparent-intermediate invocation shapes. A
+> capturer invoked while a SIBLING env-owner's record is active silently
+> addressed the WRONG record (cross-binding memory corruption — spec §3.4's
+> dynamic-parent premise vs the lexical capture analysis). What is true NOW:
+> the safe subset (owner-direct + transparent-intermediate chains, proven by
+> an interprocedural fixpoint) is lowered; every sibling-dynamic /
+> unprovable invocation shape fails closed E5506 (`kali_codegen::env_safety`).
+> See §13 for the corruption reproducers and the gate.
+
 ## 6. Adversarial sweep — node-vs-kali evidence (Task 8 Step 3 + amendments)
 
 Each row is a permanent test in `soundness_closures.rs`. Fixtures that pin a
 DIVERGENCE from node are labelled with their class and follow-up.
+
+> **⚠ Sweep-coverage correction (final stage review, §13).** This sweep never
+> exercised a capturer invoked from a NON-owner env-owning context, so it
+> could not observe the dynamic-env corruption class — its rows are all
+> owner-rooted call chains. The class is now closed fail-closed (rows t–w
+> below, §13); rows a–l remain sound because their shapes are exactly the
+> provable subset the safety fixpoint admits. Rows o/p/q/q2/q3's guard was
+> additionally INVERTED from a capturing-denylist to a provably-safe
+> allowlist (§13 IMPORTANT-1); their E5506 verdicts are unchanged.
 
 | # | fixture (test name) | source shape | node | kali | class |
 |---|---|---|---|---|---|
@@ -169,6 +189,14 @@ DIVERGENCE from node are labelled with their class and follow-up.
 | bg3 | `deferred_set_timeout_indirect_non_capturing_callback_still_runs` | `let cb=nonCapturingFn; setTimeout(cb,0)` | `sync`/`cb` | `sync` (runs) | ✅ boundary guard (Finding C) — provenance resolves cb, empty `captured`, runs |
 | r | `array_callback_capture_fails_closed` | `[..].map(cb)` capture | `12,13,14`… | E5506 | ✅ fail-closed (array-callback ABI stage) |
 | s | `exotic_array_element_indirect_call_is_preexisting_zero_not_garbage` | `arr[0]()` capture-INDEPENDENT | `9` | `0` | ⚠️ PRE-EXISTING indirect-call zero (out of sweep-fix scope, amendment 3c) |
+| t | `dynamic_env_sibling_write_capturer_fails_closed` | capture WRITE invoked from sibling env-owner | `101`/`1` | E5506 | ✅ fail-closed (§13 CRITICAL — was silent corruption `102`/`0`) |
+| u | `dynamic_env_sibling_read_capturer_fails_closed` | capture READ invoked from sibling env-owner | `7` | E5506 | ✅ fail-closed (§13 CRITICAL — was silent corruption `101`) |
+| v | `dynamic_env_owning_capturer_from_sibling_env_owner_fails_closed` | env-OWNING capturer invoked from sibling env-owner | `7` | E5506 | ✅ fail-closed (§13 CRITICAL — was silent corruption `11`) |
+| w | `dynamic_env_test_registration_from_sibling_env_owner_fails_closed` | `Kali.test` registration inside sibling env-owner | `c=41` | E5506 | ✅ fail-closed (§13 CRITICAL registration variant — was `c=8`, wrong env_ptr) |
+| x | `deferred_set_timeout_aliased_capturing_callback_fails_closed` | `let cb2 = cb; setTimeout(cb2, 0)` capturing | `1` | E5506 | ✅ fail-closed (§13 IMPORTANT-1 — was silent drop, `0`) |
+| y | `deferred_set_timeout_call_result_callback_fails_closed` | `setTimeout(makeCb(), 0)` capturing | `1` | E5506 | ✅ fail-closed (§13 IMPORTANT-1 — was silent drop, `0`) |
+| z | `deferred_reassigned_callback_provenance_fails_closed` | reassigned `cb` then `setTimeout(cb, 0)` capturing | `1` | E5506 | ✅ fail-closed (§13 IMPORTANT-1 — was the §12-item-9 fail-open tripwire, `0`) |
+| z2 | `kali_test_unresolvable_callback_fails_closed` | `Kali.test("a", cb)` with `cb` a parameter | runs the test | E5506 | ✅ fail-closed (§13 IMPORTANT-2 — was warning + `ok 1` with zero tests) |
 
 Rows a–l are sound (node parity or correct fail-closed). Rows o/p/q/q2/q3 are
 now CORRECT FAIL-CLOSED (E5506) after the Concern-2 fix + Finding B/C follow-ups
@@ -265,6 +293,16 @@ left open, both now closed at the SAME choke point:
   a capturing indirect callback now fails closed E5506, while a non-capturing
   indirect callback (empty `captured`) still runs unchanged. Pinned by
   `deferred_set_timeout_indirect_{capturing_callback_fails_closed,non_capturing_callback_still_runs}`.
+
+**→ SUPERSEDED (final stage review, §13 IMPORTANT-1).** The Finding-B/C guard
+was still a DENYLIST — it default-ALLOWED any argument it could not resolve
+(aliases, call results, reassigned bindings — all live fail-opens on HEAD).
+`call_has_capturing_closure_arg` no longer exists: it was inverted into
+`scheduling_call_args_provably_safe` (an allowlist — E5506 unless every
+argument is provably a non-callable literal or a stable-provenance,
+non-capturing closure). The rows-o/p/q/q2/q3 verdicts and the bg1–bg3
+boundary behaviors above are unchanged; the details and the one deliberate
+residual (the flattened-arrow `Value("unknown")` placeholder lane) are §13.
 
 ## 8. Headline test — NON-FLIP (deferred, with evidence)
 
@@ -402,15 +440,166 @@ Entry **731** → exit **731** (zero newly-red, zero drift, zero drain; main 0).
 8. **Duplicate-label scope IDs / twin owner computations** — carried from prior
    reviews; EnvPlan nesting keys on analysis labels (`8171e2081`); revisit if
    duplicate labels or twin owner derivations surface.
-9. **`fn_valued_locals` reassignment/shadowing invalidation** — the Finding-C
-   indirect-callback provenance map is recorded only at DECLARATOR-emit time, so
-   a later `cb = function(){ …capture… }` (or a shadowing re-`let`) leaves the
-   original mapping stale: the scheduling guard resolves `cb` to the old plan and
-   MISSES the reassigned capturing callback → silent drop (fail-OPEN; base would
-   E5506 the capture-write). Pinned by
-   `deferred_reassigned_callback_provenance_is_stale_fail_open_tripwire`. This is
-   a narrow subset of the first-class-function-value / escaping-capture gap
-   (item 3, §7). Fix direction: invalidate/update `fn_valued_locals` at
-   assignment-emit, or resolve the callback through binding provenance at the
-   call site (so the current binding value — not the declaration value — drives
-   the capture verdict).
+9. **`fn_valued_locals` reassignment/shadowing invalidation — RE-SCOPED to the
+   default-deny disposition (CLOSED, §13 IMPORTANT-1).** The stale-provenance
+   fail-open (a later `cb = function(){ …capture… }` or a shadowing re-`let`
+   leaving the declarator-time mapping stale → silent drop) is closed
+   structurally, not by mapping invalidation: the scheduling guard now
+   REFUSES to resolve any name that is assigned outside its declarator or
+   declared more than once (`unstable_provenance_names`, computed up front
+   from the body — not emission-order-dependent) and fails closed E5506.
+   The old tripwire pin
+   `deferred_reassigned_callback_provenance_is_stale_fail_open_tripwire`
+   (which pinned the fail-open precisely so this change would trip it) is
+   replaced by the E5506 assertion
+   `deferred_reassigned_callback_provenance_fails_closed` (§6 row z). The
+   precise fix directions previously listed here (invalidate/update the map
+   at assignment-emit; call-site binding provenance) remain valid future
+   PRECISION work — they would turn some of these E5506s back into running
+   programs — but the soundness hole itself no longer exists.
+10. **Shadowing scope-granularity (pre-existing).** Capture analysis and name
+   resolution are FUNCTION-granular: a block-level `let` shadow of a captured
+   name inside the same function is not modeled as a distinct binding, so a
+   capture of the outer binding can go undetected (no env cell, baseline
+   local resolution). Pre-existing, independent of this wave; the
+   `unstable_provenance_names` multi-declarator rule fails the SCHEDULING
+   lane closed for such names, but direct-call capture shapes with block
+   shadows remain function-granular.
+11. **`kali test` prints `ok 1` with ZERO registered tests.** The harness
+   summary does not distinguish "all tests passed" from "nothing was ever
+   registered", which is exactly what masked the IMPORTANT-2 silent drop
+   (and still masks the flattened-arrow warning lane, §13 residual). A
+   zero-registered run should be distinguishable (e.g. `ok 0` or a
+   diagnostic) — harness follow-up.
+12. **Duplicate-label collisions shielded ACCIDENTALLY by E4201.** Everything
+   in this stage keys on function-name labels (`env_plans`,
+   `capture_owners`, the §13 safety fixpoint's name-keyed edges). Two
+   same-named functions would conflate — today unreachable only because the
+   export path rejects duplicate names (E4201 export-dedup), an accidental
+   shield, not a designed invariant. If exports ever stop deduping (or a
+   non-exported duplicate lane appears), the label keying needs its own
+   collision poisoning (the `escape_flow.rs::poison_function` precedent).
+13. **Twin owner computations.** "Owns a promotable env" is now computed in
+   TWO places from the same inputs: the `lower.rs` promotion loop (locals
+   mutation + save-local reservation) and `env_safety.rs::promotable_owner`
+   (the fixpoint's Record(F) decision), both delegating to the single
+   `closure::cell_is_promotable` predicate over the same plan cells. They
+   cannot diverge today (same predicate, same data), but a future edit to
+   one loop's FILTER (not the predicate) would desync them — fold into one
+   shared helper when next touched.
+
+---
+
+# 13. Final stage review — fix wave (2026-07-16)
+
+> Findings from the FINAL whole-stage review of Stage C (HEAD `3a1545b95`),
+> fixed in one wave. Every reproducer below was verified on pre-fix HEAD (the
+> recorded corrupted/silent output) and is a permanent E5506 fixture in
+> `soundness_closures.rs` (§6 rows t–z2). Suite census: 33 → 40 tests.
+
+## 13.1 CRITICAL — dynamic env chain vs lexical capture analysis
+
+**The falsified premise.** `emit_function_env_prologue` links a new env
+record's parent to the INCOMING `current_env` — the DYNAMIC caller's env —
+and the capture lowering addresses cells against `current_env`; the capture
+analysis (`derive_env_plans`, `mir_depth`) is LEXICAL (spec §3.4). The two
+agree only for owner-rooted invocation chains. When a capturer runs while a
+SIBLING env-owner's record is active, cell addressing resolves against the
+wrong record — SILENT CROSS-BINDING MEMORY CORRUPTION. Verified on pre-fix
+HEAD (node v26.5.0 disagrees; base `a57cd09d5` rejected all E5506):
+
+| reproducer | pre-fix HEAD | node | class |
+|---|---|---|---|
+| sibling-invoked capture WRITE (`inc` from `sib`) | `102` / `0` | `101` / `1` | write landed in sibling's cell |
+| sibling-invoked capture READ (`rd` from `sib`) | `101` | `7` | read sibling's cell |
+| env-OWNING capturer from sibling env-owner | `11` | `7` | parent walk into sibling's record |
+| `Kali.test` registration inside sibling env-owner | `c=8` + `ok 1` | `c=41` | wrong `env_ptr` stored at registration |
+
+**The fix — FAIL CLOSED** (controller decision: the lexical-parent-links
+rewrite is Stage D-adjacent, out of scope). New module
+`crates/kali_codegen/src/env_safety.rs`, wired into `lower_lir_to_wasm`
+after env-cell promotion. Interprocedural fixpoint (the `escape_flow.rs`
+precedent):
+
+- Abstract `current_env` during each function body: `Record(F)` for a
+  promotable env owner (its prologue publishes its own record), else the
+  JOIN of its callers' contexts (`_start` = `NoEnv`; conflicts = `Top`).
+- Edge graph: direct calls + `Kali.test` registrations (the stored `env_ptr`
+  is `current_env` at the registration site, so registration inherits the
+  identical requirement), attributed to the lexically-enclosing function
+  (nested-fn subtrees opaque). Callee names resolve through a name-keyed,
+  whole-program alias closure (declarator initializers, `for-of` bindings)
+  — a deliberate over-approximation.
+- Verdict: every REACHABLE edge into an ENGAGED capturer (>=1
+  `mir_depth == 1` ref whose owner-keyed cell is promotable — exactly the
+  `resolve_capture_access` engagement predicate) must carry exactly
+  `Record(owner)`; anything else is E5506 at compile time, un-lowering the
+  program to the pre-Stage-C reject.
+- A capturer with NO reachable invocation edge is vacuously safe: kali has
+  no first-class invocation (indirect calls lower to the zero-placeholder
+  no-op), so the escaping-closure pins (§6 rows m/n/s) keep their exact
+  pinned pre-existing behavior.
+
+All 33 pre-existing pins stay green: rows a–l are owner-direct or
+transparent-intermediate chains, which the fixpoint proves `Record(owner)`
+(the grandparent/one-hop-walk fixtures e/f are the transparent-intermediate
+proof cases).
+
+## 13.2 IMPORTANT-1 — scheduling guard default-ALLOWED unresolvable provenance
+
+`call_has_capturing_closure_arg` returned false (= allow) on anything it
+could not resolve. Live fail-opens on pre-fix HEAD, base E5506: alias
+(`let cb2 = cb; setTimeout(cb2, 0)`) and call result
+(`setTimeout(makeCb(), 0)`) — both compiled and silently dropped the
+capturing callback (printed `0`). Fix: INVERTED to
+`scheduling_call_args_provably_safe` at the single choke point all four
+surfaces (`queueMicrotask`/`setTimeout`/`setInterval`/`addEventListener`)
+converge on — E5506 UNLESS every argument is provably safe:
+
+- a literal / numeric constant (not callable), or
+- a callback resolving through STABLE provenance to an empty `captured`
+  set: `fn_valued_locals` first (a local shadows a same-named module fn),
+  then bindings-namespace checks, then a bare unshadowed function name.
+  Names assigned outside their declarator or declared twice
+  (`unstable_provenance_names`) are NEVER resolved — closing the
+  reassignment-stale tripwire (§12 item 9, re-scoped) fail-closed.
+
+bg1–bg3 boundary pins stay green (module-scope / inline / indirect
+non-capturing callbacks still run). **Deliberate residual:** an identifier
+resolving to NOTHING in any codegen namespace stays on the pre-existing
+placeholder lane — this is the flattened block-arrow argument
+(`setTimeout(() => {…})` lowers the arrow to `Value("unknown")` and never
+compiles its body, so there is no closure to drop; the whole-expression
+drop is PRE-EXISTING and shared with base). Denying it re-reds main-green
+web-baseline bundle-build pins whose callback never existed as a function.
+Stage D's un-flatten converts that lane into real closure plans, at which
+point the allowlist catches them automatically.
+
+## 13.3 IMPORTANT-2 — `Kali.test` fallback was a fifth unguarded surface
+
+An unresolvable callback VALUE (`function suite(cb){ Kali.test("a", cb); }`)
+produced a WARNING and registered nothing → `ok 1`, exit 0, the callback
+never ran (verified pre-fix HEAD; base E5506 for capturing bodies). Fix:
+folded into the default-deny — a bare identifier naming a live binding, or
+a call expression, in callback position is now E5506
+(`kali_test_unresolvable_callback_fails_closed`). Same narrowing as 13.2:
+the flattened-arrow `Value("unknown")` placeholder callback keeps the
+pre-existing warning lane (its body statements were never a compiled
+function; a blanket deny re-reds hundreds of main-green browser-lane
+fixtures). The `ok 1`-with-zero-tests masking is §12 item 11.
+
+## 13.4 Docs corrected in the same wave
+
+- `owns_promotable_env` + env-prologue doc comments claimed "scalar-i64"
+  only; the predicate also fires for C2 fixed-shape object cells —
+  corrected (`emitter.rs`, `emit/control_flow.rs`).
+- §5/§6 framing banners (the falsified sync-surface soundness claim), §6
+  rows t–z2, §7 Finding-B/C superseded note, §12 items 9–13.
+
+## 13.5 Gate
+
+`.kali-cache` cleared; ONE detached full-workspace enumeration on the final
+binary → `.superpowers/sdd/scratch/stageC-final.txt`; primary gate
+`comm -13 stageC-pre.txt stageC-final.txt` (newly-red) and `comm -23`
+(drain) recorded in `.superpowers/sdd/stage-review-fix-report.md` alongside
+per-finding RED/GREEN evidence.
