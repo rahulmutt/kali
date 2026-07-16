@@ -97,7 +97,9 @@ event loop:
   including microtasks queued by microtasks — before each timer callback;
   timers fire in `(expiry, insertion-seq)` order; `setInterval` re-arms at
   `expiry + delay` with a fresh seq (already-due timers run before the
-  re-armed tick). Missing/`0`/negative/non-finite delays clamp to 0.
+  re-armed tick). Missing/`0`/negative delays clamp to **1** — node's
+  documented minimum — which under the virtual clock also prevents a
+  zero-delay interval re-arm from starving every strictly-later timer.
 - **Timer IDs:** monotonically increasing i64 handles. `clearTimeout` /
   `clearInterval` on an unknown, fired, or cleared ID is a silent no-op.
 - **Bounded drain:** a total-callback-invocation budget (order 100k) per
