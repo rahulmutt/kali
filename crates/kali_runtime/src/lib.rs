@@ -60,8 +60,6 @@ use std::{
     path::{Path, PathBuf},
     process::Command,
     sync::OnceLock,
-    thread,
-    time::{Duration, Instant},
 };
 use tempfile::tempdir;
 use url::Url;

@@ -43,6 +43,11 @@ pub struct KaliHostState {
     pub thread_topology: ThreadRuntimeTopology,
     /// Monotonic timer id counter.
     pub next_timer_id: u32,
+    /// Virtual event-loop clock in ms (Stage D): starts at 0, advanced by the
+    /// drain to each fired timer's due time. Never consults wall time.
+    pub virtual_clock_ms: u64,
+    /// Monotonic per-(re)arm sequence for timer tie-breaking.
+    pub next_timer_seq: u64,
     /// Registered test callbacks collected from guest-side `Kali.test(...)`
     /// calls, each paired with the `current_env` captured at registration time
     /// (Stage C C3) so a capturing test callback resolves its enclosing bindings.
@@ -77,10 +82,16 @@ pub struct ScheduledTimer {
     /// `current_env` captured at scheduling time (Stage C C3); restored into the
     /// `current_env` global by `invoke_callback` before the callback runs.
     pub env_ptr: i64,
-    /// When the timer should fire.
-    pub due_at: Instant,
-    /// Repeat interval for setInterval-like timers.
-    pub repeat_interval: Option<Duration>,
+    /// Virtual due time in milliseconds (`KaliHostState::virtual_clock_ms`
+    /// coordinates; Stage D). The drain advances the clock directly to the
+    /// next due timer — no real sleeping, ordering is the observable.
+    pub due_at_ms: u64,
+    /// Monotonic scheduling sequence. Ties on `due_at_ms` fire in seq order,
+    /// and a re-armed interval takes a FRESH seq so already-due timers run
+    /// before the re-armed tick (node heap-insertion parity).
+    pub seq: u64,
+    /// Repeat interval in virtual ms for setInterval-like timers.
+    pub repeat_interval_ms: Option<u64>,
 }
 
 impl Default for KaliHostState {
@@ -104,6 +115,8 @@ impl Default for KaliHostState {
             cancelled_timers: HashSet::new(),
             thread_topology: ThreadRuntimeTopology::default(),
             next_timer_id: 0,
+            virtual_clock_ms: 0,
+            next_timer_seq: 0,
             registered_tests: Vec::new(),
             coverage_hits: BTreeSet::new(),
             event_listeners: BTreeMap::new(),
@@ -216,15 +229,17 @@ impl KaliHostState {
         repeat: bool,
         env_ptr: i64,
     ) -> wasmtime::Result<i32> {
-        if delay_ms < 0 {
-            return Err(wasmtime::Error::msg("timer delay must be non-negative"));
-        }
+        // Node parity (Stage D): delays below 1ms — including negative —
+        // clamp to node's documented 1ms minimum. The clamp also prevents a
+        // zero-delay interval re-arm from starving strictly-later timers
+        // under the virtual clock.
+        let effective_delay_ms: u64 = if delay_ms < 1 { 1 } else { delay_ms as u64 };
 
         let active_timers = self.pending_timers.len();
         if let Some(policy) = self.policy.as_ref() {
             policy
                 .check_operation(HostOperation::TimerSchedule {
-                    delay_ms: delay_ms as u64,
+                    delay_ms: effective_delay_ms,
                     active_timers,
                 })
                 .map_err(|diagnostic| {
@@ -238,15 +253,17 @@ impl KaliHostState {
             .next_timer_id
             .checked_add(1)
             .ok_or_else(|| wasmtime::Error::msg("timer id overflow"))?;
+        let seq = self.next_timer_seq;
+        self.next_timer_seq += 1;
 
-        let delay = Duration::from_millis(delay_ms as u64);
         self.pending_timers.insert(
             timer_id,
             ScheduledTimer {
                 callback_id,
                 env_ptr,
-                due_at: Instant::now() + delay,
-                repeat_interval: repeat.then_some(delay),
+                due_at_ms: self.virtual_clock_ms + effective_delay_ms,
+                seq,
+                repeat_interval_ms: repeat.then_some(effective_delay_ms),
             },
         );
 

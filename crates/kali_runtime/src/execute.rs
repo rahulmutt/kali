@@ -115,6 +115,8 @@ impl RuntimeCtx {
                 cancelled_timers: HashSet::new(),
                 thread_topology: ThreadRuntimeTopology::default(),
                 next_timer_id: 0,
+                virtual_clock_ms: 0,
+                next_timer_seq: 0,
                 registered_tests: Vec::new(),
                 coverage_hits: BTreeSet::new(),
                 event_listeners: BTreeMap::new(),

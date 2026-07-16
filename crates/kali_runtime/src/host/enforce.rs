@@ -40,7 +40,7 @@ pub(crate) fn drain_event_loop(
             state
                 .pending_timers
                 .iter()
-                .min_by_key(|(_, timer)| timer.due_at)
+                .min_by_key(|(_, timer)| (timer.due_at_ms, timer.seq))
                 .map(|(timer_id, timer)| (*timer_id, timer.clone()))
         };
 
@@ -48,20 +48,16 @@ pub(crate) fn drain_event_loop(
             break;
         };
 
-        let now = Instant::now();
-        if timer.due_at > now {
-            thread::sleep(timer.due_at - now);
-            continue;
-        }
-
         {
             let state = store.data_mut();
+            // Advance the virtual clock directly to the due time — no sleeping.
+            state.virtual_clock_ms = state.virtual_clock_ms.max(timer.due_at_ms);
             state.pending_timers.remove(&timer_id);
         }
 
         invoke_callback(instance, store, timer.callback_id, timer.env_ptr)?;
 
-        if let Some(interval) = timer.repeat_interval {
+        if let Some(interval_ms) = timer.repeat_interval_ms {
             let cancelled = {
                 let state = store.data_mut();
                 state.cancelled_timers.remove(&timer_id)
@@ -69,13 +65,17 @@ pub(crate) fn drain_event_loop(
 
             if !cancelled {
                 let state = store.data_mut();
+                let seq = state.next_timer_seq;
+                state.next_timer_seq += 1;
+                let due_at_ms = state.virtual_clock_ms + interval_ms;
                 state.pending_timers.insert(
                     timer_id,
                     ScheduledTimer {
                         callback_id: timer.callback_id,
                         env_ptr: timer.env_ptr,
-                        due_at: Instant::now() + interval,
-                        repeat_interval: Some(interval),
+                        due_at_ms,
+                        seq,
+                        repeat_interval_ms: Some(interval_ms),
                     },
                 );
             }
