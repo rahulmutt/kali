@@ -6,6 +6,7 @@ mod math;
 mod number;
 mod object;
 mod string;
+pub(crate) use host::{SchedulingCallback, SchedulingSurface};
 pub(crate) use number::{
     is_supported_static_ascii_char_code, parse_number_literal, parse_numeric_literal_value,
 };

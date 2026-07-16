@@ -553,13 +553,24 @@ fn deferred_drain_cleanliness_post_drain_capture_resolves() {
 // and stay running (pinned by the two boundary guards below).
 // ---------------------------------------------------------------------------
 
-/// Row o. queueMicrotask capturing callback → fail closed (was silently
-/// dropped; base rejected E5506; Concern-2 restored the rejection).
+/// Row o. queueMicrotask capturing callback → NOW RUNS (Stage D task D2).
+/// Pre-Stage-D: fail closed E5506 (Stage C Concern-2 guard — codegen emitted
+/// no call to `queueMicrotask`, so a capturing callback would have been
+/// silently dropped along with its captured env). D2 wired the real
+/// registration lane (env_ptr ABI + env_safety registration edges), so the
+/// capturing callback is deferred and runs with its owner's env record after
+/// `outer()` returns. node v26.5.0: "sync=5\nmt=6\n".
 #[test]
-fn deferred_queue_microtask_capturing_callback_fails_closed() {
-    assert_e5506(
+fn deferred_queue_microtask_capturing_callback_now_runs() {
+    let out = run_kali(
         "function outer(){ let base = 5; queueMicrotask(function(){ base += 1; console.log(\"mt=\"+base); }); console.log(\"sync=\"+base); } outer();\n",
     );
+    assert!(
+        out.status.success(),
+        "capturing microtask must now run; stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "sync=5\nmt=6\n");
 }
 
 /// Row p. setTimeout(cb, 0) capturing callback → fail closed.
@@ -580,14 +591,15 @@ fn deferred_add_event_listener_capturing_callback_fails_closed() {
     );
 }
 
-/// Boundary guard 1 (allowlist proof, must STAY green): a MODULE-SCOPE callback
-/// mutating a module global via `queueMicrotask` captures NO env cell
-/// (`derive_env_plans` excludes module globals → empty `captured`), so the
-/// Concern-2 guard does NOT fire. This is the triage probe-4 lane; it was never
-/// fail-closed at base and must keep running. kali drops the callback (a
-/// pre-existing gap, out of scope), so only the sync line prints.
+/// Boundary guard 1: a MODULE-SCOPE callback mutating a module global via
+/// `queueMicrotask` captures NO env cell (`derive_env_plans` excludes module
+/// globals → empty `captured`), so it never fell to the Stage C Concern-2
+/// guard. Pre-Stage-D: the callback was SILENTLY DROPPED (codegen emitted no
+/// `queueMicrotask` call), so only `sync=0` printed. Stage D task D2 wired the
+/// registration lane, so the callback now RUNS and mutates the module global
+/// through its WASM global (not an env cell). node v26.5.0: "sync=0\nmt=1\n".
 #[test]
-fn deferred_queue_microtask_module_scope_capture_still_runs() {
+fn deferred_queue_microtask_module_scope_capture_now_runs() {
     let out = run_kali(
         "let count = 0; queueMicrotask(function(){ count += 1; console.log(\"mt=\"+count); }); console.log(\"sync=\"+count);\n",
     );
@@ -596,17 +608,17 @@ fn deferred_queue_microtask_module_scope_capture_still_runs() {
         "module-scope microtask must not fail closed; stderr: {}",
         String::from_utf8_lossy(&out.stderr)
     );
-    // node: "sync=0\nmt=1\n". kali (callback dropped, pre-existing): "sync=0\n".
-    assert_eq!(String::from_utf8_lossy(&out.stdout), "sync=0\n");
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "sync=0\nmt=1\n");
 }
 
-/// Boundary guard 2 (must STAY green): a NON-CAPTURING function-scope callback
-/// passed to `queueMicrotask` captures nothing (empty `captured`), so the
-/// Concern-2 guard does NOT fire. Silently dropped at base too (pre-existing,
-/// out of scope) — must keep running, proving the guard is capture-gated, not
-/// surface-gated.
+/// Boundary guard 2: a NON-CAPTURING function-scope callback passed to
+/// `queueMicrotask` captures nothing (empty `captured`), so it never fell to
+/// the Stage C Concern-2 guard. Pre-Stage-D: SILENTLY DROPPED (codegen emitted
+/// no `queueMicrotask` call), so only `sync` printed. Stage D task D2 wired the
+/// registration lane, so the callback now RUNS during the post-`_start` drain.
+/// node v26.5.0: "sync\nmt\n".
 #[test]
-fn deferred_queue_microtask_non_capturing_callback_still_runs() {
+fn deferred_queue_microtask_non_capturing_callback_now_runs() {
     let out = run_kali(
         "function outer(){ queueMicrotask(function(){ console.log(\"mt\"); }); console.log(\"sync\"); } outer();\n",
     );
@@ -615,7 +627,7 @@ fn deferred_queue_microtask_non_capturing_callback_still_runs() {
         "non-capturing microtask must not fail closed; stderr: {}",
         String::from_utf8_lossy(&out.stderr)
     );
-    assert_eq!(String::from_utf8_lossy(&out.stdout), "sync\n");
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "sync\nmt\n");
 }
 
 /// setInterval capturing callback → fail closed (Finding B). The guard
@@ -790,4 +802,50 @@ fn kali_test_unresolvable_callback_fails_closed() {
     assert_e5506_test(
         "function suite(cb){ Kali.test(\"a\", cb); }\nsuite(function(){ console.log(\"ran\"); });\n",
     );
+}
+
+/// Stage D: a NON-capturing function-expression microtask callback must be
+/// deferred and actually RUN during the post-_start drain.
+/// node v26.5.0: "sync\nmt\n".
+#[test]
+fn deferred_queue_microtask_fn_expr_runs_after_sync_code() {
+    let out = run_kali(
+        r#"queueMicrotask(function () {
+  console.log("mt");
+});
+console.log("sync");
+"#,
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "sync\nmt\n");
+}
+
+/// Stage D: a CAPTURING microtask callback runs with its owner's env record
+/// (the C3 env_ptr restore), reading and writing the captured cell correctly
+/// AFTER the owner has returned (never-reset-region property).
+/// node v26.5.0: "sync=5\nmt=6\n".
+#[test]
+fn deferred_queue_microtask_capturing_callback_runs_with_env() {
+    let out = run_kali(
+        r#"function owner() {
+  let base = 5;
+  queueMicrotask(function () {
+    base += 1;
+    console.log("mt=" + base);
+  });
+  console.log("sync=" + base);
+}
+owner();
+"#,
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "sync=5\nmt=6\n");
 }

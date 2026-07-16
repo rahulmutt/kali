@@ -147,6 +147,24 @@ fn is_kali_test_callee(nodes: &[LirNode], callee_id: LirNodeId) -> bool {
     })
 }
 
+/// True when `callee` is a bare-identifier scheduling callee whose call
+/// REGISTERS its callback argument (`children[1]`) for a later host-driven
+/// invocation (`queueMicrotask` / `setTimeout` / `setInterval`, Stage D).
+/// The env active at the registration site is what the host restores before
+/// invoking the callback, so the registration site inherits the same
+/// Record(owner) requirement as a direct call — the `Kali.test` precedent.
+/// Shadowing is ignored here: a spurious edge from a user-shadowed name is a
+/// safe over-approximation (this analysis only ever REJECTS more).
+fn is_scheduling_registration_callee(nodes: &[LirNode], callee: LirNodeId) -> bool {
+    nodes.get(callee.0 as usize).is_some_and(|node| {
+        node.children.is_empty()
+            && matches!(
+                node.text.as_deref(),
+                Some("queueMicrotask") | Some("setTimeout") | Some("setInterval")
+            )
+    })
+}
+
 /// Compute the dynamic-env safety diagnostics for the whole program: one
 /// E5506 per (caller, capturer) edge whose call/registration site cannot be
 /// proven to run with the capturer's owner record in `current_env`.
@@ -313,6 +331,8 @@ pub(crate) fn env_capture_safety_diagnostics(
                     // potential direct-call target.
                     let target_root = if is_kali_test_callee(&lir.nodes, callee) {
                         node.children.get(2).copied()
+                    } else if is_scheduling_registration_callee(&lir.nodes, callee) {
+                        node.children.get(1).copied()
                     } else {
                         Some(callee)
                     };

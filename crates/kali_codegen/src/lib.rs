@@ -18,7 +18,7 @@ use emitter::{
 };
 pub(crate) use intrinsics::{
     is_supported_static_ascii_char_code, parse_number_literal, parse_numeric_literal_value,
-    quote_string_literal, strip_string_delimiters,
+    quote_string_literal, strip_string_delimiters, SchedulingCallback, SchedulingSurface,
 };
 
 use std::{

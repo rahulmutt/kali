@@ -14,6 +14,30 @@ pub(crate) fn semver_min_version(range: &str) -> Option<String> {
         .map(|version| version.to_string())
 }
 
+/// Stage D scheduling surfaces codegen emits real registrations for.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum SchedulingSurface {
+    QueueMicrotask,
+    SetTimeout,
+    SetInterval,
+    ClearTimeout,
+    ClearInterval,
+}
+
+/// How a scheduling call's callback argument resolved (Stage D).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum SchedulingCallback {
+    /// Stable provenance to a compiled function: its raw wasm index.
+    Resolved(u32),
+    /// An identifier resolving to NOTHING in any codegen namespace — the
+    /// flattened block-arrow lane (`Value("unknown")`). Kept on the
+    /// pre-existing placeholder warning path until Task 7 (the un-flatten)
+    /// deletes this variant; after that every arrow is a real function.
+    LegacyPlaceholder,
+    /// Everything else: unresolvable/unstable provenance — fail closed E5506.
+    Deny,
+}
+
 impl<'a> FunctionEmitter<'a> {
     pub(crate) fn emit_coverage_hit(&mut self, function: &mut Function, coverage_id: Option<u32>) {
         if let Some(coverage_id) = coverage_id {
@@ -762,6 +786,83 @@ impl<'a> FunctionEmitter<'a> {
         let callback_node = node.children.get(2).copied()?;
         let callback_name = self.node(callback_node).text.as_deref()?;
         self.functions.get(callback_name).copied()
+    }
+
+    /// Recognize a bare, UNSHADOWED global scheduling callee (Stage D
+    /// provenance rule: "bare unshadowed global callee only"). Any user
+    /// binding, local, or function of the same name shadows the global and
+    /// the call takes the normal user-call lane.
+    pub(crate) fn scheduling_surface(&self, callee_node: &LirNode) -> Option<SchedulingSurface> {
+        if !callee_node.children.is_empty() {
+            return None;
+        }
+        let name = callee_node.text.as_deref()?;
+        let surface = match name {
+            "queueMicrotask" => SchedulingSurface::QueueMicrotask,
+            "setTimeout" => SchedulingSurface::SetTimeout,
+            "setInterval" => SchedulingSurface::SetInterval,
+            "clearTimeout" => SchedulingSurface::ClearTimeout,
+            "clearInterval" => SchedulingSurface::ClearInterval,
+            _ => return None,
+        };
+        if self.locals.contains_key(name)
+            || self.bindings.contains_key(name)
+            || self.module_binding_names.contains(name)
+            || self.fn_valued_locals.contains_key(name)
+            || self.functions.contains_key(name)
+        {
+            return None;
+        }
+        Some(surface)
+    }
+
+    /// Resolve a scheduling call's callback argument (`children[1]`) by
+    /// STABLE provenance — the same rules as the Stage C
+    /// `scheduling_call_args_provably_safe` guard, but yielding the function
+    /// index for the registration emit. Capturing callbacks resolve too:
+    /// their soundness is `env_safety`'s job (registration edges), not this
+    /// resolver's.
+    pub(crate) fn scheduling_callback(&self, node: &LirNode) -> SchedulingCallback {
+        let Some(&cb) = node.children.get(1) else {
+            return SchedulingCallback::Deny;
+        };
+        let cb = self.unwrap_transparent(cb);
+        let cb_node = self.node(cb);
+        let Some(text) = cb_node.text.as_deref() else {
+            return SchedulingCallback::Deny;
+        };
+        match cb_node.kind {
+            // Inline function expression/declaration lowered as a plan: its
+            // node text is the `__kali_fn_N` / declared plan key.
+            LirNodeKind::Instruction => match self.functions.get(text) {
+                Some(&index) => SchedulingCallback::Resolved(index),
+                None => SchedulingCallback::Deny,
+            },
+            LirNodeKind::Value if cb_node.children.is_empty() => {
+                if self.unstable_provenance_names.contains(text) {
+                    return SchedulingCallback::Deny;
+                }
+                if let Some(key) = self.fn_valued_locals.get(text) {
+                    return match self.functions.get(key) {
+                        Some(&index) => SchedulingCallback::Resolved(index),
+                        None => SchedulingCallback::Deny,
+                    };
+                }
+                if self.locals.contains_key(text)
+                    || self.bindings.contains_key(text)
+                    || self.module_binding_names.contains(text)
+                {
+                    // A live binding without function provenance: unknown value.
+                    return SchedulingCallback::Deny;
+                }
+                if let Some(&index) = self.functions.get(text) {
+                    // Bare unshadowed function name.
+                    return SchedulingCallback::Resolved(index);
+                }
+                SchedulingCallback::LegacyPlaceholder
+            }
+            _ => SchedulingCallback::Deny,
+        }
     }
 
     pub(crate) fn is_kali_write_stdout_bytes_call(&self, callee_node: &LirNode) -> bool {

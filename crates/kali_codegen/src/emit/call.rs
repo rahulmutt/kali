@@ -150,6 +150,12 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if let Some(surface) = self.scheduling_surface(&callee_node) {
+            if let Some(result) = self.try_emit_scheduling_call(function, node, surface) {
+                return result;
+            }
+        }
+
         if self.is_kali_write_stdout_bytes_call(&callee_node) {
             let Some(index) = self.stdout_write_bytes_import_index else {
                 // Mirror the sibling `Kali.test` gate above: push the diagnostic
@@ -2874,22 +2880,109 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// Stage D scheduling-surface registration emit. Returns `None` only for
+    /// surfaces this task has not wired yet (they fall through to the Stage C
+    /// default-deny guard below); `Some` is a fully-handled call.
+    fn try_emit_scheduling_call(
+        &mut self,
+        function: &mut Function,
+        node: &LirNode,
+        surface: SchedulingSurface,
+    ) -> Option<EmittedValue> {
+        match surface {
+            SchedulingSurface::QueueMicrotask => {
+                Some(self.emit_queue_microtask_call(function, node))
+            }
+            // Timers: wired in the next task; keep the Stage C guard lane.
+            _ => None,
+        }
+    }
+
+    fn emit_queue_microtask_call(
+        &mut self,
+        function: &mut Function,
+        node: &LirNode,
+    ) -> EmittedValue {
+        // node.children: [callee, callback]; extra args fail closed (node
+        // ignores them, but silently divergent arity is exactly the class
+        // this stage exists to eliminate — precision follow-up).
+        if node.children.len() != 2 {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "queueMicrotask requires exactly one callback argument in the current phase"
+                    .to_string(),
+            ));
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
+        match self.scheduling_callback(node) {
+            SchedulingCallback::Resolved(index) => {
+                let Some(import) = self.queue_microtask_import_index else {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        "queueMicrotask import unavailable (probe/emit desync)".to_string(),
+                    ));
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                };
+                function.instruction(&Instruction::I32Const(index as i32));
+                // env_ptr: the `current_env` active at the registration site
+                // (the C3 test_register pattern); the host restores it before
+                // invoking the callback, and env_safety's registration edges
+                // prove it is the capture owner's record (or E5506).
+                function.instruction(&Instruction::GlobalGet(self.current_env_global()));
+                function.instruction(&Instruction::Call(import));
+                EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                }
+            }
+            SchedulingCallback::LegacyPlaceholder => {
+                // Pre-un-flatten flattened-arrow lane (`Value("unknown")`):
+                // preserve the pre-existing placeholder warning + zero result.
+                // Task 7 deletes this branch (and the enum variant) — after
+                // the un-flatten every arrow is a real compiled function.
+                self.push_placeholder_fallback_diagnostic("call target", "queueMicrotask");
+                function.instruction(&Instruction::I64Const(0));
+                EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Unknown,
+                }
+            }
+            SchedulingCallback::Deny => {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "a queueMicrotask callback must resolve through stable provenance to a compiled function (an inline function expression, a declarator-recorded function local, or an unshadowed function name); an unresolvable callback would be silently dropped".to_string(),
+                ));
+                EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                }
+            }
+        }
+    }
+
     /// True when `callee_node` names a host scheduling surface whose call
-    /// codegen does NOT emit: `queueMicrotask` / `setTimeout` / `setInterval`
-    /// (bare identifiers) or `addEventListener` (a method). These host imports
-    /// exist (`lower.rs` import table) but no generated module imports them
-    /// (Task 6 finding), so such a call reaches the generic zero-placeholder
-    /// fallback and its callback is dropped. This enumerates the exact
-    /// scheduling family from the host import table — a closed set, not an
-    /// open-ended sink denylist — and is the single recognizer the Concern-2
-    /// guard keys on.
+    /// codegen does NOT emit: `setTimeout` / `setInterval` (bare identifiers)
+    /// or `addEventListener` (a method). These host imports exist (`lower.rs`
+    /// import table) but no generated module imports them, so such a call
+    /// reaches the generic zero-placeholder fallback and its callback is
+    /// dropped. `queueMicrotask` was removed from this set in Stage D task D2:
+    /// its bare-unshadowed calls are now fully handled by the registration
+    /// emit arm (`emit_queue_microtask_call`) far above and never reach this
+    /// guard; a shadowed `queueMicrotask` takes the normal user-call lane and
+    /// is likewise not a scheduling surface. This enumerates the exact
+    /// still-un-emittable scheduling family — a closed set, not an open-ended
+    /// sink denylist — and is the single recognizer the Concern-2 guard keys
+    /// on.
     fn is_undrained_scheduling_surface(&self, callee_node: &LirNode) -> bool {
         matches!(
             callee_node.text.as_deref(),
-            Some("queueMicrotask")
-                | Some("setTimeout")
-                | Some("setInterval")
-                | Some("addEventListener")
+            Some("setTimeout") | Some("setInterval") | Some("addEventListener")
         )
     }
 

@@ -88,6 +88,15 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     let uses_crypto_get_random_values = program_uses_crypto_get_random_values(lir);
     let uses_crypto_random_uuid = program_uses_crypto_random_uuid(lir);
     let uses_crypto_subtle_digest = program_uses_crypto_subtle_digest(lir);
+    // Stage D: scheduling-surface conditional imports, appended LAST (after
+    // crypto_subtle_digest) in declaration order queueMicrotask, setTimeout,
+    // setInterval, clearTimeout, clearInterval — so no earlier import or
+    // function index shifts.
+    let uses_queue_microtask = program_calls_bare_identifier(lir, "queueMicrotask");
+    let uses_set_timeout = program_calls_bare_identifier(lir, "setTimeout");
+    let uses_set_interval = program_calls_bare_identifier(lir, "setInterval");
+    let uses_clear_timeout = program_calls_bare_identifier(lir, "clearTimeout");
+    let uses_clear_interval = program_calls_bare_identifier(lir, "clearInterval");
     let uses_env_access = uses_env_get || uses_env_has || uses_env_set || uses_env_delete;
     let function_index_offset = crate::FUNCTION_INDEX_OFFSET
         + if ctx.target.coverage { 1 } else { 0 }
@@ -102,7 +111,12 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         + if uses_performance_now { 1 } else { 0 }
         + if uses_crypto_get_random_values { 1 } else { 0 }
         + if uses_crypto_random_uuid { 1 } else { 0 }
-        + if uses_crypto_subtle_digest { 1 } else { 0 };
+        + if uses_crypto_subtle_digest { 1 } else { 0 }
+        + if uses_queue_microtask { 1 } else { 0 }
+        + if uses_set_timeout { 1 } else { 0 }
+        + if uses_set_interval { 1 } else { 0 }
+        + if uses_clear_timeout { 1 } else { 0 }
+        + if uses_clear_interval { 1 } else { 0 };
     let env_get_type_index = if uses_env_access { Some(6) } else { None };
     let env_has_type_index = if uses_env_has { Some(7) } else { None };
     let cwd_set_type_index = if uses_cwd_set { Some(5) } else { None };
@@ -284,6 +298,121 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                 + if uses_performance_now { 1 } else { 0 }
                 + if uses_crypto_get_random_values { 1 } else { 0 }
                 + if uses_crypto_random_uuid { 1 } else { 0 },
+        )
+    } else {
+        None
+    };
+    // Stage D scheduling-surface imports, appended (in this order) AFTER
+    // `crypto_subtle_digest`: queueMicrotask, setTimeout, setInterval,
+    // clearTimeout, clearInterval. Each index sums every preceding
+    // conditional-import flag, so each new block adds exactly one more term
+    // (`+ if uses_<previous> {1} else {0}`) onto the block above it.
+    let queue_microtask_import_index = if uses_queue_microtask {
+        Some(
+            crate::COVERAGE_HIT_IMPORT_INDEX
+                + if ctx.target.coverage { 1 } else { 0 }
+                + if uses_env_set { 1 } else { 0 }
+                + if uses_env_delete { 1 } else { 0 }
+                + if uses_env_get { 1 } else { 0 }
+                + if uses_env_has { 1 } else { 0 }
+                + if uses_cwd_set { 1 } else { 0 }
+                + if uses_process_exit { 1 } else { 0 }
+                + if uses_stdout_write_bytes { 1 } else { 0 }
+                + if uses_args_get { 1 } else { 0 }
+                + if uses_performance_now { 1 } else { 0 }
+                + if uses_crypto_get_random_values { 1 } else { 0 }
+                + if uses_crypto_random_uuid { 1 } else { 0 }
+                + if uses_crypto_subtle_digest { 1 } else { 0 },
+        )
+    } else {
+        None
+    };
+    let set_timeout_import_index = if uses_set_timeout {
+        Some(
+            crate::COVERAGE_HIT_IMPORT_INDEX
+                + if ctx.target.coverage { 1 } else { 0 }
+                + if uses_env_set { 1 } else { 0 }
+                + if uses_env_delete { 1 } else { 0 }
+                + if uses_env_get { 1 } else { 0 }
+                + if uses_env_has { 1 } else { 0 }
+                + if uses_cwd_set { 1 } else { 0 }
+                + if uses_process_exit { 1 } else { 0 }
+                + if uses_stdout_write_bytes { 1 } else { 0 }
+                + if uses_args_get { 1 } else { 0 }
+                + if uses_performance_now { 1 } else { 0 }
+                + if uses_crypto_get_random_values { 1 } else { 0 }
+                + if uses_crypto_random_uuid { 1 } else { 0 }
+                + if uses_crypto_subtle_digest { 1 } else { 0 }
+                + if uses_queue_microtask { 1 } else { 0 },
+        )
+    } else {
+        None
+    };
+    let set_interval_import_index = if uses_set_interval {
+        Some(
+            crate::COVERAGE_HIT_IMPORT_INDEX
+                + if ctx.target.coverage { 1 } else { 0 }
+                + if uses_env_set { 1 } else { 0 }
+                + if uses_env_delete { 1 } else { 0 }
+                + if uses_env_get { 1 } else { 0 }
+                + if uses_env_has { 1 } else { 0 }
+                + if uses_cwd_set { 1 } else { 0 }
+                + if uses_process_exit { 1 } else { 0 }
+                + if uses_stdout_write_bytes { 1 } else { 0 }
+                + if uses_args_get { 1 } else { 0 }
+                + if uses_performance_now { 1 } else { 0 }
+                + if uses_crypto_get_random_values { 1 } else { 0 }
+                + if uses_crypto_random_uuid { 1 } else { 0 }
+                + if uses_crypto_subtle_digest { 1 } else { 0 }
+                + if uses_queue_microtask { 1 } else { 0 }
+                + if uses_set_timeout { 1 } else { 0 },
+        )
+    } else {
+        None
+    };
+    let clear_timeout_import_index = if uses_clear_timeout {
+        Some(
+            crate::COVERAGE_HIT_IMPORT_INDEX
+                + if ctx.target.coverage { 1 } else { 0 }
+                + if uses_env_set { 1 } else { 0 }
+                + if uses_env_delete { 1 } else { 0 }
+                + if uses_env_get { 1 } else { 0 }
+                + if uses_env_has { 1 } else { 0 }
+                + if uses_cwd_set { 1 } else { 0 }
+                + if uses_process_exit { 1 } else { 0 }
+                + if uses_stdout_write_bytes { 1 } else { 0 }
+                + if uses_args_get { 1 } else { 0 }
+                + if uses_performance_now { 1 } else { 0 }
+                + if uses_crypto_get_random_values { 1 } else { 0 }
+                + if uses_crypto_random_uuid { 1 } else { 0 }
+                + if uses_crypto_subtle_digest { 1 } else { 0 }
+                + if uses_queue_microtask { 1 } else { 0 }
+                + if uses_set_timeout { 1 } else { 0 }
+                + if uses_set_interval { 1 } else { 0 },
+        )
+    } else {
+        None
+    };
+    let clear_interval_import_index = if uses_clear_interval {
+        Some(
+            crate::COVERAGE_HIT_IMPORT_INDEX
+                + if ctx.target.coverage { 1 } else { 0 }
+                + if uses_env_set { 1 } else { 0 }
+                + if uses_env_delete { 1 } else { 0 }
+                + if uses_env_get { 1 } else { 0 }
+                + if uses_env_has { 1 } else { 0 }
+                + if uses_cwd_set { 1 } else { 0 }
+                + if uses_process_exit { 1 } else { 0 }
+                + if uses_stdout_write_bytes { 1 } else { 0 }
+                + if uses_args_get { 1 } else { 0 }
+                + if uses_performance_now { 1 } else { 0 }
+                + if uses_crypto_get_random_values { 1 } else { 0 }
+                + if uses_crypto_random_uuid { 1 } else { 0 }
+                + if uses_crypto_subtle_digest { 1 } else { 0 }
+                + if uses_queue_microtask { 1 } else { 0 }
+                + if uses_set_timeout { 1 } else { 0 }
+                + if uses_set_interval { 1 } else { 0 }
+                + if uses_clear_timeout { 1 } else { 0 },
         )
     } else {
         None
@@ -533,12 +662,24 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     // Type 13: test_register `(callback_index: i32, env_ptr: i64) -> ()`
     // (Stage C C3). The trailing `env_ptr` carries the `current_env` active at
     // registration so a capturing `Kali.test(...)` callback resolves its
-    // enclosing bindings when the host invokes it later. This is now the last
-    // fixed type, so the repr-directed function types start at index 14.
+    // enclosing bindings when the host invokes it later. Type 14
+    // (`SCHEDULING_TIMER_SET_TYPE_INDEX`, added below) is now the last fixed
+    // type, so the repr-directed function types start at index 15.
     const TEST_REGISTER_TYPE_INDEX: u32 = 13;
     type_section
         .ty()
         .function(vec![ValType::I32, ValType::I64], Vec::new());
+    // Type 14: setTimeout / setInterval
+    // `(callback_index: i32, delay_ms: i32, env_ptr: i64) -> i32` (Stage D) —
+    // registers a timer with the env active at the scheduling site and
+    // returns the i32 timer id. Registered unconditionally so the type index
+    // is stable; the imports are conditional. This is now the last fixed
+    // type, so the repr-directed function types start at index 15.
+    const SCHEDULING_TIMER_SET_TYPE_INDEX: u32 = 14;
+    type_section.ty().function(
+        vec![ValType::I32, ValType::I32, ValType::I64],
+        vec![ValType::I32],
+    );
     let mut import_section = ImportSection::new();
     import_section.import(
         "kali:rt",
@@ -672,6 +813,38 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             EntityType::Function(CRYPTO_SUBTLE_DIGEST_TYPE_INDEX),
         );
     }
+    if queue_microtask_import_index.is_some() {
+        // `(callback_index: i32, env_ptr: i64) -> ()` — same shape as
+        // test_register: pushes the callback id + the scheduling-site
+        // `current_env` onto the host microtask FIFO; drained after `_start`
+        // (`kali_runtime::host::enforce::drain_event_loop`).
+        import_section.import(
+            "kali:rt",
+            "queueMicrotask",
+            EntityType::Function(TEST_REGISTER_TYPE_INDEX),
+        );
+    }
+    if set_timeout_import_index.is_some() {
+        import_section.import(
+            "kali:rt",
+            "setTimeout",
+            EntityType::Function(SCHEDULING_TIMER_SET_TYPE_INDEX),
+        );
+    }
+    if set_interval_import_index.is_some() {
+        import_section.import(
+            "kali:rt",
+            "setInterval",
+            EntityType::Function(SCHEDULING_TIMER_SET_TYPE_INDEX),
+        );
+    }
+    if clear_timeout_import_index.is_some() {
+        // `(timer_id: i32) -> ()` — same shape as coverage_hit (type 0).
+        import_section.import("kali:rt", "clearTimeout", EntityType::Function(0));
+    }
+    if clear_interval_import_index.is_some() {
+        import_section.import("kali:rt", "clearInterval", EntityType::Function(0));
+    }
     // Function signatures are repr-directed: each param/result ValType comes from
     // the repr table (defaulting to I64). Two functions with equal arity but
     // differing float shapes need distinct wasm types, so the dedup key is the
@@ -730,9 +903,10 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             idx
         } else {
             // Function-signature types begin right after the fixed types
-            // (0..=TEST_REGISTER_TYPE_INDEX): test_register (type 13) is now the
-            // last fixed type, so repr-directed function types start at index 14.
-            let idx = function_types.len() as u32 + TEST_REGISTER_TYPE_INDEX + 1;
+            // (0..=SCHEDULING_TIMER_SET_TYPE_INDEX): the scheduling-timer type
+            // (type 14) is now the last fixed type, so repr-directed function
+            // types start at index 15.
+            let idx = function_types.len() as u32 + SCHEDULING_TIMER_SET_TYPE_INDEX + 1;
             type_section.ty().function(params, results);
             function_types.insert(key, idx);
             idx
@@ -1004,6 +1178,11 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             crypto_get_random_values_import_index,
             crypto_random_uuid_import_index,
             crypto_subtle_digest_import_index,
+            queue_microtask_import_index,
+            set_timeout_import_index,
+            set_interval_import_index,
+            clear_timeout_import_index,
+            clear_interval_import_index,
             &mut diagnostics,
             &mut string_pool,
             ctx.source_path.clone(),
@@ -1711,6 +1890,28 @@ pub(crate) fn program_uses_crypto_subtle_digest(lir: &LirProgram) -> bool {
             return false;
         };
         crypto_node.text.as_deref() == Some("crypto")
+    })
+}
+
+/// Program-wide probe for a bare-identifier call to `name` (Stage D
+/// scheduling surfaces). The callee is a PLAIN identifier, not a member
+/// expression. Kept a SUPERSET of the emit-time recognizer
+/// (`scheduling_surface` additionally requires the name be unshadowed): if
+/// this were ever false where emit fires, the conditional import would be
+/// undeclared and the emitted `Call` invalid wasm — over-inclusive is the
+/// safe side.
+pub(crate) fn program_calls_bare_identifier(lir: &LirProgram, name: &str) -> bool {
+    lir.nodes.iter().any(|node| {
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+        let Some(&callee) = node.children.first() else {
+            return false;
+        };
+        let Some(callee_node) = lir.nodes.get(callee.0 as usize) else {
+            return false;
+        };
+        callee_node.text.as_deref() == Some(name)
     })
 }
 
