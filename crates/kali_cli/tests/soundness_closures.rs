@@ -195,6 +195,46 @@ fn sync_heap_capture_field_write_visible_to_owner() {
     assert_eq!(String::from_utf8_lossy(&out.stdout), "2\n");
 }
 
+/// Stage C C2 (env chains, depth > 1). Grandparent read: `c` reads `a`'s `g`
+/// through an INTERMEDIATE `b` that owns no cell. `b` is transparent to the env
+/// chain (a no-cell function allocates no record and does not touch
+/// `current_env`, spec §3.4), so when `c` runs `current_env` still points at
+/// `a`'s record directly — env-walk depth 0. The MIR capture depth counts
+/// env-OWNING ancestors (only `a`), so it is 1, and the existing depth-1 access
+/// lane resolves it. Pre-C2: the read silently produced `0`. node prints 5.
+#[test]
+fn env_chain_grandparent_read() {
+    let out = run_kali(
+        "function a(){ let g = 5; function b(){ function c(){ return g; } return c(); } console.log(b()); } a();\n",
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "5\n");
+}
+
+/// Stage C C2 (env chains) — a GENUINE parent-pointer walk (env-walk depth 1).
+/// The capturer `c` OWNS a promotable env of its own (`k`, captured by `d`), so
+/// when `c` runs `current_env` is `c`'s OWN record, whose parent header points
+/// at `a`'s record (the intermediate `b` owns no cell and is transparent). To
+/// read `a`'s `g`, `c` must follow ONE parent link — `emit_env_base_addr` with
+/// depth 1. Pre-this-task the env-owning capturer fell through to baseline and
+/// `g` read as `0` (kali printed 10 = 0 + d()); the sound value is 5 + 10 = 15.
+#[test]
+fn env_chain_owning_capturer_parent_walk() {
+    let out = run_kali(
+        "function a(){ let g = 5; function b(){ function c(){ let k = 10; function d(){ return k; } return g + d(); } return c(); } return b(); } console.log(a());\n",
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "15\n");
+}
+
 /// Stage C C2 heap-write scope pin (whole-object REASSIGNMENT through the
 /// capture). Reassigning the captured binding itself (`obj = {…}` from a nested
 /// function) is OUT of C2's read scope: the scalar-only write gate keeps it on

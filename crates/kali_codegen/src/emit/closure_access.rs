@@ -21,14 +21,14 @@
 use crate::*;
 
 impl<'a> FunctionEmitter<'a> {
-    /// Header-relative byte offset of the C1-promoted scalar cell `name`
-    /// resolves to, or `None` when it is not a C1-lowerable capture. Both an own
-    /// cell and a single-level synchronous outer capture resolve at env-walk
-    /// depth 0: an own cell because the prologue set `current_env` to this
-    /// activation's own record; a single-level capture because this function
-    /// owns no promotable env of its own, so `current_env` is still the caller's
-    /// (== the owner's) record. Purely a lookup — emits nothing.
-    pub(crate) fn resolve_capture_access(&self, name: &str) -> Option<u32> {
+    /// `(env_walk_depth, header-relative offset)` the promoted cell `name`
+    /// resolves to, or `None` when it is not a lowerable capture. An own cell
+    /// resolves at env-walk depth 0 (the prologue set `current_env` to this
+    /// activation's own record). An outer capture resolves at the env-walk depth
+    /// computed by [`Self::env_walk_depth_for`] — 0 for a single-level capture
+    /// from a non-env-owning function, 1 when THIS function owns its own record
+    /// and the owner is its parent link. Purely a lookup — emits nothing.
+    pub(crate) fn resolve_capture_access(&self, name: &str) -> Option<(u32, u32)> {
         // Unified predicate (C1 scalar-i64 OR C2 fixed-shape object): the READ
         // and promoted-DECLARATION paths load/store the cell as a raw i64
         // (a scalar value, or an object's base pointer), so both shapes resolve
@@ -43,17 +43,54 @@ impl<'a> FunctionEmitter<'a> {
     /// captured-object write falls through to the pre-Stage-C baseline path
     /// (reassigning `obj` / `obj.n = v` from a nested fn is NOT part of C2's
     /// read surface; see the task's heap-write scope note).
-    pub(crate) fn resolve_scalar_capture_access(&self, name: &str) -> Option<u32> {
+    pub(crate) fn resolve_scalar_capture_access(&self, name: &str) -> Option<(u32, u32)> {
         self.resolve_capture_access_inner(name, true)
     }
 
-    /// Shared body of the two resolvers. `scalar_only` selects the promotion
-    /// predicate: the C1 scalar-i64 gate (write paths) or the unified C1/C2
-    /// gate (read/declaration paths). Both consult the OWNER's repr namespace
-    /// (Finding 1): a captured cell was promoted — and thus allocated — by its
-    /// owner, so the capturer must gate on the owner's verdict, not its own
-    /// namespace (where an outer name defaults to `I64`).
-    fn resolve_capture_access_inner(&self, name: &str, scalar_only: bool) -> Option<u32> {
+    /// Env-walk depth (number of `parent_env` links to follow from
+    /// `current_env`) for a capture whose MIR `depth` is `mir_depth` env-owning
+    /// hops to the owner. `None` when this task cannot PROVE the record chain is
+    /// intact for that shape (fail closed to baseline).
+    ///
+    /// The runtime env chain links only records that were actually allocated —
+    /// records of functions with a PROMOTABLE cell (`cell_is_promotable`, a
+    /// repr-dependent verdict). MIR's `depth` counts env-owning ancestors by
+    /// STRUCTURAL cell ownership (repr-independent — kali_mir cannot see repr).
+    /// The two agree exactly when no intermediate ancestor owns a cell that is
+    /// structurally an env owner but NOT promotable (e.g. a captured `F64`
+    /// scalar, or a `Closure`/`Array` heap cell) — such a frame allocates no
+    /// record, so a MIR depth that counted it would over-walk the chain and
+    /// address the wrong record (a silent miscompile).
+    ///
+    /// The provable subset is `mir_depth == 1`: the owner is the single
+    /// env-owning ancestor on the path, so every ancestor STRICTLY between the
+    /// capturer and the owner owns no cell at all (transparent) — no repr
+    /// ambiguity is possible. Then:
+    /// - this function owns no record → `current_env` is already the owner's
+    ///   record (transparent intermediates were skipped): env-walk depth 0;
+    /// - this function owns its own record → `current_env` is THIS record, whose
+    ///   parent link is the owner's record (nearest env-owning ancestor):
+    ///   env-walk depth 1 — a genuine one-hop `parent_env` walk.
+    ///
+    /// `mir_depth >= 2` is NOT proven here (an intermediate env-owning frame may
+    /// be non-promotable, absent from the runtime chain) and falls through to
+    /// baseline — the pre-existing, unchanged behavior for that shape. See the
+    /// Task 5 report for the boundary and the general-solution follow-up.
+    fn env_walk_depth_for(&self, mir_depth: u32) -> Option<u32> {
+        if mir_depth != 1 {
+            return None;
+        }
+        Some(if self.owns_promotable_env() { 1 } else { 0 })
+    }
+
+    /// Shared body of the two resolvers, returning `(env_walk_depth, offset)`.
+    /// `scalar_only` selects the promotion predicate: the C1 scalar-i64 gate
+    /// (write paths) or the unified C1/C2 gate (read/declaration paths). Both
+    /// consult the OWNER's repr namespace (Finding 1): a captured cell was
+    /// promoted — and thus allocated — by its owner, so the capturer must gate
+    /// on the owner's verdict, not its own namespace (where an outer name
+    /// defaults to `I64`).
+    fn resolve_capture_access_inner(&self, name: &str, scalar_only: bool) -> Option<(u32, u32)> {
         let promotable = |owner: &str, is_scalar: bool| -> bool {
             if scalar_only {
                 self.promotable_scalar_cell_in(owner, name, is_scalar)
@@ -62,20 +99,21 @@ impl<'a> FunctionEmitter<'a> {
             }
         };
         if let Some(cell) = self.env_plan.cell_for(name) {
-            // An own cell resolves in THIS function's namespace (it is the owner).
-            return promotable(&self.function_name, cell.is_scalar).then_some(cell.offset);
+            // An own cell resolves in THIS function's namespace (it is the owner)
+            // at env-walk depth 0.
+            return promotable(&self.function_name, cell.is_scalar).then_some((0, cell.offset));
         }
         if let Some(reference) = self.env_plan.captured_for(name) {
-            // Stage C lowers a single-level synchronous capture where this
-            // function owns no promotable env of its own (so `current_env` is
-            // the owner's record directly, env-walk depth 0). A capturer that
-            // owns an env, or a capture more than one function scope up, needs a
-            // `parent_env` chain walk (later C-stage work) — left to fall through.
-            if !self.owns_promotable_env()
-                && reference.depth == 1
-                && promotable(&reference.owner, reference.is_scalar)
-            {
-                return Some(reference.offset);
+            // A capture through the parent chain: gate on the OWNER's promotion
+            // verdict AND a provable env-walk depth (`env_walk_depth_for`, which
+            // fails closed on the unprovable `mir_depth >= 2` shapes). This
+            // covers both the single-level capture from a non-owning function
+            // (depth 0) and the genuine one-hop walk from an env-owning capturer
+            // (depth 1); deeper chains fall through to baseline unchanged.
+            if promotable(&reference.owner, reference.is_scalar) {
+                if let Some(walk) = self.env_walk_depth_for(reference.depth) {
+                    return Some((walk, reference.offset));
+                }
             }
             return None;
         }
@@ -89,8 +127,8 @@ impl<'a> FunctionEmitter<'a> {
         function: &mut Function,
         name: &str,
     ) -> Option<EmittedValue> {
-        let offset = self.resolve_capture_access(name)?;
-        crate::closure::emit_cell_load(function, self.current_env_global(), 0, offset);
+        let (depth, offset) = self.resolve_capture_access(name)?;
+        crate::closure::emit_cell_load(function, self.current_env_global(), depth, offset);
         Some(EmittedValue {
             produced: true,
             shape: ValueShape::Scalar,
@@ -107,14 +145,14 @@ impl<'a> FunctionEmitter<'a> {
         name: &str,
         init: LirNodeId,
     ) -> Option<()> {
-        let offset = self.resolve_capture_access(name)?;
+        let (depth, offset) = self.resolve_capture_access(name)?;
         let env_global = self.current_env_global();
         let scratch = self.locals.len() as u32;
         let produced = self.emit_node(function, init, true);
         if !produced.produced {
             function.instruction(&Instruction::I64Const(0));
         }
-        crate::closure::emit_cell_store(function, env_global, 0, offset, scratch);
+        crate::closure::emit_cell_store(function, env_global, depth, offset, scratch);
         Some(())
     }
 
@@ -136,7 +174,7 @@ impl<'a> FunctionEmitter<'a> {
         }
         // Scalar-only: a captured OBJECT cell (C2) keeps its baseline write path
         // — `=`/compound-assign through the capture is out of C2's read scope.
-        let offset = self.resolve_scalar_capture_access(name)?;
+        let (depth, offset) = self.resolve_scalar_capture_access(name)?;
         let env_global = self.current_env_global();
         let scratch = self.locals.len() as u32;
         match op {
@@ -145,10 +183,10 @@ impl<'a> FunctionEmitter<'a> {
                 if !rhs.produced {
                     function.instruction(&Instruction::I64Const(0));
                 }
-                crate::closure::emit_cell_store(function, env_global, 0, offset, scratch);
+                crate::closure::emit_cell_store(function, env_global, depth, offset, scratch);
             }
             "+=" | "-=" | "*=" | "/=" | "%=" => {
-                crate::closure::emit_cell_load(function, env_global, 0, offset);
+                crate::closure::emit_cell_load(function, env_global, depth, offset);
                 let rhs = self.emit_node(function, right, true);
                 if !rhs.produced {
                     function.instruction(&Instruction::I64Const(0));
@@ -164,14 +202,14 @@ impl<'a> FunctionEmitter<'a> {
                     // `emit_module_global_assignment` (`literal.rs`).
                     _ => unreachable!("compound op set fixed by the arm guard"),
                 };
-                crate::closure::emit_cell_store(function, env_global, 0, offset, scratch);
+                crate::closure::emit_cell_store(function, env_global, depth, offset, scratch);
             }
             // Unreachable: the outer `matches!` guard already returned for any
             // other operator. `op` is a `&str`, not an AST/plan enum.
             _ => unreachable!("assign op set fixed by the guard above"),
         }
         // Assignment expression value: re-load the freshly stored cell.
-        crate::closure::emit_cell_load(function, env_global, 0, offset);
+        crate::closure::emit_cell_load(function, env_global, depth, offset);
         Some(true)
     }
 
@@ -186,14 +224,14 @@ impl<'a> FunctionEmitter<'a> {
     ) -> Option<EmittedValue> {
         // Scalar-only: `++`/`--` on a captured OBJECT pointer is not a
         // meaningful i64 op — keep the baseline path for object cells.
-        let offset = self.resolve_scalar_capture_access(name)?;
+        let (depth, offset) = self.resolve_scalar_capture_access(name)?;
         let env_global = self.current_env_global();
         let value_scratch = self.locals.len() as u32; // consumed by emit_cell_store
         let old_scratch = value_scratch + 1; // holds the pre-value for postfix
         let is_increment = matches!(op, "prefix++" | "postfix++");
         let is_prefix = matches!(op, "prefix++" | "prefix--");
 
-        crate::closure::emit_cell_load(function, env_global, 0, offset); // [old]
+        crate::closure::emit_cell_load(function, env_global, depth, offset); // [old]
         function.instruction(&Instruction::LocalTee(old_scratch)); // save old, keep on stack
         function.instruction(&Instruction::I64Const(1));
         if is_increment {
@@ -201,9 +239,9 @@ impl<'a> FunctionEmitter<'a> {
         } else {
             function.instruction(&Instruction::I64Sub);
         }
-        crate::closure::emit_cell_store(function, env_global, 0, offset, value_scratch);
+        crate::closure::emit_cell_store(function, env_global, depth, offset, value_scratch);
         if is_prefix {
-            crate::closure::emit_cell_load(function, env_global, 0, offset);
+            crate::closure::emit_cell_load(function, env_global, depth, offset);
         } else {
             function.instruction(&Instruction::LocalGet(old_scratch));
         }

@@ -804,18 +804,24 @@ impl<'a> FunctionEmitter<'a> {
                                     }
                                     if let Some(index) = self.locals.get(&name).copied() {
                                         function.instruction(&Instruction::LocalSet(index));
-                                    } else if let Some(offset) = self.resolve_capture_access(&name) {
+                                    } else if let Some((depth, offset)) =
+                                        self.resolve_capture_access(&name)
+                                    {
                                         // Stage C C2: a captured object binding was
                                         // promoted out of its local into the owner's
                                         // env cell (`lower.rs`, same owner-keyed
                                         // predicate). Store the freshly-allocated
-                                        // base pointer into the env record (depth 0 —
-                                        // the owner's own cell) so the capturer reads
-                                        // a live pointer, not a dropped one.
+                                        // base pointer into the env record so the
+                                        // capturer reads a live pointer, not a dropped
+                                        // one. This is a DECLARATION of the binding in
+                                        // its owner, so it always resolves to the
+                                        // owner's own cell (`depth` 0); `depth` is
+                                        // threaded for uniformity with the other cell
+                                        // access sites.
                                         let env_global = self.current_env_global();
                                         let scratch = self.locals.len() as u32;
                                         crate::closure::emit_cell_store(
-                                            function, env_global, 0, offset, scratch,
+                                            function, env_global, depth, offset, scratch,
                                         );
                                     } else {
                                         function.instruction(&Instruction::Drop);

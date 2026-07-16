@@ -31,7 +31,13 @@ pub struct EnvCell {
 }
 
 /// A reference, from inside function F, to a binding owned by an ancestor
-/// env `depth` links up the parent chain (0 = F's own env).
+/// env `depth` env-record hops up the parent chain.
+///
+/// `depth` counts only ancestors that OWN an env record (have >=1 promoted
+/// cell), NOT lexical function-scope hops: a function that owns no cell
+/// allocates no record and is transparent to the env chain (spec §3.4), so it
+/// contributes no hop. Depth 1 = the nearest env-OWNING ancestor. See
+/// [`env_owning_hops`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CapturedRef {
     pub name: String,
@@ -96,13 +102,26 @@ fn function_key(name: &Option<String>) -> String {
     name.clone().unwrap_or_default()
 }
 
-/// Number of function-scope hops from `from` up to `to` (0 = same function).
+/// Number of ENV-OWNING ancestor hops from `from` up to `to` (`to` inclusive,
+/// `from` exclusive).
 ///
 /// Walks the parent chain the analysis recorded in `MirProgram::parent_labels`
-/// (see [`derive_env_plans`]). Returns `None` if `to` is not an ancestor of
-/// `from` (defensive: capture edges always point from a descendant to an
-/// ancestor, so this should not happen for a well-formed capture set).
-fn scope_hops(from: &str, to: &str, parents: &BTreeMap<String, Option<String>>) -> Option<u32> {
+/// (see [`derive_env_plans`]), counting a hop ONLY when the ancestor stepped
+/// into owns an env record (`env_owners` membership). A function that owns no
+/// cell allocates no record and is transparent to the env chain (spec §3.4), so
+/// it is skipped — the depth counts env-record hops, not lexical function-scope
+/// hops. `to` is the capture's owner, which always owns an env (it holds the
+/// promoted cell), so a well-formed capture yields `depth >= 1`.
+///
+/// Returns `None` if `to` is not an ancestor of `from` (defensive: capture
+/// edges always point from a descendant to an ancestor, so this should not
+/// happen for a well-formed capture set).
+fn env_owning_hops(
+    from: &str,
+    to: &str,
+    parents: &BTreeMap<String, Option<String>>,
+    env_owners: &std::collections::BTreeSet<String>,
+) -> Option<u32> {
     let mut current = from.to_string();
     let mut depth = 0u32;
     loop {
@@ -111,8 +130,12 @@ fn scope_hops(from: &str, to: &str, parents: &BTreeMap<String, Option<String>>) 
         }
         match parents.get(&current) {
             Some(Some(parent)) => {
+                // §3.4: count this step only if the ancestor being stepped INTO
+                // owns an env record; a no-cell ancestor is transparent.
+                if env_owners.contains(parent) {
+                    depth += 1;
+                }
                 current = parent.clone();
-                depth += 1;
             }
             // Reached the module root (Some(None)) or an unknown scope without
             // matching `to`: `to` is not an ancestor.
@@ -172,10 +195,19 @@ pub fn derive_env_plans(program: &MirProgram) -> BTreeMap<String, EnvPlan> {
         cell_offsets.insert(key, offsets);
     }
 
+    // The set of functions that own an env record (>=1 promoted cell). Only
+    // these contribute a hop to a capture depth (spec §3.4). Built after Pass 1
+    // set every plan's `owns_env`. The module root ("") never owns an env.
+    let env_owners: std::collections::BTreeSet<String> = plans
+        .iter()
+        .filter(|(_, plan)| plan.owns_env)
+        .map(|(key, _)| key.clone())
+        .collect();
+
     // Pass 2: invert the capture edges into per-capturer refs. A binding owned
     // by ancestor A with `captured_by` containing F becomes a `CapturedRef` in
-    // F, at A's cell offset, `depth` scope-hops up. Module-owned captures are
-    // module globals (A has no cells) and are excluded here.
+    // F, at A's cell offset, `depth` ENV-OWNING hops up. Module-owned captures
+    // are module globals (A has no cells) and are excluded here.
     for function in &program.functions {
         if function.kind == MirFunctionKind::Module {
             continue;
@@ -187,7 +219,7 @@ pub fn derive_env_plans(program: &MirProgram) -> BTreeMap<String, EnvPlan> {
                 continue;
             };
             for capturer in &binding.captured_by {
-                if let Some(depth) = scope_hops(capturer, &owner_key, parents) {
+                if let Some(depth) = env_owning_hops(capturer, &owner_key, parents, &env_owners) {
                     plans.entry(capturer.clone()).or_default().captured.push(
                         CapturedRef {
                             name: binding.name.clone(),
@@ -251,10 +283,16 @@ mod tests {
         );
     }
 
-    /// a() owns `g`; c() (nested a > b > c) reads it two function-scope hops up.
-    /// Defines the `depth` contract: hops count function scopes, not env owners.
+    /// a() owns `g`; c() (nested a > b > c) reads it through the intermediate
+    /// `b`, which owns NO cell. Per spec §3.4 a no-cell function allocates no env
+    /// record and is transparent to the env chain, so it contributes no hop:
+    /// `depth` counts env-OWNING ancestors (only `a`), NOT lexical function
+    /// scopes. Updated in Task 5 (env chains) from the original depth-2
+    /// lexical-hop assumption — the depth-2 count would over-walk the runtime
+    /// parent chain (which links only env-owning records) and address `a`'s
+    /// parent instead of `a`.
     #[test]
-    fn grandparent_capture_is_depth_two() {
+    fn grandparent_capture_skips_no_cell_intermediate_depth_one() {
         let analysis = crate::test_support::analyze(
             "function a(){ let g = 5; function b(){ function c(){ return g; } return c(); } return b(); }",
         );
@@ -264,12 +302,31 @@ mod tests {
             c.captured,
             vec![CapturedRef {
                 name: "g".into(),
-                depth: 2,
+                depth: 1,
                 offset: 0,
                 is_scalar: true,
                 owner: "a".into()
             }]
         );
+    }
+
+    /// §3.4 counting pin with an env-OWNING intermediate: `a` owns `g`, `b` owns
+    /// `h` (both captured by `c`), `c` owns nothing. `c` capturing `h` is one
+    /// env hop (`b`); `c` capturing `g` is TWO env hops (`b` then `a`) — because
+    /// here `b` DOES own a record, unlike the transparent-intermediate case
+    /// above. This is the shape whose runtime parent chain genuinely links two
+    /// records.
+    #[test]
+    fn two_env_owning_ancestors_is_depth_two() {
+        let analysis = crate::test_support::analyze(
+            "function a(){ let g = 5; function b(){ let h = 6; function c(){ return g + h; } return c(); } return b(); }",
+        );
+        let plans = derive_env_plans(&analysis);
+        let c = plans.get("c").expect("c plan");
+        let g = c.captured.iter().find(|r| r.name == "g").expect("captures g");
+        let h = c.captured.iter().find(|r| r.name == "h").expect("captures h");
+        assert_eq!((g.depth, g.owner.as_str()), (2, "a"), "g: two env hops via b then a");
+        assert_eq!((h.depth, h.owner.as_str()), (1, "b"), "h: one env hop (b)");
     }
 
     /// An ANONYMOUS function expression is a capture OWNER: `g` captures `inner`,
@@ -319,13 +376,16 @@ mod tests {
     /// An ANONYMOUS function expression is an INTERMEDIATE: `inner` (named) is
     /// nested inside an anonymous `function(){...}` (assigned to `mid`) which is
     /// nested inside named `outer`. `inner` captures `v` from `outer`. The
-    /// anonymous hop must be counted: depth = 2, not 1.
-    ///
-    /// NB: like the sibling test, HIR names the anonymous intermediate
-    /// `__kali_fn_N` in the node text, so this already reports depth 2 on HEAD.
-    /// Kept as a by-construction regression pin under the label-keyed map.
+    /// anonymous intermediate owns NO cell, so per spec §3.4 it is transparent to
+    /// the env chain and contributes no hop: depth = 1 (only `outer` owns a
+    /// record). Updated in Task 5 from the original depth-2 lexical-hop
+    /// assumption — env depth counts env-OWNING ancestors, and an ownership-less
+    /// intermediate (anonymous or not) does not add one. The sibling
+    /// `anonymous_owner_is_first_class_capture_ref_not_dropped` still counts an
+    /// anonymous fn that DOES own a cell, so anonymous first-class-ness is
+    /// unaffected — only ownership decides a hop.
     #[test]
-    fn anonymous_intermediate_hop_is_counted_depth_two() {
+    fn anonymous_no_cell_intermediate_is_transparent_depth_one() {
         let analysis = crate::test_support::analyze(
             "function outer(){ let v = 7; let mid = function(){ function inner(){ return v; } return inner(); }; return mid(); }",
         );
@@ -335,12 +395,12 @@ mod tests {
             inner.captured,
             vec![CapturedRef {
                 name: "v".into(),
-                depth: 2,
+                depth: 1,
                 offset: 0,
                 is_scalar: true,
                 owner: "outer".into()
             }],
-            "the anonymous intermediate scope must count as a hop (depth 2)"
+            "a no-cell anonymous intermediate is transparent to the env chain (§3.4)"
         );
     }
 
