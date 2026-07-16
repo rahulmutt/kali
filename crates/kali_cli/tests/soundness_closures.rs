@@ -664,3 +664,33 @@ fn deferred_set_timeout_indirect_non_capturing_callback_still_runs() {
     );
     assert_eq!(String::from_utf8_lossy(&out.stdout), "sync\n");
 }
+
+/// KNOWN FAIL-OPEN tripwire (NOT a green-behavior assertion). `fn_valued_locals`
+/// provenance is recorded only at DECLARATOR-emit time, so a REASSIGNMENT
+/// (`let cb = function(){}; cb = function(){ base += 1; }`) leaves the stale
+/// NON-capturing mapping in place: the scheduling guard resolves `cb` to the
+/// original (empty-`captured`) plan, does NOT fire, and the capturing callback
+/// is silently dropped. Base a57cd09d5 would have rejected the `base += 1`
+/// capture-write E5506, so this is fail-OPEN — a narrow subset of the documented
+/// pre-existing first-class-function-value / escaping-capture gap (§6 rows m/n/s,
+/// §7). Pinned so ANY behavior change (a fix, or a new regression) trips this
+/// test. Fix direction: invalidate/update `fn_valued_locals` at assignment-emit,
+/// or resolve the callback through binding provenance at the call site — see the
+/// triage §follow-ups "reassignment/shadowing invalidation" inventory item.
+///
+/// ACTUAL current behavior (pinned): success, exit 0, prints `0\n` (callback +
+/// captured `base` dropped). Node would print `1`.
+#[test]
+fn deferred_reassigned_callback_provenance_is_stale_fail_open_tripwire() {
+    let out = run_kali(
+        "function outer(){ let base = 0; let cb = function(){}; cb = function(){ base += 1; }; setTimeout(cb, 0); console.log(base); } outer();\n",
+    );
+    assert!(
+        out.status.success(),
+        "tripwire pins the CURRENT fail-open (success + callback dropped); a \
+         change here means the reassignment-stale provenance gap moved — update \
+         this pin and the triage follow-up. stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "0\n");
+}

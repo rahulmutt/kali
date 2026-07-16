@@ -402,3 +402,15 @@ Entry **731** → exit **731** (zero newly-red, zero drift, zero drain; main 0).
 8. **Duplicate-label scope IDs / twin owner computations** — carried from prior
    reviews; EnvPlan nesting keys on analysis labels (`8171e2081`); revisit if
    duplicate labels or twin owner derivations surface.
+9. **`fn_valued_locals` reassignment/shadowing invalidation** — the Finding-C
+   indirect-callback provenance map is recorded only at DECLARATOR-emit time, so
+   a later `cb = function(){ …capture… }` (or a shadowing re-`let`) leaves the
+   original mapping stale: the scheduling guard resolves `cb` to the old plan and
+   MISSES the reassigned capturing callback → silent drop (fail-OPEN; base would
+   E5506 the capture-write). Pinned by
+   `deferred_reassigned_callback_provenance_is_stale_fail_open_tripwire`. This is
+   a narrow subset of the first-class-function-value / escaping-capture gap
+   (item 3, §7). Fix direction: invalidate/update `fn_valued_locals` at
+   assignment-emit, or resolve the callback through binding provenance at the
+   call site (so the current binding value — not the declaration value — drives
+   the capture verdict).
