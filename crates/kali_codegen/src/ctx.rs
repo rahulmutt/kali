@@ -103,6 +103,13 @@ pub struct CodegenCtx {
     /// default; misses fail closed (global allocation / no arena). Read by
     /// Tasks 6/7 — no codegen behavior depends on it yet.
     pub arena_table: kali_common::ArenaTable,
+    /// Per-function closure environment plans (Stage C, `kali_mir::derive_env_plans`):
+    /// the promoted env cells a function owns and the outer captures it reads
+    /// through the parent chain, keyed by the function's declared / `__kali_fn_N`
+    /// name (module root is `""`). Empty by default — an entry absence means a
+    /// function owns no env and captures nothing, so integer/closure-free
+    /// programs are byte-identical.
+    pub env_plans: std::collections::BTreeMap<String, kali_mir::EnvPlan>,
 }
 
 impl CodegenCtx {
@@ -112,6 +119,7 @@ impl CodegenCtx {
             source_path: None,
             repr_table: kali_common::ReprTable::default(),
             arena_table: kali_common::ArenaTable::default(),
+            env_plans: std::collections::BTreeMap::new(),
         }
     }
 }

@@ -492,6 +492,14 @@ impl<'a> FunctionEmitter<'a> {
             if let Some(&(global_index, repr)) = self.module_global_slots.get(&name) {
                 return self.emit_module_global_assignment(function, op, global_index, repr, right);
             }
+            // Stage C: a captured scalar promoted to an env cell (own cell or a
+            // single-level synchronous outer capture) — route the write through
+            // its env cell (read-modify-write for compound ops). `Some` iff
+            // `name` is in this function's env plan (handled or E5506-rejected);
+            // only genuinely unresolvable names fall through to the E5506 below.
+            if let Some(handled) = self.try_emit_captured_assign(function, op, &name, right) {
+                return handled;
+            }
         }
         let Some(index) = self.locals.get(&name).copied() else {
             if op == "=" {

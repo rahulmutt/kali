@@ -198,6 +198,16 @@ pub(crate) struct FunctionEmitter<'a> {
     /// write to `GlobalSet`; the declarator init in `_start` stores through
     /// `GlobalSet`. See `kali_codegen::lower::collect_module_scalar_globals`.
     pub(crate) module_global_slots: &'a BTreeMap<String, (u32, kali_common::Repr)>,
+    /// This function's closure environment plan (Stage C, `derive_env_plans`):
+    /// the promoted scalar/heap cells it OWNS in its own env record and the
+    /// outer bindings it captures through the parent chain. Default (owns_env
+    /// false, no cells/captures) for every closure-free function, so integer
+    /// programs never touch `CURRENT_ENV_GLOBAL`. Cell names that are promoted
+    /// locals are removed from `locals` before construction (they get no WASM
+    /// local slot — the cell IS their storage); a cell name still present in
+    /// `locals` is therefore a captured PARAMETER, which C1 does not lower
+    /// (rejected in the prologue).
+    pub(crate) env_plan: kali_mir::EnvPlan,
 }
 
 impl<'a> FunctionEmitter<'a> {
@@ -230,6 +240,7 @@ impl<'a> FunctionEmitter<'a> {
         module_const_inits: &'a BTreeMap<String, LirNodeId>,
         module_binding_names: &'a BTreeSet<String>,
         module_global_slots: &'a BTreeMap<String, (u32, kali_common::Repr)>,
+        env_plan: kali_mir::EnvPlan,
     ) -> Self {
         let loop_ordinals = crate::lower::loop_preorder_ordinals(&program.nodes, body);
         let string_site_ordinals =
@@ -316,6 +327,7 @@ impl<'a> FunctionEmitter<'a> {
             module_const_inits,
             module_binding_names,
             module_global_slots,
+            env_plan,
         }
     }
 
@@ -412,12 +424,36 @@ impl<'a> FunctionEmitter<'a> {
         self.functions["__arena_reset"]
     }
 
-    /// WASM global index of `current_env` (Stage C closures, Task 2): the
-    /// active environment record pointer (i64; 0 = no env). See
-    /// `crate::closure::CURRENT_ENV_GLOBAL`. Reserved-but-unused this task.
-    #[allow(dead_code)]
+    /// WASM global index of `current_env` (Stage C closures): the active
+    /// environment record pointer (i64; 0 = no env). See
+    /// `crate::closure::CURRENT_ENV_GLOBAL`.
     pub(crate) fn current_env_global(&self) -> u32 {
         crate::closure::CURRENT_ENV_GLOBAL
+    }
+
+    /// True when cell/capture `name` is the ONE shape C1 promotes into an env
+    /// cell: a SCALAR cell (heap/closure captures are the C2 surface) whose
+    /// chosen repr is the default `I64` (the env cell is a raw 8-byte i64 slot
+    /// with i64 arithmetic; an `F64`/`String`/`Object`/bool repr would corrupt
+    /// the value). `is_scalar` is the plan's structural verdict; the repr gate is
+    /// consulted in the CURRENT function's name space and MUST match the
+    /// promotion gate in `lower.rs` (which removed exactly these names from
+    /// `locals`). Anything else is NOT promoted — the caller falls through to its
+    /// pre-Stage-C resolution, so every out-of-scope capture shape is
+    /// byte-identical to baseline (heap capture read → placeholder; captured
+    /// compound-assign → the existing E5506 local-miss).
+    pub(crate) fn promotable_scalar_cell(&self, name: &str, is_scalar: bool) -> bool {
+        is_scalar && self.scalar_repr(name) == kali_common::Repr::I64
+    }
+
+    /// True when THIS function owns a promotable env — i.e. `lower.rs` reserved
+    /// its `current_env` save local because it has >=1 promotable scalar-i64
+    /// cell. Only such a function runs the env prologue/epilogue (allocating a
+    /// record and mutating `CURRENT_ENV_GLOBAL`); a function whose only cells are
+    /// heap/non-i64 leaves `current_env` untouched, exactly like baseline.
+    pub(crate) fn owns_promotable_env(&self) -> bool {
+        self.locals
+            .contains_key(&crate::closure::env_save_local_name())
     }
 
     /// Wasm function index of the synthetic runtime-substring helper

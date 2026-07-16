@@ -818,6 +818,41 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         }
     }
 
+    // Stage C: C1 promotes ONLY scalar `i64` cells into the env record — the
+    // shape it can lower soundly (a raw 8-byte i64 slot + i64 arithmetic).
+    // Every other cell shape (heap/closure captures = the C2 surface, non-`i64`
+    // scalars, multi-level chains) is left EXACTLY as pre-Stage-C: it keeps its
+    // WASM local / const-fold / placeholder path, so those programs stay
+    // byte-identical (no new E5506, no new machinery). For a function with >=1
+    // promotable scalar-i64 cell we (a) drop those cell names from its locals —
+    // the env cell IS their storage, so they get no WASM local slot — and
+    // (b) reserve a dedicated i64 save local for the incoming `current_env`
+    // (restored on every exit path). Keyed by the SAME name space as
+    // `derive_env_plans` (declared / `__kali_fn_N`; `_start` is the module root
+    // `""`, absent here and never an owner). This mutation must precede both the
+    // `local_decls` build and `FunctionEmitter::new` below so the declared local
+    // set and the emitter's `locals` map stay in lockstep.
+    for function in all_functions.iter_mut() {
+        if let Some(plan) = ctx.env_plans.get(&function.name) {
+            let promoted: HashSet<&str> = plan
+                .cells
+                .iter()
+                .filter(|cell| {
+                    cell.is_scalar
+                        && ctx.repr_table.scalar(&function.name, &cell.name)
+                            == kali_common::Repr::I64
+                })
+                .map(|cell| cell.name.as_str())
+                .collect();
+            if !promoted.is_empty() {
+                function
+                    .locals
+                    .retain(|name| !promoted.contains(name.as_str()));
+                function.locals.push(crate::closure::env_save_local_name());
+            }
+        }
+    }
+
     let mut code_section = CodeSection::new();
     for (coverage_id, function) in all_functions.iter().enumerate() {
         // Two extra i64 scratch locals: `self.locals.len()` is the general-purpose
@@ -936,6 +971,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             &module_const_inits,
             &module_binding_names,
             &module_global_slots,
+            ctx.env_plans.get(&function.name).cloned().unwrap_or_default(),
         );
         let coverage_id = ctx.target.coverage.then_some(coverage_id as u32);
         if SYNTHETIC_FUNCTIONS.contains(&function.name.as_str()) {

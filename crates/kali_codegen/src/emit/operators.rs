@@ -19,6 +19,16 @@ impl<'a> FunctionEmitter<'a> {
                 shape: ValueShape::Unknown,
             };
         };
+        // Stage C: `c++ / c-- / ++c / --c` on a captured scalar promoted to an
+        // env cell (own cell or a single-level synchronous outer capture) —
+        // route the update through its env cell. `Some` iff `name` is in this
+        // function's env plan (handled or E5506-rejected); only genuinely
+        // unresolvable names fall through to the E5506 below.
+        if !self.locals.contains_key(&name) {
+            if let Some(value) = self.try_emit_captured_update(function, &name, op) {
+                return value;
+            }
+        }
         let Some(index) = self.locals.get(&name).copied() else {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,

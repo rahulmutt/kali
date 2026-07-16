@@ -124,6 +124,7 @@ impl<'a> FunctionEmitter<'a> {
                             function.instruction(&Instruction::I64Const(0));
                         }
                         self.emit_arena_unwind_for_return(function);
+                        self.emit_env_restore(function);
                         function.instruction(&Instruction::Return);
                         return EmittedValue {
                             produced: false,
@@ -140,6 +141,7 @@ impl<'a> FunctionEmitter<'a> {
             function.instruction(&Instruction::I64Const(0));
         }
         self.emit_arena_unwind_for_return(function);
+        self.emit_env_restore(function);
         function.instruction(&Instruction::Return);
         EmittedValue {
             produced: false,
@@ -643,6 +645,52 @@ impl<'a> FunctionEmitter<'a> {
         self.emit_arena_release(function, &frame);
     }
 
+    /// Stage C prologue: if this function owns a PROMOTABLE env (`lower.rs`
+    /// reserved its save local because it has >=1 promotable scalar-i64 cell),
+    /// save the incoming `current_env` into that save local, allocate this
+    /// activation's record (`parent = incoming`) in the global never-reset
+    /// region, and publish it into `current_env`. Mirrors the arena-trio
+    /// save/alloc idiom, but with ONE global (`CURRENT_ENV_GLOBAL`) and
+    /// `__alloc_global` (the record must outlive any arena reset — the env chain
+    /// stays valid after a parent activation returns). A function that captures
+    /// outer bindings but owns no promotable env of its own allocates nothing
+    /// and leaves `current_env` untouched (it reads through the inherited
+    /// record). The record is sized by the plan's FULL cell count so every
+    /// promoted cell's `derive_env_plans` offset stays valid; a non-promoted
+    /// (heap/non-i64) cell's slot is simply left unused this phase.
+    pub(crate) fn emit_function_env_prologue(&mut self, function: &mut Function) {
+        if !self.owns_promotable_env() {
+            return;
+        }
+        let cell_count = self.env_plan.cells.len() as u32;
+        let env_global = self.current_env_global();
+        let save_local = self.locals[&crate::closure::env_save_local_name()];
+        let alloc_global_index = self.alloc_global_fn_index();
+        function.instruction(&Instruction::GlobalGet(env_global));
+        function.instruction(&Instruction::LocalSet(save_local));
+        crate::closure::emit_env_alloc(
+            function,
+            alloc_global_index,
+            cell_count,
+            env_global,
+            save_local,
+        );
+    }
+
+    /// Restore `current_env` from this function's env save local. Shared by the
+    /// fall-through epilogue and every `return` (mirroring the arena unwind), so
+    /// EVERY exit path restores the caller's env — a fresh, distinct record per
+    /// activation (no leak across calls or recursion). A no-op unless this
+    /// function owns a promotable env.
+    pub(crate) fn emit_env_restore(&mut self, function: &mut Function) {
+        if !self.owns_promotable_env() {
+            return;
+        }
+        let save_local = self.locals[&crate::closure::env_save_local_name()];
+        function.instruction(&Instruction::LocalGet(save_local));
+        function.instruction(&Instruction::GlobalSet(self.current_env_global()));
+    }
+
     pub(crate) fn emit_function_body(
         &mut self,
         function: &mut Function,
@@ -652,6 +700,7 @@ impl<'a> FunctionEmitter<'a> {
     ) {
         self.emit_coverage_hit(function, coverage_id);
         self.emit_function_arena_prologue(function);
+        self.emit_function_env_prologue(function);
         let produced = self.emit_node(function, body, returns_value);
         if returns_value && !produced.produced {
             // Fallthrough value must match the function's declared result type: an
@@ -666,6 +715,11 @@ impl<'a> FunctionEmitter<'a> {
             function.instruction(&Instruction::Drop);
         }
         self.emit_function_arena_epilogue(function);
+        // Fall-through exit: restore the caller's env (mutually exclusive with
+        // every `return`'s inline restore — a `return` exits the wasm frame, so
+        // this code is unreachable on that path). Stack-neutral, so a
+        // fall-through return value beneath it is preserved.
+        self.emit_env_restore(function);
     }
 
     pub(crate) fn emit_sequence(
@@ -960,6 +1014,19 @@ impl<'a> FunctionEmitter<'a> {
                                     function.instruction(&Instruction::F64ConvertI64S);
                                 }
                                 function.instruction(&Instruction::GlobalSet(global_index));
+                                continue;
+                            }
+                        }
+
+                        // Stage C: a captured scalar promoted to an env cell has
+                        // no WASM local slot — its initializer is stored into the
+                        // owner's env cell (depth 0), not a `LocalSet`.
+                        // `try_emit_captured_decl` returns `Some` iff `name` is an
+                        // own cell (handled, or rejected E5506 for a non-i64/heap
+                        // cell), so a promoted binding never falls through to the
+                        // generic store below (which would `Drop` its value).
+                        if let Some(name) = declarator.text.clone() {
+                            if self.try_emit_captured_decl(function, &name, init).is_some() {
                                 continue;
                             }
                         }
@@ -1299,6 +1366,17 @@ impl<'a> FunctionEmitter<'a> {
                             };
                         }
                         _ => {}
+                    }
+
+                    // Stage C: a bare identifier resolving to neither a local,
+                    // module global, nor module binding may be a captured scalar
+                    // promoted to an env cell (own cell, or a single-level
+                    // synchronous outer capture). MUST precede the zero
+                    // placeholder — an in-plan name that this returns for is
+                    // either a real cell load or an E5506 reject, never a silent
+                    // zero.
+                    if let Some(value) = self.try_emit_captured_read(function, text) {
+                        return value;
                     }
 
                     self.push_placeholder_fallback_diagnostic("identifier", text);

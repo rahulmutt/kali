@@ -53,6 +53,21 @@ pub struct EnvPlan {
     pub captured: Vec<CapturedRef>,
 }
 
+impl EnvPlan {
+    /// The own promoted cell for `name` (a binding this function OWNS in its own
+    /// env record), if any. Depth-0 access.
+    pub fn cell_for(&self, name: &str) -> Option<&EnvCell> {
+        self.cells.iter().find(|cell| cell.name == name)
+    }
+
+    /// The outer-scope capture reference for `name` (a binding owned by an
+    /// ancestor env this function reads/writes through the parent chain), if
+    /// any.
+    pub fn captured_for(&self, name: &str) -> Option<&CapturedRef> {
+        self.captured.iter().find(|reference| reference.name == name)
+    }
+}
+
 /// Classify an env cell's storage from its MIR layout.
 ///
 /// Exhaustive over [`LayoutDescriptor`] (`crates/kali_mir/src/layout.rs:5`) —
