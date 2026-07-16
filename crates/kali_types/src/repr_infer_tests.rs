@@ -1010,14 +1010,17 @@ fn nested_fn_lockstep_exotic_object_literal_arg_is_the_allowed_gap() {
 // nothing. Each was probed against kali's real lexer/parser pipeline (not
 // hand-built ASTs) before writing an assertion, per "run first, pin reality":
 //
-//   - Two of the five are NOT expressible through kali's parser today and so
-//     cannot be pinned as the documented shape at all — see the block comment
-//     further down titled "parser-inexpressible exotic positions" for the
-//     evidence.
-//   - The other three (yield operand, optional-chain operand, and the
-//     bare/doubly-nested array literal family, split into two concrete
-//     shapes) parse cleanly with zero diagnostics and are confirmed-live
-//     `registered − seeded` gaps today; each gets its own pin below.
+//   - Spread splits into two sub-cases: array-literal spread (`[...x]`) IS
+//     expressible and IS a live gap — pinned below. Call-argument spread
+//     (`foo(...x)`) and rest parameters are NOT expressible through kali's
+//     parser today. Tagged-template operand is also NOT expressible. Neither
+//     can be pinned as the documented shape — see the block comment further
+//     down titled "parser-inexpressible exotic positions" for the evidence.
+//   - The other four (yield operand, optional-chain operand, the
+//     bare/doubly-nested array literal family split into two concrete
+//     shapes, and array-literal spread) parse cleanly with zero diagnostics
+//     and are confirmed-live `registered − seeded` gaps today; each gets its
+//     own pin below.
 
 #[test]
 fn nested_fn_lockstep_yield_operand_is_an_unseeded_gap() {
@@ -1168,30 +1171,76 @@ fn nested_fn_lockstep_doubly_nested_array_literal_is_an_unseeded_gap() {
     );
 }
 
+#[test]
+fn nested_fn_lockstep_array_literal_spread_is_an_unseeded_gap() {
+    // F-AB-2 exotic position: a fn-expr reached through an ARRAY-LITERAL
+    // spread element in declarator-init position (`let arr = [...[function(){…}]];`).
+    // Array-literal spread IS expressible — the parser has an explicit
+    // `DotDotDot` branch inside `[...]` element parsing
+    // (`kali_parser/src/expression/primary.rs:107`) that builds
+    // `ExpressionOrSpread::Spread(SpreadElement{ argument })`; this is
+    // distinct from CALL-ARGUMENT spread (`foo(...x)`), which is genuinely
+    // unsupported (`parse_call_expression` never checks `DotDotDot` —
+    // `kali_parser/src/expression/call.rs:20-27` — so `foo(...x)` mis-parses;
+    // see the block comment below). The shared Phase-A descent registers this
+    // shape via `descend_expr_or_spread_fns`'s `Spread` arm
+    // (`repr_infer.rs:1174`, which recurses into `spread.argument`), but
+    // walk-4's `note_array_init` (`repr_infer.rs:1596`) matches only
+    // `ExpressionOrSpread::Expression` — a `Spread` element is silently
+    // skipped, so its fn-expr is never seeded.
+    let (registered, seeded) = nested_fn_lockstep_sets(&crate::test_support::parse_statements(
+        "let arr = [...[function spreadfn(){ let x = 1; }]];\n",
+    ));
+    assert!(
+        registered.contains("spreadfn"),
+        "walks 1-3 must register the array-literal-spread fn-expr; \
+         registered={registered:?}"
+    );
+    assert!(
+        !seeded.contains("spreadfn"),
+        "walk 4 must NOT seed the array-literal-spread position (F-AB-2 \
+         known gap); seeded={seeded:?}"
+    );
+    assert!(
+        seeded.is_subset(&registered),
+        "F-AB-2 safe-direction invariant (seeded ⊆ registered) must hold; \
+         seeded={seeded:?} registered={registered:?}"
+    );
+    let gap: Vec<_> = registered.difference(&seeded).cloned().collect();
+    assert_eq!(
+        gap,
+        vec!["spreadfn".to_string()],
+        "unexpected unseeded gap: {gap:?}"
+    );
+}
+
 // ---- parser-inexpressible exotic positions (documented, not pinned) -------
 //
-// The remaining two documented exotic positions — a SPREAD arg
-// (`foo(...[() => {}])`) and a TAGGED-TEMPLATE operand
-// (`` tag`hello ${() => {}}` ``) — cannot be pinned against kali's real
-// lexer/parser pipeline: neither produces the intended AST shape, and NEITHER
-// raises a diagnostic, so there is nothing to assert against without hand-
-// building an AST that no real kali program can produce (which would pin an
-// assumption, not reality).
+// Of the two remaining documented exotic positions, only ONE is genuinely
+// inexpressible against kali's real lexer/parser pipeline; the other has a
+// live, expressible sub-case that IS pinned above (array-literal spread), and
+// only its CALL-ARGUMENT variant is unsupported. Writing a test for a shape
+// the parser cannot produce would pin a fabricated AST, not reality, so
+// these are documented here instead.
 //
-//   - Spread (`...`): the lexer tokenizes `...` as `TokenType::DotDotDot`
-//     (kali_lexer/src/token.rs), but `DotDotDot` is never referenced anywhere
-//     in `kali_parser/src` — no call-argument spread, no rest parameter, no
-//     `SpreadElement` construction exists in the grammar (confirmed by
-//     `grep -rn DotDotDot crates/kali_parser/src` returning nothing). Probed
-//     directly: `function sink(...args){ return args; }` parses `args` as a
-//     dropped identifier — the param list becomes the single literal string
-//     `"..."`, not `"args"` — and `sink(...arr)` parses as `sink(unknown)`
-//     followed by a spurious extra `arr;` expression statement (the trailing
-//     identifier is split off as its own statement). `repr_infer.rs` does
-//     carry a `SpreadElement` arm in `descend_expr_fns` (used by walks 1-3),
-//     but — mirroring the `TemplateLiteral` arm's own note a few lines below
-//     it in `visit_expr` — real source parsed through kali's own front end
-//     never reaches it; only a hand-built AST could.
+//   - Spread — narrowed to CALL-ARGUMENT spread only (`foo(...x)`) and rest
+//     parameters (`function f(...args){}`). Array-literal spread
+//     (`[...x]`) IS supported (`kali_parser/src/expression/primary.rs:107`
+//     builds a real `ExpressionOrSpread::Spread(SpreadElement)`) and is
+//     pinned above by
+//     `nested_fn_lockstep_array_literal_spread_is_an_unseeded_gap`.
+//     Call-argument spread is unsupported: `parse_call_expression`
+//     (`kali_parser/src/expression/call.rs:20-27`) parses each call argument
+//     via a plain `while`/`Comma`-separated loop with no `DotDotDot` check
+//     at all, so `...` in that position is never recognized as spread.
+//     Probed directly, both with ZERO parser diagnostics (silent mis-parse,
+//     not a rejection): `function sink(...args){ return args; }` parses the
+//     param list as the single literal string `"..."` (dropping `args`
+//     entirely — the rest-parameter form is separately unsupported, with no
+//     `RestElement` construction anywhere in the parser); `sink(...arr)`
+//     parses as `sink(unknown)` followed by a spurious orphaned `arr;`
+//     expression statement (the trailing identifier is split off as its own
+//     statement).
 //   - Tagged template (`` tag`...` ``): probed directly:
 //     `` tag`hello ${function taggedfn(){ let x = 1; }}` `` parses as TWO
 //     unrelated statements — a bare `tag` identifier expression statement,
@@ -1199,13 +1248,11 @@ fn nested_fn_lockstep_doubly_nested_array_literal_is_an_unseeded_gap() {
 //     backtick characters survive literally inside the string token, and the
 //     `${...}` interpolation desugars to string concatenation, exactly like
 //     an ordinary un-tagged template literal) — never a
-//     `TaggedTemplateExpression` with `tag` as its tag callee. Neither
-//     construct is reachable from real source, so — same as the untagged
+//     `TaggedTemplateExpression` with `tag` as its tag callee. This construct
+//     is not reachable from real source, so — same as the untagged
 //     `TemplateLiteral` arm's note in `visit_expr` — the
 //     `TaggedTemplateExpression` arm in `descend_expr_fns` is dead code from
 //     kali's own parser's perspective today.
 //
-// Both probes ran with zero parser diagnostics (no rejection to point at);
-// the "rejection evidence" here is the AST shape itself failing to match what
-// the source asked for. If kali's parser ever grows real spread/rest or
-// tagged-template support, these two gaps must be pinned then (or closed).
+// If kali's parser ever grows real call-argument-spread/rest-parameter or
+// tagged-template support, these gaps must be pinned then (or closed).
