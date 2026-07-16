@@ -20,17 +20,37 @@ pub(crate) fn enforce_operation(
     }
 }
 
+/// Total scheduled-callback invocations (microtasks + timers) one drain may
+/// perform before failing loudly. Terminating programs sit far below this;
+/// only programs that would hang node (an uncleared `setInterval`, a
+/// self-requeueing microtask) ever reach it — Stage D's bounded-drain
+/// decision: trap distinctly instead of hanging the process and the gate.
+pub(crate) const EVENT_LOOP_INVOCATION_BUDGET: u64 = 100_000;
+
 pub(crate) fn drain_event_loop(
     instance: &Instance,
     store: &mut Store<KaliHostState>,
 ) -> Result<(), Diagnostic> {
+    let mut invocations: u64 = 0;
     loop {
+        if invocations >= EVENT_LOOP_INVOCATION_BUDGET {
+            return Err(Diagnostic::error(
+                e4::RESOURCE_LIMIT_EXCEEDED as u32,
+                format!(
+                    "event loop did not quiesce: {EVENT_LOOP_INVOCATION_BUDGET} scheduled-callback \
+                     invocations were drained and callbacks are still pending (an uncleared \
+                     setInterval or a self-requeueing microtask?)"
+                ),
+            ));
+        }
+
         let microtask = {
             let state = store.data_mut();
             state.pending_microtasks.pop_front()
         };
 
         if let Some((callback_id, env_ptr)) = microtask {
+            invocations += 1;
             invoke_callback(instance, store, callback_id, env_ptr)?;
             continue;
         }
@@ -55,6 +75,7 @@ pub(crate) fn drain_event_loop(
             state.pending_timers.remove(&timer_id);
         }
 
+        invocations += 1;
         invoke_callback(instance, store, timer.callback_id, timer.env_ptr)?;
 
         if let Some(interval_ms) = timer.repeat_interval_ms {

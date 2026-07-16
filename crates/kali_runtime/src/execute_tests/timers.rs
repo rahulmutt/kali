@@ -377,3 +377,116 @@ fn runtime_negative_interval_delay_fires_its_callback() {
         diagnostic.message
     );
 }
+
+#[test]
+fn runtime_uncleared_interval_trips_the_drain_budget() {
+    let runtime =
+        RuntimeCtx::with_host_context(None, Vec::new(), capture_env(), PathBuf::from("."));
+    // An interval that never clears would drain forever (node parity would
+    // hang); the bounded drain must trap loudly instead (Stage D decision).
+    let wasm = compile_wat(
+        r#"
+            (module
+                (import "kali:rt" "setInterval" (func $set_interval (param i32 i32 i64) (result i32)))
+                (memory (export "memory") 1)
+                (func (export "__kali_callback_1"))
+                (func (export "_start")
+                    i32.const 1
+                    i32.const 0
+                    i64.const 0
+                    call $set_interval
+                    drop)
+            )
+            "#,
+    );
+    let started = std::time::Instant::now();
+    // A budget-exhaustion diagnostic during drain propagates as an `Err` from
+    // `execute()` (same wrapping as a mid-drain callback trap — see the
+    // `runtime_negative_*_fires_its_callback` tests above), not as
+    // `Ok(RuntimeOutcome { trap: Some(_), .. })`.
+    let diagnostics = runtime
+        .execute(&wasm)
+        .expect_err("budget exhaustion must surface a diagnostic");
+    assert_eq!(diagnostics.len(), 1);
+    let diagnostic = &diagnostics[0];
+    assert_eq!(
+        diagnostic.code,
+        Some(kali_error::_error_codes::e4::RESOURCE_LIMIT_EXCEEDED as u32)
+    );
+    assert!(
+        diagnostic.message.contains("event loop did not quiesce"),
+        "got: {}",
+        diagnostic.message
+    );
+    // 100k no-op invocations under a virtual clock must be fast.
+    assert!(started.elapsed() < std::time::Duration::from_secs(60));
+}
+
+#[test]
+fn runtime_self_requeueing_microtask_trips_the_drain_budget() {
+    let runtime =
+        RuntimeCtx::with_host_context(None, Vec::new(), capture_env(), PathBuf::from("."));
+    let wasm = compile_wat(
+        r#"
+            (module
+                (import "kali:rt" "queueMicrotask" (func $queue_microtask (param i32 i64)))
+                (memory (export "memory") 1)
+                (func (export "__kali_callback_1")
+                    i32.const 1
+                    i64.const 0
+                    call $queue_microtask)
+                (func (export "_start")
+                    i32.const 1
+                    i64.const 0
+                    call $queue_microtask)
+            )
+            "#,
+    );
+    let diagnostics = runtime
+        .execute(&wasm)
+        .expect_err("budget exhaustion must surface a diagnostic");
+    assert_eq!(diagnostics.len(), 1);
+    let diagnostic = &diagnostics[0];
+    assert_eq!(
+        diagnostic.code,
+        Some(kali_error::_error_codes::e4::RESOURCE_LIMIT_EXCEEDED as u32)
+    );
+}
+
+#[test]
+fn runtime_zero_delay_interval_does_not_starve_later_timers() {
+    let runtime =
+        RuntimeCtx::with_host_context(None, Vec::new(), capture_env(), PathBuf::from("."));
+    // interval(0) clamps to 1ms; a timeout at 5ms must still get scheduled
+    // (the timeout's callback clears the interval, so the drain terminates).
+    // If the clamp regressed to 0, the interval would re-arm at the same
+    // virtual instant forever and the budget trap (Err) would fire instead.
+    let wasm = compile_wat(
+        r#"
+            (module
+                (import "kali:rt" "setInterval" (func $set_interval (param i32 i32 i64) (result i32)))
+                (import "kali:rt" "setTimeout" (func $set_timeout (param i32 i32 i64) (result i32)))
+                (import "kali:rt" "clearInterval" (func $clear_interval (param i32)))
+                (memory (export "memory") 1)
+                (global $interval_id (mut i32) (i32.const -1))
+                (func (export "__kali_callback_1")) ;; interval tick: no-op
+                (func (export "__kali_callback_2") ;; timeout: clears the interval
+                    global.get $interval_id
+                    call $clear_interval)
+                (func (export "_start")
+                    i32.const 1
+                    i32.const 0
+                    i64.const 0
+                    call $set_interval
+                    global.set $interval_id
+                    i32.const 2
+                    i32.const 5
+                    i64.const 0
+                    call $set_timeout
+                    drop)
+            )
+            "#,
+    );
+    let outcome = runtime.execute(&wasm).expect("runtime outcome");
+    assert_eq!(outcome.exit_code, 0);
+}
