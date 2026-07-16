@@ -295,3 +295,138 @@ fn deferred_test_callback_runs_with_its_env() {
     assert!(s.contains("a=41"), "stdout: {}", s);
     assert!(s.contains("b=7"), "stdout: {}", s);
 }
+
+// ============================================================================
+// Phase C4 — fail-closed boundaries (brief Steps 1-2)
+//
+// These pin the boundaries around the lowered closure surface. Every case below
+// was run on HEAD (6bb617b11) AND on the pre-Stage-C base (a57cd09d5): the
+// behaviors are BYTE-IDENTICAL across the two, i.e. Stage C introduced NONE of
+// them. The array-callback and object-literal-as-direct-call-arg cases already
+// fail closed E5506; the remaining "exotic-position" cases are PRE-EXISTING
+// indirect-function-value invocation miscompiles (a function VALUE reached via
+// `arr[i]`/`o.f`/`o?.f` and then called returns a clean `0`) — reproduced with
+// AND without a capture, so they are NOT capture-lowering failures and get no
+// new guard (that would be new indirect-call lowering-boundary work, out of
+// this task's scope). They are pinned here as tripwires and are recorded as a
+// pre-existing follow-up. Crucially, the F-AB-2 danger (a string/growable
+// capture in such a body silently lowering to i64) is NOT reachable: those
+// forms fail closed E3200/E5506 or return the same pre-existing clean `0`.
+// ============================================================================
+
+/// Brief Step 1, fixture 1. An array per-element callback that captures an
+/// enclosing local — the array-callback ABI is a separate future stage. Already
+/// fails closed E5506 (array callback methods were E5506-gated in Stage B); this
+/// is a permanent PIN, no guard was needed.
+#[test]
+fn array_callback_capture_fails_closed() {
+    let out = run_kali(
+        "function outer(){ let base = 10; let r = [1,2,3].map(function(x){ return x + base; }); console.log(r.join(\",\")); } outer();\n",
+    );
+    assert!(
+        !out.status.success(),
+        "expected E5506, got stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    assert!(
+        String::from_utf8_lossy(&out.stderr).contains("E5506"),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+/// Brief Step 1, fixture 2 (F-AB-2 exotic position). A fn-expr inside an object
+/// literal passed DIRECTLY as a call argument, capturing an enclosing local,
+/// with the callee actually invoking it (`o.f()`). Already fails closed E5506
+/// ("an object literal passed directly as a call argument is unavailable …";
+/// `repr_infer.rs`) — MUST NOT silently print the wrong captured value. This is
+/// the exact object-literal-as-direct-call-arg gap the F-AB-2 lockstep gap test
+/// characterizes on the repr side. Permanent PIN, no guard needed.
+#[test]
+fn exotic_object_literal_arg_capture_fails_closed() {
+    let out = run_kali(
+        "function sink(o){ return o.f(); } function outer(){ let c = 1; console.log(sink({ f: function(){ return c; } })); } outer();\n",
+    );
+    assert!(
+        !out.status.success(),
+        "expected E5506, got stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    // And it certainly must not silently print a wrong captured value.
+    assert!(
+        !String::from_utf8_lossy(&out.stdout).contains('1'),
+        "stdout leaked a value: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+}
+
+/// PRE-EXISTING tripwire (NOT capture-introduced — identical pre/post Stage C,
+/// and reproduces WITHOUT a capture). A fn-expr stored in an array literal and
+/// invoked indirectly (`arr[0]()`) returns a clean `0` instead of the captured
+/// value. This is an indirect-function-value invocation miscompile that predates
+/// the closures project; it is pinned here so a future stage that wires
+/// first-class function values (either fixing it to print `9` or failing it
+/// closed E5506) trips this test and revisits the pin. The load-bearing
+/// soundness property held today: it does NOT leak a garbage/heap value.
+#[test]
+fn exotic_array_element_indirect_call_is_preexisting_zero_not_garbage() {
+    let out = run_kali(
+        "function outer(){ let c = 9; let arr = [function(){ return c; }]; let g = arr[0]; console.log(g()); } outer();\n",
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    // Pre-existing behavior: clean `0` (node prints `9`). No garbage leak.
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "0\n");
+}
+
+/// PRE-EXISTING tripwire, optional-chain form (`o?.f()`). Same pre-existing
+/// indirect-invocation `0`, reproduced with and without a capture. Pinned so a
+/// future first-class-function stage revisits it.
+#[test]
+fn exotic_optional_chain_indirect_call_is_preexisting_zero_not_garbage() {
+    let out = run_kali(
+        "function outer(){ let c = 5; let o = { f: function(){ return c; } }; console.log(o?.f()); } outer();\n",
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "0\n");
+}
+
+/// F-AB-2 danger NOT reachable: a STRING capture in an exotic-position body
+/// fails closed (E3200) rather than silently lowering the string handle to i64.
+/// This is the concrete "string-element in an exotic body would silently lower
+/// to i64" scenario the F-AB-2 note warns about — pinned as fail-closed.
+#[test]
+fn exotic_string_capture_in_array_element_fails_closed() {
+    let out = run_kali(
+        "function outer(){ let s = \"hi\"; let arr = [function(){ return s + \"!\"; }]; console.log(arr[0]()); } outer();\n",
+    );
+    assert!(
+        !out.status.success(),
+        "expected fail-closed, got stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("E3200") || stderr.contains("E5506"),
+        "stderr: {stderr}"
+    );
+}
+
+/// F-AB-2 danger NOT reachable, growable form: a growable-array capture in an
+/// exotic-position body fails closed E5506 (the "capture by a nested function"
+/// growable gate), not a silent i64 length.
+#[test]
+fn exotic_growable_capture_in_array_element_fails_closed() {
+    assert_e5506(
+        "function outer(){ let a = []; a.push(1); let arr = [function(){ return a.length; }]; console.log(arr[0]()); } outer();\n",
+    );
+}

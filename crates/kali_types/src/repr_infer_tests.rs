@@ -907,3 +907,94 @@ fn growable_promotion_blocks_escaping_and_module_scope_bindings() {
     let t = reprs("const o = [];\no.push(1);\nconsole.log(o.length);\n");
     assert!(!t.is_growable_array_binding("_start", "o"));
 }
+
+// ---- F-AB-2 lockstep tripwire ----------------------------------------------
+//
+// These pin the two `__kali_fn_N` sets the shared Phase-A descent (walks 1-3)
+// and Phase B (walk 4) build. The product code carries a hard
+// `debug_assert!(seeded ⊆ registered)` in `assert_nested_fn_lockstep`; these
+// tests pin BOTH directions — that common callback positions are in exact
+// lockstep (seeded == registered) and that the KNOWN-exotic positions form the
+// documented, allowed reverse gap `registered − seeded`. See
+// `docs/superpowers/followups/stageAB-followups.md` §F-AB-2. (A named function
+// expression, e.g. `function cb(){…}`, stands in for the synthetic
+// `__kali_fn_N` id that `name_anon_functions` assigns in the real pipeline; the
+// lockstep logic keys purely on the fn-expr/arrow id, so the source of the name
+// is immaterial.)
+
+use super::repr_infer::nested_fn_lockstep_sets;
+
+#[test]
+fn nested_fn_lockstep_common_positions_are_equal() {
+    // A fn-expr in a common position (declarator init) is reached by BOTH the
+    // shared Phase-A descent AND Phase B's own walk-4 fn-expr arm → the sets
+    // are EQUAL. This is the invariant the debug_assert protects for the vast
+    // majority of real programs (no exotic positions).
+    let (registered, seeded) = nested_fn_lockstep_sets(&crate::test_support::parse_statements(
+        "let f = function cb(){ let x = 1; };\n",
+    ));
+    assert!(
+        registered.contains("cb"),
+        "walks 1-3 must register the fn-expr id; registered={registered:?}"
+    );
+    assert_eq!(
+        registered, seeded,
+        "common-position fn-expr must be in exact lockstep (seeded == registered)"
+    );
+}
+
+#[test]
+fn nested_fn_lockstep_ternary_and_arg_positions_are_equal() {
+    // Ternary branch + bare call-argument callback — both common positions
+    // that walk 4 seeds. Still exact lockstep.
+    let (registered, seeded) = nested_fn_lockstep_sets(&crate::test_support::parse_statements(
+        "function run(cb){ return cb; }\n\
+             let g = true ? function a(){ let x = 1; } : function b(){ let y = 2; };\n\
+             run(function c(){ let z = 3; });\n",
+    ));
+    assert_eq!(
+        registered, seeded,
+        "ternary + bare-arg fn-exprs must be in exact lockstep; \
+         registered={registered:?} seeded={seeded:?}"
+    );
+    assert!(seeded.contains("a") && seeded.contains("b") && seeded.contains("c"));
+}
+
+#[test]
+fn nested_fn_lockstep_exotic_object_literal_arg_is_the_allowed_gap() {
+    // F-AB-2 exotic position: a fn-expr inside an object literal passed
+    // DIRECTLY as a call argument (`sink({ f: function(){…} })`). The shared
+    // Phase-A descent (walks 1-3) descends the object-property value and
+    // REGISTERS it, but Phase B's walk-4 `_` arm has no `ObjectExpression`
+    // recursion, so it is NOT seeded. This is the documented, allowed reverse
+    // gap `registered − seeded` — pinned here rather than by a hard
+    // equal-assert (which would fire on day one for any such program).
+    let (registered, seeded) = nested_fn_lockstep_sets(&crate::test_support::parse_statements(
+        "function sink(o){ return o; }\n\
+             sink({ f: function exotic(){ let x = 1; } });\n",
+    ));
+    assert!(
+        registered.contains("exotic"),
+        "walks 1-3 must register the exotic-position fn-expr; registered={registered:?}"
+    );
+    assert!(
+        !seeded.contains("exotic"),
+        "walk 4 must NOT seed the object-literal-as-direct-call-arg position \
+         (F-AB-2 known gap); seeded={seeded:?}"
+    );
+    // The SAFE-direction invariant the debug_assert enforces still holds:
+    // everything walk 4 seeds was registered by walks 1-3.
+    assert!(
+        seeded.is_subset(&registered),
+        "F-AB-2 safe-direction invariant (seeded ⊆ registered) must hold; \
+         seeded={seeded:?} registered={registered:?}"
+    );
+    // The reverse gap is EXACTLY the one exotic fn (the allowlist/count of
+    // known-unseeded shapes for this program).
+    let gap: Vec<_> = registered.difference(&seeded).cloned().collect();
+    assert_eq!(
+        gap,
+        vec!["exotic".to_string()],
+        "unexpected unseeded gap: {gap:?}"
+    );
+}

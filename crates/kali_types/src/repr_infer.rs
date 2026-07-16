@@ -318,6 +318,21 @@ struct ReprInfer {
     /// kind picking the accurate message — the pre-existing push-no-op lane
     /// is a silent miscompile and must fail closed.
     growable_rejects: BTreeMap<(String, String), crate::growable::GrowableRejectKind>,
+    /// F-AB-2 lockstep tracking (see
+    /// `docs/superpowers/followups/stageAB-followups.md` §F-AB-2). Every
+    /// synthetic `__kali_fn_N` id the shared Phase-A descent registers (walks
+    /// 1-3, via `register_nested_fn`) and every id Phase B's OWN fn-expr/arrow
+    /// arms seed (walk 4, in `visit_expr`). The safe-direction invariant
+    /// `seeded ⊆ registered` (walk 4 never outruns the shared Phase-A descent)
+    /// is a hard `debug_assert` in `assert_nested_fn_lockstep`. The reverse gap
+    /// `registered − seeded` is exactly the known-exotic UNSEEDED positions
+    /// (object-literal-as-direct-call-arg, spread arg, tagged-template / yield /
+    /// optional-chain operand, bare/nested array literal); its exact membership
+    /// is pinned by the `nested_fn_lockstep_*` unit tests rather than a hard
+    /// equal-assert (which would fire on day one for any program using those
+    /// shapes).
+    nested_fns_registered: BTreeSet<String>,
+    nested_fns_seeded: BTreeSet<String>,
 }
 
 /// Identity of an object-holding slot for shape/aliasing purposes.
@@ -372,6 +387,13 @@ pub fn infer_reprs(statements: &[Statement]) -> ReprTable {
         infer.visit_stmt(TOP_LEVEL, stmt);
     }
 
+    // F-AB-2 lockstep tripwire: Phase A (walks 1-3) and Phase B (walk 4) share
+    // the same `__kali_fn_N` frontier. Assert it here, after both registration
+    // and seeding are complete, so a future divergence trips this rather than
+    // becoming a silent i64. See
+    // `docs/superpowers/followups/stageAB-followups.md` §F-AB-2.
+    infer.assert_nested_fn_lockstep();
+
     // Phase C: resolve deferred call edges (transitive array-param fixpoint +
     // directed scalar/return edges + bidirectional array-element unions).
     infer.resolve_calls();
@@ -382,6 +404,28 @@ pub fn infer_reprs(statements: &[Statement]) -> ReprTable {
 
     // Phase D: solve → table.
     infer.emit_table()
+}
+
+/// F-AB-2 lockstep test hook: run Phase A (walks 1-3 registration) and Phase B
+/// (walk 4 seeding), then return the two `__kali_fn_N` sets — `(registered,
+/// seeded)` — so unit tests can pin the exact membership of the reverse gap
+/// `registered − seeded` (the known-exotic UNSEEDED positions). Mirrors
+/// `infer_reprs` through the point where both sets are final; the later solve
+/// phases do not touch either set. See
+/// `docs/superpowers/followups/stageAB-followups.md` §F-AB-2.
+#[cfg(test)]
+pub(crate) fn nested_fn_lockstep_sets(
+    statements: &[Statement],
+) -> (BTreeSet<String>, BTreeSet<String>) {
+    let mut infer = ReprInfer::default();
+    infer.collect_functions(statements);
+    infer.collect_local_names(TOP_LEVEL, statements);
+    infer.collect_growable_candidates(statements);
+    for stmt in statements {
+        infer.visit_stmt(TOP_LEVEL, stmt);
+    }
+    infer.assert_nested_fn_lockstep();
+    (infer.nested_fns_registered, infer.nested_fns_seeded)
 }
 
 /// Selects which Phase-A walk a shared nested-fn-body descent is running for.
@@ -427,6 +471,35 @@ impl ReprInfer {
     /// Record a directed flow edge `from -> to` carried by BOTH axes.
     fn add_edge(&mut self, from: usize, to: usize) {
         self.edges.push((from, to, true));
+    }
+
+    /// F-AB-2 lockstep tripwire (see
+    /// `docs/superpowers/followups/stageAB-followups.md` §F-AB-2 and
+    /// `nested_fns_registered`). Enforce the SAFE-direction invariant
+    /// `seeded ⊆ registered`: every `__kali_fn_N` id Phase B's own walk-4
+    /// fn-expr/arrow arms seed must also have been registered by the shared
+    /// Phase-A descent (walks 1-3). This holds by construction today —
+    /// `descend_expr_fns` reaches a strict SUPERSET of the positions
+    /// `visit_expr` seeds — and would fire if a future edit taught Phase B to
+    /// seed a fn-expr position the shared Phase-A descent does not cover
+    /// (whose params/locals/growable-candidates would then be unregistered:
+    /// mis-scoped seeds). The REVERSE gap `registered − seeded` is the known
+    /// set of exotic UNSEEDED positions; because it is legitimately non-empty
+    /// for any program using those shapes, it is pinned by the
+    /// `nested_fn_lockstep_*` unit tests instead of a hard equal-assert.
+    fn assert_nested_fn_lockstep(&self) {
+        debug_assert!(
+            self.nested_fns_seeded
+                .is_subset(&self.nested_fns_registered),
+            "F-AB-2 lockstep violation: Phase-B (walk 4) seeded __kali_fn ids \
+             the shared Phase-A descent (walks 1-3) never registered: {:?}. A \
+             new walk-4 fn-expr/arrow seeding position must also be reached by \
+             `descend_expr_fns`. See \
+             docs/superpowers/followups/stageAB-followups.md §F-AB-2.",
+            self.nested_fns_seeded
+                .difference(&self.nested_fns_registered)
+                .collect::<Vec<_>>()
+        );
     }
 
     /// Record a directed flow edge carried by the FLOAT axis ONLY (excluded
@@ -850,6 +923,10 @@ impl ReprInfer {
         params: &[String],
         body: Option<&BlockStatement>,
     ) {
+        // F-AB-2 lockstep: this shared Phase-A descent (walks 1-3) is the
+        // authoritative `__kali_fn_N` frontier. Record the id ONCE (a set;
+        // called thrice, one per walk). See `nested_fns_registered`.
+        self.nested_fns_registered.insert(id.to_string());
         match walk {
             // Mirrors `collect_functions_in_stmt`'s `FunctionDeclaration` arm.
             NestedFnWalk::Functions => {
@@ -1793,12 +1870,18 @@ impl ReprInfer {
             // fn value itself is an i64 handle: return a fresh node.
             Expression::FunctionExpression(f) => {
                 if let (Some(id), Some(body)) = (f.id.as_deref(), f.body.as_deref()) {
+                    // F-AB-2 lockstep: record what walk 4 seeds (see
+                    // `nested_fns_seeded`).
+                    self.nested_fns_seeded.insert(id.to_string());
                     self.visit_block(id, body);
                 }
                 self.new_node()
             }
             Expression::ArrowFunctionExpression(a) => {
                 if let Some(id) = a.id.as_deref() {
+                    // F-AB-2 lockstep: record what walk 4 seeds (see
+                    // `nested_fns_seeded`).
+                    self.nested_fns_seeded.insert(id.to_string());
                     // Expression-bodied arrow (`x => x + 1`): visit its body
                     // expression under the arrow's own scope so its seeds/edges
                     // (e.g. a string `+`) are registered under `__kali_fn_N`.
