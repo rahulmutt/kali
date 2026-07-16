@@ -568,9 +568,11 @@ bg1–bg3 boundary pins stay green (module-scope / inline / indirect
 non-capturing callbacks still run). **Deliberate residual:** an identifier
 resolving to NOTHING in any codegen namespace stays on the pre-existing
 placeholder lane — this is the flattened block-arrow argument
-(`setTimeout(() => {…})` lowers the arrow to `Value("unknown")` and never
-compiles its body, so there is no closure to drop; the whole-expression
-drop is PRE-EXISTING and shared with base). Denying it re-reds main-green
+(`setTimeout(() => {…})` lowers the arrow to `Value("unknown")`; the arrow
+body's statements execute EAGERLY INLINE at the call site (verified:
+`arrow=6` prints before `sync=6`; node defers), so no closure ever exists
+in this lane — the wrong-TIMING eager execution is PRE-EXISTING and shared
+with base). Denying it re-reds main-green
 web-baseline bundle-build pins whose callback never existed as a function.
 Stage D's un-flatten converts that lane into real closure plans, at which
 point the allowlist catches them automatically.
