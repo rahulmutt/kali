@@ -646,7 +646,8 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     /// Stage C prologue: if this function owns a PROMOTABLE env (`lower.rs`
-    /// reserved its save local because it has >=1 promotable scalar-i64 cell),
+    /// reserved its save local because it has >=1 promotable cell — scalar-i64
+    /// or C2 fixed-shape object, per `crate::closure::cell_is_promotable`),
     /// save the incoming `current_env` into that save local, allocate this
     /// activation's record (`parent = incoming`) in the global never-reset
     /// region, and publish it into `current_env`. Mirrors the arena-trio

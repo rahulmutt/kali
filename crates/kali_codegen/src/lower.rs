@@ -883,6 +883,22 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         }
     }
 
+    // Stage C stage-review CRITICAL fix: the dynamic-env safety gate. Capture
+    // lowering resolves cells against the DYNAMIC `current_env`, but the
+    // capture analysis is LEXICAL — a capturer invoked while a sibling
+    // env-owner's record is active silently addresses the wrong cells (a
+    // cross-binding memory corruption). Reject-don't-miscompile: every
+    // call/registration edge into an engaged capturer must provably run with
+    // the capturer's owner record in `current_env`, else E5506 (matching the
+    // pre-Stage-C base, which rejected these shapes at the capture sites).
+    // See `crate::env_safety` for the interprocedural fixpoint.
+    diagnostics.extend(crate::env_safety::env_capture_safety_diagnostics(
+        lir,
+        &all_functions,
+        &ctx.env_plans,
+        &ctx.repr_table,
+    ));
+
     let mut code_section = CodeSection::new();
     for (coverage_id, function) in all_functions.iter().enumerate() {
         // Two extra i64 scratch locals: `self.locals.len()` is the general-purpose
@@ -1850,6 +1866,91 @@ pub(crate) fn function_plan(
 
 pub(crate) fn is_function_like(nodes: &[LirNode], id: LirNodeId) -> bool {
     function_shape(nodes, id).is_some()
+}
+
+/// Names whose binding PROVENANCE is unstable within `body`: assigned outside
+/// their declarator (`name = …`, any compound/logical-assignment form) or
+/// declared by MORE THAN ONE declarator (a block-level `let` re-declaration /
+/// shadow). The scheduling-surface default-deny guard refuses to resolve such
+/// a name through `fn_valued_locals` (recorded once, at declarator-emit time)
+/// — a reassignment or shadow leaves that mapping stale, which is exactly the
+/// fail-open the stage review's reassignment tripwire pinned. Deliberately
+/// walks INTO nested function subtrees: a nested function reassigning an
+/// outer binding invalidates the outer provenance just the same. Update
+/// expressions (`++`/`--`) are excluded on purpose — they cannot make a
+/// binding hold a (capturing) function value.
+pub(crate) fn unstable_provenance_names(nodes: &[LirNode], body: LirNodeId) -> HashSet<String> {
+    let mut unstable: HashSet<String> = HashSet::new();
+    let mut declarator_counts: HashMap<String, u32> = HashMap::new();
+    let mut stack = vec![body];
+    let mut seen: HashSet<LirNodeId> = HashSet::new();
+    while let Some(id) = stack.pop() {
+        if !seen.insert(id) {
+            continue;
+        }
+        let Some(node) = nodes.get(id.0 as usize) else {
+            continue;
+        };
+        if node.kind == LirNodeKind::Value
+            && node.children.len() == 2
+            && matches!(
+                node.text.as_deref(),
+                Some("=" | "+=" | "-=" | "*=" | "/=" | "%=" | "**=" | "??=" | "&&=" | "||=")
+            )
+        {
+            if let Some(name) = bare_assignment_target_name(nodes, node.children[0]) {
+                unstable.insert(name);
+            }
+        }
+        if node.kind == LirNodeKind::Instruction
+            && matches!(node.text.as_deref(), Some("const" | "let" | "var"))
+        {
+            for declarator_id in &node.children {
+                if let Some(name) = nodes
+                    .get(declarator_id.0 as usize)
+                    .and_then(|declarator| declarator.text.clone())
+                {
+                    *declarator_counts.entry(name).or_default() += 1;
+                }
+            }
+        }
+        stack.extend(node.children.iter().copied());
+    }
+    for (name, count) in declarator_counts {
+        if count > 1 {
+            unstable.insert(name);
+        }
+    }
+    unstable
+}
+
+/// The bare-identifier assignment target under transparent single-child
+/// `Value` wrappers, or `None` for member/element/complex targets (static
+/// mirror of `FunctionEmitter::unwrap_transparent` + bare-identifier check).
+fn bare_assignment_target_name(nodes: &[LirNode], mut id: LirNodeId) -> Option<String> {
+    let mut guard = 0;
+    loop {
+        let node = nodes.get(id.0 as usize)?;
+        if node.kind == LirNodeKind::Value
+            && node.children.len() == 1
+            && node
+                .text
+                .as_deref()
+                .is_none_or(|text| text.is_empty() || text == "await")
+        {
+            id = node.children[0];
+            guard += 1;
+            if guard > 64 {
+                return None;
+            }
+            continue;
+        }
+        return if node.kind == LirNodeKind::Value && node.children.is_empty() {
+            node.text.clone()
+        } else {
+            None
+        };
+    }
 }
 
 /// Pre-order, function-scoped loop-ordinal assignment over the LIR tree

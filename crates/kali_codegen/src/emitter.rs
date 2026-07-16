@@ -107,6 +107,16 @@ pub(crate) struct FunctionEmitter<'a> {
     /// — a callback identifier is name-matched to the fn it was DECLARED to
     /// hold, not guessed. See `call_has_capturing_closure_arg`.
     pub(crate) fn_valued_locals: BTreeMap<String, String>,
+    /// Names whose binding provenance is UNSTABLE in this function body:
+    /// assigned outside their declarator, or declared by more than one
+    /// declarator (block-level shadowing). `fn_valued_locals` is recorded once
+    /// at declarator-emit time, so for these names it can go stale; the
+    /// scheduling-surface default-deny guard therefore refuses to resolve any
+    /// unstable name and fails closed E5506 instead (stage-review IMPORTANT-1;
+    /// closes the reassignment-stale-provenance fail-open the tripwire pinned).
+    /// Computed structurally up front (`crate::lower::unstable_provenance_names`)
+    /// so it does not depend on emission order.
+    pub(crate) unstable_provenance_names: HashSet<String>,
     /// Names of locals that hold a linear-memory array handle (`new Array(n)`).
     pub(crate) array_bindings: HashSet<String>,
     /// Names of locals that hold a GROWABLE runtime-array tagged handle
@@ -264,6 +274,8 @@ impl<'a> FunctionEmitter<'a> {
             crate::lower::string_site_preorder_ordinals(&program.nodes, body);
         let for_in_ordinals = crate::lower::for_in_preorder_ordinals(&program.nodes, body);
         let for_in_key_aliases = crate::lower::for_in_key_alias_names(&program.nodes, body);
+        let unstable_provenance_names =
+            crate::lower::unstable_provenance_names(&program.nodes, body);
         let mut locals = BTreeMap::new();
         for (idx, name) in params.iter().enumerate() {
             locals.insert(name.clone(), idx as u32);
@@ -329,6 +341,7 @@ impl<'a> FunctionEmitter<'a> {
             locals,
             bindings: BTreeMap::new(),
             fn_valued_locals: BTreeMap::new(),
+            unstable_provenance_names,
             array_bindings,
             growable_array_bindings,
             growable_for_of_active: None,
@@ -478,10 +491,14 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     /// True when THIS function owns a promotable env — i.e. `lower.rs` reserved
-    /// its `current_env` save local because it has >=1 promotable scalar-i64
-    /// cell. Only such a function runs the env prologue/epilogue (allocating a
-    /// record and mutating `CURRENT_ENV_GLOBAL`); a function whose only cells are
-    /// heap/non-i64 leaves `current_env` untouched, exactly like baseline.
+    /// its `current_env` save local because it has >=1 promotable cell (a
+    /// C1 scalar-i64 cell OR a C2 fixed-shape-object pointer cell — both
+    /// halves of `crate::closure::cell_is_promotable`, the single shared
+    /// promotion predicate). Only such a function runs the env
+    /// prologue/epilogue (allocating a record and mutating
+    /// `CURRENT_ENV_GLOBAL`); a function whose cells are all NON-promotable
+    /// (F64/string scalars, closure/array heap cells) leaves `current_env`
+    /// untouched, exactly like baseline.
     pub(crate) fn owns_promotable_env(&self) -> bool {
         self.locals
             .contains_key(&crate::closure::env_save_local_name())
