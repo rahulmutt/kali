@@ -59,6 +59,7 @@ fn release_specializes_shared_closure_layout_bindings() {
     let mir = MirAnalysisProgram {
         root: kali_mir::MirNodeId::new(0),
         arena_facts: Vec::new(),
+        parent_labels: Default::default(),
         nodes: Vec::new(),
         functions: vec![
             kali_mir::MirFunction {
@@ -208,6 +209,7 @@ fn release_specializes_distinct_closure_capture_bindings() {
     let mir = MirAnalysisProgram {
         root: kali_mir::MirNodeId::new(0),
         arena_facts: Vec::new(),
+        parent_labels: Default::default(),
         nodes: Vec::new(),
         functions: vec![
             kali_mir::MirFunction {
@@ -401,6 +403,7 @@ fn release_specializes_nested_mir_bound_bindings_inside_object_literals() {
     let mir = MirAnalysisProgram {
         root: kali_mir::MirNodeId::new(0),
         arena_facts: Vec::new(),
+        parent_labels: Default::default(),
         nodes: Vec::new(),
         functions: vec![
             kali_mir::MirFunction {
@@ -550,6 +553,7 @@ fn release_specializes_shared_struct_layout_bindings() {
     let mir = MirAnalysisProgram {
         root: kali_mir::MirNodeId::new(0),
         arena_facts: Vec::new(),
+        parent_labels: Default::default(),
         nodes: Vec::new(),
         functions: vec![
             kali_mir::MirFunction {
@@ -733,6 +737,7 @@ fn release_specializes_distinct_struct_layout_bindings() {
     let mir = MirAnalysisProgram {
         root: kali_mir::MirNodeId::new(0),
         arena_facts: Vec::new(),
+        parent_labels: Default::default(),
         nodes: Vec::new(),
         functions: vec![
             kali_mir::MirFunction {
@@ -891,6 +896,7 @@ fn release_specializes_distinct_array_layout_bindings() {
     let mir = MirAnalysisProgram {
         root: kali_mir::MirNodeId::new(0),
         arena_facts: Vec::new(),
+        parent_labels: Default::default(),
         nodes: Vec::new(),
         functions: vec![
             kali_mir::MirFunction {

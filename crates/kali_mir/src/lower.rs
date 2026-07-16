@@ -23,13 +23,15 @@ impl MirLowerer {
     pub fn lower_hir_result(&self, hir: &HirLoweringResult) -> MirProgram {
         let mut builder = MirBuilder::new();
         let root = self.lower_hir_node(&mut builder, &hir.nodes, hir.root, hir);
-        let (functions, arena_facts) = OwnershipAnalyzer::new(&hir.nodes, &hir.function_flavors)
-            .analyze_program_with_arena(hir.root);
+        let (functions, arena_facts, parent_labels) =
+            OwnershipAnalyzer::new(&hir.nodes, &hir.function_flavors)
+                .analyze_program_with_arena(hir.root);
         MirProgram {
             root,
             nodes: builder.nodes,
             functions,
             arena_facts,
+            parent_labels,
         }
     }
 

@@ -263,6 +263,16 @@ pub(crate) struct OwnershipAnalyzer<'a> {
     pub(crate) functions: Vec<MirFunction>,
     pub(crate) scope_stack: Vec<ScopeState>,
     pub(crate) synthetic_function_counter: usize,
+    /// Function-nesting parent chain keyed by the analysis's own scope labels
+    /// (`__kali_fn_N` / function names — the same key space as
+    /// `MirBinding::captured_by` and `MirFunction::name`). Recorded at
+    /// `push_scope` for each non-module function; the value is the enclosing
+    /// function's label, or `None` when the enclosing scope is the module root.
+    /// This is the single source of function nesting consumed by
+    /// [`crate::env_plan::derive_env_plans`] — it never re-reads the node tree,
+    /// so anonymous functions are first-class and non-scope `Function` nodes
+    /// (e.g. classes) never contaminate it.
+    pub(crate) parent_labels: BTreeMap<String, Option<String>>,
     pub(crate) arena: arena_gate::ArenaCollector,
     pub(crate) flow: escape_flow::FlowCollector,
 }
@@ -278,6 +288,7 @@ impl<'a> OwnershipAnalyzer<'a> {
             functions: Vec::new(),
             scope_stack: Vec::new(),
             synthetic_function_counter: 0,
+            parent_labels: BTreeMap::new(),
             arena: arena_gate::ArenaCollector::default(),
             flow: escape_flow::FlowCollector::default(),
         }
@@ -288,7 +299,11 @@ impl<'a> OwnershipAnalyzer<'a> {
     pub(crate) fn analyze_program_with_arena(
         mut self,
         root: HirNodeId,
-    ) -> (Vec<MirFunction>, Vec<arena_gate::FunctionArenaFacts>) {
+    ) -> (
+        Vec<MirFunction>,
+        Vec<arena_gate::FunctionArenaFacts>,
+        BTreeMap<String, Option<String>>,
+    ) {
         self.push_scope("<module>", MirFunctionKind::Module, None);
         self.precollect_scope_bindings(root);
         self.walk_scope_node(root, UseContext::Normal);
@@ -297,7 +312,7 @@ impl<'a> OwnershipAnalyzer<'a> {
         let solution = escape_flow::solve(&flow);
         escape_flow::apply_escape_verdicts(&mut self.functions, &solution);
         let facts = std::mem::take(&mut self.arena).into_facts(&flow, &solution);
-        (self.functions, facts)
+        (self.functions, facts, self.parent_labels)
     }
 
     pub(crate) fn function_flavor(&self, node_id: HirNodeId) -> Option<FunctionFlavor> {

@@ -64,6 +64,7 @@ fn mir_backed_pipeline_reduces_legacy_overhead_on_escaping_locals() {
         nodes: Vec::new(),
         functions: Vec::new(),
         arena_facts: Vec::new(),
+        parent_labels: std::collections::BTreeMap::new(),
     };
     let baseline_lir = legacy_phase1_baseline(&current_lir, &mir);
 

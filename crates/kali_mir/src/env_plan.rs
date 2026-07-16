@@ -3,16 +3,22 @@
 //! Stage C gives kali environment-pointer closures. This module is the pure
 //! analysis bridge: from the capture edges MIR already records
 //! (`MirBinding::captured_by`, populated in `analysis/walk.rs::resolve_use`)
-//! plus the source function nesting preserved in the MIR node tree
-//! (`MirProgram::nodes` / `root`), it derives a per-function [`EnvPlan`] — the
+//! plus the function nesting the analysis records in its own scope-label key
+//! space (`MirProgram::parent_labels`, populated in
+//! `analysis/scope.rs::push_scope`), it derives a per-function [`EnvPlan`] — the
 //! set of bindings a function must promote into an env record, and the
 //! outer-env references it reads through the parent chain.
+//!
+//! Both inputs are keyed on the SAME labels (`__kali_fn_N` / function names), so
+//! anonymous functions are first-class and the node tree is never consulted for
+//! nesting — a non-scope `Function` node (e.g. a class) cannot inject a phantom
+//! hop into a capture depth.
 //!
 //! No codegen decisions live here; later Stage C tasks consume these plans.
 
 use std::collections::BTreeMap;
 
-use crate::{LayoutDescriptor, MirFunctionKind, MirNodeKind, MirProgram};
+use crate::{LayoutDescriptor, MirFunctionKind, MirProgram};
 
 /// One promoted binding: it lives in an env cell because a nested function
 /// captures it. `offset` is its byte offset within the owning env record,
@@ -69,50 +75,12 @@ fn function_key(name: &Option<String>) -> String {
     name.clone().unwrap_or_default()
 }
 
-/// Reconstruct the function-nesting parent chain from the MIR node tree.
-///
-/// The node tree (`MirProgram::nodes`, rooted at `MirProgram::root`) preserves
-/// the source structure: a `MirNodeKind::Function` node's `text` is the
-/// function name and its descendants include any nested function nodes. This
-/// is the same scope nesting `analysis/walk.rs` walks; here we read it back
-/// from the finalized program rather than re-running the analysis.
-///
-/// Returns `name -> enclosing function name` (`None` when the enclosing scope
-/// is the module root). Anonymous function nodes (no `text`) carry no stable
-/// key that matches the analysis labels, so they are transparent: a named
-/// function nested inside one is attributed to the nearest *named* enclosing
-/// scope. Stage C's surface is named functions, so this is exact for it.
-fn build_parent_map(program: &MirProgram) -> BTreeMap<String, Option<String>> {
-    fn walk(
-        program: &MirProgram,
-        id: crate::MirNodeId,
-        enclosing: Option<String>,
-        map: &mut BTreeMap<String, Option<String>>,
-    ) {
-        let node = &program.nodes[id.0 as usize];
-        let mut child_enclosing = enclosing.clone();
-        if node.kind == MirNodeKind::Function {
-            if let Some(name) = node.text.as_ref() {
-                map.insert(name.clone(), enclosing);
-                child_enclosing = Some(name.clone());
-            }
-        }
-        for child in &node.children {
-            walk(program, *child, child_enclosing.clone(), map);
-        }
-    }
-
-    let mut map = BTreeMap::new();
-    walk(program, program.root, None, &mut map);
-    map
-}
-
 /// Number of function-scope hops from `from` up to `to` (0 = same function).
 ///
-/// Walks the parent chain built by [`build_parent_map`]. Returns `None` if
-/// `to` is not an ancestor of `from` (defensive: capture edges always point
-/// from a descendant to an ancestor, so this should not happen for a
-/// well-formed capture set).
+/// Walks the parent chain the analysis recorded in `MirProgram::parent_labels`
+/// (see [`derive_env_plans`]). Returns `None` if `to` is not an ancestor of
+/// `from` (defensive: capture edges always point from a descendant to an
+/// ancestor, so this should not happen for a well-formed capture set).
 fn scope_hops(from: &str, to: &str, parents: &BTreeMap<String, Option<String>>) -> Option<u32> {
     let mut current = from.to_string();
     let mut depth = 0u32;
@@ -136,9 +104,11 @@ fn scope_hops(from: &str, to: &str, parents: &BTreeMap<String, Option<String>>) 
 ///
 /// The `MirProgram` is the crate's finalized analysis handle (produced by
 /// `MirLowerer::lower_hir_result`); its public `functions`/`bindings` tables
-/// carry the capture set, and its node tree carries the scope nesting.
+/// carry the capture set, and `parent_labels` carries the scope nesting in the
+/// same label key space (so anonymous functions are first-class and the node
+/// tree is never consulted for nesting).
 pub fn derive_env_plans(program: &MirProgram) -> BTreeMap<String, EnvPlan> {
-    let parents = build_parent_map(program);
+    let parents = &program.parent_labels;
 
     let mut plans: BTreeMap<String, EnvPlan> = BTreeMap::new();
     // fn key -> (binding name -> (offset, is_scalar)) for its promoted cells.
@@ -196,7 +166,7 @@ pub fn derive_env_plans(program: &MirProgram) -> BTreeMap<String, EnvPlan> {
                 continue;
             };
             for capturer in &binding.captured_by {
-                if let Some(depth) = scope_hops(capturer, &owner_key, &parents) {
+                if let Some(depth) = scope_hops(capturer, &owner_key, parents) {
                     plans.entry(capturer.clone()).or_default().captured.push(
                         CapturedRef {
                             name: binding.name.clone(),
@@ -276,5 +246,117 @@ mod tests {
                 is_scalar: true
             }]
         );
+    }
+
+    /// An ANONYMOUS function expression is a capture OWNER: `g` captures `inner`,
+    /// which is owned by the anonymous `function(){...}` assigned to `f`. The
+    /// anonymous owner must be first-class in the nesting map (keyed by its
+    /// `__kali_fn_N` analysis label), so `g`'s CapturedRef for `inner` is NOT
+    /// silently dropped and the owner's plan is discoverable.
+    ///
+    /// NB: on this branch HIR already assigns each anonymous function a
+    /// `__kali_fn_N` name into the node `text`, and the analysis reuses that
+    /// text as its scope label, so the finding's stated `text = None`
+    /// transparency does not trigger here — this passes on HEAD too. It is kept
+    /// as a by-construction regression pin: the label-keyed map must keep
+    /// anonymous owners first-class even if the two naming channels ever diverge.
+    #[test]
+    fn anonymous_owner_is_first_class_capture_ref_not_dropped() {
+        let analysis = crate::test_support::analyze(
+            "function outer(){ let c = 0; let f = function(){ let inner = 1; function g(){ return inner + c; } return g(); }; return f(); }",
+        );
+        let plans = derive_env_plans(&analysis);
+
+        // The anonymous fn-expr is labeled __kali_fn_0 (first synthetic name);
+        // it owns `inner` (captured by g), so it owns an env.
+        let anon = plans.get("__kali_fn_0").expect("anonymous owner plan");
+        assert!(anon.owns_env, "anonymous fn-expr owns env for `inner`");
+        assert_eq!(
+            anon.cells,
+            vec![EnvCell {
+                name: "inner".into(),
+                offset: 0,
+                is_scalar: true
+            }]
+        );
+
+        // g captures `inner` (owned by the anonymous fn, depth 1) — this ref was
+        // silently dropped when the anonymous owner was transparent in the map.
+        let g = plans.get("g").expect("g plan");
+        assert!(
+            g.captured
+                .iter()
+                .any(|c| c.name == "inner" && c.depth == 1 && c.is_scalar),
+            "g must capture `inner` at depth 1 (owned by the anonymous fn), got {:?}",
+            g.captured
+        );
+    }
+
+    /// An ANONYMOUS function expression is an INTERMEDIATE: `inner` (named) is
+    /// nested inside an anonymous `function(){...}` (assigned to `mid`) which is
+    /// nested inside named `outer`. `inner` captures `v` from `outer`. The
+    /// anonymous hop must be counted: depth = 2, not 1.
+    ///
+    /// NB: like the sibling test, HIR names the anonymous intermediate
+    /// `__kali_fn_N` in the node text, so this already reports depth 2 on HEAD.
+    /// Kept as a by-construction regression pin under the label-keyed map.
+    #[test]
+    fn anonymous_intermediate_hop_is_counted_depth_two() {
+        let analysis = crate::test_support::analyze(
+            "function outer(){ let v = 7; let mid = function(){ function inner(){ return v; } return inner(); }; return mid(); }",
+        );
+        let plans = derive_env_plans(&analysis);
+        let inner = plans.get("inner").expect("inner plan");
+        assert_eq!(
+            inner.captured,
+            vec![CapturedRef {
+                name: "v".into(),
+                depth: 2,
+                offset: 0,
+                is_scalar: true
+            }],
+            "the anonymous intermediate scope must count as a hop (depth 2)"
+        );
+    }
+
+    /// A class is lowered to a `MirNodeKind::Function` node (`lower.rs`), but the
+    /// analysis walk creates NO scope for it — the class body's method nests
+    /// directly under the enclosing function. Keying the nesting map on the
+    /// node tree therefore injects a PHANTOM hop for the class, OVERCOUNTING
+    /// capture depth.
+    ///
+    /// Here `h` (nested in method `m`, itself in `outer`) captures `z` from
+    /// `outer` at the true function-scope depth 2 (`outer` > `m` > `h`). The
+    /// node-tree map counted class `K` as a third hop (depth 3) — a real
+    /// miscompile-class defect. This is the concrete, RED-on-HEAD reproduction
+    /// of the finding's "node-tree nesting diverges from the analysis labels"
+    /// class (reviewer Minor note 1). The label-keyed map never sees `K`, so the
+    /// depth is 2.
+    #[test]
+    fn class_node_does_not_inject_phantom_capture_hop() {
+        let analysis = crate::test_support::analyze(
+            "function outer(){ let z = 0; class K { m(){ let q = 1; function h(){ return q + z; } return h(); } } return new K().m(); }",
+        );
+        let plans = derive_env_plans(&analysis);
+        let h = plans.get("h").expect("h plan");
+
+        let z = h
+            .captured
+            .iter()
+            .find(|c| c.name == "z")
+            .expect("h captures z");
+        assert_eq!(
+            z.depth, 2,
+            "class K must not add a phantom hop: outer>m>h = depth 2, got {}",
+            z.depth
+        );
+
+        // `q` (owned by method `m`, one function-scope hop up) stays depth 1.
+        let q = h
+            .captured
+            .iter()
+            .find(|c| c.name == "q")
+            .expect("h captures q");
+        assert_eq!(q.depth, 1);
     }
 }
