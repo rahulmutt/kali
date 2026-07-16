@@ -786,6 +786,24 @@ impl<'a> FunctionEmitter<'a> {
                         }
                         let init = declarator.children[1];
 
+                        // Binding provenance for a function-VALUED local: if the
+                        // initializer resolves to a named closure (`__kali_fn_N`,
+                        // renamed in place by `name_anon_functions`), record
+                        // `name -> plan key`. Consulted by the scheduling-surface
+                        // guard so an indirectly-passed callback (`setTimeout(cb)`)
+                        // is resolved to its closure plan by DECLARATION, not name
+                        // guessing. Recorded before any early `continue` below so
+                        // the mapping is unconditional; harmless for non-fn inits
+                        // (the key is only ever looked up for closure args).
+                        if let Some(name) = declarator.text.clone() {
+                            let init_node = self.node(self.unwrap_transparent(init));
+                            if let Some(fn_key) = init_node.text.as_deref() {
+                                if self.env_plans.contains_key(fn_key) {
+                                    self.fn_valued_locals.insert(name, fn_key.to_string());
+                                }
+                            }
+                        }
+
                         // Materialized object-literal binding: `const p = {…}`
                         // whose inferred repr is Object(shape) — allocate the
                         // fixed-layout struct and bind the base pointer.

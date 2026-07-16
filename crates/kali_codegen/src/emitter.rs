@@ -98,6 +98,15 @@ pub(crate) struct FunctionEmitter<'a> {
     pub(crate) current_function_flavor: Option<FunctionFlavor>,
     pub(crate) locals: BTreeMap<String, u32>,
     pub(crate) bindings: BTreeMap<String, LirNodeId>,
+    /// Local names bound to a function VALUE (`let cb = function(){…}` /
+    /// `const cb = () => …`), mapping the binding name to the initializer's
+    /// `__kali_fn_N` plan key. Recorded at declaration-emit time (source order,
+    /// so the binding is populated before any later use). This is the
+    /// binding-PROVENANCE the scheduling-surface guard consults to resolve an
+    /// indirectly-passed callback (`setTimeout(cb, 0)`) back to its closure plan
+    /// — a callback identifier is name-matched to the fn it was DECLARED to
+    /// hold, not guessed. See `call_has_capturing_closure_arg`.
+    pub(crate) fn_valued_locals: BTreeMap<String, String>,
     /// Names of locals that hold a linear-memory array handle (`new Array(n)`).
     pub(crate) array_bindings: HashSet<String>,
     /// Names of locals that hold a GROWABLE runtime-array tagged handle
@@ -319,6 +328,7 @@ impl<'a> FunctionEmitter<'a> {
             current_function_flavor,
             locals,
             bindings: BTreeMap::new(),
+            fn_valued_locals: BTreeMap::new(),
             array_bindings,
             growable_array_bindings,
             growable_for_of_active: None,

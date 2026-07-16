@@ -2815,26 +2815,48 @@ impl<'a> FunctionEmitter<'a> {
     fn is_undrained_scheduling_surface(&self, callee_node: &LirNode) -> bool {
         matches!(
             callee_node.text.as_deref(),
-            Some("queueMicrotask") | Some("setTimeout") | Some("setInterval")
+            Some("queueMicrotask")
+                | Some("setTimeout")
+                | Some("setInterval")
                 | Some("addEventListener")
         )
     }
 
-    /// True when any argument of `node` is a function value (a `__kali_fn_N`
-    /// name present in `self.functions`) whose closure plan CAPTURES an
-    /// enclosing env cell (`!captured.is_empty()`). Module-global captures are
-    /// NOT env-cell captures (`derive_env_plans` excludes them), so a callback
-    /// that only touches module globals has an empty `captured` and returns
-    /// false — matching base behavior (module-scope scheduler drop is
-    /// pre-existing and stays as-is).
+    /// True when any argument of `node` is a function value whose closure plan
+    /// CAPTURES an enclosing env cell (`!captured.is_empty()`). Two provenance
+    /// forms resolve the argument to a plan key:
+    /// - DIRECT inline: `setTimeout(function(){…})` — the argument node's own
+    ///   text is the `__kali_fn_N` plan key (`name_anon_functions` renamed it in
+    ///   place).
+    /// - INDIRECT via a binding: `let cb = function(){…}; setTimeout(cb, 0)` —
+    ///   the argument is an identifier; `fn_valued_locals` maps it to the plan
+    ///   key of the closure it was DECLARED to hold (recorded at declaration
+    ///   time, source order, so it is always populated first). This resolves by
+    ///   declaration provenance, not by guessing a fn name from the identifier.
+    ///
+    /// Module-global captures are NOT env-cell captures (`derive_env_plans`
+    /// excludes them), so a callback that only touches module globals has an
+    /// empty `captured` and returns false — matching base behavior (module-scope
+    /// scheduler drop is pre-existing and stays as-is). A non-capturing callback
+    /// (inline or indirect) likewise has no non-empty `captured` and is left to
+    /// run unchanged.
     fn call_has_capturing_closure_arg(&self, node: &LirNode) -> bool {
         node.children.iter().skip(1).any(|&arg| {
             let arg = self.unwrap_transparent(arg);
             let Some(text) = self.node(arg).text.as_deref() else {
                 return false;
             };
+            // Direct: the arg IS the closure. Indirect: the arg names a local
+            // bound to the closure — resolve it through declaration provenance.
+            let plan_key = if self.env_plans.contains_key(text) {
+                text
+            } else if let Some(key) = self.fn_valued_locals.get(text) {
+                key.as_str()
+            } else {
+                return false;
+            };
             self.env_plans
-                .get(text)
+                .get(plan_key)
                 .is_some_and(|plan| !plan.captured.is_empty())
         })
     }

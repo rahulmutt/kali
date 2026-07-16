@@ -1001,7 +1001,10 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             &module_const_inits,
             &module_binding_names,
             &module_global_slots,
-            ctx.env_plans.get(&function.name).cloned().unwrap_or_default(),
+            ctx.env_plans
+                .get(&function.name)
+                .cloned()
+                .unwrap_or_default(),
             &ctx.env_plans,
         );
         let coverage_id = ctx.target.coverage.then_some(coverage_id as u32);
