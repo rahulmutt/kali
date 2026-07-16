@@ -74,6 +74,72 @@ impl<'a> FunctionEmitter<'a> {
                 };
             }
 
+            // Stage-review IMPORTANT-2: a FUNCTION-VALUE callback that
+            // `kali_test_callback_index` cannot resolve to a compiled function
+            // — a parameter (`function suite(cb){ Kali.test("a", cb); }`), an
+            // alias, or a call result — used to fall through here as a mere
+            // WARNING with NO registration: the harness printed `ok 1` with
+            // zero tests and exited 0, silently never running the callback
+            // (base a57cd09d5 rejected the same capturing programs E5506 at
+            // their capture sites). Default-deny those shapes: a bare
+            // identifier or a call expression in callback position is a value
+            // that WOULD have been the test body — fail closed E5506.
+            //
+            // Deliberately narrower than a blanket deny: a FLATTENED
+            // block-arrow callback (`Kali.test('n', () => { … })`, the
+            // pre-Stage-D arrow lowering) is not a function value here — its
+            // body statements were inlined and already execute at the
+            // registration site — and blanket-denying it re-reds hundreds of
+            // main-green browser-lane fixtures. That lane keeps the
+            // pre-existing warning; the `ok 1`-with-zero-tests masking it
+            // relies on is inventoried in the stage triage (Stage D un-flatten
+            // is the real fix).
+            let callback_is_unregisterable_value = node.children.get(2).is_some_and(|&cb| {
+                let cb = self.unwrap_transparent(cb);
+                let cb_node = self.node(cb);
+                match cb_node.kind {
+                    // A call RESULT in callback position (`Kali.test("a", make())`)
+                    // is a function value this lane cannot register.
+                    LirNodeKind::Call => true,
+                    // A bare identifier that demonstrably names a LIVE binding
+                    // (a param/local, a const binding, a declarator-recorded
+                    // function value, or a module binding) is a real value that
+                    // would be silently dropped. The flattened-arrow lowering's
+                    // `Value(text = "unknown")` placeholder names none of these
+                    // and stays on the warning lane below.
+                    LirNodeKind::Value => {
+                        cb_node.children.is_empty()
+                            && cb_node.text.as_deref().is_some_and(|text| {
+                                self.locals.contains_key(text)
+                                    || self.bindings.contains_key(text)
+                                    || self.fn_valued_locals.contains_key(text)
+                                    || self.module_binding_names.contains(text)
+                            })
+                    }
+                    // No-ops by construction: an inline function expression /
+                    // declaration (`Instruction`) resolved far above via
+                    // `kali_test_callback_index`; the remaining kinds are not
+                    // value-producing callback shapes — they keep the
+                    // pre-existing warning lane.
+                    LirNodeKind::Program
+                    | LirNodeKind::Block
+                    | LirNodeKind::Instruction
+                    | LirNodeKind::Branch
+                    | LirNodeKind::Literal
+                    | LirNodeKind::Unknown => false,
+                }
+            });
+            if callback_is_unregisterable_value {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "`Kali.test(...)` requires a function callback resolvable to a compiled function at the registration site (a named function or an inline function expression); an unresolvable callback value (parameter, alias, or call result) would register nothing and the test would be silently dropped".to_string(),
+                ));
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            }
+
             self.diagnostics.push(Diagnostic::warning(
                 e8::IR_UNREADABLE as u32,
                 "`Kali.test(...)` requires a function callback lowered as an exported function",
@@ -2757,29 +2823,34 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
-        // Stage C fail-closed (triage Concern 2): a CAPTURING callback passed to
-        // a host scheduling surface whose call codegen does NOT emit. Codegen
-        // emits no call to `queueMicrotask`/`setTimeout`/`setInterval`/
-        // `addEventListener` (Task 6: the host imports exist but no generated
-        // module imports them), so the call lowers through this generic
-        // zero-placeholder fallback and the scheduled callback is silently
-        // dropped. When that callback CAPTURES an enclosing env cell (its plan's
-        // `captured` is non-empty), dropping it also drops its captured
-        // environment — the exact shape base `a57cd09d5` REJECTED at the
-        // capture-write/read (E5506). Stage C lowered the capture, unmasking the
-        // pre-existing scheduler no-op; restore the rejection HERE, at the single
-        // choke point all four surfaces converge on. Module-scope callbacks
-        // (globals, empty `captured`) and non-capturing callbacks are NOT this
-        // class (they were silently dropped at base too) and are left unchanged;
-        // `Kali.test` — the one codegen-emitted deferred surface that DOES thread
+        // Stage C fail-closed (triage Concern 2, DEFAULT-DENY per the stage
+        // review's IMPORTANT-1): codegen emits no call to `queueMicrotask`/
+        // `setTimeout`/`setInterval`/`addEventListener` (Task 6: the host
+        // imports exist but no generated module imports them), so the call
+        // lowers through this generic zero-placeholder fallback and the
+        // scheduled callback is silently dropped. Dropping a CAPTURING callback
+        // also drops its captured environment — the exact shape base
+        // `a57cd09d5` REJECTED (E5506) at the capture-write/read. The original
+        // guard denylisted "provably capturing" arguments and default-ALLOWED
+        // everything it could not resolve — live fail-opens: an ALIAS
+        // (`let cb2 = cb; setTimeout(cb2, 0)`), a CALL RESULT
+        // (`setTimeout(makeCb(), 0)`), and a REASSIGNED binding with stale
+        // declarator provenance all silently dropped. Inverted to an
+        // allowlist at this single choke point (all four surfaces converge
+        // here): E5506 UNLESS every argument is PROVABLY safe — a non-callable
+        // literal/number, or a callback whose closure plan resolves through
+        // stable provenance to an empty `captured` set. Module-scope and
+        // non-capturing callbacks (silently dropped at base too — the
+        // bg1-bg3 boundary pins) still resolve and keep running; `Kali.test`
+        // — the one codegen-emitted deferred surface that DOES thread
         // `env_ptr` — returned far above and never reaches here.
         if self.is_undrained_scheduling_surface(&callee_node)
-            && self.call_has_capturing_closure_arg(node)
+            && !self.scheduling_call_args_provably_safe(node)
         {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
                 format!(
-                    "a capturing callback passed to '{callee_name}' is unavailable: codegen emits no call to this scheduling surface, so the callback — and its captured environment — would be silently dropped (event/timer-lowering follow-up)"
+                    "a callback passed to '{callee_name}' is unavailable unless it is provably non-capturing: codegen emits no call to this scheduling surface, so the callback — and any captured environment — would be silently dropped; an argument with unresolvable provenance fails closed (event/timer-lowering follow-up)"
                 ),
             ));
             for _ in node.children.iter().skip(1) {
@@ -2822,42 +2893,93 @@ impl<'a> FunctionEmitter<'a> {
         )
     }
 
-    /// True when any argument of `node` is a function value whose closure plan
-    /// CAPTURES an enclosing env cell (`!captured.is_empty()`). Two provenance
-    /// forms resolve the argument to a plan key:
-    /// - DIRECT inline: `setTimeout(function(){…})` — the argument node's own
-    ///   text is the `__kali_fn_N` plan key (`name_anon_functions` renamed it in
-    ///   place).
-    /// - INDIRECT via a binding: `let cb = function(){…}; setTimeout(cb, 0)` —
-    ///   the argument is an identifier; `fn_valued_locals` maps it to the plan
-    ///   key of the closure it was DECLARED to hold (recorded at declaration
-    ///   time, source order, so it is always populated first). This resolves by
-    ///   declaration provenance, not by guessing a fn name from the identifier.
+    /// DEFAULT-DENY provenance check for the un-emittable scheduling surfaces
+    /// (stage-review IMPORTANT-1): true only when EVERY argument of `node` is
+    /// PROVABLY safe to drop —
+    /// - a literal (string/number/boolean) or a bare numeric constant: not a
+    ///   callable, dropping it drops no callback;
+    /// - a DIRECT inline function expression (`setTimeout(function(){…})`):
+    ///   its node text is the `__kali_fn_N` plan key (`name_anon_functions`
+    ///   renamed it in place) — safe iff its plan's `captured` is empty;
+    /// - an identifier with STABLE provenance resolving to a non-capturing
+    ///   closure plan: `fn_valued_locals` (declarator provenance) first — a
+    ///   local binding SHADOWS any same-named module function — then a bare
+    ///   module-level function name. A name that is reassigned or re-declared
+    ///   anywhere in this function (`unstable_provenance_names`) is NEVER
+    ///   resolved: the declarator-time mapping can be stale (the reassignment
+    ///   fail-open the stage review's tripwire pinned).
     ///
-    /// Module-global captures are NOT env-cell captures (`derive_env_plans`
-    /// excludes them), so a callback that only touches module globals has an
-    /// empty `captured` and returns false — matching base behavior (module-scope
-    /// scheduler drop is pre-existing and stays as-is). A non-capturing callback
-    /// (inline or indirect) likewise has no non-empty `captured` and is left to
-    /// run unchanged.
-    fn call_has_capturing_closure_arg(&self, node: &LirNode) -> bool {
-        node.children.iter().skip(1).any(|&arg| {
-            let arg = self.unwrap_transparent(arg);
-            let Some(text) = self.node(arg).text.as_deref() else {
-                return false;
-            };
-            // Direct: the arg IS the closure. Indirect: the arg names a local
-            // bound to the closure — resolve it through declaration provenance.
-            let plan_key = if self.env_plans.contains_key(text) {
-                text
-            } else if let Some(key) = self.fn_valued_locals.get(text) {
-                key.as_str()
-            } else {
-                return false;
-            };
+    /// Everything else — aliases of aliases (`let cb2 = cb`), call results
+    /// (`setTimeout(makeCb(), 0)`), member/element reads, params, locals with
+    /// non-function declarators — is unresolvable and fails closed (the caller
+    /// emits E5506). Module-global captures are NOT env-cell captures
+    /// (`derive_env_plans` excludes them), so a module-scope callback has an
+    /// empty `captured` and still resolves as safe (the bg1 boundary pin).
+    fn scheduling_call_args_provably_safe(&self, node: &LirNode) -> bool {
+        let non_capturing_plan = |key: &str| {
             self.env_plans
-                .get(plan_key)
-                .is_some_and(|plan| !plan.captured.is_empty())
+                .get(key)
+                .is_some_and(|plan| plan.captured.is_empty())
+        };
+        node.children.iter().skip(1).all(|&arg| {
+            let arg = self.unwrap_transparent(arg);
+            let arg_node = self.node(arg);
+            let text = arg_node.text.as_deref().unwrap_or_default();
+            match arg_node.kind {
+                // Literals can never be a callable — dropping one drops nothing.
+                LirNodeKind::Literal => true,
+                // Inline function expression / declaration used as a value:
+                // its text is its `__kali_fn_N` / declared plan key.
+                LirNodeKind::Instruction => non_capturing_plan(text),
+                LirNodeKind::Value => {
+                    if !arg_node.children.is_empty() {
+                        // Member/element/operator expression: unresolvable.
+                        return false;
+                    }
+                    if parse_numeric_literal_value(text).is_some() {
+                        return true;
+                    }
+                    if self.unstable_provenance_names.contains(text) {
+                        return false;
+                    }
+                    if let Some(key) = self.fn_valued_locals.get(text) {
+                        return non_capturing_plan(key);
+                    }
+                    if self.locals.contains_key(text)
+                        || self.bindings.contains_key(text)
+                        || self.module_binding_names.contains(text)
+                    {
+                        // A local/const/module binding whose declarator did NOT
+                        // record function provenance: value unknown — fail
+                        // closed.
+                        return false;
+                    }
+                    if self.env_plans.contains_key(text) {
+                        // A bare (unshadowed) function name.
+                        return non_capturing_plan(text);
+                    }
+                    // An identifier that resolves to NOTHING in any codegen
+                    // namespace: it lowers to the pre-existing E3100
+                    // zero-placeholder, so there is no compiled closure to
+                    // drop. This is the flattened block-arrow argument lane
+                    // (`setTimeout(() => {…})` lowers the arrow to a
+                    // `Value("unknown")` placeholder and never compiles its
+                    // body — a PRE-EXISTING whole-expression drop shared with
+                    // base, inventoried in the stage triage; Stage D's
+                    // un-flatten is the real fix). Denying it would re-red
+                    // main-green web-baseline build pins whose callback never
+                    // existed as a function in the first place.
+                    true
+                }
+                // No-ops by construction: a call argument is an expression —
+                // a call RESULT (`makeCb()`), or a malformed/statement-shaped
+                // node, has no resolvable callback provenance. Fail closed.
+                LirNodeKind::Program
+                | LirNodeKind::Block
+                | LirNodeKind::Branch
+                | LirNodeKind::Call
+                | LirNodeKind::Unknown => false,
+            }
         })
     }
 

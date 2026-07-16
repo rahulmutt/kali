@@ -665,32 +665,129 @@ fn deferred_set_timeout_indirect_non_capturing_callback_still_runs() {
     assert_eq!(String::from_utf8_lossy(&out.stdout), "sync\n");
 }
 
-/// KNOWN FAIL-OPEN tripwire (NOT a green-behavior assertion). `fn_valued_locals`
-/// provenance is recorded only at DECLARATOR-emit time, so a REASSIGNMENT
-/// (`let cb = function(){}; cb = function(){ base += 1; }`) leaves the stale
-/// NON-capturing mapping in place: the scheduling guard resolves `cb` to the
-/// original (empty-`captured`) plan, does NOT fire, and the capturing callback
-/// is silently dropped. Base a57cd09d5 would have rejected the `base += 1`
-/// capture-write E5506, so this is fail-OPEN — a narrow subset of the documented
-/// pre-existing first-class-function-value / escaping-capture gap (§6 rows m/n/s,
-/// §7). Pinned so ANY behavior change (a fix, or a new regression) trips this
-/// test. Fix direction: invalidate/update `fn_valued_locals` at assignment-emit,
-/// or resolve the callback through binding provenance at the call site — see the
-/// triage §follow-ups "reassignment/shadowing invalidation" inventory item.
-///
-/// ACTUAL current behavior (pinned): success, exit 0, prints `0\n` (callback +
-/// captured `base` dropped). Node would print `1`.
+/// Reassignment-stale provenance — CLOSED by the stage-review default-deny
+/// (IMPORTANT-1). `fn_valued_locals` is recorded only at DECLARATOR-emit time,
+/// so a REASSIGNMENT (`let cb = function(){}; cb = function(){ base += 1; }`)
+/// leaves the stale NON-capturing mapping in place; the pre-fix guard resolved
+/// `cb` to the original (empty-`captured`) plan, did NOT fire, and the
+/// capturing callback was silently dropped (this test previously PINNED that
+/// fail-open as a tripwire: success, `0\n`; node prints `1`). The default-deny
+/// guard now refuses to resolve ANY name that is reassigned or re-declared in
+/// the function (`unstable_provenance_names`), so this fails closed E5506 —
+/// matching base a57cd09d5, which rejected the `base += 1` capture-write E5506.
 #[test]
-fn deferred_reassigned_callback_provenance_is_stale_fail_open_tripwire() {
-    let out = run_kali(
+fn deferred_reassigned_callback_provenance_fails_closed() {
+    assert_e5506(
         "function outer(){ let base = 0; let cb = function(){}; cb = function(){ base += 1; }; setTimeout(cb, 0); console.log(base); } outer();\n",
     );
+}
+
+// ============================================================================
+// Stage-review fix wave (2026-07-16) — dynamic-env safety gate (CRITICAL) +
+// scheduling-surface default-deny (IMPORTANT-1) + Kali.test fallback
+// (IMPORTANT-2). Every fixture below was verified RED on pre-fix HEAD
+// 3a1545b95 (the corrupted/silent output recorded in its doc comment) and on
+// the pre-Stage-C base a57cd09d5 all capture shapes were E5506.
+// ============================================================================
+
+/// Run a `*.test.js` fixture and assert E5506 rejection (test-lane twin of
+/// `assert_e5506`).
+fn assert_e5506_test(source: &str) {
+    let out = run_kali_test(source);
+    let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(
-        out.status.success(),
-        "tripwire pins the CURRENT fail-open (success + callback dropped); a \
-         change here means the reassignment-stale provenance gap moved — update \
-         this pin and the triage follow-up. stderr: {}",
-        String::from_utf8_lossy(&out.stderr)
+        !out.status.success(),
+        "expected E5506 rejection, but the harness succeeded with stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
     );
-    assert_eq!(String::from_utf8_lossy(&out.stdout), "0\n");
+    assert!(
+        stderr.contains("E5506"),
+        "expected E5506 in stderr, got: {stderr}"
+    );
+}
+
+/// CRITICAL reproducer 1 — sibling-invoked capture WRITE corrupts a foreign
+/// cell. `inc` captures `outer`'s `c`; it is invoked from inside `sib`, a
+/// SIBLING env-owner whose record is the active `current_env` at that point,
+/// so `inc`'s cell write landed in `sib`'s `d` cell. Pre-fix HEAD printed
+/// `102` / `0` (node: `101` / `1`) — silent cross-binding memory corruption.
+/// The dynamic-env safety gate now rejects the unprovable invocation E5506
+/// (base a57cd09d5 rejected this program E5506 at the capture-write).
+#[test]
+fn dynamic_env_sibling_write_capturer_fails_closed() {
+    assert_e5506(
+        "function outer(){ let c=0; function inc(){ c+=1; } function sib(){ let d=100; function bump(){ d+=1; } bump(); inc(); return d; } console.log(sib()); console.log(c); } outer();\n",
+    );
+}
+
+/// CRITICAL reproducer 2 — sibling-invoked capture READ resolves a foreign
+/// cell. `rd` captures `outer`'s `c` (7) but, invoked from inside sibling
+/// env-owner `sib`, read `sib`'s `d` cell instead: pre-fix HEAD printed `101`
+/// (node: `7`). Fails closed E5506 (base rejected E5506).
+#[test]
+fn dynamic_env_sibling_read_capturer_fails_closed() {
+    assert_e5506(
+        "function outer(){ let c=7; function rd(){ return c; } function sib(){ let d=100; function bump(){ d+=1; } bump(); return rd(); } console.log(sib()); } outer();\n",
+    );
+}
+
+/// CRITICAL reproducer 3 — an ENV-OWNING capturer invoked from a sibling
+/// env-owner. `cap` owns its own record (cell `k`) AND captures `outer`'s `c`
+/// through its parent link; called from `sib`, its record's parent is `sib`'s
+/// record, so the one-hop walk read `sib`'s `d` cell: pre-fix HEAD printed
+/// `11` (node: `7`). Fails closed E5506 (base rejected E5506).
+#[test]
+fn dynamic_env_owning_capturer_from_sibling_env_owner_fails_closed() {
+    assert_e5506(
+        "function outer(){ let c=6; function cap(){ let k=1; function g(){ return k; } return c + g(); } function sib(){ let d=9; function b(){ d+=1; } b(); return cap(); } console.log(sib()); } outer();\n",
+    );
+}
+
+/// CRITICAL, registration-time variant — `Kali.test` called from inside an
+/// env-owning NON-owner context captures the WRONG `env_ptr`. `cb` captures
+/// `outer`'s `c` (41) but is registered from inside sibling env-owner `sib`,
+/// so the `env_ptr` stored at registration was `sib`'s record and the drained
+/// callback read `sib`'s `d` cell: pre-fix HEAD printed `c=8` + `ok 1`
+/// (node: `c=41`). The registration site inherits the same safety
+/// requirement as a direct call — fails closed E5506.
+#[test]
+fn dynamic_env_test_registration_from_sibling_env_owner_fails_closed() {
+    assert_e5506_test(
+        "function outer(){ let c = 41; function cb(){ console.log(\"c=\" + c); } function sib(){ let d = 7; function bump(){ d += 1; } bump(); Kali.test(\"t\", cb); } sib(); } outer();\n",
+    );
+}
+
+/// IMPORTANT-1 — ALIASED capturing callback (`let cb2 = cb`). The alias is not
+/// declarator-bound to a function expression, so its provenance is
+/// unresolvable; the pre-fix guard default-ALLOWED it and the capturing
+/// callback was silently dropped (pre-fix HEAD: success, printed `0`; base
+/// rejected E5506). Default-deny now fails it closed E5506.
+#[test]
+fn deferred_set_timeout_aliased_capturing_callback_fails_closed() {
+    assert_e5506(
+        "function outer(){ let base = 0; let cb = function(){ base += 1; }; let cb2 = cb; setTimeout(cb2, 0); console.log(base); } outer();\n",
+    );
+}
+
+/// IMPORTANT-1 — CALL-RESULT callback (`setTimeout(makeCb(), 0)`). A call
+/// result has no resolvable callback provenance; the pre-fix guard
+/// default-ALLOWED it and silently dropped the (capturing) callback (pre-fix
+/// HEAD: success, printed `0`; base rejected E5506). Default-deny → E5506.
+#[test]
+fn deferred_set_timeout_call_result_callback_fails_closed() {
+    assert_e5506(
+        "function outer(){ let base = 0; function makeCb(){ return function(){ base += 1; }; } setTimeout(makeCb(), 0); console.log(base); } outer();\n",
+    );
+}
+
+/// IMPORTANT-2 — the `Kali.test` fallback was a FIFTH unguarded surface: an
+/// unresolvable callback (here a parameter) produced only a WARNING and
+/// registered nothing, so the harness printed `ok 1` with zero tests and
+/// exited 0 (pre-fix HEAD: success, `ok 1`, the callback body never ran).
+/// Folded into the same default-deny: unresolvable → E5506.
+#[test]
+fn kali_test_unresolvable_callback_fails_closed() {
+    assert_e5506_test(
+        "function suite(cb){ Kali.test(\"a\", cb); }\nsuite(function(){ console.log(\"ran\"); });\n",
+    );
 }
