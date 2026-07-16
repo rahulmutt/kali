@@ -1,5 +1,6 @@
 //! WASM code generation for the Kali compiler.
 
+mod closure;
 mod ctx;
 mod emit;
 mod emitter;

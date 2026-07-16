@@ -412,6 +412,14 @@ impl<'a> FunctionEmitter<'a> {
         self.functions["__arena_reset"]
     }
 
+    /// WASM global index of `current_env` (Stage C closures, Task 2): the
+    /// active environment record pointer (i64; 0 = no env). See
+    /// `crate::closure::CURRENT_ENV_GLOBAL`. Reserved-but-unused this task.
+    #[allow(dead_code)]
+    pub(crate) fn current_env_global(&self) -> u32 {
+        crate::closure::CURRENT_ENV_GLOBAL
+    }
+
     /// Wasm function index of the synthetic runtime-substring helper
     /// (`__substring(h, s, e) -> i64`, Spec 2): pure-ALU clamp/swap +
     /// zero-copy handle re-tag over a tagged string handle.

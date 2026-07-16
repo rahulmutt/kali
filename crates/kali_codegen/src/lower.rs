@@ -1040,8 +1040,22 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             &ConstExpr::i32_const(0),
         );
     }
-    // Module-scope mutable scalar globals, appended after g0..g7 at indices
-    // 8, 9, … (matching the ascending indices assigned in
+    // g8 = current_env (Stage C closures, Task 2): the active environment
+    // record pointer, mutable i64, 0 = no env. Allocated immediately after
+    // the arena trio and before any module-scope scalar global — see
+    // `crate::closure::CURRENT_ENV_GLOBAL`. Reserved-but-unused this task
+    // (behavior-neutral): nothing reads or writes it yet; Task 3 wires the
+    // allocation/store/restore sequence.
+    global_section.global(
+        GlobalType {
+            val_type: ValType::I64,
+            mutable: true,
+            shared: false,
+        },
+        &ConstExpr::i64_const(0),
+    );
+    // Module-scope mutable scalar globals, appended after g0..g8 at indices
+    // 9, 10, … (matching the ascending indices assigned in
     // `collect_module_scalar_globals`, which iterates the same sorted-by-name
     // `BTreeMap`). Each is zero-initialized (`var` hoisting semantics: the
     // binding reads `undefined`/0 until its declarator line runs `GlobalSet` in
@@ -2547,9 +2561,13 @@ fn body_contains_process_argv_element(nodes: &[LirNode], body_id: LirNodeId) -> 
 }
 
 /// WASM globals reserved before any module-scope mutable scalar global:
-/// g0 (heap/page frontier) + g1..g7 (arena page-pool state). Module scalar
-/// globals are appended AFTER these, at indices `RESERVED_GLOBAL_COUNT`, +1, …
-pub(crate) const RESERVED_GLOBAL_COUNT: u32 = 8;
+/// g0 (heap/page frontier) + g1..g7 (arena page-pool state) + g8
+/// (`current_env`, Stage C closures — see `crate::closure::CURRENT_ENV_GLOBAL`).
+/// Module scalar globals are appended AFTER these, at indices
+/// `RESERVED_GLOBAL_COUNT`, +1, … — raising this count keeps their indices
+/// contiguous ABOVE the newly reserved global with no shift to g0..g7 or to
+/// any existing module-scalar index's *relative* order (only the base moves).
+pub(crate) const RESERVED_GLOBAL_COUNT: u32 = 9;
 
 /// Promote module-scope mutable SCALAR (`var`/`let` numeric) bindings that are
 /// READ or WRITTEN from inside a function to persistent mutable WASM globals.
