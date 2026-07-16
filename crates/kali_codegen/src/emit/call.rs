@@ -2757,6 +2757,41 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        // Stage C fail-closed (triage Concern 2): a CAPTURING callback passed to
+        // a host scheduling surface whose call codegen does NOT emit. Codegen
+        // emits no call to `queueMicrotask`/`setTimeout`/`setInterval`/
+        // `addEventListener` (Task 6: the host imports exist but no generated
+        // module imports them), so the call lowers through this generic
+        // zero-placeholder fallback and the scheduled callback is silently
+        // dropped. When that callback CAPTURES an enclosing env cell (its plan's
+        // `captured` is non-empty), dropping it also drops its captured
+        // environment — the exact shape base `a57cd09d5` REJECTED at the
+        // capture-write/read (E5506). Stage C lowered the capture, unmasking the
+        // pre-existing scheduler no-op; restore the rejection HERE, at the single
+        // choke point all four surfaces converge on. Module-scope callbacks
+        // (globals, empty `captured`) and non-capturing callbacks are NOT this
+        // class (they were silently dropped at base too) and are left unchanged;
+        // `Kali.test` — the one codegen-emitted deferred surface that DOES thread
+        // `env_ptr` — returned far above and never reaches here.
+        if self.is_undrained_scheduling_surface(&callee_node)
+            && self.call_has_capturing_closure_arg(node)
+        {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "a capturing callback passed to '{callee_name}' is unavailable: codegen emits no call to this scheduling surface, so the callback — and its captured environment — would be silently dropped (event/timer-lowering follow-up)"
+                ),
+            ));
+            for _ in node.children.iter().skip(1) {
+                function.instruction(&Instruction::Drop);
+            }
+            function.instruction(&Instruction::I64Const(0));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Unknown,
+            };
+        }
+
         self.push_placeholder_fallback_diagnostic("call target", callee_name);
         for _ in node.children.iter().skip(1) {
             function.instruction(&Instruction::Drop);
@@ -2766,6 +2801,42 @@ impl<'a> FunctionEmitter<'a> {
             produced: true,
             shape: ValueShape::Unknown,
         }
+    }
+
+    /// True when `callee_node` names a host scheduling surface whose call
+    /// codegen does NOT emit: `queueMicrotask` / `setTimeout` / `setInterval`
+    /// (bare identifiers) or `addEventListener` (a method). These host imports
+    /// exist (`lower.rs` import table) but no generated module imports them
+    /// (Task 6 finding), so such a call reaches the generic zero-placeholder
+    /// fallback and its callback is dropped. This enumerates the exact
+    /// scheduling family from the host import table — a closed set, not an
+    /// open-ended sink denylist — and is the single recognizer the Concern-2
+    /// guard keys on.
+    fn is_undrained_scheduling_surface(&self, callee_node: &LirNode) -> bool {
+        matches!(
+            callee_node.text.as_deref(),
+            Some("queueMicrotask") | Some("setTimeout") | Some("setInterval")
+                | Some("addEventListener")
+        )
+    }
+
+    /// True when any argument of `node` is a function value (a `__kali_fn_N`
+    /// name present in `self.functions`) whose closure plan CAPTURES an
+    /// enclosing env cell (`!captured.is_empty()`). Module-global captures are
+    /// NOT env-cell captures (`derive_env_plans` excludes them), so a callback
+    /// that only touches module globals has an empty `captured` and returns
+    /// false — matching base behavior (module-scope scheduler drop is
+    /// pre-existing and stays as-is).
+    fn call_has_capturing_closure_arg(&self, node: &LirNode) -> bool {
+        node.children.iter().skip(1).any(|&arg| {
+            let arg = self.unwrap_transparent(arg);
+            let Some(text) = self.node(arg).text.as_deref() else {
+                return false;
+            };
+            self.env_plans
+                .get(text)
+                .is_some_and(|plan| !plan.captured.is_empty())
+        })
     }
 
     /// If `id` (after unwrapping transparent value wrappers) is a `new Array(n)` /

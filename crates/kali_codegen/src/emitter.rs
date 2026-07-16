@@ -208,6 +208,13 @@ pub(crate) struct FunctionEmitter<'a> {
     /// `locals` is therefore a captured PARAMETER, which C1 does not lower
     /// (rejected in the prologue).
     pub(crate) env_plan: kali_mir::EnvPlan,
+    /// ALL functions' closure environment plans, keyed by `__kali_fn_N` name
+    /// (the whole `derive_env_plans` map). Unlike `env_plan` (this function's
+    /// own plan), this lets a call site inspect ANOTHER function's plan — used
+    /// to detect whether a callback argument CAPTURES an enclosing env cell
+    /// (`!captured.is_empty()`) when it is passed to an un-emittable scheduling
+    /// surface (Stage C Concern 2 fail-closed guard, `emit_call`).
+    pub(crate) env_plans: &'a std::collections::BTreeMap<String, kali_mir::EnvPlan>,
 }
 
 impl<'a> FunctionEmitter<'a> {
@@ -241,6 +248,7 @@ impl<'a> FunctionEmitter<'a> {
         module_binding_names: &'a BTreeSet<String>,
         module_global_slots: &'a BTreeMap<String, (u32, kali_common::Repr)>,
         env_plan: kali_mir::EnvPlan,
+        env_plans: &'a std::collections::BTreeMap<String, kali_mir::EnvPlan>,
     ) -> Self {
         let loop_ordinals = crate::lower::loop_preorder_ordinals(&program.nodes, body);
         let string_site_ordinals =
@@ -328,6 +336,7 @@ impl<'a> FunctionEmitter<'a> {
             module_binding_names,
             module_global_slots,
             env_plan,
+            env_plans,
         }
     }
 

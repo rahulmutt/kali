@@ -534,66 +534,86 @@ fn deferred_drain_cleanliness_post_drain_capture_resolves() {
 }
 
 // ---------------------------------------------------------------------------
-// Deferred-surface tripwires (brief Step 3: queueMicrotask / setTimeout /
-// addEventListener+dispatchEvent). Codegen emits NO call to any of these
-// schedulers (Task 6 finding: the host imports exist but no generated module
-// imports them; unknown call targets lower through the pre-existing E3100
-// "zero-placeholder compatibility fallback" no-op). So the scheduled callback
-// NEVER fires and its capture is never exercised: kali prints only the
-// synchronous line, node additionally prints the callback line. This is the
-// event/timer-lowering follow-up, NOT a capture-lowering bug.
+// Deferred-surface fail-closed pins (rows o/p/q — Concern-2 fix). Codegen emits
+// NO call to `queueMicrotask` / `setTimeout` / `setInterval` /
+// `addEventListener` (Task 6 finding: the host imports exist but no generated
+// module imports them; such a call reaches the generic zero-placeholder
+// fallback). So a scheduled callback is silently dropped along with its capture.
 //
-// UNMASK NOTE: on base a57cd09d5 these same programs FAILED CLOSED (E5506 on the
-// callback's `base += 1` capture-write). Stage C lowered that capture-write,
-// which removed the E5506 and unmasked the pre-existing scheduler no-op — so the
-// program now RUNS and silently drops the callback instead of rejecting. Pinned
-// so the event/timer-lowering stage (emit scheduler recognizers + post-run
-// drain) trips these and either runs the callback or fails closed.
+// UNMASK → RE-CLOSE: on base a57cd09d5 these CAPTURING callbacks FAILED CLOSED
+// (E5506 on the callback's `base += 1` capture-write). Stage C lowered that
+// capture-write, removing the E5506 and unmasking the pre-existing scheduler
+// no-op, so the program RAN and silently dropped the callback (Task 8 Concern
+// 2). The Concern-2 fix restores the rejection at the single choke point all
+// four surfaces converge on (`emit/call.rs::emit_call`, guarded by
+// `is_undrained_scheduling_surface` + `call_has_capturing_closure_arg`): a
+// CAPTURING callback (its `derive_env_plans` `captured` non-empty) passed to an
+// un-emittable scheduling surface now fails closed E5506. Module-scope and
+// non-capturing callbacks — silently dropped at base too — are NOT this class
+// and stay running (pinned by the two boundary guards below).
 // ---------------------------------------------------------------------------
 
-/// queueMicrotask capture-callback dropped (see block comment above).
+/// Row o. queueMicrotask capturing callback → fail closed (was silently
+/// dropped; base rejected E5506; Concern-2 restored the rejection).
 #[test]
-fn deferred_queue_microtask_capture_callback_dropped_preexisting_gap() {
-    let out = run_kali(
+fn deferred_queue_microtask_capturing_callback_fails_closed() {
+    assert_e5506(
         "function outer(){ let base = 5; queueMicrotask(function(){ base += 1; console.log(\"mt=\"+base); }); console.log(\"sync=\"+base); } outer();\n",
     );
-    assert!(
-        out.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&out.stderr)
-    );
-    // node: "sync=5\nmt=6\n". kali (callback dropped): "sync=5\n".
-    assert_eq!(String::from_utf8_lossy(&out.stdout), "sync=5\n");
 }
 
-/// setTimeout(cb, 0) capture-callback dropped (see block comment above).
+/// Row p. setTimeout(cb, 0) capturing callback → fail closed.
 #[test]
-fn deferred_set_timeout_capture_callback_dropped_preexisting_gap() {
-    let out = run_kali(
+fn deferred_set_timeout_capturing_callback_fails_closed() {
+    assert_e5506(
         "function outer(){ let base = 5; setTimeout(function(){ base += 1; console.log(\"st=\"+base); }, 0); console.log(\"sync=\"+base); } outer();\n",
     );
-    assert!(
-        out.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&out.stderr)
-    );
-    // node: "sync=5\nst=6\n". kali (callback dropped): "sync=5\n".
-    assert_eq!(String::from_utf8_lossy(&out.stdout), "sync=5\n");
 }
 
-/// addEventListener + dispatchEvent capture-callback dropped (see block comment
-/// above). node dispatches SYNCHRONOUSLY (ev=6 then sync=6); kali drops the
-/// listener, so `base` never increments and only the sync line prints.
+/// Row q. addEventListener capturing callback → fail closed. (The program also
+/// uses `EventTarget`/`CustomEvent`/`dispatchEvent`, which emit E3100 fallback
+/// WARNINGS; the load-bearing rejection is the E5506 on the capturing listener.)
 #[test]
-fn deferred_add_event_listener_capture_callback_dropped_preexisting_gap() {
-    let out = run_kali(
+fn deferred_add_event_listener_capturing_callback_fails_closed() {
+    assert_e5506(
         "function outer(){ let base = 5; let t = new EventTarget(); t.addEventListener(\"tick\", function(){ base += 1; console.log(\"ev=\"+base); }); t.dispatchEvent(new CustomEvent(\"tick\")); console.log(\"sync=\"+base); } outer();\n",
+    );
+}
+
+/// Boundary guard 1 (allowlist proof, must STAY green): a MODULE-SCOPE callback
+/// mutating a module global via `queueMicrotask` captures NO env cell
+/// (`derive_env_plans` excludes module globals → empty `captured`), so the
+/// Concern-2 guard does NOT fire. This is the triage probe-4 lane; it was never
+/// fail-closed at base and must keep running. kali drops the callback (a
+/// pre-existing gap, out of scope), so only the sync line prints.
+#[test]
+fn deferred_queue_microtask_module_scope_capture_still_runs() {
+    let out = run_kali(
+        "let count = 0; queueMicrotask(function(){ count += 1; console.log(\"mt=\"+count); }); console.log(\"sync=\"+count);\n",
     );
     assert!(
         out.status.success(),
-        "stderr: {}",
+        "module-scope microtask must not fail closed; stderr: {}",
         String::from_utf8_lossy(&out.stderr)
     );
-    // node: "ev=6\nsync=6\n". kali (listener dropped): "sync=5\n".
-    assert_eq!(String::from_utf8_lossy(&out.stdout), "sync=5\n");
+    // node: "sync=0\nmt=1\n". kali (callback dropped, pre-existing): "sync=0\n".
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "sync=0\n");
+}
+
+/// Boundary guard 2 (must STAY green): a NON-CAPTURING function-scope callback
+/// passed to `queueMicrotask` captures nothing (empty `captured`), so the
+/// Concern-2 guard does NOT fire. Silently dropped at base too (pre-existing,
+/// out of scope) — must keep running, proving the guard is capture-gated, not
+/// surface-gated.
+#[test]
+fn deferred_queue_microtask_non_capturing_callback_still_runs() {
+    let out = run_kali(
+        "function outer(){ queueMicrotask(function(){ console.log(\"mt\"); }); console.log(\"sync\"); } outer();\n",
+    );
+    assert!(
+        out.status.success(),
+        "non-capturing microtask must not fail closed; stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "sync\n");
 }

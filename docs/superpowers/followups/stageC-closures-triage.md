@@ -210,7 +210,32 @@ no-op: the program now RUNS and silently drops the callback instead of
 rejecting. The drop itself is pre-existing (module-scope probe 4 already
 dropped its microtask on base); Stage C only changed the FIRST guard these
 programs hit. This is the event/timer-lowering follow-up; the callback-drop is
-a wholesale no-op, not a capture-lowering miscompile. **Surfaced as a concern.**
+a wholesale no-op, not a capture-lowering miscompile.
+
+**→ CLOSED (Concern-2 fix, commit see below).** The reject-don't-miscompile
+violation — base-E5506 shapes now running silently — is fixed. A single guard
+at the choke point all four surfaces converge on
+(`emit/call.rs::emit_call`, the generic zero-placeholder fallback) rejects
+E5506 when `is_undrained_scheduling_surface(callee)` (`queueMicrotask` /
+`setTimeout` / `setInterval` / `addEventListener` — the closed scheduling
+family) AND `call_has_capturing_closure_arg(node)` (an argument function whose
+`derive_env_plans` `captured` set is non-empty). Only the newly-unmasked class
+is caught; the safe shapes keep working (see the CORRECTED behavior matrix in
+task-8-report.md §Concern-2 fix):
+
+- module-scope callbacks (`count += 1` on a module global → empty `captured`)
+  and non-capturing callbacks: NOT caught — still run (silent drop is
+  pre-existing, out of scope), pinned by two boundary guards.
+- `Kali.test` (the one codegen-emitted deferred surface that threads
+  `env_ptr`): handled far above the fallback, never reaches the guard.
+
+FALSIFIED FACT: the Task-0 probe-4 claim that module-scope `queueMicrotask`
+"drains" was an artifact of a NO-OUTPUT callback body — codegen emits no call
+to ANY of the four surfaces in EITHER the `kali run` OR `kali test` lane, so the
+callback is ALWAYS dropped (node always fires it). The distinguishing axis is
+capture (fail-closed) vs no-capture (pre-existing silent drop), NOT lane and NOT
+module-vs-function scope. Rows o/p/q retargeted to E5506 fail-closed pins
+(`deferred_{queue_microtask,set_timeout,add_event_listener}_capturing_callback_fails_closed`).
 
 ## 8. Headline test — NON-FLIP (deferred, with evidence)
 
@@ -319,10 +344,14 @@ Entry **731** → exit **731** (zero newly-red, zero drift, zero drain; main 0).
    a capture currently fails closed E5506 (`array_callback_capture_fails_closed`).
    The follow-up wires the per-element callback ABI so captures lower.
 2. **Event/timer lowering stage** — emit scheduler recognizers for
-   `queueMicrotask` / `setTimeout` / `addEventListener`+`dispatchEvent` and a
-   post-run drain; today they lower to the E3100 zero-placeholder no-op and drop
-   the callback (rows o/p/q). This is also the headline-flip unblocker (§8) and
-   must resolve the §7 UNMASK (either run the callback or fail closed).
+   `queueMicrotask` / `setTimeout` / `setInterval` / `addEventListener`+
+   `dispatchEvent` and a post-run drain so the callback actually RUNS. Today
+   they lower to the zero-placeholder no-op and drop the callback. The §7 UNMASK
+   half (capturing callbacks must not run silently) is now CLOSED — they fail
+   closed E5506 (Concern-2 fix); this remaining item is the CORRECTNESS half
+   (run the dropped callback), which also unblocks the headline flip (§8) and
+   the NON-capturing / module-scope drops (still silent, pre-existing, pinned by
+   the two boundary guards).
 3. **Reclaimable escaping-capture region / first-class function values** — a
    closure returned out of its owner (or stored in an array/object) and invoked
    later via a plain call reads `current_env` = module env → clean `0` (rows
