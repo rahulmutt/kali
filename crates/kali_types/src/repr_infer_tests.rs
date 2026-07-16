@@ -998,3 +998,214 @@ fn nested_fn_lockstep_exotic_object_literal_arg_is_the_allowed_gap() {
         "unexpected unseeded gap: {gap:?}"
     );
 }
+
+// ---- F-AB-2 remaining exotic positions (coverage follow-up) ----------------
+//
+// The Stage C C4 review (F-AB-2 resolution) landed the lockstep assertion and
+// pinned exactly ONE of the documented exotic unseeded positions (the
+// object-literal-as-direct-call-arg case above). The other documented shapes
+// — spread arg, tagged-template operand, yield operand, optional-chain
+// operand, bare/doubly-nested array literal element — had no pin, so a future
+// change that silently seeded or unregistered one of them would trip
+// nothing. Each was probed against kali's real lexer/parser pipeline (not
+// hand-built ASTs) before writing an assertion, per "run first, pin reality":
+//
+//   - Two of the five are NOT expressible through kali's parser today and so
+//     cannot be pinned as the documented shape at all — see the block comment
+//     further down titled "parser-inexpressible exotic positions" for the
+//     evidence.
+//   - The other three (yield operand, optional-chain operand, and the
+//     bare/doubly-nested array literal family, split into two concrete
+//     shapes) parse cleanly with zero diagnostics and are confirmed-live
+//     `registered − seeded` gaps today; each gets its own pin below.
+
+#[test]
+fn nested_fn_lockstep_yield_operand_is_an_unseeded_gap() {
+    // F-AB-2 exotic position: a fn-expr as a `yield` operand inside a
+    // generator (`function* gen(){ yield function(){…}; }`). `YieldExpression`
+    // has an explicit arm in the shared Phase-A descent (`descend_expr_fns`,
+    // repr_infer.rs) that registers the operand, but Phase B's walk-4
+    // `visit_expr` has no `YieldExpression` arm at all, so it falls to the `_`
+    // catch-all and is NOT seeded.
+    let (registered, seeded) = nested_fn_lockstep_sets(&crate::test_support::parse_statements(
+        "function* gen(){ yield function yieldfn(){ let x = 1; }; }\n",
+    ));
+    assert!(
+        registered.contains("yieldfn"),
+        "walks 1-3 must register the yield-operand fn-expr; registered={registered:?}"
+    );
+    assert!(
+        !seeded.contains("yieldfn"),
+        "walk 4 must NOT seed the yield-operand position (F-AB-2 known gap); \
+         seeded={seeded:?}"
+    );
+    assert!(
+        seeded.is_subset(&registered),
+        "F-AB-2 safe-direction invariant (seeded ⊆ registered) must hold; \
+         seeded={seeded:?} registered={registered:?}"
+    );
+    let gap: Vec<_> = registered.difference(&seeded).cloned().collect();
+    assert_eq!(
+        gap,
+        vec!["yieldfn".to_string()],
+        "unexpected unseeded gap: {gap:?}"
+    );
+}
+
+#[test]
+fn nested_fn_lockstep_optional_chain_operand_is_an_unseeded_gap() {
+    // F-AB-2 exotic position: a fn-expr as the OPERAND of an optional chain —
+    // the base being null-guarded, not a call argument reached through it
+    // (`(function(){…})?.length`, not `o?.f(function(){…})`; the latter is
+    // the already-seeded "call argument" common position). `visit_member`'s
+    // fallback arm visits `member.object` generically
+    // (`self.visit_expr(func, &member.object)`), and walk-4's `visit_expr` has
+    // no `OptionalChainExpression` arm, so it falls to the `_` catch-all and
+    // does not recurse into `chain.inner.object` — NOT seeded. The shared
+    // Phase-A descent (`descend_expr_fns`) has an explicit
+    // `OptionalChainExpression` arm and DOES register it.
+    let (registered, seeded) = nested_fn_lockstep_sets(&crate::test_support::parse_statements(
+        "let r = (function optfn(){ let x = 1; })?.length;\n",
+    ));
+    assert!(
+        registered.contains("optfn"),
+        "walks 1-3 must register the optional-chain-operand fn-expr; \
+         registered={registered:?}"
+    );
+    assert!(
+        !seeded.contains("optfn"),
+        "walk 4 must NOT seed the optional-chain-operand position (F-AB-2 \
+         known gap); seeded={seeded:?}"
+    );
+    assert!(
+        seeded.is_subset(&registered),
+        "F-AB-2 safe-direction invariant (seeded ⊆ registered) must hold; \
+         seeded={seeded:?} registered={registered:?}"
+    );
+    let gap: Vec<_> = registered.difference(&seeded).cloned().collect();
+    assert_eq!(
+        gap,
+        vec!["optfn".to_string()],
+        "unexpected unseeded gap: {gap:?}"
+    );
+}
+
+#[test]
+fn nested_fn_lockstep_bare_array_literal_call_arg_is_an_unseeded_gap() {
+    // F-AB-2 exotic position: a "bare" array literal — one reached through
+    // NEITHER of the two special-cased array-literal positions
+    // (declarator-init via `note_array_init`, or assignment RHS via
+    // `visit_assignment`) — passed directly as a call argument
+    // (`sink([function(){…}])`). The plain-identifier-callee call path visits
+    // each argument via the generic `self.visit_expr(func, arg)`, and walk-4's
+    // `visit_expr` has no `ArrayExpression` arm, so it falls to the `_`
+    // catch-all and does not recurse into the literal's elements — NOT
+    // seeded. The shared Phase-A descent (`descend_expr_fns`) has an explicit
+    // `ArrayExpression` arm and DOES register it.
+    let (registered, seeded) = nested_fn_lockstep_sets(&crate::test_support::parse_statements(
+        "function sink(a){ return a; }\n\
+             sink([function barecallarg(){ let x = 1; }]);\n",
+    ));
+    assert!(
+        registered.contains("barecallarg"),
+        "walks 1-3 must register the bare-array-literal-call-arg fn-expr; \
+         registered={registered:?}"
+    );
+    assert!(
+        !seeded.contains("barecallarg"),
+        "walk 4 must NOT seed the bare-array-literal-call-arg position \
+         (F-AB-2 known gap); seeded={seeded:?}"
+    );
+    assert!(
+        seeded.is_subset(&registered),
+        "F-AB-2 safe-direction invariant (seeded ⊆ registered) must hold; \
+         seeded={seeded:?} registered={registered:?}"
+    );
+    let gap: Vec<_> = registered.difference(&seeded).cloned().collect();
+    assert_eq!(
+        gap,
+        vec!["barecallarg".to_string()],
+        "unexpected unseeded gap: {gap:?}"
+    );
+}
+
+#[test]
+fn nested_fn_lockstep_doubly_nested_array_literal_is_an_unseeded_gap() {
+    // F-AB-2 exotic position: a fn-expr inside a DOUBLY-nested array literal
+    // in declarator-init position (`let arr = [[function(){…}]];`).
+    // `note_array_init` only recurses one level (it calls `visit_expr` on
+    // each element of the OUTER array literal); a single-level array literal
+    // element (`let arr = [function(){…}];`) IS seeded this way (verified: it
+    // is NOT a gap, unlike this doubly-nested shape), but the inner array
+    // literal's own elements are never descended into by that one level of
+    // recursion, nor by any walk-4 arm (no `ArrayExpression` arm at all), so
+    // the innermost fn-expr is NOT seeded. The shared Phase-A descent
+    // (`descend_expr_fns`) recurses into `ArrayExpression` elements
+    // unconditionally (arbitrary depth) and DOES register it.
+    let (registered, seeded) = nested_fn_lockstep_sets(&crate::test_support::parse_statements(
+        "let arr = [[function nestedfn(){ let x = 1; }]];\n",
+    ));
+    assert!(
+        registered.contains("nestedfn"),
+        "walks 1-3 must register the doubly-nested-array-literal fn-expr; \
+         registered={registered:?}"
+    );
+    assert!(
+        !seeded.contains("nestedfn"),
+        "walk 4 must NOT seed the doubly-nested-array-literal position \
+         (F-AB-2 known gap); seeded={seeded:?}"
+    );
+    assert!(
+        seeded.is_subset(&registered),
+        "F-AB-2 safe-direction invariant (seeded ⊆ registered) must hold; \
+         seeded={seeded:?} registered={registered:?}"
+    );
+    let gap: Vec<_> = registered.difference(&seeded).cloned().collect();
+    assert_eq!(
+        gap,
+        vec!["nestedfn".to_string()],
+        "unexpected unseeded gap: {gap:?}"
+    );
+}
+
+// ---- parser-inexpressible exotic positions (documented, not pinned) -------
+//
+// The remaining two documented exotic positions — a SPREAD arg
+// (`foo(...[() => {}])`) and a TAGGED-TEMPLATE operand
+// (`` tag`hello ${() => {}}` ``) — cannot be pinned against kali's real
+// lexer/parser pipeline: neither produces the intended AST shape, and NEITHER
+// raises a diagnostic, so there is nothing to assert against without hand-
+// building an AST that no real kali program can produce (which would pin an
+// assumption, not reality).
+//
+//   - Spread (`...`): the lexer tokenizes `...` as `TokenType::DotDotDot`
+//     (kali_lexer/src/token.rs), but `DotDotDot` is never referenced anywhere
+//     in `kali_parser/src` — no call-argument spread, no rest parameter, no
+//     `SpreadElement` construction exists in the grammar (confirmed by
+//     `grep -rn DotDotDot crates/kali_parser/src` returning nothing). Probed
+//     directly: `function sink(...args){ return args; }` parses `args` as a
+//     dropped identifier — the param list becomes the single literal string
+//     `"..."`, not `"args"` — and `sink(...arr)` parses as `sink(unknown)`
+//     followed by a spurious extra `arr;` expression statement (the trailing
+//     identifier is split off as its own statement). `repr_infer.rs` does
+//     carry a `SpreadElement` arm in `descend_expr_fns` (used by walks 1-3),
+//     but — mirroring the `TemplateLiteral` arm's own note a few lines below
+//     it in `visit_expr` — real source parsed through kali's own front end
+//     never reaches it; only a hand-built AST could.
+//   - Tagged template (`` tag`...` ``): probed directly:
+//     `` tag`hello ${function taggedfn(){ let x = 1; }}` `` parses as TWO
+//     unrelated statements — a bare `tag` identifier expression statement,
+//     then a separate `BinaryExpression` `"`hello `" + taggedfn` (the
+//     backtick characters survive literally inside the string token, and the
+//     `${...}` interpolation desugars to string concatenation, exactly like
+//     an ordinary un-tagged template literal) — never a
+//     `TaggedTemplateExpression` with `tag` as its tag callee. Neither
+//     construct is reachable from real source, so — same as the untagged
+//     `TemplateLiteral` arm's note in `visit_expr` — the
+//     `TaggedTemplateExpression` arm in `descend_expr_fns` is dead code from
+//     kali's own parser's perspective today.
+//
+// Both probes ran with zero parser diagnostics (no rejection to point at);
+// the "rejection evidence" here is the AST shape itself failing to match what
+// the source asked for. If kali's parser ever grows real spread/rest or
+// tagged-template support, these two gaps must be pinned then (or closed).
