@@ -430,3 +430,170 @@ fn exotic_growable_capture_in_array_element_fails_closed() {
         "function outer(){ let a = []; a.push(1); let arr = [function(){ return a.length; }]; console.log(arr[0]()); } outer();\n",
     );
 }
+
+// ============================================================================
+// Task 8 — adversarial whole-stage sweep (brief Step 3 + controller amendments)
+//
+// Every fixture below was run on the FINAL Stage C binary AND on node v26.5.0.
+// The escaping-closure and deferred-surface cases were additionally run on the
+// pre-Stage-C base (a57cd09d5) to classify each divergence as PRE-EXISTING vs
+// Stage-C-introduced. Full node-vs-kali evidence and the base cross-check are
+// recorded in docs/superpowers/followups/stageC-closures-triage.md (§6-§8).
+// ============================================================================
+
+/// Brief Step 2 / amendment 2 — recursion / distinct envs, ESCAPING form.
+/// Each activation of `make` should create a distinct closure over its own `n`;
+/// node prints `10 20`. But the closure is RETURNED out of `make` and invoked
+/// later via a plain call (`a()` / `b()`): at that call site `current_env` is
+/// the module env, not `make`'s freed activation record, so the promoted cell
+/// reads `0`. kali prints `0 0` — a PRE-EXISTING silent miscompile,
+/// BYTE-IDENTICAL on the pre-Stage-C base a57cd09d5, in the same escaping /
+/// first-class-function-value class as the `arr[0]()` tripwire above. The
+/// load-bearing soundness property holds: clean `0`, NOT a garbage/stale-heap
+/// leak. Pinned so the escaping-capture-region follow-up (which will either fix
+/// this to `10 20` or fail it closed E5506) trips this test and revisits it.
+#[test]
+fn recursion_distinct_envs_is_preexisting_escaping_zero() {
+    let out = run_kali(
+        "function make(n){ return function(){ return n; }; } let a = make(10); let b = make(20); console.log(a() + \" \" + b());\n",
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    // node: "10 20\n". kali (pre-existing escaping-closure zero): "0 0\n".
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "0 0\n");
+}
+
+/// Amendment 3a — returned-closure LATE READ. A closure is RETURNED out of
+/// `outer()` and invoked AFTER outer's other locals (the loop scratch `filler`)
+/// would have been arena-reclaimed. This is the shape that WOULD prove captured
+/// cells live in the never-reset region (Task 4 reviewer's unproven risk) — IF
+/// escaping closures resolved their env. They do not: the plain later call reads
+/// `current_env` = module env, so `rd()` returns `0`, not `7`. PRE-EXISTING
+/// (byte-identical on base a57cd09d5), clean `0`, no garbage leak. The
+/// never-reset-region SURVIVAL property is instead proven by the DEFERRED
+/// (`Kali.test`) path — see `deferred_test_callback_runs_with_its_env`, where a
+/// cell written in an already-returned suite is read correctly during a later
+/// drain.
+#[test]
+fn returned_closure_late_read_is_preexisting_escaping_zero() {
+    let out = run_kali(
+        "function outer(){ let c = 7; let filler = 0; for (let i=0;i<3;i++){ filler += i; } function rd(){ return c; } return rd; } let g = outer(); console.log(g());\n",
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    // node: "7\n". kali (pre-existing escaping-closure zero): "0\n".
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "0\n");
+}
+
+/// Brief Step 3 — a nested function that captures NOTHING. `noop` shares no
+/// binding with `outer`, so no env record is allocated and `current_env` is
+/// never touched; the direct call resolves normally. Matches node (`42`). Guards
+/// against the env machinery firing for capture-free nested functions.
+#[test]
+fn capture_free_nested_fn_allocates_no_env() {
+    let out = run_kali(
+        "function outer(){ function noop(){ return 42; } console.log(noop()); } outer();\n",
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "42\n");
+}
+
+/// Amendment 3b — `current_env` drain-cleanliness. Two capture-owning suites
+/// (`suiteA`/`suiteB`) register callbacks that read their own `base`; a THIRD
+/// callback then performs a fresh capture-owning call (`outer()`, which owns an
+/// env of its own) DURING the drain, AFTER the first two callbacks have run and
+/// restored `current_env`. It resolves correctly (`c=2`), proving
+/// `invoke_callback` restores `current_env` cleanly between drained callbacks —
+/// no env leaks across the queue. node order matches (a=41, b=7, c=2). On base
+/// a57cd09d5 this FAILED closed (E5506 on the `c += 1` capture-write); Stage C's
+/// capture-write lowering is what makes it run.
+#[test]
+fn deferred_drain_cleanliness_post_drain_capture_resolves() {
+    let out = run_kali_test(
+        "function suiteA(){ let base = 41; Kali.test(\"a\", function(){ console.log(\"a=\"+base); }); }\nfunction suiteB(){ let base = 7; Kali.test(\"b\", function(){ console.log(\"b=\"+base); }); }\nfunction suiteC(){ Kali.test(\"c\", function(){ function outer(){ let c = 0; function inc(){ c += 1; } inc(); inc(); return c; } console.log(\"c=\"+outer()); }); }\nsuiteA();\nsuiteB();\nsuiteC();\n",
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let s = String::from_utf8_lossy(&out.stdout);
+    assert!(s.contains("a=41"), "stdout: {s}");
+    assert!(s.contains("b=7"), "stdout: {s}");
+    assert!(s.contains("c=2"), "stdout: {s}");
+}
+
+// ---------------------------------------------------------------------------
+// Deferred-surface tripwires (brief Step 3: queueMicrotask / setTimeout /
+// addEventListener+dispatchEvent). Codegen emits NO call to any of these
+// schedulers (Task 6 finding: the host imports exist but no generated module
+// imports them; unknown call targets lower through the pre-existing E3100
+// "zero-placeholder compatibility fallback" no-op). So the scheduled callback
+// NEVER fires and its capture is never exercised: kali prints only the
+// synchronous line, node additionally prints the callback line. This is the
+// event/timer-lowering follow-up, NOT a capture-lowering bug.
+//
+// UNMASK NOTE: on base a57cd09d5 these same programs FAILED CLOSED (E5506 on the
+// callback's `base += 1` capture-write). Stage C lowered that capture-write,
+// which removed the E5506 and unmasked the pre-existing scheduler no-op — so the
+// program now RUNS and silently drops the callback instead of rejecting. Pinned
+// so the event/timer-lowering stage (emit scheduler recognizers + post-run
+// drain) trips these and either runs the callback or fails closed.
+// ---------------------------------------------------------------------------
+
+/// queueMicrotask capture-callback dropped (see block comment above).
+#[test]
+fn deferred_queue_microtask_capture_callback_dropped_preexisting_gap() {
+    let out = run_kali(
+        "function outer(){ let base = 5; queueMicrotask(function(){ base += 1; console.log(\"mt=\"+base); }); console.log(\"sync=\"+base); } outer();\n",
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    // node: "sync=5\nmt=6\n". kali (callback dropped): "sync=5\n".
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "sync=5\n");
+}
+
+/// setTimeout(cb, 0) capture-callback dropped (see block comment above).
+#[test]
+fn deferred_set_timeout_capture_callback_dropped_preexisting_gap() {
+    let out = run_kali(
+        "function outer(){ let base = 5; setTimeout(function(){ base += 1; console.log(\"st=\"+base); }, 0); console.log(\"sync=\"+base); } outer();\n",
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    // node: "sync=5\nst=6\n". kali (callback dropped): "sync=5\n".
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "sync=5\n");
+}
+
+/// addEventListener + dispatchEvent capture-callback dropped (see block comment
+/// above). node dispatches SYNCHRONOUSLY (ev=6 then sync=6); kali drops the
+/// listener, so `base` never increments and only the sync line prints.
+#[test]
+fn deferred_add_event_listener_capture_callback_dropped_preexisting_gap() {
+    let out = run_kali(
+        "function outer(){ let base = 5; let t = new EventTarget(); t.addEventListener(\"tick\", function(){ base += 1; console.log(\"ev=\"+base); }); t.dispatchEvent(new CustomEvent(\"tick\")); console.log(\"sync=\"+base); } outer();\n",
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    // node: "ev=6\nsync=6\n". kali (listener dropped): "sync=5\n".
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "sync=5\n");
+}
