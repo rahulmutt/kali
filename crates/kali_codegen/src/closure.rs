@@ -38,6 +38,45 @@ pub(crate) fn env_save_local_name() -> String {
     "__env_save#env".to_string()
 }
 
+/// The owner-keyed env-cell promotion predicate — the SINGLE source of truth
+/// shared by `lower.rs` (which drops a promoted binding from its owner's WASM
+/// locals and reserves the env-save local) and
+/// `FunctionEmitter::resolve_capture_access` (the read/declaration access gate).
+/// One definition is the lockstep guarantee: the set of names that get an env
+/// cell and the set the access sites read from an env cell cannot diverge (the
+/// one-sided-widening miscompile class the C1 review closed).
+///
+/// `is_scalar` is `derive_env_plans`' structural verdict for the cell (true = an
+/// inline i64/f64 scalar slot; false = a heap-pointer cell). `owner` is the
+/// namespace whose repr decides promotion — the ancestor that actually holds
+/// the cell (see [`CapturedRef::owner`](kali_mir::env_plan::CapturedRef)).
+///
+/// Two promotable shapes:
+/// - **C1 scalar-i64**: a scalar cell whose repr is the default `I64` (a raw
+///   8-byte slot + i64 arithmetic). An `F64`/`String`/bool scalar is NOT
+///   promoted (it would corrupt the value) — baseline.
+/// - **C2 fixed-shape object**: a NON-scalar (heap-pointer) cell whose repr is
+///   `Repr::Object(_)`. The cell holds the object's i64 base pointer, stored and
+///   loaded exactly like a scalar-i64 cell. Gating on `Repr::Object` (not merely
+///   `!is_scalar`) is what keeps `LayoutDescriptor::Closure`/`Array`/`TaggedVal`
+///   heap cells OUT — their repr is never `Object`, so a closure-as-value
+///   capture (`nested-wrapper-pruning`) stays byte-identical to baseline.
+///
+/// Everything else falls through to the pre-Stage-C local/fold/placeholder
+/// path: no new machinery, no new E5506.
+pub(crate) fn cell_is_promotable(
+    repr_table: &kali_common::ReprTable,
+    owner: &str,
+    name: &str,
+    is_scalar: bool,
+) -> bool {
+    if is_scalar {
+        repr_table.scalar(owner, name) == kali_common::Repr::I64
+    } else {
+        matches!(repr_table.scalar(owner, name), kali_common::Repr::Object(_))
+    }
+}
+
 /// A `MemArg` for an 8-byte-aligned i64 access at `offset`.
 fn env_memarg(offset: u32) -> MemArg {
     MemArg {

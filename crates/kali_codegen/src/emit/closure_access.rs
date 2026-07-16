@@ -29,29 +29,51 @@ impl<'a> FunctionEmitter<'a> {
     /// owns no promotable env of its own, so `current_env` is still the caller's
     /// (== the owner's) record. Purely a lookup — emits nothing.
     pub(crate) fn resolve_capture_access(&self, name: &str) -> Option<u32> {
+        // Unified predicate (C1 scalar-i64 OR C2 fixed-shape object): the READ
+        // and promoted-DECLARATION paths load/store the cell as a raw i64
+        // (a scalar value, or an object's base pointer), so both shapes resolve
+        // here.
+        self.resolve_capture_access_inner(name, false)
+    }
+
+    /// SCALAR-only capture resolution for the arithmetic write paths
+    /// (compound-assign / update). A fixed-shape object cell resolves via
+    /// [`Self::resolve_capture_access`] for reads, but a `+=`/`++` on an object
+    /// pointer is not a meaningful i64 op — those helpers gate on this so a
+    /// captured-object write falls through to the pre-Stage-C baseline path
+    /// (reassigning `obj` / `obj.n = v` from a nested fn is NOT part of C2's
+    /// read surface; see the task's heap-write scope note).
+    pub(crate) fn resolve_scalar_capture_access(&self, name: &str) -> Option<u32> {
+        self.resolve_capture_access_inner(name, true)
+    }
+
+    /// Shared body of the two resolvers. `scalar_only` selects the promotion
+    /// predicate: the C1 scalar-i64 gate (write paths) or the unified C1/C2
+    /// gate (read/declaration paths). Both consult the OWNER's repr namespace
+    /// (Finding 1): a captured cell was promoted — and thus allocated — by its
+    /// owner, so the capturer must gate on the owner's verdict, not its own
+    /// namespace (where an outer name defaults to `I64`).
+    fn resolve_capture_access_inner(&self, name: &str, scalar_only: bool) -> Option<u32> {
+        let promotable = |owner: &str, is_scalar: bool| -> bool {
+            if scalar_only {
+                self.promotable_scalar_cell_in(owner, name, is_scalar)
+            } else {
+                crate::closure::cell_is_promotable(self.repr_table, owner, name, is_scalar)
+            }
+        };
         if let Some(cell) = self.env_plan.cell_for(name) {
-            return self
-                .promotable_scalar_cell(name, cell.is_scalar)
-                .then_some(cell.offset);
+            // An own cell resolves in THIS function's namespace (it is the owner).
+            return promotable(&self.function_name, cell.is_scalar).then_some(cell.offset);
         }
         if let Some(reference) = self.env_plan.captured_for(name) {
-            // C1 lowers ONLY a single-level synchronous capture where this
+            // Stage C lowers a single-level synchronous capture where this
             // function owns no promotable env of its own (so `current_env` is
             // the owner's record directly, env-walk depth 0). A capturer that
             // owns an env, or a capture more than one function scope up, needs a
-            // `parent_env` chain walk (C2) — left to fall through.
-            // Gate on the OWNER's promotion verdict (Finding 1): consult
-            // `reference.owner`'s repr namespace — the same predicate `lower.rs`
-            // used to decide whether the owner actually allocated this cell —
-            // NOT the capturer's namespace (where an outer F64 name defaults to
-            // I64, diverging into a write to a cell the owner never stored).
+            // `parent_env` chain walk (later C-stage work) — left to fall through.
             if !self.owns_promotable_env()
                 && reference.depth == 1
-                && self.promotable_scalar_cell_in(
-                    &reference.owner,
-                    name,
-                    reference.is_scalar,
-                )
+                && promotable(&reference.owner, reference.is_scalar)
             {
                 return Some(reference.offset);
             }
@@ -112,7 +134,9 @@ impl<'a> FunctionEmitter<'a> {
         if !matches!(op, "=" | "+=" | "-=" | "*=" | "/=" | "%=") {
             return None;
         }
-        let offset = self.resolve_capture_access(name)?;
+        // Scalar-only: a captured OBJECT cell (C2) keeps its baseline write path
+        // — `=`/compound-assign through the capture is out of C2's read scope.
+        let offset = self.resolve_scalar_capture_access(name)?;
         let env_global = self.current_env_global();
         let scratch = self.locals.len() as u32;
         match op {
@@ -160,7 +184,9 @@ impl<'a> FunctionEmitter<'a> {
         name: &str,
         op: &str,
     ) -> Option<EmittedValue> {
-        let offset = self.resolve_capture_access(name)?;
+        // Scalar-only: `++`/`--` on a captured OBJECT pointer is not a
+        // meaningful i64 op — keep the baseline path for object cells.
+        let offset = self.resolve_scalar_capture_access(name)?;
         let env_global = self.current_env_global();
         let value_scratch = self.locals.len() as u32; // consumed by emit_cell_store
         let old_scratch = value_scratch + 1; // holds the pre-value for postfix

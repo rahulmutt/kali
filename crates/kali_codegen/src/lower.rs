@@ -838,9 +838,16 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                 .cells
                 .iter()
                 .filter(|cell| {
-                    cell.is_scalar
-                        && ctx.repr_table.scalar(&function.name, &cell.name)
-                            == kali_common::Repr::I64
+                    // Owner-keyed lockstep predicate (C1 scalar-i64 OR C2
+                    // fixed-shape object). `function.name` IS the owner here —
+                    // these are its OWN cells — so the owner namespace is this
+                    // function's. Same predicate the access gate uses.
+                    crate::closure::cell_is_promotable(
+                        &ctx.repr_table,
+                        &function.name,
+                        &cell.name,
+                        cell.is_scalar,
+                    )
                 })
                 .map(|cell| cell.name.as_str())
                 .collect();

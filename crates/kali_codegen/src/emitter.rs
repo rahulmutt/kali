@@ -431,24 +431,16 @@ impl<'a> FunctionEmitter<'a> {
         crate::closure::CURRENT_ENV_GLOBAL
     }
 
-    /// True when cell/capture `name` is the ONE shape C1 promotes into an env
-    /// cell: a SCALAR cell (heap/closure captures are the C2 surface) whose
-    /// chosen repr is the default `I64` (the env cell is a raw 8-byte i64 slot
-    /// with i64 arithmetic; an `F64`/`String`/`Object`/bool repr would corrupt
-    /// the value). `is_scalar` is the plan's structural verdict; the repr gate is
-    /// consulted in the CURRENT function's name space and MUST match the
-    /// promotion gate in `lower.rs` (which removed exactly these names from
-    /// `locals`). Anything else is NOT promoted — the caller falls through to its
-    /// pre-Stage-C resolution, so every out-of-scope capture shape is
-    /// byte-identical to baseline (heap capture read → placeholder; captured
-    /// compound-assign → the existing E5506 local-miss).
-    pub(crate) fn promotable_scalar_cell(&self, name: &str, is_scalar: bool) -> bool {
-        self.promotable_scalar_cell_in(&self.function_name, name, is_scalar)
-    }
-
-    /// Same promotion predicate as [`Self::promotable_scalar_cell`], but resolves
-    /// the repr in an ARBITRARY function's namespace `owner` rather than the
-    /// current function's. C1 review Finding 1: a captured cell was promoted (and
+    /// True when scalar cell/capture `name` is a C1-promotable env cell in
+    /// `owner`'s namespace: a SCALAR cell whose chosen repr is the default `I64`
+    /// (the env cell is a raw 8-byte i64 slot with i64 arithmetic; an
+    /// `F64`/`String`/`Object`/bool repr would corrupt the value). This is the
+    /// SCALAR half of the promotion predicate — the arithmetic write paths
+    /// (compound-assign / update) gate on it so a captured OBJECT cell keeps its
+    /// baseline write path. The unified read/declaration gate is
+    /// [`crate::closure::cell_is_promotable`].
+    ///
+    /// C1 review Finding 1: a captured cell was promoted (and
     /// thus allocated) by its OWNER, so the capturer must gate on the OWNER's
     /// repr verdict — the SAME predicate `lower.rs` applied
     /// (`repr_table.scalar(&owner.name, &cell.name) == I64`) when it decided to
