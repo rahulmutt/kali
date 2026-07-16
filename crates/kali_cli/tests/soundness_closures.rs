@@ -573,12 +573,26 @@ fn deferred_queue_microtask_capturing_callback_now_runs() {
     assert_eq!(String::from_utf8_lossy(&out.stdout), "sync=5\nmt=6\n");
 }
 
-/// Row p. setTimeout(cb, 0) capturing callback → fail closed.
+/// Row p. setTimeout(cb, 0) capturing callback — Stage D task D2 wired the
+/// timer-set registration emit (`emit_timer_set_call`), so this now RUNS
+/// with its owner's env record instead of failing closed. Named
+/// `..._row_p_now_runs` (not the brief's plain `_now_runs`) because that
+/// exact name collides with the Step 1 ordering-matrix fixture
+/// `deferred_set_timeout_capturing_callback_now_runs`, which independently
+/// covers the same "capturing setTimeout callback now runs" class — kept
+/// distinct here for the row-p provenance trail.
+/// node v26.5.0 (verified against this exact source): "sync=5\nst=6\n".
 #[test]
-fn deferred_set_timeout_capturing_callback_fails_closed() {
-    assert_e5506(
+fn deferred_set_timeout_capturing_callback_row_p_now_runs() {
+    let out = run_kali(
         "function outer(){ let base = 5; setTimeout(function(){ base += 1; console.log(\"st=\"+base); }, 0); console.log(\"sync=\"+base); } outer();\n",
     );
+    assert!(
+        out.status.success(),
+        "capturing setTimeout callback must now run; stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "sync=5\nst=6\n");
 }
 
 /// Row q. addEventListener capturing callback → fail closed. (The program also
@@ -630,42 +644,80 @@ fn deferred_queue_microtask_non_capturing_callback_now_runs() {
     assert_eq!(String::from_utf8_lossy(&out.stdout), "sync\nmt\n");
 }
 
-/// setInterval capturing callback → fail closed (Finding B). The guard
-/// allowlists `setInterval` alongside the other three scheduling surfaces, but
-/// no fixture exercised it before this pin. Same class: codegen emits no call
-/// to `setInterval`, so a capturing callback would be silently dropped; base
-/// a57cd09d5 rejected E5506 on the `base += 1` capture-write.
+/// Row q2. setInterval capturing callback (Finding B) — Stage D task D2 wired
+/// the timer-set registration emit, so this now RUNS with its owner's env
+/// record instead of failing closed.
+///
+/// ADAPTATION from the brief's literal source: the original fixture
+/// (`setInterval(function(){ base += 1; ...}, 0)` with NO `clearInterval`)
+/// never terminates once the capturing callback actually resolves and runs —
+/// node-verified: it ticks forever (`iv=6`, `iv=7`, `iv=8`, ... unbounded,
+/// confirmed via a 3s timeout that still showed `iv=1834` and rising), and
+/// under kali it would hit the SAME bounded-drain "did not quiesce" trap as
+/// `deferred_uncleared_interval_fails_loudly_not_hangs` — so the brief's
+/// claimed terminating output ("sync=5\niv=6\n") is not reachable from that
+/// exact source either in node or in kali. Added a `clearInterval(t)` inside
+/// the callback (self-clearing after one tick) to make the fixture
+/// deterministic and terminating while preserving the row's essential shape
+/// (an inline capturing callback passed directly to `setInterval`); this adds
+/// a second captured binding (the timer id `t`) alongside `base`, which does
+/// not change the provenance class under test. node v26.5.0 (verified against
+/// this exact modified source): "sync=5\niv=6\n".
 #[test]
-fn deferred_set_interval_capturing_callback_fails_closed() {
-    assert_e5506(
-        "function outer(){ let base = 5; setInterval(function(){ base += 1; console.log(\"iv=\"+base); }, 0); console.log(\"sync=\"+base); } outer();\n",
+fn deferred_set_interval_capturing_callback_row_q2_now_runs() {
+    let out = run_kali(
+        "function outer(){ let base = 5; const t = setInterval(function(){ base += 1; console.log(\"iv=\"+base); clearInterval(t); }, 0); console.log(\"sync=\"+base); } outer();\n",
     );
+    assert!(
+        out.status.success(),
+        "capturing setInterval callback must now run; stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "sync=5\niv=6\n");
 }
 
-/// Finding C — INDIRECT capturing callback via a binding: the callback is a
-/// function VALUE held in a local (`let cb = function(){…}`) and passed by name
-/// (`setTimeout(cb, 0)`), not inline. The guard resolves `cb` to its
-/// `__kali_fn_N` plan through declaration provenance (`fn_valued_locals`) and
-/// sees the non-empty `captured`, so it fails closed just like the inline form.
-/// Before the widening this compiled and silently printed `0` (the callback +
-/// its captured `base` dropped); base a57cd09d5 rejected E5506 on the identical
-/// `base += 1` capture-write (the binding indirection does not change what the
-/// callback captures), so this is the SAME reject-don't-miscompile shape.
+/// Row q3 (Finding C) — INDIRECT capturing callback via a binding: the
+/// callback is a function VALUE held in a local (`let cb = function(){…}`)
+/// and passed by name (`setTimeout(cb, 0)`), not inline. The resolver
+/// resolves `cb` to its `__kali_fn_N` plan through declaration provenance
+/// (`fn_valued_locals`); Stage D task D2 wired the timer-set registration
+/// emit, so this now RUNS with its owner's env record instead of failing
+/// closed.
+///
+/// ADAPTATION from the brief's literal source: the original fixture printed
+/// `console.log(base)` AFTER `setTimeout(cb, 0)` but OUTSIDE the callback —
+/// that print observes only the SYNCHRONOUS pre-tick state (`base` is still
+/// 0 at that point; node-verified real output for that exact source is
+/// "0\n", not the brief's claimed "1"), so it can never observe whether the
+/// deferred callback actually ran. Moved the print INSIDE the callback body
+/// (after the `base += 1` capture-write, dropping the now-redundant outer
+/// print) so the assertion proves the deferred capturing callback executed
+/// with its captured environment, matching the brief's intended "1" output.
+/// node v26.5.0 (verified against this exact modified source): "1\n".
 #[test]
-fn deferred_set_timeout_indirect_capturing_callback_fails_closed() {
-    assert_e5506(
-        "function outer(){ let base = 0; let cb = function(){ base += 1; }; setTimeout(cb, 0); console.log(base); } outer();\n",
+fn deferred_set_timeout_indirect_capturing_callback_row_q3_now_runs() {
+    let out = run_kali(
+        "function outer(){ let base = 0; let cb = function(){ base += 1; console.log(base); }; setTimeout(cb, 0); } outer();\n",
     );
+    assert!(
+        out.status.success(),
+        "indirect capturing setTimeout callback must now run; stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "1\n");
 }
 
-/// Finding C boundary — INDIRECT NON-capturing callback via a binding: the
-/// local holds a closure that captures NOTHING, so its plan has an empty
-/// `captured` and the guard does NOT fire. Silently dropped at base too
-/// (pre-existing, out of scope) — must keep running, proving the widened
-/// (binding-provenance) resolution stays capture-gated, not identifier-gated.
-/// kali drops the callback and prints only the sync line.
+/// Boundary guard 3 (Finding C boundary, bg3) — INDIRECT NON-capturing
+/// callback via a binding: the local holds a closure that captures NOTHING,
+/// so its plan has an empty `captured` and the default-deny guard never fired
+/// (this shape was already provably safe pre-D2). Pre-Stage-D-task-D2 the
+/// callback was still SILENTLY DROPPED because codegen emitted no `setTimeout`
+/// call at all (the `is_undrained_scheduling_surface` fallback), so only
+/// `sync\n` printed. Stage D task D2 wired the registration lane, so the
+/// callback now RUNS during the drain — full node-parity stdout.
+/// node v26.5.0 (verified against this exact source): "sync\ncb\n".
 #[test]
-fn deferred_set_timeout_indirect_non_capturing_callback_still_runs() {
+fn deferred_set_timeout_indirect_non_capturing_callback_now_runs() {
     let out = run_kali(
         "function outer(){ let cb = function(){ console.log(\"cb\"); }; setTimeout(cb, 0); console.log(\"sync\"); } outer();\n",
     );
@@ -674,7 +726,7 @@ fn deferred_set_timeout_indirect_non_capturing_callback_still_runs() {
         "indirect non-capturing setTimeout must not fail closed; stderr: {}",
         String::from_utf8_lossy(&out.stderr)
     );
-    assert_eq!(String::from_utf8_lossy(&out.stdout), "sync\n");
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "sync\ncb\n");
 }
 
 /// Reassignment-stale provenance — CLOSED by the stage-review default-deny
@@ -848,4 +900,203 @@ owner();
         String::from_utf8_lossy(&out.stderr)
     );
     assert_eq!(String::from_utf8_lossy(&out.stdout), "sync=5\nmt=6\n");
+}
+
+// ============================================================================
+// Stage D task D2 — timer lanes (setTimeout / setInterval / clearTimeout /
+// clearInterval). Every expected stdout below is re-verified against
+// `node v26.5.0` on the fixture's ACTUAL source (see task-5-report.md).
+// ============================================================================
+
+/// Bonus closure discovered while diagnosing the `clearTimeout` fixture below:
+/// a `const` binding to a scheduling-registration call with NO wasm local
+/// slot (`self.locals`) falls onto the generic codegen `const` fold-alias
+/// (`FunctionEmitter::bindings`), which RE-EMITS the recorded init node at
+/// every later read of the bound name instead of reading back a stored
+/// value. This was harmless before each surface's registration emit landed
+/// (the call lowered through a dropped zero-placeholder, so duplicating it
+/// duplicated nothing real), but `queueMicrotask` (Stage D task D2's earlier
+/// lane) is a REAL side-effecting host call — pre-fix HEAD ran the callback
+/// TWICE for `const m = queueMicrotask(fn); console.log(m);` (verified: kali
+/// printed "m=0\nmt=1\nmt=2\n"). Closed at the exact same choke point as the
+/// `setTimeout`/`setInterval` fix below
+/// (`collect_function_locals_from_node`'s `is_scheduling_registration_call`,
+/// `lower.rs`), which now also promotes a `queueMicrotask`-initialized
+/// `const` to a real local so it is evaluated exactly once.
+/// node v26.5.0: "m=undefined\nmt=1\n" (kali does not model `undefined` — see
+/// the report's follow-ups — so this pins kali's own `m=0`, not node's
+/// `m=undefined`; the load-bearing assertion is the callback running exactly
+/// ONCE, not the `m=` line's exact text).
+#[test]
+fn deferred_queue_microtask_bound_return_value_runs_callback_once() {
+    let out = run_kali(
+        r#"function main() {
+  let n = 0;
+  const m = queueMicrotask(function () {
+    n += 1;
+    console.log("mt=" + n);
+  });
+  console.log("m=" + m);
+}
+main();
+"#,
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "m=0\nmt=1\n");
+}
+
+/// Stage D: microtasks drain before timers; timers fire in delay order with
+/// registration-order tiebreak — full ordering matrix in one fixture.
+/// node v26.5.0: "sync\nm\na\nb\n".
+#[test]
+fn deferred_ordering_microtasks_then_timers_in_delay_order() {
+    let out = run_kali(
+        r#"setTimeout(function () { console.log("b"); }, 10);
+setTimeout(function () { console.log("a"); }, 5);
+queueMicrotask(function () { console.log("m"); });
+console.log("sync");
+"#,
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "sync\nm\na\nb\n");
+}
+
+/// Stage D: a capturing setTimeout callback runs with its owner's env record
+/// after the owner returned (the never-reset-region property via timers).
+/// node v26.5.0: "sync=5\nst=6\n".
+#[test]
+fn deferred_set_timeout_capturing_callback_now_runs() {
+    let out = run_kali(
+        r#"function owner() {
+  let base = 5;
+  setTimeout(function () {
+    base += 1;
+    console.log("st=" + base);
+  }, 0);
+  console.log("sync=" + base);
+}
+owner();
+"#,
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "sync=5\nst=6\n");
+}
+
+/// Stage D: setInterval ticks repeatedly and clearInterval (with the captured
+/// timer id) stops it. Function-scope variant: `n` and `t` are env cells.
+/// node v26.5.0: "sync\ntick=1\ntick=2\ntick=3\n".
+#[test]
+fn deferred_set_interval_ticks_until_cleared() {
+    let out = run_kali(
+        r#"function main() {
+  let n = 0;
+  const t = setInterval(function () {
+    n += 1;
+    console.log("tick=" + n);
+    if (n >= 3) {
+      clearInterval(t);
+    }
+  }, 0);
+  console.log("sync");
+}
+main();
+"#,
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&out.stdout),
+        "sync\ntick=1\ntick=2\ntick=3\n"
+    );
+}
+
+/// Stage D: clearTimeout cancels a pending timer — the callback never runs.
+/// node v26.5.0: "sync\n".
+#[test]
+fn deferred_clear_timeout_cancels_pending_callback() {
+    let out = run_kali(
+        r#"function main() {
+  const t = setTimeout(function () {
+    console.log("never");
+  }, 0);
+  clearTimeout(t);
+  console.log("sync");
+}
+main();
+"#,
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "sync\n");
+}
+
+/// Stage D bounded drain, end to end: an uncleared interval must trap loudly
+/// (exit != 0, "did not quiesce"), never hang. (node would hang here — the
+/// one deliberate divergence, spec decision 3.)
+#[test]
+fn deferred_uncleared_interval_fails_loudly_not_hangs() {
+    let out = run_kali(
+        r#"setInterval(function () {}, 0);
+console.log("sync");
+"#,
+    );
+    assert!(
+        !out.status.success(),
+        "expected the non-quiescence trap, got exit 0"
+    );
+    assert!(
+        String::from_utf8_lossy(&out.stderr).contains("did not quiesce"),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+/// Stage D envelope: a non-literal delay fails closed (precision follow-up).
+#[test]
+fn deferred_set_timeout_non_literal_delay_fails_closed() {
+    let out = run_kali(
+        r#"let d = 5;
+setTimeout(function () { console.log("x"); }, d);
+"#,
+    );
+    assert!(!out.status.success(), "expected E5506, got exit 0");
+    assert!(
+        String::from_utf8_lossy(&out.stderr).contains("E5506"),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+/// Stage D envelope: extra forwarded args fail closed (node passes them to
+/// the callback; kali has no arg-forwarding lane — reject, don't drop).
+#[test]
+fn deferred_set_timeout_extra_args_fail_closed() {
+    let out = run_kali(
+        r#"setTimeout(function () { console.log("x"); }, 0, 42);
+"#,
+    );
+    assert!(!out.status.success(), "expected E5506, got exit 0");
+    assert!(
+        String::from_utf8_lossy(&out.stderr).contains("E5506"),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
 }

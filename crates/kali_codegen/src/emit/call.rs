@@ -2893,8 +2893,149 @@ impl<'a> FunctionEmitter<'a> {
             SchedulingSurface::QueueMicrotask => {
                 Some(self.emit_queue_microtask_call(function, node))
             }
-            // Timers: wired in the next task; keep the Stage C guard lane.
-            _ => None,
+            SchedulingSurface::SetTimeout | SchedulingSurface::SetInterval => {
+                Some(self.emit_timer_set_call(function, node, surface))
+            }
+            SchedulingSurface::ClearTimeout | SchedulingSurface::ClearInterval => {
+                Some(self.emit_timer_clear_call(function, node, surface))
+            }
+        }
+    }
+
+    fn emit_timer_set_call(
+        &mut self,
+        function: &mut Function,
+        node: &LirNode,
+        surface: SchedulingSurface,
+    ) -> EmittedValue {
+        let surface_name = if surface == SchedulingSurface::SetTimeout {
+            "setTimeout"
+        } else {
+            "setInterval"
+        };
+        let fail_closed = |this: &mut Self, message: String| {
+            this.diagnostics
+                .push(Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, message));
+            EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            }
+        };
+        // node.children: [callee, callback, optional delay]; anything else —
+        // including node's arg-forwarding form setTimeout(fn, 0, x) — fails
+        // closed (spec §5).
+        if node.children.len() < 2 || node.children.len() > 3 {
+            return fail_closed(
+                self,
+                format!("{surface_name} supports exactly (callback[, delay]) in the current phase; extra arguments have no forwarding lane"),
+            );
+        }
+        // Delay: a NUMERIC LITERAL or absent (spec envelope: provably-numeric
+        // only; widening to proven-scalar bindings is precision follow-up
+        // work). Clamping below 1 happens host-side (node parity).
+        let delay: i32 = match node.children.get(2) {
+            None => 0,
+            Some(&d) => {
+                let d = self.unwrap_transparent(d);
+                let d_node = self.node(d);
+                let literal = d_node
+                    .children
+                    .is_empty()
+                    .then_some(d_node.text.as_deref())
+                    .flatten()
+                    .and_then(parse_numeric_literal_value);
+                match literal {
+                    Some(value) => value.max(0.0).min(i32::MAX as f64) as i32,
+                    None => {
+                        return fail_closed(
+                            self,
+                            format!("a {surface_name} delay must be a numeric literal in the current phase (a computed delay has no provably-numeric lowering yet)"),
+                        )
+                    }
+                }
+            }
+        };
+        let import = if surface == SchedulingSurface::SetTimeout {
+            self.set_timeout_import_index
+        } else {
+            self.set_interval_import_index
+        };
+        let Some(import) = import else {
+            return fail_closed(
+                self,
+                format!("{surface_name} import unavailable (probe/emit desync)"),
+            );
+        };
+        match self.scheduling_callback(node) {
+            SchedulingCallback::Resolved(index) => {
+                function.instruction(&Instruction::I32Const(index as i32));
+                function.instruction(&Instruction::I32Const(delay));
+                function.instruction(&Instruction::GlobalGet(self.current_env_global()));
+                function.instruction(&Instruction::Call(import));
+                // The host returns the i32 timer id; kali scalars are i64.
+                function.instruction(&Instruction::I64ExtendI32S);
+                EmittedValue { produced: true, shape: ValueShape::Unknown }
+            }
+            SchedulingCallback::LegacyPlaceholder => {
+                // Pre-un-flatten flattened-arrow lane — deleted in Task 7.
+                self.push_placeholder_fallback_diagnostic("call target", surface_name);
+                function.instruction(&Instruction::I64Const(0));
+                EmittedValue { produced: true, shape: ValueShape::Unknown }
+            }
+            SchedulingCallback::Deny => fail_closed(
+                self,
+                format!("a {surface_name} callback must resolve through stable provenance to a compiled function; an unresolvable callback would be silently dropped"),
+            ),
+        }
+    }
+
+    fn emit_timer_clear_call(
+        &mut self,
+        function: &mut Function,
+        node: &LirNode,
+        surface: SchedulingSurface,
+    ) -> EmittedValue {
+        let surface_name = if surface == SchedulingSurface::ClearTimeout {
+            "clearTimeout"
+        } else {
+            "clearInterval"
+        };
+        if node.children.len() != 2 {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!("{surface_name} requires exactly one timer-id argument"),
+            ));
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
+        let import = if surface == SchedulingSurface::ClearTimeout {
+            self.clear_timeout_import_index
+        } else {
+            self.clear_interval_import_index
+        };
+        let Some(import) = import else {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!("{surface_name} import unavailable (probe/emit desync)"),
+            ));
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        };
+        // Any i64 value is SOUND as a cancel id: the host no-ops an unknown/
+        // already-fired id (node parity), so no provenance proof is needed.
+        let emitted = self.emit_node(function, node.children[1], true);
+        if !emitted.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
+        function.instruction(&Instruction::I32WrapI64);
+        function.instruction(&Instruction::Call(import));
+        EmittedValue {
+            produced: false,
+            shape: ValueShape::Unknown,
         }
     }
 
@@ -2967,23 +3108,23 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     /// True when `callee_node` names a host scheduling surface whose call
-    /// codegen does NOT emit: `setTimeout` / `setInterval` (bare identifiers)
-    /// or `addEventListener` (a method). These host imports exist (`lower.rs`
-    /// import table) but no generated module imports them, so such a call
-    /// reaches the generic zero-placeholder fallback and its callback is
-    /// dropped. `queueMicrotask` was removed from this set in Stage D task D2:
-    /// its bare-unshadowed calls are now fully handled by the registration
-    /// emit arm (`emit_queue_microtask_call`) far above and never reach this
-    /// guard; a shadowed `queueMicrotask` takes the normal user-call lane and
-    /// is likewise not a scheduling surface. This enumerates the exact
-    /// still-un-emittable scheduling family — a closed set, not an open-ended
-    /// sink denylist — and is the single recognizer the Concern-2 guard keys
-    /// on.
+    /// codegen does NOT emit: `addEventListener` (a method). This host import
+    /// exists (`lower.rs` import table) but no generated module imports it,
+    /// so such a call reaches the generic zero-placeholder fallback and its
+    /// callback is dropped. `queueMicrotask` was removed from this set in
+    /// Stage D task D2 (registration emit arm `emit_queue_microtask_call`);
+    /// `setTimeout` / `setInterval` (and their `clearTimeout` / `clearInterval`
+    /// counterparts) were removed in Stage D task D2's timer-lane follow-up
+    /// (`emit_timer_set_call` / `emit_timer_clear_call`, both dispatched from
+    /// `try_emit_scheduling_call` far above) — every bare-unshadowed call to
+    /// any of the four now resolves through its own registration/cancel emit
+    /// arm and never reaches this guard; a shadowed name takes the normal
+    /// user-call lane and is likewise not a scheduling surface. This now
+    /// enumerates the exact still-un-emittable scheduling family —
+    /// `addEventListener` alone — a closed set, not an open-ended sink
+    /// denylist, and is the single recognizer the Concern-2 guard keys on.
     fn is_undrained_scheduling_surface(&self, callee_node: &LirNode) -> bool {
-        matches!(
-            callee_node.text.as_deref(),
-            Some("setTimeout") | Some("setInterval") | Some("addEventListener")
-        )
+        matches!(callee_node.text.as_deref(), Some("addEventListener"))
     }
 
     /// DEFAULT-DENY provenance check for the un-emittable scheduling surfaces

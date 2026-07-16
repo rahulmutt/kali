@@ -3528,6 +3528,35 @@ pub(crate) fn collect_function_locals_from_node(
             // miscompile (the growable twin of `declarator_init_is_array_read`).
             let reads_growable_array =
                 declarator_init_mentions_growable(nodes, init, repr_table, function_name);
+            // Scheduling registration (`const t = setTimeout(...)` /
+            // `setInterval(...)`, Stage D task D2; also `queueMicrotask(...)`,
+            // Stage D task D2's earlier microtask lane) is a SIDE-EFFECTING
+            // host call — exactly like `declarator_init_is_performance_now`/
+            // `_is_crypto_call` above, just a bare-identifier call rather than
+            // a member call, so `declarator_init_call_callee_name` (already
+            // used for the factory-return check above) recognizes its shape
+            // directly. Before each surface's registration emit landed, it
+            // lowered through a dropped zero-placeholder fallback, so
+            // re-emitting the call at every read site of a bound name was a
+            // harmless no-op; now each is a REAL host call, and without
+            // promotion the `const` fold-alias tunnel (`FunctionEmitter::
+            // bindings`) re-emits the ORIGINAL call at each later use site of
+            // the bound name, registering a SECOND independent
+            // timer/microtask — a duplicate-registration miscompile (for
+            // setTimeout/setInterval: the pending first timer is never
+            // cancelled if the read site is a `clearTimeout`/`clearInterval`
+            // call; for queueMicrotask: its callback runs TWICE, reproduced
+            // via `const m = queueMicrotask(fn); console.log(m);` — `fn` ran
+            // twice on the pre-fix HEAD), not merely a missed optimization.
+            // `queueMicrotask` is included here even though task D2's own
+            // fixtures never bind its (always-`undefined`) return value,
+            // because it is the exact same mechanism at the exact same choke
+            // point — closing the class, not just the setTimeout/setInterval
+            // instances of it.
+            let is_scheduling_registration_call = matches!(
+                declarator_init_call_callee_name(nodes, init),
+                Some("setTimeout") | Some("setInterval") | Some("queueMicrotask")
+            );
             if !declarator_init_is_array_alloc(nodes, init)
                 && !declarator_init_is_array_fill(nodes, init)
                 && !declarator_init_is_array_read(nodes, init, array_names)
@@ -3539,6 +3568,7 @@ pub(crate) fn collect_function_locals_from_node(
                 && !declarator_init_is_performance_now(nodes, init)
                 && !declarator_init_is_crypto_call(nodes, init)
                 && !declarator_init_contains_mutation(nodes, init)
+                && !is_scheduling_registration_call
             {
                 continue;
             }
