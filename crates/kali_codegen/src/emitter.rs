@@ -443,7 +443,27 @@ impl<'a> FunctionEmitter<'a> {
     /// byte-identical to baseline (heap capture read → placeholder; captured
     /// compound-assign → the existing E5506 local-miss).
     pub(crate) fn promotable_scalar_cell(&self, name: &str, is_scalar: bool) -> bool {
-        is_scalar && self.scalar_repr(name) == kali_common::Repr::I64
+        self.promotable_scalar_cell_in(&self.function_name, name, is_scalar)
+    }
+
+    /// Same promotion predicate as [`Self::promotable_scalar_cell`], but resolves
+    /// the repr in an ARBITRARY function's namespace `owner` rather than the
+    /// current function's. C1 review Finding 1: a captured cell was promoted (and
+    /// thus allocated) by its OWNER, so the capturer must gate on the OWNER's
+    /// repr verdict — the SAME predicate `lower.rs` applied
+    /// (`repr_table.scalar(&owner.name, &cell.name) == I64`) when it decided to
+    /// drop the name from the owner's locals. Gating on the capturer's own
+    /// namespace (where an outer name defaults to `I64`) diverges from the
+    /// owner's decision: an owner F64 that did NOT promote leaves no cell, yet the
+    /// capturer would read/write one — a silent miscompile of a shape that was
+    /// E5506 pre-Stage-C.
+    pub(crate) fn promotable_scalar_cell_in(
+        &self,
+        owner: &str,
+        name: &str,
+        is_scalar: bool,
+    ) -> bool {
+        is_scalar && self.repr_table.scalar(owner, name) == kali_common::Repr::I64
     }
 
     /// True when THIS function owns a promotable env — i.e. `lower.rs` reserved

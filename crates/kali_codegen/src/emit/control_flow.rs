@@ -662,6 +662,18 @@ impl<'a> FunctionEmitter<'a> {
         if !self.owns_promotable_env() {
             return;
         }
+        // The module-capture safety argument (module-scope captures are module
+        // globals, never env cells) rests on the module root `_start` / `""`
+        // never owning an env. `derive_env_plans` guarantees this (the module
+        // function's cells are always empty), and the entry never routes through
+        // this prologue anyway (it uses `emit_sequence`), but pin the invariant
+        // here at the ownership decision point so a future refactor that let the
+        // root own an env trips in debug builds instead of silently rebinding
+        // `current_env` at module scope.
+        debug_assert!(
+            self.function_name != "_start" && !self.function_name.is_empty(),
+            "module root ('_start'/module scope) must never own a promotable env"
+        );
         let cell_count = self.env_plan.cells.len() as u32;
         let env_global = self.current_env_global();
         let save_local = self.locals[&crate::closure::env_save_local_name()];

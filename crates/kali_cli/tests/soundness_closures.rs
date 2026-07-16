@@ -25,6 +25,22 @@ fn run_kali(source: &str) -> std::process::Output {
         .expect("run kali")
 }
 
+/// Assert the program is REJECTED with `E5506` (the reject-don't-miscompile
+/// contract) rather than silently producing a value.
+fn assert_e5506(source: &str) {
+    let out = run_kali(source);
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        !out.status.success(),
+        "expected E5506 rejection, but the program succeeded with stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    assert!(
+        stderr.contains("E5506"),
+        "expected E5506 in stderr, got: {stderr}"
+    );
+}
+
 /// Nested function mutates an enclosing scalar local; the enclosing scope reads
 /// the mutation back. Pre-C1: `c += 1` hard-fails E5506. node prints 2.
 #[test]
@@ -38,6 +54,54 @@ fn sync_scalar_capture_write_is_visible_to_owner() {
         String::from_utf8_lossy(&out.stderr)
     );
     assert_eq!(String::from_utf8_lossy(&out.stdout), "2\n");
+}
+
+/// C1 review Finding 1 (owner-repr capture gate). The OWNER declares an `F64`
+/// scalar (`let c = 0.5`), so `lower.rs` does NOT promote it to an env cell (it
+/// stays an f64 WASM local). A nested `c += 1` must therefore be REJECTED, not
+/// silently routed to a phantom i64 env cell the owner never allocated. Before
+/// the fix the capturer gated on ITS OWN repr namespace — where the undeclared
+/// name `c` defaults to `I64` — and emitted a cell write the owner never read,
+/// printing `0.5` (node: `2.5`). The owner's F64 verdict now decides: E5506.
+#[test]
+fn capture_gate_owner_f64_compound_assign_rejects_not_miscompiles() {
+    assert_e5506(
+        "function outer(){ let c = 0.5; function inc(){ c += 1; } inc(); inc(); console.log(c); } outer();\n",
+    );
+}
+
+/// Finding 1, update-expression shape (`c++` on an owner-`F64` capture). Same
+/// divergence class as the compound-assign pin above — must reject, not write a
+/// phantom cell.
+#[test]
+fn capture_gate_owner_f64_update_expr_rejects_not_miscompiles() {
+    assert_e5506(
+        "function outer(){ let c = 0.5; function inc(){ c++; } inc(); console.log(c); } outer();\n",
+    );
+}
+
+/// C1 review Finding 2 (module-global precedence in the update path). A
+/// module-scope binding must never resolve depth-0 against `current_env` as if
+/// it were an env cell. `c++` on a module global has no dedicated lowering, so
+/// it is REJECTED (E5506) — the point is it does NOT silently write raw memory
+/// at `8 + offset`. The write path (`c += 1`) already routes to the
+/// module-global `GlobalSet` lane and is pinned below.
+#[test]
+fn module_global_update_does_not_route_to_env_cell() {
+    assert_e5506("let c = 0;\nfunction f(){ c++; }\nf();\nconsole.log(c);\n");
+}
+
+/// Finding 2 companion: a module-scope compound-assign still reaches the
+/// module-global path (prints `1`), unaffected by the env-cell machinery.
+#[test]
+fn module_global_compound_assign_still_routes_to_global() {
+    let out = run_kali("let c = 0;\nfunction f(){ c += 1; }\nf();\nconsole.log(c);\n");
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "1\n");
 }
 
 /// Nested function READS an enclosing scalar. Pre-C1: silently returns 0. node

@@ -38,6 +38,12 @@ pub struct CapturedRef {
     pub depth: u32,
     pub offset: u32,
     pub is_scalar: bool,
+    /// Plan key of the function that OWNS this binding (the ancestor whose env
+    /// record holds the cell). Codegen must consult the OWNER's repr namespace
+    /// (not the capturer's) when deciding whether the cell was promoted — the
+    /// owner's promotion verdict is what actually allocated (or did not
+    /// allocate) the cell. See the C1 review Finding 1.
+    pub owner: String,
 }
 
 /// The closure plan for a single function, keyed by its `__kali_fn_N` name
@@ -188,6 +194,7 @@ pub fn derive_env_plans(program: &MirProgram) -> BTreeMap<String, EnvPlan> {
                             depth,
                             offset,
                             is_scalar,
+                            owner: owner_key.clone(),
                         },
                     );
                 }
@@ -238,7 +245,8 @@ mod tests {
                 name: "c".into(),
                 depth: 1,
                 offset: 0,
-                is_scalar: true
+                is_scalar: true,
+                owner: "outer".into()
             }]
         );
     }
@@ -258,7 +266,8 @@ mod tests {
                 name: "g".into(),
                 depth: 2,
                 offset: 0,
-                is_scalar: true
+                is_scalar: true,
+                owner: "a".into()
             }]
         );
     }
@@ -328,7 +337,8 @@ mod tests {
                 name: "v".into(),
                 depth: 2,
                 offset: 0,
-                is_scalar: true
+                is_scalar: true,
+                owner: "outer".into()
             }],
             "the anonymous intermediate scope must count as a hop (depth 2)"
         );

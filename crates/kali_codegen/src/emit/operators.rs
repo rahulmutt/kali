@@ -24,7 +24,15 @@ impl<'a> FunctionEmitter<'a> {
         // route the update through its env cell. `Some` iff `name` is in this
         // function's env plan (handled or E5506-rejected); only genuinely
         // unresolvable names fall through to the E5506 below.
-        if !self.locals.contains_key(&name) {
+        //
+        // Module-global precedence guard (Finding 2): a module-scope binding
+        // takes precedence over any env-cell resolution, exactly as the write
+        // path does in `literal.rs` (module-global check BEFORE the captured
+        // check). A module global is never a captured ref today
+        // (`derive_env_plans` excludes module-owned captures), but this guard
+        // closes the class REGARDLESS of reachability: a module name must never
+        // resolve depth-0 against `current_env` (raw memory at `8 + offset`).
+        if !self.locals.contains_key(&name) && !self.module_global_slots.contains_key(&name) {
             if let Some(value) = self.try_emit_captured_update(function, &name, op) {
                 return value;
             }

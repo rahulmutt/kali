@@ -40,9 +40,18 @@ impl<'a> FunctionEmitter<'a> {
             // the owner's record directly, env-walk depth 0). A capturer that
             // owns an env, or a capture more than one function scope up, needs a
             // `parent_env` chain walk (C2) — left to fall through.
+            // Gate on the OWNER's promotion verdict (Finding 1): consult
+            // `reference.owner`'s repr namespace — the same predicate `lower.rs`
+            // used to decide whether the owner actually allocated this cell —
+            // NOT the capturer's namespace (where an outer F64 name defaults to
+            // I64, diverging into a write to a cell the owner never stored).
             if !self.owns_promotable_env()
                 && reference.depth == 1
-                && self.promotable_scalar_cell(name, reference.is_scalar)
+                && self.promotable_scalar_cell_in(
+                    &reference.owner,
+                    name,
+                    reference.is_scalar,
+                )
             {
                 return Some(reference.offset);
             }
