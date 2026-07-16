@@ -181,6 +181,19 @@ struct ReprInfer {
     /// `kali_codegen::emit::control_flow`'s identifier fallback and
     /// `kali_codegen::lower`'s `module_binding_names`).
     local_names: BTreeMap<String, BTreeSet<String>>,
+    /// Lexical parent of every `FunctionDeclaration`: `child_func -> enclosing
+    /// scope` (a top-level declaration maps to `TOP_LEVEL`). Populated by
+    /// `collect_local_names` (which already recurses each declaration under its
+    /// own name), so no extra walk is introduced. Used ONLY by `capture_owner`
+    /// to resolve a free object-base identifier in a nested function to the
+    /// nearest enclosing scope that declares it — the Stage C C2
+    /// captured-object-shape flow. The MIR/codegen side (`env_plan`'s
+    /// `parent_labels` + `CapturedRef.owner`) is the runtime twin; this is the
+    /// repr-inference twin, keyed on the SAME function names. Only
+    /// `FunctionDeclaration` nesting is recorded (fn-expr owners are left at
+    /// baseline: a fn-expr capture never propagates a shape, so it stays
+    /// unmaterialized — no miscompile, just unsupported).
+    parents: BTreeMap<String, String>,
     /// Deferred interprocedural call constraints.
     calls: Vec<CallEdge>,
     /// Ordered field names of each slot directly initialized by an object literal.
@@ -1107,6 +1120,9 @@ impl ReprInfer {
         self.descend_stmt_fns(NestedFnWalk::LocalNames, stmt);
         match stmt {
             Statement::FunctionDeclaration(decl) => {
+                // Record the lexical parent edge (Stage C C2 capture-owner
+                // resolution): this declaration is nested directly in `func`.
+                self.parents.insert(decl.name.clone(), func.to_string());
                 let entry = self.local_names.entry(decl.name.clone()).or_default();
                 for param in &decl.params {
                     entry.insert(param.clone());
@@ -1178,6 +1194,31 @@ impl ReprInfer {
         self.local_names
             .get(func)
             .is_some_and(|names| names.contains(name))
+    }
+
+    /// Stage C C2: the nearest ENCLOSING FUNCTION scope that declares `name`,
+    /// walking the lexical parent chain up from `func` (exclusive of `func`
+    /// itself). This is the capture OWNER of a free identifier `name` used in
+    /// `func`. Returns `None` when the owner is module scope (`TOP_LEVEL`): a
+    /// module-scope binding is NOT an env cell (the module root owns no env
+    /// record — see `env_plan`), so codegen has no capture-access path for it,
+    /// and it must stay on its existing fold/global lane. Also `None` when no
+    /// enclosing scope declares `name` (an undeclared/global reference).
+    ///
+    /// The result is the repr-inference twin of `CapturedRef.owner` (kali_mir
+    /// `env_plan`): both name the ancestor whose activation holds the binding.
+    fn capture_owner(&self, func: &str, name: &str) -> Option<String> {
+        let mut current = self.parents.get(func).cloned();
+        while let Some(scope) = current {
+            if scope == TOP_LEVEL {
+                return None;
+            }
+            if self.is_locally_declared(&scope, name) {
+                return Some(scope);
+            }
+            current = self.parents.get(&scope).cloned();
+        }
+        None
     }
 
     // ---- Phase B: statement walk ---------------------------------------
@@ -2640,6 +2681,37 @@ impl ReprInfer {
     // ---- Phase C2: object-shape propagation -----------------------------
 
     fn resolve_objects(&mut self) {
+        // 0. Capture flows (Stage C C2). A free object-base identifier used in
+        //    a nested function aliases the SAME binding in its nearest
+        //    enclosing scope that declares it (its capture owner). Feeding this
+        //    as an ordinary `obj_flows` edge lets the EXISTING object-shape
+        //    propagation (which already crosses function boundaries for
+        //    arg↔param and return↔call-site) carry the owner's shape into the
+        //    capturer's namespace and materialize BOTH endpoints — so
+        //    `table.scalar(capturer, name)` becomes `Repr::Object(shape)` and
+        //    codegen's `object_shape_of_node` fires in the capturer. This is
+        //    the 4b half; codegen's owner-keyed env-cell promotion (4a) is what
+        //    then loads the object pointer from the env record. A flow to a
+        //    non-object owner (a captured scalar used as a `.field` base) is
+        //    inert: the owner slot never enters `fields_of`, so the fixpoint,
+        //    the field-storage union, and the access wiring all skip it — no
+        //    behavior change for any non-object capture. Module-scope owners
+        //    are excluded by `capture_owner` (no env cell exists for them).
+        let mut capture_flows = Vec::new();
+        for access in &self.obj_accesses {
+            if let ObjSlot::Binding(func, name) = &access.base {
+                if func != TOP_LEVEL && !self.is_locally_declared(func, name) {
+                    if let Some(owner) = self.capture_owner(func, name) {
+                        capture_flows.push((
+                            ObjSlot::Binding(func.clone(), name.clone()),
+                            ObjSlot::Binding(owner, name.clone()),
+                        ));
+                    }
+                }
+            }
+        }
+        self.obj_flows.extend(capture_flows);
+
         // 1. Propagate field lists across flows to a fixpoint (copy into
         //    unknown sides only; mismatches are flagged once, afterwards).
         let mut fields_of: BTreeMap<ObjSlot, Vec<String>> = self.obj_literal_fields.clone();
