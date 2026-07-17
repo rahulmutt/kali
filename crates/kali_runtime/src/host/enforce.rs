@@ -144,6 +144,82 @@ pub(crate) fn invoke_callback(
     result
 }
 
+/// Synchronously invoke `__kali_callback_<id>` from INSIDE a host import,
+/// while guest code (e.g. `_start`) is still on the wasm stack (Stage D
+/// event dispatch). Mirrors `invoke_callback`'s export-lookup, env
+/// save/restore, and result-arity handling — but `Caller`-based (there is no
+/// `Instance`/`Store` split available inside a `func_wrap` closure) and
+/// returning `wasmtime::Result` (a `Diagnostic` cannot be constructed here
+/// the way `invoke_callback_inner` does, since there is no
+/// `store.data_mut().pending_diagnostic` slot to consult before the
+/// generic-trap fallback — the caller's `func_wrap` return type is
+/// `wasmtime::Result`, matching every other host import in this file).
+/// NEVER call this while holding a `caller.data_mut()`/`caller.data()`
+/// borrow across the re-entrant call (E0499 otherwise) — snapshot any host
+/// state needed by the caller BEFORE invoking.
+pub(crate) fn invoke_callback_reentrant(
+    caller: &mut Caller<'_, KaliHostState>,
+    callback_id: i32,
+    env_ptr: i64,
+) -> wasmtime::Result<()> {
+    let export_name = format!("__kali_callback_{}", callback_id);
+    let callback = caller
+        .get_export(&export_name)
+        .and_then(|export| export.into_func())
+        .ok_or_else(|| {
+            wasmtime::Error::msg(format!("missing callback export '{}'", export_name))
+        })?;
+
+    // Stage C C3 parity with `invoke_callback`: run the listener with the
+    // `current_env` that was active at registration time, restoring the
+    // caller's (e.g. `_start`'s) env afterward on BOTH the ok and err paths.
+    // Modules with no `__current_env` export (no promotable env) make this a
+    // no-op, exactly like `invoke_callback`.
+    let env_global = caller
+        .get_export("__current_env")
+        .and_then(|export| export.into_global());
+    let saved_env = env_global.map(|global| global.get(&mut *caller));
+    if let Some(global) = env_global {
+        global
+            .set(&mut *caller, Val::I64(env_ptr))
+            .map_err(|error| {
+                wasmtime::Error::msg(format!(
+                    "failed to set __current_env before callback: {error}"
+                ))
+            })?;
+    }
+
+    // Callbacks are nullary but their result arity varies (see
+    // `invoke_callback_inner`'s comment) — invoke through the untyped API and
+    // discard any results so both hand-written `() -> ()` stubs and
+    // codegen-emitted `() -> i64`/`() -> f64` functions dispatch.
+    let mut results: Vec<Val> = callback
+        .ty(&mut *caller)
+        .results()
+        .map(|ty| match ty {
+            wasmtime::ValType::I32 => Val::I32(0),
+            wasmtime::ValType::F32 => Val::F32(0),
+            wasmtime::ValType::F64 => Val::F64(0),
+            _ => Val::I64(0),
+        })
+        .collect();
+
+    let call_result = callback
+        .call(&mut *caller, &[], &mut results)
+        .map_err(|error| {
+            wasmtime::Error::msg(format!(
+                "runtime trap in callback '{}': {}",
+                export_name, error
+            ))
+        });
+
+    if let (Some(global), Some(prev)) = (env_global, saved_env) {
+        let _ = global.set(&mut *caller, prev);
+    }
+
+    call_result
+}
+
 fn invoke_callback_inner(
     instance: &Instance,
     store: &mut Store<KaliHostState>,

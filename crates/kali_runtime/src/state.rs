@@ -58,6 +58,20 @@ pub struct KaliHostState {
     /// `EventEmitter` calls, each paired with the `current_env` captured at
     /// registration time (Stage C C3), forwarded to the microtask on emit.
     pub event_listeners: BTreeMap<String, Vec<(i32, i64)>>,
+    /// Stage D event-surface lane: next `EventTarget` handle (allocated 1..;
+    /// 0 is never a valid handle).
+    pub next_event_target_id: u32,
+    /// Stage D event-surface lane: listener registry keyed
+    /// `(target_handle, event_type)`; values are registration-ordered
+    /// `(callback_id, env_ptr)` pairs. `BTreeMap` for deterministic
+    /// iteration; duplicates dedup by exact pair (node dedups by listener
+    /// identity — `(callback_id, env_ptr)` is the closest analog). Named
+    /// distinctly from the pre-existing `event_listeners` (Node
+    /// `EventEmitter` registry, keyed by event-type string only) to avoid a
+    /// field collision — these are separate registries with separate
+    /// dispatch semantics (target-scoped + synchronous vs. global +
+    /// microtask-forwarded).
+    pub event_target_listeners: BTreeMap<(u32, String), Vec<(i32, i64)>>,
     /// Memory/table limits for the current store.
     pub store_limits: wasmtime::StoreLimits,
     /// The most recent policy/resource diagnostic produced by a host operation.
@@ -120,6 +134,8 @@ impl Default for KaliHostState {
             registered_tests: Vec::new(),
             coverage_hits: BTreeSet::new(),
             event_listeners: BTreeMap::new(),
+            next_event_target_id: 1,
+            event_target_listeners: BTreeMap::new(),
             store_limits: wasmtime::StoreLimitsBuilder::new().build(),
             pending_diagnostic: None,
             active_file_handles: 0,
@@ -268,6 +284,46 @@ impl KaliHostState {
         );
 
         Ok(timer_id as i32)
+    }
+
+    /// Stage D event-surface lane: allocate a fresh `EventTarget` handle.
+    pub(crate) fn register_event_target(&mut self) -> u32 {
+        let id = self.next_event_target_id;
+        self.next_event_target_id = self.next_event_target_id.wrapping_add(1);
+        id
+    }
+
+    /// Stage D event-surface lane: register a listener for `(target,
+    /// event_type)`, deduping by exact `(callback_id, env_ptr)` pair (node
+    /// dedups by listener identity).
+    pub(crate) fn add_event_listener(
+        &mut self,
+        target: u32,
+        event_type: String,
+        callback_id: i32,
+        env_ptr: i64,
+    ) {
+        let listeners = self
+            .event_target_listeners
+            .entry((target, event_type))
+            .or_default();
+        if !listeners.contains(&(callback_id, env_ptr)) {
+            listeners.push((callback_id, env_ptr));
+        }
+    }
+
+    /// Stage D event-surface lane: registration-ordered snapshot of listeners
+    /// for `(target, event_type)`, taken BEFORE dispatch invokes any of them
+    /// so listeners added during dispatch don't fire this round.
+    pub(crate) fn event_listener_snapshot(
+        &self,
+        target: u32,
+        event_type: &str,
+    ) -> Vec<(i32, i64)> {
+        self.event_target_listeners
+            .get(&(target, event_type.to_string()))
+            .cloned()
+            .unwrap_or_default()
     }
 
     pub(crate) fn cancel_timer(&mut self, timer_id: i32) -> wasmtime::Result<()> {

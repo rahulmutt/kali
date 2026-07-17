@@ -887,6 +887,61 @@ pub(crate) fn register_default_host_imports(
     linker
         .func_wrap(
             "kali:rt",
+            "event_target_new",
+            |mut caller: Caller<'_, KaliHostState>| -> i64 {
+                i64::from(caller.data_mut().register_event_target())
+            },
+        )
+        .map_err(|error| host_import_error("event_target_new", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
+            "event_listener_add",
+            |mut caller: Caller<'_, KaliHostState>,
+             target: i64,
+             name_ptr: i32,
+             name_len: i32,
+             callback_id: i32,
+             env_ptr: i64|
+             -> wasmtime::Result<()> {
+                let event_type = read_guest_string(&mut caller, name_ptr, name_len)?;
+                caller
+                    .data_mut()
+                    .add_event_listener(target as u32, event_type, callback_id, env_ptr);
+                Ok(())
+            },
+        )
+        .map_err(|error| host_import_error("event_listener_add", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
+            "event_dispatch",
+            |mut caller: Caller<'_, KaliHostState>,
+             target: i64,
+             name_ptr: i32,
+             name_len: i32|
+             -> wasmtime::Result<i32> {
+                let event_type = read_guest_string(&mut caller, name_ptr, name_len)?;
+                // Snapshot BEFORE re-entering the guest: node parity
+                // (listeners added during dispatch don't fire this round)
+                // AND the borrow constraint (no `data()`/`data_mut()` borrow
+                // may live across a re-entrant guest call).
+                let snapshot = caller
+                    .data()
+                    .event_listener_snapshot(target as u32, &event_type);
+                for (callback_id, env_ptr) in snapshot {
+                    invoke_callback_reentrant(&mut caller, callback_id, env_ptr)?;
+                }
+                Ok(1)
+            },
+        )
+        .map_err(|error| host_import_error("event_dispatch", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
             "queue_microtask",
             |mut caller: Caller<'_, KaliHostState>,
              callback_id: i32,

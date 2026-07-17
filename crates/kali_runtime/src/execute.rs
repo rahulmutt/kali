@@ -120,6 +120,8 @@ impl RuntimeCtx {
                 registered_tests: Vec::new(),
                 coverage_hits: BTreeSet::new(),
                 event_listeners: BTreeMap::new(),
+                next_event_target_id: 1,
+                event_target_listeners: BTreeMap::new(),
                 store_limits,
                 pending_diagnostic: None,
                 active_file_handles: 0,
@@ -213,7 +215,20 @@ impl RuntimeCtx {
                     "runtime trap (unreachable — allocation failure or an unsupported-path guard): {}",
                     error
                 )),
-                _ => runtime_error_diagnostic(format!("runtime trap: {}", error)),
+                // `{:?}` (not `{}`): a trap that crosses an extra host-import
+                // call boundary (Stage D's synchronous re-entrant dispatch —
+                // `_start` -> `event_dispatch` host import -> guest listener
+                // trap) gets wrapped by wasmtime with fresh backtrace context
+                // at each boundary; `downcast_ref::<wasmtime::Trap>()` no
+                // longer matches, and plain `{}` Display shows only that
+                // outermost context, discarding the inner
+                // `invoke_callback_reentrant` message (e.g. which listener
+                // export trapped) into the anyhow source chain. `{:?}`
+                // renders the full "Caused by" chain so that information
+                // survives into the diagnostic. Every existing caller only
+                // asserts `.contains("runtime trap")`, which the new
+                // multi-line rendering still satisfies as a prefix.
+                _ => runtime_error_diagnostic(format!("runtime trap: {:?}", error)),
             };
             let state = store.data();
             return Ok(RuntimeOutcome {
