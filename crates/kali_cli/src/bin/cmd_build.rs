@@ -1631,6 +1631,50 @@ async function kaliDrainEventLoop(instance) {{
   }}
 }}
 
+// Stage D event-surface lane (evD): this bundle glue declares
+// `defaultImportObject` before any `instance` binding exists at module
+// scope (`instancePromise`/`loadWithImports` only bind a local `instance`
+// inside their own async closures) — hoist a dedicated module-scope handle
+// and assign it right after each instantiation path resolves, so
+// `event_dispatch` (called by the guest, which can only happen after
+// `_start`, i.e. after instantiation) always sees a live instance.
+let kaliActiveInstance = null;
+const kaliEventListeners = new Map();
+let kaliNextEventTargetId = 1;
+// Neither bundle-glue import-object site has a ptr/len guest-string reader
+// (only inline `TextDecoder().decode(mem.slice(...))` in crypto_subtle_digest);
+// add one mirroring that idiom.
+function kaliReadGuestString(ptr, len) {{
+  if (wasmMemory === null) {{ return ''; }}
+  return new TextDecoder().decode(new Uint8Array(wasmMemory.buffer, ptr, len));
+}}
+function kaliEventKey(target, type) {{
+  return `${{Number(target)}} ${{type}}`;
+}}
+function kaliInvokeCallbackSync(instance, callbackId, envPtr) {{
+  // Mirrors kali_runtime::host::enforce::invoke_callback_reentrant: set the
+  // exported __current_env to the registration-time env, restore after —
+  // SYNCHRONOUSLY (dispatchEvent runs listeners before it returns).
+  const envGlobal = instance.exports.__current_env;
+  const saved = envGlobal ? envGlobal.value : null;
+  if (envGlobal) {{ envGlobal.value = envPtr; }}
+  try {{
+    instance.exports[`__kali_callback_${{callbackId}}`]();
+  }} finally {{
+    if (envGlobal) {{ envGlobal.value = saved; }}
+  }}
+}}
+function kaliEventDispatch(instance, target, type) {{
+  // Snapshot first: listeners added during dispatch don't fire this round
+  // (node parity; mirrors event_dispatch in imports_default.rs).
+  const listeners = kaliEventListeners.get(kaliEventKey(target, type));
+  const snapshot = listeners ? listeners.slice() : [];
+  for (const entry of snapshot) {{
+    kaliInvokeCallbackSync(instance, entry.callbackId, entry.envPtr);
+  }}
+  return 1;
+}}
+
 const defaultImportObject = {{
   "kali:rt": {{
     test_register(_val, _envPtr) {{}},
@@ -1648,6 +1692,22 @@ const defaultImportObject = {{
     }},
     clearInterval(timerId) {{
       kaliCancelTimer(timerId);
+    }},
+    event_target_new() {{
+      return BigInt(kaliNextEventTargetId++);
+    }},
+    event_listener_add(target, namePtr, nameLen, callbackId, envPtr) {{
+      const type = kaliReadGuestString(namePtr, nameLen);
+      const key = kaliEventKey(target, type);
+      const existing = kaliEventListeners.get(key) || [];
+      // Dedup by exact (callbackId, envPtr) pair — node's listener-identity rule.
+      if (!existing.some((e) => e.callbackId === callbackId && e.envPtr === envPtr)) {{
+        existing.push({{ callbackId, envPtr }});
+      }}
+      kaliEventListeners.set(key, existing);
+    }},
+    event_dispatch(target, namePtr, nameLen) {{
+      return kaliEventDispatch(kaliActiveInstance, target, kaliReadGuestString(namePtr, nameLen));
     }},
     coverage_hit(id) {{
       coverageHits.push(Number(id));
@@ -1819,6 +1879,7 @@ const instancePromise = instantiate(defaultImportObject).then((instance) => {{
   wasmHeap = instance.instance.exports.__heap ?? null;
   wasmAllocGlobal = instance.instance.exports.__alloc_global ?? null;
   wasmAllocCurrent = instance.instance.exports.__alloc ?? null;
+  kaliActiveInstance = instance.instance;
   return instance.instance;
 }});
 
@@ -1952,6 +2013,7 @@ export async function loadWithImports(overrides = {{}}) {{
   wasmHeap = instance.instance.exports.__heap ?? null;
   wasmAllocGlobal = instance.instance.exports.__alloc_global ?? null;
   wasmAllocCurrent = instance.instance.exports.__alloc ?? null;
+  kaliActiveInstance = instance.instance;
   return instance.instance;
 }}
 
@@ -2069,6 +2131,50 @@ async function kaliDrainEventLoop(instance) {{
   }}
 }}
 
+// Stage D event-surface lane (evD): this bundle glue declares
+// `defaultImportObject` before any `instance` binding exists at module
+// scope (`instancePromise`/`loadWithImports` only bind a local `instance`
+// inside their own async closures) — hoist a dedicated module-scope handle
+// and assign it right after each instantiation path resolves, so
+// `event_dispatch` (called by the guest, which can only happen after
+// `_start`, i.e. after instantiation) always sees a live instance.
+let kaliActiveInstance = null;
+const kaliEventListeners = new Map();
+let kaliNextEventTargetId = 1;
+// Neither bundle-glue import-object site has a ptr/len guest-string reader
+// (only inline `TextDecoder().decode(mem.slice(...))` in crypto_subtle_digest);
+// add one mirroring that idiom.
+function kaliReadGuestString(ptr, len) {{
+  if (wasmMemory === null) {{ return ''; }}
+  return new TextDecoder().decode(new Uint8Array(wasmMemory.buffer, ptr, len));
+}}
+function kaliEventKey(target, type) {{
+  return `${{Number(target)}} ${{type}}`;
+}}
+function kaliInvokeCallbackSync(instance, callbackId, envPtr) {{
+  // Mirrors kali_runtime::host::enforce::invoke_callback_reentrant: set the
+  // exported __current_env to the registration-time env, restore after —
+  // SYNCHRONOUSLY (dispatchEvent runs listeners before it returns).
+  const envGlobal = instance.exports.__current_env;
+  const saved = envGlobal ? envGlobal.value : null;
+  if (envGlobal) {{ envGlobal.value = envPtr; }}
+  try {{
+    instance.exports[`__kali_callback_${{callbackId}}`]();
+  }} finally {{
+    if (envGlobal) {{ envGlobal.value = saved; }}
+  }}
+}}
+function kaliEventDispatch(instance, target, type) {{
+  // Snapshot first: listeners added during dispatch don't fire this round
+  // (node parity; mirrors event_dispatch in imports_default.rs).
+  const listeners = kaliEventListeners.get(kaliEventKey(target, type));
+  const snapshot = listeners ? listeners.slice() : [];
+  for (const entry of snapshot) {{
+    kaliInvokeCallbackSync(instance, entry.callbackId, entry.envPtr);
+  }}
+  return 1;
+}}
+
 const defaultImportObject = {{
   "kali:rt": {{
     test_register(_val, _envPtr) {{}},
@@ -2086,6 +2192,22 @@ const defaultImportObject = {{
     }},
     clearInterval(timerId) {{
       kaliCancelTimer(timerId);
+    }},
+    event_target_new() {{
+      return BigInt(kaliNextEventTargetId++);
+    }},
+    event_listener_add(target, namePtr, nameLen, callbackId, envPtr) {{
+      const type = kaliReadGuestString(namePtr, nameLen);
+      const key = kaliEventKey(target, type);
+      const existing = kaliEventListeners.get(key) || [];
+      // Dedup by exact (callbackId, envPtr) pair — node's listener-identity rule.
+      if (!existing.some((e) => e.callbackId === callbackId && e.envPtr === envPtr)) {{
+        existing.push({{ callbackId, envPtr }});
+      }}
+      kaliEventListeners.set(key, existing);
+    }},
+    event_dispatch(target, namePtr, nameLen) {{
+      return kaliEventDispatch(kaliActiveInstance, target, kaliReadGuestString(namePtr, nameLen));
     }},
     coverage_hit(id) {{
       coverageHits.push(Number(id));
@@ -2257,6 +2379,7 @@ const instancePromise = instantiate(defaultImportObject).then((instance) => {{
   wasmHeap = instance.instance.exports.__heap ?? null;
   wasmAllocGlobal = instance.instance.exports.__alloc_global ?? null;
   wasmAllocCurrent = instance.instance.exports.__alloc ?? null;
+  kaliActiveInstance = instance.instance;
   return instance.instance;
 }});
 
@@ -2390,6 +2513,7 @@ async function loadWithImports(overrides = {{}}) {{
   wasmHeap = instance.instance.exports.__heap ?? null;
   wasmAllocGlobal = instance.instance.exports.__alloc_global ?? null;
   wasmAllocCurrent = instance.instance.exports.__alloc ?? null;
+  kaliActiveInstance = instance.instance;
   return instance.instance;
 }}
 

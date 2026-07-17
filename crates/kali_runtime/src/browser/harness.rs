@@ -310,6 +310,42 @@ async function kaliDrainEventLoop(instance) {{
   }}
 }}
 
+const kaliEventListeners = new Map();
+let kaliNextEventTargetId = 1;
+// This site has no ptr/len guest-string reader (only the i64-handle-based
+// `decodeStringHandleBytes`); add one mirroring `readGuestString`'s idiom
+// from the sibling `browser_runtime_harness_module_script` site below.
+function kaliReadGuestString(ptr, len) {{
+  if (wasmMemory === null) {{ return ''; }}
+  return new TextDecoder().decode(new Uint8Array(wasmMemory.buffer, ptr, len));
+}}
+function kaliEventKey(target, type) {{
+  return `${{Number(target)}} ${{type}}`;
+}}
+function kaliInvokeCallbackSync(instance, callbackId, envPtr) {{
+  // Mirrors kali_runtime::host::enforce::invoke_callback_reentrant: set the
+  // exported __current_env to the registration-time env, restore after —
+  // SYNCHRONOUSLY (dispatchEvent runs listeners before it returns).
+  const envGlobal = instance.exports.__current_env;
+  const saved = envGlobal ? envGlobal.value : null;
+  if (envGlobal) {{ envGlobal.value = envPtr; }}
+  try {{
+    instance.exports[`__kali_callback_${{callbackId}}`]();
+  }} finally {{
+    if (envGlobal) {{ envGlobal.value = saved; }}
+  }}
+}}
+function kaliEventDispatch(instance, target, type) {{
+  // Snapshot first: listeners added during dispatch don't fire this round
+  // (node parity; mirrors event_dispatch in imports_default.rs).
+  const listeners = kaliEventListeners.get(kaliEventKey(target, type));
+  const snapshot = listeners ? listeners.slice() : [];
+  for (const entry of snapshot) {{
+    kaliInvokeCallbackSync(instance, entry.callbackId, entry.envPtr);
+  }}
+  return 1;
+}}
+
 const importObject = {{
   "kali:rt": {{
     test_register(val, _envPtr) {{
@@ -332,6 +368,22 @@ const importObject = {{
     }},
     clearInterval(timerId) {{
       kaliCancelTimer(timerId);
+    }},
+    event_target_new() {{
+      return BigInt(kaliNextEventTargetId++);
+    }},
+    event_listener_add(target, namePtr, nameLen, callbackId, envPtr) {{
+      const type = kaliReadGuestString(namePtr, nameLen);
+      const key = kaliEventKey(target, type);
+      const existing = kaliEventListeners.get(key) || [];
+      // Dedup by exact (callbackId, envPtr) pair — node's listener-identity rule.
+      if (!existing.some((e) => e.callbackId === callbackId && e.envPtr === envPtr)) {{
+        existing.push({{ callbackId, envPtr }});
+      }}
+      kaliEventListeners.set(key, existing);
+    }},
+    event_dispatch(target, namePtr, nameLen) {{
+      return kaliEventDispatch(instance, target, kaliReadGuestString(namePtr, nameLen));
     }},
     coverage_hit(id) {{
       coverageHits.push(Number(id));
@@ -826,6 +878,35 @@ async function kaliDrainEventLoop(instance) {{
   }}
 }}
 
+const kaliEventListeners = new Map();
+let kaliNextEventTargetId = 1;
+function kaliEventKey(target, type) {{
+  return `${{Number(target)}} ${{type}}`;
+}}
+function kaliInvokeCallbackSync(instance, callbackId, envPtr) {{
+  // Mirrors kali_runtime::host::enforce::invoke_callback_reentrant: set the
+  // exported __current_env to the registration-time env, restore after —
+  // SYNCHRONOUSLY (dispatchEvent runs listeners before it returns).
+  const envGlobal = instance.exports.__current_env;
+  const saved = envGlobal ? envGlobal.value : null;
+  if (envGlobal) {{ envGlobal.value = envPtr; }}
+  try {{
+    instance.exports[`__kali_callback_${{callbackId}}`]();
+  }} finally {{
+    if (envGlobal) {{ envGlobal.value = saved; }}
+  }}
+}}
+function kaliEventDispatch(instance, target, type) {{
+  // Snapshot first: listeners added during dispatch don't fire this round
+  // (node parity; mirrors event_dispatch in imports_default.rs).
+  const listeners = kaliEventListeners.get(kaliEventKey(target, type));
+  const snapshot = listeners ? listeners.slice() : [];
+  for (const entry of snapshot) {{
+    kaliInvokeCallbackSync(instance, entry.callbackId, entry.envPtr);
+  }}
+  return 1;
+}}
+
 const importObject = {{
   "kali:rt": {{
     test_register(val, _envPtr) {{
@@ -848,6 +929,22 @@ const importObject = {{
     }},
     clearInterval(timerId) {{
       kaliCancelTimer(timerId);
+    }},
+    event_target_new() {{
+      return BigInt(kaliNextEventTargetId++);
+    }},
+    event_listener_add(target, namePtr, nameLen, callbackId, envPtr) {{
+      const type = readGuestString(namePtr, nameLen);
+      const key = kaliEventKey(target, type);
+      const existing = kaliEventListeners.get(key) || [];
+      // Dedup by exact (callbackId, envPtr) pair — node's listener-identity rule.
+      if (!existing.some((e) => e.callbackId === callbackId && e.envPtr === envPtr)) {{
+        existing.push({{ callbackId, envPtr }});
+      }}
+      kaliEventListeners.set(key, existing);
+    }},
+    event_dispatch(target, namePtr, nameLen) {{
+      return kaliEventDispatch(instance, target, readGuestString(namePtr, nameLen));
     }},
     coverage_hit(id) {{
       coverageHits.push(Number(id));
