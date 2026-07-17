@@ -3895,6 +3895,83 @@ fn json_build_emits_browser_bundle_web_baseline_primitives_in_js_input() {
     assert_eq!(json["success"], true);
 }
 
+/// Stage D event lane, browser glue end-to-end: the bundle's JS import list
+/// registers and synchronously dispatches through kaliEventListeners.
+/// node v26.5.0 (same source, plain node): "before=0\nafter=1\n".
+#[test]
+fn browser_bundle_event_lane_executes() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.ts");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: eventLaneSmoke\nfunction eventLaneSmoke(left, right) {\n  const t = new EventTarget();\n  let n = 0;\n  t.addEventListener(\"tick\", function () { n += 1; });\n  console.log(\"before=\" + n);\n  t.dispatchEvent(new CustomEvent(\"tick\"));\n  console.log(\"after=\" + n);\n  return left - left;\n}\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+
+    // Mirrors `assert_browser_bundle_executes_with_result`'s helper calls
+    // (harness script + command construction), but asserts the FULL
+    // captured stdout byte-for-byte instead of a `contains` check on a
+    // return value, since this fixture's load-bearing assertion is the
+    // ordering of the two console.log calls around the synchronous dispatch.
+    let bundle_dir_name = bundle_dir
+        .file_name()
+        .and_then(|name| name.to_str())
+        .expect("bundle directory name");
+    let harness_path = bundle_dir
+        .parent()
+        .expect("bundle root parent")
+        .join("browser-bundle-smoke.mjs");
+    let harness = kali_runtime::browser_bundle_harness_script(
+        bundle_dir_name,
+        false,
+        "const mod = await import(bundleJs.href);\nawait mod.eventLaneSmoke(1n, 2n);\n",
+    );
+    fs::write(&harness_path, harness).expect("write browser bundle harness");
+
+    let mut harness_command = browser_bundle_harness_command_parts();
+    let harness_executable = harness_command.remove(0);
+    let output = Command::new(&harness_executable)
+        .current_dir(&bundle_dir)
+        .args(&harness_command)
+        .arg(&harness_path)
+        .output()
+        .expect("run browser bundle harness");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout, "before=0\nafter=1\n");
+}
+
 #[test]
 fn build_emits_browser_bundle_async_await_sequencing() {
     let dir = tempdir().expect("tempdir");

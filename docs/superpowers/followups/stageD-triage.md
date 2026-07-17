@@ -249,3 +249,264 @@ property is unchanged (node + kali agree byte-for-byte:
 `MODULE-END-acc\n0\nINSIDE-CALLBACK\n15\n`). New pre-existing follow-up
 inventoried: `<module-let> = <expr with member access>` mis-parse, and a
 sibling `.field` read inside a function lowering to `0`.
+
+---
+
+# Task 8 resolution — event-surface lane
+
+> Closes out the 4 pins Task 7 (§7.2 above) deferred to "Task 8's
+> user-approval re-pin batch". This section is the close-out record Task 9
+> (whole-stage adversarial review) consumes; it also records the EV lane
+> (Tasks 1-5 of `docs/superpowers/plans/2026-07-17-stageD-event-surface.md`)
+> that superseded the originally-planned simple re-pin.
+
+## 8.1 User decision trail
+
+1. **Re-pin batch presented, REJECTED.** The straightforward Task 8 move —
+   flip the 4 `browser_bundle_web_baseline_primitives{,_in_js_input}` /
+   `json_build_…` pins from "build succeeds via silently-dropped callback" to
+   "build succeeds, callback genuinely compiled" (or accept the new E5506 as
+   correct) — was presented as the default close-out. The user rejected a
+   bare re-pin: a re-pin alone leaves the underlying capability gap (no
+   `EventTarget`/`addEventListener`/`dispatchEvent` runtime lane) unclosed,
+   and the corpus fixture (`browser_bundle_web_baseline_source`,
+   `runtime_smoke.rs:4462`) exercises `structuredClone`, `AbortController`,
+   `EventTarget`, `URLSearchParams`, `URL`, `TextEncoder`/`TextDecoder` — a
+   web-baseline API surface kali's browser target claims to support but
+   mostly does not actually execute.
+2. **Full `webBaselineSmoke` parity chosen as the destination**, decomposed
+   into API-family stages (events, `structuredClone`, `AbortController`,
+   `URL`/`URLSearchParams`, `TextEncoder`) rather than attempted in one
+   sweep — each family has an independent capability build (registry model,
+   provenance rules, codegen emit arms) and its own soundness envelope.
+3. **Events chosen as the first stage** ("events-first"): `EventTarget` /
+   `addEventListener` / `dispatchEvent` is the one family that is a genuine
+   NEW async-shaped surface for kali (registration + later invocation, same
+   shape as the timer/microtask lanes already landed in Stage D Tasks 1-4)
+   and it is the surface actually triggering the Task 7 fail-closed reject
+   (the `count`/`controller` capturing callback), so closing it first both
+   unblocks the 4 pins AND proves out the pattern the later stages
+   (`structuredClone`, `AbortController`, `URL`/`USP`, `TextEncoder`) will
+   reuse.
+4. **Design → plan → execution.**
+   - Design: `docs/superpowers/specs/2026-07-17-stageD-event-surface-design.md`
+     (commit `91dbeaec1`) — host-registry + synchronous dispatch, fail-closed
+     envelope, Task 8 fallback framing.
+   - Plan: `docs/superpowers/plans/2026-07-17-stageD-event-surface.md`
+     (commit `34dbf638d`) — 5 tasks, glue-before-emit sequencing, explicit
+     gate-restoration criteria (drain must return to 37, newly-red must
+     return to empty).
+   - EV Task 1 (`092d7d3fe`): runtime event registry + synchronous re-entrant
+     dispatch (handles, `(handle, type)` listener keys, snapshot semantics,
+     env restore).
+   - EV Task 2 (`53b573cfa` + `771cfec8e`): mirrored the lane into all 4
+     browser JS import lists (registry, sync dispatch, snapshot + dedup),
+     then closed a guest-string-reader fail-open (align all 4 mirrors to
+     fail closed on missing memory).
+   - EV Task 3 (`8795ced80`): `EventTarget` construction lane — types 15-17,
+     conditional imports, declarator provenance, handle-escape choke point.
+   - EV Task 4 (`8da4d734b`): `addEventListener`/`dispatchEvent` emit arms —
+     receiver provenance, literal-type gates, zero-param gate, `env_safety`
+     member edge; full e2e/envelope/preservation pin suite; full-gate
+     restoration first achieved here (newly-red EMPTY, drain 37).
+5. **Dispatch-arg reconciliation, USER-RATIFIED.** EV Task 4 found the
+   plan's two `addEventListener`-out-of-lane-argument-shape E5506 pins
+   irreconcilable with the browser corpus (which dispatches out-of-lane
+   argument shapes — e.g. `new CustomEvent('tick', {detail:1})`, a bound
+   captured `Event` — on an in-lane, registered-listener `EventTarget`, and
+   the corpus's "70+ packages stay deployable" contract cannot regress).
+   Reconciliation: an out-of-lane dispatch *argument* on an in-lane receiver
+   falls through to the pre-existing scheduling backstop (silent drop of
+   that one dispatch call, not the registration) rather than E5506;
+   `addEventListener` out-of-lane arguments still fail closed (no corpus
+   needs a failing build there, and compile-time rejection is strictly
+   safer at that surface). This was presented back to the user and
+   ratified; spec §2 was amended in commit `e9fba32b0`
+   ("dispatch-arg reconciliation (user-ratified) + free-receiver
+   fail-closed widening note") to record the residual as an inventoried
+   Stage P3 item (below) rather than a silently-accepted gap.
+6. **EV Task 5 (this task)**: verification and close-out on the final tree
+   (`e9fba32b0`, one docs commit past Task 4's gate) — the 4 build tests
+   stay green UNTOUCHED, a browser-lane execute test is added, the gate is
+   re-confirmed restored, and this section records the trail.
+
+## 8.2 Lane envelope (what actually compiles and runs)
+
+In-lane (compiles to a real runtime registration/dispatch, all node-verified
+byte-for-byte against kali):
+
+- `new EventTarget()` assigned to a `let`/`const` in the constructing
+  function (or module scope) — a provable, non-escaping handle.
+- `target.addEventListener(<string literal>, <callback>)` where the
+  callback has zero parameters and a provable-provenance body (named
+  function, arrow, function expression, or a resolvable alias) — same
+  capture-closure machinery as Stage C/D's timer and microtask lanes
+  (scalar + object capture, depth 0/1).
+- `target.dispatchEvent(new CustomEvent(<string literal>))` (and the
+  no-`detail` `new Event(<string literal>)` shape) on an in-lane receiver —
+  runs every registered listener synchronously, in registration order,
+  deduplicated, returns the DOM-standard boolean.
+- Module-scope listener registration + later in-function dispatch (the row-q
+  and module-scope pins).
+
+Fail-closed (E5506, a provable soundness gap — NOT a silent drop):
+
+- Non-literal event-name argument to `addEventListener`.
+- A listener callback with a parameter (no `Event`-object repr exists yet,
+  so the parameter's value would silently be `undefined`/wrong).
+- A 3rd (`options`) argument to `addEventListener`.
+- `removeEventListener` on an in-lane handle (an escape-discipline guard —
+  allowing it to build while not implementing it would let a later dispatch
+  silently diverge from node, which still fires the "removed" listener).
+- `dispatchEvent` on a captured (cross-function/closed-over) receiver — a
+  proven silent-miscompile class closed during EV Task 4 TDD (register in
+  an outer function, dispatch from a captured inner one: node fires, kali
+  was silently no-op).
+
+Preserved-but-inert (out-of-lane; build succeeds, the specific call is a
+silent no-op at that call site — the inventoried residual, §8.4):
+
+- `dispatchEvent` with an out-of-lane argument (e.g. `CustomEvent` with a
+  `detail` object literal, or a bound/captured `Event` value) called on an
+  otherwise in-lane, registered receiver.
+- Any receiver whose EventTarget-ness cannot be statically proven (e.g. a
+  bare parameter like `signal` in `signal.addEventListener(...)`).
+
+## 8.3 Gate numbers
+
+| Checkpoint | newly-red (`comm -13` vs `stageD-pre.txt`, 731) | drain (`comm -23`) |
+|---|---|---|
+| Task 7 (parser flip landed, pre-EV) | 4 (the 4 pins re-pinned/closed by this lane) | 37 |
+| EV Task 4 (lane landed) | **0 (EMPTY)** | **37** |
+| EV Task 5 (this task, final tree `e9fba32b0`) | **0 (EMPTY)** — re-confirmed | **37** — re-confirmed, identical set to Task 4's |
+
+So the headline is **4 → 0 newly-red**, drain steady at **37** throughout
+(the drain is the pre-existing block-arrow-un-flatten iteration-lane fix
+carried from Task 7, unrelated to and unperturbed by the event lane — see
+§8.3.1). `cargo build -p kali_cli`: zero warnings, both at Task 4 and at
+this task's re-run.
+
+### 8.3.1 Drain family classification (37, unchanged by the EV lane)
+
+All 37 are pre-existing object/for-of/Set iteration fixtures that went red
+at Task 7 (the block-arrow un-flatten) for the RIGHT reason and are fixed by
+it — see §7.3. None involve `EventTarget`/events; the EV lane neither added
+nor removed any of them. Families (by shared root):
+
+| Family | Count | Representative |
+|---|---|---|
+| `for_of_break_continue` (browser-harness, `test`/`json_test` × js/jsx/ts/tsx) | 8 | `test_supports_for_of_break_continue_when_browser_harness_is_configured_in_js_input` |
+| `object_keys` iteration (direct/global/from_entries/break_continue/literal, js/ts/jsx+tsx) | 13 | `test_supports_object_keys_iteration_in_js_input` |
+| `integer_like_object_keys_iteration` (browser-harness, `test`/`json_test`) | 4 | `test_supports_integer_like_object_keys_iteration_when_browser_harness_is_configured_in_js_input` |
+| `object_values` iteration (direct/from_entries, js/ts/jsx+tsx) | 6 | `test_supports_object_values_iteration_in_js_input` |
+| `frozen_object` enumeration/values iteration | 2 | `test_supports_frozen_object_enumeration_iteration_in_js_ts_jsx_tsx_input` |
+| `object_string_enumeration` iteration | 1 | `test_supports_object_string_enumeration_iteration_in_js_ts_jsx_tsx_input` |
+| `set_constructor` iteration (js/ts/jsx+tsx) | 3 | `test_supports_set_constructor_iteration_in_js_input` |
+| **Total** | **37** | |
+
+## 8.4 Corpus audit table (from EV Task 4's Step 7 sweep)
+
+Full detail in `/workspace/.superpowers/sdd/ev-task-4-report.md`; summarized:
+
+| Fixture | EventTarget usage | Disposition |
+|---|---|---|
+| `write_web_baseline_interop_source` (misc/utility/browser_corpus) | in-lane construct + registration + in-lane dispatch + bound/out-of-lane dispatch args + out-of-lane (`signal`) receiver | Out-of-lane dispatch args preserved (build succeeds, backstop no-op) → 3 `browser_corpus…deployable_through_host*` tests stay/return green. |
+| `write_web_baseline_test_source` (Kali.test wrapper) | same, inside `Kali.test` | Already-red baseline (other unsupported APIs — `AbortController`/`URL`/etc.); stays red, no flip needed. |
+| `write_browser_string_web_baseline_package` (browser_corpus/browser_runtime) | in-lane construct/register/dispatch | Builds; corpus tests already red-in-baseline for other reasons; no flip needed. |
+| `structured_clone_and_event_primitives_source` (`runtime_smoke/test.rs` ×3) | fully in-lane events | **Deliberate flip**: events now build+run; fail-closed shifted to the `structuredClone` deep-clone runtime throw (E4000). Assertion broadened to accept `E4000` in stderr; `success==false` invariant preserved. |
+| `browser_bundle_web_baseline_source` (`runtime_smoke.rs:4462`, the 4 Task-7 pins) | fully in-lane events + out-of-lane `URLSearchParams`/`URL`/`TextEncoder`/`TextDecoder`/`AbortController` at runtime | Build succeeds (events genuinely compile); the pins assert build-success only, unchanged by this lane — see §8.5. Execution still traps on the not-yet-supported families (unaffected by this lane; those are Stages P2-P5, §8.6). |
+
+The 11 baseline web-baseline corpus tests already red pre-EV (unsupported
+`AbortController`/`WebSocket`/`structuredClone`/`URL`/…) stay red — not
+newly-red, no regression.
+
+## 8.5 EV Task 5 deliverables (this task)
+
+1. **4 build tests green, UNTOUCHED**: `cargo test -p kali_cli --test
+   runtime_smoke browser_bundle_web_baseline_primitives` → 4 passed, 0
+   failed. `git diff` on `crates/kali_cli/tests/runtime_smoke/build.rs`
+   confirmed a pure insertion (77 lines added, 0 removed, 0 modified) — the
+   4 pre-existing test bodies are byte-for-byte unchanged.
+2. **Browser-lane execute test**: `build::browser_bundle_event_lane_executes`
+   added immediately after the 4 web-baseline build tests. Fixture (node
+   v26.5.0-verified first, plain and tree-shake-wrapped forms, both produce
+   `before=0\nafter=1\n`):
+   ```js
+   // kali-tree-shake: eventLaneSmoke
+   function eventLaneSmoke(left, right) {
+     const t = new EventTarget();
+     let n = 0;
+     t.addEventListener("tick", function () { n += 1; });
+     console.log("before=" + n);
+     t.dispatchEvent(new CustomEvent("tick"));
+     console.log("after=" + n);
+     return left - left;
+   }
+   ```
+   Built with `--bundle --api browser`, executed by mirroring
+   `assert_browser_bundle_executes_with_result`'s helper calls
+   (`kali_runtime::browser_bundle_harness_script`,
+   `browser_bundle_harness_command_parts`, `Command::new(&harness_executable)`)
+   inline, asserting the FULL captured stdout equals `"before=0\nafter=1\n"`
+   exactly (not a `contains` check — the load-bearing property is the
+   *ordering* of the two `console.log`s around the synchronous dispatch,
+   proving the callback ran exactly once, exactly before the second log).
+   `cargo test -p kali_cli --test runtime_smoke
+   browser_bundle_event_lane_executes` → 1 passed.
+3. **Gate restored**: §8.3 above — newly-red EMPTY, drain 37, re-confirmed
+   on `e9fba32b0`.
+4. **This triage section.**
+
+## 8.6 Follow-up inventory
+
+Carried forward for later stages / later tasks (none block this lane's
+soundness — every item here is either an explicit preserved-but-inert
+residual with a closing plan, or unimplemented API surface that fails
+closed or stays pre-existing-red rather than miscompiling):
+
+- **Out-of-envelope dispatch-arg silent-drop residual** (§8.1 item 5,
+  user-ratified): an out-of-lane `dispatchEvent` argument on an in-lane,
+  registered receiver is a silent no-op at that call site rather than
+  E5506. Not observed by any current test; closing plan is Stage P3
+  converting this to a total-deny (fail closed instead of fall through)
+  once the receiver-widening and captured-receiver work below lands enough
+  provenance to make total-deny non-regressive against the corpus.
+- **`Kali.test` member-expression callback vacuous-ok residual**
+  (Stage D Task 7 review finding, pre-existing, not introduced by the EV
+  lane): a callback reached via a member-expression path inside a
+  `Kali.test(...)` body can resolve to a vacuous "ok" rather than a
+  provenance deny in some shapes. Tracked as pre-existing, orthogonal to
+  events.
+- **Registered-but-under-fired divergence class**: shapes where a listener
+  is registered but a subsequent in-lane dispatch fires it fewer times
+  than node (as distinct from the out-of-lane-argument silent-drop above —
+  this is about receiver/handle aliasing, not argument shape). Not observed
+  by any current test; flagged for Stage P3 alongside the backstop
+  hardening.
+- **Stage P2 — `structuredClone`**: deep-clone runtime primitive; currently
+  traps (E4000) wherever it's the first unsupported call in a fixture (see
+  §8.4's deliberate flip).
+- **Stage P3 — `AbortController`/`AbortSignal`**, bundled with:
+  - receiver widening (proving more `EventTarget`-shaped receivers in-lane,
+    e.g. `signal` params from an `AbortController`),
+  - backstop → total-deny for the out-of-envelope dispatch-arg residual
+    above,
+  - captured-receiver support (the currently-denied captured-handle case,
+    §8.2, promoted from deny to a real cross-function dispatch once the
+    env-pointer/closure machinery can prove it safe),
+  - an `Event`-object repr (lifting the current zero-parameter-listener
+    restriction — `preventDefault`/`cancelable`/`target`/`type` on the
+    callback's argument all depend on this).
+- **Stage P4 — `URL` + `URLSearchParams`**.
+- **Stage P5 — `TextEncoder`/`TextDecoder`**.
+- **Final byte-for-byte `webBaselineSmoke` acceptance**: once P2-P5 land,
+  execute `browser_bundle_web_baseline_source` (or its `webBaselineSmoke`
+  export) end-to-end — via `kali run`, the browser lane, AND by flipping
+  the 4 Task-7 build tests (§8.5.1) to also execute and assert real output
+  — byte-for-byte against node, closing the loop this task's brief opened.
+- **`removeEventListener`**: currently fail-closed (escape-discipline
+  guard, §8.2); a real implementation is future work, not required for
+  soundness (fail-closed is safe).
+- **`preventDefault` / `cancelable`**: depend on the Event-object repr
+  above; currently unreachable (no listener can observe an event object at
+  all under the zero-parameter gate).
