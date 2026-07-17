@@ -425,10 +425,16 @@ impl<'a> FunctionEmitter<'a> {
                                 // Spec 3 activates the `String` case here: a
                                 // proven string-element store lowers through the
                                 // same i64-slot path (the value is a tagged string
-                                // handle), no store-side change needed.
+                                // handle), no store-side change needed. A
+                                // growable-array element (repr inference does not
+                                // yet produce this for an array element, but the
+                                // match must stay exhaustive) is likewise a
+                                // tagged i64 handle into its header, so it stores
+                                // through the same slot unchanged.
                                 kali_common::Repr::I64
                                 | kali_common::Repr::Object(_)
-                                | kali_common::Repr::String => {
+                                | kali_common::Repr::String
+                                | kali_common::Repr::GrowableArrayI64 => {
                                     let rhs = self.emit_node(function, right, true);
                                     if !rhs.produced {
                                         function.instruction(&Instruction::I64Const(0));

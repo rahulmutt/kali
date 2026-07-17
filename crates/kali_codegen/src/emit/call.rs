@@ -4088,7 +4088,14 @@ impl<'a> FunctionEmitter<'a> {
             kali_common::Repr::F64 => function.instruction(&Instruction::F64Load(mem_arg)),
             // Spec 3 activates the `String` case: a proven string element loads
             // its tagged handle through the same i64 slot the int/object lanes use.
-            kali_common::Repr::I64 | kali_common::Repr::Object(_) | kali_common::Repr::String => {
+            // A growable-array element (repr inference does not yet produce this
+            // for an array element, but the match must stay exhaustive) is
+            // likewise a tagged i64 handle into its header, so it loads through
+            // the same slot — this arm never coerces to/from a scalar number.
+            kali_common::Repr::I64
+            | kali_common::Repr::Object(_)
+            | kali_common::Repr::String
+            | kali_common::Repr::GrowableArrayI64 => {
                 function.instruction(&Instruction::I64Load(mem_arg))
             }
         };
@@ -4157,7 +4164,14 @@ impl<'a> FunctionEmitter<'a> {
             kali_common::Repr::F64 => function.instruction(&Instruction::F64Load(mem_arg)),
             // Spec 3 activates the `String` case: a proven string element loads
             // its tagged handle through the same i64 slot the int/object lanes use.
-            kali_common::Repr::I64 | kali_common::Repr::Object(_) | kali_common::Repr::String => {
+            // A growable-array element (repr inference does not yet produce this
+            // for an array element, but the match must stay exhaustive) is
+            // likewise a tagged i64 handle into its header, so it loads through
+            // the same slot — this arm never coerces to/from a scalar number.
+            kali_common::Repr::I64
+            | kali_common::Repr::Object(_)
+            | kali_common::Repr::String
+            | kali_common::Repr::GrowableArrayI64 => {
                 function.instruction(&Instruction::I64Load(mem_arg))
             }
         };

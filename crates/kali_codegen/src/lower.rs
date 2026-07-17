@@ -6,9 +6,14 @@ use crate::*;
 pub(crate) fn wasm_type(repr: kali_common::Repr) -> wasm_encoder::ValType {
     match repr {
         kali_common::Repr::F64 => wasm_encoder::ValType::F64,
-        kali_common::Repr::I64 | kali_common::Repr::Object(_) | kali_common::Repr::String => {
-            wasm_encoder::ValType::I64
-        }
+        kali_common::Repr::I64
+        | kali_common::Repr::Object(_)
+        | kali_common::Repr::String
+        // A growable-array binding is a tagged i64 handle into its header
+        // (see `lower_lir_to_wasm`'s `__join_growable_*` doc comment), so it
+        // occupies the same i64 param/result/local slot as every other
+        // handle repr — no new storage width needed.
+        | kali_common::Repr::GrowableArrayI64 => wasm_encoder::ValType::I64,
     }
 }
 
