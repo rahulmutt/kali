@@ -607,6 +607,29 @@ closed or stays pre-existing-red rather than miscompiling):
   follow-up work. **Lifting plan:** Stage P3 (`Object` repr for constructs) and
   real closure lowering for is_scalar==false cells promote these into the
   genuinely-lowered/constrained set, closing the residual by construction.
+- **Hand-mirrored exclusion list in `declarator_init_is_placeholder_construct`
+  is a standing wrong-allow flip risk (Task 9 rider, near the C-1 RESOLVED
+  bullet above)**: the `Array`/`Uint8Array`/`EventTarget` exclusion list
+  inside `declarator_init_is_placeholder_construct`
+  (`crates/kali_codegen/src/lower.rs:2145`) is a HAND-MIRRORED NAME LIST.
+  `unlowered_capture_denied`'s allowlist branch 2
+  (`crates/kali_codegen/src/intrinsics/host.rs`) admits a captured `new X()`
+  binding only because its lowering is drop-and-push-0 TODAY; any future
+  REAL-VALUE lowering for a bound constructor not added to the exclusion
+  list (obvious candidates: `Set`, `Map` — a captured bound `new Set(...)` is
+  admitted RIGHT NOW, sound only because it lowers to 0) silently flips the
+  allowlist into a value-losing wrong-allow. Two tripwire pins in
+  `soundness_events.rs` turn that flip red instead of silent:
+  `deferred_capture_of_bound_set_placeholder_tripwire` (pins kali's current
+  same-0-both-sides `sync=0`/`cb=0` output for a captured bound `new
+  Set(...)` against node's real `sync=3`/`cb=3` — a DELIBERATE tripwire, not
+  a correctness claim; goes red the day `Set` gains a real lowering, at
+  which point `Set` must be added to the exclusion list) and
+  `deferred_capture_nested_shadow_placeholder_denies` (reviewer probe c3:
+  pins the `is_function_like` walk-stop in `binding_is_placeholder_construct`
+  that stops a nested function's own placeholder declarator from being
+  wrongly attributed to an outer binding of the same name — the safety net
+  for the SAME hand-mirrored mechanism).
 - **Negative-clear-id deliberate-loud divergence (Task 9 note)**:
   `clearTimeout(-1)` / `clearInterval(-1)` is a NO-OP in node (prints `ok`),
   but `kali run` traps LOUDLY — `KaliHostState::cancel_timer` does

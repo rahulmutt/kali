@@ -548,3 +548,76 @@ fn deferred_listener_nonscalar_placeholder_capture_still_builds() {
         String::from_utf8_lossy(&out.stderr)
     );
 }
+
+// --- Task 9 rider: hand-mirrored exclusion-list tripwires -------------------
+// `declarator_init_is_placeholder_construct`'s Array/Uint8Array/EventTarget
+// exclusion list (crates/kali_codegen/src/lower.rs) is a HAND-MIRRORED NAME
+// LIST: `unlowered_capture_denied`'s allowlist branch 2 admits a captured
+// `new X()` binding only because its lowering is drop-and-push-0 TODAY. See
+// the §8.6 inventory bullet in docs/superpowers/followups/stageD-triage.md.
+
+/// Task 9 rider probe c1 — DELIBERATE TRIPWIRE, NOT a correctness pin. `Set`
+/// is not in the exclusion list, so kali currently treats a bound `new
+/// Set(...)` as a zero-placeholder construct and ALLOWS the deferred
+/// capture under `unlowered_capture_denied`'s allowlist branch 2 — sound
+/// TODAY only because `new Set(...)` itself still lowers to the
+/// drop-and-push-0 placeholder (same class as `new AbortController()`).
+/// node v26.5.0 prints the REAL values `sync=3`/`cb=3` (a `Set` with 3
+/// elements, unchanged across the callback); kali (build succeeds, no
+/// warnings) prints `sync=0`/`cb=0` — both sides read the SAME placeholder,
+/// so there is no cross-callback DIVERGENCE today (hence "sound", not
+/// "correct"). This test pins kali's CURRENT behavior exactly. The day
+/// `new Set` gains a real lowering, this assertion goes RED instead of the
+/// allowlist silently starting to leak a real (now-divergent) value —
+/// signaling that `declarator_init_is_placeholder_construct`'s exclusion
+/// list must gain `Set` alongside `Array`/`Uint8Array`/`EventTarget`.
+#[test]
+fn deferred_capture_of_bound_set_placeholder_tripwire() {
+    let out = run_kali(
+        "function m(){ const s = new Set([1,2,3]); console.log(\"sync=\" + s.size); setTimeout(function(){ console.log(\"cb=\" + s.size); }, 0); }\nm();\n",
+    );
+    assert!(
+        out.status.success(),
+        "expected build+run success (deliberate tripwire — the current \
+         allowlist admits a bound `new Set(...)` capture); stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&out.stdout),
+        "sync=0\ncb=0\n",
+        "kali's current (sound-by-coincidence) output for a captured bound \
+         `new Set(...)` diverged from the pinned same-0-both-sides value — if \
+         `Set` now prints something other than the placeholder 0 (e.g. a real \
+         size), `Set` must be added to the exclusion list in \
+         `declarator_init_is_placeholder_construct` (crates/kali_codegen/src/lower.rs) \
+         before this pin is updated, or the allowlist has started leaking a \
+         real value through a class it assumes is a zero placeholder"
+    );
+}
+
+/// Task 9 rider (reviewer probe c3) — pins the `is_function_like` walk-stop
+/// in `binding_is_placeholder_construct` (crates/kali_codegen/src/intrinsics/host.rs):
+/// a nested function's OWN `new AbortController()` binding must not be
+/// attributed to an OUTER binding of the same name when the choke point
+/// checks whether the OUTER capture is a zero-placeholder construct. Shape:
+/// `outer` binds a REAL object `const c = { x: 4 }` and registers a
+/// `setTimeout` callback reading `c.x`; a nested function `inner`, defined
+/// inside `outer`, separately shadows the name with its own
+/// `const c = new AbortController()` (never itself captured — it exists
+/// only as a same-name decoy). Without the walk-stop, the search over
+/// `outer`'s body would wrongly descend into `inner`, find ITS placeholder
+/// declarator, and WRONG-ALLOW outer's real-object capture — a silent
+/// value-losing miscompile (outer's deferred `c.x` would read 0 instead of
+/// node's real 4). node v26.5.0 prints `x=4`. On HEAD the walk-stop keeps
+/// this denied: E5506, capture class "local" (same class as probe b2's
+/// plain captured-object pin). This test makes
+/// `binding_is_placeholder_construct`'s walk-stop safety claim
+/// self-sustaining — a regression here is a silent value-losing miscompile,
+/// not a mere behavior change.
+#[test]
+fn deferred_capture_nested_shadow_placeholder_denies() {
+    assert_e5506_capture_class(
+        "function outer(){\n  const c = { x: 4 };\n  function inner(){ const c = new AbortController(); }\n  inner();\n  setTimeout(function(){ console.log(\"x=\" + c.x); }, 0);\n}\nouter();\n",
+        "local",
+    );
+}

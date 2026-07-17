@@ -1072,7 +1072,9 @@ impl<'a> FunctionEmitter<'a> {
     /// inlined as descendant subtrees here, so the walk STOPS at any
     /// `is_function_like` child — a nested function's `const c = new Foo()` must
     /// NOT be attributed to an outer binding of the same name (that would
-    /// wrong-ALLOW an outer object capture; caught by the nested-shadow probe).
+    /// wrong-ALLOW an outer object capture; pinned by
+    /// `deferred_capture_nested_shadow_placeholder_denies` in
+    /// `soundness_events.rs`, Task 9 rider probe c3).
     fn binding_is_placeholder_construct(&self, name: &str) -> bool {
         let nodes = &self.program.nodes;
         let mut stack = vec![self.body];
