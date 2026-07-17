@@ -342,12 +342,27 @@ byte-for-byte against kali):
   function, arrow, function expression, or a resolvable alias) — same
   capture-closure machinery as Stage C/D's timer and microtask lanes
   (scalar + object capture, depth 0/1).
-- `target.dispatchEvent(new CustomEvent(<string literal>))` (and the
-  no-`detail` `new Event(<string literal>)` shape) on an in-lane receiver —
-  runs every registered listener synchronously, in registration order,
-  deduplicated, returns the DOM-standard boolean.
-- Module-scope listener registration + later in-function dispatch (the row-q
-  and module-scope pins).
+- `target.dispatchEvent(new CustomEvent(<string literal>))` on an in-lane
+  receiver — runs every registered listener synchronously, in registration
+  order, deduplicated, returns the DOM-standard boolean.
+  - CORRECTION (Task 9 review): the parenthetical claim that the
+    `new Event(<string literal>)` shape is ALSO in-lane is FALSE. `event_dispatch_literal`
+    recognizes only `new CustomEvent(...)`; a `new Event("tick")` argument falls
+    OUT of lane and is SILENTLY dropped (no listener fires, no diagnostic).
+    Probe p21: `dispatchEvent(new Event("tick"))` → node `fired\ndone`, kali
+    `done`. This is a residual of the out-of-lane-argument class (§8.6), not an
+    in-lane shape.
+  - CORRECTION (Task 9 review): "Module-scope listener registration + later
+    in-function dispatch" is likewise NOT reliably in-lane. Probe p39
+    (module-scope `const t = new EventTarget()`, module-scope
+    `t.addEventListener(...)`, dispatch from inside a `function go(){ ... }`)
+    SILENTLY under-fires: node `fired\ndone`, kali `done`. The listener registry
+    (`event_target_locals`) is per-`FunctionEmitter`, so a receiver whose handle
+    provenance is recorded in the MODULE emitter is not visible to the dispatch
+    site inside `go`'s emitter (split-scope limitation) — the dispatch falls to
+    the backstop and drops. Its mirror p39b (register from inside a function,
+    dispatch at module scope) drops the same way. Both are residuals of the
+    registered-but-under-fired class (§8.6), fully silent (no E3100).
 
 Fail-closed (E5506, a provable soundness gap — NOT a silent drop):
 
@@ -474,25 +489,39 @@ closed or stays pre-existing-red rather than miscompiling):
 - **Out-of-lane NON-CAPTURING listener silent-drop residual (pre-existing,
   distinct from the dispatch-arg item above)**: `x.addEventListener(lit, cb)`
   on an UNPROVEN receiver (e.g. a `signal` param, any unknown object) with a
-  non-capturing callback still takes the pre-lane backstop — E3100 placeholder
-  warning + silent no-op registration (capturing callbacks on such receivers
-  stay E5506). This is the design spec's named "top inventory item for
-  Stage P3": receiver widening plus the backstop → total-deny conversion
-  closes it. The dispatch-ARG item above is a different, newer, user-ratified
-  residual (out-of-envelope argument on an IN-lane receiver); do not conflate
-  the two.
-- **`Kali.test` member-expression callback vacuous-ok residual**
-  (Stage D Task 7 review finding, pre-existing, not introduced by the EV
-  lane): a callback reached via a member-expression path inside a
-  `Kali.test(...)` body can resolve to a vacuous "ok" rather than a
-  provenance deny in some shapes. Tracked as pre-existing, orthogonal to
-  events.
+  non-capturing callback still takes the pre-lane backstop and is a FULLY
+  SILENT no-op registration (capturing callbacks on such receivers stay
+  E5506). CORRECTION (Task 9 review): the earlier wording claimed this emits an
+  "E3100 placeholder warning" — that is WRONG. The drop is completely silent:
+  no E3100, no diagnostic at all. Probe p39b (register from inside a function,
+  dispatch at module scope) and p03c (a user `class EventTarget` shadowing the
+  builtin) both print only `done` with an empty stderr — node fires the
+  listener, kali drops it silently. This is the design spec's named "top
+  inventory item for Stage P3": receiver widening plus the backstop →
+  total-deny conversion closes it. The dispatch-ARG item above is a different,
+  newer, user-ratified residual (out-of-envelope argument on an IN-lane
+  receiver); do not conflate the two.
+- **`Kali.test` member-expression callback wrong-function class — CLOSED
+  (Task 9, I-4)**: `Kali.test("x", obj.m)` previously resolved the callback
+  node's PROPERTY text (`m`) to an unrelated module function `m`, RAN it, and
+  printed a false `ok 1` (worse than a vacuous ok — it ran the wrong function).
+  `kali_test_callback_index` now applies the same bare-identifier structural
+  gate the scheduling resolver uses (resolve by text only for an inline
+  function-plan node or a childless bare identifier); a member/index-expression
+  callback (a `Value` node WITH children) routes to the unregisterable-value
+  deny lane (E5506) instead. Pinned by
+  `soundness_block_arrows.rs::kali_test_member_expression_callback_fails_closed`
+  (asserts E5506 and that the wrong function never runs).
 - **Registered-but-under-fired divergence class**: shapes where a listener
   is registered but a subsequent in-lane dispatch fires it fewer times
   than node (as distinct from the out-of-lane-argument silent-drop above —
-  this is about receiver/handle aliasing, not argument shape). Not observed
-  by any current test; flagged for Stage P3 alongside the backstop
-  hardening.
+  this is about receiver/handle aliasing across `FunctionEmitter` scopes, not
+  argument shape). CORRECTION (Task 9 review): the earlier "not observed by any
+  current test" note is STALE — probe p39 observes it directly (module-scope
+  registration, dispatch from inside `function go(){…}` → node `fired\ndone`,
+  kali `done`; the per-`FunctionEmitter` `event_target_locals` registry is not
+  shared across the module and `go` emitters). Still flagged for Stage P3
+  alongside the backstop hardening.
 - **Stage P2 — `structuredClone`**: deep-clone runtime primitive; currently
   traps (E4000) wherever it's the first unsupported call in a fixture (see
   §8.4's deliberate flip).
@@ -520,3 +549,49 @@ closed or stays pre-existing-red rather than miscompiling):
 - **`preventDefault` / `cancelable`**: depend on the Event-object repr
   above; currently unreachable (no listener can observe an event object at
   all under the zero-parameter gate).
+- **Non-lowered-capture deferred-callback fail-open — BLOCKED (Task 9, C-1)**:
+  the four registration surfaces (`queueMicrotask` / `setTimeout` /
+  `setInterval` / `addEventListener`) resolve any stable-provenance callback,
+  but `env_safety` only CONSTRAINS captures whose closure lowering is engaged
+  (`depth == 1 && cell_is_promotable`). A callback capturing a PARAM, a
+  STRING/FLOAT scalar, or any non-promotable/depth≥2 ref registers and RUNS
+  reading a placeholder 0 for that binding (probes p36e `i=6`→`i=0`, p53b
+  `hi`→``, p56 `1.5`→``, p55 `i=3`→`i=0`, p54 `p=7`→`p=0`). The sound fix — deny
+  any callback with a non-lowered capture at the `scheduling_callback_at` choke
+  point — is implemented-and-verified but was REVERTED because it reds the 4
+  `browser_bundle_web_baseline_primitives` build tests: `webBaselineSmoke`'s
+  in-lane listener `() => { count += 1; controller.abort(); }` captures BOTH
+  `count` (a promotable I64 scalar, correct) AND `controller` (a
+  `new AbortController()` — an UNSUPPORTED construct that reaches the E3100
+  zero-placeholder fallback, so its cell repr is not `Object` → non-promotable
+  non-scalar capture). The deny fires on `controller`, turning the fixture's
+  "unsupported constructs must still BUILD (warn, not error)" invariant into a
+  hard E5506. Keeping those 4 green requires either narrowing the deny to
+  scalar-only (which reintroduces a non-scalar fail-open — prohibited) or
+  editing a deployable-corpus fixture — both regressions. CONTROLLER DECISION
+  REQUIRED (options: accept the scalar-only narrowing + a documented non-scalar
+  follow-up; adjust `webBaselineSmoke` so its listener does not capture an
+  unsupported construct; or implement `AbortController` as an `Object` repr).
+- **Negative-clear-id deliberate-loud divergence (Task 9 note)**:
+  `clearTimeout(-1)` / `clearInterval(-1)` is a NO-OP in node (prints `ok`),
+  but `kali run` traps LOUDLY — `KaliHostState::cancel_timer` does
+  `u32::try_from(timer_id)` and a negative id fails it, surfacing as an
+  E4000 runtime trap (probe p33: node `ok`, kali `error[E4000]: runtime
+  trap`). This is a DELIBERATE fail-LOUD divergence (a trap, never a silent
+  miscompile), inventoried here rather than "fixed": accepting a negative id
+  as a no-op is a precision follow-up, not a soundness gap. The JS mirrors
+  were previously LENIENT here (they accepted a negative id and no-op'd it,
+  diverging from Rust's trap); after I-1 they still do not throw, but the
+  insert-gate (`id >= 0 && id < kaliNextTimerId`) means a negative id can no
+  longer land in `kaliCancelledTimers` (it is a clean no-op on both sides
+  except for Rust's loud trap surface). Aligning the two — either making JS
+  trap or making Rust no-op — is deferred to the same precision follow-up.
+- **Timer-id base drift — ALIGNED (Task 9, I-1)**: the Rust runtime started
+  `next_timer_id` at 0 (`state.rs`) while all 4 JS glue mirrors started
+  `kaliNextTimerId` at 1 — an opaque-id divergence that was benign for id
+  VALUES but masked the I-1 stale-clear bug asymmetrically (the first Rust
+  interval was id 0, the exact id a pre-registration `clearInterval(0)`
+  poisoned; the JS base of 1 hid it). No test pinned the JS base, so the 4
+  mirrors (`harness.rs` ×2, `cmd_build.rs` ×2) were aligned to base 0,
+  matching Rust. Combined with the shared insert-gate, the Rust and JS
+  timer-cancellation semantics are now identical by construction.
