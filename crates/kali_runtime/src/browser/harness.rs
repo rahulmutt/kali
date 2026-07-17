@@ -232,7 +232,7 @@ const kaliNodeCreateHash =
 const kaliPendingMicrotasks = [];
 const kaliPendingTimers = new Map();
 const kaliCancelledTimers = new Set();
-let kaliNextTimerId = 1;
+let kaliNextTimerId = 0;
 let kaliNextTimerSeq = 1;
 let kaliVirtualNowMs = 0;
 const KALI_EVENT_LOOP_BUDGET = 100000;
@@ -252,7 +252,12 @@ function kaliScheduleTimer(callbackId, delayMs, repeat, envPtr) {{
 }}
 function kaliCancelTimer(timerId) {{
   const id = Number(timerId);
-  if (!kaliPendingTimers.delete(id)) {{
+  // Mirror kali_runtime::state::cancel_timer (I-1): only record a cancellation
+  // for an id that was actually allocated (`0 <= id < kaliNextTimerId`).
+  // Clearing a never-allocated / negative / already-dead id is a node-parity
+  // no-op and must not poison a LATER timer that is eventually allocated with
+  // that id (with the base at 0, the first interval IS id 0).
+  if (!kaliPendingTimers.delete(id) && id >= 0 && id < kaliNextTimerId) {{
     kaliCancelledTimers.add(id);
   }}
 }}
@@ -802,7 +807,7 @@ const kaliNodeCreateHash =
 const kaliPendingMicrotasks = [];
 const kaliPendingTimers = new Map();
 const kaliCancelledTimers = new Set();
-let kaliNextTimerId = 1;
+let kaliNextTimerId = 0;
 let kaliNextTimerSeq = 1;
 let kaliVirtualNowMs = 0;
 const KALI_EVENT_LOOP_BUDGET = 100000;
@@ -822,7 +827,12 @@ function kaliScheduleTimer(callbackId, delayMs, repeat, envPtr) {{
 }}
 function kaliCancelTimer(timerId) {{
   const id = Number(timerId);
-  if (!kaliPendingTimers.delete(id)) {{
+  // Mirror kali_runtime::state::cancel_timer (I-1): only record a cancellation
+  // for an id that was actually allocated (`0 <= id < kaliNextTimerId`).
+  // Clearing a never-allocated / negative / already-dead id is a node-parity
+  // no-op and must not poison a LATER timer that is eventually allocated with
+  // that id (with the base at 0, the first interval IS id 0).
+  if (!kaliPendingTimers.delete(id) && id >= 0 && id < kaliNextTimerId) {{
     kaliCancelledTimers.add(id);
   }}
 }}

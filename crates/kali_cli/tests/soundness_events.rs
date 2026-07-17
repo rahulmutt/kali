@@ -335,3 +335,22 @@ console.log("built");
     );
     assert_eq!(String::from_utf8_lossy(&out.stdout), "built\n");
 }
+
+/// I-1 e2e pin: a stale `clearInterval(0)` issued BEFORE any timer is scheduled
+/// must be a no-op, not a poison of the first interval's re-arm. Because
+/// `next_timer_id` starts at 0, the `setInterval` below is allocated id 0 — the
+/// exact id the stale clear names. Pre-fix, the re-arm check ate the interval
+/// after its first firing (kali printed only `1`); node v26.5.0 prints
+/// `1\n2\n3\n`. The interval self-clears after its 3rd tick.
+#[test]
+fn stale_clear_before_setinterval_does_not_poison_first_interval() {
+    let out = run_kali(
+        "clearInterval(0);\nlet n = 0;\nlet id = 0;\nfunction tick(){ n = n + 1; console.log(n); if (n === 3) { clearInterval(id); } }\nid = setInterval(tick, 10);\n",
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "1\n2\n3\n");
+}

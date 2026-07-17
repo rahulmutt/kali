@@ -490,3 +490,75 @@ fn runtime_zero_delay_interval_does_not_starve_later_timers() {
     let outcome = runtime.execute(&wasm).expect("runtime outcome");
     assert_eq!(outcome.exit_code, 0);
 }
+
+/// I-1 regression pin: a `clearInterval` of an id that was NEVER allocated
+/// (here `0`, issued BEFORE any timer is scheduled — and `next_timer_id`
+/// starts at 0, so the very first interval IS id 0) must be a NO-OP, not a
+/// poison of that later timer's re-arm.
+///
+/// Shape: `clearInterval(0)` at start, then `setInterval(cb, 0)` (gets id 0)
+/// that self-clears after its 3rd firing, plus a sentinel `setTimeout(cb, 100)`
+/// that traps unless the interval fired exactly 3 times. With the pre-fix
+/// behavior the stale clear marked id 0 cancelled, the interval never re-armed
+/// (fired once), and the sentinel would trap (`unreachable`) → exit 1. Sound:
+/// the interval fires 3×, the sentinel sees `state == 3`, exit 0.
+#[test]
+fn runtime_stale_clear_of_never_allocated_id_does_not_poison_later_timer() {
+    let runtime =
+        RuntimeCtx::with_host_context(None, Vec::new(), capture_env(), PathBuf::from("."));
+    let wasm = compile_wat(
+        r#"
+            (module
+                (import "kali:rt" "setInterval" (func $set_interval (param i32 i32 i64) (result i32)))
+                (import "kali:rt" "setTimeout" (func $set_timeout (param i32 i32 i64) (result i32)))
+                (import "kali:rt" "clearInterval" (func $clear_interval (param i32)))
+                (memory (export "memory") 1)
+                (global $state (mut i32) (i32.const 0))
+                (global $interval_id (mut i32) (i32.const -1))
+                (func (export "__kali_callback_3") ;; interval tick
+                    global.get $state
+                    i32.const 1
+                    i32.add
+                    global.set $state
+                    global.get $state
+                    i32.const 3
+                    i32.eq
+                    if
+                        global.get $interval_id
+                        call $clear_interval
+                    end
+                    global.get $state
+                    i32.const 3
+                    i32.gt_s
+                    if
+                        unreachable ;; over-fired
+                    end)
+                (func (export "__kali_callback_5") ;; sentinel: exactly 3 fires
+                    global.get $state
+                    i32.const 3
+                    i32.ne
+                    if
+                        unreachable ;; under-fired (poisoned re-arm)
+                    end)
+                (func (export "_start")
+                    ;; stale clear of a never-allocated id (== the first interval's id)
+                    i32.const 0
+                    call $clear_interval
+                    ;; setInterval(cb3, 0) -> id 0
+                    i32.const 3
+                    i32.const 0
+                    i64.const 0
+                    call $set_interval
+                    global.set $interval_id
+                    ;; setTimeout(cb5, 100) sentinel
+                    i32.const 5
+                    i32.const 100
+                    i64.const 0
+                    call $set_timeout
+                    drop)
+            )
+            "#,
+    );
+    let outcome = runtime.execute(&wasm).expect("runtime outcome");
+    assert_eq!(outcome.exit_code, 0, "stale clear must not poison id 0");
+}

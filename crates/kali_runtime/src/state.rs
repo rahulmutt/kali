@@ -325,7 +325,20 @@ impl KaliHostState {
     pub(crate) fn cancel_timer(&mut self, timer_id: i32) -> wasmtime::Result<()> {
         let timer_id = u32::try_from(timer_id)
             .map_err(|_| wasmtime::Error::msg("timer id must be non-negative"))?;
-        if self.pending_timers.remove(&timer_id).is_none() {
+        // The `cancelled_timers` set exists SOLELY for the self-clearing-interval
+        // case: an interval whose callback calls `clearInterval(ownId)` during
+        // its own firing, when the timer has already been removed from
+        // `pending_timers` for that firing (enforce.rs consults the set before
+        // re-arming). Removing a pending timer directly cancels it, so only a
+        // remove-MISS reaches the insert. But a miss for an id that was NEVER
+        // allocated (`>= next_timer_id`) is a clear of a non-existent timer —
+        // node no-ops it. Recording such an id poisons a LATER timer that is
+        // eventually allocated with that value: with `next_timer_id` starting at
+        // 0, a pre-registration `clearInterval(0)` would otherwise mark the very
+        // first interval (id 0) cancelled and eat its re-arm (I-1). Gate the
+        // insert on an already-allocated id so a stale/never-allocated clear is
+        // the node-parity no-op it should be.
+        if self.pending_timers.remove(&timer_id).is_none() && timer_id < self.next_timer_id {
             self.cancelled_timers.insert(timer_id);
         }
         Ok(())
