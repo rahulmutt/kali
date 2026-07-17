@@ -36,7 +36,11 @@ fn event_target_construction_in_declarator_compiles_and_runs() {
 console.log("done");
 "#,
     );
-    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     assert_eq!(String::from_utf8_lossy(&out.stdout), "done\n");
 }
 
@@ -133,7 +137,11 @@ fn event_dispatch_runs_capturing_listener_synchronously() {
 owner();
 "#,
     );
-    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     assert_eq!(
         String::from_utf8_lossy(&out.stdout),
         "before=0\nlistener n=1\nafter=1\ndispatched\n"
@@ -150,7 +158,11 @@ t.addEventListener("tick", function () { console.log("b"); });
 t.dispatchEvent(new CustomEvent("tick"));
 "#,
     );
-    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     assert_eq!(String::from_utf8_lossy(&out.stdout), "a\nb\n");
 }
 
@@ -168,7 +180,11 @@ t.addEventListener("tick", onTick);
 t.dispatchEvent(new CustomEvent("tick"));
 "#,
     );
-    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     assert_eq!(String::from_utf8_lossy(&out.stdout), "hit\n");
 }
 
@@ -182,7 +198,11 @@ if (t.dispatchEvent(new CustomEvent("none"))) {
 }
 "#,
     );
-    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     assert_eq!(String::from_utf8_lossy(&out.stdout), "ok\n");
 }
 
@@ -200,7 +220,11 @@ t.addEventListener("tick", g);
 t.dispatchEvent(new CustomEvent("tick"));
 "#,
     );
-    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     assert_eq!(String::from_utf8_lossy(&out.stdout), "x\n");
 }
 
@@ -225,7 +249,9 @@ fn event_listener_with_parameter_fails_closed() {
 /// An options/capture third argument has no lowering.
 #[test]
 fn event_listener_options_arg_fails_closed() {
-    assert_e5506("const t = new EventTarget(); t.addEventListener(\"tick\", function () {}, true);\n");
+    assert_e5506(
+        "const t = new EventTarget(); t.addEventListener(\"tick\", function () {}, true);\n",
+    );
 }
 
 /// OUT-OF-LANE PRESERVATION (spec §2): a `dispatchEvent` argument that is not
@@ -241,7 +267,11 @@ fn event_custom_event_with_detail_out_of_lane_builds() {
     let out = run_kali(
         "const t = new EventTarget(); t.addEventListener(\"tick\", function () {}); t.dispatchEvent(new CustomEvent(\"tick\", { detail: 1 }));\n",
     );
-    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     assert_eq!(String::from_utf8_lossy(&out.stdout), "");
 }
 
@@ -254,7 +284,11 @@ fn event_bound_event_argument_out_of_lane_builds() {
     let out = run_kali(
         "const t = new EventTarget(); const ev = new CustomEvent(\"tick\"); t.dispatchEvent(ev);\n",
     );
-    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     assert_eq!(String::from_utf8_lossy(&out.stdout), "");
 }
 
@@ -294,6 +328,10 @@ fn event_unknown_receiver_non_capturing_listener_still_builds() {
 console.log("built");
 "#,
     );
-    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     assert_eq!(String::from_utf8_lossy(&out.stdout), "built\n");
 }

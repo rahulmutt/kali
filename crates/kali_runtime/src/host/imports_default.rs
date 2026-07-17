@@ -906,9 +906,12 @@ pub(crate) fn register_default_host_imports(
              env_ptr: i64|
              -> wasmtime::Result<()> {
                 let event_type = read_guest_string(&mut caller, name_ptr, name_len)?;
-                caller
-                    .data_mut()
-                    .add_event_listener(target as u32, event_type, callback_id, env_ptr);
+                caller.data_mut().add_event_listener(
+                    target as u32,
+                    event_type,
+                    callback_id,
+                    env_ptr,
+                );
                 Ok(())
             },
         )

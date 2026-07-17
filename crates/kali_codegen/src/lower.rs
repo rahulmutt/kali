@@ -2147,8 +2147,7 @@ pub(crate) fn declarator_init_is_event_dispatch(nodes: &[LirNode], init_id: LirN
             return false;
         };
         return nodes.get(callee.0 as usize).is_some_and(|callee_node| {
-            callee_node.text.as_deref() == Some("dispatchEvent")
-                && !callee_node.children.is_empty()
+            callee_node.text.as_deref() == Some("dispatchEvent") && !callee_node.children.is_empty()
         });
     }
 }
@@ -3803,8 +3802,7 @@ pub(crate) fn collect_function_locals_from_node(
             // DISTINCT handle each time (a different listener registry) rather
             // than sharing the one target. Promotion here; the handle store +
             // provenance recording is in the emitter's declarator branch.
-            let is_event_target_construction =
-                declarator_init_is_event_target_new(nodes, init);
+            let is_event_target_construction = declarator_init_is_event_target_new(nodes, init);
             // Stage D event lane: `const ok = t.dispatchEvent(...)` is a
             // SIDE-EFFECTING host dispatch (it synchronously re-invokes every
             // registered listener). Its `const` binding must be a REAL local —

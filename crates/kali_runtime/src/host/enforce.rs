@@ -129,9 +129,11 @@ pub(crate) fn invoke_callback(
         // guest-reachable condition. Surface it rather than silently miscompile.
         global
             .set(&mut *store, Val::I64(env_ptr))
-            .map_err(|error| runtime_error_diagnostic(format!(
-                "failed to set __current_env before callback: {error}"
-            )))?;
+            .map_err(|error| {
+                runtime_error_diagnostic(format!(
+                    "failed to set __current_env before callback: {error}"
+                ))
+            })?;
     }
 
     let result = invoke_callback_inner(instance, store, callback_id);

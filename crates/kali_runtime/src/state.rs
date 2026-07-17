@@ -315,11 +315,7 @@ impl KaliHostState {
     /// Stage D event-surface lane: registration-ordered snapshot of listeners
     /// for `(target, event_type)`, taken BEFORE dispatch invokes any of them
     /// so listeners added during dispatch don't fire this round.
-    pub(crate) fn event_listener_snapshot(
-        &self,
-        target: u32,
-        event_type: &str,
-    ) -> Vec<(i32, i64)> {
+    pub(crate) fn event_listener_snapshot(&self, target: u32, event_type: &str) -> Vec<(i32, i64)> {
         self.event_target_listeners
             .get(&(target, event_type.to_string()))
             .cloned()

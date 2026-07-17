@@ -76,7 +76,9 @@ impl EnvPlan {
     /// ancestor env this function reads/writes through the parent chain), if
     /// any.
     pub fn captured_for(&self, name: &str) -> Option<&CapturedRef> {
-        self.captured.iter().find(|reference| reference.name == name)
+        self.captured
+            .iter()
+            .find(|reference| reference.name == name)
     }
 }
 
@@ -220,15 +222,17 @@ pub fn derive_env_plans(program: &MirProgram) -> BTreeMap<String, EnvPlan> {
             };
             for capturer in &binding.captured_by {
                 if let Some(depth) = env_owning_hops(capturer, &owner_key, parents, &env_owners) {
-                    plans.entry(capturer.clone()).or_default().captured.push(
-                        CapturedRef {
+                    plans
+                        .entry(capturer.clone())
+                        .or_default()
+                        .captured
+                        .push(CapturedRef {
                             name: binding.name.clone(),
                             depth,
                             offset,
                             is_scalar,
                             owner: owner_key.clone(),
-                        },
-                    );
+                        });
                 }
             }
         }
@@ -323,9 +327,21 @@ mod tests {
         );
         let plans = derive_env_plans(&analysis);
         let c = plans.get("c").expect("c plan");
-        let g = c.captured.iter().find(|r| r.name == "g").expect("captures g");
-        let h = c.captured.iter().find(|r| r.name == "h").expect("captures h");
-        assert_eq!((g.depth, g.owner.as_str()), (2, "a"), "g: two env hops via b then a");
+        let g = c
+            .captured
+            .iter()
+            .find(|r| r.name == "g")
+            .expect("captures g");
+        let h = c
+            .captured
+            .iter()
+            .find(|r| r.name == "h")
+            .expect("captures h");
+        assert_eq!(
+            (g.depth, g.owner.as_str()),
+            (2, "a"),
+            "g: two env hops via b then a"
+        );
         assert_eq!((h.depth, h.owner.as_str()), (1, "b"), "h: one env hop (b)");
     }
 

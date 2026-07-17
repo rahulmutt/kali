@@ -635,7 +635,11 @@ console.log("sync=" + base);
 t.dispatchEvent(new CustomEvent("tick"));
 "#,
     );
-    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     assert_eq!(String::from_utf8_lossy(&out.stdout), "sync=0\nev=1\n");
 }
 

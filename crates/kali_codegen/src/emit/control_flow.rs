@@ -830,8 +830,7 @@ impl<'a> FunctionEmitter<'a> {
                                     function.instruction(&Instruction::Unreachable);
                                     continue;
                                 };
-                                let Some(import_index) = self.event_target_new_import_index
-                                else {
+                                let Some(import_index) = self.event_target_new_import_index else {
                                     // The program-wide probe gates the import;
                                     // any in-lane construction reaching emit MUST
                                     // have flipped it. A miss is a probe/emit

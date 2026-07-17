@@ -156,7 +156,8 @@ impl<'a> FunctionEmitter<'a> {
                 return self.deny_captured_event_receiver("addEventListener");
             }
         }
-        if callee_node.text.as_deref() == Some("dispatchEvent") && !callee_node.children.is_empty() {
+        if callee_node.text.as_deref() == Some("dispatchEvent") && !callee_node.children.is_empty()
+        {
             if let Some(receiver) = self.event_target_receiver(&callee_node) {
                 // Emit the real dispatch ONLY for a FULLY in-lane argument (an
                 // inline `new CustomEvent(<string literal>)`). An out-of-lane
