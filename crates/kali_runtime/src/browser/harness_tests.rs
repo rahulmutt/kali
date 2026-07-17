@@ -103,6 +103,14 @@ fn browser_import_lists_declare_all_host_wired_kalirt_members() {
         "crypto_get_random_values",
         "crypto_random_uuid",
         "crypto_subtle_digest",
+        // Stage D Task 6 (D2): the deferred-callback lane's five host imports
+        // (Tasks 4-5 codegen). Missing any of these LinkErrors any browser
+        // module that emits a `queueMicrotask`/`setTimeout`/`setInterval` call.
+        "queueMicrotask",
+        "setTimeout",
+        "setInterval",
+        "clearTimeout",
+        "clearInterval",
     ];
     for (label, src) in browser_import_list_sources() {
         for member in REQUIRED {

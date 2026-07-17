@@ -1550,9 +1550,105 @@ const dynamicImportTargets = new Map([
 {dynamic_import_entries}]);
 const coverageHits = [];
 
+const kaliPendingMicrotasks = [];
+const kaliPendingTimers = new Map();
+const kaliCancelledTimers = new Set();
+let kaliNextTimerId = 1;
+let kaliNextTimerSeq = 1;
+let kaliVirtualNowMs = 0;
+const KALI_EVENT_LOOP_BUDGET = 100000;
+function kaliScheduleTimer(callbackId, delayMs, repeat, envPtr) {{
+  // Mirrors kali_runtime::state::schedule_timer: 1ms minimum clamp,
+  // virtual-clock due time, fresh seq per (re)arm.
+  const effective = Math.max(1, Number(delayMs) | 0);
+  const id = kaliNextTimerId++;
+  kaliPendingTimers.set(id, {{
+    callbackId,
+    envPtr,
+    dueAtMs: kaliVirtualNowMs + effective,
+    seq: kaliNextTimerSeq++,
+    repeatMs: repeat ? effective : null,
+  }});
+  return id;
+}}
+function kaliCancelTimer(timerId) {{
+  const id = Number(timerId);
+  if (!kaliPendingTimers.delete(id)) {{
+    kaliCancelledTimers.add(id);
+  }}
+}}
+async function kaliInvokeCallback(instance, callbackId, envPtr) {{
+  // Mirrors kali_runtime::host::enforce::invoke_callback: set the exported
+  // __current_env to the registration-time env, restore after (both paths).
+  const envGlobal = instance.exports.__current_env;
+  const saved = envGlobal ? envGlobal.value : null;
+  if (envGlobal) {{ envGlobal.value = envPtr; }}
+  try {{
+    await instance.exports[`__kali_callback_${{callbackId}}`]();
+  }} finally {{
+    if (envGlobal) {{ envGlobal.value = saved; }}
+  }}
+}}
+async function kaliDrainEventLoop(instance) {{
+  // Mirrors kali_runtime::host::enforce::drain_event_loop: all microtasks
+  // FIFO before each timer; timers by (dueAtMs, seq); re-arm unless
+  // cancelled while firing; bounded by the invocation budget.
+  let invoked = 0;
+  for (;;) {{
+    if (invoked >= KALI_EVENT_LOOP_BUDGET) {{
+      throw new Error('event loop did not quiesce: scheduled-callback budget exceeded');
+    }}
+    const microtask = kaliPendingMicrotasks.shift();
+    if (microtask) {{
+      invoked += 1;
+      await kaliInvokeCallback(instance, microtask.callbackId, microtask.envPtr);
+      continue;
+    }}
+    let next = null;
+    for (const [id, timer] of kaliPendingTimers) {{
+      if (
+        next === null
+        || timer.dueAtMs < next.timer.dueAtMs
+        || (timer.dueAtMs === next.timer.dueAtMs && timer.seq < next.timer.seq)
+      ) {{
+        next = {{ id, timer }};
+      }}
+    }}
+    if (next === null) {{ return; }}
+    kaliPendingTimers.delete(next.id);
+    kaliVirtualNowMs = Math.max(kaliVirtualNowMs, next.timer.dueAtMs);
+    invoked += 1;
+    await kaliInvokeCallback(instance, next.timer.callbackId, next.timer.envPtr);
+    if (next.timer.repeatMs !== null && !kaliCancelledTimers.delete(next.id)) {{
+      kaliPendingTimers.set(next.id, {{
+        callbackId: next.timer.callbackId,
+        envPtr: next.timer.envPtr,
+        dueAtMs: kaliVirtualNowMs + next.timer.repeatMs,
+        seq: kaliNextTimerSeq++,
+        repeatMs: next.timer.repeatMs,
+      }});
+    }}
+  }}
+}}
+
 const defaultImportObject = {{
   "kali:rt": {{
     test_register(_val, _envPtr) {{}},
+    queueMicrotask(callbackId, envPtr) {{
+      kaliPendingMicrotasks.push({{ callbackId, envPtr }});
+    }},
+    setTimeout(callbackId, delayMs, envPtr) {{
+      return kaliScheduleTimer(callbackId, delayMs, false, envPtr);
+    }},
+    setInterval(callbackId, delayMs, envPtr) {{
+      return kaliScheduleTimer(callbackId, delayMs, true, envPtr);
+    }},
+    clearTimeout(timerId) {{
+      kaliCancelTimer(timerId);
+    }},
+    clearInterval(timerId) {{
+      kaliCancelTimer(timerId);
+    }},
     coverage_hit(id) {{
       coverageHits.push(Number(id));
     }},
@@ -1869,9 +1965,13 @@ export async function loadDynamicImport(specifier) {{
 let startPromise = null;
 export async function start() {{
   if (startPromise === null) {{
-    startPromise = instancePromise.then((instance) => {{
+    // D2: this is the bundle's one `_start` call site, so the deferred-callback
+    // drain (queueMicrotask/setTimeout/setInterval registered during `_start`)
+    // runs here, right after it, mirroring the native harness sites.
+    startPromise = instancePromise.then(async (instance) => {{
       if (typeof instance.exports._start === 'function') {{
         instance.exports._start();
+        await kaliDrainEventLoop(instance);
       }}
     }});
   }}
@@ -1888,9 +1988,105 @@ const dynamicImportTargets = new Map([
 {dynamic_import_entries}]);
 const coverageHits = [];
 
+const kaliPendingMicrotasks = [];
+const kaliPendingTimers = new Map();
+const kaliCancelledTimers = new Set();
+let kaliNextTimerId = 1;
+let kaliNextTimerSeq = 1;
+let kaliVirtualNowMs = 0;
+const KALI_EVENT_LOOP_BUDGET = 100000;
+function kaliScheduleTimer(callbackId, delayMs, repeat, envPtr) {{
+  // Mirrors kali_runtime::state::schedule_timer: 1ms minimum clamp,
+  // virtual-clock due time, fresh seq per (re)arm.
+  const effective = Math.max(1, Number(delayMs) | 0);
+  const id = kaliNextTimerId++;
+  kaliPendingTimers.set(id, {{
+    callbackId,
+    envPtr,
+    dueAtMs: kaliVirtualNowMs + effective,
+    seq: kaliNextTimerSeq++,
+    repeatMs: repeat ? effective : null,
+  }});
+  return id;
+}}
+function kaliCancelTimer(timerId) {{
+  const id = Number(timerId);
+  if (!kaliPendingTimers.delete(id)) {{
+    kaliCancelledTimers.add(id);
+  }}
+}}
+async function kaliInvokeCallback(instance, callbackId, envPtr) {{
+  // Mirrors kali_runtime::host::enforce::invoke_callback: set the exported
+  // __current_env to the registration-time env, restore after (both paths).
+  const envGlobal = instance.exports.__current_env;
+  const saved = envGlobal ? envGlobal.value : null;
+  if (envGlobal) {{ envGlobal.value = envPtr; }}
+  try {{
+    await instance.exports[`__kali_callback_${{callbackId}}`]();
+  }} finally {{
+    if (envGlobal) {{ envGlobal.value = saved; }}
+  }}
+}}
+async function kaliDrainEventLoop(instance) {{
+  // Mirrors kali_runtime::host::enforce::drain_event_loop: all microtasks
+  // FIFO before each timer; timers by (dueAtMs, seq); re-arm unless
+  // cancelled while firing; bounded by the invocation budget.
+  let invoked = 0;
+  for (;;) {{
+    if (invoked >= KALI_EVENT_LOOP_BUDGET) {{
+      throw new Error('event loop did not quiesce: scheduled-callback budget exceeded');
+    }}
+    const microtask = kaliPendingMicrotasks.shift();
+    if (microtask) {{
+      invoked += 1;
+      await kaliInvokeCallback(instance, microtask.callbackId, microtask.envPtr);
+      continue;
+    }}
+    let next = null;
+    for (const [id, timer] of kaliPendingTimers) {{
+      if (
+        next === null
+        || timer.dueAtMs < next.timer.dueAtMs
+        || (timer.dueAtMs === next.timer.dueAtMs && timer.seq < next.timer.seq)
+      ) {{
+        next = {{ id, timer }};
+      }}
+    }}
+    if (next === null) {{ return; }}
+    kaliPendingTimers.delete(next.id);
+    kaliVirtualNowMs = Math.max(kaliVirtualNowMs, next.timer.dueAtMs);
+    invoked += 1;
+    await kaliInvokeCallback(instance, next.timer.callbackId, next.timer.envPtr);
+    if (next.timer.repeatMs !== null && !kaliCancelledTimers.delete(next.id)) {{
+      kaliPendingTimers.set(next.id, {{
+        callbackId: next.timer.callbackId,
+        envPtr: next.timer.envPtr,
+        dueAtMs: kaliVirtualNowMs + next.timer.repeatMs,
+        seq: kaliNextTimerSeq++,
+        repeatMs: next.timer.repeatMs,
+      }});
+    }}
+  }}
+}}
+
 const defaultImportObject = {{
   "kali:rt": {{
     test_register(_val, _envPtr) {{}},
+    queueMicrotask(callbackId, envPtr) {{
+      kaliPendingMicrotasks.push({{ callbackId, envPtr }});
+    }},
+    setTimeout(callbackId, delayMs, envPtr) {{
+      return kaliScheduleTimer(callbackId, delayMs, false, envPtr);
+    }},
+    setInterval(callbackId, delayMs, envPtr) {{
+      return kaliScheduleTimer(callbackId, delayMs, true, envPtr);
+    }},
+    clearTimeout(timerId) {{
+      kaliCancelTimer(timerId);
+    }},
+    clearInterval(timerId) {{
+      kaliCancelTimer(timerId);
+    }},
     coverage_hit(id) {{
       coverageHits.push(Number(id));
     }},
@@ -2207,9 +2403,13 @@ async function loadDynamicImport(specifier) {{
 let startPromise = null;
 async function start() {{
   if (startPromise === null) {{
-    startPromise = instancePromise.then((instance) => {{
+    // D2: this is the bundle's one `_start` call site, so the deferred-callback
+    // drain (queueMicrotask/setTimeout/setInterval registered during `_start`)
+    // runs here, right after it, mirroring the native harness sites.
+    startPromise = instancePromise.then(async (instance) => {{
       if (typeof instance.exports._start === 'function') {{
         instance.exports._start();
+        await kaliDrainEventLoop(instance);
       }}
     }});
   }}
