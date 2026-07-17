@@ -461,6 +461,24 @@ fn push_argument_shape_ok(expr: &Expression, allow_identifiers: bool) -> bool {
     ) || scalar_value_shape_ok(expr, allow_identifiers)
 }
 
+/// The growable-i64 array SHAPE predicate: true when `expr` is an array
+/// LITERAL every element of which is a scalar-shaped seed (numeric literal or
+/// arithmetic over literals — NO identifiers, whose value the emit-time repr
+/// gate cannot see on the element axis, and no strings/objects/arrays). This
+/// is the exact declarator-init check `variable_declaration` applies to bare
+/// bindings; `kali_types::repr_infer` reuses it to classify object-literal
+/// array FIELDS (Stage P2 Lane 1 Task 3) off the SAME provenance — an
+/// array-shaped field that fails this predicate fails closed (a shape
+/// conflict) rather than silently interning a scalar field repr.
+pub(crate) fn array_literal_of_scalar_seeds(expr: &Expression) -> bool {
+    matches!(expr, Expression::ArrayExpression(array)
+    if array.elements.iter().all(|element| matches!(
+        element,
+        Some(ExpressionOrSpread::Expression(inner))
+            if scalar_value_shape_ok(inner, false)
+    )))
+}
+
 fn strip_parens(expr: &Expression) -> &Expression {
     let mut current = expr;
     while let Expression::ParenthesizedExpression(inner) = current {
@@ -649,18 +667,10 @@ impl Scan {
         for declarator in &decl.declarations {
             let growable_shape = !nested
                 && matches!(decl.kind.as_str(), "const" | "let")
-                && declarator.init.as_ref().is_some_and(|init| {
-                    matches!(init, Expression::ArrayExpression(array)
-                    if array.elements.iter().all(|element| matches!(
-                        element,
-                        Some(ExpressionOrSpread::Expression(expr))
-                            // Seeds admit NO identifiers: an identifier
-                            // seed could deliver an object/array handle
-                            // the emit-time repr gate cannot see on the
-                            // element axis.
-                            if scalar_value_shape_ok(expr, false)
-                    )))
-                });
+                && declarator
+                    .init
+                    .as_ref()
+                    .is_some_and(array_literal_of_scalar_seeds);
             self.declare(&declarator.id, growable_shape);
             if let Some(init) = &declarator.init {
                 self.expr(init, nested);

@@ -1256,3 +1256,39 @@ fn nested_fn_lockstep_array_literal_spread_is_an_unseeded_gap() {
 //
 // If kali's parser ever grows real call-argument-spread/rest-parameter or
 // tagged-template support, these gaps must be pinned then (or closed).
+
+// ---- Stage P2 Lane 1 Task 3: growable-i64 object array fields -----------
+
+#[test]
+fn object_field_growable_int_array_infers_growable_array_repr() {
+    // { count: 1, values: [1,2,3] } read via o.count and o.values.push(4).
+    // The array-literal-initialized i64 field must intern as
+    // Repr::GrowableArrayI64; the scalar field stays I64; no conflict.
+    let src = "const o = { count: 1, values: [1, 2, 3] };\n\
+               o.values.push(4);\n\
+               console.log(o.count, o.values.length);\n";
+    let t = reprs(src);
+    let Repr::Object(shape) = t.scalar("_start", "o") else {
+        panic!("o should be a materialized object binding with a shape");
+    };
+    assert_eq!(
+        t.shape_field(shape, "count").map(|(_, r)| r),
+        Some(Repr::I64)
+    );
+    assert_eq!(
+        t.shape_field(shape, "values").map(|(_, r)| r),
+        Some(Repr::GrowableArrayI64)
+    );
+    assert!(t.shape_conflicts().is_empty());
+}
+
+#[test]
+fn object_field_string_array_conflicts() {
+    // A string-element array field is NOT growable-i64: it must fail closed
+    // (a shape conflict), never silently intern a scalar/I64 field repr.
+    let src = "const o = { vals: ['a', 'b'] };\n\
+               o.vals.push('c');\n\
+               console.log(o.vals.length);\n";
+    let t = reprs(src);
+    assert!(!t.shape_conflicts().is_empty());
+}

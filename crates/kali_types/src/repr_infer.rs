@@ -214,6 +214,18 @@ struct ReprInfer {
     obj_accesses: Vec<ObjAccess>,
     /// Per-(slot, field) storage node, unioned across aliased slots.
     obj_field_node: BTreeMap<(ObjSlot, String), usize>,
+    /// Object-literal FIELDS initialized with an array (Stage P2 Lane 1 Task
+    /// 3): `(slot, field) -> (element_node, growable_i64_shape)`. Presence
+    /// marks the field as array-shaped — it must NOT resolve on the scalar
+    /// (I64/F64) field lane. `growable_i64_shape` is
+    /// [`crate::growable::array_literal_of_scalar_seeds`] over the field
+    /// initializer (the SAME provenance the bare-binding growable lane uses);
+    /// `element_node` carries the element repr axis (array-literal elements
+    /// are wired into it exactly like `note_array_init`). At `emit_table`
+    /// time a field promotes to `Repr::GrowableArrayI64` iff its shape proves
+    /// growable-i64 AND its element node solves i64 (never string/float);
+    /// every other array-shaped field fails closed with a shape conflict.
+    obj_array_fields: BTreeMap<(ObjSlot, String), (usize, bool)>,
     /// Slots that must lower as runtime heap objects (any write, any flow).
     obj_materialized: BTreeSet<ObjSlot>,
     /// Object slots with their propagated field lists (set by `resolve_objects`).
@@ -688,6 +700,19 @@ impl ReprInfer {
                 );
                 return;
             }
+            // Array-shaped field (Stage P2 Lane 1 Task 3): an array literal /
+            // `new Array(...)` initializer is NOT a scalar field — it must
+            // never flow into the scalar field node (which would silently
+            // resolve I64/F64: the pre-existing miscompile this lane closes).
+            // Record it on the dedicated array-field lane and force the slot
+            // to materialize (a real array field cannot fold-lane), then let
+            // the emit-time resolver decide GrowableArrayI64 vs. conflict.
+            if self.init_is_array(&prop.value) {
+                self.record_object_array_field(func, &slot, key, &prop.value);
+                self.obj_materialized.insert(slot.clone());
+                names.push(key.clone());
+                continue;
+            }
             let value_node = self.visit_expr(func, &prop.value);
             let field_node = self.obj_field_node_for(&slot, key);
             self.add_edge(value_node, field_node);
@@ -711,6 +736,45 @@ impl ReprInfer {
                 entry.insert(names);
             }
         }
+    }
+
+    /// Record an object-literal FIELD whose initializer is an array (Stage P2
+    /// Lane 1 Task 3). Mirrors `note_array_init`'s per-element wiring but into
+    /// a dedicated per-(slot, field) element node: array-literal elements flow
+    /// (store direction) into the element node so its solved repr axis
+    /// (string/float/i64) is exact, and `element_store_sources` feeds the
+    /// shared mixed-store detection in `emit_table`. Growability is the SAME
+    /// syntactic provenance the bare-binding lane uses
+    /// (`array_literal_of_scalar_seeds`). `new Array(...)` has no elements to
+    /// wire and never has the growable-i64 shape, so it fails closed at emit
+    /// time — sound.
+    fn record_object_array_field(
+        &mut self,
+        func: &str,
+        slot: &ObjSlot,
+        field: &str,
+        init: &Expression,
+    ) {
+        let key = (slot.clone(), field.to_string());
+        let elem = match self.obj_array_fields.get(&key) {
+            Some(&(elem, _)) => elem,
+            None => self.new_node(),
+        };
+        if let Expression::ArrayExpression(arr) = init {
+            for element in arr.elements.iter().flatten() {
+                if let kali_ast::ExpressionOrSpread::Expression(expr) = element {
+                    let en = self.visit_expr(func, expr);
+                    self.add_edge(en, elem);
+                    self.element_store_sources.push((elem, en));
+                }
+            }
+        }
+        // AND-merge if the same slot/field is recorded twice (conflicting
+        // literals feeding one slot): prefer fail-closed so a mixed set never
+        // up-classifies to growable.
+        let growable_shape = crate::growable::array_literal_of_scalar_seeds(init)
+            && self.obj_array_fields.get(&key).is_none_or(|&(_, g)| g);
+        self.obj_array_fields.insert(key, (elem, growable_shape));
     }
 
     /// Record an aliasing flow `dst ~ <expr>` when the expression can carry an
@@ -3433,19 +3497,45 @@ impl ReprInfer {
         // codegen keeps its compile-time fold lane for them.
         let fields_of = std::mem::take(&mut self.obj_fields_of);
         let materialized = std::mem::take(&mut self.obj_materialized);
+        let obj_array_fields = std::mem::take(&mut self.obj_array_fields);
         for (slot, names) in &fields_of {
             if !materialized.contains(slot) {
                 continue;
             }
-            let fields: Vec<(String, Repr)> = names
-                .iter()
-                .map(|name| {
+            let mut fields: Vec<(String, Repr)> = Vec::with_capacity(names.len());
+            for name in names {
+                let repr = if let Some(&(elem_node, growable_shape)) =
+                    obj_array_fields.get(&(slot.clone(), name.clone()))
+                {
+                    // ALLOWLIST (Stage P2 Lane 1 Task 3): only a provably
+                    // growable-i64 array field is promoted — its initializer
+                    // is an array literal of scalar i64 seeds AND its element
+                    // axis solves i64 (never string/float). EVERY other
+                    // array-shaped field (string/float element, `new Array`,
+                    // identifier seed, …) fails CLOSED with a shape conflict,
+                    // never silently interning a scalar (I64) field repr — the
+                    // pre-existing silent miscompile this lane exists to close.
+                    let erep = self.uf.find(elem_node);
+                    if growable_shape && !string[erep] && !float[erep] {
+                        Repr::GrowableArrayI64
+                    } else {
+                        self.obj_conflicts.push(format!(
+                            "object field '{name}' is an unsupported array shape; only growable integer array fields are available"
+                        ));
+                        // Placeholder — the conflict above aborts the compile.
+                        Repr::I64
+                    }
+                } else {
                     let node = self.obj_field_node_for(slot, name);
                     let rep = self.uf.find(node);
-                    let repr = if float[rep] { Repr::F64 } else { Repr::I64 };
-                    (name.clone(), repr)
-                })
-                .collect();
+                    if float[rep] {
+                        Repr::F64
+                    } else {
+                        Repr::I64
+                    }
+                };
+                fields.push((name.clone(), repr));
+            }
             let shape = table.intern_shape(fields);
             match slot {
                 ObjSlot::Binding(func, name) => {
