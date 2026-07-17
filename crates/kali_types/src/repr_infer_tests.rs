@@ -1292,3 +1292,79 @@ fn object_field_string_array_conflicts() {
     let t = reprs(src);
     assert!(!t.shape_conflicts().is_empty());
 }
+// ---- Task 3 tripwire pins: known silent-I64 array-field residuals -------
+//
+// These two tests pin CURRENT (fail-OPEN) behavior on purpose. They are NOT
+// correctness claims — each documents an array-shaped object field that the
+// Task 3 array-field lane does NOT recognize, so it slips past the
+// GrowableArrayI64/conflict allowlist and silently interns `Repr::I64` with
+// NO shape_conflict. Both residuals are shared, pre-existing boundaries of the
+// `init_is_array` recognizer (repr_infer.rs): `init_is_array` matches ONLY a
+// bare `ArrayExpression` or `new Array(...)` — every other array-carrying form
+// falls to `visit_expr`'s `_ => new_node()` int arm and resolves I64. The pins
+// exist so that ANY future change to `init_is_array` (or the field detection in
+// `record_object_literal`) that alters these forms flips a test RED and forces
+// a deliberate soundness decision, instead of silently changing a field's repr.
+//
+// FIX PATH (strictly better, when a fixture needs it): routing these forms
+// through the array-field lane (`record_object_array_field`) would run them
+// through the SAME allowlist — a paren/identifier array field is not a
+// growable-i64 array LITERAL of scalar seeds, so it would CONFLICT (fail
+// closed) rather than intern I64. When that fix lands, update these pins to
+// assert the conflict.
+
+#[test]
+fn tripwire_parenthesized_array_field_silently_interns_i64() {
+    // DELIBERATE TRIPWIRE — pins a known pre-existing FAIL-OPEN, not a
+    // correctness claim. `{ values: ([1,2,3]) }`: the initializer is a
+    // PARENTHESIZED array, and `init_is_array` does not strip parens, so the
+    // field is never routed to the Task 3 array-field lane. It falls to the
+    // scalar lane and interns `I64` (an array field read back as a raw i64 —
+    // the silent miscompile class this lane otherwise closes). Identical
+    // boundary to the bare-binding growable lane, which also keys off
+    // `init_is_array` and likewise misses `const a = ([1,2,3])`.
+    // The `o.values = (...)` write materializes the shape so the field repr is
+    // observable; a materialized array-field object is exactly the scenario the
+    // growable path handles for bare `[...]`.
+    let src = "const o = { values: ([1, 2, 3]) };\n\
+               o.values = ([4, 5]);\n\
+               console.log(o.values);\n";
+    let t = reprs(src);
+    let Repr::Object(shape) = t.scalar("_start", "o") else {
+        panic!("o materializes a shape via the write");
+    };
+    // Pinned CURRENT behavior: silent I64, NO conflict. If a future
+    // `init_is_array` change makes this GrowableArrayI64 or a conflict, this
+    // assertion flips red — revisit the pin deliberately (see fix path above).
+    assert_eq!(
+        t.shape_field(shape, "values").map(|(_, r)| r),
+        Some(Repr::I64)
+    );
+    assert!(t.shape_conflicts().is_empty());
+}
+
+#[test]
+fn tripwire_identifier_aliased_array_field_silently_interns_i64() {
+    // DELIBERATE TRIPWIRE — pins a known pre-existing FAIL-OPEN, not a
+    // correctness claim. `{ values: arr }` where `arr` is an array binding:
+    // the initializer is an IDENTIFIER, which `init_is_array` never matches, so
+    // the field is not routed to the Task 3 array-field lane and interns `I64`.
+    // This belongs to the broader object-field-VALUE-aliasing gap (a field
+    // whose value flows from another binding rather than a literal), which
+    // Task 3 does not address (its scope is array-LITERAL-initialized fields).
+    let src = "const arr = [1, 2, 3];\n\
+               const o = { values: arr };\n\
+               o.values = arr;\n\
+               console.log(o.values);\n";
+    let t = reprs(src);
+    let Repr::Object(shape) = t.scalar("_start", "o") else {
+        panic!("o materializes a shape via the write");
+    };
+    // Pinned CURRENT behavior: silent I64, NO conflict. A future change that
+    // closes the field-value-aliasing gap should flip this red and update it.
+    assert_eq!(
+        t.shape_field(shape, "values").map(|(_, r)| r),
+        Some(Repr::I64)
+    );
+    assert!(t.shape_conflicts().is_empty());
+}
