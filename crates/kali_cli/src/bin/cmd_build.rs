@@ -1645,7 +1645,9 @@ let kaliNextEventTargetId = 1;
 // (only inline `TextDecoder().decode(mem.slice(...))` in crypto_subtle_digest);
 // add one mirroring that idiom.
 function kaliReadGuestString(ptr, len) {{
-  if (wasmMemory === null) {{ return ''; }}
+  if (wasmMemory === null) {{
+    throw new Error('guest memory is unavailable for event-surface imports');
+  }}
   return new TextDecoder().decode(new Uint8Array(wasmMemory.buffer, ptr, len));
 }}
 function kaliEventKey(target, type) {{
@@ -2145,7 +2147,9 @@ let kaliNextEventTargetId = 1;
 // (only inline `TextDecoder().decode(mem.slice(...))` in crypto_subtle_digest);
 // add one mirroring that idiom.
 function kaliReadGuestString(ptr, len) {{
-  if (wasmMemory === null) {{ return ''; }}
+  if (wasmMemory === null) {{
+    throw new Error('guest memory is unavailable for event-surface imports');
+  }}
   return new TextDecoder().decode(new Uint8Array(wasmMemory.buffer, ptr, len));
 }}
 function kaliEventKey(target, type) {{
