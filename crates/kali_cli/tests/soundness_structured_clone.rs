@@ -138,3 +138,91 @@ fn structured_clone_string_array_field_fails_closed() {
     let stderr = run_kali_run_expect_error(src);
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
+
+/// Task 6 (Lane 3): same-shape object identity. `q = p` is aliasing (same
+/// heap pointer); `r` is a separately-allocated same-shape object. `p === q`
+/// must be real pointer identity (true); `p === r` must be false (distinct
+/// allocations), proving the allow lane does real pointer comparison, not a
+/// blanket true.
+///
+/// DEVIATION FROM THE BRIEF, two orthogonal pre-existing limitations
+/// (documented; same pattern as Task 5's
+/// `object_array_field_push_join_length_round_trip`):
+///
+/// 1. Multi-arg `console.log`: the brief's snippet used a single
+///    `console.log(p === q, p === r)`. `crates/kali_codegen/src/emit/
+///    call.rs`'s dynamic console lane emits only the FIRST argument and
+///    silently drops the rest (see the "Stage 4 Task 6 re-review fix"
+///    comment there) — reproduces identically with plain scalars
+///    (`console.log(1 === 1, 1 === 2)` also prints a single `1`), unrelated
+///    to objects. This test uses one `console.log` per comparison instead.
+///
+/// 2. Dynamic-boolean rendering: the brief asserted the output renders as
+///    `"true"`/`"false"` text like node. That holds ONLY for a
+///    compile-time-foldable literal (`console.log(true)` does print
+///    `"true"`, via `render_console_call`'s static lane) — a genuinely
+///    DYNAMIC boolean (the runtime lane `emit_console_argument`, which has
+///    no `ValueShape::Boolean` arm, only `Float`) prints the raw `1`/`0` i64
+///    unconverted. This is general and pre-existing — plain scalar
+///    `let a=1,b=2; console.log(a===a); console.log(a===b);` also prints
+///    `1`/`0`, and `array_callback_number_predicates_runtime.rs` already
+///    pins this exact "1\n0\n..." convention as kali's accepted (if
+///    node-diverging) behavior for runtime-computed booleans. `p === q` and
+///    `p === r` are genuinely dynamic (real pointer identity, not a static
+///    fold — that IS the point of this test), so they hit this same
+///    pre-existing lane and print `1`/`0`. Fixing dynamic Boolean-to-text
+///    rendering is a general, separate, higher-blast-radius change (it would
+///    flip the expected output of every already-green test that prints a
+///    runtime comparison) — out of scope for Lane 3, which is about WHETHER
+///    the comparison is sound, not how its result is printed.
+#[test]
+fn same_shape_object_identity_alias_is_true() {
+    let src = "const p = { x: 1 };\nconst q = p;\nconst r = { x: 2 };\n\
+               console.log(p === q);\n\
+               console.log(p === r);\n";
+    let out = run_kali_run(src);
+    assert_eq!(out.trim(), "1\n0"); // node: true / false (see doc comment)
+}
+
+/// Task 6 (Lane 3): cross-shape `===` still fails closed. This may pass "by
+/// accident" even before the allow lane exists (the pre-existing blanket
+/// object-misuse gate already E5506s any object-involving `===`) — the
+/// alias test above is what actually proves the allow lane exists. This test
+/// guards against a future regression where the allow lane is loosened to
+/// admit cross-shape comparisons.
+#[test]
+fn structured_clone_cross_shape_identity_fails_closed() {
+    let src = "const a = { x: 1 };\nconst b = { y: 1, z: 2 };\n\
+               console.log(a === b);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+/// Task 6 (Lane 3) soundness pin: closes the p2a fail-open. One operand (`o`)
+/// has a proven object shape; the other (`u`, an unknown-repr parameter) does
+/// not. The allow lane requires BOTH operands proven same-shape — an
+/// unknown-repr operand must not slip through to a scalar `===` arm (which
+/// would silently compare a raw heap pointer against a scalar, or vice
+/// versa). Falls to the blanket gate → E5506.
+#[test]
+fn object_identity_against_unknown_repr_fails_closed() {
+    let src = "function f(u) { const o = { x: 1 }; return o === u; }\n\
+               console.log(f(0));\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+/// Task 6 (Lane 3): `!==` must not be inverted relative to `===`. The brief's
+/// tests only cover `===`; this pins `!==` on the same alias/distinct pair —
+/// `p !== q` (alias) is false, `p !== r` (distinct same-shape) is true.
+/// Single-argument `console.log` per comparison, raw `0`/`1` output — see
+/// `same_shape_object_identity_alias_is_true`'s doc comment for both
+/// deviations (multi-arg console.log drop; dynamic-boolean 1/0 rendering).
+#[test]
+fn same_shape_object_identity_not_equal() {
+    let src = "const p = { x: 1 };\nconst q = p;\nconst r = { x: 2 };\n\
+               console.log(p !== q);\n\
+               console.log(p !== r);\n";
+    let out = run_kali_run(src);
+    assert_eq!(out.trim(), "0\n1"); // node: false / true (see doc comment)
+}

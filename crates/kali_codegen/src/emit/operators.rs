@@ -1491,6 +1491,48 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        // Lane 3 (Stage P2 Task 6): same-shape object/array identity allow
+        // lane. `p === q` / `p !== q` is sound as REAL pointer identity when
+        // both operands are PROVEN to be references into the same fixed
+        // layout: either both resolve to the identical object `ShapeId` (via
+        // `object_shape_of_node`), or both are `base.field` reads of a
+        // `GrowableArrayI64` field (both are ARRAY_HANDLE_TAG i64 handles,
+        // Task 4's `object_field_is_growable_array`). Anything else —
+        // one-object-one-unknown, cross-shape, object-vs-scalar — falls
+        // through unchanged to the blanket gate below, which E5506s. This
+        // must run BEFORE the blanket gate (which would otherwise reject
+        // every object-shaped operand unconditionally) and must require BOTH
+        // operands proven, not just one: admitting a single proven operand
+        // here would let an unknown-repr partner slip past the blanket gate
+        // into the raw `i64.eq` compare below (the p2a fail-open).
+        if matches!(op, "===" | "!==") {
+            let left_shape = self.object_shape_of_node(left);
+            let right_shape = self.object_shape_of_node(right);
+            let same_object_shape =
+                matches!((left_shape, right_shape), (Some(a), Some(b)) if a == b);
+            let both_growable_field = self.object_field_is_growable_array(left)
+                && self.object_field_is_growable_array(right);
+            if same_object_shape || both_growable_field {
+                self.emit_node(function, left, true);
+                self.emit_node(function, right, true);
+                // Mirrors the scalar `===`/`!==` arm below exactly: `I64Eq`
+                // yields an i32; `!==` negates via `I32Eqz` (NOT `I64Eqz`,
+                // which would be a type error on an i32 stack value); every
+                // boolean result in this function is then `I64ExtendI32U`'d
+                // to the i64 `ValueShape::Boolean` convention the rest of
+                // this file (and `console.log`'s true/false rendering) uses.
+                function.instruction(&Instruction::I64Eq);
+                if op == "!==" {
+                    function.instruction(&Instruction::I32Eqz);
+                }
+                function.instruction(&Instruction::I64ExtendI32U);
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Boolean,
+                };
+            }
+        }
+
         // Object misuse gate: a genuine arithmetic/comparison operator applied
         // to an object reference (e.g. `p + 1`) would silently operate on the
         // raw pointer. `=` and the compound-assignment operators are handled

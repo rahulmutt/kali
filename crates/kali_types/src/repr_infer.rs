@@ -210,6 +210,24 @@ struct ReprInfer {
     /// arg↔param, return↔call-site). Harmless for scalar slots: flows only
     /// take effect for slots proven to hold object literals.
     obj_flows: Vec<(ObjSlot, ObjSlot)>,
+    /// Slots that appear as an operand of `===`/`!==` (Stage P2 Lane 3, Task
+    /// 6). An identity comparison OBSERVES the operand's heap identity —
+    /// exactly the same "observable through an alias" rationale `obj_flows`
+    /// already materializes on — so a write-free, non-flowing object literal
+    /// that is otherwise eligible to stay on codegen's compile-time fold lane
+    /// (see `obj_materialized`'s doc comment) must still be promoted to a
+    /// real heap object when it is compared for identity: `resolve_objects`
+    /// materializes any slot recorded here that also has a known field list,
+    /// letting `kali_codegen`'s `object_shape_of_node` see it and its
+    /// same-shape allow lane (or, failing that, the object-misuse gate)
+    /// decide the comparison — never the raw-pointer scalar `===` fallback.
+    /// UNLIKE `obj_flows`, this does NOT require the OTHER operand to also
+    /// have known fields: a comparison against a genuinely unknown-repr
+    /// operand must still materialize the known side alone, so the
+    /// misuse gate's existing `object_shape_of_node(left).is_some() ||
+    /// object_shape_of_node(right).is_some()` check fires (closing the p2a
+    /// fail-open) instead of silently falling through to a scalar compare.
+    obj_identity_compared: Vec<ObjSlot>,
     /// Deferred member accesses (wired in `resolve_objects`).
     obj_accesses: Vec<ObjAccess>,
     /// Per-(slot, field) storage node, unioned across aliased slots.
@@ -1757,6 +1775,22 @@ impl ReprInfer {
                     self.seed_for_in_key_string_use(func, &bin.left);
                     self.seed_for_in_key_string_use(func, &bin.right);
                 }
+                // Stage P2 Lane 3 (Task 6): record both operands of an
+                // identity comparison so `resolve_objects` can materialize
+                // whichever side turns out to carry an object literal — see
+                // `obj_identity_compared`'s doc comment for why plain `==`/
+                // `!=` are excluded (kali's object model has no coercion
+                // path, so a loose-equality object comparison is not a
+                // shape-identity question this lane answers) and `===`/`!==`
+                // alone are recorded.
+                if matches!(bin.operator.as_str(), "===" | "!==") {
+                    if let Some(slot) = self.arg_obj_slot(func, &bin.left) {
+                        self.obj_identity_compared.push(slot);
+                    }
+                    if let Some(slot) = self.arg_obj_slot(func, &bin.right) {
+                        self.obj_identity_compared.push(slot);
+                    }
+                }
                 let left = self.visit_expr(func, &bin.left);
                 let right = self.visit_expr(func, &bin.right);
                 let result = self.new_node();
@@ -2888,6 +2922,24 @@ impl ReprInfer {
                         "conflicting object shapes flow between {a:?} and {b:?}"
                     ));
                 }
+            }
+        }
+
+        // 1.5. Materialize any slot compared for identity (`===`/`!==`) that
+        //      has a known field list — see `obj_identity_compared`'s doc
+        //      comment. Deliberately per-slot (not a `obj_flows`-style pair
+        //      requiring BOTH sides known): a comparison against a genuinely
+        //      unknown-repr operand must still materialize the known side
+        //      alone, so `kali_codegen`'s object-misuse gate sees it. Two
+        //      independently-materialized slots with identical field name/
+        //      repr lists intern to the SAME `ShapeId` (`ReprTable::
+        //      intern_shape`'s structural dedup) without needing a flow edge
+        //      between them, which is what lets Task 6's allow lane prove
+        //      `p === r` same-shape for two separately-allocated literals
+        //      that were never aliased to one another.
+        for slot in &self.obj_identity_compared {
+            if fields_of.contains_key(slot) {
+                self.obj_materialized.insert(slot.clone());
             }
         }
 
