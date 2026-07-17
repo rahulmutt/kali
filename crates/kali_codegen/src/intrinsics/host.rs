@@ -1175,6 +1175,98 @@ impl<'a> FunctionEmitter<'a> {
         false
     }
 
+    /// Stage P2 Lane 2b corpus pin: true when `arg` is a BARE IDENTIFIER whose
+    /// binding has PROVABLE zero-placeholder provenance — the re-clone shape the
+    /// package corpus builds today (`const b = structuredClone(new Blob(['x']));
+    /// structuredClone(b);`). An identifier of unknown / object / scalar
+    /// provenance returns false (falls through to Lane 3 E5506) — this is a
+    /// POSITIVE proof, an allowlist extension of the placeholder warn-build lane,
+    /// not a general identifier admission.
+    pub(crate) fn arg_is_placeholder_derived_identifier(&self, arg: LirNodeId) -> bool {
+        let id = self.unwrap_transparent(arg);
+        let node = self.node(id);
+        if node.kind != LirNodeKind::Value || !node.children.is_empty() {
+            return false;
+        }
+        let Some(name) = node.text.as_deref().filter(|text| !text.is_empty()) else {
+            return false;
+        };
+        self.binding_has_placeholder_provenance(name, 0)
+    }
+
+    /// True when `name` is bound in `self.body` by a `const` declarator whose
+    /// init is placeholder-derived (see `init_is_placeholder_derived`). CONST
+    /// ONLY, on purpose: a `const` is single-init and never reassigned, so its
+    /// placeholder-ness is provable; a `let`/`var` could be mutated to a real
+    /// value, so it is never chased (falls through to Lane 3). Walk shape mirrors
+    /// `binding_is_placeholder_construct` (stops at nested function bodies so a
+    /// shadowing inner declarator is never attributed to an outer binding).
+    fn binding_has_placeholder_provenance(&self, name: &str, depth: u32) -> bool {
+        if depth > 16 {
+            return false;
+        }
+        let nodes = &self.program.nodes;
+        let mut stack = vec![self.body];
+        let mut seen = std::collections::HashSet::new();
+        while let Some(id) = stack.pop() {
+            if !seen.insert(id) {
+                continue;
+            }
+            let Some(node) = nodes.get(id.0 as usize) else {
+                continue;
+            };
+            if node.kind == LirNodeKind::Instruction && node.text.as_deref() == Some("const") {
+                for &declarator_id in &node.children {
+                    let Some(declarator) = nodes.get(declarator_id.0 as usize) else {
+                        continue;
+                    };
+                    if declarator.text.as_deref() == Some(name)
+                        && declarator.children.len() >= 2
+                        && self.init_is_placeholder_derived(declarator.children[1], depth)
+                    {
+                        return true;
+                    }
+                }
+            }
+            stack.extend(node.children.iter().copied().filter(|&child| {
+                child == self.body || !crate::lower::is_function_like(nodes, child)
+            }));
+        }
+        false
+    }
+
+    /// True when the declarator init `init_id` is placeholder-derived:
+    ///   * a zero-placeholder construct (`new Blob(...)`, via
+    ///     [`crate::lower::declarator_init_is_placeholder_construct`]), OR
+    ///   * `structuredClone(<inner>)` where `<inner>` is itself
+    ///     placeholder-derived (the warn-build lane composes: cloning a
+    ///     placeholder yields a placeholder), OR
+    ///   * a bare identifier that chains to another `const` placeholder binding
+    ///     (`const a = new Blob(...); const b = a;`).
+    /// Bounded by `depth` against a degenerate self-referential cycle.
+    fn init_is_placeholder_derived(&self, init_id: LirNodeId, depth: u32) -> bool {
+        if depth > 16 {
+            return false;
+        }
+        let nodes = &self.program.nodes;
+        if crate::lower::declarator_init_is_placeholder_construct(nodes, init_id) {
+            return true;
+        }
+        if let Some(inner) = structured_clone_init_inner_arg(nodes, init_id) {
+            return self.init_is_placeholder_derived(inner, depth + 1);
+        }
+        // Bare-identifier chain through a const binding.
+        let unwrapped = crate::lower::unwrap_transparent_value_node_raw(nodes, init_id);
+        if let Some(node) = nodes.get(unwrapped.0 as usize) {
+            if node.kind == LirNodeKind::Value && node.children.is_empty() {
+                if let Some(chained) = node.text.as_deref().filter(|text| !text.is_empty()) {
+                    return self.binding_has_placeholder_provenance(chained, depth + 1);
+                }
+            }
+        }
+        false
+    }
+
     /// The provenance resolver above, parameterized on the callback's child
     /// position. Bare scheduling calls put the callback at `children[1]`
     /// (`scheduling_callback`); a MEMBER call — `t.addEventListener(type, cb)`
@@ -1239,6 +1331,47 @@ impl<'a> FunctionEmitter<'a> {
             return false;
         };
         self.node(object).text.as_deref() == Some("Kali")
+    }
+}
+
+/// If `init_id` unwraps to a bare `structuredClone(<arg>)` call, return the
+/// single argument node. Sequence-wrapper unwrap mirrors
+/// [`crate::lower::declarator_init_call_callee_name`] (empty-string-text `Value`
+/// wrappers). Callee-shadowing needs no check here: this is only ever consulted
+/// from inside the `structuredClone` dispatch, which is reached only when
+/// `structuredClone` is UNSHADOWED in the current (same) scope.
+fn structured_clone_init_inner_arg(nodes: &[LirNode], init_id: LirNodeId) -> Option<LirNodeId> {
+    let mut id = init_id;
+    let mut guard = 0;
+    loop {
+        let node = nodes.get(id.0 as usize)?;
+        if node.kind == LirNodeKind::Value
+            && node.text.as_deref() == Some("")
+            && !node.children.is_empty()
+        {
+            id = *node.children.last()?;
+            guard += 1;
+            if guard > 64 {
+                return None;
+            }
+            continue;
+        }
+        if node.kind != LirNodeKind::Call {
+            return None;
+        }
+        let callee = *node.children.first()?;
+        let callee_node = nodes.get(callee.0 as usize)?;
+        if !callee_node.children.is_empty()
+            || callee_node.text.as_deref() != Some("structuredClone")
+        {
+            return None;
+        }
+        // Exactly one argument (callee + arg == 2 children); anything else is not
+        // the supported placeholder-clone shape.
+        if node.children.len() != 2 {
+            return None;
+        }
+        return node.children.get(1).copied();
     }
 }
 

@@ -2314,7 +2314,7 @@ pub(crate) fn declarator_init_is_event_dispatch(nodes: &[LirNode], init_id: LirN
 
 /// Follows empty-text single-child `Value` wrapper nodes, mirroring
 /// `FunctionEmitter::unwrap_transparent_value_node` over raw nodes.
-fn unwrap_transparent_value_node_raw(nodes: &[LirNode], mut id: LirNodeId) -> LirNodeId {
+pub(crate) fn unwrap_transparent_value_node_raw(nodes: &[LirNode], mut id: LirNodeId) -> LirNodeId {
     loop {
         let Some(node) = nodes.get(id.0 as usize) else {
             return id;

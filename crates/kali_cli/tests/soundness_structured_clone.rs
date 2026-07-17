@@ -435,6 +435,68 @@ fn structured_clone_call_return_growable_inner_mutation_fails_closed() {
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
+/// Task 8 corpus-regression fix: the package-corpus re-clone shape
+/// (`const b = structuredClone(new Blob(['x'])); structuredClone(b);`) must
+/// keep BUILDING. `b` is a `const` bound to a `structuredClone` of a
+/// zero-placeholder construct (`new Blob`), so it has PROVABLE placeholder
+/// provenance and the re-clone stays on the warn-build lane. (Before the fix
+/// the identifier arg hit Lane 3 E5506 and 18 corpus builds failed.)
+#[test]
+fn structured_clone_of_placeholder_derived_const_builds() {
+    let src = "const b = structuredClone(new Blob(['x']));\n\
+               structuredClone(b);\n\
+               console.log(1);\n";
+    let out = run_kali_run(src);
+    assert_eq!(out.trim(), "1");
+}
+
+/// Task 8 corpus-regression fix: placeholder provenance CHAINS through `const`
+/// bindings (`const a = new Blob(...); const b = a; structuredClone(b);`) —
+/// `b` aliases a const placeholder construct, so it too warn-builds.
+#[test]
+fn structured_clone_of_placeholder_const_chain_builds() {
+    let src = "const a = new Blob(['x']);\n\
+               const b = a;\n\
+               structuredClone(b);\n\
+               console.log(1);\n";
+    let out = run_kali_run(src);
+    assert_eq!(out.trim(), "1");
+}
+
+/// Task 8 corpus-regression NEGATIVE control (const-only, no `let` chasing): a
+/// `let` binding REASSIGNED to a scalar is NOT placeholder-provable (only
+/// `const` single-init bindings qualify), so `structuredClone(b)` must NOT be
+/// admitted to the placeholder lane — with a scalar `b` it provably fails closed
+/// E5506 via Lane 3. If a future change wrongly admitted mutable bindings to the
+/// placeholder lane, this would build (exit 0) and the test would go red.
+#[test]
+fn structured_clone_of_reassigned_let_scalar_fails_closed() {
+    let src = "let b = structuredClone(new Blob(['x']));\n\
+               b = 5;\n\
+               structuredClone(b);\n\
+               console.log(1);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+/// Task 8 corpus-regression NEGATIVE control (reviewer's exact shape): a `let`
+/// reassigned to an OBJECT LITERAL. It provably does NOT take the placeholder
+/// lane (const-only) — instead the in-envelope reassignment `{ x: 1 }` makes it
+/// a Lane-1 clone, so it BUILDS (per the contract, Lane 1 here is acceptable;
+/// what matters is the mutable binding is never chased into the placeholder
+/// lane). Documented deviation: `b.x` is a pre-existing 0 (the
+/// placeholder-init-then-object-reassign pattern mis-reprs `b` independently of
+/// cloning), so only build-success is asserted.
+#[test]
+fn structured_clone_of_reassigned_let_object_builds_via_lane1() {
+    let src = "let b = structuredClone(new Blob(['x']));\n\
+               b = { x: 1 };\n\
+               structuredClone(b);\n\
+               console.log(2);\n";
+    let out = run_kali_run(src);
+    assert_eq!(out.trim(), "2");
+}
+
 /// Task 9 (Lane 2 tripwire): the corpus shape `structuredClone(new Blob([...]))`
 /// (see `package_corpus.rs`'s `write_browser_string_web_baseline_package` and
 /// `package_corpus/browser_corpus.rs`'s inline `structuredClone(new

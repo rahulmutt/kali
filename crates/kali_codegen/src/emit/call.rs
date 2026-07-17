@@ -321,8 +321,16 @@ impl<'a> FunctionEmitter<'a> {
             // Lane 2: a zero-placeholder construct (`new Blob(...)`) — no real
             // value to clone, but the corpus builds and dispatches these; warn
             // and keep the placeholder-0 lowering (mirrors the Stage D C-1
-            // placeholder-construct allowance).
-            if crate::lower::declarator_init_is_placeholder_construct(&self.program.nodes, arg) {
+            // placeholder-construct allowance). ALSO admits a bare identifier
+            // with PROVABLE placeholder provenance (`const b = structuredClone(
+            // new Blob(['x'])); structuredClone(b);` — the corpus re-clone shape):
+            // a positive-proof allowlist extension (const single-init chains of
+            // placeholder constructs / placeholder-clone calls), NOT a general
+            // identifier admission — an object/scalar/unknown identifier still
+            // falls through to Lane 3.
+            if crate::lower::declarator_init_is_placeholder_construct(&self.program.nodes, arg)
+                || self.arg_is_placeholder_derived_identifier(arg)
+            {
                 self.diagnostics.push(Diagnostic::warning(
                     e8::UNIMPLEMENTED as u32,
                     "structuredClone of an unsupported construct is a no-op placeholder in the current phase".to_string(),
