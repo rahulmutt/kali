@@ -471,6 +471,16 @@ closed or stays pre-existing-red rather than miscompiling):
   converting this to a total-deny (fail closed instead of fall through)
   once the receiver-widening and captured-receiver work below lands enough
   provenance to make total-deny non-regressive against the corpus.
+- **Out-of-lane NON-CAPTURING listener silent-drop residual (pre-existing,
+  distinct from the dispatch-arg item above)**: `x.addEventListener(lit, cb)`
+  on an UNPROVEN receiver (e.g. a `signal` param, any unknown object) with a
+  non-capturing callback still takes the pre-lane backstop — E3100 placeholder
+  warning + silent no-op registration (capturing callbacks on such receivers
+  stay E5506). This is the design spec's named "top inventory item for
+  Stage P3": receiver widening plus the backstop → total-deny conversion
+  closes it. The dispatch-ARG item above is a different, newer, user-ratified
+  residual (out-of-envelope argument on an IN-lane receiver); do not conflate
+  the two.
 - **`Kali.test` member-expression callback vacuous-ok residual**
   (Stage D Task 7 review finding, pre-existing, not introduced by the EV
   lane): a callback reached via a member-expression path inside a
