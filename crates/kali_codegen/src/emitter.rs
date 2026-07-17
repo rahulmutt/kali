@@ -73,6 +73,11 @@ pub(crate) struct FunctionEmitter<'a> {
     /// `lower.rs` alongside `functions` so an emit arm can gate on a resolved
     /// callback's arity (Stage D event lane: zero-parameter listeners only).
     pub(crate) function_param_counts: &'a BTreeMap<u32, usize>,
+    /// Function NAME -> its declared parameter names. Threaded from `lower.rs`
+    /// alongside `function_param_counts`; the deferred-callback scalar-capture
+    /// deny (Task 9 C-1) consults it to classify a captured binding as a
+    /// PARAMETER (deny) vs. a non-scalar placeholder construct (allow).
+    pub(crate) function_param_names: &'a BTreeMap<String, Vec<String>>,
     pub(crate) env_set_import_index: Option<u32>,
     pub(crate) env_delete_import_index: Option<u32>,
     pub(crate) env_get_import_index: Option<u32>,
@@ -266,6 +271,7 @@ impl<'a> FunctionEmitter<'a> {
         program: &'a LirProgram,
         functions: &'a BTreeMap<String, u32>,
         function_param_counts: &'a BTreeMap<u32, usize>,
+        function_param_names: &'a BTreeMap<String, Vec<String>>,
         env_set_import_index: Option<u32>,
         env_delete_import_index: Option<u32>,
         env_get_import_index: Option<u32>,
@@ -353,6 +359,7 @@ impl<'a> FunctionEmitter<'a> {
             scratch_nodes: Vec::new(),
             functions,
             function_param_counts,
+            function_param_names,
             env_set_import_index,
             env_delete_import_index,
             env_get_import_index,

@@ -3041,6 +3041,9 @@ impl<'a> FunctionEmitter<'a> {
                 self,
                 format!("a {surface_name} callback must resolve through stable provenance to a compiled function; an unresolvable callback would be silently dropped"),
             ),
+            SchedulingCallback::DenyScalarCapture(class) => {
+                self.deny_deferred_scalar_capture(class)
+            }
         }
     }
 
@@ -3147,6 +3150,9 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::Unknown,
                 }
             }
+            SchedulingCallback::DenyScalarCapture(class) => {
+                self.deny_deferred_scalar_capture(class)
+            }
         }
     }
 
@@ -3170,6 +3176,25 @@ impl<'a> FunctionEmitter<'a> {
             return false;
         };
         !self.locals.contains_key(name) && !self.module_binding_names.contains(name)
+    }
+
+    /// Shared deny for a deferred callback whose env plan carries a non-lowered
+    /// SCALAR capture (Task 9 C-1, scalar-only). Every registration surface
+    /// routes its `SchedulingCallback::DenyScalarCapture(class)` here, so the
+    /// wording is identical across setTimeout/setInterval/queueMicrotask/
+    /// addEventListener by construction.
+    fn deny_deferred_scalar_capture(&mut self, class: &str) -> EmittedValue {
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            format!(
+                "a captured {class} binding has no closure lowering yet; the deferred callback \
+                 would read a placeholder — fails closed (closure-lowering follow-up)"
+            ),
+        ));
+        EmittedValue {
+            produced: false,
+            shape: ValueShape::Unknown,
+        }
     }
 
     fn deny_captured_event_receiver(&mut self, surface: &str) -> EmittedValue {
@@ -3251,6 +3276,9 @@ impl<'a> FunctionEmitter<'a> {
                      compiled function; an unresolvable listener would be silently dropped"
                         .to_string(),
                 )
+            }
+            SchedulingCallback::DenyScalarCapture(class) => {
+                return self.deny_deferred_scalar_capture(class)
             }
         };
         // Zero-parameter listeners only (no Event-object repr yet — spec §2.2).

@@ -681,10 +681,17 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     all_functions.extend(function_plans);
 
     let mut function_param_counts: BTreeMap<u32, usize> = BTreeMap::new();
+    // Owner-name -> its declared parameter names. Used by the deferred-callback
+    // scalar-capture deny (Task 9 C-1) to tell a captured PARAMETER (a real
+    // value node computes, silently placeholder-0 in the deferred lane — deny)
+    // apart from a captured non-scalar placeholder binding (an unsupported
+    // zero-placeholder construct with no real value either side — allow).
+    let mut function_param_names: BTreeMap<String, Vec<String>> = BTreeMap::new();
     for (idx, function) in all_functions.iter().enumerate() {
         let windex = idx as u32 + function_index_offset;
         function_name_to_index.insert(function.name.clone(), windex);
         function_param_counts.insert(windex, function.params.len());
+        function_param_names.insert(function.name.clone(), function.params.clone());
     }
 
     let mut type_section = TypeSection::new();
@@ -1305,6 +1312,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             lir,
             &function_name_to_index,
             &function_param_counts,
+            &function_param_names,
             env_set_import_index,
             env_delete_import_index,
             env_get_import_index,

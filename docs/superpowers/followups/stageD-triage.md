@@ -549,29 +549,47 @@ closed or stays pre-existing-red rather than miscompiling):
 - **`preventDefault` / `cancelable`**: depend on the Event-object repr
   above; currently unreachable (no listener can observe an event object at
   all under the zero-parameter gate).
-- **Non-lowered-capture deferred-callback fail-open — BLOCKED (Task 9, C-1)**:
-  the four registration surfaces (`queueMicrotask` / `setTimeout` /
-  `setInterval` / `addEventListener`) resolve any stable-provenance callback,
-  but `env_safety` only CONSTRAINS captures whose closure lowering is engaged
-  (`depth == 1 && cell_is_promotable`). A callback capturing a PARAM, a
-  STRING/FLOAT scalar, or any non-promotable/depth≥2 ref registers and RUNS
-  reading a placeholder 0 for that binding (probes p36e `i=6`→`i=0`, p53b
-  `hi`→``, p56 `1.5`→``, p55 `i=3`→`i=0`, p54 `p=7`→`p=0`). The sound fix — deny
-  any callback with a non-lowered capture at the `scheduling_callback_at` choke
-  point — is implemented-and-verified but was REVERTED because it reds the 4
+- **Non-lowered SCALAR-capture deferred-callback fail-open — RESOLVED
+  (scalar-only, user-ratified) (Task 9, C-1)**: the four registration surfaces
+  (`queueMicrotask` / `setTimeout` / `setInterval` / `addEventListener`) resolve
+  any stable-provenance callback, but `env_safety` only CONSTRAINS captures whose
+  closure lowering is engaged (`depth == 1 && cell_is_promotable`). A callback
+  capturing a non-lowered SCALAR-class binding — a PARAM, a STRING-repr, or a
+  FLOAT-repr — registered and RAN reading a placeholder 0, diverging from node
+  which computes a real value (probes p36e `i=6`→`i=0`, p53b `hi`→``, p56
+  `1.5`→``, p55 `i=3`→`i=0`, p54 `p=7`→`p=0`). **Fix (SCALAR-ONLY deny at the
+  shared `scheduling_callback_at` choke point, inherited by all four surfaces):**
+  a resolved callback whose env plan carries a non-lowered capture that is
+  SCALAR-class fails closed E5506 with the class named
+  (`scalar_unlowered_capture_class` in `intrinsics/host.rs`; the shared deny
+  emitter `deny_deferred_scalar_capture` in `emit/call.rs`). SCALAR-class =
+  `is_scalar` slots (String→`"string"`, F64→`"float"`, surviving I64→`"number"`
+  — depth-1 I64 scalars are always lowered) PLUS captured PARAMETERS. NB a
+  captured param is `is_scalar == false` with default `Repr::I64` at the env-plan
+  level — the SAME shape as a `new AbortController()` capture — so the two are
+  separated ONLY by whether the binding names a declared parameter of its owner
+  (the newly-threaded `function_param_names` consult). Pinned by 5 E5506 tests
+  (`deferred_settimeout_captured_param`/`_string`/`_float`,
+  `deferred_queuemicrotask_captured_param`,
+  `deferred_event_listener_captured_param` in `soundness_events.rs`).
+  **DOCUMENTED RESIDUAL (deliberately ALLOWED):** a non-lowered NON-scalar
+  capture that is NOT a param — a zero-placeholder unsupported construct
+  (`new AbortController()`), or a captured array/object local — stays allowed.
+  Rationale: no correct value exists to be wrongly replaced. Such a binding is a
+  placeholder 0 in its OWNER's scope too (it reached the E3100 fallback / has no
+  supported repr), so its in-callback read equals its out-of-callback read of the
+  same placeholder — there is nothing to diverge, unlike a scalar where node has
+  a real value. This is exactly what preserves the 4
   `browser_bundle_web_baseline_primitives` build tests: `webBaselineSmoke`'s
-  in-lane listener `() => { count += 1; controller.abort(); }` captures BOTH
-  `count` (a promotable I64 scalar, correct) AND `controller` (a
-  `new AbortController()` — an UNSUPPORTED construct that reaches the E3100
-  zero-placeholder fallback, so its cell repr is not `Object` → non-promotable
-  non-scalar capture). The deny fires on `controller`, turning the fixture's
-  "unsupported constructs must still BUILD (warn, not error)" invariant into a
-  hard E5506. Keeping those 4 green requires either narrowing the deny to
-  scalar-only (which reintroduces a non-scalar fail-open — prohibited) or
-  editing a deployable-corpus fixture — both regressions. CONTROLLER DECISION
-  REQUIRED (options: accept the scalar-only narrowing + a documented non-scalar
-  follow-up; adjust `webBaselineSmoke` so its listener does not capture an
-  unsupported construct; or implement `AbortController` as an `Object` repr).
+  listener `() => { count += 1; controller.abort(); }` captures `count` (a
+  promotable I64 scalar → lowered, correct) AND `controller` (the AbortController
+  placeholder → allowed residual), so its "unsupported constructs must still
+  BUILD (warn, not error)" invariant holds. Pinned by
+  `deferred_listener_nonscalar_placeholder_capture_still_builds`
+  (`soundness_events.rs`). **Lifting plan:** Stage P3 (`Object` repr for these
+  constructs) promotes them into the lowered/constrained set — at which point the
+  capture becomes either genuinely lowered (correct) or `env_safety`-constrained,
+  closing the residual by construction rather than by deny.
 - **Negative-clear-id deliberate-loud divergence (Task 9 note)**:
   `clearTimeout(-1)` / `clearInterval(-1)` is a NO-OP in node (prints `ok`),
   but `kali run` traps LOUDLY — `KaliHostState::cancel_timer` does

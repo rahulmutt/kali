@@ -51,6 +51,17 @@ pub(crate) enum SchedulingCallback {
     Resolved(u32),
     /// Everything else: unresolvable/unstable provenance — fail closed E5506.
     Deny,
+    /// Resolved to a compiled function, but its env plan carries a NON-lowered
+    /// SCALAR capture (a param/string/float binding the closure machinery does
+    /// not promote — the deferred callback would read a placeholder 0). Fail
+    /// closed E5506; the payload is the capture class label for the diagnostic.
+    /// Task 9 C-1 (scalar-only deny, per the user decision): the deferred lane
+    /// does NOT restore a captured binding's real value, so a scalar capture —
+    /// where node computes a concrete value kali would silently replace with 0 —
+    /// is a soundness fail-open. Non-scalar zero-placeholder captures (an
+    /// unsupported `Object`-shaped construct that has NO correct value either
+    /// side of the callback) stay ALLOWED — see `scalar_unlowered_capture_class`.
+    DenyScalarCapture(&'static str),
 }
 
 impl<'a> FunctionEmitter<'a> {
@@ -956,6 +967,85 @@ impl<'a> FunctionEmitter<'a> {
         self.scheduling_callback_at(node, 1)
     }
 
+    /// The single deferred-callback choke point that turns a resolved callback
+    /// (`plan_key` → wasm `index`) into either a plain `Resolved` or a
+    /// `DenyScalarCapture` (Task 9 C-1, scalar-only per the user decision). All
+    /// four registration surfaces (`setTimeout`/`setInterval`/`queueMicrotask`
+    /// via `scheduling_callback`, `addEventListener` via `scheduling_callback_at`
+    /// position 2) route through here, so the deny is inherited by construction —
+    /// no per-surface duplication.
+    fn checked_scheduling_resolution(&self, plan_key: &str, index: u32) -> SchedulingCallback {
+        match self.scalar_unlowered_capture_class(plan_key) {
+            Some(class) => SchedulingCallback::DenyScalarCapture(class),
+            None => SchedulingCallback::Resolved(index),
+        }
+    }
+
+    /// If the function keyed by `plan_key` captures a binding the closure
+    /// machinery does NOT lower (not `depth == 1 && cell_is_promotable` — the
+    /// exact `env_safety`/`resolve_capture_access` engagement predicate) AND that
+    /// binding is a SCALAR-CLASS value (a param, a string-repr, or a float-repr —
+    /// a binding node computes a concrete value for), return its class label
+    /// (`"param"`/`"string"`/`"float"`/`"number"`) for the deny diagnostic.
+    /// `None` when every such capture is lowered or is a NON-scalar placeholder.
+    ///
+    /// The scalar restriction is the whole of the user decision (Task 9 C-1). The
+    /// deferred lane reads captures through a NON-restored env, so a non-lowered
+    /// SCALAR-class capture is silently replaced with a placeholder 0 — a
+    /// soundness fail-open, because node has a real value the read diverges from.
+    /// A non-lowered NON-scalar capture that is NOT a param (e.g.
+    /// `const c = new AbortController()`, an unsupported zero-placeholder
+    /// construct, or a captured array/object local) has NO real value kali ever
+    /// computed: its in-callback read equals its out-of-callback read of the same
+    /// placeholder, so there is nothing to diverge and it stays ALLOWED here
+    /// (documented residual; Stage P3's `Object` repr lifts the object cases into
+    /// the lowered/constrained set).
+    ///
+    /// NB: at the env-plan level a captured PARAMETER is `is_scalar == false`
+    /// (params carry a non-`Scalar` MIR layout) and defaults to `Repr::I64` — the
+    /// SAME shape as an `AbortController` capture. The two are separated ONLY by
+    /// whether the binding names a declared parameter of its owner, hence the
+    /// `function_param_names` consult.
+    fn scalar_unlowered_capture_class(&self, plan_key: &str) -> Option<&'static str> {
+        let plan = self.env_plans.get(plan_key)?;
+        plan.captured.iter().find_map(|reference| {
+            let lowered = reference.depth == 1
+                && crate::closure::cell_is_promotable(
+                    self.repr_table,
+                    &reference.owner,
+                    &reference.name,
+                    reference.is_scalar,
+                );
+            if lowered {
+                return None;
+            }
+            let repr = self.repr_table.scalar(&reference.owner, &reference.name);
+            if reference.is_scalar {
+                // A genuine inline scalar slot: node computes a real value; the
+                // deferred read is a placeholder. (Depth-1 I64 scalars are always
+                // lowered above, so the surviving I64 case is a depth>=2 capture.)
+                return Some(match repr {
+                    kali_common::Repr::String => "string",
+                    kali_common::Repr::F64 => "float",
+                    kali_common::Repr::I64 | kali_common::Repr::Object(_) => "number",
+                });
+            }
+            // Non-scalar capture: a REAL value only if it names an owner
+            // parameter (a genuine i64/heap argument). Everything else is a
+            // zero-placeholder construct or an array/object local with no real
+            // value to diverge — the documented allowed residual.
+            let is_owner_param = self
+                .function_param_names
+                .get(reference.owner.as_str())
+                .is_some_and(|params| params.iter().any(|param| param == &reference.name));
+            if is_owner_param {
+                Some("param")
+            } else {
+                None
+            }
+        })
+    }
+
     /// The provenance resolver above, parameterized on the callback's child
     /// position. Bare scheduling calls put the callback at `children[1]`
     /// (`scheduling_callback`); a MEMBER call — `t.addEventListener(type, cb)`
@@ -978,7 +1068,7 @@ impl<'a> FunctionEmitter<'a> {
             // Inline function expression/declaration lowered as a plan: its
             // node text is the `__kali_fn_N` / declared plan key.
             LirNodeKind::Instruction => match self.functions.get(text) {
-                Some(&index) => SchedulingCallback::Resolved(index),
+                Some(&index) => self.checked_scheduling_resolution(text, index),
                 None => SchedulingCallback::Deny,
             },
             LirNodeKind::Value if cb_node.children.is_empty() => {
@@ -987,7 +1077,7 @@ impl<'a> FunctionEmitter<'a> {
                 }
                 if let Some(key) = self.fn_valued_locals.get(text) {
                     return match self.functions.get(key) {
-                        Some(&index) => SchedulingCallback::Resolved(index),
+                        Some(&index) => self.checked_scheduling_resolution(key, index),
                         None => SchedulingCallback::Deny,
                     };
                 }
@@ -1000,7 +1090,7 @@ impl<'a> FunctionEmitter<'a> {
                 }
                 if let Some(&index) = self.functions.get(text) {
                     // Bare unshadowed function name.
-                    return SchedulingCallback::Resolved(index);
+                    return self.checked_scheduling_resolution(text, index);
                 }
                 // Post-un-flatten (Stage D Task 7): every arrow is a real
                 // compiled function, so an identifier resolving to NOTHING in

@@ -370,3 +370,107 @@ fn shadowed_scheduling_builtin_with_anonymous_arg_fails_closed() {
         "let queueMicrotask = function(f){ console.log(\"shadow\"); };\nqueueMicrotask(function(){ console.log(\"cb\"); });\n",
     );
 }
+
+// ---------------------------------------------------------------------------
+// Task 9 C-1 (scalar-only deny, user-ratified) — a deferred callback that
+// captures a NON-lowered SCALAR-class binding (a param / string-repr /
+// float-repr) reads a placeholder 0 in the deferred lane while node computes a
+// real value. All four registration surfaces (setTimeout / setInterval /
+// queueMicrotask / addEventListener) inherit the deny at the shared
+// scheduling-callback choke point. Each source below RUNS in node (printing a
+// real value) and printed a placeholder in kali before this fix — the pins
+// assert the sound reject-don't-miscompile outcome (E5506).
+// ---------------------------------------------------------------------------
+
+/// Assert E5506 AND that the diagnostic names the expected capture class.
+fn assert_e5506_capture_class(source: &str, class: &str) {
+    let out = run_kali(source);
+    assert!(!out.status.success(), "expected E5506, got exit 0");
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains(&format!("a captured {class} binding")),
+        "expected capture class '{class}' in diagnostic, got: {stderr}"
+    );
+}
+
+/// p36e: setTimeout callback captures a PARAM. node: "i=6"; kali pre-fix:
+/// "i=0" (the param never reaches the deferred env). Deny E5506 (param class).
+#[test]
+fn deferred_settimeout_captured_param_fails_closed() {
+    assert_e5506_capture_class(
+        "function main(i){ setTimeout(function(){ console.log(\"i=\" + i); }, 5); }\nmain(6);\n",
+        "param",
+    );
+}
+
+/// p55: queueMicrotask callback captures a PARAM. node: "i=3"; kali pre-fix:
+/// "i=0". Deny E5506 (param class) — the queueMicrotask surface inherits it.
+#[test]
+fn deferred_queuemicrotask_captured_param_fails_closed() {
+    assert_e5506_capture_class(
+        "function main(i){ queueMicrotask(function(){ console.log(\"i=\" + i); }); }\nmain(3);\n",
+        "param",
+    );
+}
+
+/// p54: an addEventListener listener captures a PARAM, fired by a synchronous
+/// dispatchEvent. node: "p=7"; kali pre-fix: "p=0". Deny E5506 (param class) —
+/// the event surface (callback at children[2]) inherits the same choke point.
+#[test]
+fn deferred_event_listener_captured_param_fails_closed() {
+    assert_e5506_capture_class(
+        "function main(p){\n  const t = new EventTarget();\n  t.addEventListener(\"e\", function(){ console.log(\"p=\" + p); });\n  t.dispatchEvent(new CustomEvent(\"e\"));\n}\nmain(7);\n",
+        "param",
+    );
+}
+
+/// p53b: setTimeout callback captures a STRING-repr local. node: "hi"; kali
+/// pre-fix: "" (empty — the placeholder string handle is 0). Deny E5506
+/// (string class).
+#[test]
+fn deferred_settimeout_captured_string_fails_closed() {
+    assert_e5506_capture_class(
+        "function main(){ let s = \"hi\"; setTimeout(function(){ console.log(s); }, 1); }\nmain();\n",
+        "string",
+    );
+}
+
+/// p56: setTimeout callback captures a FLOAT-repr local. node: "1.5"; kali
+/// pre-fix: "" (empty). Deny E5506 (float class).
+#[test]
+fn deferred_settimeout_captured_float_fails_closed() {
+    assert_e5506_capture_class(
+        "function main(){ let a = 1.5; setTimeout(function(){ console.log(a); }, 1); }\nmain();\n",
+        "float",
+    );
+}
+
+/// KEEP-ALLOWED residual pin (mirrors the webBaselineSmoke build invariant).
+/// A listener that captures a promotable I64 scalar (`count`, lowered — works)
+/// AND a NON-scalar zero-placeholder construct (`controller`, a
+/// `new AbortController()` that reaches the E3100 placeholder fallback) must
+/// still BUILD and RUN — it must NOT trip the scalar-only deny. The scalar-only
+/// narrowing (vs. the reverted full deny) exists precisely to preserve this:
+/// `controller` has NO real value kali ever computed (its in-callback read
+/// equals its out-of-callback read of the same placeholder 0), so there is
+/// nothing to diverge — the deny would be a spurious hard error breaking the
+/// "unsupported constructs must still build (warn, not error)" contract. This
+/// residual is lifted into the constrained set when Stage P3 gives
+/// AbortController an `Object` repr. node runs it (the listener fires once).
+#[test]
+fn deferred_listener_nonscalar_placeholder_capture_still_builds() {
+    let out = run_kali(
+        "function main(){\n  const controller = new AbortController();\n  const t = new EventTarget();\n  let count = 0;\n  t.addEventListener(\"e\", function(){ count += 1; controller.abort(); });\n  t.dispatchEvent(new CustomEvent(\"e\"));\n  console.log(\"count=\" + count);\n}\nmain();\n",
+    );
+    assert!(
+        out.status.success(),
+        "the non-scalar placeholder capture must still build/run; stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(
+        !String::from_utf8_lossy(&out.stderr).contains("E5506"),
+        "scalar-only deny must NOT fire on a non-scalar placeholder capture; stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
