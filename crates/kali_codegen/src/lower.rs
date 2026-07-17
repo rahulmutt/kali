@@ -3014,9 +3014,35 @@ pub(crate) fn collect_function_locals(
     // helpers never nest their own use of it across an `emit_node` call).
     // Guarded on the function actually having a growable binding, so
     // functions without one are byte-identical.
+    //
+    // Stage P2 Lane 1 Task 5 adds a SECOND trigger: a growable-array FIELD push
+    // (`o.values.push(v)`) also flows through `emit_growable_push` and so needs
+    // the same scratch — but the enclosing function has no growable BINDING to
+    // key on. Reserve on a COARSE structural superset (`body_contains_field_push`
+    // — any `.push` on a member-expression receiver), matching the
+    // argv/unary-plus reservation philosophy: over-reserving a harmless unused
+    // i64 local is always safe; under-reserving would panic in
+    // `growable_scratch_local`.
+    // ALSO reserve when this function allocates an object literal carrying a
+    // `GrowableArrayI64` field: `emit_growable_field_value` (object.rs) uses the
+    // dedicated scratch to allocate+seed the field's growable array. Detected
+    // precisely off the shape table (a binding or return repr that is
+    // `Object(shape)` with a growable field), so unrelated functions stay
+    // byte-identical.
+    let allocates_growable_object_field = locals.iter().any(|name| {
+        matches!(
+            repr_table.scalar(function_name, name),
+            kali_common::Repr::Object(shape) if shape_has_growable_field(repr_table, shape)
+        )
+    }) || matches!(
+        repr_table.return_repr(function_name),
+        kali_common::Repr::Object(shape) if shape_has_growable_field(repr_table, shape)
+    );
     if locals
         .iter()
         .any(|name| repr_table.is_growable_array_binding(function_name, name))
+        || body_contains_field_push(nodes, body_id)
+        || allocates_growable_object_field
     {
         locals.push(growable_scratch_local_name());
     }
@@ -3083,6 +3109,46 @@ pub(crate) fn growable_foreach_len_local_name() -> String {
 /// consulted here — a String-element growable `for..of` never reaches codegen
 /// (the resolve gate aborts the compile), and an over-reserved unused local is
 /// harmless.
+/// True iff `id` is a dot member `base.field` (1-child `Value`, `base` a bare
+/// identifier) whose `base` has an `Object(shape)` repr with a
+/// `GrowableArrayI64` field named `field` (Stage P2 Lane 1). The
+/// provisioning-stage free-function mirror of the emitter's
+/// `object_field_is_growable_array` (which resolves through the same
+/// scalar/shape tables); the direct identifier-base form is all the growable
+/// field-receiver surface admits.
+fn node_is_growable_i64_field(
+    nodes: &[LirNode],
+    repr_table: &kali_common::ReprTable,
+    function_name: &str,
+    id: LirNodeId,
+) -> bool {
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return false;
+    };
+    if node.kind != LirNodeKind::Value || node.children.len() != 1 {
+        return false;
+    }
+    let Some(field) = node.text.as_deref().filter(|t| !t.is_empty()) else {
+        return false;
+    };
+    let Some(base) = nodes.get(node.children[0].0 as usize) else {
+        return false;
+    };
+    if base.kind != LirNodeKind::Value || !base.children.is_empty() {
+        return false;
+    }
+    let Some(base_name) = base.text.as_deref().filter(|t| !t.is_empty()) else {
+        return false;
+    };
+    match repr_table.scalar(function_name, base_name) {
+        kali_common::Repr::Object(shape) => matches!(
+            repr_table.shape_field(shape, field),
+            Some((_, kali_common::Repr::GrowableArrayI64))
+        ),
+        _ => false,
+    }
+}
+
 fn for_of_growable_loop_var_names(
     nodes: &[LirNode],
     body_id: LirNodeId,
@@ -3131,11 +3197,14 @@ fn for_of_growable_loop_var_names_walk(
         return;
     };
     if node.kind == LirNodeKind::Branch && node.text.as_deref() == Some("for-of") {
-        let iterable_is_growable = node
-            .children
-            .get(1)
-            .and_then(|&iterable| bare_identifier_name_of(nodes, iterable))
-            .is_some_and(|name| repr_table.is_growable_array_binding(function_name, &name));
+        let iterable_is_growable = node.children.get(1).is_some_and(|&iterable| {
+            bare_identifier_name_of(nodes, iterable)
+                .is_some_and(|name| repr_table.is_growable_array_binding(function_name, &name))
+                // Stage P2 Lane 1 Task 5: a `for (const x of o.values)` over a
+                // `GrowableArrayI64` object field also runs the counted growable
+                // loop, so its loop var needs a real wasm local reserved here.
+                || node_is_growable_i64_field(nodes, repr_table, function_name, iterable)
+        });
         if iterable_is_growable {
             if let Some(var) = node
                 .children
@@ -3190,6 +3259,54 @@ fn declarator_init_mentions_growable(
 /// dispatches on. See the call site in `collect_function_locals` for why this
 /// is deliberately a coarse superset of "unary `+` over a provably
 /// string-valued operand" rather than a precise mirror of it.
+/// True iff any node reachable from `body_id` (not descending into nested
+/// function bodies) is a `.push` member whose receiver is a member-expression
+/// (field-read) shape — the coarse superset that guards reserving the growable
+/// scratch local for a `GrowableArrayI64` FIELD push (Stage P2 Lane 1 Task 5).
+/// Deliberately imprecise (fires for any `x.y.push(...)`, growable or not):
+/// over-reserving one unused i64 local is harmless; the precise shape proof
+/// (`object_field_is_growable_array`) is unavailable at this provisioning stage.
+/// True iff `shape` has any `GrowableArrayI64` field (Stage P2 Lane 1 Task 5) —
+/// the signal that allocating this object shape needs the growable scratch local
+/// (`emit_growable_field_value`).
+fn shape_has_growable_field(repr_table: &kali_common::ReprTable, shape: kali_common::ShapeId) -> bool {
+    repr_table
+        .shape_fields(shape)
+        .iter()
+        .any(|(_, repr)| matches!(repr, kali_common::Repr::GrowableArrayI64))
+}
+
+fn body_contains_field_push(nodes: &[LirNode], body_id: LirNodeId) -> bool {
+    fn is_field_read_shape(nodes: &[LirNode], id: LirNodeId) -> bool {
+        nodes.get(id.0 as usize).is_some_and(|n| {
+            n.kind == LirNodeKind::Value
+                && n.children.len() == 1
+                && n.text.as_deref().is_some_and(|t| !t.is_empty())
+        })
+    }
+    fn walk(nodes: &[LirNode], id: LirNodeId) -> bool {
+        let Some(node) = nodes.get(id.0 as usize) else {
+            return false;
+        };
+        // `.push` member callee: Value{text:"push", children:[receiver]} whose
+        // receiver is itself a member-expression (field read).
+        if node.kind == LirNodeKind::Value
+            && node.text.as_deref() == Some("push")
+            && node.children.len() == 1
+            && is_field_read_shape(nodes, node.children[0])
+        {
+            return true;
+        }
+        node.children.iter().any(|child| {
+            if is_function_like(nodes, *child) {
+                return false;
+            }
+            walk(nodes, *child)
+        })
+    }
+    walk(nodes, body_id)
+}
+
 fn body_contains_unary_plus(nodes: &[LirNode], body_id: LirNodeId) -> bool {
     fn walk(nodes: &[LirNode], id: LirNodeId) -> bool {
         let Some(node) = nodes.get(id.0 as usize) else {

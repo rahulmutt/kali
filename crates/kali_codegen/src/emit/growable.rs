@@ -35,6 +35,28 @@ pub(crate) const GROWABLE_INITIAL_CAP: usize = 4;
 /// the string-handle idiom).
 const GROWABLE_HANDLE_MASK: i64 = !(crate::ARRAY_HANDLE_TAG) as i64;
 
+/// Source of a growable array's tagged i64 handle for `emit_growable_push`
+/// (Stage P2 Lane 1 Task 5). Both variants leave the SAME single i64 handle on
+/// the stack before the shared mask+store step — the symmetry the two receiver
+/// branches must preserve.
+pub(crate) enum GrowableHandle {
+    /// Named-binding receiver `a.push(v)`: the tagged handle lives in a stable
+    /// per-binding local (unchanged across realloc — the header indirection).
+    Local(u32),
+    /// Field-read receiver `o.values.push(v)`: materialize the tagged handle by
+    /// emitting the field read; the object slot already holds the tagged handle
+    /// (Task 3 interned the growable-i64 field with it).
+    Field(LirNodeId),
+}
+
+/// Recognized `.push` receiver (Stage P2 Lane 1 Task 5): a named growable
+/// binding or a `GrowableArrayI64` object field. Field receivers carry the
+/// member-read node so the emit path can materialize the handle from the slot.
+pub(crate) enum GrowablePushReceiver {
+    Named(String),
+    Field(LirNodeId),
+}
+
 impl<'a> FunctionEmitter<'a> {
     /// Index of the dedicated i64 growable scratch local reserved by
     /// `collect_function_locals` for any function with a growable binding.
@@ -115,6 +137,59 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// Allocate + seed a growable array for an OBJECT FIELD value (Stage P2
+    /// Lane 1 Task 5), leaving the TAGGED i64 handle on the stack for the
+    /// caller's field store. The object-field twin of the growable BINDING
+    /// declarator lane (control_flow.rs): both `emit_growable_alloc` then seed
+    /// `*(data_ptr + i*8) = seed_i`. The difference is the handle lives on the
+    /// stack (not a binding local) throughout seeding — the seed addresses are
+    /// derived from the dedicated growable scratch's header pointer, so the
+    /// handle on the stack is never disturbed. Promotion admits only an
+    /// array-literal initializer of scalar seeds; anything else fails closed.
+    pub(crate) fn emit_growable_field_value(&mut self, function: &mut Function, value_id: LirNodeId) {
+        let aggregate = self
+            .resolve_literal_aggregate(value_id)
+            .map(|id| self.node(id).clone())
+            .filter(|node| self.is_array_literal(node));
+        let Some(aggregate) = aggregate else {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "a growable-array object field must be initialized with an array literal".to_string(),
+            ));
+            function.instruction(&Instruction::I64Const(0));
+            return;
+        };
+        let seed_len = aggregate.children.len();
+        let cap = seed_len.max(GROWABLE_INITIAL_CAP);
+        // Leaves the tagged handle on the stack and the header pointer in the
+        // dedicated growable scratch.
+        let allocated = self.emit_growable_alloc(function, seed_len, cap);
+        if !allocated.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
+        // Seed each element via `data_ptr + i*8` (data_ptr read from the header
+        // in the dedicated scratch, so the handle on the stack stays put).
+        let scratch = self.growable_scratch_local();
+        for (i, child) in aggregate.children.iter().copied().enumerate() {
+            self.emit_growable_scratch_hdr(function, scratch);
+            function.instruction(&Instruction::I64Load(MemArg {
+                offset: 16,
+                align: 3,
+                memory_index: 0,
+            }));
+            function.instruction(&Instruction::I32WrapI64);
+            let produced = self.emit_node(function, child, true);
+            if !produced.produced {
+                function.instruction(&Instruction::I64Const(0));
+            }
+            function.instruction(&Instruction::I64Store(MemArg {
+                offset: (i * 8) as u64,
+                align: 3,
+                memory_index: 0,
+            }));
+        }
+    }
+
     /// Append `value` to the growable array whose tagged handle lives in
     /// `handle_local`: grow (`cap * 2`, `memory.copy` of the live prefix)
     /// when full, store at `data_ptr + len*8`, bump `len`. Leaves the NEW
@@ -122,7 +197,7 @@ impl<'a> FunctionEmitter<'a> {
     pub(crate) fn emit_growable_push(
         &mut self,
         function: &mut Function,
-        handle_local: u32,
+        handle: GrowableHandle,
         value: LirNodeId,
     ) -> EmittedValue {
         // Fail-closed: a float value has no i64 element encoding. The types
@@ -175,8 +250,22 @@ impl<'a> FunctionEmitter<'a> {
         }
         function.instruction(&Instruction::LocalSet(value_scratch));
 
-        // hdr (i64, zero-extended) into the dedicated scratch.
-        function.instruction(&Instruction::LocalGet(handle_local));
+        // hdr (i64, zero-extended) into the dedicated scratch. A named receiver
+        // reads its stable handle local; a field receiver materializes the SAME
+        // tagged handle by emitting the field read (the slot holds it — Task 3).
+        // Both leave one i64 handle on the stack before the shared mask+store,
+        // so everything downstream is byte-identical.
+        match handle {
+            GrowableHandle::Local(handle_local) => {
+                function.instruction(&Instruction::LocalGet(handle_local));
+            }
+            GrowableHandle::Field(receiver_id) => {
+                let produced = self.emit_node(function, receiver_id, true);
+                if !produced.produced {
+                    function.instruction(&Instruction::I64Const(0));
+                }
+            }
+        }
         function.instruction(&Instruction::I64Const(GROWABLE_HANDLE_MASK));
         function.instruction(&Instruction::I64And);
         function.instruction(&Instruction::LocalSet(scratch));
@@ -456,7 +545,7 @@ impl<'a> FunctionEmitter<'a> {
     pub(crate) fn growable_push_call_parts(
         &self,
         node: &LirNode,
-    ) -> Option<(String, Vec<LirNodeId>)> {
+    ) -> Option<(GrowablePushReceiver, Vec<LirNodeId>)> {
         if node.kind != LirNodeKind::Call || node.children.is_empty() {
             return None;
         }
@@ -468,10 +557,23 @@ impl<'a> FunctionEmitter<'a> {
         let receiver = callee_node.children.first().copied()?;
         let receiver_node = self.node(self.unwrap_transparent(receiver));
         let base = receiver_node.text.as_deref()?;
-        if !receiver_node.children.is_empty() || !self.is_growable_array(base) {
-            return None;
+        // Named-binding growable receiver (bare identifier: no children).
+        if receiver_node.children.is_empty() {
+            return self
+                .is_growable_array(base)
+                .then(|| (GrowablePushReceiver::Named(base.to_string()), node.children[1..].to_vec()));
         }
-        Some((base.to_string(), node.children[1..].to_vec()))
+        // Field-read growable receiver `o.values.push(v)` (Task 5): admitted
+        // ONLY through the positive `object_field_is_growable_array` proof — an
+        // allowlist, so a non-growable member (`o.count.push`, a string
+        // `.length`, a nested `o.x.y` chain) keeps the current rejection.
+        if self.object_field_is_growable_array(receiver) {
+            return Some((
+                GrowablePushReceiver::Field(receiver),
+                node.children[1..].to_vec(),
+            ));
+        }
+        None
     }
 
     /// Emit a recognized growable `.push` call. One argument appends;
@@ -480,46 +582,11 @@ impl<'a> FunctionEmitter<'a> {
     pub(crate) fn emit_growable_push_call(
         &mut self,
         function: &mut Function,
-        base_name: &str,
+        receiver: GrowablePushReceiver,
         args: &[LirNodeId],
     ) -> EmittedValue {
-        // Self-push guard (Stage 4 Task 4 review fix): a push onto the array a
-        // runtime `for..of` is CURRENTLY iterating grows the array under node
-        // but not the counted loop's once-snapshotted length — a silent
-        // node-divergent miscompile. The resolve-phase for..of gate already
-        // rejects this shape (its syntactic body walk); this is the
-        // by-construction codegen mirror — every growable push emission flows
-        // through here, so nothing the walk might miss can slip past. Pushes
-        // onto a DIFFERENT binding (the target fixture's `out.push(v)` inside
-        // `for (const v of o)`) are unaffected.
-        if self.growable_for_of_active.as_deref() == Some(base_name) {
-            self.diagnostics.push(Diagnostic::error(
-                e5::FEATURE_UNAVAILABLE as u32,
-                format!(
-                    "pushing to growable array `{base_name}` inside a for-of loop iterating it is unavailable in the current phase (the iteration count is fixed at loop entry, diverging from JS growth semantics); use an index loop over `.length` or the later compatibility path"
-                ),
-            ));
-            function.instruction(&Instruction::Unreachable);
-            return EmittedValue {
-                produced: false,
-                shape: ValueShape::Unknown,
-            };
-        }
-        let Some(handle_local) = self.locals.get(base_name).copied() else {
-            // No local slot: provisioning bug — fail closed, never a silent
-            // no-op.
-            self.diagnostics.push(Diagnostic::error(
-                e5::FEATURE_UNAVAILABLE as u32,
-                format!(
-                    "growable array `{base_name}` has no local slot; push lowering is unavailable"
-                ),
-            ));
-            function.instruction(&Instruction::Unreachable);
-            return EmittedValue {
-                produced: false,
-                shape: ValueShape::Unknown,
-            };
-        };
+        // Arity is receiver-independent: one argument appends; anything else
+        // (0 or 2+ — shapes the types promotion never admits) rejects closed.
         if args.len() != 1 {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
@@ -531,7 +598,75 @@ impl<'a> FunctionEmitter<'a> {
                 shape: ValueShape::Unknown,
             };
         }
-        self.emit_growable_push(function, handle_local, args[0])
+        match receiver {
+            GrowablePushReceiver::Named(base_name) => {
+                // Self-push guard (Stage 4 Task 4 review fix): a push onto the
+                // array a runtime `for..of` is CURRENTLY iterating grows the
+                // array under node but not the counted loop's once-snapshotted
+                // length — a silent node-divergent miscompile. The resolve-phase
+                // for..of gate already rejects this shape (its syntactic body
+                // walk); this is the by-construction codegen mirror — every
+                // growable push emission flows through here, so nothing the walk
+                // might miss can slip past. Pushes onto a DIFFERENT binding (the
+                // target fixture's `out.push(v)` inside `for (const v of o)`)
+                // are unaffected.
+                if self.growable_for_of_active.as_deref() == Some(base_name.as_str()) {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        format!(
+                            "pushing to growable array `{base_name}` inside a for-of loop iterating it is unavailable in the current phase (the iteration count is fixed at loop entry, diverging from JS growth semantics); use an index loop over `.length` or the later compatibility path"
+                        ),
+                    ));
+                    function.instruction(&Instruction::Unreachable);
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                }
+                let Some(handle_local) = self.locals.get(&base_name).copied() else {
+                    // No local slot: provisioning bug — fail closed, never a
+                    // silent no-op.
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        format!(
+                            "growable array `{base_name}` has no local slot; push lowering is unavailable"
+                        ),
+                    ));
+                    function.instruction(&Instruction::Unreachable);
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                };
+                self.emit_growable_push(function, GrowableHandle::Local(handle_local), args[0])
+            }
+            GrowablePushReceiver::Field(receiver_id) => {
+                // Field-receiver self-push mirror (Task 5): a push onto the SAME
+                // `o.values` a growable `for..of` is iterating is the same
+                // once-snapshotted-length miscompile as the named case. The
+                // for-of field lane records its iterable as a `base.field` key
+                // in `growable_for_of_active` (a bare binding name never
+                // contains `.`, so the two key spaces are disjoint); reject when
+                // this push's field key matches. Resolve rejects it first; this
+                // is the by-construction codegen mirror.
+                if let Some(field_key) = self.growable_field_receiver_key(receiver_id) {
+                    if self.growable_for_of_active.as_deref() == Some(field_key.as_str()) {
+                        self.diagnostics.push(Diagnostic::error(
+                            e5::FEATURE_UNAVAILABLE as u32,
+                            format!(
+                                "pushing to growable array field `{field_key}` inside a for-of loop iterating it is unavailable in the current phase (the iteration count is fixed at loop entry, diverging from JS growth semantics); use an index loop over `.length` or the later compatibility path"
+                            ),
+                        ));
+                        function.instruction(&Instruction::Unreachable);
+                        return EmittedValue {
+                            produced: false,
+                            shape: ValueShape::Unknown,
+                        };
+                    }
+                }
+                self.emit_growable_push(function, GrowableHandle::Field(receiver_id), args[0])
+            }
+        }
     }
 
     /// Growable mirror of `dynamic_array_read_base`: `Some(base)` when
@@ -560,6 +695,51 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// Field-receiver twin of `growable_array_read_base` (Task 5): `true` when
+    /// `node` is a member READ (`o.values[i]`) whose base `node.children[0]` is
+    /// a `GrowableArrayI64` object field. Same shape guards as the named-lane
+    /// recognizer (`.length` excluded — the length lane wins first; binary
+    /// operators excluded). Admits ONLY via the positive
+    /// `object_field_is_growable_array` proof (allowlist), so a non-growable
+    /// member read keeps its existing route. i64 elements only (Task 3 conflicts
+    /// a string array field to E5506), so no string-element classification in
+    /// `operators.rs` needs to consume this — those arms correctly see it as a
+    /// non-string i64 read.
+    pub(crate) fn growable_field_read_base(&self, node: &LirNode) -> bool {
+        match node.children.len() {
+            1 => {
+                let index_text = node.text.as_deref().unwrap_or_default();
+                if index_text.is_empty() || index_text == "length" {
+                    return false;
+                }
+                self.object_field_is_growable_array(node.children[0])
+            }
+            2 => {
+                if is_binary_operator_text(node.text.as_deref().unwrap_or_default()) {
+                    return false;
+                }
+                self.object_field_is_growable_array(node.children[0])
+            }
+            _ => false,
+        }
+    }
+
+    /// Canonical `base.field` key for a `GrowableArrayI64` field-read receiver
+    /// (Task 5), used as the growable `for..of` self-push identity. Returns
+    /// `None` for a receiver whose base is not a bare binding (no key ⇒ the
+    /// self-push guard cannot fire, but resolve rejects that shape first). A
+    /// bare binding name never contains `.`, so a field key
+    /// (`"o.values"`) never collides with a named-binding key.
+    pub(crate) fn growable_field_receiver_key(&self, receiver_id: LirNodeId) -> Option<String> {
+        let node = self.node(self.unwrap_transparent(receiver_id));
+        if node.children.len() != 1 {
+            return None;
+        }
+        let field = node.text.as_deref().filter(|t| !t.is_empty())?;
+        let base = self.assignment_target_name(node, node.children[0])?;
+        Some(format!("{base}.{field}"))
+    }
+
     /// True when any node in `id`'s subtree names a growable binding of this
     /// function (Task 6 re-review fix): the multi-argument console lowering
     /// fail-closes when an argument reads a growable array, because the
@@ -575,6 +755,15 @@ impl<'a> FunctionEmitter<'a> {
             .as_deref()
             .is_some_and(|text| self.is_growable_array(text))
         {
+            return true;
+        }
+        // Growable-array FIELD read (`o.values`, Stage P2 Lane 1): a member
+        // access whose field is a `GrowableArrayI64` slot also reads a growable
+        // array, so a multi-argument `console.log` containing one must fail
+        // closed too — the field twin of the named-binding detection above.
+        // Without this a `console.log(o.count, o.values.length)` would silently
+        // drop the growable read (the exact hole the named guard closes).
+        if node.children.len() == 1 && self.object_field_is_growable_array(node.children[0]) {
             return true;
         }
         node.children

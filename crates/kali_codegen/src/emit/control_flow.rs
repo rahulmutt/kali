@@ -1588,6 +1588,16 @@ impl<'a> FunctionEmitter<'a> {
                             shape: ValueShape::Scalar,
                         };
                     }
+                    // Growable-array FIELD `.length` (`o.values.length`, Stage
+                    // P2 Lane 1 Task 5): the field slot holds the tagged handle
+                    // (Task 3), so `emit_growable_length` emits the field read
+                    // then reads `hdr.len` — same lane as the named case, keyed
+                    // on the positive `object_field_is_growable_array` proof.
+                    // A scalar field (`o.count.length`) or a nested chain proves
+                    // false and keeps its existing route.
+                    if self.object_field_is_growable_array(base_id) {
+                        return self.emit_growable_length(function, base_id);
+                    }
                     if let Some(base_name) = self.assignment_target_name(node, base_id) {
                         // Growable runtime array `.length` (throw-fallout
                         // Stage 4): decode the tagged handle, read `hdr.len`.
@@ -1664,7 +1674,9 @@ impl<'a> FunctionEmitter<'a> {
                 // before the plain-array recognizer below (disjoint oracles;
                 // a growable base is never in `array_bindings`) and before
                 // the generic unary fallback that would silently mis-emit.
-                if self.growable_array_read_base(node).is_some() {
+                if self.growable_array_read_base(node).is_some()
+                    || self.growable_field_read_base(node)
+                {
                     let index_text = node.text.as_deref().unwrap_or_default().to_string();
                     let index_node =
                         self.alloc_scratch_node(LirNodeKind::Value, Some(index_text), vec![]);
@@ -1717,7 +1729,9 @@ impl<'a> FunctionEmitter<'a> {
                 // Growable runtime array computed read `x[<expr>]`
                 // (throw-fallout Stage 4) — the 2-child twin of the 1-child
                 // growable arm above; same ordering rationale.
-                if self.growable_array_read_base(node).is_some() {
+                if self.growable_array_read_base(node).is_some()
+                    || self.growable_field_read_base(node)
+                {
                     return self.emit_growable_index_read(
                         function,
                         node.children[0],

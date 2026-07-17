@@ -322,6 +322,32 @@ impl ReprTable {
             .collect()
     }
 
+    /// Distinct NAMES of every binding whose `Object(shape)` carries a
+    /// `GrowableArrayI64` field (Stage P2 Lane 1). Consumed by the optimizer to
+    /// treat such an object binding as mutated — a `o.values.push(...)` mutates
+    /// the object's field through a Call the member-store scan cannot see, so
+    /// the constant-binding env must never inline the object literal and fold
+    /// `o.values.length` / `o.values[i]` over the stale seed (the field twin of
+    /// [`growable_array_binding_names`](Self::growable_array_binding_names)).
+    /// Name-based and shadowing-blind like that scan; over-marking only ever
+    /// DISABLES folding (fail-closed direction).
+    pub fn object_bindings_with_growable_field_names(&self) -> std::collections::BTreeSet<String> {
+        self.scalars
+            .iter()
+            .filter_map(|((_, binding), repr)| match repr {
+                Repr::Object(shape)
+                    if self
+                        .shape_fields(*shape)
+                        .iter()
+                        .any(|(_, r)| matches!(r, Repr::GrowableArrayI64)) =>
+                {
+                    Some(binding.clone())
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
     /// Record that param `binding` of `func` may receive a non-scalar (array)
     /// argument at some call site — see [`non_scalar_params`](Self::non_scalar_params).
     pub fn mark_non_scalar_param(&mut self, func: &str, binding: &str) {

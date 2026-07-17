@@ -61,12 +61,6 @@ impl<'a> FunctionEmitter<'a> {
     /// dispatch (push/join/length/index/for-of) accept a field-read receiver,
     /// not only a named binding. Any other field shape returns false (fail
     /// closed at the dispatch site).
-    ///
-    /// `#[allow(dead_code)]`: unused until Task 5 wires the dispatch consumer;
-    /// the workspace CI gate runs `cargo clippy --workspace -- -D warnings`,
-    /// which turns the dead-code warning into a hard build failure. Remove
-    /// this attribute in Task 5 once a call site exists.
-    #[allow(dead_code)]
     pub(crate) fn object_field_is_growable_array(&self, id: LirNodeId) -> bool {
         let id = self.unwrap_transparent(id);
         let node = self.node(id);
@@ -116,14 +110,27 @@ impl<'a> FunctionEmitter<'a> {
                 ));
                 continue;
             };
-            function.instruction(&Instruction::LocalGet(scratch));
-            function.instruction(&Instruction::I32WrapI64);
-            let produced = self.emit_node(function, value_id, true);
             let mem = MemArg {
                 offset: (index * 8) as u64,
                 align: 3,
                 memory_index: 0,
             };
+            // Growable-i64 array field (Stage P2 Lane 1): the slot must hold a
+            // TAGGED growable handle (header-indirected), not an inline array —
+            // so a later `o.values.push(v)` / `.join` / `.length` / index /
+            // `for..of` (Task 5 dispatch) reads a real growable array. Allocate
+            // + seed a growable array here (the object-field twin of the growable
+            // BINDING declarator lane in control_flow.rs) and store the handle.
+            if matches!(repr, kali_common::Repr::GrowableArrayI64) {
+                function.instruction(&Instruction::LocalGet(scratch));
+                function.instruction(&Instruction::I32WrapI64);
+                self.emit_growable_field_value(function, value_id);
+                function.instruction(&Instruction::I64Store(mem));
+                continue;
+            }
+            function.instruction(&Instruction::LocalGet(scratch));
+            function.instruction(&Instruction::I32WrapI64);
+            let produced = self.emit_node(function, value_id, true);
             match repr {
                 kali_common::Repr::F64 => {
                     if !produced.produced {

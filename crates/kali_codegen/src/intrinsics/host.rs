@@ -411,6 +411,15 @@ impl<'a> FunctionEmitter<'a> {
                 self.render_semver_intrinsic(callee_name, node)
             }
             LirNodeKind::Value => {
+                // A member access reaching a `GrowableArrayI64` object field
+                // (`o.values.length` / `o.values[i]`, Stage P2 Lane 1) is a LIVE
+                // runtime read of a push-accumulated array — never statically
+                // foldable. Bail so console output takes the dynamic growable
+                // lane instead of rendering a stale seed value (the render twin
+                // of the optimizer's growable-field fold guard).
+                if node.children.len() == 1 && self.object_field_is_growable_array(node.children[0]) {
+                    return None;
+                }
                 if node.children.is_empty() {
                     let text = node.text.as_deref()?;
                     if let Some(bound) = self.bindings.get(text).copied() {

@@ -469,8 +469,16 @@ fn compile_source_file_uncached(
         // (throw-fallout Stage 4): the optimizer must treat them as mutated,
         // else its constant-binding envs inline/fold the stale declarator
         // literal (`o.length` → 0, `o[0]` → undefined) over the runtime
-        // contents.
-        .with_growable_array_bindings(analyzed.repr_table.growable_array_binding_names());
+        // contents. Stage P2 Lane 1 adds the object-FIELD twin: a binding whose
+        // shape has a `GrowableArrayI64` field mutates via `o.values.push(...)`
+        // (also a Call the store scan cannot see), so it too must never be
+        // inlined — otherwise `o.values.length` / `o.values[i]` fold over the
+        // stale seed. Both name sets are unioned into the mutated seed.
+        .with_growable_array_bindings({
+            let mut names = analyzed.repr_table.growable_array_binding_names();
+            names.extend(analyzed.repr_table.object_bindings_with_growable_field_names());
+            names
+        });
     let optimizer = if let Some(profile_data) = profile_data {
         optimizer.with_profile_data(profile_data.clone())
     } else {

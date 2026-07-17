@@ -632,6 +632,33 @@ impl TypeContext {
         }
     }
 
+    /// `(base_name, field)` iff `expr` is a dot member `base.field` where `base`
+    /// is a bound object whose shape has a `GrowableArrayI64` field `field`
+    /// (Stage P2 Lane 1 Task 5). Only the dot form (no computed index) matches —
+    /// the growable field-receiver for..of / dispatch admits exactly `o.values`.
+    /// The resolve-side mirror of codegen's `object_field_is_growable_array`.
+    pub(crate) fn growable_i64_field_member_parts(
+        &self,
+        expr: &Expression,
+    ) -> Option<(String, String)> {
+        let Expression::MemberExpression(member) = expr else {
+            return None;
+        };
+        if member.computed_index.is_some() {
+            return None;
+        }
+        let Expression::Identifier(base) = &member.object else {
+            return None;
+        };
+        let shape = self.object_shape_of_expression(&member.object)?;
+        match self.repr_table.shape_field(shape, &member.property) {
+            Some((_, kali_common::Repr::GrowableArrayI64)) => {
+                Some((base.clone(), member.property.clone()))
+            }
+            _ => None,
+        }
+    }
+
     /// True when `expr` is a DECLARATOR init that codegen registers as a runtime
     /// array binding: `new Array(...)`, the bare `Array(...)` call form (both
     /// funnel through codegen's `resolve_array_alloc_call`), or a `.fill(...)`

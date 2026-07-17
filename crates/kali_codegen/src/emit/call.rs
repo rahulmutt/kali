@@ -942,8 +942,8 @@ impl<'a> FunctionEmitter<'a> {
         // oracle appends for real (geometric growth) and yields the new
         // length — the miscompile this stage kills was exactly this call
         // falling through to the generic drop-args no-op.
-        if let Some((base_name, args)) = self.growable_push_call_parts(node) {
-            return self.emit_growable_push_call(function, &base_name, &args);
+        if let Some((receiver, args)) = self.growable_push_call_parts(node) {
+            return self.emit_growable_push_call(function, receiver, &args);
         }
 
         if let Some(result) = self.resolve_static_array_join_call(node) {
@@ -3770,6 +3770,14 @@ impl<'a> FunctionEmitter<'a> {
         if self.is_growable_array(base) {
             return Some((receiver, node.children.get(1).copied()));
         }
+        // Growable-array FIELD receiver `o.values.join(...)` (Stage P2 Lane 1
+        // Task 5): a `GrowableArrayI64` object field carries the same tagged
+        // handle; admit it through the positive `object_field_is_growable_array`
+        // proof (allowlist). i64 elements only (Task 3), joined via
+        // `__join_growable_i64` — `emit_runtime_join` re-derives that below.
+        if self.object_field_is_growable_array(receiver) {
+            return Some((receiver, node.children.get(1).copied()));
+        }
         if !self.array_bindings.contains(base) {
             return None;
         }
@@ -3897,12 +3905,20 @@ impl<'a> FunctionEmitter<'a> {
             .as_deref()
             .filter(|base| self.is_growable_array(base))
             .map(str::to_string);
+        // Field receiver `o.values.join(...)` (Task 5): a `GrowableArrayI64`
+        // field is provably i64 (Task 3 conflicts string array fields to
+        // E5506), so it always joins via `__join_growable_i64` — no name to key
+        // an element-repr lookup on. Checked when the base-name lane found no
+        // named growable.
+        let field_growable = growable_base.is_none() && self.object_field_is_growable_array(receiver);
         let join_index = if let Some(base) = growable_base {
             if self.array_elem_repr(&base) == kali_common::Repr::String {
                 self.join_growable_str_fn_index()
             } else {
                 self.join_growable_i64_fn_index()
             }
+        } else if field_growable {
+            self.join_growable_i64_fn_index()
         } else {
             // Per-site arena routing (fasta Spec 7 Task 4c): select the
             // resettable `__join_arena` twin iff the escape gate proved THIS

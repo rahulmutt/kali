@@ -662,6 +662,42 @@ impl TypeContext {
                             return;
                         }
                     }
+                    // Growable-array FIELD iterable `for (const x of o.values)`
+                    // (Stage P2 Lane 1 Task 5): a `GrowableArrayI64` object field
+                    // runs the same counted growable loop in codegen. Admit it
+                    // here (the codegen for-of lane keys on the SAME positive
+                    // proof) so it is not rejected by the generic static gate
+                    // below. i64 elements only (Task 3 conflicts string fields to
+                    // E5506). A self-push into the SAME field is caught
+                    // fail-closed at codegen (`emit_growable_push_call`'s
+                    // field-key guard, keyed on the for-of's active field key).
+                    if let Some((_base, _field)) = self.growable_i64_field_member_parts(rhs) {
+                        let left_is_supported = match left {
+                            ForOfLefthand::VariableDeclaration(_) => true,
+                            ForOfLefthand::Expression(expression) => {
+                                self.is_simple_for_of_binding_expression(expression)
+                            }
+                        };
+                        if left_is_supported && !*is_await {
+                            self.push_scope(ScopeType::Block);
+                            if let ForOfLefthand::VariableDeclaration(decl) = left {
+                                self.resolve_variable_declaration(decl)
+                            }
+                            self.resolve_static_string_fold_position(right);
+                            self.resolve_loop_body(body);
+                            self.pop_scope();
+                            return;
+                        }
+                        let loop_kind = if *is_await { "for-await-of" } else { "for-of" };
+                        self.diagnostics.push(Diagnostic::error(
+                            e5::FEATURE_UNAVAILABLE as u32,
+                            format!(
+                                "{} iteration over a growable-array object field is unavailable in the current phase unless the loop target is a variable/identifier binding; use an index loop over `.length` or the later compatibility path",
+                                loop_kind
+                            ),
+                        ));
+                        return;
+                    }
                 }
                 let left_is_supported = match left {
                     ForOfLefthand::VariableDeclaration(_) => true,

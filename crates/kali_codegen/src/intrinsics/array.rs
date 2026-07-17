@@ -1144,6 +1144,7 @@ impl<'a> FunctionEmitter<'a> {
         node: &LirNode,
         iterable_id: LirNodeId,
         handle_name: String,
+        field_receiver: bool,
     ) -> EmittedValue {
         // Fail closed: a growable `for..of` lexically NESTED inside another
         // would share the single index/length scratch pair, clobbering the
@@ -1166,7 +1167,11 @@ impl<'a> FunctionEmitter<'a> {
         // String-element growable `for..of` never reaches codegen (the resolve
         // gate aborts the compile), but never emit a loop that would store a raw
         // string handle into an i64-printed loop var if that gate ever regresses.
-        if self.array_elem_repr(&handle_name) != kali_common::Repr::I64 {
+        // A FIELD receiver (`handle_name` is a `base.field` key, not a binding)
+        // is provably `GrowableArrayI64` — i64 elements only (Task 3 conflicts
+        // string array fields to E5506) — so the name-keyed elem lookup does not
+        // apply; skip it (the field key is not an array binding name).
+        if !field_receiver && self.array_elem_repr(&handle_name) != kali_common::Repr::I64 {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
                 "for-of over a growable array of non-integer elements is unavailable in the current phase".to_string(),
@@ -1318,8 +1323,23 @@ impl<'a> FunctionEmitter<'a> {
                     node,
                     array_id,
                     handle_name,
+                    false,
                 );
             }
+        }
+
+        // Growable-array FIELD iterable `for (const x of o.values)` (Stage P2
+        // Lane 1 Task 5): the field slot holds the tagged growable handle (Task
+        // 3 + object-field alloc), so the same counted growable loop runs, with
+        // the handle materialized from the field read (`array_id` is the
+        // `o.values` node). Admitted only through the positive
+        // `object_field_is_growable_array` proof; the loop identity is the
+        // `base.field` key so the self-push guard can key on it.
+        if self.object_field_is_growable_array(array_id) {
+            let key = self
+                .growable_field_receiver_key(array_id)
+                .unwrap_or_default();
+            return self.emit_for_of_growable_runtime_loop(function, node, array_id, key, true);
         }
 
         let mut array_id = array_id;
