@@ -53,6 +53,32 @@ pub const SYNTHETIC_FUNCTIONS: &[&str] = &[
     "__streq",
 ];
 
+/// A synthetic function name is either an exact entry in `SYNTHETIC_FUNCTIONS`
+/// or a shape-parameterized deep-clone synthetic `__clone_shape_<n>` (Stage P2
+/// Lane 2, emitted on demand by `collect_requested_clone_shapes`). Every place
+/// that used to consult `SYNTHETIC_FUNCTIONS.contains` to tell a compiler-
+/// internal slot from a source-defined function goes through this helper so the
+/// parameterized clone names are recognized too.
+pub fn is_synthetic_function(name: &str) -> bool {
+    SYNTHETIC_FUNCTIONS.contains(&name) || name.starts_with("__clone_shape_")
+}
+
+/// Shapes for which a `__clone_shape_<n>` deep-clone synthetic must be emitted
+/// (Stage P2 Lane 2). The synthetic is currently unreachable from any source
+/// program — Task 8's `structuredClone` dispatch is what will resolve a call to
+/// `clone_shape_synthetic_name(shape)` and, in doing so, populate this set (by
+/// scanning the LIR for the clone sites and their argument shapes). Until then
+/// this returns empty, so no clone slot is emitted and the module stays
+/// byte-identical. Kept as the single collection point so Task 8 wires the scan
+/// here and the emission machinery below (plan + type + body dispatch) needs no
+/// further change.
+fn collect_requested_clone_shapes(
+    _lir: &LirProgram,
+    _repr_table: &kali_common::ReprTable,
+) -> std::collections::BTreeSet<kali_common::ShapeId> {
+    std::collections::BTreeSet::new()
+}
+
 /// Generate WASM from LIR.
 pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResult {
     let mut diagnostics = Vec::new();
@@ -683,6 +709,25 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         is_entry: false,
         flavor: None,
     });
+    // Per-shape deep-clone synthetics `__clone_shape_<n>` (Stage P2 Lane 2):
+    // appended AFTER the fixed synthetics and BEFORE any source-defined function
+    // so, like the fixed synthetics, they shift every later function's index by
+    // a fixed amount — safe because every call site resolves callee indices
+    // through `function_name_to_index`. Bodies are hand-emitted (dispatch below)
+    // exactly like the other synthetics, so `body`/`locals`/`flavor` are inert
+    // placeholders. The requested set is empty until Task 8 wires its scan, so
+    // this loop currently adds nothing and the module stays byte-identical.
+    for shape in collect_requested_clone_shapes(lir, &ctx.repr_table) {
+        all_functions.push(FunctionPlan {
+            name: crate::emit::clone::clone_shape_synthetic_name(shape),
+            params: vec!["src".to_string()],
+            locals: Vec::new(),
+            body: lir.root,
+            result: true,
+            is_entry: false,
+            flavor: None,
+        });
+    }
     all_functions.extend(function_plans);
 
     let mut function_param_counts: BTreeMap<u32, usize> = BTreeMap::new();
@@ -1287,6 +1332,11 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             // `cur`, `h`, `data` (locals 2-8; locals 0-1 are `arr`/`sep`). One
             // more than `__join` for the cached header→`data` pointer.
             local_decls.push((7, ValType::I64));
+        } else if function.name.starts_with("__clone_shape_") {
+            // Hand-emitted deep-clone synthetic (Stage P2 Lane 2): its i64
+            // locals (1=dst, 2=srch, 3=new_hdr, 4=new_data, 5=len, 6=cap; local
+            // 0 is the `src` param) — see `emit::clone::emit_clone_shape_body`.
+            local_decls.push((crate::emit::clone::CLONE_SHAPE_LOCAL_COUNT, ValType::I64));
         } else {
             for local_name in &function.locals {
                 // A `__arena_save_*` local (Step 2 of loop-arena provisioning)
@@ -1358,7 +1408,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             &ctx.env_plans,
         );
         let coverage_id = ctx.target.coverage.then_some(coverage_id as u32);
-        if SYNTHETIC_FUNCTIONS.contains(&function.name.as_str()) {
+        if is_synthetic_function(&function.name) {
             // Hand-emitted: not lowered from LIR (there is no source-level
             // function body for these synthetic page-pool functions), and
             // deliberately uninstrumented (no `emit_coverage_hit`) since none
@@ -1387,6 +1437,15 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                     emit_join_growable_body(&mut body, alloc_global_index, false)
                 }
                 "__streq" => emit_streq_body(&mut body),
+                // Per-shape deep-clone synthetic (Stage P2 Lane 2). Recover the
+                // shape from the name and hand-emit its body: fresh object,
+                // verbatim scalar slots, deep-copied growable-i64 handles.
+                other if other.starts_with("__clone_shape_") => {
+                    let shape = crate::emit::clone::clone_shape_id_from_name(other)
+                        .expect("well-formed __clone_shape_<n> synthetic name");
+                    let fields = ctx.repr_table.shape_fields(shape).to_vec();
+                    crate::emit::clone::emit_clone_shape_body(&mut body, &fields, alloc_index);
+                }
                 other => unreachable!("unhandled synthetic function {other}"),
             }
         } else if function.is_entry {
@@ -1523,7 +1582,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         // behalf.
         let instrumented_function_count = all_functions
             .iter()
-            .filter(|f| !SYNTHETIC_FUNCTIONS.contains(&f.name.as_str()))
+            .filter(|f| !is_synthetic_function(&f.name))
             .count() as u32;
         module.section(&CustomSection {
             name: Cow::Borrowed("kali:coverage"),

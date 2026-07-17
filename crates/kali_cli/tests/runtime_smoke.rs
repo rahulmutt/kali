@@ -835,7 +835,8 @@ fn count_tag_boxing_ops(bytes: &[u8]) -> usize {
                 for export in reader {
                     let export = export.expect("export entry");
                     if export.kind == wasmparser::ExternalKind::Func
-                        && SYNTHETIC_FUNCTIONS.contains(&export.name)
+                        && (SYNTHETIC_FUNCTIONS.contains(&export.name)
+                            || export.name.starts_with("__clone_shape_"))
                     {
                         synthetic_indices.push(export.index);
                     }

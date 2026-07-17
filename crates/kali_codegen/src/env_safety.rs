@@ -237,7 +237,7 @@ pub(crate) fn env_capture_safety_diagnostics(
     //    inert `body = lir.root` placeholder and must not be walked).
     let source_fns: Vec<&FunctionPlan> = all_functions
         .iter()
-        .filter(|plan| !crate::lower::SYNTHETIC_FUNCTIONS.contains(&plan.name.as_str()))
+        .filter(|plan| !crate::lower::is_synthetic_function(&plan.name))
         .collect();
 
     // 4. Name-keyed alias map: which function(s) may a name denote? Seeded by
