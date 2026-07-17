@@ -417,7 +417,8 @@ impl<'a> FunctionEmitter<'a> {
                 // foldable. Bail so console output takes the dynamic growable
                 // lane instead of rendering a stale seed value (the render twin
                 // of the optimizer's growable-field fold guard).
-                if node.children.len() == 1 && self.object_field_is_growable_array(node.children[0]) {
+                if node.children.len() == 1 && self.object_field_is_growable_array(node.children[0])
+                {
                     return None;
                 }
                 if node.children.is_empty() {
@@ -966,6 +967,51 @@ impl<'a> FunctionEmitter<'a> {
             return None;
         }
         Some(surface)
+    }
+
+    /// Recognize a bare, UNSHADOWED `structuredClone` callee (Stage P2 Lane 2b) —
+    /// the same provenance rule as [`Self::scheduling_surface`]: any user
+    /// binding, local, parameter, function-valued local, or function of that
+    /// name shadows the global and the call takes the normal user-call lane
+    /// (so a `function structuredClone(){}` is honored, not the builtin).
+    pub(crate) fn is_structured_clone_call(&self, callee_node: &LirNode) -> bool {
+        if !callee_node.children.is_empty() {
+            return false;
+        }
+        if callee_node.text.as_deref() != Some("structuredClone") {
+            return false;
+        }
+        let name = "structuredClone";
+        !(self.locals.contains_key(name)
+            || self.bindings.contains_key(name)
+            || self.module_binding_names.contains(name)
+            || self.fn_valued_locals.contains_key(name)
+            || self.functions.contains_key(name))
+    }
+
+    /// Strict ALLOWLIST gate: `shape` is deep-clonable iff every field is a
+    /// scalar or a `GrowableArrayI64` array (see
+    /// [`crate::emit::clone::fields_are_clone_envelope`]). Shared with the
+    /// plan-time collection scan so the emit-time dispatch and the
+    /// synthetic-emission set never disagree.
+    pub(crate) fn shape_is_clone_envelope(&self, shape: kali_common::ShapeId) -> bool {
+        crate::emit::clone::fields_are_clone_envelope(self.repr_table.shape_fields(shape))
+    }
+
+    /// Fail-closed E5506 rejection in VALUE position: push the diagnostic, emit
+    /// `Unreachable` (keeps the value stack balanced — the block becomes
+    /// stack-polymorphic), and report no produced value. Mirrors the growable
+    /// lane's fail-closed emit shape.
+    pub(crate) fn deny_e5506(&mut self, function: &mut Function, message: &str) -> EmittedValue {
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            message.to_string(),
+        ));
+        function.instruction(&Instruction::Unreachable);
+        EmittedValue {
+            produced: false,
+            shape: ValueShape::Unknown,
+        }
     }
 
     /// Resolve a scheduling call's callback argument (`children[1]`) by

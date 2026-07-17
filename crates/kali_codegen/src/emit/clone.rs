@@ -31,6 +31,25 @@ pub(crate) fn clone_shape_synthetic_name(shape: kali_common::ShapeId) -> String 
     format!("__clone_shape_{}", shape.0)
 }
 
+/// Strict ALLOWLIST gate for the P2 deep-clone envelope: every field of the
+/// shape must be a `I64`/`F64` scalar or a `GrowableArrayI64` array. `Object(_)`
+/// (a nested object) and `String` fields are NOT clonable by
+/// [`emit_clone_shape_body`] (its `else` arm verbatim-copies the 8-byte slot,
+/// which would SHALLOW-SHARE a nested object's pointer and be a soundness bug) —
+/// so the call site (Task 8) must reject such a shape fail-closed and never
+/// request a synthetic for it. Shared by the emit-time dispatch gate
+/// (`FunctionEmitter::shape_is_clone_envelope`) and the plan-time collection
+/// scan (`collect_requested_clone_shapes`) so the two never disagree on which
+/// shapes get a `__clone_shape_N` slot.
+pub(crate) fn fields_are_clone_envelope(fields: &[(String, kali_common::Repr)]) -> bool {
+    fields.iter().all(|(_, repr)| {
+        matches!(
+            repr,
+            kali_common::Repr::I64 | kali_common::Repr::F64 | kali_common::Repr::GrowableArrayI64
+        )
+    })
+}
+
 /// Parse the `ShapeId` back out of a `__clone_shape_<n>` synthetic name.
 /// Returns `None` for any name lacking the prefix or a valid numeric suffix.
 pub(crate) fn clone_shape_id_from_name(name: &str) -> Option<kali_common::ShapeId> {
@@ -41,8 +60,10 @@ pub(crate) fn clone_shape_id_from_name(name: &str) -> Option<kali_common::ShapeI
 
 /// Emit the hand-written body of `__clone_shape_N` for the fixed layout
 /// `fields` (in shape order, field `i` at byte offset `i * 8`). `alloc_index`
-/// is the arena bump allocator (`__alloc`) — the clone lands in the caller's
-/// active arena, exactly like a normally-allocated object at the call site.
+/// is the allocator the object + its fresh array blocks are bump-allocated
+/// through. Task 8 wires the escape-safe GLOBAL allocator (`__alloc_global`)
+/// here — a `structuredClone` result escapes its arena, so it must not dangle
+/// across an arena reset (mirrors the `__join`-global / `__join_arena` split).
 ///
 /// The body leaves the new object's base pointer (i64, untagged) on the stack;
 /// the dispatch loop in `lower.rs` appends the trailing `End` (NO `End` here —
@@ -174,6 +195,18 @@ pub(crate) fn emit_clone_shape_body(
             func.instruction(&Instruction::I64Or);
             func.instruction(&Instruction::I64Store(mem(off)));
         } else {
+            // Depth-2 defense (reviewer-suggested): the call site
+            // (`fields_are_clone_envelope`) is the primary gate, but assert here
+            // that no `Object`/`String` field ever reaches the verbatim-copy arm
+            // — a verbatim 8-byte copy of a nested-object pointer would
+            // SHALLOW-SHARE it (soundness bug), and a string handle is not in the
+            // P2 envelope. If this fires, a caller requested a clone for an
+            // out-of-envelope shape.
+            debug_assert!(
+                matches!(repr, kali_common::Repr::I64 | kali_common::Repr::F64),
+                "clone-shape verbatim slot copy reached a non-scalar field repr {repr:?}; \
+                 the call site must gate on `fields_are_clone_envelope`"
+            );
             // Verbatim 8-byte slot copy: *(dst + off) = *(src + off).
             func.instruction(&Instruction::LocalGet(DST));
             func.instruction(&Instruction::I32WrapI64);

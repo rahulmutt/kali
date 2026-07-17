@@ -226,3 +226,64 @@ fn same_shape_object_identity_not_equal() {
     let out = run_kali_run(src);
     assert_eq!(out.trim(), "0\n1"); // node: false / true (see doc comment)
 }
+
+/// Task 8 (Lane 2b): `structuredClone` of an in-envelope object (every field a
+/// scalar or a `GrowableArrayI64` array) DEEP-CLONES it — the clone shares no
+/// mutable storage with the source, so a later `push` into the SOURCE's array
+/// does not appear in the clone.
+///
+/// DEVIATION FROM THE BRIEF (documented; Tasks 5/6 precedent, controller-
+/// ratified): the brief's body used a single MULTI-argument
+/// `console.log(cloned.count, cloned.values.join(','), original.values.join(','))`.
+/// Multi-argument `console.log` emits only the FIRST argument (the dynamic
+/// console lane drops the rest) and, where an argument reads a growable array,
+/// fails closed by an established Stage 4 soundness contract (see
+/// `multi_arg_console_with_growable_field_fails_closed`). Each value is logged
+/// on its own line here, asserting the SAME semantic facts: the clone's scalar
+/// field is preserved (`1`), the clone's array is a DEEP copy unaffected by the
+/// push into the source (`1,2,3`), and the source's array did grow (`1,2,3,4`).
+#[test]
+fn structured_clone_deep_clones_scalar_and_array_object() {
+    let src = "const original = { count: 1, values: [1, 2, 3] };\n\
+               const cloned = structuredClone(original);\n\
+               original.values.push(4);\n\
+               console.log(cloned.count);\n\
+               console.log(cloned.values.join(','));\n\
+               console.log(original.values.join(','));\n";
+    let out = run_kali_run(src);
+    // clone unaffected by the push into original.values (node: 1 / 1,2,3 / 1,2,3,4)
+    assert_eq!(out.trim(), "1\n1,2,3\n1,2,3,4");
+}
+
+/// Task 8 (Lane 2b): the clone is a DISTINCT allocation — `cloned === original`
+/// is false. `cloned.values === original.values` is likewise false (the array
+/// storage was deep-copied into a fresh handle).
+///
+/// DEVIATION FROM THE BRIEF (documented; same two pre-existing limits as
+/// `same_shape_object_identity_alias_is_true`): dynamic booleans render as
+/// `1`/`0` (the runtime console lane has no Boolean arm), and multi-argument
+/// `console.log` drops trailing arguments — so each comparison is logged alone
+/// and the raw `0` (false) is asserted. `cloned === original` is genuine
+/// runtime pointer identity (real allocations, not a static fold), which is
+/// exactly what proves the clone is not the source object.
+#[test]
+fn structured_clone_result_identity_is_false() {
+    let src = "const original = { count: 1, values: [1, 2, 3] };\n\
+               const cloned = structuredClone(original);\n\
+               console.log(cloned === original);\n\
+               console.log(cloned.values === original.values);\n";
+    let out = run_kali_run(src);
+    assert_eq!(out.trim(), "0\n0"); // node: false / false (see doc comment)
+}
+
+/// Task 8 (Lane 2b) soundness pin: `structuredClone` of an argument whose shape
+/// is NOT provable (an unknown-repr parameter) fails closed E5506 — never a
+/// silent shallow copy or a zero placeholder that misreports the clone. The
+/// call sits in an uncalled function; codegen still emits its body, so the
+/// dispatch fires and denies.
+#[test]
+fn structured_clone_of_unproven_argument_fails_closed() {
+    let src = "function f(u) { return structuredClone(u); }\nconsole.log(1);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}

@@ -810,7 +810,31 @@ impl ReprInfer {
             }
             Expression::CallExpression(call) => {
                 if let Expression::Identifier(callee) = &call.callee {
-                    self.obj_flows.push((dst, ObjSlot::Return(callee.clone())));
+                    // Stage P2 Lane 2b (Task 8): `structuredClone(arg)` produces
+                    // a DEEP COPY whose object shape is IDENTICAL to `arg`'s. Model
+                    // the result's shape as an aliasing flow FROM the argument's
+                    // slot (not the callee's return): the fixpoint copies `arg`'s
+                    // field list onto `dst`, and — because an `obj_flows` edge
+                    // between two known-shape slots materializes BOTH endpoints
+                    // (`resolve_objects` step 2) — the clone result AND the source
+                    // it is copied from both become real heap objects. That is
+                    // required on both sides: the clone synthetic reads the source
+                    // BY ADDRESS, and the result must carry `Repr::Object(shape)`
+                    // so `cloned.field` and the Lane 3 `cloned === original`
+                    // same-shape check resolve. A SHADOWED `structuredClone` (a
+                    // user binding/param/function of that name) is not the builtin
+                    // — mirror the codegen recognizer's shadow checks and fall
+                    // through to the ordinary return-flow edge.
+                    let is_builtin_structured_clone = callee == "structuredClone"
+                        && call.args.len() == 1
+                        && !self.is_locally_declared(func, "structuredClone")
+                        && !self.is_locally_declared(TOP_LEVEL, "structuredClone")
+                        && !self.functions.contains_key("structuredClone");
+                    if is_builtin_structured_clone {
+                        self.record_object_flow_from_expr(func, dst, &call.args[0]);
+                    } else {
+                        self.obj_flows.push((dst, ObjSlot::Return(callee.clone())));
+                    }
                 }
             }
             Expression::ParenthesizedExpression(inner) => {
@@ -2915,6 +2939,43 @@ impl ReprInfer {
                 break;
             }
         }
+        // 1b. Propagate the growable-ARRAY-FIELD marking (`obj_array_fields`)
+        //     across object flows, in lockstep with the field-NAME propagation
+        //     above. A field name flows via `fields_of`, but its growable-array
+        //     KIND lives in `obj_array_fields` keyed per-slot — without this, an
+        //     aliased or cloned slot (`const c = o`, `const cloned =
+        //     structuredClone(o)`) inherits the field name `values` but not its
+        //     `GrowableArrayI64` repr, so it interns a DIVERGENT scalar (I64)
+        //     shape for the SAME source field and its `.length`/`.join`/index
+        //     reads silently misbehave. Copy an existing entry into the unmarked
+        //     side (both directions, undirected like the aliasing), REUSING the
+        //     source's element node so the element-repr solve stays shared.
+        let array_field_flows = self.obj_flows.clone();
+        loop {
+            let mut changed = false;
+            for (a, b) in &array_field_flows {
+                for (src, dst) in [(a, b), (b, a)] {
+                    let src_fields: Vec<String> = self
+                        .obj_array_fields
+                        .keys()
+                        .filter(|(slot, _)| slot == src)
+                        .map(|(_, name)| name.clone())
+                        .collect();
+                    for name in src_fields {
+                        let dst_key = (dst.clone(), name.clone());
+                        if !self.obj_array_fields.contains_key(&dst_key) {
+                            let value = self.obj_array_fields[&(src.clone(), name)];
+                            self.obj_array_fields.insert(dst_key, value);
+                            changed = true;
+                        }
+                    }
+                }
+            }
+            if !changed {
+                break;
+            }
+        }
+
         for (a, b) in &self.obj_flows {
             if let (Some(fa), Some(fb)) = (fields_of.get(a), fields_of.get(b)) {
                 if fa != fb {

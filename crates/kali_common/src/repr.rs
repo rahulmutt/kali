@@ -417,6 +417,13 @@ impl ReprTable {
         &self.shapes[shape.0 as usize]
     }
 
+    /// Number of interned shapes; `ShapeId(0)..ShapeId(shape_count())` are every
+    /// interned layout. Lets codegen enumerate shapes (Stage P2 Lane 2b's
+    /// `structuredClone` clone-synthetic collection scans every envelope shape).
+    pub fn shape_count(&self) -> usize {
+        self.shapes.len()
+    }
+
     /// If every field of `shape` shares one repr, return it; else `None`.
     /// Dynamic (runtime-ordinal) computed access `obj[c]` selects a field by a
     /// runtime index, so it can only lower when a single element type covers

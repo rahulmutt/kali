@@ -272,6 +272,74 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        // structuredClone(arg): Stage P2 Lane 2b 3-way DEFAULT-DENY allowlist.
+        //   (1) in-envelope object-shaped arg  → request the per-shape deep-clone
+        //       synthetic and call it (deep copy; result carries the same shape).
+        //   (2) zero-placeholder construct arg (`new Blob(...)`-style) → warn and
+        //       keep today's placeholder-0 lowering (corpus builds stay green).
+        //   (3) everything else (unproven / unsupported shape, wrong arity) →
+        //       fail closed E5506 (never a silent shallow copy).
+        if self.is_structured_clone_call(&callee_node) {
+            let args: Vec<LirNodeId> = node.children[1..].to_vec();
+            if args.len() != 1 {
+                return self.deny_e5506(
+                    function,
+                    "structuredClone expects exactly one argument in the current phase",
+                );
+            }
+            let arg = args[0];
+            // Lane 1: in-envelope object (every field a scalar or GrowableArrayI64).
+            if let Some(shape) = self.object_shape_of_node(arg) {
+                if self.shape_is_clone_envelope(shape) {
+                    let clone_name = crate::emit::clone::clone_shape_synthetic_name(shape);
+                    // The collection scan (`collect_requested_clone_shapes`)
+                    // requests a synthetic for EVERY envelope shape when a
+                    // structuredClone call is present, so this resolves. Guard
+                    // defensively anyway: a collection/dispatch divergence must
+                    // fail closed, never index-panic or miscompile.
+                    let Some(&idx) = self.functions.get(&clone_name) else {
+                        return self.deny_e5506(
+                            function,
+                            "structuredClone target shape has no emitted clone synthetic (internal)",
+                        );
+                    };
+                    // Push the source object's base pointer (i64), then deep-clone.
+                    self.emit_node(function, arg, true);
+                    function.instruction(&Instruction::Call(idx));
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Scalar,
+                    };
+                }
+                // Object-shaped but OUT of envelope (a String or nested-Object
+                // field): the clone body would shallow-share it — fail closed.
+                return self.deny_e5506(
+                    function,
+                    "structuredClone of an object with a non-clonable field is unavailable in the current phase (only number and i64-array fields are supported)",
+                );
+            }
+            // Lane 2: a zero-placeholder construct (`new Blob(...)`) — no real
+            // value to clone, but the corpus builds and dispatches these; warn
+            // and keep the placeholder-0 lowering (mirrors the Stage D C-1
+            // placeholder-construct allowance).
+            if crate::lower::declarator_init_is_placeholder_construct(&self.program.nodes, arg) {
+                self.diagnostics.push(Diagnostic::warning(
+                    e8::UNIMPLEMENTED as u32,
+                    "structuredClone of an unsupported construct is a no-op placeholder in the current phase".to_string(),
+                ));
+                let _ = self.emit_node(function, arg, true);
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                };
+            }
+            // Lane 3: unproven / unsupported argument shape → fail closed.
+            return self.deny_e5506(
+                function,
+                "structuredClone argument of unproven or unsupported shape is unavailable in the current phase",
+            );
+        }
+
         let callee_name = callee_node.text.as_deref().unwrap_or_default();
         let resolved = self.functions.get(callee_name).copied();
 
@@ -3910,7 +3978,8 @@ impl<'a> FunctionEmitter<'a> {
         // E5506), so it always joins via `__join_growable_i64` — no name to key
         // an element-repr lookup on. Checked when the base-name lane found no
         // named growable.
-        let field_growable = growable_base.is_none() && self.object_field_is_growable_array(receiver);
+        let field_growable =
+            growable_base.is_none() && self.object_field_is_growable_array(receiver);
         let join_index = if let Some(base) = growable_base {
             if self.array_elem_repr(&base) == kali_common::Repr::String {
                 self.join_growable_str_fn_index()

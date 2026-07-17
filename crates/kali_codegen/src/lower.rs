@@ -73,10 +73,33 @@ pub fn is_synthetic_function(name: &str) -> bool {
 /// here and the emission machinery below (plan + type + body dispatch) needs no
 /// further change.
 fn collect_requested_clone_shapes(
-    _lir: &LirProgram,
-    _repr_table: &kali_common::ReprTable,
+    lir: &LirProgram,
+    repr_table: &kali_common::ReprTable,
 ) -> std::collections::BTreeSet<kali_common::ShapeId> {
-    std::collections::BTreeSet::new()
+    let mut requested = std::collections::BTreeSet::new();
+    // Gate on the presence of ANY bare `structuredClone(...)` call — a SUPERSET
+    // probe (shadowing unchecked here) exactly like `program_constructs_event_target`
+    // gates the event-target import. If none exists the set stays empty and the
+    // module is byte-identical.
+    if !program_calls_bare_identifier(lir, "structuredClone") {
+        return requested;
+    }
+    // Request a `__clone_shape_N` synthetic for EVERY interned envelope shape.
+    // This is a sound SUPERSET of what the call-site dispatch can resolve: the
+    // dispatch only ever clones an in-envelope object shape (Task 8's
+    // `shape_is_clone_envelope`), and it resolves the callee index through
+    // `function_name_to_index[&clone_shape_synthetic_name(shape)]` — so every
+    // shape the dispatch could name is guaranteed present here. A shape that is
+    // in-envelope but never actually cloned yields a dead synthetic (harmless);
+    // an out-of-envelope shape is never requested (its clone body would
+    // shallow-share a nested object — see `fields_are_clone_envelope`).
+    for index in 0..repr_table.shape_count() {
+        let shape = kali_common::ShapeId(index as u32);
+        if crate::emit::clone::fields_are_clone_envelope(repr_table.shape_fields(shape)) {
+            requested.insert(shape);
+        }
+    }
+    requested
 }
 
 /// Generate WASM from LIR.
@@ -1444,7 +1467,18 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                     let shape = crate::emit::clone::clone_shape_id_from_name(other)
                         .expect("well-formed __clone_shape_<n> synthetic name");
                     let fields = ctx.repr_table.shape_fields(shape).to_vec();
-                    crate::emit::clone::emit_clone_shape_body(&mut body, &fields, alloc_index);
+                    // Task 8 (binding obligation 1): a `structuredClone` result
+                    // almost always ESCAPES its arena (it is bound and read after
+                    // the call), so allocate through the escape-safe GLOBAL heap
+                    // — mirroring the `__join` (global) vs `__join_arena` (arena)
+                    // split above. The arena variant would need a full escape
+                    // proof (NOT implemented this task); global is the sound
+                    // default and never dangles across an arena reset.
+                    crate::emit::clone::emit_clone_shape_body(
+                        &mut body,
+                        &fields,
+                        alloc_global_index,
+                    );
                 }
                 other => unreachable!("unhandled synthetic function {other}"),
             }
@@ -3328,7 +3362,10 @@ fn declarator_init_mentions_growable(
 /// True iff `shape` has any `GrowableArrayI64` field (Stage P2 Lane 1 Task 5) —
 /// the signal that allocating this object shape needs the growable scratch local
 /// (`emit_growable_field_value`).
-fn shape_has_growable_field(repr_table: &kali_common::ReprTable, shape: kali_common::ShapeId) -> bool {
+fn shape_has_growable_field(
+    repr_table: &kali_common::ReprTable,
+    shape: kali_common::ShapeId,
+) -> bool {
     repr_table
         .shape_fields(shape)
         .iter()
@@ -4051,6 +4088,22 @@ pub(crate) fn collect_function_locals_from_node(
             // `ok`, re-running all listeners again (a duplicate-dispatch
             // miscompile).
             let is_event_dispatch_result = declarator_init_is_event_dispatch(nodes, init);
+            // Stage P2 Lane 2b: `const cloned = structuredClone(src)` is a FRESH
+            // deep allocation whose result MUST be held in a stable local. Without
+            // promotion the `const` fold-alias tunnel (`FunctionEmitter::bindings`)
+            // re-emits the clone CALL at every read of `cloned` — a NEW allocation
+            // each time (and the declaration-site result is dropped, so the first
+            // read re-runs it) — a distinct-instances miscompile, the exact twin of
+            // `is_materialized_factory_return` for a callee (`structuredClone`) that
+            // is a compiler builtin with no `return_repr` entry. Gated on the
+            // binding's own repr being `Object` (only the in-envelope object lane
+            // reaches here; the placeholder/fail-closed lanes never bind an Object).
+            let is_structured_clone_result = declarator_node.text.as_deref().is_some_and(|name| {
+                matches!(
+                    repr_table.scalar(function_name, name),
+                    kali_common::Repr::Object(_)
+                ) && declarator_init_call_callee_name(nodes, init) == Some("structuredClone")
+            });
             if !declarator_init_is_array_alloc(nodes, init)
                 && !declarator_init_is_array_fill(nodes, init)
                 && !declarator_init_is_array_read(nodes, init, array_names)
@@ -4065,6 +4118,7 @@ pub(crate) fn collect_function_locals_from_node(
                 && !is_scheduling_registration_call
                 && !is_event_target_construction
                 && !is_event_dispatch_result
+                && !is_structured_clone_result
             {
                 continue;
             }
