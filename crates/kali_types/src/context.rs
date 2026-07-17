@@ -257,6 +257,28 @@ impl TypeContext {
         self.global_scope.lookup(name).copied()
     }
 
+    /// True when `name` resolves to a USER binding — one declared in the active
+    /// scope chain (module/function/block/param/catch/for-of), i.e. found in
+    /// `scope_stack` BEFORE the fall-through to `global_scope`. Builtins live
+    /// ONLY in `global_scope` (bound at construction, never on `scope_stack`),
+    /// so a name found on the stack is a user declaration that SHADOWS any
+    /// same-named builtin. Used by the anonymous-callback gate (I-2) to decide
+    /// whether a builtin-named callee is the genuine builtin (exempt) or a user
+    /// shadow (must take the generic user-call treatment).
+    pub(crate) fn resolves_to_user_binding(&self, name: &str) -> bool {
+        let mut current = self.scope_stack.last().copied();
+        while let Some(scope_id) = current {
+            let Some(scope) = self.scopes.get(&scope_id) else {
+                return false;
+            };
+            if scope.contains(name) {
+                return true;
+            }
+            current = scope.parent;
+        }
+        false
+    }
+
     pub(crate) fn next_binding_id(&mut self) -> NodeId {
         let id = NodeId::new(self.next_binding_id);
         self.next_binding_id = self

@@ -354,3 +354,19 @@ fn stale_clear_before_setinterval_does_not_poison_first_interval() {
     );
     assert_eq!(String::from_utf8_lossy(&out.stdout), "1\n2\n3\n");
 }
+
+/// I-2 pin: a builtin scheduling name SHADOWED by a user binding is not the
+/// genuine builtin — it must take the generic user-call treatment, not the
+/// builtin exemption in `reject_anonymous_function_argument`. Pre-fix, a
+/// shadowed `queueMicrotask(function(){})` was a TOTAL silent no-op (the
+/// exemption skipped the anonymous-argument rejection AND codegen never
+/// invoked the shadow body — node prints "shadow"). The sound outcome that
+/// lands: the anonymous argument fails closed E5506, exactly as the generic
+/// `let foo = function(f){…}; foo(function(){})` case already does (no longer
+/// a silent no-op unique to builtin names).
+#[test]
+fn shadowed_scheduling_builtin_with_anonymous_arg_fails_closed() {
+    assert_e5506(
+        "let queueMicrotask = function(f){ console.log(\"shadow\"); };\nqueueMicrotask(function(){ console.log(\"cb\"); });\n",
+    );
+}

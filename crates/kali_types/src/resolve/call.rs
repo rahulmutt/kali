@@ -137,7 +137,20 @@ impl TypeContext {
         //     `setInterval`) are bound but invoke the callback through the
         //     runtime, and the codegen provenance resolver + `env_safety` fail
         //     closed on any unsound callback (see the doc comment above).
-        if self.resolve_name(callee_name).is_none() || Self::is_builtin_global_name(callee_name) {
+        if self.resolve_name(callee_name).is_none() {
+            return;
+        }
+        // I-2: the builtin exemption applies ONLY to an UNSHADOWED builtin. A
+        // user binding of the same name (`let queueMicrotask = function(f){…}`)
+        // shadows the builtin — the call takes the normal user-call lane, and
+        // its anonymous-function argument must fall into the generic rejection
+        // below, not the builtin exemption. Skipping the shadow check made a
+        // shadowed scheduling-surface call a TOTAL silent no-op (no deny
+        // anywhere; the shadow body never ran). A user shadow resolves to a
+        // binding on the active scope chain (`resolves_to_user_binding`);
+        // genuine builtins live only in `global_scope`.
+        if Self::is_builtin_global_name(callee_name) && !self.resolves_to_user_binding(callee_name)
+        {
             return;
         }
         for arg in &expr.args {
