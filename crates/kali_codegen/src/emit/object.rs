@@ -55,6 +55,36 @@ impl<'a> FunctionEmitter<'a> {
         None
     }
 
+    /// True when `id` is a `base.field` read whose base carries a known shape
+    /// and whose `field` is a `GrowableArrayI64` slot — i.e. the loaded i64 is
+    /// an ARRAY_HANDLE_TAG handle, not a scalar. Lets the growable-array
+    /// dispatch (push/join/length/index/for-of) accept a field-read receiver,
+    /// not only a named binding. Any other field shape returns false (fail
+    /// closed at the dispatch site).
+    ///
+    /// `#[allow(dead_code)]`: unused until Task 5 wires the dispatch consumer;
+    /// the workspace CI gate runs `cargo clippy --workspace -- -D warnings`,
+    /// which turns the dead-code warning into a hard build failure. Remove
+    /// this attribute in Task 5 once a call site exists.
+    #[allow(dead_code)]
+    pub(crate) fn object_field_is_growable_array(&self, id: LirNodeId) -> bool {
+        let id = self.unwrap_transparent(id);
+        let node = self.node(id);
+        if node.kind != LirNodeKind::Value || node.children.len() != 1 {
+            return false;
+        }
+        let Some(field) = node.text.as_deref().filter(|t| !t.is_empty()) else {
+            return false;
+        };
+        let Some(shape) = self.object_shape_of_node(node.children[0]) else {
+            return false;
+        };
+        matches!(
+            self.repr_table.shape_field(shape, field),
+            Some((_, kali_common::Repr::GrowableArrayI64))
+        )
+    }
+
     /// Bump-allocate a fixed-layout object for `literal` (an object-literal
     /// LIR node) with layout `shape`, leaving the i64 base pointer on the
     /// stack. Field values are emitted in shape order via the literal's own
