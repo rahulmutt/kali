@@ -53,19 +53,38 @@ fn run_kali_run_expect_error(source: &str) -> String {
     String::from_utf8_lossy(&out.stderr).into_owned()
 }
 
-/// Task 9: run `kali build --bundle --api browser <src>` and return whether it
-/// succeeded. `--api browser` is required here because the fixture this helper
-/// exercises constructs `new Blob(...)` — a browser-surface global; a plain
-/// `kali build --bundle` (no `--api browser`) fails closed with E5508
-/// ("requires the effective browser API surface") before ever reaching the
-/// structuredClone dispatch, which would test the wrong thing. This mirrors
-/// the browser-bundle build invocation used throughout
+/// Task 9: run `kali build --bundle --api browser <src>` and return
+/// (success, stderr). `--api browser` is required here because the fixtures
+/// this helper exercises construct `new Blob(...)` — a browser-surface
+/// global; a plain `kali build --bundle` (no `--api browser`) fails closed
+/// with E5508 ("requires the effective browser API surface") before ever
+/// reaching the structuredClone dispatch, which would test the wrong thing.
+/// This mirrors the browser-bundle build invocation used throughout
 /// `package_corpus/browser_corpus.rs` (e.g. `assert_browser_bundle_object_has_own`
 /// and the corpus's `write_browser_string_web_baseline_package` fixture, which
 /// also constructs `new Blob([...])` ahead of a `build --bundle --api browser`
 /// build) and `string_pad_static_ascii.rs`'s
 /// `browser_bundle_accepts_static_ascii_string_pad_across_source_classes`.
-fn build_bundle_succeeds(source: &str) -> bool {
+///
+/// Review finding (Task 9, ratified): `kali build`'s SUCCESS path never
+/// surfaces warnings at all — `cmd_build.rs`'s `Ok(build_result)` arm passes
+/// hardcoded `vec![]` for both errors and warnings to `print_envelope`, and
+/// the underlying `kali_cli::build` compile pipeline (`compile.rs`) only
+/// ever returns its accumulated `diagnostics` Vec via the `Err` branch (every
+/// checkpoint is `if has_errors(&diagnostics) { return Err(diagnostics); }` —
+/// a warnings-only accumulation is simply dropped on the `Ok` path, and
+/// `CompileOutput`/`BuildOutput` carry no diagnostics field at all). This is
+/// general and pre-existing, not specific to structuredClone: verified `kali
+/// check`, `kali run`, and `kali build` all report zero warnings in stderr
+/// AND in `--output json`'s `"warnings"` array for a program that
+/// demonstrably DID take a warning-emitting codegen path (its runtime output
+/// proves the codegen branch executed). Practical consequence: a caller that
+/// needs to observe a warning-level diagnostic must pair it with an
+/// unrelated, independently-established fail-closed case so the overall
+/// build fails — the FAILURE path is the only one that returns the full
+/// diagnostics list (warnings included). See
+/// `structured_clone_of_placeholder_construct_emits_e8001_warning`.
+fn build_bundle_output(source: &str) -> (bool, String) {
     let dir = tempdir().expect("tempdir");
     let path = dir.path().join("main.js");
     fs::write(&path, source).expect("write source");
@@ -78,14 +97,22 @@ fn build_bundle_succeeds(source: &str) -> bool {
         .arg(&path)
         .output()
         .expect("run kali build --bundle");
-    if !out.status.success() {
-        eprintln!(
-            "build --bundle --api browser failed; stdout: {}\nstderr: {}",
-            String::from_utf8_lossy(&out.stdout),
-            String::from_utf8_lossy(&out.stderr)
-        );
+    (
+        out.status.success(),
+        String::from_utf8_lossy(&out.stderr).into_owned(),
+    )
+}
+
+/// Task 9: run `kali build --bundle --api browser <src>` and return whether it
+/// succeeded (discarding stderr — use `build_bundle_output` if the caller
+/// needs to inspect diagnostics, e.g. to observe a warning, which requires
+/// pairing with a deliberate failure per that helper's doc comment).
+fn build_bundle_succeeds(source: &str) -> bool {
+    let (success, stderr) = build_bundle_output(source);
+    if !success {
+        eprintln!("build --bundle --api browser failed; stderr: {stderr}");
     }
-    out.status.success()
+    success
 }
 
 /// Task 5 pin (currently RED — enable by removing `#[ignore]` once Task 5's
@@ -517,27 +544,25 @@ fn structured_clone_of_placeholder_construct_still_builds() {
     assert!(build_bundle_succeeds(src));
 }
 
-/// Task 9 (Lane 2 tripwire): DELIBERATE tripwire (not a correctness claim) —
-/// kali returns the placeholder-0 lowering for `structuredClone(new
-/// Blob(...))`; node returns a real Blob clone. This pins kali's CURRENT
-/// same-0 behavior; it must go RED the day `Blob` gains a real construct
-/// lowering, forcing the `declarator_init_is_placeholder_construct` exclusion
-/// list (`crates/kali_codegen/src/lower.rs`, alongside `Array` /
-/// `Uint8Array` / `EventTarget`) to add `Blob`. See spec §2.3.
-///
-/// ADAPTATION FROM THE BRIEF (documented): the brief's body asserted
-/// `console.log(typeof b)` diverges from node's `"object"`. Empirically
-/// (`kali run` on a freshly built binary), `typeof b` where `b` is a
-/// non-literal binding does NOT hit kali's static `typeof`-fold lane (that
-/// lane only fires for a literal operand, e.g. `typeof 5` prints `"number"`)
-/// — it falls through to the general runtime lane, which for a non-literal
-/// binding prints the RAW scalar value rather than a type-name string at all
-/// (verified pre-existing and unrelated to structuredClone/Blob: `let x = 5;
-/// console.log(typeof x);` also prints `"5"`, not `"number"`). So `typeof b`
-/// here prints kali's placeholder-0 rendering (`"0"`), which already differs
-/// from node's `"object"` — the brief's exact assertion form is used as
-/// written and passes; no structural change was needed, only this
-/// documentation of what "the placeholder rendering" concretely is.
+/// Task 9 (Lane 2): CURRENT-RENDERING PIN, not a guard. This asserts what
+/// `console.log(typeof b)` prints TODAY for `const b =
+/// structuredClone(new Blob(['x']))` — kali's placeholder-0 lowering renders
+/// as `"0"`, which happens to differ from node's real `"object"`. It does
+/// NOT reliably detect Blob gaining a real construct lowering: review
+/// (Task 9) stress-tested the claim and found kali's `typeof <non-literal
+/// binding>` prints the raw scalar value for ANY binding, including a real,
+/// successfully-cloned in-envelope object (`typeof` only hits a type-name
+/// fold lane for a literal operand, e.g. `typeof 5` prints `"number"`; `let
+/// x = 5; console.log(typeof x);` prints `"5"`, not `"number"`, and the same
+/// holds for an object binding). So this assertion would keep passing even
+/// after Blob gained a real lowering, as long as the result still isn't a
+/// literal — it has no discriminating power over that event. The REAL
+/// forward guard is
+/// `structured_clone_of_placeholder_construct_emits_e8001_warning` below,
+/// which asserts the Lane-2 warn diagnostic itself, not a rendering
+/// side-effect of it. This test is kept only as a current-behavior pin
+/// (useful for noticing an unrelated `typeof`-rendering change), with its
+/// guard claim removed.
 #[test]
 fn structured_clone_of_placeholder_construct_tripwire() {
     let src = "const b = structuredClone(new Blob(['x']));\nconsole.log(typeof b);\n";
@@ -546,6 +571,59 @@ fn structured_clone_of_placeholder_construct_tripwire() {
     assert_ne!(
         out.trim(),
         "object",
-        "Blob gained a real lowering — update the exclusion list"
+        "current-rendering pin broke — see structured_clone_of_placeholder_construct_emits_e8001_warning for the actual Blob-exclusion guard"
+    );
+}
+
+/// Task 9 review fix: THE REAL forward guard for the Blob placeholder-
+/// construct lane. Review found the `typeof`-divergence test above cannot
+/// discriminate Blob gaining a real lowering (see its doc comment). The
+/// actual signal that `structuredClone(new Blob(...))` took the Lane-2
+/// warn-build path — i.e., that `Blob` is STILL in the zero-placeholder
+/// exclusion set — is the **E8001** "no-op placeholder" diagnostic
+/// (`crates/kali_codegen/src/emit/call.rs`, pushed right before the Lane-2
+/// warn-build return). That diagnostic is emitted IFF
+/// `declarator_init_is_placeholder_construct` (or its placeholder-provenance
+/// identifier extension, `a0770edce`) matches the argument — it disappears
+/// the day `Blob` is removed from the exclusion list (a real lowering routes
+/// through Lane 1, a dedicated Blob lane, or Lane 3 instead, none of which
+/// emit this warning). THIS is the guard: it goes RED (E8001 stops
+/// appearing) exactly when Blob's exclusion-list membership changes, forcing
+/// the decision the tripwire exists to force.
+///
+/// Why this is paired with an UNRELATED, independently-established
+/// fail-closed case (`structured_clone_of_unproven_argument_fails_closed`'s
+/// exact `function f(u) { return structuredClone(u); }` shape) rather than
+/// asserted on a standalone successful build: `kali build`'s SUCCESS path
+/// structurally never returns warnings (see `build_bundle_output`'s doc
+/// comment) — verified empirically that a program which demonstrably
+/// executes the Lane-2 codegen branch (its `kali run` output is the
+/// placeholder value) still reports zero warnings via `kali build`/`run`/
+/// `check`, in both plain-text stderr and `--output json`'s `"warnings"`
+/// array. Pairing with an unrelated failure routes the SAME diagnostics list
+/// (E8001 for the Blob line, accumulated during the same codegen pass)
+/// through the CLI's failure path, which is the only path that returns it.
+/// The two structuredClone call sites are independent (different arguments,
+/// different lanes), so the E8001 assertion is scoped precisely to the Blob
+/// line and is not a side effect of the unrelated E5506.
+#[test]
+fn structured_clone_of_placeholder_construct_emits_e8001_warning() {
+    let src = "structuredClone(new Blob(['x']));\n\
+               function f(u) { return structuredClone(u); }\n\
+               console.log(1);\n";
+    let (success, stderr) = build_bundle_output(src);
+    assert!(
+        !success,
+        "expected the unrelated f(u) unproven-argument case to fail closed; stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains("E5506"),
+        "expected the unrelated fail-closed case's E5506 diagnostic; stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains("E8001") && stderr.contains("no-op placeholder"),
+        "expected the Lane-2 warn-build E8001 diagnostic for `new Blob(...)` — \
+         this is the REAL guard: it must disappear the day Blob gains a real \
+         construct lowering, forcing the exclusion-list decision; stderr: {stderr}"
     );
 }
