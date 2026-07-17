@@ -90,6 +90,20 @@ pub(crate) struct FunctionEmitter<'a> {
     pub(crate) set_interval_import_index: Option<u32>,
     pub(crate) clear_timeout_import_index: Option<u32>,
     pub(crate) clear_interval_import_index: Option<u32>,
+    /// Stage D event-lane host import indices (`Some` only when the matching
+    /// program-wide probe fired; appended after clear_interval).
+    pub(crate) event_target_new_import_index: Option<u32>,
+    /// Consumed by the Task 4 addEventListener/dispatchEvent emit arms (this
+    /// task plumbs the indices; the arms that read them land next).
+    #[allow(dead_code)]
+    pub(crate) event_listener_add_import_index: Option<u32>,
+    #[allow(dead_code)]
+    pub(crate) event_dispatch_import_index: Option<u32>,
+    /// Locals/module bindings with stable provenance to `new EventTarget()`
+    /// (declarator-recorded, the `fn_valued_locals` pattern). Reads outside the
+    /// lane's allowed positions fail closed (handle-escape discipline, spec
+    /// §2.4): the raw i64 handle must never escape as an observable value.
+    pub(crate) event_target_locals: BTreeSet<String>,
     pub(crate) diagnostics: &'a mut Vec<Diagnostic>,
     pub(crate) strings: &'a mut StringPool,
     pub(crate) source_path: Option<PathBuf>,
@@ -267,6 +281,9 @@ impl<'a> FunctionEmitter<'a> {
         set_interval_import_index: Option<u32>,
         clear_timeout_import_index: Option<u32>,
         clear_interval_import_index: Option<u32>,
+        event_target_new_import_index: Option<u32>,
+        event_listener_add_import_index: Option<u32>,
+        event_dispatch_import_index: Option<u32>,
         diagnostics: &'a mut Vec<Diagnostic>,
         strings: &'a mut StringPool,
         source_path: Option<PathBuf>,
@@ -350,6 +367,10 @@ impl<'a> FunctionEmitter<'a> {
             set_interval_import_index,
             clear_timeout_import_index,
             clear_interval_import_index,
+            event_target_new_import_index,
+            event_listener_add_import_index,
+            event_dispatch_import_index,
+            event_target_locals: BTreeSet::new(),
             diagnostics,
             strings,
             source_path,

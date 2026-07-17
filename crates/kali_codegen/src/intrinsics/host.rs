@@ -766,6 +766,36 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// Recognize `new EventTarget()` (Stage D event lane) with the `EventTarget`
+    /// name UNSHADOWED in every codegen namespace and ZERO constructor args
+    /// (spec §2.1). EMPIRICALLY-VERIFIED LIR shape (KALI_DUMP_LIR, `const t =
+    /// new EventTarget()`): the parser hoists `new` to wrap the callee chain, so
+    /// the New-expression lowers to a text-less `Value` whose single child is a
+    /// text-less `Call` node, whose own children are `[Value(ctor), ...args]` —
+    /// i.e. `Value(None, [Call(None, [Value("EventTarget")])])` for zero args.
+    /// (The plan's "children `[Value(ctor), ...args]`" described the inner Call,
+    /// not the New wrapper.) A zero-arg construction has the inner Call with
+    /// exactly one child (the ctor); any argument makes it `>= 2` and falls out
+    /// of lane. Mirrors `scheduling_surface`'s namespace-shadowing checks.
+    pub(crate) fn is_event_target_new(&self, node: &LirNode) -> bool {
+        if node.text.is_some() || node.children.len() != 1 {
+            return false;
+        }
+        let call = self.node(node.children[0]);
+        if call.kind != LirNodeKind::Call || call.text.is_some() || call.children.len() != 1 {
+            return false;
+        }
+        let ctor = self.node(call.children[0]);
+        if ctor.text.as_deref() != Some("EventTarget") || !ctor.children.is_empty() {
+            return false;
+        }
+        !(self.locals.contains_key("EventTarget")
+            || self.bindings.contains_key("EventTarget")
+            || self.module_binding_names.contains("EventTarget")
+            || self.fn_valued_locals.contains_key("EventTarget")
+            || self.functions.contains_key("EventTarget"))
+    }
+
     pub(crate) fn is_kali_test_call(&self, callee_node: &LirNode) -> bool {
         if callee_node.text.as_deref() != Some("test") {
             return false;

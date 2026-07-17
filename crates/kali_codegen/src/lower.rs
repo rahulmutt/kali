@@ -97,6 +97,12 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     let uses_set_interval = program_calls_bare_identifier(lir, "setInterval");
     let uses_clear_timeout = program_calls_bare_identifier(lir, "clearTimeout");
     let uses_clear_interval = program_calls_bare_identifier(lir, "clearInterval");
+    // Stage D event-surface lane, appended LAST (after clearInterval) in
+    // declaration order event_target_new, event_listener_add, event_dispatch —
+    // so no earlier import or function index shifts.
+    let uses_event_target_new = program_constructs_event_target(lir);
+    let uses_event_listener_add = program_calls_member_named(lir, "addEventListener");
+    let uses_event_dispatch = program_calls_member_named(lir, "dispatchEvent");
     let uses_env_access = uses_env_get || uses_env_has || uses_env_set || uses_env_delete;
     let function_index_offset = crate::FUNCTION_INDEX_OFFSET
         + if ctx.target.coverage { 1 } else { 0 }
@@ -116,7 +122,10 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         + if uses_set_timeout { 1 } else { 0 }
         + if uses_set_interval { 1 } else { 0 }
         + if uses_clear_timeout { 1 } else { 0 }
-        + if uses_clear_interval { 1 } else { 0 };
+        + if uses_clear_interval { 1 } else { 0 }
+        + if uses_event_target_new { 1 } else { 0 }
+        + if uses_event_listener_add { 1 } else { 0 }
+        + if uses_event_dispatch { 1 } else { 0 };
     let env_get_type_index = if uses_env_access { Some(6) } else { None };
     let env_has_type_index = if uses_env_has { Some(7) } else { None };
     let cwd_set_type_index = if uses_cwd_set { Some(5) } else { None };
@@ -417,6 +426,87 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     } else {
         None
     };
+    // Stage D event-surface lane import indices — each chain is the previous
+    // import's full chain plus one term, in declaration order (event_target_new,
+    // event_listener_add, event_dispatch), appended after clearInterval.
+    let event_target_new_import_index = if uses_event_target_new {
+        Some(
+            crate::COVERAGE_HIT_IMPORT_INDEX
+                + if ctx.target.coverage { 1 } else { 0 }
+                + if uses_env_set { 1 } else { 0 }
+                + if uses_env_delete { 1 } else { 0 }
+                + if uses_env_get { 1 } else { 0 }
+                + if uses_env_has { 1 } else { 0 }
+                + if uses_cwd_set { 1 } else { 0 }
+                + if uses_process_exit { 1 } else { 0 }
+                + if uses_stdout_write_bytes { 1 } else { 0 }
+                + if uses_args_get { 1 } else { 0 }
+                + if uses_performance_now { 1 } else { 0 }
+                + if uses_crypto_get_random_values { 1 } else { 0 }
+                + if uses_crypto_random_uuid { 1 } else { 0 }
+                + if uses_crypto_subtle_digest { 1 } else { 0 }
+                + if uses_queue_microtask { 1 } else { 0 }
+                + if uses_set_timeout { 1 } else { 0 }
+                + if uses_set_interval { 1 } else { 0 }
+                + if uses_clear_timeout { 1 } else { 0 }
+                + if uses_clear_interval { 1 } else { 0 },
+        )
+    } else {
+        None
+    };
+    let event_listener_add_import_index = if uses_event_listener_add {
+        Some(
+            crate::COVERAGE_HIT_IMPORT_INDEX
+                + if ctx.target.coverage { 1 } else { 0 }
+                + if uses_env_set { 1 } else { 0 }
+                + if uses_env_delete { 1 } else { 0 }
+                + if uses_env_get { 1 } else { 0 }
+                + if uses_env_has { 1 } else { 0 }
+                + if uses_cwd_set { 1 } else { 0 }
+                + if uses_process_exit { 1 } else { 0 }
+                + if uses_stdout_write_bytes { 1 } else { 0 }
+                + if uses_args_get { 1 } else { 0 }
+                + if uses_performance_now { 1 } else { 0 }
+                + if uses_crypto_get_random_values { 1 } else { 0 }
+                + if uses_crypto_random_uuid { 1 } else { 0 }
+                + if uses_crypto_subtle_digest { 1 } else { 0 }
+                + if uses_queue_microtask { 1 } else { 0 }
+                + if uses_set_timeout { 1 } else { 0 }
+                + if uses_set_interval { 1 } else { 0 }
+                + if uses_clear_timeout { 1 } else { 0 }
+                + if uses_clear_interval { 1 } else { 0 }
+                + if uses_event_target_new { 1 } else { 0 },
+        )
+    } else {
+        None
+    };
+    let event_dispatch_import_index = if uses_event_dispatch {
+        Some(
+            crate::COVERAGE_HIT_IMPORT_INDEX
+                + if ctx.target.coverage { 1 } else { 0 }
+                + if uses_env_set { 1 } else { 0 }
+                + if uses_env_delete { 1 } else { 0 }
+                + if uses_env_get { 1 } else { 0 }
+                + if uses_env_has { 1 } else { 0 }
+                + if uses_cwd_set { 1 } else { 0 }
+                + if uses_process_exit { 1 } else { 0 }
+                + if uses_stdout_write_bytes { 1 } else { 0 }
+                + if uses_args_get { 1 } else { 0 }
+                + if uses_performance_now { 1 } else { 0 }
+                + if uses_crypto_get_random_values { 1 } else { 0 }
+                + if uses_crypto_random_uuid { 1 } else { 0 }
+                + if uses_crypto_subtle_digest { 1 } else { 0 }
+                + if uses_queue_microtask { 1 } else { 0 }
+                + if uses_set_timeout { 1 } else { 0 }
+                + if uses_set_interval { 1 } else { 0 }
+                + if uses_clear_timeout { 1 } else { 0 }
+                + if uses_clear_interval { 1 } else { 0 }
+                + if uses_event_target_new { 1 } else { 0 }
+                + if uses_event_listener_add { 1 } else { 0 },
+        )
+    } else {
+        None
+    };
 
     // Keep the emitted order deterministic: imported registration hook first, synthetic entry
     // second, then named functions in source order.
@@ -673,11 +763,35 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     // `(callback_index: i32, delay_ms: i32, env_ptr: i64) -> i32` (Stage D) —
     // registers a timer with the env active at the scheduling site and
     // returns the i32 timer id. Registered unconditionally so the type index
-    // is stable; the imports are conditional. This is now the last fixed
-    // type, so the repr-directed function types start at index 15.
+    // is stable; the imports are conditional.
     const SCHEDULING_TIMER_SET_TYPE_INDEX: u32 = 14;
     type_section.ty().function(
         vec![ValType::I32, ValType::I32, ValType::I64],
+        vec![ValType::I32],
+    );
+    // Type 15: event_target_new `() -> i64` (Stage D event lane) — returns a
+    // fresh opaque EventTarget handle.
+    const EVENT_TARGET_NEW_TYPE_INDEX: u32 = 15;
+    type_section.ty().function(vec![], vec![ValType::I64]);
+    // Type 16: event_listener_add `(target: i64, name_ptr: i32, name_len: i32,
+    // callback_index: i32, env_ptr: i64) -> ()`.
+    const EVENT_LISTENER_ADD_TYPE_INDEX: u32 = 16;
+    type_section.ty().function(
+        vec![
+            ValType::I64,
+            ValType::I32,
+            ValType::I32,
+            ValType::I32,
+            ValType::I64,
+        ],
+        vec![],
+    );
+    // Type 17: event_dispatch `(target: i64, name_ptr: i32, name_len: i32) -> i32`
+    // — synchronously invokes the snapshot of listeners, returns 1 (true).
+    // This is now the last fixed type: repr-directed function types start at 18.
+    const EVENT_DISPATCH_TYPE_INDEX: u32 = 17;
+    type_section.ty().function(
+        vec![ValType::I64, ValType::I32, ValType::I32],
         vec![ValType::I32],
     );
     let mut import_section = ImportSection::new();
@@ -845,6 +959,27 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     if clear_interval_import_index.is_some() {
         import_section.import("kali:rt", "clearInterval", EntityType::Function(0));
     }
+    if event_target_new_import_index.is_some() {
+        import_section.import(
+            "kali:rt",
+            "event_target_new",
+            EntityType::Function(EVENT_TARGET_NEW_TYPE_INDEX),
+        );
+    }
+    if event_listener_add_import_index.is_some() {
+        import_section.import(
+            "kali:rt",
+            "event_listener_add",
+            EntityType::Function(EVENT_LISTENER_ADD_TYPE_INDEX),
+        );
+    }
+    if event_dispatch_import_index.is_some() {
+        import_section.import(
+            "kali:rt",
+            "event_dispatch",
+            EntityType::Function(EVENT_DISPATCH_TYPE_INDEX),
+        );
+    }
     // Function signatures are repr-directed: each param/result ValType comes from
     // the repr table (defaulting to I64). Two functions with equal arity but
     // differing float shapes need distinct wasm types, so the dedup key is the
@@ -903,10 +1038,10 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             idx
         } else {
             // Function-signature types begin right after the fixed types
-            // (0..=SCHEDULING_TIMER_SET_TYPE_INDEX): the scheduling-timer type
-            // (type 14) is now the last fixed type, so repr-directed function
-            // types start at index 15.
-            let idx = function_types.len() as u32 + SCHEDULING_TIMER_SET_TYPE_INDEX + 1;
+            // (0..=EVENT_DISPATCH_TYPE_INDEX): the event-dispatch type (type 17)
+            // is now the last fixed type, so repr-directed function types start
+            // at index 18.
+            let idx = function_types.len() as u32 + EVENT_DISPATCH_TYPE_INDEX + 1;
             type_section.ty().function(params, results);
             function_types.insert(key, idx);
             idx
@@ -1183,6 +1318,9 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             set_interval_import_index,
             clear_timeout_import_index,
             clear_interval_import_index,
+            event_target_new_import_index,
+            event_listener_add_import_index,
+            event_dispatch_import_index,
             &mut diagnostics,
             &mut string_pool,
             ctx.source_path.clone(),
@@ -1913,6 +2051,62 @@ pub(crate) fn program_calls_bare_identifier(lir: &LirProgram, name: &str) -> boo
         };
         callee_node.text.as_deref() == Some(name)
     })
+}
+
+/// Program-wide probe for `new EventTarget(...)` (Stage D event lane).
+/// New-expressions lower to a text-less `Value` whose `children[0]` is the
+/// constructor identifier (`Value("EventTarget")`). SUPERSET of the emit-time
+/// recognizer (`FunctionEmitter::is_event_target_new`), which additionally
+/// requires the name unshadowed + ZERO args + a declarator-init position.
+/// Used only to gate the conditional import + type registration.
+pub(crate) fn program_constructs_event_target(lir: &LirProgram) -> bool {
+    lir.nodes.iter().any(|node| {
+        node.text.is_none()
+            && node.children.first().is_some_and(|&c| {
+                lir.nodes
+                    .get(c.0 as usize)
+                    .is_some_and(|n| n.text.as_deref() == Some("EventTarget"))
+            })
+    })
+}
+
+/// Program-wide probe for a MEMBER call named `name` (Stage D event lane):
+/// any node whose `text` is `name` and which has children (the receiver).
+/// SUPERSET of the emit-time recognizer (receiver provenance unchecked here).
+/// Used only to gate the conditional import + type registration.
+pub(crate) fn program_calls_member_named(lir: &LirProgram, name: &str) -> bool {
+    lir.nodes
+        .iter()
+        .any(|node| node.text.as_deref() == Some(name) && !node.children.is_empty())
+}
+
+/// Structural mirror of `FunctionEmitter::is_event_target_new` usable in
+/// locals-provisioning (before a `FunctionEmitter` exists). EMPIRICALLY-VERIFIED
+/// LIR shape (KALI_DUMP_LIR): `new EventTarget()` lowers to
+/// `Value(None, [Call(None, [Value("EventTarget")])])` — the New wrapper's
+/// single child is a text-less `Call` whose first child is the ctor identifier
+/// (zero args → the Call has exactly one child). Deliberately does NOT unwrap
+/// transparent wrappers — the New node is ITSELF a text-less single-child
+/// `Value` (same shape as a grouping/single-element-array wrapper), so
+/// unwrapping would strip it. The shadowing check is enforced at emit (this
+/// side only decides local promotion); an unshadowed match here with a
+/// shadowed name at emit simply keeps an unused local slot.
+pub(crate) fn declarator_init_is_event_target_new(nodes: &[LirNode], init_id: LirNodeId) -> bool {
+    let Some(node) = nodes.get(init_id.0 as usize) else {
+        return false;
+    };
+    if node.kind != LirNodeKind::Value || node.text.is_some() || node.children.len() != 1 {
+        return false;
+    }
+    let Some(call) = nodes.get(node.children[0].0 as usize) else {
+        return false;
+    };
+    if call.kind != LirNodeKind::Call || call.text.is_some() || call.children.len() != 1 {
+        return false;
+    }
+    nodes
+        .get(call.children[0].0 as usize)
+        .is_some_and(|ctor| ctor.text.as_deref() == Some("EventTarget") && ctor.children.is_empty())
 }
 
 /// Follows empty-text single-child `Value` wrapper nodes, mirroring
@@ -3557,6 +3751,16 @@ pub(crate) fn collect_function_locals_from_node(
                 declarator_init_call_callee_name(nodes, init),
                 Some("setTimeout") | Some("setInterval") | Some("queueMicrotask")
             );
+            // Stage D event lane: `const t = new EventTarget()` is a
+            // SIDE-EFFECTING host construction (it allocates a fresh opaque
+            // handle host-side). Like the scheduling registration calls above,
+            // its `const` binding must be a REAL local — the fold-alias tunnel
+            // would re-emit `event_target_new()` at every read site, minting a
+            // DISTINCT handle each time (a different listener registry) rather
+            // than sharing the one target. Promotion here; the handle store +
+            // provenance recording is in the emitter's declarator branch.
+            let is_event_target_construction =
+                declarator_init_is_event_target_new(nodes, init);
             if !declarator_init_is_array_alloc(nodes, init)
                 && !declarator_init_is_array_fill(nodes, init)
                 && !declarator_init_is_array_read(nodes, init, array_names)
@@ -3569,6 +3773,7 @@ pub(crate) fn collect_function_locals_from_node(
                 && !declarator_init_is_crypto_call(nodes, init)
                 && !declarator_init_contains_mutation(nodes, init)
                 && !is_scheduling_registration_call
+                && !is_event_target_construction
             {
                 continue;
             }

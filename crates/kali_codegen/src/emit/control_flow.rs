@@ -805,6 +805,64 @@ impl<'a> FunctionEmitter<'a> {
                             }
                         }
 
+                        // Stage D event lane: `const/let t = new EventTarget()`.
+                        // This is the ONE position a handle acquires stable
+                        // provenance — emit the host construction call, store the
+                        // opaque i64 handle into the binding's promoted local, and
+                        // record the name so every later read fails closed at the
+                        // identifier choke point (handle-escape discipline). The
+                        // init node is inspected RAW (never `unwrap_transparent`):
+                        // the New node is itself a text-less single-child `Value`,
+                        // so unwrapping would strip it to the bare
+                        // `Value("EventTarget")` and defeat the recognizer.
+                        {
+                            let init_node = self.node(init).clone();
+                            if self.is_event_target_new(&init_node) {
+                                let Some(name) = declarator.text.clone() else {
+                                    // A destructuring/no-name declarator holding a
+                                    // construction has no binding to carry
+                                    // provenance — fail closed, never a leaked
+                                    // handle.
+                                    self.diagnostics.push(Diagnostic::error(
+                                        e5::FEATURE_UNAVAILABLE as u32,
+                                        "a 'new EventTarget()' must be bound by a declarator (const t = new EventTarget()); an unbound handle has no stable provenance".to_string(),
+                                    ));
+                                    function.instruction(&Instruction::Unreachable);
+                                    continue;
+                                };
+                                let Some(import_index) = self.event_target_new_import_index
+                                else {
+                                    // The program-wide probe gates the import;
+                                    // any in-lane construction reaching emit MUST
+                                    // have flipped it. A miss is a probe/emit
+                                    // desync, not a user error — fail closed.
+                                    self.diagnostics.push(Diagnostic::error(
+                                        e5::FEATURE_UNAVAILABLE as u32,
+                                        "internal: 'new EventTarget()' reached emit without its host import (probe/emit desync)".to_string(),
+                                    ));
+                                    function.instruction(&Instruction::Unreachable);
+                                    continue;
+                                };
+                                let Some(index) = self.locals.get(&name).copied() else {
+                                    // Locals provisioning promotes every in-lane
+                                    // construction to a slot; a miss is a
+                                    // provisioning bug — fail closed.
+                                    self.diagnostics.push(Diagnostic::error(
+                                        e5::FEATURE_UNAVAILABLE as u32,
+                                        format!(
+                                            "EventTarget binding `{name}` must be declared with a local slot"
+                                        ),
+                                    ));
+                                    function.instruction(&Instruction::Unreachable);
+                                    continue;
+                                };
+                                function.instruction(&Instruction::Call(import_index));
+                                function.instruction(&Instruction::LocalSet(index));
+                                self.event_target_locals.insert(name);
+                                continue;
+                            }
+                        }
+
                         // Materialized object-literal binding: `const p = {…}`
                         // whose inferred repr is Object(shape) — allocate the
                         // fixed-layout struct and bind the base pointer.
@@ -1210,6 +1268,24 @@ impl<'a> FunctionEmitter<'a> {
         want_value: bool,
     ) -> EmittedValue {
         if node.text.is_none() {
+            // Stage D event lane: a `new EventTarget()` reaching the generic
+            // value path is OUTSIDE a declarator-init (a bare expression
+            // statement, an assignment RHS, or a call argument) — the
+            // declarator construction lane intercepts and `continue`s before
+            // any init reaches here. Such a construction has no binding to carry
+            // its opaque handle's provenance, so fail closed rather than emit an
+            // untracked handle (or the drop-and-push-0 aggregate placeholder,
+            // which would silently discard the constructor).
+            if self.is_event_target_new(node) {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "a 'new EventTarget()' must be bound by a declarator (const t = new EventTarget()); an unbound handle has no stable provenance".to_string(),
+                ));
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            }
             // `new TextEncoder().encode(<string>)` (throw-fallout Stage 3 bucket #6
             // part 2): the parser hoists the `new` to wrap the whole member-call
             // chain, so this arrives as a text-less 1-child wrapper (the `new`)
@@ -1285,6 +1361,33 @@ impl<'a> FunctionEmitter<'a> {
         match node.children.len() {
             0 => {
                 if let Some(text) = node.text.as_deref() {
+                    // Stage D event-lane handle-escape choke point (spec §2.4):
+                    // a binding holding an opaque `new EventTarget()` handle may
+                    // ONLY be consumed as the receiver of
+                    // addEventListener/dispatchEvent — and Task 4's emit arms
+                    // read that receiver directly (a local/global access), never
+                    // through this generic identifier lane. Every OTHER read
+                    // (`console.log(t)`, `t` as an argument, arithmetic on `t`,
+                    // a `return t`) reaches HERE and fails closed: the raw i64
+                    // handle must never escape as an observable value. Allowlist
+                    // safe positions at the single read site, don't denylist
+                    // sinks (the Spec-4a lesson) — the deny is total by
+                    // construction because the only allowed consumer bypasses
+                    // this lane entirely.
+                    if self.event_target_locals.contains(text) {
+                        self.diagnostics.push(Diagnostic::error(
+                            e5::FEATURE_UNAVAILABLE as u32,
+                            format!(
+                                "'{text}' holds an EventTarget handle, which may only be used as the \
+                                 receiver of addEventListener/dispatchEvent in the current phase; any \
+                                 other use would leak the internal handle representation"
+                            ),
+                        ));
+                        return EmittedValue {
+                            produced: false,
+                            shape: ValueShape::Unknown,
+                        };
+                    }
                     // Spec 4a Task 5: a for-in key (or alias) emitted in a
                     // STRING-VALUE context materializes its interned field-name
                     // handle from this loop's key handle table at `base + ord*8`,
