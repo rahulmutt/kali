@@ -680,8 +680,11 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     });
     all_functions.extend(function_plans);
 
+    let mut function_param_counts: BTreeMap<u32, usize> = BTreeMap::new();
     for (idx, function) in all_functions.iter().enumerate() {
-        function_name_to_index.insert(function.name.clone(), idx as u32 + function_index_offset);
+        let windex = idx as u32 + function_index_offset;
+        function_name_to_index.insert(function.name.clone(), windex);
+        function_param_counts.insert(windex, function.params.len());
     }
 
     let mut type_section = TypeSection::new();
@@ -1301,6 +1304,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         let mut emitter = FunctionEmitter::new(
             lir,
             &function_name_to_index,
+            &function_param_counts,
             env_set_import_index,
             env_delete_import_index,
             env_get_import_index,
@@ -2107,6 +2111,46 @@ pub(crate) fn declarator_init_is_event_target_new(nodes: &[LirNode], init_id: Li
     nodes
         .get(call.children[0].0 as usize)
         .is_some_and(|ctor| ctor.text.as_deref() == Some("EventTarget") && ctor.children.is_empty())
+}
+
+/// True when `init_id` is a `dispatchEvent(...)` MEMBER call (Stage D event
+/// lane). EMPIRICALLY-VERIFIED shape (KALI_DUMP_LIR, `const ok =
+/// t.dispatchEvent(...)`): the init is the raw `Call(None, [Value("dispatchEvent",
+/// [receiver]), event])`. A `const ok = t.dispatchEvent(...)` binding MUST be a
+/// REAL local — the fold-alias tunnel (`FunctionEmitter::bindings`) would
+/// re-emit the dispatch at every read of `ok`, re-invoking EVERY listener
+/// synchronously each time — an observable duplicate-dispatch miscompile, not a
+/// missed optimization. (The recognizer is receiver-agnostic: promoting an
+/// out-of-lane dispatch binding to a local is a harmless slot reservation.)
+pub(crate) fn declarator_init_is_event_dispatch(nodes: &[LirNode], init_id: LirNodeId) -> bool {
+    let mut id = init_id;
+    let mut guard = 0;
+    loop {
+        let Some(node) = nodes.get(id.0 as usize) else {
+            return false;
+        };
+        if node.kind == LirNodeKind::Value
+            && node.text.as_deref() == Some("")
+            && !node.children.is_empty()
+        {
+            id = *node.children.last().expect("sequence wrapper has a child");
+            guard += 1;
+            if guard > 64 {
+                return false;
+            }
+            continue;
+        }
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+        let Some(&callee) = node.children.first() else {
+            return false;
+        };
+        return nodes.get(callee.0 as usize).is_some_and(|callee_node| {
+            callee_node.text.as_deref() == Some("dispatchEvent")
+                && !callee_node.children.is_empty()
+        });
+    }
 }
 
 /// Follows empty-text single-child `Value` wrapper nodes, mirroring
@@ -3761,6 +3805,13 @@ pub(crate) fn collect_function_locals_from_node(
             // provenance recording is in the emitter's declarator branch.
             let is_event_target_construction =
                 declarator_init_is_event_target_new(nodes, init);
+            // Stage D event lane: `const ok = t.dispatchEvent(...)` is a
+            // SIDE-EFFECTING host dispatch (it synchronously re-invokes every
+            // registered listener). Its `const` binding must be a REAL local —
+            // the fold-alias tunnel would re-emit the dispatch at each read of
+            // `ok`, re-running all listeners again (a duplicate-dispatch
+            // miscompile).
+            let is_event_dispatch_result = declarator_init_is_event_dispatch(nodes, init);
             if !declarator_init_is_array_alloc(nodes, init)
                 && !declarator_init_is_array_fill(nodes, init)
                 && !declarator_init_is_array_read(nodes, init, array_names)
@@ -3774,6 +3825,7 @@ pub(crate) fn collect_function_locals_from_node(
                 && !declarator_init_contains_mutation(nodes, init)
                 && !is_scheduling_registration_call
                 && !is_event_target_construction
+                && !is_event_dispatch_result
             {
                 continue;
             }

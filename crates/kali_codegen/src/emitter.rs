@@ -69,6 +69,10 @@ pub(crate) struct FunctionEmitter<'a> {
     pub(crate) node_lookup: &'a [LirNode],
     pub(crate) scratch_nodes: Vec<LirNode>,
     pub(crate) functions: &'a BTreeMap<String, u32>,
+    /// Wasm function index -> declared parameter count. Threaded from
+    /// `lower.rs` alongside `functions` so an emit arm can gate on a resolved
+    /// callback's arity (Stage D event lane: zero-parameter listeners only).
+    pub(crate) function_param_counts: &'a BTreeMap<u32, usize>,
     pub(crate) env_set_import_index: Option<u32>,
     pub(crate) env_delete_import_index: Option<u32>,
     pub(crate) env_get_import_index: Option<u32>,
@@ -93,11 +97,8 @@ pub(crate) struct FunctionEmitter<'a> {
     /// Stage D event-lane host import indices (`Some` only when the matching
     /// program-wide probe fired; appended after clear_interval).
     pub(crate) event_target_new_import_index: Option<u32>,
-    /// Consumed by the Task 4 addEventListener/dispatchEvent emit arms (this
-    /// task plumbs the indices; the arms that read them land next).
-    #[allow(dead_code)]
+    /// Consumed by the Task 4 addEventListener/dispatchEvent emit arms.
     pub(crate) event_listener_add_import_index: Option<u32>,
-    #[allow(dead_code)]
     pub(crate) event_dispatch_import_index: Option<u32>,
     /// Locals/module bindings with stable provenance to `new EventTarget()`
     /// (declarator-recorded, the `fn_valued_locals` pattern). Reads outside the
@@ -264,6 +265,7 @@ impl<'a> FunctionEmitter<'a> {
     pub(crate) fn new(
         program: &'a LirProgram,
         functions: &'a BTreeMap<String, u32>,
+        function_param_counts: &'a BTreeMap<u32, usize>,
         env_set_import_index: Option<u32>,
         env_delete_import_index: Option<u32>,
         env_get_import_index: Option<u32>,
@@ -350,6 +352,7 @@ impl<'a> FunctionEmitter<'a> {
             node_lookup: &program.nodes,
             scratch_nodes: Vec::new(),
             functions,
+            function_param_counts,
             env_set_import_index,
             env_delete_import_index,
             env_get_import_index,
@@ -494,6 +497,14 @@ impl<'a> FunctionEmitter<'a> {
     /// `emit_loop`'s per-iteration reset and by `emit_arena_release`.
     pub(crate) fn arena_reset_fn_index(&self) -> u32 {
         self.functions["__arena_reset"]
+    }
+
+    /// Declared parameter count of the compiled function at wasm index
+    /// `index`, or `None` if the index names no user/synthetic function
+    /// (e.g. a raw import index). Stage D event lane gates listeners on
+    /// `Some(0)`.
+    pub(crate) fn function_param_count_by_index(&self, index: u32) -> Option<usize> {
+        self.function_param_counts.get(&index).copied()
     }
 
     /// WASM global index of `current_env` (Stage C closures): the active

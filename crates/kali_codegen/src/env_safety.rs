@@ -165,6 +165,19 @@ fn is_scheduling_registration_callee(nodes: &[LirNode], callee: LirNodeId) -> bo
     })
 }
 
+/// True when `callee` is a MEMBER callee named `addEventListener` (it has a
+/// receiver child). The callback argument (`children[2]`) is registered for a
+/// later host-driven invocation with the env active at the registration site,
+/// so it inherits the same Record(owner) requirement as `Kali.test` /
+/// scheduling registrations (Stage D event lane). Receiver provenance is
+/// deliberately ignored: a spurious edge from an out-of-lane receiver is a safe
+/// over-approximation (this analysis only ever REJECTS more).
+fn is_event_registration_callee(nodes: &[LirNode], callee: LirNodeId) -> bool {
+    nodes.get(callee.0 as usize).is_some_and(|node| {
+        !node.children.is_empty() && node.text.as_deref() == Some("addEventListener")
+    })
+}
+
 /// Compute the dynamic-env safety diagnostics for the whole program: one
 /// E5506 per (caller, capturer) edge whose call/registration site cannot be
 /// proven to run with the capturer's owner record in `current_env`.
@@ -333,6 +346,8 @@ pub(crate) fn env_capture_safety_diagnostics(
                         node.children.get(2).copied()
                     } else if is_scheduling_registration_callee(&lir.nodes, callee) {
                         node.children.get(1).copied()
+                    } else if is_event_registration_callee(&lir.nodes, callee) {
+                        node.children.get(2).copied()
                     } else {
                         Some(callee)
                     };

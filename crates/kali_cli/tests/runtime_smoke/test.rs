@@ -657,10 +657,18 @@ fn json_test_supports_web_baseline_structured_clone_and_event_primitives_in_ts_a
         assert_eq!(json["success"], false);
         let code = json["errors"][0]["code"].as_str().unwrap_or_default();
         let harness_stderr = json["stderr"].as_str().unwrap_or_default();
+        // Stage D event lane (evD): the EventTarget/addEventListener/
+        // dispatchEvent primitives in this fixture now compile and RUN in-lane,
+        // so the fail-closed rejection shifted from a compile-time event E5506
+        // to the first genuinely-unsupported primitive — `structuredClone`'s
+        // deep-clone throw, surfacing as an E4000 runtime trap in the harness
+        // stderr (with an empty top-level `errors`). Still fail-closed
+        // (`success == false`); accept the E4000 trap text as a recognized mode.
         assert!(
             code == "E4000"
                 || code == "E5506"
-                || harness_stderr.contains("RuntimeError: unreachable"),
+                || harness_stderr.contains("RuntimeError: unreachable")
+                || harness_stderr.contains("E4000"),
             "expected fail-closed trap or reject, got: {json}"
         );
     }
@@ -704,10 +712,18 @@ fn json_test_supports_web_baseline_structured_clone_and_event_primitives_when_br
         assert_eq!(json["success"], false);
         let code = json["errors"][0]["code"].as_str().unwrap_or_default();
         let harness_stderr = json["stderr"].as_str().unwrap_or_default();
+        // Stage D event lane (evD): the EventTarget/addEventListener/
+        // dispatchEvent primitives in this fixture now compile and RUN in-lane,
+        // so the fail-closed rejection shifted from a compile-time event E5506
+        // to the first genuinely-unsupported primitive — `structuredClone`'s
+        // deep-clone throw, surfacing as an E4000 runtime trap in the harness
+        // stderr (with an empty top-level `errors`). Still fail-closed
+        // (`success == false`); accept the E4000 trap text as a recognized mode.
         assert!(
             code == "E4000"
                 || code == "E5506"
-                || harness_stderr.contains("RuntimeError: unreachable"),
+                || harness_stderr.contains("RuntimeError: unreachable")
+                || harness_stderr.contains("E4000"),
             "expected fail-closed trap or reject, got: {json}"
         );
     }
@@ -761,10 +777,18 @@ fn json_test_supports_web_baseline_structured_clone_and_event_primitives_when_br
         assert_eq!(json["success"], false);
         let code = json["errors"][0]["code"].as_str().unwrap_or_default();
         let harness_stderr = json["stderr"].as_str().unwrap_or_default();
+        // Stage D event lane (evD): the EventTarget/addEventListener/
+        // dispatchEvent primitives in this fixture now compile and RUN in-lane,
+        // so the fail-closed rejection shifted from a compile-time event E5506
+        // to the first genuinely-unsupported primitive — `structuredClone`'s
+        // deep-clone throw, surfacing as an E4000 runtime trap in the harness
+        // stderr (with an empty top-level `errors`). Still fail-closed
+        // (`success == false`); accept the E4000 trap text as a recognized mode.
         assert!(
             code == "E4000"
                 || code == "E5506"
-                || harness_stderr.contains("RuntimeError: unreachable"),
+                || harness_stderr.contains("RuntimeError: unreachable")
+                || harness_stderr.contains("E4000"),
             "expected fail-closed trap or reject, got: {json}"
         );
     }

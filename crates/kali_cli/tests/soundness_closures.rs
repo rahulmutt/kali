@@ -599,10 +599,44 @@ fn deferred_set_timeout_capturing_callback_row_p_now_runs() {
 /// uses `EventTarget`/`CustomEvent`/`dispatchEvent`, which emit E3100 fallback
 /// WARNINGS; the load-bearing rejection is the E5506 on the capturing listener.)
 #[test]
-fn deferred_add_event_listener_capturing_callback_fails_closed() {
-    assert_e5506(
+/// DELIBERATE CAPABILITY FLIP (Stage D event lane, Task 4): this fixture's
+/// receiver is a declarator-bound `let t = new EventTarget()` (in-lane), so the
+/// capturing listener now registers and — because the fixture dispatches — RUNS
+/// synchronously, mutating the captured `base` through its env cell. Previously
+/// `addEventListener` took the Stage C backstop and failed closed E5506. The
+/// env_safety member edge (registration inherits Record(owner)) keeps the
+/// capture sound. node v26.5.0: "ev=6\nsync=6\n".
+#[test]
+fn deferred_add_event_listener_capturing_callback_now_runs() {
+    let out = run_kali(
         "function outer(){ let base = 5; let t = new EventTarget(); t.addEventListener(\"tick\", function(){ base += 1; console.log(\"ev=\"+base); }); t.dispatchEvent(new CustomEvent(\"tick\")); console.log(\"sync=\"+base); } outer();\n",
     );
+    assert!(
+        out.status.success(),
+        "capturing listener on an in-lane EventTarget must run; stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "ev=6\nsync=6\n");
+}
+
+/// Boundary pin: module-scope capturing listener registers and fires via
+/// dispatch (the bg-series analog for the event lane).
+/// node v26.5.0: "sync=0\nev=1\n".
+#[test]
+fn event_module_scope_capture_listener_now_runs() {
+    let out = run_kali(
+        r#"let base = 0;
+const t = new EventTarget();
+t.addEventListener("tick", function () {
+  base += 1;
+  console.log("ev=" + base);
+});
+console.log("sync=" + base);
+t.dispatchEvent(new CustomEvent("tick"));
+"#,
+    );
+    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "sync=0\nev=1\n");
 }
 
 /// Boundary guard 1: a MODULE-SCOPE callback mutating a module global via

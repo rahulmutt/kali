@@ -137,6 +137,79 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
 
+        // Stage D event lane: `t.addEventListener(type, cb)` /
+        // `t.dispatchEvent(new CustomEvent(type))` where `t` has provable
+        // `new EventTarget()` provenance. A member callee named
+        // addEventListener/dispatchEvent with a receiver whose local is a
+        // recorded event-target handle takes the real registration/dispatch
+        // emit arm; anything else (unknown receiver, unstable provenance) falls
+        // through to the pre-lane backstop unchanged (out-of-lane behavior
+        // preserved this stage — spec §2 out-of-lane).
+        if callee_node.text.as_deref() == Some("addEventListener")
+            && !callee_node.children.is_empty()
+        {
+            if let Some(receiver) = self.event_target_receiver(&callee_node) {
+                let receiver = receiver.to_string();
+                return self.emit_event_listener_add(function, node, &receiver);
+            }
+            if self.member_receiver_is_free_identifier(&callee_node) {
+                return self.deny_captured_event_receiver("addEventListener");
+            }
+        }
+        if callee_node.text.as_deref() == Some("dispatchEvent") && !callee_node.children.is_empty() {
+            if let Some(receiver) = self.event_target_receiver(&callee_node) {
+                // Emit the real dispatch ONLY for a FULLY in-lane argument (an
+                // inline `new CustomEvent(<string literal>)`). An out-of-lane
+                // argument (a bound event, `new Event(...)`, a CustomEvent with
+                // detail) on an in-lane receiver keeps PRE-LANE behavior (spec
+                // §2 out-of-lane preservation): fall through to the backstop and
+                // build — the web-baseline corpus registers an in-lane listener
+                // and then dispatches such shapes, and must stay deployable. The
+                // resulting silent-drop is the inventoried out-of-lane residual
+                // (Stage P3), NOT a widening of the backstop.
+                if node.children.len() == 2
+                    && self
+                        .event_dispatch_literal(self.node(node.children[1]))
+                        .is_some()
+                {
+                    let receiver = receiver.to_string();
+                    return self.emit_event_dispatch(function, node, &receiver);
+                }
+            } else if self.member_receiver_is_free_identifier(&callee_node) {
+                return self.deny_captured_event_receiver("dispatchEvent");
+            }
+        }
+        // Handle-escape discipline (spec §2.4): the add/dispatch arms above
+        // consumed the two supported methods on an in-lane EventTarget receiver
+        // (an add/dispatch that fell through did so only for an out-of-lane
+        // ARGUMENT, which is deliberately PRESERVED on the backstop above — not
+        // re-denied here). ANY OTHER method on such a receiver
+        // (`removeEventListener`, etc.) has no lowering — fail closed rather than
+        // let the backstop silently drop it (a `t.removeEventListener(...)` drop
+        // makes a later dispatch diverge from node, which would no longer see the
+        // removed listener).
+        if !callee_node.children.is_empty()
+            && !matches!(
+                callee_node.text.as_deref(),
+                Some("addEventListener") | Some("dispatchEvent")
+            )
+            && self.event_target_receiver(&callee_node).is_some()
+        {
+            let method = callee_node.text.as_deref().unwrap_or("<method>");
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "'{method}' is not supported on an EventTarget in the current phase; only \
+                     addEventListener/dispatchEvent have a lowering, and any other method would \
+                     be silently dropped"
+                ),
+            ));
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
+
         if self.is_kali_write_stdout_bytes_call(&callee_node) {
             let Some(index) = self.stdout_write_bytes_import_index else {
                 // Mirror the sibling `Kali.test` gate above: push the diagnostic
@@ -3067,6 +3140,199 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::Unknown,
                 }
             }
+        }
+    }
+
+    /// True when a member call's receiver (`callee_node.children[0]`) is a bare
+    /// identifier NOT bound in the current function (neither a local nor a
+    /// module binding) — i.e. a free/captured variable. The construction lane
+    /// only ever records an EventTarget handle into a CURRENT-function local, so
+    /// a free receiver can never be a provable in-lane handle here; if it IS one
+    /// (an event target constructed in an enclosing scope and captured), the
+    /// backstop would SILENTLY DROP the registration/dispatch — a proven
+    /// divergence from node (the listener never fires). Fail closed instead.
+    fn member_receiver_is_free_identifier(&self, callee_node: &LirNode) -> bool {
+        let Some(&receiver) = callee_node.children.first() else {
+            return false;
+        };
+        let receiver_node = self.node(receiver);
+        if !receiver_node.children.is_empty() {
+            return false;
+        }
+        let Some(name) = receiver_node.text.as_deref() else {
+            return false;
+        };
+        !self.locals.contains_key(name) && !self.module_binding_names.contains(name)
+    }
+
+    fn deny_captured_event_receiver(&mut self, surface: &str) -> EmittedValue {
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            format!(
+                "a '{surface}' receiver must be a locally-bound EventTarget in the current phase; \
+                 a captured or free receiver has no provable provenance and its \
+                 registration/dispatch would be silently dropped"
+            ),
+        ));
+        EmittedValue {
+            produced: false,
+            shape: ValueShape::Unknown,
+        }
+    }
+
+    /// Load a recorded EventTarget handle onto the stack (i64) by reading its
+    /// promoted local DIRECTLY — the construction lane stored the handle with a
+    /// `LocalSet` into `self.locals[name]`, so the receiver load mirrors it with
+    /// a `LocalGet`. This BYPASSES the generic identifier lane on purpose: that
+    /// lane's handle-escape choke point denies every bare read of an
+    /// `event_target_locals` name (total by construction), and this direct load
+    /// is the single allowed consumer. `event_target_receiver` already proved
+    /// the name is a recorded handle; a missing local is a provisioning desync,
+    /// not a user error — fail closed.
+    fn emit_event_target_handle_load(&mut self, function: &mut Function, receiver: &str) -> bool {
+        let Some(&index) = self.locals.get(receiver) else {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!("EventTarget binding `{receiver}` must be declared with a local slot"),
+            ));
+            return false;
+        };
+        function.instruction(&Instruction::LocalGet(index));
+        true
+    }
+
+    fn emit_event_listener_add(
+        &mut self,
+        function: &mut Function,
+        node: &LirNode,
+        receiver: &str,
+    ) -> EmittedValue {
+        let fail_closed = |this: &mut Self, message: String| {
+            this.diagnostics
+                .push(Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, message));
+            EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            }
+        };
+        // node.children: [callee, name, callback] — exactly 2 args (an
+        // options/once/capture third argument has no lowering — spec §2.2).
+        if node.children.len() != 3 {
+            return fail_closed(
+                self,
+                "addEventListener supports exactly (type, listener) in the current phase; \
+                 options have no lowering"
+                    .to_string(),
+            );
+        }
+        // Event type: a string literal only.
+        let Some(event_type) = self.string_literal_text(node.children[1]) else {
+            return fail_closed(
+                self,
+                "an addEventListener event type must be a string literal in the current phase"
+                    .to_string(),
+            );
+        };
+        // Callback: the scheduling-lane provenance resolver (member layout puts
+        // the callback at children[2]); its default-deny tail applies identically.
+        let callback_index = match self.scheduling_callback_at(node, 2) {
+            SchedulingCallback::Resolved(index) => index,
+            SchedulingCallback::Deny => {
+                return fail_closed(
+                    self,
+                    "an addEventListener listener must resolve through stable provenance to a \
+                     compiled function; an unresolvable listener would be silently dropped"
+                        .to_string(),
+                )
+            }
+        };
+        // Zero-parameter listeners only (no Event-object repr yet — spec §2.2).
+        if self.function_param_count_by_index(callback_index) != Some(0) {
+            return fail_closed(
+                self,
+                "an addEventListener listener must declare zero parameters in the current \
+                 phase (there is no Event-object lowering yet)"
+                    .to_string(),
+            );
+        }
+        let Some(import) = self.event_listener_add_import_index else {
+            return fail_closed(
+                self,
+                "event_listener_add import unavailable (probe/emit desync)".to_string(),
+            );
+        };
+        if !self.emit_event_target_handle_load(function, receiver) {
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
+        let (offset, len) = self.strings.intern(&event_type);
+        function.instruction(&Instruction::I32Const(offset as i32));
+        function.instruction(&Instruction::I32Const(len as i32));
+        function.instruction(&Instruction::I32Const(callback_index as i32));
+        function.instruction(&Instruction::GlobalGet(self.current_env_global()));
+        function.instruction(&Instruction::Call(import));
+        EmittedValue {
+            produced: false,
+            shape: ValueShape::Unknown,
+        }
+    }
+
+    fn emit_event_dispatch(
+        &mut self,
+        function: &mut Function,
+        node: &LirNode,
+        receiver: &str,
+    ) -> EmittedValue {
+        let fail_closed = |this: &mut Self, message: String| {
+            this.diagnostics
+                .push(Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, message));
+            EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            }
+        };
+        // node.children: [callee, event] — exactly 1 arg, an INLINE
+        // `new CustomEvent(<string literal>)` (spec §2.3). The argument is
+        // inspected RAW (never `unwrap_transparent`): the New node is itself a
+        // text-less single-child `Value` wrapper that `event_dispatch_literal`
+        // descends, and unwrapping would strip it.
+        if node.children.len() != 2 {
+            return fail_closed(
+                self,
+                "dispatchEvent takes exactly one event argument".to_string(),
+            );
+        }
+        let Some(event_type) = self.event_dispatch_literal(self.node(node.children[1])) else {
+            return fail_closed(
+                self,
+                "a dispatchEvent argument must be an inline `new CustomEvent(<string literal>)` \
+                 in the current phase (bound events, detail, and options have no lowering)"
+                    .to_string(),
+            );
+        };
+        let Some(import) = self.event_dispatch_import_index else {
+            return fail_closed(
+                self,
+                "event_dispatch import unavailable (probe/emit desync)".to_string(),
+            );
+        };
+        if !self.emit_event_target_handle_load(function, receiver) {
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
+        let (offset, len) = self.strings.intern(&event_type);
+        function.instruction(&Instruction::I32Const(offset as i32));
+        function.instruction(&Instruction::I32Const(len as i32));
+        function.instruction(&Instruction::Call(import));
+        // Host returns i32 1 (true); kali booleans/scalars are i64.
+        function.instruction(&Instruction::I64ExtendI32S);
+        EmittedValue {
+            produced: true,
+            shape: ValueShape::Unknown,
         }
     }
 

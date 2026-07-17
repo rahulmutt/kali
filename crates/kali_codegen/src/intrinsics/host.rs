@@ -14,6 +14,26 @@ pub(crate) fn semver_min_version(range: &str) -> Option<String> {
         .map(|version| version.to_string())
 }
 
+/// The content of a genuinely-quoted string literal (`"tick"`/`'tick'`/`` `tick` ``),
+/// delimiters removed. `None` for anything not delimited by a matching quote
+/// pair (a numeric/boolean/`null` literal, a bareword) — so a non-string literal
+/// in a string-only position falls out of lane rather than being coerced.
+fn quoted_string_literal_content(text: &str) -> Option<String> {
+    let trimmed = text.trim();
+    let bytes = trimmed.as_bytes();
+    if bytes.len() >= 2 {
+        let first = bytes[0];
+        let last = bytes[bytes.len() - 1];
+        if (first == b'"' && last == b'"')
+            || (first == b'\'' && last == b'\'')
+            || (first == b'`' && last == b'`')
+        {
+            return Some(trimmed[1..trimmed.len() - 1].to_string());
+        }
+    }
+    None
+}
+
 /// Stage D scheduling surfaces codegen emits real registrations for.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum SchedulingSurface {
@@ -796,6 +816,76 @@ impl<'a> FunctionEmitter<'a> {
             || self.functions.contains_key("EventTarget"))
     }
 
+    /// Resolve a member-call receiver to an event-target local with stable
+    /// provenance (Stage D event lane): the callee's child 0 is a bare `Value`
+    /// identifier recorded in `event_target_locals` and not since made unstable
+    /// (`unstable_provenance_names`). Returns the binding name so the emit arm
+    /// can load the receiver's local DIRECTLY, bypassing the generic identifier
+    /// lane (whose handle-escape choke point denies every bare read of these
+    /// names — that deny is total by construction, and this direct load is the
+    /// single allowed consumer).
+    pub(crate) fn event_target_receiver(&self, callee_node: &LirNode) -> Option<&str> {
+        let &receiver = callee_node.children.first()?;
+        let receiver_node = self.node(receiver);
+        if !receiver_node.children.is_empty() {
+            return None;
+        }
+        let name = receiver_node.text.as_deref()?;
+        if self.unstable_provenance_names.contains(name) {
+            return None;
+        }
+        self.event_target_locals.contains(name).then_some(name)
+    }
+
+    /// Validate a `dispatchEvent` argument as an INLINE `new CustomEvent(<lit>)`
+    /// with an unshadowed `CustomEvent` and exactly one STRING-literal arg;
+    /// returns the (delimiter-stripped) event-type text. EMPIRICALLY-VERIFIED
+    /// shape (KALI_DUMP_LIR, `t.dispatchEvent(new CustomEvent("tick"))`): the
+    /// argument is the New wrapper `Value(None, [Call(None, [Value("CustomEvent"),
+    /// Literal("\"tick\"")])])`. This mirrors `is_event_target_new`'s
+    /// wrapper->Call descent — it takes the RAW wrapper node and must NOT be
+    /// handed an `unwrap_transparent`-stripped node (that would strip the wrapper
+    /// this validator expects). Anything else (bound event, `detail`, extra
+    /// args, shadowed ctor) falls out of lane.
+    pub(crate) fn event_dispatch_literal(&self, node: &LirNode) -> Option<String> {
+        if node.text.is_some() || node.children.len() != 1 {
+            return None;
+        }
+        let call = self.node(node.children[0]);
+        if call.kind != LirNodeKind::Call || call.text.is_some() || call.children.len() != 2 {
+            return None;
+        }
+        let ctor = self.node(call.children[0]);
+        if ctor.text.as_deref() != Some("CustomEvent") || !ctor.children.is_empty() {
+            return None;
+        }
+        if self.locals.contains_key("CustomEvent")
+            || self.bindings.contains_key("CustomEvent")
+            || self.module_binding_names.contains("CustomEvent")
+            || self.fn_valued_locals.contains_key("CustomEvent")
+            || self.functions.contains_key("CustomEvent")
+        {
+            return None;
+        }
+        let arg = self.node(call.children[1]);
+        if arg.kind != LirNodeKind::Literal || !arg.children.is_empty() {
+            return None;
+        }
+        quoted_string_literal_content(arg.text.as_deref()?)
+    }
+
+    /// The delimiter-stripped content of a string-literal argument (unwrapping
+    /// transparent grouping wrappers first). `None` for a numeric/boolean/`null`
+    /// literal or any non-literal — the event-type / listener-type positions are
+    /// string-literal-only this phase.
+    pub(crate) fn string_literal_text(&self, id: LirNodeId) -> Option<String> {
+        let node = self.node(self.unwrap_transparent(id));
+        if node.kind != LirNodeKind::Literal || !node.children.is_empty() {
+            return None;
+        }
+        quoted_string_literal_content(node.text.as_deref()?)
+    }
+
     pub(crate) fn is_kali_test_call(&self, callee_node: &LirNode) -> bool {
         if callee_node.text.as_deref() != Some("test") {
             return false;
@@ -848,7 +938,20 @@ impl<'a> FunctionEmitter<'a> {
     /// their soundness is `env_safety`'s job (registration edges), not this
     /// resolver's.
     pub(crate) fn scheduling_callback(&self, node: &LirNode) -> SchedulingCallback {
-        let Some(&cb) = node.children.get(1) else {
+        self.scheduling_callback_at(node, 1)
+    }
+
+    /// The provenance resolver above, parameterized on the callback's child
+    /// position. Bare scheduling calls put the callback at `children[1]`
+    /// (`scheduling_callback`); a MEMBER call — `t.addEventListener(type, cb)`
+    /// — puts it at `children[2]` (the receiver-bearing callee is child 0, the
+    /// event-type literal is child 1). One resolver, one default-deny tail.
+    pub(crate) fn scheduling_callback_at(
+        &self,
+        node: &LirNode,
+        callback_child_index: usize,
+    ) -> SchedulingCallback {
+        let Some(&cb) = node.children.get(callback_child_index) else {
             return SchedulingCallback::Deny;
         };
         let cb = self.unwrap_transparent(cb);
