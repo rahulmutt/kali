@@ -124,6 +124,10 @@ pub(crate) struct FunctionEmitter<'a> {
     /// Name of the function currently being emitted, used to key `repr_table`
     /// lookups (the synthetic entry is `_start`).
     pub(crate) function_name: String,
+    /// LIR body root of the function currently being emitted. Retained so a
+    /// declarator walk (e.g. `binding_is_placeholder_construct`) can inspect
+    /// this function's own bindings at emit time.
+    pub(crate) body: LirNodeId,
     pub(crate) current_function_flavor: Option<FunctionFlavor>,
     pub(crate) locals: BTreeMap<String, u32>,
     pub(crate) bindings: BTreeMap<String, LirNodeId>,
@@ -387,6 +391,7 @@ impl<'a> FunctionEmitter<'a> {
             repr_table,
             arena_table,
             function_name: function_name.to_string(),
+            body,
             current_function_flavor,
             locals,
             bindings: BTreeMap::new(),

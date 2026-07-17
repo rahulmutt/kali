@@ -51,17 +51,19 @@ pub(crate) enum SchedulingCallback {
     Resolved(u32),
     /// Everything else: unresolvable/unstable provenance — fail closed E5506.
     Deny,
-    /// Resolved to a compiled function, but its env plan carries a NON-lowered
-    /// SCALAR capture (a param/string/float binding the closure machinery does
-    /// not promote — the deferred callback would read a placeholder 0). Fail
-    /// closed E5506; the payload is the capture class label for the diagnostic.
-    /// Task 9 C-1 (scalar-only deny, per the user decision): the deferred lane
-    /// does NOT restore a captured binding's real value, so a scalar capture —
-    /// where node computes a concrete value kali would silently replace with 0 —
-    /// is a soundness fail-open. Non-scalar zero-placeholder captures (an
-    /// unsupported `Object`-shaped construct that has NO correct value either
-    /// side of the callback) stay ALLOWED — see `scalar_unlowered_capture_class`.
-    DenyScalarCapture(&'static str),
+    /// Resolved to a compiled function, but its env plan carries a captured
+    /// binding OUTSIDE the deferred-lane safe class. Fail closed E5506; the
+    /// payload is the capture class label for the diagnostic. Task 9 C-1 FINAL
+    /// (DEFAULT-DENY over an allowlist): the deferred lane restores captures
+    /// through the owner's env-record pointer, but the owner frame + its arena
+    /// are gone when the callback fires, so ONLY a by-value promoted scalar cell
+    /// (a depth-1 `is_scalar` i64 stored inline in the record) survives. Every
+    /// other capture — objects (a pointer into the reclaimed arena, read `0`),
+    /// non-lowered scalars, params/param-aliases — is a soundness fail-open, and
+    /// the sole allowlist exception is a provable zero-placeholder construct
+    /// (`new AbortController()`, already `0` in the owner's own body). See
+    /// `unlowered_capture_denied`.
+    DenyUnloweredCapture(&'static str),
 }
 
 impl<'a> FunctionEmitter<'a> {
@@ -969,81 +971,143 @@ impl<'a> FunctionEmitter<'a> {
 
     /// The single deferred-callback choke point that turns a resolved callback
     /// (`plan_key` → wasm `index`) into either a plain `Resolved` or a
-    /// `DenyScalarCapture` (Task 9 C-1, scalar-only per the user decision). All
-    /// four registration surfaces (`setTimeout`/`setInterval`/`queueMicrotask`
+    /// `DenyUnloweredCapture` (Task 9 C-1 final — DEFAULT-DENY over an allowlist).
+    /// All four registration surfaces (`setTimeout`/`setInterval`/`queueMicrotask`
     /// via `scheduling_callback`, `addEventListener` via `scheduling_callback_at`
     /// position 2) route through here, so the deny is inherited by construction —
     /// no per-surface duplication.
     fn checked_scheduling_resolution(&self, plan_key: &str, index: u32) -> SchedulingCallback {
-        match self.scalar_unlowered_capture_class(plan_key) {
-            Some(class) => SchedulingCallback::DenyScalarCapture(class),
+        match self.unlowered_capture_denied(plan_key) {
+            Some(class) => SchedulingCallback::DenyUnloweredCapture(class),
             None => SchedulingCallback::Resolved(index),
         }
     }
 
-    /// If the function keyed by `plan_key` captures a binding the closure
-    /// machinery does NOT lower (not `depth == 1 && cell_is_promotable` — the
-    /// exact `env_safety`/`resolve_capture_access` engagement predicate) AND that
-    /// binding is a SCALAR-CLASS value (a param, a string-repr, or a float-repr —
-    /// a binding node computes a concrete value for), return its class label
-    /// (`"param"`/`"string"`/`"float"`/`"number"`) for the deny diagnostic.
-    /// `None` when every such capture is lowered or is a NON-scalar placeholder.
+    /// Task 9 C-1 FINAL — DEFAULT-DENY at the deferred-callback choke point over
+    /// an ALLOWLIST of the provably-safe capture class (the standing lesson: a
+    /// denylist of bad capture shapes leaks — the earlier scalar-only form missed
+    /// captured OBJECTS, scalars laundered THROUGH an object field, and
+    /// param-ALIAS bindings; only an allowlist closes the class by construction).
     ///
-    /// The scalar restriction is the whole of the user decision (Task 9 C-1). The
-    /// deferred lane reads captures through a NON-restored env, so a non-lowered
-    /// SCALAR-class capture is silently replaced with a placeholder 0 — a
-    /// soundness fail-open, because node has a real value the read diverges from.
-    /// A non-lowered NON-scalar capture that is NOT a param (e.g.
-    /// `const c = new AbortController()`, an unsupported zero-placeholder
-    /// construct, or a captured array/object local) has NO real value kali ever
-    /// computed: its in-callback read equals its out-of-callback read of the same
-    /// placeholder, so there is nothing to diverge and it stays ALLOWED here
-    /// (documented residual; Stage P3's `Object` repr lifts the object cases into
-    /// the lowered/constrained set).
+    /// If the function keyed by `plan_key` captures ANY binding that is NOT in the
+    /// safe class, return a class label (`"scalar"`/`"object"`/`"param"`/
+    /// `"captured"`) for the deny diagnostic; `None` only when every capture is
+    /// provably safe.
     ///
-    /// NB: at the env-plan level a captured PARAMETER is `is_scalar == false`
-    /// (params carry a non-`Scalar` MIR layout) and defaults to `Repr::I64` — the
-    /// SAME shape as an `AbortController` capture. The two are separated ONLY by
-    /// whether the binding names a declared parameter of its owner, hence the
-    /// `function_param_names` consult.
-    fn scalar_unlowered_capture_class(&self, plan_key: &str) -> Option<&'static str> {
+    /// The deferred lane restores captures through the OWNER's env-record pointer,
+    /// but the owner's frame (and its arena) is gone by the time the callback
+    /// fires. The ONE class that survives is a BY-VALUE promoted scalar cell — a
+    /// depth-1 `is_scalar` i64 stored inline in the env record (the exact
+    /// `cell_is_promotable` engagement predicate). Everything else diverges from
+    /// node:
+    ///   - a heap/object cell (even when `cell_is_promotable` — its promotion is
+    ///     a POINTER into the owner's reclaimed arena, read back as `0`),
+    ///   - a non-lowered scalar (string/float/depth≥2 i64 — silently `0`),
+    ///   - a captured parameter or param-alias local (a real i64/heap argument
+    ///     the deferred read loses).
+    ///
+    /// The SOLE allowlist exception is a PROVABLE ZERO-PLACEHOLDER construct
+    /// (`const c = new AbortController()` and the like — see
+    /// [`crate::lower::declarator_init_is_placeholder_construct`]): its owner-body
+    /// read is already the `0` placeholder, so the deferred read of the same `0`
+    /// introduces no divergence. That is provable only for a depth-1 capture whose
+    /// owner is the function doing the registration (`owner == self.function_name`
+    /// — the registration is emitted in the owner's own body, so `self.body` holds
+    /// the declarator); a placeholder captured from a further ancestor cannot be
+    /// proven here and stays denied (fail closed).
+    fn unlowered_capture_denied(&self, plan_key: &str) -> Option<&'static str> {
         let plan = self.env_plans.get(plan_key)?;
         plan.captured.iter().find_map(|reference| {
-            let lowered = reference.depth == 1
+            // ALLOWLIST 1: a by-value promoted scalar cell (depth-1 i64 stored
+            // inline in the env record) — the only class the deferred lane
+            // restores soundly.
+            let by_value_scalar = reference.is_scalar
+                && reference.depth == 1
                 && crate::closure::cell_is_promotable(
                     self.repr_table,
                     &reference.owner,
                     &reference.name,
                     reference.is_scalar,
                 );
-            if lowered {
+            if by_value_scalar {
                 return None;
             }
+            // ALLOWLIST 2: a provable zero-placeholder construct declared in the
+            // owner's own (== current) body. No real value to diverge.
+            if reference.depth == 1
+                && reference.owner == self.function_name
+                && self.binding_is_placeholder_construct(&reference.name)
+            {
+                return None;
+            }
+            // DENIED. Label the class for the diagnostic.
             let repr = self.repr_table.scalar(&reference.owner, &reference.name);
-            if reference.is_scalar {
-                // A genuine inline scalar slot: node computes a real value; the
-                // deferred read is a placeholder. (Depth-1 I64 scalars are always
-                // lowered above, so the surviving I64 case is a depth>=2 capture.)
-                return Some(match repr {
+            Some(if reference.is_scalar {
+                match repr {
                     kali_common::Repr::String => "string",
                     kali_common::Repr::F64 => "float",
-                    kali_common::Repr::I64 | kali_common::Repr::Object(_) => "number",
-                });
-            }
-            // Non-scalar capture: a REAL value only if it names an owner
-            // parameter (a genuine i64/heap argument). Everything else is a
-            // zero-placeholder construct or an array/object local with no real
-            // value to diverge — the documented allowed residual.
-            let is_owner_param = self
+                    _ => "scalar",
+                }
+            } else if self
                 .function_param_names
                 .get(reference.owner.as_str())
-                .is_some_and(|params| params.iter().any(|param| param == &reference.name));
-            if is_owner_param {
-                Some("param")
+                .is_some_and(|params| params.iter().any(|param| param == &reference.name))
+            {
+                "param"
+            } else if matches!(repr, kali_common::Repr::Object(_)) {
+                "object"
             } else {
-                None
-            }
+                "local"
+            })
         })
+    }
+
+    /// True when `name` is declared in THIS function body (`self.body`) by a
+    /// declarator whose init is a provable zero-placeholder construct (a
+    /// `new X()` that lowers to the drop-and-push-`0` aggregate placeholder — the
+    /// AbortController class; see
+    /// [`crate::lower::declarator_init_is_placeholder_construct`]). Consulted only
+    /// for a depth-1 capture whose owner is the current function, so the binding's
+    /// declarator is in `self.body`. Nested function definitions/expressions ARE
+    /// inlined as descendant subtrees here, so the walk STOPS at any
+    /// `is_function_like` child — a nested function's `const c = new Foo()` must
+    /// NOT be attributed to an outer binding of the same name (that would
+    /// wrong-ALLOW an outer object capture; caught by the nested-shadow probe).
+    fn binding_is_placeholder_construct(&self, name: &str) -> bool {
+        let nodes = &self.program.nodes;
+        let mut stack = vec![self.body];
+        let mut seen = std::collections::HashSet::new();
+        while let Some(id) = stack.pop() {
+            if !seen.insert(id) {
+                continue;
+            }
+            let Some(node) = nodes.get(id.0 as usize) else {
+                continue;
+            };
+            if node.kind == LirNodeKind::Instruction
+                && matches!(node.text.as_deref(), Some("const" | "let" | "var"))
+            {
+                for &declarator_id in &node.children {
+                    let Some(declarator) = nodes.get(declarator_id.0 as usize) else {
+                        continue;
+                    };
+                    if declarator.text.as_deref() == Some(name)
+                        && declarator.children.len() >= 2
+                        && crate::lower::declarator_init_is_placeholder_construct(
+                            nodes,
+                            declarator.children[1],
+                        )
+                    {
+                        return true;
+                    }
+                }
+            }
+            // Do not cross into a nested function body (except the walk root).
+            stack.extend(node.children.iter().copied().filter(|&child| {
+                child == self.body || !crate::lower::is_function_like(nodes, child)
+            }));
+        }
+        false
     }
 
     /// The provenance resolver above, parameterized on the callback's child

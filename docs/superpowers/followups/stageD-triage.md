@@ -549,47 +549,64 @@ closed or stays pre-existing-red rather than miscompiling):
 - **`preventDefault` / `cancelable`**: depend on the Event-object repr
   above; currently unreachable (no listener can observe an event object at
   all under the zero-parameter gate).
-- **Non-lowered SCALAR-capture deferred-callback fail-open — RESOLVED
-  (scalar-only, user-ratified) (Task 9, C-1)**: the four registration surfaces
+- **Non-lowered-capture deferred-callback fail-open — RESOLVED via DEFAULT-DENY
+  ALLOWLIST (Task 9, C-1 FINAL)**: the four registration surfaces
   (`queueMicrotask` / `setTimeout` / `setInterval` / `addEventListener`) resolve
-  any stable-provenance callback, but `env_safety` only CONSTRAINS captures whose
-  closure lowering is engaged (`depth == 1 && cell_is_promotable`). A callback
-  capturing a non-lowered SCALAR-class binding — a PARAM, a STRING-repr, or a
-  FLOAT-repr — registered and RAN reading a placeholder 0, diverging from node
-  which computes a real value (probes p36e `i=6`→`i=0`, p53b `hi`→``, p56
-  `1.5`→``, p55 `i=3`→`i=0`, p54 `p=7`→`p=0`). **Fix (SCALAR-ONLY deny at the
-  shared `scheduling_callback_at` choke point, inherited by all four surfaces):**
-  a resolved callback whose env plan carries a non-lowered capture that is
-  SCALAR-class fails closed E5506 with the class named
-  (`scalar_unlowered_capture_class` in `intrinsics/host.rs`; the shared deny
-  emitter `deny_deferred_scalar_capture` in `emit/call.rs`). SCALAR-class =
-  `is_scalar` slots (String→`"string"`, F64→`"float"`, surviving I64→`"number"`
-  — depth-1 I64 scalars are always lowered) PLUS captured PARAMETERS. NB a
-  captured param is `is_scalar == false` with default `Repr::I64` at the env-plan
-  level — the SAME shape as a `new AbortController()` capture — so the two are
-  separated ONLY by whether the binding names a declared parameter of its owner
-  (the newly-threaded `function_param_names` consult). Pinned by 5 E5506 tests
-  (`deferred_settimeout_captured_param`/`_string`/`_float`,
-  `deferred_queuemicrotask_captured_param`,
-  `deferred_event_listener_captured_param` in `soundness_events.rs`).
-  **DOCUMENTED RESIDUAL (deliberately ALLOWED):** a non-lowered NON-scalar
-  capture that is NOT a param — a zero-placeholder unsupported construct
-  (`new AbortController()`), or a captured array/object local — stays allowed.
-  Rationale: no correct value exists to be wrongly replaced. Such a binding is a
-  placeholder 0 in its OWNER's scope too (it reached the E3100 fallback / has no
-  supported repr), so its in-callback read equals its out-of-callback read of the
-  same placeholder — there is nothing to diverge, unlike a scalar where node has
-  a real value. This is exactly what preserves the 4
+  any stable-provenance callback, but the deferred lane restores captures through
+  the OWNER's env-record pointer while the owner frame + its arena are already
+  gone when the callback fires. The FIRST fix (scalar-only DENYLIST) leaked three
+  whole classes — the stage review FALSIFIED its residual rationale with probes:
+  captured OBJECTS read `0` (b2 `x=4`→`x=0`; b7 reads the field SYNC=`4` THEN
+  deferred=`0`, kali self-contradicting — this DISPROVES the "in-callback read
+  equals out-of-callback read" equality claim the old bullet asserted for
+  objects), captured-object field MUTATION `0`s (b2b), a scalar LAUNDERED into an
+  object field `0`s even though the object earned an `Object` repr and passed the
+  old `if lowered` early-out (b5), and a param-ALIAS `let a = i` `0`s (b3=p36b —
+  `is_scalar == false`, non-param, so the `function_param_names` consult missed
+  it). **Fix (DEFAULT-DENY over an ALLOWLIST at the shared choke point,
+  `unlowered_capture_denied` in `intrinsics/host.rs`; shared deny emitter
+  `deny_deferred_unlowered_capture` in `emit/call.rs`, variant
+  `DenyUnloweredCapture`):** EVERY captured binding is denied E5506 UNLESS it is
+  provably safe. Two allowlist entries: (1) a BY-VALUE scalar cell — depth-1
+  `is_scalar` i64 stored inline in the env record (the exact
+  `cell_is_promotable` engagement predicate), the only class the deferred lane
+  restores soundly (b4 `let a = i+1` → correct); (2) a PROVABLE ZERO-PLACEHOLDER
+  construct ONLY — a `new X()` that lowers to the drop-and-push-`0` aggregate
+  placeholder (`crate::lower::declarator_init_is_placeholder_construct`, excluding
+  the real-value constructs `Array`/`Uint8Array`/`EventTarget`), proven per
+  depth-1 capture whose owner is the registering function
+  (`owner == self.function_name`, so `self.body` holds the declarator; walk stops
+  at nested `is_function_like` subtrees so a nested `const c = new Foo()` cannot
+  wrong-ALLOW an outer object of the same name). The 5 original param/string/float
+  pins are now SUBSUMED by the default; the flip is pinned by 5 NEW E5506 tests
+  (`deferred_settimeout_captured_object_read`/`_object_self_contradiction`/
+  `_object_mutation`/`_scalar_laundered_into_object`/`_param_alias_capture` in
+  `soundness_events.rs`, probes b2/b7/b2b/b5/b3).
+  **DOCUMENTED RESIDUAL (deliberately ALLOWED — now ZERO-PLACEHOLDER CONSTRUCTS
+  ONLY):** `new AbortController()` and other unsupported `new X()` that are `0` in
+  the OWNER's own body too — the deferred read of the same `0` introduces no
+  divergence. Growable arrays are INDEPENDENTLY gated (b1: the growable-array
+  capture lane already rejects `.push` under nested-function capture, E5506).
+  Captured OBJECTS/arrays are NO LONGER a residual — they are denied (the b2/b7
+  falsification retired the object equality rationale). This preserves the 4
   `browser_bundle_web_baseline_primitives` build tests: `webBaselineSmoke`'s
-  listener `() => { count += 1; controller.abort(); }` captures `count` (a
-  promotable I64 scalar → lowered, correct) AND `controller` (the AbortController
-  placeholder → allowed residual), so its "unsupported constructs must still
-  BUILD (warn, not error)" invariant holds. Pinned by
-  `deferred_listener_nonscalar_placeholder_capture_still_builds`
-  (`soundness_events.rs`). **Lifting plan:** Stage P3 (`Object` repr for these
-  constructs) promotes them into the lowered/constrained set — at which point the
-  capture becomes either genuinely lowered (correct) or `env_safety`-constrained,
-  closing the residual by construction rather than by deny.
+  listener `() => { count += 1; controller.abort(); }` captures `count` (by-value
+  i64 → allowlist entry 1) AND `controller` (AbortController placeholder →
+  allowlist entry 2), so "unsupported constructs must still BUILD (warn, not
+  error)" holds. Pinned by
+  `deferred_listener_nonscalar_placeholder_capture_still_builds`.
+  **RE-SCOPED (Task 9 C-1 final):** the captured-TIMER-ID self-clear form
+  (`const t = setInterval(...); ... clearInterval(t)`) now FAILS CLOSED — `t` is
+  `is_scalar == false`, non-lowered, so it reads a placeholder `0`; two pins
+  (`deferred_set_interval_..._captured_timer_id_fails_closed`,
+  `..._ticks_self_clear_captured_timer_id_fails_closed`) that previously passed
+  ONLY because the sole timer's id coincidentally equalled the placeholder `0`
+  were re-scoped to assert E5506 (forcing a non-zero id → `E4003` "did not
+  quiesce" hang confirms the underlying miscompile). The base-capture capability
+  stays covered by `..._row_q3_now_runs`. Timer-id closure lowering is deferred
+  follow-up work. **Lifting plan:** Stage P3 (`Object` repr for constructs) and
+  real closure lowering for is_scalar==false cells promote these into the
+  genuinely-lowered/constrained set, closing the residual by construction.
 - **Negative-clear-id deliberate-loud divergence (Task 9 note)**:
   `clearTimeout(-1)` / `clearInterval(-1)` is a NO-OP in node (prints `ok`),
   but `kali run` traps LOUDLY — `KaliHostState::cancel_timer` does

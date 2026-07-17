@@ -372,14 +372,22 @@ fn shadowed_scheduling_builtin_with_anonymous_arg_fails_closed() {
 }
 
 // ---------------------------------------------------------------------------
-// Task 9 C-1 (scalar-only deny, user-ratified) — a deferred callback that
-// captures a NON-lowered SCALAR-class binding (a param / string-repr /
-// float-repr) reads a placeholder 0 in the deferred lane while node computes a
-// real value. All four registration surfaces (setTimeout / setInterval /
-// queueMicrotask / addEventListener) inherit the deny at the shared
-// scheduling-callback choke point. Each source below RUNS in node (printing a
-// real value) and printed a placeholder in kali before this fix — the pins
-// assert the sound reject-don't-miscompile outcome (E5506).
+// Task 9 C-1 FINAL — DEFAULT-DENY over an allowlist at the shared
+// deferred-callback choke point. A deferred callback restores captures through
+// the OWNER's env-record pointer, but the owner frame and its arena are gone
+// when the callback fires: only a BY-VALUE promoted scalar cell (a depth-1 i64
+// stored inline in the record) survives. Every other capture reads a
+// placeholder in the deferred lane while node computes a real value. The
+// earlier scalar-only DENYLIST leaked three whole classes — captured OBJECTS
+// (repr I64 or `Object`), scalars laundered THROUGH an object field, and
+// param-ALIAS locals — so the deny was flipped to an ALLOWLIST: everything is
+// denied UNLESS it is a by-value scalar OR a provable zero-placeholder
+// construct (`new AbortController()`). All four registration surfaces
+// (setTimeout / setInterval / queueMicrotask / addEventListener) inherit it.
+// The five param/string/float scalar pins below are now SUBSUMED by the
+// default (they were the original denylist entries); the five object/alias
+// pins that follow are the holes the allowlist flip closed (Task 9 C-1 final
+// verification probes b2/b7/b2b/b5/b3).
 // ---------------------------------------------------------------------------
 
 /// Assert E5506 AND that the diagnostic names the expected capture class.
@@ -446,18 +454,84 @@ fn deferred_settimeout_captured_float_fails_closed() {
     );
 }
 
+// --- Allowlist-flip closures (Task 9 C-1 final verification probes) ---------
+// Each RUNS in node (a real value) and printed a placeholder 0 in kali before
+// the flip; the scalar-only denylist ALLOWED every one of them. The allowlist
+// now denies them E5506 (reject-don't-miscompile).
+
+/// Probe b2: a setTimeout callback captures a local OBJECT and reads a field.
+/// node: "x=4"; kali pre-flip: "x=0" (the object pointer is not restored — it
+/// aims into the owner's reclaimed arena). The scalar-only form allowed this
+/// because the object was `is_scalar == false` and not a param.
+#[test]
+fn deferred_settimeout_captured_object_read_fails_closed() {
+    assert_e5506_capture_class(
+        "function m(){ const o = { x: 4 }; setTimeout(function(){ console.log(\"x=\" + o.x); }, 0); }\nm();\n",
+        "local",
+    );
+}
+
+/// Probe b7: the SAME program reads the object field synchronously (`sync=4`,
+/// correct) and then in the deferred callback (`x=0`) — kali self-contradicts,
+/// which DISPROVES the falsified rationale that a captured object's in-callback
+/// read equals its out-of-callback read. The materialized sync value is exactly
+/// what the deferred lane loses. Deny E5506.
+#[test]
+fn deferred_settimeout_captured_object_self_contradiction_fails_closed() {
+    assert_e5506_capture_class(
+        "function m(){ const o = { x: 4 }; console.log(\"sync=\" + o.x); setTimeout(function(){ console.log(\"x=\" + o.x); }, 0); }\nm();\n",
+        "local",
+    );
+}
+
+/// Probe b2b: a captured object field is MUTATED inside the deferred callback
+/// (`o.x = o.x + 1`). node: "x=5"/"x2=5"; kali pre-flip: "x=0"/"x2=0". Deny
+/// E5506 (a mutation through a non-restored pointer writes reclaimed memory).
+#[test]
+fn deferred_settimeout_captured_object_mutation_fails_closed() {
+    assert_e5506_capture_class(
+        "function m(){ const o = { x: 4 }; setTimeout(function(){ o.x = o.x + 1; console.log(\"x=\" + o.x); }, 0); }\nm();\n",
+        "local",
+    );
+}
+
+/// Probe b5: a scalar param is laundered INTO an object field (`o.x = i`) and
+/// the field is read in the callback. node: "x=9"; kali pre-flip: "x=0". The
+/// object here even earns an `Object` repr (so it passed the OLD `if lowered`
+/// early-out) yet still reads 0 deferred — the allowlist requires a by-value
+/// SCALAR, not merely a `cell_is_promotable` object. Deny E5506 (object class).
+#[test]
+fn deferred_settimeout_scalar_laundered_into_object_fails_closed() {
+    assert_e5506_capture_class(
+        "function m(i){ const o = { x: 0 }; o.x = i; setTimeout(function(){ console.log(\"x=\" + o.x); }, 0); }\nm(9);\n",
+        "object",
+    );
+}
+
+/// Probe b3 (=p36b): a param is aliased into a `let` (`let a = i`) and the alias
+/// is captured. node: "a=1"; kali pre-flip: "a=0". The alias is `is_scalar ==
+/// false` with a NON-param name, so the old `function_param_names` consult (which
+/// only caught DIRECT param captures) missed it. Deny E5506.
+#[test]
+fn deferred_settimeout_param_alias_capture_fails_closed() {
+    assert_e5506_capture_class(
+        "function m(i){ let a = i; setTimeout(function(){ console.log(\"a=\" + a); }, 0); }\nm(1);\n",
+        "local",
+    );
+}
+
 /// KEEP-ALLOWED residual pin (mirrors the webBaselineSmoke build invariant).
-/// A listener that captures a promotable I64 scalar (`count`, lowered — works)
-/// AND a NON-scalar zero-placeholder construct (`controller`, a
-/// `new AbortController()` that reaches the E3100 placeholder fallback) must
-/// still BUILD and RUN — it must NOT trip the scalar-only deny. The scalar-only
-/// narrowing (vs. the reverted full deny) exists precisely to preserve this:
-/// `controller` has NO real value kali ever computed (its in-callback read
-/// equals its out-of-callback read of the same placeholder 0), so there is
-/// nothing to diverge — the deny would be a spurious hard error breaking the
-/// "unsupported constructs must still build (warn, not error)" contract. This
-/// residual is lifted into the constrained set when Stage P3 gives
-/// AbortController an `Object` repr. node runs it (the listener fires once).
+/// A listener that captures a promotable I64 scalar (`count`, a by-value cell —
+/// the FIRST allowlist entry, restorable) AND a provable zero-placeholder
+/// construct (`controller`, a `new AbortController()` that lowers to the
+/// drop-and-push-0 placeholder — the SECOND allowlist entry) must still BUILD
+/// and RUN. This is the ONE class the default-deny allowlist keeps: `controller`
+/// reads the same placeholder 0 in the owner's own body, so the deferred read of
+/// 0 introduces NO divergence (unlike a real object — see the b2/b7 pins above).
+/// Denying it would be a spurious hard error breaking the "unsupported
+/// constructs must still build (warn, not error)" contract. Lifted into the
+/// constrained set when Stage P3 gives AbortController an `Object` repr. node
+/// runs it (the listener fires once).
 #[test]
 fn deferred_listener_nonscalar_placeholder_capture_still_builds() {
     let out = run_kali(

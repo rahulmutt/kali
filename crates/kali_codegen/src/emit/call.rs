@@ -3041,8 +3041,8 @@ impl<'a> FunctionEmitter<'a> {
                 self,
                 format!("a {surface_name} callback must resolve through stable provenance to a compiled function; an unresolvable callback would be silently dropped"),
             ),
-            SchedulingCallback::DenyScalarCapture(class) => {
-                self.deny_deferred_scalar_capture(class)
+            SchedulingCallback::DenyUnloweredCapture(class) => {
+                self.deny_deferred_unlowered_capture(class)
             }
         }
     }
@@ -3150,8 +3150,8 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::Unknown,
                 }
             }
-            SchedulingCallback::DenyScalarCapture(class) => {
-                self.deny_deferred_scalar_capture(class)
+            SchedulingCallback::DenyUnloweredCapture(class) => {
+                self.deny_deferred_unlowered_capture(class)
             }
         }
     }
@@ -3178,17 +3178,20 @@ impl<'a> FunctionEmitter<'a> {
         !self.locals.contains_key(name) && !self.module_binding_names.contains(name)
     }
 
-    /// Shared deny for a deferred callback whose env plan carries a non-lowered
-    /// SCALAR capture (Task 9 C-1, scalar-only). Every registration surface
-    /// routes its `SchedulingCallback::DenyScalarCapture(class)` here, so the
-    /// wording is identical across setTimeout/setInterval/queueMicrotask/
-    /// addEventListener by construction.
-    fn deny_deferred_scalar_capture(&mut self, class: &str) -> EmittedValue {
+    /// Shared deny for a deferred callback whose env plan carries a captured
+    /// binding OUTSIDE the deferred-lane safe class (Task 9 C-1 final,
+    /// DEFAULT-DENY). Every registration surface routes its
+    /// `SchedulingCallback::DenyUnloweredCapture(class)` here, so the wording is
+    /// identical across setTimeout/setInterval/queueMicrotask/addEventListener by
+    /// construction.
+    fn deny_deferred_unlowered_capture(&mut self, class: &str) -> EmittedValue {
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
             format!(
-                "a captured {class} binding has no closure lowering yet; the deferred callback \
-                 would read a placeholder — fails closed (closure-lowering follow-up)"
+                "a captured {class} binding without closure lowering would read a placeholder \
+                 when the deferred callback fires (its owner's frame and arena are gone) — fails \
+                 closed; only a by-value scalar capture or a zero-placeholder construct is \
+                 restorable in the current phase (closure-lowering follow-up)"
             ),
         ));
         EmittedValue {
@@ -3277,8 +3280,8 @@ impl<'a> FunctionEmitter<'a> {
                         .to_string(),
                 )
             }
-            SchedulingCallback::DenyScalarCapture(class) => {
-                return self.deny_deferred_scalar_capture(class)
+            SchedulingCallback::DenyUnloweredCapture(class) => {
+                return self.deny_deferred_unlowered_capture(class)
             }
         };
         // Zero-parameter listeners only (no Event-object repr yet — spec §2.2).

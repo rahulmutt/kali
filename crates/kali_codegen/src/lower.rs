@@ -2121,6 +2121,58 @@ pub(crate) fn declarator_init_is_event_target_new(nodes: &[LirNode], init_id: Li
         .is_some_and(|ctor| ctor.text.as_deref() == Some("EventTarget") && ctor.children.is_empty())
 }
 
+/// True when `init_id` is a PROVABLE ZERO-PLACEHOLDER construct — a
+/// `new X()` whose constructor `X` has no real lowering, so the whole
+/// construction lowers to the drop-and-push-`0` aggregate placeholder (the
+/// "unsupported `new` returns an empty object" fallback; e.g.
+/// `const c = new AbortController()`). Same New-wrapper LIR shape as
+/// [`declarator_init_is_event_target_new`] — a text-less single-child `Value`
+/// wrapping a text-less `Call` whose `children[0]` is the bare constructor
+/// identifier — inspected RAW (the New node is itself the wrapper; unwrapping
+/// transparent wrappers would strip it).
+///
+/// This is the ONE allowlist exception the deferred-callback choke point keeps
+/// for a captured binding without closure lowering (Task 9 C-1 final): a
+/// zero-placeholder construct reads `0` in its owner's own body too, so a
+/// deferred read of the same `0` introduces NO divergence (unlike a real object
+/// / scalar, whose value node computes and the deferred lane loses). The
+/// constructors EXCLUDED here are exactly those a bound `new X()` declarator
+/// lowers to a REAL value for — `Array`/`Uint8Array` (real linear-memory arrays;
+/// see `is_array_like_constructor`) and `EventTarget` (a real host handle);
+/// capturing one of those in a deferred callback WOULD diverge, so they stay
+/// denied. (`CustomEvent`/`Event`/`TextEncoder` never reach here as a bare bound
+/// `new X()` — they only appear inline in `dispatchEvent`/`.encode` chains.)
+pub(crate) fn declarator_init_is_placeholder_construct(
+    nodes: &[LirNode],
+    init_id: LirNodeId,
+) -> bool {
+    let Some(node) = nodes.get(init_id.0 as usize) else {
+        return false;
+    };
+    if node.kind != LirNodeKind::Value || node.text.is_some() || node.children.len() != 1 {
+        return false;
+    }
+    let Some(call) = nodes.get(node.children[0].0 as usize) else {
+        return false;
+    };
+    if call.kind != LirNodeKind::Call || call.text.is_some() || call.children.is_empty() {
+        return false;
+    }
+    let Some(ctor) = nodes.get(call.children[0].0 as usize) else {
+        return false;
+    };
+    if !ctor.children.is_empty() {
+        return false;
+    }
+    match ctor.text.as_deref() {
+        // A real-value construct (see doc comment): NOT a zero placeholder.
+        Some("Array" | "Uint8Array" | "EventTarget") => false,
+        // Any other bare `new X()` lowers to the drop-and-push-0 placeholder.
+        Some(_) => true,
+        None => false,
+    }
+}
+
 /// True when `init_id` is a `dispatchEvent(...)` MEMBER call (Stage D event
 /// lane). EMPIRICALLY-VERIFIED shape (KALI_DUMP_LIR, `const ok =
 /// t.dispatchEvent(...)`): the init is the raw `Call(None, [Value("dispatchEvent",

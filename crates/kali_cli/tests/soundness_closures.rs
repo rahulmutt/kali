@@ -682,36 +682,31 @@ fn deferred_queue_microtask_non_capturing_callback_now_runs() {
     assert_eq!(String::from_utf8_lossy(&out.stdout), "sync\nmt\n");
 }
 
-/// Row q2. setInterval capturing callback (Finding B) — Stage D task D2 wired
-/// the timer-set registration emit, so this now RUNS with its owner's env
-/// record instead of failing closed.
+/// Row q2. A capturing setInterval callback that SELF-CLEARS via its OWN
+/// captured timer id (`const t = setInterval(...); ... clearInterval(t)`).
 ///
-/// ADAPTATION from the brief's literal source: the original fixture
-/// (`setInterval(function(){ base += 1; ...}, 0)` with NO `clearInterval`)
-/// never terminates once the capturing callback actually resolves and runs —
-/// node-verified: it ticks forever (`iv=6`, `iv=7`, `iv=8`, ... unbounded,
-/// confirmed via a 3s timeout that still showed `iv=1834` and rising), and
-/// under kali it would hit the SAME bounded-drain "did not quiesce" trap as
-/// `deferred_uncleared_interval_fails_loudly_not_hangs` — so the brief's
-/// claimed terminating output ("sync=5\niv=6\n") is not reachable from that
-/// exact source either in node or in kali. Added a `clearInterval(t)` inside
-/// the callback (self-clearing after one tick) to make the fixture
-/// deterministic and terminating while preserving the row's essential shape
-/// (an inline capturing callback passed directly to `setInterval`); this adds
-/// a second captured binding (the timer id `t`) alongside `base`, which does
-/// not change the provenance class under test. node v26.5.0 (verified against
-/// this exact modified source): "sync=5\niv=6\n".
+/// Task 9 C-1 final (allowlist flip) RE-SCOPED this pin from "now runs" to
+/// "fails closed". The callback captures TWO bindings: `base` (a by-value i64
+/// scalar — the safe allowlist class, restored fine) AND `t`, the timer id.
+/// `t` is `is_scalar == false` (a `const` bound to the `setInterval` result,
+/// NOT a promoted env cell), so in the deferred lane it reads a PLACEHOLDER 0
+/// and `clearInterval(t)` clears timer id 0. This test PASSED on HEAD only by
+/// COINCIDENCE — the program's single timer has id 0, which happens to equal
+/// the placeholder. Forcing a non-zero id (register any prior timer) exposes
+/// the miscompile: `clearInterval(0)` no-ops, the interval never stops, and
+/// kali traps `E4003` "event loop did not quiesce" (verified against exactly
+/// that source). The allowlist correctly REJECTS the captured-timer-id class
+/// (`is_scalar == false`, non-lowered) rather than emit a coincidence-dependent
+/// clear — reject-don't-miscompile, E5506. The capturing-deferred-callback
+/// CAPABILITY (a callback that captures a by-value scalar and runs) stays
+/// covered by `deferred_set_timeout_indirect_capturing_callback_row_q3_now_runs`
+/// (which captures only `base`). node runs the original source; kali now fails
+/// closed at compile.
 #[test]
-fn deferred_set_interval_capturing_callback_row_q2_now_runs() {
-    let out = run_kali(
+fn deferred_set_interval_self_clear_captured_timer_id_fails_closed() {
+    assert_e5506(
         "function outer(){ let base = 5; const t = setInterval(function(){ base += 1; console.log(\"iv=\"+base); clearInterval(t); }, 0); console.log(\"sync=\"+base); } outer();\n",
     );
-    assert!(
-        out.status.success(),
-        "capturing setInterval callback must now run; stderr: {}",
-        String::from_utf8_lossy(&out.stderr)
-    );
-    assert_eq!(String::from_utf8_lossy(&out.stdout), "sync=5\niv=6\n");
 }
 
 /// Row q3 (Finding C) — INDIRECT capturing callback via a binding: the
@@ -1032,12 +1027,18 @@ owner();
     assert_eq!(String::from_utf8_lossy(&out.stdout), "sync=5\nst=6\n");
 }
 
-/// Stage D: setInterval ticks repeatedly and clearInterval (with the captured
-/// timer id) stops it. Function-scope variant: `n` and `t` are env cells.
-/// node v26.5.0: "sync\ntick=1\ntick=2\ntick=3\n".
+/// setInterval that self-clears via its OWN captured timer id (`const t = ...;
+/// if (n>=3) clearInterval(t)`). Task 9 C-1 final (allowlist flip) RE-SCOPED
+/// this pin to "fails closed" for the SAME reason as
+/// `deferred_set_interval_self_clear_captured_timer_id_fails_closed` above: `t`
+/// is a non-lowered (`is_scalar == false`) capture that reads a placeholder 0
+/// in the deferred lane, so the clear would depend on the timer id
+/// coincidentally being 0. The allowlist rejects the captured-timer-id class —
+/// reject-don't-miscompile, E5506. node runs the original source; kali now
+/// fails closed at compile.
 #[test]
-fn deferred_set_interval_ticks_until_cleared() {
-    let out = run_kali(
+fn deferred_set_interval_ticks_self_clear_captured_timer_id_fails_closed() {
+    assert_e5506(
         r#"function main() {
   let n = 0;
   const t = setInterval(function () {
@@ -1051,15 +1052,6 @@ fn deferred_set_interval_ticks_until_cleared() {
 }
 main();
 "#,
-    );
-    assert!(
-        out.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&out.stderr)
-    );
-    assert_eq!(
-        String::from_utf8_lossy(&out.stdout),
-        "sync\ntick=1\ntick=2\ntick=3\n"
     );
 }
 
