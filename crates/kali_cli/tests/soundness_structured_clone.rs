@@ -324,8 +324,8 @@ fn structured_clone_object_pointer_field_nested_read_fails_closed() {
 
 /// Task 8 review positive control (NO over-closure): a SCALAR-identifier field
 /// (`{ a: n }` where `n` solves to a number) must still clone correctly — the
-/// pointer-field rejection is gated on the source being object-shaped, so a
-/// scalar source is never flagged. The growable `values` field forces
+/// clone-safety allowlist admits a field whose source proves non-object, so a
+/// scalar identifier is never flagged. The growable `values` field forces
 /// materialization (so the runtime clone lane, not the fold lane, is
 /// exercised).
 #[test]
@@ -337,4 +337,65 @@ fn structured_clone_scalar_identifier_field_still_clones() {
                console.log(cloned.values.join(','));\n";
     let out = run_kali_run(src);
     assert_eq!(out.trim(), "7\n1,2,3");
+}
+
+/// Task 8 re-review CRITICAL (class closure): the clone envelope is a
+/// PROVEN-SOURCE ALLOWLIST — a field whose source is a CALL RETURN of an object
+/// (`{ inner: mk() }`) is an object pointer that would shallow-share, so the
+/// clone fails closed E5506. (Without the allowlist: `cloned.inner ===
+/// original.inner` → `1` / node `false`.) The rejection is at the clone
+/// choke-point clone-safety bit (NOT at materialization), so a call-return
+/// object field remains usable by non-clone consumers (e.g. binary-trees'
+/// `{ left: bottomUpTree(d) }`, which never clones).
+#[test]
+fn structured_clone_call_return_object_field_identity_fails_closed() {
+    let src = "function mk() { return { b: 2 }; }\n\
+               const original = { a: 1, inner: mk() };\n\
+               const cloned = structuredClone(original);\n\
+               console.log(cloned.inner === original.inner);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+/// Task 8 re-review CRITICAL (read form): the same call-return object field read
+/// through the nested property (`cloned.inner.b`) must also fail closed E5506
+/// (without the allowlist it printed `0` / node `2`).
+#[test]
+fn structured_clone_call_return_object_field_nested_read_fails_closed() {
+    let src = "function mk() { return { b: 2 }; }\n\
+               const original = { a: 1, inner: mk() };\n\
+               const cloned = structuredClone(original);\n\
+               console.log(cloned.inner.b);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+/// Task 8 re-review CRITICAL (index-source form): a field whose source is an
+/// array element (`{ inner: arr[0] }` over an object-element array) is likewise
+/// an object pointer → fail closed E5506 (without the allowlist: `1` / node
+/// `false`). Closes the `arr[i]` source shape alongside identifier and call.
+#[test]
+fn structured_clone_index_source_object_field_fails_closed() {
+    let src = "const arr = [ { b: 2 } ];\n\
+               const original = { a: 1, inner: arr[0] };\n\
+               const cloned = structuredClone(original);\n\
+               console.log(cloned.inner === original.inner);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+/// Task 8 re-review CRITICAL (growable-mutation probe): a call-returned inner
+/// object carrying a growable array, mutated through the SOURCE after the clone,
+/// must fail closed E5506 — a shallow-shared inner would let the clone observe
+/// the push (node deep-clones and does not). The clone-safety allowlist denies
+/// the whole object (its `inner` field is an object pointer) before any of this
+/// can be observed.
+#[test]
+fn structured_clone_call_return_growable_inner_mutation_fails_closed() {
+    let src = "function mk() { return { vals: [1, 2, 3] }; }\n\
+               const original = { a: 1, inner: mk() };\n\
+               const cloned = structuredClone(original);\n\
+               console.log(cloned.a);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }

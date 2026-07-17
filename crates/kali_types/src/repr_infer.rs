@@ -259,6 +259,21 @@ struct ReprInfer {
     /// where `n` solves scalar) leave their source OUT of `fields_of`, so they
     /// never trip this and keep working (no over-closure).
     obj_pointer_field_candidates: Vec<(ObjSlot, String, ObjSlot)>,
+    /// Stage P2 Lane 2b — clone-safety ALLOWLIST (default-deny). Object-literal
+    /// slots with at least one field whose source is NOT provably scalar-or-
+    /// growable at construction: an UNKNOWN expression form (ternary, logical,
+    /// non-computed member, `new`, …) sets this SYNTACTICALLY at record time;
+    /// an identifier/call/`arr[i]` source that RESOLVES object-shaped is added
+    /// in `resolve_objects`. A slot recorded here can never intern a clone-safe
+    /// shape — `structuredClone` of that shape would verbatim-copy an
+    /// object-pointer field and shallow-share it.
+    clone_unsafe_slots: BTreeSet<ObjSlot>,
+    /// Deferred object-pointer checks for the clone-safety allowlist: `(owner
+    /// slot, source slot)` for a field whose source is an identifier / call /
+    /// `arr[i]` (a MAYBE-object form). At resolve time, if `source` proves
+    /// object-shaped (is in `fields_of`), `owner` becomes `clone_unsafe`. A
+    /// scalar source (absent from `fields_of`) leaves the owner clone-safe.
+    clone_deferred_object_sources: Vec<(ObjSlot, ObjSlot)>,
     /// Slots that must lower as runtime heap objects (any write, any flow).
     obj_materialized: BTreeSet<ObjSlot>,
     /// Object slots with their propagated field lists (set by `resolve_objects`).
@@ -746,30 +761,39 @@ impl ReprInfer {
                 names.push(key.clone());
                 continue;
             }
-            // Object-POINTER field via an IDENTIFIER (`{ inner: inner }`): a
-            // nested-object LITERAL is rejected above, but an identifier-VALUED
-            // field cannot be decided here (the source's object-shaped-ness is
-            // only known after `resolve_objects`). Record a candidate; resolve
-            // time fail-closes it iff the source proves object-shaped on a
-            // materialized owner. A plain scalar identifier is recorded too but
-            // its source never enters `fields_of`, so the resolve-time check
-            // filters it out (scalar fields keep working — no over-closure).
-            //
-            // Scope is IDENTIFIER-only ON PURPOSE. A CALL-return object field
-            // (`{ left: bottomUpTree(d), right: bottomUpTree(d) }` — the
-            // binary-trees fixture) is a SHAPE-TRACKED, readable nested field
-            // that works byte-for-byte and must NOT be rejected; and an
-            // identifier-object field is ALREADY fail-closed at read
-            // pre-existing ("no statically inferred object shape"), so rejecting
-            // it at construction loses no working program — it only converts a
-            // read-time fail (or a `structuredClone` shallow-share) into an
-            // earlier, honest fail-closed.
+            // Object-POINTER field via an IDENTIFIER (`{ inner: inner }`),
+            // MATERIALIZATION-time gate (step 4b): kept IDENTIFIER-only. An
+            // identifier-object field is already fail-closed at read
+            // pre-existing, so rejecting it at construction loses no working
+            // program AND closes the class for non-clone consumers (Lane 3
+            // `===`). Call-return object fields (`{ left: bottomUpTree(d) }` —
+            // binary-trees) are shape-tracked and readable, so they must NOT be
+            // rejected here at materialization.
             if let Expression::Identifier(name) = strip_parenthesized(&prop.value) {
                 self.obj_pointer_field_candidates.push((
                     slot.clone(),
                     key.clone(),
                     ObjSlot::Binding(func.to_string(), name.clone()),
                 ));
+            }
+            // Clone-safety ALLOWLIST (default-deny) — the clone-side gate that
+            // closes the WHOLE class (identifier + call + `arr[i]` + any future
+            // form) without breaking binary-trees (which never clones). Classify
+            // this field's source:
+            //   * PROVEN-scalar syntactic form (literal / arithmetic-or-bitwise-
+            //     or-comparison binary / unary / update / template) → safe, no
+            //     record.
+            //   * MAYBE-object reference (identifier / call / `arr[i]`, via
+            //     `arg_obj_slot`) → defer: safe iff its source resolves NON-object.
+            //   * anything else (ternary, logical `||`/`&&`/`??`, non-computed
+            //     member, `new`, unknown) → clone-unsafe BY CONSTRUCTION.
+            if !expr_is_proven_scalar_source(strip_parenthesized(&prop.value)) {
+                if let Some(source) = self.arg_obj_slot(func, &prop.value) {
+                    self.clone_deferred_object_sources
+                        .push((slot.clone(), source));
+                } else {
+                    self.clone_unsafe_slots.insert(slot.clone());
+                }
             }
             let value_node = self.visit_expr(func, &prop.value);
             let field_node = self.obj_field_node_for(&slot, key);
@@ -3178,6 +3202,22 @@ impl ReprInfer {
             }
         }
 
+        // 4c. Resolve the clone-safety allowlist's DEFERRED object-pointer
+        //     checks (Stage P2 Lane 2b): an identifier/call/`arr[i]` field
+        //     source that proves object-shaped (is in `fields_of`) makes its
+        //     owner clone-unsafe. A scalar source (absent from `fields_of`)
+        //     leaves the owner clone-safe — this is what admits the
+        //     scalar-identifier field `{ a: n }`. Independent of owner
+        //     materialization: the clone-safe bit is consulted only at the
+        //     `structuredClone` dispatch (never for a non-clone consumer), so a
+        //     fold-lane owner simply never has its bit read.
+        let deferred = std::mem::take(&mut self.clone_deferred_object_sources);
+        for (owner, source) in deferred {
+            if fields_of.contains_key(&source) {
+                self.clone_unsafe_slots.insert(owner);
+            }
+        }
+
         self.obj_fields_of = fields_of;
     }
 
@@ -3672,6 +3712,18 @@ impl ReprInfer {
         let fields_of = std::mem::take(&mut self.obj_fields_of);
         let materialized = std::mem::take(&mut self.obj_materialized);
         let obj_array_fields = std::mem::take(&mut self.obj_array_fields);
+        // Stage P2 Lane 2b clone-safety (ALLOWLIST, default-deny): a shape is
+        // clone-safe iff at least one object-LITERAL slot proves it safe AND no
+        // slot (or non-literal provenance) taints it. Built alongside the shape
+        // intern below. `clone_unsafe_slots` / `obj_literal_slots` are read-only
+        // here; clone into locals so the mutable `self` calls in the loop
+        // (`obj_field_node_for`, `obj_conflicts`) don't conflict-borrow.
+        let clone_unsafe_slots = self.clone_unsafe_slots.clone();
+        let obj_literal_slots = self.obj_literal_slots.clone();
+        let mut clone_safe_candidate_shapes: std::collections::HashSet<kali_common::ShapeId> =
+            std::collections::HashSet::new();
+        let mut clone_tainted_shapes: std::collections::HashSet<kali_common::ShapeId> =
+            std::collections::HashSet::new();
         for (slot, names) in &fields_of {
             if !materialized.contains(slot) {
                 continue;
@@ -3711,6 +3763,23 @@ impl ReprInfer {
                 fields.push((name.clone(), repr));
             }
             let shape = table.intern_shape(fields);
+            // Clone-safety accounting: only object-LITERAL slots construct, so
+            // only they decide a shape's clone-safety. A clean literal PROVES
+            // the shape safe; a clone-unsafe literal (an object-pointer field)
+            // TAINTS it. NON-literal slots — a `Binding` ALIAS (`const cloned =
+            // structuredClone(o)` itself, `const q = p`), a `Return`, an
+            // `ArrayElem` — hold pointers to objects built ELSEWHERE by a
+            // literal; they neither prove nor taint (their fields' provenance is
+            // decided by that originating literal, which is also interned here).
+            // A shape is clone-safe iff proven by ≥1 literal and tainted by none
+            // (default-deny: a shape with no clean literal is never admitted).
+            if obj_literal_slots.contains(slot) {
+                if clone_unsafe_slots.contains(slot) {
+                    clone_tainted_shapes.insert(shape);
+                } else {
+                    clone_safe_candidate_shapes.insert(shape);
+                }
+            }
             match slot {
                 ObjSlot::Binding(func, name) => {
                     // A binding both object and float-unified is contradictory.
@@ -3752,6 +3821,15 @@ impl ReprInfer {
                 }
             }
         }
+        // Finalize the clone-safe allowlist: proven by a clean literal AND
+        // never tainted (Stage P2 Lane 2b).
+        let clone_safe_shapes: std::collections::HashSet<kali_common::ShapeId> =
+            clone_safe_candidate_shapes
+                .difference(&clone_tainted_shapes)
+                .copied()
+                .collect();
+        table.set_clone_safe_shapes(clone_safe_shapes);
+
         for message in std::mem::take(&mut self.obj_conflicts) {
             table.add_shape_conflict(message);
         }
@@ -4077,6 +4155,30 @@ fn strip_parenthesized(expr: &Expression) -> &Expression {
         current = &inner.expression;
     }
     current
+}
+
+/// Stage P2 Lane 2b clone-safety allowlist: `expr` (already paren-stripped) is a
+/// syntactic form that PROVABLY yields a scalar (number / bool / immutable
+/// string handle) and can NEVER be an object/array pointer — so an object field
+/// initialized from it is verbatim-clonable. This is the DEFAULT-DENY core: only
+/// the listed forms are admitted here; identifier/call/`arr[i]` sources are
+/// decided later against the resolved shape (they MIGHT be object pointers), and
+/// every other form (ternary, logical `||`/`&&`/`??` — which the parser lowers
+/// to a `BinaryExpression`, so they are EXCLUDED by operator here — non-computed
+/// member, `new`, …) is left for the caller to reject fail-closed.
+fn expr_is_proven_scalar_source(expr: &Expression) -> bool {
+    match expr {
+        Expression::Literal(_) => true,
+        Expression::UnaryExpression(_) => true,
+        Expression::UpdateExpression(_) => true,
+        Expression::TemplateLiteral(_) => true,
+        // Arithmetic / bitwise / comparison yield a number/bool/string — never a
+        // fresh object pointer. Logical `||`/`&&`/`??` (also parsed as
+        // `BinaryExpression`) CAN evaluate to an object operand, so they are
+        // excluded and fall through to the default-deny path.
+        Expression::BinaryExpression(bin) => !matches!(bin.operator.as_str(), "||" | "&&" | "??"),
+        _ => false,
+    }
 }
 
 /// The enumeration-namespace root of `expr`: `Some("Object")`/`Some("Reflect")`

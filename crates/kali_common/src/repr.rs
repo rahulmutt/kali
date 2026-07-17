@@ -133,6 +133,19 @@ pub struct ReprTable {
     array_element_concat_tainted: HashSet<(String, String)>,
     /// Interned object layouts; `ShapeId` indexes this list.
     shapes: Vec<Vec<(String, Repr)>>,
+    /// Shapes whose EVERY object-literal construction site proved all fields
+    /// clone-safe (Stage P2 Lane 2b): each field is a growable-i64 array or a
+    /// PROVEN-scalar source (numeric/string literal, arithmetic/unary/template
+    /// expression, or a scalar-repr identifier/call/`arr[i]`) — never an object
+    /// pointer. Computed ALLOWLIST-style at shape-intern time: a shape is in
+    /// this set only if at least one object-literal slot proves it AND no slot
+    /// (or non-literal provenance) taints it. `structuredClone`'s dispatch clones
+    /// a shape ONLY when it is in this set — the field-repr envelope alone cannot
+    /// tell a plain `I64` number field from an `I64` object-pointer field (both
+    /// intern identically), so a verbatim slot copy of the latter would
+    /// SHALLOW-SHARE the nested object. Empty for programs that never construct
+    /// an object literal.
+    clone_safe_shapes: HashSet<ShapeId>,
     /// Gate messages from the shape inference (contradictory or unsupported
     /// object usage). Any entry makes compilation fail with E5506.
     shape_conflicts: Vec<String>,
@@ -422,6 +435,20 @@ impl ReprTable {
     /// `structuredClone` clone-synthetic collection scans every envelope shape).
     pub fn shape_count(&self) -> usize {
         self.shapes.len()
+    }
+
+    /// Whether `shape` is clone-safe: every object-literal construction of it
+    /// proved all fields scalar-or-growable (no object-pointer field). See
+    /// `clone_safe_shapes`. `structuredClone` must gate on this in ADDITION to
+    /// the field-repr envelope.
+    pub fn shape_is_clone_safe(&self, shape: ShapeId) -> bool {
+        self.clone_safe_shapes.contains(&shape)
+    }
+
+    /// Record the ALLOWLIST-computed clone-safe shape set (Stage P2 Lane 2b);
+    /// called once by `repr_infer`'s `emit_table`.
+    pub fn set_clone_safe_shapes(&mut self, shapes: HashSet<ShapeId>) {
+        self.clone_safe_shapes = shapes;
     }
 
     /// If every field of `shape` shares one repr, return it; else `None`.

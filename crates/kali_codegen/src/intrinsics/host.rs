@@ -989,13 +989,21 @@ impl<'a> FunctionEmitter<'a> {
             || self.functions.contains_key(name))
     }
 
-    /// Strict ALLOWLIST gate: `shape` is deep-clonable iff every field is a
-    /// scalar or a `GrowableArrayI64` array (see
-    /// [`crate::emit::clone::fields_are_clone_envelope`]). Shared with the
-    /// plan-time collection scan so the emit-time dispatch and the
-    /// synthetic-emission set never disagree.
+    /// Strict ALLOWLIST gate: `shape` is deep-clonable iff (a) every field repr
+    /// is a scalar or a `GrowableArrayI64` array (see
+    /// [`crate::emit::clone::fields_are_clone_envelope`]) AND (b) the shape is
+    /// CLONE-SAFE — every object-literal construction of it proved each field a
+    /// scalar-or-growable SOURCE, never an object pointer (`ReprTable::
+    /// shape_is_clone_safe`, an allowlist computed at intern time). (b) is
+    /// essential: the field-repr check alone cannot tell a plain `I64` number
+    /// field from an `I64` object-pointer field (`{ inner: mk() }` /
+    /// `{ inner: arr[0] }` / `{ inner: inner }`) — they intern identically — so
+    /// a verbatim slot copy of the latter would SHALLOW-SHARE the nested object.
+    /// Shared with the plan-time collection scan so the emit-time dispatch and
+    /// the synthetic-emission set never disagree.
     pub(crate) fn shape_is_clone_envelope(&self, shape: kali_common::ShapeId) -> bool {
         crate::emit::clone::fields_are_clone_envelope(self.repr_table.shape_fields(shape))
+            && self.repr_table.shape_is_clone_safe(shape)
     }
 
     /// Fail-closed E5506 rejection in VALUE position: push the diagnostic, emit

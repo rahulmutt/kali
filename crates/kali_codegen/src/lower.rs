@@ -95,7 +95,9 @@ fn collect_requested_clone_shapes(
     // shallow-share a nested object — see `fields_are_clone_envelope`).
     for index in 0..repr_table.shape_count() {
         let shape = kali_common::ShapeId(index as u32);
-        if crate::emit::clone::fields_are_clone_envelope(repr_table.shape_fields(shape)) {
+        if crate::emit::clone::fields_are_clone_envelope(repr_table.shape_fields(shape))
+            && repr_table.shape_is_clone_safe(shape)
+        {
             requested.insert(shape);
         }
     }
