@@ -84,16 +84,6 @@ impl<'a> FunctionEmitter<'a> {
             // their capture sites). Default-deny those shapes: a bare
             // identifier or a call expression in callback position is a value
             // that WOULD have been the test body — fail closed E5506.
-            //
-            // Deliberately narrower than a blanket deny: a FLATTENED
-            // block-arrow callback (`Kali.test('n', () => { … })`, the
-            // pre-Stage-D arrow lowering) is not a function value here — its
-            // body statements were inlined and already execute at the
-            // registration site — and blanket-denying it re-reds hundreds of
-            // main-green browser-lane fixtures. That lane keeps the
-            // pre-existing warning; the `ok 1`-with-zero-tests masking it
-            // relies on is inventoried in the stage triage (Stage D un-flatten
-            // is the real fix).
             let callback_is_unregisterable_value = node.children.get(2).is_some_and(|&cb| {
                 let cb = self.unwrap_transparent(cb);
                 let cb_node = self.node(cb);
@@ -101,21 +91,12 @@ impl<'a> FunctionEmitter<'a> {
                     // A call RESULT in callback position (`Kali.test("a", make())`)
                     // is a function value this lane cannot register.
                     LirNodeKind::Call => true,
-                    // A bare identifier that demonstrably names a LIVE binding
-                    // (a param/local, a const binding, a declarator-recorded
-                    // function value, or a module binding) is a real value that
-                    // would be silently dropped. The flattened-arrow lowering's
-                    // `Value(text = "unknown")` placeholder names none of these
-                    // and stays on the warning lane below.
-                    LirNodeKind::Value => {
-                        cb_node.children.is_empty()
-                            && cb_node.text.as_deref().is_some_and(|text| {
-                                self.locals.contains_key(text)
-                                    || self.bindings.contains_key(text)
-                                    || self.fn_valued_locals.contains_key(text)
-                                    || self.module_binding_names.contains(text)
-                            })
-                    }
+                    // Post-un-flatten: a bare identifier in callback position
+                    // that `kali_test_callback_index` did not resolve is a
+                    // real value this lane cannot register — deny. (The
+                    // pre-D3 flattened-arrow `Value("unknown")` placeholder no
+                    // longer exists.)
+                    LirNodeKind::Value => cb_node.children.is_empty(),
                     // No-ops by construction: an inline function expression /
                     // declaration (`Instruction`) resolved far above via
                     // `kali_test_callback_index`; the remaining kinds are not
@@ -2976,12 +2957,6 @@ impl<'a> FunctionEmitter<'a> {
                 function.instruction(&Instruction::I64ExtendI32S);
                 EmittedValue { produced: true, shape: ValueShape::Unknown }
             }
-            SchedulingCallback::LegacyPlaceholder => {
-                // Pre-un-flatten flattened-arrow lane — deleted in Task 7.
-                self.push_placeholder_fallback_diagnostic("call target", surface_name);
-                function.instruction(&Instruction::I64Const(0));
-                EmittedValue { produced: true, shape: ValueShape::Unknown }
-            }
             SchedulingCallback::Deny => fail_closed(
                 self,
                 format!("a {surface_name} callback must resolve through stable provenance to a compiled function; an unresolvable callback would be silently dropped"),
@@ -3079,18 +3054,6 @@ impl<'a> FunctionEmitter<'a> {
                 function.instruction(&Instruction::Call(import));
                 EmittedValue {
                     produced: false,
-                    shape: ValueShape::Unknown,
-                }
-            }
-            SchedulingCallback::LegacyPlaceholder => {
-                // Pre-un-flatten flattened-arrow lane (`Value("unknown")`):
-                // preserve the pre-existing placeholder warning + zero result.
-                // Task 7 deletes this branch (and the enum variant) — after
-                // the un-flatten every arrow is a real compiled function.
-                self.push_placeholder_fallback_diagnostic("call target", "queueMicrotask");
-                function.instruction(&Instruction::I64Const(0));
-                EmittedValue {
-                    produced: true,
                     shape: ValueShape::Unknown,
                 }
             }
@@ -3192,18 +3155,13 @@ impl<'a> FunctionEmitter<'a> {
                         // A bare (unshadowed) function name.
                         return non_capturing_plan(text);
                     }
-                    // An identifier that resolves to NOTHING in any codegen
-                    // namespace: it lowers to the pre-existing E3100
-                    // zero-placeholder, so there is no compiled closure to
-                    // drop. This is the flattened block-arrow argument lane
-                    // (`setTimeout(() => {…})` lowers the arrow to a
-                    // `Value("unknown")` placeholder and never compiles its
-                    // body — a PRE-EXISTING whole-expression drop shared with
-                    // base, inventoried in the stage triage; Stage D's
-                    // un-flatten is the real fix). Denying it would re-red
-                    // main-green web-baseline build pins whose callback never
-                    // existed as a function in the first place.
-                    true
+                    // Post-un-flatten (Stage D Task 7): every arrow is a real
+                    // compiled function, so an identifier resolving to NOTHING
+                    // in any codegen namespace is a genuinely unresolvable
+                    // value — deny. (The `Value("unknown")` flattened
+                    // block-arrow argument lane is deleted, so this can no
+                    // longer be a placeholder whose callback never existed.)
+                    false
                 }
                 // No-ops by construction: a call argument is an expression —
                 // a call RESULT (`makeCb()`), or a malformed/statement-shaped

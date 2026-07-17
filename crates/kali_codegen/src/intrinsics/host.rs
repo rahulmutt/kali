@@ -29,11 +29,6 @@ pub(crate) enum SchedulingSurface {
 pub(crate) enum SchedulingCallback {
     /// Stable provenance to a compiled function: its raw wasm index.
     Resolved(u32),
-    /// An identifier resolving to NOTHING in any codegen namespace — the
-    /// flattened block-arrow lane (`Value("unknown")`). Kept on the
-    /// pre-existing placeholder warning path until Task 7 (the un-flatten)
-    /// deletes this variant; after that every arrow is a real function.
-    LegacyPlaceholder,
     /// Everything else: unresolvable/unstable provenance — fail closed E5506.
     Deny,
 }
@@ -859,7 +854,11 @@ impl<'a> FunctionEmitter<'a> {
                     // Bare unshadowed function name.
                     return SchedulingCallback::Resolved(index);
                 }
-                SchedulingCallback::LegacyPlaceholder
+                // Post-un-flatten (Stage D Task 7): every arrow is a real
+                // compiled function, so an identifier resolving to NOTHING in
+                // any codegen namespace is a genuinely unresolvable value —
+                // deny. (Pre-D3 this was the flattened-arrow placeholder lane.)
+                SchedulingCallback::Deny
             }
             _ => SchedulingCallback::Deny,
         }

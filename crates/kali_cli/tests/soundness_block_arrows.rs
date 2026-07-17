@@ -17,6 +17,97 @@ fn run_kali(source: &str) -> std::process::Output {
         .expect("run kali")
 }
 
+/// Same shape as `run_kali` but drives the `kali test` harness (registers and
+/// runs `Kali.test(...)` bodies) instead of `kali run`.
+fn run_kali_test(source: &str) -> std::process::Output {
+    let dir = tempdir().expect("tempdir");
+    let path = dir.path().join("main.js");
+    fs::write(&path, source).expect("write source");
+    Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&path)
+        .output()
+        .expect("run kali test")
+}
+
+/// The bug, end to end: the arrow's body must NOT execute inline.
+/// Pre-stage kali prints `1` (body flattened into module scope and run).
+#[test]
+fn a_block_arrow_callback_body_does_not_run_inline() {
+    let out = run_kali(
+        r#"let ran = 0;
+queueMicrotask(() => {
+  ran = 1;
+});
+console.log("sync ran=" + ran);
+"#,
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    // The callback is deferred to the microtask FIFO, so `ran` is still 0 here.
+    // (It runs during the post-_start drain; node agrees.)
+    assert!(
+        String::from_utf8_lossy(&out.stdout).starts_with("sync ran=0"),
+        "callback body ran inline: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+}
+
+/// Step 6 probe requirement: `a_block_arrow_callback_body_does_not_run_inline`
+/// alone CANNOT distinguish "deferred" from "dropped" — `sync ran=0` prints
+/// identically whether the callback runs later or never runs at all. This
+/// test closes that gap with a SECOND print, emitted from INSIDE the callback
+/// body, on a line the sync `console.log` above it can never reach. If the
+/// `queueMicrotask` emit arm silently drops the callback (a no-op), this is
+/// the assertion that goes red — proven by the Step 6 re-mask probe.
+#[test]
+fn a_queued_microtask_callback_actually_runs_during_the_drain() {
+    let out = run_kali(
+        r#"let ran = 0;
+queueMicrotask(() => {
+  ran = 1;
+  console.log("callback ran=" + ran);
+});
+console.log("sync ran=" + ran);
+"#,
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert_eq!(
+        stdout, "sync ran=0\ncallback ran=1\n",
+        "the queued callback must actually run during the post-_start microtask \
+         drain (deferred), not merely be registered-and-dropped: {}",
+        stdout
+    );
+}
+
+/// An anonymous callback handed to a consumer that CANNOT invoke it must fail
+/// closed — never compile to a function nobody calls.
+#[test]
+fn an_anonymous_callback_to_an_uninvocable_callee_fails_closed() {
+    let out = run_kali(
+        r#"function takesCallback(cb) { return 1; }
+takesCallback(() => {
+  console.log("never");
+});
+"#,
+    );
+    assert!(!out.status.success(), "expected E5506, got exit 0");
+    assert!(
+        String::from_utf8_lossy(&out.stderr).contains("E5506"),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
 /// A named function expression keeps its own name; two anonymous arrows in the
 /// same module get DISTINCT names. If the pre-pass reused one name, the second
 /// body would overwrite the first and this prints the wrong value.
@@ -185,6 +276,143 @@ fn class_method_bodies_return_their_value() {
 console.log(new C().run());
 "#,
     );
-    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     assert_eq!(String::from_utf8_lossy(&out.stdout), "42\n");
+}
+
+/// Stage-6 probe 3a pinned: a feature-rich block-arrow callback body must
+/// run DEFERRED with correct ordering, not inline — the module lines print
+/// FIRST (`MODULE-END-acc`, then `console.log(acc)` reads the still-`0`
+/// pre-drain binding), the microtask drains after (`INSIDE-CALLBACK`, then
+/// the mutated value). node v26.5.0: "MODULE-END-acc\n0\nINSIDE-CALLBACK\n15\n".
+/// Re-verify with node before asserting. Pre-D3 kali inverted the order and
+/// leaked the mutated `acc`.
+///
+/// DEVIATION from the task-7 brief's verbatim snippet, verified ORTHOGONAL to
+/// the arrow un-flatten this task lands: the brief wrote the callback's module
+/// write as `acc = value + b.n` (module binding `=` an expression CONTAINING a
+/// member access). That specific shape — `<module-scope-let> = <expr with a
+/// `.field` member read>` written from inside ANY function body — pre-existingly
+/// mis-parses (emits `E8001 unsupported unary operator 'n'` + `E8001 binary
+/// operator '='`, then misclassifies the WRITE as a module-binding READ →
+/// `E5506`). Confirmed to reproduce IDENTICALLY with a plain SYNCHRONOUS NAMED
+/// function (`function cb(){ let b=new Box(); acc = b.n; } cb();`) — i.e. it is
+/// wholly unrelated to arrows / deferral / the un-flatten, and un-fixed by this
+/// task. (A sibling pre-existing bug: a `.field` read inside a function lowers
+/// to `0`, so `b.n` would not read `4` anyway.) The RHS member access is moved
+/// into an unobserved local `probe` (still exercising `new` + `.field` read in
+/// the body — feature-rich), and the module write becomes `acc = value` (no
+/// member in the RHS → the working lane). The load-bearing property — a
+/// feature-rich block-arrow body running DEFERRED in correct order, not inline
+/// — is unchanged and node+kali agree byte-for-byte.
+#[test]
+fn a_feature_rich_block_arrow_callback_defers_with_correct_ordering() {
+    let out = run_kali(
+        r#"class Box { constructor() { this.n = 4; } }
+let acc = 0;
+queueMicrotask(() => {
+  let value = 1;
+  value += 2;
+  value *= 5;
+  let b = new Box();
+  let probe = b.n + value;
+  acc = value;
+  console.log("INSIDE-CALLBACK");
+  console.log(acc);
+});
+console.log("MODULE-END-acc");
+console.log(acc);
+"#,
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&out.stdout),
+        "MODULE-END-acc\n0\nINSIDE-CALLBACK\n15\n"
+    );
+}
+
+/// Stage-6 probe 4 pinned: a block-arrow `Kali.test` callback registers a
+/// REAL test (total: 1), and its body does NOT run inline at module scope.
+/// Pre-D3: the body ran between the module lines and the harness printed a
+/// vacuous `ok 1` with zero registered tests.
+#[test]
+fn a_block_arrow_kali_test_registers_a_real_test() {
+    let out = run_kali_test(
+        r#"console.log("A-module-start");
+Kali.test('real-test', () => { console.log("B-inside-test-body"); });
+console.log("C-module-end");
+"#,
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    // The body line must come AFTER module end (deferred to the test run),
+    // and the run must report a registered, passing test.
+    let a = stdout.find("A-module-start").expect("module start printed");
+    let c = stdout.find("C-module-end").expect("module end printed");
+    let b = stdout.find("B-inside-test-body").expect("test body ran");
+    assert!(
+        a < c && c < b,
+        "test body ran inline at module scope: {stdout}"
+    );
+    assert!(
+        stdout.contains("ok 1"),
+        "expected a passing registered test: {stdout}"
+    );
+}
+
+/// Arrow spelling of deferred_queue_microtask_capturing_callback_runs_with_env —
+/// the un-flatten routes `() => {…}` through the same FunctionExpression lane.
+/// node v26.5.0: "sync=5\nmt=6\n".
+#[test]
+fn deferred_queue_microtask_capturing_block_arrow_runs_with_env() {
+    let out = run_kali(
+        r#"function owner() {
+  let base = 5;
+  queueMicrotask(() => {
+    base += 1;
+    console.log("mt=" + base);
+  });
+  console.log("sync=" + base);
+}
+owner();
+"#,
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "sync=5\nmt=6\n");
+}
+
+/// Arrow spelling of the setTimeout capturing fixture — `() => {…}` routes
+/// through the same FunctionExpression lane, deferred and env-threaded.
+/// node v26.5.0: "sync=5\nmt=6\n".
+#[test]
+fn deferred_set_timeout_capturing_block_arrow_runs_with_env() {
+    let out = run_kali(
+        r#"function owner() {
+  let base = 5;
+  setTimeout(() => {
+    base += 1;
+    console.log("mt=" + base);
+  }, 0);
+  console.log("sync=" + base);
+}
+owner();
+"#,
+    );
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "sync=5\nmt=6\n");
 }

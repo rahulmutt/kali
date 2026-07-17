@@ -49,6 +49,7 @@ impl TypeContext {
         for arg in &expr.args {
             self.resolve_expression(arg);
         }
+        self.reject_anonymous_function_argument(expr);
         // Spec 4a Task 5: a for-in-key VALUE passed as a call argument is a value
         // escape — rejected structurally by the default-deny in `resolve_identifier`
         // (call arguments are resolved as expressions, so a non-materialized key
@@ -82,6 +83,115 @@ impl TypeContext {
         self.resolve_string_replace_member_call(expr);
         self.resolve_string_split_member_call(expr);
         self.resolve_promise_member_call(expr);
+    }
+
+    /// Fail-closed anonymous-function-argument gate.
+    ///
+    /// An anonymous function expression (`function () { … }`, i.e. `id == None`)
+    /// or an arrow (`() => …`, `x => { … }`) passed as a call argument compiles
+    /// to a real standalone wasm function — but the ONLY way an in-wasm call can
+    /// reach a callback is monomorphized dispatch keyed on the callback's
+    /// function NAME (a named function passed as a param works this way). An
+    /// anonymous function has no name to key on, so invoking such a param
+    /// (`cb(5)`) silently no-ops (verified). Reject those args so the limitation
+    /// is a clean diagnostic instead of silent wrong behavior.
+    ///
+    /// SCOPE: reject only when the callee is a plain identifier that is NOT a
+    /// builtin global — i.e. a user-defined function, the exact shape that goes
+    /// through the name-keyed dispatch lane. Everything that legitimately
+    /// consumes an anonymous callback is deliberately exempt:
+    ///   * `Kali.test(name, cb)` — a MEMBER call; its callback is invoked BY THE
+    ///     HOST via the `__kali_callback_<index>` export, never an in-wasm call.
+    ///   * array callbacks `arr.map/filter/find/some/every/reduce/…` — MEMBER
+    ///     calls, statically folded (the callback is never lowered as a real
+    ///     function).
+    ///   * promise `p.then/catch/finally` — MEMBER calls, runtime-driven.
+    ///   * the builtin identifier scheduling consumers `queueMicrotask`,
+    ///     `setTimeout`, `setInterval` — all three WIRED as of Stage D Tasks
+    ///     4–5: codegen emits the `queue_microtask` / `set_timeout` /
+    ///     `set_interval` registration and the runtime drains the microtask
+    ///     FIFO / virtual-clock timer queue after `_start`, invoking each
+    ///     callback's `__kali_callback_<index>` export
+    ///     (`kali_runtime::host::enforce`). They take the generic builtin
+    ///     exemption below like any other bound global — the codegen-side
+    ///     provenance resolver (`scheduling_callback`) and `env_safety` own
+    ///     the fail-closed decisions for an unresolvable or unsound callback,
+    ///     so this gate does NOT need to force-reject them.
+    ///
+    /// Placed AFTER callee + argument resolution so a callee that independently
+    /// rejects (e.g. an unsupported late-object-model global such as
+    /// `FinalizationRegistry(() => {})`) surfaces its own diagnostic FIRST.
+    pub(crate) fn reject_anonymous_function_argument(&mut self, expr: &CallExpression) {
+        let Expression::Identifier(callee_name) = &expr.callee else {
+            return;
+        };
+        // Only a callee BOUND to a user-defined function reaches the name-keyed
+        // dispatch lane. Skip when the identifier is:
+        //   * unbound — a typo, or a recognized-but-unsupported global such as
+        //     `FinalizationRegistry` that rejects via its OWN late-object-model
+        //     diagnostic; a second diagnostic here would double-count the error
+        //     (and it is not a silent-no-op miscompile — the program already
+        //     rejects), so leave its own error to stand.
+        //   * a builtin global that legitimately invokes its callback — the
+        //     three scheduling surfaces (`queueMicrotask`/`setTimeout`/
+        //     `setInterval`) are bound but invoke the callback through the
+        //     runtime, and the codegen provenance resolver + `env_safety` fail
+        //     closed on any unsound callback (see the doc comment above).
+        if self.resolve_name(callee_name).is_none() || Self::is_builtin_global_name(callee_name) {
+            return;
+        }
+        for arg in &expr.args {
+            let anonymous_fn = match arg {
+                // Task 2's pre-pass (`name_anon_functions.rs`) runs BEFORE the
+                // resolver and fills every anonymous `id: None` with a
+                // synthetic `__kali_fn_{N}` name — so by the time this gate
+                // runs, `func.id` is never actually `None` for the anonymous
+                // case anymore. Detect "was anonymous in source" via the
+                // synthetic-name marker instead (the collision guard in that
+                // pass guarantees no SOURCE declaration is ever named
+                // `__kali_fn_{N}`, so the check cannot mis-fire on a real
+                // user-named function expression). `func.id.is_none()` is kept
+                // as a defensive fallback in case this arg ever reaches here
+                // before the pre-pass runs.
+                Expression::FunctionExpression(func) => func
+                    .id
+                    .as_deref()
+                    .is_none_or(Self::is_synthetic_function_name),
+                // An arrow has no source-level named-function-expression
+                // syntax at all — every arrow is anonymous in source, whether
+                // its `id` is `None` (pre-pass didn't run) or a pre-pass-
+                // assigned `__kali_fn_{N}` (the normal post-pre-pass case).
+                Expression::ArrowFunctionExpression(_) => true,
+                _ => false,
+            };
+            if anonymous_fn {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "an anonymous function as a call argument is unavailable in the current \
+                     phase (nothing can invoke it); declare a named function and pass its name"
+                        .to_string(),
+                ));
+            }
+        }
+    }
+
+    /// Whether `name` is a builtin global (base surface or the node surface).
+    /// Checked as a static superset — a name that is a builtin under EITHER
+    /// surface is treated as builtin — so the anonymous-argument gate never
+    /// mis-rejects a callback handed to a runtime consumer that only exists on
+    /// one surface.
+    fn is_builtin_global_name(name: &str) -> bool {
+        builtin_globals().contains(&name) || node_builtin_globals().contains(&name)
+    }
+
+    /// Whether `name` is a Task 2 pre-pass synthetic name (`__kali_fn_{N}`,
+    /// `name_anon_functions.rs`) — i.e. the node was anonymous in SOURCE. The
+    /// pre-pass's collision guard (`collect_taken_names`) guarantees no
+    /// source declaration is ever assigned this shape, so the check is exact
+    /// in both directions: every synthetic name matches, and no real
+    /// user-declared name ever does.
+    fn is_synthetic_function_name(name: &str) -> bool {
+        name.starts_with("__kali_fn_")
     }
 
     pub(crate) fn call_member_access_name(expression: &Expression) -> Option<String> {

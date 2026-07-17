@@ -2,8 +2,8 @@
 
 use crate::Parser;
 use kali_ast::{
-    ArrayExpression, ArrowFunctionExpression, Expression, ExpressionOrSpread, FunctionParam,
-    ImportExpression, ParenthesizedExpression, SpreadElement,
+    ArrayExpression, ArrowFunctionExpression, Expression, ExpressionOrSpread, FunctionExpression,
+    FunctionParam, ImportExpression, ParenthesizedExpression, SpreadElement, Statement,
 };
 use kali_common::template::split_template_literal;
 use kali_error::{_error_codes::e2, diagnostic::Diagnostic};
@@ -23,20 +23,41 @@ impl Parser {
                 let name = token
                     .map(|t| t.value)
                     .unwrap_or_else(|| "unknown".to_string());
-                if self.stream.current_kind() == Some(&TokenType::Arrow)
-                    && self.stream.peek_next_kind() != Some(&TokenType::LeftBrace)
-                {
-                    let _ = self.stream.advance();
-                    let body = self.parse_arrow_function_body_expression();
-                    return Expression::ArrowFunctionExpression(Box::new(
-                        ArrowFunctionExpression {
-                            id: None,
-                            params: vec![FunctionParam { name }],
-                            body,
-                            is_async: false,
-                            returnType: None,
-                        },
-                    ));
+                if self.stream.current_kind() == Some(&TokenType::Arrow) {
+                    if self.stream.peek_next_kind() == Some(&TokenType::LeftBrace) {
+                        // Single-param block-bodied arrow `x => { … }`: parse
+                        // into the SAME unnamed `FunctionExpression` desugar the
+                        // paren form uses (declaration.rs:319). Before this it
+                        // fell through to the identifier return, so the `{ … }`
+                        // reparsed as an object literal / block in the outer
+                        // scope (baffling diagnostics, or a body that flattened
+                        // and executed once at the wrong scope).
+                        let _ = self.stream.advance(); // consume `=>`
+                        if let Some(Statement::BlockStatement(block)) = self.parse_block_statement()
+                        {
+                            return Expression::FunctionExpression(Box::new(FunctionExpression {
+                                id: None,
+                                params: vec![FunctionParam { name }],
+                                body: Some(Box::new(block)),
+                                is_async: false,
+                                generator: false,
+                            }));
+                        }
+                        // Unparseable block: fall through to the identifier
+                        // return — resolve will produce its normal diagnostics.
+                    } else {
+                        let _ = self.stream.advance();
+                        let body = self.parse_arrow_function_body_expression();
+                        return Expression::ArrowFunctionExpression(Box::new(
+                            ArrowFunctionExpression {
+                                id: None,
+                                params: vec![FunctionParam { name }],
+                                body,
+                                is_async: false,
+                                returnType: None,
+                            },
+                        ));
+                    }
                 }
                 Expression::Identifier(name)
             }
@@ -77,6 +98,17 @@ impl Parser {
                 Expression::Literal(kali_ast::LiteralValue::String(value))
             }
             TokenType::LeftParen => {
+                // Block-bodied arrows in ANY expression position parse as an
+                // unnamed `FunctionExpression` — the same desugar the declarator
+                // init uses. Before this, non-declarator positions fell through:
+                // params reparsed against the outer scope (E3100 noise) and a
+                // zero-param body FLATTENED into module scope and executed once
+                // (silent wrong execution — Kali.test only "worked" via that).
+                // Try the block form FIRST so `(a) => { … }` never reaches the
+                // expression-bodied arrow / parenthesized fallthrough below.
+                if let Some(expr) = self.try_parse_block_arrow_function_expression() {
+                    return expr;
+                }
                 if let Some(expr) = self.try_parse_arrow_function_expression() {
                     return expr;
                 }

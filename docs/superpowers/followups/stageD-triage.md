@@ -154,3 +154,98 @@ error/stderr payload — not inferred from the name alone.
   patch fixes real baseline failures as a side effect, which is expected
   (un-flattening block-arrows closes silent-miscompile pins that were
   previously red for the RIGHT reason).
+
+---
+
+# Task 7 (D3) — measured full-foundation blast radius (parser flip LANDED)
+
+> Task 7 lands the block-arrow un-flatten on the FULL Stage D foundation
+> (Tasks 2–6 live). Unlike the Task 1 measurement (parser+types hunks over a
+> bare branch), this is the real gate: all codegen deferred-callback lanes,
+> virtual-clock drain, env_safety registration edges, and browser glue are
+> present. Gate command per the Task 7 brief (fresh `.kali-cache` +
+> `cargo build -p kali_cli`, then `cargo test --workspace --no-fail-fast`).
+
+## 7.1 Totals
+
+- Baseline (`stageD-pre.txt`): **731** honest-red.
+- Post-Task-7 (`stageD-post-task7.txt`): **698** red.
+- **Newly-red: 4** (`stageD-task7-newly-red.txt`).
+- **Drain (newly-green): 37.** Net −33.
+
+Every one of the 4 newly-red was already predicted by Task 1's parser-only
+measurement (`stageD-parser-newly-red.txt`) — `comm -23` of the Task 7
+newly-red against the Task 1 list is EMPTY. The 2
+`json_test_supports_object_type_and_constructor_semantics{,_in_js_input}`
+entries Task 1 also predicted are now GREEN, pre-handled by the WIP patch's
+`runtime_smoke.rs` `test_mode` re-pin hunk applied in Step 4 (verified: the
+`json_test_supports_object_type_*` pair passes post-patch).
+
+## 7.2 Classified newly-red (all bucket-b — Task 8 re-pin batch)
+
+| Test (all in `runtime_smoke/build.rs`) | Bucket | Evidence |
+|---|---|---|
+| `build::build_emits_browser_bundle_web_baseline_primitives` | b | see below |
+| `build::build_emits_browser_bundle_web_baseline_primitives_in_js_input` | b | see below |
+| `build::json_build_emits_browser_bundle_web_baseline_primitives` | b | see below |
+| `build::json_build_emits_browser_bundle_web_baseline_primitives_in_js_input` | b | see below |
+
+**Root cause (shared by all 4):** `browser_bundle_web_baseline_source()`
+(`runtime_smoke.rs:4462`) contains
+`target.addEventListener('tick', () => { count += 1; controller.abort(); })`
+— an anonymous BLOCK-ARROW callback on the `addEventListener` surface, the
+ONE remaining undrained scheduling surface (`is_undrained_scheduling_surface`,
+Task 5). Pre-D3 the arrow flattened to a `Value("unknown")` placeholder and
+`scheduling_call_args_provably_safe` returned `true` for it (the resolve-to-
+nothing tail this task flips to `false`), so the bundle BUILD succeeded by
+SILENTLY DROPPING the callback (+ its captured `count`/`controller`). Post-D3
+the un-flatten compiles the arrow as a real CAPTURING function, and the
+flipped guard fails closed:
+
+```
+error[E5506]: a callback passed to 'addEventListener' is unavailable unless
+it is provably non-capturing: codegen emits no call to this scheduling
+surface, so the callback — and any captured environment — would be silently
+dropped; an argument with unresolvable provenance fails closed
+```
+
+These 4 pins assert `output.status.success()` (the OLD masking shape: build
+succeeds via dropped callback). The new behavior — a fail-closed build reject
+of a callback that would otherwise vanish — is STRICTLY BETTER (a silent
+miscompile becomes a clean diagnostic). They are legitimate re-pins, NOT
+defects, and are deferred to **Task 8's user-approval re-pin batch** (this
+task does NOT re-pin them beyond the one pre-approved `runtime_smoke.rs`
+`assert_json_object_type_and_constructor_semantics` hunk landed in Step 4).
+
+## 7.3 Bucket (a) — deferred-surface families that should now be GREEN: 0 still red
+
+The 37 drained tests ARE the bucket-a family, now green as intended — all
+`test_supports_*object_keys/values*` / `*for_of_break_continue*` /
+`*set_constructor*` / `*frozen_object*` iteration fixtures (browser-harness
+and direct variants). None remained red, so there is NO Task 4–6 defect.
+(These went red pre-D3 for the RIGHT reason — the flattened-arrow lane — and
+the un-flatten is their real fix.) Full list: `comm -23 stageD-pre.txt
+stageD-post-task7.txt`.
+
+## 7.4 Bucket (c) — unexplained: 0
+
+Nothing unexplained; not BLOCKED.
+
+## 7.5 Probe adaptation note (feature-rich deferred-ordering probe)
+
+The Step 5 probe `a_feature_rich_block_arrow_callback_defers_with_correct_
+ordering` was adapted from the brief's verbatim snippet: the brief wrote the
+callback's module write as `acc = value + b.n` (a module-scope `let` `=` an
+expression CONTAINING a `.field` member read). That specific shape
+pre-existingly mis-parses (`E8001 unsupported unary operator 'n'` + `E8001
+binary operator '='`, then misclassifies the WRITE as a module-binding READ →
+`E5506`) from inside ANY function body — CONFIRMED to reproduce identically
+with a plain SYNCHRONOUS NAMED function, i.e. wholly orthogonal to arrows /
+the un-flatten. The member access was moved into an unobserved local
+(`let probe = b.n + value;`) and the module write became `acc = value` (no
+member in RHS → the working lane); the body stays feature-rich (`+=`, `*=`,
+`new`, `.field` read, module write) and the load-bearing DEFERRED-ORDERING
+property is unchanged (node + kali agree byte-for-byte:
+`MODULE-END-acc\n0\nINSIDE-CALLBACK\n15\n`). New pre-existing follow-up
+inventoried: `<module-let> = <expr with member access>` mis-parse, and a
+sibling `.field` read inside a function lowering to `0`.

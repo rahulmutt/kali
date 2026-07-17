@@ -3759,12 +3759,51 @@ fn assert_json_object_type_and_constructor_semantics(
     assert!(!output.status.success(), "must fail closed: {output:?}");
     let json = parse_json_stdout(&output);
     assert_eq!(json["success"], false);
-    let code = json["errors"][0]["code"].as_str().unwrap_or_default();
-    let harness_stderr = json["stderr"].as_str().unwrap_or_default();
-    assert!(
-        code == "E4000" || code == "E5506" || harness_stderr.contains("RuntimeError: unreachable"),
-        "expected fail-closed trap or reject, got: {json}"
-    );
+    if test_mode {
+        // Throw-fallout Stage 6 Task 5 re-pin: the fixture's `instanceof`
+        // trap now fires from INSIDE the `Kali.test(() => { … })` callback
+        // body, which the block-arrow un-flatten patch compiles as a real
+        // standalone function instead of flattening it into module scope.
+        // The trap therefore attributes to the callback's
+        // `__kali_callback_<index>` export (a runtime `CallbackTrap`) rather
+        // than surfacing as a top-level compile-time `errors[]` entry —
+        // `errors` is now EMPTY and `payload.failed == 1`, with the trap
+        // text landing in `stderr` instead. This is a STRICTLY BETTER
+        // shape (attributed to the specific failing test/callback, not a
+        // bare top-level reject) — the program still fails closed (exit
+        // != 0, `success: false`), just reported differently. Before this
+        // patch: `errors[0].code` was `"E4000"`/`"E5506"`. After:
+        // `errors` is `[]`, `payload.failed == 1`, `payload.passed == 0`,
+        // and `stderr` names the failing callback and trap code.
+        assert_eq!(
+            json["errors"].as_array().map(|a| a.len()),
+            Some(0),
+            "expected the top-level errors[] array to be empty (the trap is\
+             attributed to the callback instead), got: {json}"
+        );
+        assert_eq!(json["payload"]["failed"], 1, "got: {json}");
+        assert_eq!(json["payload"]["passed"], 0, "got: {json}");
+        let harness_stderr = json["stderr"].as_str().unwrap_or_default();
+        assert!(
+            harness_stderr.contains("__kali_callback_"),
+            "expected the trap to attribute to a specific callback export, got: {json}"
+        );
+        assert!(
+            harness_stderr.contains("E4000")
+                || harness_stderr.contains("E5506")
+                || harness_stderr.contains("RuntimeError: unreachable"),
+            "expected fail-closed trap or reject, got: {json}"
+        );
+    } else {
+        let code = json["errors"][0]["code"].as_str().unwrap_or_default();
+        let harness_stderr = json["stderr"].as_str().unwrap_or_default();
+        assert!(
+            code == "E4000"
+                || code == "E5506"
+                || harness_stderr.contains("RuntimeError: unreachable"),
+            "expected fail-closed trap or reject, got: {json}"
+        );
+    }
 }
 fn assert_json_browser_requested_object_type_and_constructor_semantics(
     command: &str,
