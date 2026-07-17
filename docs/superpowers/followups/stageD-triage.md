@@ -653,3 +653,76 @@ closed or stays pre-existing-red rather than miscompiling):
   mirrors (`harness.rs` ×2, `cmd_build.rs` ×2) were aligned to base 0,
   matching Rust. Combined with the shared insert-gate, the Rust and JS
   timer-cancellation semantics are now identical by construction.
+
+## 9. Stage D close-out (Task 9, D4) — CERTIFIED 2026-07-17
+
+### 9.1 Final gate numbers
+
+- Entry baseline: **731** (frozen, §2). Exit: **694** failing — newly-red vs
+  the baseline **EMPTY**, drain (newly-green) **37** (the deferred-surface
+  families, §8.3.1 classification). Two independent final enumerations on the
+  final tree (`.kali-cache` cleared before each): 694/694, `diff` **empty**
+  (zero drift). Main-worktree cross-check (`b48a067d3`): **0 FAILED**.
+- Stage totals: 26 commits after the plan commit (`1a3a1ae80..9f001d922`) (D1 runtime 2, D2 codegen+glue 3,
+  D3 un-flatten 1, EV lane 8 incl. spec/plan/fix rounds, Task 9 fix waves +
+  rider 7, docs 6).
+
+### 9.2 Deliberate pin-flip ledger
+
+- Task 2: `runtime_rejects_negative_*` ×2 retargeted → `*_fires_its_callback`
+  (clamp-and-fire node parity; trap now attributed to the FIRED callback).
+- Task 4: Stage C rows o/bg1/bg2 (queueMicrotask) → `_now_runs`, node-verified.
+- Task 5: rows p/q2/q3/bg3 (timers) → `_now_runs`, node-verified (q2/q3
+  fixture sources adapted — the plan's literals did not node-verify; §ledger).
+- Task 7: the pre-approved `json_test_supports_object_type_*` re-pin ×2
+  (strictly-better per-callback-attributed shape).
+- Task 8 (as re-scoped by the user): NO re-pins — the 4
+  `browser_bundle_web_baseline_primitives` tests went green legitimately via
+  the EV lane; row q (addEventListener) → `_now_runs` in EV Task 4.
+- Task 9 C-1 final: `deferred_set_interval_*_row_q2_now_runs` +
+  `*_ticks_until_cleared` re-scoped to E5506 reject-don't-miscompile pins
+  (coincidence-green proven: captured own timer id == placeholder 0 only
+  while the sole timer's id was 0; reviewer-reproduced c4 two-interval probe
+  → wrong-timer-cancel E4003 on the pre-flip build). Capability retained via
+  row_q3 and the `let id = 0; id = setInterval(...)` promoted-scalar spelling
+  (p49 byte-for-byte).
+
+### 9.3 Whole-stage review findings + dispositions (3 passes, most-capable model)
+
+- **C-1 (CRITICAL, guard→resolver seam)**: non-lowered captures registered and
+  read placeholder 0 through all 4 surfaces (base E5506'd). Round 1
+  scalar-only deny (user-ratified) was FALSIFIED by the verifier (captured
+  objects value-losing b2/b7/b2b, param-alias b3, laundered scalar b5) →
+  round 2 flipped to the ALLOWLIST form (`unlowered_capture_denied`): deny
+  everything non-lowered except by-value promotable scalars and provable
+  zero-placeholder constructs. 10 E5506 pins + 1 keep-allowed pin + 2
+  tripwire pins. The standing denylist-leaks lesson, re-learned at review
+  scale.
+- **I-1**: stale `clear*` id poisoned the next interval's re-arm — insert-gate
+  fix (Rust + 4 JS mirrors), timer-id bases aligned to 0 everywhere.
+- **I-2**: kali_types anonymous-callback gate was shadow-blind (shadowed
+  builtin = total silent no-op) — builtin exemption now unshadowed-only.
+- **I-4**: `Kali.test(name, obj.m)` ran the WRONG function with a false ok —
+  bare-identifier gate; member-expression callbacks fail closed.
+- **I-3**: §8.2/§8.6 doc-vs-behavior corrections (new-Event dispatch and
+  module/function split-scope claims retracted; silent-drop wording fixed).
+- Verifier-adjudicated: interval-test re-scope CORRECT (see 9.2); §8.6
+  hand-mirror rider landed (`06cee1d67`) with the Set-lowering tripwire.
+
+### 9.4 Follow-up inventory hand-off
+
+§8.6 is the canonical inventory. Headline items: addEventListener/EventTarget
+receiver widening + backstop→total-deny (Stage P3, with AbortController
+Object repr lifting the placeholder-capture residual and the zero-param
+listener restriction); parity stages P2 structuredClone / P4 URL+USP / P5
+TextEncoder → byte-for-byte webBaselineSmoke acceptance; non-lowered
+non-scalar closure lowering (timer-id capture class); delay-expression and
+alias-provenance precision; escaping first-class closures, depth≥2 env
+chains, lexical parent links (Stage C carry-over); F-AB-1 expr-arrow-return;
+`ok 1`-with-zero-tests distinguishability — PARTIALLY mitigated: the D3+I-4
+hardening closed the wrong-function and flattened-arrow vacuous-ok classes;
+a zero-registration run still prints a bare summary (full fix = registration
+count in the harness epilogue, future stage).
+
+**Stage D CLOSED. Branch stays unmerged by design (honest-red 694 pending the
+broader soundness project).**
