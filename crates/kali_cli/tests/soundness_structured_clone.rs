@@ -53,6 +53,41 @@ fn run_kali_run_expect_error(source: &str) -> String {
     String::from_utf8_lossy(&out.stderr).into_owned()
 }
 
+/// Task 9: run `kali build --bundle --api browser <src>` and return whether it
+/// succeeded. `--api browser` is required here because the fixture this helper
+/// exercises constructs `new Blob(...)` — a browser-surface global; a plain
+/// `kali build --bundle` (no `--api browser`) fails closed with E5508
+/// ("requires the effective browser API surface") before ever reaching the
+/// structuredClone dispatch, which would test the wrong thing. This mirrors
+/// the browser-bundle build invocation used throughout
+/// `package_corpus/browser_corpus.rs` (e.g. `assert_browser_bundle_object_has_own`
+/// and the corpus's `write_browser_string_web_baseline_package` fixture, which
+/// also constructs `new Blob([...])` ahead of a `build --bundle --api browser`
+/// build) and `string_pad_static_ascii.rs`'s
+/// `browser_bundle_accepts_static_ascii_string_pad_across_source_classes`.
+fn build_bundle_succeeds(source: &str) -> bool {
+    let dir = tempdir().expect("tempdir");
+    let path = dir.path().join("main.js");
+    fs::write(&path, source).expect("write source");
+    let out = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&path)
+        .output()
+        .expect("run kali build --bundle");
+    if !out.status.success() {
+        eprintln!(
+            "build --bundle --api browser failed; stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+    out.status.success()
+}
+
 /// Task 5 pin (currently RED — enable by removing `#[ignore]` once Task 5's
 /// growable-array dispatch accepts a field-read receiver): `o.values` is an
 /// object field carrying a `Repr::GrowableArrayI64` handle (Task 3 interns
@@ -398,4 +433,57 @@ fn structured_clone_call_return_growable_inner_mutation_fails_closed() {
                console.log(cloned.a);\n";
     let stderr = run_kali_run_expect_error(src);
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+/// Task 9 (Lane 2 tripwire): the corpus shape `structuredClone(new Blob([...]))`
+/// (see `package_corpus.rs`'s `write_browser_string_web_baseline_package` and
+/// `package_corpus/browser_corpus.rs`'s inline `structuredClone(new
+/// Blob(['browser corpus']))` fixtures) must keep BUILDING under `kali build
+/// --bundle` (Task 8's Lane 2 warn-and-placeholder entry). `Blob` has no real
+/// construct lowering (`declarator_init_is_placeholder_construct`,
+/// `crates/kali_codegen/src/lower.rs`, treats any bare `new X()` other than
+/// `Array`/`Uint8Array`/`EventTarget` as a zero-placeholder), so
+/// `structuredClone` of it takes entry 2 (warn + keep the placeholder-0
+/// lowering) rather than entry 3 (fail closed E5506). This test pins that the
+/// corpus-shaped program still builds; it must go RED if entry 2 is ever
+/// tightened to deny placeholder-construct arguments, since that would break
+/// the corpus's `structuredClone(new Blob(...))` / `new File(...)` pins.
+#[test]
+fn structured_clone_of_placeholder_construct_still_builds() {
+    // Corpus shape: structuredClone(new Blob([...])) must BUILD (check/bundle).
+    let src = "structuredClone(new Blob(['x']));\nexport default function root() { return 1; }\n";
+    assert!(build_bundle_succeeds(src));
+}
+
+/// Task 9 (Lane 2 tripwire): DELIBERATE tripwire (not a correctness claim) —
+/// kali returns the placeholder-0 lowering for `structuredClone(new
+/// Blob(...))`; node returns a real Blob clone. This pins kali's CURRENT
+/// same-0 behavior; it must go RED the day `Blob` gains a real construct
+/// lowering, forcing the `declarator_init_is_placeholder_construct` exclusion
+/// list (`crates/kali_codegen/src/lower.rs`, alongside `Array` /
+/// `Uint8Array` / `EventTarget`) to add `Blob`. See spec §2.3.
+///
+/// ADAPTATION FROM THE BRIEF (documented): the brief's body asserted
+/// `console.log(typeof b)` diverges from node's `"object"`. Empirically
+/// (`kali run` on a freshly built binary), `typeof b` where `b` is a
+/// non-literal binding does NOT hit kali's static `typeof`-fold lane (that
+/// lane only fires for a literal operand, e.g. `typeof 5` prints `"number"`)
+/// — it falls through to the general runtime lane, which for a non-literal
+/// binding prints the RAW scalar value rather than a type-name string at all
+/// (verified pre-existing and unrelated to structuredClone/Blob: `let x = 5;
+/// console.log(typeof x);` also prints `"5"`, not `"number"`). So `typeof b`
+/// here prints kali's placeholder-0 rendering (`"0"`), which already differs
+/// from node's `"object"` — the brief's exact assertion form is used as
+/// written and passes; no structural change was needed, only this
+/// documentation of what "the placeholder rendering" concretely is.
+#[test]
+fn structured_clone_of_placeholder_construct_tripwire() {
+    let src = "const b = structuredClone(new Blob(['x']));\nconsole.log(typeof b);\n";
+    let out = run_kali_run(src);
+    // kali: placeholder 0 → prints its scalar rendering ("0"); node: "object".
+    assert_ne!(
+        out.trim(),
+        "object",
+        "Blob gained a real lowering — update the exclusion list"
+    );
 }
