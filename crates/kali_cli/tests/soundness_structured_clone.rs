@@ -287,3 +287,54 @@ fn structured_clone_of_unproven_argument_fails_closed() {
     let stderr = run_kali_run_expect_error(src);
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
+
+/// Task 8 review CRITICAL fix: an object-POINTER field via an IDENTIFIER
+/// (`{ a: 1, inner: inner }` where `inner` is object-shaped) must FAIL CLOSED
+/// E5506, not intern as a plain `I64` pointer slot. Without the fix, the field
+/// passed the clone envelope and the clone verbatim-copied the pointer —
+/// SHALLOW-SHARING the nested object: `cloned.inner === original.inner` printed
+/// `1` (node: `false`). The rejection is at the inference field-repr choke
+/// point (`repr_infer.rs` `resolve_objects`), so it closes the class for ANY
+/// consumer; `structuredClone` here is what materializes `original` and unmasks
+/// the shape. The inline-literal twin (`{ inner: { b: 2 } }`) is already
+/// rejected at record time — this pins the identifier-RHS twin.
+#[test]
+fn structured_clone_object_pointer_field_identity_fails_closed() {
+    let src = "const inner = { b: 2 };\n\
+               const original = { a: 1, inner: inner };\n\
+               const cloned = structuredClone(original);\n\
+               console.log(cloned.inner === original.inner);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+/// Task 8 review CRITICAL fix (read form): the same object-pointer-field
+/// program read through the nested property (`cloned.inner.b`) must also FAIL
+/// CLOSED E5506 — without the fix it printed `0` (node: `2`), a silent
+/// miscompile of the shallow-shared nested object.
+#[test]
+fn structured_clone_object_pointer_field_nested_read_fails_closed() {
+    let src = "const inner = { b: 2 };\n\
+               const original = { a: 1, inner: inner };\n\
+               const cloned = structuredClone(original);\n\
+               console.log(cloned.inner.b);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+/// Task 8 review positive control (NO over-closure): a SCALAR-identifier field
+/// (`{ a: n }` where `n` solves to a number) must still clone correctly — the
+/// pointer-field rejection is gated on the source being object-shaped, so a
+/// scalar source is never flagged. The growable `values` field forces
+/// materialization (so the runtime clone lane, not the fold lane, is
+/// exercised).
+#[test]
+fn structured_clone_scalar_identifier_field_still_clones() {
+    let src = "const n = 7;\n\
+               const original = { a: n, values: [1, 2, 3] };\n\
+               const cloned = structuredClone(original);\n\
+               console.log(cloned.a);\n\
+               console.log(cloned.values.join(','));\n";
+    let out = run_kali_run(src);
+    assert_eq!(out.trim(), "7\n1,2,3");
+}

@@ -244,6 +244,21 @@ struct ReprInfer {
     /// growable-i64 AND its element node solves i64 (never string/float);
     /// every other array-shaped field fails closed with a shape conflict.
     obj_array_fields: BTreeMap<(ObjSlot, String), (usize, bool)>,
+    /// Object-literal FIELDS whose initializer is an OBJECT-REFERENCE-carrying
+    /// EXPRESSION (identifier / `arr[i]` / call), recorded as `(owner slot,
+    /// field name, source object-carrying slot)`. Nested-object LITERAL fields
+    /// are rejected structurally at `record_object_literal` (they can never
+    /// carry a shape); an IDENTIFIER-valued field (`{ inner: inner }`) could
+    /// not be decided there because the source's object-shaped-ness is only
+    /// known after `resolve_objects` builds the flow graph. At resolve time a
+    /// candidate whose SOURCE resolves to an object shape (is in `fields_of`) on
+    /// a MATERIALIZED owner becomes a fail-closed `obj_conflict`: the field
+    /// would otherwise intern as a plain `I64` pointer slot and any consumer
+    /// that verbatim-copies it (`structuredClone`) would SHALLOW-SHARE the
+    /// nested object — a silent miscompile. Scalar-identifier fields (`{ a: n }`
+    /// where `n` solves scalar) leave their source OUT of `fields_of`, so they
+    /// never trip this and keep working (no over-closure).
+    obj_pointer_field_candidates: Vec<(ObjSlot, String, ObjSlot)>,
     /// Slots that must lower as runtime heap objects (any write, any flow).
     obj_materialized: BTreeSet<ObjSlot>,
     /// Object slots with their propagated field lists (set by `resolve_objects`).
@@ -730,6 +745,31 @@ impl ReprInfer {
                 self.obj_materialized.insert(slot.clone());
                 names.push(key.clone());
                 continue;
+            }
+            // Object-POINTER field via an IDENTIFIER (`{ inner: inner }`): a
+            // nested-object LITERAL is rejected above, but an identifier-VALUED
+            // field cannot be decided here (the source's object-shaped-ness is
+            // only known after `resolve_objects`). Record a candidate; resolve
+            // time fail-closes it iff the source proves object-shaped on a
+            // materialized owner. A plain scalar identifier is recorded too but
+            // its source never enters `fields_of`, so the resolve-time check
+            // filters it out (scalar fields keep working — no over-closure).
+            //
+            // Scope is IDENTIFIER-only ON PURPOSE. A CALL-return object field
+            // (`{ left: bottomUpTree(d), right: bottomUpTree(d) }` — the
+            // binary-trees fixture) is a SHAPE-TRACKED, readable nested field
+            // that works byte-for-byte and must NOT be rejected; and an
+            // identifier-object field is ALREADY fail-closed at read
+            // pre-existing ("no statically inferred object shape"), so rejecting
+            // it at construction loses no working program — it only converts a
+            // read-time fail (or a `structuredClone` shallow-share) into an
+            // earlier, honest fail-closed.
+            if let Expression::Identifier(name) = strip_parenthesized(&prop.value) {
+                self.obj_pointer_field_candidates.push((
+                    slot.clone(),
+                    key.clone(),
+                    ObjSlot::Binding(func.to_string(), name.clone()),
+                ));
             }
             let value_node = self.visit_expr(func, &prop.value);
             let field_node = self.obj_field_node_for(&slot, key);
@@ -3114,6 +3154,27 @@ impl ReprInfer {
         for (slot, message) in pending {
             if self.obj_materialized.contains(&slot) || promote_via_read.contains(&slot) {
                 self.obj_conflicts.push(message);
+            }
+        }
+
+        // 4b. Fail-close an OBJECT-POINTER field (`{ inner: inner }` where
+        //     `inner` is object-shaped) on a MATERIALIZED owner. Such a field
+        //     interns as a plain `I64` pointer slot with no nested-object
+        //     tracking — reads of it are unsupported, and a verbatim-copying
+        //     consumer (`structuredClone`) would SHALLOW-SHARE the nested
+        //     object (`cloned.inner === original.inner` true; node: false). The
+        //     inline-literal twin is rejected at `record_object_literal`; this
+        //     closes the identifier/`arr[i]`/call source shapes for ANY
+        //     consumer (not just clone). Gated on owner materialization so a
+        //     purely fold-lane literal keeps its byte-identical behavior
+        //     (fold-first). A scalar-identifier field's source is absent from
+        //     `fields_of`, so it is never flagged.
+        let pointer_field_candidates = std::mem::take(&mut self.obj_pointer_field_candidates);
+        for (owner, field, source) in pointer_field_candidates {
+            if fields_of.contains_key(&source) && self.obj_materialized.contains(&owner) {
+                self.obj_conflicts.push(format!(
+                    "object field '{field}' holds an object reference (from {source:?}); nested object fields are unavailable in the current phase"
+                ));
             }
         }
 
