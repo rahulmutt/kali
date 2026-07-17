@@ -899,7 +899,22 @@ impl<'a> FunctionEmitter<'a> {
 
     pub(crate) fn kali_test_callback_index(&self, node: &LirNode) -> Option<u32> {
         let callback_node = node.children.get(2).copied()?;
-        let callback_name = self.node(callback_node).text.as_deref()?;
+        let cb = self.node(callback_node);
+        // Bare-identifier / inline-function gate (I-4): resolve a callback to a
+        // compiled function BY TEXT only for an inline function-expression plan
+        // node (`Instruction`, whose text is the `__kali_fn_N` plan key) or a
+        // BARE identifier (`Value` with NO children). A member-expression
+        // callback (`obj.m`) is a `Value` node WITH a receiver child, and its
+        // own text is the PROPERTY name — resolving that text ran an unrelated
+        // module function `m` and printed a false `ok 1`. This mirrors the
+        // scheduling resolver's structural distinction (Instruction vs
+        // childless Value); anything else falls to the unregisterable deny lane.
+        match cb.kind {
+            LirNodeKind::Instruction => {}
+            LirNodeKind::Value if cb.children.is_empty() => {}
+            _ => return None,
+        }
+        let callback_name = cb.text.as_deref()?;
         self.functions.get(callback_name).copied()
     }
 

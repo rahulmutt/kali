@@ -367,6 +367,31 @@ console.log("C-module-end");
     );
 }
 
+/// I-4 pin: a `Kali.test` callback that is a MEMBER expression (`obj.m`) must
+/// NOT resolve by the member's PROPERTY text to an unrelated module function.
+/// Pre-fix, `kali_test_callback_index` looked up the callback node's text (`m`)
+/// with no bare-identifier structure check, ran the module function `m`, and
+/// printed a false `ok 1` (the member value was never the test body). The
+/// bare-identifier gate now routes a member-expression callback to the
+/// unregisterable-value deny lane (E5506), so the wrong function is never run.
+#[test]
+fn kali_test_member_expression_callback_fails_closed() {
+    let out = run_kali_test(
+        "const obj = { m: 1 };\nfunction m(){ console.log(\"WRONG FUNCTION RAN\"); }\nKali.test(\"member cb\", obj.m);\n",
+    );
+    assert!(!out.status.success(), "expected E5506, got exit 0");
+    assert!(
+        String::from_utf8_lossy(&out.stderr).contains("E5506"),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(
+        !String::from_utf8_lossy(&out.stdout).contains("WRONG FUNCTION RAN"),
+        "the wrong function ran: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+}
+
 /// Arrow spelling of deferred_queue_microtask_capturing_callback_runs_with_env —
 /// the un-flatten routes `() => {…}` through the same FunctionExpression lane.
 /// node v26.5.0: "sync=5\nmt=6\n".

@@ -91,12 +91,18 @@ impl<'a> FunctionEmitter<'a> {
                     // A call RESULT in callback position (`Kali.test("a", make())`)
                     // is a function value this lane cannot register.
                     LirNodeKind::Call => true,
-                    // Post-un-flatten: a bare identifier in callback position
-                    // that `kali_test_callback_index` did not resolve is a
-                    // real value this lane cannot register — deny. (The
-                    // pre-D3 flattened-arrow `Value("unknown")` placeholder no
-                    // longer exists.)
-                    LirNodeKind::Value => cb_node.children.is_empty(),
+                    // Post-un-flatten: any `Value` in callback position that
+                    // `kali_test_callback_index` did not resolve is a real
+                    // value this lane cannot register — deny. A CHILDLESS Value
+                    // is a bare identifier that resolved to nothing (a param,
+                    // an undefined name); a Value WITH children is a
+                    // member/index expression (`obj.m`, `arr[i]`) whose text is
+                    // a property/element name that must NOT be resolved to an
+                    // unrelated module function (I-4 — that ran the wrong
+                    // function and printed a false `ok 1`). Either way it is
+                    // unregisterable. (The pre-D3 flattened-arrow
+                    // `Value("unknown")` placeholder no longer exists.)
+                    LirNodeKind::Value => true,
                     // No-ops by construction: an inline function expression /
                     // declaration (`Instruction`) resolved far above via
                     // `kali_test_callback_index`; the remaining kinds are not
