@@ -150,3 +150,19 @@ fn repr_table_records_growable_array_bindings() {
     assert!(names.contains("keys"));
     assert_eq!(names.len(), 2);
 }
+
+#[test]
+fn growable_array_field_repr_round_trips_in_a_shape() {
+    let mut table = ReprTable::default();
+    let shape = table.intern_shape(vec![
+        ("count".to_string(), Repr::I64),
+        ("values".to_string(), Repr::GrowableArrayI64),
+    ]);
+    assert_eq!(table.shape_field(shape, "count"), Some((0, Repr::I64)));
+    assert_eq!(
+        table.shape_field(shape, "values"),
+        Some((1, Repr::GrowableArrayI64))
+    );
+    assert!(Repr::GrowableArrayI64.is_growable_array());
+    assert!(!Repr::I64.is_growable_array());
+}

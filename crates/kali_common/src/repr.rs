@@ -25,6 +25,11 @@ pub enum Repr {
     Object(ShapeId),
     /// Tagged linear-memory string handle (`STRING_HANDLE_TAG | offset << 32 | len`).
     String,
+    /// A growable-i64 runtime array stored as an `ARRAY_HANDLE_TAG` handle in
+    /// one 8-byte slot (binding local or object field). The ONLY array shape a
+    /// fixed-shape object field may carry (Stage P2, Lane 1). Element repr is
+    /// fixed to i64; string/float/nested array fields fail closed.
+    GrowableArrayI64,
 }
 
 /// Representation decisions for a whole program, keyed by function + binding.
@@ -416,6 +421,12 @@ impl ReprTable {
 
     pub fn shape_conflicts(&self) -> &[String] {
         &self.shape_conflicts
+    }
+}
+
+impl Repr {
+    pub fn is_growable_array(&self) -> bool {
+        matches!(self, Repr::GrowableArrayI64)
     }
 }
 
