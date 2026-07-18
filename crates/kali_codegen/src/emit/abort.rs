@@ -64,6 +64,43 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// Task 5 left-operand proof for the `instanceof AbortSignal` allow lane.
+    /// True when `left` is a proven abort handle in signal position:
+    ///   * a childless identifier `X` with `is_abort_handle(X)`  (the `s` alias
+    ///     in `s instanceof AbortSignal`), OR
+    ///   * a member node matching `abort_member_read_parts(...) == Signal(_)`
+    ///     (the `c.signal instanceof AbortSignal` form).
+    /// Matches the RAW `left` node — deliberately NOT `unwrap_transparent`.
+    /// Empirically the parser resolves parens at parse time (no wrapper node),
+    /// so `(c.signal) instanceof AbortSignal` already arrives as the bare member
+    /// and needs no tunneling. Tunneling would be UNSOUND here: a single-element
+    /// array literal `[c.signal]` is also a textless one-child `Value`
+    /// (structurally identical to a grouping wrapper — see the `unwrap_transparent`
+    /// note in operators.rs), so tunneling would fold `[c.signal] instanceof
+    /// AbortSignal` to a wrong `true` (a JS array is not an AbortSignal). The raw
+    /// match rejects that array node (non-empty children, and `abort_member_read_parts`
+    /// returns `None` on a textless node), so it falls through to the runtime
+    /// trap — reject, don't miscompile.
+    /// SOUNDNESS: the fold emits NO code for the left operand (it is a
+    /// compile-time constant `true`). That is sound ONLY because both admitted
+    /// shapes are side-effect-free reads — a bare-identifier read and a
+    /// `.signal` identity read of an already-bound handle. Do NOT widen this to
+    /// any shape with potential effects (a call, an assignment, an index) or the
+    /// discarded left operand would drop an observable side effect.
+    pub(crate) fn instanceof_left_signal_proof(&self, left: LirNodeId) -> bool {
+        let node = self.node(left);
+        if node.children.is_empty() {
+            if let Some(name) = node.text.as_deref().filter(|t| !t.is_empty()) {
+                return self.is_abort_handle(name);
+            }
+            return false;
+        }
+        matches!(
+            self.abort_member_read_parts(left),
+            Some(AbortMemberRead::Signal(_))
+        )
+    }
+
     /// The single entry every abort receiver load flows through (mirrors
     /// `emit_growable_receiver_handle`): sets the position-allowlist flag,
     /// emits the receiver, restores the flag. Any abort-handle read NOT coming

@@ -1541,6 +1541,26 @@ impl<'a> FunctionEmitter<'a> {
         // object-misuse gate below — the right operand is typically an
         // object reference, which would otherwise turn this into a compile
         // error and break those builds.
+        // Stage P3 allow lane: `<proven signal> instanceof AbortSignal` folds to
+        // a compile-time true. BOTH sides must be proven (Lane-3 discipline): the
+        // left operand is a proven abort handle in signal position (a bare
+        // abort-handle identifier or a `<handle>.signal` member), and the right
+        // operand is the childless global identifier `AbortSignal` unshadowed in
+        // all five codegen namespaces. Everything else falls through to the
+        // blanket runtime trap below. NO code is emitted for the left operand —
+        // sound only because both admitted left shapes are side-effect-free reads
+        // (see `instanceof_left_signal_proof`). Must precede the trap arm.
+        if op == "instanceof"
+            && self.instanceof_left_signal_proof(left)
+            && self.instanceof_right_is_unshadowed(right, "AbortSignal")
+        {
+            function.instruction(&Instruction::I64Const(1));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Boolean,
+            };
+        }
+
         if matches!(op, "in" | "instanceof") {
             let message = format!(
                 "Uncaught unsupported `{op}` operator: kali cannot evaluate it (no runtime key-presence or prototype-chain machinery)"

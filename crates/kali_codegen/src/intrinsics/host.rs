@@ -839,6 +839,29 @@ impl<'a> FunctionEmitter<'a> {
             || self.functions.contains_key("EventTarget"))
     }
 
+    /// Task 5 right-operand proof for the `instanceof AbortSignal` allow lane:
+    /// the RAW `right` node is the childless global identifier `name`
+    /// (`"AbortSignal"`), UNSHADOWED in every codegen namespace. Mirrors the
+    /// five-namespace shadow-guard used by `is_event_target_new` /
+    /// `is_abort_controller_new`: a user binding of `AbortSignal` in any of the
+    /// five namespaces refutes the proof and the `instanceof` falls through to
+    /// the blanket runtime trap. Deliberately NOT `unwrap_transparent` (same
+    /// reasoning as `instanceof_left_signal_proof`): parens are parse-time
+    /// resolved so a bare `AbortSignal` arrives directly, and tunneling would
+    /// let a single-element array literal `[AbortSignal]` on the RHS match — a
+    /// non-callable RHS is a TypeError in JS, never a fold-to-true.
+    pub(crate) fn instanceof_right_is_unshadowed(&self, right: LirNodeId, name: &str) -> bool {
+        let node = self.node(right);
+        if !node.children.is_empty() || node.text.as_deref() != Some(name) {
+            return false;
+        }
+        !(self.locals.contains_key(name)
+            || self.bindings.contains_key(name)
+            || self.module_binding_names.contains(name)
+            || self.fn_valued_locals.contains_key(name)
+            || self.functions.contains_key(name))
+    }
+
     /// Resolve a member-call receiver to an event-target local with stable
     /// provenance (Stage D event lane): the callee's child 0 is a bare `Value`
     /// identifier recorded in `event_target_locals` and not since made unstable

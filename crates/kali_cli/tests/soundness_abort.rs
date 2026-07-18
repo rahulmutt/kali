@@ -176,3 +176,49 @@ fn unknown_field_on_handle_fails_closed() {
     let stderr = run_kali_run_expect_error(src);
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
+
+#[test]
+fn signal_instanceof_abort_signal_folds_true() {
+    let src = "const c = new AbortController();\nconsole.log(c.signal instanceof AbortSignal ? 1 : 0);\nconst s = c.signal;\nconsole.log(s instanceof AbortSignal ? 1 : 0);\n";
+    assert_eq!(run_kali_run(src).trim(), "1\n1");
+}
+
+#[test]
+fn instanceof_with_shadowed_abort_signal_stays_trapped() {
+    // p03c precedent: a user binding shadowing the builtin must not hit the
+    // allow lane; the blanket runtime trap fires instead.
+    let src = "function AbortSignal() { return 1; }\nconst c = new AbortController();\nconsole.log(c.signal instanceof AbortSignal ? 1 : 0);\n";
+    let out = run_kali(src);
+    assert!(!out.status.success(), "must trap: {out:?}");
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("instanceof"), "stderr: {stderr}");
+}
+
+#[test]
+fn unproven_left_operand_instanceof_stays_trapped() {
+    let src = "const x = 1;\nconsole.log(x instanceof AbortSignal ? 1 : 0);\n";
+    let out = run_kali(src);
+    assert!(!out.status.success(), "must trap: {out:?}");
+}
+
+#[test]
+fn array_wrapped_signal_left_operand_instanceof_stays_trapped() {
+    // Reject-don't-miscompile: `[c.signal]` is a JS array, NOT an AbortSignal,
+    // so `[c.signal] instanceof AbortSignal` is `false` in JS. The left-proof
+    // must NOT tunnel the single-element array literal (structurally a textless
+    // one-child Value, like a grouping wrapper) into `c.signal` and wrongly
+    // fold to true — it falls through to the runtime trap instead.
+    let src = "const c = new AbortController();\nconsole.log([c.signal] instanceof AbortSignal ? 1 : 0);\n";
+    let out = run_kali(src);
+    assert!(!out.status.success(), "must trap: {out:?}");
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("instanceof"), "stderr: {stderr}");
+}
+
+#[test]
+fn controller_instanceof_abort_controller_stays_trapped() {
+    // Inventoried for P3b, deliberately NOT implemented this stage.
+    let src = "const c = new AbortController();\nconsole.log(c instanceof AbortController ? 1 : 0);\n";
+    let out = run_kali(src);
+    assert!(!out.status.success(), "must trap: {out:?}");
+}
