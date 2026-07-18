@@ -1829,7 +1829,14 @@ impl<'a> FunctionEmitter<'a> {
             _ => false,
         };
 
-        if op != "??" && op != "**" && !is_bitwise {
+        // `&&`/`||` join `??` and `**` in opting OUT of the shared operand
+        // pre-emit: all four decide at RUNTIME whether the right operand is
+        // evaluated at all, so emitting both eagerly here would re-introduce
+        // the short-circuit defect (the right operand's side effects running
+        // when JS says they must not). Their arms below emit their own
+        // operands inside an `If`/`Else`.
+        let short_circuits = matches!(op, "&&" | "||");
+        if op != "??" && op != "**" && !is_bitwise && !short_circuits {
             self.emit_float_operand(function, left, float_op);
             self.emit_float_operand(function, right, float_op);
         }
@@ -1997,18 +2004,78 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::Boolean,
                 }
             }
-            "&&" => {
-                function.instruction(&Instruction::I64And);
-                EmittedValue {
-                    produced: true,
-                    shape: ValueShape::Boolean,
+            // Short-circuiting `&&`/`||`. JS semantics are value-returning, not
+            // boolean-normalizing: `a && b` is `a` when `a` is falsy else `b`;
+            // `a || b` is `a` when `a` is truthy else `b`. In BOTH cases the
+            // right operand is evaluated only on the deciding path.
+            //
+            // This replaces an `I64And`/`I64Or` over a shared unconditional
+            // operand pre-emit, which was wrong twice over: it ran the right
+            // operand's side effects unconditionally (`if (false && boom())`
+            // still called `boom`), and it combined the operands BITWISE, so
+            // `2 && 1` folded to `2 & 1 == 0`. Branch outcomes happened to be
+            // correct whenever both operands were already 0/1, which is why the
+            // defect stayed invisible in condition position.
+            //
+            // The lowering mirrors the `??` arm below — same reserved scratch
+            // local (`self.locals.len()`, see `lower.rs`'s two trailing i64
+            // scratch slots), same `If(BlockType::Result(ValType::I64))` shape.
+            // Nesting is safe for the same reason it is safe there: the scratch
+            // is read only on the path that does NOT re-emit an operand, so an
+            // inner logical clobbering it in the other arm can never be
+            // observed.
+            "&&" | "||" => {
+                let left_result = self.emit_node(function, left, true);
+                if !left_result.produced {
+                    function.instruction(&Instruction::I64Const(0));
                 }
-            }
-            "||" => {
-                function.instruction(&Instruction::I64Or);
+                let temp_local = self.locals.len() as u32;
+                function.instruction(&Instruction::LocalSet(temp_local));
+                function.instruction(&Instruction::LocalGet(temp_local));
+                // `I64Eqz` leaves 1 exactly when the left operand is falsy, so
+                // the `If` arm is the "left is falsy" path for both operators —
+                // only which side yields the left value differs.
+                function.instruction(&Instruction::I64Eqz);
+                function.instruction(&Instruction::If(BlockType::Result(ValType::I64)));
+                let right_result = if op == "&&" {
+                    // left falsy -> `a && b` is `a`; the right operand is skipped.
+                    function.instruction(&Instruction::LocalGet(temp_local));
+                    function.instruction(&Instruction::Else);
+                    let emitted = self.emit_node(function, right, true);
+                    if !emitted.produced {
+                        function.instruction(&Instruction::I64Const(0));
+                    }
+                    emitted
+                } else {
+                    // left falsy -> `a || b` is `b`; otherwise the right operand
+                    // is skipped and the left value is the result.
+                    let emitted = self.emit_node(function, right, true);
+                    if !emitted.produced {
+                        function.instruction(&Instruction::I64Const(0));
+                    }
+                    function.instruction(&Instruction::Else);
+                    function.instruction(&Instruction::LocalGet(temp_local));
+                    emitted
+                };
+                function.instruction(&Instruction::End);
+                // The result is one of the two OPERANDS, so it is only provably
+                // a boolean when both operands are. A mixed-shape logical falls
+                // back to `Unknown`, whose truthiness lowering (`i64.eqz` +
+                // `i32.eqz`, i.e. `!= 0`) is total over every i64 — unlike the
+                // `Boolean` lowering (`i32.wrap_i64`), which would misread a
+                // value whose low 32 bits are zero as falsy. Claiming `Boolean`
+                // unconditionally (as the old bitwise arm did) is therefore a
+                // fail-OPEN, and this is the fail-closed direction.
+                let shape = if left_result.shape == ValueShape::Boolean
+                    && right_result.shape == ValueShape::Boolean
+                {
+                    ValueShape::Boolean
+                } else {
+                    ValueShape::Unknown
+                };
                 EmittedValue {
                     produced: true,
-                    shape: ValueShape::Boolean,
+                    shape,
                 }
             }
             "**" => self.emit_exponentiation_expression(
