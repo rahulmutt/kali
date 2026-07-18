@@ -1466,3 +1466,33 @@ fn signal_of_signal_does_not_seed() {
     assert_eq!(t.scalar("_start", "s"), Repr::AbortHandle);
     assert_eq!(t.scalar("_start", "s2"), Repr::I64);
 }
+
+// --- P3 Task 2 second fix-round pins (upgraded-to-must-fix residual) --
+
+#[test]
+fn named_fn_expr_own_name_shadow_does_not_seed() {
+    // A named function expression's own name is visible within its own body
+    // per JS scoping — the seeding walk visits that body under the SAME name
+    // (`visit_block(id, body)` keyed on `f.id`), so a shadow via the
+    // expression's own name must disable seeding inside it.
+    let t = reprs(
+        "const f = function AbortController() {\n\
+           const c = new AbortController();\n\
+         };\n\
+         f();\n",
+    );
+    assert_eq!(t.scalar("AbortController", "c"), Repr::I64);
+}
+
+#[test]
+fn param_named_abort_controller_does_not_seed() {
+    // A parameter name shadows for the entire function body, exactly like a
+    // declarator.
+    let t = reprs(
+        "function f(AbortController) {\n\
+           const c = new AbortController();\n\
+         }\n\
+         f(1);\n",
+    );
+    assert_eq!(t.scalar("f", "c"), Repr::I64);
+}

@@ -1551,8 +1551,13 @@ impl ReprInfer {
             Statement::FunctionDeclaration(decl) => {
                 // P3 Task 2 shadow guard: see the note on
                 // `note_abort_shadow_name` — inlined here so the shadow scan
-                // shares this exact traversal with the seeding walk.
+                // shares this exact traversal with the seeding walk. A
+                // parameter name shadows for the ENTIRE body, exactly like a
+                // declarator (fix-round: params were previously un-noted).
                 self.note_abort_shadow_name(&decl.name);
+                for param in &decl.params {
+                    self.note_abort_shadow_name(param);
+                }
                 // Walk the body under the function's own name.
                 self.visit_block(&decl.name, &decl.body);
             }
@@ -2204,6 +2209,17 @@ impl ReprInfer {
             // fn value itself is an i64 handle: return a fresh node.
             Expression::FunctionExpression(f) => {
                 if let (Some(id), Some(body)) = (f.id.as_deref(), f.body.as_deref()) {
+                    // P3 Task 2 shadow guard (fix round): a NAMED function
+                    // expression's own name (`function AbortController(){}`)
+                    // is visible within its own body per JS scoping, and every
+                    // parameter — both are un-gated positions the seeding
+                    // walk (`visit_block(id, body)` just below) reaches
+                    // unconditionally, so both must be noted before/alongside
+                    // it, same one-traversal invariant as everywhere else.
+                    self.note_abort_shadow_name(id);
+                    for param in &f.params {
+                        self.note_abort_shadow_name(&param.name);
+                    }
                     // F-AB-2 lockstep: record what walk 4 seeds (see
                     // `nested_fns_seeded`).
                     self.nested_fns_seeded.insert(id.to_string());
@@ -2212,6 +2228,16 @@ impl ReprInfer {
                 self.new_node()
             }
             Expression::ArrowFunctionExpression(a) => {
+                // P3 Task 2 shadow guard (fix round): arrow params, same
+                // reasoning as `FunctionExpression` above. `a.id` is NOT
+                // checked here — per its field doc it is a synthetic
+                // `__kali_fn_N` id assigned by `name_anon_functions` (arrows
+                // have no source-level named-function-expression syntax), so
+                // it is never a user-authored name that could equal
+                // "AbortController"/"AbortSignal".
+                for param in &a.params {
+                    self.note_abort_shadow_name(&param.name);
+                }
                 if let Some(id) = a.id.as_deref() {
                     // F-AB-2 lockstep: record what walk 4 seeds (see
                     // `nested_fns_seeded`).
@@ -2220,6 +2246,22 @@ impl ReprInfer {
                     // expression under the arrow's own scope so its seeds/edges
                     // (e.g. a string `+`) are registered under `__kali_fn_N`.
                     self.visit_expr(id, &a.body);
+                }
+                self.new_node()
+            }
+
+            // P3 Task 2 shadow guard (fix round) only — mirrors the
+            // `Statement::ClassDeclaration` arm in `visit_stmt`. A class
+            // expression's own name (`const X = class AbortController {}`)
+            // is noted for symmetry/defense-in-depth even though, today,
+            // no seeding call site is reachable inside a class body at all
+            // (repr_infer does not walk `ClassBody`/`MethodDefinition`
+            // anywhere — see the `descend_expr_fns` `ClassExpression` arm
+            // above, which is also a no-op): if that ever changes, the
+            // guard is already in place rather than being a new fail-open.
+            Expression::ClassExpression(c) => {
+                if let Some(id) = c.id.as_deref() {
+                    self.note_abort_shadow_name(id);
                 }
                 self.new_node()
             }
