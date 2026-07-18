@@ -627,3 +627,150 @@ fn structured_clone_of_placeholder_construct_emits_e8001_warning() {
          construct lowering, forcing the exclusion-list decision; stderr: {stderr}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Stage P2 whole-stage review fix-wave pins (C-1, C-2, I-2, I-3, I-1, M-3).
+// Every soundness rule is ALLOWLIST-at-choke-point / default-deny: an
+// out-of-envelope growable-array-field use is E5506 (fail closed), NEVER a
+// silent miscompile or a raw-handle escape.
+// ---------------------------------------------------------------------------
+
+/// C-1a (silent corruption close): reassigning a `GrowableArrayI64` object
+/// field (`o.values = [4,5]`) must FAIL CLOSED E5506, not store a bogus i64
+/// over the valid handle. RED before the fix: the fixed-shape field-store
+/// `_ =>` arm admitted the growable slot and stored `I64Const(0)` (or a
+/// non-handle) — `o.values.join(',')` then printed empty; node prints `4,5`.
+/// The deny is the sound minimal close (no re-seeding this wave).
+#[test]
+fn growable_field_reassignment_fails_closed() {
+    let src = "const o = { values: [1, 2, 3] };\n\
+               o.values = [4, 5];\n\
+               console.log(o.values.join(','));\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+/// C-1b (silent drop close): an element WRITE through a `GrowableArrayI64`
+/// field (`o.values[0] = 9`) must FAIL CLOSED E5506, mirroring the named-lane
+/// twin (`a[0] = 9`, which already E5506s). RED before the fix: the write was
+/// silently DROPPED (`o.values.join(',')` printed `1,2,3`; node prints `9,2,3`).
+#[test]
+fn growable_field_element_write_fails_closed() {
+    let src = "const o = { values: [1, 2, 3] };\n\
+               o.values[0] = 9;\n\
+               console.log(o.values.join(','));\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+/// C-2 (raw-handle escape close): reading a `GrowableArrayI64` field as a
+/// plain value in a NON-allowlisted position must FAIL CLOSED E5506. RED
+/// before the fix: `console.log(o.values)` printed the tagged handle bits
+/// (`4611686018427392016` — a heap-address leak). The position gate admits a
+/// growable field read ONLY where a growable-aware recognizer consumes the
+/// receiver (push/join/length/index/for-of/`===`/clone).
+#[test]
+fn growable_field_bare_read_fails_closed() {
+    let src = "const o = { values: [1, 2, 3] };\n\
+               console.log(o.values);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+/// C-2 (raw-handle escape close, arithmetic position): `o.values + 1` must
+/// FAIL CLOSED E5506. RED before the fix: printed `handle + 1`
+/// (`4611686018427392017`), arithmetic on the raw tagged handle.
+#[test]
+fn growable_field_arithmetic_read_fails_closed() {
+    let src = "const o = { values: [1, 2, 3] };\n\
+               console.log(o.values + 1);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+/// I-3 (growable-field aliasing declarator deny): `const a = o.values` binds a
+/// raw growable handle in a non-allowlisted value position, so C-2's position
+/// gate already fails it closed E5506 (verified: no second gate needed). RED
+/// before the fix: `a.length` printed `0`; node prints `3`.
+#[test]
+fn growable_field_alias_declarator_fails_closed() {
+    let src = "const o = { values: [1, 2, 3] };\n\
+               const a = o.values;\n\
+               console.log(a.length);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+/// I-3 named-side alias: DELIBERATE TRIPWIRE (known fail-open, pre-existing,
+/// OUT OF STAGE — not closed this wave to avoid named-lane regressions). A
+/// named-growable alias `const b = a` yields a SEPARATE broken binding that
+/// does not track `a`'s growth: after `a.push(4)`, `b.join(',')` prints
+/// `1,2,3` while node prints `1,2,3,4`. Pinned to document the current WRONG
+/// output; if the named-alias class is ever closed (or fixed), this pin goes
+/// red and forces the inventory decision. See the fix-wave report I-3 entry.
+#[test]
+fn named_growable_alias_is_broken_tripwire() {
+    let src = "const a = [1, 2, 3];\n\
+               a.push(4);\n\
+               const b = a;\n\
+               console.log(b.join(','));\n";
+    let out = run_kali_run(src);
+    // kali: `1,2,3` (alias `b` snapshots pre-push storage); node: `1,2,3,4`.
+    assert_eq!(
+        out.trim(),
+        "1,2,3",
+        "named-growable-alias tripwire changed — see fix-wave report I-3"
+    );
+}
+
+/// I-2 (structuredClone-scoped member-on-call close): a member read on an
+/// UNBOUND `structuredClone(...)` result (`structuredClone(o).count`) must
+/// FAIL CLOSED E5506, directing the user to bind the result first. RED before
+/// the fix: printed `0` (the pre-existing member-on-call placeholder hole —
+/// `is_structured_clone_result` only promotes const declarators). Scoped
+/// strictly to a `structuredClone` callee; the general member-on-call class is
+/// pre-existing and inventoried, untouched here.
+#[test]
+fn structured_clone_member_on_call_fails_closed() {
+    let src = "const o = { count: 1, values: [1, 2, 3] };\n\
+               console.log(structuredClone(o).count);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+/// I-1: DELIBERATE TRIPWIRE (pre-existing object-reassignment gap, out of
+/// stage). `let o = {v:[1,2]}; o = {v:3}; console.log(o.v)` — node prints `3`;
+/// kali cannot do object reassignment. BEFORE this fix-wave it printed a silent
+/// `0` (reassignment zeroed reads). C-2's growable-field position gate now
+/// UPGRADES this to fail-closed E5506: `v` is inferred `GrowableArrayI64` (from
+/// the first literal; the `kali_types` `repr_infer.rs` `record_object_array_field`
+/// AND-merge only demotes array-vs-array, so the array-vs-scalar reassignment
+/// does NOT demote `v` to scalar), and reading `o.v` in a bare `console.log`
+/// position is not an allowlisted growable receiver — so it denies rather than
+/// silently reads 0. Strictly more sound than the prior silent `0`. This pin
+/// documents the CURRENT (post-C-2) masked behavior; if object reassignment
+/// ever lands a real lowering, the `GrowableArrayI64`-vs-scalar intern
+/// confusion named above must be revisited before the gate is relaxed.
+#[test]
+fn object_reassignment_field_read_fails_closed_tripwire() {
+    let src = "let o = { v: [1, 2] };\n\
+               o = { v: 3 };\n\
+               console.log(o.v);\n";
+    let stderr = run_kali_run_expect_error(src);
+    // kali: E5506 (C-2 gate; was silent `0` pre-fix); node: `3`.
+    assert!(
+        stderr.contains("E5506"),
+        "object-reassignment tripwire changed — revisit GrowableArrayI64/scalar \
+         intern confusion in repr_infer.rs record_object_array_field (see fix-wave report I-1); stderr: {stderr}"
+    );
+}
+
+// M-3 (inventory only, no product code): the NAMED-growable `===` lane
+// (`a === b` over two named growable bindings) currently compares the raw i64
+// tagged handles directly (the scalar `===` arm), which is COINCIDENTALLY
+// correct for pointer identity (equal handles ⇔ same header) but is NOT routed
+// through the Lane-3 same-shape allowlist the FIELD pair uses
+// (`both_growable_field` in operators.rs `emit_binary`). It is sound today only
+// because a growable handle IS its identity; if the handle encoding ever gains
+// non-identity bits (e.g. a generation tag), the named lane must be re-pinned
+// to the allowlisted compare. Field-pair `===` is already gated (Lane 3).
