@@ -326,3 +326,27 @@ git fetch origin main && git log --oneline origin/main -3
 Expected: merge commit on `main` (matching PRs #4–#15 convention), branch head as its second parent.
 
 - [ ] **Step 4: Post-merge bookkeeping** — update the assistant memory ledger (PR #16 merged, honest-red baseline retired, inventory doc is the live aspiration map; P4/P5/async next on fresh branches) and mark the stale "PR #16 held draft" notes superseded.
+
+---
+
+## Task 5 instantiations (ratified 2026-07-18: choke-shared largest-first, no scope exceptions)
+
+Each instantiation executes the Task 5 template above with the named family's row in
+`docs/superpowers/followups/pr16-honest-repin-inventory.md` as its input. Family test
+files are located from baseline entries matching the row's pattern. Class B waves do
+Steps 1–5; class A waves do Steps 3–5 only. Waves touching the 18 dual-binary names
+(see inventory §712/694 provenance) must fix both binaries' instances.
+
+- [ ] **Task 5.1: object-enum (319, B).** Deny lane: for-of/spread/iteration over `Object.keys/values/entries/fromEntries` results and frozen-object enumeration — allowlist admitted iterable classes at the `static_analysis/array.rs` classification + `emit/control_flow.rs` emit choke (types+codegen twins, same commit). Reproduction caveat: divergence surfaces via string-concat/array-store sinks, not bare console.log.
+- [ ] **Task 5.2: reflect (16, B).** `Reflect.ownKeys` — rides the object-enum choke; verify the 5.1 lane already denies it (if so, pin-only + prove with fresh reproducer pin).
+- [ ] **Task 5.3: await-wrapped (3, B).** Await/sequence-wrapped enumeration — rides the object-enum choke; same verify-then-pin shape as 5.2.
+- [ ] **Task 5.4: promise (128, B).** Deny lane: Promise combinators (`all/race/any/allSettled`) placeholder-0 — choke at `late_host.rs`/`emit/call.rs`; `await Promise.resolve(v)` single-value lane stays ADMITTED (must remain green; probe it).
+- [ ] **Task 5.5: string-iter (94, B).** Deny lane: for-of over string/template into array materialization — close the E5506 holes in `emit/control_flow.rs`; concat form stays admitted. Includes 16 dual-binary names.
+- [ ] **Task 5.6: mapset (33, B).** Deny lane: Set/Map constructor iteration + `Array.from` — iterable classification choke in `static_analysis/array.rs`.
+- [ ] **Task 5.7: object-hasown (28, B).** MUST first re-isolate the failing disjunct (bisect the generated frozen-callable fixture source) before choosing the choke point; then deny-lane-then-pin. No pre-commitment to the object-enum choke.
+- [ ] **Task 5.8: for-await (24, B).** Deny lane: `for await` lowering (garbage i64) — `emit/control_flow.rs`.
+- [ ] **Task 5.9: microtask (22, B).** Deny lane: `queueMicrotask` scheduling (runs sync/mis-ordered) — codegen event-loop surface.
+- [ ] **Task 5.10: corpus (15, A).** Pin-reject each member to its observed terminating diagnostic (E5506/E4000 trap; message text is per-package — re-observe at pin time; any exit-0-on-E3100-only package is a hidden B and must be split out and adjudicated).
+- [ ] **Task 5.11: deno (4, B).** Deny lane: `Deno.env.get`/chdir placeholder-0 — `late_host.rs`.
+- [ ] **Task 5.12: bool-bundle (4, B).** Deny lane: bundle-context boolean/async lowering divergence (WASM `unreachable` self-check today).
+- [ ] **Task 5.13: crypto-bundle (4, B).** Deny lane: `Uint8Array`/WebCrypto/`TextEncoder` E3100 zero-placeholder → fail-closed.
