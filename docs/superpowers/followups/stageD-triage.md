@@ -474,6 +474,12 @@ newly-red, no regression.
 
 ## 8.6 Follow-up inventory
 
+> **PR #16 honest re-pin map:** the canonical adjudication table for the
+> honest-red workspace tests (694 unique names) — per-family evidence, A/B/C
+> class calls, deny-lane/pin actions, and the coverage ledger — lives in
+> [`pr16-honest-repin-inventory.md`](./pr16-honest-repin-inventory.md), not
+> duplicated here. Consult it before instantiating any re-pin wave task.
+
 Carried forward for later stages / later tasks (none block this lane's
 soundness — every item here is either an explicit preserved-but-inert
 residual with a closing plan, or unimplemented API surface that fails
@@ -566,9 +572,13 @@ closed or stays pre-existing-red rather than miscompiling):
   this stage). Fixture provenance (Task 7 note): the acceptance prefix is
   the web-baseline fixture MINUS the `Event`-type block (pre-existing gap)
   MINUS the `URLSearchParams`-onward tail (Stage P4/P5).
-  Gate: 712-honest-red stage-base baseline, 0 newly-red at every task and
-  at close-out, double-enumerated with zero drift — the ledger's prior
-  "694" was an interleaving undercount; 712 is the ratified honest number.
+  Gate: honest-red stage-base baseline, 0 newly-red at every task and
+  at close-out, double-enumerated with zero drift. **712 vs 694 resolved
+  (see `pr16-honest-repin-inventory.md`):** 712 = failing test INSTANCES,
+  694 = unique test NAMES. 18 root-scope test-fn names are defined in TWO
+  test binaries each (same name, two files), so a per-instance count sees
+  them twice; the enumeration recipe's `sort -u` is name-set based. Both
+  are honest measurements of the same red set — neither is an undercount.
   **Whole-stage review (2-round fix wave):** the 5th consecutive stage
   where whole-stage review caught a CRITICAL no per-task review saw: a
   `_start` loop/block-body captured abort handle was silently

@@ -8,10 +8,25 @@ Each later "wave" task (Task 5 template) is instantiated one-per-row from the ta
 ## Method & count-discrepancy notes
 
 - **N = 694**, set-identical to the Task-2 canonical baseline (`git show 407c81002` head commit).
-- **The prior stage's "712" baseline artifact was a duplicate-line miscount.** Deduplicated it is
-  exactly 694 unique names, set-identical to the Task-2 baseline. There was never a real 18-test
-  delta; do not chase a phantom regression. (Stage P3's "712" note is the honest re-measure of the
-  same 694 with duplicated rows.)
+- **712 vs 694 — both honest measurements of the *same* red set (fully resolved, cited account):**
+  The 712-line artifact lives OUTSIDE the repo (a prior session's scratchpad `p3-baseline-failed.txt`,
+  raw `test … FAILED` lines). Verified: 712 raw lines; **18 names appear exactly twice**; deduplicated
+  = exactly **694 unique names, set-identical to the frozen Task-2 baseline**. Root cause of the 18
+  duplicates (verified against the tree): each is a **root-scope test-fn name defined in TWO different
+  test binaries** — a per-*instance* count (712) sees each such name twice, while the enumeration
+  recipe's `sort -u` is **name-set based** (694). So **712 = failing test INSTANCES, 694 = unique test
+  NAMES**; neither is an undercount, and there was never a real 18-test delta — do not chase a phantom
+  regression.
+  - **The 18 duplicated names, in 2 binary-pairs:**
+    - `{run,test,json_run,json_test}_supports_string_primitive_iteration_when_browser_harness_is_configured_in_{js,jsx,ts,tsx}_input`
+      (**16 names**) — defined in both `browser_object_string_enumeration_harness.rs` **and**
+      `browser_for_await_object_string_enumeration_harness.rs`.
+    - `{run,test}_supports_object_values_spread_iteration_when_browser_harness_is_configured`
+      (**2 names**) — defined in both `browser_object_values_harness.rs` **and**
+      `browser_object_values_spread_harness.rs`.
+  - **Wave-time implication:** a wave touching any of these 18 names must fix the instance in **BOTH**
+    binaries — patching one file leaves the same-named test red in the other. (The 16 string-primitive
+    names live in family `string-iter`; the 2 spread names live in `object-enum`.)
 - Classification key (stricter than raw exit code, because every fixture in this corpus self-checks
   its own result with an in-program `throw`, which turns any wrong value into an E4000 trap):
   - **A — fail-closed already:** kali fails closed *independent of the fixture's self-check* — a
@@ -54,7 +69,7 @@ Primary candidate choke points (named per row):
 | promise | `promise_all\|promise_race\|promise_any\|promise_all_settled\|promise_all_sequencing\|_promise_all\|requested_promise` | 128 | `run_supports_promise_all_in_js_input_when_browser_harness_is_configured` | `await Promise.all([1,2])`→exit0 `0/0`; race→`0`; any→`0`; allSettled→`0/0`; all vs correct node | **B** | deny-lane-then-pin: Promise combinator lowering returns placeholder `0` — `late_host.rs`/`emit/call.rs` | Stage: real Promise combinator runtime (beyond admitted `await Promise.resolve(v)`) |
 | string-iter | `string_primitive\|string_concatenation\|template_literal\|object_string_enumeration\|string_enumeration` | 94 | `run_supports_object_string_enumeration_iteration_in_js_ts_jsx_tsx_input` | `for-of 'ab'` push→array → exit0 `0/0/0` vs `a/b`; template `for-of` → clean `E5506` (A-subform); string+=concat works (near-miss) | **B** | deny-lane-then-pin: for-of over string/template into array — `emit/control_flow.rs` (close E5506 holes) | Stage: dynamic string-char materialization into heap arrays |
 | mapset | `map_constructor\|set_constructor\|array_from\|_set_map_\|set_map_break` | 33 | `run_supports_map_constructor_iteration_in_js_input` | `for-of new Set([3,4])`→exit0 `0/0`; `Array.from(new Set)`→`0/0`; Map destructuring form → `E3100 undefined identifier 'k'` (A-subform) | **B** | deny-lane-then-pin: Set/Map/Array.from iterable classification — `static_analysis/array.rs` | Stage: Set/Map runtime + iterable protocol |
-| object-hasown | `object_has_own\|has_own` | 28 | `run_accepts_frozen_object_has_own_in_js_ts_jsx_tsx_input` | plain `Object.hasOwn` WORKS (exit0 `true`); frozen variant uses `Object.fromEntries` whose string keys are garbage → `hasOwn(k)` false → self-check throws | **B** | deny-lane-then-pin: `Object.fromEntries` string-key materialization (same object-enum choke) | Stage: enumeration-result string-key materialization |
+| object-hasown | `object_has_own\|has_own` | 28 | `run_accepts_frozen_object_has_own_in_js_ts_jsx_tsx_input` | plain `Object.hasOwn` WORKS (exit0); all six hasOwn disjunct forms return `1` (correct) on a frozen-`fromEntries` object; fixture still reds via its own `throw` — **failing disjunct is in the generated frozen-callable portion and is NOT yet isolated** | **B** | deny-lane-then-pin: **wave MUST first re-isolate the failing disjunct** (bisect the generated frozen-callable source) before choosing a choke point — do NOT pre-commit to the object-enum choke | Stage: to be determined once the disjunct is isolated |
 | for-await | `for_await` | 24 | `build_emits_for_await_string_primitive_object_enumeration_semantics_in_js_input` | `for await(c of 'ab')`→exit0 `-9223354444668731391,-9223354440373764095` (garbage) vs `a,b` | **B** | deny-lane-then-pin: for-await lowering — `emit/control_flow.rs` | Stage: async iteration runtime |
 | microtask | `queue_microtask\|microtask` | 22 | `run::run_supports_queue_microtask_ordering_in_js_input` | `queueMicrotask(cb); log.push(1); assert len==1` → kali self-check "microtask did not run before the next turn" (E4000); probe: microtask runs sync / push mis-orders → wrong ordering exit-0-without-check | **B** | deny-lane-then-pin: microtask scheduling in codegen event-loop runtime | Stage: proper microtask queue ordering |
 | reflect | `reflect_own_keys` | 16 | `run::run_supports_reflect_own_keys_in_js_input_when_browser_harness_is_configured` | `Reflect.ownKeys(Object.freeze({b,a}))`→exit0 `-9223354444668731391,-9223354440373764095` vs `b,a` | **B** | deny-lane-then-pin: Reflect.ownKeys string-key materialization (object-enum choke) | Stage: enumeration string-key materialization |
@@ -80,6 +95,11 @@ Each note quotes the actual transcript observed. `KALI` = `target/debug/kali run
   - `Object.entries({b,a})[0][0]` → node `b`; **KALI exit 0** `-9223354444668731391`.
   Note: direct indexing of a *numeric* `Object.values` result happens to be correct, but the `for-of`
   form (which every fixture uses) yields `0`/garbage — so the family is uniformly B.
+- **Reproduction caveat for wave engineers.** The divergence surfaces through a **string-concat sink**
+  (`"k0="+keys[0]`) or an array push+index read. A **bare** multi-arg `console.log(keys[0], keys[1])` or a
+  bare element log takes kali's handle-aware print path and can print the *correct* strings — so reproducing
+  with a bare log will make the transcripts above look wrong. Reproduce with concatenation/array-store to
+  see the garbage i64.
 - **Aspiration:** node materializes `Object.keys/values/entries` results as real arrays of strings/values,
   iterable via for-of/spread with insertion order.
 - **Flip-back:** a stage that materializes enumeration-result arrays (string keys + dynamic element values)
@@ -114,14 +134,25 @@ Each note quotes the actual transcript observed. `KALI` = `target/debug/kali run
 
 ### object-hasown (28, class B)
 - **Evidence transcript.** Plain `Object.hasOwn({a:1},'a')` → **KALI works, exit 0** (`REACHED_END`). The
-  RED variants are *frozen*/browser-harness: `Object.freeze(Object.fromEntries([["a",1],["b",2]]))` then
-  `Object.hasOwn(wrapped,"a")` — the `fromEntries` object's string keys are garbage (`e0k=-9223354406014025727`),
-  so `hasOwn` returns false and the fixture throws. `console.log(Object.hasOwn(...))` also prints `1` not
-  `true` (boolean→i64 formatting), a secondary divergence.
-- **Aspiration:** `Object.fromEntries` builds a real string-keyed object.
-- **Flip-back:** enumeration-result string-key materialization (shared with object-enum).
-- **Scope-exception candidate:** plain `Object.hasOwn` already works — only the `fromEntries`-fed and
-  browser-harness variants fail. Maintainer may judge a narrow real fix cheaper than a deny lane here.
+  RED variants are *frozen*/browser-harness. Class B is confirmed: the fixture reds via its own in-program
+  `throw` (which would otherwise be exit-0), so pinning it as fail-closed would bless whatever the fixture
+  is silently getting wrong.
+- **⚠ Mechanism NOT yet isolated (honest caveat).** The earlier hypothesis "`fromEntries` string keys are
+  garbage, so `hasOwn` returns false" is **contradicted by probes**: on a frozen-`fromEntries` object all
+  six hasOwn disjunct forms the fixture uses — plain `Object.hasOwn`, bracketed `Object["hasOwn"]`,
+  `globalThis["Object"]["hasOwn"]`, the stored-callable aliases, and `Object.prototype.hasOwnProperty.call`
+  — return `1` (correct), and a plain frozen-`fromEntries`+`hasOwn` program reaches its end at exit 0. The
+  actual failing disjunct is inside the **generated frozen-callable portion** of the fixture (the
+  `object_has_own_frozen_callable_*` helper source) and has **not been isolated**. (`console.log`ing a
+  boolean prints `1` not `true`, but the fixture uses boolean logic `!hasOwn`, not printing, so that is not
+  the cause.)
+- **Wave obligation:** the wave for this family MUST re-isolate the failing disjunct first (bisect the
+  generated frozen-callable source), THEN choose the deny-lane choke point. **Do NOT pre-commit to the
+  object-enum choke point** — the mechanism may be unrelated to string-key materialization.
+- **Aspiration:** all frozen-callable/aliased `Object.hasOwn` forms behave as plain `Object.hasOwn`.
+- **Flip-back:** to be determined once the failing disjunct is isolated.
+- **Scope-exception candidate:** plain `Object.hasOwn` and all six disjunct forms already work in isolation
+  — only the composed fixture reds. Maintainer may judge a narrow real fix cheaper than a deny lane here.
 
 ### for-await (24, class B)
 - **Evidence transcript.** `for await (const c of 'ab') s.push(c)` → node `a,b`; **KALI exit 0**
@@ -154,6 +185,10 @@ Each note quotes the actual transcript observed. `KALI` = `target/debug/kali run
 - **Aspiration:** real npm/jsr/web-baseline packages build+run+test.
 - **Flip-back:** per-underlying-feature (AbortController events P3+, TextEncoder P5, …); a corpus row
   re-greens only when *all* features its packages exercise land.
+- **Message-text caveat:** the exact `E5506` text is **per-package** (it names the specific unsupported
+  construct the package first hits), so the quoted ramda/react text above and a fresh run's text may differ
+  legitimately. The pin-to-*terminating-diagnostic* obligation already covers this — pin to whatever
+  terminating error/trap that package produces, not to a fixed string.
 - **Scope-exception / audit caveat:** the corpus build also emits `E3100` **zero-placeholder** warnings
   (`describe`, `CustomEvent`, `dispatchEvent`, `Event`) *before* the terminating `E5506`. `E3100` is a
   latent silent-miscompile vector. A corpus row must be pinned to a **terminating error/trap** — if any
@@ -220,7 +255,14 @@ counted twice). Order: microtask → promise → reflect → for-await → corpu
 | | **TOTAL** | | **694** |
 
 `22+128+16+24+15+4+33+3+94+28+319+4+4 = 694` ✅ (== baseline N). Residue after all 13 extractions: **0
-lines** (verified). No singletons remain unaccounted.
+lines** (verified via single-pass first-match awk, UNASSIGNED=0). No singletons remain unaccounted.
+
+**Overlap disclosure (why first-match priority is safe):** **36 of 694** baseline lines match more than
+one family pattern (e.g. `for_await_string_primitive_object_enumeration_*` matches for-await, string-iter,
+and object-enum). The priority order resolves each to exactly one family. **All 36 overlaps are B↔B** —
+verified that **0** overlapping lines touch the only class-A family (corpus) — so no reordering of the
+priority list can ever change a class call. First-match priority is therefore safe with respect to the
+A/B classification; it only affects which B family owns a shared-capability test.
 
 ### Scope-exception candidates (maintainer decides at Task 4 — recommending, not deciding)
 
