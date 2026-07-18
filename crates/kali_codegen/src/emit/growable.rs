@@ -146,7 +146,11 @@ impl<'a> FunctionEmitter<'a> {
     /// derived from the dedicated growable scratch's header pointer, so the
     /// handle on the stack is never disturbed. Promotion admits only an
     /// array-literal initializer of scalar seeds; anything else fails closed.
-    pub(crate) fn emit_growable_field_value(&mut self, function: &mut Function, value_id: LirNodeId) {
+    pub(crate) fn emit_growable_field_value(
+        &mut self,
+        function: &mut Function,
+        value_id: LirNodeId,
+    ) {
         let aggregate = self
             .resolve_literal_aggregate(value_id)
             .map(|id| self.node(id).clone())
@@ -154,7 +158,8 @@ impl<'a> FunctionEmitter<'a> {
         let Some(aggregate) = aggregate else {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
-                "a growable-array object field must be initialized with an array literal".to_string(),
+                "a growable-array object field must be initialized with an array literal"
+                    .to_string(),
             ));
             function.instruction(&Instruction::I64Const(0));
             return;
@@ -260,7 +265,7 @@ impl<'a> FunctionEmitter<'a> {
                 function.instruction(&Instruction::LocalGet(handle_local));
             }
             GrowableHandle::Field(receiver_id) => {
-                let produced = self.emit_node(function, receiver_id, true);
+                let produced = self.emit_growable_receiver_handle(function, receiver_id);
                 if !produced.produced {
                     function.instruction(&Instruction::I64Const(0));
                 }
@@ -410,12 +415,32 @@ impl<'a> FunctionEmitter<'a> {
 
     /// `x.length` over a growable handle expression: decode + `hdr.len`.
     /// Stack-only (no locals).
+    /// Emit a growable-array RECEIVER handle (`receiver` is a named binding or
+    /// an `o.field` member) for a recognized growable operation, with the C-2
+    /// growable-field-read gate lifted so an `object_field_is_growable_array`
+    /// field read is admitted HERE (an allowlisted SAFE position). Restores the
+    /// prior gate state afterward. Harmless for a named receiver — a bare
+    /// binding never trips the field gate in `emit_unary`. This is the single
+    /// entry every growable receiver load flows through, so any growable field
+    /// read that does NOT come through here stays denied E5506 (default-deny).
+    pub(crate) fn emit_growable_receiver_handle(
+        &mut self,
+        function: &mut Function,
+        receiver: LirNodeId,
+    ) -> EmittedValue {
+        let previous = self.admit_growable_field_read;
+        self.admit_growable_field_read = true;
+        let value = self.emit_node(function, receiver, true);
+        self.admit_growable_field_read = previous;
+        value
+    }
+
     pub(crate) fn emit_growable_length(
         &mut self,
         function: &mut Function,
         handle: LirNodeId,
     ) -> EmittedValue {
-        let base = self.emit_node(function, handle, true);
+        let base = self.emit_growable_receiver_handle(function, handle);
         if !base.produced {
             function.instruction(&Instruction::I64Const(0));
         }
@@ -462,7 +487,7 @@ impl<'a> FunctionEmitter<'a> {
                 shape: ValueShape::Unknown,
             };
         }
-        let base = self.emit_node(function, handle, true);
+        let base = self.emit_growable_receiver_handle(function, handle);
         if !base.produced {
             function.instruction(&Instruction::I64Const(0));
         }
@@ -508,7 +533,7 @@ impl<'a> FunctionEmitter<'a> {
         handle: LirNodeId,
         index_local: u32,
     ) -> EmittedValue {
-        let base = self.emit_node(function, handle, true);
+        let base = self.emit_growable_receiver_handle(function, handle);
         if !base.produced {
             function.instruction(&Instruction::I64Const(0));
         }
@@ -559,9 +584,12 @@ impl<'a> FunctionEmitter<'a> {
         let base = receiver_node.text.as_deref()?;
         // Named-binding growable receiver (bare identifier: no children).
         if receiver_node.children.is_empty() {
-            return self
-                .is_growable_array(base)
-                .then(|| (GrowablePushReceiver::Named(base.to_string()), node.children[1..].to_vec()));
+            return self.is_growable_array(base).then(|| {
+                (
+                    GrowablePushReceiver::Named(base.to_string()),
+                    node.children[1..].to_vec(),
+                )
+            });
         }
         // Field-read growable receiver `o.values.push(v)` (Task 5): admitted
         // ONLY through the positive `object_field_is_growable_array` proof — an

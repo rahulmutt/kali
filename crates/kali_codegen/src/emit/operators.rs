@@ -521,7 +521,73 @@ impl<'a> FunctionEmitter<'a> {
             }
             _ => {
                 if let Some(shape) = self.object_shape_of_node(arg) {
+                    // C-2 position gate (Stage P2 review): a `GrowableArrayI64`
+                    // field read yields the raw ARRAY_HANDLE_TAG handle. It is
+                    // sound ONLY where a growable-aware recognizer consumes the
+                    // receiver (push/join/length/index/for-of, the Lane-3 `===`
+                    // field pair, the clone lane) — all of which read it via
+                    // `emit_growable_receiver_handle`, which lifts
+                    // `admit_growable_field_read`. In every OTHER value position
+                    // (`console.log(o.values)`, `o.values + 1`,
+                    // `const a = o.values`) the handle must not escape as an
+                    // observable scalar: fail closed E5506. Allowlist the safe
+                    // positions at this single read site — do NOT denylist sinks
+                    // (Spec-4a headline lesson). The three legacy sink guards
+                    // (multi-arg console `subtree_mentions_growable`, host.rs
+                    // render fold, the optimizer fold) are now redundant
+                    // defense-in-depth; left in place deliberately.
+                    if !self.admit_growable_field_read
+                        && matches!(
+                            self.repr_table.shape_field(shape, op),
+                            Some((_, kali_common::Repr::GrowableArrayI64))
+                        )
+                    {
+                        self.diagnostics.push(Diagnostic::error(
+                            e5::FEATURE_UNAVAILABLE as u32,
+                            format!(
+                                "reading growable-array field '{op}' as a plain value is unavailable in the current phase; use it directly as a push/join/length/index/for-of receiver"
+                            ),
+                        ));
+                        function.instruction(&Instruction::I64Const(0));
+                        return EmittedValue {
+                            produced: true,
+                            shape: ValueShape::Scalar,
+                        };
+                    }
                     return self.emit_object_field_read(function, arg, shape, op);
+                }
+
+                // I-2 (structuredClone-scoped member-on-call close, Stage P2
+                // review): a member read directly on an UNBOUND
+                // `structuredClone(...)` result (`structuredClone(o).count`)
+                // falls into the pre-existing member-on-call placeholder hole —
+                // `is_structured_clone_result` promotion only covers `const`
+                // declarators, so an expression-position clone member read is a
+                // silent `0`. Scope a minimal deny to a `structuredClone` callee:
+                // fail closed E5506, directing the user to bind the result first.
+                // The GENERAL member-on-call class is pre-existing and
+                // inventoried — deliberately untouched here.
+                let structured_clone_callee = {
+                    let call = self.node(self.unwrap_transparent(arg));
+                    (call.kind == LirNodeKind::Call)
+                        .then(|| call.children.first().copied())
+                        .flatten()
+                };
+                if let Some(callee) = structured_clone_callee {
+                    let callee_node = self.node(callee).clone();
+                    if self.is_structured_clone_call(&callee_node) {
+                        self.diagnostics.push(Diagnostic::error(
+                            e5::FEATURE_UNAVAILABLE as u32,
+                            format!(
+                                "reading property '{op}' directly off a structuredClone(...) result is unavailable in the current phase; bind the clone to a `const` first, then read its field"
+                            ),
+                        ));
+                        function.instruction(&Instruction::I64Const(0));
+                        return EmittedValue {
+                            produced: true,
+                            shape: ValueShape::Scalar,
+                        };
+                    }
                 }
 
                 if let Some(aggregate_id) = self.resolve_literal_aggregate(arg) {
@@ -1513,8 +1579,12 @@ impl<'a> FunctionEmitter<'a> {
             let both_growable_field = self.object_field_is_growable_array(left)
                 && self.object_field_is_growable_array(right);
             if same_object_shape || both_growable_field {
-                self.emit_node(function, left, true);
-                self.emit_node(function, right, true);
+                // C-2: a `GrowableArrayI64` field-pair `===` reads both handles
+                // in an allowlisted SAFE position — lift the field-read gate for
+                // each operand. (`same_object_shape` operands are object
+                // identifiers; the helper is harmless there — no field gate.)
+                self.emit_growable_receiver_handle(function, left);
+                self.emit_growable_receiver_handle(function, right);
                 // Mirrors the scalar `===`/`!==` arm below exactly: `I64Eq`
                 // yields an i32; `!==` negates via `I32Eqz` (NOT `I64Eqz`,
                 // which would be a type error on an i32 stack value); every

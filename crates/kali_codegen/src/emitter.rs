@@ -172,6 +172,17 @@ pub(crate) struct FunctionEmitter<'a> {
     /// emitter per function), so a growable `for..of` in a nested FUNCTION is
     /// a separate emitter and never blocked.
     pub(crate) growable_for_of_active: Option<String>,
+    /// Stage P2 review C-2: `true` only while a growable-aware recognizer
+    /// (push/join/length/index/for-of receiver, or the Lane-3 `===` field pair)
+    /// is deliberately reading a `GrowableArrayI64` FIELD receiver's tagged
+    /// handle — set/restored by `emit_growable_receiver_handle`. `emit_unary`'s
+    /// generic member-read arm admits an `object_field_is_growable_array` read
+    /// ONLY when this flag is set (an allowlisted SAFE position — the Spec-4a
+    /// headline lesson: allowlist safe positions at the single read site, don't
+    /// denylist sinks). Every other value position (`console.log(o.values)`,
+    /// `o.values + 1`, `const a = o.values`) fails closed E5506 so the raw
+    /// ARRAY_HANDLE_TAG handle never escapes as an observable scalar.
+    pub(crate) admit_growable_field_read: bool,
     pub(crate) reported_placeholder_fallbacks: HashSet<String>,
     pub(crate) control_frames: Vec<ControlFlowLabelKind>,
     pub(crate) loop_frames: Vec<LoopFrame>,
@@ -400,6 +411,7 @@ impl<'a> FunctionEmitter<'a> {
             array_bindings,
             growable_array_bindings,
             growable_for_of_active: None,
+            admit_growable_field_read: false,
             reported_placeholder_fallbacks: HashSet::new(),
             control_frames: Vec::new(),
             loop_frames: Vec::new(),

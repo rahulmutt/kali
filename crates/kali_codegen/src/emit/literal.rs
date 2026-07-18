@@ -295,6 +295,25 @@ impl<'a> FunctionEmitter<'a> {
                             function.instruction(&Instruction::I64Const(0));
                             return true;
                         };
+                        // Stage P2 review C-1a (silent-corruption close):
+                        // reassigning a `GrowableArrayI64` field (`o.values =
+                        // [4,5]`) has no sound lowering this phase — the generic
+                        // `_ =>` store arm below would `I64Store` a non-handle
+                        // over the valid tagged handle (then `o.values.join`
+                        // prints empty). Deny is the sound minimal close (no
+                        // re-seeding through `emit_growable_field_value` this
+                        // wave). Reject BEFORE emitting base/RHS so the value
+                        // stack stays balanced (single `I64Const(0)` result).
+                        if matches!(repr, kali_common::Repr::GrowableArrayI64) {
+                            self.diagnostics.push(Diagnostic::error(
+                                e5::FEATURE_UNAVAILABLE as u32,
+                                format!(
+                                    "reassigning growable-array field '{field}' is unavailable in the current phase"
+                                ),
+                            ));
+                            function.instruction(&Instruction::I64Const(0));
+                            return true;
+                        }
                         let scratch = self.locals.len() as u32;
                         let produced = self.emit_node(function, base_id, true);
                         if !produced.produced {
@@ -334,6 +353,37 @@ impl<'a> FunctionEmitter<'a> {
                         return true;
                     }
                 }
+            }
+        }
+
+        // Stage P2 review C-1b (silent-drop close): an element WRITE whose base
+        // is a `GrowableArrayI64` object field (`o.values[0] = 9`) has no sound
+        // lowering this phase — the growable field lane is read-only at index
+        // positions (`.push` is the only mutation). Without this guard the write
+        // falls through every recognizer below and is silently DROPPED (the
+        // named-growable twin `a[0] = 9` already fails closed). Mirror that: fail
+        // closed E5506, never a dropped store. Matches the same 1-child
+        // (literal/identifier index) and 2-child (computed index) member-write
+        // shapes the array-element-write recognizer below keys on, but keyed on
+        // the positive `object_field_is_growable_array` base proof (allowlist).
+        if op == "=" {
+            let left_node = self.node(left).clone();
+            let base_is_growable_field = match left_node.children.len() {
+                1 => left_node
+                    .text
+                    .as_deref()
+                    .is_some_and(|text| !text.is_empty() && text != "length"),
+                2 => !is_binary_operator_text(left_node.text.as_deref().unwrap_or_default()),
+                _ => false,
+            } && self
+                .object_field_is_growable_array(left_node.children[0]);
+            if base_is_growable_field {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "assigning to an element of a growable-array field is unavailable in the current phase".to_string(),
+                ));
+                function.instruction(&Instruction::I64Const(0));
+                return true;
             }
         }
 

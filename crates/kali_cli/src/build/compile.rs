@@ -476,7 +476,11 @@ fn compile_source_file_uncached(
         // stale seed. Both name sets are unioned into the mutated seed.
         .with_growable_array_bindings({
             let mut names = analyzed.repr_table.growable_array_binding_names();
-            names.extend(analyzed.repr_table.object_bindings_with_growable_field_names());
+            names.extend(
+                analyzed
+                    .repr_table
+                    .object_bindings_with_growable_field_names(),
+            );
             names
         });
     let optimizer = if let Some(profile_data) = profile_data {

@@ -3951,7 +3951,10 @@ impl<'a> FunctionEmitter<'a> {
         receiver: LirNodeId,
         separator: Option<LirNodeId>,
     ) -> EmittedValue {
-        let base = self.emit_node(function, receiver, true);
+        // C-2: a growable-array FIELD receiver (`o.values.join(...)`) is an
+        // allowlisted SAFE position — read its handle through the gate-lifting
+        // helper. Harmless for a named/plain-array receiver (no field gate).
+        let base = self.emit_growable_receiver_handle(function, receiver);
         if !base.produced {
             function.instruction(&Instruction::I64Const(0));
         }

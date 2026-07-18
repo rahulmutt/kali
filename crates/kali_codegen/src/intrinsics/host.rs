@@ -1243,6 +1243,7 @@ impl<'a> FunctionEmitter<'a> {
     ///     placeholder yields a placeholder), OR
     ///   * a bare identifier that chains to another `const` placeholder binding
     ///     (`const a = new Blob(...); const b = a;`).
+    ///
     /// Bounded by `depth` against a degenerate self-referential cycle.
     fn init_is_placeholder_derived(&self, init_id: LirNodeId, depth: u32) -> bool {
         if depth > 16 {
