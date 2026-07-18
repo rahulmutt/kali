@@ -511,11 +511,17 @@ impl<'a> FunctionEmitter<'a> {
     /// `const c = new AbortController()` — including one declared inside a
     /// loop/block body, where the declarator intercept binds `c` as a plain
     /// `_start` LOCAL via `LocalSet` and never populates the captured env cell —
-    /// must NOT be admitted here. Admitting it lets a deferred callback read a
-    /// stale/zero cell and silently miscompile (`c.abort()` becomes a no-op).
-    /// Such captures fail closed: the capture itself is denied at the
-    /// registration site (host.rs ALLOWLIST 3 excludes owner `_start`), and any
-    /// method call on the receiver denies via `is_module_scope_abort_handle`.
+    /// must NOT be admitted here. Admitting it lets the abort-dispatch arm store
+    /// through the wrong cell and a deferred callback read a stale/zero cell,
+    /// silently miscompiling (`c.abort()` becomes a no-op).
+    ///
+    /// Such handles fail closed at the CHOKE POINTS (not at the capture site —
+    /// the capture is admitted by host.rs ALLOWLIST 1 as a by-value scalar, so
+    /// the whole-program deny is what the choke-point diagnostics produce):
+    /// `is_module_scope_abort_handle` denies a method call on the receiver
+    /// (`emit/call.rs`) AND a bare/member read of it (`emit/control_flow.rs`
+    /// identifier + abort member-read arms). Do NOT revert this exclusion —
+    /// re-admitting `_start` owners re-enables the wrong-cell store.
     pub(crate) fn is_abort_handle(&self, name: &str) -> bool {
         if self.abort_handle_locals.contains(name) {
             return true;

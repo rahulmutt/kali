@@ -207,9 +207,13 @@ fn module_scope_captured_abort_read_already_fails_closed() {
 // `is_abort_handle`'s capture branch admitted the depth-1 `_start`-owned handle,
 // so a deferred `setTimeout(function(){ c.abort(); ... })` built and the callback
 // read a STALE/ZERO cell — `c.abort()` silently no-op'd (`cb0`; node aborts →
-// `cbtrue`). The fix denies `_start`-owned captured handles fail-closed: the
-// capture is rejected at the registration site (host.rs ALLOWLIST 3 excludes
-// owner `_start`) so the whole program E5506s at compile time. Function-scoped
+// `cbtrue`). The fix denies `_start`-owned captured handles fail-closed at the
+// CHOKE POINTS: `is_abort_handle` excludes the `_start` owner (so the abort
+// dispatch never stores through the wrong cell), and `is_module_scope_abort_handle`
+// denies both the method call (`emit/call.rs`) and every read position
+// (`emit/control_flow.rs` identifier + abort member-read arms) with E5506. (The
+// capture ITSELF is admitted by host.rs ALLOWLIST 1 as a by-value scalar; the
+// whole-program deny is what the choke-point diagnostics produce.) Function-scoped
 // loops (owner is a real function) stay SOUND — see
 // `loop_allocated_controllers_each_get_a_fresh_cell` and the roundtrip pins.
 
@@ -230,6 +234,43 @@ fn module_scope_for_of_captured_abort_fails_closed() {
 #[test]
 fn module_scope_while_captured_abort_fails_closed() {
     let src = "let n = 1;\nwhile (n > 0) {\n  n = n - 1;\n  const c = new AbortController();\n  setTimeout(function() { c.abort(); console.log(\"cb\" + c.signal.aborted); }, 0);\n}\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+// --- Task 8 round-2: `_start` loop captured abort handle READ positions -------
+// The read-position twin of the three write pins above (reviewer verification
+// reopened round-1: the method/write side denied, but the read side fell open —
+// and `raw_print` was a REGRESSION the owner-`_start` exclusion introduced by
+// removing the read from the `is_abort_handle` choke point). All three must
+// E5506 with NO silent output, via the read-side `is_module_scope_abort_handle`
+// gates (identifier + abort member-read arms in `emit/control_flow.rs`).
+
+#[test]
+fn module_scope_loop_captured_aborted_read_fails_closed() {
+    // Truthiness-branch shape: `c.signal.aborted` read in the deferred callback
+    // (pre-round-2: printed `no` exit 0; node prints `yes`).
+    let src = "for (let i = 0; i < 1; i = i + 1) {\n  const c = new AbortController();\n  c.abort();\n  setTimeout(function() { if (c.signal.aborted) { console.log(\"yes\"); } else { console.log(\"no\"); } }, 0);\n}\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn module_scope_loop_captured_raw_print_fails_closed() {
+    // The REGRESSION shape: a bare `console.log(c)` of the captured handle in
+    // the deferred callback (pre-round-2: printed `0` exit 0). Denies via the
+    // identifier-choke-point `is_module_scope_abort_handle` gate.
+    let src = "for (let i = 0; i < 1; i = i + 1) {\n  const c = new AbortController();\n  c.abort();\n  setTimeout(function() { console.log(c); }, 0);\n}\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn module_scope_loop_captured_read_only_fails_closed() {
+    // Read-only capture (NO abort call anywhere): `c.signal.aborted` read in the
+    // deferred callback (pre-round-2: printed `x0` exit 0, and produced no E5506
+    // at all — proving the round-1 registration-site claim was falsified).
+    let src = "for (let i = 0; i < 1; i = i + 1) {\n  const c = new AbortController();\n  setTimeout(function() { console.log(\"x\" + c.signal.aborted); }, 0);\n}\n";
     let stderr = run_kali_run_expect_error(src);
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }

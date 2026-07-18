@@ -64,6 +64,49 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// Task 8 round-2 read-position twin of the call-side
+    /// `is_module_scope_abort_handle` gate. True when `node` is a member read
+    /// `X.<field>` or `X.signal.<field>` whose ultimate receiver `X` is a bare
+    /// identifier that is a `_start`-owned abort handle reached from a
+    /// non-`_start` emitter (`is_module_scope_abort_handle`). Such reads MUST
+    /// deny: `is_abort_handle` (and thus `abort_member_read_parts`) excludes the
+    /// `_start` owner by design — the captured env cell is never populated, so
+    /// the deferred read is stale — which drops the read into the generic member
+    /// fallback that silently yields `0` (`c.signal.aborted` → `0`/`no`). Keyed
+    /// structurally (any field), mirroring the call-side choke point's
+    /// method-agnostic deny. The not-a-current-fn-local guards live inside
+    /// `is_module_scope_abort_handle`, so a genuine same-named local is unaffected.
+    pub(crate) fn member_receiver_is_module_abort_handle(&self, node: LirNodeId) -> bool {
+        let node = self.node(node);
+        if node.kind != LirNodeKind::Value || node.children.len() != 1 {
+            return false;
+        }
+        if node.text.as_deref().filter(|t| !t.is_empty()).is_none() {
+            return false;
+        }
+        let base = self.node(node.children[0]);
+        // `X.<field>` — X a bare module-abort-handle identifier.
+        if base.children.is_empty() {
+            return base
+                .text
+                .as_deref()
+                .is_some_and(|name| self.is_module_scope_abort_handle(name));
+        }
+        // `X.signal.<field>` — the `.signal` identity hop over a module handle.
+        if base.kind == LirNodeKind::Value
+            && base.children.len() == 1
+            && base.text.as_deref() == Some("signal")
+        {
+            let inner = self.node(base.children[0]);
+            return inner.children.is_empty()
+                && inner
+                    .text
+                    .as_deref()
+                    .is_some_and(|name| self.is_module_scope_abort_handle(name));
+        }
+        false
+    }
+
     /// Task 5 left-operand proof for the `instanceof AbortSignal` allow lane.
     /// True when `left` is a proven abort handle in signal position:
     ///   * a childless identifier `X` with `is_abort_handle(X)`  (the `s` alias

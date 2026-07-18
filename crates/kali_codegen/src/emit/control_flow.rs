@@ -1523,6 +1523,25 @@ impl<'a> FunctionEmitter<'a> {
                              receiver or a `const s = c.signal` alias (fail-closed)",
                         );
                     }
+                    // Task 8 round-2 read-position twin of the call-side gate: a
+                    // BARE read (`console.log(c)`, `c` as an argument) of a
+                    // `_start`-owned abort handle reached from a non-`_start`
+                    // emitter. `is_abort_handle` excludes the `_start` owner (its
+                    // captured env cell is never populated — the declarator
+                    // intercept bound it as a plain `_start` LOCAL), so absent
+                    // this gate the read falls through to the generic
+                    // module-binding / placeholder lanes and silently yields 0
+                    // (the raw-print REGRESSION `console.log(c)` → `0`). Mirror
+                    // the method-call `is_module_scope_abort_handle` deny.
+                    if self.is_module_scope_abort_handle(text) {
+                        return self.deny_e5506(
+                            function,
+                            "an AbortController/AbortSignal handle declared at module scope \
+                             (`_start`) cannot cross the module/function boundary as a value in \
+                             the current phase; reading it from inside a function/closure fails \
+                             closed (fail-closed)",
+                        );
+                    }
                     // Spec 4a Task 5: a for-in key (or alias) emitted in a
                     // STRING-VALUE context materializes its interned field-name
                     // handle from this loop's key handle table at `base + ord*8`,
@@ -1845,6 +1864,23 @@ impl<'a> FunctionEmitter<'a> {
                 // falls through to the generic member fallback, whose receiver
                 // emit hits the identifier choke point and denies E5506
                 // (default-deny — closes the t3-m2 silent-`0` hole).
+                // Task 8 round-2 read-position twin: a member read
+                // (`c.signal`, `c.signal.aborted`, or any field) whose ultimate
+                // receiver is a `_start`-owned abort handle reached from a
+                // non-`_start` emitter. `abort_member_read_parts` returns `None`
+                // for it (`is_abort_handle` excludes the `_start` owner), so
+                // without this gate the read falls through to the generic member
+                // fallback and silently yields `0`. Deny fail-closed, mirroring
+                // the call-side `is_module_scope_abort_handle` gate.
+                if self.member_receiver_is_module_abort_handle(id) {
+                    return self.deny_e5506(
+                        function,
+                        "an AbortController/AbortSignal handle declared at module scope \
+                         (`_start`) cannot be read from inside a function/closure in the \
+                         current phase; its `.signal`/`.aborted` cross the module/function \
+                         boundary and fail closed (fail-closed)",
+                    );
+                }
                 if let Some(part) = self.abort_member_read_parts(id) {
                     match part {
                         crate::emit::abort::AbortMemberRead::Aborted(receiver) => {
