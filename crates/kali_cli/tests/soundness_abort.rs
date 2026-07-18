@@ -222,3 +222,170 @@ fn controller_instanceof_abort_controller_stays_trapped() {
     let out = run_kali(src);
     assert!(!out.status.success(), "must trap: {out:?}");
 }
+
+// --- Task 6: fail-closed enumeration wave (store sites + generic sinks) ----
+//
+// The P2 standing lesson executed up front: pin every store site and generic
+// value sink for the abort-handle value class NOW, proving the Task-3
+// position gate (`emit_abort_receiver_handle` / `admit_abort_handle_read`)
+// covers the whole deny surface, not just the shapes earlier tasks happened
+// to exercise.
+
+#[test]
+fn abort_handle_string_concat_fails_closed() {
+    let src = "const c = new AbortController();\nconst s = c.signal;\nconsole.log(\"v=\" + c);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn abort_handle_template_interpolation_fails_closed() {
+    let src = "const c = new AbortController();\nconst s = c.signal;\nconsole.log(`v=${c}`);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn abort_handle_arithmetic_fails_closed() {
+    let src = "const c = new AbortController();\nconst s = c.signal;\nconsole.log(c + 1);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn abort_handle_identity_compare_fails_closed() {
+    let src = "const c = new AbortController();\nconst s = c.signal;\nconsole.log(c === c ? 1 : 0);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn signal_identity_compare_fails_closed() {
+    let src = "const c = new AbortController();\nconst s = c.signal;\nconsole.log(s === c.signal ? 1 : 0);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn abort_handle_json_stringify_fails_closed() {
+    let src = "const c = new AbortController();\nconst s = c.signal;\nconsole.log(JSON.stringify(c));\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn abort_handle_return_position_fails_closed() {
+    let src = "function f() { const k = new AbortController(); return k; }\nf();\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn abort_handle_argument_position_fails_closed() {
+    let src = "const c = new AbortController();\nconst s = c.signal;\nfunction f(x) { return 1; }\nf(c);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn abort_handle_object_literal_field_fails_closed() {
+    let src = "const c = new AbortController();\nconst s = c.signal;\nconst o = { h: c };\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn abort_handle_array_element_fails_closed() {
+    let src = "const c = new AbortController();\nconst s = c.signal;\nconst a = [c];\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn abort_handle_growable_push_fails_closed() {
+    let src = "const c = new AbortController();\nconst s = c.signal;\nconst a = [];\na.push(c);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn abort_handle_computed_member_read_fails_closed() {
+    let src = "const c = new AbortController();\nconst s = c.signal;\nconst k = \"abort\";\nc[k]();\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn abort_handle_computed_member_write_fails_closed() {
+    let src = "const c = new AbortController();\nconst s = c.signal;\nc[0] = 1;\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn signal_onabort_member_fails_closed() {
+    let src = "const c = new AbortController();\nconst s = c.signal;\nconsole.log(s.onabort);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn signal_reason_member_fails_closed() {
+    let src = "const c = new AbortController();\nconst s = c.signal;\nconsole.log(s.reason);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn signal_throw_if_aborted_fails_closed() {
+    let src = "const c = new AbortController();\nconst s = c.signal;\ns.throwIfAborted();\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn abort_signal_static_timeout_fails() {
+    // Leak found by this wave: before the Task 6 fix, an unrecognized
+    // `AbortSignal.timeout(...)` call reached the generic "undefined call
+    // target" fallback (`emitter.rs::push_placeholder_fallback_diagnostic`),
+    // which is WARNING-only — the build exited 0 printing "1", silently
+    // discarding the construct. Fixed at the choke point: `emit_call` now
+    // denies any static method call on the unshadowed `AbortSignal` builtin
+    // (`is_abort_signal_static_call`) before it can reach that fallback.
+    // Observed stderr post-fix: "error[E5506]: AbortSignal static methods
+    // (timeout/abort/any) are unavailable in the current phase: ...".
+    let src = "const s = AbortSignal.timeout(5);\nconsole.log(1);\n";
+    let out = run_kali(src);
+    assert!(!out.status.success(), "must fail closed: {out:?}");
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn abort_signal_static_abort_fails() {
+    // Same leak/fix as `abort_signal_static_timeout_fails` (see its comment):
+    // observed stderr post-fix carries the same "error[E5506]: AbortSignal
+    // static methods (timeout/abort/any) are unavailable ..." text.
+    let src = "const s = AbortSignal.abort();\nconsole.log(1);\n";
+    let out = run_kali(src);
+    assert!(!out.status.success(), "must fail closed: {out:?}");
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn abort_handle_inline_new_in_arg_position() {
+    // Leak-shape triage (brief Step 2, second shape): a `new
+    // AbortController()` that never becomes a `const` declarator init never
+    // reaches the declarator-scoped real-cell lowering
+    // (`emit/control_flow.rs`'s `is_const` intercept, which is the ONLY site
+    // that calls `__alloc_global` for a real abort cell) — it falls through
+    // the generic text-less aggregate path (`emit_aggregate_literal`), whose
+    // unresolved `AbortController()` call target resolves through the
+    // warning-only zero-placeholder fallback and is dropped. No real cell is
+    // ever allocated, so there is no handle to leak: `f` receives a plain
+    // placeholder `0`, not a raw abort-cell pointer. Confirmed sound as-is —
+    // no fix needed, this pins the placeholder path against regression.
+    let src = "function f(x) { return 1; }\nf(new AbortController());\nconsole.log(\"ok\");\n";
+    assert_eq!(run_kali_run(src).trim(), "ok");
+}

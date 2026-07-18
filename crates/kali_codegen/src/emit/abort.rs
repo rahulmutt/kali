@@ -138,4 +138,20 @@ impl<'a> FunctionEmitter<'a> {
             memory_index: 0,
         }));
     }
+
+    /// Task 6 static-surface recognizer: `AbortSignal.<method>(...)` for ANY
+    /// method name, with the `AbortSignal` receiver an unshadowed builtin
+    /// (mirrors `instanceof_right_is_unshadowed`'s five-namespace guard — a
+    /// user binding of `AbortSignal` takes the normal user-call lane, not
+    /// this deny). Kali has no lowering for the real JS static surface
+    /// (`AbortSignal.timeout`, `.abort`, `.any`); denying the whole receiver
+    /// rather than an individual method name is the allowlist-at-choke-point
+    /// discipline — a denylist of just `timeout`/`abort` would leak `.any`
+    /// (or any future addition) through the generic warning-only fallback.
+    pub(crate) fn is_abort_signal_static_call(&self, callee_node: &LirNode) -> bool {
+        if callee_node.text.is_none() || callee_node.children.len() != 1 {
+            return false;
+        }
+        self.instanceof_right_is_unshadowed(callee_node.children[0], "AbortSignal")
+    }
 }
