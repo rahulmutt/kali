@@ -393,6 +393,25 @@ struct ReprInfer {
     /// shapes).
     nested_fns_registered: BTreeSet<String>,
     nested_fns_seeded: BTreeSet<String>,
+    /// P3 Task 2: `(func, binding)` pairs syntactically admitted for
+    /// `Repr::AbortHandle` seeding — a `const` declarator whose init is
+    /// `new AbortController()` with zero args, or a `const` declarator whose
+    /// init is a non-computed `<ident>.signal` read where `(func, <ident>)`
+    /// is already in this set (same-function forward alias only; declarators
+    /// are visited in source order within a function, so no fixpoint is
+    /// needed). Applied in `emit_table`, gated by `abort_controller_shadowed`
+    /// and by "no other axis already claimed the binding"
+    /// (`table.scalar(...) == Repr::I64`) — mixed provenance stays
+    /// fail-closed.
+    abort_bindings: BTreeSet<(String, String)>,
+    /// P3 Task 2 program-wide shadow guard: `true` when ANY declared name
+    /// anywhere in the program (a function declaration, a class declaration,
+    /// or a var/let/const declarator name, at any nesting) is `"AbortController"`
+    /// or `"AbortSignal"`. Conservative and program-wide on purpose — this
+    /// pass has no per-namespace notion, so any shadow anywhere disables
+    /// `abort_bindings` seeding everywhere; codegen (Task 3) re-checks
+    /// per-namespace, which is a strictly finer-grained gate than this one.
+    abort_controller_shadowed: bool,
 }
 
 /// Identity of an object-holding slot for shape/aliasing purposes.
@@ -440,6 +459,12 @@ pub fn infer_reprs(statements: &[Statement]) -> ReprTable {
     // the axes are solved. Module scope (`_start`) is deliberately not
     // analyzed: a module-level push receiver keeps the plain lane.
     infer.collect_growable_candidates(statements);
+
+    // Phase A4 (P3 Task 2): program-wide AbortController/AbortSignal shadow
+    // scan — sets `abort_controller_shadowed` before Phase B's declarator
+    // walk records any `abort_bindings` candidates, so the shadow flag is
+    // always fully known by the time `emit_table` consults it.
+    infer.collect_abort_shadow(statements);
 
     // Phase B: walk bodies. Top-level non-function statements run under the
     // synthetic `_start`; each `FunctionDeclaration` runs under its own name.
@@ -1434,6 +1459,93 @@ impl ReprInfer {
         }
     }
 
+    // ---- Phase A4 (P3 Task 2): AbortController/AbortSignal shadow guard --
+
+    /// Full-program, conservative shadow scan for the `Repr::AbortHandle`
+    /// seeding pass (`visit_declarator_init` / `emit_table` below). Mirrors
+    /// `collect_functions_in_stmt`'s traversal shape (same recursion into
+    /// nested control-flow bodies and `FunctionDeclaration` bodies) but
+    /// checks declaration NAMES rather than registering signatures. Scope is
+    /// deliberately limited to the three declaration forms the brief calls
+    /// out — function declarations, class declarations, and var/let/const
+    /// declarator names — so a name bound only inside a fn-expr/arrow body is
+    /// NOT walked here; that residual is covered by Task 3's per-namespace
+    /// recheck, which this program-wide pass is a conservative pre-filter
+    /// for, not the sole safety mechanism.
+    fn collect_abort_shadow(&mut self, statements: &[Statement]) {
+        for stmt in statements {
+            self.collect_abort_shadow_in_stmt(stmt);
+        }
+    }
+
+    fn collect_abort_shadow_in_stmt(&mut self, stmt: &Statement) {
+        match stmt {
+            Statement::FunctionDeclaration(decl) => {
+                self.note_abort_shadow_name(&decl.name);
+                self.collect_abort_shadow(&decl.body.body);
+            }
+            Statement::ClassDeclaration(decl) => {
+                self.note_abort_shadow_name(&decl.name);
+            }
+            Statement::VariableDeclaration(decl) => {
+                for d in &decl.declarations {
+                    self.note_abort_shadow_name(&d.id);
+                }
+            }
+            Statement::BlockStatement(block) => self.collect_abort_shadow(&block.body),
+            Statement::IfStatement(node) => {
+                self.collect_abort_shadow(&node.consequent.body);
+                if let Some(alt) = &node.alternate {
+                    self.collect_abort_shadow(&alt.body);
+                }
+            }
+            Statement::ForStatement(node) => {
+                if let Some(ForInit::VariableDeclaration(decl)) = &node.init {
+                    for d in &decl.declarations {
+                        self.note_abort_shadow_name(&d.id);
+                    }
+                }
+                self.collect_abort_shadow(&node.body.body);
+            }
+            Statement::ForInStatement(node) => {
+                if let ForInLefthand::VariableDeclaration(decl) = &node.left {
+                    for d in &decl.declarations {
+                        self.note_abort_shadow_name(&d.id);
+                    }
+                }
+                self.collect_abort_shadow_in_stmt(&node.body);
+            }
+            Statement::ForOfStatement(node) => {
+                if let ForOfLefthand::VariableDeclaration(decl) = &node.left {
+                    for d in &decl.declarations {
+                        self.note_abort_shadow_name(&d.id);
+                    }
+                }
+                self.collect_abort_shadow_in_stmt(&node.body);
+            }
+            Statement::WhileStatement(node) => self.collect_abort_shadow(&node.body.body),
+            Statement::DoWhileStatement(node) => self.collect_abort_shadow(&node.body.body),
+            Statement::LabeledStatement(node) => self.collect_abort_shadow_in_stmt(&node.body),
+            Statement::TryStatement(node) => {
+                self.collect_abort_shadow(&node.block.body);
+                if let Some(handler) = &node.handler {
+                    self.note_abort_shadow_name(&handler.param);
+                    self.collect_abort_shadow(&handler.body.body);
+                }
+                if let Some(finalizer) = &node.finalizer {
+                    self.collect_abort_shadow(&finalizer.body);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn note_abort_shadow_name(&mut self, name: &str) {
+        if name == "AbortController" || name == "AbortSignal" {
+            self.abort_controller_shadowed = true;
+        }
+    }
+
     /// True when `name` is locally bound in `func`'s own scope (a parameter
     /// or a `let`/`const`/`var` declarator anywhere in its body, ignoring
     /// nested functions) — mirrors codegen's local/binding precedence.
@@ -1485,7 +1597,7 @@ impl ReprInfer {
             Statement::VariableDeclaration(decl) => {
                 for d in &decl.declarations {
                     if let Some(init) = &d.init {
-                        self.visit_declarator_init(func, &d.id, init);
+                        self.visit_declarator_init(func, &decl.kind, &d.id, init);
                     }
                 }
             }
@@ -1543,7 +1655,7 @@ impl ReprInfer {
                         ForInit::VariableDeclaration(decl) => {
                             for d in &decl.declarations {
                                 if let Some(i) = &d.init {
-                                    self.visit_declarator_init(func, &d.id, i);
+                                    self.visit_declarator_init(func, &decl.kind, &d.id, i);
                                 }
                             }
                         }
@@ -1710,7 +1822,36 @@ impl ReprInfer {
     /// `let/const/var id = init` — array-producing inits create an element
     /// node for `id`; everything else flows the init into `id`'s scalar node
     /// (`init -> id`).
-    fn visit_declarator_init(&mut self, func: &str, id: &str, init: &Expression) {
+    fn visit_declarator_init(&mut self, func: &str, kind: &str, id: &str, init: &Expression) {
+        // P3 Task 2: `const c = new AbortController()` and the same-function
+        // forward alias `const s = c.signal` are the only two admitted
+        // AbortHandle-seeding shapes (applied in `emit_table`, gated by the
+        // program-wide shadow guard and by "no other axis already claimed
+        // the binding"). Recorded here, before the generic wiring below —
+        // the generic wiring still runs unconditionally afterward: the node
+        // is unseeded on the float/string axes either way, so running both
+        // is harmless and keeps edge bookkeeping uniform with every other
+        // declarator. Declarators are visited in source order within a
+        // function, so a same-function forward alias resolves in this one
+        // pass; cross-function flow is not admitted this stage.
+        if kind == "const" {
+            if self.is_new_abort_controller(init) {
+                self.abort_bindings
+                    .insert((func.to_string(), id.to_string()));
+            } else if let Expression::MemberExpression(member) = init {
+                if member.computed_index.is_none() && member.property == "signal" {
+                    if let Expression::Identifier(base) = &member.object {
+                        if self
+                            .abort_bindings
+                            .contains(&(func.to_string(), base.clone()))
+                        {
+                            self.abort_bindings
+                                .insert((func.to_string(), id.to_string()));
+                        }
+                    }
+                }
+            }
+        }
         if let Expression::ObjectExpression(obj) = init {
             // Syntactic taint, independent of materialization — see the field
             // doc on `object_initialized_bindings`. A compound/update on `id`
@@ -1738,6 +1879,21 @@ impl ReprInfer {
         let sn = self.scalar_node_for(func, id);
         // init -> id.
         self.add_edge(rn, sn);
+    }
+
+    /// True when `expr` is `new AbortController()` with zero constructor
+    /// args — the sole admitted AbortHandle-producing shape (P3 Task 2).
+    /// Reuses the same `constructor_name` helper `init_is_array` uses below;
+    /// the zero-args requirement additionally excludes any (currently
+    /// nonstandard) constructor-arg shape from seeding.
+    fn is_new_abort_controller(&self, expr: &Expression) -> bool {
+        match expr {
+            Expression::NewExpression(new_expr) => {
+                constructor_name(&new_expr.callee).as_deref() == Some("AbortController")
+                    && new_expr.args.is_empty()
+            }
+            _ => false,
+        }
     }
 
     /// True when `expr` produces a fresh array binding (`new Array(...)` or an
@@ -3979,6 +4135,18 @@ impl ReprInfer {
                 }
             };
             table.add_shape_conflict(message);
+        }
+
+        // P3 Task 2: AbortHandle seeding. Only when the program-wide shadow
+        // guard did not fire, and only for a binding no other axis already
+        // claimed (`Repr::I64` is the untouched default — mixed provenance,
+        // e.g. an object/array/for-in-key binding, stays fail-closed here).
+        if !self.abort_controller_shadowed {
+            for (func, name) in &self.abort_bindings {
+                if table.scalar(func, name) == Repr::I64 {
+                    table.set_scalar(func, name, Repr::AbortHandle);
+                }
+            }
         }
 
         table

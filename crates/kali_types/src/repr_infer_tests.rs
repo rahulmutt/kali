@@ -1368,3 +1368,48 @@ fn tripwire_identifier_aliased_array_field_silently_interns_i64() {
     );
     assert!(t.shape_conflicts().is_empty());
 }
+
+#[test]
+fn abort_controller_const_declarator_seeds_abort_handle() {
+    let t = reprs("const c = new AbortController();\n");
+    assert_eq!(t.scalar("_start", "c"), Repr::AbortHandle);
+}
+
+#[test]
+fn abort_signal_const_alias_propagates_abort_handle() {
+    let t = reprs("const c = new AbortController();\nconst s = c.signal;\n");
+    assert_eq!(t.scalar("_start", "s"), Repr::AbortHandle);
+}
+
+#[test]
+fn abort_handle_inside_function_scope_seeds_per_function() {
+    let t = reprs("function m() { const c = new AbortController(); }\nm();\n");
+    assert_eq!(t.scalar("m", "c"), Repr::AbortHandle);
+}
+
+#[test]
+fn shadowed_abort_controller_does_not_seed() {
+    // A user binding named AbortController anywhere in the program disables
+    // seeding program-wide (conservative; codegen re-checks per-namespace).
+    let t = reprs("function AbortController() { return 1; }\nconst c = new AbortController();\n");
+    assert_eq!(t.scalar("_start", "c"), Repr::I64);
+}
+
+#[test]
+fn let_declared_controller_does_not_seed() {
+    let t = reprs("let c = new AbortController();\n");
+    assert_eq!(t.scalar("_start", "c"), Repr::I64);
+}
+
+#[test]
+fn plain_alias_of_controller_does_not_seed() {
+    // `const b = c` (not `.signal`) stays I64 — fail-closed, ops on b deny.
+    let t = reprs("const c = new AbortController();\nconst b = c;\n");
+    assert_eq!(t.scalar("_start", "b"), Repr::I64);
+}
+
+#[test]
+fn signal_alias_of_non_controller_does_not_seed() {
+    let t = reprs("const o = { signal: 3 };\nconst s = o.signal;\n");
+    assert_eq!(t.scalar("_start", "s"), Repr::I64);
+}
