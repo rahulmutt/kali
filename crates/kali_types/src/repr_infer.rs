@@ -397,18 +397,32 @@ struct ReprInfer {
     /// `Repr::AbortHandle` seeding — a `const` declarator whose init is
     /// `new AbortController()` with zero args, or a `const` declarator whose
     /// init is a non-computed `<ident>.signal` read where `(func, <ident>)`
-    /// is already in this set (same-function forward alias only; declarators
-    /// are visited in source order within a function, so no fixpoint is
-    /// needed). Applied in `emit_table`, gated by `abort_controller_shadowed`
-    /// and by "no other axis already claimed the binding"
-    /// (`table.scalar(...) == Repr::I64`) — mixed provenance stays
-    /// fail-closed.
+    /// is already in `abort_controller_origin` (same-function forward alias
+    /// only; declarators are visited in source order within a function, so
+    /// no fixpoint is needed). Applied in `emit_table`, gated by
+    /// `abort_controller_shadowed` and by "no other axis already claimed the
+    /// binding" (`table.scalar(...) == Repr::I64`) — mixed provenance stays
+    /// fail-closed. NOTE: this set holds BOTH controller bindings and their
+    /// `.signal` aliases (both get seeded `Repr::AbortHandle`) — it is NOT
+    /// the "is this a controller" predicate; use `abort_controller_origin`
+    /// for that (fix-round MINOR finding: signal-of-signal over-admission).
     abort_bindings: BTreeSet<(String, String)>,
+    /// P3 Task 2 fix-round (MINOR): the STRICT SUBSET of `abort_bindings`
+    /// that is controller-origin (`new AbortController()`), not itself a
+    /// `.signal` alias. Only a controller-origin base admits a `.signal`
+    /// read into `abort_bindings` — a signal-origin base does NOT (a
+    /// `.signal` is never re-admitted into `abort_controller_origin`), so
+    /// `const s2 = s.signal` where `s` is itself `c.signal` stays I64
+    /// fail-closed rather than chaining.
+    abort_controller_origin: BTreeSet<(String, String)>,
     /// P3 Task 2 program-wide shadow guard: `true` when ANY declared name
     /// anywhere in the program (a function declaration, a class declaration,
-    /// or a var/let/const declarator name, at any nesting) is `"AbortController"`
-    /// or `"AbortSignal"`. Conservative and program-wide on purpose — this
-    /// pass has no per-namespace notion, so any shadow anywhere disables
+    /// or a var/let/const declarator name — including inside nested
+    /// fn-expr/arrow bodies and `switch` case bodies, since shadow detection
+    /// is inlined into the same `visit_stmt` traversal the seeding walk
+    /// uses — see `note_abort_shadow_name`) is `"AbortController"` or
+    /// `"AbortSignal"`. Conservative and program-wide on purpose — this pass
+    /// has no per-namespace notion, so any shadow anywhere disables
     /// `abort_bindings` seeding everywhere; codegen (Task 3) re-checks
     /// per-namespace, which is a strictly finer-grained gate than this one.
     abort_controller_shadowed: bool,
@@ -460,11 +474,12 @@ pub fn infer_reprs(statements: &[Statement]) -> ReprTable {
     // analyzed: a module-level push receiver keeps the plain lane.
     infer.collect_growable_candidates(statements);
 
-    // Phase A4 (P3 Task 2): program-wide AbortController/AbortSignal shadow
-    // scan — sets `abort_controller_shadowed` before Phase B's declarator
-    // walk records any `abort_bindings` candidates, so the shadow flag is
-    // always fully known by the time `emit_table` consults it.
-    infer.collect_abort_shadow(statements);
+    // P3 Task 2: `abort_controller_shadowed` and `abort_bindings` are both
+    // populated DURING Phase B below (inline in `visit_stmt`/
+    // `visit_declarator_init` — see the note on `note_abort_shadow_name`),
+    // not by a separate pre-pass. Only `emit_table`, which runs strictly
+    // after Phase B completes, ever CONSULTS the shadow flag, so within-
+    // Phase-B ordering between the two is irrelevant.
 
     // Phase B: walk bodies. Top-level non-function statements run under the
     // synthetic `_start`; each `FunctionDeclaration` runs under its own name.
@@ -1459,87 +1474,30 @@ impl ReprInfer {
         }
     }
 
-    // ---- Phase A4 (P3 Task 2): AbortController/AbortSignal shadow guard --
-
-    /// Full-program, conservative shadow scan for the `Repr::AbortHandle`
-    /// seeding pass (`visit_declarator_init` / `emit_table` below). Mirrors
-    /// `collect_functions_in_stmt`'s traversal shape (same recursion into
-    /// nested control-flow bodies and `FunctionDeclaration` bodies) but
-    /// checks declaration NAMES rather than registering signatures. Scope is
-    /// deliberately limited to the three declaration forms the brief calls
-    /// out — function declarations, class declarations, and var/let/const
-    /// declarator names — so a name bound only inside a fn-expr/arrow body is
-    /// NOT walked here; that residual is covered by Task 3's per-namespace
-    /// recheck, which this program-wide pass is a conservative pre-filter
-    /// for, not the sole safety mechanism.
-    fn collect_abort_shadow(&mut self, statements: &[Statement]) {
-        for stmt in statements {
-            self.collect_abort_shadow_in_stmt(stmt);
-        }
-    }
-
-    fn collect_abort_shadow_in_stmt(&mut self, stmt: &Statement) {
-        match stmt {
-            Statement::FunctionDeclaration(decl) => {
-                self.note_abort_shadow_name(&decl.name);
-                self.collect_abort_shadow(&decl.body.body);
-            }
-            Statement::ClassDeclaration(decl) => {
-                self.note_abort_shadow_name(&decl.name);
-            }
-            Statement::VariableDeclaration(decl) => {
-                for d in &decl.declarations {
-                    self.note_abort_shadow_name(&d.id);
-                }
-            }
-            Statement::BlockStatement(block) => self.collect_abort_shadow(&block.body),
-            Statement::IfStatement(node) => {
-                self.collect_abort_shadow(&node.consequent.body);
-                if let Some(alt) = &node.alternate {
-                    self.collect_abort_shadow(&alt.body);
-                }
-            }
-            Statement::ForStatement(node) => {
-                if let Some(ForInit::VariableDeclaration(decl)) = &node.init {
-                    for d in &decl.declarations {
-                        self.note_abort_shadow_name(&d.id);
-                    }
-                }
-                self.collect_abort_shadow(&node.body.body);
-            }
-            Statement::ForInStatement(node) => {
-                if let ForInLefthand::VariableDeclaration(decl) = &node.left {
-                    for d in &decl.declarations {
-                        self.note_abort_shadow_name(&d.id);
-                    }
-                }
-                self.collect_abort_shadow_in_stmt(&node.body);
-            }
-            Statement::ForOfStatement(node) => {
-                if let ForOfLefthand::VariableDeclaration(decl) = &node.left {
-                    for d in &decl.declarations {
-                        self.note_abort_shadow_name(&d.id);
-                    }
-                }
-                self.collect_abort_shadow_in_stmt(&node.body);
-            }
-            Statement::WhileStatement(node) => self.collect_abort_shadow(&node.body.body),
-            Statement::DoWhileStatement(node) => self.collect_abort_shadow(&node.body.body),
-            Statement::LabeledStatement(node) => self.collect_abort_shadow_in_stmt(&node.body),
-            Statement::TryStatement(node) => {
-                self.collect_abort_shadow(&node.block.body);
-                if let Some(handler) = &node.handler {
-                    self.note_abort_shadow_name(&handler.param);
-                    self.collect_abort_shadow(&handler.body.body);
-                }
-                if let Some(finalizer) = &node.finalizer {
-                    self.collect_abort_shadow(&finalizer.body);
-                }
-            }
-            _ => {}
-        }
-    }
-
+    // ---- P3 Task 2: AbortController/AbortSignal shadow guard -------------
+    //
+    // FIX ROUND (reviewer finding, CRITICAL): the original implementation
+    // ran shadow detection as a SEPARATE Phase-A pre-pass
+    // (`collect_abort_shadow`/`collect_abort_shadow_in_stmt`) that hand-
+    // mirrored `collect_functions_in_stmt`'s traversal shape. That shape is
+    // narrower than the ACTUAL seeding walk (`visit_stmt`/`visit_expr` in
+    // Phase B): it does not descend into `switch` case bodies, and — being a
+    // Phase-A walker — never reaches inside a fn-expr/arrow body at all
+    // (those are Phase-B-only, keyed on `__kali_fn_N`, reached via
+    // `visit_expr`'s FunctionExpression/ArrowFunctionExpression arms). Two
+    // confirmed fail-opens resulted: a shadowing declarator inside a
+    // `switch` case, or inside a nested fn-expr/arrow body, was invisible to
+    // the shadow scan while a `new AbortController()` in that SAME region
+    // still got seeded.
+    //
+    // Root-cause fix: `note_abort_shadow_name` is now called INLINE from
+    // WITHIN `visit_stmt` itself — the exact same traversal that reaches
+    // every `visit_declarator_init` call site. There is no longer a second,
+    // separately-maintained walker to drift out of sync with the seeding
+    // walk: shadow detection and seeding recognition share ONE frontier by
+    // construction. INVARIANT: the shadow frontier must cover every
+    // position the seeding walk reaches — enforced here by literally being
+    // the same code, not by manually mirroring it.
     fn note_abort_shadow_name(&mut self, name: &str) {
         if name == "AbortController" || name == "AbortSignal" {
             self.abort_controller_shadowed = true;
@@ -1591,11 +1549,23 @@ impl ReprInfer {
     fn visit_stmt(&mut self, func: &str, stmt: &Statement) {
         match stmt {
             Statement::FunctionDeclaration(decl) => {
+                // P3 Task 2 shadow guard: see the note on
+                // `note_abort_shadow_name` — inlined here so the shadow scan
+                // shares this exact traversal with the seeding walk.
+                self.note_abort_shadow_name(&decl.name);
                 // Walk the body under the function's own name.
                 self.visit_block(&decl.name, &decl.body);
             }
+            Statement::ClassDeclaration(decl) => {
+                // P3 Task 2 shadow guard only — repr_infer otherwise does not
+                // model class bodies (pre-existing, out of this task's scope).
+                self.note_abort_shadow_name(&decl.name);
+            }
             Statement::VariableDeclaration(decl) => {
                 for d in &decl.declarations {
+                    // P3 Task 2 shadow guard: every declarator name, even one
+                    // with no initializer (`let AbortController;`), can shadow.
+                    self.note_abort_shadow_name(&d.id);
                     if let Some(init) = &d.init {
                         self.visit_declarator_init(func, &decl.kind, &d.id, init);
                     }
@@ -1654,6 +1624,8 @@ impl ReprInfer {
                     match init {
                         ForInit::VariableDeclaration(decl) => {
                             for d in &decl.declarations {
+                                // P3 Task 2 shadow guard (see note above).
+                                self.note_abort_shadow_name(&d.id);
                                 if let Some(i) = &d.init {
                                     self.visit_declarator_init(func, &decl.kind, &d.id, i);
                                 }
@@ -1699,6 +1671,8 @@ impl ReprInfer {
                 let mut pushed_key = false;
                 if let ForInLefthand::VariableDeclaration(decl) = &stmt.left {
                     for d in &decl.declarations {
+                        // P3 Task 2 shadow guard (see note above).
+                        self.note_abort_shadow_name(&d.id);
                         let _ = self.scalar_node_for(func, &d.id);
                     }
                 }
@@ -1744,6 +1718,12 @@ impl ReprInfer {
                 // binding's node into it — string operands seed transitively,
                 // object identities stay plain) so the element axis solves
                 // truthfully.
+                // P3 Task 2 shadow guard (see note above).
+                if let kali_ast::ForOfLefthand::VariableDeclaration(decl) = &stmt.left {
+                    for d in &decl.declarations {
+                        self.note_abort_shadow_name(&d.id);
+                    }
+                }
                 let string_items = for_of_string_items(&stmt.right);
                 if !matches!(string_items, ForOfStringItems::No) {
                     let loop_var = match &stmt.left {
@@ -1806,6 +1786,8 @@ impl ReprInfer {
             Statement::TryStatement(stmt) => {
                 self.visit_block(func, &stmt.block);
                 if let Some(handler) = &stmt.handler {
+                    // P3 Task 2 shadow guard (see note above).
+                    self.note_abort_shadow_name(&handler.param);
                     self.visit_block(func, &handler.body);
                 }
                 if let Some(finalizer) = &stmt.finalizer {
@@ -1834,15 +1816,25 @@ impl ReprInfer {
         // declarator. Declarators are visited in source order within a
         // function, so a same-function forward alias resolves in this one
         // pass; cross-function flow is not admitted this stage.
+        //
+        // Fix-round (MINOR, signal-of-signal over-admission): the `.signal`
+        // alias branch requires the base to be CONTROLLER-origin
+        // (`abort_controller_origin`), not merely a member of
+        // `abort_bindings` (which also holds signal-origin bindings). A
+        // `.signal` alias is itself only added to `abort_bindings`, never to
+        // `abort_controller_origin`, so a signal's OWN `.signal` read
+        // (`s.signal` where `s = c.signal`) cannot chain — it stays I64.
         if kind == "const" {
             if self.is_new_abort_controller(init) {
                 self.abort_bindings
+                    .insert((func.to_string(), id.to_string()));
+                self.abort_controller_origin
                     .insert((func.to_string(), id.to_string()));
             } else if let Expression::MemberExpression(member) = init {
                 if member.computed_index.is_none() && member.property == "signal" {
                     if let Expression::Identifier(base) = &member.object {
                         if self
-                            .abort_bindings
+                            .abort_controller_origin
                             .contains(&(func.to_string(), base.clone()))
                         {
                             self.abort_bindings

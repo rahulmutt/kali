@@ -1413,3 +1413,56 @@ fn signal_alias_of_non_controller_does_not_seed() {
     let t = reprs("const o = { signal: 3 };\nconst s = o.signal;\n");
     assert_eq!(t.scalar("_start", "s"), Repr::I64);
 }
+
+// --- P3 Task 2 fix-round pins (reviewer findings) ---------------------
+
+#[test]
+fn fn_expr_body_shadow_disables_seeding_inside_nested_body() {
+    // CRITICAL fix pin: a shadowing `const AbortController = ...` INSIDE a
+    // nested function-expression body must disable seeding for THAT body —
+    // the shadow scan's frontier must cover every position the seeding walk
+    // (`visit_declarator_init`, reached via `visit_expr`'s FunctionExpression
+    // arm -> `visit_block`) reaches. Named function expression (`function
+    // abc(){...}`) is used instead of an arrow because this crate's `reprs`
+    // test helper parses directly (no `name_anon_functions` pass), so an
+    // arrow's `id` would be `None` and its body would not be visited at all;
+    // a named function expression already carries its own id from parsing.
+    let t = reprs(
+        "const f = function abc() {\n\
+           const AbortController = 1;\n\
+           const c = new AbortController();\n\
+         };\n\
+         f();\n",
+    );
+    assert_eq!(t.scalar("abc", "c"), Repr::I64);
+}
+
+#[test]
+fn switch_case_shadow_disables_seeding_in_case_body() {
+    // CRITICAL fix pin: `visit_stmt`'s SwitchStatement arm recurses into
+    // `case.consequent` (where `visit_declarator_init` can fire), so the
+    // shadow scan must reach the same case bodies.
+    let t = reprs(
+        "switch (0) {\n\
+           case 0: {\n\
+             const AbortController = 5;\n\
+             const c = new AbortController();\n\
+           }\n\
+         }\n",
+    );
+    assert_eq!(t.scalar("_start", "c"), Repr::I64);
+}
+
+#[test]
+fn signal_of_signal_does_not_seed() {
+    // MINOR fix pin: only a controller-origin binding's `.signal` may seed.
+    // `s` is signal-origin (from `c.signal`), so `s.signal` (`s2`) must NOT
+    // seed even though `s` itself is a live `abort_bindings` entry.
+    let t = reprs(
+        "const c = new AbortController();\n\
+         const s = c.signal;\n\
+         const s2 = s.signal;\n",
+    );
+    assert_eq!(t.scalar("_start", "s"), Repr::AbortHandle);
+    assert_eq!(t.scalar("_start", "s2"), Repr::I64);
+}
