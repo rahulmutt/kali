@@ -522,9 +522,24 @@ closed or stays pre-existing-red rather than miscompiling):
   kali `done`; the per-`FunctionEmitter` `event_target_locals` registry is not
   shared across the module and `go` emitters). Still flagged for Stage P3
   alongside the backstop hardening.
-- **Stage P2 — `structuredClone`**: deep-clone runtime primitive; currently
-  traps (E4000) wherever it's the first unsupported call in a fixture (see
-  §8.4's deliberate flip).
+- **Stage P2 — `structuredClone`**: **SHIPPED 2026-07-18**
+  (`c893d5835..7e3aacc02`, 19 commits on `soundness-batch1-pra`). Deep clone
+  over the sound envelope: flat fixed-shape objects of i64/f64 scalars +
+  growable-i64 array fields (`Repr::GrowableArrayI64`, per-shape
+  `__clone_shape_N` synthetics on `__alloc_global`, intern-time `clone_safe`
+  allowlist bit), same-shape `===`/`!==` pointer identity, placeholder
+  warn-build lane with const-provenance chains (E8001 guard pin). §8.4's
+  deliberate flip advanced: the fixture now denies at `AbortController`'s
+  `instanceof` (first P3 primitive), `success == false` preserved.
+  Gate: 694-baseline held, 0 newly-red, double-enumerated, zero drift.
+  P2 residual inventory (P3-relevant): envelope widening to string/nested
+  object fields (identifier/call/`arr[i]` object-pointer fields fail closed
+  by the clone-safe bit); named-growable alias `const b = a` still a
+  tripwire-pinned fail-open; growable-field OOB index read `0` vs node
+  `undefined`; object reassignment (`o = {…}`) zeroes reads (I-1 tripwire pin
+  — the GrowableArrayI64/scalar intern AND-merge must be revisited when
+  reassignment lands); general member-on-call placeholder hole
+  (`mk().a` → 0) still open, `structuredClone(...)` callee scoped-denied.
 - **Stage P3 — `AbortController`/`AbortSignal`**, bundled with:
   - receiver widening (proving more `EventTarget`-shaped receivers in-lane,
     e.g. `signal` params from an `AbortController`),
