@@ -1,0 +1,102 @@
+//! Stage P3 (AbortController/AbortSignal lane) — Task 3: real
+//! `new AbortController()` lowering (8-byte global abort cell), `c.abort()`
+//! dispatch, the bare-identifier position gate, and capture allowlist entry 3.
+//!
+//! The atomic core of the stage: the exclusion-list flip
+//! (`declarator_init_is_placeholder_construct`) lands with the real lowering,
+//! entry 3, and `.abort()` dispatch in one commit — intermediate states are
+//! unsound/red. These pins prove the visible-no-op-but-runs surface, the
+//! fail-closed reads (raw print / unknown method / `let`-declared), the sound
+//! deferred-capture-by-value case, and the b2 red-proof (plain objects still
+//! deny).
+
+use std::{fs, process::Command};
+use tempfile::tempdir;
+
+fn kali_bin() -> String {
+    std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
+}
+
+fn run_kali(source: &str) -> std::process::Output {
+    let dir = tempdir().expect("tempdir");
+    let path = dir.path().join("main.js");
+    fs::write(&path, source).expect("write source");
+    Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&path)
+        .output()
+        .expect("run kali")
+}
+
+/// Run `kali run`, assert it succeeded, and return stdout (caller trims).
+fn run_kali_run(source: &str) -> String {
+    let out = run_kali(source);
+    assert!(
+        out.status.success(),
+        "expected success; stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    String::from_utf8_lossy(&out.stdout).into_owned()
+}
+
+/// Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr
+/// so the caller can assert the diagnostic code (E5506).
+fn run_kali_run_expect_error(source: &str) -> String {
+    let out = run_kali(source);
+    assert!(
+        !out.status.success(),
+        "expected a fail-closed compile (nonzero exit), got success; stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    String::from_utf8_lossy(&out.stderr).into_owned()
+}
+
+#[test]
+fn abort_flips_nothing_visible_but_runs() {
+    let src = "const c = new AbortController();\nc.abort();\nconsole.log(\"ok\");\n";
+    assert_eq!(run_kali_run(src).trim(), "ok");
+}
+
+#[test]
+fn abort_handle_raw_print_fails_closed() {
+    let src = "const c = new AbortController();\nconsole.log(c);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn unknown_method_on_abort_handle_fails_closed() {
+    let src = "const c = new AbortController();\nc.reset();\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn let_declared_controller_fails_closed_on_abort() {
+    let src = "let c = new AbortController();\nc.abort();\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn captured_abort_handle_in_deferred_callback_runs() {
+    // Allowlist entry 3: the handle is an i64 pointer to a never-reclaimed
+    // global cell — by-value restore is sound after the owner frame dies.
+    let src = "function m() {\n  const c = new AbortController();\n  setTimeout(function() { c.abort(); console.log(\"cb\"); }, 0);\n}\nm();\n";
+    assert_eq!(run_kali_run(src).trim(), "cb");
+}
+
+#[test]
+fn captured_plain_object_still_fails_closed() {
+    // b2 stays red-proof: entry 3 must not widen to arena-backed objects.
+    let src = "function m() {\n  const o = { x: 4 };\n  setTimeout(function() { console.log(\"x=\" + o.x); }, 0);\n}\nm();\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn loop_allocated_controllers_each_get_a_fresh_cell() {
+    let src = "for (let i = 0; i < 3; i = i + 1) {\n  const c = new AbortController();\n  c.abort();\n}\nconsole.log(\"done\");\n";
+    assert_eq!(run_kali_run(src).trim(), "done");
+}

@@ -1,5 +1,6 @@
 //! Core emission methods for FunctionEmitter.
 
+mod abort;
 mod call;
 pub(crate) mod clone;
 mod closure_access;

@@ -110,6 +110,17 @@ pub(crate) struct FunctionEmitter<'a> {
     /// lane's allowed positions fail closed (handle-escape discipline, spec
     /// §2.4): the raw i64 handle must never escape as an observable value.
     pub(crate) event_target_locals: BTreeSet<String>,
+    /// Stage P3: bindings proven to hold an abort handle (an i64 pointer to the
+    /// never-reclaimed global abort cell) in THIS emitter's scope —
+    /// `const c = new AbortController()` declarators the intercept fired for.
+    /// Mirrors `event_target_locals`. Captured handles are proven separately
+    /// via the env plan + owner-keyed repr (see `is_abort_handle`).
+    pub(crate) abort_handle_locals: BTreeSet<String>,
+    /// Stage P3 position allowlist flag for abort-handle reads (the
+    /// `admit_growable_field_read` pattern): a bare read of an abort-handle
+    /// binding is E5506 unless an allowlisted consumer set this while emitting
+    /// its receiver (`emit_abort_receiver_handle`).
+    pub(crate) admit_abort_handle_read: bool,
     pub(crate) diagnostics: &'a mut Vec<Diagnostic>,
     pub(crate) strings: &'a mut StringPool,
     pub(crate) source_path: Option<PathBuf>,
@@ -396,6 +407,8 @@ impl<'a> FunctionEmitter<'a> {
             event_listener_add_import_index,
             event_dispatch_import_index,
             event_target_locals: BTreeSet::new(),
+            abort_handle_locals: BTreeSet::new(),
+            admit_abort_handle_read: false,
             diagnostics,
             strings,
             source_path,
@@ -486,6 +499,22 @@ impl<'a> FunctionEmitter<'a> {
     /// both-sides oracle, mirroring `repr_table.is_growable_array_binding`.
     pub(crate) fn is_growable_array(&self, name: &str) -> bool {
         self.growable_array_bindings.contains(name)
+    }
+
+    /// Stage P3: true when `name` is a proven abort handle in this function — a
+    /// local provenance-set member, or a depth-1 captured binding whose OWNER's
+    /// repr-table entry is `AbortHandle` (the owner-keyed lookup pattern; no
+    /// env-slot metadata needed — the cell holds the handle by value).
+    pub(crate) fn is_abort_handle(&self, name: &str) -> bool {
+        if self.abort_handle_locals.contains(name) {
+            return true;
+        }
+        self.env_plan.captured.iter().any(|reference| {
+            reference.name == name
+                && reference.depth == 1
+                && self.repr_table.scalar(&reference.owner, &reference.name)
+                    == kali_common::Repr::AbortHandle
+        })
     }
 
     /// Wasm function index of the allocator an allocation site in the

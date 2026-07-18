@@ -862,6 +862,74 @@ impl<'a> FunctionEmitter<'a> {
                             }
                         }
 
+                        // Stage P3 abort lane: `const c = new AbortController()`.
+                        // Real lowering — an 8-byte global abort cell whose i64
+                        // pointer is the handle (controller and signal share it).
+                        // ALL of: a `const` declarator whose init is structurally
+                        // `new AbortController()`, whose inferred repr is
+                        // `AbortHandle` (inference agreed — rules out a shadow
+                        // kali_types saw), AND whose ctor name is unshadowed in
+                        // every codegen namespace (defense in depth over the
+                        // program-wide inference gate; the `host.rs` five-namespace
+                        // shape). Any condition failing falls through to the
+                        // unchanged placeholder path (so `let`/mixed-provenance
+                        // constructions keep building and their ops fail closed
+                        // later).
+                        if is_const {
+                            if let Some(name) = declarator.text.clone() {
+                                if crate::lower::declarator_init_is_abort_controller_new(
+                                    &self.program.nodes,
+                                    init,
+                                ) && self.scalar_repr(&name) == kali_common::Repr::AbortHandle
+                                    && !(self.locals.contains_key("AbortController")
+                                        || self.bindings.contains_key("AbortController")
+                                        || self.module_binding_names.contains("AbortController")
+                                        || self.fn_valued_locals.contains_key("AbortController")
+                                        || self.functions.contains_key("AbortController"))
+                                {
+                                    // 8-byte abort cell on the never-reclaimed
+                                    // global heap; explicit zero store — do not
+                                    // rely on allocator zeroing. Stash the handle
+                                    // in the general-purpose scratch local, then
+                                    // bind it (plain local or promoted env cell),
+                                    // mirroring the C2 object declarator dispatch
+                                    // below.
+                                    let scratch = self.locals.len() as u32;
+                                    function.instruction(&Instruction::I32Const(8));
+                                    function.instruction(&Instruction::Call(
+                                        self.alloc_global_fn_index(),
+                                    ));
+                                    function.instruction(&Instruction::I64ExtendI32U);
+                                    function.instruction(&Instruction::LocalTee(scratch));
+                                    function.instruction(&Instruction::I32WrapI64);
+                                    function.instruction(&Instruction::I64Const(0));
+                                    function.instruction(&Instruction::I64Store(MemArg {
+                                        offset: 0,
+                                        align: 3,
+                                        memory_index: 0,
+                                    }));
+                                    // Handle (i64) back on the stack for the bind
+                                    // dispatch.
+                                    function.instruction(&Instruction::LocalGet(scratch));
+                                    if let Some(index) = self.locals.get(&name).copied() {
+                                        function.instruction(&Instruction::LocalSet(index));
+                                    } else if let Some((depth, offset)) =
+                                        self.resolve_capture_access(&name)
+                                    {
+                                        let env_global = self.current_env_global();
+                                        let scratch2 = self.locals.len() as u32;
+                                        crate::closure::emit_cell_store(
+                                            function, env_global, depth, offset, scratch2,
+                                        );
+                                    } else {
+                                        function.instruction(&Instruction::Drop);
+                                    }
+                                    self.abort_handle_locals.insert(name);
+                                    continue;
+                                }
+                            }
+                        }
+
                         // Materialized object-literal binding: `const p = {…}`
                         // whose inferred repr is Object(shape) — allocate the
                         // fixed-layout struct and bind the base pointer.
@@ -1387,6 +1455,23 @@ impl<'a> FunctionEmitter<'a> {
                             shape: ValueShape::Unknown,
                         };
                     }
+                    // Stage P3 abort-handle escape choke point (spec §3): a bare
+                    // read of an AbortController/AbortSignal handle is E5506
+                    // unless an allowlisted consumer set `admit_abort_handle_read`
+                    // while emitting its receiver (`emit_abort_receiver_handle`).
+                    // The raw i64 pointer must never escape as an observable
+                    // value (`console.log(c)`, `c` as an argument, arithmetic,
+                    // `return c`). Allowlist the safe position at the single read
+                    // site, don't denylist sinks — the deny is total by
+                    // construction because every admitted consumer sets the flag.
+                    if self.is_abort_handle(text) && !self.admit_abort_handle_read {
+                        return self.deny_e5506(
+                            function,
+                            "an AbortController/AbortSignal handle cannot be read in this \
+                             position: kali admits it only as an `abort()`/`signal`/`aborted` \
+                             receiver or a `const s = c.signal` alias (fail-closed)",
+                        );
+                    }
                     // Spec 4a Task 5: a for-in key (or alias) emitted in a
                     // STRING-VALUE context materializes its interned field-name
                     // handle from this loop's key handle table at `base + ord*8`,
@@ -1695,6 +1780,45 @@ impl<'a> FunctionEmitter<'a> {
                         index_text,
                         &base_name,
                     );
+                }
+
+                // Stage P3: a FIELD read (`c.signal`, `c.aborted`, …) whose
+                // bare-identifier receiver is a proven abort handle has no real
+                // lowering yet — Task 4 gives `.signal`/`.aborted` their
+                // semantics. Preserve the exact pre-Stage-P3 warn-build
+                // placeholder: consume the receiver under the position allowlist
+                // (so the handle is used HERE, never escaped), drop it, and yield
+                // `0`. This keeps the web-baseline corpus's
+                // `const signal = controller.signal` building while the real read
+                // lands in Task 4. Genuine value escapes (`console.log(c)`, `c`
+                // as an argument, `return c`, arithmetic) still fail closed at the
+                // bare-identifier gate — those never reach here (the receiver is
+                // read via `emit_abort_receiver_handle`, the sole admitted read).
+                if let Some(field) = node.text.as_deref().filter(|text| !text.is_empty()) {
+                    let base_id = node.children[0];
+                    let base_node = self.node(base_id);
+                    if base_node.children.is_empty()
+                        && base_node
+                            .text
+                            .as_deref()
+                            .is_some_and(|name| self.is_abort_handle(name))
+                    {
+                        self.diagnostics.push(Diagnostic::warning(
+                            e8::UNIMPLEMENTED as u32,
+                            format!(
+                                "'{field}' on an AbortController/AbortSignal handle has no lowering yet (Stage P3 Task 4); reads as a placeholder"
+                            ),
+                        ));
+                        let handle = self.emit_abort_receiver_handle(function, base_id);
+                        if handle.produced {
+                            function.instruction(&Instruction::Drop);
+                        }
+                        function.instruction(&Instruction::I64Const(0));
+                        return EmittedValue {
+                            produced: true,
+                            shape: ValueShape::Unknown,
+                        };
+                    }
                 }
 
                 if node.text.as_deref().unwrap_or_default().is_empty() {

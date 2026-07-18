@@ -217,6 +217,74 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        // Stage P3 abort lane: `c.abort()` where `c` is a BARE-IDENTIFIER
+        // receiver with provable `AbortHandle` provenance (`c.signal.abort()` is
+        // NOT admitted — only a bare-identifier receiver). The proof (a local
+        // provenance-set member or an owner-keyed captured handle) makes this
+        // arm the SOLE consumer that admits reading the handle; every other read
+        // of `c` fails closed at the identifier choke point. `abort()` sets the
+        // global cell to 1; ANY other method on a proven handle fails closed
+        // (that is what makes `c.reset()` and Task 4's `s.addEventListener` deny
+        // by construction, rather than silently drop on a placeholder).
+        if !callee_node.children.is_empty() {
+            let receiver = callee_node.children[0];
+            let receiver_node = self.node(receiver);
+            if receiver_node.children.is_empty() {
+                if let Some(receiver_name) = receiver_node.text.as_deref() {
+                    if self.is_abort_handle(receiver_name) {
+                        if callee_node.text.as_deref() == Some("abort") {
+                            // node.children = [callee, ...args]; abort() takes 0.
+                            if node.children.len() != 1 {
+                                return self.deny_e5506(
+                                    function,
+                                    "AbortController.abort() takes no arguments in the current phase",
+                                );
+                            }
+                            let handle = self.emit_abort_receiver_handle(function, receiver);
+                            if !handle.produced {
+                                // The proof guarantees a produced handle; keep the
+                                // stack balanced if a future path regresses.
+                                function.instruction(&Instruction::I64Const(0));
+                            }
+                            self.emit_abort_cell_set(function);
+                            // abort() returns undefined; push a placeholder scalar
+                            // so a value-position call is well-typed (statement
+                            // position drops it). Mirrors the dispatchEvent arm's
+                            // always-produce convention.
+                            function.instruction(&Instruction::I64Const(0));
+                            return EmittedValue {
+                                produced: true,
+                                shape: ValueShape::Scalar,
+                            };
+                        }
+                        return self.deny_e5506(
+                            function,
+                            "only `abort()` is supported on an AbortController handle; \
+                             `addEventListener`/`onabort`/`reason`/`throwIfAborted` fail closed \
+                             (Stage P3 scope)",
+                        );
+                    }
+                    // A `.abort()` on a bare identifier that IS a
+                    // `new AbortController()` construct kali could not admit as a
+                    // handle (a `let`/`var` controller, or a `const` that lost
+                    // the repr/shadow gate) has no abort lowering — fail closed
+                    // rather than silently drop a real abort (node would abort).
+                    // Scoped to proven AbortController provenance so unrelated
+                    // `.abort()` receivers keep their existing behavior.
+                    if callee_node.text.as_deref() == Some("abort")
+                        && self.binding_is_abort_controller_new(receiver_name)
+                    {
+                        return self.deny_e5506(
+                            function,
+                            "`abort()` is only lowered on a `const c = new AbortController()` \
+                             handle in the current phase; a `let`/`var` controller (or one kali \
+                             could not prove) has no abort lowering (fail-closed)",
+                        );
+                    }
+                }
+            }
+        }
+
         if self.is_kali_write_stdout_bytes_call(&callee_node) {
             let Some(index) = self.stdout_write_bytes_import_index else {
                 // Mirror the sibling `Kali.test` gate above: push the diagnostic

@@ -522,16 +522,16 @@ fn deferred_settimeout_param_alias_capture_fails_closed() {
 
 /// KEEP-ALLOWED residual pin (mirrors the webBaselineSmoke build invariant).
 /// A listener that captures a promotable I64 scalar (`count`, a by-value cell —
-/// the FIRST allowlist entry, restorable) AND a provable zero-placeholder
-/// construct (`controller`, a `new AbortController()` that lowers to the
-/// drop-and-push-0 placeholder — the SECOND allowlist entry) must still BUILD
-/// and RUN. This is the ONE class the default-deny allowlist keeps: `controller`
-/// reads the same placeholder 0 in the owner's own body, so the deferred read of
-/// 0 introduces NO divergence (unlike a real object — see the b2/b7 pins above).
-/// Denying it would be a spurious hard error breaking the "unsupported
-/// constructs must still build (warn, not error)" contract. Lifted into the
-/// constrained set when Stage P3 gives AbortController an `Object` repr. node
-/// runs it (the listener fires once).
+/// the FIRST allowlist entry, restorable) AND an abort handle (`controller`, a
+/// `new AbortController()` that Stage P3 Task 3 gives a REAL global-cell
+/// lowering) must still BUILD and RUN. As of Task 3 `controller` is admitted by
+/// allowlist entry 3 (a captured abort handle — an i64 pointer to a
+/// never-reclaimed global cell, restorable by value after the owner frame dies),
+/// NOT entry 2 (the placeholder-construct exception it belonged to before the
+/// exclusion-list flip dropped `new AbortController()` from the placeholder
+/// set). The stdout assertion stays `count=1` — the listener fires once and the
+/// captured `controller.abort()` now really writes the cell, but observing the
+/// aborted flag waits for `.aborted` in Task 4.
 #[test]
 fn deferred_listener_nonscalar_placeholder_capture_still_builds() {
     let out = run_kali(

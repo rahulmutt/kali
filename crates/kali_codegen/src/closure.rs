@@ -70,6 +70,12 @@ pub(crate) fn cell_is_promotable(
     name: &str,
     is_scalar: bool,
 ) -> bool {
+    if repr_table.scalar(owner, name) == kali_common::Repr::AbortHandle {
+        // Stage P3: an abort handle is an inline i64 pointer to a
+        // never-reclaimed global cell — by-value promotion is sound on either
+        // side of the coarse `is_scalar` bit (the pointee outlives every frame).
+        return true;
+    }
     if is_scalar {
         repr_table.scalar(owner, name) == kali_common::Repr::I64
     } else {

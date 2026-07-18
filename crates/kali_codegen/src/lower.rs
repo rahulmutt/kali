@@ -2223,6 +2223,36 @@ pub(crate) fn declarator_init_is_event_target_new(nodes: &[LirNode], init_id: Li
         .is_some_and(|ctor| ctor.text.as_deref() == Some("EventTarget") && ctor.children.is_empty())
 }
 
+/// True when a declarator init is exactly `new AbortController()` (bare
+/// callee, zero args): `Value(None, [Call(None, [Value("AbortController")])])`,
+/// inspected RAW (unwrapping would strip the New wrapper). Stage P3 gives this
+/// construct a real lowering (8-byte global abort cell); the emit side
+/// additionally requires the `Repr::AbortHandle` proof and the five-namespace
+/// shadow guard before intercepting. Structurally identical to
+/// [`declarator_init_is_placeholder_construct`] — the two must agree on the LIR
+/// shape — with the ctor text pinned to `"AbortController"` and zero call args.
+pub(crate) fn declarator_init_is_abort_controller_new(
+    nodes: &[LirNode],
+    init_id: LirNodeId,
+) -> bool {
+    let Some(node) = nodes.get(init_id.0 as usize) else {
+        return false;
+    };
+    if node.kind != LirNodeKind::Value || node.text.is_some() || node.children.len() != 1 {
+        return false;
+    }
+    let Some(call) = nodes.get(node.children[0].0 as usize) else {
+        return false;
+    };
+    // Zero args → the Call has exactly one child (the ctor identifier).
+    if call.kind != LirNodeKind::Call || call.text.is_some() || call.children.len() != 1 {
+        return false;
+    }
+    nodes.get(call.children[0].0 as usize).is_some_and(|ctor| {
+        ctor.text.as_deref() == Some("AbortController") && ctor.children.is_empty()
+    })
+}
+
 /// True when `init_id` is a PROVABLE ZERO-PLACEHOLDER construct — a
 /// `new X()` whose constructor `X` has no real lowering, so the whole
 /// construction lowers to the drop-and-push-`0` aggregate placeholder (the
@@ -2268,7 +2298,10 @@ pub(crate) fn declarator_init_is_placeholder_construct(
     }
     match ctor.text.as_deref() {
         // A real-value construct (see doc comment): NOT a zero placeholder.
-        Some("Array" | "Uint8Array" | "EventTarget") => false,
+        // `AbortController` joined this list in Stage P3 (real global abort
+        // cell); its `const`-declarator lowering is intercepted at emit under
+        // the `Repr::AbortHandle` proof + shadow guard.
+        Some("Array" | "Uint8Array" | "EventTarget" | "AbortController") => false,
         // Any other bare `new X()` lowers to the drop-and-push-0 placeholder.
         Some(_) => true,
         None => false,

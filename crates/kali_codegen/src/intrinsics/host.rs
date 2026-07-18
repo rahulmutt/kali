@@ -1103,6 +1103,21 @@ impl<'a> FunctionEmitter<'a> {
             {
                 return None;
             }
+            // ALLOWLIST 3 (Stage P3): a captured abort handle — an i64 pointer
+            // to a never-reclaimed `__alloc_global` cell. By-value restore
+            // dereferences live memory after the owner frame + arena are gone
+            // (the exact property arena-backed object captures lack). Admitted
+            // regardless of the coarse `is_scalar` bit — the flip of
+            // `new AbortController()` out of the placeholder exclusion list
+            // dropped it from ALLOWLIST 2, so this entry is what keeps a
+            // captured controller (e.g. the deferred `controller.abort()`
+            // listener) building.
+            if reference.depth == 1
+                && self.repr_table.scalar(&reference.owner, &reference.name)
+                    == kali_common::Repr::AbortHandle
+            {
+                return None;
+            }
             // DENIED. Label the class for the diagnostic.
             let repr = self.repr_table.scalar(&reference.owner, &reference.name);
             Some(if reference.is_scalar {
@@ -1168,6 +1183,52 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             // Do not cross into a nested function body (except the walk root).
+            stack.extend(node.children.iter().copied().filter(|&child| {
+                child == self.body || !crate::lower::is_function_like(nodes, child)
+            }));
+        }
+        false
+    }
+
+    /// Stage P3: true when `name` is bound in `self.body` by a declarator whose
+    /// init is structurally `new AbortController()` — regardless of whether
+    /// inference admitted it as a handle. Consulted ONLY on the fail-closed side
+    /// of the `.abort()` dispatch arm to distinguish "an AbortController kali
+    /// could not prove" (a `let`/`var`, or a `const` that lost the repr/shadow
+    /// gate) from an unrelated `.abort()` receiver — so the former fails closed
+    /// (never a silent drop of a real abort) while genuinely-unrelated `.abort()`
+    /// methods keep their existing behavior. Walk shape mirrors
+    /// `binding_is_placeholder_construct` (stops at nested function bodies so a
+    /// shadowing inner declarator is never attributed to an outer binding).
+    pub(crate) fn binding_is_abort_controller_new(&self, name: &str) -> bool {
+        let nodes = &self.program.nodes;
+        let mut stack = vec![self.body];
+        let mut seen = std::collections::HashSet::new();
+        while let Some(id) = stack.pop() {
+            if !seen.insert(id) {
+                continue;
+            }
+            let Some(node) = nodes.get(id.0 as usize) else {
+                continue;
+            };
+            if node.kind == LirNodeKind::Instruction
+                && matches!(node.text.as_deref(), Some("const" | "let" | "var"))
+            {
+                for &declarator_id in &node.children {
+                    let Some(declarator) = nodes.get(declarator_id.0 as usize) else {
+                        continue;
+                    };
+                    if declarator.text.as_deref() == Some(name)
+                        && declarator.children.len() >= 2
+                        && crate::lower::declarator_init_is_abort_controller_new(
+                            nodes,
+                            declarator.children[1],
+                        )
+                    {
+                        return true;
+                    }
+                }
+            }
             stack.extend(node.children.iter().copied().filter(|&child| {
                 child == self.body || !crate::lower::is_function_like(nodes, child)
             }));
