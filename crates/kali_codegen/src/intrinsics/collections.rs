@@ -178,36 +178,13 @@ impl<'a> FunctionEmitter<'a> {
             return self.collect_map_constructor_iteration_items(node, items);
         }
 
-        if let Some(object_enumeration_mode) = self.is_object_enumeration_call(node) {
-            if matches!(object_enumeration_mode, ObjectEnumerationMode::Entries) {
-                return false;
-            }
-
-            let Some(object_arg) = node.children.get(1).copied() else {
-                return false;
-            };
-            let Some(object_id) = self.resolve_literal_aggregate(object_arg) else {
-                return false;
-            };
-            let object = self.node(object_id).clone();
-            let mut collected = Vec::new();
-            if !self.collect_object_enumeration_iteration_items(
-                &object,
-                object_enumeration_mode,
-                &mut collected,
-            ) {
-                return false;
-            }
-
-            for item in collected {
-                let Some(key) = self.static_set_item_key(item) else {
-                    return false;
-                };
-                if seen.insert(key) {
-                    items.push(item);
-                }
-            }
-            return true;
+        if self.is_object_enumeration_call(node).is_some() {
+            // Deny lane (PR #16 merge readiness, family object-enum): collecting
+            // an enumeration result into a Set/collection iteration materializes
+            // the result array. Decline so the enumeration call reaches the
+            // value-position E5506 backstop instead of collecting garbage
+            // placeholder items.
+            return false;
         }
 
         false

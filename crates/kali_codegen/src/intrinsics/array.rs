@@ -1559,79 +1559,25 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
-        if let Some(object_enumeration_mode) = self.is_object_enumeration_call(&array) {
-            let Some(object_arg) = array.children.get(1).copied() else {
-                self.diagnostics.push(Diagnostic::error(
-                    e5::FEATURE_UNAVAILABLE as u32,
-                    "for-of array iteration lowering is unavailable unless the iterable is a supported Object.keys(...), Object.values(...), Object.entries(...), or Reflect.ownKeys(...) slice; use a supported loop form or the later compatibility path",
-                ));
-                function.instruction(&Instruction::Unreachable);
-                return EmittedValue {
-                    produced: false,
-                    shape: ValueShape::Unknown,
-                };
-            };
-            let Some(object_id) = self.resolve_literal_aggregate(object_arg) else {
-                self.diagnostics.push(Diagnostic::error(
-                    e5::FEATURE_UNAVAILABLE as u32,
-                    "for-of array iteration lowering is unavailable unless the iterable is a supported Object.keys(...), Object.values(...), Object.entries(...), or Reflect.ownKeys(...) slice; use a supported loop form or the later compatibility path",
-                ));
-                function.instruction(&Instruction::Unreachable);
-                return EmittedValue {
-                    produced: false,
-                    shape: ValueShape::Unknown,
-                };
-            };
-            let object = self.node(object_id).clone();
-            let mut items = Vec::with_capacity(object.children.len());
-            if !self.collect_object_enumeration_iteration_items(
-                &object,
-                object_enumeration_mode,
-                &mut items,
-            ) {
-                self.diagnostics.push(Diagnostic::error(
-                    e5::FEATURE_UNAVAILABLE as u32,
-                    "for-of array iteration lowering is unavailable unless the iterable is a supported Object.keys(...), Object.values(...), Object.entries(...), or Reflect.ownKeys(...) slice with string literal keys; use a supported loop form or the later compatibility path",
-                ));
-                function.instruction(&Instruction::Unreachable);
-                return EmittedValue {
-                    produced: false,
-                    shape: ValueShape::Unknown,
-                };
-            }
-
-            if !self.is_object_from_entries_call(&object) {
-                let produced = self.emit_node(function, object_arg, true);
-                if produced.produced {
-                    function.instruction(&Instruction::Drop);
-                }
-            }
-
-            let break_index = self.push_control_frame(ControlFlowLabelKind::LoopBreak);
-            function.instruction(&Instruction::Block(BlockType::Empty));
-            for child in items {
-                let previous_binding = self.bindings.insert(loop_name.clone(), child);
-                let continue_index = self.push_control_frame(ControlFlowLabelKind::LoopContinue);
-                self.loop_frames.push(LoopFrame {
-                    break_index,
-                    continue_index,
-                });
-                function.instruction(&Instruction::Block(BlockType::Empty));
-                if let Some(body) = body {
-                    let _ = self.emit_node(function, body, false);
-                }
-                if let Some(previous_binding) = previous_binding {
-                    self.bindings.insert(loop_name.clone(), previous_binding);
-                } else {
-                    self.bindings.remove(&loop_name);
-                }
-                function.instruction(&Instruction::End);
-                self.pop_control_frame(ControlFlowLabelKind::LoopContinue);
-                self.loop_frames.pop();
-            }
-            function.instruction(&Instruction::End);
-            self.pop_control_frame(ControlFlowLabelKind::LoopBreak);
-
+        if self.is_object_enumeration_call(&array).is_some() {
+            // Deny lane (PR #16 merge readiness, family object-enum). Iterating
+            // an enumeration result (`Object.keys/values/entries`,
+            // `Reflect.ownKeys`, frozen/`fromEntries` operands) MATERIALIZES the
+            // result array into runtime linear memory (the loop variable binds
+            // each element; push/spread/store bodies read them back). kali has
+            // no runtime materialization of enumeration-result arrays, so the
+            // former per-item static unroll produced garbage i64 handles / `0`
+            // placeholders at exit 0 for every non-trivial body. Fail closed
+            // E5506 instead. The pure-static consumers (`.length`, static-index
+            // folds) intercept the enumeration BEFORE this iteration path and
+            // never materialize, so they stay admitted (call.rs value-position
+            // backstop + array.rs static-index lanes). kali_types twin:
+            // `is_static_object_enumeration_iteration_target` returns false.
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "iterating an object-enumeration result (Object.keys/values/entries, Reflect.ownKeys) is unavailable: kali has no runtime materialization of enumeration-result arrays; use a compile-time-known static index or `.length`, or the later compatibility path",
+            ));
+            function.instruction(&Instruction::Unreachable);
             return EmittedValue {
                 produced: false,
                 shape: ValueShape::Unknown,
@@ -1803,25 +1749,13 @@ impl<'a> FunctionEmitter<'a> {
                 return true;
             }
 
-            let Some(object_enumeration_mode) = self.is_object_enumeration_call(&array) else {
-                return false;
-            };
-            let Some(object_arg) = array.children.get(1).copied() else {
-                return false;
-            };
-            let Some(object_id) = self.resolve_literal_aggregate(object_arg) else {
-                return false;
-            };
-            let object = self.node(object_id).clone();
-            if !self.collect_object_enumeration_iteration_items(
-                &object,
-                object_enumeration_mode,
-                items,
-            ) {
-                return false;
-            }
-
-            return true;
+            // Deny lane (PR #16 merge readiness, family object-enum): spreading
+            // an enumeration result (`[...Object.keys(o)]`) materializes the
+            // result array — decline here so the enumeration call reaches the
+            // value-position E5506 backstop (call.rs) instead of collecting
+            // garbage placeholder items. Static consumers never reach this
+            // spread collector.
+            return false;
         }
 
         false

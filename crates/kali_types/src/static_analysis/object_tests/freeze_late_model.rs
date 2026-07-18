@@ -32,9 +32,15 @@ for (const key of globalThis['Reflect']['ownKeys']({ a: 1 })) {
 
     let result = TypeContext::with_base_path(&source_path)
         .resolve_statements_at_path(Some(&source_path), &statements);
+    // Deny lane (PR #16 merge readiness, family object-enum; Reflect.ownKeys
+    // rides the same choke): for-of over an enumeration result is fail-closed
+    // E5506. Flip-back: pr16-honest-repin-inventory.md#object-enum.
     assert!(
-        result.diagnostics.is_empty(),
-        "unexpected diagnostics: {:?}",
+        result
+            .diagnostics
+            .iter()
+            .any(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)),
+        "expected fail-closed E5506, got: {:?}",
         result.diagnostics
     );
 }
