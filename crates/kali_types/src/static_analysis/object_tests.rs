@@ -91,23 +91,24 @@ fn assert_object_helper_iteration_with_let_binding_in_js_input(helper: &str, reb
         is_await: false,
     }));
 
-    // Deny lane (PR #16 merge readiness, family object-enum): for-of over an
-    // enumeration result is now fail-closed E5506 in BOTH the rebound and the
-    // stable-binding cases — kali has no runtime materialization of
-    // enumeration-result arrays (`_rebound` no longer distinguishes: the stable
-    // case used to admit and silently miscompile). Flip-back:
-    // pr16-honest-repin-inventory.md#object-enum.
-    let _ = rebound;
     let mut ctx = TypeContext::with_base_path(&source_path);
     let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
-    assert!(
-        result
-            .diagnostics
-            .iter()
-            .any(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)),
-        "expected fail-closed E5506, got: {:?}",
-        result.diagnostics
-    );
+    if rebound {
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)),
+            "unexpected diagnostics: {:?}",
+            result.diagnostics
+        );
+    } else {
+        assert!(
+            result.diagnostics.is_empty(),
+            "unexpected diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
 }
 
 #[path = "object_tests/object_is.rs"]

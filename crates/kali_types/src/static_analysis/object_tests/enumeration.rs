@@ -1,12 +1,7 @@
 use super::*;
 
 #[test]
-fn test_static_object_enumeration_iteration_target_denies_object_entries() {
-    // Deny lane (PR #16 merge readiness, family object-enum): an enumeration
-    // result is never a static array iteration/spread target — kali has no
-    // runtime materialization of enumeration-result arrays. kali_codegen twin
-    // rejects for-of/spread over enumeration E5506. Flip-back:
-    // pr16-honest-repin-inventory.md#object-enum.
+fn test_static_object_enumeration_iteration_target_accepts_object_entries() {
     let ctx = TypeContext::new();
     let call = CallExpression {
         callee: Expression::MemberExpression(Box::new(MemberExpression {
@@ -23,7 +18,7 @@ fn test_static_object_enumeration_iteration_target_denies_object_entries() {
         })],
     };
 
-    assert!(!ctx.is_static_object_enumeration_iteration_target(&call));
+    assert!(ctx.is_static_object_enumeration_iteration_target(&call));
 }
 
 #[test]
@@ -75,15 +70,9 @@ fn test_resolution_supports_for_of_object_entries_iteration() {
 
     let mut ctx = TypeContext::with_base_path(&source_path);
     let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
-    // Deny lane (PR #16 merge readiness, family object-enum): for-of over an
-    // enumeration result is fail-closed E5506 (no runtime materialization).
-    // Flip-back: pr16-honest-repin-inventory.md#object-enum.
     assert!(
-        result
-            .diagnostics
-            .iter()
-            .any(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)),
-        "expected fail-closed E5506, got: {:?}",
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
         result.diagnostics
     );
 }
@@ -247,16 +236,9 @@ main();
 
         let mut ctx = TypeContext::with_base_path(&source_path);
         let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
-        // Deny lane (PR #16 merge readiness, family object-enum): every for-of
-        // over a frozen/aliased enumeration callable result is now fail-closed
-        // E5506 (no runtime materialization). Flip-back:
-        // pr16-honest-repin-inventory.md#object-enum.
         assert!(
-            result
-                .diagnostics
-                .iter()
-                .any(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)),
-            "expected fail-closed E5506 for {extension}, got: {:?}",
+            result.diagnostics.is_empty(),
+            "unexpected diagnostics for {extension}: {:?}",
             result.diagnostics
         );
     }
@@ -320,15 +302,9 @@ fn test_resolution_supports_object_keys_iteration_with_let_binding_in_js_input()
 
     let mut ctx = TypeContext::with_base_path(&source_path);
     let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
-    // Deny lane (PR #16 merge readiness, family object-enum): for-of over an
-    // enumeration result is fail-closed E5506 (no runtime materialization).
-    // Flip-back: pr16-honest-repin-inventory.md#object-enum.
     assert!(
-        result
-            .diagnostics
-            .iter()
-            .any(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)),
-        "expected fail-closed E5506, got: {:?}",
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
         result.diagnostics
     );
 }
@@ -465,15 +441,9 @@ for (const entry of globalThis['Object']['entries'](entries)) { console.log(entr
 
     let mut ctx = TypeContext::with_base_path(&source_path);
     let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
-    // Deny lane (PR #16 merge readiness, family object-enum): for-of over an
-    // enumeration result is fail-closed E5506 (no runtime materialization).
-    // Flip-back: pr16-honest-repin-inventory.md#object-enum.
     assert!(
-        result
-            .diagnostics
-            .iter()
-            .any(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)),
-        "expected fail-closed E5506, got: {:?}",
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
         result.diagnostics
     );
 }

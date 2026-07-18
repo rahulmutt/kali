@@ -271,87 +271,12 @@ impl Optimizer {
         id: LirNodeId,
         bindings: &BindingEnv,
     ) {
-        self.fold_object_enumeration_calls_inner(program, id, bindings, false);
-    }
-
-    /// Deny lane (PR #16 merge readiness, family object-enum). The enumeration
-    /// fold is context-BLIND: it turns `Object.keys/values/entries(...)` into an
-    /// array literal wherever it appears. That is CORRECT for the pure-static
-    /// consumers (`.length`, static-index `entries(o)[i][j]` / `values(o)[i]`),
-    /// which resolve the literal at compile time and never touch runtime memory.
-    /// It is UNSOUND for MATERIALIZATION positions — a `for-of` iteration source
-    /// or a spread argument — where the folded string/nested-array literal is
-    /// materialized into runtime linear memory and read back as garbage i64
-    /// handles / `0` placeholders (kali has no runtime materialization of
-    /// enumeration-result arrays). So we DECLINE the fold for the enumeration
-    /// call that directly feeds a `for-of` source or spread argument (through
-    /// transparent paren/await wrappers and `Object.freeze(...)`), leaving the
-    /// raw enumeration call for codegen's enumeration deny lane to reject E5506
-    /// (`intrinsics/array.rs` for-of / spread + `emit/call.rs` value-position
-    /// backstop). The object argument of the suppressed enumeration call still
-    /// folds normally (the flag resets once the target is reached), so a nested
-    /// enumeration or a `fromEntries` operand is unaffected. kali_types twin:
-    /// `is_static_object_enumeration_iteration_target` returns false.
-    fn fold_object_enumeration_calls_inner(
-        &self,
-        program: &mut LirProgram,
-        id: LirNodeId,
-        bindings: &BindingEnv,
-        in_materialization: bool,
-    ) {
         let snapshot = program.nodes[id.0 as usize].clone();
-
-        // Decide, per child, whether the materialization flag propagates into
-        // it. A `for-of` establishes a fresh materialization context on its
-        // iteration source (children[1]); a spread on its argument
-        // (children[0]). Otherwise, when we are ALREADY inside a materialization
-        // context, propagate through transparent wrappers and `Object.freeze`
-        // so the enumeration call at the bottom is reached; every other node
-        // resets the flag (its subtree folds normally).
-        let is_for_of = snapshot.kind == LirNodeKind::Branch
-            && matches!(
-                snapshot.text.as_deref(),
-                Some("for-of") | Some("for-await-of")
-            );
-        let is_spread =
-            snapshot.kind == LirNodeKind::Value && snapshot.text.as_deref() == Some("spread");
-        let propagates_here = in_materialization
-            && (self.is_transparent_materialization_wrapper(&snapshot)
-                || self.is_object_freeze_call(program, &snapshot));
-        // For `Object.freeze(x)` the argument is children[1] (children[0] is the
-        // callee); for a 1-child transparent wrapper it is children[0].
-        let freeze_arg_index = if self.is_object_freeze_call(program, &snapshot) {
-            1
-        } else {
-            0
-        };
-
-        for (index, child) in snapshot.children.iter().copied().enumerate() {
-            let child_in_materialization = if is_for_of {
-                index == 1
-            } else if is_spread {
-                index == 0
-            } else if propagates_here {
-                index == freeze_arg_index
-            } else {
-                false
-            };
-            self.fold_object_enumeration_calls_inner(
-                program,
-                child,
-                bindings,
-                child_in_materialization,
-            );
+        for child in snapshot.children.iter().copied() {
+            self.fold_object_enumeration_calls(program, child, bindings);
         }
 
         if snapshot.kind != LirNodeKind::Call {
-            return;
-        }
-
-        // Suppress the fold for an enumeration call that is (transitively) the
-        // iteration source / spread argument: leave the raw call for the codegen
-        // deny lane. A non-enumeration call reached here would not fold anyway.
-        if in_materialization {
             return;
         }
 
@@ -378,20 +303,6 @@ impl Optimizer {
         {
             program.nodes[id.0 as usize] = program.nodes[folded.0 as usize].clone();
         }
-    }
-
-    /// A transparent single-child wrapper the materialization flag propagates
-    /// through to reach the enumeration call underneath (parenthesization,
-    /// sequence/grouping, and `await` — the same shapes codegen's
-    /// `resolve_literal_aggregate` and `unwrap_for_of_wrapper_expression` see
-    /// through).
-    fn is_transparent_materialization_wrapper(&self, node: &LirNode) -> bool {
-        node.kind == LirNodeKind::Value
-            && node.children.len() == 1
-            && node
-                .text
-                .as_deref()
-                .is_none_or(|text| text.is_empty() || text == "await")
     }
 
     pub(crate) fn ordered_object_literal_properties(

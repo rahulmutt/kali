@@ -319,25 +319,71 @@ impl TypeContext {
     }
     pub(crate) fn is_static_object_enumeration_iteration_target(
         &self,
-        _call: &CallExpression,
+        call: &CallExpression,
     ) -> bool {
-        // Deny lane (PR #16 merge readiness, family object-enum). kali_codegen
-        // twin: `kali_optimize::object_fold` declines to fold an enumeration
-        // call that feeds a for-of/spread, and `kali_codegen::intrinsics::array`
-        // rejects such iteration/spread E5506 (kali has no runtime
-        // materialization of enumeration-result arrays). This types-side
-        // classifier is consulted ONLY by `is_static_array_iteration_target`
-        // (for-of / spread admittance); admitting an enumeration result here
-        // would seed a loop-variable repr for a value the emitter then refuses
-        // to materialize — the exact hand-mirror desync the twins-same-commit
-        // rule exists to prevent. So it now default-denies unconditionally. The
-        // pure-static consumers (`.length`, static-index `entries(o)[i][j]` /
-        // `values(o)[i]` folds) do NOT route through this iteration-target
-        // classifier, so they stay admitted.
-        //
-        // Flip-back (materialize enumeration-result arrays in the runtime):
-        // pr16-honest-repin-inventory.md#object-enum.
-        false
+        let Some(callee_name) = self.resolve_static_callable_name(&call.callee) else {
+            return false;
+        };
+        if !matches!(
+            callee_name.as_str(),
+            "Object.keys"
+                | "Object[\"keys\"]"
+                | "Object['keys']"
+                | "Object.values"
+                | "Object[\"values\"]"
+                | "Object['values']"
+                | "Object.entries"
+                | "Object[\"entries\"]"
+                | "Object['entries']"
+                | "globalThis.Object.keys"
+                | "globalThis.Object[\"keys\"]"
+                | "globalThis.Object['keys']"
+                | "globalThis.Object.values"
+                | "globalThis.Object[\"values\"]"
+                | "globalThis.Object['values']"
+                | "globalThis.Object.entries"
+                | "globalThis.Object[\"entries\"]"
+                | "globalThis.Object['entries']"
+                | r#"globalThis["Object"].keys"#
+                | r#"globalThis["Object"]["keys"]"#
+                | r#"globalThis["Object"]['keys']"#
+                | r#"globalThis['Object'].keys"#
+                | r#"globalThis['Object']['keys']"#
+                | r#"globalThis['Object']["keys"]"#
+                | r#"globalThis["Object"].values"#
+                | r#"globalThis["Object"]["values"]"#
+                | r#"globalThis["Object"]['values']"#
+                | r#"globalThis['Object'].values"#
+                | r#"globalThis['Object']['values']"#
+                | r#"globalThis['Object']["values"]"#
+                | r#"globalThis["Object"].entries"#
+                | r#"globalThis["Object"]["entries"]"#
+                | r#"globalThis["Object"]['entries']"#
+                | r#"globalThis['Object'].entries"#
+                | r#"globalThis['Object']['entries']"#
+                | r#"globalThis['Object']["entries"]"#
+                | "Reflect.ownKeys"
+                | "Reflect[\"ownKeys\"]"
+                | "Reflect['ownKeys']"
+                | "globalThis.Reflect.ownKeys"
+                | "globalThis.Reflect[\"ownKeys\"]"
+                | "globalThis.Reflect['ownKeys']"
+                | r#"globalThis["Reflect"].ownKeys"#
+                | r#"globalThis["Reflect"]["ownKeys"]"#
+                | r#"globalThis['Reflect'].ownKeys"#
+                | r#"globalThis['Reflect']['ownKeys']"#
+        ) {
+            return false;
+        }
+
+        let Some(object_arg) = call.args.first() else {
+            return false;
+        };
+        if call.args.len() != 1 {
+            return false;
+        }
+
+        self.resolve_static_object_keys_target(object_arg)
     }
     pub(crate) fn is_static_array_iteration_element(&self, expression: &Expression) -> bool {
         match self.unwrap_for_of_wrapper_expression(expression) {

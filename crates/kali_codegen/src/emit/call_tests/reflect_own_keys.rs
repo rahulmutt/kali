@@ -12,17 +12,17 @@ fn for_of_reflect_own_keys_lowers_for_frozen_static_object_literals() {
     });
     let result = lower_lir_to_wasm(&mut ctx, &program);
 
-    // Deny lane (PR #16 merge readiness, family object-enum; Reflect.ownKeys
-    // rides the same choke): for-of / spread over an enumeration result is
-    // fail-closed E5506 (kali has no runtime materialization of
-    // enumeration-result arrays). Flip-back:
-    // pr16-honest-repin-inventory.md#object-enum.
     assert!(
-        result.diagnostics.iter().any(|diag| diag.code
-            == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)),
-        "expected fail-closed E5506, got: {:?}",
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
         result.diagnostics
     );
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const"), "{printed}");
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
 }
 
 #[test]
@@ -37,17 +37,17 @@ fn for_of_reflect_own_keys_lowers_for_frozen_static_object_literal_aliases() {
     });
     let result = lower_lir_to_wasm(&mut ctx, &program);
 
-    // Deny lane (PR #16 merge readiness, family object-enum; Reflect.ownKeys
-    // rides the same choke): for-of / spread over an enumeration result is
-    // fail-closed E5506 (kali has no runtime materialization of
-    // enumeration-result arrays). Flip-back:
-    // pr16-honest-repin-inventory.md#object-enum.
     assert!(
-        result.diagnostics.iter().any(|diag| diag.code
-            == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)),
-        "expected fail-closed E5506, got: {:?}",
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
         result.diagnostics
     );
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const"), "{printed}");
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
 }
 
 #[test]
@@ -62,17 +62,15 @@ fn supported_for_of_reflect_own_keys_iteration_accepts_static_object_literals() 
     });
     let result = lower_lir_to_wasm(&mut ctx, &program);
 
-    // Deny lane (PR #16 merge readiness, family object-enum; Reflect.ownKeys
-    // rides the same choke): for-of / spread over an enumeration result is
-    // fail-closed E5506 (kali has no runtime materialization of
-    // enumeration-result arrays). Flip-back:
-    // pr16-honest-repin-inventory.md#object-enum.
     assert!(
-        result.diagnostics.iter().any(|diag| diag.code
-            == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)),
-        "expected fail-closed E5506, got: {:?}",
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
         result.diagnostics
     );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
 }
 
 #[test]
@@ -87,17 +85,15 @@ fn supported_for_await_reflect_own_keys_iteration_accepts_static_object_literals
     });
     let result = lower_lir_to_wasm(&mut ctx, &program);
 
-    // Deny lane (PR #16 merge readiness, family object-enum; Reflect.ownKeys
-    // rides the same choke): for-of / spread over an enumeration result is
-    // fail-closed E5506 (kali has no runtime materialization of
-    // enumeration-result arrays). Flip-back:
-    // pr16-honest-repin-inventory.md#object-enum.
     assert!(
-        result.diagnostics.iter().any(|diag| diag.code
-            == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)),
-        "expected fail-closed E5506, got: {:?}",
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
         result.diagnostics
     );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
 }
 
 #[test]
@@ -112,17 +108,15 @@ fn supported_for_of_reflect_own_keys_iteration_accepts_sequence_expression_wrapp
     });
     let result = lower_lir_to_wasm(&mut ctx, &program);
 
-    // Deny lane (PR #16 merge readiness, family object-enum; Reflect.ownKeys
-    // rides the same choke): for-of / spread over an enumeration result is
-    // fail-closed E5506 (kali has no runtime materialization of
-    // enumeration-result arrays). Flip-back:
-    // pr16-honest-repin-inventory.md#object-enum.
     assert!(
-        result.diagnostics.iter().any(|diag| diag.code
-            == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)),
-        "expected fail-closed E5506, got: {:?}",
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
         result.diagnostics
     );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
 }
 
 #[test]
@@ -137,17 +131,15 @@ fn supported_for_of_reflect_own_keys_iteration_accepts_nullish_wrapped_callable_
     });
     let result = lower_lir_to_wasm(&mut ctx, &program);
 
-    // Deny lane (PR #16 merge readiness, family object-enum; Reflect.ownKeys
-    // rides the same choke): for-of / spread over an enumeration result is
-    // fail-closed E5506 (kali has no runtime materialization of
-    // enumeration-result arrays). Flip-back:
-    // pr16-honest-repin-inventory.md#object-enum.
     assert!(
-        result.diagnostics.iter().any(|diag| diag.code
-            == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)),
-        "expected fail-closed E5506, got: {:?}",
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
         result.diagnostics
     );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
 }
 
 #[test]
@@ -162,17 +154,15 @@ fn supported_for_of_reflect_own_keys_iteration_accepts_logical_wrapped_callable_
     });
     let result = lower_lir_to_wasm(&mut ctx, &program);
 
-    // Deny lane (PR #16 merge readiness, family object-enum; Reflect.ownKeys
-    // rides the same choke): for-of / spread over an enumeration result is
-    // fail-closed E5506 (kali has no runtime materialization of
-    // enumeration-result arrays). Flip-back:
-    // pr16-honest-repin-inventory.md#object-enum.
     assert!(
-        result.diagnostics.iter().any(|diag| diag.code
-            == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)),
-        "expected fail-closed E5506, got: {:?}",
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
         result.diagnostics
     );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
 }
 
 #[test]
@@ -187,17 +177,15 @@ fn supported_for_of_reflect_own_keys_iteration_accepts_logical_or_wrapped_callab
     });
     let result = lower_lir_to_wasm(&mut ctx, &program);
 
-    // Deny lane (PR #16 merge readiness, family object-enum; Reflect.ownKeys
-    // rides the same choke): for-of / spread over an enumeration result is
-    // fail-closed E5506 (kali has no runtime materialization of
-    // enumeration-result arrays). Flip-back:
-    // pr16-honest-repin-inventory.md#object-enum.
     assert!(
-        result.diagnostics.iter().any(|diag| diag.code
-            == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)),
-        "expected fail-closed E5506, got: {:?}",
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
         result.diagnostics
     );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
 }
 
 #[test]
@@ -212,15 +200,13 @@ fn supported_for_await_reflect_own_keys_iteration_accepts_sequence_expression_wr
     });
     let result = lower_lir_to_wasm(&mut ctx, &program);
 
-    // Deny lane (PR #16 merge readiness, family object-enum; Reflect.ownKeys
-    // rides the same choke): for-of / spread over an enumeration result is
-    // fail-closed E5506 (kali has no runtime materialization of
-    // enumeration-result arrays). Flip-back:
-    // pr16-honest-repin-inventory.md#object-enum.
     assert!(
-        result.diagnostics.iter().any(|diag| diag.code
-            == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)),
-        "expected fail-closed E5506, got: {:?}",
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
         result.diagnostics
     );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
 }
