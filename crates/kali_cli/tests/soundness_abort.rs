@@ -157,7 +157,10 @@ fn captured_handle_full_roundtrip_in_listener() {
     // The acceptance-listener shape end-to-end: capture, abort inside a
     // synchronously-dispatched listener, observe the flag outside.
     let src = "function m() {\n  const c = new AbortController();\n  const t = new EventTarget();\n  let count = 0;\n  t.addEventListener(\"tick\", function() { count += 1; c.abort(); });\n  t.dispatchEvent(new CustomEvent(\"tick\"));\n  console.log(\"count=\" + count);\n  console.log(\"aborted=\" + c.signal.aborted);\n}\nm();\n";
-    assert_eq!(run_kali_run(src).trim(), "count=1\naborted=1");
+    // `"aborted=" + <boolean>` renders `true`/`false` (node-verified). This
+    // previously pinned `aborted=1`, which was the boolean-concat rendering
+    // defect, not the abort behavior under test.
+    assert_eq!(run_kali_run(src).trim(), "count=1\naborted=true");
 }
 
 #[test]
@@ -165,7 +168,10 @@ fn sibling_closures_capture_distinct_controllers() {
     // Env-safety probe (Stage C sibling-extent lesson): two controllers in
     // sibling scopes must not share a cell.
     let src = "function a() {\n  const c = new AbortController();\n  c.abort();\n  console.log(\"a=\" + c.signal.aborted);\n}\nfunction b() {\n  const c = new AbortController();\n  console.log(\"b=\" + c.signal.aborted);\n}\na();\nb();\n";
-    assert_eq!(run_kali_run(src).trim(), "a=1\nb=0");
+    // Re-pinned with the boolean-concat fix: node prints `a=true` / `b=false`.
+    // The sibling-extent property under test (distinct cells) is unchanged —
+    // only the rendering of the observed boolean is.
+    assert_eq!(run_kali_run(src).trim(), "a=true\nb=false");
 }
 
 #[test]

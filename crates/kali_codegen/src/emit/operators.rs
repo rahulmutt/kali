@@ -1489,10 +1489,51 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// Converts the `ValueShape::Boolean` i64 on top of the value stack into a
+    /// string handle rendering JS's `"true"`/`"false"`, leaving the handle in
+    /// its place.
+    ///
+    /// Booleans are represented as the i64 `1`/`0` (see `emit_literal`), and
+    /// every stringify choke point used to bottom out in `int_to_string` — so a
+    /// boolean printed through concatenation or the dynamic `console.log` path
+    /// rendered as `0`/`1`. Only a bare boolean LITERAL looked correct, because
+    /// `render_static_value` keys on the literal TEXT and never reaches here.
+    ///
+    /// Implemented as a `Select` between the two interned constant handles
+    /// rather than a `bool_to_string` runtime import: adding an import would
+    /// have to be mirrored across the four hand-maintained `kali:rt` JS import
+    /// lists (host + browser bundle glue) or the browser lane fails with a
+    /// `LinkError`. A `Select` over interned data keeps the fix inside codegen
+    /// and costs no runtime call.
+    pub(crate) fn emit_boolean_as_string(&mut self, function: &mut Function) {
+        let (true_offset, true_len) = self.strings.intern("true");
+        let (false_offset, false_len) = self.strings.intern("false");
+        let temp_local = self.locals.len() as u32;
+        function.instruction(&Instruction::LocalSet(temp_local));
+        function.instruction(&Instruction::I64Const(encode_string_handle(
+            true_offset,
+            true_len,
+        )));
+        function.instruction(&Instruction::I64Const(encode_string_handle(
+            false_offset,
+            false_len,
+        )));
+        // `Select` yields the FIRST pushed value when the i32 condition is
+        // nonzero, so the condition must be "truthy". `i64.eqz` + `i32.eqz` is
+        // the same `!= 0` truthiness lowering the `Unknown`/`Scalar` condition
+        // arms use, which keeps a non-normalized i64 (anything a widened
+        // logical may yield) rendering the way its branch test would read it.
+        function.instruction(&Instruction::LocalGet(temp_local));
+        function.instruction(&Instruction::I64Eqz);
+        function.instruction(&Instruction::I32Eqz);
+        function.instruction(&Instruction::Select);
+    }
+
     /// Emits `id` as a string handle: if it is already string-valued the emitted
-    /// value is a handle; float-shaped values are stringified via
-    /// `float_to_string` (JS `String(number)` semantics); otherwise the produced
-    /// i64 is coerced to a decimal-string handle via `int_to_string`.
+    /// value is a handle; boolean-shaped values render as `"true"`/`"false"`;
+    /// float-shaped values are stringified via `float_to_string` (JS
+    /// `String(number)` semantics); otherwise the produced i64 is coerced to a
+    /// decimal-string handle via `int_to_string`.
     pub(crate) fn emit_as_string(&mut self, function: &mut Function, id: LirNodeId) {
         let is_string = self.is_string_valued(id);
         let emitted = self.emit_node(function, id, true);
@@ -1500,6 +1541,15 @@ impl<'a> FunctionEmitter<'a> {
             function.instruction(&Instruction::I64Const(0));
         }
         if is_string {
+            return;
+        }
+        // Boolean before the float/int ladder: without this arm a boolean falls
+        // into the `else` (`int_to_string`) and `"concat=" + false` yields
+        // `concat=0`. Keyed on the emitted SHAPE, which is the same signal the
+        // truthiness lowerings key on, so the two never disagree about which
+        // values are booleans.
+        if emitted.produced && emitted.shape == ValueShape::Boolean {
+            self.emit_boolean_as_string(function);
             return;
         }
         if emitted.produced

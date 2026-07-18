@@ -1,5 +1,5 @@
-//! Soundness pins for core-operator silent miscompiles closed in the PR #16
-//! merge-readiness batch.
+//! Soundness pins for two core-operator silent miscompiles closed in the PR #16
+//! merge-readiness batch:
 //!
 //! 1. `&&` / `||` did not short-circuit. The parser has no `LogicalExpression`
 //!    node — `&&`/`||` are `BinaryExpression`s, and `emit_binary`'s shared
@@ -14,6 +14,20 @@
 //!    `&&`/`||` from the unconditional pre-emit and lowering each to a real
 //!    `If`/`Else` over a scratch local, mirroring the `??` arm that already did
 //!    this correctly.
+//!
+//! 2. Booleans rendered as `0`/`1` when stringified. `emit_as_string` (the `+`
+//!    string-concat coercion) had a three-way string/float/`else`-is-an-int
+//!    ladder with no boolean arm, so a boolean operand took `int_to_string` and
+//!    `"concat=" + false` produced `concat=0`. `console.log(true)` on a LITERAL
+//!    looked correct only because a separate static-render path keys on the
+//!    literal text. Fixed by giving `emit_as_string` a boolean arm that selects
+//!    between the interned `"true"`/`"false"` handles.
+//!
+//!    Scope note: the SIBLING choke point (`emit_console_argument`, the dynamic
+//!    `console.log` path) has the identical defect and is deliberately left
+//!    alone here — fixing it invalidates ~130 existing assertions that pin the
+//!    `1`/`0` rendering, which is a mass re-pin wave rather than a contained
+//!    fix. It is pinned as a known residual at the bottom of this file.
 //!
 //! Every golden in this file was verified against node v26.
 
@@ -163,5 +177,98 @@ fn nested_logicals_short_circuit() {
          }\n\
          console.log(f());\n",
         "b n=0\n",
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Defect 2: boolean rendering in string position
+// ---------------------------------------------------------------------------
+
+/// The minimal reported repro. `console.log(true)` on a bare literal was already
+/// correct (static render path); concatenation in EITHER direction, and a
+/// function-local `const` boolean, all rendered `0`/`1` pre-fix.
+#[test]
+fn booleans_render_as_true_false_in_string_concatenation() {
+    assert_stdout(
+        "console.log(true);\n\
+         console.log(false);\n\
+         console.log(\"concat=\" + false);\n\
+         console.log(true + \"=concat\");\n\
+         function f() { const t = true; return \"in-fn=\" + t; }\n\
+         console.log(f());\n",
+        "true\nfalse\nconcat=false\ntrue=concat\nin-fn=true\n",
+    );
+}
+
+/// Comparison and negation results are booleans and must stringify as such.
+/// Pre-fix these were `eq=1 / ne=0 / lt=1 / not=0`.
+#[test]
+fn comparison_results_render_as_true_false_in_concatenation() {
+    assert_stdout(
+        "console.log(\"eq=\" + (1 === 1));\n\
+         console.log(\"ne=\" + (1 === 2));\n\
+         console.log(\"lt=\" + (1 < 2));\n\
+         console.log(\"not=\" + (!true));\n",
+        "eq=true\nne=false\nlt=true\nnot=false\n",
+    );
+}
+
+/// String `+=` is a second stringify site with the same coercion helper, so it
+/// carries the same defect and needs the same pin. Pre-fix: `10`.
+#[test]
+fn booleans_render_as_true_false_in_string_compound_assignment() {
+    assert_stdout(
+        "function f() {\n\
+         \x20 let s = \"\";\n\
+         \x20 s = s + true;\n\
+         \x20 s = s + false;\n\
+         \x20 return s;\n\
+         }\n\
+         console.log(f());\n",
+        "truefalse\n",
+    );
+}
+
+/// Documents the CURRENT (still-wrong) behavior of the sibling stringify choke
+/// point that this change deliberately does NOT touch, so the residual is
+/// pinned and visible rather than forgotten.
+///
+/// `emit_console_argument` has the same missing boolean arm as `emit_as_string`,
+/// so a boolean reaching `console.log` DYNAMICALLY still prints `1`/`0` where
+/// node prints `true`/`false`. (A bare `console.log(true)` looks correct only
+/// because `render_static_value` folds the literal text upstream.) Adding the
+/// arm is a two-line change and was verified to work — but it invalidates ~130
+/// existing assertions across the suite that pin the `1`/`0` rendering, which
+/// is a mass re-pin wave, not part of this contained fix.
+///
+/// It is also a RATIFIED CONVENTION, not merely an accident: see the comment on
+/// `aborted_flag_reads_zero_then_one` in `soundness_abort.rs` — "Dynamic
+/// booleans render 1/0 (ratified P2 convention; node prints true/false —
+/// documented divergence, never used in byte-for-byte acceptance fixtures)".
+/// Changing it therefore needs maintainer ratification, not just a re-pin wave.
+/// This commit narrows that convention to `console.log` only: booleans in
+/// string CONCATENATION are now node-correct, per the explicit scope exception.
+/// When the console.log wave lands, this test flips to `true/false`.
+#[test]
+fn dynamic_console_boolean_rendering_is_a_known_residual() {
+    assert_stdout(
+        "console.log(1 === 1);\n\
+         console.log(1 === 2);\n\
+         console.log(true && false);\n\
+         console.log(false || true);\n",
+        "1\n0\n0\n1\n",
+    );
+}
+
+/// A boolean must NOT poison the numeric lane: arithmetic on comparison results
+/// still coerces to 0/1 the way JS does, and non-boolean scalars must keep
+/// rendering as numbers. Guards the fix against over-applying the boolean arm.
+#[test]
+fn boolean_rendering_does_not_leak_into_numeric_lane() {
+    assert_stdout(
+        "console.log(\"sum=\" + ((1 === 1) + (1 === 1)));\n\
+         console.log(\"num=\" + 1);\n\
+         console.log(\"zero=\" + 0);\n",
+        "sum=2\nnum=1\nzero=0\n",
     );
 }

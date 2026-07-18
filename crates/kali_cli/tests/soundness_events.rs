@@ -550,7 +550,9 @@ fn deferred_listener_nonscalar_placeholder_capture_still_builds() {
     );
     assert_eq!(
         String::from_utf8_lossy(&out.stdout).trim(),
-        "count=1\naborted=1",
+        // `aborted=true` (node-verified): re-pinned with the boolean-concat
+        // rendering fix. The capture property under test is unchanged.
+        "count=1\naborted=true",
         "the listener must fire once AND the captured abort must land in the cell"
     );
 }
