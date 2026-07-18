@@ -1135,7 +1135,17 @@ impl<'a> FunctionEmitter<'a> {
             // dropped it from ALLOWLIST 2, so this entry is what keeps a
             // captured controller (e.g. the deferred `controller.abort()`
             // listener) building.
+            //
+            // Owner `_start` is EXCLUDED: a `_start`-declared handle (module
+            // top-level, OR one inside a `_start` loop/block body) binds as a
+            // plain `_start` LOCAL via `LocalSet` and never populates the
+            // captured env cell, so the deferred by-value restore reads a
+            // stale/zero cell — `c.abort()` silently no-ops. Denying it here
+            // rejects the whole program at the registration site with the
+            // module-boundary E5506 (fail-closed; matches the single-binding
+            // `module_scope_captured_abort_write_fails_closed` pin).
             if reference.depth == 1
+                && reference.owner != "_start"
                 && self.repr_table.scalar(&reference.owner, &reference.name)
                     == kali_common::Repr::AbortHandle
             {

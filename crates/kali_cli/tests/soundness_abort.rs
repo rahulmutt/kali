@@ -198,6 +198,61 @@ fn module_scope_captured_abort_read_already_fails_closed() {
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
+// --- Task 8 whole-stage-review fix wave: `_start` loop/block-body captured
+//     abort handles must fail closed (CRITICAL) --------------------------------
+//
+// A `const c = new AbortController()` declared inside a `_start` (module-scope)
+// LOOP or block body binds `c` as a plain `_start` LOCAL via the declarator
+// intercept's `LocalSet`, never populating the captured env cell. Before the fix
+// `is_abort_handle`'s capture branch admitted the depth-1 `_start`-owned handle,
+// so a deferred `setTimeout(function(){ c.abort(); ... })` built and the callback
+// read a STALE/ZERO cell — `c.abort()` silently no-op'd (`cb0`; node aborts →
+// `cbtrue`). The fix denies `_start`-owned captured handles fail-closed: the
+// capture is rejected at the registration site (host.rs ALLOWLIST 3 excludes
+// owner `_start`) so the whole program E5506s at compile time. Function-scoped
+// loops (owner is a real function) stay SOUND — see
+// `loop_allocated_controllers_each_get_a_fresh_cell` and the roundtrip pins.
+
+#[test]
+fn module_scope_loop_captured_abort_fails_closed() {
+    let src = "for (let i = 0; i < 1; i = i + 1) {\n  const c = new AbortController();\n  setTimeout(function() { c.abort(); console.log(\"cb\" + c.signal.aborted); }, 0);\n}\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn module_scope_for_of_captured_abort_fails_closed() {
+    let src = "for (const x of [0]) {\n  const c = new AbortController();\n  setTimeout(function() { c.abort(); console.log(\"cb\" + c.signal.aborted); }, 0);\n}\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn module_scope_while_captured_abort_fails_closed() {
+    let src = "let n = 1;\nwhile (n > 0) {\n  n = n - 1;\n  const c = new AbortController();\n  setTimeout(function() { c.abort(); console.log(\"cb\" + c.signal.aborted); }, 0);\n}\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+// --- Task 8 t4-m1: compound-assign on abort fields fails closed --------------
+// `c.aborted += 1` / `c.signal.aborted += 1` route through the generic
+// compound-assign gate (a compound assign to a proven-handle member has no
+// lowering) — pinned so the read-modify-write asymmetry cannot silently return.
+
+#[test]
+fn aborted_compound_assign_fails_closed() {
+    let src = "const c = new AbortController();\nc.aborted += 1;\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn signal_aborted_compound_assign_fails_closed() {
+    let src = "const c = new AbortController();\nc.signal.aborted += 1;\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
 #[test]
 fn unknown_field_on_handle_fails_closed() {
     // t3-m2 closure: an unrecognized field on a proven handle must E5506

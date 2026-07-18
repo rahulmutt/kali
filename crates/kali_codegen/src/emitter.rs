@@ -502,9 +502,20 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     /// Stage P3: true when `name` is a proven abort handle in this function — a
-    /// local provenance-set member, or a depth-1 captured binding whose OWNER's
-    /// repr-table entry is `AbortHandle` (the owner-keyed lookup pattern; no
-    /// env-slot metadata needed — the cell holds the handle by value).
+    /// local provenance-set member, or a depth-1 captured binding whose OWNER is
+    /// a REAL function (not `_start`) and whose repr-table entry is `AbortHandle`
+    /// (the owner-keyed lookup pattern; no env-slot metadata needed — the cell
+    /// holds the handle by value).
+    ///
+    /// The `owner != "_start"` guard is load-bearing: a module-scope (`_start`)
+    /// `const c = new AbortController()` — including one declared inside a
+    /// loop/block body, where the declarator intercept binds `c` as a plain
+    /// `_start` LOCAL via `LocalSet` and never populates the captured env cell —
+    /// must NOT be admitted here. Admitting it lets a deferred callback read a
+    /// stale/zero cell and silently miscompile (`c.abort()` becomes a no-op).
+    /// Such captures fail closed: the capture itself is denied at the
+    /// registration site (host.rs ALLOWLIST 3 excludes owner `_start`), and any
+    /// method call on the receiver denies via `is_module_scope_abort_handle`.
     pub(crate) fn is_abort_handle(&self, name: &str) -> bool {
         if self.abort_handle_locals.contains(name) {
             return true;
@@ -512,26 +523,34 @@ impl<'a> FunctionEmitter<'a> {
         self.env_plan.captured.iter().any(|reference| {
             reference.name == name
                 && reference.depth == 1
+                && reference.owner != "_start"
                 && self.repr_table.scalar(&reference.owner, &reference.name)
                     == kali_common::Repr::AbortHandle
         })
     }
 
-    /// True when `name` is a MODULE-scope binding proven `AbortHandle` (module
+    /// True when `name` is a `_start`-OWNED binding proven `AbortHandle` (module
     /// repr is keyed under owner `"_start"`) and we are emitting a NON-`_start`
-    /// function — i.e. a module-scope abort handle referenced from inside a
+    /// function — i.e. a `_start`-scope abort handle referenced from inside a
     /// function/closure, which the ratified (function-scoped, owner-keyed)
     /// capture lane in `is_abort_handle` does NOT admit. Consulted at the
     /// method-call choke point to fail such calls closed (E5506) instead of
     /// letting them silently drop through the generic zero-placeholder fallback
     /// (the write-position twin of the read-position `module_binding_names`
-    /// gate). Refuses when a local of the same name shadows the module binding
-    /// (that local already routes through `is_abort_handle` / normal lookup).
+    /// gate). Refuses when a local of the same name shadows the binding (that
+    /// local already routes through `is_abort_handle` / normal lookup).
+    ///
+    /// Keyed directly on the `_start` repr (NOT `module_binding_names`) so it
+    /// also covers a handle declared inside a `_start` loop/block body — such a
+    /// `const c = new AbortController()` is a `_start` LOCAL, not a top-level
+    /// module binding, so a `module_binding_names` restriction would let a
+    /// deferred `c.abort()` fall through and silently no-op. The remaining
+    /// not-a-current-fn-local guards keep a genuine same-named local of the
+    /// emitting function on its own (`is_abort_handle`) lane.
     pub(crate) fn is_module_scope_abort_handle(&self, name: &str) -> bool {
         self.function_name != "_start"
             && !self.abort_handle_locals.contains(name)
             && !self.locals.contains_key(name)
-            && self.module_binding_names.contains(name)
             && self.repr_table.scalar("_start", name) == kali_common::Repr::AbortHandle
     }
 
