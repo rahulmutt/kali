@@ -24,12 +24,12 @@ impl<'a> FunctionEmitter<'a> {
     ///   * `X.aborted` where `X` is a childless identifier with
     ///     `is_abort_handle(X)`, OR `X` is itself a `<ident>.signal`
     ///     member with `is_abort_handle(ident)`                  → `Aborted(X)`
-    /// The payload is `node.children[0]` in both cases: emitting it via
-    /// `emit_abort_receiver_handle` yields the handle (an identifier read is
-    /// the handle directly; a `.signal` member read is identity). Any other
-    /// field, or an unproven base, returns `None` (fail-closed by falling
-    /// through to the generic member paths, which deny at the identifier
-    /// choke point).
+    ///     The payload is `node.children[0]` in both cases: emitting it via
+    ///     `emit_abort_receiver_handle` yields the handle (an identifier read is
+    ///     the handle directly; a `.signal` member read is identity). Any other
+    ///     field, or an unproven base, returns `None` (fail-closed by falling
+    ///     through to the generic member paths, which deny at the identifier
+    ///     choke point).
     pub(crate) fn abort_member_read_parts(&self, node: LirNodeId) -> Option<AbortMemberRead> {
         let node = self.node(node);
         if node.kind != LirNodeKind::Value || node.children.len() != 1 {
@@ -113,23 +113,23 @@ impl<'a> FunctionEmitter<'a> {
     ///     in `s instanceof AbortSignal`), OR
     ///   * a member node matching `abort_member_read_parts(...) == Signal(_)`
     ///     (the `c.signal instanceof AbortSignal` form).
-    /// Matches the RAW `left` node — deliberately NOT `unwrap_transparent`.
-    /// Empirically the parser resolves parens at parse time (no wrapper node),
-    /// so `(c.signal) instanceof AbortSignal` already arrives as the bare member
-    /// and needs no tunneling. Tunneling would be UNSOUND here: a single-element
-    /// array literal `[c.signal]` is also a textless one-child `Value`
-    /// (structurally identical to a grouping wrapper — see the `unwrap_transparent`
-    /// note in operators.rs), so tunneling would fold `[c.signal] instanceof
-    /// AbortSignal` to a wrong `true` (a JS array is not an AbortSignal). The raw
-    /// match rejects that array node (non-empty children, and `abort_member_read_parts`
-    /// returns `None` on a textless node), so it falls through to the runtime
-    /// trap — reject, don't miscompile.
-    /// SOUNDNESS: the fold emits NO code for the left operand (it is a
-    /// compile-time constant `true`). That is sound ONLY because both admitted
-    /// shapes are side-effect-free reads — a bare-identifier read and a
-    /// `.signal` identity read of an already-bound handle. Do NOT widen this to
-    /// any shape with potential effects (a call, an assignment, an index) or the
-    /// discarded left operand would drop an observable side effect.
+    ///     Matches the RAW `left` node — deliberately NOT `unwrap_transparent`.
+    ///     Empirically the parser resolves parens at parse time (no wrapper node),
+    ///     so `(c.signal) instanceof AbortSignal` already arrives as the bare member
+    ///     and needs no tunneling. Tunneling would be UNSOUND here: a single-element
+    ///     array literal `[c.signal]` is also a textless one-child `Value`
+    ///     (structurally identical to a grouping wrapper — see the `unwrap_transparent`
+    ///     note in operators.rs), so tunneling would fold `[c.signal] instanceof
+    ///     AbortSignal` to a wrong `true` (a JS array is not an AbortSignal). The raw
+    ///     match rejects that array node (non-empty children, and `abort_member_read_parts`
+    ///     returns `None` on a textless node), so it falls through to the runtime
+    ///     trap — reject, don't miscompile.
+    ///     SOUNDNESS: the fold emits NO code for the left operand (it is a
+    ///     compile-time constant `true`). That is sound ONLY because both admitted
+    ///     shapes are side-effect-free reads — a bare-identifier read and a
+    ///     `.signal` identity read of an already-bound handle. Do NOT widen this to
+    ///     any shape with potential effects (a call, an assignment, an index) or the
+    ///     discarded left operand would drop an observable side effect.
     pub(crate) fn instanceof_left_signal_proof(&self, left: LirNodeId) -> bool {
         let node = self.node(left);
         if node.children.is_empty() {
@@ -207,7 +207,7 @@ impl<'a> FunctionEmitter<'a> {
     ///     (that's how `computed_forin_object_access` and the generic
     ///     2-child dispatch in `control_flow.rs` distinguish it from a
     ///     binary expression, which also lowers to a 2-child `Value`).
-    /// Both shapes key the receiver at `children[0]`.
+    ///     Both shapes key the receiver at `children[0]`.
     pub(crate) fn is_abort_signal_static_call(&self, callee_node: &LirNode) -> bool {
         let receiver = match callee_node.children.len() {
             1 if callee_node.text.is_some() => callee_node.children[0],

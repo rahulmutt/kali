@@ -61,7 +61,7 @@ use kali_ast::*;
 /// Assign `__kali_fn_{N}` to every anonymous function-shaped node, in a
 /// deterministic pre-order walk. Idempotent: a node that already has an `id`
 /// keeps it.
-pub fn name_anonymous_functions(statements: &mut Vec<Statement>) {
+pub fn name_anonymous_functions(statements: &mut [Statement]) {
     let mut taken = HashSet::new();
     for statement in statements.iter() {
         collect_names_statement(statement, &mut taken);

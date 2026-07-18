@@ -344,7 +344,8 @@ fn array_wrapped_signal_left_operand_instanceof_stays_trapped() {
 #[test]
 fn controller_instanceof_abort_controller_stays_trapped() {
     // Inventoried for P3b, deliberately NOT implemented this stage.
-    let src = "const c = new AbortController();\nconsole.log(c instanceof AbortController ? 1 : 0);\n";
+    let src =
+        "const c = new AbortController();\nconsole.log(c instanceof AbortController ? 1 : 0);\n";
     let out = run_kali(src);
     assert!(!out.status.success(), "must trap: {out:?}");
 }
@@ -380,7 +381,8 @@ fn abort_handle_arithmetic_fails_closed() {
 
 #[test]
 fn abort_handle_identity_compare_fails_closed() {
-    let src = "const c = new AbortController();\nconst s = c.signal;\nconsole.log(c === c ? 1 : 0);\n";
+    let src =
+        "const c = new AbortController();\nconst s = c.signal;\nconsole.log(c === c ? 1 : 0);\n";
     let stderr = run_kali_run_expect_error(src);
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
@@ -394,7 +396,8 @@ fn signal_identity_compare_fails_closed() {
 
 #[test]
 fn abort_handle_json_stringify_fails_closed() {
-    let src = "const c = new AbortController();\nconst s = c.signal;\nconsole.log(JSON.stringify(c));\n";
+    let src =
+        "const c = new AbortController();\nconst s = c.signal;\nconsole.log(JSON.stringify(c));\n";
     let stderr = run_kali_run_expect_error(src);
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
@@ -436,7 +439,8 @@ fn abort_handle_growable_push_fails_closed() {
 
 #[test]
 fn abort_handle_computed_member_read_fails_closed() {
-    let src = "const c = new AbortController();\nconst s = c.signal;\nconst k = \"abort\";\nc[k]();\n";
+    let src =
+        "const c = new AbortController();\nconst s = c.signal;\nconst k = \"abort\";\nc[k]();\n";
     let stderr = run_kali_run_expect_error(src);
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
@@ -539,7 +543,8 @@ fn abort_signal_static_call_with_shadowed_receiver_not_denied() {
     // `5`), so the build still exits 0 printing "ran:0" — NOT E5506. Pinned
     // as-is (out of scope to also close the generic fallback here) so this
     // specific shadow invariant cannot silently regress.
-    let src = "const AbortSignal = 5;\nconst s = AbortSignal.timeout(5);\nconsole.log(\"ran:\" + s);\n";
+    let src =
+        "const AbortSignal = 5;\nconst s = AbortSignal.timeout(5);\nconsole.log(\"ran:\" + s);\n";
     assert_eq!(run_kali_run(src).trim(), "ran:0");
 }
 
