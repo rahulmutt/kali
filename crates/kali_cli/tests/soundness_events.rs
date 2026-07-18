@@ -529,13 +529,14 @@ fn deferred_settimeout_param_alias_capture_fails_closed() {
 /// never-reclaimed global cell, restorable by value after the owner frame dies),
 /// NOT entry 2 (the placeholder-construct exception it belonged to before the
 /// exclusion-list flip dropped `new AbortController()` from the placeholder
-/// set). The stdout assertion stays `count=1` — the listener fires once and the
-/// captured `controller.abort()` now really writes the cell, but observing the
-/// aborted flag waits for `.aborted` in Task 4.
+/// set). As of Task 4 the fixture also reads `controller.signal.aborted` after
+/// the dispatch, so the assertion is now the full `count=1\naborted=1` — the
+/// listener fires once AND the captured `controller.abort()` really lands in the
+/// shared cell (spec §3: "builds AND the abort really lands").
 #[test]
 fn deferred_listener_nonscalar_placeholder_capture_still_builds() {
     let out = run_kali(
-        "function main(){\n  const controller = new AbortController();\n  const t = new EventTarget();\n  let count = 0;\n  t.addEventListener(\"e\", function(){ count += 1; controller.abort(); });\n  t.dispatchEvent(new CustomEvent(\"e\"));\n  console.log(\"count=\" + count);\n}\nmain();\n",
+        "function main(){\n  const controller = new AbortController();\n  const t = new EventTarget();\n  let count = 0;\n  t.addEventListener(\"e\", function(){ count += 1; controller.abort(); });\n  t.dispatchEvent(new CustomEvent(\"e\"));\n  console.log(\"count=\" + count);\n  console.log(\"aborted=\" + controller.signal.aborted);\n}\nmain();\n",
     );
     assert!(
         out.status.success(),
@@ -546,6 +547,11 @@ fn deferred_listener_nonscalar_placeholder_capture_still_builds() {
         !String::from_utf8_lossy(&out.stderr).contains("E5506"),
         "scalar-only deny must NOT fire on a non-scalar placeholder capture; stderr: {}",
         String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&out.stdout).trim(),
+        "count=1\naborted=1",
+        "the listener must fire once AND the captured abort must land in the cell"
     );
 }
 

@@ -100,3 +100,79 @@ fn loop_allocated_controllers_each_get_a_fresh_cell() {
     let src = "for (let i = 0; i < 3; i = i + 1) {\n  const c = new AbortController();\n  c.abort();\n}\nconsole.log(\"done\");\n";
     assert_eq!(run_kali_run(src).trim(), "done");
 }
+
+// --- Task 4: `.signal` identity, `.aborted` read, signal alias ---------------
+
+#[test]
+fn aborted_flag_reads_zero_then_one() {
+    // Dynamic booleans render 1/0 (ratified P2 convention; node prints
+    // true/false — documented divergence, never used in byte-for-byte
+    // acceptance fixtures).
+    let src = "const c = new AbortController();\nconsole.log(c.signal.aborted);\nc.abort();\nconsole.log(c.signal.aborted);\n";
+    assert_eq!(run_kali_run(src).trim(), "0\n1");
+}
+
+#[test]
+fn signal_alias_reads_shared_cell() {
+    let src = "const c = new AbortController();\nconst s = c.signal;\nc.abort();\nconsole.log(s.aborted);\n";
+    assert_eq!(run_kali_run(src).trim(), "1");
+}
+
+#[test]
+fn aborted_in_boolean_position_branches() {
+    let src = "const c = new AbortController();\nc.abort();\nif (c.signal.aborted) { console.log(\"yes\"); } else { console.log(\"no\"); }\n";
+    assert_eq!(run_kali_run(src).trim(), "yes");
+}
+
+#[test]
+fn signal_raw_print_fails_closed() {
+    let src = "const c = new AbortController();\nconsole.log(c.signal);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn aborted_write_fails_closed() {
+    let src = "const c = new AbortController();\nc.signal.aborted = 1;\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn signal_field_write_fails_closed() {
+    let src = "const c = new AbortController();\nconst s = c.signal;\nc.signal = s;\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn add_event_listener_on_signal_fails_closed() {
+    let src = "const c = new AbortController();\nc.signal.addEventListener(\"abort\", function() { console.log(\"x\"); });\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn captured_handle_full_roundtrip_in_listener() {
+    // The acceptance-listener shape end-to-end: capture, abort inside a
+    // synchronously-dispatched listener, observe the flag outside.
+    let src = "function m() {\n  const c = new AbortController();\n  const t = new EventTarget();\n  let count = 0;\n  t.addEventListener(\"tick\", function() { count += 1; c.abort(); });\n  t.dispatchEvent(new CustomEvent(\"tick\"));\n  console.log(\"count=\" + count);\n  console.log(\"aborted=\" + c.signal.aborted);\n}\nm();\n";
+    assert_eq!(run_kali_run(src).trim(), "count=1\naborted=1");
+}
+
+#[test]
+fn sibling_closures_capture_distinct_controllers() {
+    // Env-safety probe (Stage C sibling-extent lesson): two controllers in
+    // sibling scopes must not share a cell.
+    let src = "function a() {\n  const c = new AbortController();\n  c.abort();\n  console.log(\"a=\" + c.signal.aborted);\n}\nfunction b() {\n  const c = new AbortController();\n  console.log(\"b=\" + c.signal.aborted);\n}\na();\nb();\n";
+    assert_eq!(run_kali_run(src).trim(), "a=1\nb=0");
+}
+
+#[test]
+fn unknown_field_on_handle_fails_closed() {
+    // t3-m2 closure: an unrecognized field on a proven handle must E5506
+    // (default-deny at the identifier choke point), never silently print 0.
+    let src = "const c = new AbortController();\nconsole.log(c.reason2);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}

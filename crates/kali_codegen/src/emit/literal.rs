@@ -356,6 +356,54 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
 
+        // Stage P3 Task 4 (alongside the C-1 field-store gate): a WRITE whose
+        // TARGET is a member of a proven abort handle has no sound lowering —
+        // node ignores `.aborted = x`/`.signal = x` silently (or throws in strict
+        // mode), and the generic store below would `I64Store` over the shared
+        // cell handle. Fail closed for `c.aborted = v`, `c.signal = v`, and
+        // `c.signal.aborted = v` (base is `<ident>` or `<ident>.signal` over an
+        // abort handle). Reject BEFORE emitting base/RHS so the value stack stays
+        // balanced (single `I64Const(0)` result).
+        if op == "=" {
+            let left_node = self.node(left).clone();
+            if left_node.kind == LirNodeKind::Value
+                && left_node.children.len() == 1
+                && left_node
+                    .text
+                    .as_deref()
+                    .is_some_and(|text| !text.is_empty())
+            {
+                let base_id = left_node.children[0];
+                let base = self.node(base_id);
+                let base_is_handle_ident = base.children.is_empty()
+                    && base
+                        .text
+                        .as_deref()
+                        .is_some_and(|name| self.is_abort_handle(name));
+                let base_is_signal_of_handle = base.kind == LirNodeKind::Value
+                    && base.children.len() == 1
+                    && base.text.as_deref() == Some("signal")
+                    && {
+                        let inner = self.node(base.children[0]);
+                        inner.children.is_empty()
+                            && inner
+                                .text
+                                .as_deref()
+                                .is_some_and(|name| self.is_abort_handle(name))
+                    };
+                if base_is_handle_ident || base_is_signal_of_handle {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        "writes to AbortController/AbortSignal members are not supported \
+                         (node ignores them silently; kali fails closed)"
+                            .to_string(),
+                    ));
+                    function.instruction(&Instruction::I64Const(0));
+                    return true;
+                }
+            }
+        }
+
         // Stage P2 review C-1b (+ R1 rider): a WRITE through a `GrowableArrayI64`
         // object field has no sound lowering this phase — the growable field lane
         // is read-only except for `.push`. Two write shapes fall through every

@@ -930,6 +930,57 @@ impl<'a> FunctionEmitter<'a> {
                             }
                         }
 
+                        // Stage P3 Task 4: `const s = c.signal` alias. The signal
+                        // shares the controller's handle cell (identity), so
+                        // binding `s` to the receiver handle makes `s.aborted`
+                        // read — and `s` deny as a raw value — through the SAME
+                        // provenance as the controller. Gated on inference agreeing
+                        // (`scalar_repr == AbortHandle`) AND a structurally proven
+                        // `<ident>.signal` init over an abort handle; the receiver
+                        // flows through the sole admitted read
+                        // (`emit_abort_receiver_handle`), then binds with the same
+                        // local/promoted-cell discipline as the controller arm.
+                        if is_const {
+                            if let Some(name) = declarator.text.clone() {
+                                let init_node = self.node(init);
+                                let init_is_signal_alias = init_node.kind == LirNodeKind::Value
+                                    && init_node.children.len() == 1
+                                    && init_node.text.as_deref() == Some("signal")
+                                    && {
+                                        let base = self.node(init_node.children[0]);
+                                        base.children.is_empty()
+                                            && base
+                                                .text
+                                                .as_deref()
+                                                .is_some_and(|n| self.is_abort_handle(n))
+                                    };
+                                if init_is_signal_alias
+                                    && self.scalar_repr(&name) == kali_common::Repr::AbortHandle
+                                {
+                                    let base_id = self.node(init).children[0];
+                                    let handle = self.emit_abort_receiver_handle(function, base_id);
+                                    if !handle.produced {
+                                        function.instruction(&Instruction::I64Const(0));
+                                    }
+                                    if let Some(index) = self.locals.get(&name).copied() {
+                                        function.instruction(&Instruction::LocalSet(index));
+                                    } else if let Some((depth, offset)) =
+                                        self.resolve_capture_access(&name)
+                                    {
+                                        let env_global = self.current_env_global();
+                                        let scratch2 = self.locals.len() as u32;
+                                        crate::closure::emit_cell_store(
+                                            function, env_global, depth, offset, scratch2,
+                                        );
+                                    } else {
+                                        function.instruction(&Instruction::Drop);
+                                    }
+                                    self.abort_handle_locals.insert(name);
+                                    continue;
+                                }
+                            }
+                        }
+
                         // Materialized object-literal binding: `const p = {…}`
                         // whose inferred repr is Object(shape) — allocate the
                         // fixed-layout struct and bind the base pointer.
@@ -1782,42 +1833,42 @@ impl<'a> FunctionEmitter<'a> {
                     );
                 }
 
-                // Stage P3: a FIELD read (`c.signal`, `c.aborted`, …) whose
-                // bare-identifier receiver is a proven abort handle has no real
-                // lowering yet — Task 4 gives `.signal`/`.aborted` their
-                // semantics. Preserve the exact pre-Stage-P3 warn-build
-                // placeholder: consume the receiver under the position allowlist
-                // (so the handle is used HERE, never escaped), drop it, and yield
-                // `0`. This keeps the web-baseline corpus's
-                // `const signal = controller.signal` building while the real read
-                // lands in Task 4. Genuine value escapes (`console.log(c)`, `c`
-                // as an argument, `return c`, arithmetic) still fail closed at the
-                // bare-identifier gate — those never reach here (the receiver is
-                // read via `emit_abort_receiver_handle`, the sole admitted read).
-                if let Some(field) = node.text.as_deref().filter(|text| !text.is_empty()) {
-                    let base_id = node.children[0];
-                    let base_node = self.node(base_id);
-                    if base_node.children.is_empty()
-                        && base_node
-                            .text
-                            .as_deref()
-                            .is_some_and(|name| self.is_abort_handle(name))
-                    {
-                        self.diagnostics.push(Diagnostic::warning(
-                            e8::UNIMPLEMENTED as u32,
-                            format!(
-                                "'{field}' on an AbortController/AbortSignal handle has no lowering yet (Stage P3 Task 4); reads as a placeholder"
-                            ),
-                        ));
-                        let handle = self.emit_abort_receiver_handle(function, base_id);
-                        if handle.produced {
-                            function.instruction(&Instruction::Drop);
+                // Stage P3 Task 4: member reads on a proven abort handle.
+                // `.aborted` is a real load of the shared cell (Boolean shape);
+                // `.signal` is identity, admitted ONLY under an enclosing admitted
+                // consumer (`admit_abort_handle_read`, set by the declarator alias
+                // arm or a future `instanceof` left operand) — otherwise E5506, so
+                // an AbortSignal never escapes as a value. Recognized BEFORE
+                // `emit_unary`'s growable-field gate below so the two allowlists
+                // stay independent. Any OTHER field on a proven handle is NOT
+                // recognized here (`abort_member_read_parts` returns `None`) and
+                // falls through to the generic member fallback, whose receiver
+                // emit hits the identifier choke point and denies E5506
+                // (default-deny — closes the t3-m2 silent-`0` hole).
+                if let Some(part) = self.abort_member_read_parts(id) {
+                    match part {
+                        crate::emit::abort::AbortMemberRead::Aborted(receiver) => {
+                            let handle = self.emit_abort_receiver_handle(function, receiver);
+                            if !handle.produced {
+                                function.instruction(&Instruction::I64Const(0));
+                            }
+                            self.emit_abort_cell_load(function);
+                            return EmittedValue {
+                                produced: true,
+                                shape: ValueShape::Boolean,
+                            };
                         }
-                        function.instruction(&Instruction::I64Const(0));
-                        return EmittedValue {
-                            produced: true,
-                            shape: ValueShape::Unknown,
-                        };
+                        crate::emit::abort::AbortMemberRead::Signal(receiver) => {
+                            if self.admit_abort_handle_read {
+                                return self.emit_abort_receiver_handle(function, receiver);
+                            }
+                            return self.deny_e5506(
+                                function,
+                                "an AbortSignal cannot escape as a value: admitted \
+                                 positions are `.aborted`, `instanceof AbortSignal`, and \
+                                 `const s = c.signal` (fail-closed)",
+                            );
+                        }
                     }
                 }
 

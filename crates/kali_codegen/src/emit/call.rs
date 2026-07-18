@@ -283,6 +283,24 @@ impl<'a> FunctionEmitter<'a> {
                     }
                 }
             }
+            // Stage P3 Task 4: a method call whose RECEIVER is `<ident>.signal`
+            // over a proven abort handle (`c.signal.addEventListener(...)`,
+            // `c.signal.throwIfAborted()`, …) is NOT a bare-identifier receiver,
+            // so the arm above misses it. Only `.aborted` is READABLE on a
+            // signal — every method fails closed (node exposes EventTarget
+            // methods kali does not model). Recognized via the shared
+            // `abort_member_read_parts` Signal shape (returns `None` for the
+            // bare-identifier `abort()` receiver already handled above).
+            if matches!(
+                self.abort_member_read_parts(receiver),
+                Some(crate::emit::abort::AbortMemberRead::Signal(_))
+            ) {
+                return self.deny_e5506(
+                    function,
+                    "methods on an AbortSignal are not supported in the current phase; \
+                     only `.aborted` is readable (fail-closed)",
+                );
+            }
         }
 
         if self.is_kali_write_stdout_bytes_call(&callee_node) {

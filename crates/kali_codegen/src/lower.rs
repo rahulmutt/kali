@@ -4141,6 +4141,22 @@ pub(crate) fn collect_function_locals_from_node(
                     kali_common::Repr::Object(_)
                 ) && declarator_init_call_callee_name(nodes, init) == Some("structuredClone")
             });
+            // Stage P3 abort lane: a binding inference proved `AbortHandle`
+            // (`const c = new AbortController()` or the `const s = c.signal`
+            // alias) holds an i64 pointer to the shared global abort cell that
+            // MUST live in a stable local slot. Without promotion the emitter's
+            // abort declarator/alias arms fall to the drop branch (no
+            // `self.locals` entry), silently discarding the handle — every
+            // `.abort()`/`.aborted` then reads a zero handle and aliases address
+            // 0, so DISTINCT controllers share one cell (a latent hole exposed
+            // once `.aborted` can read the cell back). Repr-keyed so it covers
+            // both admitted seeding shapes uniformly.
+            let is_abort_handle_binding = declarator_node.text.as_deref().is_some_and(|name| {
+                matches!(
+                    repr_table.scalar(function_name, name),
+                    kali_common::Repr::AbortHandle
+                )
+            });
             if !declarator_init_is_array_alloc(nodes, init)
                 && !declarator_init_is_array_fill(nodes, init)
                 && !declarator_init_is_array_read(nodes, init, array_names)
@@ -4156,6 +4172,7 @@ pub(crate) fn collect_function_locals_from_node(
                 && !is_event_target_construction
                 && !is_event_dispatch_result
                 && !is_structured_clone_result
+                && !is_abort_handle_binding
             {
                 continue;
             }
