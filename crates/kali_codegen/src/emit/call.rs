@@ -3951,6 +3951,28 @@ impl<'a> FunctionEmitter<'a> {
         receiver: LirNodeId,
         separator: Option<LirNodeId>,
     ) -> EmittedValue {
+        // R2 (Stage P2 review): a growable-array FIELD join must enforce the
+        // SAME separator string-proof the NAMED growable lane enforces in
+        // `kali_types` (`static_analysis/array.rs`, keyed on an `Identifier`
+        // receiver — a FIELD receiver is a `MemberExpression`, so it slips that
+        // gate). `__join_growable_i64` reads the separator operand as a STRING
+        // HANDLE; a non-string separator (`o.values.join(o.values.length)`,
+        // whose i64 length is emitted raw) is then read as a bogus handle →
+        // NUL-bearing garbage stdout. Omitted separator (default ",") and any
+        // string-provable separator (literal / String binding) stay green;
+        // anything else fails closed E5506 BEFORE any operand is emitted (so the
+        // value stack stays balanced via `deny_e5506`'s stack-polymorphic
+        // `Unreachable`). Mirrors the named lane's `separator_ok`.
+        if self.object_field_is_growable_array(receiver) {
+            if let Some(sep) = separator {
+                if !self.is_string_valued(sep) {
+                    return self.deny_e5506(
+                        function,
+                        "Array.prototype.join on a growable-array field is unavailable unless the optional separator is a statically-known string in the current phase; use a string separator or the later compatibility path",
+                    );
+                }
+            }
+        }
         // C-2: a growable-array FIELD receiver (`o.values.join(...)`) is an
         // allowlisted SAFE position — read its handle through the gate-lifting
         // helper. Harmless for a named/plain-array receiver (no field gate).

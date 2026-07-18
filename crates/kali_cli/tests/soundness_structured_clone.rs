@@ -751,6 +751,14 @@ fn structured_clone_member_on_call_fails_closed() {
 /// documents the CURRENT (post-C-2) masked behavior; if object reassignment
 /// ever lands a real lowering, the `GrowableArrayI64`-vs-scalar intern
 /// confusion named above must be revisited before the gate is relaxed.
+///
+/// Reviewer Minor note (inventory, R-wave): a `.length` READ of the reassigned
+/// field (`let o={v:[1,2]}; o={v:3}; console.log(o.v.length)`) still silently
+/// reads `0` — `.length` is an ALLOWLISTED growable-field read position, so C-2
+/// does not gate it; the wrong value is the same object-reassignment mis-repr.
+/// Closes automatically the day object reassignment is implemented (a real
+/// lowering) OR denied wholesale; NOT separately gated here (gating an
+/// allowlisted read position would need reassignment-awareness, out of stage).
 #[test]
 fn object_reassignment_field_read_fails_closed_tripwire() {
     let src = "let o = { v: [1, 2] };\n\
@@ -774,3 +782,53 @@ fn object_reassignment_field_read_fails_closed_tripwire() {
 // because a growable handle IS its identity; if the handle encoding ever gains
 // non-identity bits (e.g. a generation tag), the named lane must be re-pinned
 // to the allowlisted compare. Field-pair `===` is already gated (Lane 3).
+
+// ---------------------------------------------------------------------------
+// Stage P2 review RIDERS (R1, R2): named/field write-and-join asymmetries.
+// ---------------------------------------------------------------------------
+
+/// R1 (silent no-op close): a `.length` WRITE through a `GrowableArrayI64`
+/// field (`o.values.length = 1`) must FAIL CLOSED E5506 — node TRUNCATES the
+/// array to length 1, so a dropped store is a silent miscompile. The named
+/// twin (`a.length = 1`) already fails closed. RED before the fix: the write
+/// fell through every recognizer (the C-1b element guard's 1-child arm
+/// exempted `text == "length"`, correct for READS but not writes) and was
+/// silently DROPPED — `o.values.join(',')` printed `1,2,3`; node prints `1`.
+#[test]
+fn growable_field_length_write_fails_closed() {
+    let src = "const o = { values: [1, 2, 3] };\n\
+               o.values.length = 1;\n\
+               console.log(o.values.join(','));\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+/// R2 (NUL-garbage close): a growable-array FIELD `join` with a separator that
+/// is NOT string-provable (`o.values.join(o.values.length)` — an i64 length)
+/// must FAIL CLOSED E5506. RED before the fix: the field arm skipped the
+/// separator string-proof the named lane enforces (in `kali_types`, keyed on an
+/// Identifier receiver — a field receiver is a MemberExpression, so it slipped
+/// the gate); the raw i64 separator was read as a string handle → NUL-bearing
+/// garbage stdout (`31 00 00 00 32 00 00 00 33 0a`); node prints `13233`. The
+/// named twin (`a.join(a.length)`) already E5506s.
+#[test]
+fn growable_field_join_numeric_separator_fails_closed() {
+    let src = "const o = { values: [1, 2, 3] };\n\
+               console.log(o.values.join(o.values.length));\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+/// R2 positive control (allowlist's green side — reviewer-verified correct
+/// today, must NOT regress): a growable-field `join` with a STRING-binding
+/// separator round-trips, and an OMITTED separator (default ",") round-trips.
+#[test]
+fn growable_field_join_string_and_omitted_separator_stay_green() {
+    let with_string = "const o = { values: [1, 2, 3] };\n\
+                       const sep = '-';\n\
+                       console.log(o.values.join(sep));\n";
+    assert_eq!(run_kali_run(with_string).trim(), "1-2-3");
+    let omitted = "const o = { values: [1, 2, 3] };\n\
+                   console.log(o.values.join());\n";
+    assert_eq!(run_kali_run(omitted).trim(), "1,2,3");
+}

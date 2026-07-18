@@ -356,34 +356,54 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
 
-        // Stage P2 review C-1b (silent-drop close): an element WRITE whose base
-        // is a `GrowableArrayI64` object field (`o.values[0] = 9`) has no sound
-        // lowering this phase — the growable field lane is read-only at index
-        // positions (`.push` is the only mutation). Without this guard the write
-        // falls through every recognizer below and is silently DROPPED (the
-        // named-growable twin `a[0] = 9` already fails closed). Mirror that: fail
-        // closed E5506, never a dropped store. Matches the same 1-child
-        // (literal/identifier index) and 2-child (computed index) member-write
-        // shapes the array-element-write recognizer below keys on, but keyed on
-        // the positive `object_field_is_growable_array` base proof (allowlist).
+        // Stage P2 review C-1b (+ R1 rider): a WRITE through a `GrowableArrayI64`
+        // object field has no sound lowering this phase — the growable field lane
+        // is read-only except for `.push`. Two write shapes fall through every
+        // recognizer below and are silently DROPPED, while their NAMED twins
+        // already fail closed:
+        //   * element write `o.values[0] = 9` (1-child literal/identifier index,
+        //     or 2-child computed index) — named twin `a[0] = 9` E5506s;
+        //   * `.length` write `o.values.length = 1` (1-child `length` member) —
+        //     named twin `a.length = 1` E5506s; node TRUNCATES, so a dropped
+        //     store is a silent miscompile (R1).
+        // Both are keyed on the positive `object_field_is_growable_array` base
+        // proof (allowlist) → fail closed E5506, never a dropped store.
         if op == "=" {
             let left_node = self.node(left).clone();
-            let base_is_growable_field = match left_node.children.len() {
+            let target_shape = match left_node.children.len() {
+                // 1-child dot/subscript with an index or `length` in `text`.
                 1 => left_node
                     .text
                     .as_deref()
-                    .is_some_and(|text| !text.is_empty() && text != "length"),
-                2 => !is_binary_operator_text(left_node.text.as_deref().unwrap_or_default()),
-                _ => false,
-            } && self
-                .object_field_is_growable_array(left_node.children[0]);
-            if base_is_growable_field {
-                self.diagnostics.push(Diagnostic::error(
-                    e5::FEATURE_UNAVAILABLE as u32,
-                    "assigning to an element of a growable-array field is unavailable in the current phase".to_string(),
-                ));
-                function.instruction(&Instruction::I64Const(0));
-                return true;
+                    .filter(|text| !text.is_empty())
+                    .map(|text| {
+                        if text == "length" {
+                            "length"
+                        } else {
+                            "element"
+                        }
+                    }),
+                // 2-child computed index (`o.values[i] = v`); binary operators
+                // are not a member write.
+                2 if !is_binary_operator_text(left_node.text.as_deref().unwrap_or_default()) => {
+                    Some("element")
+                }
+                _ => None,
+            };
+            if let Some(kind) = target_shape {
+                if self.object_field_is_growable_array(left_node.children[0]) {
+                    let message = if kind == "length" {
+                        "assigning to `.length` of a growable-array field is unavailable in the current phase"
+                    } else {
+                        "assigning to an element of a growable-array field is unavailable in the current phase"
+                    };
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        message.to_string(),
+                    ));
+                    function.instruction(&Instruction::I64Const(0));
+                    return true;
+                }
             }
         }
 
