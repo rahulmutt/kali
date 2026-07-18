@@ -517,6 +517,24 @@ impl<'a> FunctionEmitter<'a> {
         })
     }
 
+    /// True when `name` is a MODULE-scope binding proven `AbortHandle` (module
+    /// repr is keyed under owner `"_start"`) and we are emitting a NON-`_start`
+    /// function — i.e. a module-scope abort handle referenced from inside a
+    /// function/closure, which the ratified (function-scoped, owner-keyed)
+    /// capture lane in `is_abort_handle` does NOT admit. Consulted at the
+    /// method-call choke point to fail such calls closed (E5506) instead of
+    /// letting them silently drop through the generic zero-placeholder fallback
+    /// (the write-position twin of the read-position `module_binding_names`
+    /// gate). Refuses when a local of the same name shadows the module binding
+    /// (that local already routes through `is_abort_handle` / normal lookup).
+    pub(crate) fn is_module_scope_abort_handle(&self, name: &str) -> bool {
+        self.function_name != "_start"
+            && !self.abort_handle_locals.contains(name)
+            && !self.locals.contains_key(name)
+            && self.module_binding_names.contains(name)
+            && self.repr_table.scalar("_start", name) == kali_common::Repr::AbortHandle
+    }
+
     /// Wasm function index of the allocator an allocation site in the
     /// CURRENTLY-EMITTING function should call: `__alloc` (the current
     /// arena) when the escape gate marked this function `arena_eligible`,

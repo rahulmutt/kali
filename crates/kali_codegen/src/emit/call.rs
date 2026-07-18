@@ -264,6 +264,29 @@ impl<'a> FunctionEmitter<'a> {
                              (Stage P3 scope)",
                         );
                     }
+                    // Controller decision (Task 7 acceptance follow-up): a method
+                    // call whose bare-identifier receiver is a MODULE-scope binding
+                    // proven `AbortHandle`, reached from INSIDE a function/closure.
+                    // The local / depth-1-captured `is_abort_handle` arm above does
+                    // NOT admit a module binding (module handles are globals, not
+                    // env-captured), so absent this gate the call falls through to
+                    // the generic undefined-call fallback and is silently dropped
+                    // through an E3100 zero placeholder — `controller.abort()`
+                    // becomes a no-op (node aborts; kali did not): a semantic
+                    // miscompile on P3's own value class. Mirror the read-position
+                    // gate (`emit/control_flow.rs`'s `module_binding_names` +
+                    // not-`_start` E5506), keyed on the module-level (`_start`) repr
+                    // being `AbortHandle`. This is a CHOKE POINT, not a per-`abort`
+                    // special case: ANY method on this shape denies.
+                    if self.is_module_scope_abort_handle(receiver_name) {
+                        let message = format!(
+                            "calling a method on module binding '{receiver_name}' from a function \
+                             is only available for compile-time-constant `const` initializers in \
+                             the current phase; an AbortController handle cannot cross the \
+                             module/function boundary (fail-closed)"
+                        );
+                        return self.deny_e5506(function, &message);
+                    }
                     // A `.abort()` on a bare identifier that IS a
                     // `new AbortController()` construct kali could not admit as a
                     // handle (a `let`/`var` controller, or a `const` that lost

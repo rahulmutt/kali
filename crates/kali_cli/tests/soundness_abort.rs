@@ -169,6 +169,36 @@ fn sibling_closures_capture_distinct_controllers() {
 }
 
 #[test]
+fn module_scope_captured_abort_write_fails_closed() {
+    // Controller decision (Task 7 acceptance follow-up): a MODULE-scope
+    // `const controller = new AbortController()` captured by a closure that
+    // calls `controller.abort()` is NOT the ratified capture lane — that lane
+    // is FUNCTION-scoped (owner-keyed captured handle, entry 3). The local /
+    // depth-1-captured `is_abort_handle` proof does not admit a module binding,
+    // so before this gate the call fell THROUGH to the generic undefined-call
+    // fallback and was silently dropped through an E3100 zero placeholder: the
+    // abort became a no-op (node aborts; kali did not) — a semantic miscompile
+    // on P3's own value class. It now denies fail-closed, mirroring the
+    // read-position `module_binding_names` gate, keyed on the module-level
+    // (`_start`) repr being `AbortHandle`.
+    let src = "const controller = new AbortController();\nsetTimeout(function() { controller.abort(); }, 0);\nconsole.log(\"aborted=\" + controller.signal.aborted);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn module_scope_captured_abort_read_already_fails_closed() {
+    // The read-position twin of `module_scope_captured_abort_write_fails_closed`,
+    // pinned so the write/read asymmetry cannot silently return. Reading a
+    // module-scope binding from a closure was ALREADY fail-closed (the identifier
+    // choke point's `module_binding_names` E5506 gate); this asserts that stays
+    // true alongside the new write-position deny.
+    let src = "const controller = new AbortController();\nsetTimeout(function() { console.log(\"aborted=\" + controller.signal.aborted); }, 0);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
 fn unknown_field_on_handle_fails_closed() {
     // t3-m2 closure: an unrecognized field on a proven handle must E5506
     // (default-deny at the identifier choke point), never silently print 0.
