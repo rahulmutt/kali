@@ -30,6 +30,14 @@ pub enum Repr {
     /// fixed-shape object field may carry (Stage P2, Lane 1). Element repr is
     /// fixed to i64; string/float/nested array fields fail closed.
     GrowableArrayI64,
+    /// Pointer (i64) to a never-reclaimed 8-byte abort cell on the global
+    /// heap (`__alloc_global`) holding the `aborted` flag. Carried by an
+    /// `AbortController` binding AND its `.signal` alias — controller and
+    /// signal are the same handle (Stage P3). Distinguished purely by
+    /// compile-time provenance: every position the handle can reach is
+    /// allowlisted at the read site; unproven flows keep the I64 default
+    /// and every abort operation on them fails closed.
+    AbortHandle,
 }
 
 /// Representation decisions for a whole program, keyed by function + binding.
@@ -112,6 +120,7 @@ pub struct ReprTable {
     object_initialized_bindings: HashSet<(String, String)>,
     any_float: bool,
     any_string: bool,
+    any_abort_handle: bool,
     /// `(func, binding)` scalars/params whose `Repr::String` value is a FRESH
     /// runtime `string_concat` handle (reachable from a `+`, interpolated
     /// template, or string `+=`), NOT an interned literal constant. Codegen may
@@ -184,6 +193,9 @@ impl ReprTable {
         if repr == Repr::String {
             self.any_string = true;
         }
+        if repr == Repr::AbortHandle {
+            self.any_abort_handle = true;
+        }
         self.scalars
             .insert((func.to_string(), binding.to_string()), repr);
     }
@@ -194,6 +206,9 @@ impl ReprTable {
         }
         if repr == Repr::String {
             self.any_string = true;
+        }
+        if repr == Repr::AbortHandle {
+            self.any_abort_handle = true;
         }
         self.array_elements
             .insert((func.to_string(), binding.to_string()), repr);
@@ -206,6 +221,9 @@ impl ReprTable {
         if repr == Repr::String {
             self.any_string = true;
         }
+        if repr == Repr::AbortHandle {
+            self.any_abort_handle = true;
+        }
         self.returns.insert(func.to_string(), repr);
     }
 
@@ -215,6 +233,9 @@ impl ReprTable {
         }
         if repr == Repr::String {
             self.any_string = true;
+        }
+        if repr == Repr::AbortHandle {
+            self.any_abort_handle = true;
         }
         self.params.insert((func.to_string(), index), repr);
     }
@@ -414,6 +435,7 @@ impl ReprTable {
     pub fn is_empty(&self) -> bool {
         !self.any_float
             && !self.any_string
+            && !self.any_abort_handle
             && self.shapes.is_empty()
             && self.shape_conflicts.is_empty()
     }
@@ -561,3 +583,19 @@ impl UnionFind {
 #[cfg(test)]
 #[path = "repr_tests.rs"]
 mod repr_tests;
+
+#[cfg(test)]
+mod abort_handle_repr_tests {
+    use super::{Repr, ReprTable};
+
+    #[test]
+    fn abort_handle_scalar_defeats_the_all_i64_fast_path() {
+        let mut table = ReprTable::default();
+        assert!(table.is_empty());
+        table.set_scalar("_start", "c", Repr::AbortHandle);
+        assert_eq!(table.scalar("_start", "c"), Repr::AbortHandle);
+        // An abort handle is an i64 pointer whose positions must be gated;
+        // codegen must never take the all-i64 fast path past it.
+        assert!(!table.is_empty());
+    }
+}

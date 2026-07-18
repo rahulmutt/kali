@@ -504,7 +504,10 @@ impl<'a> FunctionEmitter<'a> {
                                 kali_common::Repr::I64
                                 | kali_common::Repr::Object(_)
                                 | kali_common::Repr::String
-                                | kali_common::Repr::GrowableArrayI64 => {
+                                | kali_common::Repr::GrowableArrayI64
+                                // AbortHandle: i64 handle slot; never reaches
+                                // this position (inference gates it).
+                                | kali_common::Repr::AbortHandle => {
                                     let rhs = self.emit_node(function, right, true);
                                     if !rhs.produced {
                                         function.instruction(&Instruction::I64Const(0));

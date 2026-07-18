@@ -4213,7 +4213,10 @@ impl<'a> FunctionEmitter<'a> {
             kali_common::Repr::I64
             | kali_common::Repr::Object(_)
             | kali_common::Repr::String
-            | kali_common::Repr::GrowableArrayI64 => {
+            | kali_common::Repr::GrowableArrayI64
+            // AbortHandle: i64 handle slot; never reaches this position
+            // (inference gates it) — grouped with the other i64 handles.
+            | kali_common::Repr::AbortHandle => {
                 function.instruction(&Instruction::I64Load(mem_arg))
             }
         };
@@ -4289,7 +4292,10 @@ impl<'a> FunctionEmitter<'a> {
             kali_common::Repr::I64
             | kali_common::Repr::Object(_)
             | kali_common::Repr::String
-            | kali_common::Repr::GrowableArrayI64 => {
+            | kali_common::Repr::GrowableArrayI64
+            // AbortHandle: i64 handle slot; never reaches this position
+            // (inference gates it) — grouped with the other i64 handles.
+            | kali_common::Repr::AbortHandle => {
                 function.instruction(&Instruction::I64Load(mem_arg))
             }
         };
