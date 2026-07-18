@@ -540,17 +540,80 @@ closed or stays pre-existing-red rather than miscompiling):
   — the GrowableArrayI64/scalar intern AND-merge must be revisited when
   reassignment lands); general member-on-call placeholder hole
   (`mk().a` → 0) still open, `structuredClone(...)` callee scoped-denied.
-- **Stage P3 — `AbortController`/`AbortSignal`**, bundled with:
-  - receiver widening (proving more `EventTarget`-shaped receivers in-lane,
-    e.g. `signal` params from an `AbortController`),
-  - backstop → total-deny for the out-of-envelope dispatch-arg residual
-    above,
-  - captured-receiver support (the currently-denied captured-handle case,
-    §8.2, promoted from deny to a real cross-function dispatch once the
-    env-pointer/closure machinery can prove it safe),
-  - an `Event`-object repr (lifting the current zero-parameter-listener
-    restriction — `preventDefault`/`cancelable`/`target`/`type` on the
-    callback's argument all depend on this).
+- **Stage P3 — `AbortController`/`AbortSignal`**: **SHIPPED 2026-07-18**
+  (`15c2b34f9..7cdbe2437`, 14 code/test commits on `soundness-batch1-pra`).
+  Real lowering, not a placeholder: an 8-byte never-reclaimed
+  `__alloc_global` abort cell; controller and signal share the same i64
+  handle by compile-time provenance (`Repr::AbortHandle`, seeded in
+  `kali_types` for both the const-declarator `new AbortController()` and a
+  controller-origin `.signal` alias, via one shadow-guard traversal covering
+  decls/exprs/params/catch/switch/fn-expr bodies); codegen tracks
+  `abort_handle_locals` with owner-keyed capture proof and a position
+  allowlist at the bare-identifier choke point
+  (`admit_abort_handle_read`, set only by `emit_abort_receiver_handle`).
+  Surface: `.abort()` dispatch; `.signal` identity + `.aborted` cell read
+  (Boolean 1/0); `const s = c.signal` alias lane; compile-time
+  `instanceof AbortSignal` folding (both-sides-proven, five-namespace
+  shadow guard); capture allowlist entry 3 for function-scoped deferred
+  callbacks; module-boundary fail-closed via
+  `is_module_scope_abort_handle` at the method-call, identifier-read, and
+  member-read choke points (covers top-level bindings AND `_start`
+  loop/block-body locals); `AbortSignal` statics denied (dot and
+  computed); a 16-sink enumeration wave; 55 pins in `soundness_abort.rs`.
+  Acceptance: `acceptance_web_baseline_prefix_matches_node_byte_for_byte`
+  — the web-baseline fixture prefix runs byte-for-byte against node,
+  function-scope wrap (module-scope capture stays fail-closed by design
+  this stage). Fixture provenance (Task 7 note): the acceptance prefix is
+  the web-baseline fixture MINUS the `Event`-type block (pre-existing gap)
+  MINUS the `URLSearchParams`-onward tail (Stage P4/P5).
+  Gate: 712-honest-red stage-base baseline, 0 newly-red at every task and
+  at close-out, double-enumerated with zero drift — the ledger's prior
+  "694" was an interleaving undercount; 712 is the ratified honest number.
+  **Whole-stage review (2-round fix wave):** the 5th consecutive stage
+  where whole-stage review caught a CRITICAL no per-task review saw: a
+  `_start` loop/block-body captured abort handle was silently
+  miscompiled — the capture was admitted via ALLOWLIST 1 (by-value
+  scalar), but the env cell was never written, so a deferred `c.abort()`
+  no-oped and reads returned the placeholder `0`. Fixed across two commits
+  (`8c675bce2` closing the write/method choke, `7cdbe2437` closing the
+  read-side choke); round-1's ALLOWLIST-3 guard was proven inert and
+  removed with an honest NOTE. Verified closed by fresh-probe adversarial
+  verification: 4 reproducers now E5506, 8 capability shapes unregressed,
+  a 7-sink admittance sweep all denied.
+  Residual inventory:
+  1. Deferred P3b bundle from the plan: receiver widening, both
+     total-deny conversions, p39, an `Event`-object repr, and
+     signal-as-`EventTarget` (including re-greening the 3 deliberately
+     flipped `browser_corpus` web-baseline build pins — flip commit
+     `5a7fb5faa`, fixtures left untouched as tripwires); also
+     `instanceof AbortController`, `s.reason`/`throwIfAborted`/statics, and
+     abort-handle `===` identity.
+  2. Plain alias `const b = c` stays fail-closed (deliberate).
+  3. Dynamic-boolean 1/0 render divergence for a printed `.aborted` is a
+     ratified convention and excluded from acceptance.
+  4. `AbortSignal[<operator-token>](x)` computed static call fails open to
+     `ran:0` — a degenerate case (node throws `TypeError`); the
+     `!is_binary_operator_text` guard can't be naively removed because real
+     `AbortSignal + 5` binary nodes hit the same predicate.
+  5. Inference shadow-scan blind spots: destructured/defaulted param
+     patterns and import/export declaration names have no Phase-B
+     `visit_stmt` arm. Benign today via the escape chokes; a latent
+     divergence tripwire.
+  6. TRIPWIRE: `_start`-owned abort-handle captures remain ADMITTED by
+     capture ALLOWLIST 1 (by-value scalar) — soundness rests entirely on
+     the three consumer choke points. Any future consumer path that reads
+     an env cell without going through the identifier lane (the
+     `try_emit_captured_*` family, today blocked only by the
+     const-mutability gate) must re-check `is_module_scope_abort_handle`.
+  7. Pre-existing, surfaced but out of scope: the `new Event('tick')` /
+     `event.type` silent-0 gap (the fixture's new fail-closed point;
+     `runtime_smoke` flip pins re-pointed in `b71ae25a2` to the
+     bare-callback-trap token, weakening the progression pin — revisit
+     when `Event` lands); the generic warning-only undefined-call
+     fallback's silent-sink breadth beyond `AbortSignal`; and
+     module-scope non-const-foldable heap bindings (read was already
+     fail-closed; this stage closed the write side for abort handles
+     only).
 - **Stage P4 — `URL` + `URLSearchParams`**.
 - **Stage P5 — `TextEncoder`/`TextDecoder`**.
 - **Final byte-for-byte `webBaselineSmoke` acceptance**: once P2-P5 land,
