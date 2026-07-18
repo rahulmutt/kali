@@ -657,19 +657,34 @@ fn json_test_supports_web_baseline_structured_clone_and_event_primitives_in_ts_a
         assert_eq!(json["success"], false);
         let code = json["errors"][0]["code"].as_str().unwrap_or_default();
         let harness_stderr = json["stderr"].as_str().unwrap_or_default();
-        // Stage D event lane (evD): the EventTarget/addEventListener/
-        // dispatchEvent primitives in this fixture now compile and RUN in-lane,
-        // so the fail-closed rejection shifted from a compile-time event E5506
-        // to the first genuinely-unsupported primitive — `structuredClone`'s
-        // deep-clone throw, surfacing as an E4000 runtime trap in the harness
-        // stderr (with an empty top-level `errors`). Still fail-closed
-        // (`success == false`); accept the E4000 trap text as a recognized mode.
+        // P2 structuredClone lane (stageP2): the deep-clone of this flat
+        // i64 / growable-i64-array object now SUCCEEDS in-lane — the
+        // `cloned === original` / `cloned.values === original.values`
+        // identity self-checks pass (distinct object AND distinct array), and
+        // after `original.values.push(4)` the `cloned.values.join(',')`
+        // remains `'1,2,3'`, proving a genuine deep clone rather than a
+        // miscompiled alias. So the fail-closed rejection shifted PAST
+        // `structuredClone` to the first genuinely-unsupported primitive —
+        // P3's `AbortController`: `controller.signal instanceof AbortSignal`
+        // traps as the unsupported `instanceof` operator (kali has no
+        // prototype-chain machinery). Non-browser surface: an E4000 runtime
+        // trap in the `Kali.test` callback (empty top-level `errors`); browser
+        // harness: `RuntimeError: unreachable`. Verified empirically on a
+        // fresh binary 2026-07-17. Still fail-closed (`success == false`).
         assert!(
             code == "E4000"
                 || code == "E5506"
                 || harness_stderr.contains("RuntimeError: unreachable")
                 || harness_stderr.contains("E4000"),
             "expected fail-closed trap or reject, got: {json}"
+        );
+        // Pin the SHIFT: the trap must now be the `instanceof` operator (the
+        // AbortController check), not a structuredClone deep-clone throw — if
+        // this regresses to trapping at structuredClone, the P2 lane broke.
+        assert!(
+            harness_stderr.contains("instanceof"),
+            "expected the fail-closed trap to have shifted PAST structuredClone \
+             to AbortController's `instanceof AbortSignal`, got: {json}"
         );
     }
 }
@@ -712,19 +727,34 @@ fn json_test_supports_web_baseline_structured_clone_and_event_primitives_when_br
         assert_eq!(json["success"], false);
         let code = json["errors"][0]["code"].as_str().unwrap_or_default();
         let harness_stderr = json["stderr"].as_str().unwrap_or_default();
-        // Stage D event lane (evD): the EventTarget/addEventListener/
-        // dispatchEvent primitives in this fixture now compile and RUN in-lane,
-        // so the fail-closed rejection shifted from a compile-time event E5506
-        // to the first genuinely-unsupported primitive — `structuredClone`'s
-        // deep-clone throw, surfacing as an E4000 runtime trap in the harness
-        // stderr (with an empty top-level `errors`). Still fail-closed
-        // (`success == false`); accept the E4000 trap text as a recognized mode.
+        // P2 structuredClone lane (stageP2): the deep-clone of this flat
+        // i64 / growable-i64-array object now SUCCEEDS in-lane — the
+        // `cloned === original` / `cloned.values === original.values`
+        // identity self-checks pass (distinct object AND distinct array), and
+        // after `original.values.push(4)` the `cloned.values.join(',')`
+        // remains `'1,2,3'`, proving a genuine deep clone rather than a
+        // miscompiled alias. So the fail-closed rejection shifted PAST
+        // `structuredClone` to the first genuinely-unsupported primitive —
+        // P3's `AbortController`: `controller.signal instanceof AbortSignal`
+        // traps as the unsupported `instanceof` operator (kali has no
+        // prototype-chain machinery). Non-browser surface: an E4000 runtime
+        // trap in the `Kali.test` callback (empty top-level `errors`); browser
+        // harness: `RuntimeError: unreachable`. Verified empirically on a
+        // fresh binary 2026-07-17. Still fail-closed (`success == false`).
         assert!(
             code == "E4000"
                 || code == "E5506"
                 || harness_stderr.contains("RuntimeError: unreachable")
                 || harness_stderr.contains("E4000"),
             "expected fail-closed trap or reject, got: {json}"
+        );
+        // Pin the SHIFT: the trap must now be the `instanceof` operator (the
+        // AbortController check), not a structuredClone deep-clone throw — if
+        // this regresses to trapping at structuredClone, the P2 lane broke.
+        assert!(
+            harness_stderr.contains("instanceof"),
+            "expected the fail-closed trap to have shifted PAST structuredClone \
+             to AbortController's `instanceof AbortSignal`, got: {json}"
         );
     }
 }
@@ -777,19 +807,34 @@ fn json_test_supports_web_baseline_structured_clone_and_event_primitives_when_br
         assert_eq!(json["success"], false);
         let code = json["errors"][0]["code"].as_str().unwrap_or_default();
         let harness_stderr = json["stderr"].as_str().unwrap_or_default();
-        // Stage D event lane (evD): the EventTarget/addEventListener/
-        // dispatchEvent primitives in this fixture now compile and RUN in-lane,
-        // so the fail-closed rejection shifted from a compile-time event E5506
-        // to the first genuinely-unsupported primitive — `structuredClone`'s
-        // deep-clone throw, surfacing as an E4000 runtime trap in the harness
-        // stderr (with an empty top-level `errors`). Still fail-closed
-        // (`success == false`); accept the E4000 trap text as a recognized mode.
+        // P2 structuredClone lane (stageP2): the deep-clone of this flat
+        // i64 / growable-i64-array object now SUCCEEDS in-lane — the
+        // `cloned === original` / `cloned.values === original.values`
+        // identity self-checks pass (distinct object AND distinct array), and
+        // after `original.values.push(4)` the `cloned.values.join(',')`
+        // remains `'1,2,3'`, proving a genuine deep clone rather than a
+        // miscompiled alias. So the fail-closed rejection shifted PAST
+        // `structuredClone` to the first genuinely-unsupported primitive —
+        // P3's `AbortController`: `controller.signal instanceof AbortSignal`
+        // traps as the unsupported `instanceof` operator (kali has no
+        // prototype-chain machinery). Non-browser surface: an E4000 runtime
+        // trap in the `Kali.test` callback (empty top-level `errors`); browser
+        // harness: `RuntimeError: unreachable`. Verified empirically on a
+        // fresh binary 2026-07-17. Still fail-closed (`success == false`).
         assert!(
             code == "E4000"
                 || code == "E5506"
                 || harness_stderr.contains("RuntimeError: unreachable")
                 || harness_stderr.contains("E4000"),
             "expected fail-closed trap or reject, got: {json}"
+        );
+        // Pin the SHIFT: the trap must now be the `instanceof` operator (the
+        // AbortController check), not a structuredClone deep-clone throw — if
+        // this regresses to trapping at structuredClone, the P2 lane broke.
+        assert!(
+            harness_stderr.contains("instanceof"),
+            "expected the fail-closed trap to have shifted PAST structuredClone \
+             to AbortController's `instanceof AbortSignal`, got: {json}"
         );
     }
 }
