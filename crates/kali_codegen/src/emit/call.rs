@@ -436,15 +436,20 @@ impl<'a> FunctionEmitter<'a> {
 
         // Stage P3 Task 6 static-surface pin: `AbortSignal.timeout(...)` /
         // `AbortSignal.abort(...)` (or any other static method on the
-        // unshadowed `AbortSignal` builtin) have no real lowering — kali's
-        // abort lane only backs a cell allocated by the
+        // unshadowed `AbortSignal` builtin, dot OR computed —
+        // `AbortSignal["timeout"](...)`, `AbortSignal[k](...)`) have no real
+        // lowering — kali's abort lane only backs a cell allocated by the
         // `const c = new AbortController()` declarator intercept. Left
         // unrecognized, this call reached the generic "undefined call
         // target" fallback below, which is WARNING-only and pushes a zero
         // placeholder — `const s = AbortSignal.timeout(5); console.log(1);`
-        // silently exited 0 printing "1" instead of failing closed. Deny
-        // the whole static surface at this single choke point rather than
-        // denylisting `timeout`/`abort` by name.
+        // silently exited 0 printing "1" instead of failing closed (and the
+        // computed-key shape bypassed a first-round fix that only matched
+        // the dot shape — see `is_abort_signal_static_call`'s doc comment).
+        // `is_abort_signal_static_call` keys on the receiver's identity
+        // alone, so this now genuinely denies the WHOLE static surface —
+        // every member/computed spelling — at this single choke point,
+        // rather than denylisting `timeout`/`abort` by name.
         if self.is_abort_signal_static_call(&callee_node) {
             return self.deny_e5506(
                 function,

@@ -374,6 +374,50 @@ fn abort_signal_static_abort_fails() {
 }
 
 #[test]
+fn abort_signal_static_computed_literal_fails() {
+    // Reviewer follow-up (Task 6 review): the dot-shape fix
+    // (`is_abort_signal_static_call`) only matched a 1-child callee with a
+    // known property `text`, so the COMPUTED shape `AbortSignal["timeout"](5)`
+    // bypassed it entirely and hit the same silent generic-fallback leak the
+    // dot-shape fix closed (verified pre-fix: exit 0, prints "ran:0"). The
+    // recognizer now also matches the 2-child computed-member callee shape
+    // (`[receiver, key]`, non-operator text) keyed on the receiver alone —
+    // the property text/key value is irrelevant to the deny.
+    let src = "const s = AbortSignal[\"timeout\"](5);\nconsole.log(\"ran:\" + s);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn abort_signal_static_computed_var_fails() {
+    // Same leak/fix as `abort_signal_static_computed_literal_fails`, with the
+    // computed key sourced from a variable instead of a literal — the
+    // recognizer keys on the receiver's identity, not the key's shape, so
+    // this must deny identically.
+    let src = "const k = \"timeout\";\nconst s = AbortSignal[k](5);\nconsole.log(\"ran:\" + s);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn abort_signal_static_call_with_shadowed_receiver_not_denied() {
+    // Shadow regression pin (reviewer follow-up; mirrors the sibling
+    // `instanceof_with_shadowed_abort_signal_stays_trapped` pin for the
+    // `instanceof` lane, which this static-call lane lacked). A user binding
+    // named `AbortSignal` must take the normal user-value lane, NOT the
+    // builtin deny — `is_abort_signal_static_call` refutes on the same
+    // five-namespace shadow guard `instanceof_right_is_unshadowed` uses.
+    // Observed pre-existing (and unchanged post-widening) behavior: this
+    // reaches the generic "undefined call target" WARNING-only placeholder
+    // fallback (`AbortSignal.timeout` is not a real member of the number
+    // `5`), so the build still exits 0 printing "ran:0" — NOT E5506. Pinned
+    // as-is (out of scope to also close the generic fallback here) so this
+    // specific shadow invariant cannot silently regress.
+    let src = "const AbortSignal = 5;\nconst s = AbortSignal.timeout(5);\nconsole.log(\"ran:\" + s);\n";
+    assert_eq!(run_kali_run(src).trim(), "ran:0");
+}
+
+#[test]
 fn abort_handle_inline_new_in_arg_position() {
     // Leak-shape triage (brief Step 2, second shape): a `new
     // AbortController()` that never becomes a `const` declarator init never

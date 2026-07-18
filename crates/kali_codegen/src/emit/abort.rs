@@ -139,19 +139,43 @@ impl<'a> FunctionEmitter<'a> {
         }));
     }
 
-    /// Task 6 static-surface recognizer: `AbortSignal.<method>(...)` for ANY
-    /// method name, with the `AbortSignal` receiver an unshadowed builtin
-    /// (mirrors `instanceof_right_is_unshadowed`'s five-namespace guard — a
-    /// user binding of `AbortSignal` takes the normal user-call lane, not
-    /// this deny). Kali has no lowering for the real JS static surface
-    /// (`AbortSignal.timeout`, `.abort`, `.any`); denying the whole receiver
-    /// rather than an individual method name is the allowlist-at-choke-point
-    /// discipline — a denylist of just `timeout`/`abort` would leak `.any`
-    /// (or any future addition) through the generic warning-only fallback.
+    /// Task 6 static-surface recognizer: any call whose callee is a member
+    /// access — dot (`AbortSignal.timeout(...)`) OR computed
+    /// (`AbortSignal["timeout"](...)`, `AbortSignal[k](...)`) — on the
+    /// `AbortSignal` receiver, unshadowed (mirrors
+    /// `instanceof_right_is_unshadowed`'s five-namespace guard — a user
+    /// binding of `AbortSignal` takes the normal user-call lane, not this
+    /// deny). Kali has no lowering for the real JS static surface
+    /// (`AbortSignal.timeout`, `.abort`, `.any`); this keys ONLY on the
+    /// receiver's identity, never the property/key shape, so it denies the
+    /// whole receiver regardless of how the member is spelled — a per-shape
+    /// or per-method denylist would leak the sibling shape (review Important
+    /// finding: the original dot-only, 1-child-callee check let the
+    /// structurally distinct 2-child computed-member callee bypass it
+    /// entirely, silently succeeding through the generic warning-only
+    /// "undefined call target" fallback).
+    ///
+    /// Two callee shapes reach here (both empirically verified — see the
+    /// `computed_forin_object_access` doc comment for the same split):
+    ///   * dot access lowers to a 1-child `Value` node whose `text` is the
+    ///     property name, `children[0]` the receiver;
+    ///   * computed access (`obj[expr]`) lowers to a 2-child `Value` node
+    ///     `[receiver, key]` whose `text` is never a binary-operator token
+    ///     (that's how `computed_forin_object_access` and the generic
+    ///     2-child dispatch in `control_flow.rs` distinguish it from a
+    ///     binary expression, which also lowers to a 2-child `Value`).
+    /// Both shapes key the receiver at `children[0]`.
     pub(crate) fn is_abort_signal_static_call(&self, callee_node: &LirNode) -> bool {
-        if callee_node.text.is_none() || callee_node.children.len() != 1 {
-            return false;
-        }
-        self.instanceof_right_is_unshadowed(callee_node.children[0], "AbortSignal")
+        let receiver = match callee_node.children.len() {
+            1 if callee_node.text.is_some() => callee_node.children[0],
+            2 if !crate::lower::is_binary_operator_text(
+                callee_node.text.as_deref().unwrap_or_default(),
+            ) =>
+            {
+                callee_node.children[0]
+            }
+            _ => return false,
+        };
+        self.instanceof_right_is_unshadowed(receiver, "AbortSignal")
     }
 }
