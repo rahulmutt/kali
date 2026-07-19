@@ -1249,7 +1249,7 @@ impl<'a> FunctionEmitter<'a> {
     /// machinery has no BigInt axis yet, so BigInt-typed mutable locals keep
     /// the (wrong) float path, and mixed `3n / 2` (a JS TypeError) still
     /// floats too — both recorded follow-ups.
-    fn is_bigint_literal_valued(&self, id: LirNodeId) -> bool {
+    pub(crate) fn is_bigint_literal_valued(&self, id: LirNodeId) -> bool {
         let id = self.unwrap_transparent(id);
         let id = self.resolve_bound_node(id);
         let node = self.node(id);
@@ -1543,6 +1543,16 @@ impl<'a> FunctionEmitter<'a> {
         if is_string {
             return;
         }
+        // Emitted-SHAPE string arm, for the sites where the structural oracle
+        // above cannot see through to the value that was actually emitted. The
+        // statically-selected branch of `??` is the live case: `("" ?? "x")`
+        // emits the left operand's string handle, but `is_string_valued` has
+        // no `??` arm and answered `false`, so the handle was `int_to_string`d
+        // and rendered as a raw tagged integer. Keyed on the shape exactly as
+        // the boolean arm below is, for the same reason.
+        if emitted.produced && emitted.shape == ValueShape::String {
+            return;
+        }
         // Boolean before the float/int ladder: without this arm a boolean falls
         // into the `else` (`int_to_string`) and `"concat=" + false` yields
         // `concat=0`. Keyed on the emitted SHAPE, which is the same signal the
@@ -1671,6 +1681,30 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::Boolean,
                 };
             }
+        }
+
+        // Equality type gate (soundness batch 1, Fix 4). `0`, `false`, `null`
+        // and `undefined` all occupy the i64 bit pattern `0` (and `true` is
+        // `1`), so the generic `i64.eq` below answered `true` for
+        // `0 === null`, `0 === false`, `null === undefined` and `1 === true`.
+        // `equality_decision` classifies both operands by TYPE and either
+        // folds the comparison, confirms the bit-pattern test is exact here,
+        // or fails closed. It is a no-op (`Runtime`) unless one operand is a
+        // proven `null`/`undefined`/boolean, so number/string/object
+        // comparisons keep their pre-existing lowering byte-for-byte.
+        //
+        // Placed BEFORE the object misuse gate so an object-reference operand
+        // compared against `null` (`t.left === null`, the binary-trees shape)
+        // reaches the pointer-identity `Runtime` verdict instead of being
+        // rejected as operator-misuse.
+        match self.equality_decision(op, left, right) {
+            crate::emit::equality::EqDecision::Const(value) => {
+                return self.emit_folded_equality(function, left, right, value);
+            }
+            crate::emit::equality::EqDecision::FailClosed => {
+                return self.reject_unprovable_equality(function, op);
+            }
+            crate::emit::equality::EqDecision::Runtime => {}
         }
 
         // Object misuse gate: a genuine arithmetic/comparison operator applied
@@ -2136,6 +2170,43 @@ impl<'a> FunctionEmitter<'a> {
             "??" => {
                 let left = node.children[0];
                 let right = node.children[1];
+                // Nullish test by TYPE, not by bit pattern (soundness batch 1,
+                // Fix 4). The `i64.eqz` below asks "is this slot zero", which
+                // is true for `0` and `false` as well as `null`/`undefined` —
+                // `0 ?? 9` returned `9` (node: `0`) and `false ?? true`
+                // returned `true`. When the left operand's type class is
+                // provable, the branch is decided at compile time and the
+                // surviving operand is emitted with its own (correct) shape,
+                // which also fixes `"" ?? "x"` rendering a raw string handle.
+                match self.static_equality_class(left) {
+                    // Provably nullish: the result is the right operand. The
+                    // left is still emitted for its side effects.
+                    Some(class) if class.is_nullish_class() => {
+                        self.emit_operand_for_effects(function, left);
+                        let right_result = self.emit_node(function, right, true);
+                        if !right_result.produced {
+                            function.instruction(&Instruction::I64Const(0));
+                        }
+                        return self.selected_nullish_operand(right, right_result);
+                    }
+                    // Provably NOT nullish: the result is the left operand and
+                    // the right is never evaluated (JS short-circuit).
+                    Some(class) if class.is_never_nullish() => {
+                        let left_result = self.emit_node(function, left, true);
+                        if !left_result.produced {
+                            function.instruction(&Instruction::I64Const(0));
+                        }
+                        return self.selected_nullish_operand(left, left_result);
+                    }
+                    // `Repr::Object` slots and unprovable slots keep the
+                    // runtime zero test below. For an object slot that test is
+                    // exact (a live pointer is nonzero, `null` is `0`). For an
+                    // unprovable slot it is the pre-existing behavior and a
+                    // recorded residual: a runtime `0` or `false` in an
+                    // untyped i64 binding still reads as nullish. Closing that
+                    // needs the null/boolean repr axis.
+                    _ => {}
+                }
                 let left_result = self.emit_node(function, left, true);
                 if !left_result.produced {
                     function.instruction(&Instruction::I64Const(0));

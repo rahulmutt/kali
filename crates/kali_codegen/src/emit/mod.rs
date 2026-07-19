@@ -5,6 +5,7 @@ mod call;
 pub(crate) mod clone;
 mod closure_access;
 mod control_flow;
+pub(crate) mod equality;
 mod growable;
 mod literal;
 mod object;
