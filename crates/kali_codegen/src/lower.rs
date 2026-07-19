@@ -4621,6 +4621,70 @@ pub(crate) fn declarator_init_contains_mutation(nodes: &[LirNode], init_id: LirN
     walk(nodes, init_id, &mut HashSet::new())
 }
 
+/// Global namespaces whose members are compile-time-constant intrinsics. A
+/// member read off one of these is a snapshot of nothing mutable, which is what
+/// makes it safe to leave on the `const` fold lane (see
+/// `const_init_is_stable`'s member-read arm).
+///
+/// This is an ALLOWLIST of RECEIVERS on purpose. The property name is not a
+/// sound discriminator: host state reached through a member can be mutated by a
+/// method call (`c.abort()` mutates `s.aborted`) with no assignment to that
+/// property anywhere in the program. Only restricting the receiver excludes
+/// that class by construction.
+///
+/// Add a namespace here only if reading any of its members can never observe
+/// state that a method call elsewhere in the program can change.
+pub(crate) const INTRINSIC_NAMESPACES: &[&str] = &[
+    "globalThis",
+    "Object",
+    "Math",
+    "Number",
+    "String",
+    "Array",
+    "Boolean",
+    "BigInt",
+    "JSON",
+    "Reflect",
+    "Symbol",
+    "Date",
+];
+
+/// True when `id` is an intrinsic namespace identifier, or a member chain that
+/// bottoms out at one (`globalThis.Math`, `globalThis["Math"]`). The root must
+/// also be absent from `reassigned`, so a program that shadows or reassigns
+/// `Math` does not get its reads folded against the intrinsic.
+fn member_chain_roots_at_intrinsic_namespace(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    reassigned: &HashSet<String>,
+    depth: usize,
+) -> bool {
+    if depth > 32 {
+        return false;
+    }
+    let id = unwrap_transparent_value(nodes, id);
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return false;
+    };
+    let Some(text) = node.text.as_deref().filter(|text| !text.is_empty()) else {
+        return false;
+    };
+    if node.children.is_empty() {
+        return INTRINSIC_NAMESPACES.contains(&text) && !reassigned.contains(text);
+    }
+    // An inner member read (`globalThis.Math` inside `globalThis.Math.round`):
+    // recurse on ITS base. The property name is checked by the caller's arm.
+    if node.children.len() == 1 {
+        return member_chain_roots_at_intrinsic_namespace(
+            nodes,
+            node.children[0],
+            reassigned,
+            depth + 1,
+        );
+    }
+    false
+}
+
 /// Sentinel recorded in the reassigned-name set when a COMPUTED member target
 /// (`a[i] = …`) is assigned: it names no single property, so every member read
 /// in a `const` initializer must be denied the fold lane. Not a legal
@@ -4782,21 +4846,40 @@ pub(crate) fn const_init_is_stable(
                 Some("-" | "+" | "!" | "~" | "void" | "typeof") if node.children.len() == 1 => {
                     all_children_stable(nodes)
                 }
-                // A MEMBER READ (`Object.is`, `globalThis.Math.round`): a pure
-                // read, stable when its base chain is stable AND the property
-                // is never an assignment target anywhere in the function (a
-                // member target records its property name in `reassigned`, and
-                // a computed target records the deny-all sentinel). This arm is
-                // what keeps intrinsic ALIASES — `const same = Object.is` — on
-                // the fold lane, where the alias-resolution analyses that read
-                // `FunctionEmitter::bindings` can still see what the name
-                // denotes. Promoting them instead binds the runtime value
-                // correctly but un-resolves the alias, so the intrinsic is
-                // never recognized.
+                // A MEMBER READ off an INTRINSIC NAMESPACE (`Object.is`,
+                // `globalThis.Math.round`). This arm exists for exactly one
+                // reason — keeping intrinsic ALIASES on the fold lane, where
+                // the analyses that read `FunctionEmitter::bindings` can still
+                // see what the name denotes (promoting one binds the runtime
+                // value correctly but un-resolves the alias, so the intrinsic
+                // is never recognized) — and it is scoped to precisely that.
+                //
+                // It is deliberately NOT a test on the property name. An
+                // earlier form admitted any member read whose property was
+                // never an ASSIGNMENT target, which is unsound for host state
+                // mutated by a METHOD CALL: `c.abort()` mutates `s.aborted`
+                // with no assignment to `aborted` anywhere in the program, so
+                // `const before = s.aborted` folded and re-read the mutated
+                // cell — one `const`, two values. Only a receiver allowlist
+                // closes that: an intrinsic namespace is a compile-time
+                // constant whose members are functions, so a read off one is a
+                // snapshot of nothing mutable. A read off a program-bound
+                // receiver may snapshot mutable state and is denied, which
+                // promotes it to a slot and binds it once.
+                //
+                // The property-name and computed-assign checks are kept as
+                // defense in depth (`Math.round = f` records `round`), but the
+                // receiver allowlist is what makes the arm sound.
                 Some(property)
                     if node.children.len() == 1
                         && !reassigned.contains(property)
-                        && !reassigned.contains(COMPUTED_MEMBER_ASSIGN_SENTINEL) =>
+                        && !reassigned.contains(COMPUTED_MEMBER_ASSIGN_SENTINEL)
+                        && member_chain_roots_at_intrinsic_namespace(
+                            nodes,
+                            node.children[0],
+                            reassigned,
+                            0,
+                        ) =>
                 {
                     all_children_stable(nodes)
                 }

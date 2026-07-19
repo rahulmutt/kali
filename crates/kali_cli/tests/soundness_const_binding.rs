@@ -277,6 +277,67 @@ console.log(f());
     );
 }
 
+// A member read is a SNAPSHOT of whatever the property holds at the
+// declaration. Host state reached through a member can be mutated by a METHOD
+// CALL with no assignment to that property appearing anywhere in the program —
+// `c.abort()` mutates `s.aborted`. An earlier form of the stability allowlist
+// admitted any member read whose property was never an *assignment* target,
+// which folded this read and re-evaluated it after the mutation: ONE `const`,
+// TWO values, exit 0 and no diagnostic.
+//
+// node: `0 0`. Pre-narrowing kali: `0 1`. (Predates the allowlist — the
+// unconditional fold lane had the same hole — so this is a hole the allowlist
+// must CLOSE, not one it opened.) Writing `let before = s.aborted` was already
+// correct, which isolates it to the fold lane.
+#[test]
+fn const_member_read_of_mutable_host_state_is_not_folded() {
+    assert_stdout(
+        r#"const c = new AbortController();
+const s = c.signal;
+const before = s.aborted;
+console.log(before ? 1 : 0);
+c.abort();
+console.log(before ? 1 : 0);
+"#,
+        "0\n0\n",
+    );
+}
+
+// The `Object.freeze(x)` identity arm is stable iff `x` is, so it must INHERIT
+// the member-read narrowing rather than route around it. Pre-narrowing this
+// printed `0 1` exactly like the bare member read above, confirming the arm
+// propagates whatever the inner expression's stability rule allows.
+#[test]
+fn const_object_freeze_of_mutable_host_state_is_not_folded() {
+    assert_stdout(
+        r#"const c = new AbortController();
+const s = c.signal;
+const before = Object.freeze(s.aborted);
+console.log(before ? 1 : 0);
+c.abort();
+console.log(before ? 1 : 0);
+"#,
+        "0\n0\n",
+    );
+}
+
+// The guard for the member-read arm's whole justification: an alias off an
+// INTRINSIC namespace must still resolve to its intrinsic. Narrowing the arm
+// must not cost this — if `same` stops folding, the alias analyses can no
+// longer see that it denotes `Object.is` and the call fails to lower.
+#[test]
+fn intrinsic_namespace_alias_still_resolves() {
+    assert_stdout(
+        r#"const same = Object.is;
+const r1 = same(1, 1);
+const r2 = Object.is(2, 2);
+console.log(r1 ? 1 : 0);
+console.log(r2 ? 1 : 0);
+"#,
+        "1\n1\n",
+    );
+}
+
 // A function-valued `const` must keep working: a function-like initializer
 // stays on the fold lane by design (promoting it produces no value and calls
 // resolve through a phantom zero local — see
