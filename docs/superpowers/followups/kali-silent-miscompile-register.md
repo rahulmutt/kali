@@ -687,20 +687,18 @@ tier, ordering is by blast radius.
        note's own logic predicts once the operand stops being provable.**
 
   6. **`??`-SPECIFIC (new residual, round 4 — split out of what round 3 wrongly retired as "the
-     same as residual 5 / R-30"): the string-concat (`+`) and multi-argument `console.log` lanes
-     ALSO lose a `??` result's boolean-ness, whenever the LEFT OPERAND is a CALL that
-     `static_equality_class` cannot prove — this is `??`'s ordinary usage over any non-trivial
-     boolean-returning function, not an edge case, and it is blocked on neither R-30's fix nor
-     the `Repr::Boolean`/null axis that blocks residuals 1-4.** Verified on a freshly built
-     binary (2026-07-19):
+     same as residual 5 / R-30"; scope corrected round 5, see the note below the repro): the
+     string-concat (`+`) and multi-argument `console.log` lanes ALSO lose a `??` result's
+     boolean-ness, whenever the LEFT OPERAND is a CALL whose OWN emission already tags its result
+     `shape: ValueShape::Boolean` (a hand-cased intrinsic such as `Number.isInteger`/`Object.is`)
+     but which `static_equality_class` cannot prove — this fires ON TOP OF a value the call site
+     already got right, and it is blocked on neither R-30's fix nor the `Repr::Boolean`/null axis
+     that blocks residuals 1-4.** Verified on a freshly built binary (2026-07-19):
      ```js
      console.log("s:" + (Number.isInteger(5)));       // kali s:true   node s:true   BASELINE OK
      console.log("w:" + (Number.isInteger(5) ?? 9));  // kali w:1      node w:true   DIVERGES
      console.log("x:", Object.is(1,1));               // kali x: true  node x: true  BASELINE OK
      console.log("x:", Object.is(1,1) ?? 9);          // kali x: 1     node x: true  DIVERGES
-     function isEven(n) { return n % 2 === 0; }
-     console.log("a:" + (isEven(4)));                  // kali a:true   node a:true   BASELINE OK
-     console.log("a:" + (isEven(4) ?? 9));             // kali a:1      node a:true   DIVERGES
      ```
      The baselines (no `??`) are correct on exactly the same lanes that diverge once `??` is
      introduced — `??` is what breaks them, and the value it hands to the sink is never a
@@ -708,6 +706,19 @@ tier, ordering is by blast radius.
      (R-30's own text is explicit that it is the single-argument DIRECT `console.log` position;
      unifying the console formatters, R-30's fix, cannot repair a value that never reaches a
      console sink).
+     **Round 5 correction — an `isEven`-style ordinary user function was wrongly added here in
+     round 4 as a third pair, annotated `BASELINE OK`. Re-verified on a freshly built binary
+     (2026-07-19): the baseline is already wrong** —
+     `function isEven(n){return n%2===0;} console.log("a:"+(isEven(4)))` prints kali `a:1`,
+     node `a:true`, **with no `??` anywhere in the program**. `??` is therefore not what breaks
+     this row, and folding it in here both over-scoped this residual (its "baselines are correct
+     until `??` is introduced" conclusion is false for a plain function call) and mis-sent a
+     future maintainer (fixing `??`'s own runtime-fallback lowering, this residual's fix, leaves
+     `isEven(4) ?? 9` printing `a:1`, because the call's shape was never `Boolean` in the first
+     place — see the mechanism correction at step 2 below). The row and the class it actually
+     exposes — a boolean-returning **user function**, no `??` involved — are now tracked
+     separately as **R-34** (Tier 4, below), which also carries the corrected mechanism trace and
+     the reproducers verbatim.
      **Mechanism, traced (not inference) — this is the substantive finding of round 4:**
      1. `??`'s codegen (`crates/kali_codegen/src/emit/operators.rs:2170-2229`) only attaches a
         proven shape to its result via `selected_nullish_operand` on the two PROOF-DRIVEN
@@ -720,18 +731,29 @@ tier, ordering is by blast radius.
         few lines above it (`:2153-2159`), which DOES propagate `Boolean` when both operands
         agree. This is a real, if narrow, asymmetry within `??`'s own lowering: the runtime
         fallback throws away shape information it already has in hand.
-     2. `Number.isInteger(5)`, `Object.is(1,1)`, and `isEven(4)` all hit this fallback because
+     2. `Number.isInteger(5)` and `Object.is(1,1)` both hit this fallback because
         `static_equality_class(left)` returns `None` for them — **not** because they are
         "unprovable" in some deep sense, but because of the exact hand-mirrored-oracle gap traced
         under case (iii) above: `static_equality_class`'s only route to prove a CALL result
         Boolean is `render_static_value` (`intrinsics/host.rs:358-411`), and that function's
-        `Call` arm has no case for `Object.is`/`Number.is*`/an ordinary user function — verified
-        by reading its complete match arm end to end (only `Object.freeze`, `arr.at`/`str.at`/
-        `str.codePointAt`, and `require`/semver fold). Meanwhile the ACTUAL emission of these same
-        calls (`call.rs:1398-1494`, `:1496-1559`, and any ordinary function body) correctly
-        reports `shape: ValueShape::Boolean` on its own `EmittedValue` — the two are simply
-        different code paths that were never kept in sync, the same "hand-mirrored oracle" class
-        this register has flagged before (see G5).
+        `Call` arm has no case for `Object.is`/`Number.is*` — verified by reading its complete
+        match arm end to end (only `Object.freeze`, `arr.at`/`str.at`/`str.codePointAt`, and
+        `require`/semver fold). Meanwhile the ACTUAL emission of these same calls (`call.rs:1398-
+        1494`, `:1496-1559` — their own hand-cased intrinsic arms) correctly reports `shape:
+        ValueShape::Boolean` on its own `EmittedValue` — the two are simply different code paths
+        that were never kept in sync, the same "hand-mirrored oracle" class this register has
+        flagged before (see G5). **Round 5 correction: this does NOT extend to "any ordinary
+        function body"** as round 4 claimed — an ordinary user function (e.g. `isEven`) does not
+        go through either of these hand-cased intrinsic arms at all. It hits the GENERIC resolved-
+        call path (`crates/kali_codegen/src/emit/call.rs:3112-3123`), which computes its
+        `EmittedValue.shape` as `ValueShape::Float` when `repr_table.return_repr(callee) ==
+        Repr::F64` and `ValueShape::Unknown` otherwise — there is no `Boolean` arm here at all,
+        for any function, because `kali_common::Repr` has no `Boolean` variant to test for (see
+        step 3 below). So an ordinary function's call-site shape is `Unknown` **before `??` or
+        any other consumer ever sees it** — there is no already-correct `Boolean` shape for `??`'s
+        fallback (or anything else) to discard. This is why `isEven` does not belong in this
+        residual: this residual's mechanism (step 1) is "a value that started `Boolean` gets
+        thrown away"; `isEven`'s value never started `Boolean`. See R-34.
      3. Contrast with a CALL that IS provable: `function greet(){return "hi";} greet() ?? "x"`
         prints correctly in concat (`"g:"+(greet()??"x")` → `g:hi`), because `is_string_valued`
         (`crates/kali_codegen/src/emit/operators.rs:1012-1020`) proves `greet`'s return via
@@ -760,7 +782,9 @@ tier, ordering is by blast radius.
      runtime-fallback lowering (step 1 above) — it goes RED when THAT code path starts deriving
      its `EmittedValue.shape` from the operands it already emits, not when R-30 closes and not
      when a `Repr::Boolean` axis lands** (though the latter would also happen to fix it, by
-     routing `Number.isInteger`/`Object.is`/`isEven` through the proof-driven branches instead).
+     routing `Number.isInteger`/`Object.is` through the proof-driven branches instead). This
+     residual no longer includes `isEven`-style ordinary functions — see the round-5 correction
+     above and R-34.
 
 ### R-09: `continue` inside a C-style `for` loop skips the update expression
 
@@ -1331,7 +1355,18 @@ tier, ordering is by blast radius.
   `&&`/`||`, ternaries, plain bindings, and a literal-selecting `??`), but R-08 residual 6 is a
   SECOND, independent hole in the concat/multi-arg lanes themselves, for a `??` whose left
   operand is an unprovable boolean-returning call — that hole is not owned by this entry and
-  does not close with it.
+  does not close with it. **Round 5 correction: "function returns" is also in this entry's own
+  producer list (above), and for that producer the direct-log position is NOT the sole hole
+  either — no `??` is required.** `function isEven(n){return n%2===0;} console.log("a:"+
+  (isEven(4)))` prints kali `a:1`, node `a:true`, in the plain concat lane, no `??` anywhere.
+  This is a THIRD, independent hole — not R-08 residual 6 (there is no `??` in the repro) and
+  not this entry's own fix (the value never reaches a `console.log` argument). It is tracked as
+  its own entry, **R-34** below, because its root cause is a third code path neither this entry
+  nor residual 6 touches. So, precisely: the direct-log position is the sole concat/multi-arg
+  hole only for the producers whose call/operand site already computes `shape: Boolean`
+  (comparisons, `!`, `&&`/`||`, ternaries, plain bindings, a literal-selecting `??`, and — per
+  residual 6 — a hand-cased intrinsic call reached through `??`); an unprovable **user function
+  return**, `??`-wrapped or not, is a further, uncovered hole (R-34).
 - **Truthiness is correct throughout** — this is a rendering defect only, not a value defect.
   `if(o.f)`, `if(a[0])`, `if(b)` and ternaries on `const`-bound booleans all branch correctly.
 - **Fix-cost read**: because concat/template already render correctly, the missing piece is
@@ -1385,6 +1420,89 @@ tier, ordering is by blast radius.
   program that uses `console.warn` — and byte-for-byte acceptance is this project's primary
   correctness method.
 - **Confidence**: high.
+
+### R-34: A boolean-returning user function's result renders `1`/`0` in the string-concat and multi-argument `console.log` lanes — no `??` required
+
+- **Folds in**: none (new, round 5, 2026-07-19) — split out of R-08 residual 6, which round 4
+  wrongly folded an `isEven`-style ordinary-function example in as `??`-specific and
+  annotated with a baseline it never checked. That baseline is wrong: the divergence is present
+  with no `??` in the program at all.
+- **Verification**: probed directly on a freshly built binary, this round (05255c2bc). Not yet
+  swept.
+- **Root-cause group**: not G8 (see below) — currently unclustered.
+- **Repro**, verified verbatim on a freshly built binary (2026-07-19):
+  ```js
+  function isEven(n) { return n % 2 === 0; }
+  console.log("a:" + isEven(4));   // kali a:1,  node a:true
+  console.log("a:", isEven(4));    // kali a: 1, node a: true
+
+  function f(){return 1<2;}
+  console.log("v=" + f());         // kali v=1,  node v=true
+  ```
+  Truthiness and branch selection are unaffected — `if (isEven(4)) …` takes the correct branch,
+  and `isEven(4) === true` evaluates the correct comparison in-memory (though *printing* that
+  comparison's own result is separately R-30, since it is a direct-log boolean). This is a
+  Tier-4 rendering-only defect: the in-memory value is right, only its string rendering is wrong.
+- **Mechanism, traced (not inference)**: an ordinary function call that resolves to a known
+  callee goes through the GENERIC resolved-call path in
+  `crates/kali_codegen/src/emit/call.rs:3112-3123`:
+  ```rust
+  if let Some(index) = resolved {
+      let shape = if self.repr_table.return_repr(callee_name) == kali_common::Repr::F64 {
+          ValueShape::Float
+      } else {
+          ValueShape::Unknown
+      };
+      function.instruction(&Instruction::Call(index));
+      return EmittedValue { produced: true, shape };
+  }
+  ```
+  This is the ONLY shape this call site ever produces for a user function: `Float` if the
+  return repr is `F64`, otherwise unconditionally `Unknown` — there is no `Boolean` arm, for any
+  function, anywhere in this path. That is not an oversight local to this one site: it cannot be
+  written, because `kali_common::Repr` (`crates/kali_common/src/repr.rs:18-38`) has no `Boolean`
+  variant at all (`I64`, `F64`, `Object(ShapeId)`, `String`, `GrowableArrayI64`, `AbortHandle` —
+  confirmed by reading the enum in full), and no other table in the codebase tracks "this
+  function always returns a boolean" (`grep`-verified: `return_repr`, the only per-function
+  return-type fact kept anywhere, is the only such query in `kali_codegen`/`kali_types`). So
+  `isEven`'s call result is `ValueShape::Unknown` at the moment it is emitted — **before** it
+  ever reaches `emit_as_string` (`operators.rs:1537-1572`, shared by `+` and the multi-argument
+  console lane via `emit_console_argument_as_string`, `call.rs:60-69`), whose boolean-formatting
+  arm is keyed on exactly `emitted.shape == ValueShape::Boolean` and is therefore skipped,
+  falling through to `int_to_string` and printing the raw `1`/`0` bit pattern.
+- **Distinct from R-08 residual 6**: residual 6's mechanism is "`??`'s runtime fallback discards
+  a shape the operand emission already computed as `Boolean`" (a hand-cased intrinsic like
+  `Number.isInteger`/`Object.is` DOES get `shape: Boolean` from its own dedicated call arm,
+  `call.rs:1398-1494`/`:1496-1559`). For an ordinary user function there is no such
+  already-`Boolean` value to discard — the generic resolved-call path above never produces one —
+  so there is nothing for `??`'s fallback to be blamed for, and indeed no `??` appears in this
+  entry's repro at all.
+- **Distinct from R-30**: R-30's fix target is the single-argument DIRECT `console.log` sink
+  (`emit_console_argument`, `call.rs:23-41`), which never inspects `shape` at all. This entry's
+  defect is upstream of any sink: `emit_as_string` (used by concat and the multi-argument
+  console lane) DOES inspect `shape` correctly — it simply never receives `Boolean` for this
+  producer, because the call-emission site above never sets it. Unifying the console formatters
+  (R-30's fix) does not touch `call.rs:3112-3123` and would not repair this entry.
+- **Does this share a fix with either?** No, verified rather than assumed: all three defects
+  live at three different code sites (`call.rs:23-41` for R-30, `operators.rs:2210-2229` for
+  residual 6, `call.rs:3112-3123` for this entry). This entry's root blocker is the same
+  underlying gap that blocks R-08 residuals 1-4 — no `Repr::Boolean` axis exists anywhere in
+  `kali_common::Repr` for a whole-program, cross-function boolean-return proof — but it
+  manifests through this third, previously-unregistered code path, so it is filed as its own
+  entry rather than folded into either.
+- **Not G8** (rendering-divergence cluster: R-30, R-31, R-32, R-33, et al.): G8's signature is
+  "the concat path is correct and the direct-`console.log` path is wrong" for a given value
+  class. Here concat is ALSO wrong (as is multi-argument console and direct-log) — the failure
+  mode is the opposite of what motivates G8's inference, so this entry is not asserted as a G8
+  member without further evidence.
+- **Blast radius**: potentially large — any boolean-returning helper function (a common pattern:
+  `isX`/`hasX`/predicate helpers) silently renders `1`/`0` instead of `true`/`false` wherever its
+  result is concatenated or passed as a non-first `console.log` argument, with no diagnostic.
+- **Not fixed in this wave** (registration only, per standing instruction). Not yet pinned by a
+  dedicated test in `soundness_strict_equality.rs` — this round is documentation-only.
+- **Confidence**: high on behavior and on the traced mechanism (source read end-to-end at the
+  cited lines); the cluster/root-cause-group placement is deliberately left open rather than
+  guessed.
 
 ---
 
@@ -1534,7 +1652,8 @@ act on, so each cluster states plainly what would raise its confidence.
 
 **Unclustered** (isolated mechanisms, no shared-root claim): R-09 (`continue` update),
 R-14 (returned array), R-22 (`==` coercion rung), R-26 (unary `+` digit accumulator),
-R-27 (comma operator), R-28's value half.
+R-27 (comma operator), R-28's value half, R-34 (boolean-returning user function loses shape in
+concat/multi-arg console — deliberately not asserted as a G8 member; see R-34's own note).
 
 ---
 

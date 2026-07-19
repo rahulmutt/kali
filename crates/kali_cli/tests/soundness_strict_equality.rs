@@ -583,15 +583,25 @@ fn nullish_coalescing_right_operand_boolean_loses_shape_is_a_known_residual() {
 // ---------------------------------------------------------------------------
 // RESIDUAL, pinned honestly — FAMILY (c) (NEW 2026-07-19, round 4 — split out
 // of what round 3 wrongly retired as "the same as FAMILY (b) / R-30, closes
-// when R-30 closes, no `??`-specific work needed"): the string-concat (`+`)
-// and multi-argument `console.log` lanes ALSO lose a `??` result's
-// boolean-ness, whenever the LEFT OPERAND is a CALL that
-// `static_equality_class` cannot prove — e.g. `Number.isInteger(5)`,
-// `Object.is(a, b)`, or an ordinary user function returning a comparison.
-// This is `??`'s ORDINARY usage over any non-trivial boolean-returning
-// function, not an edge case, and — unlike FAMILY (b) above — it is genuinely
-// `??`-specific: it is blocked on neither R-30's fix nor the
+// when R-30 closes, no `??`-specific work needed"; scope corrected round 5 —
+// see below): the string-concat (`+`) and multi-argument `console.log` lanes
+// ALSO lose a `??` result's boolean-ness, whenever the LEFT OPERAND is a CALL
+// whose OWN emission already tags its result `shape: ValueShape::Boolean` (a
+// hand-cased intrinsic such as `Number.isInteger(5)`/`Object.is(a, b)`) but
+// which `static_equality_class` cannot prove. This fires ON TOP OF a value
+// the call site already got right, and — unlike FAMILY (b) above — it is
+// genuinely `??`-specific: it is blocked on neither R-30's fix nor the
 // `Repr::Boolean`/null axis that blocks the mechanism section above.
+//
+// ROUND 5 CORRECTION: an `isEven`-style ORDINARY user function was wrongly
+// folded in here as a third example, annotated "BASELINE OK". Re-verified on
+// a freshly built binary (2026-07-19), that baseline is already wrong:
+// `function isEven(n){return n%2===0;} console.log("a:"+(isEven(4)))` prints
+// kali `a:1`, node `a:true`, with NO `??` anywhere in the program. `??` is
+// therefore not what breaks that row, and it does not belong in this family —
+// it is a THIRD, independent defect (an ordinary function's call-site shape
+// is never `Boolean` in the first place, so there is nothing for `??`'s
+// fallback to discard), now tracked as its own entry, register R-34.
 //
 // The baseline (no `??`) is correct on the exact same lane that diverges once
 // `??` is introduced, proving `??` is what breaks it:
@@ -606,10 +616,10 @@ fn nullish_coalescing_right_operand_boolean_loses_shape_is_a_known_residual() {
 // proven shape via `selected_nullish_operand` on the two proof-driven
 // branches (`static_equality_class(left)` returns `Some(class)` that arms
 // the gate). When it returns `None` — which it does for `Number.isInteger`/
-// `Object.is`/an ordinary function call, because `static_equality_class`'s
-// only route to prove a CALL boolean is `render_static_value`
+// `Object.is`, because `static_equality_class`'s only route to prove a CALL
+// boolean is `render_static_value`
 // (`crates/kali_codegen/src/intrinsics/host.rs:358-411`), whose `Call` arm
-// has no case for any of them (verified by reading it end to end: only
+// has no case for either of them (verified by reading it end to end: only
 // `Object.freeze`, `arr.at`/`str.at`/`str.codePointAt`, and `require`/semver
 // fold) — `??` falls to the untyped runtime fallback
 // (`operators.rs:2210-2229`), which unconditionally returns
@@ -630,13 +640,25 @@ fn nullish_coalescing_right_operand_boolean_loses_shape_is_a_known_residual() {
 // syntactically, never by cross-function data flow the way String/Float/
 // Object are. See the register's R-08 residual 6 for the full trace.
 //
+// AN ORDINARY user function (e.g. `isEven`) does NOT go through either
+// hand-cased intrinsic arm above, and does NOT belong in this mechanism: it
+// hits the GENERIC resolved-call path (`crates/kali_codegen/src/emit/
+// call.rs:3112-3123`), which sets `shape: ValueShape::Float` only when the
+// callee's return repr is `F64` and `ValueShape::Unknown` in every other
+// case — there is no `Boolean` arm there at all, for any function, because
+// `kali_common::Repr` has no `Boolean` variant to test for. So an ordinary
+// function's call result is `Unknown` BEFORE `??` (or anything else) ever
+// sees it; there is no already-`Boolean` value here for `??`'s fallback to
+// discard. That class is tracked separately as register entry R-34, not this
+// family — see the round-5 correction above.
+//
 // Update trigger: this residual is specific to `??`'s own runtime-fallback
 // lowering — it goes RED when THAT code path starts deriving its
 // `EmittedValue.shape` from the operands it already emits, NOT when R-30
 // closes (that fix only touches the single-argument sink FAMILY (b) covers)
 // and NOT per se when a `Repr::Boolean` axis lands (though that would also
-// happen to fix it, by routing these calls through the proof-driven
-// branches instead).
+// happen to fix it, by routing `Number.isInteger`/`Object.is` through the
+// proof-driven branches instead).
 // ---------------------------------------------------------------------------
 
 #[test]
