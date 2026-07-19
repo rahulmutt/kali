@@ -3260,7 +3260,31 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
-        self.push_placeholder_fallback_diagnostic("call target", callee_name);
+        if self.keep_warn_placeholder_lowering(node, &callee_node, callee_name) {
+            self.push_placeholder_fallback_diagnostic("call target", callee_name);
+            for _ in node.children.iter().skip(1) {
+                function.instruction(&Instruction::Drop);
+            }
+            function.instruction(&Instruction::I64Const(0));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Unknown,
+            };
+        }
+
+        // Terminal fallback: a callee that reached here is neither a compiled
+        // function (denied above) nor an admitted fail-soft surface. Historically
+        // this warned and returned `i64.const 0`, which silently miscompiled
+        // String()/toString()/JSON.stringify()/runtime-split. Fail closed instead;
+        // the fail-soft surfaces are admitted by keep_warn_placeholder_lowering above.
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            format!(
+                "calling '{callee_name}' is unavailable in the current phase: it is a recognized \
+                 builtin with no implemented lowering, so evaluating it would silently return 0; \
+                 use explicit literals or the later compatibility path — failing closed instead"
+            ),
+        ));
         for _ in node.children.iter().skip(1) {
             function.instruction(&Instruction::Drop);
         }
@@ -3269,6 +3293,32 @@ impl<'a> FunctionEmitter<'a> {
             produced: true,
             shape: ValueShape::Unknown,
         }
+    }
+
+    /// The fail-soft allowlist: callee shapes that KEEP the historical warn+0
+    /// lowering because dropping the call is the ratified behavior (deferred
+    /// scheduling/event registration) or an acceptance-proven host no-op. This is
+    /// a POSITIVE allowlist — an unrecognized callee is NOT admitted here; it
+    /// reaches the E5506 fallback. Populated by the gate-convergence loop (each
+    /// entry names the fixture that requires it).
+    fn keep_warn_placeholder_lowering(
+        &self,
+        node: &LirNode,
+        callee_node: &LirNode,
+        callee_name: &str,
+    ) -> bool {
+        // Deferred-registration surfaces whose non-capturing callback is provably
+        // safe to drop (setTimeout(cb,0), addEventListener, ...). Same proof used
+        // at the arg-scan carve-out (call.rs:3336).
+        if is_deferred_registration_surface(callee_name)
+            && self.scheduling_call_args_provably_safe(node)
+        {
+            return true;
+        }
+        let _ = callee_node;
+        // Host fail-soft no-op surfaces required by acceptance/golden fixtures.
+        // (Populated in Task A3. Each addition MUST name the fixture in a comment.)
+        false
     }
 
     /// The Fix 5 allowlist: callee shapes that keep the historical

@@ -45,8 +45,14 @@ fn assert_fails_closed(src: &str, needle: &str) {
         !out.status.success(),
         "expected a fail-closed diagnostic, got success with stdout {stdout:?}: {out:?}"
     );
-    assert!(stderr.contains("E5506"), "expected E5506 in stderr, got: {stderr}");
-    assert!(stderr.contains(needle), "expected {needle:?} in stderr, got: {stderr}");
+    assert!(
+        stderr.contains("E5506"),
+        "expected E5506 in stderr, got: {stderr}"
+    );
+    assert!(
+        stderr.contains(needle),
+        "expected {needle:?} in stderr, got: {stderr}"
+    );
 }
 
 #[test]
@@ -58,13 +64,19 @@ fn string_call_fails_closed() {
 #[test]
 fn to_string_method_fails_closed() {
     // node: r=42. Pre-fix kali: r=0 at exit 0.
-    assert_fails_closed(r#"const n=42; console.log("r="+n.toString());"#, "unavailable");
+    assert_fails_closed(
+        r#"const n=42; console.log("r="+n.toString());"#,
+        "unavailable",
+    );
 }
 
 #[test]
 fn json_stringify_fails_closed() {
     // node: r={"f":1}. Pre-fix kali: r=0 at exit 0.
-    assert_fails_closed(r#"const o={f:1}; console.log("r="+JSON.stringify(o));"#, "unavailable");
+    assert_fails_closed(
+        r#"const o={f:1}; console.log("r="+JSON.stringify(o));"#,
+        "unavailable",
+    );
 }
 
 #[test]
