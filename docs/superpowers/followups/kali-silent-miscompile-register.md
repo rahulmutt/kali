@@ -1397,7 +1397,77 @@ cell. Re-evaluate it after R-07 lands rather than adding a resolver check now.
 
 ---
 
-## 7. Cross-references
+## 7. Fail-loudly-but-wrong defects (not silent — recorded for completeness)
+
+Every entry in §2 is scoped to exit-0, no-diagnostic divergences (see the note under the tier
+table in §1). This section is for the opposite shape: kali exits **nonzero** with a
+**diagnostic**, so nobody's trust in an exit-0 result is at stake, but the diagnostic is the
+wrong *kind* — an internal-error code (`E4201`, "WebAssembly translation error") rather than
+the project's honest fail-closed code (`E5506`) that names the actual limitation, the way fix 5
+does for calls through a first-class function value in this same commit range. A user hits an
+opaque compiler-internals message instead of a clear one. Added by soundness-batch1-pra wave 0.
+
+### FL-01: A const-bound, expression-bodied arrow whose result is a float emits WASM that fails to validate (`E4201`)
+
+- **Verification**: reproduced on a freshly built binary (base `00ff4ecc0`), 2026-07-19. This is
+  the deterministic, pre-existing shape a wave-0 brief asked to be re-checked — NOT the
+  intermittent `E4201` the controller once chased for a mixed-closure-shape file (see the
+  correction inside R-02 above); that sighting did not reproduce on nearby variants, while this
+  one reproduces on every variant probed (11 shapes, see below).
+- **Repro**:
+  ```js
+  const half = (x) => x / 2;
+  console.log(half(5));
+  ```
+  kali: `error[E4201]: failed to load WASM module: WebAssembly translation error` (exit 1) —
+  node: `2.5` (exit 0).
+- **Mechanism — TRACED, not inferred.** `kali build` (unlike `kali run`) succeeds and writes a
+  `.wasm` file; the malformed module only surfaces when something loads/validates it. Running
+  `wasm-tools validate` on the built module gives the exact cause:
+  ```
+  error: func 33 failed to validate
+  Caused by:
+      0: type mismatch: expected i64, found f64 (at offset 0xc1d)
+  ```
+  `wasm-tools print` shows the function itself:
+  ```wat
+  (func (;33;) (type 22) (param i64) (result i64)
+    (local i64 i64)
+    local.get 0
+    f64.convert_i64_s
+    i64.const 2
+    f64.convert_i64_s
+    f64.div
+    return
+    i64.const 0)
+  ```
+  The function's declared WASM signature is `(result i64)`, but its body computes a genuine
+  `f64.div` and `return`s that f64 value directly, with no conversion back to the declared
+  type. The arithmetic lowering correctly recognizes this as float computation (both operands
+  are converted to f64 before dividing); the function-signature/return-type inference for this
+  specific binding shape does not agree, and declares an `i64` result anyway — a repr
+  disagreement between the body emitter and the signature emitter for one binding shape.
+- **Repr-triggered, not closure-triggered — boundary probed with 11 variants on a freshly built
+  binary**: `function half(x) { return x / 2; }` (named function declaration) and
+  `const half = (x) => { return x / 2; };` (block-bodied arrow, note the braces) both compile
+  and run correctly (`2.5`, matching node). Only **const + arrow + EXPRESSION body (no braces)
+  + float-valued result** hits the mismatch. The float-ness, not the division, is the operative
+  variable: `const g = (x) => 1.5;`, `const g = () => 1.5;`, `const g = (x) => 3.5 + x;` and
+  `const g = (x) => x * 0.5;` all fail identically; `const g = (x) => x + 1;` (integer-valued)
+  succeeds. `let half = (x) => x / 2; half(5);` does not reach this bug at all — it hits fix 5's
+  honest `E5506` instead (calling through a non-const function value), which is further evidence
+  this is specific to the *admitted* const-bound-arrow lane, not the general call path.
+- **Severity**: not a silent miscompile — exits 1 with a diagnostic, so no false confidence is
+  created. The defect is that the diagnostic is `E4201` (an internal WASM-translation failure)
+  rather than a diagnostic naming the actual gap (a repr mismatch in float-returning
+  expression-bodied const arrows).
+- **No fix in this wave** — inventory only, per the wave-0 brief. A fix would need to make the
+  const-arrow return-type inference agree with the arithmetic lowering's float classification
+  (or vice versa) for the expression-body shape specifically.
+
+---
+
+## 8. Cross-references
 
 - `docs/superpowers/followups/pr16-honest-repin-inventory.md` — the 694-test adjudication map
   this register calls into question (§5). Carries a `SUPERSEDING EVIDENCE` pointer back here.
