@@ -6,32 +6,224 @@ use kali_ast::{
     Expression, FunctionDeclaration, FunctionExpression, FunctionParam, MethodDefinition,
     SequenceExpression, Statement,
 };
-use kali_lexer::TokenType;
+use kali_lexer::{Token, TokenType};
 use std::boxed::Box;
 
+/// Result of scanning a parenthesized parameter list.
+///
+/// The variants are exhaustive over "what the scanner found", and crucially
+/// both `Simple` and `Unsupported` carry `after` — the token index just past
+/// the matching `)`. That is what makes resynchronization unconditional: no
+/// matter what the list contains, the caller knows where the list ends and can
+/// continue parsing from there.
+///
+/// This replaced a loop that stopped consuming the moment it met a token it did
+/// not recognize (`=`, `...`, `{`, `[`, `:`), leaving the stream parked
+/// mid-list. `parse_block_statement` then `advance()`d over the stray token and
+/// absorbed EVERY REMAINING TOKEN IN THE MODULE into the function body — no
+/// diagnostic, exit code 0, every following statement silently skipped.
+///
+/// The classification is an ALLOWLIST: a segment yields a parameter only if it
+/// matches a shape kali can actually lower. Everything else is `Unsupported` by
+/// construction, so a newly-added parameter syntax fails closed instead of
+/// silently desyncing the stream.
+enum ParamListScan {
+    /// Every segment was a plain named parameter (a type annotation is allowed
+    /// and erased; a single trailing comma is allowed).
+    Simple { after: usize, params: Vec<String> },
+    /// The list is balanced but contains a construct kali cannot lower.
+    /// `construct` is a noun phrase for the E5506 message.
+    Unsupported {
+        after: usize,
+        construct: &'static str,
+    },
+    /// Not a parameter list at all: the start token is not `(`, or the parens
+    /// never close before end-of-input.
+    NotAParamList,
+}
+
+/// Result of scanning an arrow's parenthesized parameter list.
+enum ArrowParams {
+    Ok {
+        after: usize,
+        params: Vec<String>,
+    },
+    /// Provably an arrow parameter list (a `=>` follows the `)`) that kali
+    /// cannot lower. The E5506 has already been reported; `after` indexes the
+    /// `=>` so the caller can consume the whole arrow.
+    Rejected {
+        after: usize,
+    },
+    /// Not an arrow parameter list — the caller must fall back to its other
+    /// interpretations (typically a parenthesized expression) unchanged.
+    No,
+}
+
 impl Parser {
-    pub(crate) fn parse_parameter_list(&mut self) -> Vec<String> {
-        let mut params = Vec::new();
-        if self.stream.accept(TokenType::RightParen) {
-            return params;
+    /// Classifies one comma-separated parameter-list segment.
+    ///
+    /// `Ok(name)` for the two lowerable shapes — `ident` and `ident: Type` (the
+    /// annotation is erased, which is what every consumer downstream of the
+    /// parser expects). `Err(construct)` for everything else.
+    fn classify_param_segment(segment: &[Token]) -> Result<String, &'static str> {
+        let Some(first) = segment.first() else {
+            return Err("an empty parameter");
+        };
+        match first.kind {
+            TokenType::DotDotDot => Err("a rest parameter"),
+            TokenType::LeftBrace | TokenType::LeftBracket => Err("a destructured parameter"),
+            TokenType::Identifier => match segment.get(1).map(|token| &token.kind) {
+                // `ident` — a plain parameter.
+                None => Ok(first.value.clone()),
+                // `ident: Type` — the annotation carries no runtime meaning.
+                Some(TokenType::Colon) => Ok(first.value.clone()),
+                // `ident = expr` — needs call-site arity adaptation, which
+                // kali's codegen does not have (calls are emitted at exact
+                // arity).
+                Some(TokenType::Eq) => Err("a default parameter"),
+                // `ident?: Type` — same arity problem as a default.
+                Some(TokenType::Question) => Err("an optional parameter"),
+                _ => Err("this parameter form"),
+            },
+            _ => Err("this parameter form"),
+        }
+    }
+
+    /// Scans the parenthesized parameter list whose `(` is at `start`. Purely
+    /// positional: it does not move the stream cursor.
+    fn scan_param_list(&self, start: usize) -> ParamListScan {
+        if self.stream.tokens.get(start).map(|token| &token.kind) != Some(&TokenType::LeftParen) {
+            return ParamListScan::NotAParamList;
         }
 
-        loop {
-            if let Some(token) = self.stream.advance() {
-                if token.kind == TokenType::Identifier {
-                    params.push(token.value);
+        // Locate the matching `)`, tracking every bracket kind so that a
+        // destructured or defaulted parameter containing punctuation cannot
+        // fool the search.
+        let mut depth = 0usize;
+        let mut close = None;
+        let mut index = start;
+        while let Some(token) = self.stream.tokens.get(index) {
+            match token.kind {
+                TokenType::LeftParen | TokenType::LeftBrace | TokenType::LeftBracket => depth += 1,
+                TokenType::RightBrace | TokenType::RightBracket => depth = depth.saturating_sub(1),
+                TokenType::RightParen => {
+                    depth = depth.saturating_sub(1);
+                    if depth == 0 {
+                        close = Some(index);
+                        break;
+                    }
                 }
+                TokenType::Eof => break,
+                _ => {}
             }
-            if self.stream.accept(TokenType::RightParen) {
-                break;
-            }
-            if !self.stream.accept(TokenType::Comma) {
-                let _ = self.stream.accept(TokenType::RightParen);
-                break;
-            }
+            index += 1;
+        }
+        let Some(close) = close else {
+            return ParamListScan::NotAParamList;
+        };
+        let after = close + 1;
+
+        let body = &self.stream.tokens[start + 1..close];
+        if body.is_empty() {
+            return ParamListScan::Simple {
+                after,
+                params: Vec::new(),
+            };
         }
 
-        params
+        // Split on top-level commas.
+        let mut segments: Vec<&[Token]> = Vec::new();
+        let mut depth = 0usize;
+        let mut segment_start = 0usize;
+        for (offset, token) in body.iter().enumerate() {
+            match token.kind {
+                TokenType::LeftParen | TokenType::LeftBrace | TokenType::LeftBracket => depth += 1,
+                TokenType::RightParen | TokenType::RightBrace | TokenType::RightBracket => {
+                    depth = depth.saturating_sub(1)
+                }
+                TokenType::Comma if depth == 0 => {
+                    segments.push(&body[segment_start..offset]);
+                    segment_start = offset + 1;
+                }
+                _ => {}
+            }
+        }
+        segments.push(&body[segment_start..]);
+
+        // A single trailing comma is legal and produces one empty final
+        // segment; drop it. An empty segment anywhere else is a syntax error
+        // and falls through to `classify_param_segment`'s rejection.
+        if segments.len() > 1 && segments.last().is_some_and(|last| last.is_empty()) {
+            segments.pop();
+        }
+
+        let mut params = Vec::with_capacity(segments.len());
+        for segment in segments {
+            match Self::classify_param_segment(segment) {
+                Ok(name) => params.push(name),
+                Err(construct) => return ParamListScan::Unsupported { after, construct },
+            }
+        }
+        ParamListScan::Simple { after, params }
+    }
+
+    fn reject_unsupported_param(&mut self, construct: &'static str) {
+        self.push_feature_unavailable(format!(
+            "{construct} is not supported — kali functions take a fixed list of \
+             plain named parameters"
+        ));
+    }
+
+    /// Parses a parameter list with the stream positioned AT the opening `(`.
+    ///
+    /// Always leaves the cursor just past the matching `)` when one exists, so
+    /// the caller can parse the body without risk of absorbing the rest of the
+    /// module. An unsupported shape reports E5506 and yields no parameters; an
+    /// unterminated list reports E5506 and consumes to end-of-input (there is
+    /// nothing left to resynchronize to).
+    pub(crate) fn parse_parameter_list(&mut self) -> Vec<String> {
+        match self.scan_param_list(self.stream.position) {
+            ParamListScan::Simple { after, params } => {
+                self.stream.position = after;
+                params
+            }
+            ParamListScan::Unsupported { after, construct } => {
+                self.reject_unsupported_param(construct);
+                self.stream.position = after;
+                Vec::new()
+            }
+            ParamListScan::NotAParamList => {
+                self.push_feature_unavailable(
+                    "unterminated parameter list — expected a closing `)`".to_string(),
+                );
+                self.stream.position = self.stream.tokens.len();
+                Vec::new()
+            }
+        }
+    }
+
+    /// Skips a return-type annotation (`): Type {`) if one is present, leaving
+    /// the cursor on the body's `{`. Without this the `:` was another
+    /// module-truncating desync — `parse_block_statement` would advance over it
+    /// and swallow the file.
+    pub(crate) fn skip_return_type_annotation(&mut self) {
+        if self.stream.current_kind() != Some(&TokenType::Colon) {
+            return;
+        }
+        let _ = self.stream.advance();
+        let mut depth = 0usize;
+        while let Some(kind) = self.stream.current_kind().copied() {
+            match kind {
+                TokenType::LeftBrace if depth == 0 => break,
+                TokenType::LeftParen | TokenType::LeftBracket | TokenType::Lt => depth += 1,
+                TokenType::RightParen | TokenType::RightBracket | TokenType::Gt => {
+                    depth = depth.saturating_sub(1)
+                }
+                TokenType::Semicolon | TokenType::Eof => break,
+                _ => {}
+            }
+            let _ = self.stream.advance();
+        }
     }
 
     pub(crate) fn parse_function_declaration(&mut self) -> Option<Statement> {
@@ -64,20 +256,8 @@ impl Parser {
             }
             name_token.value
         };
-        let _ = self.stream.accept(TokenType::LeftParen);
-
-        let mut params = Vec::new();
-        if !self.stream.accept(TokenType::RightParen) {
-            if let Some(param) = self.stream.advance() {
-                params.push(param.value);
-            }
-            while self.stream.accept(TokenType::Comma) {
-                if let Some(param) = self.stream.advance() {
-                    params.push(param.value);
-                }
-            }
-            let _ = self.stream.accept(TokenType::RightParen);
-        }
+        let params = self.parse_parameter_list();
+        self.skip_return_type_annotation();
 
         let previous_generator = self.in_generator_function;
         self.in_generator_function = generator;
@@ -131,8 +311,8 @@ impl Parser {
 
             if is_method {
                 let method_name = self.stream.advance().map(|t| t.value).unwrap_or_default();
-                let _ = self.stream.accept(TokenType::LeftParen);
                 let params = self.parse_parameter_list();
+                self.skip_return_type_annotation();
                 let previous_async = self.in_async_function;
                 let previous_generator = self.in_generator_function;
                 self.in_async_function = is_async;
@@ -189,42 +369,48 @@ impl Parser {
         self.try_parse_arrow_function_expression_from(self.stream.position, false)
     }
 
-    /// Scans a parenthesized, identifier-only parameter list — `()` or
-    /// `(a, b, c)` — starting at `start`, which must index a `LeftParen`
-    /// token. Returns the parameter names in order and the token position
-    /// immediately after the closing `RightParen`, or `None` if the tokens
-    /// ahead are not a well-formed identifier-only parameter list. Shared by
+    /// Scans a parenthesized arrow parameter list starting at `start`, which
+    /// must index a `LeftParen`. Shared by
     /// `try_parse_arrow_function_expression_from` (expression-bodied arrows,
     /// any position) and `try_parse_block_arrow_function_expression`
     /// (block-bodied arrows, declarator-init position only) — the two arrow
-    /// shapes diverge after the parameter list (return-type annotation and
-    /// bare-identifier-param arms are exclusive to the former).
-    fn scan_paren_param_list(&self, start: usize) -> Option<(usize, Vec<String>)> {
-        let mut scan = start + 1;
-        let mut params = Vec::new();
-        match self.stream.tokens.get(scan).map(|token| &token.kind) {
-            Some(TokenType::RightParen) => {
-                scan += 1;
-            }
-            Some(TokenType::Identifier) => loop {
-                let token = self.stream.tokens.get(scan)?;
-                params.push(token.value.clone());
-                scan += 1;
-
-                match self.stream.tokens.get(scan).map(|token| &token.kind) {
-                    Some(TokenType::Comma) => {
-                        scan += 1;
-                    }
-                    Some(TokenType::RightParen) => {
-                        scan += 1;
-                        break;
-                    }
-                    _ => return None,
+    /// shapes diverge after the parameter list.
+    ///
+    /// Unlike the function-declaration path this one must stay silent about
+    /// lists it does not like, because at an arbitrary expression position
+    /// `(a + b)` is a parenthesized expression, not a malformed parameter list.
+    /// A diagnostic is therefore reported ONLY when a `=>` follows the closing
+    /// `)`, which positively identifies the tokens as arrow parameters.
+    fn scan_arrow_param_list(&mut self, start: usize) -> ArrowParams {
+        match self.scan_param_list(start) {
+            ParamListScan::Simple { after, params } => ArrowParams::Ok { after, params },
+            ParamListScan::Unsupported { after, construct } => {
+                if self.stream.tokens.get(after).map(|token| &token.kind) == Some(&TokenType::Arrow)
+                {
+                    self.reject_unsupported_param(construct);
+                    ArrowParams::Rejected { after }
+                } else {
+                    ArrowParams::No
                 }
-            },
-            _ => return None,
+            }
+            ParamListScan::NotAParamList => ArrowParams::No,
         }
-        Some((scan, params))
+    }
+
+    /// Consumes an arrow whose parameter list was already rejected, so the
+    /// stream ends up past the arrow body instead of parked mid-expression.
+    /// `after` indexes the `=>`.
+    fn consume_rejected_arrow(&mut self, after: usize) -> Expression {
+        self.stream.position = after + 1;
+        if self.stream.current_kind() == Some(&TokenType::LeftBrace) {
+            let _ = self.parse_block_statement();
+        } else {
+            let _ = self.parse_arrow_function_body_expression();
+        }
+        // The E5506 already reported makes compilation fail; this placeholder
+        // only keeps the parser producing a well-formed tree for the remaining
+        // diagnostics.
+        Expression::Literal(kali_ast::LiteralValue::Null)
     }
 
     pub(crate) fn try_parse_arrow_function_expression_from(
@@ -238,9 +424,16 @@ impl Parser {
         match self.stream.tokens.get(scan).map(|token| &token.kind) {
             Some(TokenType::LeftParen) => {
                 allow_return_type = true;
-                let (next_scan, parsed_params) = self.scan_paren_param_list(scan)?;
-                scan = next_scan;
-                params = parsed_params;
+                match self.scan_arrow_param_list(scan) {
+                    ArrowParams::Ok { after, params: p } => {
+                        scan = after;
+                        params = p;
+                    }
+                    ArrowParams::Rejected { after } => {
+                        return Some(self.consume_rejected_arrow(after));
+                    }
+                    ArrowParams::No => return None,
+                }
             }
             Some(TokenType::Identifier) => {
                 let token = self.stream.tokens.get(scan)?;
@@ -301,7 +494,13 @@ impl Parser {
         if self.stream.tokens.get(start).map(|token| &token.kind) != Some(&TokenType::LeftParen) {
             return None;
         }
-        let (scan, params) = self.scan_paren_param_list(start)?;
+        let (scan, params) = match self.scan_arrow_param_list(start) {
+            ArrowParams::Ok { after, params } => (after, params),
+            ArrowParams::Rejected { after } => {
+                return Some(self.consume_rejected_arrow(after));
+            }
+            ArrowParams::No => return None,
+        };
 
         if self.stream.tokens.get(scan).map(|token| &token.kind) != Some(&TokenType::Arrow) {
             return None;
@@ -383,12 +582,12 @@ impl Parser {
             None
         };
 
-        let _ = self.stream.accept(TokenType::LeftParen);
         let params = self
             .parse_parameter_list()
             .into_iter()
             .map(|p| FunctionParam { name: p })
             .collect();
+        self.skip_return_type_annotation();
 
         let previous_generator = self.in_generator_function;
         self.in_generator_function = generator;

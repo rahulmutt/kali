@@ -46,6 +46,9 @@ mod class_method;
 #[path = "declaration_tests/function.rs"]
 mod function;
 
+#[path = "declaration_tests/unsupported_params.rs"]
+mod unsupported_params;
+
 #[test]
 fn test_parse_block_bodied_arrow_declarator_init_as_function_expression() {
     let tokens = lex("const bump = () => { console.log(\"bump\"); return 2; };");
