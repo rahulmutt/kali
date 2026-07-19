@@ -410,12 +410,16 @@ tier, ordering is by blast radius.
   node). Pinned by `crates/kali_cli/tests/soundness_strict_equality.rs` (12+ tests).
 
   **This entry is NOT fully closed.** Fix 4 documents (in `equality.rs`'s own doc comments) and
-  this wave (soundness-batch1-pra wave 0, across two addendum rounds) additionally pins five
+  this wave (soundness-batch1-pra wave 0, across four addendum rounds) additionally pins six
   residuals. Residuals 1-4 exist because kali cannot prove a `Repr::Boolean` axis for an
   arbitrary expression and the type-directed table therefore leaves the pre-existing unsound
   bit-pattern `i64.eq` in place rather than regressing a large swath of the corpus by failing
-  everything closed; residual 5 is an independent print-sink defect that fires even when the
-  type-directed table's decision is correct:
+  everything closed; residuals 5 and 6 are independent print-sink defects that fire even when the
+  type-directed table's/`??`'s branch decision is correct — **residual 5 is single-argument
+  `console.log`-only (R-30's own mechanism, closes when R-30 closes) and residual 6 is the
+  string-concat and multi-argument console lanes, a genuinely `??`-specific defect that does
+  NOT close with R-30** (round 4 correction — round 3 wrongly retired residual 6's work as a
+  duplicate of residual 5/R-30; see residual 6 below for why they are different):
 
   1. An `UntypedObjectField` operand (an object-shape field with the untyped `I64` repr, which
      may hold a pointer, a number or a boolean) against a proven `null`/`undefined`/boolean
@@ -454,8 +458,14 @@ tier, ordering is by blast radius.
      correctly, if and only if `static_equality_class`
      (`crates/kali_codegen/src/emit/equality.rs:228`) returns `Some(class)` for it, AND that
      class actually arms `??`'s check (`is_nullish_class`/`is_never_nullish`,
-     `operators.rs:2181-2208`) — see the `UntypedObjectField` caveat below for the one place
-     those two conditions come apart.
+     `operators.rs:2181-2208`) — see the `UntypedObjectField` caveat below for one of **three**
+     places those two conditions come apart (**corrected 2026-07-19, round 4**: `equality.rs:
+     140-152` shows `is_never_nullish` covers only `Number | BigInt | Boolean | String` and
+     `is_nullish_class` only `Null | Undefined`, so `ObjectOrNull` and `EnvGetResult` are ALSO
+     `Some` without arming the gate — three non-arming classes, not one. No miscompile follows
+     for the other two: the runtime `i64.eqz` zero-test is independently exact for an object
+     pointer (`ObjectOrNull`) and for a `Deno.env.get` unset-`0` result (`EnvGetResult`), so the
+     *outcome* only diverges for `UntypedObjectField`).
      **Corrected 2026-07-19 (third addendum round): a round-2 restatement of this condition as
      "exactly two cases" was itself an UNDER-claim** — verified false on a freshly built binary
      (`(a < b) ?? 9` over two function PARAMETERS, and `(a - a) ?? 9` over a `let`-bound float,
@@ -470,9 +480,22 @@ tier, ordering is by blast radius.
        <= > >= == != === !== in instanceof`, `equality.rs:280-289`) — these always produce a
        `Boolean` regardless of what their operands are, which is exactly why `(a < b) ?? 9` over
        two unprovable parameters is proven.
-     - (iii) a statically-folded CALL result (`Object.is(a, b)`, the `Number.is*` predicates,
-       `arr.at(oob)`, …) whose rendered text is `"true"`/`"false"`/`"undefined"`/`"null"`
-       (`equality.rs:297-304`).
+     - (iii) a statically-folded CALL result whose rendered text is
+       `"true"`/`"false"`/`"undefined"`/`"null"` (`equality.rs:297-304`), via
+       `render_static_value` (`crates/kali_codegen/src/intrinsics/host.rs:358-411`) — e.g.
+       `arr.at(oob)`/`str.at(oob)`/`str.codePointAt(oob)` (`"undefined"` on an out-of-range
+       index) or `Object.freeze(<literal>)` recursing into a literal operand.
+       **Corrected 2026-07-19 (round 4): the previous three rounds' named examples for this case
+       — `Object.is(a, b)` and the `Number.is*` predicates — are WRONG.** Read end to end,
+       `render_static_value`'s `Call` arm (`host.rs:375-411`) has no case for either: it only
+       folds `Object.freeze`, `arr.at`/`str.at`/`str.codePointAt`, and `require`/semver calls.
+       `Object.is`/`Number.isFinite`/`isNaN`/`isInteger`/`isSafeInteger` DO get
+       `shape: ValueShape::Boolean` when actually emitted (`crates/kali_codegen/src/emit/
+       call.rs:1398-1494` and `:1496-1559`), but that is a completely different code path from
+       `static_equality_class`'s textual fold, and the two disagree: `static_equality_class`
+       returns `None` for these calls, not `Some(Boolean)`. This is the exact mechanism behind
+       residual 6 below — traced while investigating that residual, not asserted from the old
+       text.
      - (iv) a bare global identifier lowered as a childless `Value` node — `undefined`, `NaN`,
        `Infinity` (`equality.rs:307-313`).
      - (v) a REPR-BACKED proof, which is what makes `(a - a) ?? 9` provable even though `a` is a
@@ -481,15 +504,45 @@ tier, ordering is by blast radius.
        `Deno.env.get(...)` result (`is_env_get_string_call`) — none of these require the operand
        to be a literal or a `const`, only that the codegen repr proves the JS type.
      - (vi) a `base.field` read whose shape-table repr is a TYPED float, string, or object field
-       (`object_field_equality_class`) — but **not** the untyped `I64` default: that case still
+       (`object_field_equality_class`) — **witness required, round 4**: a bare object-literal
+       `const` binding never reaches this arm at all (see the reverted illustration below), so
+       this case needs a base whose SHAPE is independently resolved. Verified witness: routing a
+       shape-tracked object through a same-shape function PARAMETER —
+       ```js
+       function mk() { return { a: 1.5 }; }
+       function chk(o) { return o.a === null; }
+       console.log(chk(mk()));   // kali 0 (exit 0), node false — classified, not E5506
+       ```
+       — proves this arm is real code, reachable, and behaves as documented (contrast the
+       direct-binding case, which fails closed with `E5506` because it never gets here). A `??`
+       witness over the identical shape (`o.a ?? 9` in place of `o.a === null`) instead hits an
+       unrelated `error[E4201]` (malformed WASM) both as a function return and as a parameter
+       read — a separate, pre-existing defect in this arm's `??` interaction with a typed float
+       field, out of scope for this round; not chased further here. But **not** the untyped
+       `I64` default: that case still
        returns `Some`, just of the special `UntypedObjectField` class, which
        `is_nullish_class`/`is_never_nullish` both reject (`equality.rs:345-348`,
        `operators.rs:2201-2208`), so it falls through to the runtime `i64.eqz` test exactly as if
-       it had returned `None`. This is why the const-bound member-read illustration below
-       (`o.a` where `a` only ever holds the integer literal `0`) is still broken: it is
-       `Some(UntypedObjectField)`, not `None` — the same non-arming class already responsible for
-       the untyped-object-field residual elsewhere in this register (residual 1 / R-08's
-       `UntypedObjectField` note), not a separate gap.
+       it had returned `None`. **This is genuinely true for an object whose SHAPE is resolved**
+       (e.g. the CLBG binary-trees `{ left, right }` case) — but it does NOT apply to the
+       const-bound member-read illustration below. **Reverted 2026-07-19 (round 4): round 3
+       changed this illustration's classification from `None` to
+       `Some(EqClass::UntypedObjectField)`; round 2 was correct and round 3's change is false,
+       verified on a freshly built binary.** `const o = { a: 0 }; console.log(o.a === null)`
+       fails CLOSED with `E5506` (exit 1) — if the class were `Some(UntypedObjectField)`,
+       `strict_decision`'s `is_unproven` arm (`equality.rs:184`) would route it to `Runtime`
+       (silent bit-pattern compare, exit 0), not `FailClosed`. The actual class is `None`:
+       `object_field_equality_class` requires `object_shape_of_node(base)` to resolve
+       (`equality.rs:334-351`), which for a bare identifier bottoms out in `scalar_repr(name)`
+       being `Repr::Object(shape)` (`crates/kali_codegen/src/emit/object.rs:14-25`) — and a
+       `const` bound directly to an object literal is never given a resolved shape this way (no
+       write/escape/call-return path materializes it). This is a **separate gap** from the
+       untyped-object-field residual elsewhere in this register (residual 1 / R-08's
+       `UntypedObjectField` note): arming `UntypedObjectField` would still leave
+       `const o={a:0}; o.a ?? 9` broken, because that class is never reached for this program in
+       the first place. (This is the same mis-grouping error round 4 exists to fix in residual 5
+       — a real defect wrongly retired by asserting it is "the same as" a sibling that, on
+       inspection, is never reached.)
      Anything else — any operand read back from a runtime storage slot that is none of (i)-(vi)
      above (a plain `let`/`var`/parameter/call-return binding with no repr proof, or the untyped-
      I64-field case in (vi)) — returns `None` (or `Some(UntypedObjectField)`, which behaves
@@ -524,13 +577,14 @@ tier, ordering is by blast radius.
        follow a `const`'s binding, but if what sits at the end of the chain is a call, a folded
        runtime expression, or a further (non-literal) binding, `static_equality_class` still
        returns `None` there — `const` the keyword proves nothing by itself; only a chain that
-       terminates in a literal does. The fourth shape (an object-field read) is subtly
-       different in mechanism though identical in outcome: `o.a` where field `a` only ever
-       holds the untyped integer literal `0` returns `Some(EqClass::UntypedObjectField)`, not
-       `None` — that class exists precisely so a slot that may hold a number, a boolean, or a
-       pointer is recognized without being proven, and `??`'s `is_nullish_class`/
-       `is_never_nullish` check rejects it exactly like `None` (see the mechanism note above the
-       previous section). This is precisely what falsifies
+       terminates in a literal does. The fourth shape (an object-field read) reaches the SAME
+       `None` outcome for a different reason (**reverted 2026-07-19, round 4 — see the
+       `UntypedObjectField` caveat above for the full correction**): `o.a` where field `a` only
+       ever holds the untyped integer literal `0` returns plain `None`, because
+       `object_field_equality_class` never even fires for it — `o`'s base is a const-bound
+       object LITERAL, whose shape is never resolved (`object_shape_of_node` requires
+       `scalar_repr("o")` to be `Repr::Object(shape)`, which a bare object-literal binding never
+       gets). This is precisely what falsifies
        the round-1 headline ("closed for a literal or a `const`-bound operand"): all four operands
        below ARE `const`-bound, and all four are still wrong. Re-verified on a freshly built
        binary (2026-07-19), all four shapes, exit 0, no diagnostic, kali `9` vs node `0`:
@@ -563,13 +617,17 @@ tier, ordering is by blast radius.
     at compile time). **The `??` half is NOT downgraded**: residual 4 above is `??`'s ordinary-
     usage shape, so for `??` the original severity recorded at the top of this entry — silent-
     wrong-value **and** silent-wrong-control-flow, the worst combination — still stands,
-    essentially untouched by fix 4. Residual 5 below is a further, independent divergence on
-    top of the cases residual 4 *does* prove correctly.
+    essentially untouched by fix 4. Residuals 5 and 6 below are further, independent
+    divergences on top of the cases residual 4 *does* prove correctly (a print-sink rendering
+    defect, not a value/control-flow defect — the in-memory branch selection stays correct in
+    both).
 
-  5. **FAMILY (b) (new this round, independent defect from residual 4): a `??` whose selected
-     result is a BOOLEAN loses its boolean-ness at the print sink, for every binding kind
-     including a bare literal operand — even when `??`'s branch selection is itself correct.**
-     **Corrected 2026-07-19 (third addendum round): this is R-30 ("Computed booleans render
+  5. **FAMILY (b), single-argument `console.log` ONLY (scope corrected 2026-07-19, round 4 — see
+     residual 6 below for the part of family (b) this scope-narrowing carves OUT): a `??` whose
+     selected result is a BOOLEAN loses its boolean-ness at the single-argument print sink, for
+     every binding kind including a bare literal operand — even when `??`'s branch selection is
+     itself correct.**
+     **Corrected 2026-07-19 (third addendum round): this IS R-30 ("Computed booleans render
      `1`/`0` in direct `console.log` argument position", Tier 4 below) observed through `??`,
      not a `??`-specific defect** — the round-2 mechanism trace immediately below (no `Boolean`
      shape arm in the single-argument console sink) is correct, but it is R-30's mechanism
@@ -597,16 +655,19 @@ tier, ordering is by blast radius.
      other binary-operator) node and therefore never folds a `??` expression at all — the same
      "hand-mirrored oracle" class of bug this repo has hit before (two independent notions of
      "is this a boolean" — `??`'s own branch decision and console's static-fold decision — that
-     disagree). The multi-argument console lane (`emit_console_argument_as_string`/
-     `emit_as_string`) DOES honor `shape: Boolean` (it has its own, correct, boolean-to-string
-     arm) and is NOT affected — `console.log("x:", false ?? 9)` correctly prints `x: false`.
+     disagree).
+     **The multi-argument console lane and string-concat, for a PROVABLE operand ONLY (a bare
+     literal, or anything else that satisfies (i)-(vi) above), DO honor `shape: Boolean` and are
+     NOT affected by residual 5** — `console.log("x:", false ?? 9)` correctly prints `x: false`.
      Re-verified on a freshly built binary (2026-07-19):
      ```js
      console.log(false ?? 9);        // kali 0, node false — left operand selected, provably Boolean
      console.log(true ?? 9);         // kali 1, node true
      console.log(null ?? false);     // kali 0, node false — right operand selected, provably Boolean
      console.log(null ?? true);      // kali 1, node true
-     console.log("x:", false ?? 9);  // kali "x: false", node "x: false" — multi-arg lane is FINE
+     console.log("x:", false ?? 9);  // kali "x: false", node "x: false" — multi-arg lane is fine
+                                      // for a PROVABLE operand (see residual 6 for the
+                                      // UNPROVABLE-operand case, which this pin does NOT cover)
      ```
      Pinned honestly (recording current WRONG behaviour, not a correctness claim) by
      `nullish_coalescing_boolean_literal_result_loses_shape_is_a_known_residual` and
@@ -618,10 +679,88 @@ tier, ordering is by blast radius.
      the static console folder has no `??` arm), not a repair.
      - **Note the masking hazard this residual corrects**: the pre-existing
        `nullish_coalescing_does_not_treat_falsy_as_nullish` test's `n3` case
-       (`"n3:" + (false ?? true))`) routes through string concatenation, i.e. `emit_as_string`'s
-       correct path, and passed throughout both prior rounds — which is exactly why a green
-       suite did not surface this residual until it was probed directly through the
-       single-argument sink.
+       (`"n3:" + (false ?? true))`) routes through string concatenation over a PROVABLE (literal)
+       operand, i.e. `emit_as_string`'s correct path, and passed throughout both prior rounds —
+       which is exactly why a green suite did not surface this residual until it was probed
+       directly through the single-argument sink. **Round 4 correction: do not read this as
+       "concat is unconditionally fine" — see residual 6, which is exactly the case this masking
+       note's own logic predicts once the operand stops being provable.**
+
+  6. **`??`-SPECIFIC (new residual, round 4 — split out of what round 3 wrongly retired as "the
+     same as residual 5 / R-30"): the string-concat (`+`) and multi-argument `console.log` lanes
+     ALSO lose a `??` result's boolean-ness, whenever the LEFT OPERAND is a CALL that
+     `static_equality_class` cannot prove — this is `??`'s ordinary usage over any non-trivial
+     boolean-returning function, not an edge case, and it is blocked on neither R-30's fix nor
+     the `Repr::Boolean`/null axis that blocks residuals 1-4.** Verified on a freshly built
+     binary (2026-07-19):
+     ```js
+     console.log("s:" + (Number.isInteger(5)));       // kali s:true   node s:true   BASELINE OK
+     console.log("w:" + (Number.isInteger(5) ?? 9));  // kali w:1      node w:true   DIVERGES
+     console.log("x:", Object.is(1,1));               // kali x: true  node x: true  BASELINE OK
+     console.log("x:", Object.is(1,1) ?? 9);          // kali x: 1     node x: true  DIVERGES
+     function isEven(n) { return n % 2 === 0; }
+     console.log("a:" + (isEven(4)));                  // kali a:true   node a:true   BASELINE OK
+     console.log("a:" + (isEven(4) ?? 9));             // kali a:1      node a:true   DIVERGES
+     ```
+     The baselines (no `??`) are correct on exactly the same lanes that diverge once `??` is
+     introduced — `??` is what breaks them, and the value it hands to the sink is never a
+     `console.log` argument at all in the concat case (`"w:" + (...)`), so this is **not** R-30
+     (R-30's own text is explicit that it is the single-argument DIRECT `console.log` position;
+     unifying the console formatters, R-30's fix, cannot repair a value that never reaches a
+     console sink).
+     **Mechanism, traced (not inference) — this is the substantive finding of round 4:**
+     1. `??`'s codegen (`crates/kali_codegen/src/emit/operators.rs:2170-2229`) only attaches a
+        proven shape to its result via `selected_nullish_operand` on the two PROOF-DRIVEN
+        branches (`static_equality_class(left)` returns `Some(class)` that arms the gate,
+        `operators.rs:2184` and `:2194`). When `static_equality_class(left)` returns `None`, `??`
+        falls to the untyped runtime fallback (`operators.rs:2210-2229`), which **unconditionally
+        returns `EmittedValue { shape: ValueShape::Unknown }`** (`:2226-2229`) — it never
+        inspects `left_result.shape`/`right_result.shape`, which it already computed one line
+        earlier (`:2210`, `:2219`) and simply discards, unlike the sibling bitwise-operator arm a
+        few lines above it (`:2153-2159`), which DOES propagate `Boolean` when both operands
+        agree. This is a real, if narrow, asymmetry within `??`'s own lowering: the runtime
+        fallback throws away shape information it already has in hand.
+     2. `Number.isInteger(5)`, `Object.is(1,1)`, and `isEven(4)` all hit this fallback because
+        `static_equality_class(left)` returns `None` for them — **not** because they are
+        "unprovable" in some deep sense, but because of the exact hand-mirrored-oracle gap traced
+        under case (iii) above: `static_equality_class`'s only route to prove a CALL result
+        Boolean is `render_static_value` (`intrinsics/host.rs:358-411`), and that function's
+        `Call` arm has no case for `Object.is`/`Number.is*`/an ordinary user function — verified
+        by reading its complete match arm end to end (only `Object.freeze`, `arr.at`/`str.at`/
+        `str.codePointAt`, and `require`/semver fold). Meanwhile the ACTUAL emission of these same
+        calls (`call.rs:1398-1494`, `:1496-1559`, and any ordinary function body) correctly
+        reports `shape: ValueShape::Boolean` on its own `EmittedValue` — the two are simply
+        different code paths that were never kept in sync, the same "hand-mirrored oracle" class
+        this register has flagged before (see G5).
+     3. Contrast with a CALL that IS provable: `function greet(){return "hi";} greet() ?? "x"`
+        prints correctly in concat (`"g:"+(greet()??"x")` → `g:hi`), because `is_string_valued`
+        (`crates/kali_codegen/src/emit/operators.rs:1012-1020`) proves `greet`'s return via
+        `self.repr_table.return_repr(name) == Repr::String` — a real, whole-program, DATA-FLOW
+        repr axis that both `is_string_valued` and `static_equality_class`'s repr-backed section
+        (case (v) above) consult directly, independent of any local textual folding. **No
+        equivalent axis exists for booleans**: `kali_common::Repr`
+        (`crates/kali_common/src/repr.rs:18-38`) has variants for `I64`, `F64`, `Object(ShapeId)`,
+        `String`, `GrowableArrayI64`, `AbortHandle` — **no `Boolean`** — so a call's booleanness
+        can ONLY ever be proven by `static_equality_class`'s local, syntactic cases (i)-(iv),
+        never by a cross-function data-flow proof the way String/Float/Object are. This is the
+        same `Repr::Boolean`-axis gap residuals 2-4 are blocked on, but it manifests here as a
+        DIFFERENT failure mode (shape loss on a correct decision, not a wrong decision), which is
+        exactly why this is tracked as its own residual rather than folded into 2-4.
+     4. Downstream, `emit_as_string` (`operators.rs:1537-1572` — the shared coercion ladder used
+        by BOTH `+` string concatenation and the multi-argument console lane via
+        `emit_console_argument_as_string`, `call.rs:60-69`) keys its boolean-formatting arm
+        (`:1561-1564`) on exactly `emitted.shape == ValueShape::Boolean`. Since the `??` node's
+        shape is `Unknown` per step 1, that arm is skipped and the value falls to
+        `int_to_string`, printing the raw `1`/`0` bit pattern instead of `"true"`/`"false"`.
+     Not fixed in this wave (out of scope — "do not attempt to fix `??` itself"). Pinned honestly
+     (recording current WRONG behaviour, not a correctness claim) by
+     `nullish_coalescing_boolean_result_loses_shape_in_concat_is_a_known_residual` and
+     `nullish_coalescing_boolean_result_loses_shape_in_multi_arg_console_is_a_known_residual` in
+     `soundness_strict_equality.rs`. **Update trigger: this residual is specific to `??`'s own
+     runtime-fallback lowering (step 1 above) — it goes RED when THAT code path starts deriving
+     its `EmittedValue.shape` from the operands it already emits, not when R-30 closes and not
+     when a `Repr::Boolean` axis lands** (though the latter would also happen to fix it, by
+     routing `Number.isInteger`/`Object.is`/`isEven` through the proof-driven branches instead).
 
 ### R-09: `continue` inside a C-style `for` loop skips the update expression
 
@@ -1165,20 +1304,34 @@ tier, ordering is by blast radius.
   `var b=true; console.log(b)` prints `1`. The producer set is *every* boolean that is not a
   syntactically inline literal at the log site: comparisons, `!`/`!!`, `&&`/`||` results,
   function returns, **parameters**, ternary results, `const` object fields, plain `var`
-  bindings, and `??` (added 2026-07-19, third addendum round — see R-08 residual 5: a `??`
-  whose statically-selected result is a proven boolean hits this exact sink and mechanism, and
-  closes when this entry closes, not when R-08's own `Repr::Boolean`/null-axis work lands).
-  Only `console.log(true)` with an inline literal is correct.
+  bindings, and `??` **in single-argument `console.log` position only** (added 2026-07-19, third
+  addendum round — see R-08 residual 5: a `??` whose statically-selected result is a proven
+  boolean hits this exact sink and mechanism, and closes when this entry closes, not when R-08's
+  own `Repr::Boolean`/null-axis work lands). **Scope correction, round 4 (2026-07-19): `??` is
+  a producer of THIS entry ONLY through the single-argument sink.** The string-concat and
+  multi-argument console lanes have their OWN, independent `??`-specific loss of boolean shape
+  — see R-08 residual 6 — which does **not** close when this entry (R-30) closes, because the
+  value in question (e.g. `"w:" + (Number.isInteger(5) ?? 9)`) never reaches a `console.log`
+  argument position, single or multi, at all; unifying the two console formatters (this entry's
+  fix) cannot repair a defect in `+`. Only `console.log(true)` with an inline literal is
+  correct.
   - **Corrected 2026-07-19 (stale in the over-claim direction)**: the producer list above used
     to also name plain `const` bindings, but `const b = true; console.log(b)` now prints `true`
     correctly (re-verified on a freshly built binary) — the `e4b5f7138` fix's binding-chain
     resolution reaches a plain `const` scalar. Only `var` is still wrong among plain bindings;
     `const` **object fields** (`const o = {f: true}; console.log(o.f)`) are a separate, still-
     broken shape (re-verified: kali `1`, node `true`) and remain correctly listed above.
-- **Narrower than "everywhere"**: the concat and template paths are already **FIXED**.
+- **Narrower than "everywhere"**: the concat and template paths are already **FIXED for
+  operands `static_equality_class`/`is_string_valued`/`is_float_valued` can prove** —
   `"v=" + (1<2)` → `v=true` ✓, `` `${1<2}` `` → `true` ✓, `"v="+o.f` → `v=true` ✓,
-  `"v="+a[0]` → `v=true` ✓. The `e4b5f7138` fix covers string-conversion sites; it does not
-  cover the **direct `console.log` argument position**, which is the sole remaining hole.
+  `"v="+a[0]` → `v=true` ✓. The `e4b5f7138` fix covers string-conversion sites for THOSE
+  provable operands; it does not cover the **direct `console.log` argument position** for any
+  operand. **Round 4 correction: "the sole remaining hole" overstated this** — the direct-log
+  position is the sole hole for operands this entry's producer list covers (comparisons, `!`,
+  `&&`/`||`, ternaries, plain bindings, and a literal-selecting `??`), but R-08 residual 6 is a
+  SECOND, independent hole in the concat/multi-arg lanes themselves, for a `??` whose left
+  operand is an unprovable boolean-returning call — that hole is not owned by this entry and
+  does not close with it.
 - **Truthiness is correct throughout** — this is a rendering defect only, not a value defect.
   `if(o.f)`, `if(a[0])`, `if(b)` and ternaries on `const`-bound booleans all branch correctly.
 - **Fix-cost read**: because concat/template already render correctly, the missing piece is
