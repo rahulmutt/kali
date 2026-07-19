@@ -1277,13 +1277,30 @@ impl<'a> FunctionEmitter<'a> {
                             function.instruction(&Instruction::F64ConvertI64S);
                         }
                         if let Some(name) = declarator.text.clone() {
+                            // A `const` on the fold lane has no slot, so its
+                            // reads re-emit the recorded init node. One
+                            // promoted by the STABILITY allowlist gets BOTH: the
+                            // slot carries the runtime value (bound exactly once
+                            // here), and the `bindings` entry carries the
+                            // compile-time denotation the alias/intrinsic
+                            // analyses need. Reads are unaffected — the
+                            // identifier path consults `locals` before
+                            // `bindings`.
+                            //
+                            // A HANDLE-promoted `const` is excluded on purpose:
+                            // its lane keys on a provenance set, and a
+                            // denotation entry would re-resolve the name to its
+                            // initializer.
+                            if is_const
+                                && (!self.locals.contains_key(&name)
+                                    || self.allowlist_promoted_consts.contains(&name))
+                            {
+                                self.bindings.insert(name.clone(), init);
+                            }
                             if let Some(index) = self.locals.get(&name).copied() {
-                                // `let`/`var`, or a `const` promoted to a local slot
-                                // (array allocation / array read) — store eagerly.
+                                // `let`/`var`, or a promoted `const` — store
+                                // eagerly at the declaration site.
                                 function.instruction(&Instruction::LocalSet(index));
-                            } else if is_const {
-                                self.bindings.insert(name, declarator.children[1]);
-                                function.instruction(&Instruction::Drop);
                             } else {
                                 function.instruction(&Instruction::Drop);
                             }

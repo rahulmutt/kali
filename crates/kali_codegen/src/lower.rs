@@ -3040,12 +3040,18 @@ pub(crate) fn collect_function_locals(
         &mut array_names,
     );
 
+    // Names rebound anywhere in this function (including inside nested
+    // closures): a `const` initializer that reads one cannot stay on the
+    // re-emitting fold lane. Computed once for the whole body.
+    let reassigned = program_reassigned_names(nodes);
+
     let mut locals = Vec::new();
     let mut seen = HashSet::new();
     collect_function_locals_from_node(
         nodes,
         body_id,
         &array_names,
+        &reassigned,
         repr_table,
         function_name,
         &mut seen,
@@ -3979,10 +3985,300 @@ pub(crate) fn collect_array_binding_names(
     }
 }
 
+/// How a `const` declarator's initializer must be lowered — the SINGLE
+/// promotion decision, shared by the local-slot collector
+/// (`collect_function_locals_from_node`) and the emitter's denotation map
+/// (`allowlist_promoted_const_names`). Keeping one function rather than two
+/// mirrored predicates is deliberate: this codebase has repeatedly fail-opened
+/// where a codegen oracle and its twin drifted apart.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum ConstPromotion {
+    /// Stays on the compile-time fold lane: no local slot, and the init node is
+    /// recorded in `FunctionEmitter::bindings` so reads re-emit it. Sound only
+    /// because `const_init_is_stable` proved re-emission observationally
+    /// identical.
+    Fold,
+    /// Promoted because the value is a runtime HANDLE needing stable storage (a
+    /// fresh allocation, a host registration, a materialized object). These
+    /// lanes key on their own provenance sets and must NOT get a `bindings`
+    /// entry — recording one re-resolves the name to its init node and defeats
+    /// the handle lane (this regressed the `TextEncoder`/`crypto` family once).
+    Handle,
+    /// Promoted because re-emitting the initializer is NOT observationally
+    /// identical — it would repeat a side effect or read state that has since
+    /// changed. Gets both a local slot (the runtime value, bound exactly once at
+    /// the declaration) and a `bindings` entry (compile-time denotation only;
+    /// the identifier read path consults `locals` first).
+    Binding,
+}
+
+/// Decides how one `const` declarator is lowered. `declarator` is the
+/// declarator node id; returns `None` when it has no initializer.
+pub(crate) fn const_declarator_promotion(
+    nodes: &[LirNode],
+    declarator: LirNodeId,
+    array_names: &HashSet<String>,
+    reassigned: &HashSet<String>,
+    repr_table: &kali_common::ReprTable,
+    function_name: &str,
+) -> Option<(String, ConstPromotion)> {
+    let declarator_node = nodes.get(declarator.0 as usize)?;
+    let init = declarator_node.children.get(1).copied()?;
+    let name = declarator_node.text.clone()?;
+    let is_materialized_object = declarator_node.text.as_deref().is_some_and(|name| {
+        declarator_init_is_object_literal(nodes, init)
+            && matches!(
+                repr_table.scalar(function_name, name),
+                kali_common::Repr::Object(_)
+            )
+    });
+    // An array literal of object references needs the same stable
+    // handle as a `new Array(n)` allocation, so its own base pointer
+    // (not just later reads of it) is promoted to a local. See
+    // `collect_array_binding_names`'s matching check.
+    let is_materialized_object_array = declarator_node.text.as_deref().is_some_and(|name| {
+        declarator_init_is_array_literal(nodes, init)
+            && matches!(
+                repr_table.array_element(function_name, name),
+                kali_common::Repr::Object(_)
+            )
+    });
+    // A factory-call initializer (`const q = mk(2.0)`) whose callee
+    // returns an `Object` repr matching the binding's own repr needs
+    // the same stable handle: without promotion, the const folds to
+    // re-evaluating the call at every use site (`resolve_literal_aggregate`'s
+    // `bindings` alias lane), silently calling the factory again on
+    // each read/write instead of sharing the one materialized object
+    // — a distinct-instances miscompile, not just a missed optimization.
+    let is_materialized_factory_return = declarator_node.text.as_deref().is_some_and(|name| {
+        match repr_table.scalar(function_name, name) {
+            kali_common::Repr::Object(_) => declarator_init_call_callee_name(nodes, init)
+                .is_some_and(|callee| {
+                    matches!(repr_table.return_repr(callee), kali_common::Repr::Object(_))
+                }),
+            _ => false,
+        }
+    });
+    // A growable (push-accumulated) array binding needs a stable
+    // local slot for its tagged handle regardless of `const`
+    // (throw-fallout Stage 4) — push/length/index all read it back.
+    let is_growable_array = declarator_node
+        .text
+        .as_deref()
+        .is_some_and(|name| repr_table.is_growable_array_binding(function_name, name));
+    // A const whose init READS a growable array (`const n = o.length`
+    // / `o[i]`) must be evaluated EAGERLY into a local: the fold-lane
+    // alias would re-emit the read at every use site, observing a
+    // LATER length/element after more pushes — a stale-alias
+    // miscompile (the growable twin of `declarator_init_is_array_read`).
+    let reads_growable_array =
+        declarator_init_mentions_growable(nodes, init, repr_table, function_name);
+    // Scheduling registration (`const t = setTimeout(...)` /
+    // `setInterval(...)`, Stage D task D2; also `queueMicrotask(...)`,
+    // Stage D task D2's earlier microtask lane) is a SIDE-EFFECTING
+    // host call — exactly like `declarator_init_is_performance_now`/
+    // `_is_crypto_call` above, just a bare-identifier call rather than
+    // a member call, so `declarator_init_call_callee_name` (already
+    // used for the factory-return check above) recognizes its shape
+    // directly. Before each surface's registration emit landed, it
+    // lowered through a dropped zero-placeholder fallback, so
+    // re-emitting the call at every read site of a bound name was a
+    // harmless no-op; now each is a REAL host call, and without
+    // promotion the `const` fold-alias tunnel (`FunctionEmitter::
+    // bindings`) re-emits the ORIGINAL call at each later use site of
+    // the bound name, registering a SECOND independent
+    // timer/microtask — a duplicate-registration miscompile (for
+    // setTimeout/setInterval: the pending first timer is never
+    // cancelled if the read site is a `clearTimeout`/`clearInterval`
+    // call; for queueMicrotask: its callback runs TWICE, reproduced
+    // via `const m = queueMicrotask(fn); console.log(m);` — `fn` ran
+    // twice on the pre-fix HEAD), not merely a missed optimization.
+    // `queueMicrotask` is included here even though task D2's own
+    // fixtures never bind its (always-`undefined`) return value,
+    // because it is the exact same mechanism at the exact same choke
+    // point — closing the class, not just the setTimeout/setInterval
+    // instances of it.
+    let is_scheduling_registration_call = matches!(
+        declarator_init_call_callee_name(nodes, init),
+        Some("setTimeout") | Some("setInterval") | Some("queueMicrotask")
+    );
+    // Stage D event lane: `const t = new EventTarget()` is a
+    // SIDE-EFFECTING host construction (it allocates a fresh opaque
+    // handle host-side). Like the scheduling registration calls above,
+    // its `const` binding must be a REAL local — the fold-alias tunnel
+    // would re-emit `event_target_new()` at every read site, minting a
+    // DISTINCT handle each time (a different listener registry) rather
+    // than sharing the one target. Promotion here; the handle store +
+    // provenance recording is in the emitter's declarator branch.
+    let is_event_target_construction = declarator_init_is_event_target_new(nodes, init);
+    // Stage D event lane: `const ok = t.dispatchEvent(...)` is a
+    // SIDE-EFFECTING host dispatch (it synchronously re-invokes every
+    // registered listener). Its `const` binding must be a REAL local —
+    // the fold-alias tunnel would re-emit the dispatch at each read of
+    // `ok`, re-running all listeners again (a duplicate-dispatch
+    // miscompile).
+    let is_event_dispatch_result = declarator_init_is_event_dispatch(nodes, init);
+    // Stage P2 Lane 2b: `const cloned = structuredClone(src)` is a FRESH
+    // deep allocation whose result MUST be held in a stable local. Without
+    // promotion the `const` fold-alias tunnel (`FunctionEmitter::bindings`)
+    // re-emits the clone CALL at every read of `cloned` — a NEW allocation
+    // each time (and the declaration-site result is dropped, so the first
+    // read re-runs it) — a distinct-instances miscompile, the exact twin of
+    // `is_materialized_factory_return` for a callee (`structuredClone`) that
+    // is a compiler builtin with no `return_repr` entry. Gated on the
+    // binding's own repr being `Object` (only the in-envelope object lane
+    // reaches here; the placeholder/fail-closed lanes never bind an Object).
+    let is_structured_clone_result = declarator_node.text.as_deref().is_some_and(|name| {
+        matches!(
+            repr_table.scalar(function_name, name),
+            kali_common::Repr::Object(_)
+        ) && declarator_init_call_callee_name(nodes, init) == Some("structuredClone")
+    });
+    // Stage P3 abort lane: a binding inference proved `AbortHandle`
+    // (`const c = new AbortController()` or the `const s = c.signal`
+    // alias) holds an i64 pointer to the shared global abort cell that
+    // MUST live in a stable local slot. Without promotion the emitter's
+    // abort declarator/alias arms fall to the drop branch (no
+    // `self.locals` entry), silently discarding the handle — every
+    // `.abort()`/`.aborted` then reads a zero handle and aliases address
+    // 0, so DISTINCT controllers share one cell (a latent hole exposed
+    // once `.aborted` can read the cell back). Repr-keyed so it covers
+    // both admitted seeding shapes uniformly.
+    let is_abort_handle_binding = declarator_node.text.as_deref().is_some_and(|name| {
+        matches!(
+            repr_table.scalar(function_name, name),
+            kali_common::Repr::AbortHandle
+        )
+    });
+    // The shapes above force promotion because each needs a stable
+    // RUNTIME handle (a fresh allocation, a host registration, a
+    // materialized object) — properties an allowlist over the init's
+    // syntax cannot see. They are kept as an explicit force-promote
+    // union rather than folded into `const_init_is_stable`, which
+    // decides the general case: promote UNLESS re-emitting the
+    // initializer is provably observationally identical. Default-deny,
+    // so an initializer shape nobody enumerated is bound eagerly
+    // (correct) instead of textually substituted (a silent wrong
+    // value).
+    let force_promote = declarator_init_is_array_alloc(nodes, init)
+        || declarator_init_is_array_fill(nodes, init)
+        || declarator_init_is_array_read(nodes, init, array_names)
+        || is_materialized_object
+        || is_materialized_object_array
+        || is_materialized_factory_return
+        || is_growable_array
+        || reads_growable_array
+        || declarator_init_is_performance_now(nodes, init)
+        || declarator_init_is_crypto_call(nodes, init)
+        || declarator_init_contains_mutation(nodes, init)
+        || is_scheduling_registration_call
+        || is_event_target_construction
+        || is_event_dispatch_result
+        || is_structured_clone_result
+        || is_abort_handle_binding;
+    if force_promote {
+        return Some((name, ConstPromotion::Handle));
+    }
+    if const_init_is_stable(nodes, init, reassigned, 0) {
+        return Some((name, ConstPromotion::Fold));
+    }
+    Some((name, ConstPromotion::Binding))
+}
+
+/// Every `const` in this function body promoted by the STABILITY allowlist
+/// (`ConstPromotion::Binding`) — the names that need a compile-time denotation
+/// entry alongside their local slot. Walks the same body the local collector
+/// does and defers to the same `const_declarator_promotion`.
+pub(crate) fn allowlist_promoted_const_names(
+    nodes: &[LirNode],
+    body_id: LirNodeId,
+    repr_table: &kali_common::ReprTable,
+    function_name: &str,
+) -> HashSet<String> {
+    let mut array_names = HashSet::new();
+    let mut array_seen = HashSet::new();
+    collect_array_binding_names(
+        nodes,
+        body_id,
+        repr_table,
+        function_name,
+        &mut array_seen,
+        &mut array_names,
+    );
+    let reassigned = program_reassigned_names(nodes);
+
+    let mut out = HashSet::new();
+    let mut seen = HashSet::new();
+    allowlist_promoted_const_names_walk(
+        nodes,
+        body_id,
+        &array_names,
+        &reassigned,
+        repr_table,
+        function_name,
+        &mut seen,
+        &mut out,
+    );
+    out
+}
+
+#[allow(clippy::too_many_arguments)]
+fn allowlist_promoted_const_names_walk(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    array_names: &HashSet<String>,
+    reassigned: &HashSet<String>,
+    repr_table: &kali_common::ReprTable,
+    function_name: &str,
+    seen: &mut HashSet<LirNodeId>,
+    out: &mut HashSet<String>,
+) {
+    if !seen.insert(id) {
+        return;
+    }
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return;
+    };
+    if node.kind == LirNodeKind::Instruction && node.text.as_deref() == Some("const") {
+        for declarator in &node.children {
+            if let Some((name, ConstPromotion::Binding)) = const_declarator_promotion(
+                nodes,
+                *declarator,
+                array_names,
+                reassigned,
+                repr_table,
+                function_name,
+            ) {
+                out.insert(name);
+            }
+        }
+    }
+    for child in &node.children {
+        if is_function_like(nodes, *child) {
+            continue;
+        }
+        allowlist_promoted_const_names_walk(
+            nodes,
+            *child,
+            array_names,
+            reassigned,
+            repr_table,
+            function_name,
+            seen,
+            out,
+        );
+    }
+}
+
+// One recursive walk threading two precomputed name sets (`array_names`,
+// `reassigned`) plus the repr context; bundling them into a struct would add a
+// type for a single call site's benefit.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn collect_function_locals_from_node(
     nodes: &[LirNode],
     id: LirNodeId,
     array_names: &HashSet<String>,
+    reassigned: &HashSet<String>,
     repr_table: &kali_common::ReprTable,
     function_name: &str,
     seen: &mut HashSet<LirNodeId>,
@@ -4020,166 +4316,21 @@ pub(crate) fn collect_function_locals_from_node(
     // the compile-time fold lane untouched (fold-first).
     if node.kind == LirNodeKind::Instruction && node.text.as_deref() == Some("const") {
         for declarator in &node.children {
-            let Some(declarator_node) = nodes.get(declarator.0 as usize) else {
+            let Some((name, promotion)) = const_declarator_promotion(
+                nodes,
+                *declarator,
+                array_names,
+                reassigned,
+                repr_table,
+                function_name,
+            ) else {
                 continue;
             };
-            let Some(init) = declarator_node.children.get(1).copied() else {
-                continue;
-            };
-            let is_materialized_object = declarator_node.text.as_deref().is_some_and(|name| {
-                declarator_init_is_object_literal(nodes, init)
-                    && matches!(
-                        repr_table.scalar(function_name, name),
-                        kali_common::Repr::Object(_)
-                    )
-            });
-            // An array literal of object references needs the same stable
-            // handle as a `new Array(n)` allocation, so its own base pointer
-            // (not just later reads of it) is promoted to a local. See
-            // `collect_array_binding_names`'s matching check.
-            let is_materialized_object_array =
-                declarator_node.text.as_deref().is_some_and(|name| {
-                    declarator_init_is_array_literal(nodes, init)
-                        && matches!(
-                            repr_table.array_element(function_name, name),
-                            kali_common::Repr::Object(_)
-                        )
-                });
-            // A factory-call initializer (`const q = mk(2.0)`) whose callee
-            // returns an `Object` repr matching the binding's own repr needs
-            // the same stable handle: without promotion, the const folds to
-            // re-evaluating the call at every use site (`resolve_literal_aggregate`'s
-            // `bindings` alias lane), silently calling the factory again on
-            // each read/write instead of sharing the one materialized object
-            // — a distinct-instances miscompile, not just a missed optimization.
-            let is_materialized_factory_return =
-                declarator_node.text.as_deref().is_some_and(|name| {
-                    match repr_table.scalar(function_name, name) {
-                        kali_common::Repr::Object(_) => {
-                            declarator_init_call_callee_name(nodes, init).is_some_and(|callee| {
-                                matches!(
-                                    repr_table.return_repr(callee),
-                                    kali_common::Repr::Object(_)
-                                )
-                            })
-                        }
-                        _ => false,
-                    }
-                });
-            // A growable (push-accumulated) array binding needs a stable
-            // local slot for its tagged handle regardless of `const`
-            // (throw-fallout Stage 4) — push/length/index all read it back.
-            let is_growable_array = declarator_node
-                .text
-                .as_deref()
-                .is_some_and(|name| repr_table.is_growable_array_binding(function_name, name));
-            // A const whose init READS a growable array (`const n = o.length`
-            // / `o[i]`) must be evaluated EAGERLY into a local: the fold-lane
-            // alias would re-emit the read at every use site, observing a
-            // LATER length/element after more pushes — a stale-alias
-            // miscompile (the growable twin of `declarator_init_is_array_read`).
-            let reads_growable_array =
-                declarator_init_mentions_growable(nodes, init, repr_table, function_name);
-            // Scheduling registration (`const t = setTimeout(...)` /
-            // `setInterval(...)`, Stage D task D2; also `queueMicrotask(...)`,
-            // Stage D task D2's earlier microtask lane) is a SIDE-EFFECTING
-            // host call — exactly like `declarator_init_is_performance_now`/
-            // `_is_crypto_call` above, just a bare-identifier call rather than
-            // a member call, so `declarator_init_call_callee_name` (already
-            // used for the factory-return check above) recognizes its shape
-            // directly. Before each surface's registration emit landed, it
-            // lowered through a dropped zero-placeholder fallback, so
-            // re-emitting the call at every read site of a bound name was a
-            // harmless no-op; now each is a REAL host call, and without
-            // promotion the `const` fold-alias tunnel (`FunctionEmitter::
-            // bindings`) re-emits the ORIGINAL call at each later use site of
-            // the bound name, registering a SECOND independent
-            // timer/microtask — a duplicate-registration miscompile (for
-            // setTimeout/setInterval: the pending first timer is never
-            // cancelled if the read site is a `clearTimeout`/`clearInterval`
-            // call; for queueMicrotask: its callback runs TWICE, reproduced
-            // via `const m = queueMicrotask(fn); console.log(m);` — `fn` ran
-            // twice on the pre-fix HEAD), not merely a missed optimization.
-            // `queueMicrotask` is included here even though task D2's own
-            // fixtures never bind its (always-`undefined`) return value,
-            // because it is the exact same mechanism at the exact same choke
-            // point — closing the class, not just the setTimeout/setInterval
-            // instances of it.
-            let is_scheduling_registration_call = matches!(
-                declarator_init_call_callee_name(nodes, init),
-                Some("setTimeout") | Some("setInterval") | Some("queueMicrotask")
-            );
-            // Stage D event lane: `const t = new EventTarget()` is a
-            // SIDE-EFFECTING host construction (it allocates a fresh opaque
-            // handle host-side). Like the scheduling registration calls above,
-            // its `const` binding must be a REAL local — the fold-alias tunnel
-            // would re-emit `event_target_new()` at every read site, minting a
-            // DISTINCT handle each time (a different listener registry) rather
-            // than sharing the one target. Promotion here; the handle store +
-            // provenance recording is in the emitter's declarator branch.
-            let is_event_target_construction = declarator_init_is_event_target_new(nodes, init);
-            // Stage D event lane: `const ok = t.dispatchEvent(...)` is a
-            // SIDE-EFFECTING host dispatch (it synchronously re-invokes every
-            // registered listener). Its `const` binding must be a REAL local —
-            // the fold-alias tunnel would re-emit the dispatch at each read of
-            // `ok`, re-running all listeners again (a duplicate-dispatch
-            // miscompile).
-            let is_event_dispatch_result = declarator_init_is_event_dispatch(nodes, init);
-            // Stage P2 Lane 2b: `const cloned = structuredClone(src)` is a FRESH
-            // deep allocation whose result MUST be held in a stable local. Without
-            // promotion the `const` fold-alias tunnel (`FunctionEmitter::bindings`)
-            // re-emits the clone CALL at every read of `cloned` — a NEW allocation
-            // each time (and the declaration-site result is dropped, so the first
-            // read re-runs it) — a distinct-instances miscompile, the exact twin of
-            // `is_materialized_factory_return` for a callee (`structuredClone`) that
-            // is a compiler builtin with no `return_repr` entry. Gated on the
-            // binding's own repr being `Object` (only the in-envelope object lane
-            // reaches here; the placeholder/fail-closed lanes never bind an Object).
-            let is_structured_clone_result = declarator_node.text.as_deref().is_some_and(|name| {
-                matches!(
-                    repr_table.scalar(function_name, name),
-                    kali_common::Repr::Object(_)
-                ) && declarator_init_call_callee_name(nodes, init) == Some("structuredClone")
-            });
-            // Stage P3 abort lane: a binding inference proved `AbortHandle`
-            // (`const c = new AbortController()` or the `const s = c.signal`
-            // alias) holds an i64 pointer to the shared global abort cell that
-            // MUST live in a stable local slot. Without promotion the emitter's
-            // abort declarator/alias arms fall to the drop branch (no
-            // `self.locals` entry), silently discarding the handle — every
-            // `.abort()`/`.aborted` then reads a zero handle and aliases address
-            // 0, so DISTINCT controllers share one cell (a latent hole exposed
-            // once `.aborted` can read the cell back). Repr-keyed so it covers
-            // both admitted seeding shapes uniformly.
-            let is_abort_handle_binding = declarator_node.text.as_deref().is_some_and(|name| {
-                matches!(
-                    repr_table.scalar(function_name, name),
-                    kali_common::Repr::AbortHandle
-                )
-            });
-            if !declarator_init_is_array_alloc(nodes, init)
-                && !declarator_init_is_array_fill(nodes, init)
-                && !declarator_init_is_array_read(nodes, init, array_names)
-                && !is_materialized_object
-                && !is_materialized_object_array
-                && !is_materialized_factory_return
-                && !is_growable_array
-                && !reads_growable_array
-                && !declarator_init_is_performance_now(nodes, init)
-                && !declarator_init_is_crypto_call(nodes, init)
-                && !declarator_init_contains_mutation(nodes, init)
-                && !is_scheduling_registration_call
-                && !is_event_target_construction
-                && !is_event_dispatch_result
-                && !is_structured_clone_result
-                && !is_abort_handle_binding
-            {
+            if promotion == ConstPromotion::Fold {
                 continue;
             }
-            if let Some(name) = declarator_node.text.clone() {
-                if !locals.contains(&name) {
-                    locals.push(name);
-                }
+            if !locals.contains(&name) {
+                locals.push(name);
             }
         }
     }
@@ -4192,6 +4343,7 @@ pub(crate) fn collect_function_locals_from_node(
             nodes,
             *child,
             array_names,
+            reassigned,
             repr_table,
             function_name,
             seen,
@@ -4467,6 +4619,217 @@ pub(crate) fn declarator_init_contains_mutation(nodes: &[LirNode], init_id: LirN
         node.children.iter().any(|&child| walk(nodes, child, seen))
     }
     walk(nodes, init_id, &mut HashSet::new())
+}
+
+/// Sentinel recorded in the reassigned-name set when a COMPUTED member target
+/// (`a[i] = …`) is assigned: it names no single property, so every member read
+/// in a `const` initializer must be denied the fold lane. Not a legal
+/// identifier, so it can never collide with a source name.
+pub(crate) const COMPUTED_MEMBER_ASSIGN_SENTINEL: &str = "\0computed-member-assign";
+
+/// Every name REBOUND anywhere in the PROGRAM: the target of a
+/// mutating operator (`=`, `+=`, `++`, `--`, …) or a `for-of`/`for-await-of`/
+/// `for-in` loop variable. A read of such a name is NOT stable — re-emitting
+/// it at a later program point can observe a different value than the one in
+/// scope where the read was written.
+///
+/// Deliberately descends INTO function-like children, unlike most walks in
+/// this module: a nested closure that assigns a captured name makes reads of
+/// that name unstable in the enclosing function too. Over-collecting here only
+/// costs an extra promoted local slot; under-collecting is a silent wrong
+/// value, so the walk errs toward collecting.
+pub(crate) fn program_reassigned_names(nodes: &[LirNode]) -> HashSet<String> {
+    let mut out = HashSet::new();
+    for node in nodes {
+        record_reassigned_from_node(nodes, node, &mut out);
+    }
+    out
+}
+
+fn record_reassigned_from_node(nodes: &[LirNode], node: &LirNode, out: &mut HashSet<String>) {
+    if node.text.as_deref().is_some_and(is_mutating_operator_text) {
+        // The assignment/update TARGET is the first child.
+        if let Some(&target) = node.children.first() {
+            if let Some(name) = bare_identifier_name_of(nodes, target) {
+                out.insert(name);
+            } else {
+                // A MEMBER target (`o.x = …`, `a[i] = …`). Record the property
+                // name in the same set, so a `const` initializer that reads
+                // `<anything>.x` is denied the fold lane. Sharing one namespace
+                // with variable names only over-denies (a variable `x` assigned
+                // somewhere also blocks reads of `.x`), which costs a local
+                // slot rather than correctness.
+                let target = unwrap_transparent_value(nodes, target);
+                match nodes
+                    .get(target.0 as usize)
+                    .and_then(|n| n.text.as_deref())
+                    .filter(|text| !text.is_empty())
+                {
+                    Some(property) => {
+                        out.insert(property.to_string());
+                    }
+                    // A COMPUTED member target whose property is an expression
+                    // (`a[i] = …`) names no single property. Deny every member
+                    // read via a sentinel that cannot collide with a source
+                    // identifier.
+                    None => {
+                        out.insert(COMPUTED_MEMBER_ASSIGN_SENTINEL.to_string());
+                    }
+                }
+            }
+        }
+    }
+    if node.kind == LirNodeKind::Branch {
+        match node.text.as_deref() {
+            Some("for-of" | "for-await-of") => {
+                if let Some(name) = node
+                    .children
+                    .first()
+                    .and_then(|&left| for_of_loop_var_name_of(nodes, left))
+                {
+                    out.insert(name);
+                }
+            }
+            Some("for-in") => {
+                if let Some(name) = node
+                    .children
+                    .first()
+                    .and_then(|&left| for_in_loop_key_name(nodes, left))
+                {
+                    out.insert(name);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+/// True when re-emitting `id` at an arbitrary later program point is
+/// OBSERVATIONALLY IDENTICAL to evaluating it at the declaration site — i.e.
+/// the initializer of a `const` may safely stay on the compile-time fold lane
+/// (`FunctionEmitter::bindings`, which re-emits the init AST node at every
+/// read of the bound name) instead of being promoted to an eager local slot.
+///
+/// This is the ALLOWLIST half of the `const`-binding choke point. Its
+/// predecessor was a denylist of ~15 initializer shapes known to break under
+/// re-emission (allocations, host calls, factory returns, mutating inits, …),
+/// each added after a miscompile was found in the field. A denylist cannot
+/// close this class: every initializer shape NOT enumerated silently kept the
+/// fold lane, so `const` was a textual substitution rather than a binding —
+/// `const tmp = a; a = b; b = tmp;` lost a value with exit 0 and no
+/// diagnostic, and `const c = f()` ran `f` once per read. Only an allowlist of
+/// provably stable shapes closes it by construction: anything unrecognized is
+/// promoted, which is always semantically safe (eager evaluation at the
+/// declaration is exactly what the language specifies).
+///
+/// Stable shapes:
+/// - a literal, or a bare token that is not a reassigned name;
+/// - operators over stable operands (assignment/update operators excluded:
+///   `is_binary_operator_text` includes them, and they are side effects);
+/// - object/array-literal aggregates whose element expressions are stable
+///   (these carry no operator text) and their property nodes;
+/// - a function-like init, which stays on the fold lane BY DESIGN — promoting
+///   it produces no value and calls then resolve through a phantom zero local
+///   (pinned by `soundness_const_fold_side_effects::
+///   const_bound_arrow_with_mutating_body_is_not_promoted`).
+///
+/// Everything else — calls, `new`, member reads, template literals, `await`ed
+/// values, ternaries — is unstable and gets a local slot.
+pub(crate) fn const_init_is_stable(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    reassigned: &HashSet<String>,
+    depth: usize,
+) -> bool {
+    if depth > 32 {
+        return false;
+    }
+    if is_function_like(nodes, id) {
+        return true;
+    }
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return false;
+    };
+    let all_children_stable = |nodes: &[LirNode]| {
+        node.children
+            .iter()
+            .all(|&child| const_init_is_stable(nodes, child, reassigned, depth + 1))
+    };
+    match node.kind {
+        LirNodeKind::Literal => true,
+        LirNodeKind::Value => {
+            let text = node.text.as_deref();
+            if node.children.is_empty() {
+                // A bare token: a literal spelling (`42`, `true`, `"hi"`) is
+                // stable; an identifier is stable only when never reassigned.
+                return text.is_some_and(|name| !reassigned.contains(name));
+            }
+            match text {
+                // Sequence/paren/`await` wrappers and object/array-literal
+                // aggregates all carry no operator text.
+                None | Some("") => all_children_stable(nodes),
+                // Object-literal property node: the key is a literal, the
+                // value is the second child.
+                Some("init" | "get" | "set") if node.children.len() == 2 => {
+                    const_init_is_stable(nodes, node.children[1], reassigned, depth + 1)
+                }
+                // `is_binary_operator_text` also matches `=`/`+=`/… — those
+                // are side effects, never stable.
+                Some(operator) if is_mutating_operator_text(operator) => false,
+                Some(operator) if node.children.len() == 2 && is_binary_operator_text(operator) => {
+                    all_children_stable(nodes)
+                }
+                Some("-" | "+" | "!" | "~" | "void" | "typeof") if node.children.len() == 1 => {
+                    all_children_stable(nodes)
+                }
+                // A MEMBER READ (`Object.is`, `globalThis.Math.round`): a pure
+                // read, stable when its base chain is stable AND the property
+                // is never an assignment target anywhere in the function (a
+                // member target records its property name in `reassigned`, and
+                // a computed target records the deny-all sentinel). This arm is
+                // what keeps intrinsic ALIASES — `const same = Object.is` — on
+                // the fold lane, where the alias-resolution analyses that read
+                // `FunctionEmitter::bindings` can still see what the name
+                // denotes. Promoting them instead binds the runtime value
+                // correctly but un-resolves the alias, so the intrinsic is
+                // never recognized.
+                Some(property)
+                    if node.children.len() == 1
+                        && !reassigned.contains(property)
+                        && !reassigned.contains(COMPUTED_MEMBER_ASSIGN_SENTINEL) =>
+                {
+                    all_children_stable(nodes)
+                }
+                _ => false,
+            }
+        }
+        // `Object.freeze(x)` is an IDENTITY intrinsic: it returns its argument
+        // (freezing an object in place is idempotent), so re-emitting it is
+        // observationally identical exactly when re-emitting the argument is.
+        // Recognized here rather than left to the generic call deny because the
+        // freeze wrapper is the idiomatic spelling of an intrinsic alias
+        // throughout the browser corpus (`Object.freeze(Math.round)(v)`), and
+        // promoting it both un-resolves the intrinsic and — when the argument
+        // is a float the repr table did not infer as `F64` — allocates an i64
+        // slot for an f64 value, emitting invalid wasm.
+        LirNodeKind::Call
+            if node.children.len() == 2
+                && nodes
+                    .get(node.children[0].0 as usize)
+                    .is_some_and(|callee| {
+                        callee.text.as_deref() == Some("freeze")
+                            && callee
+                                .children
+                                .first()
+                                .and_then(|&o| nodes.get(o.0 as usize))
+                                .and_then(|n| n.text.as_deref())
+                                == Some("Object")
+                    }) =>
+        {
+            const_init_is_stable(nodes, node.children[1], reassigned, depth + 1)
+        }
+        _ => false,
+    }
 }
 
 /// Returns true if `init_id` (after unwrapping genuine sequence wrappers) is

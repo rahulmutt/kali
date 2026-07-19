@@ -142,6 +142,12 @@ pub(crate) struct FunctionEmitter<'a> {
     pub(crate) current_function_flavor: Option<FunctionFlavor>,
     pub(crate) locals: BTreeMap<String, u32>,
     pub(crate) bindings: BTreeMap<String, LirNodeId>,
+    /// `const` names promoted to a local slot by the stability allowlist — the
+    /// ones that get a `bindings` denotation entry DESPITE having a slot. A
+    /// handle-promoted `const` (`ConstPromotion::Handle`) is deliberately
+    /// absent: its lanes key on provenance sets and a denotation entry would
+    /// re-resolve the name to its initializer.
+    pub(crate) allowlist_promoted_consts: HashSet<String>,
     /// Local names bound to a function VALUE (`let cb = function(){…}` /
     /// `const cb = () => …`), mapping the binding name to the initializer's
     /// `__kali_fn_N` plan key. Recorded at declaration-emit time (source order,
@@ -341,6 +347,16 @@ impl<'a> FunctionEmitter<'a> {
         let for_in_key_aliases = crate::lower::for_in_key_alias_names(&program.nodes, body);
         let unstable_provenance_names =
             crate::lower::unstable_provenance_names(&program.nodes, body);
+        // `const` names promoted to a local slot by the STABILITY allowlist.
+        // These still need a compile-time denotation entry in `bindings` (the
+        // alias/intrinsic analyses read it); their RUNTIME reads resolve
+        // through `locals`, which the identifier path consults first.
+        let allowlist_promoted_consts = crate::lower::allowlist_promoted_const_names(
+            &program.nodes,
+            body,
+            repr_table,
+            function_name,
+        );
         let mut locals = BTreeMap::new();
         for (idx, name) in params.iter().enumerate() {
             locals.insert(name.clone(), idx as u32);
@@ -419,6 +435,7 @@ impl<'a> FunctionEmitter<'a> {
             current_function_flavor,
             locals,
             bindings: BTreeMap::new(),
+            allowlist_promoted_consts,
             fn_valued_locals: BTreeMap::new(),
             unstable_provenance_names,
             array_bindings,
