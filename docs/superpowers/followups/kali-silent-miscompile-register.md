@@ -399,17 +399,23 @@ tier, ordering is by blast radius.
   `==`/`!=` majority of this entry is CLOSED.** `crates/kali_codegen/src/emit/equality.rs`
   now classifies both operands into a compile-time JS type class (`EqClass`) and decides by
   TYPE rather than bit pattern: `0 === null`, `0 === false`, `true === 1` all now match node.
-  **The `??` half is CLOSED ONLY for a literal or a `const`-bound operand** — see residual 4
-  below for the general case, which is NOT closed. Re-verified on a freshly built binary as
-  part of this addendum (2026-07-19): `console.log("1=" + (0 === null))` → `1=false` (was
-  `1=true`); `0 ?? 9` → `0` (matches node); `const c = 0; c ?? 9` → `0` (matches node). Pinned by
-  `crates/kali_cli/tests/soundness_strict_equality.rs` (12+ tests).
+  **The `??` half is CLOSED ONLY where the compiler can PROVE a type class for the left
+  operand — see residual 4 below for the precise proof condition and its non-exhaustive
+  illustrations, and residual 5 for a second, independent way `??` still diverges from node
+  even when that proof succeeds.** (An earlier version of this addendum claimed `??` was
+  "closed for a literal or a `const`-bound operand"; that headline generalized past what the
+  mechanism actually proves and was falsified by probing — see residual 4.) Re-verified on a
+  freshly built binary as part of this addendum (2026-07-19): `console.log("1=" + (0 === null))`
+  → `1=false` (was `1=true`); `0 ?? 9` → `0` (matches node); `const c = 0; c ?? 9` → `0` (matches
+  node). Pinned by `crates/kali_cli/tests/soundness_strict_equality.rs` (12+ tests).
 
   **This entry is NOT fully closed.** Fix 4 documents (in `equality.rs`'s own doc comments) and
-  this wave (soundness-batch1-pra wave 0) additionally pins four residuals, in every case
-  because kali cannot prove a `Repr::Boolean` axis for an arbitrary expression and the
-  type-directed table therefore leaves the pre-existing unsound bit-pattern `i64.eq` in place
-  rather than regressing a large swath of the corpus by failing everything closed:
+  this wave (soundness-batch1-pra wave 0, across two addendum rounds) additionally pins five
+  residuals. Residuals 1-4 exist because kali cannot prove a `Repr::Boolean` axis for an
+  arbitrary expression and the type-directed table therefore leaves the pre-existing unsound
+  bit-pattern `i64.eq` in place rather than regressing a large swath of the corpus by failing
+  everything closed; residual 5 is an independent print-sink defect that fires even when the
+  type-directed table's decision is correct:
 
   1. An `UntypedObjectField` operand (an object-shape field with the untyped `I64` repr, which
      may hold a pointer, a number or a boolean) against a proven `null`/`undefined`/boolean
@@ -438,41 +444,79 @@ tier, ordering is by blast radius.
      `soundness_strict_equality.rs`. **Not fixed in this wave** — the real fix needs the same
      `Repr::Boolean` axis residual 2 is blocked on; this is inventory + pin only, per maintainer
      ruling.
-  4. **CRITICAL (new finding, 2026-07-19 close-out review — corrects an overstatement in the
-     original version of this addendum, which claimed `??`-over-`0`/`false` was closed
-     unconditionally)**: `??` over a `let`-bound, `var`-bound, function-PARAMETER, or
-     call-RETURN-VALUE operand still treats a falsy scalar (`0`, `false`) as nullish — i.e.
-     still behaves as `||`, defeating the operator's entire purpose. `static_equality_class`
-     (`crates/kali_codegen/src/emit/equality.rs:228`) only proves a class for a LITERAL or for
-     an identifier that resolves through the `const`-alias chain
-     (`resolve_literal_aggregate`/`self.bindings`); a real local slot (`let`/`var`/parameter) is
-     read back with a plain `LocalGet` and carries no such proof, so `operators.rs`'s `??` arm
-     falls through to the pre-existing `i64.eqz` bit-pattern test. Repro, re-verified on a
-     freshly built binary (2026-07-19), all four shapes, exit 0, no diagnostic:
-     ```js
-     let a = 0;
-     console.log(a ?? 9);                          // kali 9,  node 0
-     var v = 0;
-     console.log(v ?? 9);                          // kali 9,  node 0
-     function opt(n) { return n ?? 10; }
-     console.log(opt(0));                           // kali 10, node 0
-     function zero() { return 0; }
-     console.log(zero() ?? 9);                      // kali 9,  node 0
-     const c = 0;
-     console.log(c ?? 9);                           // kali 0,  node 0  <-- only this (and a bare
-                                                     //                      literal) actually works
-     ```
-     Pinned honestly (recording current WRONG behaviour, not a correctness claim) by
-     `nullish_coalescing_over_let_binding_is_a_known_residual` and
-     `nullish_coalescing_over_parameter_is_a_known_residual` in
-     `crates/kali_cli/tests/soundness_strict_equality.rs`. **Not fixed in this wave** — same
-     `Repr::Boolean`/null-axis architectural blocker as residuals 2 and 3; per maintainer ruling,
-     do not attempt it here.
+  4. **CRITICAL — restated 2026-07-19 (second addendum round) as a MECHANISM, not a shape
+     list, after a round-2 probe falsified the round-1 restatement of this residual** (round 1
+     claimed, in the entry headline above, that `??` was "closed for a literal or a
+     `const`-bound operand"; that is a *description of two symptoms*, not the proof condition,
+     and round-2 probing found counterexamples the headline's own words technically permitted
+     — see family (a) below).
+     **The actual proof condition**: `??`'s left-operand branch is decided at compile time,
+     correctly, if and only if `static_equality_class`
+     (`crates/kali_codegen/src/emit/equality.rs:228`) returns `Some(class)` for it. That
+     function returns `Some` in exactly two cases — (i) the operand is itself a literal (or one
+     of the unary forms it folds directly to a class: `void`, `!`, `typeof`, `delete`, a
+     numeric `-`/`~`); or (ii) the operand is an identifier whose ENTIRE initializer chain
+     resolves, at compile time, all the way down to such a literal, via
+     `resolve_literal_aggregate`/`self.bindings` (the `const`-alias chain). Anything else —
+     any operand actually read back from a runtime storage slot with `LocalGet`, regardless of
+     which keyword bound it, and regardless of whether a `const` sits somewhere in the chain —
+     returns `None`, and `operators.rs`'s `??` arm falls through to the pre-existing `i64.eqz`
+     bit-pattern test, which conflates a runtime `0`/`false` with nullish (`??` degrades to
+     `||`). **The shape lists below (this round's and round 1's) are non-exhaustive
+     illustrations of that one rule — not an enumeration of what is broken; do not read either
+     list as a boundary.**
+     - **Illustration set 1 (round 1, still valid): a genuine runtime slot, no `const` in the
+       chain at all.** A `let`-bound, `var`-bound, function-PARAMETER, or call-RETURN-VALUE
+       operand. Re-verified on a freshly built binary (2026-07-19):
+       ```js
+       let a = 0;
+       console.log(a ?? 9);                          // kali 9,  node 0
+       var v = 0;
+       console.log(v ?? 9);                          // kali 9,  node 0
+       function opt(n) { return n ?? 10; }
+       console.log(opt(0));                           // kali 10, node 0
+       function zero() { return 0; }
+       console.log(zero() ?? 9);                      // kali 9,  node 0
+       ```
+       Pinned by `nullish_coalescing_over_let_binding_is_a_known_residual`,
+       `nullish_coalescing_over_var_binding_is_a_known_residual`,
+       `nullish_coalescing_over_parameter_is_a_known_residual`, and
+       `nullish_coalescing_over_call_return_is_a_known_residual` in
+       `soundness_strict_equality.rs` (all four now pinned; previously only the `let` and
+       parameter shapes were pinned while the header prose also claimed `var` and call-return —
+       that prose/pin mismatch is fixed by adding the two missing pins, not by narrowing the
+       prose).
+     - **Illustration set 2, FAMILY (a) (new this round): a `const` binding IS present, but its
+       initializer chain does not bottom out at a literal.** `resolve_literal_aggregate` will
+       follow a `const`'s binding, but if what sits at the end of the chain is a call, a folded
+       runtime expression, a further (non-literal) binding, or an object-field read,
+       `static_equality_class` still returns `None` there — `const` the keyword proves nothing
+       by itself; only a chain that terminates in a literal does. This is precisely what falsifies
+       the round-1 headline ("closed for a literal or a `const`-bound operand"): all four operands
+       below ARE `const`-bound, and all four are still wrong. Re-verified on a freshly built
+       binary (2026-07-19), all four shapes, exit 0, no diagnostic, kali `9` vs node `0`:
+       ```js
+       function zero() { return 0; }
+       const c1 = zero();      console.log(c1 ?? 9);   // const bound to a CALL result
+       const c2 = 1 - 1;       console.log(c2 ?? 9);   // const bound to a FOLDED expression
+       let d = 0;
+       const c3 = d;           console.log(c3 ?? 9);   // const bound to a LET-ALIAS
+       const o = { a: 0 };     console.log(o.a ?? 9);   // const-bound MEMBER READ
+       ```
+       Pinned by `nullish_coalescing_over_const_bound_call_result_is_a_known_residual`,
+       `nullish_coalescing_over_const_bound_folded_expression_is_a_known_residual`,
+       `nullish_coalescing_over_const_bound_let_alias_is_a_known_residual`, and
+       `nullish_coalescing_over_const_bound_member_read_is_a_known_residual` in
+       `soundness_strict_equality.rs`. By contrast, `const c = 0; c ?? 9` → kali `0` (matches
+       node) — a chain of length one that terminates directly at a literal, which IS proven.
+     Neither illustration set is fixed in this wave — both need the same `Repr::Boolean`/null-
+     axis architectural blocker as residuals 2 and 3; per maintainer ruling, do not attempt it
+     here.
      - **Blast radius: LARGER than residuals 2 and 3.** Residuals 2 and 3 are triggered by
        comparatively narrow shapes (a proven-boolean or proven-number-literal compare against an
-       unprovable operand). `x ?? default` over a `let` binding, a function parameter, or a
-       call's return value is `??`'s ORDINARY usage — this is the common case of the operator in
-       idiomatic JS, not an edge case.
+       unprovable operand). `x ?? default` over anything that isn't a literal or a
+       literal-terminated `const` chain is `??`'s ORDINARY usage — this is the common case of the
+       operator in idiomatic JS, not an edge case.
   - **Severity of the residual, downgraded from the original entry — but ONLY for the
     `===`/`!==`/`==`/`!=` half.** For those operators it is no longer "every null-guard in every
     program"; narrowed to residuals 1-3 above (an untyped object field, an unprovable-vs-boolean
@@ -480,7 +524,53 @@ tier, ordering is by blast radius.
     at compile time). **The `??` half is NOT downgraded**: residual 4 above is `??`'s ordinary-
     usage shape, so for `??` the original severity recorded at the top of this entry — silent-
     wrong-value **and** silent-wrong-control-flow, the worst combination — still stands,
-    essentially untouched by fix 4.
+    essentially untouched by fix 4. Residual 5 below is a further, independent divergence on
+    top of the cases residual 4 *does* prove correctly.
+
+  5. **FAMILY (b) (new this round, independent defect from residual 4): a `??` whose selected
+     result is a BOOLEAN loses its boolean-ness at the print sink, for every binding kind
+     including a bare literal operand — even when `??`'s branch selection is itself correct.**
+     This is not a proof-condition gap in `static_equality_class`; it fires ON TOP OF a correct
+     decision. Mechanism: when `??`'s left operand is provably `Boolean`-classed (never nullish)
+     or the branch resolves to a provably `Boolean`-classed right operand, the selected
+     operand's `EmittedValue` correctly carries `shape: ValueShape::Boolean` (via
+     `selected_nullish_operand`, `equality.rs:433-436`). But the SINGLE-ARGUMENT
+     `console.log`/`.error`/`.warn`/`.info` sink (`emit_console_argument`,
+     `crates/kali_codegen/src/emit/call.rs:23-41`) — which is what a `??` expression falls to
+     whenever the WHOLE call isn't statically renderable — never inspects `shape` except for
+     `Float`; it hands the raw i64 straight to the host import, which does `value.to_string()`
+     for anything that is not a string handle
+     (`crates/kali_runtime/src/host/io.rs::format_console_value`). A bare `console.log(false)`
+     prints correctly ONLY because the entire call is folded to the literal string `"false"` by
+     a SEPARATE, independent constant-folder (`render_console_call`/`render_static_value`,
+     `crates/kali_codegen/src/intrinsics/host.rs:345-`), which has no case for a `??` (or any
+     other binary-operator) node and therefore never folds a `??` expression at all — the same
+     "hand-mirrored oracle" class of bug this repo has hit before (two independent notions of
+     "is this a boolean" — `??`'s own branch decision and console's static-fold decision — that
+     disagree). The multi-argument console lane (`emit_console_argument_as_string`/
+     `emit_as_string`) DOES honor `shape: Boolean` (it has its own, correct, boolean-to-string
+     arm) and is NOT affected — `console.log("x:", false ?? 9)` correctly prints `x: false`.
+     Re-verified on a freshly built binary (2026-07-19):
+     ```js
+     console.log(false ?? 9);        // kali 0, node false — left operand selected, provably Boolean
+     console.log(true ?? 9);         // kali 1, node true
+     console.log(null ?? false);     // kali 0, node false — right operand selected, provably Boolean
+     console.log(null ?? true);      // kali 1, node true
+     console.log("x:", false ?? 9);  // kali "x: false", node "x: false" — multi-arg lane is FINE
+     ```
+     Pinned honestly (recording current WRONG behaviour, not a correctness claim) by
+     `nullish_coalescing_boolean_literal_result_loses_shape_is_a_known_residual` and
+     `nullish_coalescing_right_operand_boolean_loses_shape_is_a_known_residual` in
+     `soundness_strict_equality.rs`. **Not fixed in this wave** — out of scope per the
+     `Repr::Boolean`/null-axis architectural blocker ruling that covers the rest of this entry;
+     the note above is diagnostic (single-argument console sink lacks a `Boolean` shape arm and
+     the static console folder has no `??` arm), not a repair.
+     - **Note the masking hazard this residual corrects**: the pre-existing
+       `nullish_coalescing_does_not_treat_falsy_as_nullish` test's `n3` case
+       (`"n3:" + (false ?? true))`) routes through string concatenation, i.e. `emit_as_string`'s
+       correct path, and passed throughout both prior rounds — which is exactly why a green
+       suite did not surface this residual until it was probed directly through the
+       single-argument sink.
 
 ### R-09: `continue` inside a C-style `for` loop skips the update expression
 

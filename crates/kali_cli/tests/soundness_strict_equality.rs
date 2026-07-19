@@ -337,21 +337,30 @@ console.log("a:" + (zero ?? 9) + " b:" + (no ?? 9) + " c:" + (nul ?? 9));
 }
 
 // ---------------------------------------------------------------------------
-// RESIDUAL, pinned honestly — these two record CURRENT (WRONG) behaviour, not
-// a correctness claim. Closing `??` above required proving a compile-time
-// type class for an operand (`static_equality_class`), and that proof only
-// reaches a LITERAL or an identifier that resolves through the `const`-alias
-// binding chain. A `let`/`var` local, a function parameter, and a call's
-// return value are all read back with a plain runtime slot read and carry no
-// such proof, so `??` over any of them still falls through to the
-// pre-existing `i64.eqz` bit-pattern test and still treats `0`/`false` as
-// nullish — i.e. it still behaves as `||`, defeating the entire purpose of
-// the operator. This is `??`'s ORDINARY usage (`x ?? default` over a `let`
-// or a parameter is the common case in idiomatic JS), so its blast radius is
-// LARGER than the boolean/number-literal `===` residuals pinned above. When
-// the real fix (the same `Repr::Boolean`/null axis those residuals are
-// blocked on) lands, these assertions must go RED — that is the intended
-// signal to update these pins.
+// RESIDUAL, pinned honestly — these four record CURRENT (WRONG) behaviour,
+// not a correctness claim.
+//
+// THE MECHANISM (the actual proof condition, not a list of shapes): `??`
+// decides its branch at compile time, correctly, if and only if
+// `static_equality_class` (`crates/kali_codegen/src/emit/equality.rs:228`)
+// returns `Some(class)` for the left operand. That happens ONLY when the
+// left operand is (a) a literal (or one of the unary forms
+// `static_equality_class` folds directly to a class: `void`, `!`, `typeof`,
+// `delete`, a numeric `-`/`~`), or (b) an identifier whose ENTIRE initializer
+// chain resolves, at compile time, all the way down to such a literal via
+// `resolve_literal_aggregate`/`self.bindings` (the `const`-alias chain).
+// Every other operand — anything actually read back from a runtime storage
+// slot with `LocalGet`, regardless of which keyword bound it — returns `None`
+// and falls through to the pre-existing `i64.eqz` bit-pattern test, which
+// conflates a runtime `0`/`false` with nullish (`??` degrades to `||`).
+//
+// The four shapes pinned below (`let`, `var`, a function parameter, a call's
+// return value) are ILLUSTRATIONS of that rule, not the boundary itself —
+// see the next section for further illustrations (a `const` whose
+// initializer chain does NOT bottom out at a literal) that are equally
+// uncovered for the identical reason. When the real fix (the
+// `Repr::Boolean`/null axis) lands, every assertion in both sections must go
+// RED — that is the intended signal to update these pins.
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -365,11 +374,143 @@ console.log(a ?? 9);
 }
 
 #[test]
+fn nullish_coalescing_over_var_binding_is_a_known_residual() {
+    assert_stdout(
+        r#"var v = 0;
+console.log(v ?? 9);
+"#,
+        "9\n",
+    );
+}
+
+#[test]
 fn nullish_coalescing_over_parameter_is_a_known_residual() {
     assert_stdout(
         r#"function opt(n) { return n ?? 10; }
 console.log(opt(0));
 "#,
         "10\n",
+    );
+}
+
+#[test]
+fn nullish_coalescing_over_call_return_is_a_known_residual() {
+    assert_stdout(
+        r#"function zero() { return 0; }
+console.log(zero() ?? 9);
+"#,
+        "9\n",
+    );
+}
+
+// ---------------------------------------------------------------------------
+// RESIDUAL, pinned honestly — FAMILY (a) of the same mechanism above, one
+// level indirect: a `const` binding whose initializer chain does NOT bottom
+// out at a compile-time literal. `resolve_literal_aggregate` will follow a
+// `const`'s binding, but if what it finds at the end of the chain is a call,
+// a folded runtime expression, another (non-`const`) binding, or an object
+// field read, `static_equality_class` still returns `None` there — the
+// `const` keyword itself proves nothing; only a chain that terminates in a
+// literal does. This falsifies a claim from an earlier round of this
+// register entry ("`??` is closed for a literal or a `const`-bound operand"),
+// which conflated "bound via `const`" with "provably a literal". Four
+// illustrations, all re-verified on a freshly built binary, all WRONG (kali
+// `9`, node `0`):
+// ---------------------------------------------------------------------------
+
+#[test]
+fn nullish_coalescing_over_const_bound_call_result_is_a_known_residual() {
+    assert_stdout(
+        r#"function zero() { return 0; }
+const c1 = zero();
+console.log(c1 ?? 9);
+"#,
+        "9\n",
+    );
+}
+
+#[test]
+fn nullish_coalescing_over_const_bound_folded_expression_is_a_known_residual() {
+    assert_stdout(
+        r#"const c2 = 1 - 1;
+console.log(c2 ?? 9);
+"#,
+        "9\n",
+    );
+}
+
+#[test]
+fn nullish_coalescing_over_const_bound_let_alias_is_a_known_residual() {
+    assert_stdout(
+        r#"let d = 0;
+const c3 = d;
+console.log(c3 ?? 9);
+"#,
+        "9\n",
+    );
+}
+
+#[test]
+fn nullish_coalescing_over_const_bound_member_read_is_a_known_residual() {
+    assert_stdout(
+        r#"const o = { a: 0 };
+console.log(o.a ?? 9);
+"#,
+        "9\n",
+    );
+}
+
+// ---------------------------------------------------------------------------
+// RESIDUAL, pinned honestly — FAMILY (b): independent of the mechanism above,
+// a `??` whose selected result is a BOOLEAN loses its boolean-ness — for
+// every binding kind, including a bare literal operand, and even when `??`'s
+// branch selection is itself correct (a bare `false`/`true`/`null` operand
+// IS provable, so this fires on top of a correct decision, not because of
+// the residual above).
+//
+// Mechanism: when `??`'s left operand is provably `Boolean`-classed (never
+// nullish) or provably `Null`/`Undefined`-classed (always nullish), the
+// selected operand's `EmittedValue` correctly carries `shape:
+// ValueShape::Boolean` (via `selected_nullish_operand`,
+// `crates/kali_codegen/src/emit/equality.rs:433-436`). But the SINGLE-
+// ARGUMENT `console.log`/`.error`/`.warn`/`.info` sink
+// (`emit_console_argument`, `crates/kali_codegen/src/emit/call.rs:23-41`) —
+// which is what a `??` expression falls to whenever the WHOLE call isn't
+// statically renderable — never inspects `shape` except for `Float`; it
+// hands the raw i64 to the host, which does `value.to_string()` for anything
+// that isn't a string handle. A bare `console.log(false)` prints correctly
+// only because the ENTIRE call is folded to the literal string "false" by a
+// SEPARATE, independent constant-folder (`render_console_call` /
+// `render_static_value`, `crates/kali_codegen/src/intrinsics/host.rs:345-`),
+// which has no case for a `??`/binary node and so never folds a `??`
+// expression — a fresh instance of this repo's "hand-mirrored oracle" class
+// of bug (two independent notions of "is this a boolean", one used by `??`'s
+// own branch decision, one used by console's static-fold decision, and they
+// disagree). The multi-argument console lane (`emit_console_argument_as_string`
+// / `emit_as_string`) DOES honor `shape: Boolean` and is NOT affected — see
+// the passing (non-residual) coverage this section deliberately omits.
+//
+// Do not route these pins through string concatenation (`"n:" + (false ?? 9)`)
+// — that takes `emit_as_string`'s correct path (per the existing
+// `nullish_coalescing_does_not_treat_falsy_as_nullish` test above) and would
+// mask this residual entirely, which is exactly what happened to a green
+// suite in an earlier round.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn nullish_coalescing_boolean_literal_result_loses_shape_is_a_known_residual() {
+    assert_stdout(
+        r#"console.log(false ?? 9);
+"#,
+        "0\n",
+    );
+}
+
+#[test]
+fn nullish_coalescing_right_operand_boolean_loses_shape_is_a_known_residual() {
+    assert_stdout(
+        r#"console.log(null ?? false);
+"#,
+        "0\n",
     );
 }
