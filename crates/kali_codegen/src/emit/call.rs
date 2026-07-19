@@ -4865,6 +4865,20 @@ impl<'a> FunctionEmitter<'a> {
         let source = self.resolve_literal_aggregate(source)?;
         let source_node = self.node(source);
         if self.is_array_literal(source_node) {
+            // `[...a]` fails closed (Task B1/R-25): a spread child would be
+            // returned verbatim as the "element" at its slot, silently
+            // substituting the spread node itself instead of the real
+            // element. This resolver is `&self` (called from ~6 pure query
+            // sites, some of which never see `&mut self`), so it cannot push
+            // the E5506 diagnostic here; returning `None` instead prevents
+            // the wrong fold everywhere. The real emission call sites
+            // (`emit_value`'s single-child member arm) fall through to
+            // `emit_unary`'s numeric-index arm, which DOES hold `&mut self`
+            // and is the site that emits the E5506 diagnostic + traps
+            // (`array_literal_contains_spread` guard in emit/operators.rs).
+            if self.array_literal_contains_spread(source_node) {
+                return None;
+            }
             return Some(
                 source_node
                     .children

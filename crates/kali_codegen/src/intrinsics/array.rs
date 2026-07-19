@@ -6,6 +6,18 @@ impl<'a> FunctionEmitter<'a> {
         node.kind == LirNodeKind::Value && node.text.is_none() && !self.is_object_literal(node)
     }
 
+    /// True when an array-literal node has a spread element (`[...a]`). The
+    /// spread child is a textless `Value` node whose text is `Some("spread")`
+    /// (confirmed in Task B1 step 1). kali has no spread-expansion lowering, so
+    /// callers must fail closed rather than treat the spread as one element.
+    pub(crate) fn array_literal_contains_spread(&self, node: &LirNode) -> bool {
+        self.is_array_literal(node)
+            && node.children.iter().any(|&child| {
+                let c = self.node(child);
+                c.kind == LirNodeKind::Value && c.text.as_deref() == Some("spread")
+            })
+    }
+
     pub(crate) fn is_truthy_array_literal(&self, node: &LirNode) -> bool {
         self.is_array_literal(node)
             && node.children.iter().all(|child| {

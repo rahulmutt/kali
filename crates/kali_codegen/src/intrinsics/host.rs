@@ -761,6 +761,19 @@ impl<'a> FunctionEmitter<'a> {
         if let Some(aggregate_id) = self.resolve_literal_aggregate(*id) {
             let aggregate = self.node(aggregate_id);
             if self.is_array_literal(aggregate) {
+                // `[...a].length` fails closed (Task B1/R-25): a spread child
+                // would be counted as a single element here, silently baking
+                // the wrong length into a compile-time-rendered
+                // `console.log` string. `&self` cannot push the E5506
+                // diagnostic from this pure static-render helper; returning
+                // `None` forces the caller (`render_console_arguments`) to
+                // give up the whole-argument-list static render and fall
+                // back to per-argument runtime emission, which DOES hold
+                // `&mut self` and is where `array_literal_contains_spread`
+                // pushes the diagnostic and traps (emit/operators.rs).
+                if self.array_literal_contains_spread(aggregate) {
+                    return None;
+                }
                 return Some(aggregate.children.len().to_string());
             }
         }

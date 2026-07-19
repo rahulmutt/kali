@@ -332,6 +332,21 @@ impl<'a> FunctionEmitter<'a> {
                 if let Some(aggregate_id) = self.resolve_literal_aggregate(arg) {
                     let aggregate = self.node(aggregate_id).clone();
                     if self.is_array_literal(&aggregate) {
+                        if self.array_literal_contains_spread(&aggregate) {
+                            self.diagnostics.push(Diagnostic::error(
+                                e5::FEATURE_UNAVAILABLE as u32,
+                                "array spread `[...x]` is unavailable in the current phase: \
+                                 kali has no spread-expansion lowering, so the spread would be \
+                                 silently counted as one element; use explicit elements or the \
+                                 later compatibility path"
+                                    .to_string(),
+                            ));
+                            function.instruction(&Instruction::Unreachable);
+                            return EmittedValue {
+                                produced: false,
+                                shape: ValueShape::Unknown,
+                            };
+                        }
                         function
                             .instruction(&Instruction::I64Const(aggregate.children.len() as i64));
                         return EmittedValue {
@@ -436,6 +451,21 @@ impl<'a> FunctionEmitter<'a> {
                     if self.is_array_literal(&aggregate)
                         && op.parse::<isize>().ok().is_some_and(|index| index >= 0)
                     {
+                        if self.array_literal_contains_spread(&aggregate) {
+                            self.diagnostics.push(Diagnostic::error(
+                                e5::FEATURE_UNAVAILABLE as u32,
+                                "array spread `[...x]` is unavailable in the current phase: \
+                                 kali has no spread-expansion lowering, so indexing a spread \
+                                 literal would silently read the wrong element; use explicit \
+                                 elements or the later compatibility path"
+                                    .to_string(),
+                            ));
+                            function.instruction(&Instruction::Unreachable);
+                            return EmittedValue {
+                                produced: false,
+                                shape: ValueShape::Unknown,
+                            };
+                        }
                         if let Ok(index) = op.parse::<usize>() {
                             if let Some(element) = aggregate.children.get(index).copied() {
                                 return self.emit_node(function, element, true);
