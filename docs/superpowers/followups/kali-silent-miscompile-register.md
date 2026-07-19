@@ -396,15 +396,17 @@ tier, ordering is by blast radius.
   corroboration). Raising it: find the `===` emit arm and confirm there is no repr guard.
 
 - **UPDATE 2026-07-19 (soundness-batch1-pra, commit `4949d79ec`, "fix 4"): the `===`/`!==`/
-  `==`/`!=`/`??` majority of this entry is CLOSED.** `crates/kali_codegen/src/emit/equality.rs`
+  `==`/`!=` majority of this entry is CLOSED.** `crates/kali_codegen/src/emit/equality.rs`
   now classifies both operands into a compile-time JS type class (`EqClass`) and decides by
-  TYPE rather than bit pattern: `0 === null`, `0 === false`, `true === 1` and `??`-over-`0`/
-  `false` all now match node. Re-verified on a freshly built binary as part of this addendum
-  (2026-07-19): `console.log("1=" + (0 === null))` → `1=false` (was `1=true`). Pinned by
+  TYPE rather than bit pattern: `0 === null`, `0 === false`, `true === 1` all now match node.
+  **The `??` half is CLOSED ONLY for a literal or a `const`-bound operand** — see residual 4
+  below for the general case, which is NOT closed. Re-verified on a freshly built binary as
+  part of this addendum (2026-07-19): `console.log("1=" + (0 === null))` → `1=false` (was
+  `1=true`); `0 ?? 9` → `0` (matches node); `const c = 0; c ?? 9` → `0` (matches node). Pinned by
   `crates/kali_cli/tests/soundness_strict_equality.rs` (12+ tests).
 
   **This entry is NOT fully closed.** Fix 4 documents (in `equality.rs`'s own doc comments) and
-  this wave (soundness-batch1-pra wave 0) additionally pins three residuals, in every case
+  this wave (soundness-batch1-pra wave 0) additionally pins four residuals, in every case
   because kali cannot prove a `Repr::Boolean` axis for an arbitrary expression and the
   type-directed table therefore leaves the pre-existing unsound bit-pattern `i64.eq` in place
   rather than regressing a large swath of the corpus by failing everything closed:
@@ -436,10 +438,49 @@ tier, ordering is by blast radius.
      `soundness_strict_equality.rs`. **Not fixed in this wave** — the real fix needs the same
      `Repr::Boolean` axis residual 2 is blocked on; this is inventory + pin only, per maintainer
      ruling.
-  - **Severity of the residual, downgraded from the original entry**: no longer "every
-    null-guard in every program"; narrowed to "a proven-number operand compared against an
-    operand whose type kali cannot prove at compile time" (a runtime-computed value, not a
-    literal, on the other side).
+  4. **CRITICAL (new finding, 2026-07-19 close-out review — corrects an overstatement in the
+     original version of this addendum, which claimed `??`-over-`0`/`false` was closed
+     unconditionally)**: `??` over a `let`-bound, `var`-bound, function-PARAMETER, or
+     call-RETURN-VALUE operand still treats a falsy scalar (`0`, `false`) as nullish — i.e.
+     still behaves as `||`, defeating the operator's entire purpose. `static_equality_class`
+     (`crates/kali_codegen/src/emit/equality.rs:228`) only proves a class for a LITERAL or for
+     an identifier that resolves through the `const`-alias chain
+     (`resolve_literal_aggregate`/`self.bindings`); a real local slot (`let`/`var`/parameter) is
+     read back with a plain `LocalGet` and carries no such proof, so `operators.rs`'s `??` arm
+     falls through to the pre-existing `i64.eqz` bit-pattern test. Repro, re-verified on a
+     freshly built binary (2026-07-19), all four shapes, exit 0, no diagnostic:
+     ```js
+     let a = 0;
+     console.log(a ?? 9);                          // kali 9,  node 0
+     var v = 0;
+     console.log(v ?? 9);                          // kali 9,  node 0
+     function opt(n) { return n ?? 10; }
+     console.log(opt(0));                           // kali 10, node 0
+     function zero() { return 0; }
+     console.log(zero() ?? 9);                      // kali 9,  node 0
+     const c = 0;
+     console.log(c ?? 9);                           // kali 0,  node 0  <-- only this (and a bare
+                                                     //                      literal) actually works
+     ```
+     Pinned honestly (recording current WRONG behaviour, not a correctness claim) by
+     `nullish_coalescing_over_let_binding_is_a_known_residual` and
+     `nullish_coalescing_over_parameter_is_a_known_residual` in
+     `crates/kali_cli/tests/soundness_strict_equality.rs`. **Not fixed in this wave** — same
+     `Repr::Boolean`/null-axis architectural blocker as residuals 2 and 3; per maintainer ruling,
+     do not attempt it here.
+     - **Blast radius: LARGER than residuals 2 and 3.** Residuals 2 and 3 are triggered by
+       comparatively narrow shapes (a proven-boolean or proven-number-literal compare against an
+       unprovable operand). `x ?? default` over a `let` binding, a function parameter, or a
+       call's return value is `??`'s ORDINARY usage — this is the common case of the operator in
+       idiomatic JS, not an edge case.
+  - **Severity of the residual, downgraded from the original entry — but ONLY for the
+    `===`/`!==`/`==`/`!=` half.** For those operators it is no longer "every null-guard in every
+    program"; narrowed to residuals 1-3 above (an untyped object field, an unprovable-vs-boolean
+    compare, or a proven-number operand compared against an operand whose type kali cannot prove
+    at compile time). **The `??` half is NOT downgraded**: residual 4 above is `??`'s ordinary-
+    usage shape, so for `??` the original severity recorded at the top of this entry — silent-
+    wrong-value **and** silent-wrong-control-flow, the worst combination — still stands,
+    essentially untouched by fix 4.
 
 ### R-09: `continue` inside a C-style `for` loop skips the update expression
 

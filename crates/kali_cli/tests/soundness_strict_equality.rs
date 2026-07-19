@@ -335,3 +335,41 @@ console.log("a:" + (zero ?? 9) + " b:" + (no ?? 9) + " c:" + (nul ?? 9));
         "a:0 b:false c:9\n",
     );
 }
+
+// ---------------------------------------------------------------------------
+// RESIDUAL, pinned honestly — these two record CURRENT (WRONG) behaviour, not
+// a correctness claim. Closing `??` above required proving a compile-time
+// type class for an operand (`static_equality_class`), and that proof only
+// reaches a LITERAL or an identifier that resolves through the `const`-alias
+// binding chain. A `let`/`var` local, a function parameter, and a call's
+// return value are all read back with a plain runtime slot read and carry no
+// such proof, so `??` over any of them still falls through to the
+// pre-existing `i64.eqz` bit-pattern test and still treats `0`/`false` as
+// nullish — i.e. it still behaves as `||`, defeating the entire purpose of
+// the operator. This is `??`'s ORDINARY usage (`x ?? default` over a `let`
+// or a parameter is the common case in idiomatic JS), so its blast radius is
+// LARGER than the boolean/number-literal `===` residuals pinned above. When
+// the real fix (the same `Repr::Boolean`/null axis those residuals are
+// blocked on) lands, these assertions must go RED — that is the intended
+// signal to update these pins.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn nullish_coalescing_over_let_binding_is_a_known_residual() {
+    assert_stdout(
+        r#"let a = 0;
+console.log(a ?? 9);
+"#,
+        "9\n",
+    );
+}
+
+#[test]
+fn nullish_coalescing_over_parameter_is_a_known_residual() {
+    assert_stdout(
+        r#"function opt(n) { return n ?? 10; }
+console.log(opt(0));
+"#,
+        "10\n",
+    );
+}

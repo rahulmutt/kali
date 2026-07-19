@@ -40,7 +40,7 @@
 //!    unprovable side is at runtime `false`/`null`/`undefined` (all bit `0`).
 //!    `function f(b){return b;} f(false) === 0` is `true` under kali, `false`
 //!    under node. Same architectural blocker as residual 2. Pinned by
-//!    `unprovable_number_operand_against_unprovable_operand_is_a_known_residual`
+//!    `unprovable_operand_against_number_literal_is_a_known_residual`
 //!    in `crates/kali_cli/tests/soundness_strict_equality.rs`.
 use crate::*;
 
@@ -103,7 +103,7 @@ impl EqClass {
     /// the decision table (see the scope discipline note above).
     ///
     /// RESIDUAL 3 (unpinned prior to soundness-batch1-pra wave 0, now pinned by
-    /// `unprovable_number_operand_against_unprovable_operand_is_a_known_residual`
+    /// `unprovable_operand_against_number_literal_is_a_known_residual`
     /// in `soundness_strict_equality.rs`): `Number` is deliberately absent from
     /// this list, which means a proven `Number` operand — INCLUDING a literal
     /// like `0` — never arms the gate. Paired with an unprovable (`None`)
