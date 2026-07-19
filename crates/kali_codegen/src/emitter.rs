@@ -167,6 +167,13 @@ pub(crate) struct FunctionEmitter<'a> {
     /// Computed structurally up front (`crate::lower::unstable_provenance_names`)
     /// so it does not depend on emission order.
     pub(crate) unstable_provenance_names: HashSet<String>,
+    /// Fix 5 (call-through-a-first-class-function-value) choke-point caches.
+    /// Both are whole-PROGRAM structural facts, so they are computed once per
+    /// emitter and reused across every denial decision in this function body.
+    /// See `call_target_keeps_placeholder_lowering` in `emit/call.rs`.
+    pub(crate) program_bound_names_cache: std::cell::OnceCell<HashSet<String>>,
+    pub(crate) program_fn_valued_property_names_cache: std::cell::OnceCell<HashSet<String>>,
+    pub(crate) program_stores_function_in_aggregate_cache: std::cell::OnceCell<bool>,
     /// Names of locals that hold a linear-memory array handle (`new Array(n)`).
     pub(crate) array_bindings: HashSet<String>,
     /// Names of locals that hold a GROWABLE runtime-array tagged handle
@@ -438,6 +445,9 @@ impl<'a> FunctionEmitter<'a> {
             allowlist_promoted_consts,
             fn_valued_locals: BTreeMap::new(),
             unstable_provenance_names,
+            program_bound_names_cache: std::cell::OnceCell::new(),
+            program_fn_valued_property_names_cache: std::cell::OnceCell::new(),
+            program_stores_function_in_aggregate_cache: std::cell::OnceCell::new(),
             array_bindings,
             growable_array_bindings,
             growable_for_of_active: None,

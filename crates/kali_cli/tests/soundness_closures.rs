@@ -362,42 +362,28 @@ fn exotic_object_literal_arg_capture_fails_closed() {
     );
 }
 
-/// PRE-EXISTING tripwire (NOT capture-introduced — identical pre/post Stage C,
-/// and reproduces WITHOUT a capture). A fn-expr stored in an array literal and
-/// invoked indirectly (`arr[0]()`) returns a clean `0` instead of the captured
-/// value. This is an indirect-function-value invocation miscompile that predates
-/// the closures project; it is pinned here so a future stage that wires
-/// first-class function values (either fixing it to print `9` or failing it
-/// closed E5506) trips this test and revisits the pin. The load-bearing
-/// soundness property held today: it does NOT leak a garbage/heap value.
+/// RE-PINNED by soundness batch 1 Fix 5. A fn-expr stored in an array literal
+/// and invoked indirectly (`arr[0]()`) used to return a clean `0` instead of
+/// the captured value; the pin recorded that as pre-existing and asked the
+/// future first-class-function stage to revisit it "either fixing it to print
+/// `9` or failing it closed E5506". kali has no closure representation, no
+/// function table and no indirect call, so the honest resolution is the
+/// second: the call-through-a-value choke point in `emit_call` now rejects it.
+/// node prints `9`.
 #[test]
-fn exotic_array_element_indirect_call_is_preexisting_zero_not_garbage() {
-    let out = run_kali(
+fn exotic_array_element_indirect_call_fails_closed() {
+    assert_e5506(
         "function outer(){ let c = 9; let arr = [function(){ return c; }]; let g = arr[0]; console.log(g()); } outer();\n",
     );
-    assert!(
-        out.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&out.stderr)
-    );
-    // Pre-existing behavior: clean `0` (node prints `9`). No garbage leak.
-    assert_eq!(String::from_utf8_lossy(&out.stdout), "0\n");
 }
 
-/// PRE-EXISTING tripwire, optional-chain form (`o?.f()`). Same pre-existing
-/// indirect-invocation `0`, reproduced with and without a capture. Pinned so a
-/// future first-class-function stage revisits it.
+/// RE-PINNED by soundness batch 1 Fix 5, optional-chain form (`o?.f()`). Same
+/// indirect-invocation `0`, now fails closed. node prints `5`.
 #[test]
-fn exotic_optional_chain_indirect_call_is_preexisting_zero_not_garbage() {
-    let out = run_kali(
+fn exotic_optional_chain_indirect_call_fails_closed() {
+    assert_e5506(
         "function outer(){ let c = 5; let o = { f: function(){ return c; } }; console.log(o?.f()); } outer();\n",
     );
-    assert!(
-        out.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&out.stderr)
-    );
-    assert_eq!(String::from_utf8_lossy(&out.stdout), "0\n");
 }
 
 /// F-AB-2 danger NOT reachable: a STRING capture in an exotic-position body
@@ -452,18 +438,15 @@ fn exotic_growable_capture_in_array_element_fails_closed() {
 /// load-bearing soundness property holds: clean `0`, NOT a garbage/stale-heap
 /// leak. Pinned so the escaping-capture-region follow-up (which will either fix
 /// this to `10 20` or fail it closed E5506) trips this test and revisits it.
+///
+/// RE-PINNED by soundness batch 1 Fix 5: `a()` / `b()` are calls through a
+/// first-class function value and now fail closed at the `emit_call` choke
+/// point instead of printing `0 0`. node prints `10 20`.
 #[test]
-fn recursion_distinct_envs_is_preexisting_escaping_zero() {
-    let out = run_kali(
+fn recursion_distinct_envs_fails_closed() {
+    assert_e5506(
         "function make(n){ return function(){ return n; }; } let a = make(10); let b = make(20); console.log(a() + \" \" + b());\n",
     );
-    assert!(
-        out.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&out.stderr)
-    );
-    // node: "10 20\n". kali (pre-existing escaping-closure zero): "0 0\n".
-    assert_eq!(String::from_utf8_lossy(&out.stdout), "0 0\n");
 }
 
 /// Amendment 3a — returned-closure LATE READ. A closure is RETURNED out of
@@ -477,18 +460,14 @@ fn recursion_distinct_envs_is_preexisting_escaping_zero() {
 /// (`Kali.test`) path — see `deferred_test_callback_runs_with_its_env`, where a
 /// cell written in an already-returned suite is read correctly during a later
 /// drain.
+///
+/// RE-PINNED by soundness batch 1 Fix 5: the later `g()` is a call through a
+/// first-class function value and now fails closed. node prints `7`.
 #[test]
-fn returned_closure_late_read_is_preexisting_escaping_zero() {
-    let out = run_kali(
+fn returned_closure_late_read_fails_closed() {
+    assert_e5506(
         "function outer(){ let c = 7; let filler = 0; for (let i=0;i<3;i++){ filler += i; } function rd(){ return c; } return rd; } let g = outer(); console.log(g());\n",
     );
-    assert!(
-        out.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&out.stderr)
-    );
-    // node: "7\n". kali (pre-existing escaping-closure zero): "0\n".
-    assert_eq!(String::from_utf8_lossy(&out.stdout), "0\n");
 }
 
 /// Brief Step 3 — a nested function that captures NOTHING. `noop` shares no

@@ -3211,6 +3211,55 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        // ------------------------------------------------------------------
+        // Fix 5 CHOKE POINT: call-through-a-first-class-function-value.
+        //
+        // Every callee shape that no recognizer above claimed converges HERE,
+        // and the historical lowering was a WARNING plus an `i64.const 0`
+        // placeholder: the program exited 0, the callee never ran, and the
+        // call site evaluated to `0`. For a callee that is a real function
+        // VALUE — a returned closure, an alias (`var g = fn`), a callback
+        // parameter, a reassigned binding, a method in an object field, an
+        // array-callback argument — that is a silently-skipped call and a
+        // silently wrong value, and it escalates to wrong control flow
+        // (`if (g())` took the else branch).
+        //
+        // kali has no representation to lower these onto: there is no `Repr`
+        // variant for a closure value and codegen emits no table, element
+        // section or `call_indirect` anywhere, so the callee's identity cannot
+        // be carried in a value slot at all. Real support is an architectural
+        // change; the honest lowering is REJECT-DON'T-MISCOMPILE.
+        //
+        // The decision is DEFAULT-DENY with a positive allowlist
+        // (`call_target_keeps_placeholder_lowering`) of the callee shapes that
+        // provably invoke nothing. A new call-through-a-value SPELLING is
+        // therefore denied by construction instead of needing its own arm —
+        // which is what the previous per-method denylist could not do (`map`
+        // failed closed while `forEach`, absent from the gated method list,
+        // and a predicate `filter`, admitted by the kali_types allowlist but
+        // never lowered, both silently no-opped).
+        // ------------------------------------------------------------------
+        if !self.call_target_keeps_placeholder_lowering(node, &callee_node, callee_name) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "calling '{callee_name}' is unavailable in the current phase: the callee does \
+                     not resolve to a compiled function, so this is a call through a first-class \
+                     function value, which kali cannot lower (no closure representation, no \
+                     function table, no indirect call). Lowering it would silently evaluate the \
+                     call to 0 without running the callee — failing closed instead"
+                ),
+            ));
+            for _ in node.children.iter().skip(1) {
+                function.instruction(&Instruction::Drop);
+            }
+            function.instruction(&Instruction::I64Const(0));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Unknown,
+            };
+        }
+
         self.push_placeholder_fallback_diagnostic("call target", callee_name);
         for _ in node.children.iter().skip(1) {
             function.instruction(&Instruction::Drop);
@@ -3220,6 +3269,278 @@ impl<'a> FunctionEmitter<'a> {
             produced: true,
             shape: ValueShape::Unknown,
         }
+    }
+
+    /// The Fix 5 allowlist: callee shapes that keep the historical
+    /// warning-plus-zero-placeholder lowering at the terminal `emit_call`
+    /// fallback. Everything else is a call through a first-class function
+    /// value and fails closed.
+    ///
+    /// This is a POSITIVE allowlist on purpose. Denylisting the value-call
+    /// spellings is what left `forEach` and predicate `filter` silently
+    /// no-opping beside a fail-closed `map`; a shape that is not proven inert
+    /// here must be rejected, not lowered to `0`.
+    ///
+    /// The allowlist admits a callee only when BOTH of these hold:
+    ///
+    /// 1. **No argument carries a program-defined function.** A function-like
+    ///    argument (arrow / function expression), or an identifier naming a
+    ///    compiled function or a function-valued binding, would be silently
+    ///    DROPPED by the placeholder lowering — the array-callback family
+    ///    (`forEach`, `filter`, `map`, `some`, …) is exactly this, and it is
+    ///    caught here without naming a single method.
+    /// 2. **The callee provably denotes no program-defined function.**
+    ///    - A bare identifier qualifies only if the name is bound NOWHERE in
+    ///      the program (no declarator, no parameter, no in-scope local or
+    ///      binding). A free name — `fetch`, `atob`, `describe` — cannot be
+    ///      holding a function this program defined; every unimplemented host
+    ///      surface lands here and keeps its pre-existing lowering. A name the
+    ///      program DOES bind (`const c = make()`, `var g = fn`, a callback
+    ///      parameter `cb`) is a first-class function value and is denied.
+    ///    - A member/computed access qualifies only if the property name is
+    ///      never bound to a function-like value by any object literal in the
+    ///      program. `params.append(…)` on an unimplemented `URLSearchParams`
+    ///      qualifies; `o.f()` against `const o = { f: function () { … } }`
+    ///      does not.
+    ///
+    ///    - A computed element read (`arr[0]()`) qualifies only if the program
+    ///      stores no function value in any literal aggregate.
+    ///    - No part of the callee EXPRESSION may mention a program-defined
+    ///      function, which covers `(c ? f : g)()` and every other selection
+    ///      spelling at once.
+    ///
+    /// Anything else — a call result in callee position (`make()()`) — is
+    /// unproven and therefore denied.
+    fn call_target_keeps_placeholder_lowering(
+        &self,
+        node: &LirNode,
+        callee_node: &LirNode,
+        callee_name: &str,
+    ) -> bool {
+        if node
+            .children
+            .iter()
+            .skip(1)
+            .any(|&arg| self.denotes_program_function(arg))
+        {
+            // Carve-out for the DEFERRED-SURFACE policy this repo already
+            // ratified (`scheduling_call_args_provably_safe`): a scheduling /
+            // event-registration callback that is provably NON-CAPTURING may be
+            // dropped, and a capturing or unresolvable one already failed
+            // closed at the dedicated guard far above. Routing those surfaces
+            // through the same proof here keeps the bare spelling
+            // (`setTimeout(cb, 0)`) and the member spelling
+            // (`timers.setInterval(cb, 0)`, `signal.addEventListener(…)`)
+            // consistent, instead of the member spelling escaping the guard's
+            // bare-name match and landing on a silent placeholder.
+            if !(is_deferred_registration_surface(callee_name)
+                && self.scheduling_call_args_provably_safe(node))
+            {
+                return false;
+            }
+        }
+
+        // A callee that is itself a CALL (`make()()`, `pick(f)()`) invokes
+        // whatever that call returned — a first-class function value by
+        // definition. It can never be a host-surface member chain.
+        if callee_node.kind == LirNodeKind::Call {
+            return false;
+        }
+
+        // Any callee EXPRESSION that mentions a program-defined function is
+        // selecting one to invoke — a ternary (`(c ? f : g)()`), a
+        // short-circuit, a parenthesized chain. Checking the subtree closes
+        // every such spelling at once rather than one arm per operator.
+        if self.subtree_denotes_program_function(callee_node) {
+            return false;
+        }
+
+        if callee_name.is_empty() {
+            // A TEXTLESS callee carries no identifier at all, so it can be
+            // neither a program binding name nor an object-literal property
+            // name — there is no program-defined function it could denote. It
+            // is a member-chain lowering artifact (the parenthesized /
+            // bracketed host-receiver spellings such as
+            // `((globalThis["process"]["kill"]))(+0)`). Admitted only in that
+            // member-chain form; a textless CHILDLESS callee is genuinely
+            // unknown and stays denied.
+            return !callee_node.children.is_empty();
+        }
+
+        if callee_node.children.is_empty() {
+            // Bare identifier: admitted only as a FREE name.
+            return !self.name_is_program_bound(callee_name);
+        }
+
+        // Member / computed access: admitted only when no object literal in
+        // the program binds this property name to a function.
+        if self
+            .program_fn_valued_property_names()
+            .contains(callee_name)
+        {
+            return false;
+        }
+
+        // A COMPUTED callee (`arr[0]()`, `table[k]()`) names an element, not a
+        // property, so the property-name rule above cannot see it: `arr[0]()`
+        // against `let arr = [function () { return c; }]` printed `0` at exit 0
+        // (node: `9`) — the exact sibling spelling of the re-pinned
+        // `let g = arr[0]; g()` tripwire. Whenever the program puts a
+        // function-like value inside ANY literal aggregate, an element read in
+        // callee position is unproven and must fail closed. A program that
+        // stores no functions in aggregates is unaffected, so ordinary
+        // host-surface member chains keep their lowering.
+        if callee_node.children.len() >= 2 && self.program_stores_function_in_aggregate() {
+            return false;
+        }
+
+        true
+    }
+
+    /// True when a node denotes a program-defined function — a literal arrow /
+    /// function expression, or an identifier resolving to one. The SINGLE
+    /// definition shared by every Fix 5 rule (argument scan, object-property
+    /// scan, aggregate scan, callee-subtree scan), so the four cannot disagree
+    /// about what counts as a function value. Recognising the identifier form
+    /// and not just the inline form is what closes `{ g: f }`, `[f]` and
+    /// `(c ? f : g)()` — each of which was still silently `0` while only
+    /// inline function expressions were recognised.
+    fn denotes_program_function(&self, id: LirNodeId) -> bool {
+        let id = self.unwrap_transparent(id);
+        if crate::lower::is_function_like(&self.program.nodes, id) {
+            return true;
+        }
+        let node = self.node(id);
+        if node.kind == LirNodeKind::Value && node.children.is_empty() {
+            if let Some(text) = node.text.as_deref() {
+                if self.functions.contains_key(text) || self.fn_valued_locals.contains_key(text) {
+                    return true;
+                }
+                if let Some(&bound) = self.bindings.get(text) {
+                    return crate::lower::is_function_like(&self.program.nodes, bound);
+                }
+            }
+        }
+        false
+    }
+
+    /// True when ANY node in `root`'s subtree denotes a program-defined
+    /// function. A callee expression that mentions one — a ternary selecting
+    /// between two functions (`(c ? f : g)()`), a call whose RESULT is invoked
+    /// (`make()()`, `pick(f)()`) — is a first-class function value however it
+    /// is spelled, so this closes the whole shape family at once instead of
+    /// growing an arm per spelling.
+    fn subtree_denotes_program_function(&self, root: &LirNode) -> bool {
+        let mut stack: Vec<LirNodeId> = root.children.clone();
+        let mut seen: HashSet<u32> = HashSet::new();
+        while let Some(id) = stack.pop() {
+            if !seen.insert(id.0) {
+                continue;
+            }
+            if self.denotes_program_function(id) {
+                return true;
+            }
+            stack.extend(self.node(id).children.iter().copied());
+        }
+        false
+    }
+
+    /// Every name the PROGRAM binds: `var`/`let`/`const` declarators and
+    /// function parameters, anywhere in the module (nested functions included),
+    /// plus this function's own in-scope locals and bindings. A name outside
+    /// this set is a free global that no program value can be stored into.
+    fn name_is_program_bound(&self, name: &str) -> bool {
+        if self.locals.contains_key(name)
+            || self.bindings.contains_key(name)
+            || self.fn_valued_locals.contains_key(name)
+        {
+            return true;
+        }
+        self.program_bound_names().contains(name)
+    }
+
+    fn program_bound_names(&self) -> &HashSet<String> {
+        self.program_bound_names_cache.get_or_init(|| {
+            let nodes = &self.program.nodes;
+            let mut names: HashSet<String> = HashSet::new();
+            for (index, node) in nodes.iter().enumerate() {
+                // `var`/`let`/`const` declarator lists: each child is a
+                // declarator whose `text` is the bound name.
+                if node.kind == LirNodeKind::Instruction
+                    && matches!(node.text.as_deref(), Some("const" | "let" | "var"))
+                {
+                    for child in &node.children {
+                        if let Some(text) = nodes
+                            .get(child.0 as usize)
+                            .and_then(|declarator| declarator.text.clone())
+                        {
+                            names.insert(text);
+                        }
+                    }
+                }
+                // Function parameters: every leading `Value` child of a
+                // function-shaped node (the last child is the body).
+                if crate::lower::is_function_like(nodes, LirNodeId(index as u32)) {
+                    for child in node.children.iter().take(node.children.len() - 1) {
+                        if let Some(param) = nodes.get(child.0 as usize) {
+                            if param.kind == LirNodeKind::Value {
+                                if let Some(text) = param.text.clone() {
+                                    names.insert(text);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            names
+        })
+    }
+
+    /// Property names that some object literal in the program binds to a
+    /// function-like value (`{ f: function () { … } }`, `{ f: () => … }`).
+    /// A member call on such a property is a call through a first-class
+    /// function value even when the receiver's shape is unknown here.
+    /// True when any literal aggregate in the program (an array literal, an
+    /// object literal, a grouping wrapper) holds a function-like value. Once
+    /// function values live in data structures, an element read in callee
+    /// position cannot be proven inert.
+    fn program_stores_function_in_aggregate(&self) -> bool {
+        *self
+            .program_stores_function_in_aggregate_cache
+            .get_or_init(|| {
+                self.program.nodes.iter().any(|node| {
+                    node.kind == LirNodeKind::Value
+                        && node.text.is_none()
+                        && node
+                            .children
+                            .iter()
+                            .any(|&child| self.denotes_program_function(child))
+                })
+            })
+    }
+
+    fn program_fn_valued_property_names(&self) -> &HashSet<String> {
+        self.program_fn_valued_property_names_cache.get_or_init(|| {
+            let nodes = &self.program.nodes;
+            let mut names: HashSet<String> = HashSet::new();
+            for node in nodes.iter() {
+                if node.kind != LirNodeKind::Value
+                    || node.text.as_deref() != Some("init")
+                    || node.children.len() != 2
+                {
+                    continue;
+                }
+                if !self.denotes_program_function(node.children[1]) {
+                    continue;
+                }
+                if let Some(key) = nodes.get(node.children[0].0 as usize) {
+                    if let Some(text) = key.text.clone() {
+                        names.insert(text.trim_matches('"').to_string());
+                    }
+                }
+            }
+            names
+        })
     }
 
     /// Stage D scheduling-surface registration emit. Returns `None` only for
@@ -4885,6 +5206,30 @@ impl<'a> FunctionEmitter<'a> {
             return None;
         }
     }
+}
+
+/// The deferred / event-registration surfaces whose callback-dropping policy is
+/// already decided by `scheduling_call_args_provably_safe` (a provably
+/// non-capturing callback may be dropped; anything else fails closed at the
+/// dedicated guard). This is an allowlist of RATIFIED EXCEPTIONS, not a
+/// denylist of bad shapes: a surface absent from it gets no carve-out at the
+/// Fix 5 choke point, so a dropped callback anywhere else fails closed.
+///
+/// Matching on the callee's own text covers the bare spelling and the member
+/// spelling (`timers.setInterval`) with one rule — the member spelling
+/// previously slipped past `is_undrained_scheduling_surface` and landed on a
+/// silent placeholder.
+fn is_deferred_registration_surface(callee_name: &str) -> bool {
+    matches!(
+        callee_name,
+        "setTimeout"
+            | "setInterval"
+            | "clearTimeout"
+            | "clearInterval"
+            | "queueMicrotask"
+            | "addEventListener"
+            | "removeEventListener"
+    )
 }
 
 #[cfg(test)]
