@@ -6078,6 +6078,16 @@ fn assert_optimization_benchmark_fixture(fixture_stem: &str, benchmark_name: &st
             | "math-max-min-builtin-js"
             | "spectral-norm"
             | "nbody"
+            // REWRITTEN 2026-07-19 (soundness-batch1-pra wave 0): this fixture's `layerN`
+            // chain was rewritten from const-bound arrows (which silently returned 0 through
+            // fix 5's now-honest E5506 call path) to named function declarations calling each
+            // other directly, per maintainer ruling — see the fixture comment in
+            // `runtime_smoke/misc.rs`. Measured post-rewrite on a freshly built binary: nested
+            // named-function calls over an object-field-read chain do not shrink under
+            // `--release` the way the (never-executing) const-arrow version's numbers implied;
+            // `--release-advanced` does shrink versus `--release` (see the next check), so the
+            // win just lands one optimization tier later for this call shape.
+            | "const-object-property-access"
     ) {
         assert!(
             release_size < fast_size
@@ -6109,6 +6119,12 @@ fn assert_optimization_benchmark_fixture(fixture_stem: &str, benchmark_name: &st
             | "math-max-min-builtin-js"
             | "spectral-norm"
             | "nbody"
+            // REWRITTEN 2026-07-19 (soundness-batch1-pra wave 0): see the exclusion above —
+            // the named-function-call rewrite of this fixture's layer chain measurably adds
+            // more `i64.add` ops under `--release` than `--fast` (63 vs 57 measured); the
+            // release-advanced tier still avoids adding more than release (see the
+            // unconditional check below), so the win lands one tier later than most fixtures.
+            | "const-object-property-access"
     ) {
         assert!(
             release_adds <= fast_adds,

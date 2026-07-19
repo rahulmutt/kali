@@ -1464,6 +1464,16 @@ fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
             "identity-chain-benchmark-v1",
             "identity-chain-and-simplification",
         ),
+        // REWRITTEN 2026-07-19 (soundness-batch1-pra wave 0): this fixture's `layerN` chain
+        // used to be `const layerN = (x) => layerN-1(x);`. A call through a const-bound arrow
+        // VALUE from inside a sibling arrow was silently returning 0 (fix 5 now fails it
+        // closed with E5506 instead), so every prior run of this benchmark measured a program
+        // whose layers never executed — the historical compile-time/size/speed numbers are
+        // not comparable to anything real and are discarded (maintainer-ratified). Rewritten
+        // to named `function layerN(x) { ... }` declarations calling each other directly by
+        // name (the same workload: 4 layers, same arithmetic shape, same call depth), which
+        // does execute — re-verified against node on a freshly built binary (23 === 23) before
+        // committing. `sourceSha256` in the fixture's `.json` was recomputed accordingly.
         (
             "nested-wrapper-pruning-benchmark-v1",
             "nested-wrapper-pruning",
@@ -1505,10 +1515,24 @@ fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
             "branch-specialization-repeat-benchmark-v1",
             "branch-specialization-repeat",
         ),
+        // REWRITTEN 2026-07-19 (soundness-batch1-pra wave 0), same reason and same treatment
+        // as nested-wrapper-pruning-benchmark-v1 above: the `layerN` chain was
+        // `const layerN = (bag) => layerN-1(bag);`, silently returning 0 per fix 5's now-honest
+        // E5506; rewritten to named `function layerN(bag) { ... }` declarations, same 4-layer
+        // depth and array-element-read shape. Re-verified against node on a freshly built
+        // binary (23 === 23); pre-2026-07-19 benchmark numbers for this fixture are not
+        // comparable. `sourceSha256` recomputed.
         (
             "const-array-element-access-benchmark-v1",
             "const-array-element-access",
         ),
+        // REWRITTEN 2026-07-19 (soundness-batch1-pra wave 0), same reason and treatment as
+        // above: the `layerN` chain was `const layerN = (point) => ...layerN-1(point)...;`,
+        // silently returning 0 per fix 5's now-honest E5506; rewritten to named
+        // `function layerN(point) { ... }` declarations, same 4-layer depth and object-field
+        // read/arithmetic shape. Re-verified against node on a freshly built binary (35 === 35);
+        // pre-2026-07-19 benchmark numbers for this fixture are not comparable. `sourceSha256`
+        // recomputed.
         (
             "const-object-property-access-benchmark-v1",
             "const-object-property-access",
