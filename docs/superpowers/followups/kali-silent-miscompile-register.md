@@ -395,6 +395,52 @@ tier, ordering is by blast radius.
 - **Confidence**: high on behavior; medium on mechanism (the `??=` diagnostic text is strong
   corroboration). Raising it: find the `===` emit arm and confirm there is no repr guard.
 
+- **UPDATE 2026-07-19 (soundness-batch1-pra, commit `4949d79ec`, "fix 4"): the `===`/`!==`/
+  `==`/`!=`/`??` majority of this entry is CLOSED.** `crates/kali_codegen/src/emit/equality.rs`
+  now classifies both operands into a compile-time JS type class (`EqClass`) and decides by
+  TYPE rather than bit pattern: `0 === null`, `0 === false`, `true === 1` and `??`-over-`0`/
+  `false` all now match node. Re-verified on a freshly built binary as part of this addendum
+  (2026-07-19): `console.log("1=" + (0 === null))` → `1=false` (was `1=true`). Pinned by
+  `crates/kali_cli/tests/soundness_strict_equality.rs` (12+ tests).
+
+  **This entry is NOT fully closed.** Fix 4 documents (in `equality.rs`'s own doc comments) and
+  this wave (soundness-batch1-pra wave 0) additionally pins three residuals, in every case
+  because kali cannot prove a `Repr::Boolean` axis for an arbitrary expression and the
+  type-directed table therefore leaves the pre-existing unsound bit-pattern `i64.eq` in place
+  rather than regressing a large swath of the corpus by failing everything closed:
+
+  1. An `UntypedObjectField` operand (an object-shape field with the untyped `I64` repr, which
+     may hold a pointer, a number or a boolean) against a proven `null`/`undefined`/boolean
+     keeps the pre-existing lowering rather than proving anything.
+  2. An unprovable operand against a proven **boolean** (`f() === true` where `f`'s return type
+     is not provable) keeps the pre-existing lowering. Cost of closing it: 33 pinned corpus
+     programs of the shape `Object.is(a, b) !== true`. Pinned by
+     `unprovable_operand_against_boolean_is_a_known_residual`.
+  3. **CRITICAL-2 (new finding, this wave)**: an unprovable operand against a proven **number**
+     — including a bare number LITERAL — never even reaches the decision table, because
+     `EqClass::arms_the_gate` (the gate that decides whether the type-directed machinery
+     engages at all) recognizes only `null`/`undefined`/boolean, not `Number`. Repro,
+     re-verified on a freshly built binary:
+     ```js
+     function f(b) { return b; }
+     if (f(false) === 0) { console.log(111); } else { console.log(222); }
+     ```
+     kali prints `111` (exit 0) — node prints `222` (exit 0). `f(false)`'s parameter is
+     unprovable and `0` is a proven `Number` literal, so `arms_the_gate()` is `false` for both
+     sides and `equality_decision` returns `Runtime` at its very first check, before the
+     asymmetric one-side-classified branch that handles residuals 1 and 2 is ever reached. This
+     is wrong CONTROL FLOW (a whole different `if` branch taken), not just a wrong printed
+     value, at exit 0 with no diagnostic — the same severity class the rest of R-08 was in
+     before fix 4. Pinned honestly (as a residual, not a correctness claim) by
+     `unprovable_operand_against_number_literal_is_a_known_residual` in
+     `soundness_strict_equality.rs`. **Not fixed in this wave** — the real fix needs the same
+     `Repr::Boolean` axis residual 2 is blocked on; this is inventory + pin only, per maintainer
+     ruling.
+  - **Severity of the residual, downgraded from the original entry**: no longer "every
+    null-guard in every program"; narrowed to "a proven-number operand compared against an
+    operand whose type kali cannot prove at compile time" (a runtime-computed value, not a
+    literal, on the other side).
+
 ### R-09: `continue` inside a C-style `for` loop skips the update expression
 
 - **Folds in**: D-B-6.

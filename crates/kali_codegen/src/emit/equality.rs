@@ -21,6 +21,27 @@
 //! operand is proven `null`, `undefined` or boolean. Number-vs-number,
 //! string-vs-string and object-vs-object comparisons are therefore byte-identical
 //! to the pre-fix compiler.
+//!
+//! ## Documented residual inventory (unfixed on purpose; each is pinned honestly
+//! rather than silently absorbed)
+//!
+//! 1. An `UntypedObjectField` operand proves nothing (see [`EqClass::is_unproven`])
+//!    and keeps the pre-existing lowering even when the OTHER operand is a
+//!    proven `null`/`undefined`/boolean, because the field slot may itself hold
+//!    a pointer, a number or a boolean.
+//! 2. An unprovable operand against a proven **boolean** keeps the pre-existing
+//!    lowering (see the comment in [`FunctionEmitter::equality_decision`]):
+//!    kali cannot prove "this returns a boolean" without a `Repr::Boolean` axis,
+//!    and the corpus cost of failing it closed is 33 pinned programs.
+//! 3. An unprovable operand against a proven **number** (including a NUMBER
+//!    LITERAL) never even reaches the decision table: `Number` does not "arm
+//!    the gate" (see [`EqClass::arms_the_gate`]), so the pair falls through to
+//!    the pre-existing bit-pattern `i64.eq`, which is unsound whenever the
+//!    unprovable side is at runtime `false`/`null`/`undefined` (all bit `0`).
+//!    `function f(b){return b;} f(false) === 0` is `true` under kali, `false`
+//!    under node. Same architectural blocker as residual 2. Pinned by
+//!    `unprovable_number_operand_against_unprovable_operand_is_a_known_residual`
+//!    in `crates/kali_cli/tests/soundness_strict_equality.rs`.
 use crate::*;
 
 /// The JS type class of an operand, when compile-time provable.
@@ -80,6 +101,27 @@ impl EqClass {
     /// True for the classes whose repr collides with a number's: these are the
     /// operands that make a raw `i64.eq` unsound, and the ONLY ones that arm
     /// the decision table (see the scope discipline note above).
+    ///
+    /// RESIDUAL 3 (unpinned prior to soundness-batch1-pra wave 0, now pinned by
+    /// `unprovable_number_operand_against_unprovable_operand_is_a_known_residual`
+    /// in `soundness_strict_equality.rs`): `Number` is deliberately absent from
+    /// this list, which means a proven `Number` operand — INCLUDING a literal
+    /// like `0` — never arms the gate. Paired with an unprovable (`None`)
+    /// operand, `equality_decision`'s `if !armed { return Runtime }` check
+    /// fires immediately, so the pair never reaches the asymmetric
+    /// one-side-classified branch that fails closed for `null`/`undefined` and
+    /// knowingly keeps the runtime lowering for `boolean` (residual 2, below).
+    /// The old unsound bit-pattern `i64.eq` runs unchecked. Concretely:
+    /// `function f(b) { return b; } f(false) === 0` prints `true` (kali) vs
+    /// `false` (node) — `f(false)`'s parameter is unprovable, `0` is a proven
+    /// `Number`, neither side arms the gate, so the comparison never enters the
+    /// type-directed table at all. This is the same wrong-CONTROL-FLOW shape as
+    /// residual 1's null/undefined case, but reached by a different route (the
+    /// gate is never armed, vs. armed-but-unproven-sibling), so it is tracked
+    /// separately. NOT fixed here: the real fix needs the same `Repr::Boolean`
+    /// axis residual 2 is blocked on, so that a `Number`-vs-unprovable pair
+    /// could distinguish "unprovable but provably not boolean" from "unprovable
+    /// and possibly boolean" instead of an all-or-nothing gate membership test.
     fn arms_the_gate(self) -> bool {
         matches!(self, EqClass::Null | EqClass::Undefined | EqClass::Boolean)
     }

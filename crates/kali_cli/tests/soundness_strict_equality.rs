@@ -231,6 +231,32 @@ console.log("kali:" + (x === true));
     );
 }
 
+/// RESIDUAL, pinned honestly — records CURRENT (WRONG) behaviour, not a
+/// correctness claim. This is CRITICAL-2 from the semantic-core whole-stage
+/// review: an unprovable operand against a proven NUMBER (including a number
+/// LITERAL like `0`) never arms the type-directed decision table at all,
+/// because `EqClass::arms_the_gate` only recognizes `null`/`undefined`/
+/// boolean. The pair falls straight through to the pre-existing bit-pattern
+/// `i64.eq`, which is unsound because `false` also lowers to the bit pattern
+/// `0`. Unlike the boolean residual above (which at least reaches the
+/// decision table and is a deliberate, reasoned trade-off), this case never
+/// engages the fix at all.
+///
+/// node prints `222` (the `else` branch: `false !== 0`); kali prints `111`
+/// (the `then` branch), i.e. WRONG CONTROL FLOW, not merely a wrong printed
+/// value, and exits 0 with no diagnostic. When the real fix (a
+/// `Repr::Boolean` axis, out of scope for soundness-batch1-pra) lands, this
+/// assertion must go RED — that is the intended signal to update this pin.
+#[test]
+fn unprovable_operand_against_number_literal_is_a_known_residual() {
+    assert_stdout(
+        r#"function f(b) { return b; }
+if (f(false) === 0) { console.log(111); } else { console.log(222); }
+"#,
+        "111\n",
+    );
+}
+
 // ---------------------------------------------------------------------------
 // Object-reference-vs-`null` stays on the runtime pointer path: a live
 // fixed-shape object pointer is a nonzero heap address and `null` is `0`, so
