@@ -452,19 +452,52 @@ tier, ordering is by blast radius.
      — see family (a) below).
      **The actual proof condition**: `??`'s left-operand branch is decided at compile time,
      correctly, if and only if `static_equality_class`
-     (`crates/kali_codegen/src/emit/equality.rs:228`) returns `Some(class)` for it. That
-     function returns `Some` in exactly two cases — (i) the operand is itself a literal (or one
-     of the unary forms it folds directly to a class: `void`, `!`, `typeof`, `delete`, a
-     numeric `-`/`~`); or (ii) the operand is an identifier whose ENTIRE initializer chain
-     resolves, at compile time, all the way down to such a literal, via
-     `resolve_literal_aggregate`/`self.bindings` (the `const`-alias chain). Anything else —
-     any operand actually read back from a runtime storage slot with `LocalGet`, regardless of
-     which keyword bound it, and regardless of whether a `const` sits somewhere in the chain —
-     returns `None`, and `operators.rs`'s `??` arm falls through to the pre-existing `i64.eqz`
-     bit-pattern test, which conflates a runtime `0`/`false` with nullish (`??` degrades to
-     `||`). **The shape lists below (this round's and round 1's) are non-exhaustive
-     illustrations of that one rule — not an enumeration of what is broken; do not read either
-     list as a boundary.**
+     (`crates/kali_codegen/src/emit/equality.rs:228`) returns `Some(class)` for it, AND that
+     class actually arms `??`'s check (`is_nullish_class`/`is_never_nullish`,
+     `operators.rs:2181-2208`) — see the `UntypedObjectField` caveat below for the one place
+     those two conditions come apart.
+     **Corrected 2026-07-19 (third addendum round): a round-2 restatement of this condition as
+     "exactly two cases" was itself an UNDER-claim** — verified false on a freshly built binary
+     (`(a < b) ?? 9` over two function PARAMETERS, and `(a - a) ?? 9` over a `let`-bound float,
+     both agree with node) — `static_equality_class` returns `Some` for considerably more than a
+     literal or a literal-terminated `const` chain; reading `equality.rs:228-329` end to end, the
+     full set is:
+     - (i) a literal, or an identifier whose ENTIRE initializer chain resolves, at compile time,
+       all the way down to such a literal, via `resolve_literal_aggregate`/`self.bindings` (the
+       `const`-alias chain) — round 2's two cases, still correct as far as they go.
+     - (ii) an operand-INDEPENDENT operator form: the unary `void`, `!`, `typeof`, `delete`,
+       numeric `-`/`~` round 2 already listed, **plus every relational/equality operator** (`<
+       <= > >= == != === !== in instanceof`, `equality.rs:280-289`) — these always produce a
+       `Boolean` regardless of what their operands are, which is exactly why `(a < b) ?? 9` over
+       two unprovable parameters is proven.
+     - (iii) a statically-folded CALL result (`Object.is(a, b)`, the `Number.is*` predicates,
+       `arr.at(oob)`, …) whose rendered text is `"true"`/`"false"`/`"undefined"`/`"null"`
+       (`equality.rs:297-304`).
+     - (iv) a bare global identifier lowered as a childless `Value` node — `undefined`, `NaN`,
+       `Infinity` (`equality.rs:307-313`).
+     - (v) a REPR-BACKED proof, which is what makes `(a - a) ?? 9` provable even though `a` is a
+       genuine runtime `let` slot: an object-shaped value (`object_shape_of_node`), a bigint-
+       literal-valued node, a float-valued node, a string-valued node, or a
+       `Deno.env.get(...)` result (`is_env_get_string_call`) — none of these require the operand
+       to be a literal or a `const`, only that the codegen repr proves the JS type.
+     - (vi) a `base.field` read whose shape-table repr is a TYPED float, string, or object field
+       (`object_field_equality_class`) — but **not** the untyped `I64` default: that case still
+       returns `Some`, just of the special `UntypedObjectField` class, which
+       `is_nullish_class`/`is_never_nullish` both reject (`equality.rs:345-348`,
+       `operators.rs:2201-2208`), so it falls through to the runtime `i64.eqz` test exactly as if
+       it had returned `None`. This is why the const-bound member-read illustration below
+       (`o.a` where `a` only ever holds the integer literal `0`) is still broken: it is
+       `Some(UntypedObjectField)`, not `None` — the same non-arming class already responsible for
+       the untyped-object-field residual elsewhere in this register (residual 1 / R-08's
+       `UntypedObjectField` note), not a separate gap.
+     Anything else — any operand read back from a runtime storage slot that is none of (i)-(vi)
+     above (a plain `let`/`var`/parameter/call-return binding with no repr proof, or the untyped-
+     I64-field case in (vi)) — returns `None` (or `Some(UntypedObjectField)`, which behaves
+     identically to `None` for `??`), and `operators.rs`'s `??` arm falls through to the
+     pre-existing `i64.eqz` bit-pattern test, which conflates a runtime `0`/`false` with nullish
+     (`??` degrades to `||`). **The shape lists below (this round's and round 1's) are non-
+     exhaustive illustrations of that one rule — not an enumeration of what is broken; do not
+     read either list as a boundary.**
      - **Illustration set 1 (round 1, still valid): a genuine runtime slot, no `const` in the
        chain at all.** A `let`-bound, `var`-bound, function-PARAMETER, or call-RETURN-VALUE
        operand. Re-verified on a freshly built binary (2026-07-19):
@@ -489,9 +522,15 @@ tier, ordering is by blast radius.
      - **Illustration set 2, FAMILY (a) (new this round): a `const` binding IS present, but its
        initializer chain does not bottom out at a literal.** `resolve_literal_aggregate` will
        follow a `const`'s binding, but if what sits at the end of the chain is a call, a folded
-       runtime expression, a further (non-literal) binding, or an object-field read,
-       `static_equality_class` still returns `None` there — `const` the keyword proves nothing
-       by itself; only a chain that terminates in a literal does. This is precisely what falsifies
+       runtime expression, or a further (non-literal) binding, `static_equality_class` still
+       returns `None` there — `const` the keyword proves nothing by itself; only a chain that
+       terminates in a literal does. The fourth shape (an object-field read) is subtly
+       different in mechanism though identical in outcome: `o.a` where field `a` only ever
+       holds the untyped integer literal `0` returns `Some(EqClass::UntypedObjectField)`, not
+       `None` — that class exists precisely so a slot that may hold a number, a boolean, or a
+       pointer is recognized without being proven, and `??`'s `is_nullish_class`/
+       `is_never_nullish` check rejects it exactly like `None` (see the mechanism note above the
+       previous section). This is precisely what falsifies
        the round-1 headline ("closed for a literal or a `const`-bound operand"): all four operands
        below ARE `const`-bound, and all four are still wrong. Re-verified on a freshly built
        binary (2026-07-19), all four shapes, exit 0, no diagnostic, kali `9` vs node `0`:
@@ -530,9 +569,20 @@ tier, ordering is by blast radius.
   5. **FAMILY (b) (new this round, independent defect from residual 4): a `??` whose selected
      result is a BOOLEAN loses its boolean-ness at the print sink, for every binding kind
      including a bare literal operand — even when `??`'s branch selection is itself correct.**
-     This is not a proof-condition gap in `static_equality_class`; it fires ON TOP OF a correct
-     decision. Mechanism: when `??`'s left operand is provably `Boolean`-classed (never nullish)
-     or the branch resolves to a provably `Boolean`-classed right operand, the selected
+     **Corrected 2026-07-19 (third addendum round): this is R-30 ("Computed booleans render
+     `1`/`0` in direct `console.log` argument position", Tier 4 below) observed through `??`,
+     not a `??`-specific defect** — the round-2 mechanism trace immediately below (no `Boolean`
+     shape arm in the single-argument console sink) is correct, but it is R-30's mechanism
+     verbatim, and `??` is simply one more producer feeding it: `??`'s branch decision hands the
+     console sink a provably-boolean value the same way a bare `!`/comparison/ternary result
+     does, and the sink drops the shape identically in every case. Residual 5 therefore **closes
+     when R-30 closes** (the console-formatter-unification fix, priority row 9 in this
+     register's fix-priority table) — it is **not** blocked on the `Repr::Boolean`/null axis
+     that blocks residuals 2-4, and no `??`-specific work is needed for it. `??` has been added
+     to R-30's producer list below. This is not a proof-condition gap in `static_equality_class`;
+     it fires ON TOP OF a correct decision. Mechanism: when `??`'s left operand is provably
+     `Boolean`-classed (never nullish) or the branch resolves to a provably `Boolean`-classed
+     right operand, the selected
      operand's `EmittedValue` correctly carries `shape: ValueShape::Boolean` (via
      `selected_nullish_operand`, `equality.rs:433-436`). But the SINGLE-ARGUMENT
      `console.log`/`.error`/`.warn`/`.info` sink (`emit_console_argument`,
@@ -561,9 +611,10 @@ tier, ordering is by blast radius.
      Pinned honestly (recording current WRONG behaviour, not a correctness claim) by
      `nullish_coalescing_boolean_literal_result_loses_shape_is_a_known_residual` and
      `nullish_coalescing_right_operand_boolean_loses_shape_is_a_known_residual` in
-     `soundness_strict_equality.rs`. **Not fixed in this wave** — out of scope per the
-     `Repr::Boolean`/null-axis architectural blocker ruling that covers the rest of this entry;
-     the note above is diagnostic (single-argument console sink lacks a `Boolean` shape arm and
+     `soundness_strict_equality.rs`. **Not fixed in this wave** — but, per the correction above,
+     it is **not** blocked on the `Repr::Boolean`/null-axis architectural blocker that covers
+     the rest of this entry; it is blocked on R-30's own fix (unify the two console formatters).
+     The note above is diagnostic (single-argument console sink lacks a `Boolean` shape arm and
      the static console folder has no `??` arm), not a repair.
      - **Note the masking hazard this residual corrects**: the pre-existing
        `nullish_coalescing_does_not_treat_falsy_as_nullish` test's `n3` case
@@ -1113,8 +1164,17 @@ tier, ordering is by blast radius.
 - **Wider than "computed"**: a plain binding to a literal is already affected —
   `var b=true; console.log(b)` prints `1`. The producer set is *every* boolean that is not a
   syntactically inline literal at the log site: comparisons, `!`/`!!`, `&&`/`||` results,
-  function returns, **parameters**, ternary results, `const` object fields, and plain
-  `var`/`const` bindings. Only `console.log(true)` with an inline literal is correct.
+  function returns, **parameters**, ternary results, `const` object fields, plain `var`
+  bindings, and `??` (added 2026-07-19, third addendum round — see R-08 residual 5: a `??`
+  whose statically-selected result is a proven boolean hits this exact sink and mechanism, and
+  closes when this entry closes, not when R-08's own `Repr::Boolean`/null-axis work lands).
+  Only `console.log(true)` with an inline literal is correct.
+  - **Corrected 2026-07-19 (stale in the over-claim direction)**: the producer list above used
+    to also name plain `const` bindings, but `const b = true; console.log(b)` now prints `true`
+    correctly (re-verified on a freshly built binary) — the `e4b5f7138` fix's binding-chain
+    resolution reaches a plain `const` scalar. Only `var` is still wrong among plain bindings;
+    `const` **object fields** (`const o = {f: true}; console.log(o.f)`) are a separate, still-
+    broken shape (re-verified: kali `1`, node `true`) and remain correctly listed above.
 - **Narrower than "everywhere"**: the concat and template paths are already **FIXED**.
   `"v=" + (1<2)` → `v=true` ✓, `` `${1<2}` `` → `true` ✓, `"v="+o.f` → `v=true` ✓,
   `"v="+a[0]` → `v=true` ✓. The `e4b5f7138` fix covers string-conversion sites; it does not

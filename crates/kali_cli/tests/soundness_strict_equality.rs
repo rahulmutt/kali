@@ -343,16 +343,38 @@ console.log("a:" + (zero ?? 9) + " b:" + (no ?? 9) + " c:" + (nul ?? 9));
 // THE MECHANISM (the actual proof condition, not a list of shapes): `??`
 // decides its branch at compile time, correctly, if and only if
 // `static_equality_class` (`crates/kali_codegen/src/emit/equality.rs:228`)
-// returns `Some(class)` for the left operand. That happens ONLY when the
-// left operand is (a) a literal (or one of the unary forms
-// `static_equality_class` folds directly to a class: `void`, `!`, `typeof`,
-// `delete`, a numeric `-`/`~`), or (b) an identifier whose ENTIRE initializer
-// chain resolves, at compile time, all the way down to such a literal via
-// `resolve_literal_aggregate`/`self.bindings` (the `const`-alias chain).
-// Every other operand — anything actually read back from a runtime storage
-// slot with `LocalGet`, regardless of which keyword bound it — returns `None`
-// and falls through to the pre-existing `i64.eqz` bit-pattern test, which
-// conflates a runtime `0`/`false` with nullish (`??` degrades to `||`).
+// returns `Some(class)` for the left operand AND that class arms `??`'s
+// check (`is_nullish_class`/`is_never_nullish`, `operators.rs:2181-2208`).
+//
+// CORRECTED 2026-07-19 (third addendum round): an earlier restatement of
+// this condition as "exactly two cases" (a literal, or a literal-terminated
+// `const` chain) was itself an UNDER-claim, falsified on a freshly built
+// binary — `(a < b) ?? 9` over two function PARAMETERS and `(a - a) ?? 9`
+// over a `let`-bound float both agree with node, and neither operand is a
+// literal or `const`-bound. Reading `equality.rs:228-329` end to end,
+// `static_equality_class` returns `Some` for considerably more: a literal or
+// literal-terminated `const` chain; an operand-INDEPENDENT operator form
+// (`void`, `!`, `typeof`, `delete`, unary `-`/`~`, AND any relational or
+// equality operator `< <= > >= == != === !== in instanceof`, which are
+// always `Boolean` regardless of their operands — this is why the parameter
+// example above is proven); a statically-folded CALL result; a bare global
+// identifier (`undefined`, `NaN`, `Infinity`); or a REPR-BACKED proof that
+// holds over a genuine runtime value with no literal or `const` in sight —
+// an object shape, a bigint-literal-valued node, a float-valued node, a
+// string-valued node, or a `Deno.env.get(...)` result (this is why the float
+// example above is proven). The one place `Some` does NOT mean "arms the
+// gate": a `base.field` read whose shape-table repr is the untyped `I64`
+// default returns `Some(EqClass::UntypedObjectField)`, which
+// `is_nullish_class`/`is_never_nullish` both reject, so it falls through to
+// the runtime `i64.eqz` test exactly as if it had returned `None` — see the
+// const-bound-member-read illustration in the next section.
+//
+// Anything else — any operand read back from a runtime storage slot that
+// isn't one of the above (a plain `let`/`var`/parameter/call-return binding
+// with no repr proof, or an untyped-`I64` object field) — returns `None` (or
+// the non-arming `Some(UntypedObjectField)`) and falls through to the
+// pre-existing `i64.eqz` bit-pattern test, which conflates a runtime
+// `0`/`false` with nullish (`??` degrades to `||`).
 //
 // The four shapes pinned below (`let`, `var`, a function parameter, a call's
 // return value) are ILLUSTRATIONS of that rule, not the boundary itself —
@@ -408,14 +430,18 @@ console.log(zero() ?? 9);
 // level indirect: a `const` binding whose initializer chain does NOT bottom
 // out at a compile-time literal. `resolve_literal_aggregate` will follow a
 // `const`'s binding, but if what it finds at the end of the chain is a call,
-// a folded runtime expression, another (non-`const`) binding, or an object
-// field read, `static_equality_class` still returns `None` there — the
-// `const` keyword itself proves nothing; only a chain that terminates in a
-// literal does. This falsifies a claim from an earlier round of this
-// register entry ("`??` is closed for a literal or a `const`-bound operand"),
-// which conflated "bound via `const`" with "provably a literal". Four
-// illustrations, all re-verified on a freshly built binary, all WRONG (kali
-// `9`, node `0`):
+// a folded runtime expression, or another (non-`const`) binding,
+// `static_equality_class` still returns `None` there — the `const` keyword
+// itself proves nothing; only a chain that terminates in a literal does. The
+// fourth shape below (an object field read) returns `Some(UntypedObjectField)`
+// instead of `None` — a recognized-but-unproven class that `??`'s
+// `is_nullish_class`/`is_never_nullish` check rejects exactly like `None`
+// (see the mechanism comment above the previous section) — so the outcome is
+// identical even though the internal classification differs. This falsifies
+// a claim from an earlier round of this register entry ("`??` is closed for
+// a literal or a `const`-bound operand"), which conflated "bound via
+// `const`" with "provably a literal". Four illustrations, all re-verified on
+// a freshly built binary, all WRONG (kali `9`, node `0`):
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -467,6 +493,17 @@ console.log(o.a ?? 9);
 // branch selection is itself correct (a bare `false`/`true`/`null` operand
 // IS provable, so this fires on top of a correct decision, not because of
 // the residual above).
+//
+// CORRECTED 2026-07-19 (third addendum round): this is R-30 ("Computed
+// booleans render `1`/`0` in direct `console.log` argument position") in the
+// `kali-silent-miscompile-register.md` observed through `??`, not a
+// `??`-specific proof gap — `??` is one more producer feeding R-30's
+// already-registered mechanism (no `Boolean` shape arm in the single-argument
+// console sink). These two pins are NOT blocked on the `Repr::Boolean`/null
+// axis that blocks the mechanism section above; they are blocked on R-30's
+// own fix (unify the console formatters). When THAT fix lands, these two
+// assertions must go RED — that is the update signal for this section
+// specifically, distinct from the null-axis signal called out above.
 //
 // Mechanism: when `??`'s left operand is provably `Boolean`-classed (never
 // nullish) or provably `Null`/`Undefined`-classed (always nullish), the
