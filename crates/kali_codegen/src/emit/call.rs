@@ -40,6 +40,34 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// Emit `id` as a console-import argument coerced to a STRING handle —
+    /// the multi-argument twin of [`Self::emit_console_argument`].
+    ///
+    /// The single-argument lane hands the console import a raw tagged i64 and
+    /// lets the host render it. That cannot work for several arguments, because
+    /// the import takes exactly one i64: the arguments have to be joined into
+    /// one handle before the call, which means each one must first become a
+    /// string. `emit_as_string` is the existing coercion ladder used by `+`
+    /// string concatenation (string handle passthrough, `true`/`false` for
+    /// shape-`Boolean` values, `float_to_string` for floats, `int_to_string`
+    /// otherwise), so multi-argument console rendering agrees with `+`
+    /// rendering by construction instead of via a second hand-mirrored ladder.
+    ///
+    /// The object-reference rejection is duplicated from the single-argument
+    /// lane deliberately: it must apply to EVERY argument position, not just
+    /// position 0, or printing an object in a later position would silently
+    /// render a pointer.
+    fn emit_console_argument_as_string(&mut self, function: &mut Function, id: LirNodeId) {
+        if self.object_shape_of_node(id).is_some() {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "printing an object reference is unavailable in the current phase; print its fields instead"
+                    .to_string(),
+            ));
+        }
+        self.emit_as_string(function, id);
+    }
+
     pub(crate) fn emit_call(
         &mut self,
         function: &mut Function,
@@ -594,19 +622,62 @@ impl<'a> FunctionEmitter<'a> {
                 };
             }
 
-            let mut args = node.children.iter().skip(1);
-            if let Some(first_arg) = args.next() {
+            let args = node.children.iter().skip(1).copied().collect::<Vec<_>>();
+
+            // MULTI-ARGUMENT dynamic lane. This used to emit argument 0, call
+            // the import, and then emit each remaining argument only for its
+            // side effects and `Drop` the value — so `console.log(5, "y=" + 6)`
+            // printed `5` and exited 0, silently discarding the rest. That is
+            // evidence corruption: a fixture's self-check line loses fields and
+            // still "passes".
+            //
+            // The console imports take exactly one i64, so several arguments
+            // have to be joined into a single handle before the call. Each
+            // argument is coerced to a string handle and the results are folded
+            // left-to-right with `" "` between them — the same separator, and
+            // via the same `emit_as_string` ladder, that the all-static
+            // `render_console_arguments` lane uses, so the two lanes render a
+            // given call identically.
+            //
+            // The GLOBAL `string_concat` import is used rather than the
+            // per-site arena variant: a console argument is not a numbered
+            // string site, so `string_concat_import_index` would fail closed to
+            // the global one anyway, and naming it directly makes that explicit.
+            // Consequence: a multi-argument dynamic `console.*` in a hot loop
+            // allocates in the never-reset global arena. That is the
+            // conservative direction (correct output, reclaimable later) and
+            // nothing green can regress on it, because until now this lane
+            // produced no allocation and no output for these arguments at all.
+            if args.len() > 1 {
+                let (separator_offset, separator_len) = self.strings.intern(" ");
+                let separator = encode_string_handle(separator_offset, separator_len);
+                let mut args = args.into_iter();
+                let first = args.next().expect("len > 1");
+                self.emit_console_argument_as_string(function, first);
+                for arg in args {
+                    function.instruction(&Instruction::I64Const(separator));
+                    function.instruction(&Instruction::Call(STRING_CONCAT_IMPORT_INDEX));
+                    self.emit_console_argument_as_string(function, arg);
+                    function.instruction(&Instruction::Call(STRING_CONCAT_IMPORT_INDEX));
+                }
+                function.instruction(&Instruction::Call(import_index));
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            }
+
+            // Zero- and single-argument calls keep the pre-existing lowering
+            // byte-identically: the raw tagged i64 goes to the host, which
+            // renders it. Routing them through the stringify path instead would
+            // move every single-argument `console.log` in the suite (and in the
+            // CLBG goldens) onto a different rendering seam for no benefit.
+            if let Some(first_arg) = args.first() {
                 self.emit_console_argument(function, *first_arg);
             } else {
                 function.instruction(&Instruction::I64Const(0));
             }
             function.instruction(&Instruction::Call(import_index));
-            for arg in args {
-                let produced = self.emit_node(function, *arg, true);
-                if produced.produced {
-                    function.instruction(&Instruction::Drop);
-                }
-            }
             return EmittedValue {
                 produced: false,
                 shape: ValueShape::Unknown,
