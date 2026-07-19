@@ -1,5 +1,34 @@
 # PR #16 honest re-pin inventory (canonical) — CORRECTED
 
+> ## ⚠ SUPERSEDING EVIDENCE — read before using this file
+>
+> `docs/superpowers/followups/kali-silent-miscompile-register.md` (canonical silent-miscompile
+> register, 33 deduplicated defects from a 4-surface adversarial sweep) shows that **the
+> premise of the 694-test honest re-pin does not hold**. The classification work below assumed
+> kali's observable behavior could be trusted as evidence for what each test's actual limit is.
+> It cannot: the compiler silently truncates modules, drops logging arguments, re-evaluates
+> `const` initializers, and lets aliased writes vanish — all at exit 0 with no diagnostic.
+>
+> **Pins written over these defects would encode a false correctness picture into `main`** —
+> the same failure this file's own §0 methodology correction was written to prevent, reached by
+> a different route. A pin comment saying "kali has no X" is a durable, load-bearing claim; if
+> the real reason a test fails is a truncated fixture or an eaten assertion argument, that pin
+> is a falsehood committed to the main branch.
+>
+> **This file is now SUSPECT wherever its evidence could have been affected** — in particular
+> any row whose reproducer or fixture involves **default parameters** (R-01: a default param
+> silently deletes the rest of the file), **`const` initializers** (R-07: `const` is not a
+> binding; the initializer is re-emitted at every read), **multi-argument logging** (R-04: the
+> whole `console` family drops every argument after the first when any is non-literal), or
+> **aliased array/object bindings** (R-12: one alias binding defeats a fail-closed guard).
+> It is not wholesale invalid — §0's methodology correction is sound and the in-scope census
+> method is the right one. What is invalidated is the assumption that in-scope execution of a
+> fixture observes the fixture's own semantics.
+>
+> **Sequencing**: fix the evidence-corrupting defects (register §6, group 1) first, then
+> **re-derive** the affected rows against a binary containing those fixes, before any further
+> re-pin wave lands. See register §5 for the full impact analysis.
+
 This is the single canonical adjudication map for the 694 honest-red workspace tests
 carried on `soundness-batch1-pra` (baseline: `pr16-honest-red-baseline.txt`, Task 2).
 Each later "wave" task (Task 5 template) is instantiated one-per-row from the tables below.
