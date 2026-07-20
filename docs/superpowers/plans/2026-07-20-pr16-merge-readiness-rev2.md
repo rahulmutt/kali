@@ -91,12 +91,14 @@ git commit -m "docs(soundness): refreeze PR #16 honest-red baseline (N=708, was 
 
 - [ ] **Step 1: Capture one full failing run and write the block classifier**
 
-Baseline lines are bare `module::fn` (e.g. `run::json_run_supports_x`) with NO binary name — so per-test re-runs can't be reconstructed from a line, and dual-binary names would misroute. Instead capture ONE full run with panic output and classify each test's `---- <name> stdout ----` block (the robust parser; cargo emits one block per failing test with its captured stdout/stderr):
+Baseline lines are bare `module::fn` (e.g. `run::json_run_supports_x`) with NO binary name — so per-test re-runs can't be reconstructed from a line, and dual-binary names would misroute. Instead capture ONE full run and classify each test's `---- <name> stdout ----` block (the robust parser; cargo emits one block per failing test with its captured stdout/stderr, which includes the panic message and the kali output the failing `assert!` embedded). **Do NOT pass `--nocapture`** — it streams output inline and produces ZERO replay blocks (the classifier then matches nothing):
 
 ```bash
 rm -rf .kali-cache
-cargo test --workspace --no-fail-fast -- --nocapture 2>&1 \
+cargo test --workspace --no-fail-fast 2>&1 \
   | sed 's/\x1b\[[0-9;]*m//g' > "$SCRATCH/pr16-fullrun.txt"
+# sanity: block count must be > 0 (0 means --nocapture leaked in)
+grep -c '^---- .* stdout ----' "$SCRATCH/pr16-fullrun.txt"
 ```
 
 Then `$SCRATCH/pr16-triage.sh` splits that capture into per-test blocks and classifies each:
