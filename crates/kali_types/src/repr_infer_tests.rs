@@ -1496,3 +1496,53 @@ fn param_named_abort_controller_does_not_seed() {
     );
     assert_eq!(t.scalar("f", "c"), Repr::I64);
 }
+
+// P4 Task 2: URL / UrlSearchParams inference seeding.
+
+#[test]
+fn url_const_declarator_seeds_url() {
+    let t = reprs("const u = new URL('https://example.com/p?a=1#f');\n");
+    assert_eq!(t.scalar("_start", "u"), Repr::Url);
+}
+
+#[test]
+fn usp_const_declarator_seeds_url_search_params() {
+    let t = reprs("const q = new URLSearchParams('a=1&b=2');\n");
+    assert_eq!(t.scalar("_start", "q"), Repr::UrlSearchParams);
+}
+
+#[test]
+fn url_search_params_alias_of_url_seeds_usp() {
+    let t = reprs("const u = new URL('https://example.com/p?a=1');\nconst sp = u.searchParams;\n");
+    assert_eq!(t.scalar("_start", "sp"), Repr::UrlSearchParams);
+}
+
+#[test]
+fn non_literal_url_arg_does_not_seed() {
+    let t = reprs("const s = 'https://example.com/';\nconst u = new URL(s);\n");
+    assert_eq!(t.scalar("_start", "u"), Repr::I64);
+}
+
+#[test]
+fn shadowed_url_ctor_does_not_seed() {
+    let t = reprs("function URL() { return 1; }\nconst u = new URL('https://x/');\n");
+    assert_eq!(t.scalar("_start", "u"), Repr::I64);
+}
+
+#[test]
+fn let_declared_usp_does_not_seed() {
+    let t = reprs("let q = new URLSearchParams('a=1');\n");
+    assert_eq!(t.scalar("_start", "q"), Repr::I64);
+}
+
+#[test]
+fn plain_alias_of_url_does_not_seed() {
+    let t = reprs("const u = new URL('https://x/');\nconst b = u;\n");
+    assert_eq!(t.scalar("_start", "b"), Repr::I64);
+}
+
+#[test]
+fn searchparams_of_non_url_does_not_seed() {
+    let t = reprs("const o = { searchParams: 3 };\nconst sp = o.searchParams;\n");
+    assert_eq!(t.scalar("_start", "sp"), Repr::I64);
+}

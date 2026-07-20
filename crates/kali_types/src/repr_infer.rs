@@ -426,6 +426,34 @@ struct ReprInfer {
     /// `abort_bindings` seeding everywhere; codegen (Task 3) re-checks
     /// per-namespace, which is a strictly finer-grained gate than this one.
     abort_controller_shadowed: bool,
+    /// P4 Task 2: `(func, binding)` pairs syntactically admitted for
+    /// `Repr::Url` seeding — a `const` declarator whose init is
+    /// `new URL(<string-literal>)`. Mirrors `abort_bindings`/
+    /// `abort_controller_origin`: this set IS the "is this a URL" predicate
+    /// (unlike `abort_bindings`, no non-URL alias is ever admitted into it),
+    /// so it doubles as `url_origin` for the `.searchParams` alias check
+    /// below.
+    url_bindings: BTreeSet<(String, String)>,
+    /// P4 Task 2: strict alias of `url_bindings` used specifically as the
+    /// "is this identifier a URL binding" origin check for the
+    /// `.searchParams` alias arm. Kept as a separate field (rather than
+    /// reusing `url_bindings` directly at the call site) to mirror the
+    /// `abort_bindings`/`abort_controller_origin` split even though, for
+    /// URL, the two sets are currently always identical (there is no
+    /// URL-of-URL alias shape admitted this stage).
+    url_origin: BTreeSet<(String, String)>,
+    /// P4 Task 2: `(func, binding)` pairs syntactically admitted for
+    /// `Repr::UrlSearchParams` seeding — a `const` declarator whose init is
+    /// either `new URLSearchParams(<string-literal>)`, or a non-computed
+    /// `<ident>.searchParams` read where `(func, <ident>)` is already in
+    /// `url_origin` (same-function forward alias only).
+    usp_bindings: BTreeSet<(String, String)>,
+    /// P4 Task 2 program-wide shadow guard, mirroring
+    /// `abort_controller_shadowed`: `true` when ANY declared name anywhere
+    /// in the program is `"URL"` or `"URLSearchParams"`. Set from the exact
+    /// same `note_abort_shadow_name` call sites — see that function's
+    /// updated doc.
+    url_ctor_shadowed: bool,
 }
 
 /// Identity of an object-holding slot for shape/aliasing purposes.
@@ -1502,6 +1530,16 @@ impl ReprInfer {
         if name == "AbortController" || name == "AbortSignal" {
             self.abort_controller_shadowed = true;
         }
+        // P4 Task 2: folded into this same function (rather than a separate
+        // `note_url_shadow_name` called from a hand-mirrored set of
+        // `visit_stmt` sites) precisely so the URL/UrlSearchParams shadow
+        // frontier can never drift out of sync with the abort one — every
+        // call site already reaches every declared-name position the
+        // seeding walk visits (function/class decl names, params,
+        // declarator names, catch-param names), by construction.
+        if name == "URL" || name == "URLSearchParams" {
+            self.url_ctor_shadowed = true;
+        }
     }
 
     /// True when `name` is locally bound in `func`'s own scope (a parameter
@@ -1848,6 +1886,34 @@ impl ReprInfer {
                     }
                 }
             }
+            // P4 Task 2: `const u = new URL(<string-literal>)`,
+            // `const q = new URLSearchParams(<string-literal>)`, and the
+            // same-function forward alias `const sp = u.searchParams` (where
+            // `u` is itself URL-origin) are the only admitted
+            // Url/UrlSearchParams-seeding shapes. Recorded here alongside
+            // the abort arms above; the generic wiring below still runs
+            // unconditionally afterward, same rationale as the abort case.
+            if self.is_new_url_with_string_literal(init) {
+                self.url_bindings
+                    .insert((func.to_string(), id.to_string()));
+                self.url_origin
+                    .insert((func.to_string(), id.to_string()));
+            } else if self.is_new_usp_with_string_literal(init) {
+                self.usp_bindings
+                    .insert((func.to_string(), id.to_string()));
+            } else if let Expression::MemberExpression(member) = init {
+                if member.computed_index.is_none() && member.property == "searchParams" {
+                    if let Expression::Identifier(base) = &member.object {
+                        if self
+                            .url_origin
+                            .contains(&(func.to_string(), base.clone()))
+                        {
+                            self.usp_bindings
+                                .insert((func.to_string(), id.to_string()));
+                        }
+                    }
+                }
+            }
         }
         if let Expression::ObjectExpression(obj) = init {
             // Syntactic taint, independent of materialization — see the field
@@ -1891,6 +1957,56 @@ impl ReprInfer {
             }
             _ => false,
         }
+    }
+
+    /// True when `expr` is `new URL(<string-literal>)` — a single argument
+    /// that is a bare string literal (not an identifier, concatenation, or
+    /// any other expression). Non-literal args (`new URL(s)`) are the
+    /// standard non-admitted shape this stage: the URL's runtime value is
+    /// only known when it's compile-time-visible source text (P4 Task 3
+    /// parses it at compile time).
+    ///
+    /// The constructor call's actual args do NOT live in `NewExpression`'s
+    /// own `args` field for this shape: `new X(a)` parses its callee via
+    /// `parse_call_expression`, which greedily folds the immediately
+    /// following `(a)` into a `CallExpression` callee (`constructor_name`'s
+    /// doc already notes this dual shape) — so `n.args` is always empty here
+    /// and the real args are `callee`'s `CallExpression.args`. Verified
+    /// against the parser (`kali_parser::expression::primary`) and by
+    /// dumping the AST for `new URL('https://x/')`.
+    fn is_new_url_with_string_literal(&self, expr: &Expression) -> bool {
+        match expr {
+            Expression::NewExpression(n) => {
+                constructor_name(&n.callee).as_deref() == Some("URL")
+                    && Self::single_string_literal_ctor_arg(n)
+            }
+            _ => false,
+        }
+    }
+
+    /// True when `expr` is `new URLSearchParams(<string-literal>)` — twin of
+    /// `is_new_url_with_string_literal` for the `URLSearchParams`
+    /// constructor.
+    fn is_new_usp_with_string_literal(&self, expr: &Expression) -> bool {
+        match expr {
+            Expression::NewExpression(n) => {
+                constructor_name(&n.callee).as_deref() == Some("URLSearchParams")
+                    && Self::single_string_literal_ctor_arg(n)
+            }
+            _ => false,
+        }
+    }
+
+    /// True when `new_expr`'s constructor call carries exactly one argument
+    /// and it is a bare string literal — checking whichever of the two
+    /// parser-produced arg locations is actually populated (see the doc on
+    /// `is_new_url_with_string_literal`).
+    fn single_string_literal_ctor_arg(new_expr: &kali_ast::NewExpression) -> bool {
+        let args = match &new_expr.callee {
+            Expression::CallExpression(call) => &call.args,
+            _ => &new_expr.args,
+        };
+        args.len() == 1 && matches!(&args[0], Expression::Literal(LiteralValue::String(_)))
     }
 
     /// True when `expr` produces a fresh array binding (`new Array(...)` or an
@@ -4179,6 +4295,22 @@ impl ReprInfer {
             for (func, name) in &self.abort_bindings {
                 if table.scalar(func, name) == Repr::I64 {
                     table.set_scalar(func, name, Repr::AbortHandle);
+                }
+            }
+        }
+
+        // P4 Task 2: Url/UrlSearchParams seeding. Same shape as the abort
+        // block above — only when the program-wide shadow guard did not
+        // fire, and only for a binding no other axis already claimed.
+        if !self.url_ctor_shadowed {
+            for (func, name) in &self.url_bindings {
+                if table.scalar(func, name) == Repr::I64 {
+                    table.set_scalar(func, name, Repr::Url);
+                }
+            }
+            for (func, name) in &self.usp_bindings {
+                if table.scalar(func, name) == Repr::I64 {
+                    table.set_scalar(func, name, Repr::UrlSearchParams);
                 }
             }
         }
