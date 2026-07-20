@@ -398,6 +398,15 @@ impl<'a> FunctionEmitter<'a> {
                     self.emit_usp_method_argument(function, args[0]);
                     self.emit_usp_method_argument(function, args[1]);
                     function.instruction(&Instruction::Call(usp_set));
+                    // `__usp_set` returns the live tagged store handle internally
+                    // (used for in-place chaining), but that raw i64 must NEVER
+                    // escape as an observable value (the Global Constraint —
+                    // `.set`'s result is not a sanctioned ordinary result). WHATWG
+                    // `URLSearchParams.set` returns undefined; drop the handle and
+                    // render the void-method placeholder `0`, exactly like the
+                    // `.append` arm.
+                    function.instruction(&Instruction::Drop);
+                    function.instruction(&Instruction::I64Const(0));
                     return EmittedValue {
                         produced: true,
                         shape: ValueShape::Scalar,

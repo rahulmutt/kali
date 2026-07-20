@@ -138,6 +138,17 @@ fn url_search_params_composition_get() {
 }
 
 #[test]
+fn usp_set_result_does_not_leak_the_store_handle() {
+    // `.set` returns undefined (WHATWG); `__usp_set` carries the live tagged
+    // store handle internally, but the call site drops it and renders the
+    // void-method placeholder `0` — the raw i64 handle must NEVER escape as an
+    // observable value (the Global Constraint). A leak would print a tagged
+    // handle integer >= 2^62 here, not `0`.
+    let src = "const q = new URLSearchParams('a=1');\nconsole.log(q.set('a', 'b'));\nconsole.log(q.get('a'));\n";
+    assert_eq!(run_kali_run(src).trim(), "0\nb");
+}
+
+#[test]
 fn unknown_method_on_usp_fails_closed() {
     let src = "const q = new URLSearchParams('a=1');\nq.sort();\n";
     let stderr = run_kali_run_expect_error(src);
