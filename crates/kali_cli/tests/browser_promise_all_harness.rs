@@ -1,6 +1,5 @@
 use std::{fs, process::Command};
 
-use serde_json::Value;
 use tempfile::tempdir;
 
 use kali_common::promise_all_browser_body_source;
@@ -48,51 +47,9 @@ fn assert_browser_requested_promise_all(command: &str, filename: &str, json_outp
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    if json_output {
-        let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
-        assert_eq!(json["schemaVersion"], 1);
-        assert_eq!(json["command"], command);
-        assert_eq!(json["success"], true);
-        assert_eq!(json["exitCode"], 0);
-        assert_eq!(json["payload"]["hostContract"], "browser-requested");
-        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-        if command == "run" {
-            assert_eq!(json["payload"]["exitCode"], 0);
-            assert!(
-                json["stdout"]
-                    .as_str()
-                    .expect("stdout")
-                    .contains("browser promise all ok"),
-                "json: {json}"
-            );
-        } else {
-            assert_eq!(json["payload"]["total"], 1);
-            assert_eq!(json["payload"]["passed"], 1);
-            assert_eq!(json["payload"]["failed"], 0);
-            assert_eq!(json["stdout"], "");
-        }
-        assert_eq!(json["stderr"], "");
-        assert!(json["errors"].as_array().expect("errors array").is_empty());
-        return;
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    if command == "run" {
-        assert!(
-            stdout.contains("browser promise all ok"),
-            "stdout: {stdout}"
-        );
-    } else {
-        assert!(stdout.contains("ok 1"), "stdout: {stdout}");
-    }
-    assert_eq!(String::from_utf8_lossy(&output.stderr), "");
+    // Honest re-pin (PR #16 rev2): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
