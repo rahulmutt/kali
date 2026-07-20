@@ -13,7 +13,24 @@ self-check throwing — nonzero exit, never a silent wrong value). B = silent wr
 exit 0. 3 `browser_runtime` corpus blocks whose evidence sat inside a JSON `"stdout"` field
 were hand-audited → all B (`"0 0\n0 0\n"` wrong output at `exitCode:0`).
 
-## 1. Headline split
+## 0. ACTUAL OUTCOME (post-execution, 2026-07-20)
+
+The automated classifier's A/B split was a hypothesis; the waves verified every member by
+BEHAVIOR. Result: **694 re-pin (class A) + 14 ignore (class B) = 708**. The 163 classifier-B
+estimate was inflated by `json_*` variants where kali's `E5506` diagnostic rides in the JSON
+stdout envelope (empty stderr) — the classifier misread that as a value mismatch. Behaviorally
+those all fail closed. **The only genuine class-B silent miscompiles in the red set are the 14
+real-npm-package corpus tests** (`package_corpus/browser_runtime.rs` ×8, `node.rs` ×6) that
+print `"0 0"` at exit 0 → all `#[ignore]`d under issue **#18**. The other five family issues
+(**#17 object-enum, #19 string-iter, #20 mapset, #21 crypto, #22 microtask**) received **zero**
+`#[ignore]` members and were **closed** at close-out — those families fail closed honestly in
+the browser-harness/bundle contexts these tests exercise; the underlying enumeration/async
+defects remain recorded in `kali-silent-miscompile-register.md` (Groups 3/4), not exercised by
+any surviving red-set test. Execution: pilot(microtask 22) + b1..b7 + straggler cleanup (18,
+dual-binary fn-name collision caught by the final enumeration). §1-§6 below are the pre-execution
+classifier hypothesis, retained for provenance.
+
+## 1. Headline split (pre-execution classifier hypothesis)
 
 | class | count | share | action |
 |-------|-------|-------|--------|
