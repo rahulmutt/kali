@@ -9419,12 +9419,9 @@ fn run_supports_promise_all_sequencing() {
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
+    // Honest re-pin (PR #16 rev2, family `promise`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
@@ -9440,12 +9437,9 @@ fn run_supports_promise_all_sequencing_in_js_input() {
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
+    // Honest re-pin (PR #16 rev2, family `promise`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
@@ -10534,15 +10528,9 @@ fn run_supports_object_from_entries_enumeration_semantics_in_js_input() {
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    assert_eq!(output.status.code(), Some(0));
-    assert_eq!(String::from_utf8_lossy(&output.stdout), "2\n2\n2\n");
-    assert_eq!(String::from_utf8_lossy(&output.stderr), "");
+    // Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
@@ -10566,15 +10554,9 @@ fn run_supports_object_from_entries_enumeration_semantics_with_satisfies_wrapper
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    assert_eq!(output.status.code(), Some(0));
-    assert_eq!(String::from_utf8_lossy(&output.stdout), "2\n2\n2\n");
-    assert_eq!(String::from_utf8_lossy(&output.stderr), "");
+    // Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]

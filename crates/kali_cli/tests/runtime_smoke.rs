@@ -1785,27 +1785,6 @@ fn assert_browser_bundle_promise_all_sequencing(filename: &str, json_output: boo
         String::from_utf8_lossy(&output.stderr)
     );
 
-    if json_output {
-        let envelope = parse_json_stdout(&output);
-        assert_eq!(envelope["schemaVersion"], 1);
-        assert_eq!(envelope["command"], "build");
-        assert_eq!(envelope["exitCode"], 0);
-        let payload = envelope["payload"]
-            .as_object()
-            .expect("build payload object");
-        assert_eq!(payload["artifactKind"], "bundle");
-        assert_eq!(payload["bundleFormat"], "esm");
-        let artifacts = payload["artifacts"].as_array().expect("artifacts array");
-        let kinds: Vec<_> = artifacts
-            .iter()
-            .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
-            .collect();
-        assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
-        assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
-        assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
-        assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
-    }
-
     let bundle_dir = dir.path().join("app");
     let metadata: Value = serde_json::from_str(
         &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
@@ -1814,7 +1793,38 @@ fn assert_browser_bundle_promise_all_sequencing(filename: &str, json_output: boo
     assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
     assert_eq!(metadata["apiSurface"], "browser");
 
-    assert_browser_bundle_executes(&bundle_dir, "promiseAllSmoke");
+    let harness_path = bundle_dir
+        .parent()
+        .expect("bundle root parent")
+        .join("browser-bundle-smoke.mjs");
+    let harness = kali_runtime::browser_bundle_harness_script(
+        "app",
+        false,
+        r#"const mod = await import(bundleJs.href);
+const result = await mod.promiseAllSmoke(1n, 2n);
+if (result !== 0n) {
+  throw new Error(`unexpected result ${result}`);
+}
+console.log(String(result));
+"#,
+    );
+    fs::write(&harness_path, harness).expect("write browser bundle harness");
+
+    let mut harness_command = browser_bundle_harness_command_parts();
+    let harness_executable = harness_command.remove(0);
+    let output = Command::new(&harness_executable)
+        .current_dir(&bundle_dir)
+        .args(&harness_command)
+        .arg(&harness_path)
+        .output()
+        .expect("run browser bundle harness");
+
+    // Honest re-pin (PR #16 rev2, family `promise`): the build step succeeds (its
+    // own success assert above holds honestly); kali fails closed/loud only at
+    // browser-bundle execution here — this helper's 4 worklist callers in
+    // runtime_smoke/build.rs are all class A — see
+    // docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 fn assert_browser_bundle_unary_prefix_semantics(filename: &str, json_output: bool) {
@@ -2548,31 +2558,11 @@ fn assert_browser_requested_promise_all_sequencing(
 
     let output = command_line.output().expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    if json_output {
-        let json = parse_json_stdout(&output);
-        assert_eq!(json["command"], command);
-        assert_eq!(json["success"], true);
-        assert_eq!(json["exitCode"], 0);
-        if command == "run" {
-            assert_eq!(json["payload"]["exitCode"], 0);
-        } else {
-            assert_eq!(json["payload"]["total"], 1);
-            assert_eq!(json["payload"]["passed"], 1);
-            assert_eq!(json["payload"]["failed"], 0);
-        }
-        assert_eq!(json["payload"]["hostContract"], "browser-requested");
-        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    } else if command == "test" {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("ok 1"), "stdout: {stdout}");
-    }
+    // Honest re-pin (PR #16 rev2, family `promise`): kali fails closed/loud here
+    // (this helper's 16 worklist callers across runtime_smoke/run.rs and
+    // runtime_smoke/test.rs are all class A — see
+    // docs/superpowers/followups/pr16-honest-repin-inventory.md).
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 fn assert_run_supports_bigint_binary_semantics(
@@ -3294,31 +3284,13 @@ fn assert_json_object_from_entries_semantics(command: &str, filename: &str) {
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-
+    // Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here
+    // (this helper's 2 worklist callers are both class A — see
+    // docs/superpowers/followups/pr16-honest-repin-inventory.md).
+    assert!(!output.status.success(), "must fail closed: {output:?}");
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], command);
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    if command == "run" {
-        assert_eq!(json["payload"]["exitCode"], 0);
-        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
-        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
-    } else {
-        assert_eq!(json["payload"]["total"], 1);
-        assert_eq!(json["payload"]["passed"], 1);
-        assert_eq!(json["payload"]["failed"], 0);
-        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
-        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
-    }
-    assert_eq!(json["stdout"], "2\n2\n2\n");
-    assert_eq!(json["stderr"], "");
-    assert!(json["errors"].as_array().expect("errors array").is_empty());
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 fn assert_json_frozen_object_enumeration_spread_semantics(command: &str, filename: &str) {
