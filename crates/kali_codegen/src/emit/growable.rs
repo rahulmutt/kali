@@ -62,7 +62,7 @@ impl<'a> FunctionEmitter<'a> {
     /// `collect_function_locals` for any function with a growable binding.
     /// Panics if missing — reservation and emission share the single
     /// `growable_scratch_local_name` helper, so a miss is a provisioning bug.
-    fn growable_scratch_local(&self) -> u32 {
+    pub(crate) fn growable_scratch_local(&self) -> u32 {
         self.locals
             .get(crate::lower::growable_scratch_local_name().as_str())
             .copied()
@@ -70,7 +70,7 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     /// Push `hdr_ptr` (i32) of the handle held in the dedicated scratch.
-    fn emit_growable_scratch_hdr(&self, function: &mut Function, scratch: u32) {
+    pub(crate) fn emit_growable_scratch_hdr(&self, function: &mut Function, scratch: u32) {
         function.instruction(&Instruction::LocalGet(scratch));
         function.instruction(&Instruction::I32WrapI64);
     }

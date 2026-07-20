@@ -1006,6 +1006,13 @@ impl<'a> FunctionEmitter<'a> {
         if self.is_process_argv_element(self.node(id)).is_some() {
             return true;
         }
+        // Stage P4: URL component reads. `u.href`/`.origin`/`.pathname`/
+        // `.search`/`.hash` load an interned string handle, so console.log / `+`
+        // / `==` treat them as strings; `.searchParams` is a USP handle (not a
+        // string) and is excluded. Same recognizer the emit arm routes with.
+        if let Some((_, member)) = self.url_member_read_parts(id) {
+            return !matches!(member, crate::emit::url::UrlMember::SearchParams);
+        }
         let node = self.node(id);
         match node.kind {
             LirNodeKind::Literal => node.text.as_deref().is_some_and(|text| {

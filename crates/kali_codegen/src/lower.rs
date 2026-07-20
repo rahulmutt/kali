@@ -2256,6 +2256,130 @@ pub(crate) fn declarator_init_is_abort_controller_new(
     })
 }
 
+/// Stage P4 (URL + URLSearchParams). Compile-time-parsed components in slot
+/// order (0..5). Built once from the string-literal constructor arg via the
+/// `url` crate; the emitted URL struct interns each of the five string
+/// components + an embedded USP built from `query_pairs`.
+pub(crate) struct UrlComponents {
+    pub href: String,
+    pub origin: String,
+    pub pathname: String,
+    pub search: String,
+    pub hash: String,
+    pub query_pairs: Vec<(String, String)>,
+}
+
+/// True when `init_id` is STRUCTURALLY `new <ctor>(<any args>)` with the bare
+/// constructor identifier `ctor` (arg-agnostic — used as the deny trigger so a
+/// non-admittable `new URL(...)` is rejected E5506 rather than silently lowering
+/// to the `0` placeholder). EMPIRICALLY-VERIFIED LIR shape (`new URL('x')`,
+/// dumped): the New wrapper is `Value(None, [Call(None, [Value(ctor), <args…>])])`
+/// — the OUTER new args are empty; the real args live in the callee
+/// `CallExpression`'s children AFTER the ctor.
+pub(crate) fn declarator_init_is_url_ctor(
+    nodes: &[LirNode],
+    init_id: LirNodeId,
+    ctor: &str,
+) -> bool {
+    let Some(node) = nodes.get(init_id.0 as usize) else {
+        return false;
+    };
+    if node.kind != LirNodeKind::Value || node.text.is_some() || node.children.len() != 1 {
+        return false;
+    }
+    let Some(call) = nodes.get(node.children[0].0 as usize) else {
+        return false;
+    };
+    if call.kind != LirNodeKind::Call || call.text.is_some() || call.children.is_empty() {
+        return false;
+    }
+    nodes
+        .get(call.children[0].0 as usize)
+        .is_some_and(|c| c.text.as_deref() == Some(ctor) && c.children.is_empty())
+}
+
+/// The single string-literal argument text (WITH delimiters) of a
+/// `new <ctor>(<string-literal>)` construction, or `None` when the ctor does not
+/// match, when there is not EXACTLY ONE argument, or when that argument is not a
+/// string literal. Two-arg `new URL(rel, base)` and non-literal `new URL(s)`
+/// both return `None` (not admitted → the declarator intercept denies). The arg
+/// lives at `call.children[1]` (index 0 is the ctor identifier).
+pub(crate) fn new_ctor_string_literal_arg(
+    nodes: &[LirNode],
+    init_id: LirNodeId,
+    ctor: &str,
+) -> Option<String> {
+    let node = nodes.get(init_id.0 as usize)?;
+    if node.kind != LirNodeKind::Value || node.text.is_some() || node.children.len() != 1 {
+        return None;
+    }
+    let call = nodes.get(node.children[0].0 as usize)?;
+    // Exactly one arg → the Call has TWO children: [ctor, arg].
+    if call.kind != LirNodeKind::Call || call.text.is_some() || call.children.len() != 2 {
+        return None;
+    }
+    let ctor_node = nodes.get(call.children[0].0 as usize)?;
+    if ctor_node.text.as_deref() != Some(ctor) || !ctor_node.children.is_empty() {
+        return None;
+    }
+    let arg = nodes.get(call.children[1].0 as usize)?;
+    if arg.kind != LirNodeKind::Literal {
+        return None;
+    }
+    let text = arg.text.as_deref()?;
+    let trimmed = text.trim();
+    let first = trimmed.chars().next()?;
+    let last = trimmed.chars().last()?;
+    let is_string = (first == '"' && last == '"')
+        || (first == '\'' && last == '\'')
+        || (first == '`' && last == '`');
+    is_string.then(|| text.to_string())
+}
+
+/// `true` iff `init_id` is `new URL(<string-literal>)`. The Task 3 declarator
+/// intercept uses the arg-agnostic `declarator_init_is_url_ctor` (so a
+/// non-admittable shape denies rather than silently placeholder-lowering);
+/// this narrow admit-predicate is the interface Tasks 4-5 consume.
+#[allow(dead_code)]
+pub(crate) fn declarator_init_is_url_new(nodes: &[LirNode], init_id: LirNodeId) -> bool {
+    new_ctor_string_literal_arg(nodes, init_id, "URL").is_some()
+}
+
+/// `true` iff `init_id` is `new URLSearchParams(<string-literal>)`. Interface
+/// for Tasks 4-5 (see `declarator_init_is_url_new`).
+#[allow(dead_code)]
+pub(crate) fn declarator_init_is_url_search_params_new(
+    nodes: &[LirNode],
+    init_id: LirNodeId,
+) -> bool {
+    new_ctor_string_literal_arg(nodes, init_id, "URLSearchParams").is_some()
+}
+
+/// Parse a URL string literal into its emitted components via the `url` crate.
+/// Returns `None` when the literal does not parse as an absolute URL — the
+/// declarator intercept then denies (a non-parseable literal is not admitted).
+pub(crate) fn parse_url_literal(text: &str) -> Option<UrlComponents> {
+    let u = url::Url::parse(text).ok()?;
+    Some(UrlComponents {
+        href: u.as_str().to_string(),
+        origin: u.origin().ascii_serialization(),
+        pathname: u.path().to_string(),
+        search: u.query().map(|q| format!("?{q}")).unwrap_or_default(),
+        hash: u.fragment().map(|f| format!("#{f}")).unwrap_or_default(),
+        query_pairs: u
+            .query_pairs()
+            .map(|(k, v)| (k.into_owned(), v.into_owned()))
+            .collect(),
+    })
+}
+
+/// `application/x-www-form-urlencoded` decode (`+`→space, `%XX`) of a
+/// URLSearchParams literal via `form_urlencoded`. Always succeeds (an empty or
+/// malformed body yields whatever pairs decode, matching the WHATWG parser).
+pub(crate) fn parse_query_literal(text: &str) -> Vec<(String, String)> {
+    form_urlencoded::parse(text.as_bytes()).into_owned().collect()
+}
+
 /// True when `init_id` is a PROVABLE ZERO-PLACEHOLDER construct — a
 /// `new X()` whose constructor `X` has no real lowering, so the whole
 /// construction lowers to the drop-and-push-`0` aggregate placeholder (the
@@ -3177,11 +3301,24 @@ pub(crate) fn collect_function_locals(
         repr_table.return_repr(function_name),
         kali_common::Repr::Object(shape) if shape_has_growable_field(repr_table, shape)
     );
+    // Stage P4: a URL or URLSearchParams construction builds an embedded /
+    // standalone growable `[k0,v0,…]` pair-store via `emit_growable_alloc`,
+    // which requires the dedicated growable scratch. Reserve it whenever this
+    // function owns a `Repr::Url`/`Repr::UrlSearchParams` binding (over-reserving
+    // an unused i64 local is harmless; under-reserving panics in
+    // `growable_scratch_local`).
+    let constructs_url_or_usp = locals.iter().any(|name| {
+        matches!(
+            repr_table.scalar(function_name, name),
+            kali_common::Repr::Url | kali_common::Repr::UrlSearchParams
+        )
+    });
     if locals
         .iter()
         .any(|name| repr_table.is_growable_array_binding(function_name, name))
         || body_contains_field_push(nodes, body_id)
         || allocates_growable_object_field
+        || constructs_url_or_usp
     {
         locals.push(growable_scratch_local_name());
     }
