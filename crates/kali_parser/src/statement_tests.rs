@@ -111,29 +111,21 @@ fn test_parse_for_await_of_statement_accepts_await_wrapped_literal_arrays() {
 }
 
 #[test]
-fn test_parse_try_finally_statement() {
+fn test_parse_try_finally_statement_rejects_fail_closed() {
+    // kali has no exception machinery. try/catch/finally is rejected
+    // fail-closed (E5506 FEATURE_UNAVAILABLE) rather than miscompiled to a
+    // bogus if-shaped branch. The tokens are still consumed so the parse
+    // recovers to a single (rejected) statement without a secondary cascade.
     let tokens = lex("try { value; } finally { other; }");
     let mut parser = Parser::new(kali_common::FileId::new(0), tokens);
     let output = parser.parse(None);
 
     assert!(
-        output.diagnostics.is_empty(),
-        "unexpected diagnostics: {:?}",
+        output
+            .diagnostics
+            .iter()
+            .any(|d| d.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)),
+        "expected FEATURE_UNAVAILABLE reject, got: {:?}",
         output.diagnostics
     );
-    assert_eq!(output.statements.len(), 1);
-
-    match &output.statements[0] {
-        Statement::TryStatement(stmt) => {
-            assert!(
-                stmt.handler.is_none(),
-                "unexpected catch clause: {:?}",
-                stmt.handler
-            );
-            assert!(stmt.finalizer.is_some(), "expected finally block");
-            assert_eq!(stmt.block.body.len(), 1);
-            assert_eq!(stmt.finalizer.as_ref().unwrap().body.len(), 1);
-        }
-        other => panic!("Expected TryStatement, got {other:?}"),
-    }
 }

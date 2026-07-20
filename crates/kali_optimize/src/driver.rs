@@ -43,6 +43,17 @@ pub struct Optimizer {
     pub(crate) level: OptimizationLevel,
     pub(crate) max_specializations: usize,
     pub(crate) profile_data: Option<ProfileData>,
+    /// Names of growable (push-accumulated) runtime-array bindings
+    /// (throw-fallout Stage 4), from
+    /// `kali_common::ReprTable::growable_array_binding_names`. `push` is a
+    /// mutation the member-store scan cannot see (it is a Call, not a
+    /// store), so these names are folded into `collect_mutated_binding_names`'
+    /// result — otherwise every constant-binding env would inline/fold the
+    /// stale declarator literal (`o.length` → `0`, `o[0]` → `undefined`)
+    /// over an array that now really accumulates at runtime. Name-based and
+    /// shadowing-blind like the mutated scan itself: over-marking only ever
+    /// DISABLES folding (fail-closed direction).
+    pub(crate) growable_array_bindings: BTreeSet<String>,
 }
 
 impl Optimizer {
@@ -52,6 +63,7 @@ impl Optimizer {
             level,
             max_specializations: 16,
             profile_data: None,
+            growable_array_bindings: BTreeSet::new(),
         }
     }
 
@@ -61,7 +73,15 @@ impl Optimizer {
             level,
             max_specializations,
             profile_data: None,
+            growable_array_bindings: BTreeSet::new(),
         }
+    }
+
+    /// Attach the growable-array binding names (see the field doc). Chained
+    /// like `with_profile_data`.
+    pub fn with_growable_array_bindings(mut self, names: BTreeSet<String>) -> Self {
+        self.growable_array_bindings = names;
+        self
     }
 
     /// Return the configured specialization cap.
@@ -162,8 +182,7 @@ impl Optimizer {
         program: &mut LirProgram,
         allow_generic_specialization: bool,
     ) {
-        let mut constant_bindings = self.collect_constant_bindings(program, program.root);
-        self.fold_object_enumeration_calls(program, program.root, &constant_bindings);
+        self.fold_object_enumeration_calls_ordered(program);
 
         match self.level {
             OptimizationLevel::Fast | OptimizationLevel::Default => {}
@@ -182,8 +201,15 @@ impl Optimizer {
                     &mut binding_env,
                 );
 
-                constant_bindings = self.collect_constant_bindings(program, program.root);
-                self.fold_object_enumeration_calls(program, program.root, &constant_bindings);
+                let mut constant_bindings = self.collect_constant_bindings(program, program.root);
+                let mutated = self.collect_mutated_binding_names(program);
+                // Mirror the ordered pass's alias-id strip (same shared helper):
+                // drop mutated NAMES *and* any alias binding whose resolved id
+                // points at a mutated binding's literal, else inline.rs folds
+                // `Object.keys(s)` (s = alias of a mutated r) against a stale
+                // snapshot. Fail-closed.
+                self.strip_mutated_bindings(&mut constant_bindings, &mutated);
+                self.fold_object_enumeration_calls_ordered(program);
 
                 self.optimize_node(
                     program,

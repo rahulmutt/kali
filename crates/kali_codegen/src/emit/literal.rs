@@ -153,17 +153,41 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
 
+            // A static index member `arr[k]` whose base resolves to an array
+            // literal resolves to the indexed ELEMENT node. This lets a nested
+            // index (`arr[i][j]`) fold against the inner literal — the shape a
+            // folded `Object.entries(obj)` produces (an array of `[key, value]`
+            // 2-tuple literals), where `es[i][0]` / `es[i][1]` must read the
+            // real key/value, not a runtime-array placeholder. Only `Node`
+            // results are aggregates and continue; `String`/`Undefined`
+            // elements are terminal and fall through to the return below.
+            if let Some(StaticIndexMemberResult::Node(inner)) =
+                self.resolve_static_index_member(node)
+            {
+                id = inner;
+                continue;
+            }
+
             return Some(id);
         }
     }
 
-    /// True when `id` resolves (through transparent wrappers) to a `null` or
-    /// `undefined` literal. Used by the Spec 4a Task 4 null-sentinel store: a
-    /// nullish init/reassignment of a for-in-key alias stores `-1`, not `0`.
-    pub(crate) fn is_null_or_undefined_literal(&self, id: LirNodeId) -> bool {
+    /// True when `id` resolves (through transparent wrappers) to a nullish
+    /// expression: the `null`/`undefined` LITERAL forms, or the bare
+    /// identifier `undefined` (which parses as an Identifier → Value node —
+    /// the form the old literal-only recognizer missed, storing ordinal 0
+    /// instead of the -1 sentinel: wrong truthiness). Single recognizer for
+    /// BOTH the types-side admit and the codegen stores, so the twins cannot
+    /// disagree on nullish-ness again (the `??= undefined` reject existed
+    /// only because of that disagreement). Used by the Spec 4a Task 4
+    /// null-sentinel store: a nullish init/reassignment of a for-in-key alias
+    /// stores `-1`, not `0`.
+    pub(crate) fn is_null_or_undefined_expr(&self, id: LirNodeId) -> bool {
         let node = self.node(self.unwrap_transparent(id));
-        node.kind == LirNodeKind::Literal
-            && matches!(node.text.as_deref(), Some("null") | Some("undefined"))
+        if node.kind == LirNodeKind::Literal {
+            return matches!(node.text.as_deref(), Some("null") | Some("undefined"));
+        }
+        self.bare_identifier_name(id).as_deref() == Some("undefined")
     }
 
     pub(crate) fn assignment_target_name(&self, _node: &LirNode, id: LirNodeId) -> Option<String> {
@@ -271,6 +295,25 @@ impl<'a> FunctionEmitter<'a> {
                             function.instruction(&Instruction::I64Const(0));
                             return true;
                         };
+                        // Stage P2 review C-1a (silent-corruption close):
+                        // reassigning a `GrowableArrayI64` field (`o.values =
+                        // [4,5]`) has no sound lowering this phase — the generic
+                        // `_ =>` store arm below would `I64Store` a non-handle
+                        // over the valid tagged handle (then `o.values.join`
+                        // prints empty). Deny is the sound minimal close (no
+                        // re-seeding through `emit_growable_field_value` this
+                        // wave). Reject BEFORE emitting base/RHS so the value
+                        // stack stays balanced (single `I64Const(0)` result).
+                        if matches!(repr, kali_common::Repr::GrowableArrayI64) {
+                            self.diagnostics.push(Diagnostic::error(
+                                e5::FEATURE_UNAVAILABLE as u32,
+                                format!(
+                                    "reassigning growable-array field '{field}' is unavailable in the current phase"
+                                ),
+                            ));
+                            function.instruction(&Instruction::I64Const(0));
+                            return true;
+                        }
                         let scratch = self.locals.len() as u32;
                         let produced = self.emit_node(function, base_id, true);
                         if !produced.produced {
@@ -309,6 +352,105 @@ impl<'a> FunctionEmitter<'a> {
                         }
                         return true;
                     }
+                }
+            }
+        }
+
+        // Stage P3 Task 4 (alongside the C-1 field-store gate): a WRITE whose
+        // TARGET is a member of a proven abort handle has no sound lowering —
+        // node ignores `.aborted = x`/`.signal = x` silently (or throws in strict
+        // mode), and the generic store below would `I64Store` over the shared
+        // cell handle. Fail closed for `c.aborted = v`, `c.signal = v`, and
+        // `c.signal.aborted = v` (base is `<ident>` or `<ident>.signal` over an
+        // abort handle). Reject BEFORE emitting base/RHS so the value stack stays
+        // balanced (single `I64Const(0)` result).
+        if op == "=" {
+            let left_node = self.node(left).clone();
+            if left_node.kind == LirNodeKind::Value
+                && left_node.children.len() == 1
+                && left_node
+                    .text
+                    .as_deref()
+                    .is_some_and(|text| !text.is_empty())
+            {
+                let base_id = left_node.children[0];
+                let base = self.node(base_id);
+                let base_is_handle_ident = base.children.is_empty()
+                    && base
+                        .text
+                        .as_deref()
+                        .is_some_and(|name| self.is_abort_handle(name));
+                let base_is_signal_of_handle = base.kind == LirNodeKind::Value
+                    && base.children.len() == 1
+                    && base.text.as_deref() == Some("signal")
+                    && {
+                        let inner = self.node(base.children[0]);
+                        inner.children.is_empty()
+                            && inner
+                                .text
+                                .as_deref()
+                                .is_some_and(|name| self.is_abort_handle(name))
+                    };
+                if base_is_handle_ident || base_is_signal_of_handle {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        "writes to AbortController/AbortSignal members are not supported \
+                         (node ignores them silently; kali fails closed)"
+                            .to_string(),
+                    ));
+                    function.instruction(&Instruction::I64Const(0));
+                    return true;
+                }
+            }
+        }
+
+        // Stage P2 review C-1b (+ R1 rider): a WRITE through a `GrowableArrayI64`
+        // object field has no sound lowering this phase — the growable field lane
+        // is read-only except for `.push`. Two write shapes fall through every
+        // recognizer below and are silently DROPPED, while their NAMED twins
+        // already fail closed:
+        //   * element write `o.values[0] = 9` (1-child literal/identifier index,
+        //     or 2-child computed index) — named twin `a[0] = 9` E5506s;
+        //   * `.length` write `o.values.length = 1` (1-child `length` member) —
+        //     named twin `a.length = 1` E5506s; node TRUNCATES, so a dropped
+        //     store is a silent miscompile (R1).
+        // Both are keyed on the positive `object_field_is_growable_array` base
+        // proof (allowlist) → fail closed E5506, never a dropped store.
+        if op == "=" {
+            let left_node = self.node(left).clone();
+            let target_shape = match left_node.children.len() {
+                // 1-child dot/subscript with an index or `length` in `text`.
+                1 => left_node
+                    .text
+                    .as_deref()
+                    .filter(|text| !text.is_empty())
+                    .map(|text| {
+                        if text == "length" {
+                            "length"
+                        } else {
+                            "element"
+                        }
+                    }),
+                // 2-child computed index (`o.values[i] = v`); binary operators
+                // are not a member write.
+                2 if !is_binary_operator_text(left_node.text.as_deref().unwrap_or_default()) => {
+                    Some("element")
+                }
+                _ => None,
+            };
+            if let Some(kind) = target_shape {
+                if self.object_field_is_growable_array(left_node.children[0]) {
+                    let message = if kind == "length" {
+                        "assigning to `.length` of a growable-array field is unavailable in the current phase"
+                    } else {
+                        "assigning to an element of a growable-array field is unavailable in the current phase"
+                    };
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        message.to_string(),
+                    ));
+                    function.instruction(&Instruction::I64Const(0));
+                    return true;
                 }
             }
         }
@@ -401,10 +543,19 @@ impl<'a> FunctionEmitter<'a> {
                                 // Spec 3 activates the `String` case here: a
                                 // proven string-element store lowers through the
                                 // same i64-slot path (the value is a tagged string
-                                // handle), no store-side change needed.
+                                // handle), no store-side change needed. A
+                                // growable-array element (repr inference does not
+                                // yet produce this for an array element, but the
+                                // match must stay exhaustive) is likewise a
+                                // tagged i64 handle into its header, so it stores
+                                // through the same slot unchanged.
                                 kali_common::Repr::I64
                                 | kali_common::Repr::Object(_)
-                                | kali_common::Repr::String => {
+                                | kali_common::Repr::String
+                                | kali_common::Repr::GrowableArrayI64
+                                // AbortHandle: i64 handle slot; never reaches
+                                // this position (inference gates it).
+                                | kali_common::Repr::AbortHandle => {
                                     let rhs = self.emit_node(function, right, true);
                                     if !rhs.produced {
                                         function.instruction(&Instruction::I64Const(0));
@@ -468,6 +619,14 @@ impl<'a> FunctionEmitter<'a> {
             if let Some(&(global_index, repr)) = self.module_global_slots.get(&name) {
                 return self.emit_module_global_assignment(function, op, global_index, repr, right);
             }
+            // Stage C: a captured scalar promoted to an env cell (own cell or a
+            // single-level synchronous outer capture) — route the write through
+            // its env cell (read-modify-write for compound ops). `Some` iff
+            // `name` is in this function's env plan (handled or E5506-rejected);
+            // only genuinely unresolvable names fall through to the E5506 below.
+            if let Some(handled) = self.try_emit_captured_assign(function, op, &name, right) {
+                return handled;
+            }
         }
         let Some(index) = self.locals.get(&name).copied() else {
             if op == "=" {
@@ -497,8 +656,7 @@ impl<'a> FunctionEmitter<'a> {
                 // to null/undefined stores `-1`, matching the declarator
                 // null-init, so a later `if (alias)` (lowered to `>= 0`) reads
                 // false. Recognized structurally via `for_in_key_aliases`.
-                if self.for_in_key_aliases.contains(&name)
-                    && self.is_null_or_undefined_literal(right)
+                if self.for_in_key_aliases.contains(&name) && self.is_null_or_undefined_expr(right)
                 {
                     function.instruction(&Instruction::I64Const(-1));
                     function.instruction(&Instruction::LocalTee(index));
@@ -583,17 +741,16 @@ impl<'a> FunctionEmitter<'a> {
                 function.instruction(&Instruction::I64Const(-1));
                 function.instruction(&Instruction::I64Eq);
                 function.instruction(&Instruction::If(BlockType::Result(ValType::I64)));
-                // Fired branch, null-literal RHS: store the `-1` null
-                // sentinel, NOT the generic null lowering (`0` — a VALID key
-                // ordinal, which would flip the alias's truthiness from false
-                // to true). Mirrors the `=` arm's null-store special case
-                // above. Resolve narrows the admitted `??=` RHS to a `null`
-                // LITERAL (bare `undefined` is an Identifier, which this
-                // recognizer does not match — it rejects in resolve so it can
-                // never slip into the generic emit below), so the generic-emit
-                // fallback is defensive only.
-                if self.for_in_key_aliases.contains(&name)
-                    && self.is_null_or_undefined_literal(right)
+                // Fired branch, nullish RHS (`null` literal, `undefined`
+                // literal, or the bare identifier `undefined`): store the
+                // `-1` null sentinel, NOT the generic null lowering (`0` — a
+                // VALID key ordinal, which would flip the alias's truthiness
+                // from false to true). Mirrors the `=` arm's null-store
+                // special case above. Resolve now admits exactly this same
+                // nullish set on the `??=` RHS (`is_null_or_undefined_expr`
+                // is the single recognizer both sides share), so the
+                // generic-emit fallback below is defensive only.
+                if self.for_in_key_aliases.contains(&name) && self.is_null_or_undefined_expr(right)
                 {
                     function.instruction(&Instruction::I64Const(-1));
                 } else {

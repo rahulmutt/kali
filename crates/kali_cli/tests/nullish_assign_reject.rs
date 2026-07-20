@@ -122,22 +122,22 @@ fn for_in_key_alias_nullish_assign_non_null_rhs_rejects() {
     );
 }
 
-// `??= undefined` must ALSO reject: bare `undefined` parses as an IDENTIFIER,
-// not a literal, and codegen's null recognizer (`is_null_or_undefined_literal`)
-// only matches LITERAL nodes — so an admitted `??= undefined` would slip past
-// the sentinel-store special case into the generic emit and store raw `0` (a
-// valid key ordinal): kali `truthy`, node `falsy`. Until BOTH recognizer twins
-// agree on bare `undefined`, the resolve admit accepts only the `null` literal
-// — fail-closed.
+// `??= undefined` now ADMITS (soundness batch 1 item 4): bare `undefined`
+// parses as an IDENTIFIER, not a literal, but codegen's null recognizer
+// (`is_null_or_undefined_expr`) now matches that identifier form too, and
+// the types-side admit (`expression_is_nullish`) widened to match — the two
+// recognizer twins agree, so the disagreement-driven reject no longer
+// applies. `last` is null (the loop body never fires: `go` is falsy), so
+// `??=` fires and stores the `-1` sentinel, matching node's `falsy`.
 #[test]
-fn for_in_key_alias_nullish_assign_undefined_rhs_rejects() {
+fn for_in_key_alias_nullish_assign_undefined_rhs_admits() {
     let out = run_source(
         "var table = {a:1};\nvar last = null;\nvar go = 0;\nfor (var c in table) { if (go) { last = c; } }\nlast ??= undefined;\nif (last) { console.log(\"truthy\"); } else { console.log(\"falsy\"); }\n",
     );
-    assert!(!out.status.success(), "expected E5506 reject, got: {out:?}");
     assert!(
-        String::from_utf8_lossy(&out.stderr).contains("E5506"),
+        out.status.success(),
         "stderr: {}",
         String::from_utf8_lossy(&out.stderr)
     );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "falsy\n");
 }

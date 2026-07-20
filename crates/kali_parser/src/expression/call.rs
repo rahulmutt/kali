@@ -2,8 +2,8 @@
 
 use crate::Parser;
 use kali_ast::{
-    CallExpression, Expression, MemberExpression, SatisfiesExpression, TypeAssertion,
-    UpdateExpression, UpdateOperator,
+    ArrayExpression, CallExpression, Expression, ExpressionOrSpread, MemberExpression,
+    SatisfiesExpression, TypeAssertion, UpdateExpression, UpdateOperator,
 };
 use kali_lexer::TokenType;
 use std::boxed::Box;
@@ -27,8 +27,25 @@ impl Parser {
                         }
                         let _ = self.stream.accept(TokenType::RightParen);
                     }
-                    expr =
-                        Expression::CallExpression(Box::new(CallExpression { callee: expr, args }));
+                    // `Array(e1, …, en)` with n >= 2 IS the array literal
+                    // `[e1, …, en]` (JS semantics; single-arg `Array(n)` is a
+                    // length). Desugar at parse time so BOTH twins (types on
+                    // the AST, codegen downstream) see a plain
+                    // `ArrayExpression` and every array-literal gate applies
+                    // fail-closed by construction — no new recognizer
+                    // surface.
+                    let is_array_call = args.len() >= 2
+                        && matches!(&expr, Expression::Identifier(name) if name == "Array");
+                    expr = if is_array_call {
+                        Expression::ArrayExpression(ArrayExpression {
+                            elements: args
+                                .drain(..)
+                                .map(|arg| Some(ExpressionOrSpread::Expression(arg)))
+                                .collect(),
+                        })
+                    } else {
+                        Expression::CallExpression(Box::new(CallExpression { callee: expr, args }))
+                    };
                 }
                 Some(TokenType::LeftBracket) => {
                     let _ = self.stream.advance();
@@ -189,15 +206,64 @@ impl Parser {
         )
     }
 
+    /// Tokens legal as a BINDING name. Deliberately a small default-deny
+    /// allowlist (NOT is_property_name_token minus a denylist): property
+    /// names admit every keyword, binding names admit only identifiers and
+    /// the contextual keywords that are legal JS binding identifiers.
+    pub(crate) fn is_binding_name_token(kind: &TokenType) -> bool {
+        matches!(
+            kind,
+            TokenType::Identifier
+                | TokenType::Type
+                | TokenType::Interface
+                | TokenType::Enum
+                | TokenType::From
+                | TokenType::As
+                | TokenType::Of
+                | TokenType::Async
+        )
+    }
+
     pub(crate) fn parse_optional_chain_expression(&mut self, object: Expression) -> Expression {
-        match self.stream.current_kind() {
+        // Wrap the receiver in the short-circuit marker so `a?.b` short-circuits
+        // when `a` is nullish, then preserve the accessed property/index as a
+        // real `MemberExpression`. The historical lowering DROPPED the property
+        // (`a?.b` collapsed to `a`), which silently miscompiled optional member
+        // access; keeping the property lets the downstream member recognizers
+        // (host members such as `process.kill`, `Math.pow`, …) see `a?.b` with
+        // the same shape as `a.b`.
+        let optional_object =
+            Expression::OptionalChainExpression(Box::new(kali_ast::OptionalChainExpression {
+                inner: Box::new(kali_ast::OptionalChainInner::NonNull {
+                    object: Box::new(object),
+                    optional: true,
+                }),
+            }));
+        match self.stream.current_kind().copied() {
             Some(TokenType::Identifier) => {
                 let _ = self.stream.advance();
+                let prop_name = self
+                    .stream
+                    .tokens
+                    .get(self.stream.position - 1)
+                    .map(|token| token.value.clone())
+                    .unwrap_or_else(|| "unknown".to_string());
+                return Expression::MemberExpression(Box::new(MemberExpression {
+                    object: optional_object,
+                    property: prop_name,
+                    computed_index: None,
+                }));
             }
             Some(TokenType::LeftBracket) => {
                 let _ = self.stream.advance();
-                let _ = self.parse_expression();
+                let index = self.parse_expression();
                 let _ = self.stream.accept(TokenType::RightBracket);
+                let index_str = Self::expression_to_property_name(&index);
+                return Expression::MemberExpression(Box::new(MemberExpression {
+                    object: optional_object,
+                    property: index_str,
+                    computed_index: Some(Box::new(index)),
+                }));
             }
             Some(TokenType::LeftParen) => {
                 let _ = self.stream.advance();
@@ -215,12 +281,7 @@ impl Parser {
             _ => {}
         }
 
-        Expression::OptionalChainExpression(Box::new(kali_ast::OptionalChainExpression {
-            inner: Box::new(kali_ast::OptionalChainInner::NonNull {
-                object: Box::new(object),
-                optional: true,
-            }),
-        }))
+        optional_object
     }
 
     pub(crate) fn is_object_freeze_call(call: &CallExpression) -> bool {

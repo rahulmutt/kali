@@ -1225,6 +1225,29 @@ mod function_expressions {
             _ => panic!("Expected VariableDeclaration"),
         }
     }
+
+    /// `ArrowFunctionExpression.id` mirrors `FunctionExpression.id` (stage6
+    /// task 2) but arrow syntax never carries a source-level name, so the
+    /// parser must always leave it `None` — the pre-resolver
+    /// `name_anonymous_functions` AST pass (kali_cli) is the only thing that
+    /// ever fills it in, later, so kali_types and kali_hir share one name.
+    #[test]
+    fn test_parse_arrow_function_expression_has_no_id() {
+        let output = parse("let f = () => 1;");
+        assert_eq!(output.statements.len(), 1);
+
+        match &output.statements[0] {
+            kali_ast::Statement::VariableDeclaration(vd) => {
+                match vd.declarations[0].init.as_ref() {
+                    Some(kali_ast::Expression::ArrowFunctionExpression(arrow)) => {
+                        assert_eq!(arrow.id, None);
+                    }
+                    _ => panic!("Expected ArrowFunctionExpression"),
+                }
+            }
+            _ => panic!("Expected VariableDeclaration"),
+        }
+    }
 }
 
 /// Tests for complex nested structures

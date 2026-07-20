@@ -15,6 +15,7 @@ fn test_resolution_accepts_wrapped_call_targets_with_type_assertions_and_satisfi
                 id: "add".to_string(),
                 init: Some(Expression::ArrowFunctionExpression(Box::new(
                     ArrowFunctionExpression {
+                        id: None,
                         params: vec![
                             FunctionParam {
                                 name: "left".to_string(),
@@ -97,6 +98,7 @@ fn test_resolution_accepts_wrapped_local_function_call_targets() {
                 id: "constant".to_string(),
                 init: Some(Expression::ArrowFunctionExpression(Box::new(
                     ArrowFunctionExpression {
+                        id: None,
                         params: vec![],
                         body: Expression::Literal(LiteralValue::Number(7.0)),
                         is_async: false,

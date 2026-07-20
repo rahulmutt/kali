@@ -40,6 +40,7 @@ fn test_mir_validation_rejects_out_of_bounds_children() {
         }],
         functions: Vec::new(),
         arena_facts: Vec::new(),
+        parent_labels: std::collections::BTreeMap::new(),
     };
 
     let error = mir

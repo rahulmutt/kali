@@ -9,6 +9,27 @@ pub(crate) struct BrowserRuntimeSummary {
     pub(crate) host_contract: Option<RuntimeHostContract>,
     pub(crate) runtime_backend: Option<RuntimeBackend>,
     pub(crate) thread_topology: Option<ThreadRuntimeShutdownReport>,
+    /// Coverage-instrumentation function ids the guest reported hitting via
+    /// the `kali:rt` `coverage_hit` import (browser lane's twin of the
+    /// wasmtime-lane `KaliHostState::coverage_hits` set).
+    pub(crate) coverage_hits: Option<Vec<u32>>,
+}
+
+/// Parse an emitted `coverageHits` field (a JSON array of non-negative integer
+/// coverage-site ids) into `Vec<u32>`. Returns `None` if any element is not a
+/// non-negative integer that fits in `u32`, matching the strict-parse
+/// discipline the rest of this module uses for summary fields.
+pub(crate) fn parse_coverage_hits_field(value: Option<&serde_json::Value>) -> Option<Vec<u32>> {
+    let items = value?.as_array()?;
+    let mut hits = Vec::with_capacity(items.len());
+    for item in items {
+        let hit = item.as_u64()?;
+        if hit > u32::MAX as u64 {
+            return None;
+        }
+        hits.push(hit as u32);
+    }
+    Some(hits)
 }
 
 pub(crate) fn parse_non_blank_string_array_field(
@@ -136,7 +157,13 @@ pub(crate) fn parse_browser_runtime_summary_value(
     if object.keys().any(|key| {
         !matches!(
             key.as_str(),
-            "args" | "tests" | "testsFailed" | "hostContract" | "runtimeBackend" | "threadTopology"
+            "args"
+                | "tests"
+                | "testsFailed"
+                | "hostContract"
+                | "runtimeBackend"
+                | "threadTopology"
+                | "coverageHits"
         )
     }) {
         return None;
@@ -148,6 +175,10 @@ pub(crate) fn parse_browser_runtime_summary_value(
         Some(value) => Some(value.as_u64()? as usize),
         None => None,
     };
+    let coverage_hits = match object.get("coverageHits") {
+        Some(value) => Some(parse_coverage_hits_field(Some(value))?),
+        None => None,
+    };
 
     Some(BrowserRuntimeSummary {
         args,
@@ -156,6 +187,7 @@ pub(crate) fn parse_browser_runtime_summary_value(
         host_contract: parse_optional_runtime_host_contract_label(object.get("hostContract")),
         runtime_backend: parse_optional_runtime_backend_label(object.get("runtimeBackend")),
         thread_topology: parse_thread_runtime_shutdown_report_value(object.get("threadTopology")),
+        coverage_hits,
     })
 }
 
@@ -195,6 +227,9 @@ pub(crate) fn browser_runtime_summary_for_outcome(
                     }
                     if summary.thread_topology.is_none() {
                         summary.thread_topology = stdout_summary.thread_topology;
+                    }
+                    if summary.coverage_hits.is_none() {
+                        summary.coverage_hits = stdout_summary.coverage_hits;
                     }
                     summary
                 }

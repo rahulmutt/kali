@@ -4004,6 +4004,16 @@ fn check_supports_frozen_object_enumeration_spread_in_browser_api_surface_in_js_
                 output.arg("--api").arg("browser").arg(&source_path);
                 let output = output.output().expect("run kali");
 
+                // Throw-fallout Stage 2 selection-callee drain: `build`'s
+                // former E5506 backstop hits on this source came from its
+                // three short-circuit frozen-callable-selection lines
+                // (`null ??`/`true &&`/`false ||` over
+                // `globalThis["Object"]["entries"]`), which the enumeration
+                // fold now resolves through the shared static callable
+                // oracle. The whole source now compiles and executes with
+                // node-identical output (see the sibling `run`/`test`
+                // execution variants of this exact source, drained green) —
+                // so `build` succeeds like `check` (node-verified un-flip).
                 assert!(
                     output.status.success(),
                     "stderr: {}",
@@ -4061,6 +4071,12 @@ fn check_supports_frozen_object_enumeration_spread_in_inherited_browser_api_surf
                 output.arg(&source_path);
                 let output = output.output().expect("run kali");
 
+                // Throw-fallout Stage 2 selection-callee drain: see the
+                // sibling (explicit `--api browser`) test above — the former
+                // `build` E5506 backstop hits were the short-circuit
+                // frozen-callable-selection lines, which now fold via the
+                // shared static callable oracle; `build` succeeds like
+                // `check` (node-verified un-flip).
                 assert!(
                     output.status.success(),
                     "stderr: {}",

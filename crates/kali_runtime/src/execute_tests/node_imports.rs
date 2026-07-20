@@ -523,7 +523,7 @@ fn runtime_executes_node_event_emitter_host_imports() {
     );
     let wat = r#"
             (module
-                (import "kali:node" "event_on" (func $event_on (param i32 i32 i32) (result i32)))
+                (import "kali:node" "event_on" (func $event_on (param i32 i32 i32 i64) (result i32)))
                 (import "kali:node" "event_listener_count" (func $listener_count (param i32 i32) (result i32)))
                 (import "kali:node" "event_emit" (func $event_emit (param i32 i32) (result i32)))
                 (import "kali:node" "process_stdout_write" (func $stdout_write (param i32 i32) (result i32)))
@@ -539,6 +539,7 @@ fn runtime_executes_node_event_emitter_host_imports() {
                     i32.const 0
                     i32.const 7
                     i32.const 1
+                    i64.const 0
                     call $event_on
                     drop
                     i32.const 0

@@ -1,6 +1,5 @@
 use std::{fs, process::Command};
 
-use serde_json::Value;
 use tempfile::tempdir;
 
 fn kali_bin() -> String {
@@ -129,10 +128,6 @@ Kali.test('object.freeze logical literal dynamic import', () => {{}});
     )
 }
 
-fn parse_json_stdout(output: &std::process::Output) -> Value {
-    serde_json::from_slice(&output.stdout).expect("valid json stdout")
-}
-
 fn assert_browser_requested_template_literal_dynamic_import(
     command: &str,
     source_filename: &str,
@@ -165,41 +160,31 @@ fn assert_browser_requested_template_literal_dynamic_import(
     }
     let output = cli.arg(&source_path).output().expect("run kali");
 
+    // Task A2b fail-closed flip. Every fixture routed through this helper does
+    // `console.log(String(value))`. Pre-A2b `String()` silently lowered to 0, so
+    // these assertions accepted a stdout containing "0" (the fake-green
+    // placeholder, NOT a real coercion) and the package looked deployable.
+    // `String` is now in the terminal deny-set, so kali fails the build closed
+    // (E5506) rather than miscompiling. node: `String(0n)` -> "0" via a real
+    // coercion, but kali has no `String` lowering. In `--output json` mode the
+    // diagnostic is emitted as a JSON error on stdout; otherwise on stderr — so
+    // check the combined stream.
+    let _ = expect_test_runner;
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
+        !output.status.success(),
+        "expected fail-closed on String(), got success. stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    assert_eq!(output.status.code(), Some(0));
-
-    if json_output {
-        let json = parse_json_stdout(&output);
-        assert_eq!(json["schemaVersion"], 1);
-        assert_eq!(json["command"], command);
-        assert_eq!(json["success"], true);
-        assert_eq!(json["payload"]["hostContract"], "browser-requested");
-        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-        assert!(json["errors"].as_array().expect("errors array").is_empty());
-        let stdout = json["stdout"].as_str().expect("stdout string");
-        assert!(stdout.contains("0"), "json: {json}");
-        assert!(stdout.contains("main loaded"), "json: {json}");
-        if expect_test_runner {
-            assert_eq!(json["payload"]["total"], 1);
-            assert_eq!(json["payload"]["passed"], 1);
-            assert_eq!(json["payload"]["failed"], 0);
-        } else {
-            assert_eq!(json["exitCode"], 0);
-            assert_eq!(json["payload"]["exitCode"], 0);
-        }
-    } else {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("0"), "stdout: {stdout}");
-        assert!(stdout.contains("main loaded"), "stdout: {stdout}");
-        if expect_test_runner {
-            assert!(stdout.contains("ok 1"), "stdout: {stdout}");
-        }
-    }
+    let combined = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        combined.contains("E5506") && combined.contains("String"),
+        "expected E5506 for 'String' (json_output={json_output}), got: {combined}"
+    );
 }
 
 #[test]

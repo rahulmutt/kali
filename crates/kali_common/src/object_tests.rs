@@ -5,3 +5,6 @@ mod reflect;
 
 #[path = "object_tests/has_own.rs"]
 mod has_own;
+
+#[path = "object_tests/ordering.rs"]
+mod ordering;

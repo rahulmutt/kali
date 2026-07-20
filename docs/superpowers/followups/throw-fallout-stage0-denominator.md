@@ -1,0 +1,1224 @@
+# throw-fallout Stage 0 — the true denominator (failing-set snapshot)
+
+**Date:** 2026-07-11  ·  **Branch:** `soundness-batch1-pra` (post Stage 0 Tasks 1–3, re-pin commit included)  ·  **Baseline:** `main` worktree at `/workspace/.worktrees/kali-main` (b48a067d3; machine-local path)
+
+This snapshot supersedes the raw 922 of `throw-fallout-project.md` as the working target. Later stages drain against **this** list.
+
+## Headline numbers
+
+| measure | count |
+|---|---|
+| `main` worktree `cargo test --workspace` failures | **0** |
+| branch failures, raw enumeration (pre re-pin) | 1020 |
+| swallow-asserting machinery tests re-pinned green (Step 2) | 43 |
+| **branch failing set after Stage 0 = the denominator** | **977** |
+| prior inventory (raw 922, pre-Stage-0) | 922 |
+| net newly red exposed by Stage 0 (1020 − 922) | 98 |
+
+Since `main` fails 0 tests, `comm -23 branch main` = the full branch failing set; every entry below is branch-only.
+
+## Stage 0 delta decomposition (98 newly red vs the prior 922)
+
+- **43** were browser summary-fallback machinery tests that *encoded the swallow* (doctored summaries with `testsFailed>0` asserted as `success:true`/exit 0). Re-pinned to the honest failed-run envelope in this task; **green now** and excluded from the denominator. Files: `runtime_smoke/test.rs` (16), `browser_runtime_summary_fallback_{js,ts,jsx,tsx}_input` (27).
+- **2** are `test_reports_function_coverage_in_json_output_when_browser_api_surface_is_{configured,inherited}`: the browser harness import list is missing `coverage_hit`, so a `--coverage` browser test run dies with a LinkError. On `main` (and pre-Stage-0) the crash was swallowed as `success:true`; Stage 0's crash lane now honestly counts it. Real pre-existing bug, drains in Stage 3 host-wiring (the 4 hand-mirrored import lists, see memory `kali-browser-harness-import-sync`).
+- **~53** (count-level attribution) are browser `Kali.test` self-check runs whose trap crashed the harness pre-summary; pre-Stage-0 the crash lane reported 0 failed and the envelope said success. No name-level snapshot of the prior 922 exists, so the 53 cannot be attributed name-by-name — this document is the **first** name-level snapshot, which is exactly its purpose.
+
+## Step 2 verdict (swallow-asserting tests)
+
+The brief's grep (162 candidate files) surfaced **no** throwing-`Kali.test`-asserted-as-success tests: every throwing fixture is a guarded self-check expected to pass (honest-unmask corpus), and `node_api_surface/explicit.rs` already asserts honest rejection envelopes. The **43 swallow-asserters found by the gate** (above) use *doctored summaries*, not `throw`, which is why the throw-shaped reading of the grep hits missed them; the whole-workspace gate caught them. Re-pinned in the accompanying `test(cli): re-pin 43 swallow-asserting browser summary-fallback tests…` commit.
+
+## Gate mechanics caveat (record for every later stage)
+
+`cargo test --workspace` **fail-fasts at the first failing test binary** (it stopped after 12 of 338 binaries, 16 failures). The verdict command stays `cargo test --workspace`, but **enumerating** the failing set requires `cargo test --workspace --no-fail-fast`. All counts here come from the `--no-fail-fast` enumeration; the prior 922 was necessarily produced the same way.
+
+## Stage 0 follow-ups and residual risks
+
+- **HTML/CDP harness crash-lane residual risk:** The crash-lane accounting (`browser_tests_failed`, kali_runtime/src/execute.rs) trips on "harness process exit ≠ 0 with zero reported failures"; the HTML/CDP (Chromium) harness lane shares this logic, but an HTML/CDP driver that caught an in-page trap and wrote a zero-failure summary while still exiting 0 would remain swallowed. Stage 0's reproducer exercises only the node `.mjs` lane; the host-wiring stage (Stage 3) must confirm the CDP driver surfaces guest traps as a non-zero exit.
+
+## The denominator, bucketed by design-doc classes
+
+Buckets are name-pattern primary assignments; the raw inventory warned buckets overlap (e.g. `for_await` enumeration fixtures also need Stage 7 async machinery). Each stage re-derives its exact target set at its start, per the design doc.
+
+| bucket | count | drains in |
+|---|---|---|
+| #1 async/Promise value lane | 169 | Stage 7 (spec-scale sub-spec) |
+| #2/#3 enumeration + runtime string equality | 656 | Stage 1 (biggest green delta); per-test root causes re-triaged at stage start |
+| #4 delete+reinsert / own-keys staleness | 46 | Stage 2 |
+| #5 performance.now host wiring | 21 | Stage 3 (host-wiring sub-spec) |
+| #6 web crypto host wiring | 18 | Stage 3 (host-wiring sub-spec) |
+| H  browser coverage import desync (coverage_hit LinkError, Stage-0-exposed) | 2 | Stage 3 (host-wiring sub-spec) - NEW, exposed by Stage 0 |
+| K  node process.kill(0) probe (host/node-API gap) | 4 | Stage 3 (host-wiring sub-spec) - NEW named subfamily |
+| #7 dynamic import member typeof | 32 | Stage 5 |
+| #8 short-circuit family (&&/||/?. lowering) | 13 | Stage 6; includes optional-chain (?.) identity fixtures (browser_math_round_global_this_root) |
+| #10 array/for-of push lane | 16 | Stage 4 |
+| **total** | **977** | |
+
+## Full failing-set listing (977, binary-qualified)
+
+### #1 async/Promise value lane (169)
+
+- `browser_promise_all_bundle` (8)
+  - `build_emits_promise_all_in_js_input`
+  - `build_emits_promise_all_in_jsx_input`
+  - `build_emits_promise_all_in_ts_input`
+  - `build_emits_promise_all_in_tsx_input`
+  - `json_build_emits_promise_all_in_js_input`
+  - `json_build_emits_promise_all_in_jsx_input`
+  - `json_build_emits_promise_all_in_ts_input`
+  - `json_build_emits_promise_all_in_tsx_input`
+- `browser_promise_all_harness` (16)
+  - `json_run_supports_promise_all_in_js_input_when_browser_harness_is_configured`
+  - `json_run_supports_promise_all_in_jsx_input_when_browser_harness_is_configured`
+  - `json_run_supports_promise_all_in_ts_input_when_browser_harness_is_configured`
+  - `json_run_supports_promise_all_in_tsx_input_when_browser_harness_is_configured`
+  - `json_test_supports_promise_all_in_js_input_when_browser_harness_is_configured`
+  - `json_test_supports_promise_all_in_jsx_input_when_browser_harness_is_configured`
+  - `json_test_supports_promise_all_in_ts_input_when_browser_harness_is_configured`
+  - `json_test_supports_promise_all_in_tsx_input_when_browser_harness_is_configured`
+  - `run_supports_promise_all_in_js_input_when_browser_harness_is_configured`
+  - `run_supports_promise_all_in_jsx_input_when_browser_harness_is_configured`
+  - `run_supports_promise_all_in_ts_input_when_browser_harness_is_configured`
+  - `run_supports_promise_all_in_tsx_input_when_browser_harness_is_configured`
+  - `test_supports_promise_all_in_js_input_when_browser_harness_is_configured`
+  - `test_supports_promise_all_in_jsx_input_when_browser_harness_is_configured`
+  - `test_supports_promise_all_in_ts_input_when_browser_harness_is_configured`
+  - `test_supports_promise_all_in_tsx_input_when_browser_harness_is_configured`
+- `browser_promise_all_settled_bundle` (8)
+  - `build_emits_promise_all_settled_in_js_input`
+  - `build_emits_promise_all_settled_in_jsx_input`
+  - `build_emits_promise_all_settled_in_ts_input`
+  - `build_emits_promise_all_settled_in_tsx_input`
+  - `json_build_emits_promise_all_settled_in_js_input`
+  - `json_build_emits_promise_all_settled_in_jsx_input`
+  - `json_build_emits_promise_all_settled_in_ts_input`
+  - `json_build_emits_promise_all_settled_in_tsx_input`
+- `browser_promise_all_settled_harness` (16)
+  - `json_run_supports_promise_all_settled_in_js_input_when_browser_harness_is_configured`
+  - `json_run_supports_promise_all_settled_in_jsx_input_when_browser_harness_is_configured`
+  - `json_run_supports_promise_all_settled_in_ts_input_when_browser_harness_is_configured`
+  - `json_run_supports_promise_all_settled_in_tsx_input_when_browser_harness_is_configured`
+  - `json_test_supports_promise_all_settled_in_js_input_when_browser_harness_is_configured`
+  - `json_test_supports_promise_all_settled_in_jsx_input_when_browser_harness_is_configured`
+  - `json_test_supports_promise_all_settled_in_ts_input_when_browser_harness_is_configured`
+  - `json_test_supports_promise_all_settled_in_tsx_input_when_browser_harness_is_configured`
+  - `run_supports_promise_all_settled_in_js_input_when_browser_harness_is_configured`
+  - `run_supports_promise_all_settled_in_jsx_input_when_browser_harness_is_configured`
+  - `run_supports_promise_all_settled_in_ts_input_when_browser_harness_is_configured`
+  - `run_supports_promise_all_settled_in_tsx_input_when_browser_harness_is_configured`
+  - `test_supports_promise_all_settled_in_js_input_when_browser_harness_is_configured`
+  - `test_supports_promise_all_settled_in_jsx_input_when_browser_harness_is_configured`
+  - `test_supports_promise_all_settled_in_ts_input_when_browser_harness_is_configured`
+  - `test_supports_promise_all_settled_in_tsx_input_when_browser_harness_is_configured`
+- `browser_promise_any_bundle` (8)
+  - `build_emits_browser_promise_any_in_js_input`
+  - `build_emits_browser_promise_any_in_jsx_input`
+  - `build_emits_browser_promise_any_in_ts_input`
+  - `build_emits_browser_promise_any_in_tsx_input`
+  - `json_build_emits_browser_promise_any_in_js_input`
+  - `json_build_emits_browser_promise_any_in_jsx_input`
+  - `json_build_emits_browser_promise_any_in_ts_input`
+  - `json_build_emits_browser_promise_any_in_tsx_input`
+- `browser_promise_any_harness` (16)
+  - `json_run_supports_browser_promise_any_in_js_input_when_browser_harness_is_configured`
+  - `json_run_supports_browser_promise_any_in_jsx_input_when_browser_harness_is_configured`
+  - `json_run_supports_browser_promise_any_in_ts_input_when_browser_harness_is_configured`
+  - `json_run_supports_browser_promise_any_in_tsx_input_when_browser_harness_is_configured`
+  - `json_test_supports_browser_promise_any_in_js_input_when_browser_harness_is_configured`
+  - `json_test_supports_browser_promise_any_in_jsx_input_when_browser_harness_is_configured`
+  - `json_test_supports_browser_promise_any_in_ts_input_when_browser_harness_is_configured`
+  - `json_test_supports_browser_promise_any_in_tsx_input_when_browser_harness_is_configured`
+  - `run_supports_browser_promise_any_in_js_input_when_browser_harness_is_configured`
+  - `run_supports_browser_promise_any_in_jsx_input_when_browser_harness_is_configured`
+  - `run_supports_browser_promise_any_in_ts_input_when_browser_harness_is_configured`
+  - `run_supports_browser_promise_any_in_tsx_input_when_browser_harness_is_configured`
+  - `test_supports_browser_promise_any_in_js_input_when_browser_harness_is_configured`
+  - `test_supports_browser_promise_any_in_jsx_input_when_browser_harness_is_configured`
+  - `test_supports_browser_promise_any_in_ts_input_when_browser_harness_is_configured`
+  - `test_supports_browser_promise_any_in_tsx_input_when_browser_harness_is_configured`
+- `browser_promise_race_bundle` (8)
+  - `build_emits_promise_race_in_js_input`
+  - `build_emits_promise_race_in_jsx_input`
+  - `build_emits_promise_race_in_ts_input`
+  - `build_emits_promise_race_in_tsx_input`
+  - `json_build_emits_promise_race_in_js_input`
+  - `json_build_emits_promise_race_in_jsx_input`
+  - `json_build_emits_promise_race_in_ts_input`
+  - `json_build_emits_promise_race_in_tsx_input`
+- `browser_promise_race_harness` (16)
+  - `json_run_supports_promise_race_in_js_input_when_browser_harness_is_configured`
+  - `json_run_supports_promise_race_in_jsx_input_when_browser_harness_is_configured`
+  - `json_run_supports_promise_race_in_ts_input_when_browser_harness_is_configured`
+  - `json_run_supports_promise_race_in_tsx_input_when_browser_harness_is_configured`
+  - `json_test_supports_promise_race_in_js_input_when_browser_harness_is_configured`
+  - `json_test_supports_promise_race_in_jsx_input_when_browser_harness_is_configured`
+  - `json_test_supports_promise_race_in_ts_input_when_browser_harness_is_configured`
+  - `json_test_supports_promise_race_in_tsx_input_when_browser_harness_is_configured`
+  - `run_supports_promise_race_in_js_input_when_browser_harness_is_configured`
+  - `run_supports_promise_race_in_jsx_input_when_browser_harness_is_configured`
+  - `run_supports_promise_race_in_ts_input_when_browser_harness_is_configured`
+  - `run_supports_promise_race_in_tsx_input_when_browser_harness_is_configured`
+  - `test_supports_promise_race_in_js_input_when_browser_harness_is_configured`
+  - `test_supports_promise_race_in_jsx_input_when_browser_harness_is_configured`
+  - `test_supports_promise_race_in_ts_input_when_browser_harness_is_configured`
+  - `test_supports_promise_race_in_tsx_input_when_browser_harness_is_configured`
+- `promise_any_sequencing` (4)
+  - `run_supports_promise_any_in_js_input`
+  - `run_supports_promise_any_in_ts_input`
+  - `test_supports_promise_any_in_js_input`
+  - `test_supports_promise_any_in_ts_input`
+- `promise_race_sequencing` (4)
+  - `run_supports_promise_race_in_js_input`
+  - `run_supports_promise_race_in_ts_input`
+  - `test_supports_promise_race_in_js_input`
+  - `test_supports_promise_race_in_ts_input`
+- `runtime_smoke` (65)
+  - `build::build_emits_browser_bundle_async_await_sequencing`
+  - `build::build_emits_browser_bundle_async_await_sequencing_in_js_input`
+  - `build::build_emits_browser_bundle_promise_all_sequencing`
+  - `build::build_emits_browser_bundle_promise_all_sequencing_in_js_input`
+  - `build::build_emits_browser_bundle_queue_microtask_ordering`
+  - `build::build_emits_browser_bundle_queue_microtask_ordering_in_js_input`
+  - `build::build_emits_browser_bundle_queue_microtask_ordering_in_ts_input`
+  - `build::json_build_emits_browser_bundle_async_await_sequencing`
+  - `build::json_build_emits_browser_bundle_async_await_sequencing_in_js_input`
+  - `build::json_build_emits_browser_bundle_promise_all_sequencing`
+  - `build::json_build_emits_browser_bundle_promise_all_sequencing_in_js_input`
+  - `build::json_build_emits_browser_bundle_queue_microtask_ordering_in_js_input`
+  - `run::json_run_supports_async_await_sequencing_in_js_input`
+  - `run::json_run_supports_async_await_sequencing_in_ts_input`
+  - `run::json_run_supports_async_await_sequencing_when_browser_harness_is_configured_in_js_input`
+  - `run::json_run_supports_async_await_sequencing_when_browser_harness_is_configured_in_ts_input`
+  - `run::json_run_supports_browser_requested_promise_all_sequencing_in_js_input_when_browser_api_surface_is_inherited_when_browser_harness_is_configured`
+  - `run::json_run_supports_browser_requested_promise_all_sequencing_in_js_input_when_browser_harness_is_configured`
+  - `run::json_run_supports_browser_requested_promise_all_sequencing_in_ts_input_when_browser_api_surface_is_inherited_when_browser_harness_is_configured`
+  - `run::json_run_supports_browser_requested_promise_all_sequencing_in_ts_input_when_browser_harness_is_configured`
+  - `run::json_run_supports_queue_microtask_ordering_in_js_input`
+  - `run::json_run_supports_queue_microtask_ordering_when_browser_api_surface_is_inherited_in_js_input_when_a_browser_harness_command_is_configured`
+  - `run::json_run_supports_queue_microtask_ordering_when_browser_api_surface_is_inherited_in_ts_input_when_a_browser_harness_command_is_configured`
+  - `run::run_supports_async_await_sequencing`
+  - `run::run_supports_async_await_sequencing_in_js_input`
+  - `run::run_supports_async_await_sequencing_when_browser_harness_is_configured`
+  - `run::run_supports_async_await_sequencing_when_browser_harness_is_configured_in_js_input`
+  - `run::run_supports_browser_requested_promise_all_sequencing_in_js_input_when_browser_api_surface_is_inherited_when_browser_harness_is_configured`
+  - `run::run_supports_browser_requested_promise_all_sequencing_in_js_input_when_browser_harness_is_configured`
+  - `run::run_supports_browser_requested_promise_all_sequencing_in_ts_input_when_browser_api_surface_is_inherited_when_browser_harness_is_configured`
+  - `run::run_supports_browser_requested_promise_all_sequencing_in_ts_input_when_browser_harness_is_configured`
+  - `run::run_supports_promise_all_sequencing`
+  - `run::run_supports_promise_all_sequencing_in_js_input`
+  - `run::run_supports_queue_microtask_ordering_in_js_input`
+  - `run::run_supports_queue_microtask_ordering_when_browser_api_surface_is_inherited_in_js_input_when_a_browser_harness_command_is_configured`
+  - `run::run_supports_queue_microtask_ordering_when_browser_api_surface_is_inherited_in_ts_input_when_a_browser_harness_command_is_configured`
+  - `run::run_supports_queue_microtask_ordering_when_browser_harness_is_configured`
+  - `run::run_supports_queue_microtask_ordering_when_browser_harness_is_configured_in_js_input`
+  - `test::json_test_supports_async_await_sequencing_in_js_input`
+  - `test::json_test_supports_async_await_sequencing_in_ts_input`
+  - `test::json_test_supports_async_await_sequencing_when_browser_harness_is_configured_in_js_input`
+  - `test::json_test_supports_async_await_sequencing_when_browser_harness_is_configured_in_ts_input`
+  - `test::json_test_supports_browser_requested_promise_all_sequencing_in_js_input_when_browser_api_surface_is_inherited_when_browser_harness_is_configured`
+  - `test::json_test_supports_browser_requested_promise_all_sequencing_in_js_input_when_browser_harness_is_configured`
+  - `test::json_test_supports_browser_requested_promise_all_sequencing_in_ts_input_when_browser_api_surface_is_inherited_when_browser_harness_is_configured`
+  - `test::json_test_supports_browser_requested_promise_all_sequencing_in_ts_input_when_browser_harness_is_configured`
+  - `test::json_test_supports_queue_microtask_ordering_in_js_input`
+  - `test::json_test_supports_queue_microtask_ordering_when_browser_api_surface_is_inherited_in_js_input_when_a_browser_harness_command_is_configured`
+  - `test::json_test_supports_queue_microtask_ordering_when_browser_api_surface_is_inherited_in_ts_input_when_a_browser_harness_command_is_configured`
+  - `test::json_test_supports_queue_microtask_ordering_when_browser_harness_is_configured`
+  - `test::json_test_supports_queue_microtask_ordering_when_browser_harness_is_configured_in_js_input`
+  - `test::test_supports_async_await_sequencing_in_js_input`
+  - `test::test_supports_async_await_sequencing_when_browser_harness_is_configured`
+  - `test::test_supports_async_await_sequencing_when_browser_harness_is_configured_in_js_input`
+  - `test::test_supports_browser_requested_promise_all_sequencing_in_js_input_when_browser_api_surface_is_inherited_when_browser_harness_is_configured`
+  - `test::test_supports_browser_requested_promise_all_sequencing_in_js_input_when_browser_harness_is_configured`
+  - `test::test_supports_browser_requested_promise_all_sequencing_in_ts_input_when_browser_api_surface_is_inherited_when_browser_harness_is_configured`
+  - `test::test_supports_browser_requested_promise_all_sequencing_in_ts_input_when_browser_harness_is_configured`
+  - `test::test_supports_promise_all_sequencing`
+  - `test::test_supports_promise_all_sequencing_in_js_input`
+  - `test::test_supports_queue_microtask_ordering_in_js_input`
+  - `test::test_supports_queue_microtask_ordering_when_browser_api_surface_is_inherited_in_js_input_when_a_browser_harness_command_is_configured`
+  - `test::test_supports_queue_microtask_ordering_when_browser_api_surface_is_inherited_in_ts_input_when_a_browser_harness_command_is_configured`
+  - `test::test_supports_queue_microtask_ordering_when_browser_harness_is_configured`
+  - `test::test_supports_queue_microtask_ordering_when_browser_harness_is_configured_in_js_input`
+
+### #2/#3 enumeration + runtime string equality (656)
+
+- `browser_array_iteration_spread` (5)
+  - `build_emits_object_enumeration_spread_in_js_input`
+  - `build_emits_object_enumeration_spread_in_jsx_and_tsx_input`
+  - `build_emits_object_enumeration_spread_in_ts_input`
+  - `json_build_emits_object_enumeration_spread_in_js_input`
+  - `json_build_emits_object_enumeration_spread_in_ts_input`
+- `browser_for_await_object_string_enumeration_browser_smoke` (16)
+  - `build_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_bundle_context_in_js_input`
+  - `build_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_bundle_context_in_jsx_input`
+  - `build_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_bundle_context_in_ts_input`
+  - `build_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_bundle_context_in_tsx_input`
+  - `check_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_analysis_context_in_js_input`
+  - `check_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_analysis_context_in_jsx_input`
+  - `check_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_analysis_context_in_ts_input`
+  - `check_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_analysis_context_in_tsx_input`
+  - `json_build_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_bundle_context_in_js_input`
+  - `json_build_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_bundle_context_in_jsx_input`
+  - `json_build_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_bundle_context_in_ts_input`
+  - `json_build_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_bundle_context_in_tsx_input`
+  - `json_check_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_analysis_context_in_js_input`
+  - `json_check_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_analysis_context_in_jsx_input`
+  - `json_check_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_analysis_context_in_ts_input`
+  - `json_check_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_analysis_context_in_tsx_input`
+- `browser_for_await_object_string_enumeration_harness` (16)
+  - `json_run_supports_string_primitive_iteration_when_browser_harness_is_configured_in_js_input`
+  - `json_run_supports_string_primitive_iteration_when_browser_harness_is_configured_in_jsx_input`
+  - `json_run_supports_string_primitive_iteration_when_browser_harness_is_configured_in_ts_input`
+  - `json_run_supports_string_primitive_iteration_when_browser_harness_is_configured_in_tsx_input`
+  - `json_test_supports_string_primitive_iteration_when_browser_harness_is_configured_in_js_input`
+  - `json_test_supports_string_primitive_iteration_when_browser_harness_is_configured_in_jsx_input`
+  - `json_test_supports_string_primitive_iteration_when_browser_harness_is_configured_in_ts_input`
+  - `json_test_supports_string_primitive_iteration_when_browser_harness_is_configured_in_tsx_input`
+  - `run_supports_string_primitive_iteration_when_browser_harness_is_configured_in_js_input`
+  - `run_supports_string_primitive_iteration_when_browser_harness_is_configured_in_jsx_input`
+  - `run_supports_string_primitive_iteration_when_browser_harness_is_configured_in_ts_input`
+  - `run_supports_string_primitive_iteration_when_browser_harness_is_configured_in_tsx_input`
+  - `test_supports_string_primitive_iteration_when_browser_harness_is_configured_in_js_input`
+  - `test_supports_string_primitive_iteration_when_browser_harness_is_configured_in_jsx_input`
+  - `test_supports_string_primitive_iteration_when_browser_harness_is_configured_in_ts_input`
+  - `test_supports_string_primitive_iteration_when_browser_harness_is_configured_in_tsx_input`
+- `browser_for_await_object_string_enumeration_sequence_wrappers_js_input` (5)
+  - `json_run_supports_object_string_enumeration_sequence_wrappers_in_browser_api_surface_with_harness_js_input`
+  - `json_test_supports_object_string_enumeration_sequence_wrappers_in_browser_api_surface_with_harness_js_input`
+  - `run_supports_object_string_enumeration_sequence_wrappers_in_browser_api_surface_with_harness_js_input`
+  - `supports_object_string_enumeration_sequence_wrappers_in_browser_api_surface_with_harness_ts_jsx_tsx_input`
+  - `test_supports_object_string_enumeration_sequence_wrappers_in_browser_api_surface_with_harness_js_input`
+- `browser_for_of_array_iteration_break_continue_harness` (32)
+  - `json_run_supports_for_await_break_continue_when_browser_harness_is_configured_in_js_input`
+  - `json_run_supports_for_await_break_continue_when_browser_harness_is_configured_in_jsx_input`
+  - `json_run_supports_for_await_break_continue_when_browser_harness_is_configured_in_ts_input`
+  - `json_run_supports_for_await_break_continue_when_browser_harness_is_configured_in_tsx_input`
+  - `json_run_supports_for_of_break_continue_when_browser_harness_is_configured_in_js_input`
+  - `json_run_supports_for_of_break_continue_when_browser_harness_is_configured_in_jsx_input`
+  - `json_run_supports_for_of_break_continue_when_browser_harness_is_configured_in_ts_input`
+  - `json_run_supports_for_of_break_continue_when_browser_harness_is_configured_in_tsx_input`
+  - `json_test_supports_for_await_break_continue_when_browser_harness_is_configured_in_js_input`
+  - `json_test_supports_for_await_break_continue_when_browser_harness_is_configured_in_jsx_input`
+  - `json_test_supports_for_await_break_continue_when_browser_harness_is_configured_in_ts_input`
+  - `json_test_supports_for_await_break_continue_when_browser_harness_is_configured_in_tsx_input`
+  - `json_test_supports_for_of_break_continue_when_browser_harness_is_configured_in_js_input`
+  - `json_test_supports_for_of_break_continue_when_browser_harness_is_configured_in_jsx_input`
+  - `json_test_supports_for_of_break_continue_when_browser_harness_is_configured_in_ts_input`
+  - `json_test_supports_for_of_break_continue_when_browser_harness_is_configured_in_tsx_input`
+  - `run_supports_for_await_break_continue_when_browser_harness_is_configured_in_js_input`
+  - `run_supports_for_await_break_continue_when_browser_harness_is_configured_in_jsx_input`
+  - `run_supports_for_await_break_continue_when_browser_harness_is_configured_in_ts_input`
+  - `run_supports_for_await_break_continue_when_browser_harness_is_configured_in_tsx_input`
+  - `run_supports_for_of_break_continue_when_browser_harness_is_configured_in_js_input`
+  - `run_supports_for_of_break_continue_when_browser_harness_is_configured_in_jsx_input`
+  - `run_supports_for_of_break_continue_when_browser_harness_is_configured_in_ts_input`
+  - `run_supports_for_of_break_continue_when_browser_harness_is_configured_in_tsx_input`
+  - `test_supports_for_await_break_continue_when_browser_harness_is_configured_in_js_input`
+  - `test_supports_for_await_break_continue_when_browser_harness_is_configured_in_jsx_input`
+  - `test_supports_for_await_break_continue_when_browser_harness_is_configured_in_ts_input`
+  - `test_supports_for_await_break_continue_when_browser_harness_is_configured_in_tsx_input`
+  - `test_supports_for_of_break_continue_when_browser_harness_is_configured_in_js_input`
+  - `test_supports_for_of_break_continue_when_browser_harness_is_configured_in_jsx_input`
+  - `test_supports_for_of_break_continue_when_browser_harness_is_configured_in_ts_input`
+  - `test_supports_for_of_break_continue_when_browser_harness_is_configured_in_tsx_input`
+- `browser_map_iteration_harness` (5)
+  - `json_run_supports_map_constructor_iteration_in_browser_api_surface_with_harness_js_input`
+  - `json_test_supports_map_constructor_iteration_in_browser_api_surface_with_harness_js_input`
+  - `run_supports_map_constructor_iteration_in_browser_api_surface_with_harness_js_input`
+  - `supports_map_constructor_iteration_in_browser_api_surface_with_harness_ts_jsx_tsx_input`
+  - `test_supports_map_constructor_iteration_in_browser_api_surface_with_harness_js_input`
+- `browser_object_entries_harness` (32)
+  - `json_run_supports_frozen_object_entries_iteration_when_browser_harness_is_configured_in_js_input`
+  - `json_run_supports_frozen_object_entries_iteration_when_browser_harness_is_configured_in_jsx_input`
+  - `json_run_supports_frozen_object_entries_iteration_when_browser_harness_is_configured_in_ts_input`
+  - `json_run_supports_frozen_object_entries_iteration_when_browser_harness_is_configured_in_tsx_input`
+  - `json_run_supports_object_entries_iteration_when_browser_harness_is_configured_in_js_input`
+  - `json_run_supports_object_entries_iteration_when_browser_harness_is_configured_in_jsx_input`
+  - `json_run_supports_object_entries_iteration_when_browser_harness_is_configured_in_ts_input`
+  - `json_run_supports_object_entries_iteration_when_browser_harness_is_configured_in_tsx_input`
+  - `json_test_supports_frozen_object_entries_iteration_when_browser_harness_is_configured_in_js_input`
+  - `json_test_supports_frozen_object_entries_iteration_when_browser_harness_is_configured_in_jsx_input`
+  - `json_test_supports_frozen_object_entries_iteration_when_browser_harness_is_configured_in_ts_input`
+  - `json_test_supports_frozen_object_entries_iteration_when_browser_harness_is_configured_in_tsx_input`
+  - `json_test_supports_object_entries_iteration_when_browser_harness_is_configured_in_js_input`
+  - `json_test_supports_object_entries_iteration_when_browser_harness_is_configured_in_jsx_input`
+  - `json_test_supports_object_entries_iteration_when_browser_harness_is_configured_in_ts_input`
+  - `json_test_supports_object_entries_iteration_when_browser_harness_is_configured_in_tsx_input`
+  - `run_supports_frozen_object_entries_iteration_when_browser_harness_is_configured_in_js_input`
+  - `run_supports_frozen_object_entries_iteration_when_browser_harness_is_configured_in_jsx_input`
+  - `run_supports_frozen_object_entries_iteration_when_browser_harness_is_configured_in_ts_input`
+  - `run_supports_frozen_object_entries_iteration_when_browser_harness_is_configured_in_tsx_input`
+  - `run_supports_object_entries_iteration_when_browser_harness_is_configured_in_js_input`
+  - `run_supports_object_entries_iteration_when_browser_harness_is_configured_in_jsx_input`
+  - `run_supports_object_entries_iteration_when_browser_harness_is_configured_in_ts_input`
+  - `run_supports_object_entries_iteration_when_browser_harness_is_configured_in_tsx_input`
+  - `test_supports_frozen_object_entries_iteration_when_browser_harness_is_configured_in_js_input`
+  - `test_supports_frozen_object_entries_iteration_when_browser_harness_is_configured_in_jsx_input`
+  - `test_supports_frozen_object_entries_iteration_when_browser_harness_is_configured_in_ts_input`
+  - `test_supports_frozen_object_entries_iteration_when_browser_harness_is_configured_in_tsx_input`
+  - `test_supports_object_entries_iteration_when_browser_harness_is_configured_in_js_input`
+  - `test_supports_object_entries_iteration_when_browser_harness_is_configured_in_jsx_input`
+  - `test_supports_object_entries_iteration_when_browser_harness_is_configured_in_ts_input`
+  - `test_supports_object_entries_iteration_when_browser_harness_is_configured_in_tsx_input`
+- `browser_object_entries_iteration` (18)
+  - `build_emits_direct_object_entries_iteration_semantics_in_js_ts_jsx_tsx_input`
+  - `build_emits_global_object_entries_iteration_semantics_in_js_input`
+  - `build_emits_global_object_entries_iteration_semantics_in_jsx_input`
+  - `build_emits_global_object_entries_iteration_semantics_in_ts_input`
+  - `build_emits_global_object_entries_iteration_semantics_in_tsx_input`
+  - `build_emits_object_entries_iteration_semantics_in_js_input`
+  - `build_emits_object_entries_iteration_semantics_in_jsx_input`
+  - `build_emits_object_entries_iteration_semantics_in_ts_input`
+  - `build_emits_object_entries_iteration_semantics_in_tsx_input`
+  - `json_build_emits_direct_object_entries_iteration_semantics_in_js_ts_jsx_tsx_input`
+  - `json_build_emits_global_object_entries_iteration_semantics_in_js_input`
+  - `json_build_emits_global_object_entries_iteration_semantics_in_jsx_input`
+  - `json_build_emits_global_object_entries_iteration_semantics_in_ts_input`
+  - `json_build_emits_global_object_entries_iteration_semantics_in_tsx_input`
+  - `json_build_emits_object_entries_iteration_semantics_in_js_input`
+  - `json_build_emits_object_entries_iteration_semantics_in_jsx_input`
+  - `json_build_emits_object_entries_iteration_semantics_in_ts_input`
+  - `json_build_emits_object_entries_iteration_semantics_in_tsx_input`
+- `browser_object_enumeration_finalization_bundle` (8)
+  - `build_emits_object_enumeration_finalization_in_js_input`
+  - `build_emits_object_enumeration_finalization_in_jsx_input`
+  - `build_emits_object_enumeration_finalization_in_ts_input`
+  - `build_emits_object_enumeration_finalization_in_tsx_input`
+  - `json_build_emits_object_enumeration_finalization_in_js_input`
+  - `json_build_emits_object_enumeration_finalization_in_jsx_input`
+  - `json_build_emits_object_enumeration_finalization_in_ts_input`
+  - `json_build_emits_object_enumeration_finalization_in_tsx_input`
+- `browser_object_enumeration_finalization_harness` (10)
+  - `json_run_supports_object_enumeration_finalization_when_browser_harness_is_configured_in_js_input`
+  - `json_test_supports_object_enumeration_finalization_when_browser_harness_is_configured_in_js_input`
+  - `run_supports_object_enumeration_finalization_when_browser_harness_is_configured_in_js_input`
+  - `run_supports_object_enumeration_finalization_when_browser_harness_is_configured_in_jsx_input`
+  - `run_supports_object_enumeration_finalization_when_browser_harness_is_configured_in_ts_input`
+  - `run_supports_object_enumeration_finalization_when_browser_harness_is_configured_in_tsx_input`
+  - `test_supports_object_enumeration_finalization_when_browser_harness_is_configured_in_js_input`
+  - `test_supports_object_enumeration_finalization_when_browser_harness_is_configured_in_jsx_input`
+  - `test_supports_object_enumeration_finalization_when_browser_harness_is_configured_in_ts_input`
+  - `test_supports_object_enumeration_finalization_when_browser_harness_is_configured_in_tsx_input`
+- `browser_object_enumeration_spread_runtime` (16)
+  - `json_run_supports_object_enumeration_spread_in_browser_api_surface_with_harness_js_input`
+  - `json_run_supports_object_enumeration_spread_in_browser_api_surface_with_harness_jsx_input`
+  - `json_run_supports_object_enumeration_spread_in_browser_api_surface_with_harness_ts_input`
+  - `json_run_supports_object_enumeration_spread_in_browser_api_surface_with_harness_tsx_input`
+  - `json_test_supports_object_enumeration_spread_in_browser_api_surface_with_harness_js_input`
+  - `json_test_supports_object_enumeration_spread_in_browser_api_surface_with_harness_jsx_input`
+  - `json_test_supports_object_enumeration_spread_in_browser_api_surface_with_harness_ts_input`
+  - `json_test_supports_object_enumeration_spread_in_browser_api_surface_with_harness_tsx_input`
+  - `run_supports_object_enumeration_spread_in_browser_api_surface_with_harness_js_input`
+  - `run_supports_object_enumeration_spread_in_browser_api_surface_with_harness_jsx_input`
+  - `run_supports_object_enumeration_spread_in_browser_api_surface_with_harness_ts_input`
+  - `run_supports_object_enumeration_spread_in_browser_api_surface_with_harness_tsx_input`
+  - `test_supports_object_enumeration_spread_in_browser_api_surface_with_harness_js_input`
+  - `test_supports_object_enumeration_spread_in_browser_api_surface_with_harness_jsx_input`
+  - `test_supports_object_enumeration_spread_in_browser_api_surface_with_harness_ts_input`
+  - `test_supports_object_enumeration_spread_in_browser_api_surface_with_harness_tsx_input`
+- `browser_object_enumeration_wrapped_bundle` (6)
+  - `build_emits_wrapped_object_enumeration_semantics_in_js_input`
+  - `build_emits_wrapped_object_enumeration_semantics_in_jsx_tsx_input`
+  - `build_emits_wrapped_object_enumeration_semantics_in_ts_input`
+  - `json_build_emits_wrapped_object_enumeration_semantics_in_js_input`
+  - `json_build_emits_wrapped_object_enumeration_semantics_in_jsx_tsx_input`
+  - `json_build_emits_wrapped_object_enumeration_semantics_in_ts_input`
+- `browser_object_enumeration_wrapped_harness` (16)
+  - `json_run_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_js_input`
+  - `json_run_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_jsx_input`
+  - `json_run_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_ts_input`
+  - `json_run_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_tsx_input`
+  - `json_test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_js_input`
+  - `json_test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_jsx_input`
+  - `json_test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_ts_input`
+  - `json_test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_tsx_input`
+  - `run_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_js_input`
+  - `run_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_jsx_input`
+  - `run_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_ts_input`
+  - `run_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_tsx_input`
+  - `test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_js_input`
+  - `test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_jsx_input`
+  - `test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_ts_input`
+  - `test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_tsx_input`
+- `browser_object_from_entries` (8)
+  - `build_emits_object_from_entries_semantics_in_js_input`
+  - `build_emits_object_from_entries_semantics_in_jsx_input`
+  - `build_emits_object_from_entries_semantics_in_ts_input`
+  - `build_emits_object_from_entries_semantics_in_tsx_input`
+  - `json_build_emits_object_from_entries_semantics_in_js_input`
+  - `json_build_emits_object_from_entries_semantics_in_jsx_input`
+  - `json_build_emits_object_from_entries_semantics_in_ts_input`
+  - `json_build_emits_object_from_entries_semantics_in_tsx_input`
+- `browser_object_from_entries_harness` (16)
+  - `json_run_supports_object_from_entries_when_browser_harness_is_configured_in_js_input`
+  - `json_run_supports_object_from_entries_when_browser_harness_is_configured_in_jsx_input`
+  - `json_run_supports_object_from_entries_when_browser_harness_is_configured_in_ts_input`
+  - `json_run_supports_object_from_entries_when_browser_harness_is_configured_in_tsx_input`
+  - `json_test_supports_object_from_entries_when_browser_harness_is_configured_in_js_input`
+  - `json_test_supports_object_from_entries_when_browser_harness_is_configured_in_jsx_input`
+  - `json_test_supports_object_from_entries_when_browser_harness_is_configured_in_ts_input`
+  - `json_test_supports_object_from_entries_when_browser_harness_is_configured_in_tsx_input`
+  - `run_supports_object_from_entries_when_browser_harness_is_configured_in_js_input`
+  - `run_supports_object_from_entries_when_browser_harness_is_configured_in_jsx_input`
+  - `run_supports_object_from_entries_when_browser_harness_is_configured_in_ts_input`
+  - `run_supports_object_from_entries_when_browser_harness_is_configured_in_tsx_input`
+  - `test_supports_object_from_entries_when_browser_harness_is_configured_in_js_input`
+  - `test_supports_object_from_entries_when_browser_harness_is_configured_in_jsx_input`
+  - `test_supports_object_from_entries_when_browser_harness_is_configured_in_ts_input`
+  - `test_supports_object_from_entries_when_browser_harness_is_configured_in_tsx_input`
+- `browser_object_has_own_bundle` (8)
+  - `build_emits_browser_object_has_own_in_js_input`
+  - `build_emits_browser_object_has_own_in_jsx_input`
+  - `build_emits_browser_object_has_own_in_ts_input`
+  - `build_emits_browser_object_has_own_in_tsx_input`
+  - `json_build_emits_browser_object_has_own_in_js_input`
+  - `json_build_emits_browser_object_has_own_in_jsx_input`
+  - `json_build_emits_browser_object_has_own_in_ts_input`
+  - `json_build_emits_browser_object_has_own_in_tsx_input`
+- `browser_object_has_own_harness` (16)
+  - `json_run_supports_object_has_own_when_browser_harness_is_configured_in_js_input`
+  - `json_run_supports_object_has_own_when_browser_harness_is_configured_in_jsx_input`
+  - `json_run_supports_object_has_own_when_browser_harness_is_configured_in_ts_input`
+  - `json_run_supports_object_has_own_when_browser_harness_is_configured_in_tsx_input`
+  - `json_test_supports_object_has_own_when_browser_harness_is_configured_in_js_input`
+  - `json_test_supports_object_has_own_when_browser_harness_is_configured_in_jsx_input`
+  - `json_test_supports_object_has_own_when_browser_harness_is_configured_in_ts_input`
+  - `json_test_supports_object_has_own_when_browser_harness_is_configured_in_tsx_input`
+  - `run_supports_object_has_own_when_browser_harness_is_configured_in_js_input`
+  - `run_supports_object_has_own_when_browser_harness_is_configured_in_jsx_input`
+  - `run_supports_object_has_own_when_browser_harness_is_configured_in_ts_input`
+  - `run_supports_object_has_own_when_browser_harness_is_configured_in_tsx_input`
+  - `test_supports_object_has_own_when_browser_harness_is_configured_in_js_input`
+  - `test_supports_object_has_own_when_browser_harness_is_configured_in_jsx_input`
+  - `test_supports_object_has_own_when_browser_harness_is_configured_in_ts_input`
+  - `test_supports_object_has_own_when_browser_harness_is_configured_in_tsx_input`
+- `browser_object_is_alias_chain_harness` (16)
+  - `json_run_supports_object_is_alias_chain_when_browser_harness_is_configured_in_js_input`
+  - `json_run_supports_object_is_alias_chain_when_browser_harness_is_configured_in_jsx_input`
+  - `json_run_supports_object_is_alias_chain_when_browser_harness_is_configured_in_ts_input`
+  - `json_run_supports_object_is_alias_chain_when_browser_harness_is_configured_in_tsx_input`
+  - `json_test_supports_object_is_alias_chain_when_browser_harness_is_configured_in_js_input`
+  - `json_test_supports_object_is_alias_chain_when_browser_harness_is_configured_in_jsx_input`
+  - `json_test_supports_object_is_alias_chain_when_browser_harness_is_configured_in_ts_input`
+  - `json_test_supports_object_is_alias_chain_when_browser_harness_is_configured_in_tsx_input`
+  - `run_supports_object_is_alias_chain_when_browser_harness_is_configured_in_js_input`
+  - `run_supports_object_is_alias_chain_when_browser_harness_is_configured_in_jsx_input`
+  - `run_supports_object_is_alias_chain_when_browser_harness_is_configured_in_ts_input`
+  - `run_supports_object_is_alias_chain_when_browser_harness_is_configured_in_tsx_input`
+  - `test_supports_object_is_alias_chain_when_browser_harness_is_configured_in_js_input`
+  - `test_supports_object_is_alias_chain_when_browser_harness_is_configured_in_jsx_input`
+  - `test_supports_object_is_alias_chain_when_browser_harness_is_configured_in_ts_input`
+  - `test_supports_object_is_alias_chain_when_browser_harness_is_configured_in_tsx_input`
+- `browser_object_is_bundle` (8)
+  - `build_emits_browser_object_is_in_js_input`
+  - `build_emits_browser_object_is_in_jsx_input`
+  - `build_emits_browser_object_is_in_ts_input`
+  - `build_emits_browser_object_is_in_tsx_input`
+  - `json_build_emits_browser_object_is_in_js_input`
+  - `json_build_emits_browser_object_is_in_jsx_input`
+  - `json_build_emits_browser_object_is_in_ts_input`
+  - `json_build_emits_browser_object_is_in_tsx_input`
+- `browser_object_keys_break_continue_harness` (16)
+  - `json_run_supports_object_keys_break_continue_when_browser_harness_is_configured_in_js_input`
+  - `json_run_supports_object_keys_break_continue_when_browser_harness_is_configured_in_jsx_input`
+  - `json_run_supports_object_keys_break_continue_when_browser_harness_is_configured_in_ts_input`
+  - `json_run_supports_object_keys_break_continue_when_browser_harness_is_configured_in_tsx_input`
+  - `json_test_supports_object_keys_break_continue_when_browser_harness_is_configured_in_js_input`
+  - `json_test_supports_object_keys_break_continue_when_browser_harness_is_configured_in_jsx_input`
+  - `json_test_supports_object_keys_break_continue_when_browser_harness_is_configured_in_ts_input`
+  - `json_test_supports_object_keys_break_continue_when_browser_harness_is_configured_in_tsx_input`
+  - `run_supports_object_keys_break_continue_when_browser_harness_is_configured_in_js_input`
+  - `run_supports_object_keys_break_continue_when_browser_harness_is_configured_in_jsx_input`
+  - `run_supports_object_keys_break_continue_when_browser_harness_is_configured_in_ts_input`
+  - `run_supports_object_keys_break_continue_when_browser_harness_is_configured_in_tsx_input`
+  - `test_supports_object_keys_break_continue_when_browser_harness_is_configured_in_js_input`
+  - `test_supports_object_keys_break_continue_when_browser_harness_is_configured_in_jsx_input`
+  - `test_supports_object_keys_break_continue_when_browser_harness_is_configured_in_ts_input`
+  - `test_supports_object_keys_break_continue_when_browser_harness_is_configured_in_tsx_input`
+- `browser_object_keys_entries_spread_bundle` (6)
+  - `build_emits_object_keys_entries_spread_semantics_in_js_input`
+  - `build_emits_object_keys_entries_spread_semantics_in_jsx_tsx_input`
+  - `build_emits_object_keys_entries_spread_semantics_in_ts_input`
+  - `json_build_emits_object_keys_entries_spread_semantics_in_js_input`
+  - `json_build_emits_object_keys_entries_spread_semantics_in_jsx_tsx_input`
+  - `json_build_emits_object_keys_entries_spread_semantics_in_ts_input`
+- `browser_object_keys_entries_spread_harness` (2)
+  - `run_supports_object_keys_and_entries_spread_iteration_when_browser_harness_is_configured`
+  - `test_supports_object_keys_and_entries_spread_iteration_when_browser_harness_is_configured`
+- `browser_object_keys_harness` (41)
+  - `json_run_supports_direct_object_keys_iteration_when_browser_harness_is_configured_in_js_input`
+  - `json_run_supports_direct_object_keys_iteration_when_browser_harness_is_configured_in_jsx_input`
+  - `json_run_supports_direct_object_keys_iteration_when_browser_harness_is_configured_in_ts_input`
+  - `json_run_supports_direct_object_keys_iteration_when_browser_harness_is_configured_in_tsx_input`
+  - `json_run_supports_global_object_keys_iteration_when_browser_harness_is_configured_in_js_input`
+  - `json_run_supports_global_object_keys_iteration_when_browser_harness_is_configured_in_ts_jsx_tsx_input`
+  - `json_run_supports_object_keys_iteration_when_browser_harness_is_configured_in_js_input`
+  - `json_run_supports_object_keys_iteration_when_browser_harness_is_configured_in_jsx_input`
+  - `json_run_supports_object_keys_iteration_when_browser_harness_is_configured_in_ts_input`
+  - `json_run_supports_object_keys_iteration_when_browser_harness_is_configured_in_tsx_input`
+  - `json_test_supports_direct_object_keys_iteration_when_browser_harness_is_configured_in_js_input`
+  - `json_test_supports_direct_object_keys_iteration_when_browser_harness_is_configured_in_jsx_input`
+  - `json_test_supports_direct_object_keys_iteration_when_browser_harness_is_configured_in_ts_input`
+  - `json_test_supports_direct_object_keys_iteration_when_browser_harness_is_configured_in_tsx_input`
+  - `json_test_supports_global_object_keys_iteration_when_browser_harness_is_configured_in_js_input`
+  - `json_test_supports_global_object_keys_iteration_when_browser_harness_is_configured_in_ts_jsx_tsx_input`
+  - `json_test_supports_object_keys_iteration_when_browser_harness_is_configured_in_js_input`
+  - `json_test_supports_object_keys_iteration_when_browser_harness_is_configured_in_jsx_input`
+  - `json_test_supports_object_keys_iteration_when_browser_harness_is_configured_in_ts_input`
+  - `json_test_supports_object_keys_iteration_when_browser_harness_is_configured_in_tsx_input`
+  - `run_supports_const_bound_object_keys_iteration_when_browser_harness_is_configured_in_js_ts_jsx_tsx_input`
+  - `run_supports_direct_object_keys_iteration_when_browser_harness_is_configured_in_js_input`
+  - `run_supports_direct_object_keys_iteration_when_browser_harness_is_configured_in_jsx_input`
+  - `run_supports_direct_object_keys_iteration_when_browser_harness_is_configured_in_ts_input`
+  - `run_supports_direct_object_keys_iteration_when_browser_harness_is_configured_in_tsx_input`
+  - `run_supports_global_object_keys_iteration_when_browser_harness_is_configured_in_js_input`
+  - `run_supports_global_object_keys_iteration_when_browser_harness_is_configured_in_ts_jsx_tsx_input`
+  - `run_supports_object_keys_iteration_when_browser_harness_is_configured_in_js_input`
+  - `run_supports_object_keys_iteration_when_browser_harness_is_configured_in_jsx_input`
+  - `run_supports_object_keys_iteration_when_browser_harness_is_configured_in_ts_input`
+  - `run_supports_object_keys_iteration_when_browser_harness_is_configured_in_tsx_input`
+  - `test_supports_direct_object_keys_iteration_when_browser_harness_is_configured_in_js_input`
+  - `test_supports_direct_object_keys_iteration_when_browser_harness_is_configured_in_jsx_input`
+  - `test_supports_direct_object_keys_iteration_when_browser_harness_is_configured_in_ts_input`
+  - `test_supports_direct_object_keys_iteration_when_browser_harness_is_configured_in_tsx_input`
+  - `test_supports_global_object_keys_iteration_when_browser_harness_is_configured_in_js_input`
+  - `test_supports_global_object_keys_iteration_when_browser_harness_is_configured_in_ts_jsx_tsx_input`
+  - `test_supports_object_keys_iteration_when_browser_harness_is_configured_in_js_input`
+  - `test_supports_object_keys_iteration_when_browser_harness_is_configured_in_jsx_input`
+  - `test_supports_object_keys_iteration_when_browser_harness_is_configured_in_ts_input`
+  - `test_supports_object_keys_iteration_when_browser_harness_is_configured_in_tsx_input`
+- `browser_object_keys_integer_like_iteration` (12)
+  - `build_emits_integer_like_object_keys_iteration_semantics_in_js_input`
+  - `build_emits_integer_like_object_keys_iteration_semantics_in_ts_input`
+  - `json_build_emits_integer_like_object_keys_iteration_semantics_in_js_input`
+  - `json_build_emits_integer_like_object_keys_iteration_semantics_in_ts_input`
+  - `json_run_supports_integer_like_object_keys_iteration_when_browser_harness_is_configured_in_js_input`
+  - `json_run_supports_integer_like_object_keys_iteration_when_browser_harness_is_configured_in_ts_jsx_tsx_input`
+  - `json_test_supports_integer_like_object_keys_iteration_when_browser_harness_is_configured_in_js_input`
+  - `json_test_supports_integer_like_object_keys_iteration_when_browser_harness_is_configured_in_ts_jsx_tsx_input`
+  - `run_supports_integer_like_object_keys_iteration_when_browser_harness_is_configured_in_js_input`
+  - `run_supports_integer_like_object_keys_iteration_when_browser_harness_is_configured_in_ts_jsx_tsx_input`
+  - `test_supports_integer_like_object_keys_iteration_when_browser_harness_is_configured_in_js_input`
+  - `test_supports_integer_like_object_keys_iteration_when_browser_harness_is_configured_in_ts_jsx_tsx_input`
+- `browser_object_keys_iteration` (25)
+  - `build::build_emits_await_wrapped_static_object_helpers_in_js_ts_jsx_tsx_input`
+  - `build::build_emits_const_bound_object_keys_iteration_semantics_in_js_ts_jsx_tsx_input`
+  - `build::build_emits_direct_object_keys_iteration_semantics_in_js_input`
+  - `build::build_emits_direct_object_keys_iteration_semantics_in_jsx_input`
+  - `build::build_emits_direct_object_keys_iteration_semantics_in_ts_input`
+  - `build::build_emits_direct_object_keys_iteration_semantics_in_tsx_input`
+  - `build::build_emits_global_object_keys_iteration_semantics_in_js_input`
+  - `build::build_emits_global_object_keys_iteration_semantics_in_ts_jsx_tsx_input`
+  - `build::build_emits_object_keys_break_continue_iteration_semantics_in_js_ts_jsx_tsx_input`
+  - `build::build_emits_object_keys_iteration_semantics_in_js_input`
+  - `build::build_emits_object_keys_iteration_semantics_in_jsx_input`
+  - `build::build_emits_object_keys_iteration_semantics_in_ts_input`
+  - `build::build_emits_object_keys_iteration_semantics_in_tsx_input`
+  - `build::build_emits_object_values_iteration_semantics_in_js_input`
+  - `build::build_emits_object_values_iteration_semantics_in_ts_jsx_tsx_input`
+  - `build_json::json_build_emits_direct_object_keys_iteration_semantics_in_js_input`
+  - `build_json::json_build_emits_direct_object_keys_iteration_semantics_in_jsx_input`
+  - `build_json::json_build_emits_direct_object_keys_iteration_semantics_in_ts_input`
+  - `build_json::json_build_emits_direct_object_keys_iteration_semantics_in_tsx_input`
+  - `build_json::json_build_emits_global_object_keys_iteration_semantics_in_js_input`
+  - `build_json::json_build_emits_global_object_keys_iteration_semantics_in_ts_jsx_tsx_input`
+  - `build_json::json_build_emits_object_keys_iteration_semantics_in_js_input`
+  - `build_json::json_build_emits_object_keys_iteration_semantics_in_jsx_input`
+  - `build_json::json_build_emits_object_keys_iteration_semantics_in_ts_input`
+  - `build_json::json_build_emits_object_keys_iteration_semantics_in_tsx_input`
+- `browser_object_string_enumeration_bundle` (16)
+  - `build_emits_for_await_string_primitive_object_enumeration_semantics_in_js_input`
+  - `build_emits_for_await_string_primitive_object_enumeration_semantics_in_jsx_input`
+  - `build_emits_for_await_string_primitive_object_enumeration_semantics_in_ts_input`
+  - `build_emits_for_await_string_primitive_object_enumeration_semantics_in_tsx_input`
+  - `build_emits_string_primitive_object_enumeration_semantics_in_js_input`
+  - `build_emits_string_primitive_object_enumeration_semantics_in_jsx_input`
+  - `build_emits_string_primitive_object_enumeration_semantics_in_ts_input`
+  - `build_emits_string_primitive_object_enumeration_semantics_in_tsx_input`
+  - `json_build_emits_for_await_string_primitive_object_enumeration_semantics_in_js_input`
+  - `json_build_emits_for_await_string_primitive_object_enumeration_semantics_in_jsx_input`
+  - `json_build_emits_for_await_string_primitive_object_enumeration_semantics_in_ts_input`
+  - `json_build_emits_for_await_string_primitive_object_enumeration_semantics_in_tsx_input`
+  - `json_build_emits_string_primitive_object_enumeration_semantics_in_js_input`
+  - `json_build_emits_string_primitive_object_enumeration_semantics_in_jsx_input`
+  - `json_build_emits_string_primitive_object_enumeration_semantics_in_ts_input`
+  - `json_build_emits_string_primitive_object_enumeration_semantics_in_tsx_input`
+- `browser_object_string_enumeration_harness` (16)
+  - `json_run_supports_string_primitive_iteration_when_browser_harness_is_configured_in_js_input`
+  - `json_run_supports_string_primitive_iteration_when_browser_harness_is_configured_in_jsx_input`
+  - `json_run_supports_string_primitive_iteration_when_browser_harness_is_configured_in_ts_input`
+  - `json_run_supports_string_primitive_iteration_when_browser_harness_is_configured_in_tsx_input`
+  - `json_test_supports_string_primitive_iteration_when_browser_harness_is_configured_in_js_input`
+  - `json_test_supports_string_primitive_iteration_when_browser_harness_is_configured_in_jsx_input`
+  - `json_test_supports_string_primitive_iteration_when_browser_harness_is_configured_in_ts_input`
+  - `json_test_supports_string_primitive_iteration_when_browser_harness_is_configured_in_tsx_input`
+  - `run_supports_string_primitive_iteration_when_browser_harness_is_configured_in_js_input`
+  - `run_supports_string_primitive_iteration_when_browser_harness_is_configured_in_jsx_input`
+  - `run_supports_string_primitive_iteration_when_browser_harness_is_configured_in_ts_input`
+  - `run_supports_string_primitive_iteration_when_browser_harness_is_configured_in_tsx_input`
+  - `test_supports_string_primitive_iteration_when_browser_harness_is_configured_in_js_input`
+  - `test_supports_string_primitive_iteration_when_browser_harness_is_configured_in_jsx_input`
+  - `test_supports_string_primitive_iteration_when_browser_harness_is_configured_in_ts_input`
+  - `test_supports_string_primitive_iteration_when_browser_harness_is_configured_in_tsx_input`
+- `browser_object_values_harness` (36)
+  - `json_run_supports_direct_object_values_iteration_when_browser_harness_is_configured_in_js_input`
+  - `json_run_supports_direct_object_values_iteration_when_browser_harness_is_configured_in_jsx_input`
+  - `json_run_supports_direct_object_values_iteration_when_browser_harness_is_configured_in_ts_input`
+  - `json_run_supports_direct_object_values_iteration_when_browser_harness_is_configured_in_tsx_input`
+  - `json_run_supports_object_values_iteration_when_browser_harness_is_configured_in_js_input`
+  - `json_run_supports_object_values_iteration_when_browser_harness_is_configured_in_jsx_input`
+  - `json_run_supports_object_values_iteration_when_browser_harness_is_configured_in_ts_input`
+  - `json_run_supports_object_values_iteration_when_browser_harness_is_configured_in_tsx_input`
+  - `json_test_supports_direct_object_values_iteration_when_browser_harness_is_configured_in_js_input`
+  - `json_test_supports_direct_object_values_iteration_when_browser_harness_is_configured_in_jsx_input`
+  - `json_test_supports_direct_object_values_iteration_when_browser_harness_is_configured_in_ts_input`
+  - `json_test_supports_direct_object_values_iteration_when_browser_harness_is_configured_in_tsx_input`
+  - `json_test_supports_object_values_iteration_when_browser_harness_is_configured_in_js_input`
+  - `json_test_supports_object_values_iteration_when_browser_harness_is_configured_in_jsx_input`
+  - `json_test_supports_object_values_iteration_when_browser_harness_is_configured_in_ts_input`
+  - `json_test_supports_object_values_iteration_when_browser_harness_is_configured_in_tsx_input`
+  - `run_supports_direct_object_values_iteration_when_browser_harness_is_configured_in_js_input`
+  - `run_supports_direct_object_values_iteration_when_browser_harness_is_configured_in_jsx_input`
+  - `run_supports_direct_object_values_iteration_when_browser_harness_is_configured_in_ts_input`
+  - `run_supports_direct_object_values_iteration_when_browser_harness_is_configured_in_tsx_input`
+  - `run_supports_frozen_object_values_spread_iteration_when_browser_harness_is_configured`
+  - `run_supports_object_values_iteration_when_browser_harness_is_configured_in_js_input`
+  - `run_supports_object_values_iteration_when_browser_harness_is_configured_in_jsx_input`
+  - `run_supports_object_values_iteration_when_browser_harness_is_configured_in_ts_input`
+  - `run_supports_object_values_iteration_when_browser_harness_is_configured_in_tsx_input`
+  - `run_supports_object_values_spread_iteration_when_browser_harness_is_configured`
+  - `test_supports_direct_object_values_iteration_when_browser_harness_is_configured_in_js_input`
+  - `test_supports_direct_object_values_iteration_when_browser_harness_is_configured_in_jsx_input`
+  - `test_supports_direct_object_values_iteration_when_browser_harness_is_configured_in_ts_input`
+  - `test_supports_direct_object_values_iteration_when_browser_harness_is_configured_in_tsx_input`
+  - `test_supports_frozen_object_values_spread_iteration_when_browser_harness_is_configured`
+  - `test_supports_object_values_iteration_when_browser_harness_is_configured_in_js_input`
+  - `test_supports_object_values_iteration_when_browser_harness_is_configured_in_jsx_input`
+  - `test_supports_object_values_iteration_when_browser_harness_is_configured_in_ts_input`
+  - `test_supports_object_values_iteration_when_browser_harness_is_configured_in_tsx_input`
+  - `test_supports_object_values_spread_iteration_when_browser_harness_is_configured`
+- `browser_object_values_iteration` (6)
+  - `build_emits_direct_object_values_iteration_semantics_in_js_ts_jsx_tsx_input`
+  - `build_emits_global_object_values_iteration_semantics_in_js_input`
+  - `build_emits_global_object_values_iteration_semantics_in_ts_jsx_tsx_input`
+  - `json_build_emits_direct_object_values_iteration_semantics_in_js_ts_jsx_tsx_input`
+  - `json_build_emits_global_object_values_iteration_semantics_in_js_input`
+  - `json_build_emits_global_object_values_iteration_semantics_in_ts_jsx_tsx_input`
+- `browser_object_values_spread_bundle` (8)
+  - `build_emits_object_values_spread_iteration_in_js_input`
+  - `build_emits_object_values_spread_iteration_in_jsx_input`
+  - `build_emits_object_values_spread_iteration_in_ts_input`
+  - `build_emits_object_values_spread_iteration_in_tsx_input`
+  - `json_build_emits_object_values_spread_iteration_in_js_input`
+  - `json_build_emits_object_values_spread_iteration_in_jsx_input`
+  - `json_build_emits_object_values_spread_iteration_in_ts_input`
+  - `json_build_emits_object_values_spread_iteration_in_tsx_input`
+- `browser_object_values_spread_harness` (2)
+  - `run_supports_object_values_spread_iteration_when_browser_harness_is_configured`
+  - `test_supports_object_values_spread_iteration_when_browser_harness_is_configured`
+- `browser_set_iteration_harness` (5)
+  - `json_run_supports_set_constructor_iteration_in_browser_api_surface_with_harness_js_input`
+  - `json_test_supports_set_constructor_iteration_in_browser_api_surface_with_harness_js_input`
+  - `run_supports_set_constructor_iteration_in_browser_api_surface_with_harness_js_input`
+  - `supports_set_constructor_iteration_in_browser_api_surface_with_harness_ts_jsx_tsx_input`
+  - `test_supports_set_constructor_iteration_in_browser_api_surface_with_harness_js_input`
+- `browser_set_map_iteration_bundle` (4)
+  - `build_emits_map_constructor_iteration_in_js_ts_jsx_and_tsx_input`
+  - `build_emits_set_constructor_iteration_in_js_ts_jsx_and_tsx_input`
+  - `json_build_emits_map_constructor_iteration_in_js_ts_jsx_and_tsx_input`
+  - `json_build_emits_set_constructor_iteration_in_js_ts_jsx_and_tsx_input`
+- `browser_string_concatenation_bundle` (8)
+  - `build_emits_browser_string_concatenation_in_js_input`
+  - `build_emits_browser_string_concatenation_in_jsx_input`
+  - `build_emits_browser_string_concatenation_in_ts_input`
+  - `build_emits_browser_string_concatenation_in_tsx_input`
+  - `json_build_emits_browser_string_concatenation_in_js_input`
+  - `json_build_emits_browser_string_concatenation_in_jsx_input`
+  - `json_build_emits_browser_string_concatenation_in_ts_input`
+  - `json_build_emits_browser_string_concatenation_in_tsx_input`
+- `browser_string_concatenation_harness` (16)
+  - `json_run_supports_string_concatenation_iteration_in_browser_api_surface_with_harness_js_input`
+  - `json_run_supports_string_concatenation_iteration_in_browser_api_surface_with_harness_jsx_input`
+  - `json_run_supports_string_concatenation_iteration_in_browser_api_surface_with_harness_ts_input`
+  - `json_run_supports_string_concatenation_iteration_in_browser_api_surface_with_harness_tsx_input`
+  - `json_test_supports_string_concatenation_iteration_in_browser_api_surface_with_harness_js_input`
+  - `json_test_supports_string_concatenation_iteration_in_browser_api_surface_with_harness_jsx_input`
+  - `json_test_supports_string_concatenation_iteration_in_browser_api_surface_with_harness_ts_input`
+  - `json_test_supports_string_concatenation_iteration_in_browser_api_surface_with_harness_tsx_input`
+  - `run_supports_string_concatenation_iteration_in_browser_api_surface_with_harness_js_input`
+  - `run_supports_string_concatenation_iteration_in_browser_api_surface_with_harness_jsx_input`
+  - `run_supports_string_concatenation_iteration_in_browser_api_surface_with_harness_ts_input`
+  - `run_supports_string_concatenation_iteration_in_browser_api_surface_with_harness_tsx_input`
+  - `test_supports_string_concatenation_iteration_in_browser_api_surface_with_harness_js_input`
+  - `test_supports_string_concatenation_iteration_in_browser_api_surface_with_harness_jsx_input`
+  - `test_supports_string_concatenation_iteration_in_browser_api_surface_with_harness_ts_input`
+  - `test_supports_string_concatenation_iteration_in_browser_api_surface_with_harness_tsx_input`
+- `browser_template_literal_string_iteration_bundle` (8)
+  - `build_emits_browser_template_literal_string_iteration_in_js_input`
+  - `build_emits_browser_template_literal_string_iteration_in_jsx_input`
+  - `build_emits_browser_template_literal_string_iteration_in_ts_input`
+  - `build_emits_browser_template_literal_string_iteration_in_tsx_input`
+  - `json_build_emits_browser_template_literal_string_iteration_in_js_input`
+  - `json_build_emits_browser_template_literal_string_iteration_in_jsx_input`
+  - `json_build_emits_browser_template_literal_string_iteration_in_ts_input`
+  - `json_build_emits_browser_template_literal_string_iteration_in_tsx_input`
+- `browser_template_literal_string_iteration_harness` (16)
+  - `json_run_supports_template_literal_iteration_in_browser_api_surface_with_harness_js_input`
+  - `json_run_supports_template_literal_iteration_in_browser_api_surface_with_harness_jsx_input`
+  - `json_run_supports_template_literal_iteration_in_browser_api_surface_with_harness_ts_input`
+  - `json_run_supports_template_literal_iteration_in_browser_api_surface_with_harness_tsx_input`
+  - `json_test_supports_template_literal_iteration_in_browser_api_surface_with_harness_js_input`
+  - `json_test_supports_template_literal_iteration_in_browser_api_surface_with_harness_jsx_input`
+  - `json_test_supports_template_literal_iteration_in_browser_api_surface_with_harness_ts_input`
+  - `json_test_supports_template_literal_iteration_in_browser_api_surface_with_harness_tsx_input`
+  - `run_supports_template_literal_iteration_in_browser_api_surface_with_harness_js_input`
+  - `run_supports_template_literal_iteration_in_browser_api_surface_with_harness_jsx_input`
+  - `run_supports_template_literal_iteration_in_browser_api_surface_with_harness_ts_input`
+  - `run_supports_template_literal_iteration_in_browser_api_surface_with_harness_tsx_input`
+  - `test_supports_template_literal_iteration_in_browser_api_surface_with_harness_js_input`
+  - `test_supports_template_literal_iteration_in_browser_api_surface_with_harness_jsx_input`
+  - `test_supports_template_literal_iteration_in_browser_api_surface_with_harness_ts_input`
+  - `test_supports_template_literal_iteration_in_browser_api_surface_with_harness_tsx_input`
+- `for_of_array_iteration_spread` (10)
+  - `json_run_supports_browser_harness_array_from_set_map_break_continue_in_js_ts_jsx_and_tsx_input`
+  - `json_test_supports_browser_harness_array_from_set_map_break_continue_in_js_ts_jsx_and_tsx_input`
+  - `run_supports_array_from_new_set_and_new_map_break_continue_in_js_input`
+  - `run_supports_browser_harness_array_from_set_map_break_continue_in_js_input`
+  - `run_supports_browser_harness_array_from_set_map_break_continue_in_jsx_and_tsx_input`
+  - `run_supports_browser_harness_array_from_set_map_break_continue_in_ts_input`
+  - `test_supports_array_from_new_set_and_new_map_break_continue_in_js_input`
+  - `test_supports_browser_harness_array_from_set_map_break_continue_in_js_input`
+  - `test_supports_browser_harness_array_from_set_map_break_continue_in_jsx_and_tsx_input`
+  - `test_supports_browser_harness_array_from_set_map_break_continue_in_ts_input`
+- `for_of_object_keys_iteration` (54)
+  - `run_supports_await_wrapped_static_helper_inputs_in_js_ts_jsx_tsx_input`
+  - `run_supports_direct_object_keys_iteration_in_jsx_and_tsx_input`
+  - `run_supports_frozen_object_entries_iteration_in_js_ts_jsx_tsx_input`
+  - `run_supports_frozen_object_enumeration_iteration_in_js_ts_jsx_tsx_input`
+  - `run_supports_frozen_object_values_iteration_in_js_ts_jsx_tsx_input`
+  - `run_supports_global_object_keys_iteration_in_js_input`
+  - `run_supports_global_object_keys_iteration_in_jsx_and_tsx_input`
+  - `run_supports_global_object_keys_iteration_in_ts_jsx_tsx_input`
+  - `run_supports_object_entries_from_entries_iteration_in_js_input`
+  - `run_supports_object_entries_from_entries_iteration_in_jsx_and_tsx_input`
+  - `run_supports_object_entries_from_entries_iteration_in_ts_input`
+  - `run_supports_object_keys_break_continue_iteration_in_js_ts_jsx_tsx_input`
+  - `run_supports_object_keys_from_entries_iteration_in_js_input`
+  - `run_supports_object_keys_from_entries_iteration_in_jsx_and_tsx_input`
+  - `run_supports_object_keys_from_entries_iteration_in_ts_input`
+  - `run_supports_object_keys_iteration_in_js_input`
+  - `run_supports_object_keys_iteration_in_jsx_and_tsx_input`
+  - `run_supports_object_keys_iteration_in_ts_input`
+  - `run_supports_object_keys_iteration_with_direct_literal_object_in_js_input`
+  - `run_supports_object_keys_iteration_with_direct_literal_object_in_ts_input`
+  - `run_supports_object_string_enumeration_iteration_in_js_ts_jsx_tsx_input`
+  - `run_supports_object_values_from_entries_iteration_in_js_input`
+  - `run_supports_object_values_from_entries_iteration_in_jsx_and_tsx_input`
+  - `run_supports_object_values_from_entries_iteration_in_ts_input`
+  - `run_supports_object_values_iteration_in_js_input`
+  - `run_supports_object_values_iteration_in_jsx_and_tsx_input`
+  - `run_supports_object_values_iteration_in_ts_input`
+  - `test_supports_await_wrapped_static_helper_inputs_in_js_ts_jsx_tsx_input`
+  - `test_supports_direct_object_keys_iteration_in_jsx_and_tsx_input`
+  - `test_supports_frozen_object_entries_iteration_in_js_ts_jsx_tsx_input`
+  - `test_supports_frozen_object_enumeration_iteration_in_js_ts_jsx_tsx_input`
+  - `test_supports_frozen_object_values_iteration_in_js_ts_jsx_tsx_input`
+  - `test_supports_global_object_keys_iteration_in_js_input`
+  - `test_supports_global_object_keys_iteration_in_jsx_and_tsx_input`
+  - `test_supports_global_object_keys_iteration_in_ts_jsx_tsx_input`
+  - `test_supports_object_entries_from_entries_iteration_in_js_input`
+  - `test_supports_object_entries_from_entries_iteration_in_jsx_and_tsx_input`
+  - `test_supports_object_entries_from_entries_iteration_in_ts_input`
+  - `test_supports_object_keys_break_continue_iteration_in_js_ts_jsx_tsx_input`
+  - `test_supports_object_keys_from_entries_iteration_in_js_input`
+  - `test_supports_object_keys_from_entries_iteration_in_jsx_and_tsx_input`
+  - `test_supports_object_keys_from_entries_iteration_in_ts_input`
+  - `test_supports_object_keys_iteration_in_js_input`
+  - `test_supports_object_keys_iteration_in_jsx_and_tsx_input`
+  - `test_supports_object_keys_iteration_in_ts_input`
+  - `test_supports_object_keys_iteration_with_direct_literal_object_in_js_input`
+  - `test_supports_object_keys_iteration_with_direct_literal_object_in_ts_input`
+  - `test_supports_object_string_enumeration_iteration_in_js_ts_jsx_tsx_input`
+  - `test_supports_object_values_from_entries_iteration_in_js_input`
+  - `test_supports_object_values_from_entries_iteration_in_jsx_and_tsx_input`
+  - `test_supports_object_values_from_entries_iteration_in_ts_input`
+  - `test_supports_object_values_iteration_in_js_input`
+  - `test_supports_object_values_iteration_in_jsx_and_tsx_input`
+  - `test_supports_object_values_iteration_in_ts_input`
+- `map_iteration_runtime` (6)
+  - `run_supports_map_constructor_iteration_in_js_input`
+  - `run_supports_map_constructor_iteration_in_jsx_and_tsx_input`
+  - `run_supports_map_constructor_iteration_in_ts_input`
+  - `test_supports_map_constructor_iteration_in_js_input`
+  - `test_supports_map_constructor_iteration_in_jsx_and_tsx_input`
+  - `test_supports_map_constructor_iteration_in_ts_input`
+- `object_enumeration_finalization` (4)
+  - `run_supports_object_enumeration_finalization_in_js_input`
+  - `run_supports_object_enumeration_finalization_in_ts_input`
+  - `test_supports_object_enumeration_finalization_in_js_input`
+  - `test_supports_object_enumeration_finalization_in_ts_input`
+- `object_enumeration_spread_frozen_js_input` (8)
+  - `json_run_accepts_frozen_object_enumeration_spread_in_js_input`
+  - `json_run_accepts_frozen_object_enumeration_spread_in_ts_input`
+  - `json_test_accepts_frozen_object_enumeration_spread_in_js_input`
+  - `json_test_accepts_frozen_object_enumeration_spread_in_ts_input`
+  - `run_accepts_frozen_object_enumeration_spread_in_js_input`
+  - `run_accepts_frozen_object_enumeration_spread_in_ts_input`
+  - `test_accepts_frozen_object_enumeration_spread_in_js_input`
+  - `test_accepts_frozen_object_enumeration_spread_in_ts_input`
+- `object_enumeration_wrapped_js_input` (8)
+  - `json_run_accepts_wrapped_object_enumeration_in_js_input`
+  - `json_run_accepts_wrapped_object_enumeration_in_ts_input`
+  - `json_test_accepts_wrapped_object_enumeration_in_js_input`
+  - `json_test_accepts_wrapped_object_enumeration_in_ts_input`
+  - `run_accepts_wrapped_object_enumeration_in_js_input`
+  - `run_accepts_wrapped_object_enumeration_in_ts_input`
+  - `test_accepts_wrapped_object_enumeration_in_js_input`
+  - `test_accepts_wrapped_object_enumeration_in_ts_input`
+- `object_has_own_frozen_js_input` (4)
+  - `json_run_accepts_frozen_object_has_own_in_js_ts_jsx_tsx_input`
+  - `json_test_accepts_frozen_object_has_own_in_js_ts_jsx_tsx_input`
+  - `run_accepts_frozen_object_has_own_in_js_ts_jsx_tsx_input`
+  - `test_accepts_frozen_object_has_own_in_js_ts_jsx_tsx_input`
+- `object_string_enumeration_js_input` (16)
+  - `json_run_accepts_object_string_enumeration_in_js_input`
+  - `json_run_accepts_object_string_enumeration_in_jsx_input`
+  - `json_run_accepts_object_string_enumeration_in_ts_input`
+  - `json_run_accepts_object_string_enumeration_in_tsx_input`
+  - `json_test_accepts_object_string_enumeration_in_js_input`
+  - `json_test_accepts_object_string_enumeration_in_jsx_input`
+  - `json_test_accepts_object_string_enumeration_in_ts_input`
+  - `json_test_accepts_object_string_enumeration_in_tsx_input`
+  - `run_accepts_object_string_enumeration_in_js_input`
+  - `run_accepts_object_string_enumeration_in_jsx_input`
+  - `run_accepts_object_string_enumeration_in_ts_input`
+  - `run_accepts_object_string_enumeration_in_tsx_input`
+  - `test_accepts_object_string_enumeration_in_js_input`
+  - `test_accepts_object_string_enumeration_in_jsx_input`
+  - `test_accepts_object_string_enumeration_in_ts_input`
+  - `test_accepts_object_string_enumeration_in_tsx_input`
+- `package_corpus` (15)
+  - `browser_runtime::browser_runtime_corpus_packages_with_browser_string_and_web_baseline_packages_remain_executable_and_testable_on_the_browser_surface_in_js_input_when_a_harness_command_is_configured`
+  - `browser_runtime::browser_runtime_corpus_packages_with_browser_string_and_web_baseline_packages_remain_executable_and_testable_on_the_browser_surface_in_js_input_when_the_browser_api_surface_is_inherited_and_a_harness_command_is_configured`
+  - `browser_runtime::browser_runtime_corpus_web_baseline_packages_remain_executable_and_testable_on_the_browser_surface_in_js_input_when_a_harness_command_is_configured`
+  - `browser_runtime::browser_runtime_corpus_web_baseline_packages_remain_executable_and_testable_on_the_browser_surface_in_js_input_when_the_browser_api_surface_is_inherited_and_a_harness_command_is_configured`
+  - `browser_runtime::json_browser_runtime_corpus_packages_with_browser_string_and_web_baseline_packages_remain_executable_and_testable_on_the_browser_surface_in_js_input_when_a_harness_command_is_configured`
+  - `browser_runtime::json_browser_runtime_corpus_packages_with_browser_string_and_web_baseline_packages_remain_executable_and_testable_on_the_browser_surface_in_js_input_when_the_browser_api_surface_is_inherited_and_a_harness_command_is_configured`
+  - `browser_runtime::json_browser_runtime_corpus_web_baseline_packages_remain_executable_and_testable_on_the_browser_surface_in_js_input_when_a_harness_command_is_configured`
+  - `browser_runtime::json_browser_runtime_corpus_web_baseline_packages_remain_executable_and_testable_on_the_browser_surface_in_js_input_when_the_browser_api_surface_is_inherited_and_a_harness_command_is_configured`
+  - `misc::deno_host_corpus_packages_remain_testable_on_the_deno_surface`
+  - `misc::deno_host_corpus_packages_remain_testable_on_the_deno_surface_in_js_input`
+  - `misc::json_utility_corpus_packages_with_web_baseline_primitives_remain_checkable_executable_and_testable_on_the_default_standalone_surface_in_js_input`
+  - `misc::jsr_corpus_packages_remain_testable_on_the_deno_surface`
+  - `misc::jsr_corpus_packages_remain_testable_on_the_deno_surface_in_js_input`
+  - `utility::utility_corpus_packages_with_web_baseline_primitives_remain_checkable_executable_and_testable_on_the_default_standalone_surface_in_js_input`
+  - `utility::utility_corpus_packages_with_web_baseline_primitives_remain_executable_on_the_default_standalone_surface`
+- `runtime_smoke` (25)
+  - `check::check_build_run_and_test_accept_deno_env_set_in_js_input`
+  - `check::json_check_build_run_and_test_accept_deno_env_set_in_js_input`
+  - `run::json_run_supports_frozen_object_enumeration_spread_semantics_in_js_input`
+  - `run::json_run_supports_frozen_object_enumeration_spread_semantics_in_jsx_input_when_browser_harness_is_configured`
+  - `run::json_run_supports_frozen_object_enumeration_spread_semantics_in_ts_input`
+  - `run::json_run_supports_frozen_object_enumeration_spread_semantics_in_tsx_input_when_browser_harness_is_configured`
+  - `run::json_run_supports_object_from_entries_enumeration_semantics_in_js_input`
+  - `run::json_run_supports_object_string_primitive_enumeration_semantics_when_browser_harness_is_configured_in_js_input`
+  - `run::run_supports_object_entries_semantics`
+  - `run::run_supports_object_entries_semantics_in_js_input`
+  - `run::run_supports_object_from_entries_enumeration_semantics_in_js_input`
+  - `run::run_supports_object_from_entries_enumeration_semantics_with_satisfies_wrapper_in_ts_input_when_browser_harness_is_configured`
+  - `test::json_test_accepts_deno_env_get_in_js_input`
+  - `test::json_test_supports_bracketed_deno_env_get_in_js_input`
+  - `test::json_test_supports_deno_chdir_aliases_in_js_input`
+  - `test::json_test_supports_frozen_object_enumeration_spread_semantics_in_js_input`
+  - `test::json_test_supports_frozen_object_enumeration_spread_semantics_in_jsx_input_when_browser_harness_is_configured`
+  - `test::json_test_supports_frozen_object_enumeration_spread_semantics_in_ts_input`
+  - `test::json_test_supports_frozen_object_enumeration_spread_semantics_in_tsx_input_when_browser_harness_is_configured`
+  - `test::json_test_supports_object_from_entries_enumeration_semantics_in_js_input`
+  - `test::json_test_supports_object_string_primitive_enumeration_semantics_when_browser_harness_is_configured_in_js_input`
+  - `test::test_supports_bracketed_deno_env_get_in_js_input`
+  - `test::test_supports_deno_chdir_aliases_in_js_input`
+  - `test::test_supports_object_entries_semantics_in_js_input`
+  - `test::test_supports_object_from_entries_enumeration_semantics_with_satisfies_wrapper_in_ts_input_when_browser_harness_is_configured`
+- `set_iteration_runtime` (6)
+  - `run_supports_set_constructor_iteration_in_js_input`
+  - `run_supports_set_constructor_iteration_in_jsx_and_tsx_input`
+  - `run_supports_set_constructor_iteration_in_ts_input`
+  - `test_supports_set_constructor_iteration_in_js_input`
+  - `test_supports_set_constructor_iteration_in_jsx_and_tsx_input`
+  - `test_supports_set_constructor_iteration_in_ts_input`
+
+### #4 delete+reinsert / own-keys staleness (46)
+
+- `browser_reflect_own_keys` (40)
+  - `build::build_emits_browser_bundle_reflect_own_keys_semantics_in_js_input`
+  - `build::build_emits_browser_bundle_reflect_own_keys_semantics_in_jsx_input`
+  - `build::build_emits_browser_bundle_reflect_own_keys_semantics_in_ts_input`
+  - `build::build_emits_browser_bundle_reflect_own_keys_semantics_in_tsx_input`
+  - `build::json_build_emits_browser_bundle_reflect_own_keys_semantics_in_js_input`
+  - `build::json_build_emits_browser_bundle_reflect_own_keys_semantics_in_jsx_input`
+  - `build::json_build_emits_browser_bundle_reflect_own_keys_semantics_in_ts_input`
+  - `build::json_build_emits_browser_bundle_reflect_own_keys_semantics_in_tsx_input`
+  - `run::json_run_supports_reflect_own_keys_in_js_input_when_browser_api_surface_is_inherited`
+  - `run::json_run_supports_reflect_own_keys_in_js_input_when_browser_harness_is_configured`
+  - `run::json_run_supports_reflect_own_keys_in_jsx_input_when_browser_api_surface_is_inherited`
+  - `run::json_run_supports_reflect_own_keys_in_jsx_input_when_browser_harness_is_configured`
+  - `run::json_run_supports_reflect_own_keys_in_ts_input_when_browser_api_surface_is_inherited`
+  - `run::json_run_supports_reflect_own_keys_in_ts_input_when_browser_harness_is_configured`
+  - `run::json_run_supports_reflect_own_keys_in_tsx_input_when_browser_api_surface_is_inherited`
+  - `run::json_run_supports_reflect_own_keys_in_tsx_input_when_browser_harness_is_configured`
+  - `run::run_supports_reflect_own_keys_in_js_input_when_browser_api_surface_is_inherited`
+  - `run::run_supports_reflect_own_keys_in_js_input_when_browser_harness_is_configured`
+  - `run::run_supports_reflect_own_keys_in_jsx_input_when_browser_api_surface_is_inherited`
+  - `run::run_supports_reflect_own_keys_in_jsx_input_when_browser_harness_is_configured`
+  - `run::run_supports_reflect_own_keys_in_ts_input_when_browser_api_surface_is_inherited`
+  - `run::run_supports_reflect_own_keys_in_ts_input_when_browser_harness_is_configured`
+  - `run::run_supports_reflect_own_keys_in_tsx_input_when_browser_api_surface_is_inherited`
+  - `run::run_supports_reflect_own_keys_in_tsx_input_when_browser_harness_is_configured`
+  - `test::json_test_supports_reflect_own_keys_in_js_input_when_browser_api_surface_is_inherited`
+  - `test::json_test_supports_reflect_own_keys_in_js_input_when_browser_harness_is_configured`
+  - `test::json_test_supports_reflect_own_keys_in_jsx_input_when_browser_api_surface_is_inherited`
+  - `test::json_test_supports_reflect_own_keys_in_jsx_input_when_browser_harness_is_configured`
+  - `test::json_test_supports_reflect_own_keys_in_ts_input_when_browser_api_surface_is_inherited`
+  - `test::json_test_supports_reflect_own_keys_in_ts_input_when_browser_harness_is_configured`
+  - `test::json_test_supports_reflect_own_keys_in_tsx_input_when_browser_api_surface_is_inherited`
+  - `test::json_test_supports_reflect_own_keys_in_tsx_input_when_browser_harness_is_configured`
+  - `test::test_supports_reflect_own_keys_in_js_input_when_browser_api_surface_is_inherited`
+  - `test::test_supports_reflect_own_keys_in_js_input_when_browser_harness_is_configured`
+  - `test::test_supports_reflect_own_keys_in_jsx_input_when_browser_api_surface_is_inherited`
+  - `test::test_supports_reflect_own_keys_in_jsx_input_when_browser_harness_is_configured`
+  - `test::test_supports_reflect_own_keys_in_ts_input_when_browser_api_surface_is_inherited`
+  - `test::test_supports_reflect_own_keys_in_ts_input_when_browser_harness_is_configured`
+  - `test::test_supports_reflect_own_keys_in_tsx_input_when_browser_api_surface_is_inherited`
+  - `test::test_supports_reflect_own_keys_in_tsx_input_when_browser_harness_is_configured`
+- `reflect_own_keys_js_input` (4)
+  - `json_run_accepts_reflect_own_keys_in_js_input`
+  - `json_test_accepts_reflect_own_keys_in_js_input`
+  - `run_accepts_reflect_own_keys_in_js_input`
+  - `test_accepts_reflect_own_keys_in_js_input`
+- `runtime_smoke` (2)
+  - `run::json_run_supports_reflect_own_keys_direct_iteration_when_browser_api_surface_is_inherited_in_js_input_when_a_browser_harness_command_is_configured`
+  - `test::json_test_supports_reflect_own_keys_direct_iteration_when_browser_api_surface_is_inherited_in_js_input_when_a_browser_harness_command_is_configured`
+
+### #5 performance.now host wiring (21)
+
+- `runtime_smoke` (21)
+  - `build::build_emits_browser_bundle_performance_now_monotonic_ordering_in_js_input`
+  - `build::build_emits_browser_bundle_performance_now_monotonic_ordering_in_ts_input`
+  - `build::build_uses_inherited_browser_api_surface_for_performance_now_monotonic_ordering_in_js_input`
+  - `build::build_uses_inherited_browser_api_surface_for_performance_now_monotonic_ordering_in_ts_input`
+  - `build::json_build_emits_browser_bundle_performance_now_monotonic_ordering_in_js_input`
+  - `build::json_build_uses_inherited_browser_api_surface_for_performance_now_monotonic_ordering_in_js_input`
+  - `build::json_build_uses_inherited_browser_api_surface_for_performance_now_monotonic_ordering_in_ts_input`
+  - `run::json_run_supports_performance_now_monotonic_ordering_when_browser_api_surface_is_inherited_in_js_input_when_a_browser_harness_command_is_configured`
+  - `run::json_run_supports_performance_now_monotonic_ordering_when_browser_harness_is_configured_in_js_input`
+  - `run::run_supports_performance_now_monotonic_ordering_when_browser_api_surface_is_inherited_in_js_input_when_a_browser_harness_command_is_configured`
+  - `run::run_supports_performance_now_monotonic_ordering_when_browser_api_surface_is_inherited_in_ts_input_when_a_browser_harness_command_is_configured`
+  - `run::run_supports_performance_now_monotonic_ordering_when_browser_harness_is_configured_in_js_input`
+  - `run::run_supports_performance_now_monotonic_ordering_when_browser_harness_is_configured_in_ts_input`
+  - `test::json_test_supports_performance_now_monotonic_ordering_when_browser_api_surface_is_inherited_in_js_input_when_a_browser_harness_command_is_configured`
+  - `test::json_test_supports_performance_now_monotonic_ordering_when_browser_api_surface_is_inherited_in_ts_input_when_a_browser_harness_command_is_configured`
+  - `test::json_test_supports_performance_now_monotonic_ordering_when_browser_harness_is_configured_in_js_input`
+  - `test::json_test_supports_performance_now_monotonic_ordering_when_browser_harness_is_configured_in_ts_input`
+  - `test::test_supports_performance_now_monotonic_ordering_when_browser_api_surface_is_inherited_in_js_input_when_a_browser_harness_command_is_configured`
+  - `test::test_supports_performance_now_monotonic_ordering_when_browser_api_surface_is_inherited_in_ts_input_when_a_browser_harness_command_is_configured`
+  - `test::test_supports_performance_now_monotonic_ordering_when_browser_harness_is_configured_in_js_input`
+  - `test::test_supports_performance_now_monotonic_ordering_when_browser_harness_is_configured_in_ts_input`
+
+### #6 web crypto host wiring (18)
+
+- `runtime_smoke` (18)
+  - `build::build_emits_browser_bundle_crypto_web_apis`
+  - `build::build_emits_browser_bundle_crypto_web_apis_in_js_input`
+  - `build::json_build_emits_browser_bundle_crypto_web_apis_in_js_input`
+  - `build::json_build_emits_browser_bundle_crypto_web_apis_in_ts_input`
+  - `run::run_supports_browser_web_crypto_get_random_values_when_browser_api_surface_is_inherited_when_browser_harness_is_configured_in_js_input`
+  - `run::run_supports_browser_web_crypto_get_random_values_when_browser_api_surface_is_inherited_when_browser_harness_is_configured_in_ts_input`
+  - `run::run_supports_browser_web_crypto_get_random_values_when_browser_harness_is_configured_in_js_input`
+  - `run::run_supports_browser_web_crypto_get_random_values_when_browser_harness_is_configured_in_ts_input`
+  - `run::run_supports_browser_web_crypto_subtle_digest_and_random_uuid_when_browser_harness_is_configured_in_js_input`
+  - `run::run_supports_browser_web_crypto_subtle_digest_and_random_uuid_when_browser_harness_is_configured_in_ts_input`
+  - `run::run_supports_crypto_get_random_values_in_js_input`
+  - `test::test_supports_browser_web_crypto_get_random_values_when_browser_api_surface_is_inherited_when_browser_harness_is_configured_in_js_input`
+  - `test::test_supports_browser_web_crypto_get_random_values_when_browser_api_surface_is_inherited_when_browser_harness_is_configured_in_ts_input`
+  - `test::test_supports_browser_web_crypto_get_random_values_when_browser_harness_is_configured_in_js_input`
+  - `test::test_supports_browser_web_crypto_get_random_values_when_browser_harness_is_configured_in_ts_input`
+  - `test::test_supports_browser_web_crypto_subtle_digest_and_random_uuid_when_browser_harness_is_configured_in_js_input`
+  - `test::test_supports_browser_web_crypto_subtle_digest_and_random_uuid_when_browser_harness_is_configured_in_ts_input`
+  - `test::test_supports_crypto_get_random_values_in_js_input`
+
+### H  browser coverage import desync (coverage_hit LinkError, Stage-0-exposed) (2)
+
+- `runtime_smoke` (2)
+  - `test::test_reports_function_coverage_in_json_output_when_browser_api_surface_is_configured`
+  - `test::test_reports_function_coverage_in_json_output_when_browser_api_surface_is_inherited`
+
+### K  node process.kill(0) probe (host/node-API gap) (4)
+
+- `node_api_surface` (4)
+  - `core::node_api_surface_supports_optional_chain_wrapped_process_kill_zero_probe_in_js_ts_jsx_and_tsx_input_on_check_build_run_and_test_commands`
+  - `core::node_api_surface_supports_process_kill_zero_probe_in_js_ts_jsx_and_tsx_input_on_check_build_run_and_test_commands`
+  - `core::node_api_surface_supports_process_kill_zero_probe_object_freeze_wrappers_in_js_ts_jsx_and_tsx_input_on_check_build_run_and_test_commands`
+  - `core::node_api_surface_supports_process_kill_zero_probe_through_static_zero_aliases_in_js_ts_jsx_and_tsx_input_on_check_build_run_and_test_commands`
+
+### #7 dynamic import member typeof (32)
+
+- `browser_template_literal_dynamic_import_harness` (26)
+  - `json_run_supports_object_freeze_wrapped_literal_dynamic_import_targets_with_logical_wrappers_in_browser_api_surface_with_harness_js_input`
+  - `json_run_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_js_input`
+  - `json_run_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_jsx_input`
+  - `json_run_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_ts_input`
+  - `json_run_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_tsx_input`
+  - `json_test_supports_object_freeze_wrapped_literal_dynamic_import_targets_with_logical_wrappers_in_browser_api_surface_with_harness_js_input`
+  - `json_test_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_js_input`
+  - `json_test_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_jsx_input`
+  - `json_test_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_ts_input`
+  - `json_test_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_tsx_input`
+  - `run_supports_object_freeze_wrapped_literal_dynamic_import_targets_with_logical_wrappers_in_browser_api_surface_with_harness_js_input`
+  - `run_supports_object_freeze_wrapped_literal_dynamic_import_targets_with_logical_wrappers_in_browser_api_surface_with_harness_ts_jsx_tsx_input`
+  - `run_supports_sequence_wrapped_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_js_input`
+  - `run_supports_sequence_wrapped_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_ts_jsx_tsx_input`
+  - `run_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_js_input`
+  - `run_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_jsx_input`
+  - `run_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_ts_input`
+  - `run_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_tsx_input`
+  - `test_supports_object_freeze_wrapped_literal_dynamic_import_targets_with_logical_wrappers_in_browser_api_surface_with_harness_js_input`
+  - `test_supports_object_freeze_wrapped_literal_dynamic_import_targets_with_logical_wrappers_in_browser_api_surface_with_harness_ts_jsx_tsx_input`
+  - `test_supports_sequence_wrapped_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_js_input`
+  - `test_supports_sequence_wrapped_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_ts_jsx_tsx_input`
+  - `test_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_js_input`
+  - `test_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_jsx_input`
+  - `test_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_ts_input`
+  - `test_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_tsx_input`
+- `runtime_smoke` (6)
+  - `run::run_supports_dynamic_import_directory_index_targets_when_browser_harness_is_configured_in_js_input`
+  - `run::run_supports_dynamic_import_directory_index_targets_when_browser_harness_is_configured_in_ts_input`
+  - `run::run_supports_dynamic_import_file_specifier_targets_when_browser_harness_is_configured_in_js_input`
+  - `test::json_test_supports_dynamic_import_file_specifier_targets_when_browser_harness_is_configured_in_js_input`
+  - `test::test_supports_dynamic_import_directory_index_targets_when_browser_harness_is_configured_in_js_input`
+  - `test::test_supports_dynamic_import_directory_index_targets_when_browser_harness_is_configured_in_ts_input`
+
+### #8 short-circuit family (&&/||/?. lowering) (13)
+
+- `browser_math_round_global_this_root` (9)
+  - `build_emits_global_this_math_round_identity_literals_in_js_input`
+  - `build_emits_global_this_math_round_identity_literals_in_jsx_input`
+  - `build_emits_global_this_math_round_identity_literals_in_ts_input`
+  - `build_emits_global_this_math_round_identity_literals_in_tsx_input`
+  - `json_build_emits_global_this_math_round_identity_literals_in_js_input`
+  - `json_build_emits_global_this_math_round_identity_literals_in_jsx_input`
+  - `json_build_emits_global_this_math_round_identity_literals_in_ts_input`
+  - `json_build_emits_global_this_math_round_identity_literals_in_tsx_input`
+  - `run_and_test_supports_global_this_math_round_identity_when_browser_harness_is_configured_in_js_and_ts_input`
+- `runtime_smoke` (4)
+  - `build::build_emits_browser_bundle_boolean_logic_semantics`
+  - `build::build_emits_browser_bundle_boolean_logic_semantics_in_js_input`
+  - `build::json_build_emits_browser_bundle_boolean_logic_semantics`
+  - `build::json_build_emits_browser_bundle_boolean_logic_semantics_in_js_input`
+
+### #10 array/for-of push lane (16)
+
+- `array_callback_identity_browser_harness` (16)
+  - `json_run_supports_array_callback_identity_slices_in_browser_api_surface_with_harness_js_input`
+  - `json_run_supports_array_callback_identity_slices_in_browser_api_surface_with_harness_jsx_input`
+  - `json_run_supports_array_callback_identity_slices_in_browser_api_surface_with_harness_ts_input`
+  - `json_run_supports_array_callback_identity_slices_in_browser_api_surface_with_harness_tsx_input`
+  - `json_test_supports_array_callback_identity_slices_in_browser_api_surface_with_harness_js_input`
+  - `json_test_supports_array_callback_identity_slices_in_browser_api_surface_with_harness_jsx_input`
+  - `json_test_supports_array_callback_identity_slices_in_browser_api_surface_with_harness_ts_input`
+  - `json_test_supports_array_callback_identity_slices_in_browser_api_surface_with_harness_tsx_input`
+  - `run_supports_array_callback_identity_slices_in_browser_api_surface_with_harness_js_input`
+  - `run_supports_array_callback_identity_slices_in_browser_api_surface_with_harness_jsx_input`
+  - `run_supports_array_callback_identity_slices_in_browser_api_surface_with_harness_ts_input`
+  - `run_supports_array_callback_identity_slices_in_browser_api_surface_with_harness_tsx_input`
+  - `test_supports_array_callback_identity_slices_in_browser_api_surface_with_harness_js_input`
+  - `test_supports_array_callback_identity_slices_in_browser_api_surface_with_harness_jsx_input`
+  - `test_supports_array_callback_identity_slices_in_browser_api_surface_with_harness_ts_input`
+  - `test_supports_array_callback_identity_slices_in_browser_api_surface_with_harness_tsx_input`
+
+
+## Stage 1 drain (runtime string equality)
+
+**Date:** 2026-07-11 · **Commits:** fa98055ec (triage), 031fcda37 (`__streq` synthetic), 76165a395 + b210915cd (equality arm + negation pin), 21f818bf2 (5 re-pins), 918ed8313 + ed2e2eb80 (env lane + F-Stage1-3), f57fc868f + f6c8f25ca (enumeration-key pins + revert-sensitivity probe), 86c1ae772 (re-mask/backstop pins), b98365992 (census-list sync)
+
+| measure | count |
+|---|---|
+| pre-stage failing set (Task 0 enumeration) | 977 |
+| post-stage failing set | 974 |
+| drained by Stage 1 | 3 |
+| #2/#3 entries remaining (overlap → later stages) | 653 |
+| tests re-pinned (equality-reject pins, node-derived) | 5 |
+
+Newly-red vs pre-stage: none (gate requirement). The raw post enumeration (976, at 86c1ae772)
+contained two stage-introduced census regressions — the hand-mirrored `SYNTHETIC_FUNCTIONS`
+exclusion list in `count_tag_boxing_ops` (runtime_smoke.rs) was missing `__streq` — fixed
+test-side in b98365992 (both re-run green; grep-swept, no other mirror of the list exists).
+
+Remaining red by bucket: #1 async/Promise 169 · #2/#3 enumeration+string-equality 653 ·
+#4 delete+reinsert 46 · #5 performance.now 21 · #6 web crypto 18 · H coverage LinkError 2 ·
+K process.kill probe 4 · #7 dynamic import 32 · #8 short-circuit 13 · #10 array push 16
+(sum 974).
+
+**The plan's "drain dominated by #2/#3" expectation was falsified.** The 3 drained names are
+the #2/#3-listed `Deno.env` accept-lane tests (Task 4's env-equality lane). The rest of the
+#2/#3 bucket is multi-blocked: its fixture families fail on causes OUTSIDE equality — the
+`[]`+`.push` silent no-op (Stage 4; e.g. `browser_object_keys_harness` 41, `for_of_object_keys_iteration`
+54 — Task 7 spot-check confirmed the keys-harness fixtures throw `keys.length !== 2`, the push
+symptom, not a key-compare mismatch), `for_await`/async sequence wrappers (Stage 7), frozen/
+delete-reinsert staleness (Stage 2), and the quoted-key repr gap (F-Stage1-4). Stage 0's
+name-pattern bucketing attributed them to equality; the per-test root causes say otherwise.
+Stage 1's `__streq` lane is a NECESSARY prerequisite for those fixtures (their self-checks
+compare enumeration keys against literals after iterating) but not sufficient — they green
+only when their primary blockers lift in Stages 2/4/7. The stage's soundness value is carried
+by the 21-test `runtime_string_equality` suite, the 5 node-derived re-pins, and the closed
+silent handle-identity-equality miscompile class, not by denominator movement.
+
+Follow-ups opened: F-Stage1-1 (mixed `==` coercion, spec), F-Stage1-2 (env-vs-env equality),
+F-Stage1-3 (bound-alias env.get silent compare), F-Stage1-4 (quoted-key repr shape) — all in
+the Stage 1 triage doc.
+
+## Stage 2 drain (static object enumeration)
+
+Span: `f0d4bcf14..b60f5b707` (branch `soundness-batch1-pra`). Gate at checkpoint (round 2,
+authoritative): pre **974 → post 923**; newly-red vs the pre set: **EMPTY** (comm -13 = 0);
+drained **51**. Main worktree re-verified `b48a067d3` (0 failures) at stage start and checkpoint.
+
+Checkpoint honesty note: gate ROUND 1 (before commit b60f5b707) showed 25 newly-red names —
+three independent stage-introduced regressions (from commits e8822cee4, 36b7a86d7, 9f21efff5,
+bisected via worktree parents) that the per-task family gates never executed (their owning
+binaries were outside every task's targeted run set). All three were fixed at their choke
+points in b60f5b707 and round 2 is clean. Lesson recorded: per-task gates on named binaries
+are necessary but not sufficient; only the full enumeration is the gate.
+
+Drained (51), by family:
+- `browser_reflect_own_keys` 24 of 40: all 8 `build::` + all 16 `test::` lanes. The 16
+  `run::` lanes stay red on a PRE-EXISTING browser-runtime tail-replay defect (post-loop tail
+  replays 4×, `breakContinueCount` 0) — evidenced by a zero-selection-form reproducer that
+  traps identically on the pre-stage build; needs its own lane (follow-up in the Stage 2
+  triage doc).
+- `reflect_own_keys_js_input` 4 of 4 — family fully green (5/5 with the always-green check).
+- `runtime_smoke` direct-iteration 2 of 2 (#4 bucket complete except the browser-run lanes).
+- frozen `enumeration_spread_semantics` 8 (run+test, js/ts + browser-harness jsx/tsx).
+- `object_entries_semantics` 3, string-primitive browser enumeration 2 (self-check fixtures
+  green end-to-end).
+- `wrapped_object_enumeration` accepts 8 — bonus drain from the checkpoint-regression fix
+  (the enumeration fold now materializes `Object.fromEntries` operands and unwraps
+  `Object.freeze` callees in Fast mode).
+
+Bucket accounting: the #4 bucket (46) drained 30 (24+4+2); its 16 residuals are the
+tail-replay browser-run lanes above. The #4-adjacent frozen 44 drained 8 (spread-semantics);
+the rest remain multi-blocked on `[]`+`.push` (Stage 4) and the array-as-function-argument
+element-read gap (outside Stages 1–7 lanes so far, triage finding 3). The 13 remaining
+drains were #2/#3-bucket names unblocked as side effects (wrapped-enumeration accepts,
+entries semantics, string-primitive enumeration).
+
+Forecast vs actual: the triage forecast a floor of 4, core 46, ceiling 58–70. Actual 51 —
+above core because the regression-fix wave's fromEntries materialization greened fixtures
+the attribution had left in #2/#3, below ceiling because the browser-run tail-replay defect
+(unknown at triage time) holds 16 names and the frozen entries/values/has_own subsets remain
+push-blocked or argument-read-blocked as the attribution predicted.
+
+The stage's soundness value beyond denominator movement: the parser-swallowed `delete`
+(silent no-op class) is closed end-to-end; static enumeration reads (`length`/element/nested
+entries tuples) tell the truth at every optimization level; quoted keys and ES integer-first
+ordering are honest (F-Stage1-4 closed); `__proto__` fails closed at both repr and fold
+admission points; four previously-invisible stale-fold lanes (flat env, inline env,
+specialization env, release substitution) are all mutation-aware; out-of-lane `delete` is a
+hard E5506 at all levels.

@@ -13,6 +13,10 @@ pub struct Parser {
     pub(crate) jsx_mode: bool,
     pub(crate) in_generator_function: bool,
     pub(crate) in_async_function: bool,
+    /// True while parsing the expression form of a `for (` head, where a
+    /// trailing `in` belongs to the for-in statement and must terminate the
+    /// expression instead of being treated as (rejected) binary `in`.
+    pub(crate) no_in: bool,
 }
 
 impl Parser {
@@ -24,6 +28,7 @@ impl Parser {
             jsx_mode: false,
             in_generator_function: false,
             in_async_function: false,
+            no_in: false,
         }
     }
 

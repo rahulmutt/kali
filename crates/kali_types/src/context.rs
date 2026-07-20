@@ -44,13 +44,13 @@ pub struct TypeContext {
     /// Stack of enclosing function names; module scope is `_start`.
     pub(crate) current_function: Vec<String>,
     /// Stack of scope ids parallel to `current_function`: the `ScopeType::Function`
-    /// scope pushed alongside each named `FunctionDeclaration` entry. Lets
-    /// `current_function_scope` tell whether the scope chain at a given
-    /// resolution point ever crosses an UNTRACKED function-shaped scope (an
-    /// arrow function, function expression, class method, or
-    /// `export default function` — none of which push onto `current_function`,
-    /// see Task 3/4 follow-up) before reaching the scope that
-    /// `current_function_name()` actually names.
+    /// scope pushed alongside each entry — named `FunctionDeclaration`s, function
+    /// expressions, arrow functions, and class methods all push here (repr-tracked
+    /// as of Task 3). Lets `current_function_scope` tell whether the scope chain
+    /// at a given resolution point ever crosses the one remaining UNTRACKED
+    /// function-shaped scope — anonymous `export default function() {}` (its body
+    /// is not pushed, see `resolve_export_default`; deferred) — before reaching
+    /// the scope that `current_function_name()` actually names.
     pub(crate) current_function_scopes: Vec<NodeId>,
 }
 
@@ -101,8 +101,8 @@ impl TypeContext {
     /// at module scope). Consumed by the `E3200` gate's `operand_repr_is_string`
     /// (`resolve/expression.rs`) — see `current_function_scope` for the
     /// companion scope-id check that guards against misattributing a name to
-    /// this function when the scope chain actually crosses an untracked
-    /// (arrow/function-expression/class-method) function boundary first.
+    /// this function when the scope chain actually crosses the one remaining
+    /// untracked (anonymous `export default function`) boundary first.
     pub(crate) fn current_function_name(&self) -> &str {
         self.current_function
             .last()
@@ -111,13 +111,14 @@ impl TypeContext {
     }
 
     /// The `ScopeType::Function` scope id that corresponds EXACTLY to
-    /// `current_function_name()` — `None` at module scope (`_start`). Only
-    /// named `FunctionDeclaration`s push here (mirroring `current_function`);
-    /// an arrow function, function expression, class method, or
-    /// `export default function` scope is never this value, so comparing a
-    /// scope id encountered while walking the scope chain against this lets
-    /// callers detect "we are inside a function `current_function_name()`
-    /// does not actually name" and fail closed instead of guessing.
+    /// `current_function_name()` — `None` at module scope (`_start`). Named
+    /// `FunctionDeclaration`s, function expressions, arrow functions, and
+    /// class methods all push here (mirroring `current_function`); only an
+    /// anonymous `export default function` scope is never this value, so
+    /// comparing a scope id encountered while walking the scope chain against
+    /// this lets callers detect "we are inside a function
+    /// `current_function_name()` does not actually name" and fail closed
+    /// instead of guessing.
     pub(crate) fn current_function_scope(&self) -> Option<NodeId> {
         self.current_function_scopes.last().copied()
     }
@@ -256,6 +257,28 @@ impl TypeContext {
         self.global_scope.lookup(name).copied()
     }
 
+    /// True when `name` resolves to a USER binding — one declared in the active
+    /// scope chain (module/function/block/param/catch/for-of), i.e. found in
+    /// `scope_stack` BEFORE the fall-through to `global_scope`. Builtins live
+    /// ONLY in `global_scope` (bound at construction, never on `scope_stack`),
+    /// so a name found on the stack is a user declaration that SHADOWS any
+    /// same-named builtin. Used by the anonymous-callback gate (I-2) to decide
+    /// whether a builtin-named callee is the genuine builtin (exempt) or a user
+    /// shadow (must take the generic user-call treatment).
+    pub(crate) fn resolves_to_user_binding(&self, name: &str) -> bool {
+        let mut current = self.scope_stack.last().copied();
+        while let Some(scope_id) = current {
+            let Some(scope) = self.scopes.get(&scope_id) else {
+                return false;
+            };
+            if scope.contains(name) {
+                return true;
+            }
+            current = scope.parent;
+        }
+        false
+    }
+
     pub(crate) fn next_binding_id(&mut self) -> NodeId {
         let id = NodeId::new(self.next_binding_id);
         self.next_binding_id = self
@@ -273,8 +296,38 @@ impl TypeContext {
         self.scopes.get_mut(&scope_id)
     }
 
+    /// Reject-don't-miscompile: a USER binding named `Array` (const/let/var,
+    /// function/class name, parameter, catch/for-of variable, import, ...)
+    /// shadows the built-in `Array`, but the parser's scope-blind
+    /// `Array(a, b, …)` / `new Array(…)` array desugar (and codegen's bare-
+    /// `Array(n)` allocation lane) assume the GLOBAL `Array`. A shadow would
+    /// otherwise silently miscompile the user's `Array(...)` calls (node runs
+    /// the user binding; this branch would produce an array literal /
+    /// allocation). Every USER binding form funnels through `bind_current_scope`
+    /// or `bind_in_scope`, so both call this and fail closed with a clean
+    /// diagnostic. The built-in `Array` itself is registered via `bind_builtin`
+    /// (NOT these paths), so this never fires on compiler setup.
+    /// (Whole-branch review finding I1.) Returns `true` when it rejected.
+    fn reject_builtin_array_shadow(&mut self, name: &str) -> bool {
+        if name != "Array" {
+            return false;
+        }
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "shadowing the built-in `Array` is unavailable in the current \
+             phase: a user binding named `Array` would collide with the \
+             scope-blind `Array(...)` / `new Array(...)` array desugar and \
+             could miscompile; rename the binding"
+                .to_string(),
+        ));
+        true
+    }
+
     pub(crate) fn bind_current_scope(&mut self, name: impl Into<String>) {
         let name = name.into();
+        if self.reject_builtin_array_shadow(&name) {
+            return;
+        }
         let binding_id = self.next_binding_id();
         match self.current_scope_id() {
             Some(scope_id) => {
@@ -297,6 +350,9 @@ impl TypeContext {
 
     pub(crate) fn bind_in_scope(&mut self, scope_id: NodeId, name: impl Into<String>) {
         let name = name.into();
+        if self.reject_builtin_array_shadow(&name) {
+            return;
+        }
         let binding_id = self.next_binding_id();
         let scope = self.scope_mut(scope_id).expect("scope exists");
         if scope.contains(&name) {

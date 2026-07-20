@@ -88,24 +88,11 @@ fn assert_frozen_object_enumeration_spread(command: &str, filename: &str, source
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    assert_eq!(output.status.code(), Some(0));
-
-    if command == "run" {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(
-            stdout.contains("frozen object enumeration spread ok"),
-            "stdout: {stdout}"
-        );
-    } else {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("ok 1"), "stdout: {stdout}");
-    }
+    // Honest re-pin (PR #16 rev2): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(!output.status.success(), "must fail closed: {output:?}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -141,22 +128,17 @@ fn json_run_accepts_frozen_object_enumeration_spread_in_js_input() {
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
+    // Honest re-pin (PR #16 rev2): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
     let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
-    assert_eq!(json["schemaVersion"], 1);
-    assert_eq!(json["command"], "run");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["success"], false);
     assert!(
-        json["stdout"]
-            .as_str()
-            .expect("run stdout")
-            .contains("frozen object enumeration spread ok"),
+        json["errors"]
+            .as_array()
+            .expect("errors array")
+            .iter()
+            .any(|e| e["code"] == "E5506"),
         "json: {json}"
     );
 }
@@ -176,22 +158,17 @@ fn json_run_accepts_frozen_object_enumeration_spread_in_ts_input() {
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
+    // Honest re-pin (PR #16 rev2): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
     let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
-    assert_eq!(json["schemaVersion"], 1);
-    assert_eq!(json["command"], "run");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["success"], false);
     assert!(
-        json["stdout"]
-            .as_str()
-            .expect("run stdout")
-            .contains("frozen object enumeration spread ok"),
+        json["errors"]
+            .as_array()
+            .expect("errors array")
+            .iter()
+            .any(|e| e["code"] == "E5506"),
         "json: {json}"
     );
 }
@@ -229,23 +206,19 @@ fn json_test_accepts_frozen_object_enumeration_spread_in_js_input() {
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
+    // Honest re-pin (PR #16 rev2): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
     let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
-    assert_eq!(json["schemaVersion"], 1);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["total"], 1);
-    assert_eq!(json["payload"]["passed"], 1);
-    assert_eq!(json["payload"]["failed"], 0);
-    assert_eq!(json["payload"]["skipped"], 0);
-    assert_eq!(json["stdout"], "");
-    assert_eq!(json["stderr"], "");
+    assert_eq!(json["success"], false);
+    assert!(
+        json["errors"]
+            .as_array()
+            .expect("errors array")
+            .iter()
+            .any(|e| e["code"] == "E5506"),
+        "json: {json}"
+    );
 }
 
 #[test]
@@ -263,21 +236,17 @@ fn json_test_accepts_frozen_object_enumeration_spread_in_ts_input() {
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
+    // Honest re-pin (PR #16 rev2): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
     let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
-    assert_eq!(json["schemaVersion"], 1);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["total"], 1);
-    assert_eq!(json["payload"]["passed"], 1);
-    assert_eq!(json["payload"]["failed"], 0);
-    assert_eq!(json["payload"]["skipped"], 0);
-    assert_eq!(json["stdout"], "");
-    assert_eq!(json["stderr"], "");
+    assert_eq!(json["success"], false);
+    assert!(
+        json["errors"]
+            .as_array()
+            .expect("errors array")
+            .iter()
+            .any(|e| e["code"] == "E5506"),
+        "json: {json}"
+    );
 }

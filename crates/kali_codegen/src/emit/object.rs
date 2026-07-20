@@ -55,6 +55,30 @@ impl<'a> FunctionEmitter<'a> {
         None
     }
 
+    /// True when `id` is a `base.field` read whose base carries a known shape
+    /// and whose `field` is a `GrowableArrayI64` slot — i.e. the loaded i64 is
+    /// an ARRAY_HANDLE_TAG handle, not a scalar. Lets the growable-array
+    /// dispatch (push/join/length/index/for-of) accept a field-read receiver,
+    /// not only a named binding. Any other field shape returns false (fail
+    /// closed at the dispatch site).
+    pub(crate) fn object_field_is_growable_array(&self, id: LirNodeId) -> bool {
+        let id = self.unwrap_transparent(id);
+        let node = self.node(id);
+        if node.kind != LirNodeKind::Value || node.children.len() != 1 {
+            return false;
+        }
+        let Some(field) = node.text.as_deref().filter(|t| !t.is_empty()) else {
+            return false;
+        };
+        let Some(shape) = self.object_shape_of_node(node.children[0]) else {
+            return false;
+        };
+        matches!(
+            self.repr_table.shape_field(shape, field),
+            Some((_, kali_common::Repr::GrowableArrayI64))
+        )
+    }
+
     /// Bump-allocate a fixed-layout object for `literal` (an object-literal
     /// LIR node) with layout `shape`, leaving the i64 base pointer on the
     /// stack. Field values are emitted in shape order via the literal's own
@@ -86,14 +110,27 @@ impl<'a> FunctionEmitter<'a> {
                 ));
                 continue;
             };
-            function.instruction(&Instruction::LocalGet(scratch));
-            function.instruction(&Instruction::I32WrapI64);
-            let produced = self.emit_node(function, value_id, true);
             let mem = MemArg {
                 offset: (index * 8) as u64,
                 align: 3,
                 memory_index: 0,
             };
+            // Growable-i64 array field (Stage P2 Lane 1): the slot must hold a
+            // TAGGED growable handle (header-indirected), not an inline array —
+            // so a later `o.values.push(v)` / `.join` / `.length` / index /
+            // `for..of` (Task 5 dispatch) reads a real growable array. Allocate
+            // + seed a growable array here (the object-field twin of the growable
+            // BINDING declarator lane in control_flow.rs) and store the handle.
+            if matches!(repr, kali_common::Repr::GrowableArrayI64) {
+                function.instruction(&Instruction::LocalGet(scratch));
+                function.instruction(&Instruction::I32WrapI64);
+                self.emit_growable_field_value(function, value_id);
+                function.instruction(&Instruction::I64Store(mem));
+                continue;
+            }
+            function.instruction(&Instruction::LocalGet(scratch));
+            function.instruction(&Instruction::I32WrapI64);
+            let produced = self.emit_node(function, value_id, true);
             match repr {
                 kali_common::Repr::F64 => {
                     if !produced.produced {

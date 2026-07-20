@@ -76,6 +76,149 @@ impl TypeContext {
         }
     }
 
+    /// throw-fallout Stage 3 bucket #5: admit `performance.now()` (no args) and
+    /// reject unsupported argument shapes with `FEATURE_UNAVAILABLE`, symmetric
+    /// with the codegen recognizer (`FunctionEmitter::performance_now_import_index`
+    /// and its `emit_call` arm). `performance` is already a baseline browser host
+    /// global (see `builtins.rs`), so the callee resolves; this arm only guards
+    /// the argument shape.
+    pub(crate) fn resolve_performance_now_call(&mut self, expr: &CallExpression) {
+        let Some(callee_name) = self.resolve_static_callable_name(&expr.callee) else {
+            return;
+        };
+
+        if !matches!(
+            callee_name.as_str(),
+            "performance.now" | "globalThis.performance.now"
+        ) {
+            return;
+        }
+
+        if !expr.args.is_empty() {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "performance.now() does not accept arguments in the current phase".to_string(),
+            ));
+        }
+    }
+
+    /// throw-fallout Stage 3 bucket #6: admit `crypto.getRandomValues(<buffer>)`
+    /// (exactly one argument), `crypto.randomUUID()` (no arguments),
+    /// `crypto.subtle.digest(<string>, <buffer>)`, and
+    /// `new TextEncoder().encode(<string>)`, rejecting the unsupported
+    /// argument/algorithm shapes with `FEATURE_UNAVAILABLE`. Symmetric with the
+    /// codegen recognizers (`crypto_get_random_values_import_index` /
+    /// `crypto_random_uuid_import_index` / `crypto_subtle_digest_import_index` /
+    /// `is_text_encoder_encode` and their `emit_call` arms). `crypto` /
+    /// `TextEncoder` are baseline host globals (see `builtins.rs`), so the callee
+    /// resolves; this arm only guards the argument shape.
+    pub(crate) fn resolve_crypto_call(&mut self, expr: &CallExpression) {
+        // `crypto.subtle.digest(algo, bytes)` and `new TextEncoder().encode(str)`
+        // are recognized STRUCTURALLY (their callee objects — a `crypto.subtle`
+        // member chain and a `new TextEncoder()` construction — are not static
+        // references `resolve_static_callable_name` names). Codegen accepts a
+        // string algorithm/argument and a string-backed byte buffer; reject
+        // everything else symmetrically.
+        if let Expression::MemberExpression(member) = &expr.callee {
+            if member.computed_index.is_none() {
+                match member.property.as_str() {
+                    "digest" if Self::is_crypto_subtle_object(&member.object) => {
+                        // Mirror codegen's `crypto_subtle_digest` arm EXACTLY: it
+                        // recognizes-and-lowers any structural `crypto.subtle.digest`
+                        // and rejects ONLY on arity (missing / extra arguments), never
+                        // on operand string-ness. A previous string-typed gate here
+                        // HARD-REJECTED (E5506) well-formed-but-not-statically-string
+                        // shapes — e.g. `crypto.subtle.digest('SHA-256', encode(f(x)))`
+                        // where the input flows from an imported/runtime call — which
+                        // codegen tolerantly lowers and which the pre-recognizer phase
+                        // compiled as an unrecognized placeholder that checked, built,
+                        // and deployed. Those unsupported-but-well-formed shapes now
+                        // fall through here (no E5506) so deployability is preserved;
+                        // only an arity mismatch (which codegen ALSO rejects) errors.
+                        if expr.args.len() != 2 {
+                            self.diagnostics.push(Diagnostic::error(
+                                e5::FEATURE_UNAVAILABLE as u32,
+                                "crypto.subtle.digest requires exactly a string algorithm name and an input buffer in the current phase"
+                                    .to_string(),
+                            ));
+                        }
+                        return;
+                    }
+                    "encode" if Self::is_new_text_encoder(&member.object) => {
+                        // Mirror codegen's `is_text_encoder_encode` arm EXACTLY: it
+                        // reinterprets any structural `new TextEncoder().encode(x)` and
+                        // rejects ONLY on arity (missing / extra arguments), never on
+                        // operand string-ness. See the `digest` arm above — the prior
+                        // string-typed gate over-rejected runtime/imported-call inputs
+                        // (`encode(describe(count))`) that codegen tolerantly lowers and
+                        // that previously deployed as a placeholder. Fall through for
+                        // those; error only on an arity mismatch codegen also rejects.
+                        if expr.args.len() != 1 {
+                            self.diagnostics.push(Diagnostic::error(
+                                e5::FEATURE_UNAVAILABLE as u32,
+                                "TextEncoder().encode requires exactly a single argument in the current phase"
+                                    .to_string(),
+                            ));
+                        }
+                        return;
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        let Some(callee_name) = self.resolve_static_callable_name(&expr.callee) else {
+            return;
+        };
+
+        match callee_name.as_str() {
+            "crypto.getRandomValues" | "globalThis.crypto.getRandomValues"
+                if expr.args.is_empty() =>
+            {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "crypto.getRandomValues requires a typed-array buffer argument in the current phase"
+                        .to_string(),
+                ));
+            }
+            "crypto.randomUUID" | "globalThis.crypto.randomUUID" if !expr.args.is_empty() => {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "crypto.randomUUID() does not accept arguments in the current phase"
+                        .to_string(),
+                ));
+            }
+            _ => {}
+        }
+    }
+
+    /// True when `expr` is the `crypto.subtle` object (member `subtle` off the
+    /// `crypto` identifier). Structural mirror of `repr_infer::is_crypto_subtle_object`.
+    fn is_crypto_subtle_object(expr: &Expression) -> bool {
+        matches!(
+            expr,
+            Expression::MemberExpression(member)
+                if member.computed_index.is_none()
+                    && member.property.as_str() == "subtle"
+                    && matches!(&member.object, Expression::Identifier(name) if name == "crypto")
+        )
+    }
+
+    /// True when `expr` invokes the `TextEncoder` constructor — `new TextEncoder()`
+    /// or the bare `TextEncoder()` call the parser leaves as the `.encode` object
+    /// when it hoists the `new`. Structural mirror of `repr_infer::is_text_encoder_ctor`.
+    fn is_new_text_encoder(expr: &Expression) -> bool {
+        match expr {
+            Expression::NewExpression(new_expr) => {
+                matches!(&new_expr.callee, Expression::Identifier(name) if name == "TextEncoder")
+            }
+            Expression::CallExpression(call) => {
+                matches!(&call.callee, Expression::Identifier(name) if name == "TextEncoder")
+            }
+            _ => false,
+        }
+    }
+
     pub(crate) fn resolve_permissions_query_descriptor_name(
         &self,
         expr: &Expression,

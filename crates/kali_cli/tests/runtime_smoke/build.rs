@@ -693,22 +693,22 @@ fn build_emits_browser_bundle_object_property_deletion_semantics_in_ts_input() {
         .output()
         .expect("run kali");
 
+    // Re-pinned (throw-fallout Stage 2 Lane C): `delete obj.a` here is used
+    // in expression position (`!== true`), not a straight-line top-level
+    // statement, so it is outside the optimizer's static shape timeline
+    // and now reaches codegen's default-deny fallback — the bundle BUILD
+    // must fail closed with E5506, not silently succeed with a stale
+    // no-op. Previously (pre-Lane-C) `delete` here was just an E8001
+    // warning + no-op, so the build succeeded; that was the very hole
+    // this lane closes. `in`/`instanceof` elsewhere in this fixture are
+    // still evaluation-time traps, unaffected by this change.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "bundle build must fail closed: {output:?}"
     );
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    assert_browser_bundle_executes(&bundle_dir, "objectPropertyDeletionSmoke");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(stderr.contains("delete"), "stderr: {stderr}");
 }
 
 #[test]
@@ -732,22 +732,17 @@ fn build_emits_browser_bundle_object_property_deletion_semantics_in_js_input() {
         .output()
         .expect("run kali");
 
+    // Re-pinned (throw-fallout Stage 2 Lane C): see the `_in_ts_input`
+    // sibling above — `delete obj.a` here is expression-position, outside
+    // the static shape timeline, and now hits codegen's default-deny
+    // fallback, so the bundle BUILD must fail closed with E5506.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "bundle build must fail closed: {output:?}"
     );
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    assert_browser_bundle_executes(&bundle_dir, "objectPropertyDeletionSmoke");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(stderr.contains("delete"), "stderr: {stderr}");
 }
 
 #[test]
@@ -771,22 +766,16 @@ fn build_emits_browser_bundle_object_type_and_constructor_semantics_in_ts_input(
         .output()
         .expect("run kali");
 
+    // Flipped pin (evaluation-trap layering): in/instanceof are runtime
+    // traps, not compile rejects, so the bundle BUILD must succeed —
+    // analysis and builds of code containing them stay usable (the browser
+    // package corpus pins this). Executing the smoke entrypoint traps
+    // fail-closed; that behavior is pinned by soundness_in_operator.rs and
+    // the run/test variants of this family.
     assert!(
         output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        "bundle build must succeed: {output:?}"
     );
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    assert_browser_bundle_executes(&bundle_dir, "objectTypeSmoke");
 }
 
 #[test]
@@ -810,22 +799,16 @@ fn build_emits_browser_bundle_object_type_and_constructor_semantics_in_js_input(
         .output()
         .expect("run kali");
 
+    // Flipped pin (evaluation-trap layering): in/instanceof are runtime
+    // traps, not compile rejects, so the bundle BUILD must succeed —
+    // analysis and builds of code containing them stay usable (the browser
+    // package corpus pins this). Executing the smoke entrypoint traps
+    // fail-closed; that behavior is pinned by soundness_in_operator.rs and
+    // the run/test variants of this family.
     assert!(
         output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        "bundle build must succeed: {output:?}"
     );
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    assert_browser_bundle_executes(&bundle_dir, "objectTypeSmoke");
 }
 
 #[test]
@@ -851,81 +834,18 @@ fn build_emits_browser_bundle_object_type_and_constructor_semantics_in_json_outp
         .output()
         .expect("run kali");
 
+    // Flipped pin (evaluation-trap layering): in/instanceof are runtime
+    // traps, not compile rejects, so the bundle BUILD must succeed —
+    // analysis and builds of code containing them stay usable (the browser
+    // package corpus pins this). Executing the smoke entrypoint traps
+    // fail-closed; that behavior is pinned by soundness_in_operator.rs and
+    // the run/test variants of this family.
     assert!(
         output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        "bundle build must succeed: {output:?}"
     );
-
-    let envelope = parse_json_stdout(&output);
-    assert_eq!(envelope["schemaVersion"], 1);
-    assert_eq!(envelope["command"], "build");
-    assert_eq!(envelope["success"], true);
-    assert_eq!(envelope["exitCode"], 0);
-    let payload = envelope["payload"]
-        .as_object()
-        .expect("build payload object");
-    assert_eq!(payload["artifactKind"], "bundle");
-    assert_eq!(payload["bundleFormat"], "esm");
-    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
-    let kinds: Vec<_> = artifacts
-        .iter()
-        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
-        .collect();
-    assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    let bundle_dir_name = bundle_dir
-        .file_name()
-        .and_then(|name| name.to_str())
-        .expect("bundle directory name");
-    let harness_path = bundle_dir
-        .parent()
-        .expect("bundle root parent")
-        .join("browser-bundle-object-type-smoke.mjs");
-    let harness = kali_runtime::browser_bundle_harness_script(
-        bundle_dir_name,
-        false,
-        r#"const mod = await import(bundleJs.href);
-const result = await mod.objectTypeSmoke();
-if (result !== 0n) {
-  throw new Error(`unexpected result ${result}`);
-}
-console.log(String(result));
-"#,
-    );
-    fs::write(&harness_path, harness).expect("write browser bundle harness");
-
-    let mut harness_command = browser_bundle_harness_command_parts();
-    let harness_executable = harness_command.remove(0);
-    let output = Command::new(&harness_executable)
-        .current_dir(&bundle_dir)
-        .args(&harness_command)
-        .arg(&harness_path)
-        .output()
-        .expect("run browser bundle harness");
-
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stdout.contains("0"), "stdout: {stdout}");
-    assert!(stderr.is_empty(), "stderr: {stderr}");
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["success"], true);
 }
 
 #[test]
@@ -3667,7 +3587,7 @@ fn build_emits_browser_bundle_crypto_web_apis() {
     let source_path = dir.path().join("app.ts");
     fs::write(
         &source_path,
-        "// kali-tree-shake: digestSmoke\nasync function digestSmoke(left, right) {\n  const bytes = new TextEncoder().encode(`browser crypto ${String(left + right)}`);\n  const randomBytes = new globalThis[\"Uint8Array\"](8);\n  const filledBytes = crypto.getRandomValues(randomBytes);\n  if (filledBytes !== randomBytes) {\n    throw new Error('crypto.getRandomValues should return the provided buffer');\n  }\n  if (filledBytes.length !== 8 || filledBytes.byteLength !== 8) {\n    throw new Error(`unexpected random buffer length ${filledBytes.length}/${filledBytes.byteLength}`);\n  }\n  const digest = await crypto.subtle.digest('SHA-512', bytes);\n  const uuid = crypto.randomUUID();\n  if (digest.byteLength !== 64) {\n    throw new Error(`unexpected digest length ${digest.byteLength}`);\n  }\n  if (typeof uuid !== 'string' || uuid.length === 0) {\n    throw new Error(`unexpected uuid ${uuid}`);\n  }\n  return left - left;\n}\n",
+        "// kali-tree-shake: digestSmoke\nasync function digestSmoke(left, right) {\n  const bytes = new TextEncoder().encode(`browser crypto ${String(left + right)}`);\n  if (bytes.byteLength !== 16) {\n    throw new Error(`unexpected encoded length ${bytes.byteLength}`);\n  }\n  const randomBytes = new globalThis[\"Uint8Array\"](8);\n  const filledBytes = crypto.getRandomValues(randomBytes);\n  if (filledBytes !== randomBytes) {\n    throw new Error('crypto.getRandomValues should return the provided buffer');\n  }\n  if (filledBytes.length !== 8 || filledBytes.byteLength !== 8) {\n    throw new Error(`unexpected random buffer length ${filledBytes.length}/${filledBytes.byteLength}`);\n  }\n  const digest = await crypto.subtle.digest('SHA-512', bytes);\n  const uuid = crypto.randomUUID();\n  if (digest.byteLength !== 64) {\n    throw new Error(`unexpected digest length ${digest.byteLength}`);\n  }\n  if (typeof uuid !== 'string' || uuid.length === 0) {\n    throw new Error(`unexpected uuid ${uuid}`);\n  }\n  return left - left;\n}\n",
     )
     .expect("write source");
 
@@ -3681,22 +3601,9 @@ fn build_emits_browser_bundle_crypto_web_apis() {
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    assert_browser_bundle_executes(&bundle_dir, "digestSmoke");
+    // Honest re-pin (PR #16 rev2, family `crypto`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
@@ -3705,7 +3612,7 @@ fn build_emits_browser_bundle_crypto_web_apis_in_js_input() {
     let source_path = dir.path().join("app.js");
     fs::write(
         &source_path,
-        "// kali-tree-shake: digestSmoke\nasync function digestSmoke(left, right) {\n  const bytes = new TextEncoder().encode(`browser crypto ${String(left + right)}`);\n  const randomBytes = new globalThis[\"Uint8Array\"](8);\n  const filledBytes = crypto.getRandomValues(randomBytes);\n  if (filledBytes !== randomBytes) {\n    throw new Error('crypto.getRandomValues should return the provided buffer');\n  }\n  if (filledBytes.length !== 8 || filledBytes.byteLength !== 8) {\n    throw new Error(`unexpected random buffer length ${filledBytes.length}/${filledBytes.byteLength}`);\n  }\n  const digest = await crypto.subtle.digest('SHA-512', bytes);\n  const uuid = crypto.randomUUID();\n  if (digest.byteLength !== 64) {\n    throw new Error(`unexpected digest length ${digest.byteLength}`);\n  }\n  if (typeof uuid !== 'string' || uuid.length === 0) {\n    throw new Error(`unexpected uuid ${uuid}`);\n  }\n  return left - left;\n}\n",
+        "// kali-tree-shake: digestSmoke\nasync function digestSmoke(left, right) {\n  const bytes = new TextEncoder().encode(`browser crypto ${String(left + right)}`);\n  if (bytes.byteLength !== 16) {\n    throw new Error(`unexpected encoded length ${bytes.byteLength}`);\n  }\n  const randomBytes = new globalThis[\"Uint8Array\"](8);\n  const filledBytes = crypto.getRandomValues(randomBytes);\n  if (filledBytes !== randomBytes) {\n    throw new Error('crypto.getRandomValues should return the provided buffer');\n  }\n  if (filledBytes.length !== 8 || filledBytes.byteLength !== 8) {\n    throw new Error(`unexpected random buffer length ${filledBytes.length}/${filledBytes.byteLength}`);\n  }\n  const digest = await crypto.subtle.digest('SHA-512', bytes);\n  const uuid = crypto.randomUUID();\n  if (digest.byteLength !== 64) {\n    throw new Error(`unexpected digest length ${digest.byteLength}`);\n  }\n  if (typeof uuid !== 'string' || uuid.length === 0) {\n    throw new Error(`unexpected uuid ${uuid}`);\n  }\n  return left - left;\n}\n",
     )
     .expect("write source");
 
@@ -3719,22 +3626,9 @@ fn build_emits_browser_bundle_crypto_web_apis_in_js_input() {
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    assert_browser_bundle_executes(&bundle_dir, "digestSmoke");
+    // Honest re-pin (PR #16 rev2, family `crypto`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
@@ -3743,7 +3637,7 @@ fn json_build_emits_browser_bundle_crypto_web_apis_in_ts_input() {
     let source_path = dir.path().join("app.ts");
     fs::write(
         &source_path,
-        "// kali-tree-shake: digestSmoke\nasync function digestSmoke(left, right) {\n  const bytes = new TextEncoder().encode(`browser crypto ${String(left + right)}`);\n  const randomBytes = new globalThis[\"Uint8Array\"](8);\n  const filledBytes = crypto.getRandomValues(randomBytes);\n  if (filledBytes !== randomBytes) {\n    throw new Error('crypto.getRandomValues should return the provided buffer');\n  }\n  if (filledBytes.length !== 8 || filledBytes.byteLength !== 8) {\n    throw new Error(`unexpected random buffer length ${filledBytes.length}/${filledBytes.byteLength}`);\n  }\n  const digest = await crypto.subtle.digest('SHA-512', bytes);\n  const uuid = crypto.randomUUID();\n  if (digest.byteLength !== 64) {\n    throw new Error(`unexpected digest length ${digest.byteLength}`);\n  }\n  if (typeof uuid !== 'string' || uuid.length === 0) {\n    throw new Error(`unexpected uuid ${uuid}`);\n  }\n  return left - left;\n}\n",
+        "// kali-tree-shake: digestSmoke\nasync function digestSmoke(left, right) {\n  const bytes = new TextEncoder().encode(`browser crypto ${String(left + right)}`);\n  if (bytes.byteLength !== 16) {\n    throw new Error(`unexpected encoded length ${bytes.byteLength}`);\n  }\n  const randomBytes = new globalThis[\"Uint8Array\"](8);\n  const filledBytes = crypto.getRandomValues(randomBytes);\n  if (filledBytes !== randomBytes) {\n    throw new Error('crypto.getRandomValues should return the provided buffer');\n  }\n  if (filledBytes.length !== 8 || filledBytes.byteLength !== 8) {\n    throw new Error(`unexpected random buffer length ${filledBytes.length}/${filledBytes.byteLength}`);\n  }\n  const digest = await crypto.subtle.digest('SHA-512', bytes);\n  const uuid = crypto.randomUUID();\n  if (digest.byteLength !== 64) {\n    throw new Error(`unexpected digest length ${digest.byteLength}`);\n  }\n  if (typeof uuid !== 'string' || uuid.length === 0) {\n    throw new Error(`unexpected uuid ${uuid}`);\n  }\n  return left - left;\n}\n",
     )
     .expect("write source");
 
@@ -3759,41 +3653,12 @@ fn json_build_emits_browser_bundle_crypto_web_apis_in_ts_input() {
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    let envelope = parse_json_stdout(&output);
-    assert_eq!(envelope["schemaVersion"], 1);
-    assert_eq!(envelope["command"], "build");
-    assert_eq!(envelope["exitCode"], 0);
-    let payload = envelope["payload"]
-        .as_object()
-        .expect("build payload object");
-    assert_eq!(payload["artifactKind"], "bundle");
-    assert_eq!(payload["bundleFormat"], "esm");
-    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
-    let kinds: Vec<_> = artifacts
-        .iter()
-        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
-        .collect();
-    assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    assert_browser_bundle_executes(&bundle_dir, "digestSmoke");
+    // Honest re-pin (PR #16 rev2, family `crypto`): kali fails closed/loud here
+    // (worklist tagged both this file's json_ crypto members class B, but direct
+    // verification shows each panics on this exact assertion — a loud E5506
+    // rejection of the `String(...)` call, not a silent wrong value; re-pinned as
+    // class A — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
@@ -3802,7 +3667,7 @@ fn json_build_emits_browser_bundle_crypto_web_apis_in_js_input() {
     let source_path = dir.path().join("app.js");
     fs::write(
         &source_path,
-        "// kali-tree-shake: digestSmoke\nasync function digestSmoke(left, right) {\n  const bytes = new TextEncoder().encode(`browser crypto ${String(left + right)}`);\n  const randomBytes = new globalThis[\"Uint8Array\"](8);\n  const filledBytes = crypto.getRandomValues(randomBytes);\n  if (filledBytes !== randomBytes) {\n    throw new Error('crypto.getRandomValues should return the provided buffer');\n  }\n  if (filledBytes.length !== 8 || filledBytes.byteLength !== 8) {\n    throw new Error(`unexpected random buffer length ${filledBytes.length}/${filledBytes.byteLength}`);\n  }\n  const digest = await crypto.subtle.digest('SHA-512', bytes);\n  const uuid = crypto.randomUUID();\n  if (digest.byteLength !== 64) {\n    throw new Error(`unexpected digest length ${digest.byteLength}`);\n  }\n  if (typeof uuid !== 'string' || uuid.length === 0) {\n    throw new Error(`unexpected uuid ${uuid}`);\n  }\n  return left - left;\n}\n",
+        "// kali-tree-shake: digestSmoke\nasync function digestSmoke(left, right) {\n  const bytes = new TextEncoder().encode(`browser crypto ${String(left + right)}`);\n  if (bytes.byteLength !== 16) {\n    throw new Error(`unexpected encoded length ${bytes.byteLength}`);\n  }\n  const randomBytes = new globalThis[\"Uint8Array\"](8);\n  const filledBytes = crypto.getRandomValues(randomBytes);\n  if (filledBytes !== randomBytes) {\n    throw new Error('crypto.getRandomValues should return the provided buffer');\n  }\n  if (filledBytes.length !== 8 || filledBytes.byteLength !== 8) {\n    throw new Error(`unexpected random buffer length ${filledBytes.length}/${filledBytes.byteLength}`);\n  }\n  const digest = await crypto.subtle.digest('SHA-512', bytes);\n  const uuid = crypto.randomUUID();\n  if (digest.byteLength !== 64) {\n    throw new Error(`unexpected digest length ${digest.byteLength}`);\n  }\n  if (typeof uuid !== 'string' || uuid.length === 0) {\n    throw new Error(`unexpected uuid ${uuid}`);\n  }\n  return left - left;\n}\n",
     )
     .expect("write source");
 
@@ -3818,43 +3683,23 @@ fn json_build_emits_browser_bundle_crypto_web_apis_in_js_input() {
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    let envelope = parse_json_stdout(&output);
-    assert_eq!(envelope["schemaVersion"], 1);
-    assert_eq!(envelope["command"], "build");
-    assert_eq!(envelope["exitCode"], 0);
-    let payload = envelope["payload"]
-        .as_object()
-        .expect("build payload object");
-    assert_eq!(payload["artifactKind"], "bundle");
-    assert_eq!(payload["bundleFormat"], "esm");
-    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
-    let kinds: Vec<_> = artifacts
-        .iter()
-        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
-        .collect();
-    assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    assert_browser_bundle_executes(&bundle_dir, "digestSmoke");
+    // Honest re-pin (PR #16 rev2, family `crypto`): kali fails closed/loud here
+    // (worklist tagged both this file's json_ crypto members class B, but direct
+    // verification shows each panics on this exact assertion — a loud E5506
+    // rejection of the `String(...)` call, not a silent wrong value; re-pinned as
+    // class A — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
+// Task A2b fail-closed flip (all four web-baseline bundle tests below):
+// `browser_bundle_web_baseline_source()` calls `String(...)` and
+// `JSON.stringify(...)`, now in the terminal deny-set. Pre-A2b those silently
+// lowered to 0 so the bundle build succeeded (fake-green on a String()->0
+// placeholder); kali now fails the build closed (E5506). node: they are real
+// coercions kali has no lowering for. The other web-platform surfaces in the
+// same fixture (structuredClone/AbortController/URLSearchParams/URL/
+// TextEncoder) correctly keep the warn+0 escape hatch (proven by the E3100
+// URLSearchParams warning that precedes the E5506).
 #[test]
 fn build_emits_browser_bundle_web_baseline_primitives() {
     let dir = tempdir().expect("tempdir");
@@ -3872,21 +3717,14 @@ fn build_emits_browser_bundle_web_baseline_primitives() {
         .expect("run kali");
 
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "expected fail-closed on String/JSON.stringify: {output:?}"
     );
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    assert_browser_bundle_executes(&bundle_dir, "webBaselineSmoke");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("E5506") && stderr.contains("String"),
+        "expected E5506 for 'String', got stderr: {stderr}"
+    );
 }
 
 #[test]
@@ -3906,21 +3744,14 @@ fn build_emits_browser_bundle_web_baseline_primitives_in_js_input() {
         .expect("run kali");
 
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "expected fail-closed on String/JSON.stringify: {output:?}"
     );
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    assert_browser_bundle_executes(&bundle_dir, "webBaselineSmoke");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("E5506") && stderr.contains("String"),
+        "expected E5506 for 'String', got stderr: {stderr}"
+    );
 }
 
 #[test]
@@ -3942,40 +3773,16 @@ fn json_build_emits_browser_bundle_web_baseline_primitives() {
         .expect("run kali");
 
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "expected fail-closed on String/JSON.stringify: {output:?}"
     );
-
-    let envelope = parse_json_stdout(&output);
-    assert_eq!(envelope["schemaVersion"], 1);
-    assert_eq!(envelope["command"], "build");
-    assert_eq!(envelope["exitCode"], 0);
-    let payload = envelope["payload"]
-        .as_object()
-        .expect("build payload object");
-    assert_eq!(payload["artifactKind"], "bundle");
-    assert_eq!(payload["bundleFormat"], "esm");
-    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
-    let kinds: Vec<_> = artifacts
-        .iter()
-        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
-        .collect();
-    assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    assert_browser_bundle_executes(&bundle_dir, "webBaselineSmoke");
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["success"], false);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("E5506") && stdout.contains("String"),
+        "expected E5506 for 'String' in json errors, got: {stdout}"
+    );
 }
 
 #[test]
@@ -3997,30 +3804,47 @@ fn json_build_emits_browser_bundle_web_baseline_primitives_in_js_input() {
         .expect("run kali");
 
     assert!(
+        !output.status.success(),
+        "expected fail-closed on String/JSON.stringify: {output:?}"
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["success"], false);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("E5506") && stdout.contains("String"),
+        "expected E5506 for 'String' in json errors, got: {stdout}"
+    );
+}
+
+/// Stage D event lane, browser glue end-to-end: the bundle's JS import list
+/// registers and synchronously dispatches through kaliEventListeners.
+/// node v26.5.0 (same source, plain node): "before=0\nafter=1\n".
+#[test]
+fn browser_bundle_event_lane_executes() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.ts");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: eventLaneSmoke\nfunction eventLaneSmoke(left, right) {\n  const t = new EventTarget();\n  let n = 0;\n  t.addEventListener(\"tick\", function () { n += 1; });\n  console.log(\"before=\" + n);\n  t.dispatchEvent(new CustomEvent(\"tick\"));\n  console.log(\"after=\" + n);\n  return left - left;\n}\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
         output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-
-    let envelope = parse_json_stdout(&output);
-    assert_eq!(envelope["schemaVersion"], 1);
-    assert_eq!(envelope["command"], "build");
-    assert_eq!(envelope["exitCode"], 0);
-    let payload = envelope["payload"]
-        .as_object()
-        .expect("build payload object");
-    assert_eq!(payload["artifactKind"], "bundle");
-    assert_eq!(payload["bundleFormat"], "esm");
-    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
-    let kinds: Vec<_> = artifacts
-        .iter()
-        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
-        .collect();
-    assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
 
     let bundle_dir = dir.path().join("app");
     let metadata: Value = serde_json::from_str(
@@ -4030,7 +3854,43 @@ fn json_build_emits_browser_bundle_web_baseline_primitives_in_js_input() {
     assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
     assert_eq!(metadata["apiSurface"], "browser");
 
-    assert_browser_bundle_executes(&bundle_dir, "webBaselineSmoke");
+    // Mirrors `assert_browser_bundle_executes_with_result`'s helper calls
+    // (harness script + command construction), but asserts the FULL
+    // captured stdout byte-for-byte instead of a `contains` check on a
+    // return value, since this fixture's load-bearing assertion is the
+    // ordering of the two console.log calls around the synchronous dispatch.
+    let bundle_dir_name = bundle_dir
+        .file_name()
+        .and_then(|name| name.to_str())
+        .expect("bundle directory name");
+    let harness_path = bundle_dir
+        .parent()
+        .expect("bundle root parent")
+        .join("browser-bundle-smoke.mjs");
+    let harness = kali_runtime::browser_bundle_harness_script(
+        bundle_dir_name,
+        false,
+        "const mod = await import(bundleJs.href);\nawait mod.eventLaneSmoke(1n, 2n);\n",
+    );
+    fs::write(&harness_path, harness).expect("write browser bundle harness");
+
+    let mut harness_command = browser_bundle_harness_command_parts();
+    let harness_executable = harness_command.remove(0);
+    let output = Command::new(&harness_executable)
+        .current_dir(&bundle_dir)
+        .args(&harness_command)
+        .arg(&harness_path)
+        .output()
+        .expect("run browser bundle harness");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout, "before=0\nafter=1\n");
 }
 
 #[test]
@@ -4327,22 +4187,10 @@ async function queueMicrotaskSmoke(left, right) {
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    assert_browser_bundle_executes(&bundle_dir, "queueMicrotaskSmoke");
+    // Honest re-pin (PR #16 rev2, family `microtask`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -4367,41 +4215,14 @@ fn build_emits_browser_bundle_queue_microtask_ordering_in_ts_input() {
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    let envelope = parse_json_stdout(&output);
-    assert_eq!(envelope["schemaVersion"], 1);
-    assert_eq!(envelope["command"], "build");
-    assert_eq!(envelope["exitCode"], 0);
-    let payload = envelope["payload"]
-        .as_object()
-        .expect("build payload object");
-    assert_eq!(payload["artifactKind"], "bundle");
-    assert_eq!(payload["bundleFormat"], "esm");
-    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
-    let kinds: Vec<_> = artifacts
-        .iter()
-        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
-        .collect();
-    assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    assert_browser_bundle_executes(&bundle_dir, "queueMicrotaskSmoke");
+    // Honest re-pin (PR #16 rev2, family `microtask`): kali fails closed/loud here
+    // (worklist tagged this member class B, but observed behavior is a loud E5506
+    // build-time rejection identical to its sibling class-A members, not a silent
+    // miscompile — escalated in wave-microtask-report.md; re-pinned as class A);
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("E5506"), "stdout: {stdout}");
 }
 
 #[test]
@@ -4440,22 +4261,10 @@ async function queueMicrotaskSmoke(left, right) {
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    assert_browser_bundle_executes(&bundle_dir, "queueMicrotaskSmoke");
+    // Honest re-pin (PR #16 rev2, family `microtask`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -4496,41 +4305,14 @@ async function queueMicrotaskSmoke(left, right) {
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    let envelope = parse_json_stdout(&output);
-    assert_eq!(envelope["schemaVersion"], 1);
-    assert_eq!(envelope["command"], "build");
-    assert_eq!(envelope["exitCode"], 0);
-    let payload = envelope["payload"]
-        .as_object()
-        .expect("build payload object");
-    assert_eq!(payload["artifactKind"], "bundle");
-    assert_eq!(payload["bundleFormat"], "esm");
-    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
-    let kinds: Vec<_> = artifacts
-        .iter()
-        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
-        .collect();
-    assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    assert_browser_bundle_executes(&bundle_dir, "queueMicrotaskSmoke");
+    // Honest re-pin (PR #16 rev2, family `microtask`): kali fails closed/loud here
+    // (worklist tagged this member class B, but observed behavior is a loud E5506
+    // build-time rejection identical to its sibling class-A members, not a silent
+    // miscompile — escalated in wave-microtask-report.md; re-pinned as class A);
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("E5506"), "stdout: {stdout}");
 }
 
 #[test]
@@ -4933,7 +4715,37 @@ fn build_emits_browser_bundle_boolean_logic_semantics() {
     assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
     assert_eq!(metadata["apiSurface"], "browser");
 
-    assert_browser_bundle_executes(&bundle_dir, "logicSmoke");
+    let harness_path = bundle_dir
+        .parent()
+        .expect("bundle root parent")
+        .join("browser-bundle-smoke.mjs");
+    let harness = kali_runtime::browser_bundle_harness_script(
+        "app",
+        false,
+        r#"const mod = await import(bundleJs.href);
+const result = await mod.logicSmoke(1n, 2n);
+if (result !== 0n) {
+  throw new Error(`unexpected result ${result}`);
+}
+console.log(String(result));
+"#,
+    );
+    fs::write(&harness_path, harness).expect("write browser bundle harness");
+
+    let mut harness_command = browser_bundle_harness_command_parts();
+    let harness_executable = harness_command.remove(0);
+    let output = Command::new(&harness_executable)
+        .current_dir(&bundle_dir)
+        .args(&harness_command)
+        .arg(&harness_path)
+        .output()
+        .expect("run browser bundle harness");
+
+    // Honest re-pin (PR #16 rev2, family `bool-logic`): the build step succeeds
+    // (its own success assert above holds honestly); kali fails closed/loud only
+    // at browser-bundle execution here — see
+    // docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
@@ -4971,7 +4783,37 @@ fn build_emits_browser_bundle_boolean_logic_semantics_in_js_input() {
     assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
     assert_eq!(metadata["apiSurface"], "browser");
 
-    assert_browser_bundle_executes(&bundle_dir, "logicSmoke");
+    let harness_path = bundle_dir
+        .parent()
+        .expect("bundle root parent")
+        .join("browser-bundle-smoke.mjs");
+    let harness = kali_runtime::browser_bundle_harness_script(
+        "app",
+        false,
+        r#"const mod = await import(bundleJs.href);
+const result = await mod.logicSmoke(1n, 2n);
+if (result !== 0n) {
+  throw new Error(`unexpected result ${result}`);
+}
+console.log(String(result));
+"#,
+    );
+    fs::write(&harness_path, harness).expect("write browser bundle harness");
+
+    let mut harness_command = browser_bundle_harness_command_parts();
+    let harness_executable = harness_command.remove(0);
+    let output = Command::new(&harness_executable)
+        .current_dir(&bundle_dir)
+        .args(&harness_command)
+        .arg(&harness_path)
+        .output()
+        .expect("run browser bundle harness");
+
+    // Honest re-pin (PR #16 rev2, family `bool-logic`): the build step succeeds
+    // (its own success assert above holds honestly); kali fails closed/loud only
+    // at browser-bundle execution here — see
+    // docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
@@ -5030,7 +4872,37 @@ fn json_build_emits_browser_bundle_boolean_logic_semantics() {
     assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
     assert_eq!(metadata["apiSurface"], "browser");
 
-    assert_browser_bundle_executes(&bundle_dir, "logicSmoke");
+    let harness_path = bundle_dir
+        .parent()
+        .expect("bundle root parent")
+        .join("browser-bundle-smoke.mjs");
+    let harness = kali_runtime::browser_bundle_harness_script(
+        "app",
+        false,
+        r#"const mod = await import(bundleJs.href);
+const result = await mod.logicSmoke(1n, 2n);
+if (result !== 0n) {
+  throw new Error(`unexpected result ${result}`);
+}
+console.log(String(result));
+"#,
+    );
+    fs::write(&harness_path, harness).expect("write browser bundle harness");
+
+    let mut harness_command = browser_bundle_harness_command_parts();
+    let harness_executable = harness_command.remove(0);
+    let output = Command::new(&harness_executable)
+        .current_dir(&bundle_dir)
+        .args(&harness_command)
+        .arg(&harness_path)
+        .output()
+        .expect("run browser bundle harness");
+
+    // Honest re-pin (PR #16 rev2, family `bool-logic`): the build step succeeds
+    // (its own success assert above holds honestly); kali fails closed/loud only
+    // at browser-bundle execution here — see
+    // docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
@@ -5089,7 +4961,37 @@ fn json_build_emits_browser_bundle_boolean_logic_semantics_in_js_input() {
     assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
     assert_eq!(metadata["apiSurface"], "browser");
 
-    assert_browser_bundle_executes(&bundle_dir, "logicSmoke");
+    let harness_path = bundle_dir
+        .parent()
+        .expect("bundle root parent")
+        .join("browser-bundle-smoke.mjs");
+    let harness = kali_runtime::browser_bundle_harness_script(
+        "app",
+        false,
+        r#"const mod = await import(bundleJs.href);
+const result = await mod.logicSmoke(1n, 2n);
+if (result !== 0n) {
+  throw new Error(`unexpected result ${result}`);
+}
+console.log(String(result));
+"#,
+    );
+    fs::write(&harness_path, harness).expect("write browser bundle harness");
+
+    let mut harness_command = browser_bundle_harness_command_parts();
+    let harness_executable = harness_command.remove(0);
+    let output = Command::new(&harness_executable)
+        .current_dir(&bundle_dir)
+        .args(&harness_command)
+        .arg(&harness_path)
+        .output()
+        .expect("run browser bundle harness");
+
+    // Honest re-pin (PR #16 rev2, family `bool-logic`): the build step succeeds
+    // (its own success assert above holds honestly); kali fails closed/loud only
+    // at browser-bundle execution here — see
+    // docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
@@ -6943,22 +6845,15 @@ function finallySmoke() {
         .output()
         .expect("run kali");
 
+    // Flipped pin: try/catch/finally is rejected fail-closed (E5506): kali has no
+    // exception machinery; the old lowering was an if-shaped miscompile that
+    // only looked correct while `throw` was a silent no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    assert_browser_bundle_executes(&bundle_dir, "finallySmoke");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -6994,22 +6889,15 @@ function finallySmoke() {
         .output()
         .expect("run kali");
 
+    // Flipped pin: try/catch/finally is rejected fail-closed (E5506): kali has no
+    // exception machinery; the old lowering was an if-shaped miscompile that
+    // only looked correct while `throw` was a silent no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    assert_browser_bundle_executes(&bundle_dir, "finallySmoke");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -7046,22 +6934,15 @@ function catchSmoke() {
         .output()
         .expect("run kali");
 
+    // Flipped pin: try/catch/finally is rejected fail-closed (E5506): kali has no
+    // exception machinery; the old lowering was an if-shaped miscompile that
+    // only looked correct while `throw` was a silent no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    assert_browser_bundle_executes(&bundle_dir, "catchSmoke");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -7098,22 +6979,15 @@ function catchSmoke() {
         .output()
         .expect("run kali");
 
+    // Flipped pin: try/catch/finally is rejected fail-closed (E5506): kali has no
+    // exception machinery; the old lowering was an if-shaped miscompile that
+    // only looked correct while `throw` was a silent no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    assert_browser_bundle_executes(&bundle_dir, "catchSmoke");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -7138,41 +7012,16 @@ fn json_build_emits_browser_bundle_try_finally_semantics_in_js_input() {
         .output()
         .expect("run kali");
 
+    // Flipped pin: try/catch/finally is rejected fail-closed (E5506): kali has no
+    // exception machinery; the old lowering was an if-shaped miscompile that
+    // only looked correct while `throw` was a silent no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-
-    let envelope = parse_json_stdout(&output);
-    assert_eq!(envelope["schemaVersion"], 1);
-    assert_eq!(envelope["command"], "build");
-    assert_eq!(envelope["exitCode"], 0);
-    let payload = envelope["payload"]
-        .as_object()
-        .expect("build payload object");
-    assert_eq!(payload["artifactKind"], "bundle");
-    assert_eq!(payload["bundleFormat"], "esm");
-    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
-    let kinds: Vec<_> = artifacts
-        .iter()
-        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
-        .collect();
-    assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    assert_browser_bundle_executes(&bundle_dir, "finallySmoke");
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -7197,41 +7046,16 @@ fn json_build_emits_browser_bundle_try_catch_semantics_in_js_input() {
         .output()
         .expect("run kali");
 
+    // Flipped pin: try/catch/finally is rejected fail-closed (E5506): kali has no
+    // exception machinery; the old lowering was an if-shaped miscompile that
+    // only looked correct while `throw` was a silent no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-
-    let envelope = parse_json_stdout(&output);
-    assert_eq!(envelope["schemaVersion"], 1);
-    assert_eq!(envelope["command"], "build");
-    assert_eq!(envelope["exitCode"], 0);
-    let payload = envelope["payload"]
-        .as_object()
-        .expect("build payload object");
-    assert_eq!(payload["artifactKind"], "bundle");
-    assert_eq!(payload["bundleFormat"], "esm");
-    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
-    let kinds: Vec<_> = artifacts
-        .iter()
-        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
-        .collect();
-    assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    assert_browser_bundle_executes(&bundle_dir, "catchSmoke");
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -7254,22 +7078,16 @@ fn build_emits_browser_bundle_string_enumeration_semantics() {
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    assert_browser_bundle_executes(&bundle_dir, "enumSmoke");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -7292,22 +7110,16 @@ fn build_emits_browser_bundle_string_enumeration_semantics_in_js_input() {
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    assert_browser_bundle_executes(&bundle_dir, "enumSmoke");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -7332,33 +7144,17 @@ fn json_build_emits_browser_bundle_string_enumeration_semantics_in_ts_input() {
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-
-    let envelope = parse_json_stdout(&output);
-    assert_eq!(envelope["schemaVersion"], 1);
-    assert_eq!(envelope["command"], "build");
-    assert_eq!(envelope["exitCode"], 0);
-    let payload = envelope["payload"]
-        .as_object()
-        .expect("build payload object");
-    assert_eq!(payload["artifactKind"], "bundle");
-    assert_eq!(payload["bundleFormat"], "esm");
-    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
-    let kinds: Vec<_> = artifacts
-        .iter()
-        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
-        .collect();
-    assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
-
-    assert_browser_bundle_executes(&dir.path().join("app"), "enumSmoke");
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -7383,33 +7179,17 @@ fn json_build_emits_browser_bundle_string_enumeration_semantics_in_js_input() {
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-
-    let envelope = parse_json_stdout(&output);
-    assert_eq!(envelope["schemaVersion"], 1);
-    assert_eq!(envelope["command"], "build");
-    assert_eq!(envelope["exitCode"], 0);
-    let payload = envelope["payload"]
-        .as_object()
-        .expect("build payload object");
-    assert_eq!(payload["artifactKind"], "bundle");
-    assert_eq!(payload["bundleFormat"], "esm");
-    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
-    let kinds: Vec<_> = artifacts
-        .iter()
-        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
-        .collect();
-    assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
-
-    assert_browser_bundle_executes(&dir.path().join("app"), "enumSmoke");
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -7452,23 +7232,18 @@ fn build_emits_browser_bundle_integer_like_key_ordering_semantics() {
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    assert_browser_bundle_executes(&bundle_dir, "enumSmoke");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
+
 #[test]
 fn build_emits_browser_bundle_integer_like_key_ordering_semantics_in_js_input() {
     let dir = tempdir().expect("tempdir");
@@ -7489,22 +7264,16 @@ fn build_emits_browser_bundle_integer_like_key_ordering_semantics_in_js_input() 
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    assert_browser_bundle_executes(&bundle_dir, "enumSmoke");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -7529,33 +7298,17 @@ fn json_build_emits_browser_bundle_integer_like_key_ordering_semantics_in_js_inp
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-
-    let envelope = parse_json_stdout(&output);
-    assert_eq!(envelope["schemaVersion"], 1);
-    assert_eq!(envelope["command"], "build");
-    assert_eq!(envelope["exitCode"], 0);
-    let payload = envelope["payload"]
-        .as_object()
-        .expect("build payload object");
-    assert_eq!(payload["artifactKind"], "bundle");
-    assert_eq!(payload["bundleFormat"], "esm");
-    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
-    let kinds: Vec<_> = artifacts
-        .iter()
-        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
-        .collect();
-    assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
-
-    assert_browser_bundle_executes(&dir.path().join("app"), "enumSmoke");
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -7580,33 +7333,17 @@ fn json_build_emits_browser_bundle_integer_like_key_ordering_semantics() {
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-
-    let envelope = parse_json_stdout(&output);
-    assert_eq!(envelope["schemaVersion"], 1);
-    assert_eq!(envelope["command"], "build");
-    assert_eq!(envelope["exitCode"], 0);
-    let payload = envelope["payload"]
-        .as_object()
-        .expect("build payload object");
-    assert_eq!(payload["artifactKind"], "bundle");
-    assert_eq!(payload["bundleFormat"], "esm");
-    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
-    let kinds: Vec<_> = artifacts
-        .iter()
-        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
-        .collect();
-    assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
-
-    assert_browser_bundle_executes(&dir.path().join("app"), "enumSmoke");
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -7629,22 +7366,16 @@ fn build_emits_browser_bundle_overwrite_ordering_semantics() {
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    assert_browser_bundle_executes(&bundle_dir, "enumSmoke");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -7667,22 +7398,16 @@ fn build_emits_browser_bundle_overwrite_ordering_semantics_in_js_input() {
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    assert_browser_bundle_executes(&bundle_dir, "enumSmoke");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -7707,33 +7432,17 @@ fn json_build_emits_browser_bundle_overwrite_ordering_semantics_in_ts_input() {
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-
-    let envelope = parse_json_stdout(&output);
-    assert_eq!(envelope["schemaVersion"], 1);
-    assert_eq!(envelope["command"], "build");
-    assert_eq!(envelope["exitCode"], 0);
-    let payload = envelope["payload"]
-        .as_object()
-        .expect("build payload object");
-    assert_eq!(payload["artifactKind"], "bundle");
-    assert_eq!(payload["bundleFormat"], "esm");
-    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
-    let kinds: Vec<_> = artifacts
-        .iter()
-        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
-        .collect();
-    assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
-
-    assert_browser_bundle_executes(&dir.path().join("app"), "enumSmoke");
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -7758,33 +7467,17 @@ fn json_build_emits_browser_bundle_overwrite_ordering_semantics_in_js_input() {
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-
-    let envelope = parse_json_stdout(&output);
-    assert_eq!(envelope["schemaVersion"], 1);
-    assert_eq!(envelope["command"], "build");
-    assert_eq!(envelope["exitCode"], 0);
-    let payload = envelope["payload"]
-        .as_object()
-        .expect("build payload object");
-    assert_eq!(payload["artifactKind"], "bundle");
-    assert_eq!(payload["bundleFormat"], "esm");
-    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
-    let kinds: Vec<_> = artifacts
-        .iter()
-        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
-        .collect();
-    assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
-
-    assert_browser_bundle_executes(&dir.path().join("app"), "enumSmoke");
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]

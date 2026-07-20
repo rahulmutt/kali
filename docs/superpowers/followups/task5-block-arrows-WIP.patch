@@ -1,0 +1,605 @@
+diff --git a/crates/kali_cli/tests/runtime_smoke.rs b/crates/kali_cli/tests/runtime_smoke.rs
+index da2ad9d32..47ca56acb 100644
+--- a/crates/kali_cli/tests/runtime_smoke.rs
++++ b/crates/kali_cli/tests/runtime_smoke.rs
+@@ -3759,12 +3759,51 @@ fn assert_json_object_type_and_constructor_semantics(
+     assert!(!output.status.success(), "must fail closed: {output:?}");
+     let json = parse_json_stdout(&output);
+     assert_eq!(json["success"], false);
+-    let code = json["errors"][0]["code"].as_str().unwrap_or_default();
+-    let harness_stderr = json["stderr"].as_str().unwrap_or_default();
+-    assert!(
+-        code == "E4000" || code == "E5506" || harness_stderr.contains("RuntimeError: unreachable"),
+-        "expected fail-closed trap or reject, got: {json}"
+-    );
++    if test_mode {
++        // Throw-fallout Stage 6 Task 5 re-pin: the fixture's `instanceof`
++        // trap now fires from INSIDE the `Kali.test(() => { … })` callback
++        // body, which the block-arrow un-flatten patch compiles as a real
++        // standalone function instead of flattening it into module scope.
++        // The trap therefore attributes to the callback's
++        // `__kali_callback_<index>` export (a runtime `CallbackTrap`) rather
++        // than surfacing as a top-level compile-time `errors[]` entry —
++        // `errors` is now EMPTY and `payload.failed == 1`, with the trap
++        // text landing in `stderr` instead. This is a STRICTLY BETTER
++        // shape (attributed to the specific failing test/callback, not a
++        // bare top-level reject) — the program still fails closed (exit
++        // != 0, `success: false`), just reported differently. Before this
++        // patch: `errors[0].code` was `"E4000"`/`"E5506"`. After:
++        // `errors` is `[]`, `payload.failed == 1`, `payload.passed == 0`,
++        // and `stderr` names the failing callback and trap code.
++        assert_eq!(
++            json["errors"].as_array().map(|a| a.len()),
++            Some(0),
++            "expected the top-level errors[] array to be empty (the trap is\
++             attributed to the callback instead), got: {json}"
++        );
++        assert_eq!(json["payload"]["failed"], 1, "got: {json}");
++        assert_eq!(json["payload"]["passed"], 0, "got: {json}");
++        let harness_stderr = json["stderr"].as_str().unwrap_or_default();
++        assert!(
++            harness_stderr.contains("__kali_callback_"),
++            "expected the trap to attribute to a specific callback export, got: {json}"
++        );
++        assert!(
++            harness_stderr.contains("E4000")
++                || harness_stderr.contains("E5506")
++                || harness_stderr.contains("RuntimeError: unreachable"),
++            "expected fail-closed trap or reject, got: {json}"
++        );
++    } else {
++        let code = json["errors"][0]["code"].as_str().unwrap_or_default();
++        let harness_stderr = json["stderr"].as_str().unwrap_or_default();
++        assert!(
++            code == "E4000"
++                || code == "E5506"
++                || harness_stderr.contains("RuntimeError: unreachable"),
++            "expected fail-closed trap or reject, got: {json}"
++        );
++    }
+ }
+ fn assert_json_browser_requested_object_type_and_constructor_semantics(
+     command: &str,
+diff --git a/crates/kali_cli/tests/soundness_block_arrows.rs b/crates/kali_cli/tests/soundness_block_arrows.rs
+index dcfa28fa6..2b1ffc13c 100644
+--- a/crates/kali_cli/tests/soundness_block_arrows.rs
++++ b/crates/kali_cli/tests/soundness_block_arrows.rs
+@@ -17,6 +17,83 @@ fn run_kali(source: &str) -> std::process::Output {
+         .expect("run kali")
+ }
+ 
++/// The bug, end to end: the arrow's body must NOT execute inline.
++/// Pre-stage kali prints `1` (body flattened into module scope and run).
++#[test]
++fn a_block_arrow_callback_body_does_not_run_inline() {
++    let out = run_kali(
++        r#"let ran = 0;
++queueMicrotask(() => {
++  ran = 1;
++});
++console.log("sync ran=" + ran);
++"#,
++    );
++    assert!(
++        out.status.success(),
++        "stderr: {}",
++        String::from_utf8_lossy(&out.stderr)
++    );
++    // The callback is deferred to the microtask FIFO, so `ran` is still 0 here.
++    // (It runs during the post-_start drain; node agrees.)
++    assert!(
++        String::from_utf8_lossy(&out.stdout).starts_with("sync ran=0"),
++        "callback body ran inline: {}",
++        String::from_utf8_lossy(&out.stdout)
++    );
++}
++
++/// Step 6 probe requirement: `a_block_arrow_callback_body_does_not_run_inline`
++/// alone CANNOT distinguish "deferred" from "dropped" — `sync ran=0` prints
++/// identically whether the callback runs later or never runs at all. This
++/// test closes that gap with a SECOND print, emitted from INSIDE the callback
++/// body, on a line the sync `console.log` above it can never reach. If the
++/// `queueMicrotask` emit arm silently drops the callback (a no-op), this is
++/// the assertion that goes red — proven by the Step 6 re-mask probe.
++#[test]
++fn a_queued_microtask_callback_actually_runs_during_the_drain() {
++    let out = run_kali(
++        r#"let ran = 0;
++queueMicrotask(() => {
++  ran = 1;
++  console.log("callback ran=" + ran);
++});
++console.log("sync ran=" + ran);
++"#,
++    );
++    assert!(
++        out.status.success(),
++        "stderr: {}",
++        String::from_utf8_lossy(&out.stderr)
++    );
++    let stdout = String::from_utf8_lossy(&out.stdout);
++    assert_eq!(
++        stdout, "sync ran=0\ncallback ran=1\n",
++        "the queued callback must actually run during the post-_start microtask \
++         drain (deferred), not merely be registered-and-dropped: {}",
++        stdout
++    );
++}
++
++/// An anonymous callback handed to a consumer that CANNOT invoke it must fail
++/// closed — never compile to a function nobody calls.
++#[test]
++fn an_anonymous_callback_to_an_uninvocable_callee_fails_closed() {
++    let out = run_kali(
++        r#"function takesCallback(cb) { return 1; }
++takesCallback(() => {
++  console.log("never");
++});
++"#,
++    );
++    assert!(!out.status.success(), "expected E5506, got exit 0");
++    assert!(
++        String::from_utf8_lossy(&out.stderr).contains("E5506"),
++        "stderr: {}",
++        String::from_utf8_lossy(&out.stderr)
++    );
++}
++
+ /// A named function expression keeps its own name; two anonymous arrows in the
+ /// same module get DISTINCT names. If the pre-pass reused one name, the second
+ /// body would overwrite the first and this prints the wrong value.
+@@ -185,6 +262,10 @@ fn class_method_bodies_return_their_value() {
+ console.log(new C().run());
+ "#,
+     );
+-    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
++    assert!(
++        out.status.success(),
++        "stderr: {}",
++        String::from_utf8_lossy(&out.stderr)
++    );
+     assert_eq!(String::from_utf8_lossy(&out.stdout), "42\n");
+ }
+diff --git a/crates/kali_codegen/src/emit/call.rs b/crates/kali_codegen/src/emit/call.rs
+index a6d62c2a3..57e1b3614 100644
+--- a/crates/kali_codegen/src/emit/call.rs
++++ b/crates/kali_codegen/src/emit/call.rs
+@@ -78,6 +78,36 @@ impl<'a> FunctionEmitter<'a> {
+             };
+         }
+ 
++        // `queueMicrotask(cb)` (Task 5 / throw-fallout Stage 6): a plain
++        // identifier callee, not a member call, so recognized directly on the
++        // callee node's text rather than through a `resolve_bound_member_...`
++        // recognizer. `reject_anonymous_function_argument` (kali_types)
++        // already rejected an anonymous `cb` before codegen was ever reached,
++        // so `cb` here is always a real named function — but fail closed with
++        // E5506 (never a dropped/silent zero-placeholder call) if either the
++        // callback index or the conditional import is unexpectedly missing.
++        if callee_node.text.as_deref() == Some("queueMicrotask") {
++            let (Some(index), Some(import_index)) = (
++                self.queue_microtask_callback_index(node),
++                self.queue_microtask_import_index(),
++            ) else {
++                self.diagnostics.push(Diagnostic::error(
++                    e5::FEATURE_UNAVAILABLE as u32,
++                    "queueMicrotask requires a callback lowered as a function".to_string(),
++                ));
++                return EmittedValue {
++                    produced: false,
++                    shape: ValueShape::Unknown,
++                };
++            };
++            function.instruction(&Instruction::I32Const(index as i32));
++            function.instruction(&Instruction::Call(import_index));
++            return EmittedValue {
++                produced: false,
++                shape: ValueShape::Unknown,
++            };
++        }
++
+         if self.is_kali_write_stdout_bytes_call(&callee_node) {
+             let Some(index) = self.stdout_write_bytes_import_index else {
+                 // Mirror the sibling `Kali.test` gate above: push the diagnostic
+diff --git a/crates/kali_codegen/src/emitter.rs b/crates/kali_codegen/src/emitter.rs
+index f3b49a434..93ddca2e1 100644
+--- a/crates/kali_codegen/src/emitter.rs
++++ b/crates/kali_codegen/src/emitter.rs
+@@ -81,6 +81,12 @@ pub(crate) struct FunctionEmitter<'a> {
+     pub(crate) crypto_get_random_values_import_index: Option<u32>,
+     pub(crate) crypto_random_uuid_import_index: Option<u32>,
+     pub(crate) crypto_subtle_digest_import_index: Option<u32>,
++    /// `queueMicrotask` host import index (Task 5 / throw-fallout Stage 6):
++    /// `Some` only when `program_uses_queue_microtask` found a call, appended
++    /// as the LAST conditional import (after `crypto_subtle_digest`) so no
++    /// earlier import or function index shifts. See
++    /// `FunctionEmitter::queue_microtask_import_index`.
++    pub(crate) queue_microtask_import_index: Option<u32>,
+     pub(crate) diagnostics: &'a mut Vec<Diagnostic>,
+     pub(crate) strings: &'a mut StringPool,
+     pub(crate) source_path: Option<PathBuf>,
+@@ -217,6 +223,7 @@ impl<'a> FunctionEmitter<'a> {
+         crypto_get_random_values_import_index: Option<u32>,
+         crypto_random_uuid_import_index: Option<u32>,
+         crypto_subtle_digest_import_index: Option<u32>,
++        queue_microtask_import_index: Option<u32>,
+         diagnostics: &'a mut Vec<Diagnostic>,
+         strings: &'a mut StringPool,
+         source_path: Option<PathBuf>,
+@@ -291,6 +298,7 @@ impl<'a> FunctionEmitter<'a> {
+             crypto_get_random_values_import_index,
+             crypto_random_uuid_import_index,
+             crypto_subtle_digest_import_index,
++            queue_microtask_import_index,
+             diagnostics,
+             strings,
+             source_path,
+diff --git a/crates/kali_codegen/src/intrinsics/host.rs b/crates/kali_codegen/src/intrinsics/host.rs
+index 419fb141e..63979f2b1 100644
+--- a/crates/kali_codegen/src/intrinsics/host.rs
++++ b/crates/kali_codegen/src/intrinsics/host.rs
+@@ -764,6 +764,27 @@ impl<'a> FunctionEmitter<'a> {
+         self.functions.get(callback_name).copied()
+     }
+ 
++    /// The `queue_microtask` host import index, if the program uses it
++    /// (`Some` set from `program_uses_queue_microtask` in `lower.rs`; `None`
++    /// means the import was never declared, so a call site MUST fail closed
++    /// rather than emit a dangling `Call`). Task 5 / throw-fallout Stage 6.
++    pub(crate) fn queue_microtask_import_index(&self) -> Option<u32> {
++        self.queue_microtask_import_index
++    }
++
++    /// Resolves `queueMicrotask(cb)`'s callback argument to its raw wasm
++    /// function index (`node` is the CALL node: `children[0]` = callee,
++    /// `children[1]` = the callback). `cb` must have been lowered as a real,
++    /// named standalone function (Task 2's pre-pass names every anonymous
++    /// function/arrow) — an unresolvable name means the argument was not a
++    /// function reference at all, so the caller fails closed instead of
++    /// emitting a dangling call.
++    pub(crate) fn queue_microtask_callback_index(&self, node: &LirNode) -> Option<u32> {
++        let callback_node = node.children.get(1).copied()?;
++        let callback_name = self.node(callback_node).text.as_deref()?;
++        self.functions.get(callback_name).copied()
++    }
++
+     pub(crate) fn is_kali_write_stdout_bytes_call(&self, callee_node: &LirNode) -> bool {
+         if callee_node.text.as_deref() != Some("writeStdoutBytes") {
+             return false;
+diff --git a/crates/kali_codegen/src/lower.rs b/crates/kali_codegen/src/lower.rs
+index 67dbae42d..714efe5a0 100644
+--- a/crates/kali_codegen/src/lower.rs
++++ b/crates/kali_codegen/src/lower.rs
+@@ -88,6 +88,11 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
+     let uses_crypto_get_random_values = program_uses_crypto_get_random_values(lir);
+     let uses_crypto_random_uuid = program_uses_crypto_random_uuid(lir);
+     let uses_crypto_subtle_digest = program_uses_crypto_subtle_digest(lir);
++    // Task 5 / throw-fallout Stage 6: `queueMicrotask` import, appended LAST
++    // among the conditional imports (after `crypto_subtle_digest`) so no
++    // earlier import or function index shifts — see `function_index_offset`
++    // below and the `import_section.import(...)` block further down.
++    let uses_queue_microtask = program_uses_queue_microtask(lir);
+     let uses_env_access = uses_env_get || uses_env_has || uses_env_set || uses_env_delete;
+     let function_index_offset = crate::FUNCTION_INDEX_OFFSET
+         + if ctx.target.coverage { 1 } else { 0 }
+@@ -102,7 +107,8 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
+         + if uses_performance_now { 1 } else { 0 }
+         + if uses_crypto_get_random_values { 1 } else { 0 }
+         + if uses_crypto_random_uuid { 1 } else { 0 }
+-        + if uses_crypto_subtle_digest { 1 } else { 0 };
++        + if uses_crypto_subtle_digest { 1 } else { 0 }
++        + if uses_queue_microtask { 1 } else { 0 };
+     let env_get_type_index = if uses_env_access { Some(6) } else { None };
+     let env_has_type_index = if uses_env_has { Some(7) } else { None };
+     let cwd_set_type_index = if uses_cwd_set { Some(5) } else { None };
+@@ -288,6 +294,29 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
+     } else {
+         None
+     };
++    // `queue_microtask` is appended AFTER `crypto_subtle_digest` in the import
++    // section below (the LAST conditional import), so its index additionally
++    // sums `uses_crypto_subtle_digest` on top of every preceding flag.
++    let queue_microtask_import_index = if uses_queue_microtask {
++        Some(
++            crate::COVERAGE_HIT_IMPORT_INDEX
++                + if ctx.target.coverage { 1 } else { 0 }
++                + if uses_env_set { 1 } else { 0 }
++                + if uses_env_delete { 1 } else { 0 }
++                + if uses_env_get { 1 } else { 0 }
++                + if uses_env_has { 1 } else { 0 }
++                + if uses_cwd_set { 1 } else { 0 }
++                + if uses_process_exit { 1 } else { 0 }
++                + if uses_stdout_write_bytes { 1 } else { 0 }
++                + if uses_args_get { 1 } else { 0 }
++                + if uses_performance_now { 1 } else { 0 }
++                + if uses_crypto_get_random_values { 1 } else { 0 }
++                + if uses_crypto_random_uuid { 1 } else { 0 }
++                + if uses_crypto_subtle_digest { 1 } else { 0 },
++        )
++    } else {
++        None
++    };
+ 
+     // Keep the emitted order deterministic: imported registration hook first, synthetic entry
+     // second, then named functions in source order.
+@@ -658,6 +687,16 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
+             EntityType::Function(CRYPTO_SUBTLE_DIGEST_TYPE_INDEX),
+         );
+     }
++    if queue_microtask_import_index.is_some() {
++        // `(callback_id: i32) -> ()`: pushes the callback's raw wasm function
++        // index onto the host's microtask FIFO; drained after `_start`
++        // returns (`kali_runtime::host::enforce::drain_event_loop`), which
++        // invokes the callback via its `__kali_callback_<index>` export.
++        // Reuses type 0 (`(i32) -> ()`, the same signature `test_register`
++        // uses). Appended LAST among the conditional imports (after
++        // `crypto_subtle_digest`), so it takes the next import index.
++        import_section.import("kali:rt", "queue_microtask", EntityType::Function(0));
++    }
+     // Function signatures are repr-directed: each param/result ValType comes from
+     // the repr table (defaulting to I64). Two functions with equal arity but
+     // differing float shapes need distinct wasm types, so the dedup key is the
+@@ -923,6 +962,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
+             crypto_get_random_values_import_index,
+             crypto_random_uuid_import_index,
+             crypto_subtle_digest_import_index,
++            queue_microtask_import_index,
+             &mut diagnostics,
+             &mut string_pool,
+             ctx.source_path.clone(),
+@@ -1482,6 +1522,30 @@ pub(crate) fn program_uses_stdout_write_bytes(lir: &LirProgram) -> bool {
+     })
+ }
+ 
++/// Program-wide probe for a `queueMicrotask(cb)` call (Task 5 / throw-fallout
++/// Stage 6). Unlike the `crypto.*`/`performance.now` probes above, the callee
++/// is a PLAIN identifier (not a member expression) — `queueMicrotask` is a
++/// bound builtin global, called directly. Mirrors the emit-time recognizer
++/// inline in `emit_call` (`callee_node.text.as_deref() == Some("queueMicrotask")`).
++/// Kept a SUPERSET of the emit recognizer: were this ever false where emit
++/// fires, the conditional `queue_microtask` import would be undeclared and
++/// emitting a `Call` to it would be invalid wasm — so over-inclusiveness here
++/// is the safe side.
++pub(crate) fn program_uses_queue_microtask(lir: &LirProgram) -> bool {
++    lir.nodes.iter().any(|node| {
++        if node.kind != LirNodeKind::Call {
++            return false;
++        }
++        let Some(callee) = node.children.first() else {
++            return false;
++        };
++        let Some(callee_node) = lir.nodes.get(callee.0 as usize) else {
++            return false;
++        };
++        callee_node.text.as_deref() == Some("queueMicrotask")
++    })
++}
++
+ /// Program-wide probe for a `process.argv[<int literal>]` element read (Spec 5
+ /// Task 5). Mirrors `FunctionEmitter::is_process_argv_element` /
+ /// `is_process_argv` structurally over raw nodes (the emitter method needs a
+diff --git a/crates/kali_parser/src/expression/primary.rs b/crates/kali_parser/src/expression/primary.rs
+index 34fb3b93f..df9114377 100644
+--- a/crates/kali_parser/src/expression/primary.rs
++++ b/crates/kali_parser/src/expression/primary.rs
+@@ -2,8 +2,8 @@
+ 
+ use crate::Parser;
+ use kali_ast::{
+-    ArrayExpression, ArrowFunctionExpression, Expression, ExpressionOrSpread, FunctionParam,
+-    ImportExpression, ParenthesizedExpression, SpreadElement,
++    ArrayExpression, ArrowFunctionExpression, Expression, ExpressionOrSpread, FunctionExpression,
++    FunctionParam, ImportExpression, ParenthesizedExpression, SpreadElement, Statement,
+ };
+ use kali_common::template::split_template_literal;
+ use kali_error::{_error_codes::e2, diagnostic::Diagnostic};
+@@ -23,20 +23,41 @@ impl Parser {
+                 let name = token
+                     .map(|t| t.value)
+                     .unwrap_or_else(|| "unknown".to_string());
+-                if self.stream.current_kind() == Some(&TokenType::Arrow)
+-                    && self.stream.peek_next_kind() != Some(&TokenType::LeftBrace)
+-                {
+-                    let _ = self.stream.advance();
+-                    let body = self.parse_arrow_function_body_expression();
+-                    return Expression::ArrowFunctionExpression(Box::new(
+-                        ArrowFunctionExpression {
+-                            id: None,
+-                            params: vec![FunctionParam { name }],
+-                            body,
+-                            is_async: false,
+-                            returnType: None,
+-                        },
+-                    ));
++                if self.stream.current_kind() == Some(&TokenType::Arrow) {
++                    if self.stream.peek_next_kind() == Some(&TokenType::LeftBrace) {
++                        // Single-param block-bodied arrow `x => { … }`: parse
++                        // into the SAME unnamed `FunctionExpression` desugar the
++                        // paren form uses (declaration.rs:319). Before this it
++                        // fell through to the identifier return, so the `{ … }`
++                        // reparsed as an object literal / block in the outer
++                        // scope (baffling diagnostics, or a body that flattened
++                        // and executed once at the wrong scope).
++                        let _ = self.stream.advance(); // consume `=>`
++                        if let Some(Statement::BlockStatement(block)) = self.parse_block_statement()
++                        {
++                            return Expression::FunctionExpression(Box::new(FunctionExpression {
++                                id: None,
++                                params: vec![FunctionParam { name }],
++                                body: Some(Box::new(block)),
++                                is_async: false,
++                                generator: false,
++                            }));
++                        }
++                        // Unparseable block: fall through to the identifier
++                        // return — resolve will produce its normal diagnostics.
++                    } else {
++                        let _ = self.stream.advance();
++                        let body = self.parse_arrow_function_body_expression();
++                        return Expression::ArrowFunctionExpression(Box::new(
++                            ArrowFunctionExpression {
++                                id: None,
++                                params: vec![FunctionParam { name }],
++                                body,
++                                is_async: false,
++                                returnType: None,
++                            },
++                        ));
++                    }
+                 }
+                 Expression::Identifier(name)
+             }
+@@ -77,6 +98,17 @@ impl Parser {
+                 Expression::Literal(kali_ast::LiteralValue::String(value))
+             }
+             TokenType::LeftParen => {
++                // Block-bodied arrows in ANY expression position parse as an
++                // unnamed `FunctionExpression` — the same desugar the declarator
++                // init uses. Before this, non-declarator positions fell through:
++                // params reparsed against the outer scope (E3100 noise) and a
++                // zero-param body FLATTENED into module scope and executed once
++                // (silent wrong execution — Kali.test only "worked" via that).
++                // Try the block form FIRST so `(a) => { … }` never reaches the
++                // expression-bodied arrow / parenthesized fallthrough below.
++                if let Some(expr) = self.try_parse_block_arrow_function_expression() {
++                    return expr;
++                }
+                 if let Some(expr) = self.try_parse_arrow_function_expression() {
+                     return expr;
+                 }
+diff --git a/crates/kali_types/src/resolve/call.rs b/crates/kali_types/src/resolve/call.rs
+index 1a59a12e8..8196b59c2 100644
+--- a/crates/kali_types/src/resolve/call.rs
++++ b/crates/kali_types/src/resolve/call.rs
+@@ -49,6 +49,7 @@ impl TypeContext {
+         for arg in &expr.args {
+             self.resolve_expression(arg);
+         }
++        self.reject_anonymous_function_argument(expr);
+         // Spec 4a Task 5: a for-in-key VALUE passed as a call argument is a value
+         // escape — rejected structurally by the default-deny in `resolve_identifier`
+         // (call arguments are resolved as expressions, so a non-materialized key
+@@ -84,6 +85,123 @@ impl TypeContext {
+         self.resolve_promise_member_call(expr);
+     }
+ 
++    /// Fail-closed anonymous-function-argument gate.
++    ///
++    /// An anonymous function expression (`function () { … }`, i.e. `id == None`)
++    /// or an arrow (`() => …`, `x => { … }`) passed as a call argument compiles
++    /// to a real standalone wasm function — but the ONLY way an in-wasm call can
++    /// reach a callback is monomorphized dispatch keyed on the callback's
++    /// function NAME (a named function passed as a param works this way). An
++    /// anonymous function has no name to key on, so invoking such a param
++    /// (`cb(5)`) silently no-ops (verified). Reject those args so the limitation
++    /// is a clean diagnostic instead of silent wrong behavior.
++    ///
++    /// SCOPE: reject only when the callee is a plain identifier that is NOT a
++    /// builtin global — i.e. a user-defined function, the exact shape that goes
++    /// through the name-keyed dispatch lane. Everything that legitimately
++    /// consumes an anonymous callback is deliberately exempt:
++    ///   * `Kali.test(name, cb)` — a MEMBER call; its callback is invoked BY THE
++    ///     HOST via the `__kali_callback_<index>` export, never an in-wasm call.
++    ///   * array callbacks `arr.map/filter/find/some/every/reduce/…` — MEMBER
++    ///     calls, statically folded (the callback is never lowered as a real
++    ///     function).
++    ///   * promise `p.then/catch/finally` — MEMBER calls, runtime-driven.
++    ///   * the builtin identifier consumer `queueMicrotask` — WIRED (Task 5):
++    ///     codegen emits `queue_microtask(index)` and the runtime drains the
++    ///     microtask FIFO after `_start`, invoking the callback's
++    ///     `__kali_callback_<index>` export (`kali_runtime::host::enforce`).
++    ///
++    /// `setTimeout`/`setInterval` are bound builtin globals too, but codegen
++    /// does NOT wire their callback (no import, no invocation) — so unlike
++    /// `queueMicrotask` they are deliberately EXCLUDED from the builtin
++    /// exemption below (`deferred_but_unwired`) and fall through to rejection
++    /// exactly like a user-defined function. An exemption without a matching
++    /// wire is a fail-open: the callback would silently be dropped (a
++    /// zero-placeholder warning, exit 0) instead of failing closed.
++    ///
++    /// Placed AFTER callee + argument resolution so a callee that independently
++    /// rejects (e.g. an unsupported late-object-model global such as
++    /// `FinalizationRegistry(() => {})`) surfaces its own diagnostic FIRST.
++    pub(crate) fn reject_anonymous_function_argument(&mut self, expr: &CallExpression) {
++        let Expression::Identifier(callee_name) = &expr.callee else {
++            return;
++        };
++        // `setTimeout`/`setInterval` are bound builtin globals, but their
++        // callback is NOT invoked by anything codegen emits — force them
++        // through the rejection loop below rather than exempting them via the
++        // generic builtin check.
++        let deferred_but_unwired = matches!(callee_name.as_str(), "setTimeout" | "setInterval");
++        // Only a callee BOUND to a user-defined function (or one of the two
++        // unwired timer builtins above) reaches the name-keyed dispatch lane.
++        // Skip when the identifier is:
++        //   * unbound — a typo, or a recognized-but-unsupported global such as
++        //     `FinalizationRegistry` that rejects via its OWN late-object-model
++        //     diagnostic; a second diagnostic here would double-count the error
++        //     (and it is not a silent-no-op miscompile — the program already
++        //     rejects), so leave its own error to stand.
++        //   * a builtin global that legitimately invokes its callback —
++        //     `queueMicrotask` is bound but invokes the callback through the
++        //     runtime (see the doc comment above).
++        if !deferred_but_unwired
++            && (self.resolve_name(callee_name).is_none()
++                || Self::is_builtin_global_name(callee_name))
++        {
++            return;
++        }
++        for arg in &expr.args {
++            let anonymous_fn = match arg {
++                // Task 2's pre-pass (`name_anon_functions.rs`) runs BEFORE the
++                // resolver and fills every anonymous `id: None` with a
++                // synthetic `__kali_fn_{N}` name — so by the time this gate
++                // runs, `func.id` is never actually `None` for the anonymous
++                // case anymore. Detect "was anonymous in source" via the
++                // synthetic-name marker instead (the collision guard in that
++                // pass guarantees no SOURCE declaration is ever named
++                // `__kali_fn_{N}`, so the check cannot mis-fire on a real
++                // user-named function expression). `func.id.is_none()` is kept
++                // as a defensive fallback in case this arg ever reaches here
++                // before the pre-pass runs.
++                Expression::FunctionExpression(func) => func
++                    .id
++                    .as_deref()
++                    .is_none_or(Self::is_synthetic_function_name),
++                // An arrow has no source-level named-function-expression
++                // syntax at all — every arrow is anonymous in source, whether
++                // its `id` is `None` (pre-pass didn't run) or a pre-pass-
++                // assigned `__kali_fn_{N}` (the normal post-pre-pass case).
++                Expression::ArrowFunctionExpression(_) => true,
++                _ => false,
++            };
++            if anonymous_fn {
++                self.diagnostics.push(Diagnostic::error(
++                    e5::FEATURE_UNAVAILABLE as u32,
++                    "an anonymous function as a call argument is unavailable in the current \
++                     phase (nothing can invoke it); declare a named function and pass its name"
++                        .to_string(),
++                ));
++            }
++        }
++    }
++
++    /// Whether `name` is a builtin global (base surface or the node surface).
++    /// Checked as a static superset — a name that is a builtin under EITHER
++    /// surface is treated as builtin — so the anonymous-argument gate never
++    /// mis-rejects a callback handed to a runtime consumer that only exists on
++    /// one surface.
++    fn is_builtin_global_name(name: &str) -> bool {
++        builtin_globals().contains(&name) || node_builtin_globals().contains(&name)
++    }
++
++    /// Whether `name` is a Task 2 pre-pass synthetic name (`__kali_fn_{N}`,
++    /// `name_anon_functions.rs`) — i.e. the node was anonymous in SOURCE. The
++    /// pre-pass's collision guard (`collect_taken_names`) guarantees no
++    /// source declaration is ever assigned this shape, so the check is exact
++    /// in both directions: every synthetic name matches, and no real
++    /// user-declared name ever does.
++    fn is_synthetic_function_name(name: &str) -> bool {
++        name.starts_with("__kali_fn_")
++    }
++
+     pub(crate) fn call_member_access_name(expression: &Expression) -> Option<String> {
+         match expression {
+             Expression::MemberExpression(member) => Self::member_access_name(member),

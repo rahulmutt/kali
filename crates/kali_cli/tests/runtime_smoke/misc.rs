@@ -1464,6 +1464,16 @@ fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
             "identity-chain-benchmark-v1",
             "identity-chain-and-simplification",
         ),
+        // REWRITTEN 2026-07-19 (soundness-batch1-pra wave 0): this fixture's `layerN` chain
+        // used to be `const layerN = (x) => layerN-1(x);`. A call through a const-bound arrow
+        // VALUE from inside a sibling arrow was silently returning 0 (fix 5 now fails it
+        // closed with E5506 instead), so every prior run of this benchmark measured a program
+        // whose layers never executed — the historical compile-time/size/speed numbers are
+        // not comparable to anything real and are discarded (maintainer-ratified). Rewritten
+        // to named `function layerN(x) { ... }` declarations calling each other directly by
+        // name (the same workload: 4 layers, same arithmetic shape, same call depth), which
+        // does execute — re-verified against node on a freshly built binary (23 === 23) before
+        // committing. `sourceSha256` in the fixture's `.json` was recomputed accordingly.
         (
             "nested-wrapper-pruning-benchmark-v1",
             "nested-wrapper-pruning",
@@ -1505,10 +1515,24 @@ fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
             "branch-specialization-repeat-benchmark-v1",
             "branch-specialization-repeat",
         ),
+        // REWRITTEN 2026-07-19 (soundness-batch1-pra wave 0), same reason and same treatment
+        // as nested-wrapper-pruning-benchmark-v1 above: the `layerN` chain was
+        // `const layerN = (bag) => layerN-1(bag);`, silently returning 0 per fix 5's now-honest
+        // E5506; rewritten to named `function layerN(bag) { ... }` declarations, same 4-layer
+        // depth and array-element-read shape. Re-verified against node on a freshly built
+        // binary (23 === 23); pre-2026-07-19 benchmark numbers for this fixture are not
+        // comparable. `sourceSha256` recomputed.
         (
             "const-array-element-access-benchmark-v1",
             "const-array-element-access",
         ),
+        // REWRITTEN 2026-07-19 (soundness-batch1-pra wave 0), same reason and treatment as
+        // above: the `layerN` chain was `const layerN = (point) => ...layerN-1(point)...;`,
+        // silently returning 0 per fix 5's now-honest E5506; rewritten to named
+        // `function layerN(point) { ... }` declarations, same 4-layer depth and object-field
+        // read/arithmetic shape. Re-verified against node on a freshly built binary (35 === 35);
+        // pre-2026-07-19 benchmark numbers for this fixture are not comparable. `sourceSha256`
+        // recomputed.
         (
             "const-object-property-access-benchmark-v1",
             "const-object-property-access",
@@ -1519,10 +1543,11 @@ fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
             "folded-arithmetic-variant-js",
         ),
         ("string-concatenation-benchmark-v1", "string-concatenation"),
-        (
-            "array-literal-arguments-benchmark-v1",
-            "array-literal-arguments",
-        ),
+        // "array-literal-arguments-benchmark-v1" is deliberately NOT in this
+        // list: passing an array literal to a function is now rejected
+        // fail-closed (the callee read zero placeholders, a silent
+        // miscompile), so that fixture pins the reject in
+        // `array_literal_arguments_benchmark_is_rejected_fail_closed` below.
         (
             "template-literal-concatenation-benchmark-v1",
             "template-literal-concatenation",
@@ -1541,6 +1566,109 @@ fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
         ("nbody-benchmark-v1", "nbody"),
     ] {
         assert_optimization_benchmark_fixture(fixture_stem, benchmark_name);
+    }
+}
+
+// EXECUTION GUARD (soundness-batch1-pra wave 0, close-out fix round 1): the
+// three layer-chain fixtures below were rewritten (2026-07-19) from
+// const-bound arrow chains — which silently returned 0 through the
+// constant-alias fail-open fix 5 now rejects with E5506 — to named function
+// declarations, and each rewrite comment above cites a ONE-TIME manual
+// "before committing" run against node (23 === 23, 23 === 23, 35 === 35).
+// That manual check does not otherwise correspond to anything the automated
+// suite asserts: `assert_optimization_benchmark_fixture` only counts
+// instructions/adds/tag-ops on the built `.wasm` — it never runs it — so a
+// regression that made these fixtures silently return 0 again (exactly the
+// defect class this wave exists to repair) would sail through green with no
+// warning.
+//
+// This converts that one-time manual check into a standing invariant. For
+// each fixture it runs a COPY of the source with its final bare `entry();`
+// statement wrapped as `console.log(entry());` — the wrapped copy is
+// written to its own temp file and is NEVER passed to
+// `assert_optimization_benchmark_fixture` or hashed against the fixture's
+// `.json` metadata, so the measured workload (the `layerN` call chain and
+// its arithmetic/element/field-access shape) and the pinned `sourceSha256`
+// are completely untouched — only a print wrapper is added around the
+// call that was already there, purely to make the result observable.
+#[test]
+fn rewritten_layer_chain_benchmarks_actually_execute() {
+    for (fixture_stem, expected_value) in [
+        ("nested-wrapper-pruning-benchmark-v1", 23),
+        ("const-array-element-access-benchmark-v1", 23),
+        ("const-object-property-access-benchmark-v1", 35),
+    ] {
+        let source_fixture = fixture_path(format!("benchmarks/{fixture_stem}.ts"));
+        let source = fs::read_to_string(&source_fixture).expect("read benchmark source");
+        let trimmed = source.trim_end();
+        assert!(
+            trimmed.ends_with("entry();"),
+            "{fixture_stem}: expected the fixture to end with a bare `entry();` call to wrap, \
+             got: {source}"
+        );
+        let prefix = trimmed
+            .strip_suffix("entry();")
+            .expect("checked by the assert above");
+        let wrapped = format!("{prefix}console.log(entry());\n");
+
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join(format!("{fixture_stem}.ts"));
+        fs::write(&source_path, &wrapped).expect("write wrapped benchmark source");
+
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("run")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+        assert!(
+            output.status.success(),
+            "{fixture_stem}: expected the rewritten fixture to run to completion, got: {output:?}"
+        );
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert_eq!(
+            stdout.trim(),
+            expected_value.to_string(),
+            "{fixture_stem}: expected the layer chain to actually execute and print \
+             {expected_value} (node-verified); stdout: {stdout}"
+        );
+    }
+}
+
+// Flipped pin: this benchmark's construct — an array literal passed as a
+// function argument — used to "build" by pushing a zero placeholder, so the
+// callee's element reads silently yielded 0 (`consumeArray([1, 2], 1)` → 1;
+// node says 4). That is now rejected fail-closed (E5506) in every build mode.
+#[test]
+fn array_literal_arguments_benchmark_is_rejected_fail_closed() {
+    let dir = tempdir().expect("tempdir");
+    let source_fixture = fixture_path("benchmarks/array-literal-arguments-benchmark-v1.js");
+    let source = fs::read_to_string(&source_fixture).expect("read benchmark source");
+    let source_path = dir.path().join("array-literal-arguments-benchmark-v1.js");
+    fs::write(&source_path, source).expect("write benchmark source");
+
+    for mode_flag in ["--fast", "--release", "--release-advanced"] {
+        let out_dir = dir
+            .path()
+            .join(format!("out-{}", mode_flag.trim_start_matches('-')));
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("build")
+            .arg(mode_flag)
+            .arg("--out-dir")
+            .arg(&out_dir)
+            .arg(&source_path)
+            .output()
+            .expect("run kali build");
+        assert!(
+            !output.status.success(),
+            "{mode_flag}: array-literal argument must be rejected, not miscompiled"
+        );
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("E5506") && stderr.contains("array literal"),
+            "{mode_flag}: stderr: {stderr}"
+        );
     }
 }
 

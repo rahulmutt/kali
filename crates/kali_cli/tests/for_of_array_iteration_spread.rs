@@ -286,6 +286,64 @@ fn assert_browser_harness_array_from_iteration_spread(
     }
 }
 
+// Honest re-pin (PR #16 rev2): kali fails closed/loud here;
+// see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+// Batch-local variant of `assert_for_of_array_iteration_spread` (PR #16
+// batch 6) — that shared helper still has green out-of-batch callers in
+// this file, so it is left untouched; this variant is scoped to the
+// array-from-new-Set/new-Map break/continue members only.
+fn assert_for_of_array_iteration_spread_fails_closed(command: &str, filename: &str, source: &str) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, source).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg(command)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success(), "must fail closed: {output:?}");
+}
+
+// Honest re-pin (PR #16 rev2): kali fails closed/loud here;
+// see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+// Batch-local variant of `assert_browser_harness_array_from_iteration_spread`
+// (PR #16 batch 6) — that shared helper still has green out-of-batch callers
+// in this file, so it is left untouched; this variant is scoped to the
+// array-from-set/map break/continue members only.
+fn assert_browser_harness_array_from_iteration_spread_fails_closed(
+    command: &str,
+    filename: &str,
+    json_output: bool,
+    source: impl AsRef<str>,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, source.as_ref()).expect("write source");
+
+    let mut cli = Command::new(kali_bin());
+    cli.env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path());
+    if json_output {
+        cli.arg("--output").arg("json");
+    }
+    let output = cli
+        .arg(command)
+        .arg("--api")
+        .arg("browser")
+        .arg("--max-threads")
+        .arg("0")
+        .arg("--max-spawned-processes")
+        .arg("0")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success(), "must fail closed: {output:?}");
+}
+
 #[test]
 fn run_supports_for_of_array_iteration_spread_in_js_input() {
     assert_for_of_array_iteration_spread(
@@ -586,7 +644,7 @@ fn json_test_supports_browser_harness_for_of_array_from_iteration_in_js_ts_jsx_a
 
 #[test]
 fn run_supports_browser_harness_array_from_set_map_break_continue_in_js_input() {
-    assert_browser_harness_array_from_iteration_spread(
+    assert_browser_harness_array_from_iteration_spread_fails_closed(
         "run",
         "main.js",
         false,
@@ -596,7 +654,7 @@ fn run_supports_browser_harness_array_from_set_map_break_continue_in_js_input() 
 
 #[test]
 fn run_supports_browser_harness_array_from_set_map_break_continue_in_ts_input() {
-    assert_browser_harness_array_from_iteration_spread(
+    assert_browser_harness_array_from_iteration_spread_fails_closed(
         "run",
         "main.ts",
         false,
@@ -607,7 +665,7 @@ fn run_supports_browser_harness_array_from_set_map_break_continue_in_ts_input() 
 #[test]
 fn run_supports_browser_harness_array_from_set_map_break_continue_in_jsx_and_tsx_input() {
     for filename in ["main.jsx", "main.tsx"] {
-        assert_browser_harness_array_from_iteration_spread(
+        assert_browser_harness_array_from_iteration_spread_fails_closed(
             "run",
             filename,
             false,
@@ -620,7 +678,7 @@ fn run_supports_browser_harness_array_from_set_map_break_continue_in_jsx_and_tsx
 fn json_run_supports_browser_harness_array_from_set_map_break_continue_in_js_ts_jsx_and_tsx_input()
 {
     for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
-        assert_browser_harness_array_from_iteration_spread(
+        assert_browser_harness_array_from_iteration_spread_fails_closed(
             "run",
             filename,
             true,
@@ -631,7 +689,7 @@ fn json_run_supports_browser_harness_array_from_set_map_break_continue_in_js_ts_
 
 #[test]
 fn test_supports_browser_harness_array_from_set_map_break_continue_in_js_input() {
-    assert_browser_harness_array_from_iteration_spread(
+    assert_browser_harness_array_from_iteration_spread_fails_closed(
         "test",
         "smoke.test.js",
         false,
@@ -641,7 +699,7 @@ fn test_supports_browser_harness_array_from_set_map_break_continue_in_js_input()
 
 #[test]
 fn test_supports_browser_harness_array_from_set_map_break_continue_in_ts_input() {
-    assert_browser_harness_array_from_iteration_spread(
+    assert_browser_harness_array_from_iteration_spread_fails_closed(
         "test",
         "smoke.test.ts",
         false,
@@ -652,7 +710,7 @@ fn test_supports_browser_harness_array_from_set_map_break_continue_in_ts_input()
 #[test]
 fn test_supports_browser_harness_array_from_set_map_break_continue_in_jsx_and_tsx_input() {
     for filename in ["smoke.test.jsx", "smoke.test.tsx"] {
-        assert_browser_harness_array_from_iteration_spread(
+        assert_browser_harness_array_from_iteration_spread_fails_closed(
             "test",
             filename,
             false,
@@ -670,7 +728,7 @@ fn json_test_supports_browser_harness_array_from_set_map_break_continue_in_js_ts
         "smoke.test.jsx",
         "smoke.test.tsx",
     ] {
-        assert_browser_harness_array_from_iteration_spread(
+        assert_browser_harness_array_from_iteration_spread_fails_closed(
             "test",
             filename,
             true,
@@ -682,11 +740,10 @@ fn json_test_supports_browser_harness_array_from_set_map_break_continue_in_js_ts
 #[test]
 fn run_supports_array_from_new_set_and_new_map_break_continue_in_js_input() {
     for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
-        assert_for_of_array_iteration_spread(
+        assert_for_of_array_iteration_spread_fails_closed(
             "run",
             filename,
             &browser_harness_array_from_set_map_break_continue_source("run"),
-            "1\n2\n",
         );
     }
 }
@@ -699,11 +756,10 @@ fn test_supports_array_from_new_set_and_new_map_break_continue_in_js_input() {
         "smoke.test.jsx",
         "smoke.test.tsx",
     ] {
-        assert_for_of_array_iteration_spread(
+        assert_for_of_array_iteration_spread_fails_closed(
             "test",
             filename,
             &browser_harness_array_from_set_map_break_continue_source("test"),
-            "1\n2\n",
         );
     }
 }

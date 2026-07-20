@@ -24,6 +24,10 @@ impl Optimizer {
             return self.member_access_name(program, inner);
         }
 
+        if let Some(name) = self.callable_selection_member_access_name(program, node) {
+            return Some(name);
+        }
+
         let object = node.children.first().copied()?;
         let object = program.nodes.get(object.0 as usize)?;
         let object_name = match object.text.as_deref() {
@@ -32,6 +36,78 @@ impl Optimizer {
         };
 
         Some(format!("{}.{}", object_name, node.text.as_deref()?))
+    }
+
+    /// Resolve a short-circuit (`??`/`&&`/`||`) or ternary (`?`) callable
+    /// SELECTION to the member-access name of the callable it statically
+    /// selects. LIR mirror of the shared static callable oracle
+    /// (`kali_types::resolve_static_callable_name` /
+    /// `kali_codegen::resolve_transparent_callable_node`) with the identical
+    /// discipline: a literal condition picks the winning branch; an unknown
+    /// condition resolves ONLY when both branches name the SAME target
+    /// (compared canonicalized). A selection between two DIFFERENT callables
+    /// stays unresolved — fail-closed, so the enumeration fold declines and
+    /// the call routes to codegen's E5506 backstop instead of ever folding
+    /// the wrong operator.
+    fn callable_selection_member_access_name(
+        &self,
+        program: &LirProgram,
+        node: &LirNode,
+    ) -> Option<String> {
+        if node.kind != LirNodeKind::Value {
+            return None;
+        }
+
+        let branch_name = |id: LirNodeId| -> Option<String> {
+            let branch = program.nodes.get(id.0 as usize)?;
+            self.member_access_name(program, branch)
+        };
+        let both_branches_same_target = |left: LirNodeId, right: LirNodeId| -> Option<String> {
+            let left_name = branch_name(left)?;
+            let right_name = branch_name(right)?;
+            let canonical = |name: &str| {
+                Self::canonicalize_optional_chain_member_access_name(
+                    &Self::canonicalize_bracketed_member_access_name(name),
+                )
+            };
+            if canonical(&left_name) == canonical(&right_name) {
+                Some(left_name)
+            } else {
+                None
+            }
+        };
+
+        match (node.text.as_deref(), node.children.as_slice()) {
+            (Some("??"), &[left, right]) => match literal_value(program, left) {
+                Some(ConstantValue::Null | ConstantValue::Undefined) => branch_name(right),
+                Some(_) => branch_name(left),
+                None => both_branches_same_target(left, right),
+            },
+            (Some("&&"), &[left, right]) => {
+                match literal_value(program, left).map(ConstantValue::truthy) {
+                    Some(true) => branch_name(right),
+                    Some(false) => branch_name(left),
+                    None => both_branches_same_target(left, right),
+                }
+            }
+            (Some("||"), &[left, right]) => {
+                match literal_value(program, left).map(ConstantValue::truthy) {
+                    Some(true) => branch_name(left),
+                    Some(false) => branch_name(right),
+                    None => both_branches_same_target(left, right),
+                }
+            }
+            // Ternary marker "?" (see the HIR ConditionalExpr lowering note):
+            // children are [test, consequent, alternate].
+            (Some("?"), &[test, consequent, alternate]) => {
+                match literal_value(program, test).map(ConstantValue::truthy) {
+                    Some(true) => branch_name(consequent),
+                    Some(false) => branch_name(alternate),
+                    None => both_branches_same_target(consequent, alternate),
+                }
+            }
+            _ => None,
+        }
     }
 
     pub(crate) fn normalized_member_access_name(
@@ -145,13 +221,8 @@ impl Optimizer {
     }
 
     pub(crate) fn object_property_order_key(key: &str) -> Option<u64> {
-        let normalized = key.trim_matches('"');
-        if normalized.is_empty() || (normalized.len() > 1 && normalized.starts_with('0')) {
-            return None;
-        }
-
-        let value = normalized.parse::<u64>().ok()?;
-        (value < u32::MAX as u64).then_some(value)
+        // Single source of truth (throw-fallout Stage 2, Lane B).
+        kali_common::property_order_key(key)
     }
 }
 

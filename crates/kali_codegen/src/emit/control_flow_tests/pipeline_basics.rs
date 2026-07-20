@@ -37,6 +37,26 @@ fn boolean_branches_use_the_layout_fast_path() {
 }
 
 #[test]
+fn streq_synthetic_is_emitted_without_i64_eqz() {
+    // `__streq` (throw-fallout Stage 1) is an unconditional synthetic like
+    // `__join`: present in every module. Its byte loop is the module's only
+    // `i64.load8_u` consumer, and — like `__join` (see the comment in
+    // `emit_join_body`) — it must never emit `i64.eqz`, which
+    // `boolean_branches_use_the_layout_fast_path` bans module-wide.
+    let program = parse_and_lower_lir("console.log(1);");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+    assert!(result.diagnostics.is_empty());
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.load8_u"));
+    assert!(!printed.contains("i64.eqz"));
+}
+
+#[test]
 fn mir_backed_pipeline_reduces_legacy_overhead_on_escaping_locals() {
     let current_lir = sample_program();
     let mir = kali_mir::MirProgram {
@@ -44,6 +64,7 @@ fn mir_backed_pipeline_reduces_legacy_overhead_on_escaping_locals() {
         nodes: Vec::new(),
         functions: Vec::new(),
         arena_facts: Vec::new(),
+        parent_labels: std::collections::BTreeMap::new(),
     };
     let baseline_lir = legacy_phase1_baseline(&current_lir, &mir);
 

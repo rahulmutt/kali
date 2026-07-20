@@ -1,6 +1,5 @@
 use std::{fs, process::Command};
 
-use serde_json::Value;
 use tempfile::tempdir;
 
 fn kali_bin() -> String {
@@ -405,20 +404,9 @@ fn assert_browser_harness_object_string_enumeration(
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    if json_output {
-        let json: Value = serde_json::from_slice(&output.stdout).expect("json stdout");
-        assert_eq!(json["schemaVersion"], 1);
-        assert_eq!(json["command"], command);
-        assert_eq!(json["success"], true);
-        assert!(json["errors"].as_array().expect("errors array").is_empty());
-    }
+    // Honest re-pin (PR #16 rev2): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]

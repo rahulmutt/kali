@@ -14,6 +14,58 @@ pub(crate) fn semver_min_version(range: &str) -> Option<String> {
         .map(|version| version.to_string())
 }
 
+/// The content of a genuinely-quoted string literal (`"tick"`/`'tick'`/`` `tick` ``),
+/// delimiters removed. `None` for anything not delimited by a matching quote
+/// pair (a numeric/boolean/`null` literal, a bareword) — so a non-string literal
+/// in a string-only position falls out of lane rather than being coerced.
+fn quoted_string_literal_content(text: &str) -> Option<String> {
+    let trimmed = text.trim();
+    let bytes = trimmed.as_bytes();
+    if bytes.len() >= 2 {
+        let first = bytes[0];
+        let last = bytes[bytes.len() - 1];
+        if (first == b'"' && last == b'"')
+            || (first == b'\'' && last == b'\'')
+            || (first == b'`' && last == b'`')
+        {
+            return Some(trimmed[1..trimmed.len() - 1].to_string());
+        }
+    }
+    None
+}
+
+/// Stage D scheduling surfaces codegen emits real registrations for.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum SchedulingSurface {
+    QueueMicrotask,
+    SetTimeout,
+    SetInterval,
+    ClearTimeout,
+    ClearInterval,
+}
+
+/// How a scheduling call's callback argument resolved (Stage D).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum SchedulingCallback {
+    /// Stable provenance to a compiled function: its raw wasm index.
+    Resolved(u32),
+    /// Everything else: unresolvable/unstable provenance — fail closed E5506.
+    Deny,
+    /// Resolved to a compiled function, but its env plan carries a captured
+    /// binding OUTSIDE the deferred-lane safe class. Fail closed E5506; the
+    /// payload is the capture class label for the diagnostic. Task 9 C-1 FINAL
+    /// (DEFAULT-DENY over an allowlist): the deferred lane restores captures
+    /// through the owner's env-record pointer, but the owner frame + its arena
+    /// are gone when the callback fires, so ONLY a by-value promoted scalar cell
+    /// (a depth-1 `is_scalar` i64 stored inline in the record) survives. Every
+    /// other capture — objects (a pointer into the reclaimed arena, read `0`),
+    /// non-lowered scalars, params/param-aliases — is a soundness fail-open, and
+    /// the sole allowlist exception is a provable zero-placeholder construct
+    /// (`new AbortController()`, already `0` in the owner's own body). See
+    /// `unlowered_capture_denied`.
+    DenyUnloweredCapture(&'static str),
+}
+
 impl<'a> FunctionEmitter<'a> {
     pub(crate) fn emit_coverage_hit(&mut self, function: &mut Function, coverage_id: Option<u32>) {
         if let Some(coverage_id) = coverage_id {
@@ -37,6 +89,34 @@ impl<'a> FunctionEmitter<'a> {
             "info" => Some(crate::CONSOLE_INFO_IMPORT_INDEX),
             "debug" => Some(crate::CONSOLE_DEBUG_IMPORT_INDEX),
             _ => None,
+        }
+    }
+
+    /// `Promise.resolve` (or `globalThis.Promise.resolve`) callee recognizer.
+    /// `Promise.resolve(v)` synchronously settles to `v`; a bare `Promise.resolve()`
+    /// settles to unit. Consumed by the await value-passthrough lane (Stage 3
+    /// Task 4). Scoped to the exact `Promise` receiver so no other `.resolve`
+    /// member call is affected.
+    pub(crate) fn is_promise_resolve(&self, callee_node: &LirNode) -> bool {
+        if callee_node.text.as_deref() != Some("resolve") {
+            return false;
+        }
+        let Some(object) = callee_node.children.first().copied() else {
+            return false;
+        };
+        self.is_promise_root(object)
+    }
+
+    /// The `Promise` global, spelled either as the bare `Promise` identifier or as
+    /// `globalThis.Promise`.
+    fn is_promise_root(&self, id: LirNodeId) -> bool {
+        let node = self.node(id);
+        if node.text.as_deref() != Some("Promise") {
+            return false;
+        }
+        match node.children.first().copied() {
+            None => true,
+            Some(root) => self.node(root).text.as_deref() == Some("globalThis"),
         }
     }
 
@@ -172,6 +252,96 @@ impl<'a> FunctionEmitter<'a> {
         self.process_exit_import_index
     }
 
+    pub(crate) fn performance_now_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+        let method = callee_node.text.as_deref()?;
+        if method != "now" {
+            return None;
+        }
+
+        let object = callee_node.children.first().copied()?;
+        let object_node = self.node(object);
+        if object_node.text.as_deref() != Some("performance") {
+            return None;
+        }
+
+        self.performance_now_import_index
+    }
+
+    /// Recognize `crypto.getRandomValues(<buffer>)` (throw-fallout Stage 3 bucket
+    /// #6): callee method text `"getRandomValues"`, object text `"crypto"`.
+    /// Mirrors the `program_uses_crypto_get_random_values` probe and the
+    /// kali_types admission arm (`resolve_crypto_call`).
+    pub(crate) fn crypto_get_random_values_import_index(
+        &self,
+        callee_node: &LirNode,
+    ) -> Option<u32> {
+        if callee_node.text.as_deref()? != "getRandomValues" {
+            return None;
+        }
+        let object = callee_node.children.first().copied()?;
+        if self.node(object).text.as_deref() != Some("crypto") {
+            return None;
+        }
+        self.crypto_get_random_values_import_index
+    }
+
+    /// Recognize `crypto.randomUUID()` (throw-fallout Stage 3 bucket #6): callee
+    /// method text `"randomUUID"`, object text `"crypto"`.
+    pub(crate) fn crypto_random_uuid_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+        if callee_node.text.as_deref()? != "randomUUID" {
+            return None;
+        }
+        let object = callee_node.children.first().copied()?;
+        if self.node(object).text.as_deref() != Some("crypto") {
+            return None;
+        }
+        self.crypto_random_uuid_import_index
+    }
+
+    /// Recognize `crypto.subtle.digest(algo, bytes)` (throw-fallout Stage 3 bucket
+    /// #6 part 2): callee method text `"digest"`, object text `"subtle"`,
+    /// grand-object text `"crypto"`. Mirrors the `program_uses_crypto_subtle_digest`
+    /// probe and the kali_types admission arm (`resolve_crypto_call`).
+    pub(crate) fn crypto_subtle_digest_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+        if callee_node.text.as_deref()? != "digest" {
+            return None;
+        }
+        let subtle = callee_node.children.first().copied()?;
+        let subtle_node = self.node(subtle);
+        if subtle_node.text.as_deref() != Some("subtle") {
+            return None;
+        }
+        let crypto = subtle_node.children.first().copied()?;
+        if self.node(crypto).text.as_deref() != Some("crypto") {
+            return None;
+        }
+        self.crypto_subtle_digest_import_index
+    }
+
+    /// Recognize `new TextEncoder().encode(<string>)` (throw-fallout Stage 3 bucket
+    /// #6 part 2): callee method text `"encode"` whose object is a
+    /// `new TextEncoder()` construction (a `Call` node whose own callee text is
+    /// `"TextEncoder"`). A pure GUEST-SIDE reinterpret — no host import — so this
+    /// returns a bool rather than an import index. Mirrors the raw-node arm in
+    /// `declarator_init_is_crypto_call` and the kali_types admission arm.
+    pub(crate) fn is_text_encoder_encode(&self, callee_node: &LirNode) -> bool {
+        if callee_node.text.as_deref() != Some("encode") {
+            return false;
+        }
+        let Some(object) = callee_node.children.first().copied() else {
+            return false;
+        };
+        let object_node = self.node(object);
+        if object_node.kind != LirNodeKind::Call {
+            return false;
+        }
+        object_node
+            .children
+            .first()
+            .map(|&ctor| self.node(ctor).text.as_deref() == Some("TextEncoder"))
+            .unwrap_or(false)
+    }
+
     pub(crate) fn render_console_call(&self, node: &LirNode) -> Option<String> {
         let args = node.children.iter().skip(1).copied().collect::<Vec<_>>();
         self.render_console_arguments(&args)
@@ -241,6 +411,16 @@ impl<'a> FunctionEmitter<'a> {
                 self.render_semver_intrinsic(callee_name, node)
             }
             LirNodeKind::Value => {
+                // A member access reaching a `GrowableArrayI64` object field
+                // (`o.values.length` / `o.values[i]`, Stage P2 Lane 1) is a LIVE
+                // runtime read of a push-accumulated array — never statically
+                // foldable. Bail so console output takes the dynamic growable
+                // lane instead of rendering a stale seed value (the render twin
+                // of the optimizer's growable-field fold guard).
+                if node.children.len() == 1 && self.object_field_is_growable_array(node.children[0])
+                {
+                    return None;
+                }
                 if node.children.is_empty() {
                     let text = node.text.as_deref()?;
                     if let Some(bound) = self.bindings.get(text).copied() {
@@ -292,7 +472,16 @@ impl<'a> FunctionEmitter<'a> {
                         StaticIndexMemberResult::String(value) => Some(value),
                         StaticIndexMemberResult::Undefined => Some("undefined".to_string()),
                     }
-                } else if node.text.is_none() {
+                } else if node
+                    .text
+                    .as_deref()
+                    // A text-less wrapper renders as its child (1 child) or the
+                    // aggregate element count. The `"await"` marker (Stage 3
+                    // Task 4) is a synchronously-settled passthrough — it always
+                    // wraps a single operand, so it tunnels to that child for
+                    // static rendering (e.g. `Math.atan2(await 0, await 1)`).
+                    .is_none_or(|text| text.is_empty() || text == "await")
+                {
                     if node.children.len() == 1 {
                         self.render_static_value(node.children[0])
                     } else {
@@ -558,6 +747,37 @@ impl<'a> FunctionEmitter<'a> {
             return Some(parts.len().to_string());
         }
 
+        // Array literal (inline, via a `const` binding, or through transparent
+        // wrappers): `[x].length` is the ELEMENT COUNT, not the string length of
+        // a lone element `x`. This MUST precede the string-identity fold below —
+        // that fold tunnels a single-element array `[x]` straight into element
+        // `x` and would report `x`'s UTF-16 length (e.g. `["abcdef"].length` →
+        // 6, or the folded `Object.keys(singleKeyObject).length` → the key's
+        // length) instead of 1. Placing the carve-out in this `.length` consumer
+        // (rather than in the shared `unwrap_transparent` /
+        // `resolve_static_object_identity_value` helpers) keeps every other
+        // consumer's legitimate one-child-wrapper tunneling intact
+        // (throw-fallout Stage 2 checkpoint regression fix).
+        if let Some(aggregate_id) = self.resolve_literal_aggregate(*id) {
+            let aggregate = self.node(aggregate_id);
+            if self.is_array_literal(aggregate) {
+                // `[...a].length` fails closed (Task B1/R-25): a spread child
+                // would be counted as a single element here, silently baking
+                // the wrong length into a compile-time-rendered
+                // `console.log` string. `&self` cannot push the E5506
+                // diagnostic from this pure static-render helper; returning
+                // `None` forces the caller (`render_console_arguments`) to
+                // give up the whole-argument-list static render and fall
+                // back to per-argument runtime emission, which DOES hold
+                // `&mut self` and is where `array_literal_contains_spread`
+                // pushes the diagnostic and traps (emit/operators.rs).
+                if self.array_literal_contains_spread(aggregate) {
+                    return None;
+                }
+                return Some(aggregate.children.len().to_string());
+            }
+        }
+
         if let Some(StaticObjectIdentityValue::String(value)) =
             self.resolve_static_object_identity_value(*id)
         {
@@ -584,10 +804,11 @@ impl<'a> FunctionEmitter<'a> {
                 if let Some(bound) = self.bindings.get(text).copied() {
                     return self.render_length(&bound);
                 }
-                if self.array_bindings.contains(text) {
-                    // Runtime array: the length header isn't statically known;
-                    // defer to dynamic emission (the `a.length` header load)
-                    // instead of baking in a wrong constant.
+                if self.array_bindings.contains(text) || self.is_growable_array(text) {
+                    // Runtime (plain or growable) array: the length isn't
+                    // statically known; defer to dynamic emission (the
+                    // respective `.length` header-load lane) instead of
+                    // baking in a wrong constant.
                     return None;
                 }
                 return Some("0".to_string());
@@ -599,6 +820,129 @@ impl<'a> FunctionEmitter<'a> {
         } else {
             Some(node.children.len().to_string())
         }
+    }
+
+    /// Recognize `new EventTarget()` (Stage D event lane) with the `EventTarget`
+    /// name UNSHADOWED in every codegen namespace and ZERO constructor args
+    /// (spec §2.1). EMPIRICALLY-VERIFIED LIR shape (KALI_DUMP_LIR, `const t =
+    /// new EventTarget()`): the parser hoists `new` to wrap the callee chain, so
+    /// the New-expression lowers to a text-less `Value` whose single child is a
+    /// text-less `Call` node, whose own children are `[Value(ctor), ...args]` —
+    /// i.e. `Value(None, [Call(None, [Value("EventTarget")])])` for zero args.
+    /// (The plan's "children `[Value(ctor), ...args]`" described the inner Call,
+    /// not the New wrapper.) A zero-arg construction has the inner Call with
+    /// exactly one child (the ctor); any argument makes it `>= 2` and falls out
+    /// of lane. Mirrors `scheduling_surface`'s namespace-shadowing checks.
+    pub(crate) fn is_event_target_new(&self, node: &LirNode) -> bool {
+        if node.text.is_some() || node.children.len() != 1 {
+            return false;
+        }
+        let call = self.node(node.children[0]);
+        if call.kind != LirNodeKind::Call || call.text.is_some() || call.children.len() != 1 {
+            return false;
+        }
+        let ctor = self.node(call.children[0]);
+        if ctor.text.as_deref() != Some("EventTarget") || !ctor.children.is_empty() {
+            return false;
+        }
+        !(self.locals.contains_key("EventTarget")
+            || self.bindings.contains_key("EventTarget")
+            || self.module_binding_names.contains("EventTarget")
+            || self.fn_valued_locals.contains_key("EventTarget")
+            || self.functions.contains_key("EventTarget"))
+    }
+
+    /// Task 5 right-operand proof for the `instanceof AbortSignal` allow lane:
+    /// the RAW `right` node is the childless global identifier `name`
+    /// (`"AbortSignal"`), UNSHADOWED in every codegen namespace. Mirrors the
+    /// five-namespace shadow-guard used by `is_event_target_new` /
+    /// `is_abort_controller_new`: a user binding of `AbortSignal` in any of the
+    /// five namespaces refutes the proof and the `instanceof` falls through to
+    /// the blanket runtime trap. Deliberately NOT `unwrap_transparent` (same
+    /// reasoning as `instanceof_left_signal_proof`): parens are parse-time
+    /// resolved so a bare `AbortSignal` arrives directly, and tunneling would
+    /// let a single-element array literal `[AbortSignal]` on the RHS match — a
+    /// non-callable RHS is a TypeError in JS, never a fold-to-true.
+    pub(crate) fn instanceof_right_is_unshadowed(&self, right: LirNodeId, name: &str) -> bool {
+        let node = self.node(right);
+        if !node.children.is_empty() || node.text.as_deref() != Some(name) {
+            return false;
+        }
+        !(self.locals.contains_key(name)
+            || self.bindings.contains_key(name)
+            || self.module_binding_names.contains(name)
+            || self.fn_valued_locals.contains_key(name)
+            || self.functions.contains_key(name))
+    }
+
+    /// Resolve a member-call receiver to an event-target local with stable
+    /// provenance (Stage D event lane): the callee's child 0 is a bare `Value`
+    /// identifier recorded in `event_target_locals` and not since made unstable
+    /// (`unstable_provenance_names`). Returns the binding name so the emit arm
+    /// can load the receiver's local DIRECTLY, bypassing the generic identifier
+    /// lane (whose handle-escape choke point denies every bare read of these
+    /// names — that deny is total by construction, and this direct load is the
+    /// single allowed consumer).
+    pub(crate) fn event_target_receiver(&self, callee_node: &LirNode) -> Option<&str> {
+        let &receiver = callee_node.children.first()?;
+        let receiver_node = self.node(receiver);
+        if !receiver_node.children.is_empty() {
+            return None;
+        }
+        let name = receiver_node.text.as_deref()?;
+        if self.unstable_provenance_names.contains(name) {
+            return None;
+        }
+        self.event_target_locals.contains(name).then_some(name)
+    }
+
+    /// Validate a `dispatchEvent` argument as an INLINE `new CustomEvent(<lit>)`
+    /// with an unshadowed `CustomEvent` and exactly one STRING-literal arg;
+    /// returns the (delimiter-stripped) event-type text. EMPIRICALLY-VERIFIED
+    /// shape (KALI_DUMP_LIR, `t.dispatchEvent(new CustomEvent("tick"))`): the
+    /// argument is the New wrapper `Value(None, [Call(None, [Value("CustomEvent"),
+    /// Literal("\"tick\"")])])`. This mirrors `is_event_target_new`'s
+    /// wrapper->Call descent — it takes the RAW wrapper node and must NOT be
+    /// handed an `unwrap_transparent`-stripped node (that would strip the wrapper
+    /// this validator expects). Anything else (bound event, `detail`, extra
+    /// args, shadowed ctor) falls out of lane.
+    pub(crate) fn event_dispatch_literal(&self, node: &LirNode) -> Option<String> {
+        if node.text.is_some() || node.children.len() != 1 {
+            return None;
+        }
+        let call = self.node(node.children[0]);
+        if call.kind != LirNodeKind::Call || call.text.is_some() || call.children.len() != 2 {
+            return None;
+        }
+        let ctor = self.node(call.children[0]);
+        if ctor.text.as_deref() != Some("CustomEvent") || !ctor.children.is_empty() {
+            return None;
+        }
+        if self.locals.contains_key("CustomEvent")
+            || self.bindings.contains_key("CustomEvent")
+            || self.module_binding_names.contains("CustomEvent")
+            || self.fn_valued_locals.contains_key("CustomEvent")
+            || self.functions.contains_key("CustomEvent")
+        {
+            return None;
+        }
+        let arg = self.node(call.children[1]);
+        if arg.kind != LirNodeKind::Literal || !arg.children.is_empty() {
+            return None;
+        }
+        quoted_string_literal_content(arg.text.as_deref()?)
+    }
+
+    /// The delimiter-stripped content of a string-literal argument (unwrapping
+    /// transparent grouping wrappers first). `None` for a numeric/boolean/`null`
+    /// literal or any non-literal — the event-type / listener-type positions are
+    /// string-literal-only this phase.
+    pub(crate) fn string_literal_text(&self, id: LirNodeId) -> Option<String> {
+        let node = self.node(self.unwrap_transparent(id));
+        if node.kind != LirNodeKind::Literal || !node.children.is_empty() {
+            return None;
+        }
+        quoted_string_literal_content(node.text.as_deref()?)
     }
 
     pub(crate) fn is_kali_test_call(&self, callee_node: &LirNode) -> bool {
@@ -614,8 +958,479 @@ impl<'a> FunctionEmitter<'a> {
 
     pub(crate) fn kali_test_callback_index(&self, node: &LirNode) -> Option<u32> {
         let callback_node = node.children.get(2).copied()?;
-        let callback_name = self.node(callback_node).text.as_deref()?;
+        let cb = self.node(callback_node);
+        // Bare-identifier / inline-function gate (I-4): resolve a callback to a
+        // compiled function BY TEXT only for an inline function-expression plan
+        // node (`Instruction`, whose text is the `__kali_fn_N` plan key) or a
+        // BARE identifier (`Value` with NO children). A member-expression
+        // callback (`obj.m`) is a `Value` node WITH a receiver child, and its
+        // own text is the PROPERTY name — resolving that text ran an unrelated
+        // module function `m` and printed a false `ok 1`. This mirrors the
+        // scheduling resolver's structural distinction (Instruction vs
+        // childless Value); anything else falls to the unregisterable deny lane.
+        match cb.kind {
+            LirNodeKind::Instruction => {}
+            LirNodeKind::Value if cb.children.is_empty() => {}
+            _ => return None,
+        }
+        let callback_name = cb.text.as_deref()?;
         self.functions.get(callback_name).copied()
+    }
+
+    /// Recognize a bare, UNSHADOWED global scheduling callee (Stage D
+    /// provenance rule: "bare unshadowed global callee only"). Any user
+    /// binding, local, or function of the same name shadows the global and
+    /// the call takes the normal user-call lane.
+    pub(crate) fn scheduling_surface(&self, callee_node: &LirNode) -> Option<SchedulingSurface> {
+        if !callee_node.children.is_empty() {
+            return None;
+        }
+        let name = callee_node.text.as_deref()?;
+        let surface = match name {
+            "queueMicrotask" => SchedulingSurface::QueueMicrotask,
+            "setTimeout" => SchedulingSurface::SetTimeout,
+            "setInterval" => SchedulingSurface::SetInterval,
+            "clearTimeout" => SchedulingSurface::ClearTimeout,
+            "clearInterval" => SchedulingSurface::ClearInterval,
+            _ => return None,
+        };
+        if self.locals.contains_key(name)
+            || self.bindings.contains_key(name)
+            || self.module_binding_names.contains(name)
+            || self.fn_valued_locals.contains_key(name)
+            || self.functions.contains_key(name)
+        {
+            return None;
+        }
+        Some(surface)
+    }
+
+    /// Recognize a bare, UNSHADOWED `structuredClone` callee (Stage P2 Lane 2b) —
+    /// the same provenance rule as [`Self::scheduling_surface`]: any user
+    /// binding, local, parameter, function-valued local, or function of that
+    /// name shadows the global and the call takes the normal user-call lane
+    /// (so a `function structuredClone(){}` is honored, not the builtin).
+    pub(crate) fn is_structured_clone_call(&self, callee_node: &LirNode) -> bool {
+        if !callee_node.children.is_empty() {
+            return false;
+        }
+        if callee_node.text.as_deref() != Some("structuredClone") {
+            return false;
+        }
+        let name = "structuredClone";
+        !(self.locals.contains_key(name)
+            || self.bindings.contains_key(name)
+            || self.module_binding_names.contains(name)
+            || self.fn_valued_locals.contains_key(name)
+            || self.functions.contains_key(name))
+    }
+
+    /// Strict ALLOWLIST gate: `shape` is deep-clonable iff (a) every field repr
+    /// is a scalar or a `GrowableArrayI64` array (see
+    /// [`crate::emit::clone::fields_are_clone_envelope`]) AND (b) the shape is
+    /// CLONE-SAFE — every object-literal construction of it proved each field a
+    /// scalar-or-growable SOURCE, never an object pointer (`ReprTable::
+    /// shape_is_clone_safe`, an allowlist computed at intern time). (b) is
+    /// essential: the field-repr check alone cannot tell a plain `I64` number
+    /// field from an `I64` object-pointer field (`{ inner: mk() }` /
+    /// `{ inner: arr[0] }` / `{ inner: inner }`) — they intern identically — so
+    /// a verbatim slot copy of the latter would SHALLOW-SHARE the nested object.
+    /// Shared with the plan-time collection scan so the emit-time dispatch and
+    /// the synthetic-emission set never disagree.
+    pub(crate) fn shape_is_clone_envelope(&self, shape: kali_common::ShapeId) -> bool {
+        crate::emit::clone::fields_are_clone_envelope(self.repr_table.shape_fields(shape))
+            && self.repr_table.shape_is_clone_safe(shape)
+    }
+
+    /// Fail-closed E5506 rejection in VALUE position: push the diagnostic, emit
+    /// `Unreachable` (keeps the value stack balanced — the block becomes
+    /// stack-polymorphic), and report no produced value. Mirrors the growable
+    /// lane's fail-closed emit shape.
+    pub(crate) fn deny_e5506(&mut self, function: &mut Function, message: &str) -> EmittedValue {
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            message.to_string(),
+        ));
+        function.instruction(&Instruction::Unreachable);
+        EmittedValue {
+            produced: false,
+            shape: ValueShape::Unknown,
+        }
+    }
+
+    /// Resolve a scheduling call's callback argument (`children[1]`) by
+    /// STABLE provenance — the same rules as the Stage C
+    /// `scheduling_call_args_provably_safe` guard, but yielding the function
+    /// index for the registration emit. Capturing callbacks resolve too:
+    /// their soundness is `env_safety`'s job (registration edges), not this
+    /// resolver's.
+    pub(crate) fn scheduling_callback(&self, node: &LirNode) -> SchedulingCallback {
+        self.scheduling_callback_at(node, 1)
+    }
+
+    /// The single deferred-callback choke point that turns a resolved callback
+    /// (`plan_key` → wasm `index`) into either a plain `Resolved` or a
+    /// `DenyUnloweredCapture` (Task 9 C-1 final — DEFAULT-DENY over an allowlist).
+    /// All four registration surfaces (`setTimeout`/`setInterval`/`queueMicrotask`
+    /// via `scheduling_callback`, `addEventListener` via `scheduling_callback_at`
+    /// position 2) route through here, so the deny is inherited by construction —
+    /// no per-surface duplication.
+    fn checked_scheduling_resolution(&self, plan_key: &str, index: u32) -> SchedulingCallback {
+        match self.unlowered_capture_denied(plan_key) {
+            Some(class) => SchedulingCallback::DenyUnloweredCapture(class),
+            None => SchedulingCallback::Resolved(index),
+        }
+    }
+
+    /// Task 9 C-1 FINAL — DEFAULT-DENY at the deferred-callback choke point over
+    /// an ALLOWLIST of the provably-safe capture class (the standing lesson: a
+    /// denylist of bad capture shapes leaks — the earlier scalar-only form missed
+    /// captured OBJECTS, scalars laundered THROUGH an object field, and
+    /// param-ALIAS bindings; only an allowlist closes the class by construction).
+    ///
+    /// If the function keyed by `plan_key` captures ANY binding that is NOT in the
+    /// safe class, return a class label (`"scalar"`/`"object"`/`"param"`/
+    /// `"captured"`) for the deny diagnostic; `None` only when every capture is
+    /// provably safe.
+    ///
+    /// The deferred lane restores captures through the OWNER's env-record pointer,
+    /// but the owner's frame (and its arena) is gone by the time the callback
+    /// fires. The ONE class that survives is a BY-VALUE promoted scalar cell — a
+    /// depth-1 `is_scalar` i64 stored inline in the env record (the exact
+    /// `cell_is_promotable` engagement predicate). Everything else diverges from
+    /// node:
+    ///   - a heap/object cell (even when `cell_is_promotable` — its promotion is
+    ///     a POINTER into the owner's reclaimed arena, read back as `0`),
+    ///   - a non-lowered scalar (string/float/depth≥2 i64 — silently `0`),
+    ///   - a captured parameter or param-alias local (a real i64/heap argument
+    ///     the deferred read loses).
+    ///
+    /// The SOLE allowlist exception is a PROVABLE ZERO-PLACEHOLDER construct
+    /// (`const c = new AbortController()` and the like — see
+    /// [`crate::lower::declarator_init_is_placeholder_construct`]): its owner-body
+    /// read is already the `0` placeholder, so the deferred read of the same `0`
+    /// introduces no divergence. That is provable only for a depth-1 capture whose
+    /// owner is the function doing the registration (`owner == self.function_name`
+    /// — the registration is emitted in the owner's own body, so `self.body` holds
+    /// the declarator); a placeholder captured from a further ancestor cannot be
+    /// proven here and stays denied (fail closed).
+    fn unlowered_capture_denied(&self, plan_key: &str) -> Option<&'static str> {
+        let plan = self.env_plans.get(plan_key)?;
+        plan.captured.iter().find_map(|reference| {
+            // ALLOWLIST 1: a by-value promoted scalar cell (depth-1 i64 stored
+            // inline in the env record) — the only class the deferred lane
+            // restores soundly.
+            let by_value_scalar = reference.is_scalar
+                && reference.depth == 1
+                && crate::closure::cell_is_promotable(
+                    self.repr_table,
+                    &reference.owner,
+                    &reference.name,
+                    reference.is_scalar,
+                );
+            if by_value_scalar {
+                return None;
+            }
+            // ALLOWLIST 2: a provable zero-placeholder construct declared in the
+            // owner's own (== current) body. No real value to diverge.
+            if reference.depth == 1
+                && reference.owner == self.function_name
+                && self.binding_is_placeholder_construct(&reference.name)
+            {
+                return None;
+            }
+            // ALLOWLIST 3 (Stage P3): a captured abort handle — an i64 pointer
+            // to a never-reclaimed `__alloc_global` cell. By-value restore
+            // dereferences live memory after the owner frame + arena are gone
+            // (the exact property arena-backed object captures lack). Admitted
+            // regardless of the coarse `is_scalar` bit — the flip of
+            // `new AbortController()` out of the placeholder exclusion list
+            // dropped it from ALLOWLIST 2, so this entry is what keeps a
+            // captured controller (e.g. the deferred `controller.abort()`
+            // listener) building.
+            //
+            // NOTE (Task 8 round-2): this entry does NOT gate `_start`-owned
+            // handles — a `_start` loop/block-body `const c = new
+            // AbortController()` capture is admitted by ALLOWLIST 1 (a by-value
+            // scalar AbortHandle IS `cell_is_promotable`) BEFORE reaching here,
+            // so an `owner != "_start"` guard on this entry would be dead code
+            // (verified: reverting it leaves the write-loop reproducer denying
+            // via the CALL-SIDE `is_module_scope_abort_handle` gate, not here).
+            // The `_start`-boundary deny lives at the choke points instead —
+            // `is_module_scope_abort_handle` on the call side (`emit/call.rs`)
+            // and the read side (`emit/control_flow.rs` identifier + abort
+            // member-read arms). This entry is intentionally owner-agnostic.
+            if reference.depth == 1
+                && self.repr_table.scalar(&reference.owner, &reference.name)
+                    == kali_common::Repr::AbortHandle
+            {
+                return None;
+            }
+            // DENIED. Label the class for the diagnostic.
+            let repr = self.repr_table.scalar(&reference.owner, &reference.name);
+            Some(if reference.is_scalar {
+                match repr {
+                    kali_common::Repr::String => "string",
+                    kali_common::Repr::F64 => "float",
+                    _ => "scalar",
+                }
+            } else if self
+                .function_param_names
+                .get(reference.owner.as_str())
+                .is_some_and(|params| params.iter().any(|param| param == &reference.name))
+            {
+                "param"
+            } else if matches!(repr, kali_common::Repr::Object(_)) {
+                "object"
+            } else {
+                "local"
+            })
+        })
+    }
+
+    /// True when `name` is declared in THIS function body (`self.body`) by a
+    /// declarator whose init is a provable zero-placeholder construct (a
+    /// `new X()` that lowers to the drop-and-push-`0` aggregate placeholder — the
+    /// AbortController class; see
+    /// [`crate::lower::declarator_init_is_placeholder_construct`]). Consulted only
+    /// for a depth-1 capture whose owner is the current function, so the binding's
+    /// declarator is in `self.body`. Nested function definitions/expressions ARE
+    /// inlined as descendant subtrees here, so the walk STOPS at any
+    /// `is_function_like` child — a nested function's `const c = new Foo()` must
+    /// NOT be attributed to an outer binding of the same name (that would
+    /// wrong-ALLOW an outer object capture; pinned by
+    /// `deferred_capture_nested_shadow_placeholder_denies` in
+    /// `soundness_events.rs`, Task 9 rider probe c3).
+    fn binding_is_placeholder_construct(&self, name: &str) -> bool {
+        let nodes = &self.program.nodes;
+        let mut stack = vec![self.body];
+        let mut seen = std::collections::HashSet::new();
+        while let Some(id) = stack.pop() {
+            if !seen.insert(id) {
+                continue;
+            }
+            let Some(node) = nodes.get(id.0 as usize) else {
+                continue;
+            };
+            if node.kind == LirNodeKind::Instruction
+                && matches!(node.text.as_deref(), Some("const" | "let" | "var"))
+            {
+                for &declarator_id in &node.children {
+                    let Some(declarator) = nodes.get(declarator_id.0 as usize) else {
+                        continue;
+                    };
+                    if declarator.text.as_deref() == Some(name)
+                        && declarator.children.len() >= 2
+                        && crate::lower::declarator_init_is_placeholder_construct(
+                            nodes,
+                            declarator.children[1],
+                        )
+                    {
+                        return true;
+                    }
+                }
+            }
+            // Do not cross into a nested function body (except the walk root).
+            stack.extend(node.children.iter().copied().filter(|&child| {
+                child == self.body || !crate::lower::is_function_like(nodes, child)
+            }));
+        }
+        false
+    }
+
+    /// Stage P3: true when `name` is bound in `self.body` by a declarator whose
+    /// init is structurally `new AbortController()` — regardless of whether
+    /// inference admitted it as a handle. Consulted ONLY on the fail-closed side
+    /// of the `.abort()` dispatch arm to distinguish "an AbortController kali
+    /// could not prove" (a `let`/`var`, or a `const` that lost the repr/shadow
+    /// gate) from an unrelated `.abort()` receiver — so the former fails closed
+    /// (never a silent drop of a real abort) while genuinely-unrelated `.abort()`
+    /// methods keep their existing behavior. Walk shape mirrors
+    /// `binding_is_placeholder_construct` (stops at nested function bodies so a
+    /// shadowing inner declarator is never attributed to an outer binding).
+    pub(crate) fn binding_is_abort_controller_new(&self, name: &str) -> bool {
+        let nodes = &self.program.nodes;
+        let mut stack = vec![self.body];
+        let mut seen = std::collections::HashSet::new();
+        while let Some(id) = stack.pop() {
+            if !seen.insert(id) {
+                continue;
+            }
+            let Some(node) = nodes.get(id.0 as usize) else {
+                continue;
+            };
+            if node.kind == LirNodeKind::Instruction
+                && matches!(node.text.as_deref(), Some("const" | "let" | "var"))
+            {
+                for &declarator_id in &node.children {
+                    let Some(declarator) = nodes.get(declarator_id.0 as usize) else {
+                        continue;
+                    };
+                    if declarator.text.as_deref() == Some(name)
+                        && declarator.children.len() >= 2
+                        && crate::lower::declarator_init_is_abort_controller_new(
+                            nodes,
+                            declarator.children[1],
+                        )
+                    {
+                        return true;
+                    }
+                }
+            }
+            stack.extend(node.children.iter().copied().filter(|&child| {
+                child == self.body || !crate::lower::is_function_like(nodes, child)
+            }));
+        }
+        false
+    }
+
+    /// Stage P2 Lane 2b corpus pin: true when `arg` is a BARE IDENTIFIER whose
+    /// binding has PROVABLE zero-placeholder provenance — the re-clone shape the
+    /// package corpus builds today (`const b = structuredClone(new Blob(['x']));
+    /// structuredClone(b);`). An identifier of unknown / object / scalar
+    /// provenance returns false (falls through to Lane 3 E5506) — this is a
+    /// POSITIVE proof, an allowlist extension of the placeholder warn-build lane,
+    /// not a general identifier admission.
+    pub(crate) fn arg_is_placeholder_derived_identifier(&self, arg: LirNodeId) -> bool {
+        let id = self.unwrap_transparent(arg);
+        let node = self.node(id);
+        if node.kind != LirNodeKind::Value || !node.children.is_empty() {
+            return false;
+        }
+        let Some(name) = node.text.as_deref().filter(|text| !text.is_empty()) else {
+            return false;
+        };
+        self.binding_has_placeholder_provenance(name, 0)
+    }
+
+    /// True when `name` is bound in `self.body` by a `const` declarator whose
+    /// init is placeholder-derived (see `init_is_placeholder_derived`). CONST
+    /// ONLY, on purpose: a `const` is single-init and never reassigned, so its
+    /// placeholder-ness is provable; a `let`/`var` could be mutated to a real
+    /// value, so it is never chased (falls through to Lane 3). Walk shape mirrors
+    /// `binding_is_placeholder_construct` (stops at nested function bodies so a
+    /// shadowing inner declarator is never attributed to an outer binding).
+    fn binding_has_placeholder_provenance(&self, name: &str, depth: u32) -> bool {
+        if depth > 16 {
+            return false;
+        }
+        let nodes = &self.program.nodes;
+        let mut stack = vec![self.body];
+        let mut seen = std::collections::HashSet::new();
+        while let Some(id) = stack.pop() {
+            if !seen.insert(id) {
+                continue;
+            }
+            let Some(node) = nodes.get(id.0 as usize) else {
+                continue;
+            };
+            if node.kind == LirNodeKind::Instruction && node.text.as_deref() == Some("const") {
+                for &declarator_id in &node.children {
+                    let Some(declarator) = nodes.get(declarator_id.0 as usize) else {
+                        continue;
+                    };
+                    if declarator.text.as_deref() == Some(name)
+                        && declarator.children.len() >= 2
+                        && self.init_is_placeholder_derived(declarator.children[1], depth)
+                    {
+                        return true;
+                    }
+                }
+            }
+            stack.extend(node.children.iter().copied().filter(|&child| {
+                child == self.body || !crate::lower::is_function_like(nodes, child)
+            }));
+        }
+        false
+    }
+
+    /// True when the declarator init `init_id` is placeholder-derived:
+    ///   * a zero-placeholder construct (`new Blob(...)`, via
+    ///     [`crate::lower::declarator_init_is_placeholder_construct`]), OR
+    ///   * `structuredClone(<inner>)` where `<inner>` is itself
+    ///     placeholder-derived (the warn-build lane composes: cloning a
+    ///     placeholder yields a placeholder), OR
+    ///   * a bare identifier that chains to another `const` placeholder binding
+    ///     (`const a = new Blob(...); const b = a;`).
+    ///
+    /// Bounded by `depth` against a degenerate self-referential cycle.
+    fn init_is_placeholder_derived(&self, init_id: LirNodeId, depth: u32) -> bool {
+        if depth > 16 {
+            return false;
+        }
+        let nodes = &self.program.nodes;
+        if crate::lower::declarator_init_is_placeholder_construct(nodes, init_id) {
+            return true;
+        }
+        if let Some(inner) = structured_clone_init_inner_arg(nodes, init_id) {
+            return self.init_is_placeholder_derived(inner, depth + 1);
+        }
+        // Bare-identifier chain through a const binding.
+        let unwrapped = crate::lower::unwrap_transparent_value_node_raw(nodes, init_id);
+        if let Some(node) = nodes.get(unwrapped.0 as usize) {
+            if node.kind == LirNodeKind::Value && node.children.is_empty() {
+                if let Some(chained) = node.text.as_deref().filter(|text| !text.is_empty()) {
+                    return self.binding_has_placeholder_provenance(chained, depth + 1);
+                }
+            }
+        }
+        false
+    }
+
+    /// The provenance resolver above, parameterized on the callback's child
+    /// position. Bare scheduling calls put the callback at `children[1]`
+    /// (`scheduling_callback`); a MEMBER call — `t.addEventListener(type, cb)`
+    /// — puts it at `children[2]` (the receiver-bearing callee is child 0, the
+    /// event-type literal is child 1). One resolver, one default-deny tail.
+    pub(crate) fn scheduling_callback_at(
+        &self,
+        node: &LirNode,
+        callback_child_index: usize,
+    ) -> SchedulingCallback {
+        let Some(&cb) = node.children.get(callback_child_index) else {
+            return SchedulingCallback::Deny;
+        };
+        let cb = self.unwrap_transparent(cb);
+        let cb_node = self.node(cb);
+        let Some(text) = cb_node.text.as_deref() else {
+            return SchedulingCallback::Deny;
+        };
+        match cb_node.kind {
+            // Inline function expression/declaration lowered as a plan: its
+            // node text is the `__kali_fn_N` / declared plan key.
+            LirNodeKind::Instruction => match self.functions.get(text) {
+                Some(&index) => self.checked_scheduling_resolution(text, index),
+                None => SchedulingCallback::Deny,
+            },
+            LirNodeKind::Value if cb_node.children.is_empty() => {
+                if self.unstable_provenance_names.contains(text) {
+                    return SchedulingCallback::Deny;
+                }
+                if let Some(key) = self.fn_valued_locals.get(text) {
+                    return match self.functions.get(key) {
+                        Some(&index) => self.checked_scheduling_resolution(key, index),
+                        None => SchedulingCallback::Deny,
+                    };
+                }
+                if self.locals.contains_key(text)
+                    || self.bindings.contains_key(text)
+                    || self.module_binding_names.contains(text)
+                {
+                    // A live binding without function provenance: unknown value.
+                    return SchedulingCallback::Deny;
+                }
+                if let Some(&index) = self.functions.get(text) {
+                    // Bare unshadowed function name.
+                    return self.checked_scheduling_resolution(text, index);
+                }
+                // Post-un-flatten (Stage D Task 7): every arrow is a real
+                // compiled function, so an identifier resolving to NOTHING in
+                // any codegen namespace is a genuinely unresolvable value —
+                // deny. (Pre-D3 this was the flattened-arrow placeholder lane.)
+                SchedulingCallback::Deny
+            }
+            _ => SchedulingCallback::Deny,
+        }
     }
 
     pub(crate) fn is_kali_write_stdout_bytes_call(&self, callee_node: &LirNode) -> bool {
@@ -626,6 +1441,47 @@ impl<'a> FunctionEmitter<'a> {
             return false;
         };
         self.node(object).text.as_deref() == Some("Kali")
+    }
+}
+
+/// If `init_id` unwraps to a bare `structuredClone(<arg>)` call, return the
+/// single argument node. Sequence-wrapper unwrap mirrors
+/// [`crate::lower::declarator_init_call_callee_name`] (empty-string-text `Value`
+/// wrappers). Callee-shadowing needs no check here: this is only ever consulted
+/// from inside the `structuredClone` dispatch, which is reached only when
+/// `structuredClone` is UNSHADOWED in the current (same) scope.
+fn structured_clone_init_inner_arg(nodes: &[LirNode], init_id: LirNodeId) -> Option<LirNodeId> {
+    let mut id = init_id;
+    let mut guard = 0;
+    loop {
+        let node = nodes.get(id.0 as usize)?;
+        if node.kind == LirNodeKind::Value
+            && node.text.as_deref() == Some("")
+            && !node.children.is_empty()
+        {
+            id = *node.children.last()?;
+            guard += 1;
+            if guard > 64 {
+                return None;
+            }
+            continue;
+        }
+        if node.kind != LirNodeKind::Call {
+            return None;
+        }
+        let callee = *node.children.first()?;
+        let callee_node = nodes.get(callee.0 as usize)?;
+        if !callee_node.children.is_empty()
+            || callee_node.text.as_deref() != Some("structuredClone")
+        {
+            return None;
+        }
+        // Exactly one argument (callee + arg == 2 children); anything else is not
+        // the supported placeholder-clone shape.
+        if node.children.len() != 2 {
+            return None;
+        }
+        return node.children.get(1).copied();
     }
 }
 

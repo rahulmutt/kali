@@ -90,6 +90,7 @@ fn release_allows_generic_specialization_inside_mir_specialized_clones() {
     let mir = MirAnalysisProgram {
         root: kali_mir::MirNodeId::new(0),
         arena_facts: Vec::new(),
+        parent_labels: Default::default(),
         nodes: Vec::new(),
         functions: vec![kali_mir::MirFunction {
             name: Some("wrap_sum".to_string()),
@@ -230,6 +231,7 @@ fn release_advanced_allows_generic_specialization_inside_mir_specialized_clones(
     let mir = MirAnalysisProgram {
         root: kali_mir::MirNodeId::new(0),
         arena_facts: Vec::new(),
+        parent_labels: Default::default(),
         nodes: Vec::new(),
         functions: vec![kali_mir::MirFunction {
             name: Some("wrap_sum".to_string()),
@@ -416,6 +418,7 @@ fn release_reuses_generic_specializations_across_layout_specialized_owners() {
     let mir = MirAnalysisProgram {
         root: kali_mir::MirNodeId::new(0),
         arena_facts: Vec::new(),
+        parent_labels: Default::default(),
         nodes: Vec::new(),
         functions: vec![
             kali_mir::MirFunction {
@@ -659,6 +662,7 @@ fn release_advanced_reuses_generic_specializations_across_layout_specialized_own
     let mir = MirAnalysisProgram {
         root: kali_mir::MirNodeId::new(0),
         arena_facts: Vec::new(),
+        parent_labels: Default::default(),
         nodes: Vec::new(),
         functions: vec![
             kali_mir::MirFunction {
@@ -1190,6 +1194,7 @@ fn release_advanced_partially_specializes_reexport_chain() {
     let mir = MirAnalysisProgram {
         root: kali_mir::MirNodeId::new(0),
         arena_facts: Vec::new(),
+        parent_labels: Default::default(),
         nodes: Vec::new(),
         functions: vec![
             kali_mir::MirFunction {
@@ -1513,6 +1518,7 @@ fn release_reuses_existing_mir_specializations_after_an_owner_spends_its_budget(
     let mir = MirAnalysisProgram {
         root: kali_mir::MirNodeId::new(0),
         arena_facts: Vec::new(),
+        parent_labels: Default::default(),
         nodes: Vec::new(),
         functions: vec![kali_mir::MirFunction {
             name: Some("merge_pair".to_string()),

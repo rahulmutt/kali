@@ -43,7 +43,11 @@ impl HirLowerer {
         &mut self,
         expr: &ArrowFunctionExpression,
     ) -> HirNodeId {
-        let name = self.next_synthetic_function_name();
+        let name = expr
+            .id
+            .clone()
+            .filter(|name| !name.is_empty())
+            .unwrap_or_else(|| self.next_synthetic_function_name());
         let id = self
             .builder
             .alloc_text(HirNodeKind::FunctionExpr, None, name);

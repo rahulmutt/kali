@@ -317,7 +317,10 @@ impl<'a> FunctionEmitter<'a> {
         let node = self.node(id);
         if node.kind == LirNodeKind::Value
             && node.children.len() == 1
-            && node.text.as_deref().is_none_or(|text| text.is_empty())
+            && node
+                .text
+                .as_deref()
+                .is_none_or(|text| text.is_empty() || text == "await")
         {
             return self.resolve_static_numeric_reducer_expr(
                 node.children[0],
@@ -336,13 +339,14 @@ impl<'a> FunctionEmitter<'a> {
                 _ => self.resolve_static_numeric_value(id),
             },
             LirNodeKind::Value if node.children.len() == 1 => match node.text.as_deref() {
-                None | Some("") | Some("+") => self.resolve_static_numeric_reducer_expr(
-                    node.children[0],
-                    accumulator_name,
-                    current_name,
-                    accumulator,
-                    current,
-                ),
+                None | Some("") | Some("+") | Some("await") => self
+                    .resolve_static_numeric_reducer_expr(
+                        node.children[0],
+                        accumulator_name,
+                        current_name,
+                        accumulator,
+                        current,
+                    ),
                 Some("-") => self
                     .resolve_static_numeric_reducer_expr(
                         node.children[0],
@@ -400,7 +404,14 @@ impl<'a> FunctionEmitter<'a> {
                 parse_numeric_literal_value(text)
             }
             LirNodeKind::Value if node.children.len() == 1 => match node.text.as_deref() {
-                None | Some("") => self.resolve_static_numeric_value(node.children[0]),
+                // `await` is a transparent wrapper for a compile-known literal
+                // (`await 65 === 65` in Node); tunnel it like the textless/`+`
+                // wrappers so `String.fromCharCode(await 65)` folds to the code
+                // unit instead of the silent-0 placeholder — throw-fallout
+                // Stage 3 whole-stage review FINDING #1.
+                None | Some("") | Some("await") => {
+                    self.resolve_static_numeric_value(node.children[0])
+                }
                 Some("+") => self.resolve_static_numeric_value(node.children[0]),
                 Some("-") => self
                     .resolve_static_numeric_value(node.children[0])

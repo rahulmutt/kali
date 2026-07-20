@@ -55,10 +55,15 @@ fn supported_static_string_prefix_suffix_lowers_ascii_literals() {
     // 4 from this program's own lowering + 3 each from the synthetic `__join`
     // (Spec 3) and its `__join_arena` twin (Spec 7 Task 4c) — both present in
     // every module with identical bodies: two loop-increment `i += 1`s and the
-    // `n - 1` separator-count term all use `i64.const 1`.
+    // `n - 1` separator-count term all use `i64.const 1`. + 3 each from the
+    // growable-join synthetics `__join_growable_i64` / `__join_growable_str`
+    // (Task 5, same three `i64.const 1` sites, also always present). + 4 from
+    // `__streq` (throw-fallout Stage 1, also present in every module): the
+    // identical-handles return, the len==0 return, the loop-increment
+    // `i += 1`, and the all-bytes-equal result.
     assert_eq!(
         printed.matches("i64.const 1").count(),
-        4 + 3 + 3,
+        4 + 3 + 3 + 3 + 3 + 4,
         "{printed}"
     );
     assert!(printed.contains("i64.const 0"), "{printed}");
@@ -90,10 +95,15 @@ fn supported_static_string_search_lowers_omitted_search_as_undefined() {
     // 2 from this program's own lowering + 3 each from the synthetic `__join`
     // (Spec 3) and its `__join_arena` twin (Spec 7 Task 4c) — both present in
     // every module with identical bodies: two loop-increment `i += 1`s and the
-    // `n - 1` separator-count term all use `i64.const 1`.
+    // `n - 1` separator-count term all use `i64.const 1`. + 3 each from the
+    // growable-join synthetics `__join_growable_i64` / `__join_growable_str`
+    // (Task 5, same three `i64.const 1` sites, also always present). + 4 from
+    // `__streq` (throw-fallout Stage 1, also present in every module): the
+    // identical-handles return, the len==0 return, the loop-increment
+    // `i += 1`, and the all-bytes-equal result.
     assert_eq!(
         printed.matches("i64.const 1").count(),
-        2 + 3 + 3,
+        2 + 3 + 3 + 3 + 3 + 4,
         "{printed}"
     );
     assert!(printed.contains("i64.const 6"), "{printed}");

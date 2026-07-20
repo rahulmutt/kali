@@ -48,6 +48,9 @@ pub mod e3 {
     // E3200-3299: Type errors (basic)
     pub const TYPE_MISMATCH: u16 = 3200;
     pub const MISSING_PARAMETER_TYPE: u16 = 3201;
+    /// Binary arithmetic mixing a BigInt operand with a non-BigInt operand —
+    /// a TypeError in JS, rejected at compile time (soundness batch 1).
+    pub const MIXED_BIGINT_ARITHMETIC: u16 = 3202;
 }
 
 // W2xxx: Style/lint warnings (kali_lint)

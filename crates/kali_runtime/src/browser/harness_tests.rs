@@ -2,6 +2,126 @@ use crate::test_support::*;
 use crate::*;
 use std::fs;
 
+// --- Browser import-list mirror-sync guard (throw-fallout Stage 3, bucket H) ---
+//
+// The browser lane hand-mirrors its `kali:rt` importObject across four JS
+// templates: this harness module's bundle-runtime script (List A) and
+// self-contained runtime script (List B), plus `kali_cli`'s generated ESM
+// (List C) and CJS (List D) bundle glue in `cmd_build.rs`. There is no single
+// source of truth for the member set (see memory
+// `kali-browser-harness-import-sync`), so any host-wired conditional import
+// the guest may emit must be added to all four by hand or the browser lane
+// LinkErrors (`WebAssembly.instantiate` rejects with "function import
+// requires a callable").
+//
+// This test does not single-source the four lists' *text* into one template;
+// it single-sources each list's text at its own emission site (the harness
+// functions below are the same functions `execute.rs` calls to build the
+// scripts that actually run) and cross-checks that every REQUIRED member
+// name appears in all four.
+
+/// Raw source of the `kali_cli` bundle-glue generator, pulled in at compile
+/// time so this crate (which `kali_cli` depends on, not the reverse) can
+/// scan List C/D's text without introducing a reverse crate dependency.
+const CMD_BUILD_SRC: &str = include_str!("../../../kali_cli/src/bin/cmd_build.rs");
+
+/// Split `cmd_build.rs`'s source into the ESM (List C) and CJS (List D)
+/// bundle-glue `format!` template bodies, keyed on the two `BundleFormat`
+/// match-arm markers that introduce each template. If either template is
+/// restructured such that these markers move or disappear, this fails loudly
+/// (`.expect`) rather than silently scanning the wrong text.
+///
+/// Both slices are bounded on both ends: the ESM slice runs from its marker
+/// up to (not including) the CJS marker, and the CJS slice runs from its
+/// marker up to its own raw-string closing delimiter (`"#`) followed by the
+/// `format!` call's closing `),` and the enclosing `match`'s closing `};`).
+/// Without the CJS upper bound, the slice would run to end-of-file and could
+/// false-pass a `REQUIRED`-member check on unrelated code appearing later in
+/// `cmd_build.rs` that happens to contain the same text, rather than on
+/// content actually inside List D.
+fn cmd_build_bundle_sources() -> [(&'static str, String); 2] {
+    let esm_marker = "BundleFormat::Esm => format!(";
+    let cjs_marker = "BundleFormat::Cjs => format!(";
+    // The exact byte sequence that closes the CJS template's raw string
+    // literal, the `format!(...)` call, and the enclosing `match format { ... }`
+    // arm (verified against the literal source: `"#` alone on its own line,
+    // then the `),` closing the `format!` call, then the `};` closing the
+    // `match`).
+    let cjs_template_close = "\n\"#\n        ),\n    };";
+    let esm_start = CMD_BUILD_SRC
+        .find(esm_marker)
+        .expect("cmd_build.rs must declare the ESM bundle-glue importObject template");
+    let cjs_start = CMD_BUILD_SRC
+        .find(cjs_marker)
+        .expect("cmd_build.rs must declare the CJS bundle-glue importObject template");
+    assert!(
+        esm_start < cjs_start,
+        "expected the ESM bundle-glue template to precede the CJS template in cmd_build.rs"
+    );
+    let cjs_close_rel = CMD_BUILD_SRC[cjs_start..].find(cjs_template_close).expect(
+        "cmd_build.rs CJS bundle-glue template must have a matching closing delimiter \
+             (raw string `\"#` + format! `),` + match-arm `};`); if the template body changed \
+             shape, update `cjs_template_close` to match rather than widening the slice",
+    );
+    let cjs_end = cjs_start + cjs_close_rel + cjs_template_close.len();
+    let esm_text = CMD_BUILD_SRC[esm_start..cjs_start].to_string();
+    let cjs_text = CMD_BUILD_SRC[cjs_start..cjs_end].to_string();
+    [("cmd_build.esm", esm_text), ("cmd_build.cjs", cjs_text)]
+}
+
+/// The four hand-mirrored browser `kali:rt` importObject sources, labeled for
+/// assertion failure messages.
+///
+/// NOTE (Tasks 5-7 extension point): List A/B below are RENDERED JS — the
+/// harness functions have already run their `format!` substitutions, so
+/// e.g. a `{{` in the Rust template source appears here as a plain `{`.
+/// List C/D (`cmd_build_bundle_sources`) are RAW Rust template *source*
+/// text pulled in via `include_str!`, still containing the doubled
+/// `{{`/`}}` `format!` escapes verbatim. A `REQUIRED` member check added
+/// here must use a substring test that matches both shapes (e.g. checking
+/// for `"{member}("` works for both, since neither shape doubles the
+/// member-name-plus-paren text itself) — do not assert on exact rendered-JS
+/// text, since that would only ever match List A/B.
+fn browser_import_list_sources() -> Vec<(&'static str, String)> {
+    let mut sources = vec![
+        (
+            "harness.A",
+            browser_bundle_runtime_harness_module_script("bundle-dir", true, &[], false),
+        ),
+        ("harness.B", browser_runtime_harness_script(&[], &[], false)),
+    ];
+    sources.extend(cmd_build_bundle_sources());
+    sources
+}
+
+#[test]
+fn browser_import_lists_declare_all_host_wired_kalirt_members() {
+    // Members every browser importObject must expose (conditional imports the guest may emit).
+    const REQUIRED: &[&str] = &[
+        "coverage_hit",
+        "performance_now",
+        "crypto_get_random_values",
+        "crypto_random_uuid",
+        "crypto_subtle_digest",
+        // Stage D Task 6 (D2): the deferred-callback lane's five host imports
+        // (Tasks 4-5 codegen). Missing any of these LinkErrors any browser
+        // module that emits a `queueMicrotask`/`setTimeout`/`setInterval` call.
+        "queueMicrotask",
+        "setTimeout",
+        "setInterval",
+        "clearTimeout",
+        "clearInterval",
+    ];
+    for (label, src) in browser_import_list_sources() {
+        for member in REQUIRED {
+            assert!(
+                src.contains(&format!("{member}(")) || src.contains(&format!("{member} (")),
+                "browser import list {label} is missing kali:rt member `{member}`"
+            );
+        }
+    }
+}
+
 #[test]
 fn browser_runtime_harness_page_wraps_the_module_body_for_real_browser_hosts() {
     let page = browser_runtime_harness_page(

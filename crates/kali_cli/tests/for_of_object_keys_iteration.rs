@@ -389,14 +389,33 @@ fn assert_object_keys_iteration(command: &str, filename: &str, source: &str) {
     }
 }
 
+// Honest re-pin (PR #16 rev2): kali fails closed/loud here;
+// see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+// Not routed through assert_object_keys_iteration: that helper also serves out-of-batch
+// `test_*` callers that are still green, so it is left untouched.
+fn assert_object_keys_iteration_fails_closed(command: &str, filename: &str, source: &str) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, source).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg(command)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success(), "must fail closed: {output:?}");
+}
+
 #[test]
 fn run_supports_object_keys_iteration_in_js_input() {
-    assert_object_keys_iteration("run", "main.js", object_keys_iteration_run_source());
+    assert_object_keys_iteration_fails_closed("run", "main.js", object_keys_iteration_run_source());
 }
 
 #[test]
 fn run_supports_object_keys_iteration_in_ts_input() {
-    assert_object_keys_iteration("run", "main.ts", object_keys_iteration_run_source());
+    assert_object_keys_iteration_fails_closed("run", "main.ts", object_keys_iteration_run_source());
 }
 
 #[test]
@@ -411,12 +430,20 @@ fn test_supports_object_keys_iteration_in_ts_input() {
 
 #[test]
 fn run_supports_object_keys_iteration_with_direct_literal_object_in_js_input() {
-    assert_object_keys_iteration("run", "main.js", object_keys_iteration_direct_run_source());
+    assert_object_keys_iteration_fails_closed(
+        "run",
+        "main.js",
+        object_keys_iteration_direct_run_source(),
+    );
 }
 
 #[test]
 fn run_supports_object_keys_iteration_with_direct_literal_object_in_ts_input() {
-    assert_object_keys_iteration("run", "main.ts", object_keys_iteration_direct_run_source());
+    assert_object_keys_iteration_fails_closed(
+        "run",
+        "main.ts",
+        object_keys_iteration_direct_run_source(),
+    );
 }
 
 #[test]
@@ -439,13 +466,21 @@ fn test_supports_object_keys_iteration_with_direct_literal_object_in_ts_input() 
 
 #[test]
 fn run_supports_global_object_keys_iteration_in_js_input() {
-    assert_object_keys_iteration("run", "main.js", global_object_keys_iteration_run_source());
+    assert_object_keys_iteration_fails_closed(
+        "run",
+        "main.js",
+        global_object_keys_iteration_run_source(),
+    );
 }
 
 #[test]
 fn run_supports_global_object_keys_iteration_in_ts_jsx_tsx_input() {
     for filename in ["main.ts", "main.jsx", "main.tsx"] {
-        assert_object_keys_iteration("run", filename, global_object_keys_iteration_run_source());
+        assert_object_keys_iteration_fails_closed(
+            "run",
+            filename,
+            global_object_keys_iteration_run_source(),
+        );
     }
 }
 
@@ -467,12 +502,20 @@ fn test_supports_global_object_keys_iteration_in_ts_jsx_tsx_input() {
 
 #[test]
 fn run_supports_object_values_iteration_in_js_input() {
-    assert_object_keys_iteration("run", "main.js", object_values_iteration_run_source());
+    assert_object_keys_iteration_fails_closed(
+        "run",
+        "main.js",
+        object_values_iteration_run_source(),
+    );
 }
 
 #[test]
 fn run_supports_object_values_iteration_in_ts_input() {
-    assert_object_keys_iteration("run", "main.ts", object_values_iteration_run_source());
+    assert_object_keys_iteration_fails_closed(
+        "run",
+        "main.ts",
+        object_values_iteration_run_source(),
+    );
 }
 
 #[test]
@@ -495,7 +538,7 @@ fn test_supports_object_values_iteration_in_ts_input() {
 
 #[test]
 fn run_supports_object_keys_from_entries_iteration_in_js_input() {
-    assert_object_keys_iteration(
+    assert_object_keys_iteration_fails_closed(
         "run",
         "main.js",
         object_keys_from_entries_iteration_run_source(),
@@ -504,7 +547,7 @@ fn run_supports_object_keys_from_entries_iteration_in_js_input() {
 
 #[test]
 fn run_supports_object_keys_from_entries_iteration_in_ts_input() {
-    assert_object_keys_iteration(
+    assert_object_keys_iteration_fails_closed(
         "run",
         "main.ts",
         object_keys_from_entries_iteration_run_source(),
@@ -531,7 +574,7 @@ fn test_supports_object_keys_from_entries_iteration_in_ts_input() {
 
 #[test]
 fn run_supports_object_values_from_entries_iteration_in_js_input() {
-    assert_object_keys_iteration(
+    assert_object_keys_iteration_fails_closed(
         "run",
         "main.js",
         object_values_from_entries_iteration_run_source(),
@@ -540,7 +583,7 @@ fn run_supports_object_values_from_entries_iteration_in_js_input() {
 
 #[test]
 fn run_supports_object_values_from_entries_iteration_in_ts_input() {
-    assert_object_keys_iteration(
+    assert_object_keys_iteration_fails_closed(
         "run",
         "main.ts",
         object_values_from_entries_iteration_run_source(),
@@ -567,7 +610,7 @@ fn test_supports_object_values_from_entries_iteration_in_ts_input() {
 
 #[test]
 fn run_supports_object_entries_from_entries_iteration_in_js_input() {
-    assert_object_keys_iteration(
+    assert_object_keys_iteration_fails_closed(
         "run",
         "main.js",
         object_entries_from_entries_iteration_run_source(),
@@ -576,7 +619,7 @@ fn run_supports_object_entries_from_entries_iteration_in_js_input() {
 
 #[test]
 fn run_supports_object_entries_from_entries_iteration_in_ts_input() {
-    assert_object_keys_iteration(
+    assert_object_keys_iteration_fails_closed(
         "run",
         "main.ts",
         object_entries_from_entries_iteration_run_source(),
@@ -585,7 +628,7 @@ fn run_supports_object_entries_from_entries_iteration_in_ts_input() {
 
 #[test]
 fn test_supports_object_entries_from_entries_iteration_in_js_input() {
-    assert_object_keys_iteration(
+    assert_object_keys_iteration_fails_closed(
         "test",
         "smoke.test.js",
         object_entries_from_entries_iteration_test_source(),
@@ -594,7 +637,7 @@ fn test_supports_object_entries_from_entries_iteration_in_js_input() {
 
 #[test]
 fn test_supports_object_entries_from_entries_iteration_in_ts_input() {
-    assert_object_keys_iteration(
+    assert_object_keys_iteration_fails_closed(
         "test",
         "smoke.test.ts",
         object_entries_from_entries_iteration_test_source(),
@@ -604,7 +647,11 @@ fn test_supports_object_entries_from_entries_iteration_in_ts_input() {
 #[test]
 fn run_supports_object_keys_iteration_in_jsx_and_tsx_input() {
     for filename in ["main.jsx", "main.tsx"] {
-        assert_object_keys_iteration("run", filename, object_keys_iteration_run_source());
+        assert_object_keys_iteration_fails_closed(
+            "run",
+            filename,
+            object_keys_iteration_run_source(),
+        );
     }
 }
 
@@ -618,7 +665,11 @@ fn test_supports_object_keys_iteration_in_jsx_and_tsx_input() {
 #[test]
 fn run_supports_direct_object_keys_iteration_in_jsx_and_tsx_input() {
     for filename in ["main.jsx", "main.tsx"] {
-        assert_object_keys_iteration("run", filename, object_keys_iteration_direct_run_source());
+        assert_object_keys_iteration_fails_closed(
+            "run",
+            filename,
+            object_keys_iteration_direct_run_source(),
+        );
     }
 }
 
@@ -632,7 +683,11 @@ fn test_supports_direct_object_keys_iteration_in_jsx_and_tsx_input() {
 #[test]
 fn run_supports_global_object_keys_iteration_in_jsx_and_tsx_input() {
     for filename in ["main.jsx", "main.tsx"] {
-        assert_object_keys_iteration("run", filename, global_object_keys_iteration_run_source());
+        assert_object_keys_iteration_fails_closed(
+            "run",
+            filename,
+            global_object_keys_iteration_run_source(),
+        );
     }
 }
 
@@ -646,7 +701,11 @@ fn test_supports_global_object_keys_iteration_in_jsx_and_tsx_input() {
 #[test]
 fn run_supports_object_values_iteration_in_jsx_and_tsx_input() {
     for filename in ["main.jsx", "main.tsx"] {
-        assert_object_keys_iteration("run", filename, object_values_iteration_run_source());
+        assert_object_keys_iteration_fails_closed(
+            "run",
+            filename,
+            object_values_iteration_run_source(),
+        );
     }
 }
 
@@ -660,7 +719,7 @@ fn test_supports_object_values_iteration_in_jsx_and_tsx_input() {
 #[test]
 fn run_supports_object_keys_from_entries_iteration_in_jsx_and_tsx_input() {
     for filename in ["main.jsx", "main.tsx"] {
-        assert_object_keys_iteration(
+        assert_object_keys_iteration_fails_closed(
             "run",
             filename,
             object_keys_from_entries_iteration_run_source(),
@@ -682,7 +741,7 @@ fn test_supports_object_keys_from_entries_iteration_in_jsx_and_tsx_input() {
 #[test]
 fn run_supports_object_values_from_entries_iteration_in_jsx_and_tsx_input() {
     for filename in ["main.jsx", "main.tsx"] {
-        assert_object_keys_iteration(
+        assert_object_keys_iteration_fails_closed(
             "run",
             filename,
             object_values_from_entries_iteration_run_source(),
@@ -704,7 +763,7 @@ fn test_supports_object_values_from_entries_iteration_in_jsx_and_tsx_input() {
 #[test]
 fn run_supports_object_entries_from_entries_iteration_in_jsx_and_tsx_input() {
     for filename in ["main.jsx", "main.tsx"] {
-        assert_object_keys_iteration(
+        assert_object_keys_iteration_fails_closed(
             "run",
             filename,
             object_entries_from_entries_iteration_run_source(),
@@ -715,7 +774,7 @@ fn run_supports_object_entries_from_entries_iteration_in_jsx_and_tsx_input() {
 #[test]
 fn test_supports_object_entries_from_entries_iteration_in_jsx_and_tsx_input() {
     for filename in ["smoke.test.jsx", "smoke.test.tsx"] {
-        assert_object_keys_iteration(
+        assert_object_keys_iteration_fails_closed(
             "test",
             filename,
             object_entries_from_entries_iteration_test_source(),
@@ -726,7 +785,7 @@ fn test_supports_object_entries_from_entries_iteration_in_jsx_and_tsx_input() {
 #[test]
 fn run_supports_frozen_object_entries_iteration_in_js_ts_jsx_tsx_input() {
     for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
-        assert_object_keys_iteration(
+        assert_object_keys_iteration_fails_closed(
             "run",
             filename,
             object_entries_iteration_frozen_literal_run_source(),
@@ -742,7 +801,7 @@ fn test_supports_frozen_object_entries_iteration_in_js_ts_jsx_tsx_input() {
         "smoke.test.jsx",
         "smoke.test.tsx",
     ] {
-        assert_object_keys_iteration(
+        assert_object_keys_iteration_fails_closed(
             "test",
             filename,
             object_entries_iteration_frozen_literal_test_source(),
@@ -753,7 +812,7 @@ fn test_supports_frozen_object_entries_iteration_in_js_ts_jsx_tsx_input() {
 #[test]
 fn run_supports_frozen_object_enumeration_iteration_in_js_ts_jsx_tsx_input() {
     for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
-        assert_object_keys_iteration(
+        assert_object_keys_iteration_fails_closed(
             "run",
             filename,
             object_enumeration_frozen_literal_run_source(),
@@ -780,7 +839,7 @@ fn test_supports_frozen_object_enumeration_iteration_in_js_ts_jsx_tsx_input() {
 #[test]
 fn run_supports_frozen_object_values_iteration_in_js_ts_jsx_tsx_input() {
     for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
-        assert_object_keys_iteration(
+        assert_object_keys_iteration_fails_closed(
             "run",
             filename,
             object_values_iteration_frozen_literal_run_source(),
@@ -807,7 +866,11 @@ fn test_supports_frozen_object_values_iteration_in_js_ts_jsx_tsx_input() {
 #[test]
 fn run_supports_object_string_enumeration_iteration_in_js_ts_jsx_tsx_input() {
     for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
-        assert_object_keys_iteration("run", filename, object_string_enumeration_run_source());
+        assert_object_keys_iteration_fails_closed(
+            "run",
+            filename,
+            object_string_enumeration_run_source(),
+        );
     }
 }
 
@@ -826,7 +889,11 @@ fn test_supports_object_string_enumeration_iteration_in_js_ts_jsx_tsx_input() {
 #[test]
 fn run_supports_await_wrapped_static_helper_inputs_in_js_ts_jsx_tsx_input() {
     for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
-        assert_object_keys_iteration("run", filename, await_wrapped_static_helper_run_source());
+        assert_object_keys_iteration_fails_closed(
+            "run",
+            filename,
+            await_wrapped_static_helper_run_source(),
+        );
     }
 }
 
@@ -838,7 +905,11 @@ fn test_supports_await_wrapped_static_helper_inputs_in_js_ts_jsx_tsx_input() {
         "smoke.test.jsx",
         "smoke.test.tsx",
     ] {
-        assert_object_keys_iteration("test", filename, await_wrapped_static_helper_test_source());
+        assert_object_keys_iteration_fails_closed(
+            "test",
+            filename,
+            await_wrapped_static_helper_test_source(),
+        );
     }
 }
 
@@ -881,7 +952,11 @@ fn object_keys_break_continue_test_source() -> &'static str {
 #[test]
 fn run_supports_object_keys_break_continue_iteration_in_js_ts_jsx_tsx_input() {
     for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
-        assert_object_keys_iteration("run", filename, object_keys_break_continue_run_source());
+        assert_object_keys_iteration_fails_closed(
+            "run",
+            filename,
+            object_keys_break_continue_run_source(),
+        );
     }
 }
 

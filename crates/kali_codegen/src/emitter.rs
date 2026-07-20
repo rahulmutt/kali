@@ -69,6 +69,15 @@ pub(crate) struct FunctionEmitter<'a> {
     pub(crate) node_lookup: &'a [LirNode],
     pub(crate) scratch_nodes: Vec<LirNode>,
     pub(crate) functions: &'a BTreeMap<String, u32>,
+    /// Wasm function index -> declared parameter count. Threaded from
+    /// `lower.rs` alongside `functions` so an emit arm can gate on a resolved
+    /// callback's arity (Stage D event lane: zero-parameter listeners only).
+    pub(crate) function_param_counts: &'a BTreeMap<u32, usize>,
+    /// Function NAME -> its declared parameter names. Threaded from `lower.rs`
+    /// alongside `function_param_counts`; the deferred-callback scalar-capture
+    /// deny (Task 9 C-1) consults it to classify a captured binding as a
+    /// PARAMETER (deny) vs. a non-scalar placeholder construct (allow).
+    pub(crate) function_param_names: &'a BTreeMap<String, Vec<String>>,
     pub(crate) env_set_import_index: Option<u32>,
     pub(crate) env_delete_import_index: Option<u32>,
     pub(crate) env_get_import_index: Option<u32>,
@@ -77,6 +86,41 @@ pub(crate) struct FunctionEmitter<'a> {
     pub(crate) process_exit_import_index: Option<u32>,
     pub(crate) stdout_write_bytes_import_index: Option<u32>,
     pub(crate) args_get_import_index: Option<u32>,
+    pub(crate) performance_now_import_index: Option<u32>,
+    pub(crate) crypto_get_random_values_import_index: Option<u32>,
+    pub(crate) crypto_random_uuid_import_index: Option<u32>,
+    pub(crate) crypto_subtle_digest_import_index: Option<u32>,
+    /// Stage D scheduling-surface host import indices — `Some` only when the
+    /// matching `program_calls_bare_identifier` probe found a call; appended
+    /// after `crypto_subtle_digest` in declaration order (queueMicrotask,
+    /// setTimeout, setInterval, clearTimeout, clearInterval).
+    pub(crate) queue_microtask_import_index: Option<u32>,
+    pub(crate) set_timeout_import_index: Option<u32>,
+    pub(crate) set_interval_import_index: Option<u32>,
+    pub(crate) clear_timeout_import_index: Option<u32>,
+    pub(crate) clear_interval_import_index: Option<u32>,
+    /// Stage D event-lane host import indices (`Some` only when the matching
+    /// program-wide probe fired; appended after clear_interval).
+    pub(crate) event_target_new_import_index: Option<u32>,
+    /// Consumed by the Task 4 addEventListener/dispatchEvent emit arms.
+    pub(crate) event_listener_add_import_index: Option<u32>,
+    pub(crate) event_dispatch_import_index: Option<u32>,
+    /// Locals/module bindings with stable provenance to `new EventTarget()`
+    /// (declarator-recorded, the `fn_valued_locals` pattern). Reads outside the
+    /// lane's allowed positions fail closed (handle-escape discipline, spec
+    /// §2.4): the raw i64 handle must never escape as an observable value.
+    pub(crate) event_target_locals: BTreeSet<String>,
+    /// Stage P3: bindings proven to hold an abort handle (an i64 pointer to the
+    /// never-reclaimed global abort cell) in THIS emitter's scope —
+    /// `const c = new AbortController()` declarators the intercept fired for.
+    /// Mirrors `event_target_locals`. Captured handles are proven separately
+    /// via the env plan + owner-keyed repr (see `is_abort_handle`).
+    pub(crate) abort_handle_locals: BTreeSet<String>,
+    /// Stage P3 position allowlist flag for abort-handle reads (the
+    /// `admit_growable_field_read` pattern): a bare read of an abort-handle
+    /// binding is E5506 unless an allowlisted consumer set this while emitting
+    /// its receiver (`emit_abort_receiver_handle`).
+    pub(crate) admit_abort_handle_read: bool,
     pub(crate) diagnostics: &'a mut Vec<Diagnostic>,
     pub(crate) strings: &'a mut StringPool,
     pub(crate) source_path: Option<PathBuf>,
@@ -91,11 +135,78 @@ pub(crate) struct FunctionEmitter<'a> {
     /// Name of the function currently being emitted, used to key `repr_table`
     /// lookups (the synthetic entry is `_start`).
     pub(crate) function_name: String,
+    /// LIR body root of the function currently being emitted. Retained so a
+    /// declarator walk (e.g. `binding_is_placeholder_construct`) can inspect
+    /// this function's own bindings at emit time.
+    pub(crate) body: LirNodeId,
     pub(crate) current_function_flavor: Option<FunctionFlavor>,
     pub(crate) locals: BTreeMap<String, u32>,
     pub(crate) bindings: BTreeMap<String, LirNodeId>,
+    /// `const` names promoted to a local slot by the stability allowlist — the
+    /// ones that get a `bindings` denotation entry DESPITE having a slot. A
+    /// handle-promoted `const` (`ConstPromotion::Handle`) is deliberately
+    /// absent: its lanes key on provenance sets and a denotation entry would
+    /// re-resolve the name to its initializer.
+    pub(crate) allowlist_promoted_consts: HashSet<String>,
+    /// Local names bound to a function VALUE (`let cb = function(){…}` /
+    /// `const cb = () => …`), mapping the binding name to the initializer's
+    /// `__kali_fn_N` plan key. Recorded at declaration-emit time (source order,
+    /// so the binding is populated before any later use). This is the
+    /// binding-PROVENANCE the scheduling-surface guard consults to resolve an
+    /// indirectly-passed callback (`setTimeout(cb, 0)`) back to its closure plan
+    /// — a callback identifier is name-matched to the fn it was DECLARED to
+    /// hold, not guessed. See `call_has_capturing_closure_arg`.
+    pub(crate) fn_valued_locals: BTreeMap<String, String>,
+    /// Names whose binding provenance is UNSTABLE in this function body:
+    /// assigned outside their declarator, or declared by more than one
+    /// declarator (block-level shadowing). `fn_valued_locals` is recorded once
+    /// at declarator-emit time, so for these names it can go stale; the
+    /// scheduling-surface default-deny guard therefore refuses to resolve any
+    /// unstable name and fails closed E5506 instead (stage-review IMPORTANT-1;
+    /// closes the reassignment-stale-provenance fail-open the tripwire pinned).
+    /// Computed structurally up front (`crate::lower::unstable_provenance_names`)
+    /// so it does not depend on emission order.
+    pub(crate) unstable_provenance_names: HashSet<String>,
+    /// Fix 5 (call-through-a-first-class-function-value) choke-point caches.
+    /// Both are whole-PROGRAM structural facts, so they are computed once per
+    /// emitter and reused across every denial decision in this function body.
+    /// See `call_target_keeps_placeholder_lowering` in `emit/call.rs`.
+    pub(crate) program_bound_names_cache: std::cell::OnceCell<HashSet<String>>,
+    pub(crate) program_fn_valued_property_names_cache: std::cell::OnceCell<HashSet<String>>,
+    pub(crate) program_stores_function_in_aggregate_cache: std::cell::OnceCell<bool>,
     /// Names of locals that hold a linear-memory array handle (`new Array(n)`).
     pub(crate) array_bindings: HashSet<String>,
+    /// Names of locals that hold a GROWABLE runtime-array tagged handle
+    /// (throw-fallout Stage 4) — the codegen half of the growable both-sides
+    /// oracle, populated at construction from
+    /// `repr_table.is_growable_array_binding` for every param/local name.
+    /// DISJOINT from `array_bindings` (a separate tagged-header layout; the
+    /// two lanes must never conflate).
+    pub(crate) growable_array_bindings: HashSet<String>,
+    /// `Some(<iterated binding name>)` while emitting the body of a runtime
+    /// `for..of` over a growable array (throw-fallout Stage 4 Task 4). Two
+    /// fail-closed guards key on it: (1) a growable `for..of` lexically NESTED
+    /// inside another rejects E5506 — the shared index/length scratch pair
+    /// (`growable_foreach_index_local_name`) would otherwise be clobbered by
+    /// the inner loop and silently miscompile the outer counter; (2) a `.push`
+    /// on the SAME binding being iterated rejects E5506 in
+    /// `emit_growable_push_call` — the by-construction mirror of the
+    /// resolve-time self-push reject (node grows the iteration; the counted
+    /// loop's once-snapshotted length does not). Per-function scoped (fresh
+    /// emitter per function), so a growable `for..of` in a nested FUNCTION is
+    /// a separate emitter and never blocked.
+    pub(crate) growable_for_of_active: Option<String>,
+    /// Stage P2 review C-2: `true` only while a growable-aware recognizer
+    /// (push/join/length/index/for-of receiver, or the Lane-3 `===` field pair)
+    /// is deliberately reading a `GrowableArrayI64` FIELD receiver's tagged
+    /// handle — set/restored by `emit_growable_receiver_handle`. `emit_unary`'s
+    /// generic member-read arm admits an `object_field_is_growable_array` read
+    /// ONLY when this flag is set (an allowlisted SAFE position — the Spec-4a
+    /// headline lesson: allowlist safe positions at the single read site, don't
+    /// denylist sinks). Every other value position (`console.log(o.values)`,
+    /// `o.values + 1`, `const a = o.values`) fails closed E5506 so the raw
+    /// ARRAY_HANDLE_TAG handle never escapes as an observable scalar.
+    pub(crate) admit_growable_field_read: bool,
     pub(crate) reported_placeholder_fallbacks: HashSet<String>,
     pub(crate) control_frames: Vec<ControlFlowLabelKind>,
     pub(crate) loop_frames: Vec<LoopFrame>,
@@ -174,6 +285,23 @@ pub(crate) struct FunctionEmitter<'a> {
     /// write to `GlobalSet`; the declarator init in `_start` stores through
     /// `GlobalSet`. See `kali_codegen::lower::collect_module_scalar_globals`.
     pub(crate) module_global_slots: &'a BTreeMap<String, (u32, kali_common::Repr)>,
+    /// This function's closure environment plan (Stage C, `derive_env_plans`):
+    /// the promoted scalar/heap cells it OWNS in its own env record and the
+    /// outer bindings it captures through the parent chain. Default (owns_env
+    /// false, no cells/captures) for every closure-free function, so integer
+    /// programs never touch `CURRENT_ENV_GLOBAL`. Cell names that are promoted
+    /// locals are removed from `locals` before construction (they get no WASM
+    /// local slot — the cell IS their storage); a cell name still present in
+    /// `locals` is therefore a captured PARAMETER, which C1 does not lower
+    /// (rejected in the prologue).
+    pub(crate) env_plan: kali_mir::EnvPlan,
+    /// ALL functions' closure environment plans, keyed by `__kali_fn_N` name
+    /// (the whole `derive_env_plans` map). Unlike `env_plan` (this function's
+    /// own plan), this lets a call site inspect ANOTHER function's plan — used
+    /// to detect whether a callback argument CAPTURES an enclosing env cell
+    /// (`!captured.is_empty()`) when it is passed to an un-emittable scheduling
+    /// surface (Stage C Concern 2 fail-closed guard, `emit_call`).
+    pub(crate) env_plans: &'a std::collections::BTreeMap<String, kali_mir::EnvPlan>,
 }
 
 impl<'a> FunctionEmitter<'a> {
@@ -181,6 +309,8 @@ impl<'a> FunctionEmitter<'a> {
     pub(crate) fn new(
         program: &'a LirProgram,
         functions: &'a BTreeMap<String, u32>,
+        function_param_counts: &'a BTreeMap<u32, usize>,
+        function_param_names: &'a BTreeMap<String, Vec<String>>,
         env_set_import_index: Option<u32>,
         env_delete_import_index: Option<u32>,
         env_get_import_index: Option<u32>,
@@ -189,6 +319,18 @@ impl<'a> FunctionEmitter<'a> {
         process_exit_import_index: Option<u32>,
         stdout_write_bytes_import_index: Option<u32>,
         args_get_import_index: Option<u32>,
+        performance_now_import_index: Option<u32>,
+        crypto_get_random_values_import_index: Option<u32>,
+        crypto_random_uuid_import_index: Option<u32>,
+        crypto_subtle_digest_import_index: Option<u32>,
+        queue_microtask_import_index: Option<u32>,
+        set_timeout_import_index: Option<u32>,
+        set_interval_import_index: Option<u32>,
+        clear_timeout_import_index: Option<u32>,
+        clear_interval_import_index: Option<u32>,
+        event_target_new_import_index: Option<u32>,
+        event_listener_add_import_index: Option<u32>,
+        event_dispatch_import_index: Option<u32>,
         diagnostics: &'a mut Vec<Diagnostic>,
         strings: &'a mut StringPool,
         source_path: Option<PathBuf>,
@@ -202,12 +344,26 @@ impl<'a> FunctionEmitter<'a> {
         module_const_inits: &'a BTreeMap<String, LirNodeId>,
         module_binding_names: &'a BTreeSet<String>,
         module_global_slots: &'a BTreeMap<String, (u32, kali_common::Repr)>,
+        env_plan: kali_mir::EnvPlan,
+        env_plans: &'a std::collections::BTreeMap<String, kali_mir::EnvPlan>,
     ) -> Self {
         let loop_ordinals = crate::lower::loop_preorder_ordinals(&program.nodes, body);
         let string_site_ordinals =
             crate::lower::string_site_preorder_ordinals(&program.nodes, body);
         let for_in_ordinals = crate::lower::for_in_preorder_ordinals(&program.nodes, body);
         let for_in_key_aliases = crate::lower::for_in_key_alias_names(&program.nodes, body);
+        let unstable_provenance_names =
+            crate::lower::unstable_provenance_names(&program.nodes, body);
+        // `const` names promoted to a local slot by the STABILITY allowlist.
+        // These still need a compile-time denotation entry in `bindings` (the
+        // alias/intrinsic analyses read it); their RUNTIME reads resolve
+        // through `locals`, which the identifier path consults first.
+        let allowlist_promoted_consts = crate::lower::allowlist_promoted_const_names(
+            &program.nodes,
+            body,
+            repr_table,
+            function_name,
+        );
         let mut locals = BTreeMap::new();
         for (idx, name) in params.iter().enumerate() {
             locals.insert(name.clone(), idx as u32);
@@ -231,11 +387,28 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
 
+        // Register GROWABLE array bindings (throw-fallout Stage 4) for every
+        // param/local name the repr inference promoted. Unlike the plain
+        // `array_bindings` set above (params only; declarators register at
+        // their declaration site), growable membership is decided entirely by
+        // the repr table (the types-side promotion), so both params and
+        // declarator locals are seeded here — declarator emission relies on
+        // membership BEFORE its own statement is reached (locals collection
+        // promoted the binding to a slot for the same reason).
+        let mut growable_array_bindings = HashSet::new();
+        for name in params.iter().chain(local_names.iter()) {
+            if repr_table.is_growable_array_binding(function_name, name) {
+                growable_array_bindings.insert(name.clone());
+            }
+        }
+
         Self {
             program,
             node_lookup: &program.nodes,
             scratch_nodes: Vec::new(),
             functions,
+            function_param_counts,
+            function_param_names,
             env_set_import_index,
             env_delete_import_index,
             env_get_import_index,
@@ -244,16 +417,41 @@ impl<'a> FunctionEmitter<'a> {
             process_exit_import_index,
             stdout_write_bytes_import_index,
             args_get_import_index,
+            performance_now_import_index,
+            crypto_get_random_values_import_index,
+            crypto_random_uuid_import_index,
+            crypto_subtle_digest_import_index,
+            queue_microtask_import_index,
+            set_timeout_import_index,
+            set_interval_import_index,
+            clear_timeout_import_index,
+            clear_interval_import_index,
+            event_target_new_import_index,
+            event_listener_add_import_index,
+            event_dispatch_import_index,
+            event_target_locals: BTreeSet::new(),
+            abort_handle_locals: BTreeSet::new(),
+            admit_abort_handle_read: false,
             diagnostics,
             strings,
             source_path,
             repr_table,
             arena_table,
             function_name: function_name.to_string(),
+            body,
             current_function_flavor,
             locals,
             bindings: BTreeMap::new(),
+            allowlist_promoted_consts,
+            fn_valued_locals: BTreeMap::new(),
+            unstable_provenance_names,
+            program_bound_names_cache: std::cell::OnceCell::new(),
+            program_fn_valued_property_names_cache: std::cell::OnceCell::new(),
+            program_stores_function_in_aggregate_cache: std::cell::OnceCell::new(),
             array_bindings,
+            growable_array_bindings,
+            growable_for_of_active: None,
+            admit_growable_field_read: false,
             reported_placeholder_fallbacks: HashSet::new(),
             control_frames: Vec::new(),
             loop_frames: Vec::new(),
@@ -267,6 +465,8 @@ impl<'a> FunctionEmitter<'a> {
             module_const_inits,
             module_binding_names,
             module_global_slots,
+            env_plan,
+            env_plans,
         }
     }
 
@@ -321,6 +521,72 @@ impl<'a> FunctionEmitter<'a> {
         self.repr_table.array_element(&self.function_name, name)
     }
 
+    /// True when `name` is a GROWABLE runtime-array binding of the current
+    /// function (throw-fallout Stage 4) — the codegen half of the growable
+    /// both-sides oracle, mirroring `repr_table.is_growable_array_binding`.
+    pub(crate) fn is_growable_array(&self, name: &str) -> bool {
+        self.growable_array_bindings.contains(name)
+    }
+
+    /// Stage P3: true when `name` is a proven abort handle in this function — a
+    /// local provenance-set member, or a depth-1 captured binding whose OWNER is
+    /// a REAL function (not `_start`) and whose repr-table entry is `AbortHandle`
+    /// (the owner-keyed lookup pattern; no env-slot metadata needed — the cell
+    /// holds the handle by value).
+    ///
+    /// The `owner != "_start"` guard is load-bearing: a module-scope (`_start`)
+    /// `const c = new AbortController()` — including one declared inside a
+    /// loop/block body, where the declarator intercept binds `c` as a plain
+    /// `_start` LOCAL via `LocalSet` and never populates the captured env cell —
+    /// must NOT be admitted here. Admitting it lets the abort-dispatch arm store
+    /// through the wrong cell and a deferred callback read a stale/zero cell,
+    /// silently miscompiling (`c.abort()` becomes a no-op).
+    ///
+    /// Such handles fail closed at the CHOKE POINTS (not at the capture site —
+    /// the capture is admitted by host.rs ALLOWLIST 1 as a by-value scalar, so
+    /// the whole-program deny is what the choke-point diagnostics produce):
+    /// `is_module_scope_abort_handle` denies a method call on the receiver
+    /// (`emit/call.rs`) AND a bare/member read of it (`emit/control_flow.rs`
+    /// identifier + abort member-read arms). Do NOT revert this exclusion —
+    /// re-admitting `_start` owners re-enables the wrong-cell store.
+    pub(crate) fn is_abort_handle(&self, name: &str) -> bool {
+        if self.abort_handle_locals.contains(name) {
+            return true;
+        }
+        self.env_plan.captured.iter().any(|reference| {
+            reference.name == name
+                && reference.depth == 1
+                && reference.owner != "_start"
+                && self.repr_table.scalar(&reference.owner, &reference.name)
+                    == kali_common::Repr::AbortHandle
+        })
+    }
+
+    /// True when `name` is a `_start`-OWNED binding proven `AbortHandle` (module
+    /// repr is keyed under owner `"_start"`) and we are emitting a NON-`_start`
+    /// function — i.e. a `_start`-scope abort handle referenced from inside a
+    /// function/closure, which the ratified (function-scoped, owner-keyed)
+    /// capture lane in `is_abort_handle` does NOT admit. Consulted at the
+    /// method-call choke point to fail such calls closed (E5506) instead of
+    /// letting them silently drop through the generic zero-placeholder fallback
+    /// (the write-position twin of the read-position `module_binding_names`
+    /// gate). Refuses when a local of the same name shadows the binding (that
+    /// local already routes through `is_abort_handle` / normal lookup).
+    ///
+    /// Keyed directly on the `_start` repr (NOT `module_binding_names`) so it
+    /// also covers a handle declared inside a `_start` loop/block body — such a
+    /// `const c = new AbortController()` is a `_start` LOCAL, not a top-level
+    /// module binding, so a `module_binding_names` restriction would let a
+    /// deferred `c.abort()` fall through and silently no-op. The remaining
+    /// not-a-current-fn-local guards keep a genuine same-named local of the
+    /// emitting function on its own (`is_abort_handle`) lane.
+    pub(crate) fn is_module_scope_abort_handle(&self, name: &str) -> bool {
+        self.function_name != "_start"
+            && !self.abort_handle_locals.contains(name)
+            && !self.locals.contains_key(name)
+            && self.repr_table.scalar("_start", name) == kali_common::Repr::AbortHandle
+    }
+
     /// Wasm function index of the allocator an allocation site in the
     /// CURRENTLY-EMITTING function should call: `__alloc` (the current
     /// arena) when the escape gate marked this function `arena_eligible`,
@@ -356,6 +622,62 @@ impl<'a> FunctionEmitter<'a> {
         self.functions["__arena_reset"]
     }
 
+    /// Declared parameter count of the compiled function at wasm index
+    /// `index`, or `None` if the index names no user/synthetic function
+    /// (e.g. a raw import index). Stage D event lane gates listeners on
+    /// `Some(0)`.
+    pub(crate) fn function_param_count_by_index(&self, index: u32) -> Option<usize> {
+        self.function_param_counts.get(&index).copied()
+    }
+
+    /// WASM global index of `current_env` (Stage C closures): the active
+    /// environment record pointer (i64; 0 = no env). See
+    /// `crate::closure::CURRENT_ENV_GLOBAL`.
+    pub(crate) fn current_env_global(&self) -> u32 {
+        crate::closure::CURRENT_ENV_GLOBAL
+    }
+
+    /// True when scalar cell/capture `name` is a C1-promotable env cell in
+    /// `owner`'s namespace: a SCALAR cell whose chosen repr is the default `I64`
+    /// (the env cell is a raw 8-byte i64 slot with i64 arithmetic; an
+    /// `F64`/`String`/`Object`/bool repr would corrupt the value). This is the
+    /// SCALAR half of the promotion predicate — the arithmetic write paths
+    /// (compound-assign / update) gate on it so a captured OBJECT cell keeps its
+    /// baseline write path. The unified read/declaration gate is
+    /// [`crate::closure::cell_is_promotable`].
+    ///
+    /// C1 review Finding 1: a captured cell was promoted (and
+    /// thus allocated) by its OWNER, so the capturer must gate on the OWNER's
+    /// repr verdict — the SAME predicate `lower.rs` applied
+    /// (`repr_table.scalar(&owner.name, &cell.name) == I64`) when it decided to
+    /// drop the name from the owner's locals. Gating on the capturer's own
+    /// namespace (where an outer name defaults to `I64`) diverges from the
+    /// owner's decision: an owner F64 that did NOT promote leaves no cell, yet the
+    /// capturer would read/write one — a silent miscompile of a shape that was
+    /// E5506 pre-Stage-C.
+    pub(crate) fn promotable_scalar_cell_in(
+        &self,
+        owner: &str,
+        name: &str,
+        is_scalar: bool,
+    ) -> bool {
+        is_scalar && self.repr_table.scalar(owner, name) == kali_common::Repr::I64
+    }
+
+    /// True when THIS function owns a promotable env — i.e. `lower.rs` reserved
+    /// its `current_env` save local because it has >=1 promotable cell (a
+    /// C1 scalar-i64 cell OR a C2 fixed-shape-object pointer cell — both
+    /// halves of `crate::closure::cell_is_promotable`, the single shared
+    /// promotion predicate). Only such a function runs the env
+    /// prologue/epilogue (allocating a record and mutating
+    /// `CURRENT_ENV_GLOBAL`); a function whose cells are all NON-promotable
+    /// (F64/string scalars, closure/array heap cells) leaves `current_env`
+    /// untouched, exactly like baseline.
+    pub(crate) fn owns_promotable_env(&self) -> bool {
+        self.locals
+            .contains_key(&crate::closure::env_save_local_name())
+    }
+
     /// Wasm function index of the synthetic runtime-substring helper
     /// (`__substring(h, s, e) -> i64`, Spec 2): pure-ALU clamp/swap +
     /// zero-copy handle re-tag over a tagged string handle.
@@ -377,6 +699,34 @@ impl<'a> FunctionEmitter<'a> {
     /// escape gate proved iteration-local (`arena_string_site`).
     pub(crate) fn join_arena_fn_index(&self) -> u32 {
         self.functions["__join_arena"]
+    }
+
+    /// Wasm function index of the growable-array integer-join synthetic
+    /// (`__join_growable_i64(arr, sep) -> i64`, Task 5): joins a tagged
+    /// growable handle whose slots are raw i64 numbers, rendering each via
+    /// `int_to_string` before the byte copy. Selected by `emit_runtime_join`
+    /// for a growable receiver whose element repr is (default) `I64`.
+    pub(crate) fn join_growable_i64_fn_index(&self) -> u32 {
+        self.functions["__join_growable_i64"]
+    }
+
+    /// Wasm function index of the growable-array string-join synthetic
+    /// (`__join_growable_str(arr, sep) -> i64`, Task 5): joins a tagged
+    /// growable handle whose slots are already string handles (the byte
+    /// `memory.copy` path over the header-indirected layout). Selected by
+    /// `emit_runtime_join` for a growable receiver whose element repr is
+    /// `String`.
+    pub(crate) fn join_growable_str_fn_index(&self) -> u32 {
+        self.functions["__join_growable_str"]
+    }
+
+    /// Wasm function index of the synthetic runtime string-equality helper
+    /// (`__streq(a, b) -> i64`, throw-fallout Stage 1): content comparison of
+    /// two tagged string handles (identity fast path, tag guard, length
+    /// pre-check, byte loop). Called by `emit_binary`'s both-string equality
+    /// arm.
+    pub(crate) fn streq_fn_index(&self) -> u32 {
+        self.functions["__streq"]
     }
 
     /// Selects the string-concat host import for the concat node `id` (fasta

@@ -176,10 +176,10 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_thread_topology_scri
         .output()
         .expect("run kali");
 
-    let json = parse_json_stdout(&output);
+    let json = parse_failed_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["hostContract"], "browser-requested");
     assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
     assert!(
@@ -250,7 +250,7 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_has_invalid_tests_fa
         .output()
         .expect("run kali");
 
-    let json = assert_browser_summary_json(&output);
+    let json = assert_browser_summary_json_failed(&output);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 7);
@@ -316,10 +316,10 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_has_unexpected_keys_
         .output()
         .expect("run kali");
 
-    let json = parse_json_stdout(&output);
+    let json = parse_failed_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 8);
@@ -357,7 +357,7 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_has_invalid_numeric_
         .output()
         .expect("run kali");
 
-    let json = assert_browser_summary_json(&output);
+    let json = assert_browser_summary_json_failed(&output);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 7);
@@ -395,7 +395,7 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_has_invalid_args_whe
         .output()
         .expect("run kali");
 
-    let json = assert_browser_summary_json(&output);
+    let json = assert_browser_summary_json_failed(&output);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 8);
@@ -428,7 +428,7 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_has_invalid_tests_ar
         .output()
         .expect("run kali");
 
-    let json = assert_browser_summary_json(&output);
+    let json = assert_browser_summary_json_failed(&output);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 8);

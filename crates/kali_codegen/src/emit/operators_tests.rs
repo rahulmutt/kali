@@ -215,3 +215,43 @@ fn number_division_still_lowers_to_float_division() {
     let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
     assert!(printed.contains("f64.div"), "{printed}");
 }
+
+#[test]
+#[ignore = "generic typeof fail-open closure deferred; census attached in stage5 triage"]
+fn unsupported_typeof_operand_rejects_unproven_member_read() {
+    // throw-fallout Stage 5, Task 2: an unproven `typeof` operand (here, a
+    // property read off a function parameter — its shape is not statically
+    // provable) previously fell into the generic warning+`I64Const(0)`
+    // placeholder: never equal to any interned type-name string, so every
+    // `typeof x === '...'` guard on such an operand silently took the wrong
+    // branch. Reject at compile time instead of miscompiling the comparison.
+    let program = parse_and_lower_lir(
+        "function f(obj) { console.log(typeof obj.member); } f({ member: 1 });",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.is_error()
+                && diagnostic.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
+                && diagnostic.message.contains(
+                    "typeof is only supported on statically-provable operands in the current direct-runtime path",
+                )
+        }),
+        "expected an unproven-typeof-operand diagnostic: {:?}",
+        result.diagnostics
+    );
+
+    // The instruction stream must stay structurally valid (a placeholder is
+    // still emitted) even though the error diagnostic fails the build at the
+    // kali_cli::build_source_file layer (has_errors(&diagnostics) => Err, no
+    // wasm artifact written) — mirrors the other E5506 rejects in this file.
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+}

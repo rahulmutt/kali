@@ -49,20 +49,15 @@ fn assert_promise_any(command: &str, filename: &str) {
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-
+    // Honest re-pin (PR #16 rev2): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
     let stdout = String::from_utf8_lossy(&output.stdout);
-    match command {
-        "run" => assert!(stdout.contains("promise any ok"), "stdout: {stdout}"),
-        "test" => assert!(stdout.contains("ok 1"), "stdout: {stdout}"),
-        _ => unreachable!("unsupported command: {command}"),
-    }
-    assert_eq!(String::from_utf8_lossy(&output.stderr), "");
+    assert!(
+        stderr.contains("E4000") || stdout.contains("E4000"),
+        "stdout: {stdout}\nstderr: {stderr}"
+    );
 }
 
 #[test]

@@ -73,7 +73,30 @@ impl Parser {
             | TokenType::Template
             | TokenType::Backtick
             | TokenType::LeftParen
-            | TokenType::New => self.parse_expression_statement(),
+            | TokenType::New
+            // Statement-position `delete <expr>;` was previously absent from
+            // this dispatch table entirely: `parse_statement` returned `None`
+            // for the `delete` token, so the top-level loop silently
+            // discarded it (see `parse` in parser.rs) and re-parsed the
+            // remaining tokens as their own statement — `delete r.a;` ran as
+            // a bare `r.a;` member read. Route it to the same expression-
+            // statement path as every other unary-expression starter so the
+            // new `TokenType::Delete` arm in `parse_unary_expression` is
+            // actually reachable in statement position (throw-fallout Stage 2).
+            | TokenType::Delete
+            // Same bug class, found in Stage 5's namespace-typeof-fold work:
+            // `typeof <expr>;` in STATEMENT position (not, e.g., after `=` or
+            // inside a call argument, both of which already worked — see
+            // `parse_unary_expression`'s `TokenType::Typeof` arm) was absent
+            // from this dispatch table, so `parse_statement` returned `None`
+            // for the leading `typeof` token, the top-level/block loop
+            // silently discarded it (see `parse_block_statement` above and
+            // `parse` in parser.rs), and re-parsed the remainder as its own
+            // statement — `typeof ns.lazyValue;` silently ran as a bare
+            // `ns.lazyValue;` member read, dropping the operator entirely
+            // (worse than the pre-fix `delete` bug: no placeholder node
+            // survives at all). Route it the same way.
+            | TokenType::Typeof => self.parse_expression_statement(),
             _ => None,
         }
     }
@@ -112,6 +135,15 @@ impl Parser {
     /// comma-separated declarator in a `var`/`let`/`const` statement so the
     /// block-arrow init special-case applies uniformly to each.
     fn parse_variable_declarator(&mut self) -> Option<VariableDeclarator> {
+        if !self
+            .stream
+            .current_kind()
+            .is_some_and(Self::is_binding_name_token)
+        {
+            self.push_feature_unavailable("a reserved word cannot be used as a binding name");
+            let _ = self.stream.advance();
+            return None;
+        }
         let name_token = self.stream.advance()?;
         let name = name_token.value;
 
@@ -367,7 +399,13 @@ impl Parser {
             }));
         }
 
+        // Expression-form head: a trailing `in` here belongs to `for (c in
+        // obj)`, so it must terminate the expression (no_in) instead of being
+        // rejected as the unsupported binary `in` operator.
+        let previous_no_in = self.no_in;
+        self.no_in = true;
         let expr = self.parse_expression();
+        self.no_in = previous_no_in;
         if self.stream.current_kind() == Some(&TokenType::Of) {
             let _ = self.stream.advance();
             let right = self.parse_expression();
@@ -583,6 +621,16 @@ impl Parser {
 
     pub(crate) fn parse_try_statement(&mut self) -> Option<Statement> {
         let _ = self.stream.advance();
+
+        // kali has no exception-unwinding machinery. try/catch/finally
+        // previously lowered to a bogus if-shaped Branch (catch block treated
+        // as an `if` `then` arm) — a silent miscompile that only "passed"
+        // while `throw` was a no-op. Reject fail-closed rather than pretend to
+        // handle exceptions. The tokens are still consumed below so the parse
+        // recovers cleanly and no cascade of secondary errors is emitted.
+        self.push_feature_unavailable(
+            "try/catch/finally is unavailable: kali has no exception-handling machinery",
+        );
 
         let block = self
             .parse_block_statement()

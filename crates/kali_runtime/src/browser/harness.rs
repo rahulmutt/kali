@@ -115,6 +115,7 @@ let wasmAllocGlobal = null;
 let wasmAllocCurrent = null;
 const collectedTests = [];
 let registeredTestFailures = 0;
+const coverageHits = [];
 
 function allocGuestString(bytes) {{
   if (wasmMemory === null) {{
@@ -217,10 +218,182 @@ async function emitBrowserRuntimeSummary(summary) {{
   console.log(serialized);
 }}
 
+// throw-fallout Stage 3 bucket #6 part 2: `crypto.subtle.digest` is ASYNC in
+// browsers, but the guest await lane sequences the host call SYNCHRONOUSLY, so
+// the host must return the digest bytes immediately. Preload node's SYNCHRONOUS
+// `node:crypto` `createHash` (top-level await, node-only); in a real browser
+// this stays null and `crypto_subtle_digest` returns -1 (browser digest is out
+// of scope for this phase — no fixture exercises it).
+const kaliNodeCreateHash =
+  globalThis.process?.versions?.node !== undefined
+    ? (await import('node:crypto')).createHash
+    : null;
+
+const kaliPendingMicrotasks = [];
+const kaliPendingTimers = new Map();
+const kaliCancelledTimers = new Set();
+let kaliNextTimerId = 0;
+let kaliNextTimerSeq = 1;
+let kaliVirtualNowMs = 0;
+const KALI_EVENT_LOOP_BUDGET = 100000;
+function kaliScheduleTimer(callbackId, delayMs, repeat, envPtr) {{
+  // Mirrors kali_runtime::state::schedule_timer: 1ms minimum clamp,
+  // virtual-clock due time, fresh seq per (re)arm.
+  const effective = Math.max(1, Number(delayMs) | 0);
+  const id = kaliNextTimerId++;
+  kaliPendingTimers.set(id, {{
+    callbackId,
+    envPtr,
+    dueAtMs: kaliVirtualNowMs + effective,
+    seq: kaliNextTimerSeq++,
+    repeatMs: repeat ? effective : null,
+  }});
+  return id;
+}}
+function kaliCancelTimer(timerId) {{
+  const id = Number(timerId);
+  // Mirror kali_runtime::state::cancel_timer (I-1): only record a cancellation
+  // for an id that was actually allocated (`0 <= id < kaliNextTimerId`).
+  // Clearing a never-allocated / negative / already-dead id is a node-parity
+  // no-op and must not poison a LATER timer that is eventually allocated with
+  // that id (with the base at 0, the first interval IS id 0).
+  if (!kaliPendingTimers.delete(id) && id >= 0 && id < kaliNextTimerId) {{
+    kaliCancelledTimers.add(id);
+  }}
+}}
+async function kaliInvokeCallback(instance, callbackId, envPtr) {{
+  // Mirrors kali_runtime::host::enforce::invoke_callback: set the exported
+  // __current_env to the registration-time env, restore after (both paths).
+  const envGlobal = instance.exports.__current_env;
+  const saved = envGlobal ? envGlobal.value : null;
+  if (envGlobal) {{ envGlobal.value = envPtr; }}
+  try {{
+    await instance.exports[`__kali_callback_${{callbackId}}`]();
+  }} finally {{
+    if (envGlobal) {{ envGlobal.value = saved; }}
+  }}
+}}
+async function kaliDrainEventLoop(instance) {{
+  // Mirrors kali_runtime::host::enforce::drain_event_loop: all microtasks
+  // FIFO before each timer; timers by (dueAtMs, seq); re-arm unless
+  // cancelled while firing; bounded by the invocation budget.
+  let invoked = 0;
+  for (;;) {{
+    if (invoked >= KALI_EVENT_LOOP_BUDGET) {{
+      throw new Error('event loop did not quiesce: scheduled-callback budget exceeded');
+    }}
+    const microtask = kaliPendingMicrotasks.shift();
+    if (microtask) {{
+      invoked += 1;
+      await kaliInvokeCallback(instance, microtask.callbackId, microtask.envPtr);
+      continue;
+    }}
+    let next = null;
+    for (const [id, timer] of kaliPendingTimers) {{
+      if (
+        next === null
+        || timer.dueAtMs < next.timer.dueAtMs
+        || (timer.dueAtMs === next.timer.dueAtMs && timer.seq < next.timer.seq)
+      ) {{
+        next = {{ id, timer }};
+      }}
+    }}
+    if (next === null) {{ return; }}
+    kaliPendingTimers.delete(next.id);
+    kaliVirtualNowMs = Math.max(kaliVirtualNowMs, next.timer.dueAtMs);
+    invoked += 1;
+    await kaliInvokeCallback(instance, next.timer.callbackId, next.timer.envPtr);
+    if (next.timer.repeatMs !== null && !kaliCancelledTimers.delete(next.id)) {{
+      kaliPendingTimers.set(next.id, {{
+        callbackId: next.timer.callbackId,
+        envPtr: next.timer.envPtr,
+        dueAtMs: kaliVirtualNowMs + next.timer.repeatMs,
+        seq: kaliNextTimerSeq++,
+        repeatMs: next.timer.repeatMs,
+      }});
+    }}
+  }}
+}}
+
+const kaliEventListeners = new Map();
+let kaliNextEventTargetId = 1;
+// This site has no ptr/len guest-string reader (only the i64-handle-based
+// `decodeStringHandleBytes`); add one mirroring `readGuestString`'s idiom
+// from the sibling `browser_runtime_harness_module_script` site below.
+function kaliReadGuestString(ptr, len) {{
+  if (wasmMemory === null) {{
+    throw new Error('guest memory is unavailable for event-surface imports');
+  }}
+  return new TextDecoder().decode(new Uint8Array(wasmMemory.buffer, ptr, len));
+}}
+function kaliEventKey(target, type) {{
+  return `${{Number(target)}} ${{type}}`;
+}}
+function kaliInvokeCallbackSync(instance, callbackId, envPtr) {{
+  // Mirrors kali_runtime::host::enforce::invoke_callback_reentrant: set the
+  // exported __current_env to the registration-time env, restore after —
+  // SYNCHRONOUSLY (dispatchEvent runs listeners before it returns).
+  const envGlobal = instance.exports.__current_env;
+  const saved = envGlobal ? envGlobal.value : null;
+  if (envGlobal) {{ envGlobal.value = envPtr; }}
+  try {{
+    instance.exports[`__kali_callback_${{callbackId}}`]();
+  }} finally {{
+    if (envGlobal) {{ envGlobal.value = saved; }}
+  }}
+}}
+function kaliEventDispatch(instance, target, type) {{
+  // Snapshot first: listeners added during dispatch don't fire this round
+  // (node parity; mirrors event_dispatch in imports_default.rs).
+  const listeners = kaliEventListeners.get(kaliEventKey(target, type));
+  const snapshot = listeners ? listeners.slice() : [];
+  for (const entry of snapshot) {{
+    kaliInvokeCallbackSync(instance, entry.callbackId, entry.envPtr);
+  }}
+  return 1;
+}}
+
 const importObject = {{
   "kali:rt": {{
-    test_register(val) {{
+    test_register(val, _envPtr) {{
+      // `_envPtr` (Stage C C3): the guest's `current_env` at registration. The
+      // browser harness runs registered tests synchronously and has no closure
+      // env chain, so it is accepted for import-signature parity and ignored.
       collectedTests.push(formatConsoleValue(val));
+    }},
+    queueMicrotask(callbackId, envPtr) {{
+      kaliPendingMicrotasks.push({{ callbackId, envPtr }});
+    }},
+    setTimeout(callbackId, delayMs, envPtr) {{
+      return kaliScheduleTimer(callbackId, delayMs, false, envPtr);
+    }},
+    setInterval(callbackId, delayMs, envPtr) {{
+      return kaliScheduleTimer(callbackId, delayMs, true, envPtr);
+    }},
+    clearTimeout(timerId) {{
+      kaliCancelTimer(timerId);
+    }},
+    clearInterval(timerId) {{
+      kaliCancelTimer(timerId);
+    }},
+    event_target_new() {{
+      return BigInt(kaliNextEventTargetId++);
+    }},
+    event_listener_add(target, namePtr, nameLen, callbackId, envPtr) {{
+      const type = kaliReadGuestString(namePtr, nameLen);
+      const key = kaliEventKey(target, type);
+      const existing = kaliEventListeners.get(key) || [];
+      // Dedup by exact (callbackId, envPtr) pair — node's listener-identity rule.
+      if (!existing.some((e) => e.callbackId === callbackId && e.envPtr === envPtr)) {{
+        existing.push({{ callbackId, envPtr }});
+      }}
+      kaliEventListeners.set(key, existing);
+    }},
+    event_dispatch(target, namePtr, nameLen) {{
+      return kaliEventDispatch(instance, target, kaliReadGuestString(namePtr, nameLen));
+    }},
+    coverage_hit(id) {{
+      coverageHits.push(Number(id));
     }},
     int_to_string(value) {{
       return allocGuestString(new TextEncoder().encode(String(value)));
@@ -258,6 +431,35 @@ const importObject = {{
       if (bytes.length > outCap) {{ return -1; }}
       new Uint8Array(wasmMemory.buffer, outPtr, bytes.length).set(bytes);
       return bytes.length;
+    }},
+    performance_now() {{
+      return performance.now();
+    }},
+    crypto_get_random_values(outPtr, outLen) {{
+      if (wasmMemory === null) {{ return 0; }}
+      crypto.getRandomValues(new Uint8Array(wasmMemory.buffer, outPtr, outLen));
+      return outLen;
+    }},
+    crypto_random_uuid(outPtr, outCap) {{
+      if (wasmMemory === null) {{ return 0; }}
+      const bytes = new TextEncoder().encode(crypto.randomUUID());
+      if (bytes.length > outCap) {{ return -1; }}
+      new Uint8Array(wasmMemory.buffer, outPtr, bytes.length).set(bytes);
+      return bytes.length;
+    }},
+    crypto_subtle_digest(algoPtr, algoLen, inPtr, inLen, outPtr, outCap) {{
+      if (wasmMemory === null || kaliNodeCreateHash === null) {{ return -1; }}
+      const mem = new Uint8Array(wasmMemory.buffer);
+      const algo = new TextDecoder()
+        .decode(mem.slice(algoPtr, algoPtr + algoLen))
+        .replace(/-/g, '')
+        .toLowerCase();
+      const digest = kaliNodeCreateHash(algo)
+        .update(mem.slice(inPtr, inPtr + inLen))
+        .digest();
+      if (digest.length > outCap) {{ return -1; }}
+      new Uint8Array(wasmMemory.buffer, outPtr, digest.length).set(digest);
+      return digest.length;
     }},
     process_pid() {{
       return Number(globalThis.process?.pid ?? 0);
@@ -338,6 +540,7 @@ wasmAllocGlobal = instance.exports.__alloc_global ?? null;
 wasmAllocCurrent = instance.exports.__alloc ?? null;
 if (typeof instance.exports._start === 'function') {{
   await instance.exports._start();
+  await kaliDrainEventLoop(instance);
 }}
 if (runRegisteredTests) {{
   for (const callbackId of collectedTests) {{
@@ -356,7 +559,7 @@ if (runRegisteredTests) {{
 }}
 let summaryEmissionError = null;
 try {{
-  await emitBrowserRuntimeSummary({{ args: runtimeArgs, hostContract: "browser-requested", runtimeBackend: "browser-harness", tests: collectedTests, testsFailed: registeredTestFailures }});
+  await emitBrowserRuntimeSummary({{ args: runtimeArgs, hostContract: "browser-requested", runtimeBackend: "browser-harness", tests: collectedTests, testsFailed: registeredTestFailures, coverageHits }});
 }} catch (error) {{
   summaryEmissionError = error;
 }}
@@ -432,6 +635,7 @@ let wasmAllocGlobal = null;
 let wasmAllocCurrent = null;
 const collectedTests = [];
 let registeredTestFailures = 0;
+const coverageHits = [];
 
 function allocGuestString(bytes) {{
   if (wasmMemory === null) {{
@@ -589,10 +793,173 @@ async function emitBrowserRuntimeSummary(summary) {{
   console.log(serialized);
 }}
 
+// throw-fallout Stage 3 bucket #6 part 2: `crypto.subtle.digest` is ASYNC in
+// browsers, but the guest await lane sequences the host call SYNCHRONOUSLY, so
+// the host must return the digest bytes immediately. Preload node's SYNCHRONOUS
+// `node:crypto` `createHash` (top-level await, node-only); in a real browser
+// this stays null and `crypto_subtle_digest` returns -1 (browser digest is out
+// of scope for this phase — no fixture exercises it).
+const kaliNodeCreateHash =
+  globalThis.process?.versions?.node !== undefined
+    ? (await import('node:crypto')).createHash
+    : null;
+
+const kaliPendingMicrotasks = [];
+const kaliPendingTimers = new Map();
+const kaliCancelledTimers = new Set();
+let kaliNextTimerId = 0;
+let kaliNextTimerSeq = 1;
+let kaliVirtualNowMs = 0;
+const KALI_EVENT_LOOP_BUDGET = 100000;
+function kaliScheduleTimer(callbackId, delayMs, repeat, envPtr) {{
+  // Mirrors kali_runtime::state::schedule_timer: 1ms minimum clamp,
+  // virtual-clock due time, fresh seq per (re)arm.
+  const effective = Math.max(1, Number(delayMs) | 0);
+  const id = kaliNextTimerId++;
+  kaliPendingTimers.set(id, {{
+    callbackId,
+    envPtr,
+    dueAtMs: kaliVirtualNowMs + effective,
+    seq: kaliNextTimerSeq++,
+    repeatMs: repeat ? effective : null,
+  }});
+  return id;
+}}
+function kaliCancelTimer(timerId) {{
+  const id = Number(timerId);
+  // Mirror kali_runtime::state::cancel_timer (I-1): only record a cancellation
+  // for an id that was actually allocated (`0 <= id < kaliNextTimerId`).
+  // Clearing a never-allocated / negative / already-dead id is a node-parity
+  // no-op and must not poison a LATER timer that is eventually allocated with
+  // that id (with the base at 0, the first interval IS id 0).
+  if (!kaliPendingTimers.delete(id) && id >= 0 && id < kaliNextTimerId) {{
+    kaliCancelledTimers.add(id);
+  }}
+}}
+async function kaliInvokeCallback(instance, callbackId, envPtr) {{
+  // Mirrors kali_runtime::host::enforce::invoke_callback: set the exported
+  // __current_env to the registration-time env, restore after (both paths).
+  const envGlobal = instance.exports.__current_env;
+  const saved = envGlobal ? envGlobal.value : null;
+  if (envGlobal) {{ envGlobal.value = envPtr; }}
+  try {{
+    await instance.exports[`__kali_callback_${{callbackId}}`]();
+  }} finally {{
+    if (envGlobal) {{ envGlobal.value = saved; }}
+  }}
+}}
+async function kaliDrainEventLoop(instance) {{
+  // Mirrors kali_runtime::host::enforce::drain_event_loop: all microtasks
+  // FIFO before each timer; timers by (dueAtMs, seq); re-arm unless
+  // cancelled while firing; bounded by the invocation budget.
+  let invoked = 0;
+  for (;;) {{
+    if (invoked >= KALI_EVENT_LOOP_BUDGET) {{
+      throw new Error('event loop did not quiesce: scheduled-callback budget exceeded');
+    }}
+    const microtask = kaliPendingMicrotasks.shift();
+    if (microtask) {{
+      invoked += 1;
+      await kaliInvokeCallback(instance, microtask.callbackId, microtask.envPtr);
+      continue;
+    }}
+    let next = null;
+    for (const [id, timer] of kaliPendingTimers) {{
+      if (
+        next === null
+        || timer.dueAtMs < next.timer.dueAtMs
+        || (timer.dueAtMs === next.timer.dueAtMs && timer.seq < next.timer.seq)
+      ) {{
+        next = {{ id, timer }};
+      }}
+    }}
+    if (next === null) {{ return; }}
+    kaliPendingTimers.delete(next.id);
+    kaliVirtualNowMs = Math.max(kaliVirtualNowMs, next.timer.dueAtMs);
+    invoked += 1;
+    await kaliInvokeCallback(instance, next.timer.callbackId, next.timer.envPtr);
+    if (next.timer.repeatMs !== null && !kaliCancelledTimers.delete(next.id)) {{
+      kaliPendingTimers.set(next.id, {{
+        callbackId: next.timer.callbackId,
+        envPtr: next.timer.envPtr,
+        dueAtMs: kaliVirtualNowMs + next.timer.repeatMs,
+        seq: kaliNextTimerSeq++,
+        repeatMs: next.timer.repeatMs,
+      }});
+    }}
+  }}
+}}
+
+const kaliEventListeners = new Map();
+let kaliNextEventTargetId = 1;
+function kaliEventKey(target, type) {{
+  return `${{Number(target)}} ${{type}}`;
+}}
+function kaliInvokeCallbackSync(instance, callbackId, envPtr) {{
+  // Mirrors kali_runtime::host::enforce::invoke_callback_reentrant: set the
+  // exported __current_env to the registration-time env, restore after —
+  // SYNCHRONOUSLY (dispatchEvent runs listeners before it returns).
+  const envGlobal = instance.exports.__current_env;
+  const saved = envGlobal ? envGlobal.value : null;
+  if (envGlobal) {{ envGlobal.value = envPtr; }}
+  try {{
+    instance.exports[`__kali_callback_${{callbackId}}`]();
+  }} finally {{
+    if (envGlobal) {{ envGlobal.value = saved; }}
+  }}
+}}
+function kaliEventDispatch(instance, target, type) {{
+  // Snapshot first: listeners added during dispatch don't fire this round
+  // (node parity; mirrors event_dispatch in imports_default.rs).
+  const listeners = kaliEventListeners.get(kaliEventKey(target, type));
+  const snapshot = listeners ? listeners.slice() : [];
+  for (const entry of snapshot) {{
+    kaliInvokeCallbackSync(instance, entry.callbackId, entry.envPtr);
+  }}
+  return 1;
+}}
+
 const importObject = {{
   "kali:rt": {{
-    test_register(val) {{
+    test_register(val, _envPtr) {{
+      // `_envPtr` (Stage C C3): the guest's `current_env` at registration. The
+      // browser harness runs registered tests synchronously and has no closure
+      // env chain, so it is accepted for import-signature parity and ignored.
       collectedTests.push(formatConsoleValue(val));
+    }},
+    queueMicrotask(callbackId, envPtr) {{
+      kaliPendingMicrotasks.push({{ callbackId, envPtr }});
+    }},
+    setTimeout(callbackId, delayMs, envPtr) {{
+      return kaliScheduleTimer(callbackId, delayMs, false, envPtr);
+    }},
+    setInterval(callbackId, delayMs, envPtr) {{
+      return kaliScheduleTimer(callbackId, delayMs, true, envPtr);
+    }},
+    clearTimeout(timerId) {{
+      kaliCancelTimer(timerId);
+    }},
+    clearInterval(timerId) {{
+      kaliCancelTimer(timerId);
+    }},
+    event_target_new() {{
+      return BigInt(kaliNextEventTargetId++);
+    }},
+    event_listener_add(target, namePtr, nameLen, callbackId, envPtr) {{
+      const type = readGuestString(namePtr, nameLen);
+      const key = kaliEventKey(target, type);
+      const existing = kaliEventListeners.get(key) || [];
+      // Dedup by exact (callbackId, envPtr) pair — node's listener-identity rule.
+      if (!existing.some((e) => e.callbackId === callbackId && e.envPtr === envPtr)) {{
+        existing.push({{ callbackId, envPtr }});
+      }}
+      kaliEventListeners.set(key, existing);
+    }},
+    event_dispatch(target, namePtr, nameLen) {{
+      return kaliEventDispatch(instance, target, readGuestString(namePtr, nameLen));
+    }},
+    coverage_hit(id) {{
+      coverageHits.push(Number(id));
     }},
     int_to_string(value) {{
       return allocGuestString(new TextEncoder().encode(String(value)));
@@ -634,6 +1001,35 @@ const importObject = {{
       if (bytes.length > outCap) {{ return -1; }}
       new Uint8Array(wasmMemory.buffer, outPtr, bytes.length).set(bytes);
       return bytes.length;
+    }},
+    performance_now() {{
+      return performance.now();
+    }},
+    crypto_get_random_values(outPtr, outLen) {{
+      if (wasmMemory === null) {{ return 0; }}
+      crypto.getRandomValues(new Uint8Array(wasmMemory.buffer, outPtr, outLen));
+      return outLen;
+    }},
+    crypto_random_uuid(outPtr, outCap) {{
+      if (wasmMemory === null) {{ return 0; }}
+      const bytes = new TextEncoder().encode(crypto.randomUUID());
+      if (bytes.length > outCap) {{ return -1; }}
+      new Uint8Array(wasmMemory.buffer, outPtr, bytes.length).set(bytes);
+      return bytes.length;
+    }},
+    crypto_subtle_digest(algoPtr, algoLen, inPtr, inLen, outPtr, outCap) {{
+      if (wasmMemory === null || kaliNodeCreateHash === null) {{ return -1; }}
+      const mem = new Uint8Array(wasmMemory.buffer);
+      const algo = new TextDecoder()
+        .decode(mem.slice(algoPtr, algoPtr + algoLen))
+        .replace(/-/g, '')
+        .toLowerCase();
+      const digest = kaliNodeCreateHash(algo)
+        .update(mem.slice(inPtr, inPtr + inLen))
+        .digest();
+      if (digest.length > outCap) {{ return -1; }}
+      new Uint8Array(wasmMemory.buffer, outPtr, digest.length).set(digest);
+      return digest.length;
     }},
     process_pid() {{
       return Number(globalThis.process?.pid ?? 0);
@@ -710,6 +1106,7 @@ wasmAllocGlobal = instance.exports.__alloc_global ?? null;
 wasmAllocCurrent = instance.exports.__alloc ?? null;
 if (typeof instance.exports._start === 'function') {{
   await instance.exports._start();
+  await kaliDrainEventLoop(instance);
 }}
 if (runRegisteredTests) {{
   for (const callbackId of collectedTests) {{
@@ -728,7 +1125,7 @@ if (runRegisteredTests) {{
 }}
 let summaryEmissionError = null;
 try {{
-  await emitBrowserRuntimeSummary({{ args: runtimeArgs, hostContract: "browser-requested", runtimeBackend: "browser-harness", tests: collectedTests, testsFailed: registeredTestFailures, threadTopology }});
+  await emitBrowserRuntimeSummary({{ args: runtimeArgs, hostContract: "browser-requested", runtimeBackend: "browser-harness", tests: collectedTests, testsFailed: registeredTestFailures, threadTopology, coverageHits }});
 }} catch (error) {{
   summaryEmissionError = error;
 }}

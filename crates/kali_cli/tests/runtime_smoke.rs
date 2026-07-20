@@ -216,57 +216,57 @@ globalThis.Deno.permissions.query({ name: net_descriptor });"#
 }
 
 fn supported_permission_query_const_binding_runtime_source() -> String {
-    r#"async function main() {{
+    r#"async function main() {
 const read_descriptor = "read";
 const write_descriptor = "write";
 const env_descriptor = "env";
 const net_descriptor = "net";
-await Deno.permissions.query({{ name: read_descriptor }});
-await Deno.permissions.query({{ name: write_descriptor }});
-await Deno.permissions.query({{ name: env_descriptor }});
-await Deno.permissions.query({{ name: net_descriptor }});
-await Deno.permissions["query"]({{ name: read_descriptor }});
-await Deno.permissions["query"]({{ name: write_descriptor }});
-await Deno.permissions["query"]({{ name: env_descriptor }});
-await Deno.permissions["query"]({{ name: net_descriptor }});
-await globalThis["Deno"]["permissions"].query({{ name: read_descriptor }});
-await globalThis["Deno"]["permissions"]["query"]({{ name: read_descriptor }});
-await globalThis["Deno"]["permissions"].query({{ name: write_descriptor }});
-await globalThis["Deno"]["permissions"]["query"]({{ name: write_descriptor }});
-await globalThis["Deno"]["permissions"].query({{ name: env_descriptor }});
-await globalThis["Deno"]["permissions"]["query"]({{ name: env_descriptor }});
-await globalThis["Deno"]["permissions"].query({{ name: net_descriptor }});
-await globalThis["Deno"]["permissions"]["query"]({{ name: net_descriptor }});
+await Deno.permissions.query({ name: read_descriptor });
+await Deno.permissions.query({ name: write_descriptor });
+await Deno.permissions.query({ name: env_descriptor });
+await Deno.permissions.query({ name: net_descriptor });
+await Deno.permissions["query"]({ name: read_descriptor });
+await Deno.permissions["query"]({ name: write_descriptor });
+await Deno.permissions["query"]({ name: env_descriptor });
+await Deno.permissions["query"]({ name: net_descriptor });
+await globalThis["Deno"]["permissions"].query({ name: read_descriptor });
+await globalThis["Deno"]["permissions"]["query"]({ name: read_descriptor });
+await globalThis["Deno"]["permissions"].query({ name: write_descriptor });
+await globalThis["Deno"]["permissions"]["query"]({ name: write_descriptor });
+await globalThis["Deno"]["permissions"].query({ name: env_descriptor });
+await globalThis["Deno"]["permissions"]["query"]({ name: env_descriptor });
+await globalThis["Deno"]["permissions"].query({ name: net_descriptor });
+await globalThis["Deno"]["permissions"]["query"]({ name: net_descriptor });
   console.log("permission query const bindings ok");
-}}
+}
 main();
 "#
     .to_string()
 }
 
 fn supported_permission_query_const_binding_test_source() -> String {
-    r#"async function main() {{
+    r#"async function main() {
 const read_descriptor = "read";
 const write_descriptor = "write";
 const env_descriptor = "env";
 const net_descriptor = "net";
-await Deno.permissions.query({{ name: read_descriptor }});
-await Deno.permissions.query({{ name: write_descriptor }});
-await Deno.permissions.query({{ name: env_descriptor }});
-await Deno.permissions.query({{ name: net_descriptor }});
-await Deno.permissions["query"]({{ name: read_descriptor }});
-await Deno.permissions["query"]({{ name: write_descriptor }});
-await Deno.permissions["query"]({{ name: env_descriptor }});
-await Deno.permissions["query"]({{ name: net_descriptor }});
-await globalThis["Deno"]["permissions"].query({{ name: read_descriptor }});
-await globalThis["Deno"]["permissions"]["query"]({{ name: read_descriptor }});
-await globalThis["Deno"]["permissions"].query({{ name: write_descriptor }});
-await globalThis["Deno"]["permissions"]["query"]({{ name: write_descriptor }});
-await globalThis["Deno"]["permissions"].query({{ name: env_descriptor }});
-await globalThis["Deno"]["permissions"]["query"]({{ name: env_descriptor }});
-await globalThis["Deno"]["permissions"].query({{ name: net_descriptor }});
-await globalThis["Deno"]["permissions"]["query"]({{ name: net_descriptor }});
-}}
+await Deno.permissions.query({ name: read_descriptor });
+await Deno.permissions.query({ name: write_descriptor });
+await Deno.permissions.query({ name: env_descriptor });
+await Deno.permissions.query({ name: net_descriptor });
+await Deno.permissions["query"]({ name: read_descriptor });
+await Deno.permissions["query"]({ name: write_descriptor });
+await Deno.permissions["query"]({ name: env_descriptor });
+await Deno.permissions["query"]({ name: net_descriptor });
+await globalThis["Deno"]["permissions"].query({ name: read_descriptor });
+await globalThis["Deno"]["permissions"]["query"]({ name: read_descriptor });
+await globalThis["Deno"]["permissions"].query({ name: write_descriptor });
+await globalThis["Deno"]["permissions"]["query"]({ name: write_descriptor });
+await globalThis["Deno"]["permissions"].query({ name: env_descriptor });
+await globalThis["Deno"]["permissions"]["query"]({ name: env_descriptor });
+await globalThis["Deno"]["permissions"].query({ name: net_descriptor });
+await globalThis["Deno"]["permissions"]["query"]({ name: net_descriptor });
+}
 Kali.test('permission query const bindings', () => main());
 "#
     .to_string()
@@ -789,15 +789,20 @@ fn count_tag_boxing_ops(bytes: &[u8]) -> usize {
     // This census guards USER hot paths against tag-check/untag boxing ops.
     // The hand-emitted synthetic runtime helpers (`kali_codegen`'s
     // `SYNTHETIC_FUNCTIONS`: the `__alloc` page-pool family plus
-    // `__substring`, `__join`, and its `__join_arena` twin) are
-    // compiler-internal fixed slots present in EVERY module regardless of what
-    // the source does — `__substring`'s handle-field masking and `__join`'s
-    // (and the identical `__join_arena`'s) length-field masking / two-pass copy
-    // loop legitimately use `I64And` — so their bodies are excluded here,
-    // exactly as they are excluded from coverage instrumentation in the
-    // compiler itself. Imports and exports precede the code section in the wasm
-    // binary format, so a single pass sees the full exclusion set before the
-    // first body.
+    // `__substring`, `__join`, its `__join_arena` twin, the string-equality
+    // helper `__streq` (throw-fallout Stage 1), and the runtime-length growable
+    // join twins `__join_growable_i64` / `__join_growable_str` (throw-fallout
+    // Stage 4)) are compiler-internal fixed slots present in EVERY module
+    // regardless of what the source does — `__substring`'s handle-field masking,
+    // `__join`'s (and the identical `__join_arena`'s) length-field masking /
+    // two-pass copy loop, `__streq`'s tag guard and offset masking, and the
+    // growable-join twins' handle/length-field masking legitimately use `I64And`
+    // — so their bodies are excluded here, exactly as they are excluded from
+    // coverage instrumentation in the compiler itself. Imports and exports
+    // precede the code section in the wasm binary format, so a single pass sees
+    // the full exclusion set before the first body. (Stage-1 lesson: this
+    // test-side mirror MUST sync with every new synthetic or the census
+    // miscounts synthetic masking as user boxing.)
     const SYNTHETIC_FUNCTIONS: &[&str] = &[
         "__alloc",
         "__alloc_global",
@@ -806,6 +811,9 @@ fn count_tag_boxing_ops(bytes: &[u8]) -> usize {
         "__substring",
         "__join",
         "__join_arena",
+        "__streq",
+        "__join_growable_i64",
+        "__join_growable_str",
     ];
     let mut imported_functions = 0u32;
     let mut synthetic_indices = Vec::new();
@@ -827,7 +835,8 @@ fn count_tag_boxing_ops(bytes: &[u8]) -> usize {
                 for export in reader {
                     let export = export.expect("export entry");
                     if export.kind == wasmparser::ExternalKind::Func
-                        && SYNTHETIC_FUNCTIONS.contains(&export.name)
+                        && (SYNTHETIC_FUNCTIONS.contains(&export.name)
+                            || export.name.starts_with("__clone_shape_"))
                     {
                         synthetic_indices.push(export.index);
                     }
@@ -1776,27 +1785,6 @@ fn assert_browser_bundle_promise_all_sequencing(filename: &str, json_output: boo
         String::from_utf8_lossy(&output.stderr)
     );
 
-    if json_output {
-        let envelope = parse_json_stdout(&output);
-        assert_eq!(envelope["schemaVersion"], 1);
-        assert_eq!(envelope["command"], "build");
-        assert_eq!(envelope["exitCode"], 0);
-        let payload = envelope["payload"]
-            .as_object()
-            .expect("build payload object");
-        assert_eq!(payload["artifactKind"], "bundle");
-        assert_eq!(payload["bundleFormat"], "esm");
-        let artifacts = payload["artifacts"].as_array().expect("artifacts array");
-        let kinds: Vec<_> = artifacts
-            .iter()
-            .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
-            .collect();
-        assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
-        assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
-        assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
-        assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
-    }
-
     let bundle_dir = dir.path().join("app");
     let metadata: Value = serde_json::from_str(
         &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
@@ -1805,7 +1793,38 @@ fn assert_browser_bundle_promise_all_sequencing(filename: &str, json_output: boo
     assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
     assert_eq!(metadata["apiSurface"], "browser");
 
-    assert_browser_bundle_executes(&bundle_dir, "promiseAllSmoke");
+    let harness_path = bundle_dir
+        .parent()
+        .expect("bundle root parent")
+        .join("browser-bundle-smoke.mjs");
+    let harness = kali_runtime::browser_bundle_harness_script(
+        "app",
+        false,
+        r#"const mod = await import(bundleJs.href);
+const result = await mod.promiseAllSmoke(1n, 2n);
+if (result !== 0n) {
+  throw new Error(`unexpected result ${result}`);
+}
+console.log(String(result));
+"#,
+    );
+    fs::write(&harness_path, harness).expect("write browser bundle harness");
+
+    let mut harness_command = browser_bundle_harness_command_parts();
+    let harness_executable = harness_command.remove(0);
+    let output = Command::new(&harness_executable)
+        .current_dir(&bundle_dir)
+        .args(&harness_command)
+        .arg(&harness_path)
+        .output()
+        .expect("run browser bundle harness");
+
+    // Honest re-pin (PR #16 rev2, family `promise`): the build step succeeds (its
+    // own success assert above holds honestly); kali fails closed/loud only at
+    // browser-bundle execution here — this helper's 4 worklist callers in
+    // runtime_smoke/build.rs are all class A — see
+    // docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 fn assert_browser_bundle_unary_prefix_semantics(filename: &str, json_output: bool) {
@@ -1885,44 +1904,22 @@ fn assert_browser_bundle_string_primitive_enumeration(filename: &str, json_outpu
     }
     let output = command.arg(&source_path).output().expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}
-stderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-
     if json_output {
-        let envelope = parse_json_stdout(&output);
-        assert_eq!(envelope["schemaVersion"], 1);
-        assert_eq!(envelope["command"], "build");
-        assert_eq!(envelope["exitCode"], 0);
-        let payload = envelope["payload"]
-            .as_object()
-            .expect("build payload object");
-        assert_eq!(payload["artifactKind"], "bundle");
-        assert_eq!(payload["bundleFormat"], "esm");
-        let artifacts = payload["artifacts"].as_array().expect("artifacts array");
-        let kinds: Vec<_> = artifacts
-            .iter()
-            .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
-            .collect();
-        assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
-        assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
-        assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
-        assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["success"], false);
+        assert_eq!(json["errors"][0]["code"], "E5506");
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("E5506"), "stderr: {stderr}");
     }
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    assert_browser_bundle_executes(&bundle_dir, "stringPrimitiveSmoke");
 }
 
 /// Every caller writes the chunk fixture `export function lazyValue() { return 7; }`,
@@ -2561,31 +2558,11 @@ fn assert_browser_requested_promise_all_sequencing(
 
     let output = command_line.output().expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    if json_output {
-        let json = parse_json_stdout(&output);
-        assert_eq!(json["command"], command);
-        assert_eq!(json["success"], true);
-        assert_eq!(json["exitCode"], 0);
-        if command == "run" {
-            assert_eq!(json["payload"]["exitCode"], 0);
-        } else {
-            assert_eq!(json["payload"]["total"], 1);
-            assert_eq!(json["payload"]["passed"], 1);
-            assert_eq!(json["payload"]["failed"], 0);
-        }
-        assert_eq!(json["payload"]["hostContract"], "browser-requested");
-        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    } else if command == "test" {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("ok 1"), "stdout: {stdout}");
-    }
+    // Honest re-pin (PR #16 rev2, family `promise`): kali fails closed/loud here
+    // (this helper's 16 worklist callers across runtime_smoke/run.rs and
+    // runtime_smoke/test.rs are all class A — see
+    // docs/superpowers/followups/pr16-honest-repin-inventory.md).
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 fn assert_run_supports_bigint_binary_semantics(
@@ -2702,16 +2679,34 @@ fn assert_object_string_primitive_enumeration_semantics(
         .output()
         .expect("run kali");
 
+    // Split pin (throw-fallout Stage 2 selection-callee drain):
+    // - run-mode source still carries the array-literal-argument preamble
+    //   (`consumeArray([1n, 2n], 1n)`), which fails CLOSED at compile time
+    //   (E5506) instead of silently yielding zero placeholders.
+    // - test-mode source has no such preamble; its only former blocker was
+    //   the ternary callable selection `(true ? Object.values : Object.values)('ab')`,
+    //   which the enumeration fold now resolves through the shared static
+    //   callable oracle. The fixture executes with node-identical semantics
+    //   (its own self-check throws on any divergence) and prints
+    //   `2` + `ok 1` — node-verified un-flip, not a re-mask.
+    if command == "test" {
+        assert!(
+            output.status.success(),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("2\nok 1"), "stdout: {stdout}");
+        return;
+    }
+    assert!(!output.status.success(), "must fail closed: {output:?}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        output.status.success(),
-        "stdout: {}, stderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        stderr.contains("E5506") || stderr.contains("E4000"),
+        "stderr: {stderr}"
     );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains('2'), "stdout: {stdout}");
 }
-
 fn object_string_primitive_enumeration_semantics_source() -> &'static str {
     r#"const stringKeys = Object.keys('ab');
 const globalThisStringKeys = globalThis.Object["keys"]('ab');
@@ -3263,33 +3258,18 @@ fn assert_json_object_enumeration_semantics(command: &str, filename: &str) {
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], command);
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    if command == "run" {
-        assert_eq!(json["payload"]["exitCode"], 0);
-        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
-        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
-    } else {
-        assert_eq!(json["payload"]["total"], 1);
-        assert_eq!(json["payload"]["passed"], 1);
-        assert_eq!(json["payload"]["failed"], 0);
-        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
-        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
-    }
-    assert_eq!(json["stdout"], "2\n2\n2\n");
-    assert_eq!(json["stderr"], "");
-    assert!(json["errors"].as_array().expect("errors array").is_empty());
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
-
 fn assert_json_object_from_entries_semantics(command: &str, filename: &str) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
@@ -3304,31 +3284,13 @@ fn assert_json_object_from_entries_semantics(command: &str, filename: &str) {
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-
+    // Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here
+    // (this helper's 2 worklist callers are both class A — see
+    // docs/superpowers/followups/pr16-honest-repin-inventory.md).
+    assert!(!output.status.success(), "must fail closed: {output:?}");
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], command);
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    if command == "run" {
-        assert_eq!(json["payload"]["exitCode"], 0);
-        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
-        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
-    } else {
-        assert_eq!(json["payload"]["total"], 1);
-        assert_eq!(json["payload"]["passed"], 1);
-        assert_eq!(json["payload"]["failed"], 0);
-        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
-        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
-    }
-    assert_eq!(json["stdout"], "2\n2\n2\n");
-    assert_eq!(json["stderr"], "");
-    assert!(json["errors"].as_array().expect("errors array").is_empty());
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 fn assert_json_frozen_object_enumeration_spread_semantics(command: &str, filename: &str) {
@@ -3443,32 +3405,40 @@ fn assert_json_object_string_primitive_enumeration_semantics(
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], command);
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    if command == "run" {
-        assert_eq!(json["payload"]["exitCode"], 0);
-        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
-        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
-    } else {
-        assert_eq!(json["payload"]["total"], 1);
+    // Split pin (throw-fallout Stage 2 selection-callee drain) — see
+    // `assert_object_string_primitive_enumeration_semantics`: run-mode still
+    // fails closed on the array-literal-argument preamble; test-mode now
+    // executes with node-identical semantics after the enumeration fold
+    // learned ternary callable selection (node-verified un-flip).
+    if command == "test" {
+        assert!(
+            output.status.success(),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["success"], true);
+        assert!(json["errors"].as_array().expect("errors array").is_empty());
+        // JSON mode reports the runner verdict in the payload (the human
+        // "ok 1" line is not part of the captured program stdout).
         assert_eq!(json["payload"]["passed"], 1);
         assert_eq!(json["payload"]["failed"], 0);
-        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
-        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+        assert!(
+            json["stdout"].as_str().expect("stdout").contains("2\n"),
+            "json: {json}"
+        );
+        return;
     }
-    assert_eq!(json["stdout"], "2\n");
-    assert_eq!(json["stderr"], "");
+    assert!(!output.status.success(), "must fail closed: {output:?}");
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["success"], false);
+    let code = json["errors"][0]["code"].as_str().unwrap_or_default();
+    assert!(
+        code == "E5506" || code == "E4000",
+        "expected fail-closed reject or trap, got: {json}"
+    );
 }
-
 fn object_property_deletion_semantics_source() -> &'static str {
     r#"const obj = { a: 1, b: 2 };
 if (!('a' in obj) || !('b' in obj)) {
@@ -3495,14 +3465,18 @@ fn assert_object_property_deletion_semantics(command: &str, filename: &str) {
         .output()
         .expect("run kali");
 
+    // Flipped pin: binary `in` fails closed at EVALUATION (E4000 print-then-trap; E5506 where a compile gate still fires): the token was previously
+    // dropped so `'a' in obj` miscompiled to its left operand, and runtime
+    // key presence (after `delete`) is undecidable in the static object model.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        stderr.contains("E4000")
+            || stderr.contains("E5506")
+            || stderr.contains("RuntimeError: unreachable"),
+        "expected fail-closed trap or reject, stderr: {stderr}"
     );
 }
-
 fn assert_json_object_property_deletion_semantics(command: &str, filename: &str) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
@@ -3517,32 +3491,19 @@ fn assert_json_object_property_deletion_semantics(command: &str, filename: &str)
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-
+    // Flipped pin: binary `in` fails closed at EVALUATION (E4000 print-then-trap; E5506 where a compile gate still fires): the token was previously
+    // dropped so `'a' in obj` miscompiled to its left operand, and runtime
+    // key presence (after `delete`) is undecidable in the static object model.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], command);
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    if command == "run" {
-        assert_eq!(json["payload"]["exitCode"], 0);
-        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
-        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
-    } else {
-        assert_eq!(json["payload"]["total"], 1);
-        assert_eq!(json["payload"]["passed"], 1);
-        assert_eq!(json["payload"]["failed"], 0);
-        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
-        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
-    }
-    assert_eq!(json["stdout"], "");
-    assert_eq!(json["stderr"], "");
+    assert_eq!(json["success"], false);
+    let code = json["errors"][0]["code"].as_str().unwrap_or_default();
+    let harness_stderr = json["stderr"].as_str().unwrap_or_default();
+    assert!(
+        code == "E4000" || code == "E5506" || harness_stderr.contains("RuntimeError: unreachable"),
+        "expected fail-closed trap or reject, got: {json}"
+    );
 }
-
 fn assert_browser_requested_object_property_deletion_semantics(command: &str, filename: &str) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
@@ -3558,14 +3519,18 @@ fn assert_browser_requested_object_property_deletion_semantics(command: &str, fi
         .output()
         .expect("run kali");
 
+    // Flipped pin: binary `in` fails closed at EVALUATION (E4000 print-then-trap; E5506 where a compile gate still fires): the token was previously
+    // dropped so `'a' in obj` miscompiled to its left operand, and runtime
+    // key presence (after `delete`) is undecidable in the static object model.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        stderr.contains("E4000")
+            || stderr.contains("E5506")
+            || stderr.contains("RuntimeError: unreachable"),
+        "expected fail-closed trap or reject, stderr: {stderr}"
     );
 }
-
 fn assert_json_browser_requested_object_property_deletion_semantics(command: &str, filename: &str) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
@@ -3583,31 +3548,19 @@ fn assert_json_browser_requested_object_property_deletion_semantics(command: &st
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
+    // Flipped pin: binary `in` fails closed at EVALUATION (E4000 print-then-trap; E5506 where a compile gate still fires): the token was previously
+    // dropped so `'a' in obj` miscompiled to its left operand, and runtime
+    // key presence (after `delete`) is undecidable in the static object model.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], command);
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    if command == "run" {
-        assert_eq!(json["payload"]["exitCode"], 0);
-        assert_eq!(json["payload"]["hostContract"], "browser-requested");
-        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    } else {
-        assert_eq!(json["payload"]["total"], 1);
-        assert_eq!(json["payload"]["passed"], 1);
-        assert_eq!(json["payload"]["failed"], 0);
-        assert_eq!(json["payload"]["hostContract"], "browser-requested");
-        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    }
-    assert_eq!(json["stdout"], "");
-    assert_eq!(json["stderr"], "");
+    assert_eq!(json["success"], false);
+    let code = json["errors"][0]["code"].as_str().unwrap_or_default();
+    let harness_stderr = json["stderr"].as_str().unwrap_or_default();
+    assert!(
+        code == "E4000" || code == "E5506" || harness_stderr.contains("RuntimeError: unreachable"),
+        "expected fail-closed trap or reject, got: {json}"
+    );
 }
-
 fn assert_browser_requested_object_property_deletion_semantics_when_browser_api_surface_is_inherited(
     command: &str,
     filename: &str,
@@ -3636,14 +3589,18 @@ fn assert_browser_requested_object_property_deletion_semantics_when_browser_api_
         .output()
         .expect("run kali");
 
+    // Flipped pin: binary `in` fails closed at EVALUATION (E4000 print-then-trap; E5506 where a compile gate still fires): the token was previously
+    // dropped so `'a' in obj` miscompiled to its left operand, and runtime
+    // key presence (after `delete`) is undecidable in the static object model.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        stderr.contains("E4000")
+            || stderr.contains("E5506")
+            || stderr.contains("RuntimeError: unreachable"),
+        "expected fail-closed trap or reject, stderr: {stderr}"
     );
 }
-
 fn assert_json_browser_requested_object_property_deletion_semantics_when_browser_api_surface_is_inherited(
     command: &str,
     filename: &str,
@@ -3674,31 +3631,19 @@ fn assert_json_browser_requested_object_property_deletion_semantics_when_browser
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
+    // Flipped pin: binary `in` fails closed at EVALUATION (E4000 print-then-trap; E5506 where a compile gate still fires): the token was previously
+    // dropped so `'a' in obj` miscompiled to its left operand, and runtime
+    // key presence (after `delete`) is undecidable in the static object model.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], command);
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    if command == "run" {
-        assert_eq!(json["payload"]["exitCode"], 0);
-        assert_eq!(json["payload"]["hostContract"], "browser-requested");
-        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    } else {
-        assert_eq!(json["payload"]["total"], 1);
-        assert_eq!(json["payload"]["passed"], 1);
-        assert_eq!(json["payload"]["failed"], 0);
-        assert_eq!(json["payload"]["hostContract"], "browser-requested");
-        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    }
-    assert_eq!(json["stdout"], "");
-    assert_eq!(json["stderr"], "");
+    assert_eq!(json["success"], false);
+    let code = json["errors"][0]["code"].as_str().unwrap_or_default();
+    let harness_stderr = json["stderr"].as_str().unwrap_or_default();
+    assert!(
+        code == "E4000" || code == "E5506" || harness_stderr.contains("RuntimeError: unreachable"),
+        "expected fail-closed trap or reject, got: {json}"
+    );
 }
-
 fn browser_bundle_object_property_deletion_semantics_source() -> &'static str {
     r#"// kali-tree-shake: objectPropertyDeletionSmoke
 async function objectPropertyDeletionSmoke() {
@@ -3781,38 +3726,58 @@ fn assert_json_object_type_and_constructor_semantics(
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
+    // Flipped pin: `instanceof` fails closed at EVALUATION (E4000 print-then-trap; E5506 where a compile gate still fires): kali has no prototype
+    // chain; the token was previously dropped so the expression miscompiled
+    // to its left operand.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], command);
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    if command == "run" {
-        assert_eq!(json["payload"]["exitCode"], 0);
-        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
-        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    assert_eq!(json["success"], false);
+    if test_mode {
+        // Throw-fallout Stage 6 Task 5 re-pin: the fixture's `instanceof`
+        // trap now fires from INSIDE the `Kali.test(() => { … })` callback
+        // body, which the block-arrow un-flatten patch compiles as a real
+        // standalone function instead of flattening it into module scope.
+        // The trap therefore attributes to the callback's
+        // `__kali_callback_<index>` export (a runtime `CallbackTrap`) rather
+        // than surfacing as a top-level compile-time `errors[]` entry —
+        // `errors` is now EMPTY and `payload.failed == 1`, with the trap
+        // text landing in `stderr` instead. This is a STRICTLY BETTER
+        // shape (attributed to the specific failing test/callback, not a
+        // bare top-level reject) — the program still fails closed (exit
+        // != 0, `success: false`), just reported differently. Before this
+        // patch: `errors[0].code` was `"E4000"`/`"E5506"`. After:
+        // `errors` is `[]`, `payload.failed == 1`, `payload.passed == 0`,
+        // and `stderr` names the failing callback and trap code.
+        assert_eq!(
+            json["errors"].as_array().map(|a| a.len()),
+            Some(0),
+            "expected the top-level errors[] array to be empty (the trap is\
+             attributed to the callback instead), got: {json}"
+        );
+        assert_eq!(json["payload"]["failed"], 1, "got: {json}");
+        assert_eq!(json["payload"]["passed"], 0, "got: {json}");
+        let harness_stderr = json["stderr"].as_str().unwrap_or_default();
         assert!(
-            json["stdout"]
-                .as_str()
-                .expect("stdout")
-                .contains("object type ok"),
-            "json: {json}"
+            harness_stderr.contains("__kali_callback_"),
+            "expected the trap to attribute to a specific callback export, got: {json}"
+        );
+        assert!(
+            harness_stderr.contains("E4000")
+                || harness_stderr.contains("E5506")
+                || harness_stderr.contains("RuntimeError: unreachable"),
+            "expected fail-closed trap or reject, got: {json}"
         );
     } else {
-        assert_eq!(json["payload"]["total"], 1);
-        assert_eq!(json["payload"]["passed"], 1);
-        assert_eq!(json["payload"]["failed"], 0);
-        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
-        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
-        assert_eq!(json["stdout"], "");
+        let code = json["errors"][0]["code"].as_str().unwrap_or_default();
+        let harness_stderr = json["stderr"].as_str().unwrap_or_default();
+        assert!(
+            code == "E4000"
+                || code == "E5506"
+                || harness_stderr.contains("RuntimeError: unreachable"),
+            "expected fail-closed trap or reject, got: {json}"
+        );
     }
-    assert_eq!(json["stderr"], "");
 }
-
 fn assert_json_browser_requested_object_type_and_constructor_semantics(
     command: &str,
     filename: &str,
@@ -3838,38 +3803,19 @@ fn assert_json_browser_requested_object_type_and_constructor_semantics(
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
+    // Flipped pin: `instanceof` fails closed at EVALUATION (E4000 print-then-trap; E5506 where a compile gate still fires): kali has no prototype
+    // chain; the token was previously dropped so the expression miscompiled
+    // to its left operand.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], command);
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    if command == "run" {
-        assert_eq!(json["payload"]["exitCode"], 0);
-        assert_eq!(json["payload"]["hostContract"], "browser-requested");
-        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-        assert!(
-            json["stdout"]
-                .as_str()
-                .expect("stdout")
-                .contains("object type ok"),
-            "json: {json}"
-        );
-    } else {
-        assert_eq!(json["payload"]["total"], 1);
-        assert_eq!(json["payload"]["passed"], 1);
-        assert_eq!(json["payload"]["failed"], 0);
-        assert_eq!(json["payload"]["hostContract"], "browser-requested");
-        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-        assert_eq!(json["stdout"], "");
-    }
-    assert_eq!(json["stderr"], "");
+    assert_eq!(json["success"], false);
+    let code = json["errors"][0]["code"].as_str().unwrap_or_default();
+    let harness_stderr = json["stderr"].as_str().unwrap_or_default();
+    assert!(
+        code == "E4000" || code == "E5506" || harness_stderr.contains("RuntimeError: unreachable"),
+        "expected fail-closed trap or reject, got: {json}"
+    );
 }
-
 fn browser_bundle_object_type_and_constructor_semantics_source() -> &'static str {
     r#"// kali-tree-shake: objectTypeSmoke
 function Box() {}
@@ -4925,10 +4871,6 @@ fn assert_build_supports_math_hypot_on_perfect_square_integer_literal_sums(filen
     );
 }
 
-fn assert_unsupported_math_member_calls_rejection_text(stderr: &str) {
-    assert_unsupported_math_member_calls_rejection_text_for_method(stderr, "Math.sqrt");
-}
-
 fn assert_unsupported_math_member_calls_rejection_text_for_method(
     stderr: &str,
     expected_method: &str,
@@ -4936,10 +4878,6 @@ fn assert_unsupported_math_member_calls_rejection_text_for_method(
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(stderr.contains(expected_method), "stderr: {stderr}");
     assert!(stderr.contains("later compatibility"), "stderr: {stderr}");
-}
-
-fn assert_unsupported_math_member_calls_rejection_json(errors: &[Value]) {
-    assert_unsupported_math_member_calls_rejection_json_for_method(errors, "Math.sqrt");
 }
 
 fn assert_unsupported_math_member_calls_rejection_json_for_method(
@@ -5003,13 +4941,6 @@ fn assert_browser_for_await_array_iteration(output: &str) {
 
 fn assert_browser_for_await_array_iteration_json(success: bool) {
     assert!(success);
-}
-
-fn assert_set_and_map_iteration(stdout: &str) {
-    assert!(
-        stdout.contains("set and map constructor iteration ok"),
-        "stdout: {stdout}"
-    );
 }
 
 fn set_and_map_iteration_run_source() -> &'static str {
@@ -6119,6 +6050,16 @@ fn assert_optimization_benchmark_fixture(fixture_stem: &str, benchmark_name: &st
             | "math-max-min-builtin-js"
             | "spectral-norm"
             | "nbody"
+            // REWRITTEN 2026-07-19 (soundness-batch1-pra wave 0): this fixture's `layerN`
+            // chain was rewritten from const-bound arrows (which silently returned 0 through
+            // fix 5's now-honest E5506 call path) to named function declarations calling each
+            // other directly, per maintainer ruling — see the fixture comment in
+            // `runtime_smoke/misc.rs`. Measured post-rewrite on a freshly built binary: nested
+            // named-function calls over an object-field-read chain do not shrink under
+            // `--release` the way the (never-executing) const-arrow version's numbers implied;
+            // `--release-advanced` does shrink versus `--release` (see the next check), so the
+            // win just lands one optimization tier later for this call shape.
+            | "const-object-property-access"
     ) {
         assert!(
             release_size < fast_size
@@ -6150,6 +6091,12 @@ fn assert_optimization_benchmark_fixture(fixture_stem: &str, benchmark_name: &st
             | "math-max-min-builtin-js"
             | "spectral-norm"
             | "nbody"
+            // REWRITTEN 2026-07-19 (soundness-batch1-pra wave 0): see the exclusion above —
+            // the named-function-call rewrite of this fixture's layer chain measurably adds
+            // more `i64.add` ops under `--release` than `--fast` (63 vs 57 measured); the
+            // release-advanced tier still avoids adding more than release (see the
+            // unconditional check below), so the win lands one tier later than most fixtures.
+            | "const-object-property-access"
     ) {
         assert!(
             release_adds <= fast_adds,

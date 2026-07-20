@@ -108,37 +108,64 @@ fn assert_browser_harness_object_is(
             assert_eq!(json["payload"]["failed"], 0);
         }
         let stdout = json["stdout"].as_str().expect("stdout string");
+        // Corrected 2026-07-19: this assertion encoded console.* argument truncation
+        // (fixed in 86de4271d). Expectation is node-verified.
         assert!(
-            stdout.contains("same-reference\nsame-reference-await"),
+            stdout.contains("same-reference true\nsame-reference-await true"),
             "json: {json}"
         );
-        assert!(stdout.contains("same-reference-await"), "json: {json}");
+        // Corrected 2026-07-19: this assertion encoded console.* argument truncation
+        // (fixed in 86de4271d). Expectation is node-verified.
+        assert!(stdout.contains("same-reference-await true"), "json: {json}");
+        // Corrected 2026-07-19: this assertion encoded console.* argument truncation
+        // (fixed in 86de4271d). Expectation is node-verified.
         assert!(
-            stdout.contains("same-reference-optional-chain"),
+            stdout.contains("same-reference-optional-chain true"),
             "json: {json}"
         );
-        assert!(stdout.contains("same-reference-bracketed"), "json: {json}");
-        assert!(stdout.contains("same-reference-mixed"), "json: {json}");
-        assert!(stdout.contains("same-reference-root"), "json: {json}");
+        // Corrected 2026-07-19: this assertion encoded console.* argument truncation
+        // (fixed in 86de4271d). Expectation is node-verified.
         assert!(
-            stdout.contains("same-reference-root-bracketed"),
+            stdout.contains("same-reference-bracketed true"),
             "json: {json}"
         );
-        assert!(stdout.contains("same-reference-dot"), "json: {json}");
+        // Corrected 2026-07-19: this assertion encoded console.* argument truncation
+        // (fixed in 86de4271d). Expectation is node-verified.
+        assert!(stdout.contains("same-reference-mixed true"), "json: {json}");
+        // Corrected 2026-07-19: this assertion encoded console.* argument truncation
+        // (fixed in 86de4271d). Expectation is node-verified.
+        assert!(stdout.contains("same-reference-root true"), "json: {json}");
+        // Corrected 2026-07-19: this assertion encoded console.* argument truncation
+        // (fixed in 86de4271d). Expectation is node-verified.
         assert!(
-            stdout.contains("same-reference-freeze-bracketed"),
+            stdout.contains("same-reference-root-bracketed true"),
             "json: {json}"
         );
+        // Corrected 2026-07-19: this assertion encoded console.* argument truncation
+        // (fixed in 86de4271d). Expectation is node-verified.
+        assert!(stdout.contains("same-reference-dot true"), "json: {json}");
+        // Corrected 2026-07-19: this assertion encoded console.* argument truncation
+        // (fixed in 86de4271d). Expectation is node-verified.
         assert!(
-            stdout.contains("same-reference-freeze-mixed"),
+            stdout.contains("same-reference-freeze-bracketed true"),
             "json: {json}"
         );
+        // Corrected 2026-07-19: this assertion encoded console.* argument truncation
+        // (fixed in 86de4271d). Expectation is node-verified.
         assert!(
-            stdout.contains("same-reference-freeze-root"),
+            stdout.contains("same-reference-freeze-mixed true"),
             "json: {json}"
         );
+        // Corrected 2026-07-19: this assertion encoded console.* argument truncation
+        // (fixed in 86de4271d). Expectation is node-verified.
         assert!(
-            stdout.contains("same-reference-freeze-root-bracketed"),
+            stdout.contains("same-reference-freeze-root true"),
+            "json: {json}"
+        );
+        // Corrected 2026-07-19: this assertion encoded console.* argument truncation
+        // (fixed in 86de4271d). Expectation is node-verified.
+        assert!(
+            stdout.contains("same-reference-freeze-root-bracketed true"),
             "json: {json}"
         );
         assert!(stdout.contains("0\n1\n1\n1\n1"), "json: {json}");
@@ -146,40 +173,76 @@ fn assert_browser_harness_object_is(
         assert!(json["errors"].as_array().expect("errors array").is_empty());
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
+        // Corrected 2026-07-19: this assertion encoded console.* argument truncation
+        // (fixed in 86de4271d). Expectation is node-verified.
         assert!(
-            stdout.contains("same-reference\nsame-reference-await"),
+            stdout.contains("same-reference true\nsame-reference-await true"),
             "stdout: {stdout}"
         );
-        assert!(stdout.contains("same-reference-await"), "stdout: {stdout}");
+        // Corrected 2026-07-19: this assertion encoded console.* argument truncation
+        // (fixed in 86de4271d). Expectation is node-verified.
         assert!(
-            stdout.contains("same-reference-optional-chain"),
+            stdout.contains("same-reference-await true"),
             "stdout: {stdout}"
         );
+        // Corrected 2026-07-19: this assertion encoded console.* argument truncation
+        // (fixed in 86de4271d). Expectation is node-verified.
         assert!(
-            stdout.contains("same-reference-bracketed"),
+            stdout.contains("same-reference-optional-chain true"),
             "stdout: {stdout}"
         );
-        assert!(stdout.contains("same-reference-mixed"), "stdout: {stdout}");
-        assert!(stdout.contains("same-reference-root"), "stdout: {stdout}");
+        // Corrected 2026-07-19: this assertion encoded console.* argument truncation
+        // (fixed in 86de4271d). Expectation is node-verified.
         assert!(
-            stdout.contains("same-reference-root-bracketed"),
+            stdout.contains("same-reference-bracketed true"),
             "stdout: {stdout}"
         );
-        assert!(stdout.contains("same-reference-dot"), "stdout: {stdout}");
+        // Corrected 2026-07-19: this assertion encoded console.* argument truncation
+        // (fixed in 86de4271d). Expectation is node-verified.
         assert!(
-            stdout.contains("same-reference-freeze-bracketed"),
+            stdout.contains("same-reference-mixed true"),
             "stdout: {stdout}"
         );
+        // Corrected 2026-07-19: this assertion encoded console.* argument truncation
+        // (fixed in 86de4271d). Expectation is node-verified.
         assert!(
-            stdout.contains("same-reference-freeze-mixed"),
+            stdout.contains("same-reference-root true"),
             "stdout: {stdout}"
         );
+        // Corrected 2026-07-19: this assertion encoded console.* argument truncation
+        // (fixed in 86de4271d). Expectation is node-verified.
         assert!(
-            stdout.contains("same-reference-freeze-root"),
+            stdout.contains("same-reference-root-bracketed true"),
             "stdout: {stdout}"
         );
+        // Corrected 2026-07-19: this assertion encoded console.* argument truncation
+        // (fixed in 86de4271d). Expectation is node-verified.
         assert!(
-            stdout.contains("same-reference-freeze-root-bracketed"),
+            stdout.contains("same-reference-dot true"),
+            "stdout: {stdout}"
+        );
+        // Corrected 2026-07-19: this assertion encoded console.* argument truncation
+        // (fixed in 86de4271d). Expectation is node-verified.
+        assert!(
+            stdout.contains("same-reference-freeze-bracketed true"),
+            "stdout: {stdout}"
+        );
+        // Corrected 2026-07-19: this assertion encoded console.* argument truncation
+        // (fixed in 86de4271d). Expectation is node-verified.
+        assert!(
+            stdout.contains("same-reference-freeze-mixed true"),
+            "stdout: {stdout}"
+        );
+        // Corrected 2026-07-19: this assertion encoded console.* argument truncation
+        // (fixed in 86de4271d). Expectation is node-verified.
+        assert!(
+            stdout.contains("same-reference-freeze-root true"),
+            "stdout: {stdout}"
+        );
+        // Corrected 2026-07-19: this assertion encoded console.* argument truncation
+        // (fixed in 86de4271d). Expectation is node-verified.
+        assert!(
+            stdout.contains("same-reference-freeze-root-bracketed true"),
             "stdout: {stdout}"
         );
         assert!(stdout.contains("0\n1\n1\n1\n1"), "stdout: {stdout}");

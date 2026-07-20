@@ -464,7 +464,25 @@ fn compile_source_file_uncached(
         BuildMode::Release => OptimizationLevel::Release,
         BuildMode::ReleaseAdvanced => OptimizationLevel::ReleaseAdvanced,
     };
-    let optimizer = Optimizer::with_max_specializations(optimization_level, max_specializations);
+    let optimizer = Optimizer::with_max_specializations(optimization_level, max_specializations)
+        // Growable (push-accumulated) array bindings mutate through `.push`
+        // (throw-fallout Stage 4): the optimizer must treat them as mutated,
+        // else its constant-binding envs inline/fold the stale declarator
+        // literal (`o.length` → 0, `o[0]` → undefined) over the runtime
+        // contents. Stage P2 Lane 1 adds the object-FIELD twin: a binding whose
+        // shape has a `GrowableArrayI64` field mutates via `o.values.push(...)`
+        // (also a Call the store scan cannot see), so it too must never be
+        // inlined — otherwise `o.values.length` / `o.values[i]` fold over the
+        // stale seed. Both name sets are unioned into the mutated seed.
+        .with_growable_array_bindings({
+            let mut names = analyzed.repr_table.growable_array_binding_names();
+            names.extend(
+                analyzed
+                    .repr_table
+                    .object_bindings_with_growable_field_names(),
+            );
+            names
+        });
     let optimizer = if let Some(profile_data) = profile_data {
         optimizer.with_profile_data(profile_data.clone())
     } else {
@@ -480,6 +498,7 @@ fn compile_source_file_uncached(
     ctx.source_path = Some(source_path.as_ref().to_path_buf());
     ctx.repr_table = analyzed.repr_table.clone();
     ctx.arena_table = kali_mir::analysis::arena_gate::compute_arena_table(&mir);
+    ctx.env_plans = kali_mir::derive_env_plans(&mir);
     let result = lower_lir_to_wasm(&mut ctx, &lir);
     diagnostics.extend(result.diagnostics);
 
@@ -613,7 +632,7 @@ fn analyze_source_file(
         )]);
     }
 
-    let lexer = Lexer::new(FileId::new(0), source);
+    let lexer = Lexer::new(FileId::new(0), source.clone());
     let lexed = lexer.lex_all();
     let mut diagnostics = lexed.diagnostics;
     let mut parser = Parser::new(FileId::new(0), lexed.tokens);
@@ -632,6 +651,21 @@ fn analyze_source_file(
         return Err(diagnostics);
     }
 
+    // AST module-linking (throw-fallout Stage 5). Runs BEFORE monomorphize so
+    // linked functions participate in specialization, and AFTER export-name
+    // validation (mangled `__link` names must not collide — the pass
+    // re-checks). No provenance found (the overwhelming majority of sources)
+    // is a guaranteed no-op.
+    crate::build::module_link::link_provable_module_namespaces(
+        source_path,
+        &source,
+        &mut parsed.statements,
+        &mut diagnostics,
+    );
+    if has_errors(&diagnostics) {
+        return Err(diagnostics);
+    }
+
     // Object-shape monomorphization (fasta Spec 5). Runs AFTER the export-name
     // uniqueness check (so the fresh clone names are never treated as public
     // exports / duplicate names) and BEFORE the resolver → repr_infer, which
@@ -640,6 +674,17 @@ fn analyze_source_file(
     // for every current fixture/test) is a hard no-op: the statements pass
     // through byte-identical.
     kali_types::monomorphize::monomorphize_statements(&mut parsed.statements);
+
+    // Name every anonymous function-shaped node BEFORE the resolver, so kali_types
+    // (binding_repr_function_key) and kali_hir (synthetic function names) key on the
+    // SAME name. Re-deriving HIR's counter inside kali_types would be a
+    // hand-mirrored oracle — this repo has shipped two of those, and both failed OPEN.
+    // Runs AFTER monomorphize (not before): monomorphize clones whole function ASTs
+    // to specialize them, and naming first would mean every clone's inner anonymous
+    // nodes shared the SAME `__kali_fn_N` id — a collision this pass exists to
+    // prevent, not create. Running after means each specialized clone gets its own,
+    // independently-numbered names.
+    crate::build::name_anon_functions::name_anonymous_functions(&mut parsed.statements);
 
     let mut repr_table = kali_common::ReprTable::default();
     if !is_declaration_only_source_file(source_path) {
@@ -917,4 +962,110 @@ pub fn validate_runtime_profiles(
     }
 
     Ok(normalized.into_iter().collect())
+}
+
+#[cfg(test)]
+mod module_link_wiring_tests {
+    // Exercises `analyze_source_file`'s ACTUAL wiring of
+    // `module_link::link_provable_module_namespaces` (throw-fallout Stage 5
+    // Task 7) — the module_link.rs unit tests call the pass function
+    // directly and never touch this file's insertion point, so they cannot
+    // catch a wiring mistake here (call omitted, wrong argument, wrong
+    // ordering relative to `monomorphize_statements`/export-name
+    // validation). These two tests compile through the REAL
+    // `analyze_source_file` entry point instead.
+    use super::*;
+    use kali_ast::{Expression, Statement};
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[test]
+    fn analyze_source_file_links_namespace_import_end_to_end() {
+        let dir = tempdir().expect("tempdir");
+        fs::write(
+            dir.path().join("util.js"),
+            "export function greet() { return 'hi'; }\n",
+        )
+        .expect("write util.js");
+        let main_path = dir.path().join("main.js");
+        fs::write(
+            &main_path,
+            r#"import * as ns from "./util.js";
+console.log(ns.greet());
+"#,
+        )
+        .expect("write main.js");
+
+        let analyzed = analyze_source_file(&main_path, ApiSurface::Node, &[], false, false)
+            .expect("compilation must succeed: the namespace import is fully provable");
+
+        // Proves the wiring actually ran (not just that the source happened
+        // to compile for an unrelated reason): the mangled linked clone
+        // must be present in the analyzed statements, and the call site
+        // must reference it — exactly what `link_provable_module_namespaces`
+        // is responsible for producing before `monomorphize_statements` runs.
+        let has_linked_clone = analyzed.statements.iter().any(|statement| {
+            matches!(
+                statement,
+                Statement::FunctionDeclaration(function) if function.name == "__link0_greet"
+            )
+        });
+        assert!(
+            has_linked_clone,
+            "expected the wiring to append `__link0_greet`, got {:#?}",
+            analyzed.statements
+        );
+        let call_rewritten = analyzed.statements.iter().any(|statement| match statement {
+            Statement::ExpressionStatement(stmt) => matches!(
+                stmt.expression.as_ref(),
+                Expression::CallExpression(call)
+                    if matches!(
+                        &call.args.first(),
+                        Some(Expression::CallExpression(inner))
+                            if inner.callee == Expression::Identifier("__link0_greet".to_string())
+                    )
+            ),
+            _ => false,
+        });
+        assert!(
+            call_rewritten,
+            "expected `ns.greet()` to be rewritten to `__link0_greet()`, got {:#?}",
+            analyzed.statements
+        );
+    }
+
+    #[test]
+    fn analyze_source_file_denies_leftover_namespace_binding_reference() {
+        let dir = tempdir().expect("tempdir");
+        fs::write(
+            dir.path().join("lazy.js"),
+            "export function lazyValue() { return 7; }\n",
+        )
+        .expect("write lazy.js");
+        let main_path = dir.path().join("main.js");
+        fs::write(
+            &main_path,
+            r#"async function main() {
+    const chunk = await import("./lazy.js");
+    console.log(chunk);
+}
+main();
+"#,
+        )
+        .expect("write main.js");
+
+        let diagnostics = match analyze_source_file(&main_path, ApiSurface::Node, &[], false, false)
+        {
+            Ok(_) => panic!("a leftover bare `chunk` value use must fail the build"),
+            Err(diagnostics) => diagnostics,
+        };
+
+        assert!(
+            diagnostics
+                .iter()
+                .any(|d| d.code == Some(e5::FEATURE_UNAVAILABLE as u32)
+                    && d.message.contains("chunk")),
+            "expected an E5506 naming `chunk`, got {diagnostics:?}"
+        );
+    }
 }

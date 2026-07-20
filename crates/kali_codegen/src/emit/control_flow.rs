@@ -124,6 +124,7 @@ impl<'a> FunctionEmitter<'a> {
                             function.instruction(&Instruction::I64Const(0));
                         }
                         self.emit_arena_unwind_for_return(function);
+                        self.emit_env_restore(function);
                         function.instruction(&Instruction::Return);
                         return EmittedValue {
                             produced: false,
@@ -140,6 +141,7 @@ impl<'a> FunctionEmitter<'a> {
             function.instruction(&Instruction::I64Const(0));
         }
         self.emit_arena_unwind_for_return(function);
+        self.emit_env_restore(function);
         function.instruction(&Instruction::Return);
         EmittedValue {
             produced: false,
@@ -643,6 +645,65 @@ impl<'a> FunctionEmitter<'a> {
         self.emit_arena_release(function, &frame);
     }
 
+    /// Stage C prologue: if this function owns a PROMOTABLE env (`lower.rs`
+    /// reserved its save local because it has >=1 promotable cell — scalar-i64
+    /// or C2 fixed-shape object, per `crate::closure::cell_is_promotable`),
+    /// save the incoming `current_env` into that save local, allocate this
+    /// activation's record (`parent = incoming`) in the global never-reset
+    /// region, and publish it into `current_env`. Mirrors the arena-trio
+    /// save/alloc idiom, but with ONE global (`CURRENT_ENV_GLOBAL`) and
+    /// `__alloc_global` (the record must outlive any arena reset — the env chain
+    /// stays valid after a parent activation returns). A function that captures
+    /// outer bindings but owns no promotable env of its own allocates nothing
+    /// and leaves `current_env` untouched (it reads through the inherited
+    /// record). The record is sized by the plan's FULL cell count so every
+    /// promoted cell's `derive_env_plans` offset stays valid; a non-promoted
+    /// (heap/non-i64) cell's slot is simply left unused this phase.
+    pub(crate) fn emit_function_env_prologue(&mut self, function: &mut Function) {
+        if !self.owns_promotable_env() {
+            return;
+        }
+        // The module-capture safety argument (module-scope captures are module
+        // globals, never env cells) rests on the module root `_start` / `""`
+        // never owning an env. `derive_env_plans` guarantees this (the module
+        // function's cells are always empty), and the entry never routes through
+        // this prologue anyway (it uses `emit_sequence`), but pin the invariant
+        // here at the ownership decision point so a future refactor that let the
+        // root own an env trips in debug builds instead of silently rebinding
+        // `current_env` at module scope.
+        debug_assert!(
+            self.function_name != "_start" && !self.function_name.is_empty(),
+            "module root ('_start'/module scope) must never own a promotable env"
+        );
+        let cell_count = self.env_plan.cells.len() as u32;
+        let env_global = self.current_env_global();
+        let save_local = self.locals[&crate::closure::env_save_local_name()];
+        let alloc_global_index = self.alloc_global_fn_index();
+        function.instruction(&Instruction::GlobalGet(env_global));
+        function.instruction(&Instruction::LocalSet(save_local));
+        crate::closure::emit_env_alloc(
+            function,
+            alloc_global_index,
+            cell_count,
+            env_global,
+            save_local,
+        );
+    }
+
+    /// Restore `current_env` from this function's env save local. Shared by the
+    /// fall-through epilogue and every `return` (mirroring the arena unwind), so
+    /// EVERY exit path restores the caller's env — a fresh, distinct record per
+    /// activation (no leak across calls or recursion). A no-op unless this
+    /// function owns a promotable env.
+    pub(crate) fn emit_env_restore(&mut self, function: &mut Function) {
+        if !self.owns_promotable_env() {
+            return;
+        }
+        let save_local = self.locals[&crate::closure::env_save_local_name()];
+        function.instruction(&Instruction::LocalGet(save_local));
+        function.instruction(&Instruction::GlobalSet(self.current_env_global()));
+    }
+
     pub(crate) fn emit_function_body(
         &mut self,
         function: &mut Function,
@@ -652,6 +713,7 @@ impl<'a> FunctionEmitter<'a> {
     ) {
         self.emit_coverage_hit(function, coverage_id);
         self.emit_function_arena_prologue(function);
+        self.emit_function_env_prologue(function);
         let produced = self.emit_node(function, body, returns_value);
         if returns_value && !produced.produced {
             // Fallthrough value must match the function's declared result type: an
@@ -666,6 +728,11 @@ impl<'a> FunctionEmitter<'a> {
             function.instruction(&Instruction::Drop);
         }
         self.emit_function_arena_epilogue(function);
+        // Fall-through exit: restore the caller's env (mutually exclusive with
+        // every `return`'s inline restore — a `return` exits the wasm frame, so
+        // this code is unreachable on that path). Stack-neutral, so a
+        // fall-through return value beneath it is preserved.
+        self.emit_env_restore(function);
     }
 
     pub(crate) fn emit_sequence(
@@ -720,6 +787,200 @@ impl<'a> FunctionEmitter<'a> {
                         }
                         let init = declarator.children[1];
 
+                        // Binding provenance for a function-VALUED local: if the
+                        // initializer resolves to a named closure (`__kali_fn_N`,
+                        // renamed in place by `name_anon_functions`), record
+                        // `name -> plan key`. Consulted by the scheduling-surface
+                        // guard so an indirectly-passed callback (`setTimeout(cb)`)
+                        // is resolved to its closure plan by DECLARATION, not name
+                        // guessing. Recorded before any early `continue` below so
+                        // the mapping is unconditional; harmless for non-fn inits
+                        // (the key is only ever looked up for closure args).
+                        if let Some(name) = declarator.text.clone() {
+                            let init_node = self.node(self.unwrap_transparent(init));
+                            if let Some(fn_key) = init_node.text.as_deref() {
+                                if self.env_plans.contains_key(fn_key) {
+                                    self.fn_valued_locals.insert(name, fn_key.to_string());
+                                }
+                            }
+                        }
+
+                        // Stage D event lane: `const/let t = new EventTarget()`.
+                        // This is the ONE position a handle acquires stable
+                        // provenance — emit the host construction call, store the
+                        // opaque i64 handle into the binding's promoted local, and
+                        // record the name so every later read fails closed at the
+                        // identifier choke point (handle-escape discipline). The
+                        // init node is inspected RAW (never `unwrap_transparent`):
+                        // the New node is itself a text-less single-child `Value`,
+                        // so unwrapping would strip it to the bare
+                        // `Value("EventTarget")` and defeat the recognizer.
+                        {
+                            let init_node = self.node(init).clone();
+                            if self.is_event_target_new(&init_node) {
+                                let Some(name) = declarator.text.clone() else {
+                                    // A destructuring/no-name declarator holding a
+                                    // construction has no binding to carry
+                                    // provenance — fail closed, never a leaked
+                                    // handle.
+                                    self.diagnostics.push(Diagnostic::error(
+                                        e5::FEATURE_UNAVAILABLE as u32,
+                                        "a 'new EventTarget()' must be bound by a declarator (const t = new EventTarget()); an unbound handle has no stable provenance".to_string(),
+                                    ));
+                                    function.instruction(&Instruction::Unreachable);
+                                    continue;
+                                };
+                                let Some(import_index) = self.event_target_new_import_index else {
+                                    // The program-wide probe gates the import;
+                                    // any in-lane construction reaching emit MUST
+                                    // have flipped it. A miss is a probe/emit
+                                    // desync, not a user error — fail closed.
+                                    self.diagnostics.push(Diagnostic::error(
+                                        e5::FEATURE_UNAVAILABLE as u32,
+                                        "internal: 'new EventTarget()' reached emit without its host import (probe/emit desync)".to_string(),
+                                    ));
+                                    function.instruction(&Instruction::Unreachable);
+                                    continue;
+                                };
+                                let Some(index) = self.locals.get(&name).copied() else {
+                                    // Locals provisioning promotes every in-lane
+                                    // construction to a slot; a miss is a
+                                    // provisioning bug — fail closed.
+                                    self.diagnostics.push(Diagnostic::error(
+                                        e5::FEATURE_UNAVAILABLE as u32,
+                                        format!(
+                                            "EventTarget binding `{name}` must be declared with a local slot"
+                                        ),
+                                    ));
+                                    function.instruction(&Instruction::Unreachable);
+                                    continue;
+                                };
+                                function.instruction(&Instruction::Call(import_index));
+                                function.instruction(&Instruction::LocalSet(index));
+                                self.event_target_locals.insert(name);
+                                continue;
+                            }
+                        }
+
+                        // Stage P3 abort lane: `const c = new AbortController()`.
+                        // Real lowering — an 8-byte global abort cell whose i64
+                        // pointer is the handle (controller and signal share it).
+                        // ALL of: a `const` declarator whose init is structurally
+                        // `new AbortController()`, whose inferred repr is
+                        // `AbortHandle` (inference agreed — rules out a shadow
+                        // kali_types saw), AND whose ctor name is unshadowed in
+                        // every codegen namespace (defense in depth over the
+                        // program-wide inference gate; the `host.rs` five-namespace
+                        // shape). Any condition failing falls through to the
+                        // unchanged placeholder path (so `let`/mixed-provenance
+                        // constructions keep building and their ops fail closed
+                        // later).
+                        if is_const {
+                            if let Some(name) = declarator.text.clone() {
+                                if crate::lower::declarator_init_is_abort_controller_new(
+                                    &self.program.nodes,
+                                    init,
+                                ) && self.scalar_repr(&name) == kali_common::Repr::AbortHandle
+                                    && !(self.locals.contains_key("AbortController")
+                                        || self.bindings.contains_key("AbortController")
+                                        || self.module_binding_names.contains("AbortController")
+                                        || self.fn_valued_locals.contains_key("AbortController")
+                                        || self.functions.contains_key("AbortController"))
+                                {
+                                    // 8-byte abort cell on the never-reclaimed
+                                    // global heap; explicit zero store — do not
+                                    // rely on allocator zeroing. Stash the handle
+                                    // in the general-purpose scratch local, then
+                                    // bind it (plain local or promoted env cell),
+                                    // mirroring the C2 object declarator dispatch
+                                    // below.
+                                    let scratch = self.locals.len() as u32;
+                                    function.instruction(&Instruction::I32Const(8));
+                                    function.instruction(&Instruction::Call(
+                                        self.alloc_global_fn_index(),
+                                    ));
+                                    function.instruction(&Instruction::I64ExtendI32U);
+                                    function.instruction(&Instruction::LocalTee(scratch));
+                                    function.instruction(&Instruction::I32WrapI64);
+                                    function.instruction(&Instruction::I64Const(0));
+                                    function.instruction(&Instruction::I64Store(MemArg {
+                                        offset: 0,
+                                        align: 3,
+                                        memory_index: 0,
+                                    }));
+                                    // Handle (i64) back on the stack for the bind
+                                    // dispatch.
+                                    function.instruction(&Instruction::LocalGet(scratch));
+                                    if let Some(index) = self.locals.get(&name).copied() {
+                                        function.instruction(&Instruction::LocalSet(index));
+                                    } else if let Some((depth, offset)) =
+                                        self.resolve_capture_access(&name)
+                                    {
+                                        let env_global = self.current_env_global();
+                                        let scratch2 = self.locals.len() as u32;
+                                        crate::closure::emit_cell_store(
+                                            function, env_global, depth, offset, scratch2,
+                                        );
+                                    } else {
+                                        function.instruction(&Instruction::Drop);
+                                    }
+                                    self.abort_handle_locals.insert(name);
+                                    continue;
+                                }
+                            }
+                        }
+
+                        // Stage P3 Task 4: `const s = c.signal` alias. The signal
+                        // shares the controller's handle cell (identity), so
+                        // binding `s` to the receiver handle makes `s.aborted`
+                        // read — and `s` deny as a raw value — through the SAME
+                        // provenance as the controller. Gated on inference agreeing
+                        // (`scalar_repr == AbortHandle`) AND a structurally proven
+                        // `<ident>.signal` init over an abort handle; the receiver
+                        // flows through the sole admitted read
+                        // (`emit_abort_receiver_handle`), then binds with the same
+                        // local/promoted-cell discipline as the controller arm.
+                        if is_const {
+                            if let Some(name) = declarator.text.clone() {
+                                let init_node = self.node(init);
+                                let init_is_signal_alias = init_node.kind == LirNodeKind::Value
+                                    && init_node.children.len() == 1
+                                    && init_node.text.as_deref() == Some("signal")
+                                    && {
+                                        let base = self.node(init_node.children[0]);
+                                        base.children.is_empty()
+                                            && base
+                                                .text
+                                                .as_deref()
+                                                .is_some_and(|n| self.is_abort_handle(n))
+                                    };
+                                if init_is_signal_alias
+                                    && self.scalar_repr(&name) == kali_common::Repr::AbortHandle
+                                {
+                                    let base_id = self.node(init).children[0];
+                                    let handle = self.emit_abort_receiver_handle(function, base_id);
+                                    if !handle.produced {
+                                        function.instruction(&Instruction::I64Const(0));
+                                    }
+                                    if let Some(index) = self.locals.get(&name).copied() {
+                                        function.instruction(&Instruction::LocalSet(index));
+                                    } else if let Some((depth, offset)) =
+                                        self.resolve_capture_access(&name)
+                                    {
+                                        let env_global = self.current_env_global();
+                                        let scratch2 = self.locals.len() as u32;
+                                        crate::closure::emit_cell_store(
+                                            function, env_global, depth, offset, scratch2,
+                                        );
+                                    } else {
+                                        function.instruction(&Instruction::Drop);
+                                    }
+                                    self.abort_handle_locals.insert(name);
+                                    continue;
+                                }
+                            }
+                        }
+
                         // Materialized object-literal binding: `const p = {…}`
                         // whose inferred repr is Object(shape) — allocate the
                         // fixed-layout struct and bind the base pointer.
@@ -738,6 +999,25 @@ impl<'a> FunctionEmitter<'a> {
                                     }
                                     if let Some(index) = self.locals.get(&name).copied() {
                                         function.instruction(&Instruction::LocalSet(index));
+                                    } else if let Some((depth, offset)) =
+                                        self.resolve_capture_access(&name)
+                                    {
+                                        // Stage C C2: a captured object binding was
+                                        // promoted out of its local into the owner's
+                                        // env cell (`lower.rs`, same owner-keyed
+                                        // predicate). Store the freshly-allocated
+                                        // base pointer into the env record so the
+                                        // capturer reads a live pointer, not a dropped
+                                        // one. This is a DECLARATION of the binding in
+                                        // its owner, so it always resolves to the
+                                        // owner's own cell (`depth` 0); `depth` is
+                                        // threaded for uniformity with the other cell
+                                        // access sites.
+                                        let env_global = self.current_env_global();
+                                        let scratch = self.locals.len() as u32;
+                                        crate::closure::emit_cell_store(
+                                            function, env_global, depth, offset, scratch,
+                                        );
                                     } else {
                                         function.instruction(&Instruction::Drop);
                                     }
@@ -746,6 +1026,73 @@ impl<'a> FunctionEmitter<'a> {
                                 // A shaped binding aliasing an existing object
                                 // (identifier / element / call): the generic
                                 // emission below yields the i64 pointer.
+                            }
+                        }
+
+                        // Growable runtime array declarator (throw-fallout
+                        // Stage 4): `const/let x = []` / `[seed…]` promoted
+                        // by the types-side growable gate lowers to a real
+                        // header+data allocation with the tagged handle in
+                        // the binding's local — never the aggregate no-op
+                        // fold lane. Deliberately BEFORE the object-array
+                        // branch below: the two lanes are disjoint by the
+                        // promotion gate (i64 elements only), and the
+                        // growable oracle must win for its bindings.
+                        if let Some(name) = declarator.text.clone() {
+                            if self.is_growable_array(&name) {
+                                let aggregate = self
+                                    .resolve_literal_aggregate(init)
+                                    .map(|id| self.node(id).clone())
+                                    .filter(|node| self.is_array_literal(node));
+                                let (Some(aggregate), Some(index)) =
+                                    (aggregate, self.locals.get(&name).copied())
+                                else {
+                                    // Promotion admitted exactly this shape;
+                                    // anything else here is a gate/provisioning
+                                    // bug — fail closed, never a silent no-op.
+                                    self.diagnostics.push(Diagnostic::error(
+                                        e5::FEATURE_UNAVAILABLE as u32,
+                                        format!(
+                                            "growable array `{name}` must be declared with an array-literal initializer and a local slot"
+                                        ),
+                                    ));
+                                    function.instruction(&Instruction::Unreachable);
+                                    continue;
+                                };
+                                let seed_len = aggregate.children.len();
+                                let cap = seed_len.max(crate::emit::growable::GROWABLE_INITIAL_CAP);
+                                let allocated = self.emit_growable_alloc(function, seed_len, cap);
+                                if !allocated.produced {
+                                    function.instruction(&Instruction::I64Const(0));
+                                }
+                                function.instruction(&Instruction::LocalSet(index));
+                                // Seed elements: *(data_ptr + i*8) = seed_i.
+                                // The promotion gate admits only scalar-shaped
+                                // (never float/string/object) seeds.
+                                for (i, child) in aggregate.children.iter().copied().enumerate() {
+                                    function.instruction(&Instruction::LocalGet(index));
+                                    function.instruction(&Instruction::I64Const(
+                                        !(crate::ARRAY_HANDLE_TAG) as i64,
+                                    ));
+                                    function.instruction(&Instruction::I64And);
+                                    function.instruction(&Instruction::I32WrapI64);
+                                    function.instruction(&Instruction::I64Load(MemArg {
+                                        offset: 16,
+                                        align: 3,
+                                        memory_index: 0,
+                                    }));
+                                    function.instruction(&Instruction::I32WrapI64);
+                                    let produced = self.emit_node(function, child, true);
+                                    if !produced.produced {
+                                        function.instruction(&Instruction::I64Const(0));
+                                    }
+                                    function.instruction(&Instruction::I64Store(MemArg {
+                                        offset: (i * 8) as u64,
+                                        align: 3,
+                                        memory_index: 0,
+                                    }));
+                                }
+                                continue;
                             }
                         }
 
@@ -854,7 +1201,7 @@ impl<'a> FunctionEmitter<'a> {
                         // here).
                         if let Some(name) = declarator.text.clone() {
                             if self.for_in_key_aliases.contains(&name)
-                                && self.is_null_or_undefined_literal(init)
+                                && self.is_null_or_undefined_expr(init)
                             {
                                 if let Some(index) = self.locals.get(&name).copied() {
                                     function.instruction(&Instruction::I64Const(-1));
@@ -897,6 +1244,19 @@ impl<'a> FunctionEmitter<'a> {
                             }
                         }
 
+                        // Stage C: a captured scalar promoted to an env cell has
+                        // no WASM local slot — its initializer is stored into the
+                        // owner's env cell (depth 0), not a `LocalSet`.
+                        // `try_emit_captured_decl` returns `Some` iff `name` is an
+                        // own cell (handled, or rejected E5506 for a non-i64/heap
+                        // cell), so a promoted binding never falls through to the
+                        // generic store below (which would `Drop` its value).
+                        if let Some(name) = declarator.text.clone() {
+                            if self.try_emit_captured_decl(function, &name, init).is_some() {
+                                continue;
+                            }
+                        }
+
                         let init_result = self.emit_node(function, init, true);
                         // A named scalar local whose chosen repr is F64 must receive an
                         // f64 on the stack; promote an integer-valued init before the store.
@@ -917,13 +1277,30 @@ impl<'a> FunctionEmitter<'a> {
                             function.instruction(&Instruction::F64ConvertI64S);
                         }
                         if let Some(name) = declarator.text.clone() {
+                            // A `const` on the fold lane has no slot, so its
+                            // reads re-emit the recorded init node. One
+                            // promoted by the STABILITY allowlist gets BOTH: the
+                            // slot carries the runtime value (bound exactly once
+                            // here), and the `bindings` entry carries the
+                            // compile-time denotation the alias/intrinsic
+                            // analyses need. Reads are unaffected — the
+                            // identifier path consults `locals` before
+                            // `bindings`.
+                            //
+                            // A HANDLE-promoted `const` is excluded on purpose:
+                            // its lane keys on a provenance set, and a
+                            // denotation entry would re-resolve the name to its
+                            // initializer.
+                            if is_const
+                                && (!self.locals.contains_key(&name)
+                                    || self.allowlist_promoted_consts.contains(&name))
+                            {
+                                self.bindings.insert(name.clone(), init);
+                            }
                             if let Some(index) = self.locals.get(&name).copied() {
-                                // `let`/`var`, or a `const` promoted to a local slot
-                                // (array allocation / array read) — store eagerly.
+                                // `let`/`var`, or a promoted `const` — store
+                                // eagerly at the declaration site.
                                 function.instruction(&Instruction::LocalSet(index));
-                            } else if is_const {
-                                self.bindings.insert(name, declarator.children[1]);
-                                function.instruction(&Instruction::Drop);
                             } else {
                                 function.instruction(&Instruction::Drop);
                             }
@@ -963,6 +1340,7 @@ impl<'a> FunctionEmitter<'a> {
                     self.emit_loop(function, id, &node)
                 }
                 Some("for-in") => self.emit_for_in(function, id, &node),
+                Some("throw") => self.emit_throw(function, &node),
                 _ => self.emit_branch(function, &node, want_value),
             },
             LirNodeKind::Unknown => {
@@ -1025,12 +1403,86 @@ impl<'a> FunctionEmitter<'a> {
         want_value: bool,
     ) -> EmittedValue {
         if node.text.is_none() {
+            // Stage D event lane: a `new EventTarget()` reaching the generic
+            // value path is OUTSIDE a declarator-init (a bare expression
+            // statement, an assignment RHS, or a call argument) — the
+            // declarator construction lane intercepts and `continue`s before
+            // any init reaches here. Such a construction has no binding to carry
+            // its opaque handle's provenance, so fail closed rather than emit an
+            // untracked handle (or the drop-and-push-0 aggregate placeholder,
+            // which would silently discard the constructor).
+            if self.is_event_target_new(node) {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "a 'new EventTarget()' must be bound by a declarator (const t = new EventTarget()); an unbound handle has no stable provenance".to_string(),
+                ));
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            }
+            // `new TextEncoder().encode(<string>)` (throw-fallout Stage 3 bucket #6
+            // part 2): the parser hoists the `new` to wrap the whole member-call
+            // chain, so this arrives as a text-less 1-child wrapper (the `new`)
+            // around the `.encode` `Call`. The generic text-less aggregate path
+            // below DROPS its operand and pushes `0` (the "unsupported `new`
+            // returns an empty object" placeholder) — which would discard the
+            // encoded byte buffer and store `0` into the binding, so the digest
+            // input reads empty. Instead, pass through to the encode call (whose
+            // emit arm reinterprets the string handle to a contiguous byte
+            // buffer). Mirrors the `await` marker passthrough below. Scoped
+            // strictly to a child whose callee is `is_text_encoder_encode`, so a
+            // genuine `new SomeClass()` (or any other text-less aggregate) keeps
+            // the drop-and-push-0 fallback.
+            if node.children.len() == 1 {
+                let child = node.children[0];
+                let child_node = self.node(child).clone();
+                if child_node.kind == LirNodeKind::Call {
+                    if let Some(callee) = child_node.children.first().copied() {
+                        let callee_node = self.node(callee).clone();
+                        if self.is_text_encoder_encode(&callee_node) {
+                            return self.emit_node(function, child, want_value);
+                        }
+                    }
+                }
+            }
             return self.emit_aggregate_literal(function, node, want_value);
         }
 
         // Ternary `test ? a : b` — marker text "?" set by the HIR lowering.
         if node.text.as_deref() == Some("?") && node.children.len() == 3 {
             return self.emit_conditional(function, node, want_value);
+        }
+
+        // `await <operand>` — marker text "await" set by the HIR lowering
+        // (throw-fallout Stage 3 Task 4). Kali has no microtask machinery and no
+        // genuinely-pending promise in the current phase, so every operand settles
+        // synchronously: the await's value IS the operand's value. Pass it through
+        // by emitting the child and KEEPING its produced value (the historical
+        // text-less aggregate path dropped it and pushed `0`, so `await
+        // Promise.resolve(7)` yielded 0). This is fully transparent — it never
+        // masks the operand's own failure mode, since emitting the child still hits
+        // whatever reject/trap that child would hit on its own.
+        if node.text.as_deref() == Some("await") && node.children.len() == 1 {
+            return self.emit_node(function, node.children[0], want_value);
+        }
+
+        // Bare value-position `process.kill` (uncalled member reference, e.g.
+        // `!process.kill`): Node exposes `process.kill` as a function, which is
+        // truthy. Kali has no first-class function values, so the historical
+        // path lowered this member read to a `0` placeholder — making the
+        // supported liveness-probe guards `!process.kill` throw. Emit a truthy
+        // sentinel scoped EXACTLY to the `process.kill` receiver shapes the call
+        // arm recognizes (`is_process_kill`), so no other member read is
+        // affected. (Known latent divergence: `console.log(process.kill)` would
+        // print `1`, not `[Function: kill]`; no fixture reads a bare
+        // `process.kill` outside truthiness position.)
+        if self.is_process_kill(node) {
+            function.instruction(&Instruction::I64Const(1));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Boolean,
+            };
         }
 
         if self.is_supported_callable_reference(node) {
@@ -1044,6 +1496,69 @@ impl<'a> FunctionEmitter<'a> {
         match node.children.len() {
             0 => {
                 if let Some(text) = node.text.as_deref() {
+                    // Stage D event-lane handle-escape choke point (spec §2.4):
+                    // a binding holding an opaque `new EventTarget()` handle may
+                    // ONLY be consumed as the receiver of
+                    // addEventListener/dispatchEvent — and Task 4's emit arms
+                    // read that receiver directly (a local/global access), never
+                    // through this generic identifier lane. Every OTHER read
+                    // (`console.log(t)`, `t` as an argument, arithmetic on `t`,
+                    // a `return t`) reaches HERE and fails closed: the raw i64
+                    // handle must never escape as an observable value. Allowlist
+                    // safe positions at the single read site, don't denylist
+                    // sinks (the Spec-4a lesson) — the deny is total by
+                    // construction because the only allowed consumer bypasses
+                    // this lane entirely.
+                    if self.event_target_locals.contains(text) {
+                        self.diagnostics.push(Diagnostic::error(
+                            e5::FEATURE_UNAVAILABLE as u32,
+                            format!(
+                                "'{text}' holds an EventTarget handle, which may only be used as the \
+                                 receiver of addEventListener/dispatchEvent in the current phase; any \
+                                 other use would leak the internal handle representation"
+                            ),
+                        ));
+                        return EmittedValue {
+                            produced: false,
+                            shape: ValueShape::Unknown,
+                        };
+                    }
+                    // Stage P3 abort-handle escape choke point (spec §3): a bare
+                    // read of an AbortController/AbortSignal handle is E5506
+                    // unless an allowlisted consumer set `admit_abort_handle_read`
+                    // while emitting its receiver (`emit_abort_receiver_handle`).
+                    // The raw i64 pointer must never escape as an observable
+                    // value (`console.log(c)`, `c` as an argument, arithmetic,
+                    // `return c`). Allowlist the safe position at the single read
+                    // site, don't denylist sinks — the deny is total by
+                    // construction because every admitted consumer sets the flag.
+                    if self.is_abort_handle(text) && !self.admit_abort_handle_read {
+                        return self.deny_e5506(
+                            function,
+                            "an AbortController/AbortSignal handle cannot be read in this \
+                             position: kali admits it only as an `abort()`/`signal`/`aborted` \
+                             receiver or a `const s = c.signal` alias (fail-closed)",
+                        );
+                    }
+                    // Task 8 round-2 read-position twin of the call-side gate: a
+                    // BARE read (`console.log(c)`, `c` as an argument) of a
+                    // `_start`-owned abort handle reached from a non-`_start`
+                    // emitter. `is_abort_handle` excludes the `_start` owner (its
+                    // captured env cell is never populated — the declarator
+                    // intercept bound it as a plain `_start` LOCAL), so absent
+                    // this gate the read falls through to the generic
+                    // module-binding / placeholder lanes and silently yields 0
+                    // (the raw-print REGRESSION `console.log(c)` → `0`). Mirror
+                    // the method-call `is_module_scope_abort_handle` deny.
+                    if self.is_module_scope_abort_handle(text) {
+                        return self.deny_e5506(
+                            function,
+                            "an AbortController/AbortSignal handle declared at module scope \
+                             (`_start`) cannot cross the module/function boundary as a value in \
+                             the current phase; reading it from inside a function/closure fails \
+                             closed (fail-closed)",
+                        );
+                    }
                     // Spec 4a Task 5: a for-in key (or alias) emitted in a
                     // STRING-VALUE context materializes its interned field-name
                     // handle from this loop's key handle table at `base + ord*8`,
@@ -1177,6 +1692,17 @@ impl<'a> FunctionEmitter<'a> {
                         _ => {}
                     }
 
+                    // Stage C: a bare identifier resolving to neither a local,
+                    // module global, nor module binding may be a captured scalar
+                    // promoted to an env cell (own cell, or a single-level
+                    // synchronous outer capture). MUST precede the zero
+                    // placeholder — an in-plan name that this returns for is
+                    // either a real cell load or an E5506 reject, never a silent
+                    // zero.
+                    if let Some(value) = self.try_emit_captured_read(function, text) {
+                        return value;
+                    }
+
                     self.push_placeholder_fallback_diagnostic("identifier", text);
                     function.instruction(&Instruction::I64Const(0));
                     EmittedValue {
@@ -1234,6 +1760,71 @@ impl<'a> FunctionEmitter<'a> {
                             shape: ValueShape::Scalar,
                         };
                     }
+                    // Growable-array FIELD `.length` (`o.values.length`, Stage
+                    // P2 Lane 1 Task 5): the field slot holds the tagged handle
+                    // (Task 3), so `emit_growable_length` emits the field read
+                    // then reads `hdr.len` — same lane as the named case, keyed
+                    // on the positive `object_field_is_growable_array` proof.
+                    // A scalar field (`o.count.length`) or a nested chain proves
+                    // false and keeps its existing route.
+                    if self.object_field_is_growable_array(base_id) {
+                        return self.emit_growable_length(function, base_id);
+                    }
+                    if let Some(base_name) = self.assignment_target_name(node, base_id) {
+                        // Growable runtime array `.length` (throw-fallout
+                        // Stage 4): decode the tagged handle, read `hdr.len`.
+                        // Must win before the plain-array lane — the two
+                        // layouts differ (tagged header vs inline base).
+                        if self.is_growable_array(&base_name) {
+                            return self.emit_growable_length(function, base_id);
+                        }
+                        if self.array_bindings.contains(&base_name) {
+                            self.emit_array_base_address(function, base_id);
+                            function.instruction(&Instruction::I64Load(MemArg {
+                                offset: 0,
+                                align: 3,
+                                memory_index: 0,
+                            }));
+                            return EmittedValue {
+                                produced: true,
+                                shape: ValueShape::Scalar,
+                            };
+                        }
+                    }
+                }
+
+                // Typed-array `.byteLength` (throw-fallout Stage 3 bucket #6): for
+                // the `Uint8Array` representation (an i64-element linear-memory
+                // array; see `is_array_like_constructor`) `byteLength` equals the
+                // element count, so it reads the same i64 length header at `+0` of
+                // the base handle as `.length`. Only fires for a known array
+                // binding; other receivers fall through to their existing paths.
+                if node.text.as_deref() == Some("byteLength") {
+                    let base_id = node.children[0];
+                    // String-backed byte buffer (throw-fallout Stage 3 bucket #6
+                    // part 2): `new TextEncoder().encode(<string>)` and
+                    // `crypto.subtle.digest(...)` both produce tagged string
+                    // handles (`STRING_HANDLE_TAG | (buf << 32) | len`) whose low
+                    // 32 bits are the byte count. `byteLength` reads it the same
+                    // way `.length` does for a string handle (mirrors the string
+                    // `.length` arm above). MUST win before the array
+                    // interpretation below — these bindings resolve `Repr::String`,
+                    // not an array handle. Excludes a static-string receiver (none
+                    // arises here, but symmetric with the `.length` guard).
+                    if self.is_string_valued(base_id)
+                        && self.resolve_static_object_identity_value(base_id).is_none()
+                    {
+                        let base = self.emit_node(function, base_id, true);
+                        if !base.produced {
+                            function.instruction(&Instruction::I64Const(0));
+                        }
+                        function.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+                        function.instruction(&Instruction::I64And);
+                        return EmittedValue {
+                            produced: true,
+                            shape: ValueShape::Scalar,
+                        };
+                    }
                     if let Some(base_name) = self.assignment_target_name(node, base_id) {
                         if self.array_bindings.contains(&base_name) {
                             self.emit_array_base_address(function, base_id);
@@ -1250,6 +1841,20 @@ impl<'a> FunctionEmitter<'a> {
                     }
                 }
 
+                // Growable runtime array element read `x[i]` (throw-fallout
+                // Stage 4): literal/identifier index in `text`. Must win
+                // before the plain-array recognizer below (disjoint oracles;
+                // a growable base is never in `array_bindings`) and before
+                // the generic unary fallback that would silently mis-emit.
+                if self.growable_array_read_base(node).is_some()
+                    || self.growable_field_read_base(node)
+                {
+                    let index_text = node.text.as_deref().unwrap_or_default().to_string();
+                    let index_node =
+                        self.alloc_scratch_node(LirNodeKind::Value, Some(index_text), vec![]);
+                    return self.emit_growable_index_read(function, node.children[0], index_node);
+                }
+
                 // Dynamic array element read: `a[i]` where `a` is a linear-memory
                 // array. Recognizer shared with the string oracles via
                 // `dynamic_array_read_base` (same guard: non-empty, non-`length`
@@ -1262,6 +1867,62 @@ impl<'a> FunctionEmitter<'a> {
                         index_text,
                         &base_name,
                     );
+                }
+
+                // Stage P3 Task 4: member reads on a proven abort handle.
+                // `.aborted` is a real load of the shared cell (Boolean shape);
+                // `.signal` is identity, admitted ONLY under an enclosing admitted
+                // consumer (`admit_abort_handle_read`, set by the declarator alias
+                // arm or a future `instanceof` left operand) — otherwise E5506, so
+                // an AbortSignal never escapes as a value. Recognized BEFORE
+                // `emit_unary`'s growable-field gate below so the two allowlists
+                // stay independent. Any OTHER field on a proven handle is NOT
+                // recognized here (`abort_member_read_parts` returns `None`) and
+                // falls through to the generic member fallback, whose receiver
+                // emit hits the identifier choke point and denies E5506
+                // (default-deny — closes the t3-m2 silent-`0` hole).
+                // Task 8 round-2 read-position twin: a member read
+                // (`c.signal`, `c.signal.aborted`, or any field) whose ultimate
+                // receiver is a `_start`-owned abort handle reached from a
+                // non-`_start` emitter. `abort_member_read_parts` returns `None`
+                // for it (`is_abort_handle` excludes the `_start` owner), so
+                // without this gate the read falls through to the generic member
+                // fallback and silently yields `0`. Deny fail-closed, mirroring
+                // the call-side `is_module_scope_abort_handle` gate.
+                if self.member_receiver_is_module_abort_handle(id) {
+                    return self.deny_e5506(
+                        function,
+                        "an AbortController/AbortSignal handle declared at module scope \
+                         (`_start`) cannot be read from inside a function/closure in the \
+                         current phase; its `.signal`/`.aborted` cross the module/function \
+                         boundary and fail closed (fail-closed)",
+                    );
+                }
+                if let Some(part) = self.abort_member_read_parts(id) {
+                    match part {
+                        crate::emit::abort::AbortMemberRead::Aborted(receiver) => {
+                            let handle = self.emit_abort_receiver_handle(function, receiver);
+                            if !handle.produced {
+                                function.instruction(&Instruction::I64Const(0));
+                            }
+                            self.emit_abort_cell_load(function);
+                            return EmittedValue {
+                                produced: true,
+                                shape: ValueShape::Boolean,
+                            };
+                        }
+                        crate::emit::abort::AbortMemberRead::Signal(receiver) => {
+                            if self.admit_abort_handle_read {
+                                return self.emit_abort_receiver_handle(function, receiver);
+                            }
+                            return self.deny_e5506(
+                                function,
+                                "an AbortSignal cannot escape as a value: admitted \
+                                 positions are `.aborted`, `instanceof AbortSignal`, and \
+                                 `const s = c.signal` (fail-closed)",
+                            );
+                        }
+                    }
                 }
 
                 if node.text.as_deref().unwrap_or_default().is_empty() {
@@ -1291,6 +1952,19 @@ impl<'a> FunctionEmitter<'a> {
 
                 if let Some(result) = self.resolve_static_index_member(node) {
                     return self.emit_static_index_member_result(function, result);
+                }
+
+                // Growable runtime array computed read `x[<expr>]`
+                // (throw-fallout Stage 4) — the 2-child twin of the 1-child
+                // growable arm above; same ordering rationale.
+                if self.growable_array_read_base(node).is_some()
+                    || self.growable_field_read_base(node)
+                {
+                    return self.emit_growable_index_read(
+                        function,
+                        node.children[0],
+                        node.children[1],
+                    );
                 }
 
                 // Dynamic linear-memory read `a[<expr>]` when the base is an array
@@ -1371,7 +2045,9 @@ impl<'a> FunctionEmitter<'a> {
                 .for_of_binding_name_from_node(*node.children.last().expect("wrapper child"));
         }
 
-        if node.text.is_none() && node.children.len() == 1 {
+        if (node.text.is_none() || node.text.as_deref() == Some("await"))
+            && node.children.len() == 1
+        {
             return self.for_of_binding_name_from_node(node.children[0]);
         }
 

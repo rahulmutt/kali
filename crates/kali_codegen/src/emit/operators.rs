@@ -19,6 +19,24 @@ impl<'a> FunctionEmitter<'a> {
                 shape: ValueShape::Unknown,
             };
         };
+        // Stage C: `c++ / c-- / ++c / --c` on a captured scalar promoted to an
+        // env cell (own cell or a single-level synchronous outer capture) —
+        // route the update through its env cell. `Some` iff `name` is in this
+        // function's env plan (handled or E5506-rejected); only genuinely
+        // unresolvable names fall through to the E5506 below.
+        //
+        // Module-global precedence guard (Finding 2): a module-scope binding
+        // takes precedence over any env-cell resolution, exactly as the write
+        // path does in `literal.rs` (module-global check BEFORE the captured
+        // check). A module global is never a captured ref today
+        // (`derive_env_plans` excludes module-owned captures), but this guard
+        // closes the class REGARDLESS of reachability: a module name must never
+        // resolve depth-0 against `current_env` (raw memory at `8 + offset`).
+        if !self.locals.contains_key(&name) && !self.module_global_slots.contains_key(&name) {
+            if let Some(value) = self.try_emit_captured_update(function, &name, op) {
+                return value;
+            }
+        }
         let Some(index) = self.locals.get(&name).copied() else {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
@@ -149,6 +167,82 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::Unknown,
                 }
             }
+            "typeof" => {
+                // Provable lane: resolve the operand through the const-fold
+                // binding chain and classify statically-known shapes, emitting
+                // the interned type-name string handle (same single-handle
+                // shape console.error consumes; interned handles are deduped,
+                // so `typeof v === 'undefined'` compares equal handles).
+                // Previously `typeof` fell into the generic warning+0
+                // placeholder below, so `typeof (void expr)` compared as `0`
+                // — never equal to any string. The unproven case keeps that
+                // pre-existing placeholder fallback unchanged.
+                if let Some(type_text) = self.typeof_static_text(arg) {
+                    // JS evaluates the operand before classifying it. A bare
+                    // identifier or literal read has no side effect (and a
+                    // fold-lane const identifier must NOT be re-emitted — that
+                    // would re-run its init's effects), but a direct
+                    // expression operand (`typeof f()`) must run exactly once.
+                    let operand = self.unwrap_transparent(arg);
+                    let operand_node = self.node(operand).clone();
+                    let is_effect_free_read = operand_node.kind == LirNodeKind::Literal
+                        || (operand_node.kind == LirNodeKind::Value
+                            && operand_node.children.is_empty());
+                    if !is_effect_free_read {
+                        let produced = self.emit_node(function, arg, true);
+                        if produced.produced {
+                            function.instruction(&Instruction::Drop);
+                        }
+                    }
+                    let (offset, len) = self.strings.intern(type_text);
+                    function.instruction(&Instruction::I64Const(encode_string_handle(offset, len)));
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::String,
+                    };
+                }
+                // Runtime string lane: an operand `is_string_valued` proves (but
+                // whose value is only known at run time — `crypto.randomUUID()`, a
+                // `+` concat, a substring, a String-returning call) is
+                // `typeof === "string"`. Emit the interned "string" handle after
+                // evaluating the operand for side effects, mirroring the static
+                // lane's effect-free-read discipline. (Known latent divergence: the
+                // String-repr digest/encode BYTE BUFFERS also match here and would
+                // report "string" where node reports "object"; no fixture applies
+                // `typeof` to them.)
+                if self.is_string_valued(arg) {
+                    let operand = self.unwrap_transparent(arg);
+                    let operand_node = self.node(operand).clone();
+                    let is_effect_free_read = operand_node.kind == LirNodeKind::Literal
+                        || (operand_node.kind == LirNodeKind::Value
+                            && operand_node.children.is_empty());
+                    if !is_effect_free_read {
+                        let produced = self.emit_node(function, arg, true);
+                        if produced.produced {
+                            function.instruction(&Instruction::Drop);
+                        }
+                    }
+                    let (offset, len) = self.strings.intern("string");
+                    function.instruction(&Instruction::I64Const(encode_string_handle(offset, len)));
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::String,
+                    };
+                }
+                self.diagnostics.push(Diagnostic::warning(
+                    e8::UNIMPLEMENTED as u32,
+                    format!("unsupported unary operator '{}'", op),
+                ));
+                let produced = self.emit_node(function, arg, true);
+                if produced.produced {
+                    function.instruction(&Instruction::Drop);
+                }
+                function.instruction(&Instruction::I64Const(0));
+                EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Unknown,
+                }
+            }
             "delete" => {
                 if let Some(key_text) = process_env_property_key(&self.program.nodes, arg) {
                     let Some(import_index) = self.env_delete_import_index else {
@@ -180,14 +274,17 @@ impl<'a> FunctionEmitter<'a> {
                     };
                 }
 
-                self.diagnostics.push(Diagnostic::warning(
-                    e8::UNIMPLEMENTED as u32,
-                    format!("unsupported unary operator '{}'", op),
+                // Default-deny (throw-fallout Stage 2, Lane C): every
+                // in-lane `delete` was consumed and erased by the
+                // optimizer's static shape timeline, so a `delete`
+                // reaching codegen is outside the provable lane. Reject —
+                // the pre-Stage-2 warning+no-op silently preserved stale
+                // shapes (and before the parser fix, `delete` was
+                // swallowed entirely).
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "the 'delete' operator is only supported on a const-bound fixed-shape object literal in straight-line top-level code whose enumerations are compile-time known; this 'delete' is outside that lane".to_string(),
                 ));
-                let produced = self.emit_node(function, arg, true);
-                if produced.produced {
-                    function.instruction(&Instruction::Drop);
-                }
                 function.instruction(&Instruction::I64Const(0));
                 EmittedValue {
                     produced: true,
@@ -235,6 +332,21 @@ impl<'a> FunctionEmitter<'a> {
                 if let Some(aggregate_id) = self.resolve_literal_aggregate(arg) {
                     let aggregate = self.node(aggregate_id).clone();
                     if self.is_array_literal(&aggregate) {
+                        if self.array_literal_contains_spread(&aggregate) {
+                            self.diagnostics.push(Diagnostic::error(
+                                e5::FEATURE_UNAVAILABLE as u32,
+                                "array spread `[...x]` is unavailable in the current phase: \
+                                 kali has no spread-expansion lowering, so the spread would be \
+                                 silently counted as one element; use explicit elements or the \
+                                 later compatibility path"
+                                    .to_string(),
+                            ));
+                            function.instruction(&Instruction::Unreachable);
+                            return EmittedValue {
+                                produced: false,
+                                shape: ValueShape::Unknown,
+                            };
+                        }
                         function
                             .instruction(&Instruction::I64Const(aggregate.children.len() as i64));
                         return EmittedValue {
@@ -339,6 +451,21 @@ impl<'a> FunctionEmitter<'a> {
                     if self.is_array_literal(&aggregate)
                         && op.parse::<isize>().ok().is_some_and(|index| index >= 0)
                     {
+                        if self.array_literal_contains_spread(&aggregate) {
+                            self.diagnostics.push(Diagnostic::error(
+                                e5::FEATURE_UNAVAILABLE as u32,
+                                "array spread `[...x]` is unavailable in the current phase: \
+                                 kali has no spread-expansion lowering, so indexing a spread \
+                                 literal would silently read the wrong element; use explicit \
+                                 elements or the later compatibility path"
+                                    .to_string(),
+                            ));
+                            function.instruction(&Instruction::Unreachable);
+                            return EmittedValue {
+                                produced: false,
+                                shape: ValueShape::Unknown,
+                            };
+                        }
                         if let Ok(index) = op.parse::<usize>() {
                             if let Some(element) = aggregate.children.get(index).copied() {
                                 return self.emit_node(function, element, true);
@@ -424,7 +551,73 @@ impl<'a> FunctionEmitter<'a> {
             }
             _ => {
                 if let Some(shape) = self.object_shape_of_node(arg) {
+                    // C-2 position gate (Stage P2 review): a `GrowableArrayI64`
+                    // field read yields the raw ARRAY_HANDLE_TAG handle. It is
+                    // sound ONLY where a growable-aware recognizer consumes the
+                    // receiver (push/join/length/index/for-of, the Lane-3 `===`
+                    // field pair, the clone lane) — all of which read it via
+                    // `emit_growable_receiver_handle`, which lifts
+                    // `admit_growable_field_read`. In every OTHER value position
+                    // (`console.log(o.values)`, `o.values + 1`,
+                    // `const a = o.values`) the handle must not escape as an
+                    // observable scalar: fail closed E5506. Allowlist the safe
+                    // positions at this single read site — do NOT denylist sinks
+                    // (Spec-4a headline lesson). The three legacy sink guards
+                    // (multi-arg console `subtree_mentions_growable`, host.rs
+                    // render fold, the optimizer fold) are now redundant
+                    // defense-in-depth; left in place deliberately.
+                    if !self.admit_growable_field_read
+                        && matches!(
+                            self.repr_table.shape_field(shape, op),
+                            Some((_, kali_common::Repr::GrowableArrayI64))
+                        )
+                    {
+                        self.diagnostics.push(Diagnostic::error(
+                            e5::FEATURE_UNAVAILABLE as u32,
+                            format!(
+                                "reading growable-array field '{op}' as a plain value is unavailable in the current phase; use it directly as a push/join/length/index/for-of receiver"
+                            ),
+                        ));
+                        function.instruction(&Instruction::I64Const(0));
+                        return EmittedValue {
+                            produced: true,
+                            shape: ValueShape::Scalar,
+                        };
+                    }
                     return self.emit_object_field_read(function, arg, shape, op);
+                }
+
+                // I-2 (structuredClone-scoped member-on-call close, Stage P2
+                // review): a member read directly on an UNBOUND
+                // `structuredClone(...)` result (`structuredClone(o).count`)
+                // falls into the pre-existing member-on-call placeholder hole —
+                // `is_structured_clone_result` promotion only covers `const`
+                // declarators, so an expression-position clone member read is a
+                // silent `0`. Scope a minimal deny to a `structuredClone` callee:
+                // fail closed E5506, directing the user to bind the result first.
+                // The GENERAL member-on-call class is pre-existing and
+                // inventoried — deliberately untouched here.
+                let structured_clone_callee = {
+                    let call = self.node(self.unwrap_transparent(arg));
+                    (call.kind == LirNodeKind::Call)
+                        .then(|| call.children.first().copied())
+                        .flatten()
+                };
+                if let Some(callee) = structured_clone_callee {
+                    let callee_node = self.node(callee).clone();
+                    if self.is_structured_clone_call(&callee_node) {
+                        self.diagnostics.push(Diagnostic::error(
+                            e5::FEATURE_UNAVAILABLE as u32,
+                            format!(
+                                "reading property '{op}' directly off a structuredClone(...) result is unavailable in the current phase; bind the clone to a `const` first, then read its field"
+                            ),
+                        ));
+                        function.instruction(&Instruction::I64Const(0));
+                        return EmittedValue {
+                            produced: true,
+                            shape: ValueShape::Scalar,
+                        };
+                    }
                 }
 
                 if let Some(aggregate_id) = self.resolve_literal_aggregate(arg) {
@@ -673,9 +866,23 @@ impl<'a> FunctionEmitter<'a> {
         let mut guard = 0;
         loop {
             let node = self.node(id);
+            // NOTE: a single-element ARRAY literal `[x]` is ALSO a text-less
+            // one-child `Value` here, structurally identical to a transparent
+            // sequence/grouping/`new` wrapper — this generic helper tunnels
+            // through both. That is correct for identity/`typeof`/`+` consumers
+            // (which want the wrapped expression) but WRONG for a `.length`
+            // read, where `[x]` is a fresh array of length 1, not `x`. The
+            // array-length carve-out therefore lives in the `.length` consumer
+            // (`render_length`), NOT here — see throw-fallout Stage 2. Guarding
+            // it here instead misclassifies every legitimate textless one-child
+            // wrapper (e.g. `new Error("m")`) as an array literal and refuses to
+            // tunnel, silently breaking those consumers.
             if node.kind == LirNodeKind::Value
                 && node.children.len() == 1
-                && node.text.as_deref().is_none_or(|text| text.is_empty())
+                && node
+                    .text
+                    .as_deref()
+                    .is_none_or(|text| text.is_empty() || text == "await")
             {
                 id = node.children[0];
                 guard += 1;
@@ -685,6 +892,65 @@ impl<'a> FunctionEmitter<'a> {
                 continue;
             }
             return id;
+        }
+    }
+
+    /// Statically-provable `typeof` result. Resolves the operand through the
+    /// const-fold binding chain (`resolve_literal_aggregate` follows
+    /// `self.bindings`), then classifies:
+    /// - `void <expr>` → "undefined" (void ALWAYS evaluates to undefined)
+    /// - literal `undefined` → "undefined", `null` → "object" (JS quirk),
+    ///   `true`/`false` → "boolean", quoted string → "string",
+    ///   numeric → "number"
+    /// - anything else → None (caller keeps the pre-existing placeholder
+    ///   fallback; identifiers with runtime-only values are NOT classified
+    ///   from reprs here — an I64 repr may be an internal handle/ordinal, so
+    ///   guessing "number" from it could miscompile).
+    fn typeof_static_text(&self, arg: LirNodeId) -> Option<&'static str> {
+        let arg = self.unwrap_transparent(arg);
+        // A BigInt literal (`5n`, `-5n`) is `typeof === "bigint"`, NOT
+        // "number". This MUST precede the float/numeric arms below:
+        // `parse_numeric_literal_value` strips the trailing `n` suffix
+        // (intrinsics/number.rs), so the final numeric arm would otherwise
+        // misclassify `5n` as "number" (node: "bigint").
+        if self.is_bigint_literal_valued(arg) {
+            return Some("bigint");
+        }
+        // A proven float value is always a JS number: F64 is never used as an
+        // internal handle/ordinal repr, so this classification cannot leak an
+        // internal representation (unlike I64, which IS used for handles and
+        // stays unclassified below).
+        if self.is_float_valued(arg) {
+            return Some("number");
+        }
+        let resolved = self.resolve_literal_aggregate(arg).unwrap_or(arg);
+        let resolved = self.unwrap_transparent(resolved);
+        let node = self.node(resolved);
+        if node.text.as_deref() == Some("void") && node.children.len() == 1 {
+            return Some("undefined");
+        }
+        // Bare `undefined` / `NaN` / `Infinity` lower as identifiers (a
+        // childless Value), not literals; classify the exact global names.
+        if node.kind == LirNodeKind::Value && node.children.is_empty() {
+            return match node.text.as_deref() {
+                Some("undefined") => Some("undefined"),
+                Some("NaN") | Some("Infinity") => Some("number"),
+                _ => None,
+            };
+        }
+        if node.kind != LirNodeKind::Literal {
+            return None;
+        }
+        let text = node.text.as_deref()?;
+        let unquoted = text.trim_matches(|c| c == '"' || c == '\'');
+        if unquoted.len() != text.len() {
+            return Some("string");
+        }
+        match text {
+            "undefined" => Some("undefined"),
+            "null" => Some("object"),
+            "true" | "false" => Some("boolean"),
+            _ => crate::intrinsics::parse_numeric_literal_value(text).map(|_| "number"),
         }
     }
 
@@ -717,6 +983,15 @@ impl<'a> FunctionEmitter<'a> {
         // types-side `expression_is_string_typed`/`operand_repr_is_string`
         // computed-member arms.
         if let Some(base) = self.dynamic_array_read_base(self.node(id)) {
+            return self.array_elem_repr(&base) == kali_common::Repr::String;
+        }
+        // Computed element read `o[i]` of a GROWABLE array (throw-fallout
+        // Stage 4 Task 3) whose element axis is proven `Repr::String` — the
+        // growable mirror of the arm immediately above, keyed on the
+        // growable oracle (`growable_array_read_base`) instead of the plain
+        // one, so `console.log`/`+`/`==`/ternary all treat a pushed string
+        // handle read back out of a growable array as a string.
+        if let Some(base) = self.growable_array_read_base(self.node(id)) {
             return self.array_elem_repr(&base) == kali_common::Repr::String;
         }
         // Runtime `a.join(sep)` produces a string (Spec 3). Same recognizer the
@@ -777,6 +1052,109 @@ impl<'a> FunctionEmitter<'a> {
             }
             _ => false,
         }
+    }
+
+    /// True when `id` is a `Deno.env.get(...)` call — the SAME recognizer the
+    /// call emitter routes with (`env_get_import_index`, intrinsics/host.rs),
+    /// so this lane and the emission agree by construction. Its runtime value
+    /// is a tagged string handle OR 0 (missing variable → JS `undefined`);
+    /// `__streq`'s tag guard makes the 0 case unequal to every real string,
+    /// which matches node (`undefined === s` is false for every string `s`).
+    /// Deliberately NOT an `is_string_valued` arm: in `+`/`.length`/store
+    /// positions a maybe-0 value must keep failing closed; only the equality
+    /// lane (where `__streq` is total over 0) consults this.
+    pub(crate) fn is_env_get_string_call(&self, id: LirNodeId) -> bool {
+        let id = self.unwrap_transparent(id);
+        let node = self.node(id);
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+        let Some(callee) = node.children.first().copied() else {
+            return false;
+        };
+        // Resolve the callee through bound aliases BEFORE the env_get check
+        // (F-Stage1-3), mirroring how `emit_call` resolves its callee
+        // (`resolve_bound_member_callable_node`, call.rs). Without this a bound
+        // member-callable alias — `const g = Deno.env.get; g("K")` — is NOT
+        // recognized as an env-get string call, so `g("K") === "y"` falls
+        // through to a raw handle-identity compare (silently wrong) instead of
+        // the `__streq` content-equality lane, even though the ACTUAL call
+        // emission already resolves `g` to the real env-get import.
+        let resolved = self
+            .resolve_bound_member_callable_node(callee)
+            .unwrap_or_else(|| self.unwrap_transparent(callee));
+        let callee_node = self.node(resolved);
+        self.env_get_import_index(callee_node).is_some()
+    }
+
+    /// Relocate the env-get string handle currently on top of the value stack
+    /// to a fresh `__alloc_global` heap buffer, rewriting its offset field to
+    /// point there, and leave the RELOCATED handle on the stack (F-Stage1-2).
+    ///
+    /// Every `Deno.env.get` writes its result into the single reserved buffer
+    /// [0,4096) and returns a handle with offset field 0 (call.rs env lane). In
+    /// an env-vs-env compare the second `env.get` overwrites that buffer before
+    /// `__streq` runs, so the LEFT operand's bytes must be copied out first.
+    /// `__alloc_global` gives a region disjoint from [0,4096) AND from the
+    /// interned string pool, and never reclaims, so the copy survives the
+    /// compare (the current arena is never reset mid-expression).
+    ///
+    /// A missing env var yields a 0 handle (JS `undefined`); it is passed
+    /// through UNCHANGED so `undefined === undefined` stays true and the
+    /// `__streq` tag guard keeps `undefined === s` false — turning 0 into a
+    /// tagged empty-string handle here would break both.
+    ///
+    /// Uses the two trailing i64 scratch locals (`self.locals.len()` and `+1`),
+    /// live only within this sequence; the following right-operand `env.get`
+    /// reuses `self.locals.len()` transiently after this returns.
+    fn emit_env_get_streq_relocate(&mut self, function: &mut Function) {
+        let handle_local = self.locals.len() as u32;
+        let dst_local = handle_local + 1;
+        // Stash the incoming handle; keep a copy on the stack for the 0-guard.
+        function.instruction(&Instruction::LocalTee(handle_local));
+        function.instruction(&Instruction::I64Const(0));
+        function.instruction(&Instruction::I64Eq);
+        function.instruction(&Instruction::If(BlockType::Result(ValType::I64)));
+        // Missing env var (undefined) → pass the 0 handle through unchanged.
+        function.instruction(&Instruction::I64Const(0));
+        function.instruction(&Instruction::Else);
+        // dst = __alloc_global(len), len = handle & 0xFFFF_FFFF.
+        function.instruction(&Instruction::LocalGet(handle_local));
+        function.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+        function.instruction(&Instruction::I64And);
+        function.instruction(&Instruction::I32WrapI64);
+        function.instruction(&Instruction::Call(self.alloc_global_fn_index()));
+        function.instruction(&Instruction::I64ExtendI32U);
+        function.instruction(&Instruction::LocalSet(dst_local));
+        // memory.copy(dst, src=(handle>>32)&0x7FFF_FFFF, len=handle&0xFFFF_FFFF).
+        // Offset decode mirrors `emit_streq_body` / `read_guest_string_handle`.
+        function.instruction(&Instruction::LocalGet(dst_local));
+        function.instruction(&Instruction::I32WrapI64);
+        function.instruction(&Instruction::LocalGet(handle_local));
+        function.instruction(&Instruction::I64Const(32));
+        function.instruction(&Instruction::I64ShrU);
+        function.instruction(&Instruction::I64Const(0x7FFF_FFFF));
+        function.instruction(&Instruction::I64And);
+        function.instruction(&Instruction::I32WrapI64);
+        function.instruction(&Instruction::LocalGet(handle_local));
+        function.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+        function.instruction(&Instruction::I64And);
+        function.instruction(&Instruction::I32WrapI64);
+        function.instruction(&Instruction::MemoryCopy {
+            src_mem: 0,
+            dst_mem: 0,
+        });
+        // new handle = TAG | (dst << 32) | (handle & 0xFFFF_FFFF).
+        function.instruction(&Instruction::I64Const(STRING_HANDLE_TAG as i64));
+        function.instruction(&Instruction::LocalGet(dst_local));
+        function.instruction(&Instruction::I64Const(32));
+        function.instruction(&Instruction::I64Shl);
+        function.instruction(&Instruction::I64Or);
+        function.instruction(&Instruction::LocalGet(handle_local));
+        function.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+        function.instruction(&Instruction::I64And);
+        function.instruction(&Instruction::I64Or);
+        function.instruction(&Instruction::End);
     }
 
     /// True when `id` is a string value backed by a FRESH runtime
@@ -901,7 +1279,7 @@ impl<'a> FunctionEmitter<'a> {
     /// machinery has no BigInt axis yet, so BigInt-typed mutable locals keep
     /// the (wrong) float path, and mixed `3n / 2` (a JS TypeError) still
     /// floats too — both recorded follow-ups.
-    fn is_bigint_literal_valued(&self, id: LirNodeId) -> bool {
+    pub(crate) fn is_bigint_literal_valued(&self, id: LirNodeId) -> bool {
         let id = self.unwrap_transparent(id);
         let id = self.resolve_bound_node(id);
         let node = self.node(id);
@@ -967,6 +1345,19 @@ impl<'a> FunctionEmitter<'a> {
                 };
                 let callee = self.unwrap_transparent(callee);
                 let callee_node = self.node(callee);
+                // `performance.now()` is f64 at runtime (`kali:rt performance_now`
+                // returns f64). Mirror the repr-inference float seed
+                // (`repr_infer.rs`'s `"now"` arm) so `<`/arithmetic consumers pick
+                // the f64 instruction shape even when the call is inlined at the
+                // use site rather than stored into a float local.
+                if callee_node.text.as_deref() == Some("now") {
+                    if let Some(object) = callee_node.children.first().copied() {
+                        let object_node = self.node(self.unwrap_transparent(object));
+                        if object_node.text.as_deref() == Some("performance") {
+                            return true;
+                        }
+                    }
+                }
                 if callee_node.text.as_deref() == Some("sqrt") && self.is_math_object(callee_node) {
                     // `Math.sqrt(x)` is f64 at runtime (`F64Sqrt`) UNLESS `x` is a
                     // statically-known perfect square, in which case codegen still
@@ -1128,10 +1519,51 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// Converts the `ValueShape::Boolean` i64 on top of the value stack into a
+    /// string handle rendering JS's `"true"`/`"false"`, leaving the handle in
+    /// its place.
+    ///
+    /// Booleans are represented as the i64 `1`/`0` (see `emit_literal`), and
+    /// every stringify choke point used to bottom out in `int_to_string` — so a
+    /// boolean printed through concatenation or the dynamic `console.log` path
+    /// rendered as `0`/`1`. Only a bare boolean LITERAL looked correct, because
+    /// `render_static_value` keys on the literal TEXT and never reaches here.
+    ///
+    /// Implemented as a `Select` between the two interned constant handles
+    /// rather than a `bool_to_string` runtime import: adding an import would
+    /// have to be mirrored across the four hand-maintained `kali:rt` JS import
+    /// lists (host + browser bundle glue) or the browser lane fails with a
+    /// `LinkError`. A `Select` over interned data keeps the fix inside codegen
+    /// and costs no runtime call.
+    pub(crate) fn emit_boolean_as_string(&mut self, function: &mut Function) {
+        let (true_offset, true_len) = self.strings.intern("true");
+        let (false_offset, false_len) = self.strings.intern("false");
+        let temp_local = self.locals.len() as u32;
+        function.instruction(&Instruction::LocalSet(temp_local));
+        function.instruction(&Instruction::I64Const(encode_string_handle(
+            true_offset,
+            true_len,
+        )));
+        function.instruction(&Instruction::I64Const(encode_string_handle(
+            false_offset,
+            false_len,
+        )));
+        // `Select` yields the FIRST pushed value when the i32 condition is
+        // nonzero, so the condition must be "truthy". `i64.eqz` + `i32.eqz` is
+        // the same `!= 0` truthiness lowering the `Unknown`/`Scalar` condition
+        // arms use, which keeps a non-normalized i64 (anything a widened
+        // logical may yield) rendering the way its branch test would read it.
+        function.instruction(&Instruction::LocalGet(temp_local));
+        function.instruction(&Instruction::I64Eqz);
+        function.instruction(&Instruction::I32Eqz);
+        function.instruction(&Instruction::Select);
+    }
+
     /// Emits `id` as a string handle: if it is already string-valued the emitted
-    /// value is a handle; float-shaped values are stringified via
-    /// `float_to_string` (JS `String(number)` semantics); otherwise the produced
-    /// i64 is coerced to a decimal-string handle via `int_to_string`.
+    /// value is a handle; boolean-shaped values render as `"true"`/`"false"`;
+    /// float-shaped values are stringified via `float_to_string` (JS
+    /// `String(number)` semantics); otherwise the produced i64 is coerced to a
+    /// decimal-string handle via `int_to_string`.
     pub(crate) fn emit_as_string(&mut self, function: &mut Function, id: LirNodeId) {
         let is_string = self.is_string_valued(id);
         let emitted = self.emit_node(function, id, true);
@@ -1139,6 +1571,25 @@ impl<'a> FunctionEmitter<'a> {
             function.instruction(&Instruction::I64Const(0));
         }
         if is_string {
+            return;
+        }
+        // Emitted-SHAPE string arm, for the sites where the structural oracle
+        // above cannot see through to the value that was actually emitted. The
+        // statically-selected branch of `??` is the live case: `("" ?? "x")`
+        // emits the left operand's string handle, but `is_string_valued` has
+        // no `??` arm and answered `false`, so the handle was `int_to_string`d
+        // and rendered as a raw tagged integer. Keyed on the shape exactly as
+        // the boolean arm below is, for the same reason.
+        if emitted.produced && emitted.shape == ValueShape::String {
+            return;
+        }
+        // Boolean before the float/int ladder: without this arm a boolean falls
+        // into the `else` (`int_to_string`) and `"concat=" + false` yields
+        // `concat=0`. Keyed on the emitted SHAPE, which is the same signal the
+        // truthiness lowerings key on, so the two never disagree about which
+        // values are booleans.
+        if emitted.produced && emitted.shape == ValueShape::Boolean {
+            self.emit_boolean_as_string(function);
             return;
         }
         if emitted.produced
@@ -1165,6 +1616,125 @@ impl<'a> FunctionEmitter<'a> {
                 produced: true,
                 shape: ValueShape::Unknown,
             };
+        }
+
+        // Binary `in`/`instanceof` have no sound evaluation: kali's static
+        // object model cannot decide runtime key presence after `delete`,
+        // and there is no prototype chain to walk. The parser used to drop
+        // these tokens silently (the expression miscompiled to its LEFT
+        // operand); now the real AST arrives here and EVALUATION fails
+        // closed with throw's print-then-trap pattern. Deliberately a
+        // runtime trap, not a compile reject: analysis-only commands
+        // (`kali check`) and builds of code whose in/instanceof lines never
+        // execute stay usable (e.g. the browser package corpus), and no
+        // wrong value can ever escape. This arm must precede the
+        // object-misuse gate below — the right operand is typically an
+        // object reference, which would otherwise turn this into a compile
+        // error and break those builds.
+        // Stage P3 allow lane: `<proven signal> instanceof AbortSignal` folds to
+        // a compile-time true. BOTH sides must be proven (Lane-3 discipline): the
+        // left operand is a proven abort handle in signal position (a bare
+        // abort-handle identifier or a `<handle>.signal` member), and the right
+        // operand is the childless global identifier `AbortSignal` unshadowed in
+        // all five codegen namespaces. Everything else falls through to the
+        // blanket runtime trap below. NO code is emitted for the left operand —
+        // sound only because both admitted left shapes are side-effect-free reads
+        // (see `instanceof_left_signal_proof`). Must precede the trap arm.
+        if op == "instanceof"
+            && self.instanceof_left_signal_proof(left)
+            && self.instanceof_right_is_unshadowed(right, "AbortSignal")
+        {
+            function.instruction(&Instruction::I64Const(1));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Boolean,
+            };
+        }
+
+        if matches!(op, "in" | "instanceof") {
+            let message = format!(
+                "Uncaught unsupported `{op}` operator: kali cannot evaluate it (no runtime key-presence or prototype-chain machinery)"
+            );
+            let (offset, len) = self.strings.intern(&message);
+            function.instruction(&Instruction::I64Const(encode_string_handle(offset, len)));
+            function.instruction(&Instruction::Call(crate::CONSOLE_ERROR_IMPORT_INDEX));
+            function.instruction(&Instruction::Unreachable);
+            // Unreachable makes the stack polymorphic; report `produced` so
+            // value-position consumers keep a valid emit shape.
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Unknown,
+            };
+        }
+
+        // Lane 3 (Stage P2 Task 6): same-shape object/array identity allow
+        // lane. `p === q` / `p !== q` is sound as REAL pointer identity when
+        // both operands are PROVEN to be references into the same fixed
+        // layout: either both resolve to the identical object `ShapeId` (via
+        // `object_shape_of_node`), or both are `base.field` reads of a
+        // `GrowableArrayI64` field (both are ARRAY_HANDLE_TAG i64 handles,
+        // Task 4's `object_field_is_growable_array`). Anything else —
+        // one-object-one-unknown, cross-shape, object-vs-scalar — falls
+        // through unchanged to the blanket gate below, which E5506s. This
+        // must run BEFORE the blanket gate (which would otherwise reject
+        // every object-shaped operand unconditionally) and must require BOTH
+        // operands proven, not just one: admitting a single proven operand
+        // here would let an unknown-repr partner slip past the blanket gate
+        // into the raw `i64.eq` compare below (the p2a fail-open).
+        if matches!(op, "===" | "!==") {
+            let left_shape = self.object_shape_of_node(left);
+            let right_shape = self.object_shape_of_node(right);
+            let same_object_shape =
+                matches!((left_shape, right_shape), (Some(a), Some(b)) if a == b);
+            let both_growable_field = self.object_field_is_growable_array(left)
+                && self.object_field_is_growable_array(right);
+            if same_object_shape || both_growable_field {
+                // C-2: a `GrowableArrayI64` field-pair `===` reads both handles
+                // in an allowlisted SAFE position — lift the field-read gate for
+                // each operand. (`same_object_shape` operands are object
+                // identifiers; the helper is harmless there — no field gate.)
+                self.emit_growable_receiver_handle(function, left);
+                self.emit_growable_receiver_handle(function, right);
+                // Mirrors the scalar `===`/`!==` arm below exactly: `I64Eq`
+                // yields an i32; `!==` negates via `I32Eqz` (NOT `I64Eqz`,
+                // which would be a type error on an i32 stack value); every
+                // boolean result in this function is then `I64ExtendI32U`'d
+                // to the i64 `ValueShape::Boolean` convention the rest of
+                // this file (and `console.log`'s true/false rendering) uses.
+                function.instruction(&Instruction::I64Eq);
+                if op == "!==" {
+                    function.instruction(&Instruction::I32Eqz);
+                }
+                function.instruction(&Instruction::I64ExtendI32U);
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Boolean,
+                };
+            }
+        }
+
+        // Equality type gate (soundness batch 1, Fix 4). `0`, `false`, `null`
+        // and `undefined` all occupy the i64 bit pattern `0` (and `true` is
+        // `1`), so the generic `i64.eq` below answered `true` for
+        // `0 === null`, `0 === false`, `null === undefined` and `1 === true`.
+        // `equality_decision` classifies both operands by TYPE and either
+        // folds the comparison, confirms the bit-pattern test is exact here,
+        // or fails closed. It is a no-op (`Runtime`) unless one operand is a
+        // proven `null`/`undefined`/boolean, so number/string/object
+        // comparisons keep their pre-existing lowering byte-for-byte.
+        //
+        // Placed BEFORE the object misuse gate so an object-reference operand
+        // compared against `null` (`t.left === null`, the binary-trees shape)
+        // reaches the pointer-identity `Runtime` verdict instead of being
+        // rejected as operator-misuse.
+        match self.equality_decision(op, left, right) {
+            crate::emit::equality::EqDecision::Const(value) => {
+                return self.emit_folded_equality(function, left, right, value);
+            }
+            crate::emit::equality::EqDecision::FailClosed => {
+                return self.reject_unprovable_equality(function, op);
+            }
+            crate::emit::equality::EqDecision::Runtime => {}
         }
 
         // Object misuse gate: a genuine arithmetic/comparison operator applied
@@ -1235,6 +1805,55 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        // Runtime string equality (throw-fallout Stage 1): when BOTH operands
+        // are proven string-valued, `==`/`===` (and the negations) are CONTENT
+        // equality — `__streq` compares length + bytes with a handle-identity
+        // fast path, so fresh runtime handles (enumeration keys, concat,
+        // substring, join, argv) compare by VALUE, matching node.
+        // Handle-identity `i64.eq` on strings survives only as the fast path
+        // INSIDE `__streq`. Anything not both-string (mixed, unproven) falls
+        // through to the fail-closed reject below, unchanged.
+        let is_equality_op = matches!(op, "==" | "!=" | "===" | "!==");
+        let left_string = is_equality_op && self.is_string_valued(left);
+        let right_string = is_equality_op && self.is_string_valued(right);
+        let left_env = is_equality_op && !left_string && self.is_env_get_string_call(left);
+        let right_env = is_equality_op && !right_string && self.is_env_get_string_call(right);
+        // ENV-VS-ENV (F-Stage1-2): both `Deno.env.get` results materialize into
+        // the SAME reserved buffer [0,4096) (call.rs env lane), so the second
+        // call OVERWRITES the first — a naive compare would read the second
+        // call's bytes for BOTH sides and spuriously report any two same-length
+        // values equal. Admit env-vs-env by RELOCATING the left result to a
+        // fresh `__alloc_global` heap copy (distinct from [0,4096) and from the
+        // interned string pool) BEFORE emitting the right operand, so `__streq`
+        // reads the correct distinct bytes for each side.
+        let both_env = left_env && right_env;
+        if (left_string || left_env) && (right_string || right_env) {
+            let left_emitted = self.emit_node(function, left, true);
+            if !left_emitted.produced {
+                function.instruction(&Instruction::I64Const(0));
+            }
+            if both_env {
+                self.emit_env_get_streq_relocate(function);
+            }
+            let right_emitted = self.emit_node(function, right, true);
+            if !right_emitted.produced {
+                function.instruction(&Instruction::I64Const(0));
+            }
+            function.instruction(&Instruction::Call(self.streq_fn_index()));
+            if matches!(op, "!=" | "!==") {
+                // Negate WITHOUT `i64.eqz` (module-wide printed-text pin in
+                // pipeline_basics::boolean_branches_use_the_layout_fast_path):
+                // `__streq` returns exactly 0 or 1, so `== 0` is the complement.
+                function.instruction(&Instruction::I64Const(0));
+                function.instruction(&Instruction::I64Eq);
+                function.instruction(&Instruction::I64ExtendI32U);
+            }
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Boolean,
+            };
+        }
+
         // A string operand in a NON-`+` position has no correct lowering here.
         // Static string folds have already returned above (relational literal
         // folds, `===`/`!==` bigint folds), so a string operand reaching this
@@ -1242,10 +1861,12 @@ impl<'a> FunctionEmitter<'a> {
         // result is worse than a compile error):
         //   - Relational / arithmetic / bitwise / logical: compare or combine
         //     RAW handles — always wrong. Reject ANY string-valued operand.
-        //   - Equality (`== != === !==`): identity-comparing handles is correct
-        //     ONLY for interned literal constants; a fresh runtime concat handle
-        //     is not the interned handle of the same text. Reject only a tainted
-        //     (runtime-concat-derived) operand, preserving `s == "hi"` etc.
+        //   - Equality (`== != === !==`): a BOTH-proven-string equality was
+        //     already content-compared via `__streq` above (Stage 1) and never
+        //     reaches here. The taint reject below survives as the fail-closed
+        //     BACKSTOP for the residue: a tainted string against a NON-string
+        //     operand (e.g. `("a"+s) == 5`), where neither identity compare nor
+        //     `__streq` is meaningful.
         // NOTE: `&&`/`||`/`??` are deliberately EXCLUDED — they are
         // value-SELECTING (return one operand unchanged, a valid string result)
         // and are statically folded in string-fold positions (e.g. dynamic
@@ -1322,7 +1943,14 @@ impl<'a> FunctionEmitter<'a> {
             _ => false,
         };
 
-        if op != "??" && op != "**" && !is_bitwise {
+        // `&&`/`||` join `??` and `**` in opting OUT of the shared operand
+        // pre-emit: all four decide at RUNTIME whether the right operand is
+        // evaluated at all, so emitting both eagerly here would re-introduce
+        // the short-circuit defect (the right operand's side effects running
+        // when JS says they must not). Their arms below emit their own
+        // operands inside an `If`/`Else`.
+        let short_circuits = matches!(op, "&&" | "||");
+        if op != "??" && op != "**" && !is_bitwise && !short_circuits {
             self.emit_float_operand(function, left, float_op);
             self.emit_float_operand(function, right, float_op);
         }
@@ -1382,6 +2010,27 @@ impl<'a> FunctionEmitter<'a> {
                     }
                 } else {
                     // BigInt `/`: truncation toward zero is exactly `i64.div_s`.
+                    // A zero divisor traps in wasm anyway; test it explicitly
+                    // first so the abort carries node's message (RangeError)
+                    // instead of the generic unreachable envelope. The divisor
+                    // is on top of stack; stash it in the function's
+                    // general-purpose scratch local (`self.locals.len()` —
+                    // the same slot the `??=` arm at literal.rs uses, already
+                    // reserved by `lower.rs`'s two-trailing-i64-scratch-locals
+                    // convention, so no new local declaration is needed) so it
+                    // can be tested and then reused as the actual divisor.
+                    let divisor_local = self.locals.len() as u32;
+                    function.instruction(&Instruction::LocalSet(divisor_local));
+                    function.instruction(&Instruction::LocalGet(divisor_local));
+                    function.instruction(&Instruction::I64Eqz);
+                    function.instruction(&Instruction::If(BlockType::Empty));
+                    let message = "RangeError: Division by zero".to_string();
+                    let (offset, len) = self.strings.intern(&message);
+                    function.instruction(&Instruction::I64Const(encode_string_handle(offset, len)));
+                    function.instruction(&Instruction::Call(crate::CONSOLE_ERROR_IMPORT_INDEX));
+                    function.instruction(&Instruction::Unreachable);
+                    function.instruction(&Instruction::End);
+                    function.instruction(&Instruction::LocalGet(divisor_local));
                     function.instruction(&Instruction::I64DivS);
                     EmittedValue {
                         produced: true,
@@ -1469,18 +2118,78 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::Boolean,
                 }
             }
-            "&&" => {
-                function.instruction(&Instruction::I64And);
-                EmittedValue {
-                    produced: true,
-                    shape: ValueShape::Boolean,
+            // Short-circuiting `&&`/`||`. JS semantics are value-returning, not
+            // boolean-normalizing: `a && b` is `a` when `a` is falsy else `b`;
+            // `a || b` is `a` when `a` is truthy else `b`. In BOTH cases the
+            // right operand is evaluated only on the deciding path.
+            //
+            // This replaces an `I64And`/`I64Or` over a shared unconditional
+            // operand pre-emit, which was wrong twice over: it ran the right
+            // operand's side effects unconditionally (`if (false && boom())`
+            // still called `boom`), and it combined the operands BITWISE, so
+            // `2 && 1` folded to `2 & 1 == 0`. Branch outcomes happened to be
+            // correct whenever both operands were already 0/1, which is why the
+            // defect stayed invisible in condition position.
+            //
+            // The lowering mirrors the `??` arm below — same reserved scratch
+            // local (`self.locals.len()`, see `lower.rs`'s two trailing i64
+            // scratch slots), same `If(BlockType::Result(ValType::I64))` shape.
+            // Nesting is safe for the same reason it is safe there: the scratch
+            // is read only on the path that does NOT re-emit an operand, so an
+            // inner logical clobbering it in the other arm can never be
+            // observed.
+            "&&" | "||" => {
+                let left_result = self.emit_node(function, left, true);
+                if !left_result.produced {
+                    function.instruction(&Instruction::I64Const(0));
                 }
-            }
-            "||" => {
-                function.instruction(&Instruction::I64Or);
+                let temp_local = self.locals.len() as u32;
+                function.instruction(&Instruction::LocalSet(temp_local));
+                function.instruction(&Instruction::LocalGet(temp_local));
+                // `I64Eqz` leaves 1 exactly when the left operand is falsy, so
+                // the `If` arm is the "left is falsy" path for both operators —
+                // only which side yields the left value differs.
+                function.instruction(&Instruction::I64Eqz);
+                function.instruction(&Instruction::If(BlockType::Result(ValType::I64)));
+                let right_result = if op == "&&" {
+                    // left falsy -> `a && b` is `a`; the right operand is skipped.
+                    function.instruction(&Instruction::LocalGet(temp_local));
+                    function.instruction(&Instruction::Else);
+                    let emitted = self.emit_node(function, right, true);
+                    if !emitted.produced {
+                        function.instruction(&Instruction::I64Const(0));
+                    }
+                    emitted
+                } else {
+                    // left falsy -> `a || b` is `b`; otherwise the right operand
+                    // is skipped and the left value is the result.
+                    let emitted = self.emit_node(function, right, true);
+                    if !emitted.produced {
+                        function.instruction(&Instruction::I64Const(0));
+                    }
+                    function.instruction(&Instruction::Else);
+                    function.instruction(&Instruction::LocalGet(temp_local));
+                    emitted
+                };
+                function.instruction(&Instruction::End);
+                // The result is one of the two OPERANDS, so it is only provably
+                // a boolean when both operands are. A mixed-shape logical falls
+                // back to `Unknown`, whose truthiness lowering (`i64.eqz` +
+                // `i32.eqz`, i.e. `!= 0`) is total over every i64 — unlike the
+                // `Boolean` lowering (`i32.wrap_i64`), which would misread a
+                // value whose low 32 bits are zero as falsy. Claiming `Boolean`
+                // unconditionally (as the old bitwise arm did) is therefore a
+                // fail-OPEN, and this is the fail-closed direction.
+                let shape = if left_result.shape == ValueShape::Boolean
+                    && right_result.shape == ValueShape::Boolean
+                {
+                    ValueShape::Boolean
+                } else {
+                    ValueShape::Unknown
+                };
                 EmittedValue {
                     produced: true,
-                    shape: ValueShape::Boolean,
+                    shape,
                 }
             }
             "**" => self.emit_exponentiation_expression(
@@ -1491,6 +2200,43 @@ impl<'a> FunctionEmitter<'a> {
             "??" => {
                 let left = node.children[0];
                 let right = node.children[1];
+                // Nullish test by TYPE, not by bit pattern (soundness batch 1,
+                // Fix 4). The `i64.eqz` below asks "is this slot zero", which
+                // is true for `0` and `false` as well as `null`/`undefined` —
+                // `0 ?? 9` returned `9` (node: `0`) and `false ?? true`
+                // returned `true`. When the left operand's type class is
+                // provable, the branch is decided at compile time and the
+                // surviving operand is emitted with its own (correct) shape,
+                // which also fixes `"" ?? "x"` rendering a raw string handle.
+                match self.static_equality_class(left) {
+                    // Provably nullish: the result is the right operand. The
+                    // left is still emitted for its side effects.
+                    Some(class) if class.is_nullish_class() => {
+                        self.emit_operand_for_effects(function, left);
+                        let right_result = self.emit_node(function, right, true);
+                        if !right_result.produced {
+                            function.instruction(&Instruction::I64Const(0));
+                        }
+                        return self.selected_nullish_operand(right, right_result);
+                    }
+                    // Provably NOT nullish: the result is the left operand and
+                    // the right is never evaluated (JS short-circuit).
+                    Some(class) if class.is_never_nullish() => {
+                        let left_result = self.emit_node(function, left, true);
+                        if !left_result.produced {
+                            function.instruction(&Instruction::I64Const(0));
+                        }
+                        return self.selected_nullish_operand(left, left_result);
+                    }
+                    // `Repr::Object` slots and unprovable slots keep the
+                    // runtime zero test below. For an object slot that test is
+                    // exact (a live pointer is nonzero, `null` is `0`). For an
+                    // unprovable slot it is the pre-existing behavior and a
+                    // recorded residual: a runtime `0` or `false` in an
+                    // untyped i64 binding still reads as nullish. Closing that
+                    // needs the null/boolean repr axis.
+                    _ => {}
+                }
                 let left_result = self.emit_node(function, left, true);
                 if !left_result.produced {
                     function.instruction(&Instruction::I64Const(0));

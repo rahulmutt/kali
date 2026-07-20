@@ -681,7 +681,7 @@ pub(crate) fn assert_mixed_bracketed_reflect_own_keys_folds(level: OptimizationL
         .iter()
         .map(|id| program.nodes[id.0 as usize].text.as_deref().unwrap())
         .collect();
-    assert_eq!(values, vec!["\"1\"", "\"2\"", "b"]);
+    assert_eq!(values, vec!["\"1\"", "\"2\"", "\"b\""]);
 }
 
 pub(crate) fn assert_global_this_reflect_bracketed_own_keys_folds(level: OptimizationLevel) {
@@ -704,5 +704,5 @@ pub(crate) fn assert_global_this_reflect_bracketed_own_keys_folds(level: Optimiz
         .iter()
         .map(|id| program.nodes[id.0 as usize].text.as_deref().unwrap())
         .collect();
-    assert_eq!(values, vec!["\"1\"", "\"2\"", "b"]);
+    assert_eq!(values, vec!["\"1\"", "\"2\"", "\"b\""]);
 }

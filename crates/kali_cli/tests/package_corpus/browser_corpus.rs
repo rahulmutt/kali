@@ -2761,11 +2761,27 @@ fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_dep
                 source_path.to_str().unwrap(),
             ],
         );
+        // Deliberate-flip tripwire (P3 residual: signal-as-EventTarget). The
+        // web-baseline fixture aliases `const signal = controller.signal` then
+        // calls `signal.addEventListener('abort', ...)`. As of Stage P3 Task 4 the
+        // alias binds a REAL AbortSignal handle, so the aliased-signal
+        // `addEventListener` fails closed at BUILD (bundle) rather than silently
+        // no-op'ing a listener that must fire on abort. `check` still succeeds (no
+        // codegen); only the bundle build denies. Full observed stderr line:
+        //   error[E5506]: only `abort()` is supported on an AbortController handle;
+        //   `addEventListener`/`onabort`/`reason`/`throwIfAborted` fail closed (Stage P3 scope)
+        // RE-GREEN when Stage P3b lands the real abort-listener lane — see
+        // "P3 residual: signal-as-EventTarget".
         assert!(
-            build.status.success(),
-            "browser web-baseline package {package} should be deployable-through-host via bundle\nstdout: {}\nstderr: {}",
+            !build.status.success(),
+            "browser web-baseline package {package}: aliased-signal addEventListener must fail closed at bundle build (P3 residual: signal-as-EventTarget)\nstdout: {}\nstderr: {}",
             String::from_utf8_lossy(&build.stdout),
             String::from_utf8_lossy(&build.stderr)
+        );
+        let build_stderr = String::from_utf8_lossy(&build.stderr);
+        assert!(
+            build_stderr.contains("E5506") && build_stderr.contains("addEventListener"),
+            "browser web-baseline package {package}: expected E5506 addEventListener deny (P3 residual: signal-as-EventTarget)\nstderr: {build_stderr}"
         );
     }
 }
@@ -2880,11 +2896,26 @@ fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_dep
                 source_path.to_str().unwrap(),
             ],
         );
+        // Deliberate-flip tripwire (P3 residual: signal-as-EventTarget). See the
+        // twin in `..._checkable_and_deployable_through_host` above: the aliased
+        // `signal.addEventListener('abort', ...)` in the web-baseline fixture now
+        // binds a REAL AbortSignal handle (Stage P3 Task 4) and fails closed at
+        // bundle build rather than no-op'ing a listener that must fire on abort.
+        // `check` still succeeds (no codegen). Full observed stderr line:
+        //   error[E5506]: only `abort()` is supported on an AbortController handle;
+        //   `addEventListener`/`onabort`/`reason`/`throwIfAborted` fail closed (Stage P3 scope)
+        // RE-GREEN when Stage P3b lands the real abort-listener lane — see
+        // "P3 residual: signal-as-EventTarget".
         assert!(
-            build.status.success(),
-            "browser web-baseline package {package} should be deployable-through-host via bundle on js input\nstdout: {}\nstderr: {}",
+            !build.status.success(),
+            "browser web-baseline package {package}: aliased-signal addEventListener must fail closed at bundle build on js input (P3 residual: signal-as-EventTarget)\nstdout: {}\nstderr: {}",
             String::from_utf8_lossy(&build.stdout),
             String::from_utf8_lossy(&build.stderr)
+        );
+        let build_stderr = String::from_utf8_lossy(&build.stderr);
+        assert!(
+            build_stderr.contains("E5506") && build_stderr.contains("addEventListener"),
+            "browser web-baseline package {package}: expected E5506 addEventListener deny on js input (P3 residual: signal-as-EventTarget)\nstderr: {build_stderr}"
         );
     }
 }
@@ -2990,11 +3021,26 @@ fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_dep
             dir.path(),
             ["build", "--bundle", source_path.to_str().unwrap()],
         );
+        // Deliberate-flip tripwire (P3 residual: signal-as-EventTarget). Same
+        // fixture/cause as the two twins above, on the inherited (default) browser
+        // API surface: the aliased `signal.addEventListener('abort', ...)` now
+        // binds a REAL AbortSignal handle (Stage P3 Task 4) and fails closed at
+        // bundle build rather than no-op'ing a listener that must fire on abort.
+        // `check` still succeeds (no codegen). Full observed stderr line:
+        //   error[E5506]: only `abort()` is supported on an AbortController handle;
+        //   `addEventListener`/`onabort`/`reason`/`throwIfAborted` fail closed (Stage P3 scope)
+        // RE-GREEN when Stage P3b lands the real abort-listener lane — see
+        // "P3 residual: signal-as-EventTarget".
         assert!(
-            build.status.success(),
-            "browser web-baseline package {package} should be deployable-through-host via bundle on js input when the browser api surface is inherited\nstdout: {}\nstderr: {}",
+            !build.status.success(),
+            "browser web-baseline package {package}: aliased-signal addEventListener must fail closed at bundle build when the browser api surface is inherited (P3 residual: signal-as-EventTarget)\nstdout: {}\nstderr: {}",
             String::from_utf8_lossy(&build.stdout),
             String::from_utf8_lossy(&build.stderr)
+        );
+        let build_stderr = String::from_utf8_lossy(&build.stderr);
+        assert!(
+            build_stderr.contains("E5506") && build_stderr.contains("addEventListener"),
+            "browser web-baseline package {package}: expected E5506 addEventListener deny when the browser api surface is inherited (P3 residual: signal-as-EventTarget)\nstderr: {build_stderr}"
         );
     }
 }

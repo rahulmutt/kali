@@ -146,16 +146,13 @@ await mod.browserObjectKeysEntriesSpread();
         .output()
         .expect("run browser bundle harness");
 
+    // Honest re-pin (PR #16 rev2): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    assert!(
-        String::from_utf8_lossy(&output.stdout).is_empty(),
-        "stdout: {}",
-        String::from_utf8_lossy(&output.stdout)
+        stderr.contains("Uncaught Error") || stderr.contains("unreachable"),
+        "stderr: {stderr}"
     );
 }
 

@@ -580,6 +580,125 @@ impl TypeContext {
                 body,
                 is_await,
             }) => {
+                // Growable-array receiver (throw-fallout Stage 4 Task 4): a
+                // promoted push-accumulated array iterates a REAL runtime
+                // counted loop in codegen (`i=0; n=len; loop { v=data[i]; body;
+                // i++ }`), NOT the static-unroll lane below —
+                // `is_static_array_iteration_target` still sees the stale
+                // declarator literal and would silently unroll ZERO iterations
+                // over an array that now really accumulates. Admit it here (the
+                // codegen runtime branch keys on the SAME predicate — bare
+                // identifier + growable binding) instead of taking the static
+                // path. Only the I64 element repr is admitted; a String-element
+                // growable still fails closed (the loop-var string repr is not
+                // wired this stage — Task brief authorizes fail-closed), as does
+                // `for-await-of` and an unsupported loop target.
+                {
+                    let mut rhs = right;
+                    while let Expression::ParenthesizedExpression(inner) = rhs {
+                        rhs = &inner.expression;
+                    }
+                    if let Expression::Identifier(name) = rhs {
+                        if self.is_growable_array_binding(name) {
+                            let left_is_supported = match left {
+                                ForOfLefthand::VariableDeclaration(_) => true,
+                                ForOfLefthand::Expression(expression) => {
+                                    self.is_simple_for_of_binding_expression(expression)
+                                }
+                            };
+                            let elem_is_i64 = self
+                                .binding_repr_function_key(name)
+                                .map(|func| {
+                                    self.repr_table.array_element(&func, name)
+                                        == kali_common::Repr::I64
+                                })
+                                .unwrap_or(false);
+                            // Self-push reject (review fix): a `<name>.push(...)`
+                            // anywhere in the body pushes into the array being
+                            // iterated — node GROWS the iteration, the counted
+                            // loop's once-snapshotted length does not: a silent
+                            // node-divergent miscompile if admitted. Fail closed
+                            // (E5506). Name-based and conservative (a shadowing
+                            // redeclaration still rejects); a push on a DIFFERENT
+                            // binding (`out.push(v)`) stays admitted. Codegen
+                            // carries a defensive by-construction mirror in
+                            // `emit_growable_push_call`.
+                            if crate::growable::statement_contains_push_on(body, name) {
+                                let loop_kind = if *is_await { "for-await-of" } else { "for-of" };
+                                self.diagnostics.push(Diagnostic::error(
+                                    e5::FEATURE_UNAVAILABLE as u32,
+                                    format!(
+                                        "pushing to a growable array inside a {} loop iterating that same array is unavailable in the current phase (the iteration count is fixed at loop entry, diverging from JS growth semantics); use an index loop over `.length` or the later compatibility path",
+                                        loop_kind
+                                    ),
+                                ));
+                                return;
+                            }
+                            if left_is_supported && elem_is_i64 && !*is_await {
+                                // ADMIT: resolve the loop var + RHS + body
+                                // exactly like the static lane's admit path.
+                                // The codegen runtime branch emits the counted
+                                // loop.
+                                self.push_scope(ScopeType::Block);
+                                if let ForOfLefthand::VariableDeclaration(decl) = left {
+                                    self.resolve_variable_declaration(decl)
+                                }
+                                self.resolve_static_string_fold_position(right);
+                                self.resolve_loop_body(body);
+                                self.pop_scope();
+                                return;
+                            }
+                            // Fail closed: String element repr, unsupported loop
+                            // target, or `for-await-of` — never a silent wrong
+                            // answer (and never the stale-literal static unroll).
+                            let loop_kind = if *is_await { "for-await-of" } else { "for-of" };
+                            self.diagnostics.push(Diagnostic::error(
+                                e5::FEATURE_UNAVAILABLE as u32,
+                                format!(
+                                    "{} iteration over a growable (push-accumulated) array is unavailable in the current phase unless the loop target is a variable/identifier binding and elements are integers; use an index loop over `.length` or the later compatibility path",
+                                    loop_kind
+                                ),
+                            ));
+                            return;
+                        }
+                    }
+                    // Growable-array FIELD iterable `for (const x of o.values)`
+                    // (Stage P2 Lane 1 Task 5): a `GrowableArrayI64` object field
+                    // runs the same counted growable loop in codegen. Admit it
+                    // here (the codegen for-of lane keys on the SAME positive
+                    // proof) so it is not rejected by the generic static gate
+                    // below. i64 elements only (Task 3 conflicts string fields to
+                    // E5506). A self-push into the SAME field is caught
+                    // fail-closed at codegen (`emit_growable_push_call`'s
+                    // field-key guard, keyed on the for-of's active field key).
+                    if let Some((_base, _field)) = self.growable_i64_field_member_parts(rhs) {
+                        let left_is_supported = match left {
+                            ForOfLefthand::VariableDeclaration(_) => true,
+                            ForOfLefthand::Expression(expression) => {
+                                self.is_simple_for_of_binding_expression(expression)
+                            }
+                        };
+                        if left_is_supported && !*is_await {
+                            self.push_scope(ScopeType::Block);
+                            if let ForOfLefthand::VariableDeclaration(decl) = left {
+                                self.resolve_variable_declaration(decl)
+                            }
+                            self.resolve_static_string_fold_position(right);
+                            self.resolve_loop_body(body);
+                            self.pop_scope();
+                            return;
+                        }
+                        let loop_kind = if *is_await { "for-await-of" } else { "for-of" };
+                        self.diagnostics.push(Diagnostic::error(
+                            e5::FEATURE_UNAVAILABLE as u32,
+                            format!(
+                                "{} iteration over a growable-array object field is unavailable in the current phase unless the loop target is a variable/identifier binding; use an index loop over `.length` or the later compatibility path",
+                                loop_kind
+                            ),
+                        ));
+                        return;
+                    }
+                }
                 let left_is_supported = match left {
                     ForOfLefthand::VariableDeclaration(_) => true,
                     ForOfLefthand::Expression(expression) => {
@@ -812,6 +931,21 @@ impl TypeContext {
                         self.global_scope
                             .array_literal_bindings
                             .insert(declarator.id.clone(), true);
+                    }
+                    // Growable-array promotion (throw-fallout Stage 4): the
+                    // repr inference already adjudicated the safe-position
+                    // allowlist + i64 element proof (see `crate::growable` +
+                    // `repr_infer`'s emit gate); mirror the promotion into
+                    // the scope registry so the resolve-phase gates
+                    // (`for..of`, `.join`) can key on it.
+                    if self
+                        .binding_repr_function_key(&declarator.id)
+                        .is_some_and(|func| {
+                            self.repr_table
+                                .is_growable_array_binding(&func, &declarator.id)
+                        })
+                    {
+                        self.register_growable_array_binding(&declarator.id);
                     }
                 }
                 // Structural runtime-array registry (C1): register a declarator

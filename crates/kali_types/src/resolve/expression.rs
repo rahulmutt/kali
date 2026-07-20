@@ -262,9 +262,9 @@ impl TypeContext {
     ///   module-level binding: consult `scalar("_start", name)`, mirroring
     ///   codegen's fallback.
     /// - If, before either of the above, we reach a `ScopeType::Function`
-    ///   scope that is NOT `current_function_scope()` — an arrow function,
-    ///   function expression, class method, or `export default function`,
-    ///   none of which push onto `current_function` (see
+    ///   scope that is NOT `current_function_scope()` — the anonymous
+    ///   `export default function` body, the one function-shaped scope that
+    ///   does not push onto `current_function` (see
     ///   `TypeContext::current_function_scope`'s doc) — `current_function_name()`
     ///   does not actually name the function whose body we are in, so neither
     ///   table lookup above is safe: a same-named module binding or a
@@ -294,7 +294,7 @@ impl TypeContext {
     ///   `current_function_scope()` (an arrow/function-expression/method/`export
     ///   default function` body that does not push onto `current_function`):
     ///   neither table lookup is safe, so callers FAIL CLOSED.
-    fn binding_repr_function_key(&self, name: &str) -> Option<String> {
+    pub(crate) fn binding_repr_function_key(&self, name: &str) -> Option<String> {
         let tracked_scope = self.current_function_scope();
         let mut current = self.current_scope_id();
         loop {
@@ -365,6 +365,39 @@ impl TypeContext {
         }
     }
 
+    /// True iff `name` is registered as a GROWABLE runtime-array binding in
+    /// the CURRENT function (throw-fallout Stage 4) — the types-side mirror
+    /// of codegen's emitter `growable_array_bindings` set. Scope-walk twin
+    /// of `is_structural_runtime_array` (same fail-closed rules: crossing an
+    /// untracked function-shaped scope ⇒ `false`; module/global scope is
+    /// reachable only under `_start`).
+    pub(crate) fn is_growable_array_binding(&self, name: &str) -> bool {
+        let tracked_scope = self.current_function_scope();
+        let mut current = self.current_scope_id();
+        loop {
+            let Some(scope_id) = current else {
+                return self.global_scope.growable_array_bindings.contains_key(name);
+            };
+            let Some(scope) = self.scopes.get(&scope_id) else {
+                return false;
+            };
+            if scope.scope_type == ScopeType::Function && Some(scope_id) != tracked_scope {
+                // Crossed into a function `current_function_name()` does not
+                // name — fail closed rather than guess.
+                return false;
+            }
+            if scope.growable_array_bindings.contains_key(name) {
+                return true;
+            }
+            if scope.scope_type == ScopeType::Function {
+                // Tracked function's own top scope, no hit: a free module
+                // reference this function's emitter never registers.
+                return false;
+            }
+            current = scope.parent;
+        }
+    }
+
     /// `Some(shape)` iff `name` is a `for..in` key binding over a known
     /// object shape — the Spec 4a Task 2 dormant provenance registry. Walks
     /// the scope chain exactly like `is_structural_runtime_array`: stops at
@@ -397,22 +430,28 @@ impl TypeContext {
         }
     }
 
-    /// True iff `expr` is (a possibly parenthesized) `null` LITERAL — the
-    /// types-side twin of codegen's `is_null_or_undefined_literal`
-    /// (`emit/literal.rs`). Used to narrow the for-in-key alias `??=` admit.
-    ///
-    /// Deliberately does NOT match bare `undefined`: it parses as
-    /// `Identifier("undefined")`, but codegen's twin only recognizes LITERAL
-    /// nodes, so an admitted `??= undefined` would slip past the sentinel-store
-    /// special case into the generic emit and store raw `0` (a valid key
-    /// ordinal — truthiness flips vs node). `??= undefined` must stay REJECTED
-    /// until both recognizer twins agree on the identifier form.
-    fn expression_is_null_literal(expr: &Expression) -> bool {
+    /// True iff `expr` is (a possibly parenthesized) nullish expression —
+    /// the `null` LITERAL form, or the bare identifier `undefined`
+    /// (`Expression::Identifier("undefined")`, the form bare `undefined`
+    /// actually parses to — there is no `undefined` literal form in this
+    /// AST). This is the types-side twin of
+    /// codegen's `is_null_or_undefined_expr` (`emit/literal.rs`) — the SAME
+    /// single recognizer shape on both sides, so the two can no longer
+    /// disagree on nullish-ness. Used to narrow the for-in-key alias `??=`
+    /// admit: a `??= undefined` reject previously existed here ONLY because
+    /// this predicate matched `null` literals but codegen's twin did not
+    /// recognize the identifier form (a fired `??= undefined` would have
+    /// slipped past the sentinel-store special case into the generic emit
+    /// and stored raw `0` — a valid key ordinal, truthiness flips vs node).
+    /// Now that codegen's recognizer also matches the identifier form, this
+    /// widened admit is sound.
+    fn expression_is_nullish(expr: &Expression) -> bool {
         let mut inner = expr;
         while let Expression::ParenthesizedExpression(p) = inner {
             inner = &p.expression;
         }
         matches!(inner, Expression::Literal(LiteralValue::Null))
+            || matches!(inner, Expression::Identifier(name) if name == "undefined")
     }
 
     /// Spec 4a Task 3 fail-closed gate for a computed for-in-key object access
@@ -593,6 +632,33 @@ impl TypeContext {
         }
     }
 
+    /// `(base_name, field)` iff `expr` is a dot member `base.field` where `base`
+    /// is a bound object whose shape has a `GrowableArrayI64` field `field`
+    /// (Stage P2 Lane 1 Task 5). Only the dot form (no computed index) matches —
+    /// the growable field-receiver for..of / dispatch admits exactly `o.values`.
+    /// The resolve-side mirror of codegen's `object_field_is_growable_array`.
+    pub(crate) fn growable_i64_field_member_parts(
+        &self,
+        expr: &Expression,
+    ) -> Option<(String, String)> {
+        let Expression::MemberExpression(member) = expr else {
+            return None;
+        };
+        if member.computed_index.is_some() {
+            return None;
+        }
+        let Expression::Identifier(base) = &member.object else {
+            return None;
+        };
+        let shape = self.object_shape_of_expression(&member.object)?;
+        match self.repr_table.shape_field(shape, &member.property) {
+            Some((_, kali_common::Repr::GrowableArrayI64)) => {
+                Some((base.clone(), member.property.clone()))
+            }
+            _ => None,
+        }
+    }
+
     /// True when `expr` is a DECLARATOR init that codegen registers as a runtime
     /// array binding: `new Array(...)`, the bare `Array(...)` call form (both
     /// funnel through codegen's `resolve_array_alloc_call`), or a `.fill(...)`
@@ -605,13 +671,23 @@ impl TypeContext {
         match expr {
             // `new Array(n)`: callee is the `CallExpression` `Array(n)` (see
             // `rhs_is_array_shape`); bare `new Array` is the Identifier form.
+            // Arity <= 1 only: `Array(n)` is a length allocation. n >= 2 is
+            // desugared to an `ArrayExpression` at parse time and must never
+            // register through this arm either.
             Expression::NewExpression(new_expr) => {
                 matches!(&new_expr.callee, Expression::Identifier(name) if name == "Array")
                     || matches!(&new_expr.callee, Expression::CallExpression(call)
-                        if matches!(&call.callee, Expression::Identifier(name) if name == "Array"))
+                        if matches!(&call.callee, Expression::Identifier(name) if name == "Array")
+                            && call.args.len() <= 1)
             }
             Expression::CallExpression(call) => {
-                if matches!(&call.callee, Expression::Identifier(name) if name == "Array") {
+                // Arity <= 1 only: `Array(n)` is a length allocation. n >= 2 is
+                // desugared to an ArrayExpression at parse time and must never
+                // register through THIS arm (codegen's resolve_array_alloc_call
+                // twin also bails at >1 arg — keep the pair in lockstep).
+                if matches!(&call.callee, Expression::Identifier(name) if name == "Array")
+                    && call.args.len() <= 1
+                {
                     return true;
                 }
                 // `<recv>.fill(v)` — recv is a fresh `new Array(n)`/`Array(n)`
@@ -649,6 +725,30 @@ impl TypeContext {
         if self.global_scope.bindings.contains_key(name) {
             self.global_scope
                 .runtime_array_bindings
+                .insert(name.to_string(), true);
+        }
+    }
+
+    /// Register `name` as a GROWABLE runtime-array binding in the scope
+    /// where it is declared (module/global fallback otherwise). Grow-only,
+    /// mirroring `register_runtime_array_binding` and codegen's insert-only
+    /// `growable_array_bindings` — throw-fallout Stage 4.
+    pub(crate) fn register_growable_array_binding(&mut self, name: &str) {
+        let mut current = self.current_scope_id();
+        while let Some(scope_id) = current {
+            if let Some(scope) = self.scopes.get_mut(&scope_id) {
+                if scope.bindings.contains_key(name) {
+                    scope.growable_array_bindings.insert(name.to_string(), true);
+                    return;
+                }
+                current = scope.parent;
+            } else {
+                return;
+            }
+        }
+        if self.global_scope.bindings.contains_key(name) {
+            self.global_scope
+                .growable_array_bindings
                 .insert(name.to_string(), true);
         }
     }
@@ -1082,6 +1182,81 @@ impl TypeContext {
                 e5::FEATURE_UNAVAILABLE as u32,
                 "a runtime string value is unavailable as an operand of '&&'/'||' in the current direct-runtime path; truthiness of a runtime string is not evaluated correctly and the operator may yield the string into an unsupported position".to_string(),
             ));
+        }
+    }
+
+    /// Binary arithmetic mixing a BigInt operand with a non-BigInt operand is
+    /// a JS `TypeError` ("Cannot mix BigInt and other types") — codegen has
+    /// no correct lowering for it (`/` floats unless BOTH operands are
+    /// BigInt-literal-valued per `is_bigint_literal_valued`, and `+`/`-`/`*`
+    /// share the hole), so `3n * 2` silently floats instead of throwing.
+    /// Reject at compile time (E3202) instead.
+    ///
+    /// The reject requires TWO-SIDED literal PROOF: one operand proven BigInt
+    /// (`is_bigint_literal_expr`) AND the other proven non-BigInt
+    /// (`is_numeric_literal_expr`). An UNPROVEN operand (identifier, call,
+    /// nested expression) on either side means NO reject — "recognizer can't
+    /// prove BigInt" must not be read as "proven non-BigInt", or correct
+    /// all-BigInt code like `const x = 7n; x / 2n` over-rejects. Unproven
+    /// mixes fall back to the pre-existing (wrong, float) path, which is the
+    /// already-recorded follow-up alongside the unmixed non-literal BigInt
+    /// path; there is no const-binding-to-literal chase here
+    /// (`static_values` only tracks string values, not a general
+    /// AST-node-of-initializer lookup). Compound assignment (`x += 3n`) is
+    /// also ungated: its LHS is a binding, never literal-provable, so this
+    /// two-sided gate can never soundly fire there — same follow-up bucket.
+    fn reject_mixed_bigint_arithmetic(&mut self, expr: &BinaryExpression) {
+        if !matches!(expr.operator.as_str(), "+" | "-" | "*" | "/" | "%" | "**") {
+            return;
+        }
+        let left_bigint = Self::is_bigint_literal_expr(&expr.left);
+        let right_bigint = Self::is_bigint_literal_expr(&expr.right);
+        let left_number = Self::is_numeric_literal_expr(&expr.left);
+        let right_number = Self::is_numeric_literal_expr(&expr.right);
+        if (left_bigint && right_number) || (left_number && right_bigint) {
+            self.diagnostics.push(Diagnostic::error(
+                e3::MIXED_BIGINT_ARITHMETIC as u32,
+                format!(
+                    "cannot mix BigInt and non-BigInt operands in '{}' — convert one side explicitly",
+                    expr.operator
+                ),
+            ));
+        }
+    }
+
+    /// Literal-scope BigInt recognizer mirroring codegen's
+    /// `is_bigint_literal_valued` (`kali_codegen::emit::operators`) on the
+    /// AST: a `BigIntLiteral`, optionally wrapped in unary minus or
+    /// parentheses.
+    fn is_bigint_literal_expr(expr: &Expression) -> bool {
+        match expr {
+            Expression::BigIntLiteral(_) => true,
+            Expression::UnaryExpression(unary) if unary.operator == "-" => {
+                Self::is_bigint_literal_expr(&unary.argument)
+            }
+            Expression::ParenthesizedExpression(paren) => {
+                Self::is_bigint_literal_expr(&paren.expression)
+            }
+            _ => false,
+        }
+    }
+
+    /// Literal-scope PROVEN-non-BigInt recognizer, the second side of the
+    /// E3202 two-sided proof: a numeric literal, optionally wrapped in unary
+    /// minus or parentheses — the same shape discipline as
+    /// `is_bigint_literal_expr`. Anything else (identifier, call, nested
+    /// expression) is UNKNOWN, not "non-BigInt", and must not trigger the
+    /// mixed-arithmetic reject.
+    fn is_numeric_literal_expr(expr: &Expression) -> bool {
+        match expr {
+            Expression::Literal(LiteralValue::Number(_)) => true,
+            Expression::UnaryExpression(unary) if unary.operator == "-" => {
+                Self::is_numeric_literal_expr(&unary.argument)
+            }
+            Expression::ParenthesizedExpression(paren) => {
+                Self::is_numeric_literal_expr(&paren.expression)
+            }
+            _ => false,
         }
     }
 
@@ -1520,6 +1695,7 @@ impl TypeContext {
                 self.resolve_expression(&expr.right);
                 self.reject_unsupported_string_variable_addition(expr);
                 self.reject_logical_operand_runtime_string(expr);
+                self.reject_mixed_bigint_arithmetic(expr);
                 // `&&`/`||`/`??` parse to a BinaryExpression here (not a
                 // LogicalExpression). A for-in-key alias operand of these is a
                 // fail-closed reject (raw integer truthiness inverts the `-1`
@@ -1759,24 +1935,27 @@ impl TypeContext {
                         ),
                     ));
                 } else if matches!(expr.operator, AssignmentOperator::NullishAssign)
-                    && !Self::expression_is_null_literal(&expr.right)
+                    && !Self::expression_is_nullish(&expr.right)
                 {
-                    // fasta Spec 7 final review rounds 2-3: a for-in-key alias
-                    // `??=` is admitted ONLY when the RHS is a `null` literal.
-                    // A fired non-null RHS would store a raw number into an
-                    // ordinal-repr binding, so every downstream ordinal
-                    // consumer (`table[alias]`, truthiness) diverges from node
-                    // (which would hold the raw value, e.g. `table[alias]`
-                    // after `??= 1` → node `undefined`). A null-literal RHS is
-                    // the one fired store codegen can represent (the `-1`
-                    // sentinel); anything else — including bare `undefined`,
-                    // an IDENTIFIER codegen's null recognizer does not match
-                    // (see `expression_is_null_literal`) — rejects fail-closed
-                    // with the same E5506 family as the scalar reject above.
+                    // fasta Spec 7 final review rounds 2-3, revised (soundness
+                    // batch 1 item 4): a for-in-key alias `??=` is admitted
+                    // ONLY when the RHS is nullish (`null`, or the bare
+                    // identifier `undefined`). A fired non-nullish RHS would
+                    // store a raw number into an ordinal-repr binding, so
+                    // every downstream ordinal consumer (`table[alias]`,
+                    // truthiness) diverges from node (which would hold the
+                    // raw value, e.g. `table[alias]` after `??= 1` → node
+                    // `undefined`). A nullish RHS is the set whose fired store
+                    // codegen can represent (the `-1` sentinel) — this
+                    // predicate (`expression_is_nullish`) is the exact set
+                    // codegen's `is_null_or_undefined_expr` recognizes, so the
+                    // two recognizers cannot disagree; anything else rejects
+                    // fail-closed with the same E5506 family as the scalar
+                    // reject above.
                     self.diagnostics.push(Diagnostic::error(
                         e5::FEATURE_UNAVAILABLE as u32,
                         format!(
-                            "nullish assignment on binding '{}' is unavailable: a for-in-key alias `??=` supports only a `null` literal right-hand side (any other value has no ordinal representation)",
+                            "nullish assignment on binding '{}' is unavailable: a for-in-key alias `??=` supports only a nullish right-hand side (`null` or `undefined`; any other value has no ordinal representation)",
                             name
                         ),
                     ));

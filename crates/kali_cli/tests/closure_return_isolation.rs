@@ -77,12 +77,36 @@ fn run_executes_block_bodied_arrow_body_at_call_time_not_declaration() {
 fn run_object_enumeration_survives_const_arrow_preamble() {
     // Class-4/5 shape: the consumeArray declaration/calls must not truncate
     // the top-level enumeration logs. node ground truth: 2.
-    assert_run_stdout(
+    //
+    // Flipped pin (soundness batch 1): `consumeArray([1n, 2n], 1n)` — an
+    // array literal passed to a user function — is now rejected fail-closed
+    // (E5506): the callee used to read zero placeholders, a silent
+    // miscompile. The original return-escape regression (arrow declarations
+    // truncating the enclosing function) stays covered by the argument-free
+    // variant below, which must keep running to completion.
+    let output = run_source(
         "enum-preamble.js",
         r#"const obj = { "a": 1, "b": 2 };
 const keys = Object.keys(obj);
 const consumeArray = (items, value) => items[0] + items[1] + value;
 const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
+console.log(keys.length);
+"#,
+    );
+    assert!(!output.status.success(), "must be rejected: {output:?}");
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("E5506"),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Return-escape coverage without the rejected argument shape: the arrow
+    // preamble must not truncate the following top-level statements.
+    assert_run_stdout(
+        "enum-preamble-no-args.js",
+        r#"const obj = { "a": 1, "b": 2 };
+const keys = Object.keys(obj);
+const consumeArray = (items, value) => items[0] + items[1] + value;
 console.log(keys.length);
 "#,
         "2\n",

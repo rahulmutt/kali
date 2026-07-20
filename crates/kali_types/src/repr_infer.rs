@@ -27,8 +27,8 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use kali_ast::{
-    AssignmentOperator, BlockStatement, Expression, ForInLefthand, ForInit, ForOfLefthand,
-    LiteralValue, Statement,
+    AssignmentOperator, BlockStatement, Expression, ExpressionOrSpread, ForInLefthand, ForInit,
+    ForOfLefthand, LiteralValue, OptionalChainInner, Statement,
 };
 use kali_common::{Repr, ReprTable, UnionFind};
 
@@ -181,18 +181,99 @@ struct ReprInfer {
     /// `kali_codegen::emit::control_flow`'s identifier fallback and
     /// `kali_codegen::lower`'s `module_binding_names`).
     local_names: BTreeMap<String, BTreeSet<String>>,
+    /// Lexical parent of every `FunctionDeclaration`: `child_func -> enclosing
+    /// scope` (a top-level declaration maps to `TOP_LEVEL`). Populated by
+    /// `collect_local_names` (which already recurses each declaration under its
+    /// own name), so no extra walk is introduced. Used ONLY by `capture_owner`
+    /// to resolve a free object-base identifier in a nested function to the
+    /// nearest enclosing scope that declares it — the Stage C C2
+    /// captured-object-shape flow. The MIR/codegen side (`env_plan`'s
+    /// `parent_labels` + `CapturedRef.owner`) is the runtime twin; this is the
+    /// repr-inference twin, keyed on the SAME function names. Only
+    /// `FunctionDeclaration` nesting is recorded (fn-expr owners are left at
+    /// baseline: a fn-expr capture never propagates a shape, so it stays
+    /// unmaterialized — no miscompile, just unsupported).
+    parents: BTreeMap<String, String>,
     /// Deferred interprocedural call constraints.
     calls: Vec<CallEdge>,
     /// Ordered field names of each slot directly initialized by an object literal.
     obj_literal_fields: BTreeMap<ObjSlot, Vec<String>>,
+    /// EVERY slot that was ever directly initialized by an object literal,
+    /// including literals `record_object_literal` bails on (numeric key,
+    /// `__proto__`, getter/setter, nested object) without filling
+    /// `obj_literal_fields`. Never `mem::take`n — safe to consult in late
+    /// `emit_table` phases (Task 6 review fix: the growable push-identifier
+    /// guard must see object-literal bindings whose fields are never read,
+    /// or `o.push(obj)` stores a raw object pointer as an i64 element).
+    obj_literal_slots: BTreeSet<ObjSlot>,
     /// Bidirectional object-aliasing flows (assignment, array element,
     /// arg↔param, return↔call-site). Harmless for scalar slots: flows only
     /// take effect for slots proven to hold object literals.
     obj_flows: Vec<(ObjSlot, ObjSlot)>,
+    /// Slots that appear as an operand of `===`/`!==` (Stage P2 Lane 3, Task
+    /// 6). An identity comparison OBSERVES the operand's heap identity —
+    /// exactly the same "observable through an alias" rationale `obj_flows`
+    /// already materializes on — so a write-free, non-flowing object literal
+    /// that is otherwise eligible to stay on codegen's compile-time fold lane
+    /// (see `obj_materialized`'s doc comment) must still be promoted to a
+    /// real heap object when it is compared for identity: `resolve_objects`
+    /// materializes any slot recorded here that also has a known field list,
+    /// letting `kali_codegen`'s `object_shape_of_node` see it and its
+    /// same-shape allow lane (or, failing that, the object-misuse gate)
+    /// decide the comparison — never the raw-pointer scalar `===` fallback.
+    /// UNLIKE `obj_flows`, this does NOT require the OTHER operand to also
+    /// have known fields: a comparison against a genuinely unknown-repr
+    /// operand must still materialize the known side alone, so the
+    /// misuse gate's existing `object_shape_of_node(left).is_some() ||
+    /// object_shape_of_node(right).is_some()` check fires (closing the p2a
+    /// fail-open) instead of silently falling through to a scalar compare.
+    obj_identity_compared: Vec<ObjSlot>,
     /// Deferred member accesses (wired in `resolve_objects`).
     obj_accesses: Vec<ObjAccess>,
     /// Per-(slot, field) storage node, unioned across aliased slots.
     obj_field_node: BTreeMap<(ObjSlot, String), usize>,
+    /// Object-literal FIELDS initialized with an array (Stage P2 Lane 1 Task
+    /// 3): `(slot, field) -> (element_node, growable_i64_shape)`. Presence
+    /// marks the field as array-shaped — it must NOT resolve on the scalar
+    /// (I64/F64) field lane. `growable_i64_shape` is
+    /// [`crate::growable::array_literal_of_scalar_seeds`] over the field
+    /// initializer (the SAME provenance the bare-binding growable lane uses);
+    /// `element_node` carries the element repr axis (array-literal elements
+    /// are wired into it exactly like `note_array_init`). At `emit_table`
+    /// time a field promotes to `Repr::GrowableArrayI64` iff its shape proves
+    /// growable-i64 AND its element node solves i64 (never string/float);
+    /// every other array-shaped field fails closed with a shape conflict.
+    obj_array_fields: BTreeMap<(ObjSlot, String), (usize, bool)>,
+    /// Object-literal FIELDS whose initializer is an OBJECT-REFERENCE-carrying
+    /// EXPRESSION (identifier / `arr[i]` / call), recorded as `(owner slot,
+    /// field name, source object-carrying slot)`. Nested-object LITERAL fields
+    /// are rejected structurally at `record_object_literal` (they can never
+    /// carry a shape); an IDENTIFIER-valued field (`{ inner: inner }`) could
+    /// not be decided there because the source's object-shaped-ness is only
+    /// known after `resolve_objects` builds the flow graph. At resolve time a
+    /// candidate whose SOURCE resolves to an object shape (is in `fields_of`) on
+    /// a MATERIALIZED owner becomes a fail-closed `obj_conflict`: the field
+    /// would otherwise intern as a plain `I64` pointer slot and any consumer
+    /// that verbatim-copies it (`structuredClone`) would SHALLOW-SHARE the
+    /// nested object — a silent miscompile. Scalar-identifier fields (`{ a: n }`
+    /// where `n` solves scalar) leave their source OUT of `fields_of`, so they
+    /// never trip this and keep working (no over-closure).
+    obj_pointer_field_candidates: Vec<(ObjSlot, String, ObjSlot)>,
+    /// Stage P2 Lane 2b — clone-safety ALLOWLIST (default-deny). Object-literal
+    /// slots with at least one field whose source is NOT provably scalar-or-
+    /// growable at construction: an UNKNOWN expression form (ternary, logical,
+    /// non-computed member, `new`, …) sets this SYNTACTICALLY at record time;
+    /// an identifier/call/`arr[i]` source that RESOLVES object-shaped is added
+    /// in `resolve_objects`. A slot recorded here can never intern a clone-safe
+    /// shape — `structuredClone` of that shape would verbatim-copy an
+    /// object-pointer field and shallow-share it.
+    clone_unsafe_slots: BTreeSet<ObjSlot>,
+    /// Deferred object-pointer checks for the clone-safety allowlist: `(owner
+    /// slot, source slot)` for a field whose source is an identifier / call /
+    /// `arr[i]` (a MAYBE-object form). At resolve time, if `source` proves
+    /// object-shaped (is in `fields_of`), `owner` becomes `clone_unsafe`. A
+    /// scalar source (absent from `fields_of`) leaves the owner clone-safe.
+    clone_deferred_object_sources: Vec<(ObjSlot, ObjSlot)>,
     /// Slots that must lower as runtime heap objects (any write, any flow).
     obj_materialized: BTreeSet<ObjSlot>,
     /// Object slots with their propagated field lists (set by `resolve_objects`).
@@ -274,6 +355,77 @@ struct ReprInfer {
     /// resolve-phase compound/update gate can reject fail-closed regardless of
     /// whether the object ever gets a shape (fasta Spec 7 Task 2).
     object_initialized_bindings: BTreeSet<(String, String)>,
+    /// Syntactic growable-array candidates `(func, binding)` from the Stage 4
+    /// choke-point predicate ([`crate::growable::growable_array_candidates`]),
+    /// computed in Phase A3 before any body walk. The `.push` visit arm
+    /// records pushed-value nodes ONLY for these; a non-candidate receiver
+    /// keeps today's repr graph byte-identically (zero behavior change for
+    /// any binding that does not promote).
+    growable_candidates: BTreeSet<(String, String)>,
+    /// Pushed-value evidence for growable candidates: `(func, binding,
+    /// value_node, value_identifier)` per recognized single-argument `.push`
+    /// site, adjudicated at `emit_table` time — promotion requires EVERY
+    /// pushed value to solve plain i64 (never float/string, and an identifier
+    /// argument must not name a function/array/object/for-in-key binding,
+    /// whose raw handle/ordinal would be stored as a number: a miscompile).
+    growable_pushes: Vec<(String, String, usize, Option<String>)>,
+    /// Task 6 fail-closed rejects `(func, binding) -> kind`: growable-SHAPE
+    /// bindings that are `.push` receivers but cannot promote — either some
+    /// occurrence is outside the safe-position allowlist (escape/alias/
+    /// computed-or-optional push/closure-capture/non-push-mutator) or a
+    /// `.push` call itself is malformed (wrong arity/unsupported argument).
+    /// Each becomes an E5506 `shape_conflict` at `emit_table` time, with the
+    /// kind picking the accurate message — the pre-existing push-no-op lane
+    /// is a silent miscompile and must fail closed.
+    growable_rejects: BTreeMap<(String, String), crate::growable::GrowableRejectKind>,
+    /// F-AB-2 lockstep tracking (see
+    /// `docs/superpowers/followups/stageAB-followups.md` §F-AB-2). Every
+    /// synthetic `__kali_fn_N` id the shared Phase-A descent registers (walks
+    /// 1-3, via `register_nested_fn`) and every id Phase B's OWN fn-expr/arrow
+    /// arms seed (walk 4, in `visit_expr`). The safe-direction invariant
+    /// `seeded ⊆ registered` (walk 4 never outruns the shared Phase-A descent)
+    /// is a hard `debug_assert` in `assert_nested_fn_lockstep`. The reverse gap
+    /// `registered − seeded` is exactly the known-exotic UNSEEDED positions
+    /// (object-literal-as-direct-call-arg, spread arg, tagged-template / yield /
+    /// optional-chain operand, bare/nested array literal); its exact membership
+    /// is pinned by the `nested_fn_lockstep_*` unit tests rather than a hard
+    /// equal-assert (which would fire on day one for any program using those
+    /// shapes).
+    nested_fns_registered: BTreeSet<String>,
+    nested_fns_seeded: BTreeSet<String>,
+    /// P3 Task 2: `(func, binding)` pairs syntactically admitted for
+    /// `Repr::AbortHandle` seeding — a `const` declarator whose init is
+    /// `new AbortController()` with zero args, or a `const` declarator whose
+    /// init is a non-computed `<ident>.signal` read where `(func, <ident>)`
+    /// is already in `abort_controller_origin` (same-function forward alias
+    /// only; declarators are visited in source order within a function, so
+    /// no fixpoint is needed). Applied in `emit_table`, gated by
+    /// `abort_controller_shadowed` and by "no other axis already claimed the
+    /// binding" (`table.scalar(...) == Repr::I64`) — mixed provenance stays
+    /// fail-closed. NOTE: this set holds BOTH controller bindings and their
+    /// `.signal` aliases (both get seeded `Repr::AbortHandle`) — it is NOT
+    /// the "is this a controller" predicate; use `abort_controller_origin`
+    /// for that (fix-round MINOR finding: signal-of-signal over-admission).
+    abort_bindings: BTreeSet<(String, String)>,
+    /// P3 Task 2 fix-round (MINOR): the STRICT SUBSET of `abort_bindings`
+    /// that is controller-origin (`new AbortController()`), not itself a
+    /// `.signal` alias. Only a controller-origin base admits a `.signal`
+    /// read into `abort_bindings` — a signal-origin base does NOT (a
+    /// `.signal` is never re-admitted into `abort_controller_origin`), so
+    /// `const s2 = s.signal` where `s` is itself `c.signal` stays I64
+    /// fail-closed rather than chaining.
+    abort_controller_origin: BTreeSet<(String, String)>,
+    /// P3 Task 2 program-wide shadow guard: `true` when ANY declared name
+    /// anywhere in the program (a function declaration, a class declaration,
+    /// or a var/let/const declarator name — including inside nested
+    /// fn-expr/arrow bodies and `switch` case bodies, since shadow detection
+    /// is inlined into the same `visit_stmt` traversal the seeding walk
+    /// uses — see `note_abort_shadow_name`) is `"AbortController"` or
+    /// `"AbortSignal"`. Conservative and program-wide on purpose — this pass
+    /// has no per-namespace notion, so any shadow anywhere disables
+    /// `abort_bindings` seeding everywhere; codegen (Task 3) re-checks
+    /// per-namespace, which is a strictly finer-grained gate than this one.
+    abort_controller_shadowed: bool,
 }
 
 /// Identity of an object-holding slot for shape/aliasing purposes.
@@ -315,11 +467,32 @@ pub fn infer_reprs(statements: &[Statement]) -> ReprTable {
     // regardless of source order.
     infer.collect_local_names(TOP_LEVEL, statements);
 
+    // Phase A3 (throw-fallout Stage 4): syntactic growable-array candidates
+    // per function — the choke-point safe-position allowlist. Purely
+    // syntactic here; the repr half of the gate runs in `emit_table` once
+    // the axes are solved. Module scope (`_start`) is deliberately not
+    // analyzed: a module-level push receiver keeps the plain lane.
+    infer.collect_growable_candidates(statements);
+
+    // P3 Task 2: `abort_controller_shadowed` and `abort_bindings` are both
+    // populated DURING Phase B below (inline in `visit_stmt`/
+    // `visit_declarator_init` — see the note on `note_abort_shadow_name`),
+    // not by a separate pre-pass. Only `emit_table`, which runs strictly
+    // after Phase B completes, ever CONSULTS the shadow flag, so within-
+    // Phase-B ordering between the two is irrelevant.
+
     // Phase B: walk bodies. Top-level non-function statements run under the
     // synthetic `_start`; each `FunctionDeclaration` runs under its own name.
     for stmt in statements {
         infer.visit_stmt(TOP_LEVEL, stmt);
     }
+
+    // F-AB-2 lockstep tripwire: Phase A (walks 1-3) and Phase B (walk 4) share
+    // the same `__kali_fn_N` frontier. Assert it here, after both registration
+    // and seeding are complete, so a future divergence trips this rather than
+    // becoming a silent i64. See
+    // `docs/superpowers/followups/stageAB-followups.md` §F-AB-2.
+    infer.assert_nested_fn_lockstep();
 
     // Phase C: resolve deferred call edges (transitive array-param fixpoint +
     // directed scalar/return edges + bidirectional array-element unions).
@@ -331,6 +504,58 @@ pub fn infer_reprs(statements: &[Statement]) -> ReprTable {
 
     // Phase D: solve → table.
     infer.emit_table()
+}
+
+/// F-AB-2 lockstep test hook: run Phase A (walks 1-3 registration) and Phase B
+/// (walk 4 seeding), then return the two `__kali_fn_N` sets — `(registered,
+/// seeded)` — so unit tests can pin the exact membership of the reverse gap
+/// `registered − seeded` (the known-exotic UNSEEDED positions). Mirrors
+/// `infer_reprs` through the point where both sets are final; the later solve
+/// phases do not touch either set. See
+/// `docs/superpowers/followups/stageAB-followups.md` §F-AB-2.
+#[cfg(test)]
+pub(crate) fn nested_fn_lockstep_sets(
+    statements: &[Statement],
+) -> (BTreeSet<String>, BTreeSet<String>) {
+    let mut infer = ReprInfer::default();
+    infer.collect_functions(statements);
+    infer.collect_local_names(TOP_LEVEL, statements);
+    infer.collect_growable_candidates(statements);
+    for stmt in statements {
+        infer.visit_stmt(TOP_LEVEL, stmt);
+    }
+    infer.assert_nested_fn_lockstep();
+    (infer.nested_fns_registered, infer.nested_fns_seeded)
+}
+
+/// Selects which Phase-A walk a shared nested-fn-body descent is running for.
+///
+/// `name_anon_functions` assigns every function-expression / arrow a synthetic
+/// `__kali_fn_{N}` id IN PLACE (it does not hoist), so those bodies live in
+/// EXPRESSION positions — primarily a `VariableDeclaration` declarator `init`
+/// (`const f = () => {…}`), but structurally anywhere an expression can appear.
+/// The three statement-only Phase-A walkers (`collect_functions_in_stmt`,
+/// `collect_local_names_in_stmt`, `collect_growable_candidates_in_stmt`) share
+/// ONE expression-descent (`descend_stmt_fns` → `descend_expr_fns`) so they
+/// cannot drift; the per-walk registration differs and is dispatched by this
+/// tag in `register_nested_fn`. Phase B's `visit_stmt`/`visit_expr` carries its
+/// OWN fn-expr/arrow arm in `visit_expr` — the fourth walk that must stay in
+/// LOCKSTEP with these three. Unlike walks 1-3 it rides its OWN recursion (not
+/// the shared `descend_expr_fns`): it seeds every fn-expr/arrow it REACHES, but
+/// its `_ => new_node()` arm does not recurse into bare `ArrayExpression`/
+/// `ObjectExpression`/spread operands, so a few exotic positions are covered by
+/// walks 1-3 yet not walk 4 — see the bound at that `_` arm and F-AB-2.
+#[derive(Clone, Copy)]
+enum NestedFnWalk {
+    /// `collect_functions_in_stmt`: register `(__kali_fn_N, params)` and a
+    /// scalar node per param.
+    Functions,
+    /// `collect_local_names_in_stmt`: register the nested body's own locals
+    /// (params + declarators) under `__kali_fn_N`.
+    LocalNames,
+    /// `collect_growable_candidates_in_stmt`: run the Stage-4 growable
+    /// choke-point predicate over the nested body, keyed on `__kali_fn_N`.
+    Growable,
 }
 
 impl ReprInfer {
@@ -346,6 +571,35 @@ impl ReprInfer {
     /// Record a directed flow edge `from -> to` carried by BOTH axes.
     fn add_edge(&mut self, from: usize, to: usize) {
         self.edges.push((from, to, true));
+    }
+
+    /// F-AB-2 lockstep tripwire (see
+    /// `docs/superpowers/followups/stageAB-followups.md` §F-AB-2 and
+    /// `nested_fns_registered`). Enforce the SAFE-direction invariant
+    /// `seeded ⊆ registered`: every `__kali_fn_N` id Phase B's own walk-4
+    /// fn-expr/arrow arms seed must also have been registered by the shared
+    /// Phase-A descent (walks 1-3). This holds by construction today —
+    /// `descend_expr_fns` reaches a strict SUPERSET of the positions
+    /// `visit_expr` seeds — and would fire if a future edit taught Phase B to
+    /// seed a fn-expr position the shared Phase-A descent does not cover
+    /// (whose params/locals/growable-candidates would then be unregistered:
+    /// mis-scoped seeds). The REVERSE gap `registered − seeded` is the known
+    /// set of exotic UNSEEDED positions; because it is legitimately non-empty
+    /// for any program using those shapes, it is pinned by the
+    /// `nested_fn_lockstep_*` unit tests instead of a hard equal-assert.
+    fn assert_nested_fn_lockstep(&self) {
+        debug_assert!(
+            self.nested_fns_seeded
+                .is_subset(&self.nested_fns_registered),
+            "F-AB-2 lockstep violation: Phase-B (walk 4) seeded __kali_fn ids \
+             the shared Phase-A descent (walks 1-3) never registered: {:?}. A \
+             new walk-4 fn-expr/arrow seeding position must also be reached by \
+             `descend_expr_fns`. See \
+             docs/superpowers/followups/stageAB-followups.md §F-AB-2.",
+            self.nested_fns_seeded
+                .difference(&self.nested_fns_registered)
+                .collect::<Vec<_>>()
+        );
     }
 
     /// Record a directed flow edge carried by the FLOAT axis ONLY (excluded
@@ -461,29 +715,63 @@ impl ReprInfer {
 
     /// Record an object literal initializing `slot`: remember its ordered
     /// field names, visit each value, and wire `value -> field storage`
-    /// float edges. Unsupported property forms (non-identifier key,
-    /// getter/setter, nested object) record a *deferred* structural conflict
-    /// keyed by `slot` and return WITHOUT a field list — the slot then never
-    /// materializes on its own, so a read-only fold-lane literal keeps today's
-    /// behavior. The deferred message is promoted to a real gate conflict only
-    /// if the slot is later forced onto the object lane (`resolve_objects`).
+    /// float edges. Unsupported property forms (numeric key, getter/setter,
+    /// nested object) record a *deferred* structural conflict keyed by `slot`
+    /// and return WITHOUT a field list — the slot then never materializes on
+    /// its own, so a read-only fold-lane literal keeps today's behavior. The
+    /// deferred message is promoted to a real gate conflict only if the slot
+    /// is later forced onto the object lane (`resolve_objects`).
     fn record_object_literal(
         &mut self,
         func: &str,
         slot: ObjSlot,
         obj: &kali_ast::ObjectExpression,
     ) {
+        // Before ANY early return: remember that this slot held an object
+        // literal (see the `obj_literal_slots` field doc — the growable
+        // push-identifier guard consults this, and it must cover literal
+        // forms the shape recorder bails on).
+        self.obj_literal_slots.insert(slot.clone());
         let mut names = Vec::new();
         for prop in &obj.properties {
-            let kali_ast::PropertyName::Identifier(key) = &prop.key else {
+            let key = match &prop.key {
+                kali_ast::PropertyName::Identifier(key) | kali_ast::PropertyName::String(key) => {
+                    key.clone()
+                }
+                kali_ast::PropertyName::Number(_) => {
+                    // Honest fail-closed residue: unquoted numeric keys
+                    // (`{ 1: x }`) stay off the shape lane until a fixture
+                    // needs them (f64 canonicalization is its own problem).
+                    // Quoted numeric-LIKE strings ("1") are ordinary string
+                    // keys and are admitted above (throw-fallout Stage 2).
+                    self.obj_pending_conflicts.insert(
+                        slot.clone(),
+                        format!(
+                            "object literal for {slot:?} uses a numeric property name, which is unavailable in the current phase"
+                        ),
+                    );
+                    return;
+                }
+            };
+            // Honest fail-closed residue (throw-fallout Stage 2 Lane A
+            // review): `__proto__` (identifier OR quoted-string form,
+            // non-computed) is JS's PROTOTYPE SETTER, not an own-property
+            // key — `{ "__proto__": 1, "a": 2 }` creates no own `__proto__`
+            // property at all (node's `for..in` prints only `a`). kali has
+            // no prototype chain to model that semantic, so admitting
+            // `__proto__` into the shape would silently enumerate a phantom
+            // own key — a miscompile. Route it to the same deferred-conflict
+            // arm as an unsupported numeric key instead of ever admitting it.
+            if key == "__proto__" {
                 self.obj_pending_conflicts.insert(
                     slot.clone(),
                     format!(
-                        "object literal for {slot:?} uses a non-identifier property name, which is unavailable in the current phase"
+                        "object literal for {slot:?} uses a '__proto__' key, which sets the prototype in JS (not an own property) and is unavailable in the current phase"
                     ),
                 );
                 return;
-            };
+            }
+            let key = &key;
             if !matches!(prop.kind, kali_ast::ObjectPropertyKind::Init) {
                 self.obj_pending_conflicts.insert(
                     slot.clone(),
@@ -500,11 +788,65 @@ impl ReprInfer {
                 );
                 return;
             }
+            // Array-shaped field (Stage P2 Lane 1 Task 3): an array literal /
+            // `new Array(...)` initializer is NOT a scalar field — it must
+            // never flow into the scalar field node (which would silently
+            // resolve I64/F64: the pre-existing miscompile this lane closes).
+            // Record it on the dedicated array-field lane and force the slot
+            // to materialize (a real array field cannot fold-lane), then let
+            // the emit-time resolver decide GrowableArrayI64 vs. conflict.
+            if self.init_is_array(&prop.value) {
+                self.record_object_array_field(func, &slot, key, &prop.value);
+                self.obj_materialized.insert(slot.clone());
+                names.push(key.clone());
+                continue;
+            }
+            // Object-POINTER field via an IDENTIFIER (`{ inner: inner }`),
+            // MATERIALIZATION-time gate (step 4b): kept IDENTIFIER-only. An
+            // identifier-object field is already fail-closed at read
+            // pre-existing, so rejecting it at construction loses no working
+            // program AND closes the class for non-clone consumers (Lane 3
+            // `===`). Call-return object fields (`{ left: bottomUpTree(d) }` —
+            // binary-trees) are shape-tracked and readable, so they must NOT be
+            // rejected here at materialization.
+            if let Expression::Identifier(name) = strip_parenthesized(&prop.value) {
+                self.obj_pointer_field_candidates.push((
+                    slot.clone(),
+                    key.clone(),
+                    ObjSlot::Binding(func.to_string(), name.clone()),
+                ));
+            }
+            // Clone-safety ALLOWLIST (default-deny) — the clone-side gate that
+            // closes the WHOLE class (identifier + call + `arr[i]` + any future
+            // form) without breaking binary-trees (which never clones). Classify
+            // this field's source:
+            //   * PROVEN-scalar syntactic form (literal / arithmetic-or-bitwise-
+            //     or-comparison binary / unary / update / template) → safe, no
+            //     record.
+            //   * MAYBE-object reference (identifier / call / `arr[i]`, via
+            //     `arg_obj_slot`) → defer: safe iff its source resolves NON-object.
+            //   * anything else (ternary, logical `||`/`&&`/`??`, non-computed
+            //     member, `new`, unknown) → clone-unsafe BY CONSTRUCTION.
+            if !expr_is_proven_scalar_source(strip_parenthesized(&prop.value)) {
+                if let Some(source) = self.arg_obj_slot(func, &prop.value) {
+                    self.clone_deferred_object_sources
+                        .push((slot.clone(), source));
+                } else {
+                    self.clone_unsafe_slots.insert(slot.clone());
+                }
+            }
             let value_node = self.visit_expr(func, &prop.value);
             let field_node = self.obj_field_node_for(&slot, key);
             self.add_edge(value_node, field_node);
             names.push(key.clone());
         }
+        // ES enumeration order (throw-fallout Stage 2, Lane B): one shared
+        // ordering across shape fields, key tables, and the enumeration
+        // fold. A no-op for identifier-only shapes (identifiers can't be
+        // array-index-like), so pre-existing shapes are byte-identical.
+        let mut keyed: Vec<(String, ())> = names.into_iter().map(|n| (n, ())).collect();
+        kali_common::sort_properties_es_order(&mut keyed);
+        let names: Vec<String> = keyed.into_iter().map(|(n, ())| n).collect();
         match self.obj_literal_fields.entry(slot.clone()) {
             std::collections::btree_map::Entry::Occupied(existing) => {
                 if *existing.get() != names {
@@ -516,6 +858,45 @@ impl ReprInfer {
                 entry.insert(names);
             }
         }
+    }
+
+    /// Record an object-literal FIELD whose initializer is an array (Stage P2
+    /// Lane 1 Task 3). Mirrors `note_array_init`'s per-element wiring but into
+    /// a dedicated per-(slot, field) element node: array-literal elements flow
+    /// (store direction) into the element node so its solved repr axis
+    /// (string/float/i64) is exact, and `element_store_sources` feeds the
+    /// shared mixed-store detection in `emit_table`. Growability is the SAME
+    /// syntactic provenance the bare-binding lane uses
+    /// (`array_literal_of_scalar_seeds`). `new Array(...)` has no elements to
+    /// wire and never has the growable-i64 shape, so it fails closed at emit
+    /// time — sound.
+    fn record_object_array_field(
+        &mut self,
+        func: &str,
+        slot: &ObjSlot,
+        field: &str,
+        init: &Expression,
+    ) {
+        let key = (slot.clone(), field.to_string());
+        let elem = match self.obj_array_fields.get(&key) {
+            Some(&(elem, _)) => elem,
+            None => self.new_node(),
+        };
+        if let Expression::ArrayExpression(arr) = init {
+            for element in arr.elements.iter().flatten() {
+                if let kali_ast::ExpressionOrSpread::Expression(expr) = element {
+                    let en = self.visit_expr(func, expr);
+                    self.add_edge(en, elem);
+                    self.element_store_sources.push((elem, en));
+                }
+            }
+        }
+        // AND-merge if the same slot/field is recorded twice (conflicting
+        // literals feeding one slot): prefer fail-closed so a mixed set never
+        // up-classifies to growable.
+        let growable_shape = crate::growable::array_literal_of_scalar_seeds(init)
+            && self.obj_array_fields.get(&key).is_none_or(|&(_, g)| g);
+        self.obj_array_fields.insert(key, (elem, growable_shape));
     }
 
     /// Record an aliasing flow `dst ~ <expr>` when the expression can carry an
@@ -533,7 +914,31 @@ impl ReprInfer {
             }
             Expression::CallExpression(call) => {
                 if let Expression::Identifier(callee) = &call.callee {
-                    self.obj_flows.push((dst, ObjSlot::Return(callee.clone())));
+                    // Stage P2 Lane 2b (Task 8): `structuredClone(arg)` produces
+                    // a DEEP COPY whose object shape is IDENTICAL to `arg`'s. Model
+                    // the result's shape as an aliasing flow FROM the argument's
+                    // slot (not the callee's return): the fixpoint copies `arg`'s
+                    // field list onto `dst`, and — because an `obj_flows` edge
+                    // between two known-shape slots materializes BOTH endpoints
+                    // (`resolve_objects` step 2) — the clone result AND the source
+                    // it is copied from both become real heap objects. That is
+                    // required on both sides: the clone synthetic reads the source
+                    // BY ADDRESS, and the result must carry `Repr::Object(shape)`
+                    // so `cloned.field` and the Lane 3 `cloned === original`
+                    // same-shape check resolve. A SHADOWED `structuredClone` (a
+                    // user binding/param/function of that name) is not the builtin
+                    // — mirror the codegen recognizer's shadow checks and fall
+                    // through to the ordinary return-flow edge.
+                    let is_builtin_structured_clone = callee == "structuredClone"
+                        && call.args.len() == 1
+                        && !self.is_locally_declared(func, "structuredClone")
+                        && !self.is_locally_declared(TOP_LEVEL, "structuredClone")
+                        && !self.functions.contains_key("structuredClone");
+                    if is_builtin_structured_clone {
+                        self.record_object_flow_from_expr(func, dst, &call.args[0]);
+                    } else {
+                        self.obj_flows.push((dst, ObjSlot::Return(callee.clone())));
+                    }
                 }
             }
             Expression::ParenthesizedExpression(inner) => {
@@ -602,6 +1007,9 @@ impl ReprInfer {
     }
 
     fn collect_functions_in_stmt(&mut self, stmt: &Statement) {
+        // LOCKSTEP walk 1/4: descend into any fn-expr/arrow in this statement's
+        // expressions (see the shared-descent note above `register_nested_fn`).
+        self.descend_stmt_fns(NestedFnWalk::Functions, stmt);
         match stmt {
             Statement::FunctionDeclaration(func) => {
                 self.functions
@@ -638,6 +1046,346 @@ impl ReprInfer {
         }
     }
 
+    // ---- Phase A3: growable-array candidate collection -------------------
+
+    /// Walk every `FunctionDeclaration` (recursively, mirroring
+    /// `collect_functions_in_stmt`'s traversal) and run the Stage 4
+    /// choke-point predicate over its body. Function names are flat (as
+    /// everywhere in this pass), so monomorphized `f${N}` clones are
+    /// analyzed independently.
+    fn collect_growable_candidates(&mut self, statements: &[Statement]) {
+        for stmt in statements {
+            self.collect_growable_candidates_in_stmt(stmt);
+        }
+    }
+
+    fn collect_growable_candidates_in_stmt(&mut self, stmt: &Statement) {
+        // LOCKSTEP walk 3/4: descend into any fn-expr/arrow in this statement's
+        // expressions (see the shared-descent note above `register_nested_fn`).
+        self.descend_stmt_fns(NestedFnWalk::Growable, stmt);
+        match stmt {
+            Statement::FunctionDeclaration(func) => {
+                let (candidates, _pushes, rejects) =
+                    crate::growable::growable_array_candidates(&func.params, &func.body.body);
+                for name in candidates {
+                    self.growable_candidates.insert((func.name.clone(), name));
+                }
+                for (name, kind) in rejects {
+                    self.growable_rejects
+                        .insert((func.name.clone(), name), kind);
+                }
+                self.collect_growable_candidates(&func.body.body);
+            }
+            Statement::BlockStatement(block) => self.collect_growable_candidates(&block.body),
+            Statement::IfStatement(node) => {
+                self.collect_growable_candidates(&node.consequent.body);
+                if let Some(alt) = &node.alternate {
+                    self.collect_growable_candidates(&alt.body);
+                }
+            }
+            Statement::ForStatement(node) => self.collect_growable_candidates(&node.body.body),
+            Statement::ForInStatement(node) => self.collect_growable_candidates_in_stmt(&node.body),
+            Statement::ForOfStatement(node) => self.collect_growable_candidates_in_stmt(&node.body),
+            Statement::WhileStatement(node) => self.collect_growable_candidates(&node.body.body),
+            Statement::DoWhileStatement(node) => self.collect_growable_candidates(&node.body.body),
+            Statement::LabeledStatement(node) => {
+                self.collect_growable_candidates_in_stmt(&node.body)
+            }
+            Statement::TryStatement(node) => {
+                self.collect_growable_candidates(&node.block.body);
+                if let Some(handler) = &node.handler {
+                    self.collect_growable_candidates(&handler.body.body);
+                }
+                if let Some(finalizer) = &node.finalizer {
+                    self.collect_growable_candidates(&finalizer.body);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    // ---- Shared nested-fn-body descent (walks 1–3) ----------------------
+    //
+    // `name_anon_functions` names every fn-expr/arrow `__kali_fn_{N}` IN PLACE
+    // (no hoist), so those bodies sit in EXPRESSION positions the three
+    // statement-only Phase-A walkers above never reach. The three walkers each
+    // call `descend_stmt_fns` (which forwards a statement's DIRECT expressions
+    // to the shared, exhaustive `descend_expr_fns`); `register_nested_fn` then
+    // does the per-walk registration keyed on `__kali_fn_N`, EXACTLY as each
+    // walk's `FunctionDeclaration` arm registers under `decl.name`. Keeping the
+    // find-the-fn logic in ONE place is deliberate: the bug this closes was
+    // FOUR hand-mirrored walks silently disagreeing. Phase B's
+    // `visit_stmt`/`visit_expr` is the fourth walk and must stay in lockstep —
+    // it carries its own fn-expr/arrow arm in `visit_expr` (see there).
+
+    /// Do the per-walk registration for one nested fn-expr/arrow body found at
+    /// `id` (`__kali_fn_N`) with `params`, then recurse into its body with the
+    /// SAME walk so deeper nested fns are found. `body` is `Some` for a
+    /// block-bodied fn-expr/block-arrow (the failing `const f = () => {…}`
+    /// shape parses as a `FunctionExpression` with a `BlockStatement`); it is
+    /// `None` for an expression-bodied arrow (`x => x + 1`), which has no
+    /// statements — only params to register (its body expression is descended
+    /// for further nested fns by the caller).
+    fn register_nested_fn(
+        &mut self,
+        walk: NestedFnWalk,
+        id: &str,
+        params: &[String],
+        body: Option<&BlockStatement>,
+    ) {
+        // F-AB-2 lockstep: this shared Phase-A descent (walks 1-3) is the
+        // authoritative `__kali_fn_N` frontier. Record the id ONCE (a set;
+        // called thrice, one per walk). See `nested_fns_registered`.
+        self.nested_fns_registered.insert(id.to_string());
+        match walk {
+            // Mirrors `collect_functions_in_stmt`'s `FunctionDeclaration` arm.
+            NestedFnWalk::Functions => {
+                self.functions.insert(id.to_string(), params.to_vec());
+                for param in params {
+                    self.scalar_node_for(id, param);
+                }
+                if let Some(body) = body {
+                    self.collect_functions(&body.body);
+                }
+            }
+            // Mirrors `collect_local_names_in_stmt`'s `FunctionDeclaration` arm.
+            NestedFnWalk::LocalNames => {
+                let entry = self.local_names.entry(id.to_string()).or_default();
+                for param in params {
+                    entry.insert(param.clone());
+                }
+                if let Some(body) = body {
+                    self.collect_local_names(id, &body.body);
+                }
+            }
+            // Mirrors `collect_growable_candidates_in_stmt`'s
+            // `FunctionDeclaration` arm. An expression-bodied arrow has no
+            // statements, so it cannot host a growable push receiver.
+            NestedFnWalk::Growable => {
+                if let Some(body) = body {
+                    let (candidates, _pushes, rejects) =
+                        crate::growable::growable_array_candidates(params, &body.body);
+                    for name in candidates {
+                        self.growable_candidates.insert((id.to_string(), name));
+                    }
+                    for (name, kind) in rejects {
+                        self.growable_rejects.insert((id.to_string(), name), kind);
+                    }
+                    self.collect_growable_candidates(&body.body);
+                }
+            }
+        }
+    }
+
+    /// Forward every DIRECT expression of `stmt` (not its child statements —
+    /// the walker's own statement recursion covers those) to
+    /// `descend_expr_fns`. Coverage is deliberately the SAME statement reach as
+    /// the three walkers' existing `FunctionDeclaration` traversal: `switch`
+    /// case bodies and `with` bodies are not descended by those walkers today
+    /// (a pre-existing boundary shared with fn-DECLARATIONS — see the walkers'
+    /// `_ => {}` arms), so a fn-expr buried in a `switch`-case statement stays
+    /// out of scope here too, consistent with existing behavior.
+    fn descend_stmt_fns(&mut self, walk: NestedFnWalk, stmt: &Statement) {
+        match stmt {
+            Statement::ExpressionStatement(s) => self.descend_expr_fns(walk, &s.expression),
+            Statement::ReturnStatement(s) => {
+                if let Some(arg) = &s.argument {
+                    self.descend_expr_fns(walk, arg);
+                }
+            }
+            Statement::ThrowStatement(s) => self.descend_expr_fns(walk, &s.argument),
+            Statement::IfStatement(s) => self.descend_expr_fns(walk, &s.test),
+            Statement::WhileStatement(s) => self.descend_expr_fns(walk, &s.test),
+            Statement::DoWhileStatement(s) => self.descend_expr_fns(walk, &s.test),
+            Statement::SwitchStatement(s) => {
+                self.descend_expr_fns(walk, &s.discriminant);
+                for case in &s.cases {
+                    if let Some(test) = &case.test {
+                        self.descend_expr_fns(walk, test);
+                    }
+                    // case.consequent statements are NOT recursed — see the
+                    // switch boundary note on this fn.
+                }
+            }
+            Statement::ForStatement(s) => {
+                if let Some(init) = &s.init {
+                    match init {
+                        ForInit::VariableDeclaration(decl) => {
+                            for d in &decl.declarations {
+                                if let Some(i) = &d.init {
+                                    self.descend_expr_fns(walk, i);
+                                }
+                            }
+                        }
+                        ForInit::Expression(e) => self.descend_expr_fns(walk, e),
+                    }
+                }
+                if let Some(test) = &s.test {
+                    self.descend_expr_fns(walk, test);
+                }
+                if let Some(update) = &s.update {
+                    self.descend_expr_fns(walk, update);
+                }
+            }
+            Statement::ForInStatement(s) => self.descend_expr_fns(walk, &s.right),
+            Statement::ForOfStatement(s) => self.descend_expr_fns(walk, &s.right),
+            Statement::VariableDeclaration(decl) => {
+                for d in &decl.declarations {
+                    if let Some(init) = &d.init {
+                        self.descend_expr_fns(walk, init);
+                    }
+                }
+            }
+            Statement::ExportDefault(kali_ast::ExportDefaultDeclaration::Expression(e)) => {
+                self.descend_expr_fns(walk, e)
+            }
+            // No direct expressions to scan (statement containers are recursed
+            // by the walker itself; the rest hold no expression):
+            // FunctionDeclaration/ClassDeclaration/Block/Labeled/Try/For*-body,
+            // Break/Continue/Debugger/Import/ExportAll/ExportNamed/Enum/Type/
+            // Interface/With/ExportDefault{Function,Class}. `with` is
+            // unsupported elsewhere in the pass (repr_infer.rs).
+            _ => {}
+        }
+    }
+
+    /// Structurally recurse an expression, dispatching `register_nested_fn` at
+    /// every fn-expr / arrow. The arm set mirrors `assign_names_expression`
+    /// (`kali_cli/src/build/name_anon_functions.rs:616`) EXHAUSTIVELY so descent
+    /// is not a positional denylist: a fn-expr/arrow is found wherever an
+    /// expression can appear. Every no-op arm is explicit and cited — there is
+    /// NO bare `_` that could silently swallow a fn-expr-bearing expression.
+    fn descend_expr_fns(&mut self, walk: NestedFnWalk, expr: &Expression) {
+        match expr {
+            Expression::FunctionExpression(f) => {
+                if let (Some(id), Some(body)) = (f.id.as_deref(), f.body.as_deref()) {
+                    let params: Vec<String> = f.params.iter().map(|p| p.name.clone()).collect();
+                    self.register_nested_fn(walk, id, &params, Some(body));
+                }
+            }
+            Expression::ArrowFunctionExpression(a) => {
+                if let Some(id) = a.id.as_deref() {
+                    let params: Vec<String> = a.params.iter().map(|p| p.name.clone()).collect();
+                    // Expression-bodied arrow: register params (no statements),
+                    // then descend the body expression for deeper nested fns
+                    // (they key on their OWN id, so the arrow's scope is
+                    // irrelevant to walks 1–3).
+                    self.register_nested_fn(walk, id, &params, None);
+                    self.descend_expr_fns(walk, &a.body);
+                }
+            }
+            Expression::ParenthesizedExpression(inner) => {
+                self.descend_expr_fns(walk, &inner.expression)
+            }
+            Expression::AwaitExpression(e) => self.descend_expr_fns(walk, &e.argument),
+            Expression::ImportExpression(e) => self.descend_expr_fns(walk, &e.source),
+            Expression::BinaryExpression(e) => {
+                self.descend_expr_fns(walk, &e.left);
+                self.descend_expr_fns(walk, &e.right);
+            }
+            Expression::LogicalExpression(e) => {
+                self.descend_expr_fns(walk, &e.left);
+                self.descend_expr_fns(walk, &e.right);
+            }
+            Expression::AssignmentExpression(e) => {
+                self.descend_expr_fns(walk, &e.left);
+                self.descend_expr_fns(walk, &e.right);
+            }
+            Expression::UnaryExpression(e) => self.descend_expr_fns(walk, &e.argument),
+            Expression::UpdateExpression(e) => self.descend_expr_fns(walk, &e.argument),
+            Expression::CallExpression(e) => {
+                self.descend_expr_fns(walk, &e.callee);
+                for arg in &e.args {
+                    self.descend_expr_fns(walk, arg);
+                }
+            }
+            Expression::NewExpression(e) => {
+                self.descend_expr_fns(walk, &e.callee);
+                for arg in &e.args {
+                    self.descend_expr_fns(walk, arg);
+                }
+            }
+            Expression::MemberExpression(e) => {
+                self.descend_expr_fns(walk, &e.object);
+                if let Some(index) = &e.computed_index {
+                    self.descend_expr_fns(walk, index);
+                }
+            }
+            Expression::ArrayExpression(e) => {
+                for element in e.elements.iter().flatten() {
+                    self.descend_expr_or_spread_fns(walk, element);
+                }
+            }
+            Expression::ObjectExpression(e) => {
+                for property in &e.properties {
+                    self.descend_expr_fns(walk, &property.value);
+                }
+            }
+            Expression::TemplateLiteral(e) => {
+                for expression in &e.expressions {
+                    self.descend_expr_fns(walk, expression);
+                }
+            }
+            Expression::TaggedTemplateExpression(e) => {
+                self.descend_expr_fns(walk, &e.tag);
+                for expression in &e.template.expressions {
+                    self.descend_expr_fns(walk, expression);
+                }
+            }
+            Expression::ConditionalExpression(e) => {
+                self.descend_expr_fns(walk, &e.test);
+                self.descend_expr_fns(walk, &e.consequent);
+                self.descend_expr_fns(walk, &e.alternate);
+            }
+            Expression::SequenceExpression(e) => {
+                for expression in &e.expressions {
+                    self.descend_expr_fns(walk, expression);
+                }
+            }
+            Expression::YieldExpression(e) => {
+                if let Some(argument) = &e.argument {
+                    self.descend_expr_fns(walk, argument);
+                }
+            }
+            Expression::OptionalChainExpression(chain) => match chain.inner.as_ref() {
+                OptionalChainInner::NonNull { object, .. } => self.descend_expr_fns(walk, object),
+            },
+            Expression::ChainExpression(e) => self.descend_expr_fns(walk, &e.expression),
+            Expression::SpreadElement(e) => self.descend_expr_fns(walk, &e.argument),
+            Expression::RestElement(e) => self.descend_expr_fns(walk, &e.argument),
+            Expression::DecoratedExpression(e) => self.descend_expr_fns(walk, &e.expression),
+            Expression::TypeAssertion(e) => self.descend_expr_fns(walk, &e.expression),
+            Expression::SatisfiesExpression(e) => self.descend_expr_fns(walk, &e.expression),
+            // `ClassExpression` — class-method bodies are OUT of scope for this
+            // pass (separate root cause; the corresponding class-method test is
+            // `#[ignore]`'d). Deliberately not descended.
+            Expression::ClassExpression(_) => {}
+            // JSX is not compiled by kali (JS→wasm benchmark target); a fn-expr
+            // embedded in JSX would be unreachable to codegen anyway. Explicit
+            // no-op rather than a bare `_` so a future JSX target must revisit
+            // this deliberately.
+            Expression::JsxElement(_)
+            | Expression::JsxFragment(_)
+            | Expression::JsxEmptyExpression => {}
+            // Leaf expressions — no sub-expression can hold a fn-expr/arrow.
+            Expression::Identifier(_)
+            | Expression::Literal(_)
+            | Expression::BigIntLiteral(_)
+            | Expression::MetaProperty(_)
+            | Expression::ThisExpression
+            | Expression::SuperExpression
+            | Expression::PrivateIdentifier(_) => {}
+        }
+    }
+
+    fn descend_expr_or_spread_fns(&mut self, walk: NestedFnWalk, element: &ExpressionOrSpread) {
+        match element {
+            ExpressionOrSpread::Expression(expr) => self.descend_expr_fns(walk, expr),
+            ExpressionOrSpread::Spread(spread) => self.descend_expr_fns(walk, &spread.argument),
+            ExpressionOrSpread::Empty => {}
+        }
+    }
+
     // ---- Phase A2: local-name collection --------------------------------
 
     /// Populate `local_names` for `func`'s own scope (module scope when
@@ -652,8 +1400,16 @@ impl ReprInfer {
     }
 
     fn collect_local_names_in_stmt(&mut self, func: &str, stmt: &Statement) {
+        // LOCKSTEP walk 2/4: descend into any fn-expr/arrow in this statement's
+        // expressions (see the shared-descent note above `register_nested_fn`).
+        // Nested bodies register their locals under their OWN `__kali_fn_N`, so
+        // the outer `func` scope is intentionally not threaded through.
+        self.descend_stmt_fns(NestedFnWalk::LocalNames, stmt);
         match stmt {
             Statement::FunctionDeclaration(decl) => {
+                // Record the lexical parent edge (Stage C C2 capture-owner
+                // resolution): this declaration is nested directly in `func`.
+                self.parents.insert(decl.name.clone(), func.to_string());
                 let entry = self.local_names.entry(decl.name.clone()).or_default();
                 for param in &decl.params {
                     entry.insert(param.clone());
@@ -718,6 +1474,36 @@ impl ReprInfer {
         }
     }
 
+    // ---- P3 Task 2: AbortController/AbortSignal shadow guard -------------
+    //
+    // FIX ROUND (reviewer finding, CRITICAL): the original implementation
+    // ran shadow detection as a SEPARATE Phase-A pre-pass
+    // (`collect_abort_shadow`/`collect_abort_shadow_in_stmt`) that hand-
+    // mirrored `collect_functions_in_stmt`'s traversal shape. That shape is
+    // narrower than the ACTUAL seeding walk (`visit_stmt`/`visit_expr` in
+    // Phase B): it does not descend into `switch` case bodies, and — being a
+    // Phase-A walker — never reaches inside a fn-expr/arrow body at all
+    // (those are Phase-B-only, keyed on `__kali_fn_N`, reached via
+    // `visit_expr`'s FunctionExpression/ArrowFunctionExpression arms). Two
+    // confirmed fail-opens resulted: a shadowing declarator inside a
+    // `switch` case, or inside a nested fn-expr/arrow body, was invisible to
+    // the shadow scan while a `new AbortController()` in that SAME region
+    // still got seeded.
+    //
+    // Root-cause fix: `note_abort_shadow_name` is now called INLINE from
+    // WITHIN `visit_stmt` itself — the exact same traversal that reaches
+    // every `visit_declarator_init` call site. There is no longer a second,
+    // separately-maintained walker to drift out of sync with the seeding
+    // walk: shadow detection and seeding recognition share ONE frontier by
+    // construction. INVARIANT: the shadow frontier must cover every
+    // position the seeding walk reaches — enforced here by literally being
+    // the same code, not by manually mirroring it.
+    fn note_abort_shadow_name(&mut self, name: &str) {
+        if name == "AbortController" || name == "AbortSignal" {
+            self.abort_controller_shadowed = true;
+        }
+    }
+
     /// True when `name` is locally bound in `func`'s own scope (a parameter
     /// or a `let`/`const`/`var` declarator anywhere in its body, ignoring
     /// nested functions) — mirrors codegen's local/binding precedence.
@@ -725,6 +1511,31 @@ impl ReprInfer {
         self.local_names
             .get(func)
             .is_some_and(|names| names.contains(name))
+    }
+
+    /// Stage C C2: the nearest ENCLOSING FUNCTION scope that declares `name`,
+    /// walking the lexical parent chain up from `func` (exclusive of `func`
+    /// itself). This is the capture OWNER of a free identifier `name` used in
+    /// `func`. Returns `None` when the owner is module scope (`TOP_LEVEL`): a
+    /// module-scope binding is NOT an env cell (the module root owns no env
+    /// record — see `env_plan`), so codegen has no capture-access path for it,
+    /// and it must stay on its existing fold/global lane. Also `None` when no
+    /// enclosing scope declares `name` (an undeclared/global reference).
+    ///
+    /// The result is the repr-inference twin of `CapturedRef.owner` (kali_mir
+    /// `env_plan`): both name the ancestor whose activation holds the binding.
+    fn capture_owner(&self, func: &str, name: &str) -> Option<String> {
+        let mut current = self.parents.get(func).cloned();
+        while let Some(scope) = current {
+            if scope == TOP_LEVEL {
+                return None;
+            }
+            if self.is_locally_declared(&scope, name) {
+                return Some(scope);
+            }
+            current = self.parents.get(&scope).cloned();
+        }
+        None
     }
 
     // ---- Phase B: statement walk ---------------------------------------
@@ -738,13 +1549,30 @@ impl ReprInfer {
     fn visit_stmt(&mut self, func: &str, stmt: &Statement) {
         match stmt {
             Statement::FunctionDeclaration(decl) => {
+                // P3 Task 2 shadow guard: see the note on
+                // `note_abort_shadow_name` — inlined here so the shadow scan
+                // shares this exact traversal with the seeding walk. A
+                // parameter name shadows for the ENTIRE body, exactly like a
+                // declarator (fix-round: params were previously un-noted).
+                self.note_abort_shadow_name(&decl.name);
+                for param in &decl.params {
+                    self.note_abort_shadow_name(param);
+                }
                 // Walk the body under the function's own name.
                 self.visit_block(&decl.name, &decl.body);
             }
+            Statement::ClassDeclaration(decl) => {
+                // P3 Task 2 shadow guard only — repr_infer otherwise does not
+                // model class bodies (pre-existing, out of this task's scope).
+                self.note_abort_shadow_name(&decl.name);
+            }
             Statement::VariableDeclaration(decl) => {
                 for d in &decl.declarations {
+                    // P3 Task 2 shadow guard: every declarator name, even one
+                    // with no initializer (`let AbortController;`), can shadow.
+                    self.note_abort_shadow_name(&d.id);
                     if let Some(init) = &d.init {
-                        self.visit_declarator_init(func, &d.id, init);
+                        self.visit_declarator_init(func, &decl.kind, &d.id, init);
                     }
                 }
             }
@@ -801,8 +1629,10 @@ impl ReprInfer {
                     match init {
                         ForInit::VariableDeclaration(decl) => {
                             for d in &decl.declarations {
+                                // P3 Task 2 shadow guard (see note above).
+                                self.note_abort_shadow_name(&d.id);
                                 if let Some(i) = &d.init {
-                                    self.visit_declarator_init(func, &d.id, i);
+                                    self.visit_declarator_init(func, &decl.kind, &d.id, i);
                                 }
                             }
                         }
@@ -846,6 +1676,8 @@ impl ReprInfer {
                 let mut pushed_key = false;
                 if let ForInLefthand::VariableDeclaration(decl) = &stmt.left {
                     for d in &decl.declarations {
+                        // P3 Task 2 shadow guard (see note above).
+                        self.note_abort_shadow_name(&d.id);
                         let _ = self.scalar_node_for(func, &d.id);
                     }
                 }
@@ -879,6 +1711,59 @@ impl ReprInfer {
                 }
             }
             Statement::ForOfStatement(stmt) => {
+                // Task 6 review fix (truthful inference): `for (const k of
+                // Object.keys(x))` iterates STRINGS at runtime (JS enumeration
+                // keys are always strings; `Object.values(<string>)` yields
+                // that string's characters). The loop variable's node
+                // previously stayed plain, so a growable receiver of
+                // `o.push(k)` promoted with an I64 element axis while the
+                // runtime pushed string handles — a bare `o.join(",")`
+                // rendered the raw handle bits. Seed the loop variable String
+                // (or, for `Object.values(<identifier>)`, flow the operand
+                // binding's node into it — string operands seed transitively,
+                // object identities stay plain) so the element axis solves
+                // truthfully.
+                // P3 Task 2 shadow guard (see note above).
+                if let kali_ast::ForOfLefthand::VariableDeclaration(decl) = &stmt.left {
+                    for d in &decl.declarations {
+                        self.note_abort_shadow_name(&d.id);
+                    }
+                }
+                let string_items = for_of_string_items(&stmt.right);
+                if !matches!(string_items, ForOfStringItems::No) {
+                    let loop_var = match &stmt.left {
+                        kali_ast::ForOfLefthand::VariableDeclaration(decl) => decl
+                            .declarations
+                            .first()
+                            .map(|declarator| declarator.id.clone()),
+                        kali_ast::ForOfLefthand::Expression(expr) => match expr {
+                            Expression::Identifier(name) => Some(name.clone()),
+                            _ => None,
+                        },
+                    };
+                    if let Some(loop_var) = loop_var {
+                        let node = self.scalar_node_for(func, &loop_var);
+                        match string_items {
+                            ForOfStringItems::Seed => self.add_string_seed(node),
+                            ForOfStringItems::ValuesOperandIdentifier(name) => {
+                                // Same local-vs-module scope resolution as
+                                // `visit_expr`'s `Identifier` arm.
+                                let name = name.to_string();
+                                let scope = if func != TOP_LEVEL
+                                    && !self.is_locally_declared(func, &name)
+                                    && self.is_locally_declared(TOP_LEVEL, &name)
+                                {
+                                    TOP_LEVEL
+                                } else {
+                                    func
+                                };
+                                let operand = self.scalar_node_for(scope, &name);
+                                self.add_edge(operand, node);
+                            }
+                            ForOfStringItems::No => {}
+                        }
+                    }
+                }
                 self.visit_expr(func, &stmt.right);
                 self.visit_stmt(func, &stmt.body);
             }
@@ -906,6 +1791,8 @@ impl ReprInfer {
             Statement::TryStatement(stmt) => {
                 self.visit_block(func, &stmt.block);
                 if let Some(handler) = &stmt.handler {
+                    // P3 Task 2 shadow guard (see note above).
+                    self.note_abort_shadow_name(&handler.param);
                     self.visit_block(func, &handler.body);
                 }
                 if let Some(finalizer) = &stmt.finalizer {
@@ -922,7 +1809,46 @@ impl ReprInfer {
     /// `let/const/var id = init` — array-producing inits create an element
     /// node for `id`; everything else flows the init into `id`'s scalar node
     /// (`init -> id`).
-    fn visit_declarator_init(&mut self, func: &str, id: &str, init: &Expression) {
+    fn visit_declarator_init(&mut self, func: &str, kind: &str, id: &str, init: &Expression) {
+        // P3 Task 2: `const c = new AbortController()` and the same-function
+        // forward alias `const s = c.signal` are the only two admitted
+        // AbortHandle-seeding shapes (applied in `emit_table`, gated by the
+        // program-wide shadow guard and by "no other axis already claimed
+        // the binding"). Recorded here, before the generic wiring below —
+        // the generic wiring still runs unconditionally afterward: the node
+        // is unseeded on the float/string axes either way, so running both
+        // is harmless and keeps edge bookkeeping uniform with every other
+        // declarator. Declarators are visited in source order within a
+        // function, so a same-function forward alias resolves in this one
+        // pass; cross-function flow is not admitted this stage.
+        //
+        // Fix-round (MINOR, signal-of-signal over-admission): the `.signal`
+        // alias branch requires the base to be CONTROLLER-origin
+        // (`abort_controller_origin`), not merely a member of
+        // `abort_bindings` (which also holds signal-origin bindings). A
+        // `.signal` alias is itself only added to `abort_bindings`, never to
+        // `abort_controller_origin`, so a signal's OWN `.signal` read
+        // (`s.signal` where `s = c.signal`) cannot chain — it stays I64.
+        if kind == "const" {
+            if self.is_new_abort_controller(init) {
+                self.abort_bindings
+                    .insert((func.to_string(), id.to_string()));
+                self.abort_controller_origin
+                    .insert((func.to_string(), id.to_string()));
+            } else if let Expression::MemberExpression(member) = init {
+                if member.computed_index.is_none() && member.property == "signal" {
+                    if let Expression::Identifier(base) = &member.object {
+                        if self
+                            .abort_controller_origin
+                            .contains(&(func.to_string(), base.clone()))
+                        {
+                            self.abort_bindings
+                                .insert((func.to_string(), id.to_string()));
+                        }
+                    }
+                }
+            }
+        }
         if let Expression::ObjectExpression(obj) = init {
             // Syntactic taint, independent of materialization — see the field
             // doc on `object_initialized_bindings`. A compound/update on `id`
@@ -950,6 +1876,21 @@ impl ReprInfer {
         let sn = self.scalar_node_for(func, id);
         // init -> id.
         self.add_edge(rn, sn);
+    }
+
+    /// True when `expr` is `new AbortController()` with zero constructor
+    /// args — the sole admitted AbortHandle-producing shape (P3 Task 2).
+    /// Reuses the same `constructor_name` helper `init_is_array` uses below;
+    /// the zero-args requirement additionally excludes any (currently
+    /// nonstandard) constructor-arg shape from seeding.
+    fn is_new_abort_controller(&self, expr: &Expression) -> bool {
+        match expr {
+            Expression::NewExpression(new_expr) => {
+                constructor_name(&new_expr.callee).as_deref() == Some("AbortController")
+                    && new_expr.args.is_empty()
+            }
+            _ => false,
+        }
     }
 
     /// True when `expr` produces a fresh array binding (`new Array(...)` or an
@@ -1074,6 +2015,22 @@ impl ReprInfer {
                 if matches!(bin.operator.as_str(), "+" | "==" | "!=" | "===" | "!==") {
                     self.seed_for_in_key_string_use(func, &bin.left);
                     self.seed_for_in_key_string_use(func, &bin.right);
+                }
+                // Stage P2 Lane 3 (Task 6): record both operands of an
+                // identity comparison so `resolve_objects` can materialize
+                // whichever side turns out to carry an object literal — see
+                // `obj_identity_compared`'s doc comment for why plain `==`/
+                // `!=` are excluded (kali's object model has no coercion
+                // path, so a loose-equality object comparison is not a
+                // shape-identity question this lane answers) and `===`/`!==`
+                // alone are recorded.
+                if matches!(bin.operator.as_str(), "===" | "!==") {
+                    if let Some(slot) = self.arg_obj_slot(func, &bin.left) {
+                        self.obj_identity_compared.push(slot);
+                    }
+                    if let Some(slot) = self.arg_obj_slot(func, &bin.right) {
+                        self.obj_identity_compared.push(slot);
+                    }
                 }
                 let left = self.visit_expr(func, &bin.left);
                 let right = self.visit_expr(func, &bin.right);
@@ -1207,6 +2164,24 @@ impl ReprInfer {
             Expression::CallExpression(call) => self.visit_call(func, call),
 
             Expression::NewExpression(new_expr) => {
+                // `new TextEncoder().encode(<string>)` (throw-fallout Stage 3
+                // bucket #6 part 2): the parser hoists the `new` to wrap the whole
+                // member-call chain, so this arrives as a `NewExpression` whose
+                // callee is the `.encode` call. It is a thin reinterpret of the
+                // input string handle to a contiguous byte buffer — seed the result
+                // `String` (+ runtime string) so a binding it flows into resolves
+                // `Repr::String` (making `.byteLength` read the low-32 byte count
+                // and the digest input gate accept it). Mirrors codegen's LIR-level
+                // `is_text_encoder_encode` + emit passthrough.
+                if let Some(encode_call) = text_encoder_encode_new(expr) {
+                    for arg in &encode_call.args {
+                        self.visit_expr(func, arg);
+                    }
+                    let result = self.new_node();
+                    self.add_string_seed(result);
+                    self.runtime_string_nodes.push(result);
+                    return result;
+                }
                 // Constructor arguments are visited for edges (e.g. `new Array`
                 // length is an int). The handle itself is i64.
                 for arg in &new_expr.args {
@@ -1215,7 +2190,106 @@ impl ReprInfer {
                 self.new_node()
             }
 
+            // `await <expr>` synchronously settles to `<expr>`'s value in kali's
+            // current phase (throw-fallout Stage 3 Task 4 — mirrors the codegen
+            // await value-passthrough). The await is fully transparent for repr:
+            // return the operand's node so a binding it flows into
+            // (`const d = await crypto.subtle.digest(...)`) inherits the operand's
+            // repr (e.g. `Repr::String`) instead of a fresh, permanently-unseeded
+            // int node.
+            Expression::AwaitExpression(await_expr) => self.visit_expr(func, &await_expr.argument),
+
+            // LOCKSTEP walk 4/4: descend into a fn-expr / arrow body under its
+            // synthetic `__kali_fn_N` id so object-shape (`for..in`),
+            // String-repr, and growable seeding inside nested bodies run
+            // exactly as they do for a `FunctionDeclaration` (whose arm at the
+            // top of `visit_stmt` does the same). The three Phase-A walkers do
+            // the matching signature/local/growable registration via the shared
+            // `descend_stmt_fns` (see the note above `register_nested_fn`). The
+            // fn value itself is an i64 handle: return a fresh node.
+            Expression::FunctionExpression(f) => {
+                if let (Some(id), Some(body)) = (f.id.as_deref(), f.body.as_deref()) {
+                    // P3 Task 2 shadow guard (fix round): a NAMED function
+                    // expression's own name (`function AbortController(){}`)
+                    // is visible within its own body per JS scoping, and every
+                    // parameter — both are un-gated positions the seeding
+                    // walk (`visit_block(id, body)` just below) reaches
+                    // unconditionally, so both must be noted before/alongside
+                    // it, same one-traversal invariant as everywhere else.
+                    self.note_abort_shadow_name(id);
+                    for param in &f.params {
+                        self.note_abort_shadow_name(&param.name);
+                    }
+                    // F-AB-2 lockstep: record what walk 4 seeds (see
+                    // `nested_fns_seeded`).
+                    self.nested_fns_seeded.insert(id.to_string());
+                    self.visit_block(id, body);
+                }
+                self.new_node()
+            }
+            Expression::ArrowFunctionExpression(a) => {
+                // P3 Task 2 shadow guard (fix round): arrow params, same
+                // reasoning as `FunctionExpression` above. `a.id` is NOT
+                // checked here — per its field doc it is a synthetic
+                // `__kali_fn_N` id assigned by `name_anon_functions` (arrows
+                // have no source-level named-function-expression syntax), so
+                // it is never a user-authored name that could equal
+                // "AbortController"/"AbortSignal".
+                for param in &a.params {
+                    self.note_abort_shadow_name(&param.name);
+                }
+                if let Some(id) = a.id.as_deref() {
+                    // F-AB-2 lockstep: record what walk 4 seeds (see
+                    // `nested_fns_seeded`).
+                    self.nested_fns_seeded.insert(id.to_string());
+                    // Expression-bodied arrow (`x => x + 1`): visit its body
+                    // expression under the arrow's own scope so its seeds/edges
+                    // (e.g. a string `+`) are registered under `__kali_fn_N`.
+                    self.visit_expr(id, &a.body);
+                }
+                self.new_node()
+            }
+
+            // P3 Task 2 shadow guard (fix round) only — mirrors the
+            // `Statement::ClassDeclaration` arm in `visit_stmt`. A class
+            // expression's own name (`const X = class AbortController {}`)
+            // is noted for symmetry/defense-in-depth even though, today,
+            // no seeding call site is reachable inside a class body at all
+            // (repr_infer does not walk `ClassBody`/`MethodDefinition`
+            // anywhere — see the `descend_expr_fns` `ClassExpression` arm
+            // above, which is also a no-op): if that ever changes, the
+            // guard is already in place rather than being a new fail-open.
+            Expression::ClassExpression(c) => {
+                if let Some(id) = c.id.as_deref() {
+                    self.note_abort_shadow_name(id);
+                }
+                self.new_node()
+            }
+
             // Any other expression kind is a fresh (int) node.
+            //
+            // LOCKSTEP BOUND (walk 4 vs walks 1-3): this `_` arm does NOT recurse
+            // into a bare `ArrayExpression`/`ObjectExpression`/spread operand
+            // reached generically here (visit_expr has no arm for them). The
+            // COMMON callback positions ARE already seeded elsewhere in Phase B:
+            // call arguments (`arr.map(cb)`, `Kali.test(name, cb)` — visit_call
+            // visits args via visit_expr), ternary branches (ConditionalExpression),
+            // assignment RHS (visit_assignment), declarator-init array elements
+            // (note_array_init), and object-property values (record_object_literal)
+            // all reach the fn-expr/arrow arms above. The genuinely UNSEEDED
+            // positions are narrow and exotic: a fn-expr inside an object literal
+            // passed directly as a call arg (`foo({f: () => {…}})`), a spread arg
+            // (`foo(...[() => {}])`), a tagged-template / yield / optional-chain
+            // operand, and a bare or doubly-nested array literal. Those are
+            // registered by walks 1-3 (shared `descend_expr_fns`) but not
+            // Phase-B-seeded here. Sound today: codegen never INVOKES a callback
+            // reached only through those positions (silent no-ops). When Stage C/D
+            // make such shapes invocable, a string-element growable array in such a
+            // body would silently lower to i64 — at that point seed those specific
+            // positions (a dedicated Phase-B pass reaching ONLY what visit_expr
+            // misses; a blanket re-descent would double-visit the already-seeded
+            // positions and risk a spurious mixed-store E5506) or fail them closed.
+            // Do not let this arm start swallowing an invocable nested body silently.
             _ => self.new_node(),
         }
     }
@@ -1230,6 +2304,25 @@ impl ReprInfer {
                     // A reassigned literal is observable through the binding:
                     // the fold lane cannot represent it, so materialize.
                     self.obj_materialized.insert(slot);
+                    // Same syntactic taint as the declarator seed
+                    // (`visit_declarator_init` above) — see the field doc on
+                    // `object_initialized_bindings`. An object-literal RHS
+                    // taints the TARGET binding wherever the assignment
+                    // appears, not just in declarator position: `var o; o =
+                    // {x:1}; o += 1` (no initializer) and `var o = 0; o =
+                    // {x:1}; o += 1` (reassignment) must hit the
+                    // compound/update gate exactly like `var o = {x:1}` does.
+                    // Belt-and-suspenders alongside the eager
+                    // `obj_materialized` insert above: that insert already
+                    // forces `Repr::Object` for THIS exact literal-RHS shape
+                    // via the solve pass, but the syntactic taint is
+                    // independent of materialization/solve-pass plumbing, so
+                    // it keeps closing the gap even if that eager insert is
+                    // ever refactored away. Restricted to a plain identifier
+                    // target by the enclosing `if let Expression::Identifier`
+                    // above — never a member/index target.
+                    self.object_initialized_bindings
+                        .insert((func.to_string(), name.clone()));
                     return self.scalar_node_for(func, name);
                 }
                 self.record_object_flow_from_expr(
@@ -1490,6 +2583,71 @@ impl ReprInfer {
                         self.add_seed(result);
                         result
                     }
+                    // `performance.now()` returns an f64 millisecond timestamp
+                    // (throw-fallout Stage 3 bucket #5) — seed the result float so
+                    // a binding it flows into (and any `<`/arithmetic consumer)
+                    // lowers on the f64 path. Mirrors the codegen recognizer
+                    // (`FunctionEmitter::performance_now_import_index` +
+                    // `is_float_valued`'s `performance.now` arm).
+                    "now" if is_performance_object(&member.object) => {
+                        for arg in &call.args {
+                            self.visit_expr(func, arg);
+                        }
+                        let result = self.new_node();
+                        self.add_seed(result);
+                        result
+                    }
+                    // `crypto.randomUUID()` returns a runtime (non-interned)
+                    // string (throw-fallout Stage 3 bucket #6) — seed the result
+                    // `String` and mark it a runtime string node so a binding it
+                    // flows into resolves `Repr::String` (making `.length` read
+                    // the handle byte count and `typeof === 'string'` hold).
+                    // Mirrors the codegen recognizer
+                    // (`FunctionEmitter::crypto_random_uuid_import_index`) + emit
+                    // arm, which builds a tagged string handle.
+                    "randomUUID" if is_crypto_object(&member.object) => {
+                        for arg in &call.args {
+                            self.visit_expr(func, arg);
+                        }
+                        let result = self.new_node();
+                        self.add_string_seed(result);
+                        self.runtime_string_nodes.push(result);
+                        result
+                    }
+                    // `crypto.subtle.digest(algo, bytes)` returns a runtime byte
+                    // buffer (throw-fallout Stage 3 bucket #6 part 2). Codegen
+                    // represents it as a tagged string handle whose `.byteLength`
+                    // reads the digest byte count off the low 32 bits, so seed the
+                    // result `String` + mark it a runtime string node — the binding
+                    // it flows into (`const d = await ...digest(...)`, transparent
+                    // through the `AwaitExpression` arm above) resolves
+                    // `Repr::String`. Mirrors the codegen recognizer
+                    // (`crypto_subtle_digest_import_index`) + emit arm.
+                    "digest" if is_crypto_subtle_object(&member.object) => {
+                        for arg in &call.args {
+                            self.visit_expr(func, arg);
+                        }
+                        let result = self.new_node();
+                        self.add_string_seed(result);
+                        self.runtime_string_nodes.push(result);
+                        result
+                    }
+                    // `new TextEncoder().encode(<string>)` is a thin reinterpret of
+                    // the input string handle to a contiguous byte buffer
+                    // (throw-fallout Stage 3 bucket #6 part 2). Codegen returns the
+                    // string handle unchanged, so the result carries `Repr::String`
+                    // and `.byteLength` reads the same low-32 byte count as
+                    // `.length`. Mirrors the codegen `is_text_encoder_encode` +
+                    // emit arm.
+                    "encode" if is_text_encoder_ctor(&member.object) => {
+                        for arg in &call.args {
+                            self.visit_expr(func, arg);
+                        }
+                        let result = self.new_node();
+                        self.add_string_seed(result);
+                        self.runtime_string_nodes.push(result);
+                        result
+                    }
                     "toFixed" => {
                         // The receiver is a float.
                         let recv = self.visit_expr(func, &member.object);
@@ -1515,6 +2673,77 @@ impl ReprInfer {
                         self.runtime_string_nodes.push(result);
                         result
                     }
+                    // `a.push(v)` — throw-fallout Stage 4 growable lane. For
+                    // a syntactic growable CANDIDATE receiver, record the
+                    // pushed value's node for the emit-time promotion gate.
+                    // The repr GRAPH is byte-identical to the generic `_` arm
+                    // either way (same visits, same fresh result node):
+                    // candidacy only adds bookkeeping, so a binding that
+                    // fails the later repr gate keeps today's inference
+                    // exactly. Task 3 (string elements): the pushed value's
+                    // node is ALSO unioned into the receiver's element node
+                    // (`array_elem_node_for`) as a store-direction edge,
+                    // exactly mirroring `note_array_init`'s per-element
+                    // literal wiring — so a uniform-String push set solves
+                    // `array_element(func,name) == Repr::String` through the
+                    // SAME "Array elements" emit-time pass every other array
+                    // uses, and a MIXED I64+String push set trips that same
+                    // pass's existing mixed-store detection
+                    // (`element_store_sources`) into `add_shape_conflict`
+                    // (E5506) instead of silently falling back to the
+                    // pre-promotion no-op lane. Element-node wiring for a
+                    // PURE i64 push set is a no-op for the string/float axes
+                    // (an int literal seeds neither), so uniform-i64
+                    // candidates are unaffected.
+                    "push" => {
+                        if is_console_object(&member.object) {
+                            for arg in &call.args {
+                                self.seed_for_in_key_string_use(func, arg);
+                            }
+                        }
+                        self.visit_expr(func, &member.object);
+                        let mut arg_nodes = Vec::with_capacity(call.args.len());
+                        for arg in &call.args {
+                            arg_nodes.push(self.visit_expr(func, arg));
+                        }
+                        let mut receiver = &member.object;
+                        while let Expression::ParenthesizedExpression(inner) = receiver {
+                            receiver = &inner.expression;
+                        }
+                        if let Expression::Identifier(name) = receiver {
+                            if call.args.len() == 1
+                                && self
+                                    .growable_candidates
+                                    .contains(&(func.to_string(), name.clone()))
+                            {
+                                let mut arg = &call.args[0];
+                                while let Expression::ParenthesizedExpression(inner) = arg {
+                                    arg = &inner.expression;
+                                }
+                                let arg_identifier = match arg {
+                                    Expression::Identifier(id) => Some(id.clone()),
+                                    _ => None,
+                                };
+                                // Element-node wiring (Task 3): store-direction
+                                // edge, verbatim on `note_array_init`'s literal
+                                // element wiring (`element_store_sources` feeds
+                                // the shared mixed-store detection in
+                                // `emit_table`'s "Array elements" pass).
+                                let elem = self.array_elem_node_for(func, name);
+                                self.add_edge(arg_nodes[0], elem);
+                                self.element_store_sources.push((elem, arg_nodes[0]));
+                                self.growable_pushes.push((
+                                    func.to_string(),
+                                    name.clone(),
+                                    arg_nodes[0],
+                                    arg_identifier,
+                                ));
+                            }
+                        }
+                        // `.push` returns the array's new length (i64) — a
+                        // fresh plain node.
+                        self.new_node()
+                    }
                     "join" => {
                         // `a.join(sep)` implies `a`'s elements are strings.
                         // String-seed the receiver's element node so an
@@ -1526,9 +2755,24 @@ impl ReprInfer {
                         // element node rather than a fresh one is what makes
                         // both facts fall out of the existing element solve
                         // (emit_table: mixed_store || float => conflict).
+                        //
+                        // EXCEPT a growable CANDIDATE receiver (throw-fallout
+                        // Stage 4): joining a push-accumulated i64 array does
+                        // NOT imply string elements (the growable join, Task
+                        // 5, renders numbers) — seeding String here would veto
+                        // the i64 promotion gate for every pushed-and-joined
+                        // binding (the stage's target fixture shape). The
+                        // resolve-phase growable join gate rejects the call
+                        // E5506 until Task 5 lowers it, so no string-element
+                        // proof is needed for these receivers.
                         if let Expression::Identifier(name) = &member.object {
-                            let elem = self.array_elem_node_for(func, name);
-                            self.add_string_seed(elem);
+                            if !self
+                                .growable_candidates
+                                .contains(&(func.to_string(), name.clone()))
+                            {
+                                let elem = self.array_elem_node_for(func, name);
+                                self.add_string_seed(elem);
+                            }
                         } else {
                             self.visit_expr(func, &member.object);
                         }
@@ -1896,6 +3140,37 @@ impl ReprInfer {
     // ---- Phase C2: object-shape propagation -----------------------------
 
     fn resolve_objects(&mut self) {
+        // 0. Capture flows (Stage C C2). A free object-base identifier used in
+        //    a nested function aliases the SAME binding in its nearest
+        //    enclosing scope that declares it (its capture owner). Feeding this
+        //    as an ordinary `obj_flows` edge lets the EXISTING object-shape
+        //    propagation (which already crosses function boundaries for
+        //    arg↔param and return↔call-site) carry the owner's shape into the
+        //    capturer's namespace and materialize BOTH endpoints — so
+        //    `table.scalar(capturer, name)` becomes `Repr::Object(shape)` and
+        //    codegen's `object_shape_of_node` fires in the capturer. This is
+        //    the 4b half; codegen's owner-keyed env-cell promotion (4a) is what
+        //    then loads the object pointer from the env record. A flow to a
+        //    non-object owner (a captured scalar used as a `.field` base) is
+        //    inert: the owner slot never enters `fields_of`, so the fixpoint,
+        //    the field-storage union, and the access wiring all skip it — no
+        //    behavior change for any non-object capture. Module-scope owners
+        //    are excluded by `capture_owner` (no env cell exists for them).
+        let mut capture_flows = Vec::new();
+        for access in &self.obj_accesses {
+            if let ObjSlot::Binding(func, name) = &access.base {
+                if func != TOP_LEVEL && !self.is_locally_declared(func, name) {
+                    if let Some(owner) = self.capture_owner(func, name) {
+                        capture_flows.push((
+                            ObjSlot::Binding(func.clone(), name.clone()),
+                            ObjSlot::Binding(owner, name.clone()),
+                        ));
+                    }
+                }
+            }
+        }
+        self.obj_flows.extend(capture_flows);
+
         // 1. Propagate field lists across flows to a fixpoint (copy into
         //    unknown sides only; mismatches are flagged once, afterwards).
         let mut fields_of: BTreeMap<ObjSlot, Vec<String>> = self.obj_literal_fields.clone();
@@ -1918,6 +3193,43 @@ impl ReprInfer {
                 break;
             }
         }
+        // 1b. Propagate the growable-ARRAY-FIELD marking (`obj_array_fields`)
+        //     across object flows, in lockstep with the field-NAME propagation
+        //     above. A field name flows via `fields_of`, but its growable-array
+        //     KIND lives in `obj_array_fields` keyed per-slot — without this, an
+        //     aliased or cloned slot (`const c = o`, `const cloned =
+        //     structuredClone(o)`) inherits the field name `values` but not its
+        //     `GrowableArrayI64` repr, so it interns a DIVERGENT scalar (I64)
+        //     shape for the SAME source field and its `.length`/`.join`/index
+        //     reads silently misbehave. Copy an existing entry into the unmarked
+        //     side (both directions, undirected like the aliasing), REUSING the
+        //     source's element node so the element-repr solve stays shared.
+        let array_field_flows = self.obj_flows.clone();
+        loop {
+            let mut changed = false;
+            for (a, b) in &array_field_flows {
+                for (src, dst) in [(a, b), (b, a)] {
+                    let src_fields: Vec<String> = self
+                        .obj_array_fields
+                        .keys()
+                        .filter(|(slot, _)| slot == src)
+                        .map(|(_, name)| name.clone())
+                        .collect();
+                    for name in src_fields {
+                        let dst_key = (dst.clone(), name.clone());
+                        if !self.obj_array_fields.contains_key(&dst_key) {
+                            let value = self.obj_array_fields[&(src.clone(), name)];
+                            self.obj_array_fields.insert(dst_key, value);
+                            changed = true;
+                        }
+                    }
+                }
+            }
+            if !changed {
+                break;
+            }
+        }
+
         for (a, b) in &self.obj_flows {
             if let (Some(fa), Some(fb)) = (fields_of.get(a), fields_of.get(b)) {
                 if fa != fb {
@@ -1925,6 +3237,24 @@ impl ReprInfer {
                         "conflicting object shapes flow between {a:?} and {b:?}"
                     ));
                 }
+            }
+        }
+
+        // 1.5. Materialize any slot compared for identity (`===`/`!==`) that
+        //      has a known field list — see `obj_identity_compared`'s doc
+        //      comment. Deliberately per-slot (not a `obj_flows`-style pair
+        //      requiring BOTH sides known): a comparison against a genuinely
+        //      unknown-repr operand must still materialize the known side
+        //      alone, so `kali_codegen`'s object-misuse gate sees it. Two
+        //      independently-materialized slots with identical field name/
+        //      repr lists intern to the SAME `ShapeId` (`ReprTable::
+        //      intern_shape`'s structural dedup) without needing a flow edge
+        //      between them, which is what lets Task 6's allow lane prove
+        //      `p === r` same-shape for two separately-allocated literals
+        //      that were never aliased to one another.
+        for slot in &self.obj_identity_compared {
+            if fields_of.contains_key(slot) {
+                self.obj_materialized.insert(slot.clone());
             }
         }
 
@@ -2038,6 +3368,43 @@ impl ReprInfer {
         for (slot, message) in pending {
             if self.obj_materialized.contains(&slot) || promote_via_read.contains(&slot) {
                 self.obj_conflicts.push(message);
+            }
+        }
+
+        // 4b. Fail-close an OBJECT-POINTER field (`{ inner: inner }` where
+        //     `inner` is object-shaped) on a MATERIALIZED owner. Such a field
+        //     interns as a plain `I64` pointer slot with no nested-object
+        //     tracking — reads of it are unsupported, and a verbatim-copying
+        //     consumer (`structuredClone`) would SHALLOW-SHARE the nested
+        //     object (`cloned.inner === original.inner` true; node: false). The
+        //     inline-literal twin is rejected at `record_object_literal`; this
+        //     closes the identifier/`arr[i]`/call source shapes for ANY
+        //     consumer (not just clone). Gated on owner materialization so a
+        //     purely fold-lane literal keeps its byte-identical behavior
+        //     (fold-first). A scalar-identifier field's source is absent from
+        //     `fields_of`, so it is never flagged.
+        let pointer_field_candidates = std::mem::take(&mut self.obj_pointer_field_candidates);
+        for (owner, field, source) in pointer_field_candidates {
+            if fields_of.contains_key(&source) && self.obj_materialized.contains(&owner) {
+                self.obj_conflicts.push(format!(
+                    "object field '{field}' holds an object reference (from {source:?}); nested object fields are unavailable in the current phase"
+                ));
+            }
+        }
+
+        // 4c. Resolve the clone-safety allowlist's DEFERRED object-pointer
+        //     checks (Stage P2 Lane 2b): an identifier/call/`arr[i]` field
+        //     source that proves object-shaped (is in `fields_of`) makes its
+        //     owner clone-unsafe. A scalar source (absent from `fields_of`)
+        //     leaves the owner clone-safe — this is what admits the
+        //     scalar-identifier field `{ a: n }`. Independent of owner
+        //     materialization: the clone-safe bit is consulted only at the
+        //     `structuredClone` dispatch (never for a non-clone consumer), so a
+        //     fold-lane owner simply never has its bit read.
+        let deferred = std::mem::take(&mut self.clone_deferred_object_sources);
+        for (owner, source) in deferred {
+            if fields_of.contains_key(&source) {
+                self.clone_unsafe_slots.insert(owner);
             }
         }
 
@@ -2534,20 +3901,75 @@ impl ReprInfer {
         // codegen keeps its compile-time fold lane for them.
         let fields_of = std::mem::take(&mut self.obj_fields_of);
         let materialized = std::mem::take(&mut self.obj_materialized);
+        let obj_array_fields = std::mem::take(&mut self.obj_array_fields);
+        // Stage P2 Lane 2b clone-safety (ALLOWLIST, default-deny): a shape is
+        // clone-safe iff at least one object-LITERAL slot proves it safe AND no
+        // slot (or non-literal provenance) taints it. Built alongside the shape
+        // intern below. `clone_unsafe_slots` / `obj_literal_slots` are read-only
+        // here; clone into locals so the mutable `self` calls in the loop
+        // (`obj_field_node_for`, `obj_conflicts`) don't conflict-borrow.
+        let clone_unsafe_slots = self.clone_unsafe_slots.clone();
+        let obj_literal_slots = self.obj_literal_slots.clone();
+        let mut clone_safe_candidate_shapes: std::collections::HashSet<kali_common::ShapeId> =
+            std::collections::HashSet::new();
+        let mut clone_tainted_shapes: std::collections::HashSet<kali_common::ShapeId> =
+            std::collections::HashSet::new();
         for (slot, names) in &fields_of {
             if !materialized.contains(slot) {
                 continue;
             }
-            let fields: Vec<(String, Repr)> = names
-                .iter()
-                .map(|name| {
+            let mut fields: Vec<(String, Repr)> = Vec::with_capacity(names.len());
+            for name in names {
+                let repr = if let Some(&(elem_node, growable_shape)) =
+                    obj_array_fields.get(&(slot.clone(), name.clone()))
+                {
+                    // ALLOWLIST (Stage P2 Lane 1 Task 3): only a provably
+                    // growable-i64 array field is promoted — its initializer
+                    // is an array literal of scalar i64 seeds AND its element
+                    // axis solves i64 (never string/float). EVERY other
+                    // array-shaped field (string/float element, `new Array`,
+                    // identifier seed, …) fails CLOSED with a shape conflict,
+                    // never silently interning a scalar (I64) field repr — the
+                    // pre-existing silent miscompile this lane exists to close.
+                    let erep = self.uf.find(elem_node);
+                    if growable_shape && !string[erep] && !float[erep] {
+                        Repr::GrowableArrayI64
+                    } else {
+                        self.obj_conflicts.push(format!(
+                            "object field '{name}' is an unsupported array shape; only growable integer array fields are available"
+                        ));
+                        // Placeholder — the conflict above aborts the compile.
+                        Repr::I64
+                    }
+                } else {
                     let node = self.obj_field_node_for(slot, name);
                     let rep = self.uf.find(node);
-                    let repr = if float[rep] { Repr::F64 } else { Repr::I64 };
-                    (name.clone(), repr)
-                })
-                .collect();
+                    if float[rep] {
+                        Repr::F64
+                    } else {
+                        Repr::I64
+                    }
+                };
+                fields.push((name.clone(), repr));
+            }
             let shape = table.intern_shape(fields);
+            // Clone-safety accounting: only object-LITERAL slots construct, so
+            // only they decide a shape's clone-safety. A clean literal PROVES
+            // the shape safe; a clone-unsafe literal (an object-pointer field)
+            // TAINTS it. NON-literal slots — a `Binding` ALIAS (`const cloned =
+            // structuredClone(o)` itself, `const q = p`), a `Return`, an
+            // `ArrayElem` — hold pointers to objects built ELSEWHERE by a
+            // literal; they neither prove nor taint (their fields' provenance is
+            // decided by that originating literal, which is also interned here).
+            // A shape is clone-safe iff proven by ≥1 literal and tainted by none
+            // (default-deny: a shape with no clean literal is never admitted).
+            if obj_literal_slots.contains(slot) {
+                if clone_unsafe_slots.contains(slot) {
+                    clone_tainted_shapes.insert(shape);
+                } else {
+                    clone_safe_candidate_shapes.insert(shape);
+                }
+            }
             match slot {
                 ObjSlot::Binding(func, name) => {
                     // A binding both object and float-unified is contradictory.
@@ -2589,6 +4011,15 @@ impl ReprInfer {
                 }
             }
         }
+        // Finalize the clone-safe allowlist: proven by a clean literal AND
+        // never tainted (Stage P2 Lane 2b).
+        let clone_safe_shapes: std::collections::HashSet<kali_common::ShapeId> =
+            clone_safe_candidate_shapes
+                .difference(&clone_tainted_shapes)
+                .copied()
+                .collect();
+        table.set_clone_safe_shapes(clone_safe_shapes);
+
         for message in std::mem::take(&mut self.obj_conflicts) {
             table.add_shape_conflict(message);
         }
@@ -2625,7 +4056,197 @@ impl ReprInfer {
             }
         }
 
+        // Growable-array promotion (throw-fallout Stage 4) — the repr half
+        // of the gate, over the Phase A3 syntactic candidates. A candidate
+        // promotes iff its element axis and EVERY pushed value solve either
+        // uniformly plain i64 or uniformly String (never float/object, and
+        // an identifier argument never names a function/array/object/for-in-
+        // key binding). Mixed I64+String pushes are NOT silently left
+        // unpromoted: the push arm's element-node wiring feeds the SAME
+        // "Array elements" pass above, whose existing mixed-store detection
+        // already called `table.add_shape_conflict` for this element before
+        // this loop runs (E5506, aborts the compile — see `compile.rs`), so
+        // a mixed candidate reaching `pushes_ok` below is harmless dead
+        // weight (the conflict already recorded wins). A candidate that
+        // fails here for any OTHER reason (float, object, identifier guard)
+        // no longer silently keeps the pre-existing plain lane: Task 6 records
+        // an `add_shape_conflict` (E5506) on those paths too, so an
+        // unsupported-element push receiver fails closed instead of no-opping.
+        let growable_candidates: Vec<(String, String)> =
+            self.growable_candidates.iter().cloned().collect();
+        for (func, name) in growable_candidates {
+            let pushes: Vec<(usize, Option<String>)> = self
+                .growable_pushes
+                .iter()
+                .filter(|(f, n, _, _)| *f == func && *n == name)
+                .map(|(_, _, vnode, arg)| (*vnode, arg.clone()))
+                .collect();
+            if pushes.is_empty() {
+                continue;
+            }
+            // Element axis (populated by literal seeds and — Task 3 — pushed
+            // values) must never be float: I64 and String are the only
+            // growable element reprs this stage's codegen supports (F64
+            // fails closed by simply not promoting, unchanged from Task 2).
+            // A String-reachable element additionally must not be a MIXED
+            // store: the same `element_store_sources` mixed-store check the
+            // "Array elements" pass above already ran (and, if mixed,
+            // already recorded an `add_shape_conflict` that aborts the whole
+            // compile before codegen — see `compile.rs`) is re-consulted
+            // here so the table itself never claims a binding is BOTH
+            // growable-promoted and element-conflicted.
+            if let Some(&elem) = self.array_elem_node.get(&(func.clone(), name.clone())) {
+                let rep = self.uf.find(elem);
+                if float[rep] {
+                    // Float elements are unsupported (constraints doc: F64
+                    // fails closed). Task 6: reject rather than silently no-op.
+                    table.add_shape_conflict(growable_unsupported_element_message(&func, &name));
+                    continue;
+                }
+                if string[rep] {
+                    let mixed_store = self
+                        .element_store_sources
+                        .iter()
+                        .any(|(e, s)| self.uf.find(*e) == rep && !string[self.uf.find(*s)]);
+                    if mixed_store {
+                        continue;
+                    }
+                }
+            }
+            // Object-shaped elements fail closed (defensive: the syntactic
+            // seed allowlist already excludes object literals/identifiers).
+            // Task 6 review fix: `self.obj_materialized`/`self.obj_fields_of`
+            // were `mem::take`n earlier in this function (object-shape
+            // emission), so consulting `self` here was DEAD — use the taken
+            // locals (`materialized`/`fields_of`) instead.
+            let elem_slot = ObjSlot::ArrayElem(func.clone(), name.clone());
+            if materialized.contains(&elem_slot) || fields_of.contains_key(&elem_slot) {
+                // Object-shaped elements are unsupported. Task 6: fail closed.
+                table.add_shape_conflict(growable_unsupported_element_message(&func, &name));
+                continue;
+            }
+            let pushes_ok = pushes.iter().all(|(vnode, arg_identifier)| {
+                let rep = self.uf.find(*vnode);
+                if float[rep] {
+                    return false;
+                }
+                match arg_identifier {
+                    None => true,
+                    Some(arg) => {
+                        self.growable_push_identifier_ok(&func, arg, &fields_of, &materialized)
+                    }
+                }
+            });
+            if pushes_ok {
+                table.set_growable_array_binding(&func, &name);
+            } else {
+                // A pushed value is float, or an identifier naming a
+                // function/array/object/for-in-key binding whose raw
+                // handle/ordinal would be stored and read back as a number.
+                // Task 6: fail closed rather than silently no-op the pushes.
+                table.add_shape_conflict(growable_unsupported_element_message(&func, &name));
+            }
+        }
+
+        // Task 6 fail-closed reject: growable-SHAPE `.push` receivers that
+        // could not become candidates (an occurrence outside the safe-position
+        // allowlist, or a malformed `.push` call). These never reach the
+        // promotion loop above (they are not in `growable_candidates`), so
+        // they are reported here so the silent push-no-op lane cannot survive.
+        // The scanner's kind picks the accurate message.
+        let growable_rejects: Vec<(String, String, crate::growable::GrowableRejectKind)> = self
+            .growable_rejects
+            .iter()
+            .map(|((func, name), kind)| (func.clone(), name.clone(), *kind))
+            .collect();
+        for (func, name, kind) in growable_rejects {
+            let message = match kind {
+                crate::growable::GrowableRejectKind::UnsafePosition => {
+                    growable_unsupported_position_message(&func, &name)
+                }
+                crate::growable::GrowableRejectKind::UnsupportedPush => {
+                    growable_unsupported_push_message(&func, &name)
+                }
+            };
+            table.add_shape_conflict(message);
+        }
+
+        // P3 Task 2: AbortHandle seeding. Only when the program-wide shadow
+        // guard did not fire, and only for a binding no other axis already
+        // claimed (`Repr::I64` is the untouched default — mixed provenance,
+        // e.g. an object/array/for-in-key binding, stays fail-closed here).
+        if !self.abort_controller_shadowed {
+            for (func, name) in &self.abort_bindings {
+                if table.scalar(func, name) == Repr::I64 {
+                    table.set_scalar(func, name, Repr::AbortHandle);
+                }
+            }
+        }
+
         table
+    }
+
+    /// True when identifier `name`, pushed into a growable candidate inside
+    /// `func`, provably holds a plain scalar: it must be a DECLARED binding
+    /// (an undeclared name — `undefined`, `NaN`, … — has no i64 value), and
+    /// must not name a function reference, an array binding, an
+    /// object-shaped binding, or a `for..in` key (all of whose raw
+    /// handles/ordinals would be stored and read back as numbers — silent
+    /// miscompiles). Float/string-ness is separately covered by the pushed
+    /// value node's solved axes at the call site of this check.
+    fn growable_push_identifier_ok(
+        &self,
+        func: &str,
+        name: &str,
+        fields_of: &BTreeMap<ObjSlot, Vec<String>>,
+        materialized: &BTreeSet<ObjSlot>,
+    ) -> bool {
+        if self.functions.contains_key(name) {
+            return false;
+        }
+        let local = self.is_locally_declared(func, name);
+        if !local && !self.is_locally_declared(TOP_LEVEL, name) {
+            return false;
+        }
+        // Same local-vs-module scope resolution as `visit_expr`'s
+        // `Identifier` arm.
+        let scope = if func != TOP_LEVEL && !local {
+            TOP_LEVEL
+        } else {
+            func
+        };
+        if self
+            .for_in_key_names
+            .contains(&(scope.to_string(), name.to_string()))
+            || self
+                .for_in_key_names
+                .contains(&(func.to_string(), name.to_string()))
+        {
+            return false;
+        }
+        if self
+            .array_elem_node
+            .contains_key(&(scope.to_string(), name.to_string()))
+        {
+            return false;
+        }
+        let slot = ObjSlot::Binding(scope.to_string(), name.to_string());
+        let func_slot = ObjSlot::Binding(func.to_string(), name.to_string());
+        // Task 6 review fix (silent-miscompile close): an object-LITERAL-bound
+        // name (`const obj = {a:1}; o.push(obj)`) reaches
+        // `obj_materialized`/`obj_fields_of` only when its fields are READ
+        // somewhere (`resolve_objects`); a never-field-read literal passed
+        // this guard and its raw object pointer was stored as an i64 element
+        // (`o[0]` printed the pointer's low bits vs node's `{ a: 1 }`).
+        // `obj_literal_slots` covers every literal-bound slot and is never
+        // `mem::take`n (unlike `object_initialized_bindings`, `obj_fields_of`
+        // and `obj_materialized`, all consumed earlier in `emit_table` —
+        // which also made the two checks below dead; they now consult the
+        // taken locals passed in by the promotion loop).
+        if self.obj_literal_slots.contains(&slot) || self.obj_literal_slots.contains(&func_slot) {
+            return false;
+        }
+        !materialized.contains(&slot) && !fields_of.contains_key(&slot)
     }
 }
 
@@ -2664,6 +4285,59 @@ fn returning_string_array_message(func: &str, name: &str) -> String {
     }
 }
 
+/// Task 6 fail-closed message for a growable-shape `.push` receiver used in an
+/// unsupported POSITION (escape/alias/computed-or-optional push/closure
+/// capture/non-`push` mutator). Names the binding and enumerates the
+/// unsupported positions so the user can move the binding onto the supported
+/// surface (`.push`/`.length`/`x[i]` read/`for..of`/`.join`).
+fn growable_unsupported_position_message(func: &str, name: &str) -> String {
+    let scope = if func == TOP_LEVEL {
+        "at module scope".to_string()
+    } else {
+        format!("in `{func}`")
+    };
+    format!(
+        "growable array `{name}` {scope} uses `.push` but also appears in a position the \
+         growable-array lane does not support (escaping via `return` or an alias, a computed \
+         `[\"push\"]` or optional-chain `?.push` call, capture by a nested function, or a \
+         non-`push` mutator such as `.pop()`); only `.push(v)`, `.length`, `x[i]` reads, \
+         `for..of`, and `.join` are available"
+    )
+}
+
+/// Task 6 fail-closed message for a growable-shape receiver whose `.push` CALL
+/// itself is malformed (wrong argument count, or an argument expression shape
+/// the lane cannot store). Distinct from the position message so `o.push({a:1})`
+/// is not blamed on positions that do not apply.
+fn growable_unsupported_push_message(func: &str, name: &str) -> String {
+    let scope = if func == TOP_LEVEL {
+        "at module scope".to_string()
+    } else {
+        format!("in `{func}`")
+    };
+    format!(
+        "growable array `{name}` {scope} has a `.push` call the growable-array lane does not \
+         support (exactly one argument is required, and it must be a number, a string literal, \
+         an identifier, or arithmetic over those — not an object/array literal, call, or member \
+         expression)"
+    )
+}
+
+/// Task 6 fail-closed message for a growable-shape `.push` receiver whose
+/// ELEMENT repr is unsupported (float, object, or an identifier push that names
+/// a function/array/object/for-in-key binding). Names the binding.
+fn growable_unsupported_element_message(func: &str, name: &str) -> String {
+    let scope = if func == TOP_LEVEL {
+        "at module scope".to_string()
+    } else {
+        format!("in `{func}`")
+    };
+    format!(
+        "growable array `{name}` {scope} pushes an unsupported element (only integer and string \
+         elements are available; float, object, and handle-valued pushes fail closed)"
+    )
+}
+
 /// Classify a numeric literal value as a float seed. The AST stores literals as
 /// `f64` (the raw token text is not retained), so a literal seeds float iff it
 /// is not an exact finite integer (has a fractional part, or is non-finite).
@@ -2674,6 +4348,213 @@ fn is_float_literal(n: f64) -> bool {
 /// True when `expr` is the `Math` object (`Math` identifier).
 fn is_math_object(expr: &Expression) -> bool {
     matches!(expr, Expression::Identifier(name) if name == "Math")
+}
+
+/// Strip `ParenthesizedExpression` wrappers (Task 6 enumeration recognizer).
+fn strip_parenthesized(expr: &Expression) -> &Expression {
+    let mut current = expr;
+    while let Expression::ParenthesizedExpression(inner) = current {
+        current = &inner.expression;
+    }
+    current
+}
+
+/// Stage P2 Lane 2b clone-safety allowlist: `expr` (already paren-stripped) is a
+/// syntactic form that PROVABLY yields a scalar (number / bool / immutable
+/// string handle) and can NEVER be an object/array pointer — so an object field
+/// initialized from it is verbatim-clonable. This is the DEFAULT-DENY core: only
+/// the listed forms are admitted here; identifier/call/`arr[i]` sources are
+/// decided later against the resolved shape (they MIGHT be object pointers), and
+/// every other form (ternary, logical `||`/`&&`/`??` — which the parser lowers
+/// to a `BinaryExpression`, so they are EXCLUDED by operator here — non-computed
+/// member, `new`, …) is left for the caller to reject fail-closed.
+fn expr_is_proven_scalar_source(expr: &Expression) -> bool {
+    match expr {
+        Expression::Literal(_) => true,
+        Expression::UnaryExpression(_) => true,
+        Expression::UpdateExpression(_) => true,
+        Expression::TemplateLiteral(_) => true,
+        // Arithmetic / bitwise / comparison yield a number/bool/string — never a
+        // fresh object pointer. Logical `||`/`&&`/`??` (also parsed as
+        // `BinaryExpression`) CAN evaluate to an object operand, so they are
+        // excluded and fall through to the default-deny path.
+        Expression::BinaryExpression(bin) => !matches!(bin.operator.as_str(), "||" | "&&" | "??"),
+        _ => false,
+    }
+}
+
+/// The enumeration-namespace root of `expr`: `Some("Object")`/`Some("Reflect")`
+/// for the `Object`/`Reflect` identifiers or their `globalThis` member forms
+/// (`globalThis.Object`, `globalThis["Object"]`, `globalThis['Object']` — the
+/// parser normalizes computed string properties into `property`). Syntactic
+/// twin of the resolver's `resolve_static_callable_name` root spellings
+/// (`static_analysis/array.rs::is_static_object_enumeration_iteration_target`).
+fn enumeration_namespace_root(expr: &Expression) -> Option<&str> {
+    match strip_parenthesized(expr) {
+        Expression::Identifier(name) if name == "Object" || name == "Reflect" => Some(name),
+        Expression::MemberExpression(member)
+            if (member.property == "Object" || member.property == "Reflect")
+                && matches!(
+                    strip_parenthesized(&member.object),
+                    Expression::Identifier(root) if root == "globalThis"
+                ) =>
+        {
+            Some(&member.property)
+        }
+        _ => None,
+    }
+}
+
+/// How a `for..of`/`for await..of` RHS relates the loop variable to the
+/// String axis (Task 6 review fixes — truthful loop-variable inference for
+/// enumeration sources).
+enum ForOfStringItems<'a> {
+    /// Not a recognized string-yielding enumeration source.
+    No,
+    /// Items are strings by construction: seed the loop variable String.
+    Seed,
+    /// `Object.values(<identifier>)`: the items are strings iff the operand
+    /// binding is a string — mirrored with a flow edge `operand -> loop var`
+    /// (an object/numeric operand's node stays plain, so nothing seeds).
+    ValuesOperandIdentifier(&'a str),
+}
+
+/// Classify a `for..of`/`for await..of` RHS: `Object.keys(x)` (enumeration
+/// keys are always strings in JS, whatever `x` is) and `Reflect.ownKeys(x)`
+/// (ditto — kali has no symbols) always seed; `Object.values(op)` yields the
+/// operand's characters when the operand is a STRING — a string literal or a
+/// `+` concat with a static-string side seeds directly, and an identifier
+/// operand is mirrored with a flow edge (re-review fix: the resolver's
+/// `resolve_static_object_keys_target` resolves static string EXPRESSIONS
+/// incl. const bindings, so the earlier literal-only twin desynced — a
+/// `const s = "ab"` operand promoted an I64 element axis while the runtime
+/// pushed string handles and a bare `.join` rendered handle bits).
+/// `Object.values(<object identity>)` deliberately does NOT seed (field
+/// values keep their own reprs). `Object.entries` yields ARRAYS — never
+/// admitted. Recognizes the same receiver spellings the resolver's
+/// enumeration gate admits (dot/bracket `globalThis` roots, parenthesization,
+/// and the `Object.freeze(<callable>)` wrapper), conservatively `No` for
+/// anything else.
+fn for_of_string_items(rhs: &Expression) -> ForOfStringItems<'_> {
+    let Expression::CallExpression(call) = strip_parenthesized(rhs) else {
+        return ForOfStringItems::No;
+    };
+    // `Object.freeze(<callable>)(operand)` — unwrap the freeze wrapper.
+    let callee = strip_parenthesized(&call.callee);
+    let member_expr = match callee {
+        Expression::CallExpression(inner) => {
+            let is_freeze_wrap = matches!(
+                strip_parenthesized(&inner.callee),
+                Expression::MemberExpression(freeze)
+                    if freeze.property == "freeze"
+                        && enumeration_namespace_root(&freeze.object) == Some("Object")
+            ) && inner.args.len() == 1;
+            if !is_freeze_wrap {
+                return ForOfStringItems::No;
+            }
+            strip_parenthesized(&inner.args[0])
+        }
+        other => other,
+    };
+    let Expression::MemberExpression(member) = member_expr else {
+        return ForOfStringItems::No;
+    };
+    match (
+        enumeration_namespace_root(&member.object),
+        member.property.as_str(),
+    ) {
+        (Some("Object"), "keys") | (Some("Reflect"), "ownKeys") => ForOfStringItems::Seed,
+        (Some("Object"), "values") if call.args.len() == 1 => {
+            match strip_parenthesized(&call.args[0]) {
+                Expression::Literal(kali_ast::LiteralValue::String(_)) => ForOfStringItems::Seed,
+                // `"a" + x` is ALWAYS a string in JS (concat when either
+                // side is a string), so its values are its characters.
+                binary @ Expression::BinaryExpression(_) if is_static_string_concat(binary) => {
+                    ForOfStringItems::Seed
+                }
+                Expression::Identifier(name) => ForOfStringItems::ValuesOperandIdentifier(name),
+                _ => ForOfStringItems::No,
+            }
+        }
+        _ => ForOfStringItems::No,
+    }
+}
+
+/// True when `expr` is a static string, or a `+` expression with at least one
+/// static-STRING side (recursively through parens/nested `+`) — a string
+/// concatenation by JS semantics regardless of the other side.
+fn is_static_string_concat(expr: &Expression) -> bool {
+    match strip_parenthesized(expr) {
+        Expression::Literal(kali_ast::LiteralValue::String(_)) => true,
+        Expression::BinaryExpression(binary) if binary.operator == "+" => {
+            is_static_string_concat(&binary.left) || is_static_string_concat(&binary.right)
+        }
+        _ => false,
+    }
+}
+
+/// True when `expr` is the `performance` object (`performance` identifier).
+fn is_performance_object(expr: &Expression) -> bool {
+    matches!(expr, Expression::Identifier(name) if name == "performance")
+}
+
+/// True when `expr` is the `crypto` object (`crypto` identifier).
+fn is_crypto_object(expr: &Expression) -> bool {
+    matches!(expr, Expression::Identifier(name) if name == "crypto")
+}
+
+/// True when `expr` is the `crypto.subtle` object (member `subtle` off the
+/// `crypto` identifier).
+fn is_crypto_subtle_object(expr: &Expression) -> bool {
+    matches!(
+        expr,
+        Expression::MemberExpression(member)
+            if member.computed_index.is_none()
+                && member.property.as_str() == "subtle"
+                && is_crypto_object(&member.object)
+    )
+}
+
+/// True when `expr` invokes the `TextEncoder` constructor — either
+/// `new TextEncoder()` (NewExpression) or the bare `TextEncoder()` call the
+/// parser leaves as the object of the `.encode` member when it hoists the `new`
+/// to wrap the whole `new TextEncoder().encode(...)` chain (see
+/// `text_encoder_encode_new`).
+fn is_text_encoder_ctor(expr: &Expression) -> bool {
+    match expr {
+        Expression::NewExpression(new_expr) => {
+            matches!(&new_expr.callee, Expression::Identifier(name) if name == "TextEncoder")
+        }
+        Expression::CallExpression(call) => {
+            matches!(&call.callee, Expression::Identifier(name) if name == "TextEncoder")
+        }
+        _ => false,
+    }
+}
+
+/// Recognize the `new TextEncoder().encode(<string>)` expression. The kali parser
+/// hoists the `new` to wrap the entire member-call chain, so the surface syntax
+/// parses as `new (TextEncoder().encode(args))`: a `NewExpression` whose callee is
+/// the `.encode` `CallExpression`. Returns that inner encode call when `expr`
+/// matches, so the repr arm can seed its result `String`.
+fn text_encoder_encode_new(expr: &Expression) -> Option<&kali_ast::CallExpression> {
+    let Expression::NewExpression(new_expr) = expr else {
+        return None;
+    };
+    let Expression::CallExpression(call) = &new_expr.callee else {
+        return None;
+    };
+    let Expression::MemberExpression(member) = &call.callee else {
+        return None;
+    };
+    if member.computed_index.is_some() || member.property.as_str() != "encode" {
+        return None;
+    }
+    if is_text_encoder_ctor(&member.object) {
+        Some(call)
+    } else {
+        None
+    }
 }
 
 fn is_console_object(expr: &Expression) -> bool {

@@ -95,16 +95,18 @@ fn substring_with_float_bound_is_rejected() {
 }
 
 #[test]
-fn substring_result_equality_is_rejected() {
-    // A slice is a non-interned runtime string: handle-identity == would be
-    // wrong. Pin as a rejection.
+fn substring_result_equality_compares_content() {
+    // RE-PIN (throw-fallout Stage 1): a slice is a non-interned runtime
+    // string; `==` is now content equality via `__streq` (node: prints 1).
     let out = run_source(
         "let a = \"GGCC\";\nlet i = 1;\nlet s = a.substring(0, i);\nif (s == \"G\") { console.log(1); }\n",
     );
     assert!(
-        !out.status.success(),
-        "substring == must be rejected, not compared by handle"
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
     );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "1\n");
 }
 
 #[test]

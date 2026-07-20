@@ -95,6 +95,34 @@ impl Parser {
                     argument,
                 }))
             }
+            // `typeof <expr>` was previously NOT parsed as a unary operator, so
+            // the token fell through to the primary parser as a bare
+            // identifier — `typeof value` read the undefined identifier
+            // `typeof` (zero placeholder) and dropped `value`. Parse it as a
+            // real unary expression; codegen's provable lane classifies it.
+            Some(TokenType::Typeof) => {
+                let _ = self.stream.advance();
+                let argument = self.parse_unary_expression();
+                Expression::UnaryExpression(Box::new(UnaryExpression {
+                    operator: "typeof".to_string(),
+                    argument,
+                }))
+            }
+            // `delete <expr>` was previously NOT parsed as a unary operator
+            // (same historical bug as `typeof` above): the token fell through
+            // to the primary parser, was swallowed, and `delete r.b` compiled
+            // as a bare member read — a silent no-op with no diagnostic.
+            // Parse it as a real unary expression; the optimizer's static
+            // shape timeline consumes the provable lane and codegen
+            // default-denies the rest (throw-fallout Stage 2).
+            Some(TokenType::Delete) => {
+                let _ = self.stream.advance();
+                let argument = self.parse_unary_expression();
+                Expression::UnaryExpression(Box::new(UnaryExpression {
+                    operator: "delete".to_string(),
+                    argument,
+                }))
+            }
             Some(TokenType::Plus) => {
                 if self
                     .stream
@@ -172,6 +200,20 @@ impl Parser {
                 // Shift operators bind tighter than relational/equality but looser
                 // than additive, per JS operator precedence.
                 TokenType::LtLt | TokenType::GtGt => Some(7),
+                // Binary `in`/`instanceof` previously were not binary
+                // operators here, so `'a' in obj` parsed as `'a'` and
+                // `in obj` was silently dropped — the expression miscompiled
+                // to its LEFT operand. Parse them at relational precedence so
+                // the real AST reaches analysis; codegen fails closed with a
+                // print-then-trap when the operator would actually be
+                // EVALUATED (kali cannot decide runtime key presence after
+                // `delete`, nor walk prototype chains), keeping analysis-only
+                // commands (`kali check`) usable on code that contains them.
+                // A trailing `in` inside a `for (expr in obj)` head must
+                // still terminate the expression so the for-in statement
+                // parser can consume it — that is the `no_in` guard.
+                TokenType::In if !self.no_in => Some(6),
+                TokenType::InstanceOf => Some(6),
                 TokenType::Plus | TokenType::Minus => Some(8),
                 TokenType::Star | TokenType::Slash | TokenType::Percent => Some(9),
                 TokenType::StarStar => Some(10),
@@ -216,6 +258,8 @@ impl Parser {
                     TokenType::Gt => ">",
                     TokenType::LtEq => "<=",
                     TokenType::GtEq => ">=",
+                    TokenType::In => "in",
+                    TokenType::InstanceOf => "instanceof",
                     _ => {
                         // Not a binary operator we handle
                         break;

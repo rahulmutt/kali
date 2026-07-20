@@ -5,6 +5,7 @@
 
 pub mod analysis;
 mod binding;
+mod env_plan;
 mod function;
 mod layout;
 mod lower;
@@ -14,6 +15,7 @@ mod program;
 
 pub use analysis::arena_gate::{compute_arena_table, FunctionArenaFacts, LoopArenaFacts};
 pub use binding::{BorrowedLifetime, MirBinding, MirBindingKind};
+pub use env_plan::{derive_env_plans, CapturedRef, EnvCell, EnvPlan};
 pub use function::{MirFunction, MirFunctionKind};
 pub use layout::LayoutDescriptor;
 pub use lower::MirLowerer;

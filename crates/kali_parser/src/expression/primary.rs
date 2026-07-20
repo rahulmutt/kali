@@ -2,8 +2,8 @@
 
 use crate::Parser;
 use kali_ast::{
-    ArrayExpression, ArrowFunctionExpression, Expression, ExpressionOrSpread, FunctionParam,
-    ImportExpression, ParenthesizedExpression, SpreadElement,
+    ArrayExpression, ArrowFunctionExpression, Expression, ExpressionOrSpread, FunctionExpression,
+    FunctionParam, ImportExpression, ParenthesizedExpression, SpreadElement, Statement,
 };
 use kali_common::template::split_template_literal;
 use kali_error::{_error_codes::e2, diagnostic::Diagnostic};
@@ -23,19 +23,41 @@ impl Parser {
                 let name = token
                     .map(|t| t.value)
                     .unwrap_or_else(|| "unknown".to_string());
-                if self.stream.current_kind() == Some(&TokenType::Arrow)
-                    && self.stream.peek_next_kind() != Some(&TokenType::LeftBrace)
-                {
-                    let _ = self.stream.advance();
-                    let body = self.parse_arrow_function_body_expression();
-                    return Expression::ArrowFunctionExpression(Box::new(
-                        ArrowFunctionExpression {
-                            params: vec![FunctionParam { name }],
-                            body,
-                            is_async: false,
-                            returnType: None,
-                        },
-                    ));
+                if self.stream.current_kind() == Some(&TokenType::Arrow) {
+                    if self.stream.peek_next_kind() == Some(&TokenType::LeftBrace) {
+                        // Single-param block-bodied arrow `x => { … }`: parse
+                        // into the SAME unnamed `FunctionExpression` desugar the
+                        // paren form uses (declaration.rs:319). Before this it
+                        // fell through to the identifier return, so the `{ … }`
+                        // reparsed as an object literal / block in the outer
+                        // scope (baffling diagnostics, or a body that flattened
+                        // and executed once at the wrong scope).
+                        let _ = self.stream.advance(); // consume `=>`
+                        if let Some(Statement::BlockStatement(block)) = self.parse_block_statement()
+                        {
+                            return Expression::FunctionExpression(Box::new(FunctionExpression {
+                                id: None,
+                                params: vec![FunctionParam { name }],
+                                body: Some(Box::new(block)),
+                                is_async: false,
+                                generator: false,
+                            }));
+                        }
+                        // Unparseable block: fall through to the identifier
+                        // return — resolve will produce its normal diagnostics.
+                    } else {
+                        let _ = self.stream.advance();
+                        let body = self.parse_arrow_function_body_expression();
+                        return Expression::ArrowFunctionExpression(Box::new(
+                            ArrowFunctionExpression {
+                                id: None,
+                                params: vec![FunctionParam { name }],
+                                body,
+                                is_async: false,
+                                returnType: None,
+                            },
+                        ));
+                    }
                 }
                 Expression::Identifier(name)
             }
@@ -76,6 +98,17 @@ impl Parser {
                 Expression::Literal(kali_ast::LiteralValue::String(value))
             }
             TokenType::LeftParen => {
+                // Block-bodied arrows in ANY expression position parse as an
+                // unnamed `FunctionExpression` — the same desugar the declarator
+                // init uses. Before this, non-declarator positions fell through:
+                // params reparsed against the outer scope (E3100 noise) and a
+                // zero-param body FLATTENED into module scope and executed once
+                // (silent wrong execution — Kali.test only "worked" via that).
+                // Try the block form FIRST so `(a) => { … }` never reaches the
+                // expression-bodied arrow / parenthesized fallthrough below.
+                if let Some(expr) = self.try_parse_block_arrow_function_expression() {
+                    return expr;
+                }
                 if let Some(expr) = self.try_parse_arrow_function_expression() {
                     return expr;
                 }
@@ -163,6 +196,23 @@ impl Parser {
                     Expression::Identifier(name)
                 }
             }
+            // Contextual keywords that are legal JS binding identifiers
+            // (see `is_binding_name_token`) must also read back as plain
+            // identifier expressions — `const type = 1; console.log(type)`
+            // is valid JS. `Async`/`Yield`/`Await` already have their own
+            // arms above; this covers the rest of the allowlist.
+            TokenType::Type
+            | TokenType::Interface
+            | TokenType::Enum
+            | TokenType::From
+            | TokenType::As
+            | TokenType::Of => {
+                let token = self.stream.advance();
+                let name = token
+                    .map(|t| t.value)
+                    .unwrap_or_else(|| "unknown".to_string());
+                Expression::Identifier(name)
+            }
             TokenType::Function => self.parse_function_expression_with_async(false),
             TokenType::Class => self.parse_class_expression(),
             TokenType::Import => {
@@ -177,6 +227,17 @@ impl Parser {
             }
             TokenType::New => {
                 let _ = self.stream.advance();
+                // `new [1,2,3]` — `new` on an array literal is not
+                // constructible (node throws TypeError). Reject fail-closed
+                // BEFORE parsing the callee, so the ArrayExpression unwrap
+                // below can only ever be reached via the call-path desugar
+                // (`Array(a, b, …)` → array literal), never a bracket
+                // literal. Still parse the expression to keep the stream
+                // consistent; the diagnostic rejects the program.
+                if self.stream.current_kind() == Some(&TokenType::LeftBracket) {
+                    self.push_feature_unavailable("`new` on an array literal is not constructible");
+                    return self.parse_call_expression();
+                }
                 let callee = self.parse_call_expression();
                 let mut args = Vec::new();
                 if self.stream.accept(TokenType::LeftParen)
@@ -187,6 +248,16 @@ impl Parser {
                         args.push(self.parse_expression());
                     }
                     let _ = self.stream.accept(TokenType::RightParen);
+                }
+                // `new Array(a, b, …)` desugars identically to
+                // `Array(a, b, …)` — the call-path desugar already turned
+                // the callee into the array literal; `new` adds nothing for
+                // the Array constructor. INVARIANT: an ArrayExpression callee
+                // here can only be desugar output — a bracket-literal callee
+                // (`new [...]`) was rejected fail-closed above, before
+                // callee parsing.
+                if matches!(&callee, Expression::ArrayExpression(_)) {
+                    return callee;
                 }
                 Expression::NewExpression(Box::new(kali_ast::NewExpression { callee, args }))
             }

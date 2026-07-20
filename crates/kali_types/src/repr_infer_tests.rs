@@ -184,6 +184,69 @@ bump(bodies);\n";
 }
 
 #[test]
+fn quoted_string_keys_materialize_the_same_shape_as_identifier_keys() {
+    // F-Stage1-4: `{ "b": 1, "a": 2 }` previously recorded a deferred
+    // "non-identifier property name" conflict and never materialized a
+    // shape; the byte-identical program with unquoted keys worked. Quoted
+    // and unquoted keys are the same object in JS.
+    // Field order is ES enumeration order: array-index-like keys first,
+    // ascending; then insertion order.
+    // { "b": 1, "2": 2, "a": 3, "1": 4 } -> fields ["1", "2", "b", "a"]
+    let t = reprs(
+        "const o = { \"b\": 1, \"2\": 2, \"a\": 3, \"1\": 4 };\nfor (var k in o) { console.log(k); }\n",
+    );
+    let Repr::Object(shape) = t.scalar("_start", "o") else {
+        panic!("o should be an object binding with a materialized shape");
+    };
+    let names: Vec<&str> = t
+        .shape_fields(shape)
+        .iter()
+        .map(|(name, _)| name.as_str())
+        .collect();
+    assert_eq!(names, vec!["1", "2", "b", "a"]);
+    assert!(t.shape_conflicts().is_empty());
+}
+
+#[test]
+fn quoted_proto_key_object_literal_fails_closed_not_a_phantom_own_property() {
+    // CRITICAL (Stage 2 Lane A review): an object-literal `__proto__` key
+    // (identifier OR string-literal form, non-computed) is JS's PROTOTYPE
+    // SETTER — it creates NO own property. node's `for..in` on
+    // `{ "__proto__": 1, "a": 2 }` prints only `a`. kali has no prototype
+    // model, so materializing `__proto__` as an ordinary field and
+    // enumerating it would be a miscompile. Must fail closed (a deferred
+    // conflict, promoted to a real conflict by the `for..in`) rather than
+    // ever materialize a shape.
+    let t =
+        reprs("const o = { \"__proto__\": 1, \"a\": 2 };\nfor (var k in o) { console.log(k); }\n");
+    assert!(
+        !matches!(t.scalar("_start", "o"), Repr::Object(_)),
+        "a __proto__-keyed literal must never materialize a shape"
+    );
+    assert!(
+        !t.shape_conflicts().is_empty(),
+        "a __proto__-keyed literal must record a conflict instead of enumerating a phantom own key"
+    );
+}
+
+#[test]
+fn identifier_proto_key_object_literal_fails_closed_not_a_phantom_own_property() {
+    // Same as above but the identifier form `{ __proto__: 1, a: 2 }`. This
+    // form was ALREADY a miscompile before Task 3 (pre-existing) — both
+    // forms share the same key-admission choke point, so this fix closes it
+    // too.
+    let t = reprs("const o = { __proto__: 1, a: 2 };\nfor (var k in o) { console.log(k); }\n");
+    assert!(
+        !matches!(t.scalar("_start", "o"), Repr::Object(_)),
+        "a __proto__-keyed literal must never materialize a shape"
+    );
+    assert!(
+        !t.shape_conflicts().is_empty(),
+        "a __proto__-keyed literal must record a conflict instead of enumerating a phantom own key"
+    );
+}
+
+#[test]
 fn shape_mismatch_reassignment_is_a_conflict() {
     let t = reprs("let p = { x: 1.0 };\np = { y: 2.0 };\np.y = 3.0;\n");
     assert!(!t.shape_conflicts().is_empty());
@@ -738,4 +801,698 @@ fn for_in_key_is_seeded_and_not_a_string_repr_by_default() {
     let t =
         reprs("function m(table) { for (var c in table) { let z = c; } }\nm({ a: 1, c: 2 });\n");
     assert_eq!(t.scalar("m", "c"), Repr::I64);
+}
+
+// ---- throw-fallout Stage 4: growable-array promotion gate ----
+
+#[test]
+fn growable_promotion_fires_for_safe_numeric_push_bindings() {
+    let t = reprs(
+        "function main() { const o = []; o.push(1); o.push(2); \
+         console.log(o.length); console.log(o[0]); }\nmain();\n",
+    );
+    assert!(t.is_growable_array_binding("main", "o"));
+}
+
+#[test]
+fn growable_promotion_accepts_identifier_and_arithmetic_pushes() {
+    let t = reprs(
+        "function main() { const o = []; \
+         for (let i = 0; i < 10; i++) { o.push(i * 2); } \
+         for (const item of [1, 2]) { o.push(item); } \
+         console.log(o.length); }\nmain();\n",
+    );
+    assert!(t.is_growable_array_binding("main", "o"));
+}
+
+#[test]
+fn growable_promotion_blocks_non_i64_pushes() {
+    // Float push.
+    let t =
+        reprs("function main() { const o = []; o.push(1.5); console.log(o.length); }\nmain();\n");
+    assert!(!t.is_growable_array_binding("main", "o"));
+    // Float-solved identifier push.
+    let t = reprs(
+        "function main() { const f = 1 / 2; const o = []; o.push(f); console.log(o.length); }\nmain();\n",
+    );
+    assert!(!t.is_growable_array_binding("main", "o"));
+    // Undeclared identifier push (`undefined` has no i64 value).
+    let t = reprs(
+        "function main() { const o = []; o.push(undefined); console.log(o.length); }\nmain();\n",
+    );
+    assert!(!t.is_growable_array_binding("main", "o"));
+}
+
+#[test]
+fn growable_promotion_promotes_uniform_string_pushes() {
+    // Task 3: a uniform-String push set promotes, with the element axis
+    // solving `Repr::String` (deliberate flip of the pre-Task-3 pin above,
+    // which used to assert a string push blocks promotion — see the Task 3
+    // report for the recorded intent).
+    let t = reprs(
+        "function main() { const o = []; o.push(\"a\"); o.push(\"b\"); \
+         console.log(o[0]); console.log(o.length); }\nmain();\n",
+    );
+    assert!(t.is_growable_array_binding("main", "o"));
+    assert_eq!(t.array_element("main", "o"), Repr::String);
+    assert!(t.shape_conflicts().is_empty());
+}
+
+#[test]
+fn growable_promotion_accepts_string_identifier_pushes() {
+    // A declared (non-function/array/object/for-in-key) string-valued
+    // identifier push is allowed — the Task 2 identifier guard is
+    // repr-agnostic and stays intact for the String lane too.
+    let t = reprs(
+        "function main() { const s = \"x\"; const o = []; o.push(s); \
+         console.log(o.length); }\nmain();\n",
+    );
+    assert!(t.is_growable_array_binding("main", "o"));
+    assert_eq!(t.array_element("main", "o"), Repr::String);
+}
+
+#[test]
+fn growable_promotion_rejects_mixed_i64_and_string_pushes() {
+    // Task 3 fail-closed requirement: a MIXED i64+String push set on the
+    // SAME growable candidate must not silently fall back to the
+    // pre-promotion no-op lane — it is a shape conflict (E5506), mirroring
+    // the pre-existing mixed-store rejection idiom for ordinary array
+    // element stores.
+    let t = reprs(
+        "function main() { const o = []; o.push(1); o.push(\"a\"); \
+         console.log(o.length); }\nmain();\n",
+    );
+    assert!(
+        !t.shape_conflicts().is_empty(),
+        "expected a shape conflict for a mixed i64/String push set"
+    );
+    assert!(
+        t.shape_conflicts()
+            .iter()
+            .any(|m| m.contains("used as both strings and numbers")),
+        "shape_conflicts: {:?}",
+        t.shape_conflicts()
+    );
+    assert!(!t.is_growable_array_binding("main", "o"));
+}
+
+#[test]
+fn growable_promotion_blocks_escaping_and_module_scope_bindings() {
+    // Escaping (call argument) — not a candidate.
+    let t = reprs(
+        "function f(x) { return x; }\nfunction main() { const o = []; o.push(1); f(o); }\nmain();\n",
+    );
+    assert!(!t.is_growable_array_binding("main", "o"));
+    // Module-scope push receiver — deliberately not analyzed.
+    let t = reprs("const o = [];\no.push(1);\nconsole.log(o.length);\n");
+    assert!(!t.is_growable_array_binding("_start", "o"));
+}
+
+// ---- F-AB-2 lockstep tripwire ----------------------------------------------
+//
+// These pin the two `__kali_fn_N` sets the shared Phase-A descent (walks 1-3)
+// and Phase B (walk 4) build. The product code carries a hard
+// `debug_assert!(seeded ⊆ registered)` in `assert_nested_fn_lockstep`; these
+// tests pin BOTH directions — that common callback positions are in exact
+// lockstep (seeded == registered) and that the KNOWN-exotic positions form the
+// documented, allowed reverse gap `registered − seeded`. See
+// `docs/superpowers/followups/stageAB-followups.md` §F-AB-2. (A named function
+// expression, e.g. `function cb(){…}`, stands in for the synthetic
+// `__kali_fn_N` id that `name_anon_functions` assigns in the real pipeline; the
+// lockstep logic keys purely on the fn-expr/arrow id, so the source of the name
+// is immaterial.)
+
+use super::repr_infer::nested_fn_lockstep_sets;
+
+#[test]
+fn nested_fn_lockstep_common_positions_are_equal() {
+    // A fn-expr in a common position (declarator init) is reached by BOTH the
+    // shared Phase-A descent AND Phase B's own walk-4 fn-expr arm → the sets
+    // are EQUAL. This is the invariant the debug_assert protects for the vast
+    // majority of real programs (no exotic positions).
+    let (registered, seeded) = nested_fn_lockstep_sets(&crate::test_support::parse_statements(
+        "let f = function cb(){ let x = 1; };\n",
+    ));
+    assert!(
+        registered.contains("cb"),
+        "walks 1-3 must register the fn-expr id; registered={registered:?}"
+    );
+    assert_eq!(
+        registered, seeded,
+        "common-position fn-expr must be in exact lockstep (seeded == registered)"
+    );
+}
+
+#[test]
+fn nested_fn_lockstep_ternary_and_arg_positions_are_equal() {
+    // Ternary branch + bare call-argument callback — both common positions
+    // that walk 4 seeds. Still exact lockstep.
+    let (registered, seeded) = nested_fn_lockstep_sets(&crate::test_support::parse_statements(
+        "function run(cb){ return cb; }\n\
+             let g = true ? function a(){ let x = 1; } : function b(){ let y = 2; };\n\
+             run(function c(){ let z = 3; });\n",
+    ));
+    assert_eq!(
+        registered, seeded,
+        "ternary + bare-arg fn-exprs must be in exact lockstep; \
+         registered={registered:?} seeded={seeded:?}"
+    );
+    assert!(seeded.contains("a") && seeded.contains("b") && seeded.contains("c"));
+}
+
+#[test]
+fn nested_fn_lockstep_exotic_object_literal_arg_is_the_allowed_gap() {
+    // F-AB-2 exotic position: a fn-expr inside an object literal passed
+    // DIRECTLY as a call argument (`sink({ f: function(){…} })`). The shared
+    // Phase-A descent (walks 1-3) descends the object-property value and
+    // REGISTERS it, but Phase B's walk-4 `_` arm has no `ObjectExpression`
+    // recursion, so it is NOT seeded. This is the documented, allowed reverse
+    // gap `registered − seeded` — pinned here rather than by a hard
+    // equal-assert (which would fire on day one for any such program).
+    let (registered, seeded) = nested_fn_lockstep_sets(&crate::test_support::parse_statements(
+        "function sink(o){ return o; }\n\
+             sink({ f: function exotic(){ let x = 1; } });\n",
+    ));
+    assert!(
+        registered.contains("exotic"),
+        "walks 1-3 must register the exotic-position fn-expr; registered={registered:?}"
+    );
+    assert!(
+        !seeded.contains("exotic"),
+        "walk 4 must NOT seed the object-literal-as-direct-call-arg position \
+         (F-AB-2 known gap); seeded={seeded:?}"
+    );
+    // The SAFE-direction invariant the debug_assert enforces still holds:
+    // everything walk 4 seeds was registered by walks 1-3.
+    assert!(
+        seeded.is_subset(&registered),
+        "F-AB-2 safe-direction invariant (seeded ⊆ registered) must hold; \
+         seeded={seeded:?} registered={registered:?}"
+    );
+    // The reverse gap is EXACTLY the one exotic fn (the allowlist/count of
+    // known-unseeded shapes for this program).
+    let gap: Vec<_> = registered.difference(&seeded).cloned().collect();
+    assert_eq!(
+        gap,
+        vec!["exotic".to_string()],
+        "unexpected unseeded gap: {gap:?}"
+    );
+}
+
+// ---- F-AB-2 remaining exotic positions (coverage follow-up) ----------------
+//
+// The Stage C C4 review (F-AB-2 resolution) landed the lockstep assertion and
+// pinned exactly ONE of the documented exotic unseeded positions (the
+// object-literal-as-direct-call-arg case above). The other documented shapes
+// — spread arg, tagged-template operand, yield operand, optional-chain
+// operand, bare/doubly-nested array literal element — had no pin, so a future
+// change that silently seeded or unregistered one of them would trip
+// nothing. Each was probed against kali's real lexer/parser pipeline (not
+// hand-built ASTs) before writing an assertion, per "run first, pin reality":
+//
+//   - Spread splits into two sub-cases: array-literal spread (`[...x]`) IS
+//     expressible and IS a live gap — pinned below. Call-argument spread
+//     (`foo(...x)`) and rest parameters are NOT expressible through kali's
+//     parser today. Tagged-template operand is also NOT expressible. Neither
+//     can be pinned as the documented shape — see the block comment further
+//     down titled "parser-inexpressible exotic positions" for the evidence.
+//   - The other four (yield operand, optional-chain operand, the
+//     bare/doubly-nested array literal family split into two concrete
+//     shapes, and array-literal spread) parse cleanly with zero diagnostics
+//     and are confirmed-live `registered − seeded` gaps today; each gets its
+//     own pin below.
+
+#[test]
+fn nested_fn_lockstep_yield_operand_is_an_unseeded_gap() {
+    // F-AB-2 exotic position: a fn-expr as a `yield` operand inside a
+    // generator (`function* gen(){ yield function(){…}; }`). `YieldExpression`
+    // has an explicit arm in the shared Phase-A descent (`descend_expr_fns`,
+    // repr_infer.rs) that registers the operand, but Phase B's walk-4
+    // `visit_expr` has no `YieldExpression` arm at all, so it falls to the `_`
+    // catch-all and is NOT seeded.
+    let (registered, seeded) = nested_fn_lockstep_sets(&crate::test_support::parse_statements(
+        "function* gen(){ yield function yieldfn(){ let x = 1; }; }\n",
+    ));
+    assert!(
+        registered.contains("yieldfn"),
+        "walks 1-3 must register the yield-operand fn-expr; registered={registered:?}"
+    );
+    assert!(
+        !seeded.contains("yieldfn"),
+        "walk 4 must NOT seed the yield-operand position (F-AB-2 known gap); \
+         seeded={seeded:?}"
+    );
+    assert!(
+        seeded.is_subset(&registered),
+        "F-AB-2 safe-direction invariant (seeded ⊆ registered) must hold; \
+         seeded={seeded:?} registered={registered:?}"
+    );
+    let gap: Vec<_> = registered.difference(&seeded).cloned().collect();
+    assert_eq!(
+        gap,
+        vec!["yieldfn".to_string()],
+        "unexpected unseeded gap: {gap:?}"
+    );
+}
+
+#[test]
+fn nested_fn_lockstep_optional_chain_operand_is_an_unseeded_gap() {
+    // F-AB-2 exotic position: a fn-expr as the OPERAND of an optional chain —
+    // the base being null-guarded, not a call argument reached through it
+    // (`(function(){…})?.length`, not `o?.f(function(){…})`; the latter is
+    // the already-seeded "call argument" common position). `visit_member`'s
+    // fallback arm visits `member.object` generically
+    // (`self.visit_expr(func, &member.object)`), and walk-4's `visit_expr` has
+    // no `OptionalChainExpression` arm, so it falls to the `_` catch-all and
+    // does not recurse into `chain.inner.object` — NOT seeded. The shared
+    // Phase-A descent (`descend_expr_fns`) has an explicit
+    // `OptionalChainExpression` arm and DOES register it.
+    let (registered, seeded) = nested_fn_lockstep_sets(&crate::test_support::parse_statements(
+        "let r = (function optfn(){ let x = 1; })?.length;\n",
+    ));
+    assert!(
+        registered.contains("optfn"),
+        "walks 1-3 must register the optional-chain-operand fn-expr; \
+         registered={registered:?}"
+    );
+    assert!(
+        !seeded.contains("optfn"),
+        "walk 4 must NOT seed the optional-chain-operand position (F-AB-2 \
+         known gap); seeded={seeded:?}"
+    );
+    assert!(
+        seeded.is_subset(&registered),
+        "F-AB-2 safe-direction invariant (seeded ⊆ registered) must hold; \
+         seeded={seeded:?} registered={registered:?}"
+    );
+    let gap: Vec<_> = registered.difference(&seeded).cloned().collect();
+    assert_eq!(
+        gap,
+        vec!["optfn".to_string()],
+        "unexpected unseeded gap: {gap:?}"
+    );
+}
+
+#[test]
+fn nested_fn_lockstep_bare_array_literal_call_arg_is_an_unseeded_gap() {
+    // F-AB-2 exotic position: a "bare" array literal — one reached through
+    // NEITHER of the two special-cased array-literal positions
+    // (declarator-init via `note_array_init`, or assignment RHS via
+    // `visit_assignment`) — passed directly as a call argument
+    // (`sink([function(){…}])`). The plain-identifier-callee call path visits
+    // each argument via the generic `self.visit_expr(func, arg)`, and walk-4's
+    // `visit_expr` has no `ArrayExpression` arm, so it falls to the `_`
+    // catch-all and does not recurse into the literal's elements — NOT
+    // seeded. The shared Phase-A descent (`descend_expr_fns`) has an explicit
+    // `ArrayExpression` arm and DOES register it.
+    let (registered, seeded) = nested_fn_lockstep_sets(&crate::test_support::parse_statements(
+        "function sink(a){ return a; }\n\
+             sink([function barecallarg(){ let x = 1; }]);\n",
+    ));
+    assert!(
+        registered.contains("barecallarg"),
+        "walks 1-3 must register the bare-array-literal-call-arg fn-expr; \
+         registered={registered:?}"
+    );
+    assert!(
+        !seeded.contains("barecallarg"),
+        "walk 4 must NOT seed the bare-array-literal-call-arg position \
+         (F-AB-2 known gap); seeded={seeded:?}"
+    );
+    assert!(
+        seeded.is_subset(&registered),
+        "F-AB-2 safe-direction invariant (seeded ⊆ registered) must hold; \
+         seeded={seeded:?} registered={registered:?}"
+    );
+    let gap: Vec<_> = registered.difference(&seeded).cloned().collect();
+    assert_eq!(
+        gap,
+        vec!["barecallarg".to_string()],
+        "unexpected unseeded gap: {gap:?}"
+    );
+}
+
+#[test]
+fn nested_fn_lockstep_doubly_nested_array_literal_is_an_unseeded_gap() {
+    // F-AB-2 exotic position: a fn-expr inside a DOUBLY-nested array literal
+    // in declarator-init position (`let arr = [[function(){…}]];`).
+    // `note_array_init` only recurses one level (it calls `visit_expr` on
+    // each element of the OUTER array literal); a single-level array literal
+    // element (`let arr = [function(){…}];`) IS seeded this way (verified: it
+    // is NOT a gap, unlike this doubly-nested shape), but the inner array
+    // literal's own elements are never descended into by that one level of
+    // recursion, nor by any walk-4 arm (no `ArrayExpression` arm at all), so
+    // the innermost fn-expr is NOT seeded. The shared Phase-A descent
+    // (`descend_expr_fns`) recurses into `ArrayExpression` elements
+    // unconditionally (arbitrary depth) and DOES register it.
+    let (registered, seeded) = nested_fn_lockstep_sets(&crate::test_support::parse_statements(
+        "let arr = [[function nestedfn(){ let x = 1; }]];\n",
+    ));
+    assert!(
+        registered.contains("nestedfn"),
+        "walks 1-3 must register the doubly-nested-array-literal fn-expr; \
+         registered={registered:?}"
+    );
+    assert!(
+        !seeded.contains("nestedfn"),
+        "walk 4 must NOT seed the doubly-nested-array-literal position \
+         (F-AB-2 known gap); seeded={seeded:?}"
+    );
+    assert!(
+        seeded.is_subset(&registered),
+        "F-AB-2 safe-direction invariant (seeded ⊆ registered) must hold; \
+         seeded={seeded:?} registered={registered:?}"
+    );
+    let gap: Vec<_> = registered.difference(&seeded).cloned().collect();
+    assert_eq!(
+        gap,
+        vec!["nestedfn".to_string()],
+        "unexpected unseeded gap: {gap:?}"
+    );
+}
+
+#[test]
+fn nested_fn_lockstep_array_literal_spread_is_an_unseeded_gap() {
+    // F-AB-2 exotic position: a fn-expr reached through an ARRAY-LITERAL
+    // spread element in declarator-init position (`let arr = [...[function(){…}]];`).
+    // Array-literal spread IS expressible — the parser has an explicit
+    // `DotDotDot` branch inside `[...]` element parsing
+    // (`kali_parser/src/expression/primary.rs:107`) that builds
+    // `ExpressionOrSpread::Spread(SpreadElement{ argument })`; this is
+    // distinct from CALL-ARGUMENT spread (`foo(...x)`), which is genuinely
+    // unsupported (`parse_call_expression` never checks `DotDotDot` —
+    // `kali_parser/src/expression/call.rs:20-27` — so `foo(...x)` mis-parses;
+    // see the block comment below). The shared Phase-A descent registers this
+    // shape via `descend_expr_or_spread_fns`'s `Spread` arm
+    // (`repr_infer.rs:1174`, which recurses into `spread.argument`), but
+    // walk-4's `note_array_init` (`repr_infer.rs:1596`) matches only
+    // `ExpressionOrSpread::Expression` — a `Spread` element is silently
+    // skipped, so its fn-expr is never seeded.
+    let (registered, seeded) = nested_fn_lockstep_sets(&crate::test_support::parse_statements(
+        "let arr = [...[function spreadfn(){ let x = 1; }]];\n",
+    ));
+    assert!(
+        registered.contains("spreadfn"),
+        "walks 1-3 must register the array-literal-spread fn-expr; \
+         registered={registered:?}"
+    );
+    assert!(
+        !seeded.contains("spreadfn"),
+        "walk 4 must NOT seed the array-literal-spread position (F-AB-2 \
+         known gap); seeded={seeded:?}"
+    );
+    assert!(
+        seeded.is_subset(&registered),
+        "F-AB-2 safe-direction invariant (seeded ⊆ registered) must hold; \
+         seeded={seeded:?} registered={registered:?}"
+    );
+    let gap: Vec<_> = registered.difference(&seeded).cloned().collect();
+    assert_eq!(
+        gap,
+        vec!["spreadfn".to_string()],
+        "unexpected unseeded gap: {gap:?}"
+    );
+}
+
+// ---- parser-inexpressible exotic positions (documented, not pinned) -------
+//
+// Of the two remaining documented exotic positions, only ONE is genuinely
+// inexpressible against kali's real lexer/parser pipeline; the other has a
+// live, expressible sub-case that IS pinned above (array-literal spread), and
+// only its CALL-ARGUMENT variant is unsupported. Writing a test for a shape
+// the parser cannot produce would pin a fabricated AST, not reality, so
+// these are documented here instead.
+//
+//   - Spread — narrowed to CALL-ARGUMENT spread only (`foo(...x)`) and rest
+//     parameters (`function f(...args){}`). Array-literal spread
+//     (`[...x]`) IS supported (`kali_parser/src/expression/primary.rs:107`
+//     builds a real `ExpressionOrSpread::Spread(SpreadElement)`) and is
+//     pinned above by
+//     `nested_fn_lockstep_array_literal_spread_is_an_unseeded_gap`.
+//     Call-argument spread is unsupported: `parse_call_expression`
+//     (`kali_parser/src/expression/call.rs:20-27`) parses each call argument
+//     via a plain `while`/`Comma`-separated loop with no `DotDotDot` check
+//     at all, so `...` in that position is never recognized as spread.
+//     Probed directly, both with ZERO parser diagnostics (silent mis-parse,
+//     not a rejection): `function sink(...args){ return args; }` parses the
+//     param list as the single literal string `"..."` (dropping `args`
+//     entirely — the rest-parameter form is separately unsupported, with no
+//     `RestElement` construction anywhere in the parser); `sink(...arr)`
+//     parses as `sink(unknown)` followed by a spurious orphaned `arr;`
+//     expression statement (the trailing identifier is split off as its own
+//     statement).
+//   - Tagged template (`` tag`...` ``): probed directly:
+//     `` tag`hello ${function taggedfn(){ let x = 1; }}` `` parses as TWO
+//     unrelated statements — a bare `tag` identifier expression statement,
+//     then a separate `BinaryExpression` `"`hello `" + taggedfn` (the
+//     backtick characters survive literally inside the string token, and the
+//     `${...}` interpolation desugars to string concatenation, exactly like
+//     an ordinary un-tagged template literal) — never a
+//     `TaggedTemplateExpression` with `tag` as its tag callee. This construct
+//     is not reachable from real source, so — same as the untagged
+//     `TemplateLiteral` arm's note in `visit_expr` — the
+//     `TaggedTemplateExpression` arm in `descend_expr_fns` is dead code from
+//     kali's own parser's perspective today.
+//
+// If kali's parser ever grows real call-argument-spread/rest-parameter or
+// tagged-template support, these gaps must be pinned then (or closed).
+
+// ---- Stage P2 Lane 1 Task 3: growable-i64 object array fields -----------
+
+#[test]
+fn object_field_growable_int_array_infers_growable_array_repr() {
+    // { count: 1, values: [1,2,3] } read via o.count and o.values.push(4).
+    // The array-literal-initialized i64 field must intern as
+    // Repr::GrowableArrayI64; the scalar field stays I64; no conflict.
+    let src = "const o = { count: 1, values: [1, 2, 3] };\n\
+               o.values.push(4);\n\
+               console.log(o.count, o.values.length);\n";
+    let t = reprs(src);
+    let Repr::Object(shape) = t.scalar("_start", "o") else {
+        panic!("o should be a materialized object binding with a shape");
+    };
+    assert_eq!(
+        t.shape_field(shape, "count").map(|(_, r)| r),
+        Some(Repr::I64)
+    );
+    assert_eq!(
+        t.shape_field(shape, "values").map(|(_, r)| r),
+        Some(Repr::GrowableArrayI64)
+    );
+    assert!(t.shape_conflicts().is_empty());
+}
+
+#[test]
+fn object_field_string_array_conflicts() {
+    // A string-element array field is NOT growable-i64: it must fail closed
+    // (a shape conflict), never silently intern a scalar/I64 field repr.
+    let src = "const o = { vals: ['a', 'b'] };\n\
+               o.vals.push('c');\n\
+               console.log(o.vals.length);\n";
+    let t = reprs(src);
+    assert!(!t.shape_conflicts().is_empty());
+}
+// ---- Task 3 tripwire pins: known silent-I64 array-field residuals -------
+//
+// These two tests pin CURRENT (fail-OPEN) behavior on purpose. They are NOT
+// correctness claims — each documents an array-shaped object field that the
+// Task 3 array-field lane does NOT recognize, so it slips past the
+// GrowableArrayI64/conflict allowlist and silently interns `Repr::I64` with
+// NO shape_conflict. Both residuals are shared, pre-existing boundaries of the
+// `init_is_array` recognizer (repr_infer.rs): `init_is_array` matches ONLY a
+// bare `ArrayExpression` or `new Array(...)` — every other array-carrying form
+// falls to `visit_expr`'s `_ => new_node()` int arm and resolves I64. The pins
+// exist so that ANY future change to `init_is_array` (or the field detection in
+// `record_object_literal`) that alters these forms flips a test RED and forces
+// a deliberate soundness decision, instead of silently changing a field's repr.
+//
+// FIX PATH (strictly better, when a fixture needs it): routing these forms
+// through the array-field lane (`record_object_array_field`) would run them
+// through the SAME allowlist — a paren/identifier array field is not a
+// growable-i64 array LITERAL of scalar seeds, so it would CONFLICT (fail
+// closed) rather than intern I64. When that fix lands, update these pins to
+// assert the conflict.
+
+#[test]
+fn tripwire_parenthesized_array_field_silently_interns_i64() {
+    // DELIBERATE TRIPWIRE — pins a known pre-existing FAIL-OPEN, not a
+    // correctness claim. `{ values: ([1,2,3]) }`: the initializer is a
+    // PARENTHESIZED array, and `init_is_array` does not strip parens, so the
+    // field is never routed to the Task 3 array-field lane. It falls to the
+    // scalar lane and interns `I64` (an array field read back as a raw i64 —
+    // the silent miscompile class this lane otherwise closes). Identical
+    // boundary to the bare-binding growable lane, which also keys off
+    // `init_is_array` and likewise misses `const a = ([1,2,3])`.
+    // The `o.values = (...)` write materializes the shape so the field repr is
+    // observable; a materialized array-field object is exactly the scenario the
+    // growable path handles for bare `[...]`.
+    let src = "const o = { values: ([1, 2, 3]) };\n\
+               o.values = ([4, 5]);\n\
+               console.log(o.values);\n";
+    let t = reprs(src);
+    let Repr::Object(shape) = t.scalar("_start", "o") else {
+        panic!("o materializes a shape via the write");
+    };
+    // Pinned CURRENT behavior: silent I64, NO conflict. If a future
+    // `init_is_array` change makes this GrowableArrayI64 or a conflict, this
+    // assertion flips red — revisit the pin deliberately (see fix path above).
+    assert_eq!(
+        t.shape_field(shape, "values").map(|(_, r)| r),
+        Some(Repr::I64)
+    );
+    assert!(t.shape_conflicts().is_empty());
+}
+
+#[test]
+fn tripwire_identifier_aliased_array_field_silently_interns_i64() {
+    // DELIBERATE TRIPWIRE — pins a known pre-existing FAIL-OPEN, not a
+    // correctness claim. `{ values: arr }` where `arr` is an array binding:
+    // the initializer is an IDENTIFIER, which `init_is_array` never matches, so
+    // the field is not routed to the Task 3 array-field lane and interns `I64`.
+    // This belongs to the broader object-field-VALUE-aliasing gap (a field
+    // whose value flows from another binding rather than a literal), which
+    // Task 3 does not address (its scope is array-LITERAL-initialized fields).
+    let src = "const arr = [1, 2, 3];\n\
+               const o = { values: arr };\n\
+               o.values = arr;\n\
+               console.log(o.values);\n";
+    let t = reprs(src);
+    let Repr::Object(shape) = t.scalar("_start", "o") else {
+        panic!("o materializes a shape via the write");
+    };
+    // Pinned CURRENT behavior: silent I64, NO conflict. A future change that
+    // closes the field-value-aliasing gap should flip this red and update it.
+    assert_eq!(
+        t.shape_field(shape, "values").map(|(_, r)| r),
+        Some(Repr::I64)
+    );
+    assert!(t.shape_conflicts().is_empty());
+}
+
+#[test]
+fn abort_controller_const_declarator_seeds_abort_handle() {
+    let t = reprs("const c = new AbortController();\n");
+    assert_eq!(t.scalar("_start", "c"), Repr::AbortHandle);
+}
+
+#[test]
+fn abort_signal_const_alias_propagates_abort_handle() {
+    let t = reprs("const c = new AbortController();\nconst s = c.signal;\n");
+    assert_eq!(t.scalar("_start", "s"), Repr::AbortHandle);
+}
+
+#[test]
+fn abort_handle_inside_function_scope_seeds_per_function() {
+    let t = reprs("function m() { const c = new AbortController(); }\nm();\n");
+    assert_eq!(t.scalar("m", "c"), Repr::AbortHandle);
+}
+
+#[test]
+fn shadowed_abort_controller_does_not_seed() {
+    // A user binding named AbortController anywhere in the program disables
+    // seeding program-wide (conservative; codegen re-checks per-namespace).
+    let t = reprs("function AbortController() { return 1; }\nconst c = new AbortController();\n");
+    assert_eq!(t.scalar("_start", "c"), Repr::I64);
+}
+
+#[test]
+fn let_declared_controller_does_not_seed() {
+    let t = reprs("let c = new AbortController();\n");
+    assert_eq!(t.scalar("_start", "c"), Repr::I64);
+}
+
+#[test]
+fn plain_alias_of_controller_does_not_seed() {
+    // `const b = c` (not `.signal`) stays I64 — fail-closed, ops on b deny.
+    let t = reprs("const c = new AbortController();\nconst b = c;\n");
+    assert_eq!(t.scalar("_start", "b"), Repr::I64);
+}
+
+#[test]
+fn signal_alias_of_non_controller_does_not_seed() {
+    let t = reprs("const o = { signal: 3 };\nconst s = o.signal;\n");
+    assert_eq!(t.scalar("_start", "s"), Repr::I64);
+}
+
+// --- P3 Task 2 fix-round pins (reviewer findings) ---------------------
+
+#[test]
+fn fn_expr_body_shadow_disables_seeding_inside_nested_body() {
+    // CRITICAL fix pin: a shadowing `const AbortController = ...` INSIDE a
+    // nested function-expression body must disable seeding for THAT body —
+    // the shadow scan's frontier must cover every position the seeding walk
+    // (`visit_declarator_init`, reached via `visit_expr`'s FunctionExpression
+    // arm -> `visit_block`) reaches. Named function expression (`function
+    // abc(){...}`) is used instead of an arrow because this crate's `reprs`
+    // test helper parses directly (no `name_anon_functions` pass), so an
+    // arrow's `id` would be `None` and its body would not be visited at all;
+    // a named function expression already carries its own id from parsing.
+    let t = reprs(
+        "const f = function abc() {\n\
+           const AbortController = 1;\n\
+           const c = new AbortController();\n\
+         };\n\
+         f();\n",
+    );
+    assert_eq!(t.scalar("abc", "c"), Repr::I64);
+}
+
+#[test]
+fn switch_case_shadow_disables_seeding_in_case_body() {
+    // CRITICAL fix pin: `visit_stmt`'s SwitchStatement arm recurses into
+    // `case.consequent` (where `visit_declarator_init` can fire), so the
+    // shadow scan must reach the same case bodies.
+    let t = reprs(
+        "switch (0) {\n\
+           case 0: {\n\
+             const AbortController = 5;\n\
+             const c = new AbortController();\n\
+           }\n\
+         }\n",
+    );
+    assert_eq!(t.scalar("_start", "c"), Repr::I64);
+}
+
+#[test]
+fn signal_of_signal_does_not_seed() {
+    // MINOR fix pin: only a controller-origin binding's `.signal` may seed.
+    // `s` is signal-origin (from `c.signal`), so `s.signal` (`s2`) must NOT
+    // seed even though `s` itself is a live `abort_bindings` entry.
+    let t = reprs(
+        "const c = new AbortController();\n\
+         const s = c.signal;\n\
+         const s2 = s.signal;\n",
+    );
+    assert_eq!(t.scalar("_start", "s"), Repr::AbortHandle);
+    assert_eq!(t.scalar("_start", "s2"), Repr::I64);
+}
+
+// --- P3 Task 2 second fix-round pins (upgraded-to-must-fix residual) --
+
+#[test]
+fn named_fn_expr_own_name_shadow_does_not_seed() {
+    // A named function expression's own name is visible within its own body
+    // per JS scoping — the seeding walk visits that body under the SAME name
+    // (`visit_block(id, body)` keyed on `f.id`), so a shadow via the
+    // expression's own name must disable seeding inside it.
+    let t = reprs(
+        "const f = function AbortController() {\n\
+           const c = new AbortController();\n\
+         };\n\
+         f();\n",
+    );
+    assert_eq!(t.scalar("AbortController", "c"), Repr::I64);
+}
+
+#[test]
+fn param_named_abort_controller_does_not_seed() {
+    // A parameter name shadows for the entire function body, exactly like a
+    // declarator.
+    let t = reprs(
+        "function f(AbortController) {\n\
+           const c = new AbortController();\n\
+         }\n\
+         f(1);\n",
+    );
+    assert_eq!(t.scalar("f", "c"), Repr::I64);
 }

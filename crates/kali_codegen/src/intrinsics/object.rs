@@ -131,7 +131,10 @@ impl<'a> FunctionEmitter<'a> {
             let node = self.node(id);
             if node.kind == LirNodeKind::Value
                 && node.children.len() == 1
-                && node.text.as_deref().is_none_or(|text| text.is_empty())
+                && node
+                    .text
+                    .as_deref()
+                    .is_none_or(|text| text.is_empty() || text == "await")
             {
                 id = node.children[0];
                 continue;
@@ -235,7 +238,24 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             LirNodeKind::Value if node.children.len() == 1 => match node.text.as_deref() {
-                None | Some("") => self.resolve_static_object_identity_value(node.children[0]),
+                // Identity tunnels through a text-less one-child `Value`
+                // (transparent grouping/sequence/`new` wrapper AND a
+                // single-element array literal `[x]`, which are structurally
+                // identical here). That is correct for an identity consumer — it
+                // wants the wrapped scalar. The `[x].length` array-vs-string
+                // carve-out lives in the `.length` consumer (`render_length`),
+                // NOT here: guarding it here also breaks `Object.hasOwn`,
+                // number-predicate and spread consumers that legitimately tunnel
+                // one-child wrappers (throw-fallout Stage 2). A one-property
+                // OBJECT literal's lone child is an `init` node with no scalar
+                // identity, so it already resolves to `None`.
+                // `"await"` (Stage 3 Task 4) marks a synchronously-settled
+                // passthrough wrapper; an identity consumer tunnels through it to
+                // the awaited operand exactly like a text-less grouping wrapper
+                // (e.g. `Number.isSafeInteger(await alias)`).
+                None | Some("") | Some("await") => {
+                    self.resolve_static_object_identity_value(node.children[0])
+                }
                 Some("+") => match self.resolve_static_object_identity_value(node.children[0]) {
                     Some(StaticObjectIdentityValue::BigInt(_)) => None,
                     other => other,
@@ -327,14 +347,39 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     pub(crate) fn static_object_has_own(&self, object_id: LirNodeId, key: &str) -> Option<bool> {
-        let object_id = self.resolve_literal_aggregate(object_id)?;
-        let object = self.node(object_id);
+        let resolved = self
+            .resolve_literal_aggregate(object_id)
+            .unwrap_or(object_id);
+        let object = self.node(resolved);
         if self.is_object_literal(object) {
             return Some(self.object_literal_field(object, key).is_some());
         }
 
+        // An empty aggregate literal (`{}` / `[]`) is a text-less `Value` with
+        // no children — `is_object_literal` rejects it (an empty object and an
+        // empty array are indistinguishable at this node), but either way it has
+        // NO own enumerable keys, so `hasOwn` of any key is provably false.
+        if object.kind == LirNodeKind::Value && object.text.is_none() && object.children.is_empty()
+        {
+            return Some(false);
+        }
+
         if self.is_object_from_entries_call(object) {
             return self.static_object_from_entries_has_key(object, key);
+        }
+
+        // Materialized fixed-shape heap object: since Lane A (throw-fallout
+        // Stage 2), a quoted-string-key object literal (`{ a: 1, "b": 2 }`)
+        // carries a real interned shape and is allocated as a heap struct, so
+        // it is NO LONGER a fold-inlined literal — `resolve_literal_aggregate`
+        // stops at the bound identifier, not an object-literal node. Prove
+        // `hasOwn` against the shape's field set instead (the shape's field
+        // names ARE the object's own enumerable keys). Without this the call
+        // falls through to the placeholder backstop at the call site, so a
+        // provable `Object.hasOwn` on such an object would emit a `false`
+        // placeholder instead of folding to the true answer.
+        if let Some(shape) = self.object_shape_of_node(resolved) {
+            return Some(self.repr_table.shape_field(shape, key).is_some());
         }
 
         None

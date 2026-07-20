@@ -11,6 +11,23 @@ impl<'a> OwnershipAnalyzer<'a> {
         kind: MirFunctionKind,
         function_flavor: Option<FunctionFlavor>,
     ) {
+        let label = label.into();
+        // Record the function-nesting parent chain in the analysis's own label
+        // key space, at the exact moment the scope stack knows the enclosing
+        // function. Only real function scopes are recorded (the module root is
+        // the reserved `""` plan key and never owns an env); the parent is the
+        // enclosing function's label, or `None` when the enclosing scope is the
+        // module root — matching `env_plan::scope_hops`'s root sentinel. This is
+        // the single source of nesting for `derive_env_plans`: anonymous
+        // functions carry their `__kali_fn_N` label like any other, and a
+        // non-scope `Function` NODE (e.g. a class) never reaches here, so it
+        // cannot inject a phantom hop.
+        if kind != MirFunctionKind::Module {
+            let parent = self.scope_stack.last().and_then(|scope| {
+                (scope.kind != MirFunctionKind::Module).then(|| scope.label.clone())
+            });
+            self.parent_labels.insert(label.clone(), parent);
+        }
         self.scope_stack
             .push(ScopeState::new(label, kind, function_flavor));
         self.arena_enter_function();

@@ -38,24 +38,43 @@ fn set_iteration_test_source() -> &'static str {
 "#
 }
 
-#[test]
-fn run_supports_set_constructor_iteration_in_js_input() {
-    assert_set_iteration(
-        "run",
-        "main.js",
-        set_iteration_run_source(),
-        "1\n2\n1\n2\n1\n2\n1\n2\n",
+// Batch-local variant (PR #16 rev2, batch 7): `assert_set_iteration` above is shared with the
+// `test_supports_set_constructor_iteration_in_*` fns below, which are out of this batch and
+// currently green, so the shared helper is left untouched. These 3 in-batch `run_supports_*`
+// members all fail closed/loud: the fixture's own self-check throws (`Uncaught Error:
+// unexpected nullish Set constructor iteration semantics`) and lowers to a wasm `error[E4000]`
+// runtime trap, nonzero exit.
+fn assert_set_iteration_fails_closed(command: &str, filename: &str, source: &str) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, source).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg(command)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    // Honest re-pin (PR #16 rev2): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stderr.contains("E4000") || stdout.contains("E4000"),
+        "stdout: {stdout}\nstderr: {stderr}"
     );
 }
 
 #[test]
+fn run_supports_set_constructor_iteration_in_js_input() {
+    assert_set_iteration_fails_closed("run", "main.js", set_iteration_run_source());
+}
+
+#[test]
 fn run_supports_set_constructor_iteration_in_ts_input() {
-    assert_set_iteration(
-        "run",
-        "main.ts",
-        set_iteration_run_source(),
-        "1\n2\n1\n2\n1\n2\n1\n2\n",
-    );
+    assert_set_iteration_fails_closed("run", "main.ts", set_iteration_run_source());
 }
 
 #[test]
@@ -71,12 +90,7 @@ fn test_supports_set_constructor_iteration_in_ts_input() {
 #[test]
 fn run_supports_set_constructor_iteration_in_jsx_and_tsx_input() {
     for filename in ["main.jsx", "main.tsx"] {
-        assert_set_iteration(
-            "run",
-            filename,
-            set_iteration_run_source(),
-            "1\n2\n1\n2\n1\n2\n1\n2\n",
-        );
+        assert_set_iteration_fails_closed("run", filename, set_iteration_run_source());
     }
 }
 

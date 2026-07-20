@@ -7,7 +7,7 @@ fn runtime_collects_and_runs_registered_tests() {
     let wasm = compile_wat(
         r#"
             (module
-                (import "kali:rt" "test_register" (func $test_register (param i32)))
+                (import "kali:rt" "test_register" (func $test_register (param i32 i64)))
                 (func (export "__kali_callback_1")
                     i32.const 1
                     i32.const 1
@@ -15,6 +15,7 @@ fn runtime_collects_and_runs_registered_tests() {
                     drop)
                 (func (export "_start")
                     i32.const 1
+                    i64.const 0
                     call $test_register)
             )
             "#,
@@ -33,11 +34,12 @@ fn runtime_reports_failed_registered_tests() {
     let wasm = compile_wat(
         r#"
             (module
-                (import "kali:rt" "test_register" (func $test_register (param i32)))
+                (import "kali:rt" "test_register" (func $test_register (param i32 i64)))
                 (func (export "__kali_callback_2")
                     unreachable)
                 (func (export "_start")
                     i32.const 2
+                    i64.const 0
                     call $test_register)
             )
             "#,

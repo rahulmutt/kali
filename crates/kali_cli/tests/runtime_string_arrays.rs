@@ -63,14 +63,18 @@ fn interned_literal_element_identity_equality_stays_green() {
 }
 
 #[test]
-fn tainted_element_equality_is_rejected() {
+fn tainted_element_equality_compares_content() {
+    // RE-PIN (throw-fallout Stage 1): a concat-tainted element read now
+    // compares by content via `__streq` (node: prints 1).
     let out = run_source(
         "function f(s) {\n  const a = new Array(1);\n  a[0] = s + \"y\";\n  if (a[0] == \"xy\") {\n    console.log(1);\n  }\n}\nf(\"x\");\n",
     );
     assert!(
-        !out.status.success(),
-        "concat-tainted element == must reject"
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
     );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "1\n");
 }
 
 #[test]

@@ -25,6 +25,19 @@ pub enum Repr {
     Object(ShapeId),
     /// Tagged linear-memory string handle (`STRING_HANDLE_TAG | offset << 32 | len`).
     String,
+    /// A growable-i64 runtime array stored as an `ARRAY_HANDLE_TAG` handle in
+    /// one 8-byte slot (binding local or object field). The ONLY array shape a
+    /// fixed-shape object field may carry (Stage P2, Lane 1). Element repr is
+    /// fixed to i64; string/float/nested array fields fail closed.
+    GrowableArrayI64,
+    /// Pointer (i64) to a never-reclaimed 8-byte abort cell on the global
+    /// heap (`__alloc_global`) holding the `aborted` flag. Carried by an
+    /// `AbortController` binding AND its `.signal` alias — controller and
+    /// signal are the same handle (Stage P3). Distinguished purely by
+    /// compile-time provenance: every position the handle can reach is
+    /// allowlisted at the read site; unproven flows keep the I64 default
+    /// and every abort operation on them fails closed.
+    AbortHandle,
 }
 
 /// Representation decisions for a whole program, keyed by function + binding.
@@ -44,6 +57,16 @@ pub struct ReprTable {
     /// array's element repr is unset (== default I64), so this is the only way to
     /// distinguish an i64 array param from a scalar param.
     array_bindings: HashSet<(String, String)>,
+    /// `(func, binding)` pairs promoted to the GROWABLE runtime-array lane
+    /// (throw-fallout Stage 4): a `const`/`let` array-literal binding whose
+    /// every occurrence in its function is a safe growable position
+    /// (declarator init, `.push(v)` receiver, `.length` read, `x[i]` index
+    /// read, `for..of` RHS, `.join(sep)` receiver) and whose pushed/seeded
+    /// elements all prove i64. Codegen lowers such a binding to a tagged
+    /// header handle (`ARRAY_HANDLE_TAG`) with real `push` accumulation —
+    /// a SEPARATE lane from `array_bindings`' inline `[len][elem…]` layout.
+    /// Misses fail closed (not growable == the pre-existing plain lane).
+    growable_array_bindings: HashSet<(String, String)>,
     /// `(func, param)` parameters that interprocedural call-site flow shows may
     /// receive a NON-SCALAR argument. This taint covers EXACTLY the DIRECT array
     /// shapes visible at the call site: a bare-identifier array binding, or a
@@ -97,6 +120,7 @@ pub struct ReprTable {
     object_initialized_bindings: HashSet<(String, String)>,
     any_float: bool,
     any_string: bool,
+    any_abort_handle: bool,
     /// `(func, binding)` scalars/params whose `Repr::String` value is a FRESH
     /// runtime `string_concat` handle (reachable from a `+`, interpolated
     /// template, or string `+=`), NOT an interned literal constant. Codegen may
@@ -118,6 +142,19 @@ pub struct ReprTable {
     array_element_concat_tainted: HashSet<(String, String)>,
     /// Interned object layouts; `ShapeId` indexes this list.
     shapes: Vec<Vec<(String, Repr)>>,
+    /// Shapes whose EVERY object-literal construction site proved all fields
+    /// clone-safe (Stage P2 Lane 2b): each field is a growable-i64 array or a
+    /// PROVEN-scalar source (numeric/string literal, arithmetic/unary/template
+    /// expression, or a scalar-repr identifier/call/`arr[i]`) — never an object
+    /// pointer. Computed ALLOWLIST-style at shape-intern time: a shape is in
+    /// this set only if at least one object-literal slot proves it AND no slot
+    /// (or non-literal provenance) taints it. `structuredClone`'s dispatch clones
+    /// a shape ONLY when it is in this set — the field-repr envelope alone cannot
+    /// tell a plain `I64` number field from an `I64` object-pointer field (both
+    /// intern identically), so a verbatim slot copy of the latter would
+    /// SHALLOW-SHARE the nested object. Empty for programs that never construct
+    /// an object literal.
+    clone_safe_shapes: HashSet<ShapeId>,
     /// Gate messages from the shape inference (contradictory or unsupported
     /// object usage). Any entry makes compilation fail with E5506.
     shape_conflicts: Vec<String>,
@@ -156,6 +193,9 @@ impl ReprTable {
         if repr == Repr::String {
             self.any_string = true;
         }
+        if repr == Repr::AbortHandle {
+            self.any_abort_handle = true;
+        }
         self.scalars
             .insert((func.to_string(), binding.to_string()), repr);
     }
@@ -166,6 +206,9 @@ impl ReprTable {
         }
         if repr == Repr::String {
             self.any_string = true;
+        }
+        if repr == Repr::AbortHandle {
+            self.any_abort_handle = true;
         }
         self.array_elements
             .insert((func.to_string(), binding.to_string()), repr);
@@ -178,6 +221,9 @@ impl ReprTable {
         if repr == Repr::String {
             self.any_string = true;
         }
+        if repr == Repr::AbortHandle {
+            self.any_abort_handle = true;
+        }
         self.returns.insert(func.to_string(), repr);
     }
 
@@ -187,6 +233,9 @@ impl ReprTable {
         }
         if repr == Repr::String {
             self.any_string = true;
+        }
+        if repr == Repr::AbortHandle {
+            self.any_abort_handle = true;
         }
         self.params.insert((func.to_string(), index), repr);
     }
@@ -279,6 +328,60 @@ impl ReprTable {
             .contains(&(func.to_string(), binding.to_string()))
     }
 
+    /// Record that `(func, binding)` was promoted to the growable
+    /// runtime-array lane — see
+    /// [`growable_array_bindings`](Self::growable_array_bindings).
+    pub fn set_growable_array_binding(&mut self, func: &str, binding: &str) {
+        self.growable_array_bindings
+            .insert((func.to_string(), binding.to_string()));
+    }
+
+    /// True when `(func, binding)` was promoted to the growable runtime-array
+    /// lane. Defaults to false, so an unpromoted binding reports false (the
+    /// pre-existing plain lane).
+    pub fn is_growable_array_binding(&self, func: &str, binding: &str) -> bool {
+        self.growable_array_bindings
+            .contains(&(func.to_string(), binding.to_string()))
+    }
+
+    /// Distinct NAMES of every growable-array binding across all functions.
+    /// Consumed by the optimizer to treat a growable binding as mutated
+    /// (name-based and shadowing-blind, matching the optimizer's own mutated
+    /// scan) so its stale declarator literal is never inlined/folded over the
+    /// push-accumulated runtime contents.
+    pub fn growable_array_binding_names(&self) -> std::collections::BTreeSet<String> {
+        self.growable_array_bindings
+            .iter()
+            .map(|(_, binding)| binding.clone())
+            .collect()
+    }
+
+    /// Distinct NAMES of every binding whose `Object(shape)` carries a
+    /// `GrowableArrayI64` field (Stage P2 Lane 1). Consumed by the optimizer to
+    /// treat such an object binding as mutated — a `o.values.push(...)` mutates
+    /// the object's field through a Call the member-store scan cannot see, so
+    /// the constant-binding env must never inline the object literal and fold
+    /// `o.values.length` / `o.values[i]` over the stale seed (the field twin of
+    /// [`growable_array_binding_names`](Self::growable_array_binding_names)).
+    /// Name-based and shadowing-blind like that scan; over-marking only ever
+    /// DISABLES folding (fail-closed direction).
+    pub fn object_bindings_with_growable_field_names(&self) -> std::collections::BTreeSet<String> {
+        self.scalars
+            .iter()
+            .filter_map(|((_, binding), repr)| match repr {
+                Repr::Object(shape)
+                    if self
+                        .shape_fields(*shape)
+                        .iter()
+                        .any(|(_, r)| matches!(r, Repr::GrowableArrayI64)) =>
+                {
+                    Some(binding.clone())
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
     /// Record that param `binding` of `func` may receive a non-scalar (array)
     /// argument at some call site — see [`non_scalar_params`](Self::non_scalar_params).
     pub fn mark_non_scalar_param(&mut self, func: &str, binding: &str) {
@@ -332,6 +435,7 @@ impl ReprTable {
     pub fn is_empty(&self) -> bool {
         !self.any_float
             && !self.any_string
+            && !self.any_abort_handle
             && self.shapes.is_empty()
             && self.shape_conflicts.is_empty()
     }
@@ -346,6 +450,27 @@ impl ReprTable {
 
     pub fn shape_fields(&self, shape: ShapeId) -> &[(String, Repr)] {
         &self.shapes[shape.0 as usize]
+    }
+
+    /// Number of interned shapes; `ShapeId(0)..ShapeId(shape_count())` are every
+    /// interned layout. Lets codegen enumerate shapes (Stage P2 Lane 2b's
+    /// `structuredClone` clone-synthetic collection scans every envelope shape).
+    pub fn shape_count(&self) -> usize {
+        self.shapes.len()
+    }
+
+    /// Whether `shape` is clone-safe: every object-literal construction of it
+    /// proved all fields scalar-or-growable (no object-pointer field). See
+    /// `clone_safe_shapes`. `structuredClone` must gate on this in ADDITION to
+    /// the field-repr envelope.
+    pub fn shape_is_clone_safe(&self, shape: ShapeId) -> bool {
+        self.clone_safe_shapes.contains(&shape)
+    }
+
+    /// Record the ALLOWLIST-computed clone-safe shape set (Stage P2 Lane 2b);
+    /// called once by `repr_infer`'s `emit_table`.
+    pub fn set_clone_safe_shapes(&mut self, shapes: HashSet<ShapeId>) {
+        self.clone_safe_shapes = shapes;
     }
 
     /// If every field of `shape` shares one repr, return it; else `None`.
@@ -378,6 +503,12 @@ impl ReprTable {
 
     pub fn shape_conflicts(&self) -> &[String] {
         &self.shape_conflicts
+    }
+}
+
+impl Repr {
+    pub fn is_growable_array(&self) -> bool {
+        matches!(self, Repr::GrowableArrayI64)
     }
 }
 
@@ -452,3 +583,19 @@ impl UnionFind {
 #[cfg(test)]
 #[path = "repr_tests.rs"]
 mod repr_tests;
+
+#[cfg(test)]
+mod abort_handle_repr_tests {
+    use super::{Repr, ReprTable};
+
+    #[test]
+    fn abort_handle_scalar_defeats_the_all_i64_fast_path() {
+        let mut table = ReprTable::default();
+        assert!(table.is_empty());
+        table.set_scalar("_start", "c", Repr::AbortHandle);
+        assert_eq!(table.scalar("_start", "c"), Repr::AbortHandle);
+        // An abort handle is an i64 pointer whose positions must be gated;
+        // codegen must never take the all-i64 fast path past it.
+        assert!(!table.is_empty());
+    }
+}

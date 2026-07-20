@@ -67,6 +67,7 @@ fn release_specializes_array_literal_arguments_by_shape() {
     let mir = MirAnalysisProgram {
         root: kali_mir::MirNodeId::new(0),
         arena_facts: Vec::new(),
+        parent_labels: Default::default(),
         nodes: Vec::new(),
         functions: vec![
             kali_mir::MirFunction {
@@ -193,6 +194,7 @@ fn release_specializes_string_literal_arguments() {
     let mir = MirAnalysisProgram {
         root: kali_mir::MirNodeId::new(0),
         arena_facts: Vec::new(),
+        parent_labels: Default::default(),
         nodes: Vec::new(),
         functions: vec![kali_mir::MirFunction {
             name: Some("echo_text".to_string()),
@@ -304,6 +306,7 @@ fn release_specializes_quoted_string_and_template_literal_arguments_distinctly()
     let mir = MirAnalysisProgram {
         root: kali_mir::MirNodeId::new(0),
         arena_facts: Vec::new(),
+        parent_labels: Default::default(),
         nodes: Vec::new(),
         functions: vec![kali_mir::MirFunction {
             name: Some("echo_text_variant".to_string()),
@@ -410,6 +413,7 @@ fn release_specializes_regex_literal_arguments() {
     let mir = MirAnalysisProgram {
         root: kali_mir::MirNodeId::new(0),
         arena_facts: Vec::new(),
+        parent_labels: Default::default(),
         nodes: Vec::new(),
         functions: vec![kali_mir::MirFunction {
             name: Some("consume_pattern".to_string()),
@@ -516,6 +520,7 @@ fn release_specializes_regex_literal_arguments_with_mir_layouts() {
     let mir = MirAnalysisProgram {
         root: kali_mir::MirNodeId::new(0),
         arena_facts: Vec::new(),
+        parent_labels: Default::default(),
         nodes: Vec::new(),
         functions: vec![kali_mir::MirFunction {
             name: Some("consume_pattern".to_string()),
@@ -621,6 +626,7 @@ fn release_specializes_nullish_literal_arguments() {
     let mir = MirAnalysisProgram {
         root: kali_mir::MirNodeId::new(0),
         arena_facts: Vec::new(),
+        parent_labels: Default::default(),
         nodes: Vec::new(),
         functions: vec![
             kali_mir::MirFunction {
@@ -739,6 +745,7 @@ fn release_advanced_specializes_nullish_literal_arguments() {
     let mir = MirAnalysisProgram {
         root: kali_mir::MirNodeId::new(0),
         arena_facts: Vec::new(),
+        parent_labels: Default::default(),
         nodes: Vec::new(),
         functions: vec![
             kali_mir::MirFunction {
@@ -858,6 +865,7 @@ fn fast_keeps_nullish_literal_arguments_unspecialized() {
     let mir = MirAnalysisProgram {
         root: kali_mir::MirNodeId::new(0),
         arena_facts: Vec::new(),
+        parent_labels: Default::default(),
         nodes: Vec::new(),
         functions: vec![
             kali_mir::MirFunction {
@@ -985,6 +993,7 @@ fn release_specializes_infinity_and_nan_literal_arguments() {
     let mir = MirAnalysisProgram {
         root: kali_mir::MirNodeId::new(0),
         arena_facts: Vec::new(),
+        parent_labels: Default::default(),
         nodes: Vec::new(),
         functions: vec![
             kali_mir::MirFunction {
@@ -1137,6 +1146,7 @@ fn release_specializes_boolean_literal_arguments() {
     let mir = MirAnalysisProgram {
         root: kali_mir::MirNodeId::new(0),
         arena_facts: Vec::new(),
+        parent_labels: Default::default(),
         nodes: Vec::new(),
         functions: vec![
             kali_mir::MirFunction {
@@ -1271,6 +1281,7 @@ fn release_specializes_numeric_literal_arguments() {
     let mir = MirAnalysisProgram {
         root: kali_mir::MirNodeId::new(0),
         arena_facts: Vec::new(),
+        parent_labels: Default::default(),
         nodes: Vec::new(),
         functions: vec![kali_mir::MirFunction {
             name: Some("consume_number".to_string()),
@@ -1395,6 +1406,7 @@ fn release_specializes_negative_zero_literal_arguments() {
     let mir = MirAnalysisProgram {
         root: kali_mir::MirNodeId::new(0),
         arena_facts: Vec::new(),
+        parent_labels: Default::default(),
         nodes: Vec::new(),
         functions: vec![kali_mir::MirFunction {
             name: Some("consume_zero".to_string()),
@@ -1518,6 +1530,7 @@ fn release_specializes_bigint_literal_arguments() {
     let mir = MirAnalysisProgram {
         root: kali_mir::MirNodeId::new(0),
         arena_facts: Vec::new(),
+        parent_labels: Default::default(),
         nodes: Vec::new(),
         functions: vec![kali_mir::MirFunction {
             name: Some("consume_bigint".to_string()),
@@ -1624,6 +1637,7 @@ fn release_advanced_specializes_bigint_literal_arguments() {
     let mir = MirAnalysisProgram {
         root: kali_mir::MirNodeId::new(0),
         arena_facts: Vec::new(),
+        parent_labels: Default::default(),
         nodes: Vec::new(),
         functions: vec![
             kali_mir::MirFunction {

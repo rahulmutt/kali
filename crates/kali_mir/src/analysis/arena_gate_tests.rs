@@ -1074,3 +1074,19 @@ fn string_arena_loop_charges_innermost_enclosing_loop() {
         "the outer loop has no granted site of its own → not set"
     );
 }
+
+#[test]
+fn poisoned_function_opens_no_string_arena_loops() {
+    // Twin of `poisoned_function_retains_no_arena_string_sites` for the
+    // Spec 7 Task 4f loop channel: two function expressions sharing the
+    // name `h` collide in the name-keyed facts; the poisoned merged entry
+    // must open NO per-iteration string arenas either — a loop arena
+    // granted from facts merged across two distinct bodies could reset
+    // memory another body still holds.
+    let table = arena_table_for(
+        "const a = function h(){ while (1 > 0) { console.log([1].join(\"\")); } };
+         const b = function h(){ while (1 > 0) { console.log([2].join(\"\")); } };",
+    );
+    assert!(!table.string_arena_loop("h", 0));
+    assert!(!table.string_arena_loop("h", 1));
+}

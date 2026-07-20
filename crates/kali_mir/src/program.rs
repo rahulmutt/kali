@@ -1,6 +1,6 @@
 //! Assembled MIR program and its query/summary API.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{
     BorrowedLifetime, FunctionArenaFacts, MirFunction, MirFunctionKind, MirNode, MirNodeId,
@@ -17,6 +17,16 @@ pub struct MirProgram {
     /// consumed by [`crate::analysis::arena_gate::compute_arena_table`]. Empty
     /// when the program was constructed without arena analysis.
     pub arena_facts: Vec<FunctionArenaFacts>,
+    /// Function-nesting parent chain in the analysis's own scope-label key space
+    /// (`__kali_fn_N` / function names — the same keys as `MirFunction::name`
+    /// and `MirBinding::captured_by`): `label -> enclosing function label`, with
+    /// `None` for a scope enclosed directly by the module root. Recorded during
+    /// the ownership walk (`analysis::scope::push_scope`) and consumed by
+    /// [`crate::env_plan::derive_env_plans`] as the single source of function
+    /// nesting. Anonymous functions are first-class here; non-scope `Function`
+    /// nodes (e.g. classes) are absent. Empty when the program was constructed
+    /// without ownership analysis.
+    pub parent_labels: BTreeMap<String, Option<String>>,
 }
 
 impl MirProgram {

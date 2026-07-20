@@ -33,20 +33,45 @@ pub struct KaliHostState {
     pub stderr: String,
     /// Pending one-shot and repeating timers.
     pub pending_timers: BTreeMap<u32, ScheduledTimer>,
-    /// Pending microtask callbacks.
-    pub pending_microtasks: VecDeque<i32>,
+    /// Pending microtask callbacks, each paired with the `current_env` value
+    /// captured at scheduling time (Stage C C3). `invoke_callback` restores that
+    /// env before running the callback so a captured binding resolves.
+    pub pending_microtasks: VecDeque<(i32, i64)>,
     /// Timer ids that were cleared while a callback was firing.
     pub cancelled_timers: HashSet<u32>,
     /// Deterministic worker/thread topology used by the threaded runtime plumbing.
     pub thread_topology: ThreadRuntimeTopology,
     /// Monotonic timer id counter.
     pub next_timer_id: u32,
-    /// Registered test callbacks collected from guest-side `Kali.test(...)` calls.
-    pub registered_tests: Vec<i32>,
+    /// Virtual event-loop clock in ms (Stage D): starts at 0, advanced by the
+    /// drain to each fired timer's due time. Never consults wall time.
+    pub virtual_clock_ms: u64,
+    /// Monotonic per-(re)arm sequence for timer tie-breaking.
+    pub next_timer_seq: u64,
+    /// Registered test callbacks collected from guest-side `Kali.test(...)`
+    /// calls, each paired with the `current_env` captured at registration time
+    /// (Stage C C3) so a capturing test callback resolves its enclosing bindings.
+    pub registered_tests: Vec<(i32, i64)>,
     /// Coverage hit ordinals recorded by instrumented guest modules.
     pub coverage_hits: BTreeSet<u32>,
-    /// Registered Node-style event callbacks collected from guest-side `EventEmitter` calls.
-    pub event_listeners: BTreeMap<String, Vec<i32>>,
+    /// Registered Node-style event callbacks collected from guest-side
+    /// `EventEmitter` calls, each paired with the `current_env` captured at
+    /// registration time (Stage C C3), forwarded to the microtask on emit.
+    pub event_listeners: BTreeMap<String, Vec<(i32, i64)>>,
+    /// Stage D event-surface lane: next `EventTarget` handle (allocated 1..;
+    /// 0 is never a valid handle).
+    pub next_event_target_id: u32,
+    /// Stage D event-surface lane: listener registry keyed
+    /// `(target_handle, event_type)`; values are registration-ordered
+    /// `(callback_id, env_ptr)` pairs. `BTreeMap` for deterministic
+    /// iteration; duplicates dedup by exact pair (node dedups by listener
+    /// identity — `(callback_id, env_ptr)` is the closest analog). Named
+    /// distinctly from the pre-existing `event_listeners` (Node
+    /// `EventEmitter` registry, keyed by event-type string only) to avoid a
+    /// field collision — these are separate registries with separate
+    /// dispatch semantics (target-scoped + synchronous vs. global +
+    /// microtask-forwarded).
+    pub event_target_listeners: BTreeMap<(u32, String), Vec<(i32, i64)>>,
     /// Memory/table limits for the current store.
     pub store_limits: wasmtime::StoreLimits,
     /// The most recent policy/resource diagnostic produced by a host operation.
@@ -68,10 +93,19 @@ pub struct KaliHostState {
 pub struct ScheduledTimer {
     /// Guest callback id.
     pub callback_id: i32,
-    /// When the timer should fire.
-    pub due_at: Instant,
-    /// Repeat interval for setInterval-like timers.
-    pub repeat_interval: Option<Duration>,
+    /// `current_env` captured at scheduling time (Stage C C3); restored into the
+    /// `current_env` global by `invoke_callback` before the callback runs.
+    pub env_ptr: i64,
+    /// Virtual due time in milliseconds (`KaliHostState::virtual_clock_ms`
+    /// coordinates; Stage D). The drain advances the clock directly to the
+    /// next due timer — no real sleeping, ordering is the observable.
+    pub due_at_ms: u64,
+    /// Monotonic scheduling sequence. Ties on `due_at_ms` fire in seq order,
+    /// and a re-armed interval takes a FRESH seq so already-due timers run
+    /// before the re-armed tick (node heap-insertion parity).
+    pub seq: u64,
+    /// Repeat interval in virtual ms for setInterval-like timers.
+    pub repeat_interval_ms: Option<u64>,
 }
 
 impl Default for KaliHostState {
@@ -95,9 +129,13 @@ impl Default for KaliHostState {
             cancelled_timers: HashSet::new(),
             thread_topology: ThreadRuntimeTopology::default(),
             next_timer_id: 0,
+            virtual_clock_ms: 0,
+            next_timer_seq: 0,
             registered_tests: Vec::new(),
             coverage_hits: BTreeSet::new(),
             event_listeners: BTreeMap::new(),
+            next_event_target_id: 1,
+            event_target_listeners: BTreeMap::new(),
             store_limits: wasmtime::StoreLimitsBuilder::new().build(),
             pending_diagnostic: None,
             active_file_handles: 0,
@@ -205,16 +243,19 @@ impl KaliHostState {
         callback_id: i32,
         delay_ms: i32,
         repeat: bool,
+        env_ptr: i64,
     ) -> wasmtime::Result<i32> {
-        if delay_ms < 0 {
-            return Err(wasmtime::Error::msg("timer delay must be non-negative"));
-        }
+        // Node parity (Stage D): delays below 1ms — including negative —
+        // clamp to node's documented 1ms minimum. The clamp also prevents a
+        // zero-delay interval re-arm from starving strictly-later timers
+        // under the virtual clock.
+        let effective_delay_ms: u64 = if delay_ms < 1 { 1 } else { delay_ms as u64 };
 
         let active_timers = self.pending_timers.len();
         if let Some(policy) = self.policy.as_ref() {
             policy
                 .check_operation(HostOperation::TimerSchedule {
-                    delay_ms: delay_ms as u64,
+                    delay_ms: effective_delay_ms,
                     active_timers,
                 })
                 .map_err(|diagnostic| {
@@ -228,45 +269,98 @@ impl KaliHostState {
             .next_timer_id
             .checked_add(1)
             .ok_or_else(|| wasmtime::Error::msg("timer id overflow"))?;
+        let seq = self.next_timer_seq;
+        self.next_timer_seq += 1;
 
-        let delay = Duration::from_millis(delay_ms as u64);
         self.pending_timers.insert(
             timer_id,
             ScheduledTimer {
                 callback_id,
-                due_at: Instant::now() + delay,
-                repeat_interval: repeat.then_some(delay),
+                env_ptr,
+                due_at_ms: self.virtual_clock_ms + effective_delay_ms,
+                seq,
+                repeat_interval_ms: repeat.then_some(effective_delay_ms),
             },
         );
 
         Ok(timer_id as i32)
     }
 
+    /// Stage D event-surface lane: allocate a fresh `EventTarget` handle.
+    pub(crate) fn register_event_target(&mut self) -> u32 {
+        let id = self.next_event_target_id;
+        self.next_event_target_id = self.next_event_target_id.wrapping_add(1);
+        id
+    }
+
+    /// Stage D event-surface lane: register a listener for `(target,
+    /// event_type)`, deduping by exact `(callback_id, env_ptr)` pair (node
+    /// dedups by listener identity).
+    pub(crate) fn add_event_listener(
+        &mut self,
+        target: u32,
+        event_type: String,
+        callback_id: i32,
+        env_ptr: i64,
+    ) {
+        let listeners = self
+            .event_target_listeners
+            .entry((target, event_type))
+            .or_default();
+        if !listeners.contains(&(callback_id, env_ptr)) {
+            listeners.push((callback_id, env_ptr));
+        }
+    }
+
+    /// Stage D event-surface lane: registration-ordered snapshot of listeners
+    /// for `(target, event_type)`, taken BEFORE dispatch invokes any of them
+    /// so listeners added during dispatch don't fire this round.
+    pub(crate) fn event_listener_snapshot(&self, target: u32, event_type: &str) -> Vec<(i32, i64)> {
+        self.event_target_listeners
+            .get(&(target, event_type.to_string()))
+            .cloned()
+            .unwrap_or_default()
+    }
+
     pub(crate) fn cancel_timer(&mut self, timer_id: i32) -> wasmtime::Result<()> {
         let timer_id = u32::try_from(timer_id)
             .map_err(|_| wasmtime::Error::msg("timer id must be non-negative"))?;
-        if self.pending_timers.remove(&timer_id).is_none() {
+        // The `cancelled_timers` set exists SOLELY for the self-clearing-interval
+        // case: an interval whose callback calls `clearInterval(ownId)` during
+        // its own firing, when the timer has already been removed from
+        // `pending_timers` for that firing (enforce.rs consults the set before
+        // re-arming). Removing a pending timer directly cancels it, so only a
+        // remove-MISS reaches the insert. But a miss for an id that was NEVER
+        // allocated (`>= next_timer_id`) is a clear of a non-existent timer —
+        // node no-ops it. Recording such an id poisons a LATER timer that is
+        // eventually allocated with that value: with `next_timer_id` starting at
+        // 0, a pre-registration `clearInterval(0)` would otherwise mark the very
+        // first interval (id 0) cancelled and eat its re-arm (I-1). Gate the
+        // insert on an already-allocated id so a stale/never-allocated clear is
+        // the node-parity no-op it should be.
+        if self.pending_timers.remove(&timer_id).is_none() && timer_id < self.next_timer_id {
             self.cancelled_timers.insert(timer_id);
         }
         Ok(())
     }
 
-    pub(crate) fn queue_microtask(&mut self, callback_id: i32) {
-        self.pending_microtasks.push_back(callback_id);
+    pub(crate) fn queue_microtask(&mut self, callback_id: i32, env_ptr: i64) {
+        self.pending_microtasks.push_back((callback_id, env_ptr));
     }
 
     pub(crate) fn register_event_listener(
         &mut self,
         event_type: impl Into<String>,
         callback_id: i32,
+        env_ptr: i64,
     ) {
         self.event_listeners
             .entry(event_type.into())
             .or_default()
-            .push(callback_id);
+            .push((callback_id, env_ptr));
     }
 
-    pub(crate) fn event_listener_callbacks(&self, event_type: &str) -> Vec<i32> {
+    pub(crate) fn event_listener_callbacks(&self, event_type: &str) -> Vec<(i32, i64)> {
         self.event_listeners
             .get(event_type)
             .cloned()

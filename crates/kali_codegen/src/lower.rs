@@ -6,9 +6,16 @@ use crate::*;
 pub(crate) fn wasm_type(repr: kali_common::Repr) -> wasm_encoder::ValType {
     match repr {
         kali_common::Repr::F64 => wasm_encoder::ValType::F64,
-        kali_common::Repr::I64 | kali_common::Repr::Object(_) | kali_common::Repr::String => {
-            wasm_encoder::ValType::I64
-        }
+        kali_common::Repr::I64
+        | kali_common::Repr::Object(_)
+        | kali_common::Repr::String
+        // A growable-array binding is a tagged i64 handle into its header
+        // (see `lower_lir_to_wasm`'s `__join_growable_*` doc comment), so it
+        // occupies the same i64 param/result/local slot as every other
+        // handle repr — no new storage width needed.
+        | kali_common::Repr::GrowableArrayI64
+        // AbortHandle is an i64 pointer to an abort cell (Stage P3); same slot.
+        | kali_common::Repr::AbortHandle => wasm_encoder::ValType::I64,
     }
 }
 
@@ -30,10 +37,11 @@ pub(crate) fn generator_lowering_unavailable_message(
 
 /// Names of every hand-emitted synthetic wasm function (not lowered from
 /// source LIR): the page-pool allocator family, plus the runtime-substring
-/// helper (Spec 2). Used to exclude them from coverage instrumentation (see
-/// the `kali:coverage` custom-section count below) and, in later tasks,
-/// anywhere else code needs to distinguish a real source-defined function
-/// from these fixed compiler-internal slots.
+/// helper (Spec 2), the runtime-join pair (Spec 3 / fasta Spec 7), and the
+/// runtime string-equality helper (throw-fallout Stage 1). Used to exclude
+/// them from coverage instrumentation (see the `kali:coverage` custom-section
+/// count below) and, in later tasks, anywhere else code needs to distinguish
+/// a real source-defined function from these fixed compiler-internal slots.
 pub const SYNTHETIC_FUNCTIONS: &[&str] = &[
     "__alloc",
     "__alloc_global",
@@ -42,7 +50,61 @@ pub const SYNTHETIC_FUNCTIONS: &[&str] = &[
     "__substring",
     "__join",
     "__join_arena",
+    "__join_growable_i64",
+    "__join_growable_str",
+    "__streq",
 ];
+
+/// A synthetic function name is either an exact entry in `SYNTHETIC_FUNCTIONS`
+/// or a shape-parameterized deep-clone synthetic `__clone_shape_<n>` (Stage P2
+/// Lane 2, emitted on demand by `collect_requested_clone_shapes`). Every place
+/// that used to consult `SYNTHETIC_FUNCTIONS.contains` to tell a compiler-
+/// internal slot from a source-defined function goes through this helper so the
+/// parameterized clone names are recognized too.
+pub fn is_synthetic_function(name: &str) -> bool {
+    SYNTHETIC_FUNCTIONS.contains(&name) || name.starts_with("__clone_shape_")
+}
+
+/// Shapes for which a `__clone_shape_<n>` deep-clone synthetic must be emitted
+/// (Stage P2 Lane 2). The synthetic is currently unreachable from any source
+/// program — Task 8's `structuredClone` dispatch is what will resolve a call to
+/// `clone_shape_synthetic_name(shape)` and, in doing so, populate this set (by
+/// scanning the LIR for the clone sites and their argument shapes). Until then
+/// this returns empty, so no clone slot is emitted and the module stays
+/// byte-identical. Kept as the single collection point so Task 8 wires the scan
+/// here and the emission machinery below (plan + type + body dispatch) needs no
+/// further change.
+fn collect_requested_clone_shapes(
+    lir: &LirProgram,
+    repr_table: &kali_common::ReprTable,
+) -> std::collections::BTreeSet<kali_common::ShapeId> {
+    let mut requested = std::collections::BTreeSet::new();
+    // Gate on the presence of ANY bare `structuredClone(...)` call — a SUPERSET
+    // probe (shadowing unchecked here) exactly like `program_constructs_event_target`
+    // gates the event-target import. If none exists the set stays empty and the
+    // module is byte-identical.
+    if !program_calls_bare_identifier(lir, "structuredClone") {
+        return requested;
+    }
+    // Request a `__clone_shape_N` synthetic for EVERY interned envelope shape.
+    // This is a sound SUPERSET of what the call-site dispatch can resolve: the
+    // dispatch only ever clones an in-envelope object shape (Task 8's
+    // `shape_is_clone_envelope`), and it resolves the callee index through
+    // `function_name_to_index[&clone_shape_synthetic_name(shape)]` — so every
+    // shape the dispatch could name is guaranteed present here. A shape that is
+    // in-envelope but never actually cloned yields a dead synthetic (harmless);
+    // an out-of-envelope shape is never requested (its clone body would
+    // shallow-share a nested object — see `fields_are_clone_envelope`).
+    for index in 0..repr_table.shape_count() {
+        let shape = kali_common::ShapeId(index as u32);
+        if crate::emit::clone::fields_are_clone_envelope(repr_table.shape_fields(shape))
+            && repr_table.shape_is_clone_safe(shape)
+        {
+            requested.insert(shape);
+        }
+    }
+    requested
+}
 
 /// Generate WASM from LIR.
 pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResult {
@@ -80,6 +142,25 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     let uses_process_exit = program_uses_process_exit(lir);
     let uses_stdout_write_bytes = program_uses_stdout_write_bytes(lir);
     let uses_args_get = program_uses_args_get(lir);
+    let uses_performance_now = program_uses_performance_now(lir);
+    let uses_crypto_get_random_values = program_uses_crypto_get_random_values(lir);
+    let uses_crypto_random_uuid = program_uses_crypto_random_uuid(lir);
+    let uses_crypto_subtle_digest = program_uses_crypto_subtle_digest(lir);
+    // Stage D: scheduling-surface conditional imports, appended LAST (after
+    // crypto_subtle_digest) in declaration order queueMicrotask, setTimeout,
+    // setInterval, clearTimeout, clearInterval — so no earlier import or
+    // function index shifts.
+    let uses_queue_microtask = program_calls_bare_identifier(lir, "queueMicrotask");
+    let uses_set_timeout = program_calls_bare_identifier(lir, "setTimeout");
+    let uses_set_interval = program_calls_bare_identifier(lir, "setInterval");
+    let uses_clear_timeout = program_calls_bare_identifier(lir, "clearTimeout");
+    let uses_clear_interval = program_calls_bare_identifier(lir, "clearInterval");
+    // Stage D event-surface lane, appended LAST (after clearInterval) in
+    // declaration order event_target_new, event_listener_add, event_dispatch —
+    // so no earlier import or function index shifts.
+    let uses_event_target_new = program_constructs_event_target(lir);
+    let uses_event_listener_add = program_calls_member_named(lir, "addEventListener");
+    let uses_event_dispatch = program_calls_member_named(lir, "dispatchEvent");
     let uses_env_access = uses_env_get || uses_env_has || uses_env_set || uses_env_delete;
     let function_index_offset = crate::FUNCTION_INDEX_OFFSET
         + if ctx.target.coverage { 1 } else { 0 }
@@ -90,7 +171,19 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         + if uses_cwd_set { 1 } else { 0 }
         + if uses_process_exit { 1 } else { 0 }
         + if uses_stdout_write_bytes { 1 } else { 0 }
-        + if uses_args_get { 1 } else { 0 };
+        + if uses_args_get { 1 } else { 0 }
+        + if uses_performance_now { 1 } else { 0 }
+        + if uses_crypto_get_random_values { 1 } else { 0 }
+        + if uses_crypto_random_uuid { 1 } else { 0 }
+        + if uses_crypto_subtle_digest { 1 } else { 0 }
+        + if uses_queue_microtask { 1 } else { 0 }
+        + if uses_set_timeout { 1 } else { 0 }
+        + if uses_set_interval { 1 } else { 0 }
+        + if uses_clear_timeout { 1 } else { 0 }
+        + if uses_clear_interval { 1 } else { 0 }
+        + if uses_event_target_new { 1 } else { 0 }
+        + if uses_event_listener_add { 1 } else { 0 }
+        + if uses_event_dispatch { 1 } else { 0 };
     let env_get_type_index = if uses_env_access { Some(6) } else { None };
     let env_has_type_index = if uses_env_has { Some(7) } else { None };
     let cwd_set_type_index = if uses_cwd_set { Some(5) } else { None };
@@ -188,6 +281,286 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                 + if uses_cwd_set { 1 } else { 0 }
                 + if uses_process_exit { 1 } else { 0 }
                 + if uses_stdout_write_bytes { 1 } else { 0 },
+        )
+    } else {
+        None
+    };
+    // `performance_now` is appended AFTER `args_get` in the import section below,
+    // so its index sums every preceding conditional-import flag in the same
+    // declaration order (coverage, env_set, env_delete, env_get, env_has,
+    // cwd_set, process_exit, stdout_write_bytes, args_get).
+    let performance_now_import_index = if uses_performance_now {
+        Some(
+            crate::COVERAGE_HIT_IMPORT_INDEX
+                + if ctx.target.coverage { 1 } else { 0 }
+                + if uses_env_set { 1 } else { 0 }
+                + if uses_env_delete { 1 } else { 0 }
+                + if uses_env_get { 1 } else { 0 }
+                + if uses_env_has { 1 } else { 0 }
+                + if uses_cwd_set { 1 } else { 0 }
+                + if uses_process_exit { 1 } else { 0 }
+                + if uses_stdout_write_bytes { 1 } else { 0 }
+                + if uses_args_get { 1 } else { 0 },
+        )
+    } else {
+        None
+    };
+    // `crypto_get_random_values` is appended AFTER `performance_now` in the import
+    // section below, so its index sums every preceding conditional-import flag in
+    // the same declaration order (coverage, env_set, env_delete, env_get, env_has,
+    // cwd_set, process_exit, stdout_write_bytes, args_get, performance_now).
+    let crypto_get_random_values_import_index = if uses_crypto_get_random_values {
+        Some(
+            crate::COVERAGE_HIT_IMPORT_INDEX
+                + if ctx.target.coverage { 1 } else { 0 }
+                + if uses_env_set { 1 } else { 0 }
+                + if uses_env_delete { 1 } else { 0 }
+                + if uses_env_get { 1 } else { 0 }
+                + if uses_env_has { 1 } else { 0 }
+                + if uses_cwd_set { 1 } else { 0 }
+                + if uses_process_exit { 1 } else { 0 }
+                + if uses_stdout_write_bytes { 1 } else { 0 }
+                + if uses_args_get { 1 } else { 0 }
+                + if uses_performance_now { 1 } else { 0 },
+        )
+    } else {
+        None
+    };
+    // `crypto_random_uuid` is appended AFTER `crypto_get_random_values` in the
+    // import section below, so its index additionally sums
+    // `uses_crypto_get_random_values`.
+    let crypto_random_uuid_import_index = if uses_crypto_random_uuid {
+        Some(
+            crate::COVERAGE_HIT_IMPORT_INDEX
+                + if ctx.target.coverage { 1 } else { 0 }
+                + if uses_env_set { 1 } else { 0 }
+                + if uses_env_delete { 1 } else { 0 }
+                + if uses_env_get { 1 } else { 0 }
+                + if uses_env_has { 1 } else { 0 }
+                + if uses_cwd_set { 1 } else { 0 }
+                + if uses_process_exit { 1 } else { 0 }
+                + if uses_stdout_write_bytes { 1 } else { 0 }
+                + if uses_args_get { 1 } else { 0 }
+                + if uses_performance_now { 1 } else { 0 }
+                + if uses_crypto_get_random_values { 1 } else { 0 },
+        )
+    } else {
+        None
+    };
+    // `crypto_subtle_digest` is appended AFTER `crypto_random_uuid` in the import
+    // section below, so its index additionally sums both preceding crypto flags
+    // (`uses_crypto_get_random_values` + `uses_crypto_random_uuid`).
+    let crypto_subtle_digest_import_index = if uses_crypto_subtle_digest {
+        Some(
+            crate::COVERAGE_HIT_IMPORT_INDEX
+                + if ctx.target.coverage { 1 } else { 0 }
+                + if uses_env_set { 1 } else { 0 }
+                + if uses_env_delete { 1 } else { 0 }
+                + if uses_env_get { 1 } else { 0 }
+                + if uses_env_has { 1 } else { 0 }
+                + if uses_cwd_set { 1 } else { 0 }
+                + if uses_process_exit { 1 } else { 0 }
+                + if uses_stdout_write_bytes { 1 } else { 0 }
+                + if uses_args_get { 1 } else { 0 }
+                + if uses_performance_now { 1 } else { 0 }
+                + if uses_crypto_get_random_values { 1 } else { 0 }
+                + if uses_crypto_random_uuid { 1 } else { 0 },
+        )
+    } else {
+        None
+    };
+    // Stage D scheduling-surface imports, appended (in this order) AFTER
+    // `crypto_subtle_digest`: queueMicrotask, setTimeout, setInterval,
+    // clearTimeout, clearInterval. Each index sums every preceding
+    // conditional-import flag, so each new block adds exactly one more term
+    // (`+ if uses_<previous> {1} else {0}`) onto the block above it.
+    let queue_microtask_import_index = if uses_queue_microtask {
+        Some(
+            crate::COVERAGE_HIT_IMPORT_INDEX
+                + if ctx.target.coverage { 1 } else { 0 }
+                + if uses_env_set { 1 } else { 0 }
+                + if uses_env_delete { 1 } else { 0 }
+                + if uses_env_get { 1 } else { 0 }
+                + if uses_env_has { 1 } else { 0 }
+                + if uses_cwd_set { 1 } else { 0 }
+                + if uses_process_exit { 1 } else { 0 }
+                + if uses_stdout_write_bytes { 1 } else { 0 }
+                + if uses_args_get { 1 } else { 0 }
+                + if uses_performance_now { 1 } else { 0 }
+                + if uses_crypto_get_random_values { 1 } else { 0 }
+                + if uses_crypto_random_uuid { 1 } else { 0 }
+                + if uses_crypto_subtle_digest { 1 } else { 0 },
+        )
+    } else {
+        None
+    };
+    let set_timeout_import_index = if uses_set_timeout {
+        Some(
+            crate::COVERAGE_HIT_IMPORT_INDEX
+                + if ctx.target.coverage { 1 } else { 0 }
+                + if uses_env_set { 1 } else { 0 }
+                + if uses_env_delete { 1 } else { 0 }
+                + if uses_env_get { 1 } else { 0 }
+                + if uses_env_has { 1 } else { 0 }
+                + if uses_cwd_set { 1 } else { 0 }
+                + if uses_process_exit { 1 } else { 0 }
+                + if uses_stdout_write_bytes { 1 } else { 0 }
+                + if uses_args_get { 1 } else { 0 }
+                + if uses_performance_now { 1 } else { 0 }
+                + if uses_crypto_get_random_values { 1 } else { 0 }
+                + if uses_crypto_random_uuid { 1 } else { 0 }
+                + if uses_crypto_subtle_digest { 1 } else { 0 }
+                + if uses_queue_microtask { 1 } else { 0 },
+        )
+    } else {
+        None
+    };
+    let set_interval_import_index = if uses_set_interval {
+        Some(
+            crate::COVERAGE_HIT_IMPORT_INDEX
+                + if ctx.target.coverage { 1 } else { 0 }
+                + if uses_env_set { 1 } else { 0 }
+                + if uses_env_delete { 1 } else { 0 }
+                + if uses_env_get { 1 } else { 0 }
+                + if uses_env_has { 1 } else { 0 }
+                + if uses_cwd_set { 1 } else { 0 }
+                + if uses_process_exit { 1 } else { 0 }
+                + if uses_stdout_write_bytes { 1 } else { 0 }
+                + if uses_args_get { 1 } else { 0 }
+                + if uses_performance_now { 1 } else { 0 }
+                + if uses_crypto_get_random_values { 1 } else { 0 }
+                + if uses_crypto_random_uuid { 1 } else { 0 }
+                + if uses_crypto_subtle_digest { 1 } else { 0 }
+                + if uses_queue_microtask { 1 } else { 0 }
+                + if uses_set_timeout { 1 } else { 0 },
+        )
+    } else {
+        None
+    };
+    let clear_timeout_import_index = if uses_clear_timeout {
+        Some(
+            crate::COVERAGE_HIT_IMPORT_INDEX
+                + if ctx.target.coverage { 1 } else { 0 }
+                + if uses_env_set { 1 } else { 0 }
+                + if uses_env_delete { 1 } else { 0 }
+                + if uses_env_get { 1 } else { 0 }
+                + if uses_env_has { 1 } else { 0 }
+                + if uses_cwd_set { 1 } else { 0 }
+                + if uses_process_exit { 1 } else { 0 }
+                + if uses_stdout_write_bytes { 1 } else { 0 }
+                + if uses_args_get { 1 } else { 0 }
+                + if uses_performance_now { 1 } else { 0 }
+                + if uses_crypto_get_random_values { 1 } else { 0 }
+                + if uses_crypto_random_uuid { 1 } else { 0 }
+                + if uses_crypto_subtle_digest { 1 } else { 0 }
+                + if uses_queue_microtask { 1 } else { 0 }
+                + if uses_set_timeout { 1 } else { 0 }
+                + if uses_set_interval { 1 } else { 0 },
+        )
+    } else {
+        None
+    };
+    let clear_interval_import_index = if uses_clear_interval {
+        Some(
+            crate::COVERAGE_HIT_IMPORT_INDEX
+                + if ctx.target.coverage { 1 } else { 0 }
+                + if uses_env_set { 1 } else { 0 }
+                + if uses_env_delete { 1 } else { 0 }
+                + if uses_env_get { 1 } else { 0 }
+                + if uses_env_has { 1 } else { 0 }
+                + if uses_cwd_set { 1 } else { 0 }
+                + if uses_process_exit { 1 } else { 0 }
+                + if uses_stdout_write_bytes { 1 } else { 0 }
+                + if uses_args_get { 1 } else { 0 }
+                + if uses_performance_now { 1 } else { 0 }
+                + if uses_crypto_get_random_values { 1 } else { 0 }
+                + if uses_crypto_random_uuid { 1 } else { 0 }
+                + if uses_crypto_subtle_digest { 1 } else { 0 }
+                + if uses_queue_microtask { 1 } else { 0 }
+                + if uses_set_timeout { 1 } else { 0 }
+                + if uses_set_interval { 1 } else { 0 }
+                + if uses_clear_timeout { 1 } else { 0 },
+        )
+    } else {
+        None
+    };
+    // Stage D event-surface lane import indices — each chain is the previous
+    // import's full chain plus one term, in declaration order (event_target_new,
+    // event_listener_add, event_dispatch), appended after clearInterval.
+    let event_target_new_import_index = if uses_event_target_new {
+        Some(
+            crate::COVERAGE_HIT_IMPORT_INDEX
+                + if ctx.target.coverage { 1 } else { 0 }
+                + if uses_env_set { 1 } else { 0 }
+                + if uses_env_delete { 1 } else { 0 }
+                + if uses_env_get { 1 } else { 0 }
+                + if uses_env_has { 1 } else { 0 }
+                + if uses_cwd_set { 1 } else { 0 }
+                + if uses_process_exit { 1 } else { 0 }
+                + if uses_stdout_write_bytes { 1 } else { 0 }
+                + if uses_args_get { 1 } else { 0 }
+                + if uses_performance_now { 1 } else { 0 }
+                + if uses_crypto_get_random_values { 1 } else { 0 }
+                + if uses_crypto_random_uuid { 1 } else { 0 }
+                + if uses_crypto_subtle_digest { 1 } else { 0 }
+                + if uses_queue_microtask { 1 } else { 0 }
+                + if uses_set_timeout { 1 } else { 0 }
+                + if uses_set_interval { 1 } else { 0 }
+                + if uses_clear_timeout { 1 } else { 0 }
+                + if uses_clear_interval { 1 } else { 0 },
+        )
+    } else {
+        None
+    };
+    let event_listener_add_import_index = if uses_event_listener_add {
+        Some(
+            crate::COVERAGE_HIT_IMPORT_INDEX
+                + if ctx.target.coverage { 1 } else { 0 }
+                + if uses_env_set { 1 } else { 0 }
+                + if uses_env_delete { 1 } else { 0 }
+                + if uses_env_get { 1 } else { 0 }
+                + if uses_env_has { 1 } else { 0 }
+                + if uses_cwd_set { 1 } else { 0 }
+                + if uses_process_exit { 1 } else { 0 }
+                + if uses_stdout_write_bytes { 1 } else { 0 }
+                + if uses_args_get { 1 } else { 0 }
+                + if uses_performance_now { 1 } else { 0 }
+                + if uses_crypto_get_random_values { 1 } else { 0 }
+                + if uses_crypto_random_uuid { 1 } else { 0 }
+                + if uses_crypto_subtle_digest { 1 } else { 0 }
+                + if uses_queue_microtask { 1 } else { 0 }
+                + if uses_set_timeout { 1 } else { 0 }
+                + if uses_set_interval { 1 } else { 0 }
+                + if uses_clear_timeout { 1 } else { 0 }
+                + if uses_clear_interval { 1 } else { 0 }
+                + if uses_event_target_new { 1 } else { 0 },
+        )
+    } else {
+        None
+    };
+    let event_dispatch_import_index = if uses_event_dispatch {
+        Some(
+            crate::COVERAGE_HIT_IMPORT_INDEX
+                + if ctx.target.coverage { 1 } else { 0 }
+                + if uses_env_set { 1 } else { 0 }
+                + if uses_env_delete { 1 } else { 0 }
+                + if uses_env_get { 1 } else { 0 }
+                + if uses_env_has { 1 } else { 0 }
+                + if uses_cwd_set { 1 } else { 0 }
+                + if uses_process_exit { 1 } else { 0 }
+                + if uses_stdout_write_bytes { 1 } else { 0 }
+                + if uses_args_get { 1 } else { 0 }
+                + if uses_performance_now { 1 } else { 0 }
+                + if uses_crypto_get_random_values { 1 } else { 0 }
+                + if uses_crypto_random_uuid { 1 } else { 0 }
+                + if uses_crypto_subtle_digest { 1 } else { 0 }
+                + if uses_queue_microtask { 1 } else { 0 }
+                + if uses_set_timeout { 1 } else { 0 }
+                + if uses_set_interval { 1 } else { 0 }
+                + if uses_clear_timeout { 1 } else { 0 }
+                + if uses_clear_interval { 1 } else { 0 }
+                + if uses_event_target_new { 1 } else { 0 }
+                + if uses_event_listener_add { 1 } else { 0 },
         )
     } else {
         None
@@ -318,10 +691,84 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         is_entry: false,
         flavor: None,
     });
+    // Growable-array join synthetics (throw-fallout Stage 4 Task 5):
+    // `__join_growable_i64` / `__join_growable_str` (arr: i64, sep: i64) ->
+    // i64 — the growable-layout analogue of `__join`. The receiver is a
+    // TAGGED growable handle (header indirection: `n=*(hdr+0)`,
+    // `data=*(hdr+16)`, elem `=*(data+i*8)`); the `_i64` variant additionally
+    // renders each raw i64 slot to a decimal string via `int_to_string`
+    // before measuring/copying. Both allocate their result into the global
+    // heap (`__alloc_global`) — a join result must outlive any arena reset,
+    // exactly as `__join` does. `emit_runtime_join` selects the pair member
+    // by the growable binding's element repr. Same inert-placeholder pattern
+    // as the synthetics above; bodies hand-emitted by `emit_join_growable_body`.
+    all_functions.push(FunctionPlan {
+        name: "__join_growable_i64".to_string(),
+        params: vec!["arr".to_string(), "sep".to_string()],
+        locals: Vec::new(),
+        body: lir.root,
+        result: true,
+        is_entry: false,
+        flavor: None,
+    });
+    all_functions.push(FunctionPlan {
+        name: "__join_growable_str".to_string(),
+        params: vec!["arr".to_string(), "sep".to_string()],
+        locals: Vec::new(),
+        body: lir.root,
+        result: true,
+        is_entry: false,
+        flavor: None,
+    });
+    // Synthetic runtime string equality `__streq(a: i64, b: i64) -> i64`
+    // (throw-fallout Stage 1): content comparison of two tagged string
+    // handles — 1 when equal, 0 when not. Handle-identity fast path, then a
+    // string-tag guard (a 0/untagged operand — e.g. a missing `Deno.env.get`
+    // — is unequal to every real string), then length pre-check, then a
+    // byte-compare loop. Same inert-placeholder pattern as the synthetics
+    // above; body hand-emitted by `emit_streq_body`.
+    all_functions.push(FunctionPlan {
+        name: "__streq".to_string(),
+        params: vec!["a".to_string(), "b".to_string()],
+        locals: Vec::new(),
+        body: lir.root,
+        result: true,
+        is_entry: false,
+        flavor: None,
+    });
+    // Per-shape deep-clone synthetics `__clone_shape_<n>` (Stage P2 Lane 2):
+    // appended AFTER the fixed synthetics and BEFORE any source-defined function
+    // so, like the fixed synthetics, they shift every later function's index by
+    // a fixed amount — safe because every call site resolves callee indices
+    // through `function_name_to_index`. Bodies are hand-emitted (dispatch below)
+    // exactly like the other synthetics, so `body`/`locals`/`flavor` are inert
+    // placeholders. The requested set is empty until Task 8 wires its scan, so
+    // this loop currently adds nothing and the module stays byte-identical.
+    for shape in collect_requested_clone_shapes(lir, &ctx.repr_table) {
+        all_functions.push(FunctionPlan {
+            name: crate::emit::clone::clone_shape_synthetic_name(shape),
+            params: vec!["src".to_string()],
+            locals: Vec::new(),
+            body: lir.root,
+            result: true,
+            is_entry: false,
+            flavor: None,
+        });
+    }
     all_functions.extend(function_plans);
 
+    let mut function_param_counts: BTreeMap<u32, usize> = BTreeMap::new();
+    // Owner-name -> its declared parameter names. Used by the deferred-callback
+    // scalar-capture deny (Task 9 C-1) to tell a captured PARAMETER (a real
+    // value node computes, silently placeholder-0 in the deferred lane — deny)
+    // apart from a captured non-scalar placeholder binding (an unsupported
+    // zero-placeholder construct with no real value either side — allow).
+    let mut function_param_names: BTreeMap<String, Vec<String>> = BTreeMap::new();
     for (idx, function) in all_functions.iter().enumerate() {
-        function_name_to_index.insert(function.name.clone(), idx as u32 + function_index_offset);
+        let windex = idx as u32 + function_index_offset;
+        function_name_to_index.insert(function.name.clone(), windex);
+        function_param_counts.insert(windex, function.params.len());
+        function_param_names.insert(function.name.clone(), function.params.clone());
     }
 
     let mut type_section = TypeSection::new();
@@ -362,8 +809,84 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         vec![ValType::I32, ValType::I32, ValType::I32],
         vec![ValType::I32],
     );
+    // Type 11: performance_now `() -> f64` (throw-fallout Stage 3 bucket #5) —
+    // returns a monotonic millisecond timestamp. Registered unconditionally so
+    // the type index is stable; the import itself is conditional (see below).
+    const PERFORMANCE_NOW_TYPE_INDEX: u32 = 11;
+    type_section.ty().function(vec![], vec![ValType::F64]);
+    // Type 12: crypto_subtle_digest
+    // `(algo_ptr: i32, algo_len: i32, in_ptr: i32, in_len: i32, out_ptr: i32,
+    // out_cap: i32) -> i32` (throw-fallout Stage 3 bucket #6 part 2) — reads the
+    // algorithm name + input bytes from guest memory, writes the raw digest bytes
+    // at `out_ptr` (bounded by `out_cap`), and returns the digest byte length.
+    // This is a NEW fixed signature (no existing type matches the 6-i32-arg
+    // shape), registered unconditionally so the type index is stable; the import
+    // itself is conditional (see below). Because it is the last fixed type, the
+    // repr-directed function types start after the last fixed type (see the
+    // dedup base below).
+    const CRYPTO_SUBTLE_DIGEST_TYPE_INDEX: u32 = 12;
+    type_section.ty().function(
+        vec![
+            ValType::I32,
+            ValType::I32,
+            ValType::I32,
+            ValType::I32,
+            ValType::I32,
+            ValType::I32,
+        ],
+        vec![ValType::I32],
+    );
+    // Type 13: test_register `(callback_index: i32, env_ptr: i64) -> ()`
+    // (Stage C C3). The trailing `env_ptr` carries the `current_env` active at
+    // registration so a capturing `Kali.test(...)` callback resolves its
+    // enclosing bindings when the host invokes it later. Type 14
+    // (`SCHEDULING_TIMER_SET_TYPE_INDEX`, added below) is now the last fixed
+    // type, so the repr-directed function types start at index 15.
+    const TEST_REGISTER_TYPE_INDEX: u32 = 13;
+    type_section
+        .ty()
+        .function(vec![ValType::I32, ValType::I64], Vec::new());
+    // Type 14: setTimeout / setInterval
+    // `(callback_index: i32, delay_ms: i32, env_ptr: i64) -> i32` (Stage D) —
+    // registers a timer with the env active at the scheduling site and
+    // returns the i32 timer id. Registered unconditionally so the type index
+    // is stable; the imports are conditional.
+    const SCHEDULING_TIMER_SET_TYPE_INDEX: u32 = 14;
+    type_section.ty().function(
+        vec![ValType::I32, ValType::I32, ValType::I64],
+        vec![ValType::I32],
+    );
+    // Type 15: event_target_new `() -> i64` (Stage D event lane) — returns a
+    // fresh opaque EventTarget handle.
+    const EVENT_TARGET_NEW_TYPE_INDEX: u32 = 15;
+    type_section.ty().function(vec![], vec![ValType::I64]);
+    // Type 16: event_listener_add `(target: i64, name_ptr: i32, name_len: i32,
+    // callback_index: i32, env_ptr: i64) -> ()`.
+    const EVENT_LISTENER_ADD_TYPE_INDEX: u32 = 16;
+    type_section.ty().function(
+        vec![
+            ValType::I64,
+            ValType::I32,
+            ValType::I32,
+            ValType::I32,
+            ValType::I64,
+        ],
+        vec![],
+    );
+    // Type 17: event_dispatch `(target: i64, name_ptr: i32, name_len: i32) -> i32`
+    // — synchronously invokes the snapshot of listeners, returns 1 (true).
+    // This is now the last fixed type: repr-directed function types start at 18.
+    const EVENT_DISPATCH_TYPE_INDEX: u32 = 17;
+    type_section.ty().function(
+        vec![ValType::I64, ValType::I32, ValType::I32],
+        vec![ValType::I32],
+    );
     let mut import_section = ImportSection::new();
-    import_section.import("kali:rt", "test_register", EntityType::Function(0));
+    import_section.import(
+        "kali:rt",
+        "test_register",
+        EntityType::Function(TEST_REGISTER_TYPE_INDEX),
+    );
     import_section.import("kali:rt", "console_log", EntityType::Function(1));
     import_section.import("kali:rt", "console_error", EntityType::Function(1));
     import_section.import("kali:rt", "console_warn", EntityType::Function(1));
@@ -453,6 +976,97 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             EntityType::Function(ARGS_GET_TYPE_INDEX),
         );
     }
+    if performance_now_import_index.is_some() {
+        // `() -> f64`: returns a monotonic millisecond timestamp. Appended AFTER
+        // `args_get`, so it takes the next import index (summing every preceding
+        // conditional-import flag including `args_get`).
+        import_section.import(
+            "kali:rt",
+            "performance_now",
+            EntityType::Function(PERFORMANCE_NOW_TYPE_INDEX),
+        );
+    }
+    if crypto_get_random_values_import_index.is_some() {
+        // `(out_ptr: i32, out_len: i32) -> i32`: fills `out_len` random bytes at
+        // `out_ptr` in guest memory (in place) and returns `out_len`. Reuses the
+        // existing `(i32, i32) -> i32` signature (type 7); no new type is added.
+        // Appended AFTER `performance_now`, so it takes the next import index.
+        import_section.import(
+            "kali:rt",
+            "crypto_get_random_values",
+            EntityType::Function(7),
+        );
+    }
+    if crypto_random_uuid_import_index.is_some() {
+        // `(out_ptr: i32, out_cap: i32) -> i32`: writes the UUID string's UTF-8
+        // bytes at `out_ptr` (bounded by `out_cap`) and returns the byte count.
+        // Reuses type 7. Appended AFTER `crypto_get_random_values`.
+        import_section.import("kali:rt", "crypto_random_uuid", EntityType::Function(7));
+    }
+    if crypto_subtle_digest_import_index.is_some() {
+        // `(algo_ptr, algo_len, in_ptr, in_len, out_ptr, out_cap) -> i32`: computes
+        // the digest of the input bytes and writes the raw digest at `out_ptr`,
+        // returning its length. Uses the new type 12. Appended AFTER
+        // `crypto_random_uuid`, so it takes the next import index.
+        import_section.import(
+            "kali:rt",
+            "crypto_subtle_digest",
+            EntityType::Function(CRYPTO_SUBTLE_DIGEST_TYPE_INDEX),
+        );
+    }
+    if queue_microtask_import_index.is_some() {
+        // `(callback_index: i32, env_ptr: i64) -> ()` — same shape as
+        // test_register: pushes the callback id + the scheduling-site
+        // `current_env` onto the host microtask FIFO; drained after `_start`
+        // (`kali_runtime::host::enforce::drain_event_loop`).
+        import_section.import(
+            "kali:rt",
+            "queueMicrotask",
+            EntityType::Function(TEST_REGISTER_TYPE_INDEX),
+        );
+    }
+    if set_timeout_import_index.is_some() {
+        import_section.import(
+            "kali:rt",
+            "setTimeout",
+            EntityType::Function(SCHEDULING_TIMER_SET_TYPE_INDEX),
+        );
+    }
+    if set_interval_import_index.is_some() {
+        import_section.import(
+            "kali:rt",
+            "setInterval",
+            EntityType::Function(SCHEDULING_TIMER_SET_TYPE_INDEX),
+        );
+    }
+    if clear_timeout_import_index.is_some() {
+        // `(timer_id: i32) -> ()` — same shape as coverage_hit (type 0).
+        import_section.import("kali:rt", "clearTimeout", EntityType::Function(0));
+    }
+    if clear_interval_import_index.is_some() {
+        import_section.import("kali:rt", "clearInterval", EntityType::Function(0));
+    }
+    if event_target_new_import_index.is_some() {
+        import_section.import(
+            "kali:rt",
+            "event_target_new",
+            EntityType::Function(EVENT_TARGET_NEW_TYPE_INDEX),
+        );
+    }
+    if event_listener_add_import_index.is_some() {
+        import_section.import(
+            "kali:rt",
+            "event_listener_add",
+            EntityType::Function(EVENT_LISTENER_ADD_TYPE_INDEX),
+        );
+    }
+    if event_dispatch_import_index.is_some() {
+        import_section.import(
+            "kali:rt",
+            "event_dispatch",
+            EntityType::Function(EVENT_DISPATCH_TYPE_INDEX),
+        );
+    }
     // Function signatures are repr-directed: each param/result ValType comes from
     // the repr table (defaulting to I64). Two functions with equal arity but
     // differing float shapes need distinct wasm types, so the dedup key is the
@@ -488,7 +1102,10 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                 vec![ValType::I64, ValType::I64, ValType::I64],
                 vec![ValType::I64],
             )
-        } else if matches!(function.name.as_str(), "__join" | "__join_arena") {
+        } else if matches!(
+            function.name.as_str(),
+            "__join" | "__join_arena" | "__join_growable_i64" | "__join_growable_str"
+        ) {
             (vec![ValType::I64, ValType::I64], vec![ValType::I64])
         } else if function.name == "__arena_reset" {
             (Vec::new(), Vec::new())
@@ -508,9 +1125,10 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             idx
         } else {
             // Function-signature types begin right after the fixed types
-            // (0..=ARGS_GET_TYPE_INDEX): args_get (type 10) is the last fixed
-            // type, so repr-directed function types start at index 11.
-            let idx = function_types.len() as u32 + ARGS_GET_TYPE_INDEX + 1;
+            // (0..=EVENT_DISPATCH_TYPE_INDEX): the event-dispatch type (type 17)
+            // is now the last fixed type, so repr-directed function types start
+            // at index 18.
+            let idx = function_types.len() as u32 + EVENT_DISPATCH_TYPE_INDEX + 1;
             type_section.ty().function(params, results);
             function_types.insert(key, idx);
             idx
@@ -535,6 +1153,16 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     let mut export_section = ExportSection::new();
     export_section.export("memory", ExportKind::Memory, 0);
     export_section.export("__heap", ExportKind::Global, 0);
+    // Export g8 (`current_env`, Stage C closures) under a stable name so the
+    // host can set it to a deferred callback's captured `env_ptr` before the
+    // nullary `__kali_callback_<idx>` call and restore it after (Phase C3,
+    // `invoke_callback`). A guest that owns no promotable env still exports this
+    // (harmless): the value stays 0 and the host's set/restore is a no-op.
+    export_section.export(
+        "__current_env",
+        ExportKind::Global,
+        crate::closure::CURRENT_ENV_GLOBAL,
+    );
     for function in &all_functions {
         if function.is_entry {
             export_section.export("_start", ExportKind::Func, function_name_to_index["_start"]);
@@ -609,6 +1237,64 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         }
     }
 
+    // Stage C: C1 promotes ONLY scalar `i64` cells into the env record — the
+    // shape it can lower soundly (a raw 8-byte i64 slot + i64 arithmetic).
+    // Every other cell shape (heap/closure captures = the C2 surface, non-`i64`
+    // scalars, multi-level chains) is left EXACTLY as pre-Stage-C: it keeps its
+    // WASM local / const-fold / placeholder path, so those programs stay
+    // byte-identical (no new E5506, no new machinery). For a function with >=1
+    // promotable scalar-i64 cell we (a) drop those cell names from its locals —
+    // the env cell IS their storage, so they get no WASM local slot — and
+    // (b) reserve a dedicated i64 save local for the incoming `current_env`
+    // (restored on every exit path). Keyed by the SAME name space as
+    // `derive_env_plans` (declared / `__kali_fn_N`; `_start` is the module root
+    // `""`, absent here and never an owner). This mutation must precede both the
+    // `local_decls` build and `FunctionEmitter::new` below so the declared local
+    // set and the emitter's `locals` map stay in lockstep.
+    for function in all_functions.iter_mut() {
+        if let Some(plan) = ctx.env_plans.get(&function.name) {
+            let promoted: HashSet<&str> = plan
+                .cells
+                .iter()
+                .filter(|cell| {
+                    // Owner-keyed lockstep predicate (C1 scalar-i64 OR C2
+                    // fixed-shape object). `function.name` IS the owner here —
+                    // these are its OWN cells — so the owner namespace is this
+                    // function's. Same predicate the access gate uses.
+                    crate::closure::cell_is_promotable(
+                        &ctx.repr_table,
+                        &function.name,
+                        &cell.name,
+                        cell.is_scalar,
+                    )
+                })
+                .map(|cell| cell.name.as_str())
+                .collect();
+            if !promoted.is_empty() {
+                function
+                    .locals
+                    .retain(|name| !promoted.contains(name.as_str()));
+                function.locals.push(crate::closure::env_save_local_name());
+            }
+        }
+    }
+
+    // Stage C stage-review CRITICAL fix: the dynamic-env safety gate. Capture
+    // lowering resolves cells against the DYNAMIC `current_env`, but the
+    // capture analysis is LEXICAL — a capturer invoked while a sibling
+    // env-owner's record is active silently addresses the wrong cells (a
+    // cross-binding memory corruption). Reject-don't-miscompile: every
+    // call/registration edge into an engaged capturer must provably run with
+    // the capturer's owner record in `current_env`, else E5506 (matching the
+    // pre-Stage-C base, which rejected these shapes at the capture sites).
+    // See `crate::env_safety` for the interprocedural fixpoint.
+    diagnostics.extend(crate::env_safety::env_capture_safety_diagnostics(
+        lir,
+        &all_functions,
+        &ctx.env_plans,
+        &ctx.repr_table,
+    ));
+
     let mut code_section = CodeSection::new();
     for (coverage_id, function) in all_functions.iter().enumerate() {
         // Two extra i64 scratch locals: `self.locals.len()` is the general-purpose
@@ -650,6 +1336,8 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         //   `__join` (`emit_join_body`, Spec 3): 6 i64 — `n`, `i`, `total`,
         //     `out`, `cur`, `h` (locals 2-7; locals 0-1 are its `arr`/`sep`
         //     params).
+        //   `__streq` (`emit_streq_body`): 4 i64 — `len`, `i`, `pa`, `pb`
+        //     (locals 2-5; locals 0-1 are its `a`/`b` params).
         let mut local_decls: Vec<(u32, ValType)> = Vec::new();
         if matches!(function.name.as_str(), "__alloc" | "__alloc_global") {
             local_decls.push((2, ValType::I32));
@@ -659,8 +1347,23 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             local_decls.push((2, ValType::I32));
         } else if function.name == "__substring" {
             local_decls.push((1, ValType::I64));
+        } else if function.name == "__streq" {
+            local_decls.push((4, ValType::I64));
         } else if matches!(function.name.as_str(), "__join" | "__join_arena") {
             local_decls.push((6, ValType::I64));
+        } else if matches!(
+            function.name.as_str(),
+            "__join_growable_i64" | "__join_growable_str"
+        ) {
+            // `emit_join_growable_body`: 7 i64 — `n`, `i`, `total`, `out`,
+            // `cur`, `h`, `data` (locals 2-8; locals 0-1 are `arr`/`sep`). One
+            // more than `__join` for the cached header→`data` pointer.
+            local_decls.push((7, ValType::I64));
+        } else if function.name.starts_with("__clone_shape_") {
+            // Hand-emitted deep-clone synthetic (Stage P2 Lane 2): its i64
+            // locals (1=dst, 2=srch, 3=new_hdr, 4=new_data, 5=len, 6=cap; local
+            // 0 is the `src` param) — see `emit::clone::emit_clone_shape_body`.
+            local_decls.push((crate::emit::clone::CLONE_SHAPE_LOCAL_COUNT, ValType::I64));
         } else {
             for local_name in &function.locals {
                 // A `__arena_save_*` local (Step 2 of loop-arena provisioning)
@@ -690,6 +1393,8 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         let mut emitter = FunctionEmitter::new(
             lir,
             &function_name_to_index,
+            &function_param_counts,
+            &function_param_names,
             env_set_import_index,
             env_delete_import_index,
             env_get_import_index,
@@ -698,6 +1403,18 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             process_exit_import_index,
             stdout_write_bytes_import_index,
             args_get_import_index,
+            performance_now_import_index,
+            crypto_get_random_values_import_index,
+            crypto_random_uuid_import_index,
+            crypto_subtle_digest_import_index,
+            queue_microtask_import_index,
+            set_timeout_import_index,
+            set_interval_import_index,
+            clear_timeout_import_index,
+            clear_interval_import_index,
+            event_target_new_import_index,
+            event_listener_add_import_index,
+            event_dispatch_import_index,
             &mut diagnostics,
             &mut string_pool,
             ctx.source_path.clone(),
@@ -711,9 +1428,14 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             &module_const_inits,
             &module_binding_names,
             &module_global_slots,
+            ctx.env_plans
+                .get(&function.name)
+                .cloned()
+                .unwrap_or_default(),
+            &ctx.env_plans,
         );
         let coverage_id = ctx.target.coverage.then_some(coverage_id as u32);
-        if SYNTHETIC_FUNCTIONS.contains(&function.name.as_str()) {
+        if is_synthetic_function(&function.name) {
             // Hand-emitted: not lowered from LIR (there is no source-level
             // function body for these synthetic page-pool functions), and
             // deliberately uninstrumented (no `emit_coverage_hit`) since none
@@ -732,6 +1454,36 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                 // (resettable) arena via `__alloc` (fasta Spec 7 Task 4c).
                 "__join" => emit_join_body(&mut body, alloc_global_index),
                 "__join_arena" => emit_join_body(&mut body, alloc_index),
+                // Growable-array join (Task 5): always `__alloc_global` (the
+                // result must not dangle across an arena reset); the `_i64`
+                // variant renders each raw slot via `int_to_string`.
+                "__join_growable_i64" => {
+                    emit_join_growable_body(&mut body, alloc_global_index, true)
+                }
+                "__join_growable_str" => {
+                    emit_join_growable_body(&mut body, alloc_global_index, false)
+                }
+                "__streq" => emit_streq_body(&mut body),
+                // Per-shape deep-clone synthetic (Stage P2 Lane 2). Recover the
+                // shape from the name and hand-emit its body: fresh object,
+                // verbatim scalar slots, deep-copied growable-i64 handles.
+                other if other.starts_with("__clone_shape_") => {
+                    let shape = crate::emit::clone::clone_shape_id_from_name(other)
+                        .expect("well-formed __clone_shape_<n> synthetic name");
+                    let fields = ctx.repr_table.shape_fields(shape).to_vec();
+                    // Task 8 (binding obligation 1): a `structuredClone` result
+                    // almost always ESCAPES its arena (it is bound and read after
+                    // the call), so allocate through the escape-safe GLOBAL heap
+                    // — mirroring the `__join` (global) vs `__join_arena` (arena)
+                    // split above. The arena variant would need a full escape
+                    // proof (NOT implemented this task); global is the sound
+                    // default and never dangles across an arena reset.
+                    crate::emit::clone::emit_clone_shape_body(
+                        &mut body,
+                        &fields,
+                        alloc_global_index,
+                    );
+                }
                 other => unreachable!("unhandled synthetic function {other}"),
             }
         } else if function.is_entry {
@@ -805,8 +1557,22 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             &ConstExpr::i32_const(0),
         );
     }
-    // Module-scope mutable scalar globals, appended after g0..g7 at indices
-    // 8, 9, … (matching the ascending indices assigned in
+    // g8 = current_env (Stage C closures, Task 2): the active environment
+    // record pointer, mutable i64, 0 = no env. Allocated immediately after
+    // the arena trio and before any module-scope scalar global — see
+    // `crate::closure::CURRENT_ENV_GLOBAL`. Reserved-but-unused this task
+    // (behavior-neutral): nothing reads or writes it yet; Task 3 wires the
+    // allocation/store/restore sequence.
+    global_section.global(
+        GlobalType {
+            val_type: ValType::I64,
+            mutable: true,
+            shared: false,
+        },
+        &ConstExpr::i64_const(0),
+    );
+    // Module-scope mutable scalar globals, appended after g0..g8 at indices
+    // 9, 10, … (matching the ascending indices assigned in
     // `collect_module_scalar_globals`, which iterates the same sorted-by-name
     // `BTreeMap`). Each is zero-initialized (`var` hoisting semantics: the
     // binding reads `undefined`/0 until its declarator line runs `GlobalSet` in
@@ -854,7 +1620,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         // behalf.
         let instrumented_function_count = all_functions
             .iter()
-            .filter(|f| !SYNTHETIC_FUNCTIONS.contains(&f.name.as_str()))
+            .filter(|f| !is_synthetic_function(&f.name))
             .count() as u32;
         module.section(&CustomSection {
             name: Cow::Borrowed("kali:coverage"),
@@ -891,46 +1657,87 @@ pub(crate) fn collect_functions(
     plans
 }
 
+/// Structural check: is node `id` a `Deno.env.<method>` member node
+/// (`globalThis.Deno.env.<method>` also accepted)? Factors the shared shape the
+/// env-* import probes recognize.
+fn node_is_deno_env_member(lir: &LirProgram, id: LirNodeId, method: &str) -> bool {
+    let Some(member_node) = lir.nodes.get(id.0 as usize) else {
+        return false;
+    };
+    if member_node.text.as_deref() != Some(method) {
+        return false;
+    }
+    let Some(object) = member_node.children.first() else {
+        return false;
+    };
+    let Some(object_node) = lir.nodes.get(object.0 as usize) else {
+        return false;
+    };
+    if object_node.text.as_deref() != Some("env") {
+        return false;
+    }
+    let Some(root) = object_node.children.first() else {
+        return false;
+    };
+    let Some(root_node) = lir.nodes.get(root.0 as usize) else {
+        return false;
+    };
+    root_node.text.as_deref() == Some("Deno")
+        || (root_node.text.as_deref() == Some("globalThis")
+            && root_node.children.first().is_some_and(|child| {
+                lir.nodes
+                    .get(child.0 as usize)
+                    .is_some_and(|deno| deno.text.as_deref() == Some("Deno"))
+            }))
+}
+
+/// Names bound (via a declarator) to a `Deno.env.<method>` member — e.g.
+/// `const g = Deno.env.get` yields `g` for method `"get"`. A declarator lowers
+/// to an `Instruction` node whose `text` is the bound name and whose
+/// `children[1]` is the initializer (`children[0]` is the name value). Used so
+/// the env-* import probe sees THROUGH a bound alias `g(...)` (F-Stage1-3),
+/// matching the emitter's `resolve_bound_member_callable_node` at the call site.
+fn deno_env_member_alias_names<'a>(lir: &'a LirProgram, method: &str) -> Vec<&'a str> {
+    lir.nodes
+        .iter()
+        .filter_map(|node| {
+            if node.kind != LirNodeKind::Instruction || node.children.len() < 2 {
+                return None;
+            }
+            if node_is_deno_env_member(lir, node.children[1], method) {
+                node.text.as_deref()
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
 pub(crate) fn program_uses_env_get(lir: &LirProgram) -> bool {
+    let alias_names = deno_env_member_alias_names(lir, "get");
     lir.nodes.iter().any(|node| {
         if node.kind != LirNodeKind::Call {
             return false;
         }
-
         let Some(callee) = node.children.first() else {
             return false;
         };
-        let Some(callee_node) = lir.nodes.get(callee.0 as usize) else {
-            return false;
-        };
-        if callee_node.text.as_deref() != Some("get") {
-            return false;
+        // Direct `Deno.env.get(...)` call.
+        if node_is_deno_env_member(lir, *callee, "get") {
+            return true;
         }
-
-        let Some(object) = callee_node.children.first() else {
-            return false;
-        };
-        let Some(object_node) = lir.nodes.get(object.0 as usize) else {
-            return false;
-        };
-        if object_node.text.as_deref() != Some("env") {
-            return false;
+        // Bound alias `const g = Deno.env.get; g(...)`: the call's callee is a
+        // bare identifier whose name was bound to a `Deno.env.get` member. Only
+        // an ACTUAL invocation of the alias flips the probe, so an unused alias
+        // never emits the import.
+        if let Some(callee_node) = lir.nodes.get(callee.0 as usize) {
+            if callee_node.children.is_empty() {
+                if let Some(name) = callee_node.text.as_deref() {
+                    return alias_names.contains(&name);
+                }
+            }
         }
-
-        let Some(root) = object_node.children.first() else {
-            return false;
-        };
-        let Some(root_node) = lir.nodes.get(root.0 as usize) else {
-            return false;
-        };
-
-        root_node.text.as_deref() == Some("Deno")
-            || (root_node.text.as_deref() == Some("globalThis")
-                && root_node.children.first().is_some_and(|child| {
-                    lir.nodes
-                        .get(child.0 as usize)
-                        .is_some_and(|deno| deno.text.as_deref() == Some("Deno"))
-                }))
+        false
     })
 }
 
@@ -1219,16 +2026,340 @@ pub(crate) fn program_uses_args_get(lir: &LirProgram) -> bool {
         .any(|node| node_is_process_argv_element(&lir.nodes, node))
 }
 
+/// Program-wide probe for a `performance.now()` call (throw-fallout Stage 3
+/// bucket #5). Mirrors `FunctionEmitter::performance_now_import_index`
+/// structurally over raw nodes (callee text `"now"`, object text
+/// `"performance"`). Kept a SUPERSET of the emit recognizer: were this ever
+/// false where emit fires, the conditional `performance_now` import would be
+/// undeclared and emitting a `Call` to it would be invalid wasm — so
+/// over-inclusiveness here is the safe side.
+pub(crate) fn program_uses_performance_now(lir: &LirProgram) -> bool {
+    lir.nodes.iter().any(|node| {
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+        let Some(callee) = node.children.first() else {
+            return false;
+        };
+        let Some(callee_node) = lir.nodes.get(callee.0 as usize) else {
+            return false;
+        };
+        if callee_node.text.as_deref() != Some("now") {
+            return false;
+        }
+        let Some(object) = callee_node.children.first() else {
+            return false;
+        };
+        let Some(object_node) = lir.nodes.get(object.0 as usize) else {
+            return false;
+        };
+        object_node.text.as_deref() == Some("performance")
+    })
+}
+
+/// Program-wide probe for a `crypto.getRandomValues(buf)` call (throw-fallout
+/// Stage 3 bucket #6). Mirrors
+/// `FunctionEmitter::crypto_get_random_values_import_index` structurally over raw
+/// nodes (callee text `"getRandomValues"`, object text `"crypto"`). Kept a
+/// SUPERSET of the emit recognizer: were this ever false where emit fires, the
+/// conditional `crypto_get_random_values` import would be undeclared and emitting
+/// a `Call` to it would be invalid wasm — so over-inclusiveness here is the safe
+/// side.
+pub(crate) fn program_uses_crypto_get_random_values(lir: &LirProgram) -> bool {
+    program_uses_crypto_method(lir, "getRandomValues")
+}
+
+/// Program-wide probe for a `crypto.randomUUID()` call (throw-fallout Stage 3
+/// bucket #6). Mirrors `FunctionEmitter::crypto_random_uuid_import_index`
+/// structurally over raw nodes (callee text `"randomUUID"`, object text
+/// `"crypto"`). Kept a SUPERSET of the emit recognizer (same rationale as
+/// `program_uses_crypto_get_random_values`).
+pub(crate) fn program_uses_crypto_random_uuid(lir: &LirProgram) -> bool {
+    program_uses_crypto_method(lir, "randomUUID")
+}
+
+/// Shared body for the two `crypto.<method>()` program-wide probes: a `Call`
+/// whose callee is a member with `text == method` and object text `"crypto"`.
+fn program_uses_crypto_method(lir: &LirProgram, method: &str) -> bool {
+    lir.nodes.iter().any(|node| {
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+        let Some(callee) = node.children.first() else {
+            return false;
+        };
+        let Some(callee_node) = lir.nodes.get(callee.0 as usize) else {
+            return false;
+        };
+        if callee_node.text.as_deref() != Some(method) {
+            return false;
+        }
+        let Some(object) = callee_node.children.first() else {
+            return false;
+        };
+        let Some(object_node) = lir.nodes.get(object.0 as usize) else {
+            return false;
+        };
+        object_node.text.as_deref() == Some("crypto")
+    })
+}
+
+/// Program-wide probe for a `crypto.subtle.digest(algo, bytes)` call (throw-fallout
+/// Stage 3 bucket #6 part 2). Mirrors
+/// `FunctionEmitter::crypto_subtle_digest_import_index` structurally over raw
+/// nodes (callee text `"digest"`, object text `"subtle"`, grand-object text
+/// `"crypto"`). Kept a SUPERSET of the emit recognizer (same rationale as the
+/// other crypto probes): were this false where emit fires, the conditional
+/// `crypto_subtle_digest` import would be undeclared and emitting a `Call` to it
+/// would be invalid wasm.
+pub(crate) fn program_uses_crypto_subtle_digest(lir: &LirProgram) -> bool {
+    lir.nodes.iter().any(|node| {
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+        let Some(callee) = node.children.first() else {
+            return false;
+        };
+        let Some(callee_node) = lir.nodes.get(callee.0 as usize) else {
+            return false;
+        };
+        if callee_node.text.as_deref() != Some("digest") {
+            return false;
+        }
+        let Some(subtle) = callee_node.children.first() else {
+            return false;
+        };
+        let Some(subtle_node) = lir.nodes.get(subtle.0 as usize) else {
+            return false;
+        };
+        if subtle_node.text.as_deref() != Some("subtle") {
+            return false;
+        }
+        let Some(crypto) = subtle_node.children.first() else {
+            return false;
+        };
+        let Some(crypto_node) = lir.nodes.get(crypto.0 as usize) else {
+            return false;
+        };
+        crypto_node.text.as_deref() == Some("crypto")
+    })
+}
+
+/// Program-wide probe for a bare-identifier call to `name` (Stage D
+/// scheduling surfaces). The callee is a PLAIN identifier, not a member
+/// expression. Kept a SUPERSET of the emit-time recognizer
+/// (`scheduling_surface` additionally requires the name be unshadowed): if
+/// this were ever false where emit fires, the conditional import would be
+/// undeclared and the emitted `Call` invalid wasm — over-inclusive is the
+/// safe side.
+pub(crate) fn program_calls_bare_identifier(lir: &LirProgram, name: &str) -> bool {
+    lir.nodes.iter().any(|node| {
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+        let Some(&callee) = node.children.first() else {
+            return false;
+        };
+        let Some(callee_node) = lir.nodes.get(callee.0 as usize) else {
+            return false;
+        };
+        callee_node.text.as_deref() == Some(name)
+    })
+}
+
+/// Program-wide probe for `new EventTarget(...)` (Stage D event lane).
+/// New-expressions lower to a text-less `Value` whose `children[0]` is the
+/// constructor identifier (`Value("EventTarget")`). SUPERSET of the emit-time
+/// recognizer (`FunctionEmitter::is_event_target_new`), which additionally
+/// requires the name unshadowed + ZERO args + a declarator-init position.
+/// Used only to gate the conditional import + type registration.
+pub(crate) fn program_constructs_event_target(lir: &LirProgram) -> bool {
+    lir.nodes.iter().any(|node| {
+        node.text.is_none()
+            && node.children.first().is_some_and(|&c| {
+                lir.nodes
+                    .get(c.0 as usize)
+                    .is_some_and(|n| n.text.as_deref() == Some("EventTarget"))
+            })
+    })
+}
+
+/// Program-wide probe for a MEMBER call named `name` (Stage D event lane):
+/// any node whose `text` is `name` and which has children (the receiver).
+/// SUPERSET of the emit-time recognizer (receiver provenance unchecked here).
+/// Used only to gate the conditional import + type registration.
+pub(crate) fn program_calls_member_named(lir: &LirProgram, name: &str) -> bool {
+    lir.nodes
+        .iter()
+        .any(|node| node.text.as_deref() == Some(name) && !node.children.is_empty())
+}
+
+/// Structural mirror of `FunctionEmitter::is_event_target_new` usable in
+/// locals-provisioning (before a `FunctionEmitter` exists). EMPIRICALLY-VERIFIED
+/// LIR shape (KALI_DUMP_LIR): `new EventTarget()` lowers to
+/// `Value(None, [Call(None, [Value("EventTarget")])])` — the New wrapper's
+/// single child is a text-less `Call` whose first child is the ctor identifier
+/// (zero args → the Call has exactly one child). Deliberately does NOT unwrap
+/// transparent wrappers — the New node is ITSELF a text-less single-child
+/// `Value` (same shape as a grouping/single-element-array wrapper), so
+/// unwrapping would strip it. The shadowing check is enforced at emit (this
+/// side only decides local promotion); an unshadowed match here with a
+/// shadowed name at emit simply keeps an unused local slot.
+pub(crate) fn declarator_init_is_event_target_new(nodes: &[LirNode], init_id: LirNodeId) -> bool {
+    let Some(node) = nodes.get(init_id.0 as usize) else {
+        return false;
+    };
+    if node.kind != LirNodeKind::Value || node.text.is_some() || node.children.len() != 1 {
+        return false;
+    }
+    let Some(call) = nodes.get(node.children[0].0 as usize) else {
+        return false;
+    };
+    if call.kind != LirNodeKind::Call || call.text.is_some() || call.children.len() != 1 {
+        return false;
+    }
+    nodes
+        .get(call.children[0].0 as usize)
+        .is_some_and(|ctor| ctor.text.as_deref() == Some("EventTarget") && ctor.children.is_empty())
+}
+
+/// True when a declarator init is exactly `new AbortController()` (bare
+/// callee, zero args): `Value(None, [Call(None, [Value("AbortController")])])`,
+/// inspected RAW (unwrapping would strip the New wrapper). Stage P3 gives this
+/// construct a real lowering (8-byte global abort cell); the emit side
+/// additionally requires the `Repr::AbortHandle` proof and the five-namespace
+/// shadow guard before intercepting. Structurally identical to
+/// [`declarator_init_is_placeholder_construct`] — the two must agree on the LIR
+/// shape — with the ctor text pinned to `"AbortController"` and zero call args.
+pub(crate) fn declarator_init_is_abort_controller_new(
+    nodes: &[LirNode],
+    init_id: LirNodeId,
+) -> bool {
+    let Some(node) = nodes.get(init_id.0 as usize) else {
+        return false;
+    };
+    if node.kind != LirNodeKind::Value || node.text.is_some() || node.children.len() != 1 {
+        return false;
+    }
+    let Some(call) = nodes.get(node.children[0].0 as usize) else {
+        return false;
+    };
+    // Zero args → the Call has exactly one child (the ctor identifier).
+    if call.kind != LirNodeKind::Call || call.text.is_some() || call.children.len() != 1 {
+        return false;
+    }
+    nodes.get(call.children[0].0 as usize).is_some_and(|ctor| {
+        ctor.text.as_deref() == Some("AbortController") && ctor.children.is_empty()
+    })
+}
+
+/// True when `init_id` is a PROVABLE ZERO-PLACEHOLDER construct — a
+/// `new X()` whose constructor `X` has no real lowering, so the whole
+/// construction lowers to the drop-and-push-`0` aggregate placeholder (the
+/// "unsupported `new` returns an empty object" fallback; e.g.
+/// `const c = new AbortController()`). Same New-wrapper LIR shape as
+/// [`declarator_init_is_event_target_new`] — a text-less single-child `Value`
+/// wrapping a text-less `Call` whose `children[0]` is the bare constructor
+/// identifier — inspected RAW (the New node is itself the wrapper; unwrapping
+/// transparent wrappers would strip it).
+///
+/// This is the ONE allowlist exception the deferred-callback choke point keeps
+/// for a captured binding without closure lowering (Task 9 C-1 final): a
+/// zero-placeholder construct reads `0` in its owner's own body too, so a
+/// deferred read of the same `0` introduces NO divergence (unlike a real object
+/// / scalar, whose value node computes and the deferred lane loses). The
+/// constructors EXCLUDED here are exactly those a bound `new X()` declarator
+/// lowers to a REAL value for — `Array`/`Uint8Array` (real linear-memory arrays;
+/// see `is_array_like_constructor`) and `EventTarget` (a real host handle);
+/// capturing one of those in a deferred callback WOULD diverge, so they stay
+/// denied. (`CustomEvent`/`Event`/`TextEncoder` never reach here as a bare bound
+/// `new X()` — they only appear inline in `dispatchEvent`/`.encode` chains.)
+pub(crate) fn declarator_init_is_placeholder_construct(
+    nodes: &[LirNode],
+    init_id: LirNodeId,
+) -> bool {
+    let Some(node) = nodes.get(init_id.0 as usize) else {
+        return false;
+    };
+    if node.kind != LirNodeKind::Value || node.text.is_some() || node.children.len() != 1 {
+        return false;
+    }
+    let Some(call) = nodes.get(node.children[0].0 as usize) else {
+        return false;
+    };
+    if call.kind != LirNodeKind::Call || call.text.is_some() || call.children.is_empty() {
+        return false;
+    }
+    let Some(ctor) = nodes.get(call.children[0].0 as usize) else {
+        return false;
+    };
+    if !ctor.children.is_empty() {
+        return false;
+    }
+    match ctor.text.as_deref() {
+        // A real-value construct (see doc comment): NOT a zero placeholder.
+        // `AbortController` joined this list in Stage P3 (real global abort
+        // cell); its `const`-declarator lowering is intercepted at emit under
+        // the `Repr::AbortHandle` proof + shadow guard.
+        Some("Array" | "Uint8Array" | "EventTarget" | "AbortController") => false,
+        // Any other bare `new X()` lowers to the drop-and-push-0 placeholder.
+        Some(_) => true,
+        None => false,
+    }
+}
+
+/// True when `init_id` is a `dispatchEvent(...)` MEMBER call (Stage D event
+/// lane). EMPIRICALLY-VERIFIED shape (KALI_DUMP_LIR, `const ok =
+/// t.dispatchEvent(...)`): the init is the raw `Call(None, [Value("dispatchEvent",
+/// [receiver]), event])`. A `const ok = t.dispatchEvent(...)` binding MUST be a
+/// REAL local — the fold-alias tunnel (`FunctionEmitter::bindings`) would
+/// re-emit the dispatch at every read of `ok`, re-invoking EVERY listener
+/// synchronously each time — an observable duplicate-dispatch miscompile, not a
+/// missed optimization. (The recognizer is receiver-agnostic: promoting an
+/// out-of-lane dispatch binding to a local is a harmless slot reservation.)
+pub(crate) fn declarator_init_is_event_dispatch(nodes: &[LirNode], init_id: LirNodeId) -> bool {
+    let mut id = init_id;
+    let mut guard = 0;
+    loop {
+        let Some(node) = nodes.get(id.0 as usize) else {
+            return false;
+        };
+        if node.kind == LirNodeKind::Value
+            && node.text.as_deref() == Some("")
+            && !node.children.is_empty()
+        {
+            id = *node.children.last().expect("sequence wrapper has a child");
+            guard += 1;
+            if guard > 64 {
+                return false;
+            }
+            continue;
+        }
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+        let Some(&callee) = node.children.first() else {
+            return false;
+        };
+        return nodes.get(callee.0 as usize).is_some_and(|callee_node| {
+            callee_node.text.as_deref() == Some("dispatchEvent") && !callee_node.children.is_empty()
+        });
+    }
+}
+
 /// Follows empty-text single-child `Value` wrapper nodes, mirroring
 /// `FunctionEmitter::unwrap_transparent_value_node` over raw nodes.
-fn unwrap_transparent_value_node_raw(nodes: &[LirNode], mut id: LirNodeId) -> LirNodeId {
+pub(crate) fn unwrap_transparent_value_node_raw(nodes: &[LirNode], mut id: LirNodeId) -> LirNodeId {
     loop {
         let Some(node) = nodes.get(id.0 as usize) else {
             return id;
         };
         if node.kind == LirNodeKind::Value
             && node.children.len() == 1
-            && node.text.as_deref().is_none_or(|text| text.is_empty())
+            && node
+                .text
+                .as_deref()
+                .is_none_or(|text| text.is_empty() || text == "await")
         {
             id = node.children[0];
             continue;
@@ -1368,6 +2499,91 @@ pub(crate) fn function_plan(
 
 pub(crate) fn is_function_like(nodes: &[LirNode], id: LirNodeId) -> bool {
     function_shape(nodes, id).is_some()
+}
+
+/// Names whose binding PROVENANCE is unstable within `body`: assigned outside
+/// their declarator (`name = …`, any compound/logical-assignment form) or
+/// declared by MORE THAN ONE declarator (a block-level `let` re-declaration /
+/// shadow). The scheduling-surface default-deny guard refuses to resolve such
+/// a name through `fn_valued_locals` (recorded once, at declarator-emit time)
+/// — a reassignment or shadow leaves that mapping stale, which is exactly the
+/// fail-open the stage review's reassignment tripwire pinned. Deliberately
+/// walks INTO nested function subtrees: a nested function reassigning an
+/// outer binding invalidates the outer provenance just the same. Update
+/// expressions (`++`/`--`) are excluded on purpose — they cannot make a
+/// binding hold a (capturing) function value.
+pub(crate) fn unstable_provenance_names(nodes: &[LirNode], body: LirNodeId) -> HashSet<String> {
+    let mut unstable: HashSet<String> = HashSet::new();
+    let mut declarator_counts: HashMap<String, u32> = HashMap::new();
+    let mut stack = vec![body];
+    let mut seen: HashSet<LirNodeId> = HashSet::new();
+    while let Some(id) = stack.pop() {
+        if !seen.insert(id) {
+            continue;
+        }
+        let Some(node) = nodes.get(id.0 as usize) else {
+            continue;
+        };
+        if node.kind == LirNodeKind::Value
+            && node.children.len() == 2
+            && matches!(
+                node.text.as_deref(),
+                Some("=" | "+=" | "-=" | "*=" | "/=" | "%=" | "**=" | "??=" | "&&=" | "||=")
+            )
+        {
+            if let Some(name) = bare_assignment_target_name(nodes, node.children[0]) {
+                unstable.insert(name);
+            }
+        }
+        if node.kind == LirNodeKind::Instruction
+            && matches!(node.text.as_deref(), Some("const" | "let" | "var"))
+        {
+            for declarator_id in &node.children {
+                if let Some(name) = nodes
+                    .get(declarator_id.0 as usize)
+                    .and_then(|declarator| declarator.text.clone())
+                {
+                    *declarator_counts.entry(name).or_default() += 1;
+                }
+            }
+        }
+        stack.extend(node.children.iter().copied());
+    }
+    for (name, count) in declarator_counts {
+        if count > 1 {
+            unstable.insert(name);
+        }
+    }
+    unstable
+}
+
+/// The bare-identifier assignment target under transparent single-child
+/// `Value` wrappers, or `None` for member/element/complex targets (static
+/// mirror of `FunctionEmitter::unwrap_transparent` + bare-identifier check).
+fn bare_assignment_target_name(nodes: &[LirNode], mut id: LirNodeId) -> Option<String> {
+    let mut guard = 0;
+    loop {
+        let node = nodes.get(id.0 as usize)?;
+        if node.kind == LirNodeKind::Value
+            && node.children.len() == 1
+            && node
+                .text
+                .as_deref()
+                .is_none_or(|text| text.is_empty() || text == "await")
+        {
+            id = node.children[0];
+            guard += 1;
+            if guard > 64 {
+                return None;
+            }
+            continue;
+        }
+        return if node.kind == LirNodeKind::Value && node.children.is_empty() {
+            node.text.clone()
+        } else {
+            None
+        };
+    }
 }
 
 /// Pre-order, function-scoped loop-ordinal assignment over the LIR tree
@@ -1824,12 +3040,18 @@ pub(crate) fn collect_function_locals(
         &mut array_names,
     );
 
+    // Names rebound anywhere in this function (including inside nested
+    // closures): a `const` initializer that reads one cannot stay on the
+    // re-emitting fold lane. Computed once for the whole body.
+    let reassigned = program_reassigned_names(nodes);
+
     let mut locals = Vec::new();
     let mut seen = HashSet::new();
     collect_function_locals_from_node(
         nodes,
         body_id,
         &array_names,
+        &reassigned,
         repr_table,
         function_name,
         &mut seen,
@@ -1920,7 +3142,251 @@ pub(crate) fn collect_function_locals(
         locals.push(coerce_acc_local_name());
     }
 
+    // Reserve the dedicated i64 scratch local the growable-array emit
+    // helpers need (throw-fallout Stage 4): `emit_growable_alloc` holds the
+    // header pointer across seed-element emission and `emit_growable_push`
+    // across value emission — both of which may internally clobber the two
+    // generic trailing scratch slots. One slot per function suffices (the
+    // helpers never nest their own use of it across an `emit_node` call).
+    // Guarded on the function actually having a growable binding, so
+    // functions without one are byte-identical.
+    //
+    // Stage P2 Lane 1 Task 5 adds a SECOND trigger: a growable-array FIELD push
+    // (`o.values.push(v)`) also flows through `emit_growable_push` and so needs
+    // the same scratch — but the enclosing function has no growable BINDING to
+    // key on. Reserve on a COARSE structural superset (`body_contains_field_push`
+    // — any `.push` on a member-expression receiver), matching the
+    // argv/unary-plus reservation philosophy: over-reserving a harmless unused
+    // i64 local is always safe; under-reserving would panic in
+    // `growable_scratch_local`.
+    // ALSO reserve when this function allocates an object literal carrying a
+    // `GrowableArrayI64` field: `emit_growable_field_value` (object.rs) uses the
+    // dedicated scratch to allocate+seed the field's growable array. Detected
+    // precisely off the shape table (a binding or return repr that is
+    // `Object(shape)` with a growable field), so unrelated functions stay
+    // byte-identical.
+    let allocates_growable_object_field = locals.iter().any(|name| {
+        matches!(
+            repr_table.scalar(function_name, name),
+            kali_common::Repr::Object(shape) if shape_has_growable_field(repr_table, shape)
+        )
+    }) || matches!(
+        repr_table.return_repr(function_name),
+        kali_common::Repr::Object(shape) if shape_has_growable_field(repr_table, shape)
+    );
+    if locals
+        .iter()
+        .any(|name| repr_table.is_growable_array_binding(function_name, name))
+        || body_contains_field_push(nodes, body_id)
+        || allocates_growable_object_field
+    {
+        locals.push(growable_scratch_local_name());
+    }
+
+    // Reserve a real i64 loop-variable local for every runtime `for..of` over a
+    // growable array (throw-fallout Stage 4 Task 4), plus the shared
+    // index/length counter pair — but only when at least one such loop exists,
+    // so functions without one stay byte-identical. The static-unroll lane
+    // binds its loop var to a compile-time node; the runtime counted loop needs
+    // a wasm LOCAL so the body's reads of the loop var resolve to it.
+    let for_of_growable_vars =
+        for_of_growable_loop_var_names(nodes, body_id, repr_table, function_name);
+    if !for_of_growable_vars.is_empty() {
+        for var in for_of_growable_vars {
+            if !locals.contains(&var) {
+                locals.push(var);
+            }
+        }
+        locals.push(growable_foreach_index_local_name());
+        locals.push(growable_foreach_len_local_name());
+    }
+
     locals
+}
+
+/// Name of the dedicated i64 scratch local shared by the growable-array emit
+/// helpers (throw-fallout Stage 4). Shared by `collect_function_locals`
+/// (reserve) and `crate::emit::growable` (resolve) — same discipline as
+/// `for_in_ord_local_name` and the argv scratch pair. Default-typed i64 (no
+/// `ReprTable` entry), which is exactly what the helpers store in it.
+pub(crate) fn growable_scratch_local_name() -> String {
+    "__growable_scratch".to_string()
+}
+
+/// Name of the shared i64 loop-index counter local for the runtime `for..of`
+/// over a growable array (throw-fallout Stage 4 Task 4). ONE shared slot per
+/// function suffices: the counted-loop lane fails closed on a growable
+/// `for..of` lexically NESTED inside another (see the emit guard), so two
+/// growable `for..of` loops in the same function never overlap in time and can
+/// reuse the same counter/length scratch. Reserved by `collect_function_locals`
+/// and resolved by `emit_for_of_array_iteration`'s runtime branch.
+pub(crate) fn growable_foreach_index_local_name() -> String {
+    "__growable_foreach_index".to_string()
+}
+
+/// Name of the shared i64 snapshot-length local for the runtime `for..of` over
+/// a growable array (throw-fallout Stage 4 Task 4). The iteration count is
+/// snapshotted ONCE before the loop (per the design), so a body that pushes to
+/// a DIFFERENT array is unaffected; see `growable_foreach_index_local_name` for
+/// why one shared slot per function is sound.
+pub(crate) fn growable_foreach_len_local_name() -> String {
+    "__growable_foreach_len".to_string()
+}
+
+/// Loop-variable names of every `for..of` (`for-await-of` excluded — it fails
+/// closed) whose iterable is a bare-identifier GROWABLE array binding of
+/// `function_name`, reachable from `body_id` without descending into nested
+/// function bodies (throw-fallout Stage 4 Task 4). Each such loop var must get
+/// a real wasm LOCAL so the body's reads resolve to it (the static-unroll lane
+/// binds the loop var to a compile-time node instead). Structural twin of the
+/// emit-side runtime-lane guard in `emit_for_of_array_iteration`: both key on
+/// "bare identifier iterable + `is_growable_array_binding`", so the reservation
+/// exists exactly where the runtime branch resolves a slot. Element repr is NOT
+/// consulted here — a String-element growable `for..of` never reaches codegen
+/// (the resolve gate aborts the compile), and an over-reserved unused local is
+/// harmless.
+/// True iff `id` is a dot member `base.field` (1-child `Value`, `base` a bare
+/// identifier) whose `base` has an `Object(shape)` repr with a
+/// `GrowableArrayI64` field named `field` (Stage P2 Lane 1). The
+/// provisioning-stage free-function mirror of the emitter's
+/// `object_field_is_growable_array` (which resolves through the same
+/// scalar/shape tables); the direct identifier-base form is all the growable
+/// field-receiver surface admits.
+fn node_is_growable_i64_field(
+    nodes: &[LirNode],
+    repr_table: &kali_common::ReprTable,
+    function_name: &str,
+    id: LirNodeId,
+) -> bool {
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return false;
+    };
+    if node.kind != LirNodeKind::Value || node.children.len() != 1 {
+        return false;
+    }
+    let Some(field) = node.text.as_deref().filter(|t| !t.is_empty()) else {
+        return false;
+    };
+    let Some(base) = nodes.get(node.children[0].0 as usize) else {
+        return false;
+    };
+    if base.kind != LirNodeKind::Value || !base.children.is_empty() {
+        return false;
+    }
+    let Some(base_name) = base.text.as_deref().filter(|t| !t.is_empty()) else {
+        return false;
+    };
+    match repr_table.scalar(function_name, base_name) {
+        kali_common::Repr::Object(shape) => matches!(
+            repr_table.shape_field(shape, field),
+            Some((_, kali_common::Repr::GrowableArrayI64))
+        ),
+        _ => false,
+    }
+}
+
+fn for_of_growable_loop_var_names(
+    nodes: &[LirNode],
+    body_id: LirNodeId,
+    repr_table: &kali_common::ReprTable,
+    function_name: &str,
+) -> Vec<String> {
+    let mut names = Vec::new();
+    for_of_growable_loop_var_names_walk(nodes, body_id, repr_table, function_name, &mut names);
+    names
+}
+
+/// Raw-node twin of `FunctionEmitter::for_of_binding_name_from_node`: the
+/// loop-variable name of a `for..of` left node, whether a `const`/`let`/`var`
+/// declaration or a bare identifier, transparently unwrapping empty-text /
+/// `await` `Value` wrappers. Kept in lockstep with the emitter version so the
+/// reserved local and the resolved slot always name the same binding.
+fn for_of_loop_var_name_of(nodes: &[LirNode], id: LirNodeId) -> Option<String> {
+    let node = nodes.get(id.0 as usize)?;
+    if node.children.is_empty() {
+        return node.text.clone().filter(|t| !t.is_empty());
+    }
+    if matches!(node.text.as_deref(), Some("const" | "let" | "var")) {
+        let declarator = *node.children.first()?;
+        return nodes
+            .get(declarator.0 as usize)
+            .and_then(|n| n.text.clone())
+            .filter(|t| !t.is_empty());
+    }
+    if node.text.as_deref().is_some_and(|t| t.is_empty()) && !node.children.is_empty() {
+        return for_of_loop_var_name_of(nodes, *node.children.last()?);
+    }
+    if (node.text.is_none() || node.text.as_deref() == Some("await")) && node.children.len() == 1 {
+        return for_of_loop_var_name_of(nodes, node.children[0]);
+    }
+    None
+}
+
+fn for_of_growable_loop_var_names_walk(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    repr_table: &kali_common::ReprTable,
+    function_name: &str,
+    names: &mut Vec<String>,
+) {
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return;
+    };
+    if node.kind == LirNodeKind::Branch && node.text.as_deref() == Some("for-of") {
+        let iterable_is_growable = node.children.get(1).is_some_and(|&iterable| {
+            bare_identifier_name_of(nodes, iterable)
+                .is_some_and(|name| repr_table.is_growable_array_binding(function_name, &name))
+                // Stage P2 Lane 1 Task 5: a `for (const x of o.values)` over a
+                // `GrowableArrayI64` object field also runs the counted growable
+                // loop, so its loop var needs a real wasm local reserved here.
+                || node_is_growable_i64_field(nodes, repr_table, function_name, iterable)
+        });
+        if iterable_is_growable {
+            if let Some(var) = node
+                .children
+                .first()
+                .and_then(|&left| for_of_loop_var_name_of(nodes, left))
+            {
+                if !names.contains(&var) {
+                    names.push(var);
+                }
+            }
+        }
+    }
+    for child in &node.children {
+        if is_function_like(nodes, *child) {
+            continue;
+        }
+        for_of_growable_loop_var_names_walk(nodes, *child, repr_table, function_name, names);
+    }
+}
+
+/// True iff any bare identifier reachable from `init` (not descending into
+/// nested function bodies) names a GROWABLE array binding of `function_name`
+/// (throw-fallout Stage 4). Coarse ON PURPOSE (any mention, not just
+/// `.length`/index read shapes): it only ever PROMOTES a const to an
+/// eagerly-evaluated local, which is the semantically-correct JS evaluation
+/// order for every init.
+fn declarator_init_mentions_growable(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    repr_table: &kali_common::ReprTable,
+    function_name: &str,
+) -> bool {
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return false;
+    };
+    if node.kind == LirNodeKind::Value && node.children.is_empty() {
+        if let Some(text) = node.text.as_deref() {
+            if repr_table.is_growable_array_binding(function_name, text) {
+                return true;
+            }
+        }
+    }
+    node.children.iter().any(|child| {
+        !is_function_like(nodes, *child)
+            && declarator_init_mentions_growable(nodes, *child, repr_table, function_name)
+    })
 }
 
 /// True iff any node reachable from `body_id` (not descending into nested
@@ -1929,6 +3395,57 @@ pub(crate) fn collect_function_locals(
 /// dispatches on. See the call site in `collect_function_locals` for why this
 /// is deliberately a coarse superset of "unary `+` over a provably
 /// string-valued operand" rather than a precise mirror of it.
+/// True iff any node reachable from `body_id` (not descending into nested
+/// function bodies) is a `.push` member whose receiver is a member-expression
+/// (field-read) shape — the coarse superset that guards reserving the growable
+/// scratch local for a `GrowableArrayI64` FIELD push (Stage P2 Lane 1 Task 5).
+/// Deliberately imprecise (fires for any `x.y.push(...)`, growable or not):
+/// over-reserving one unused i64 local is harmless; the precise shape proof
+/// (`object_field_is_growable_array`) is unavailable at this provisioning stage.
+/// True iff `shape` has any `GrowableArrayI64` field (Stage P2 Lane 1 Task 5) —
+/// the signal that allocating this object shape needs the growable scratch local
+/// (`emit_growable_field_value`).
+fn shape_has_growable_field(
+    repr_table: &kali_common::ReprTable,
+    shape: kali_common::ShapeId,
+) -> bool {
+    repr_table
+        .shape_fields(shape)
+        .iter()
+        .any(|(_, repr)| matches!(repr, kali_common::Repr::GrowableArrayI64))
+}
+
+fn body_contains_field_push(nodes: &[LirNode], body_id: LirNodeId) -> bool {
+    fn is_field_read_shape(nodes: &[LirNode], id: LirNodeId) -> bool {
+        nodes.get(id.0 as usize).is_some_and(|n| {
+            n.kind == LirNodeKind::Value
+                && n.children.len() == 1
+                && n.text.as_deref().is_some_and(|t| !t.is_empty())
+        })
+    }
+    fn walk(nodes: &[LirNode], id: LirNodeId) -> bool {
+        let Some(node) = nodes.get(id.0 as usize) else {
+            return false;
+        };
+        // `.push` member callee: Value{text:"push", children:[receiver]} whose
+        // receiver is itself a member-expression (field read).
+        if node.kind == LirNodeKind::Value
+            && node.text.as_deref() == Some("push")
+            && node.children.len() == 1
+            && is_field_read_shape(nodes, node.children[0])
+        {
+            return true;
+        }
+        node.children.iter().any(|child| {
+            if is_function_like(nodes, *child) {
+                return false;
+            }
+            walk(nodes, *child)
+        })
+    }
+    walk(nodes, body_id)
+}
+
 fn body_contains_unary_plus(nodes: &[LirNode], body_id: LirNodeId) -> bool {
     fn walk(nodes: &[LirNode], id: LirNodeId) -> bool {
         let Some(node) = nodes.get(id.0 as usize) else {
@@ -1974,9 +3491,13 @@ fn body_contains_process_argv_element(nodes: &[LirNode], body_id: LirNodeId) -> 
 }
 
 /// WASM globals reserved before any module-scope mutable scalar global:
-/// g0 (heap/page frontier) + g1..g7 (arena page-pool state). Module scalar
-/// globals are appended AFTER these, at indices `RESERVED_GLOBAL_COUNT`, +1, …
-pub(crate) const RESERVED_GLOBAL_COUNT: u32 = 8;
+/// g0 (heap/page frontier) + g1..g7 (arena page-pool state) + g8
+/// (`current_env`, Stage C closures — see `crate::closure::CURRENT_ENV_GLOBAL`).
+/// Module scalar globals are appended AFTER these, at indices
+/// `RESERVED_GLOBAL_COUNT`, +1, … — raising this count keeps their indices
+/// contiguous ABOVE the newly reserved global with no shift to g0..g7 or to
+/// any existing module-scalar index's *relative* order (only the base moves).
+pub(crate) const RESERVED_GLOBAL_COUNT: u32 = 9;
 
 /// Promote module-scope mutable SCALAR (`var`/`let` numeric) bindings that are
 /// READ or WRITTEN from inside a function to persistent mutable WASM globals.
@@ -2464,10 +3985,300 @@ pub(crate) fn collect_array_binding_names(
     }
 }
 
+/// How a `const` declarator's initializer must be lowered — the SINGLE
+/// promotion decision, shared by the local-slot collector
+/// (`collect_function_locals_from_node`) and the emitter's denotation map
+/// (`allowlist_promoted_const_names`). Keeping one function rather than two
+/// mirrored predicates is deliberate: this codebase has repeatedly fail-opened
+/// where a codegen oracle and its twin drifted apart.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum ConstPromotion {
+    /// Stays on the compile-time fold lane: no local slot, and the init node is
+    /// recorded in `FunctionEmitter::bindings` so reads re-emit it. Sound only
+    /// because `const_init_is_stable` proved re-emission observationally
+    /// identical.
+    Fold,
+    /// Promoted because the value is a runtime HANDLE needing stable storage (a
+    /// fresh allocation, a host registration, a materialized object). These
+    /// lanes key on their own provenance sets and must NOT get a `bindings`
+    /// entry — recording one re-resolves the name to its init node and defeats
+    /// the handle lane (this regressed the `TextEncoder`/`crypto` family once).
+    Handle,
+    /// Promoted because re-emitting the initializer is NOT observationally
+    /// identical — it would repeat a side effect or read state that has since
+    /// changed. Gets both a local slot (the runtime value, bound exactly once at
+    /// the declaration) and a `bindings` entry (compile-time denotation only;
+    /// the identifier read path consults `locals` first).
+    Binding,
+}
+
+/// Decides how one `const` declarator is lowered. `declarator` is the
+/// declarator node id; returns `None` when it has no initializer.
+pub(crate) fn const_declarator_promotion(
+    nodes: &[LirNode],
+    declarator: LirNodeId,
+    array_names: &HashSet<String>,
+    reassigned: &HashSet<String>,
+    repr_table: &kali_common::ReprTable,
+    function_name: &str,
+) -> Option<(String, ConstPromotion)> {
+    let declarator_node = nodes.get(declarator.0 as usize)?;
+    let init = declarator_node.children.get(1).copied()?;
+    let name = declarator_node.text.clone()?;
+    let is_materialized_object = declarator_node.text.as_deref().is_some_and(|name| {
+        declarator_init_is_object_literal(nodes, init)
+            && matches!(
+                repr_table.scalar(function_name, name),
+                kali_common::Repr::Object(_)
+            )
+    });
+    // An array literal of object references needs the same stable
+    // handle as a `new Array(n)` allocation, so its own base pointer
+    // (not just later reads of it) is promoted to a local. See
+    // `collect_array_binding_names`'s matching check.
+    let is_materialized_object_array = declarator_node.text.as_deref().is_some_and(|name| {
+        declarator_init_is_array_literal(nodes, init)
+            && matches!(
+                repr_table.array_element(function_name, name),
+                kali_common::Repr::Object(_)
+            )
+    });
+    // A factory-call initializer (`const q = mk(2.0)`) whose callee
+    // returns an `Object` repr matching the binding's own repr needs
+    // the same stable handle: without promotion, the const folds to
+    // re-evaluating the call at every use site (`resolve_literal_aggregate`'s
+    // `bindings` alias lane), silently calling the factory again on
+    // each read/write instead of sharing the one materialized object
+    // — a distinct-instances miscompile, not just a missed optimization.
+    let is_materialized_factory_return = declarator_node.text.as_deref().is_some_and(|name| {
+        match repr_table.scalar(function_name, name) {
+            kali_common::Repr::Object(_) => declarator_init_call_callee_name(nodes, init)
+                .is_some_and(|callee| {
+                    matches!(repr_table.return_repr(callee), kali_common::Repr::Object(_))
+                }),
+            _ => false,
+        }
+    });
+    // A growable (push-accumulated) array binding needs a stable
+    // local slot for its tagged handle regardless of `const`
+    // (throw-fallout Stage 4) — push/length/index all read it back.
+    let is_growable_array = declarator_node
+        .text
+        .as_deref()
+        .is_some_and(|name| repr_table.is_growable_array_binding(function_name, name));
+    // A const whose init READS a growable array (`const n = o.length`
+    // / `o[i]`) must be evaluated EAGERLY into a local: the fold-lane
+    // alias would re-emit the read at every use site, observing a
+    // LATER length/element after more pushes — a stale-alias
+    // miscompile (the growable twin of `declarator_init_is_array_read`).
+    let reads_growable_array =
+        declarator_init_mentions_growable(nodes, init, repr_table, function_name);
+    // Scheduling registration (`const t = setTimeout(...)` /
+    // `setInterval(...)`, Stage D task D2; also `queueMicrotask(...)`,
+    // Stage D task D2's earlier microtask lane) is a SIDE-EFFECTING
+    // host call — exactly like `declarator_init_is_performance_now`/
+    // `_is_crypto_call` above, just a bare-identifier call rather than
+    // a member call, so `declarator_init_call_callee_name` (already
+    // used for the factory-return check above) recognizes its shape
+    // directly. Before each surface's registration emit landed, it
+    // lowered through a dropped zero-placeholder fallback, so
+    // re-emitting the call at every read site of a bound name was a
+    // harmless no-op; now each is a REAL host call, and without
+    // promotion the `const` fold-alias tunnel (`FunctionEmitter::
+    // bindings`) re-emits the ORIGINAL call at each later use site of
+    // the bound name, registering a SECOND independent
+    // timer/microtask — a duplicate-registration miscompile (for
+    // setTimeout/setInterval: the pending first timer is never
+    // cancelled if the read site is a `clearTimeout`/`clearInterval`
+    // call; for queueMicrotask: its callback runs TWICE, reproduced
+    // via `const m = queueMicrotask(fn); console.log(m);` — `fn` ran
+    // twice on the pre-fix HEAD), not merely a missed optimization.
+    // `queueMicrotask` is included here even though task D2's own
+    // fixtures never bind its (always-`undefined`) return value,
+    // because it is the exact same mechanism at the exact same choke
+    // point — closing the class, not just the setTimeout/setInterval
+    // instances of it.
+    let is_scheduling_registration_call = matches!(
+        declarator_init_call_callee_name(nodes, init),
+        Some("setTimeout") | Some("setInterval") | Some("queueMicrotask")
+    );
+    // Stage D event lane: `const t = new EventTarget()` is a
+    // SIDE-EFFECTING host construction (it allocates a fresh opaque
+    // handle host-side). Like the scheduling registration calls above,
+    // its `const` binding must be a REAL local — the fold-alias tunnel
+    // would re-emit `event_target_new()` at every read site, minting a
+    // DISTINCT handle each time (a different listener registry) rather
+    // than sharing the one target. Promotion here; the handle store +
+    // provenance recording is in the emitter's declarator branch.
+    let is_event_target_construction = declarator_init_is_event_target_new(nodes, init);
+    // Stage D event lane: `const ok = t.dispatchEvent(...)` is a
+    // SIDE-EFFECTING host dispatch (it synchronously re-invokes every
+    // registered listener). Its `const` binding must be a REAL local —
+    // the fold-alias tunnel would re-emit the dispatch at each read of
+    // `ok`, re-running all listeners again (a duplicate-dispatch
+    // miscompile).
+    let is_event_dispatch_result = declarator_init_is_event_dispatch(nodes, init);
+    // Stage P2 Lane 2b: `const cloned = structuredClone(src)` is a FRESH
+    // deep allocation whose result MUST be held in a stable local. Without
+    // promotion the `const` fold-alias tunnel (`FunctionEmitter::bindings`)
+    // re-emits the clone CALL at every read of `cloned` — a NEW allocation
+    // each time (and the declaration-site result is dropped, so the first
+    // read re-runs it) — a distinct-instances miscompile, the exact twin of
+    // `is_materialized_factory_return` for a callee (`structuredClone`) that
+    // is a compiler builtin with no `return_repr` entry. Gated on the
+    // binding's own repr being `Object` (only the in-envelope object lane
+    // reaches here; the placeholder/fail-closed lanes never bind an Object).
+    let is_structured_clone_result = declarator_node.text.as_deref().is_some_and(|name| {
+        matches!(
+            repr_table.scalar(function_name, name),
+            kali_common::Repr::Object(_)
+        ) && declarator_init_call_callee_name(nodes, init) == Some("structuredClone")
+    });
+    // Stage P3 abort lane: a binding inference proved `AbortHandle`
+    // (`const c = new AbortController()` or the `const s = c.signal`
+    // alias) holds an i64 pointer to the shared global abort cell that
+    // MUST live in a stable local slot. Without promotion the emitter's
+    // abort declarator/alias arms fall to the drop branch (no
+    // `self.locals` entry), silently discarding the handle — every
+    // `.abort()`/`.aborted` then reads a zero handle and aliases address
+    // 0, so DISTINCT controllers share one cell (a latent hole exposed
+    // once `.aborted` can read the cell back). Repr-keyed so it covers
+    // both admitted seeding shapes uniformly.
+    let is_abort_handle_binding = declarator_node.text.as_deref().is_some_and(|name| {
+        matches!(
+            repr_table.scalar(function_name, name),
+            kali_common::Repr::AbortHandle
+        )
+    });
+    // The shapes above force promotion because each needs a stable
+    // RUNTIME handle (a fresh allocation, a host registration, a
+    // materialized object) — properties an allowlist over the init's
+    // syntax cannot see. They are kept as an explicit force-promote
+    // union rather than folded into `const_init_is_stable`, which
+    // decides the general case: promote UNLESS re-emitting the
+    // initializer is provably observationally identical. Default-deny,
+    // so an initializer shape nobody enumerated is bound eagerly
+    // (correct) instead of textually substituted (a silent wrong
+    // value).
+    let force_promote = declarator_init_is_array_alloc(nodes, init)
+        || declarator_init_is_array_fill(nodes, init)
+        || declarator_init_is_array_read(nodes, init, array_names)
+        || is_materialized_object
+        || is_materialized_object_array
+        || is_materialized_factory_return
+        || is_growable_array
+        || reads_growable_array
+        || declarator_init_is_performance_now(nodes, init)
+        || declarator_init_is_crypto_call(nodes, init)
+        || declarator_init_contains_mutation(nodes, init)
+        || is_scheduling_registration_call
+        || is_event_target_construction
+        || is_event_dispatch_result
+        || is_structured_clone_result
+        || is_abort_handle_binding;
+    if force_promote {
+        return Some((name, ConstPromotion::Handle));
+    }
+    if const_init_is_stable(nodes, init, reassigned, 0) {
+        return Some((name, ConstPromotion::Fold));
+    }
+    Some((name, ConstPromotion::Binding))
+}
+
+/// Every `const` in this function body promoted by the STABILITY allowlist
+/// (`ConstPromotion::Binding`) — the names that need a compile-time denotation
+/// entry alongside their local slot. Walks the same body the local collector
+/// does and defers to the same `const_declarator_promotion`.
+pub(crate) fn allowlist_promoted_const_names(
+    nodes: &[LirNode],
+    body_id: LirNodeId,
+    repr_table: &kali_common::ReprTable,
+    function_name: &str,
+) -> HashSet<String> {
+    let mut array_names = HashSet::new();
+    let mut array_seen = HashSet::new();
+    collect_array_binding_names(
+        nodes,
+        body_id,
+        repr_table,
+        function_name,
+        &mut array_seen,
+        &mut array_names,
+    );
+    let reassigned = program_reassigned_names(nodes);
+
+    let mut out = HashSet::new();
+    let mut seen = HashSet::new();
+    allowlist_promoted_const_names_walk(
+        nodes,
+        body_id,
+        &array_names,
+        &reassigned,
+        repr_table,
+        function_name,
+        &mut seen,
+        &mut out,
+    );
+    out
+}
+
+#[allow(clippy::too_many_arguments)]
+fn allowlist_promoted_const_names_walk(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    array_names: &HashSet<String>,
+    reassigned: &HashSet<String>,
+    repr_table: &kali_common::ReprTable,
+    function_name: &str,
+    seen: &mut HashSet<LirNodeId>,
+    out: &mut HashSet<String>,
+) {
+    if !seen.insert(id) {
+        return;
+    }
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return;
+    };
+    if node.kind == LirNodeKind::Instruction && node.text.as_deref() == Some("const") {
+        for declarator in &node.children {
+            if let Some((name, ConstPromotion::Binding)) = const_declarator_promotion(
+                nodes,
+                *declarator,
+                array_names,
+                reassigned,
+                repr_table,
+                function_name,
+            ) {
+                out.insert(name);
+            }
+        }
+    }
+    for child in &node.children {
+        if is_function_like(nodes, *child) {
+            continue;
+        }
+        allowlist_promoted_const_names_walk(
+            nodes,
+            *child,
+            array_names,
+            reassigned,
+            repr_table,
+            function_name,
+            seen,
+            out,
+        );
+    }
+}
+
+// One recursive walk threading two precomputed name sets (`array_names`,
+// `reassigned`) plus the repr context; bundling them into a struct would add a
+// type for a single call site's benefit.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn collect_function_locals_from_node(
     nodes: &[LirNode],
     id: LirNodeId,
     array_names: &HashSet<String>,
+    reassigned: &HashSet<String>,
     repr_table: &kali_common::ReprTable,
     function_name: &str,
     seen: &mut HashSet<LirNodeId>,
@@ -2505,65 +4316,21 @@ pub(crate) fn collect_function_locals_from_node(
     // the compile-time fold lane untouched (fold-first).
     if node.kind == LirNodeKind::Instruction && node.text.as_deref() == Some("const") {
         for declarator in &node.children {
-            let Some(declarator_node) = nodes.get(declarator.0 as usize) else {
+            let Some((name, promotion)) = const_declarator_promotion(
+                nodes,
+                *declarator,
+                array_names,
+                reassigned,
+                repr_table,
+                function_name,
+            ) else {
                 continue;
             };
-            let Some(init) = declarator_node.children.get(1).copied() else {
-                continue;
-            };
-            let is_materialized_object = declarator_node.text.as_deref().is_some_and(|name| {
-                declarator_init_is_object_literal(nodes, init)
-                    && matches!(
-                        repr_table.scalar(function_name, name),
-                        kali_common::Repr::Object(_)
-                    )
-            });
-            // An array literal of object references needs the same stable
-            // handle as a `new Array(n)` allocation, so its own base pointer
-            // (not just later reads of it) is promoted to a local. See
-            // `collect_array_binding_names`'s matching check.
-            let is_materialized_object_array =
-                declarator_node.text.as_deref().is_some_and(|name| {
-                    declarator_init_is_array_literal(nodes, init)
-                        && matches!(
-                            repr_table.array_element(function_name, name),
-                            kali_common::Repr::Object(_)
-                        )
-                });
-            // A factory-call initializer (`const q = mk(2.0)`) whose callee
-            // returns an `Object` repr matching the binding's own repr needs
-            // the same stable handle: without promotion, the const folds to
-            // re-evaluating the call at every use site (`resolve_literal_aggregate`'s
-            // `bindings` alias lane), silently calling the factory again on
-            // each read/write instead of sharing the one materialized object
-            // — a distinct-instances miscompile, not just a missed optimization.
-            let is_materialized_factory_return =
-                declarator_node.text.as_deref().is_some_and(|name| {
-                    match repr_table.scalar(function_name, name) {
-                        kali_common::Repr::Object(_) => {
-                            declarator_init_call_callee_name(nodes, init).is_some_and(|callee| {
-                                matches!(
-                                    repr_table.return_repr(callee),
-                                    kali_common::Repr::Object(_)
-                                )
-                            })
-                        }
-                        _ => false,
-                    }
-                });
-            if !declarator_init_is_array_alloc(nodes, init)
-                && !declarator_init_is_array_fill(nodes, init)
-                && !declarator_init_is_array_read(nodes, init, array_names)
-                && !is_materialized_object
-                && !is_materialized_object_array
-                && !is_materialized_factory_return
-            {
+            if promotion == ConstPromotion::Fold {
                 continue;
             }
-            if let Some(name) = declarator_node.text.clone() {
-                if !locals.contains(&name) {
-                    locals.push(name);
-                }
+            if !locals.contains(&name) {
+                locals.push(name);
             }
         }
     }
@@ -2576,6 +4343,7 @@ pub(crate) fn collect_function_locals_from_node(
             nodes,
             *child,
             array_names,
+            reassigned,
             repr_table,
             function_name,
             seen,
@@ -2715,7 +4483,10 @@ fn unwrap_transparent_value(nodes: &[LirNode], mut id: LirNodeId) -> LirNodeId {
         };
         if node.kind == LirNodeKind::Value
             && node.children.len() == 1
-            && node.text.as_deref().is_none_or(|text| text.is_empty())
+            && node
+                .text
+                .as_deref()
+                .is_none_or(|text| text.is_empty() || text == "await")
         {
             id = node.children[0];
             guard += 1;
@@ -2729,7 +4500,14 @@ fn unwrap_transparent_value(nodes: &[LirNode], mut id: LirNodeId) -> LirNodeId {
 }
 
 /// Returns true if `init_id` (after unwrapping transparent value wrappers) is a
-/// `new Array(n)` / `Array(n)` allocation call (callee identifier `Array`, 0 or 1 arg).
+/// `new Array(n)` / `Array(n)` allocation call (callee identifier `Array`, 0 or 1
+/// arg) OR a `Uint8Array` typed-array constructor (bare `new Uint8Array(n)` or
+/// `globalThis["Uint8Array"]` form) — the raw-node mirror of
+/// `FunctionEmitter::is_array_like_constructor` (throw-fallout Stage 3 bucket #6).
+/// This MUST stay in lockstep with that emit recognizer: it is what grants the
+/// declarator its stable array-handle local slot, so a `Uint8Array` binding whose
+/// alloc emit fires but whose local is not collected would read/write through an
+/// undefined identifier.
 pub(crate) fn declarator_init_is_array_alloc(nodes: &[LirNode], init_id: LirNodeId) -> bool {
     let mut id = init_id;
     let mut guard = 0;
@@ -2739,7 +4517,10 @@ pub(crate) fn declarator_init_is_array_alloc(nodes: &[LirNode], init_id: LirNode
         };
         if node.kind == LirNodeKind::Value
             && node.children.len() == 1
-            && node.text.as_deref().is_none_or(|text| text.is_empty())
+            && node
+                .text
+                .as_deref()
+                .is_none_or(|text| text.is_empty() || text == "await")
         {
             id = node.children[0];
             guard += 1;
@@ -2758,7 +4539,379 @@ pub(crate) fn declarator_init_is_array_alloc(nodes: &[LirNode], init_id: LirNode
         let Some(callee_node) = nodes.get(callee.0 as usize) else {
             return false;
         };
-        return callee_node.text.as_deref() == Some("Array") && callee_node.children.is_empty();
+        return match callee_node.text.as_deref() {
+            Some("Array") => callee_node.children.is_empty(),
+            Some("Uint8Array") => {
+                callee_node.children.is_empty()
+                    || callee_node.children.first().is_some_and(|obj| {
+                        nodes.get(obj.0 as usize).and_then(|n| n.text.as_deref())
+                            == Some("globalThis")
+                    })
+            }
+            _ => false,
+        };
+    }
+}
+
+/// True iff the operator text mutates a binding when evaluated: the four
+/// update forms (`++x` / `x++` / `--x` / `x--`) and every assignment operator.
+/// `==`/`===` are comparisons, NOT mutations, and must stay out of this list.
+pub(crate) fn is_mutating_operator_text(text: &str) -> bool {
+    matches!(
+        text,
+        "prefix++"
+            | "postfix++"
+            | "prefix--"
+            | "postfix--"
+            | "="
+            | "+="
+            | "-="
+            | "*="
+            | "/="
+            | "%="
+            | "**="
+            | "<<="
+            | ">>="
+            | ">>>="
+            | "&="
+            | "|="
+            | "^="
+            | "&&="
+            | "||="
+            | "??="
+    )
+}
+
+/// Returns true if the init expression subtree contains a mutating operator
+/// (update expression or assignment). A `const` bound to such an init MUST be
+/// promoted to an eager local: the default `const` fold lane re-emits the
+/// bound init node at every read site, which re-applies the side effect —
+/// `let b = 5; const x = ++b;` used to increment `b` once at the declaration
+/// (value dropped) and once more per read of `x` (observed `x == 7, b == 7`;
+/// node says `6, 6`). Same class as the factory-return promotion above.
+/// Calls are deliberately NOT promoted here: structural recognizer lanes
+/// (e.g. `resolve_literal_aggregate`) resolve const-bound call nodes by
+/// shape, and impure user calls are a separate, wider gap tracked outside
+/// this predicate.
+///
+/// The walk must NOT descend into function-like subtrees (mirroring every
+/// sibling recursion in this file): a mutation inside a const-bound arrow's
+/// BODY runs at call time in its own scope — it is not an init-time side
+/// effect, so it creates no double-eval hazard. Descending would promote
+/// `const mk = (n) => { let r = n; r = r + 1; return r; };` to an eager
+/// local, but a function-like init produces no value: a zero placeholder
+/// got stored and calls resolved through the phantom local (`mk(5)` printed
+/// `0`; node says `6`) — a silent miscompile.
+pub(crate) fn declarator_init_contains_mutation(nodes: &[LirNode], init_id: LirNodeId) -> bool {
+    fn walk(nodes: &[LirNode], id: LirNodeId, seen: &mut HashSet<LirNodeId>) -> bool {
+        if !seen.insert(id) {
+            return false;
+        }
+        if is_function_like(nodes, id) {
+            return false;
+        }
+        let Some(node) = nodes.get(id.0 as usize) else {
+            return false;
+        };
+        if node.text.as_deref().is_some_and(is_mutating_operator_text) {
+            return true;
+        }
+        node.children.iter().any(|&child| walk(nodes, child, seen))
+    }
+    walk(nodes, init_id, &mut HashSet::new())
+}
+
+/// Global namespaces whose members are compile-time-constant intrinsics. A
+/// member read off one of these is a snapshot of nothing mutable, which is what
+/// makes it safe to leave on the `const` fold lane (see
+/// `const_init_is_stable`'s member-read arm).
+///
+/// This is an ALLOWLIST of RECEIVERS on purpose. The property name is not a
+/// sound discriminator: host state reached through a member can be mutated by a
+/// method call (`c.abort()` mutates `s.aborted`) with no assignment to that
+/// property anywhere in the program. Only restricting the receiver excludes
+/// that class by construction.
+///
+/// Add a namespace here only if reading any of its members can never observe
+/// state that a method call elsewhere in the program can change.
+pub(crate) const INTRINSIC_NAMESPACES: &[&str] = &[
+    "globalThis",
+    "Object",
+    "Math",
+    "Number",
+    "String",
+    "Array",
+    "Boolean",
+    "BigInt",
+    "JSON",
+    "Reflect",
+    "Symbol",
+    "Date",
+];
+
+/// True when `id` is an intrinsic namespace identifier, or a member chain that
+/// bottoms out at one (`globalThis.Math`, `globalThis["Math"]`). The root must
+/// also be absent from `reassigned`, so a program that shadows or reassigns
+/// `Math` does not get its reads folded against the intrinsic.
+fn member_chain_roots_at_intrinsic_namespace(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    reassigned: &HashSet<String>,
+    depth: usize,
+) -> bool {
+    if depth > 32 {
+        return false;
+    }
+    let id = unwrap_transparent_value(nodes, id);
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return false;
+    };
+    let Some(text) = node.text.as_deref().filter(|text| !text.is_empty()) else {
+        return false;
+    };
+    if node.children.is_empty() {
+        return INTRINSIC_NAMESPACES.contains(&text) && !reassigned.contains(text);
+    }
+    // An inner member read (`globalThis.Math` inside `globalThis.Math.round`):
+    // recurse on ITS base. The property name is checked by the caller's arm.
+    if node.children.len() == 1 {
+        return member_chain_roots_at_intrinsic_namespace(
+            nodes,
+            node.children[0],
+            reassigned,
+            depth + 1,
+        );
+    }
+    false
+}
+
+/// Sentinel recorded in the reassigned-name set when a COMPUTED member target
+/// (`a[i] = …`) is assigned: it names no single property, so every member read
+/// in a `const` initializer must be denied the fold lane. Not a legal
+/// identifier, so it can never collide with a source name.
+pub(crate) const COMPUTED_MEMBER_ASSIGN_SENTINEL: &str = "\0computed-member-assign";
+
+/// Every name REBOUND anywhere in the PROGRAM: the target of a
+/// mutating operator (`=`, `+=`, `++`, `--`, …) or a `for-of`/`for-await-of`/
+/// `for-in` loop variable. A read of such a name is NOT stable — re-emitting
+/// it at a later program point can observe a different value than the one in
+/// scope where the read was written.
+///
+/// Deliberately descends INTO function-like children, unlike most walks in
+/// this module: a nested closure that assigns a captured name makes reads of
+/// that name unstable in the enclosing function too. Over-collecting here only
+/// costs an extra promoted local slot; under-collecting is a silent wrong
+/// value, so the walk errs toward collecting.
+pub(crate) fn program_reassigned_names(nodes: &[LirNode]) -> HashSet<String> {
+    let mut out = HashSet::new();
+    for node in nodes {
+        record_reassigned_from_node(nodes, node, &mut out);
+    }
+    out
+}
+
+fn record_reassigned_from_node(nodes: &[LirNode], node: &LirNode, out: &mut HashSet<String>) {
+    if node.text.as_deref().is_some_and(is_mutating_operator_text) {
+        // The assignment/update TARGET is the first child.
+        if let Some(&target) = node.children.first() {
+            if let Some(name) = bare_identifier_name_of(nodes, target) {
+                out.insert(name);
+            } else {
+                // A MEMBER target (`o.x = …`, `a[i] = …`). Record the property
+                // name in the same set, so a `const` initializer that reads
+                // `<anything>.x` is denied the fold lane. Sharing one namespace
+                // with variable names only over-denies (a variable `x` assigned
+                // somewhere also blocks reads of `.x`), which costs a local
+                // slot rather than correctness.
+                let target = unwrap_transparent_value(nodes, target);
+                match nodes
+                    .get(target.0 as usize)
+                    .and_then(|n| n.text.as_deref())
+                    .filter(|text| !text.is_empty())
+                {
+                    Some(property) => {
+                        out.insert(property.to_string());
+                    }
+                    // A COMPUTED member target whose property is an expression
+                    // (`a[i] = …`) names no single property. Deny every member
+                    // read via a sentinel that cannot collide with a source
+                    // identifier.
+                    None => {
+                        out.insert(COMPUTED_MEMBER_ASSIGN_SENTINEL.to_string());
+                    }
+                }
+            }
+        }
+    }
+    if node.kind == LirNodeKind::Branch {
+        match node.text.as_deref() {
+            Some("for-of" | "for-await-of") => {
+                if let Some(name) = node
+                    .children
+                    .first()
+                    .and_then(|&left| for_of_loop_var_name_of(nodes, left))
+                {
+                    out.insert(name);
+                }
+            }
+            Some("for-in") => {
+                if let Some(name) = node
+                    .children
+                    .first()
+                    .and_then(|&left| for_in_loop_key_name(nodes, left))
+                {
+                    out.insert(name);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+/// True when re-emitting `id` at an arbitrary later program point is
+/// OBSERVATIONALLY IDENTICAL to evaluating it at the declaration site — i.e.
+/// the initializer of a `const` may safely stay on the compile-time fold lane
+/// (`FunctionEmitter::bindings`, which re-emits the init AST node at every
+/// read of the bound name) instead of being promoted to an eager local slot.
+///
+/// This is the ALLOWLIST half of the `const`-binding choke point. Its
+/// predecessor was a denylist of ~15 initializer shapes known to break under
+/// re-emission (allocations, host calls, factory returns, mutating inits, …),
+/// each added after a miscompile was found in the field. A denylist cannot
+/// close this class: every initializer shape NOT enumerated silently kept the
+/// fold lane, so `const` was a textual substitution rather than a binding —
+/// `const tmp = a; a = b; b = tmp;` lost a value with exit 0 and no
+/// diagnostic, and `const c = f()` ran `f` once per read. Only an allowlist of
+/// provably stable shapes closes it by construction: anything unrecognized is
+/// promoted, which is always semantically safe (eager evaluation at the
+/// declaration is exactly what the language specifies).
+///
+/// Stable shapes:
+/// - a literal, or a bare token that is not a reassigned name;
+/// - operators over stable operands (assignment/update operators excluded:
+///   `is_binary_operator_text` includes them, and they are side effects);
+/// - object/array-literal aggregates whose element expressions are stable
+///   (these carry no operator text) and their property nodes;
+/// - a function-like init, which stays on the fold lane BY DESIGN — promoting
+///   it produces no value and calls then resolve through a phantom zero local
+///   (pinned by `soundness_const_fold_side_effects::
+///   const_bound_arrow_with_mutating_body_is_not_promoted`).
+///
+/// Everything else — calls, `new`, member reads, template literals, `await`ed
+/// values, ternaries — is unstable and gets a local slot.
+pub(crate) fn const_init_is_stable(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    reassigned: &HashSet<String>,
+    depth: usize,
+) -> bool {
+    if depth > 32 {
+        return false;
+    }
+    if is_function_like(nodes, id) {
+        return true;
+    }
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return false;
+    };
+    let all_children_stable = |nodes: &[LirNode]| {
+        node.children
+            .iter()
+            .all(|&child| const_init_is_stable(nodes, child, reassigned, depth + 1))
+    };
+    match node.kind {
+        LirNodeKind::Literal => true,
+        LirNodeKind::Value => {
+            let text = node.text.as_deref();
+            if node.children.is_empty() {
+                // A bare token: a literal spelling (`42`, `true`, `"hi"`) is
+                // stable; an identifier is stable only when never reassigned.
+                return text.is_some_and(|name| !reassigned.contains(name));
+            }
+            match text {
+                // Sequence/paren/`await` wrappers and object/array-literal
+                // aggregates all carry no operator text.
+                None | Some("") => all_children_stable(nodes),
+                // Object-literal property node: the key is a literal, the
+                // value is the second child.
+                Some("init" | "get" | "set") if node.children.len() == 2 => {
+                    const_init_is_stable(nodes, node.children[1], reassigned, depth + 1)
+                }
+                // `is_binary_operator_text` also matches `=`/`+=`/… — those
+                // are side effects, never stable.
+                Some(operator) if is_mutating_operator_text(operator) => false,
+                Some(operator) if node.children.len() == 2 && is_binary_operator_text(operator) => {
+                    all_children_stable(nodes)
+                }
+                Some("-" | "+" | "!" | "~" | "void" | "typeof") if node.children.len() == 1 => {
+                    all_children_stable(nodes)
+                }
+                // A MEMBER READ off an INTRINSIC NAMESPACE (`Object.is`,
+                // `globalThis.Math.round`). This arm exists for exactly one
+                // reason — keeping intrinsic ALIASES on the fold lane, where
+                // the analyses that read `FunctionEmitter::bindings` can still
+                // see what the name denotes (promoting one binds the runtime
+                // value correctly but un-resolves the alias, so the intrinsic
+                // is never recognized) — and it is scoped to precisely that.
+                //
+                // It is deliberately NOT a test on the property name. An
+                // earlier form admitted any member read whose property was
+                // never an ASSIGNMENT target, which is unsound for host state
+                // mutated by a METHOD CALL: `c.abort()` mutates `s.aborted`
+                // with no assignment to `aborted` anywhere in the program, so
+                // `const before = s.aborted` folded and re-read the mutated
+                // cell — one `const`, two values. Only a receiver allowlist
+                // closes that: an intrinsic namespace is a compile-time
+                // constant whose members are functions, so a read off one is a
+                // snapshot of nothing mutable. A read off a program-bound
+                // receiver may snapshot mutable state and is denied, which
+                // promotes it to a slot and binds it once.
+                //
+                // The property-name and computed-assign checks are kept as
+                // defense in depth (`Math.round = f` records `round`), but the
+                // receiver allowlist is what makes the arm sound.
+                Some(property)
+                    if node.children.len() == 1
+                        && !reassigned.contains(property)
+                        && !reassigned.contains(COMPUTED_MEMBER_ASSIGN_SENTINEL)
+                        && member_chain_roots_at_intrinsic_namespace(
+                            nodes,
+                            node.children[0],
+                            reassigned,
+                            0,
+                        ) =>
+                {
+                    all_children_stable(nodes)
+                }
+                _ => false,
+            }
+        }
+        // `Object.freeze(x)` is an IDENTITY intrinsic: it returns its argument
+        // (freezing an object in place is idempotent), so re-emitting it is
+        // observationally identical exactly when re-emitting the argument is.
+        // Recognized here rather than left to the generic call deny because the
+        // freeze wrapper is the idiomatic spelling of an intrinsic alias
+        // throughout the browser corpus (`Object.freeze(Math.round)(v)`), and
+        // promoting it both un-resolves the intrinsic and — when the argument
+        // is a float the repr table did not infer as `F64` — allocates an i64
+        // slot for an f64 value, emitting invalid wasm.
+        LirNodeKind::Call
+            if node.children.len() == 2
+                && nodes
+                    .get(node.children[0].0 as usize)
+                    .is_some_and(|callee| {
+                        callee.text.as_deref() == Some("freeze")
+                            && callee
+                                .children
+                                .first()
+                                .and_then(|&o| nodes.get(o.0 as usize))
+                                .and_then(|n| n.text.as_deref())
+                                == Some("Object")
+                    }) =>
+        {
+            const_init_is_stable(nodes, node.children[1], reassigned, depth + 1)
+        }
+        _ => false,
     }
 }
 
@@ -2825,6 +4978,153 @@ pub(crate) fn declarator_init_is_object_literal(nodes: &[LirNode], init_id: LirN
 /// otherwise the const would fold to re-evaluating the call at every use
 /// site, silently duplicating the returned object (see
 /// `is_materialized_factory_return` below).
+/// True iff `init_id` (after unwrapping sequence wrappers) is a
+/// `performance.now()` call (callee text `"now"`, object text `"performance"`).
+/// Such a const initializer is IMPURE (each call returns a different monotonic
+/// timestamp), so — like `is_materialized_factory_return` — it must be promoted
+/// to a local slot and evaluated ONCE at its declaration, never fold-inlined and
+/// re-called at each use site (which would call `performance.now()` again and
+/// silently reorder `a`/`b` in a `b < a` comparison — a nondeterminism
+/// miscompile, not just a missed optimization). Mirrors
+/// `program_uses_performance_now` / the codegen recognizer's shape.
+pub(crate) fn declarator_init_is_performance_now(nodes: &[LirNode], init_id: LirNodeId) -> bool {
+    let mut id = init_id;
+    let mut guard = 0;
+    loop {
+        let Some(node) = nodes.get(id.0 as usize) else {
+            return false;
+        };
+        if node.kind == LirNodeKind::Value
+            && node.text.as_deref() == Some("")
+            && !node.children.is_empty()
+        {
+            id = *node.children.last().expect("sequence wrapper has a child");
+            guard += 1;
+            if guard > 64 {
+                return false;
+            }
+            continue;
+        }
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+        let Some(callee) = node.children.first().copied() else {
+            return false;
+        };
+        let Some(callee_node) = nodes.get(callee.0 as usize) else {
+            return false;
+        };
+        if callee_node.text.as_deref() != Some("now") {
+            return false;
+        }
+        let Some(object) = callee_node.children.first().copied() else {
+            return false;
+        };
+        let Some(object_node) = nodes.get(object.0 as usize) else {
+            return false;
+        };
+        return object_node.text.as_deref() == Some("performance");
+    }
+}
+
+/// True iff `init_id` (after unwrapping transparent value / `await` wrappers) is
+/// a `crypto.getRandomValues(...)`, `crypto.randomUUID()`,
+/// `crypto.subtle.digest(...)`, or `new TextEncoder().encode(...)` call
+/// (throw-fallout Stage 3 bucket #6). The two random calls are IMPURE (each
+/// `Call` yields fresh bytes / a fresh UUID); `digest`/`encode` are deterministic
+/// but produce a fresh RUNTIME STRING handle whose `String` repr the binding must
+/// record. In every case — exactly like `declarator_init_is_performance_now` — a
+/// `const` initializer of this shape must be PROMOTED to a local slot and
+/// evaluated ONCE at its declaration, never fold-inlined and re-emitted at each
+/// use site (for the random calls: a distinct-value nondeterminism miscompile
+/// AND host re-call per use; for `digest`: a redundant host call + a fresh
+/// `__alloc_global` buffer per use; for all of them a use-site bare-call result
+/// whose String repr the binding never records — so `.byteLength` / `.length` /
+/// `typeof` misresolve). `digest` arrives `await`-wrapped
+/// (`const d = await crypto.subtle.digest(...)`), so the unwrap loop also tunnels
+/// the `"await"` marker (Stage 3 Task 4). Mirrors the codegen recognizers'
+/// `getRandomValues`/`randomUUID`/`subtle.digest`/`TextEncoder().encode` shapes.
+pub(crate) fn declarator_init_is_crypto_call(nodes: &[LirNode], init_id: LirNodeId) -> bool {
+    let mut id = init_id;
+    let mut guard = 0;
+    loop {
+        let Some(node) = nodes.get(id.0 as usize) else {
+            return false;
+        };
+        // Tunnel transparent value/sequence wrappers (text None or empty) and the
+        // synchronously-settled `await` marker (text "await", one child).
+        if node.kind == LirNodeKind::Value
+            && !node.children.is_empty()
+            && node
+                .text
+                .as_deref()
+                .is_none_or(|text| text.is_empty() || text == "await")
+        {
+            id = *node.children.last().expect("wrapper has a child");
+            guard += 1;
+            if guard > 64 {
+                return false;
+            }
+            continue;
+        }
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+        let Some(callee) = node.children.first().copied() else {
+            return false;
+        };
+        let Some(callee_node) = nodes.get(callee.0 as usize) else {
+            return false;
+        };
+        // `crypto.getRandomValues`/`crypto.randomUUID` (object `crypto`);
+        // `crypto.subtle.digest` (object `subtle` -> grand-object `crypto`);
+        // `new TextEncoder().encode` (object is a `new TextEncoder()` Call).
+        return match callee_node.text.as_deref() {
+            Some("getRandomValues") | Some("randomUUID") => {
+                callee_node
+                    .children
+                    .first()
+                    .and_then(|&o| nodes.get(o.0 as usize))
+                    .and_then(|n| n.text.as_deref())
+                    == Some("crypto")
+            }
+            Some("digest") => {
+                let Some(subtle_node) = callee_node
+                    .children
+                    .first()
+                    .and_then(|&o| nodes.get(o.0 as usize))
+                else {
+                    return false;
+                };
+                subtle_node.text.as_deref() == Some("subtle")
+                    && subtle_node
+                        .children
+                        .first()
+                        .and_then(|&o| nodes.get(o.0 as usize))
+                        .and_then(|n| n.text.as_deref())
+                        == Some("crypto")
+            }
+            Some("encode") => {
+                let Some(ctor_call) = callee_node
+                    .children
+                    .first()
+                    .and_then(|&o| nodes.get(o.0 as usize))
+                else {
+                    return false;
+                };
+                ctor_call.kind == LirNodeKind::Call
+                    && ctor_call
+                        .children
+                        .first()
+                        .and_then(|&c| nodes.get(c.0 as usize))
+                        .and_then(|n| n.text.as_deref())
+                        == Some("TextEncoder")
+            }
+            _ => false,
+        };
+    }
+}
+
 pub(crate) fn declarator_init_call_callee_name(
     nodes: &[LirNode],
     init_id: LirNodeId,
@@ -2900,7 +5200,10 @@ pub(crate) fn declarator_init_is_array_fill(nodes: &[LirNode], init_id: LirNodeI
         };
         if node.kind == LirNodeKind::Value
             && node.children.len() == 1
-            && node.text.as_deref().is_none_or(|text| text.is_empty())
+            && node
+                .text
+                .as_deref()
+                .is_none_or(|text| text.is_empty() || text == "await")
         {
             id = node.children[0];
             guard += 1;
@@ -3369,6 +5672,126 @@ fn emit_substring_body(func: &mut Function) {
     func.instruction(&Instruction::I64Or);
 }
 
+/// `__streq(a, b) -> i64`: content equality of two tagged string handles —
+/// 1 when equal, 0 when not (throw-fallout Stage 1). Locals: 0 = a, 1 = b
+/// (params), 2 = len, 3 = i, 4 = pa, 5 = pb.
+///
+/// Order of checks:
+///   1. identical handles → 1 (interned-vs-interned and aliased handles);
+///   2. string-tag guard: unless BOTH operands carry `STRING_HANDLE_TAG`,
+///      they are not two live strings (e.g. a missing `Deno.env.get` is 0)
+///      → 0 (the identical case already returned);
+///   3. length mismatch (low 32 bits) → 0;
+///   4. len == 0 → 1 (two empty strings are equal at ANY offsets);
+///   5. byte loop over the two decoded offsets — first mismatch → 0, loop
+///      completion → 1.
+///
+/// Offsets are decoded exactly as the runtime does (`(h >> 32) & 0x7FFF_FFFF`
+/// — masked, mirroring `read_guest_string_handle` in
+/// kali_runtime/src/host/memory.rs), matching `emit_substring_body`.
+///
+/// NO `i64.eqz` anywhere in this body: like `__join` (see the comment in
+/// `emit_join_body`), `__streq` is present in every module and
+/// `boolean_branches_use_the_layout_fast_path` asserts module-wide printed
+/// text contains no `i64.eqz`. Zero-tests use `i64.const 0` + `i64.eq`.
+fn emit_streq_body(func: &mut Function) {
+    // 1. if a == b return 1
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::Return);
+    func.instruction(&Instruction::End);
+    // 2. if (a & b & TAG) == 0 return 0  — not two tagged strings
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I64Const(crate::STRING_HANDLE_TAG as i64));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::Return);
+    func.instruction(&Instruction::End);
+    // 3. len = a & 0xFFFF_FFFF; if len != (b & 0xFFFF_FFFF) return 0
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::LocalSet(2));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64Ne);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::Return);
+    func.instruction(&Instruction::End);
+    // 4. if len == 0 return 1
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::Return);
+    func.instruction(&Instruction::End);
+    // pa = (a >> 32) & 0x7FFF_FFFF; pb = (b >> 32) & 0x7FFF_FFFF
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I64Const(32));
+    func.instruction(&Instruction::I64ShrU);
+    func.instruction(&Instruction::I64Const(0x7FFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Const(32));
+    func.instruction(&Instruction::I64ShrU);
+    func.instruction(&Instruction::I64Const(0x7FFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::LocalSet(5));
+    // i = 0
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(3));
+    // 5. loop: if *(pa+i) != *(pb+i) return 0; i += 1; continue while i < len
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load8U(MemArg {
+        offset: 0,
+        align: 0,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load8U(MemArg {
+        offset: 0,
+        align: 0,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::I64Ne);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::Return);
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64LtS);
+    func.instruction(&Instruction::BrIf(0));
+    func.instruction(&Instruction::End);
+    // all len bytes equal
+    func.instruction(&Instruction::I64Const(1));
+    // NO trailing End — the dispatch loop appends it (same as every synthetic).
+}
+
 /// `__join(arr, sep) -> i64`: copy every element string (i64 handles in the
 /// array's slots) plus `sep` between them into ONE fresh buffer allocated via
 /// `alloc_index`; return `TAG | out<<32 | total`. Empty array returns bare TAG
@@ -3553,6 +5976,216 @@ fn emit_join_body(func: &mut Function, alloc_index: u32) {
     func.instruction(&Instruction::LocalGet(4));
     func.instruction(&Instruction::I64Or);
     // NO trailing End — the dispatch loop appends it (lower.rs:631).
+}
+
+/// `__join_growable_i64(arr, sep) -> i64` / `__join_growable_str(arr, sep) ->
+/// i64` (throw-fallout Stage 4 Task 5): the growable-array analogue of
+/// `emit_join_body`. Same two-pass `memory.copy` join into ONE fresh
+/// `__alloc_global` string, but over the tagged-handle GROWABLE layout:
+///
+///   * the receiver `arr` is a TAGGED handle (`ARRAY_HANDLE_TAG`), so the
+///     header pointer is `arr & !TAG` (masked), NOT `arr` directly;
+///   * `n = *(hdr+0)`, `data = *(hdr+16)` (header indirection), and each
+///     element handle is `*(data + i*8)` (offset 0, NOT the inline `+8`);
+///   * when `render_int` is set the raw i64 slot is a NUMBER, not a string
+///     handle — it is rendered to a decimal string handle by the runtime
+///     `int_to_string` import (fixed index 17, always present) BEFORE its
+///     bytes are measured/copied. `int_to_string` renders negatives with a
+///     `-` sign, matching node; each call `__alloc`s a fresh guest string, so
+///     the pass-1 (length) and pass-2 (copy) calls never alias. (For a large
+///     array the double render leaks the pass-1 strings into the global heap —
+///     GC-less by design, reclaimed only by arena scope; the target fixtures
+///     are small.)
+///
+/// `render_int == false` is the String-element body (`__join_growable_str`):
+/// the slot already IS a string handle, copied verbatim.
+///
+/// Locals: 0=arr 1=sep (params), 2=n 3=i 4=total 5=out 6=cur 7=h 8=data —
+/// one more (`data`) than `emit_join_body` for the cached header→data pointer.
+/// `alloc_index` is `__alloc_global` (a join result must not dangle across an
+/// arena reset — same rule as the global `__join`).
+fn emit_join_growable_body(func: &mut Function, alloc_index: u32, render_int: bool) {
+    let mask = !(crate::ARRAY_HANDLE_TAG) as i64;
+    // hdr = arr & !TAG (masked header pointer, reused below via I32WrapI64).
+    // n = *(hdr + 0)
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I64Const(mask));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(2));
+    // data = *(hdr + 16)
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I64Const(mask));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 16,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(8));
+    // if n == 0 return TAG (empty string). Explicit I64Const(0)+I64Eq (never
+    // I64Eqz) — same whole-module `boolean_branches_use_the_layout_fast_path`
+    // constraint as `emit_join_body`; these synthetics are present in every
+    // module too.
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::I64Const(crate::STRING_HANDLE_TAG as i64));
+    func.instruction(&Instruction::Return);
+    func.instruction(&Instruction::End);
+    // total = 0; i = 0
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(3));
+    // pass 1: total += len(render(elem_i)) for each i
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    emit_growable_join_element_handle(func, render_int);
+    func.instruction(&Instruction::LocalSet(7));
+    //   total = total + (h & 0xFFFF_FFFF)
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(4));
+    //   i += 1; continue while i < n
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64LtS);
+    func.instruction(&Instruction::BrIf(0));
+    func.instruction(&Instruction::End);
+    // total += (sep & 0xFFFF_FFFF) * (n - 1)
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Sub);
+    func.instruction(&Instruction::I64Mul);
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(4));
+    // out = zext(alloc(wrap((total + 7) & !7)))
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I64Const(7));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::I64Const(-8)); // !7
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::Call(alloc_index));
+    func.instruction(&Instruction::I64ExtendI32U);
+    func.instruction(&Instruction::LocalSet(5));
+    // cur = out; i = 0
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::LocalSet(6));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(3));
+    // pass 2: copy elements, separator between them
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    emit_growable_join_element_handle(func, render_int);
+    func.instruction(&Instruction::LocalSet(7));
+    //   memory.copy(dst=cur, src=(h>>32)&0x7FFF_FFFF, len=h&0xFFFF_FFFF)
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I64Const(32));
+    func.instruction(&Instruction::I64ShrU);
+    func.instruction(&Instruction::I64Const(0x7FFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::MemoryCopy {
+        src_mem: 0,
+        dst_mem: 0,
+    });
+    //   cur += len(h)
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(6));
+    //   i += 1
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(3));
+    //   if i < n { copy separator; continue }
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64LtS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Const(32));
+    func.instruction(&Instruction::I64ShrU);
+    func.instruction(&Instruction::I64Const(0x7FFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::MemoryCopy {
+        src_mem: 0,
+        dst_mem: 0,
+    });
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(6));
+    func.instruction(&Instruction::Br(1));
+    func.instruction(&Instruction::End); // If
+    func.instruction(&Instruction::End); // Loop
+                                         // TAG | out << 32 | total
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I64Const(32));
+    func.instruction(&Instruction::I64Shl);
+    func.instruction(&Instruction::I64Const(crate::STRING_HANDLE_TAG as i64));
+    func.instruction(&Instruction::I64Or);
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I64Or);
+    // NO trailing End — the dispatch loop appends it.
+}
+
+/// Push the string handle of growable element `i` onto the stack: load the raw
+/// i64 slot `*(data + i*8)` (data = local 8, i = local 3), then — for the i64
+/// body — coerce it to a decimal-string handle via `int_to_string`. The String
+/// body's slot is already a handle, so it is left as-is.
+fn emit_growable_join_element_handle(func: &mut Function, render_int: bool) {
+    // raw = *(data + (i << 3))
+    func.instruction(&Instruction::LocalGet(8));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(3));
+    func.instruction(&Instruction::I64Shl);
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    if render_int {
+        func.instruction(&Instruction::Call(crate::INT_TO_STRING_IMPORT_INDEX));
+    }
 }
 
 pub(crate) fn top_level_children(lir: &LirProgram) -> Vec<LirNodeId> {

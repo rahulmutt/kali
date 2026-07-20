@@ -115,9 +115,13 @@ impl RuntimeCtx {
                 cancelled_timers: HashSet::new(),
                 thread_topology: ThreadRuntimeTopology::default(),
                 next_timer_id: 0,
+                virtual_clock_ms: 0,
+                next_timer_seq: 0,
                 registered_tests: Vec::new(),
                 coverage_hits: BTreeSet::new(),
                 event_listeners: BTreeMap::new(),
+                next_event_target_id: 1,
+                event_target_listeners: BTreeMap::new(),
                 store_limits,
                 pending_diagnostic: None,
                 active_file_handles: 0,
@@ -211,7 +215,20 @@ impl RuntimeCtx {
                     "runtime trap (unreachable — allocation failure or an unsupported-path guard): {}",
                     error
                 )),
-                _ => runtime_error_diagnostic(format!("runtime trap: {}", error)),
+                // `{:?}` (not `{}`): a trap that crosses an extra host-import
+                // call boundary (Stage D's synchronous re-entrant dispatch —
+                // `_start` -> `event_dispatch` host import -> guest listener
+                // trap) gets wrapped by wasmtime with fresh backtrace context
+                // at each boundary; `downcast_ref::<wasmtime::Trap>()` no
+                // longer matches, and plain `{}` Display shows only that
+                // outermost context, discarding the inner
+                // `invoke_callback_reentrant` message (e.g. which listener
+                // export trapped) into the anyhow source chain. `{:?}`
+                // renders the full "Caused by" chain so that information
+                // survives into the diagnostic. Every existing caller only
+                // asserts `.contains("runtime trap")`, which the new
+                // multi-line rendering still satisfies as a prefix.
+                _ => runtime_error_diagnostic(format!("runtime trap: {:?}", error)),
             };
             let state = store.data();
             return Ok(RuntimeOutcome {
@@ -294,9 +311,9 @@ impl RuntimeCtx {
 
         let mut tests_run = 0usize;
         let mut tests_failed = 0usize;
-        for callback_id in registered_tests {
+        for (callback_id, env_ptr) in registered_tests {
             tests_run += 1;
-            match invoke_callback(&instance, &mut store, callback_id) {
+            match invoke_callback(&instance, &mut store, callback_id, env_ptr) {
                 Ok(()) => {}
                 Err(diagnostic) => {
                     if let Some(exit_code) = store.data_mut().take_pending_exit_code() {
@@ -363,6 +380,26 @@ impl RuntimeCtx {
     }
 }
 
+/// Failed-test accounting for a browser-harness `kali test` run. The JS
+/// harness's per-callback try/catch feeds `testsFailed` through the summary
+/// file, but a test body that executes inline during `_start` (the flattened
+/// callback lane) traps OUTSIDE that try/catch and kills the harness process
+/// before the summary is emitted, reporting zero failures. A non-zero harness
+/// exit with no failure otherwise accounted must count as (at least) one
+/// failed test — otherwise `kali test` reports a crashed run as passing.
+/// (throw-fallout Stage 0: harness trap-swallow, crash lane.)
+fn browser_tests_failed(
+    reported_tests_failed: usize,
+    run_registered_tests: bool,
+    harness_status_success: bool,
+) -> usize {
+    if run_registered_tests && !harness_status_success && reported_tests_failed == 0 {
+        1
+    } else {
+        reported_tests_failed
+    }
+}
+
 pub(crate) fn execute_browser_runtime(
     runtime: &RuntimeCtx,
     wasm_bytes: &[u8],
@@ -397,13 +434,17 @@ pub(crate) fn execute_browser_runtime(
             outcome.status.code().unwrap_or(1)
         },
         tests_run,
-        tests_failed: outcome.tests_failed,
+        tests_failed: browser_tests_failed(
+            outcome.tests_failed,
+            run_registered_tests,
+            outcome.status.success(),
+        ),
         stdout: outcome.stdout,
         // The browser harness does not (yet) plumb a raw binary-stdout sink;
         // `Kali.writeStdoutBytes` is host-only for this task (see spec follow-up).
         stdout_bytes: Vec::new(),
         stderr: outcome.stderr,
-        coverage_hits: Vec::new(),
+        coverage_hits: outcome.coverage_hits,
         runtime_profiles: normalized_runtime_profiles,
         host_contract: outcome.host_contract,
         runtime_backend: outcome.runtime_backend,

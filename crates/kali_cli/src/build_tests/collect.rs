@@ -615,6 +615,7 @@ fn collect_library_exports_infers_const_function_expression_bindings_and_aliases
                         kali_ast::ParenthesizedExpression {
                             expression: Box::new(Expression::ArrowFunctionExpression(Box::new(
                                 kali_ast::ArrowFunctionExpression {
+                                    id: None,
                                     params: vec![kali_ast::FunctionParam {
                                         name: "input".to_string(),
                                     }],
@@ -731,6 +732,7 @@ fn collect_library_exports_infers_default_async_function_expression_exports_thro
     let statements = vec![Statement::ExportDefault(
         kali_ast::ExportDefaultDeclaration::Expression(Expression::ArrowFunctionExpression(
             Box::new(kali_ast::ArrowFunctionExpression {
+                id: None,
                 params: vec![kali_ast::FunctionParam {
                     name: "input".to_string(),
                 }],
@@ -760,6 +762,7 @@ fn collect_library_exports_infers_default_async_function_expression_exports() {
     let statements = vec![Statement::ExportDefault(
         kali_ast::ExportDefaultDeclaration::Expression(Expression::ArrowFunctionExpression(
             Box::new(kali_ast::ArrowFunctionExpression {
+                id: None,
                 params: vec![kali_ast::FunctionParam {
                     name: "input".to_string(),
                 }],
@@ -788,6 +791,7 @@ fn collect_library_exports_infers_default_async_function_expression_exports_thro
     let statements = vec![Statement::ExportDefault(
         kali_ast::ExportDefaultDeclaration::Expression(Expression::ArrowFunctionExpression(
             Box::new(kali_ast::ArrowFunctionExpression {
+                id: None,
                 params: vec![kali_ast::FunctionParam {
                     name: "input".to_string(),
                 }],
@@ -822,6 +826,7 @@ fn collect_library_exports_infers_default_async_function_expression_exports_thro
                     kali_ast::ParenthesizedExpression {
                         expression: Box::new(Expression::ArrowFunctionExpression(Box::new(
                             kali_ast::ArrowFunctionExpression {
+                                id: None,
                                 params: vec![kali_ast::FunctionParam {
                                     name: "input".to_string(),
                                 }],
@@ -857,6 +862,7 @@ fn collect_library_exports_infers_default_function_expression_exports_through_aw
                     kali_ast::ParenthesizedExpression {
                         expression: Box::new(Expression::ArrowFunctionExpression(Box::new(
                             kali_ast::ArrowFunctionExpression {
+                                id: None,
                                 params: vec![kali_ast::FunctionParam {
                                     name: "input".to_string(),
                                 }],
@@ -1046,6 +1052,7 @@ fn collect_library_exports_infers_default_function_expression_exports_through_nu
                     kali_ast::ParenthesizedExpression {
                         expression: Box::new(Expression::ArrowFunctionExpression(Box::new(
                             kali_ast::ArrowFunctionExpression {
+                                id: None,
                                 params: vec![kali_ast::FunctionParam {
                                     name: "input".to_string(),
                                 }],
@@ -1091,6 +1098,7 @@ fn collect_library_exports_infers_default_async_function_expression_exports_thro
                     kali_ast::ParenthesizedExpression {
                         expression: Box::new(Expression::ArrowFunctionExpression(Box::new(
                             kali_ast::ArrowFunctionExpression {
+                                id: None,
                                 params: vec![kali_ast::FunctionParam {
                                     name: "input".to_string(),
                                 }],
@@ -1132,6 +1140,7 @@ fn collect_library_exports_infers_default_function_expression_exports_through_lo
                     kali_ast::ParenthesizedExpression {
                         expression: Box::new(Expression::ArrowFunctionExpression(Box::new(
                             kali_ast::ArrowFunctionExpression {
+                                id: None,
                                 params: vec![kali_ast::FunctionParam {
                                     name: "input".to_string(),
                                 }],
@@ -1176,6 +1185,7 @@ fn collect_library_exports_infers_const_function_expression_bindings_through_log
                             kali_ast::ParenthesizedExpression {
                                 expression: Box::new(Expression::ArrowFunctionExpression(
                                     Box::new(kali_ast::ArrowFunctionExpression {
+                                        id: None,
                                         params: vec![kali_ast::FunctionParam {
                                             name: "input".to_string(),
                                         }],
@@ -1224,6 +1234,7 @@ fn collect_library_exports_infers_default_async_function_expression_exports_thro
                     kali_ast::ParenthesizedExpression {
                         expression: Box::new(Expression::ArrowFunctionExpression(Box::new(
                             kali_ast::ArrowFunctionExpression {
+                                id: None,
                                 params: vec![kali_ast::FunctionParam {
                                     name: "input".to_string(),
                                 }],
@@ -1259,6 +1270,7 @@ fn collect_library_exports_infers_default_function_expression_exports_through_de
                     kali_ast::ParenthesizedExpression {
                         expression: Box::new(Expression::ArrowFunctionExpression(Box::new(
                             kali_ast::ArrowFunctionExpression {
+                                id: None,
                                 params: vec![kali_ast::FunctionParam {
                                     name: "input".to_string(),
                                 }],
@@ -1302,6 +1314,7 @@ fn collect_library_exports_infers_function_binding_signatures_through_await_wrap
                             kali_ast::ParenthesizedExpression {
                                 expression: Box::new(Expression::ArrowFunctionExpression(
                                     Box::new(kali_ast::ArrowFunctionExpression {
+                                        id: None,
                                         params: vec![kali_ast::FunctionParam {
                                             name: "input".to_string(),
                                         }],
@@ -1349,6 +1362,7 @@ fn collect_library_exports_infers_async_function_expression_bindings_and_aliases
         Expression::ParenthesizedExpression(Box::new(kali_ast::ParenthesizedExpression {
             expression: Box::new(Expression::ArrowFunctionExpression(Box::new(
                 kali_ast::ArrowFunctionExpression {
+                    id: None,
                     params: vec![kali_ast::FunctionParam {
                         name: "input".to_string(),
                     }],
@@ -1414,6 +1428,7 @@ fn collect_library_exports_infers_default_function_expression_exports() {
             Box::new(kali_ast::ParenthesizedExpression {
                 expression: Box::new(Expression::ArrowFunctionExpression(Box::new(
                     kali_ast::ArrowFunctionExpression {
+                        id: None,
                         params: vec![kali_ast::FunctionParam {
                             name: "input".to_string(),
                         }],
@@ -1451,6 +1466,7 @@ fn collect_library_exports_infers_default_function_binding_exports_through_decla
                 id: "main".to_string(),
                 init: Some(Expression::ArrowFunctionExpression(Box::new(
                     kali_ast::ArrowFunctionExpression {
+                        id: None,
                         params: vec![kali_ast::FunctionParam {
                             name: "input".to_string(),
                         }],
@@ -1491,6 +1507,7 @@ fn collect_library_exports_infers_default_function_binding_exports_through_decla
                 id: "main".to_string(),
                 init: Some(Expression::ArrowFunctionExpression(Box::new(
                     kali_ast::ArrowFunctionExpression {
+                        id: None,
                         params: vec![kali_ast::FunctionParam {
                             name: "input".to_string(),
                         }],
@@ -1540,6 +1557,7 @@ fn collect_library_exports_infers_default_function_binding_exports_through_decla
                     id: "main".to_string(),
                     init: Some(Expression::ArrowFunctionExpression(Box::new(
                         kali_ast::ArrowFunctionExpression {
+                            id: None,
                             params: vec![kali_ast::FunctionParam {
                                 name: "input".to_string(),
                             }],
@@ -1589,6 +1607,7 @@ fn collect_library_exports_infers_named_function_binding_exports_through_declare
                     id: "main".to_string(),
                     init: Some(Expression::ArrowFunctionExpression(Box::new(
                         kali_ast::ArrowFunctionExpression {
+                            id: None,
                             params: vec![kali_ast::FunctionParam {
                                 name: "input".to_string(),
                             }],
@@ -1630,6 +1649,7 @@ fn collect_library_exports_infers_default_function_expression_exports_through_ch
     let statements = vec![Statement::ExportDefault(
         kali_ast::ExportDefaultDeclaration::Expression(Expression::ArrowFunctionExpression(
             Box::new(kali_ast::ArrowFunctionExpression {
+                id: None,
                 params: vec![kali_ast::FunctionParam {
                     name: "input".to_string(),
                 }],
@@ -1663,6 +1683,7 @@ fn collect_library_exports_infers_default_function_expression_exports_through_op
                 inner: Box::new(kali_ast::OptionalChainInner::NonNull {
                     object: Box::new(Expression::ArrowFunctionExpression(Box::new(
                         kali_ast::ArrowFunctionExpression {
+                            id: None,
                             params: vec![kali_ast::FunctionParam {
                                 name: "input".to_string(),
                             }],
@@ -1714,6 +1735,7 @@ fn collect_library_exports_infers_function_binding_signatures_through_satisfies_
                         type_name: "unknown".to_string(),
                         expression: Box::new(Expression::ArrowFunctionExpression(Box::new(
                             kali_ast::ArrowFunctionExpression {
+                                id: None,
                                 params: vec![kali_ast::FunctionParam {
                                     name: "input".to_string(),
                                 }],
@@ -1758,6 +1780,7 @@ fn collect_library_exports_infers_default_function_expression_exports_through_co
         Expression::ParenthesizedExpression(Box::new(kali_ast::ParenthesizedExpression {
             expression: Box::new(Expression::ArrowFunctionExpression(Box::new(
                 kali_ast::ArrowFunctionExpression {
+                    id: None,
                     params: vec![kali_ast::FunctionParam {
                         name: "input".to_string(),
                     }],
@@ -1803,6 +1826,7 @@ fn collect_library_exports_infers_function_binding_signatures_through_optional_c
                         inner: Box::new(kali_ast::OptionalChainInner::NonNull {
                             object: Box::new(Expression::ArrowFunctionExpression(Box::new(
                                 kali_ast::ArrowFunctionExpression {
+                                    id: None,
                                     params: vec![kali_ast::FunctionParam {
                                         name: "input".to_string(),
                                     }],
@@ -1860,6 +1884,7 @@ fn collect_library_exports_infers_function_binding_signatures_through_nullish_co
         Expression::ParenthesizedExpression(Box::new(kali_ast::ParenthesizedExpression {
             expression: Box::new(Expression::ArrowFunctionExpression(Box::new(
                 kali_ast::ArrowFunctionExpression {
+                    id: None,
                     params: vec![kali_ast::FunctionParam {
                         name: param.to_string(),
                     }],
@@ -2009,6 +2034,7 @@ fn collect_library_exports_infers_function_binding_signatures_through_sequence_a
                                     kali_ast::ParenthesizedExpression {
                                         expression: Box::new(Expression::ArrowFunctionExpression(
                                             Box::new(kali_ast::ArrowFunctionExpression {
+                                                id: None,
                                                 params: vec![kali_ast::FunctionParam {
                                                     name: "input".to_string(),
                                                 }],
@@ -2059,6 +2085,7 @@ fn collect_library_exports_infers_function_binding_signatures_through_sequence_a
                                 kali_ast::ParenthesizedExpression {
                                     expression: Box::new(Expression::ArrowFunctionExpression(
                                         Box::new(kali_ast::ArrowFunctionExpression {
+                                            id: None,
                                             params: vec![kali_ast::FunctionParam {
                                                 name: "input".to_string(),
                                             }],
@@ -2120,6 +2147,7 @@ fn collect_library_exports_infers_function_binding_signatures_through_decorated_
                             kali_ast::ParenthesizedExpression {
                                 expression: Box::new(Expression::ArrowFunctionExpression(
                                     Box::new(kali_ast::ArrowFunctionExpression {
+                                        id: None,
                                         params: vec![kali_ast::FunctionParam {
                                             name: "input".to_string(),
                                         }],
@@ -2174,6 +2202,7 @@ fn collect_library_exports_preserves_unknown_signature_for_mixed_conditional_bin
             Expression::ParenthesizedExpression(Box::new(kali_ast::ParenthesizedExpression {
                 expression: Box::new(Expression::ArrowFunctionExpression(Box::new(
                     kali_ast::ArrowFunctionExpression {
+                        id: None,
                         params: params
                             .into_iter()
                             .map(|name| kali_ast::FunctionParam {

@@ -25,6 +25,10 @@ pub struct BrowserRuntimeExecutionOutcome {
     pub tests_failed: usize,
     /// Deterministic worker/thread shutdown snapshot reported by the harness summary.
     pub thread_topology: ThreadRuntimeShutdownReport,
+    /// Coverage-instrumentation site ids the guest reported hitting via the
+    /// `kali:rt` `coverage_hit` import, as collected by the harness's
+    /// `coverageHits` array and reported through the harness summary.
+    pub coverage_hits: Vec<u32>,
 }
 
 impl BrowserRuntimeExecutionOutcome {
@@ -259,6 +263,7 @@ pub fn browser_bundle_runtime_execute_checked(
         registered_tests: summary.tests,
         tests_failed: summary.tests_failed.unwrap_or(0),
         thread_topology: summary.thread_topology.unwrap_or_default(),
+        coverage_hits: summary.coverage_hits.unwrap_or_default(),
     })
 }
 
@@ -320,6 +325,7 @@ pub fn browser_runtime_execute_checked(
         registered_tests: summary.tests,
         tests_failed: summary.tests_failed.unwrap_or(0),
         thread_topology: summary.thread_topology.unwrap_or_default(),
+        coverage_hits: summary.coverage_hits.unwrap_or_default(),
     })
 }
 

@@ -13,6 +13,9 @@ mod node_imports;
 #[path = "execute_tests/timers.rs"]
 mod timers;
 
+#[path = "execute_tests/events.rs"]
+mod events;
+
 #[path = "execute_tests/crypto_random.rs"]
 mod crypto_random;
 
@@ -21,3 +24,6 @@ mod test_runner;
 
 #[path = "execute_tests/host_env.rs"]
 mod host_env;
+
+#[path = "execute_tests/browser_tests_failed.rs"]
+mod browser_tests_failed;

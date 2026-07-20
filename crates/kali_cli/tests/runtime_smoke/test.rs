@@ -38,7 +38,9 @@ fn test_supports_deno_chdir_aliases_in_js_input() {
         .output()
         .expect("run kali");
 
-    assert!(output.status.success(), "test failed: {:?}", output);
+    // Honest re-pin (PR #16 rev2, family `deno`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
@@ -81,25 +83,9 @@ fn json_test_supports_deno_chdir_aliases_in_js_input() {
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["schemaVersion"], 1);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["total"], 1);
-    assert_eq!(json["payload"]["passed"], 1);
-    assert_eq!(json["payload"]["failed"], 0);
-    assert_eq!(json["payload"]["skipped"], 0);
-    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
-    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
-    assert_eq!(json["stdout"], "");
-    assert_eq!(json["stderr"], "");
+    // Honest re-pin (PR #16 rev2, family `deno`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
@@ -120,7 +106,9 @@ fn test_supports_bracketed_deno_env_get_in_js_input() {
         .output()
         .expect("run kali");
 
-    assert!(output.status.success(), "test failed: {:?}", output);
+    // Honest re-pin (PR #16 rev2, family `deno`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
@@ -143,25 +131,9 @@ fn json_test_supports_bracketed_deno_env_get_in_js_input() {
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["schemaVersion"], 1);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["total"], 1);
-    assert_eq!(json["payload"]["passed"], 1);
-    assert_eq!(json["payload"]["failed"], 0);
-    assert_eq!(json["payload"]["skipped"], 0);
-    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
-    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
-    assert_eq!(json["stdout"], "");
-    assert_eq!(json["stderr"], "");
+    // Honest re-pin (PR #16 rev2, family `deno`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
@@ -646,25 +618,58 @@ fn json_test_supports_web_baseline_structured_clone_and_event_primitives_in_ts_a
             .output()
             .expect("run kali");
 
+        // Flipped pin (advanced by Stage P3 Task 5): the fixture now runs PAST
+        // both structuredClone (P2 deep-clone lane) AND the whole abort lane —
+        // `controller.signal instanceof AbortSignal` folds to a compile-time
+        // `true` (Task 5 allow lane). It next fails closed at the pre-existing
+        // `new Event('tick')` / `event.type` gap: `event.type` silently reads
+        // `0` (Event is not a P3 primitive), so the fixture's own self-check
+        // `throw new Error('unexpected Event behavior ...')` is the new
+        // fail-closed point. Still a fail-closed rejection (`success == false`).
         assert!(
-            output.status.success(),
-            "stdout: {}\nstderr: {}",
-            String::from_utf8_lossy(&output.stdout),
-            String::from_utf8_lossy(&output.stderr)
+            !output.status.success(),
+            "must be rejected fail-closed: {output:?}"
         );
         let json = parse_json_stdout(&output);
-        assert_eq!(json["schemaVersion"], 1);
-        assert_eq!(json["command"], "test");
-        assert_eq!(json["success"], true);
-        assert_eq!(json["exitCode"], 0);
-        assert_eq!(json["payload"]["total"], 1);
-        assert_eq!(json["payload"]["passed"], 1);
-        assert_eq!(json["payload"]["failed"], 0);
-        assert_eq!(json["payload"]["skipped"], 0);
-        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
-        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
-        assert_eq!(json["stdout"], "");
-        assert_eq!(json["stderr"], "");
+        assert_eq!(json["success"], false);
+        let code = json["errors"][0]["code"].as_str().unwrap_or_default();
+        let harness_stderr = json["stderr"].as_str().unwrap_or_default();
+        // The fixture runs PAST structuredClone (P2 deep-clone lane SUCCEEDS —
+        // distinct object AND array, `cloned.values.join(',')` stays `'1,2,3'`
+        // after `original.values.push(4)`) AND past the entire P3 abort lane
+        // (`new AbortController()`, `controller.signal instanceof AbortSignal`
+        // now folds to compile-time `true` — Task 5). It next fails closed at
+        // the pre-existing `new Event('tick')` / `event.type` gap (`event.type`
+        // silently reads `0`; the fixture's `throw new Error('unexpected Event
+        // behavior ...')` self-check fires). In TEST mode that throw surfaces
+        // as a bare E4000 runtime trap in the `Kali.test` callback (empty
+        // top-level `errors`, no source token) on the non-browser surface, or
+        // `RuntimeError: unreachable` under the browser harness. Verified
+        // empirically on a fresh binary 2026-07-18 (run-mode message: `Uncaught
+        // Error: unexpected Event behavior 0`; test-mode stderr: `Uncaught
+        // exception\nerror[E4000]: runtime trap in callback
+        // '__kali_callback_NN'`). Still fail-closed (`success == false`).
+        assert!(
+            code == "E4000"
+                || code == "E5506"
+                || harness_stderr.contains("RuntimeError: unreachable")
+                || harness_stderr.contains("E4000"),
+            "expected fail-closed trap or reject, got: {json}"
+        );
+        // Task A2b: the fixture also uses `String(count)` and
+        // `JSON.stringify(cloned)`, now in the terminal deny-set. So the
+        // fail-closed point has moved even EARLIER than the P3 Event runtime gap
+        // — kali now rejects at COMPILE time with E5506 on a denied value-builtin
+        // (`String`/`JSON.stringify`), before the fixture ever runs, so there is
+        // no runtime harness trap to observe. node: those are real
+        // coercions/serialization kali has no lowering for. Pin that compile-time
+        // reject; the structuredClone/abort lanes stay separately pinned green by
+        // the dedicated soundness_structured_clone / soundness_abort suites.
+        let message = json["errors"][0]["message"].as_str().unwrap_or_default();
+        assert!(
+            code == "E5506" && (message.contains("String") || message.contains("stringify")),
+            "expected a compile-time E5506 reject on String/JSON.stringify, got: {json}"
+        );
     }
 }
 
@@ -695,25 +700,58 @@ fn json_test_supports_web_baseline_structured_clone_and_event_primitives_when_br
             .output()
             .expect("run kali");
 
+        // Flipped pin (advanced by Stage P3 Task 5): the fixture now runs PAST
+        // both structuredClone (P2 deep-clone lane) AND the whole abort lane —
+        // `controller.signal instanceof AbortSignal` folds to a compile-time
+        // `true` (Task 5 allow lane). It next fails closed at the pre-existing
+        // `new Event('tick')` / `event.type` gap: `event.type` silently reads
+        // `0` (Event is not a P3 primitive), so the fixture's own self-check
+        // `throw new Error('unexpected Event behavior ...')` is the new
+        // fail-closed point. Still a fail-closed rejection (`success == false`).
         assert!(
-            output.status.success(),
-            "stdout: {}\nstderr: {}",
-            String::from_utf8_lossy(&output.stdout),
-            String::from_utf8_lossy(&output.stderr)
+            !output.status.success(),
+            "must be rejected fail-closed: {output:?}"
         );
         let json = parse_json_stdout(&output);
-        assert_eq!(json["schemaVersion"], 1);
-        assert_eq!(json["command"], "test");
-        assert_eq!(json["success"], true);
-        assert_eq!(json["exitCode"], 0);
-        assert_eq!(json["payload"]["total"], 1);
-        assert_eq!(json["payload"]["passed"], 1);
-        assert_eq!(json["payload"]["failed"], 0);
-        assert_eq!(json["payload"]["skipped"], 0);
-        assert_eq!(json["payload"]["hostContract"], "browser-requested");
-        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-        assert_eq!(json["stdout"], "");
-        assert_eq!(json["stderr"], "");
+        assert_eq!(json["success"], false);
+        let code = json["errors"][0]["code"].as_str().unwrap_or_default();
+        let harness_stderr = json["stderr"].as_str().unwrap_or_default();
+        // The fixture runs PAST structuredClone (P2 deep-clone lane SUCCEEDS —
+        // distinct object AND array, `cloned.values.join(',')` stays `'1,2,3'`
+        // after `original.values.push(4)`) AND past the entire P3 abort lane
+        // (`new AbortController()`, `controller.signal instanceof AbortSignal`
+        // now folds to compile-time `true` — Task 5). It next fails closed at
+        // the pre-existing `new Event('tick')` / `event.type` gap (`event.type`
+        // silently reads `0`; the fixture's `throw new Error('unexpected Event
+        // behavior ...')` self-check fires). In TEST mode that throw surfaces
+        // as a bare E4000 runtime trap in the `Kali.test` callback (empty
+        // top-level `errors`, no source token) on the non-browser surface, or
+        // `RuntimeError: unreachable` under the browser harness. Verified
+        // empirically on a fresh binary 2026-07-18 (run-mode message: `Uncaught
+        // Error: unexpected Event behavior 0`; test-mode stderr: `Uncaught
+        // exception\nerror[E4000]: runtime trap in callback
+        // '__kali_callback_NN'`). Still fail-closed (`success == false`).
+        assert!(
+            code == "E4000"
+                || code == "E5506"
+                || harness_stderr.contains("RuntimeError: unreachable")
+                || harness_stderr.contains("E4000"),
+            "expected fail-closed trap or reject, got: {json}"
+        );
+        // Task A2b: the fixture also uses `String(count)` and
+        // `JSON.stringify(cloned)`, now in the terminal deny-set. So the
+        // fail-closed point has moved even EARLIER than the P3 Event runtime gap
+        // — kali now rejects at COMPILE time with E5506 on a denied value-builtin
+        // (`String`/`JSON.stringify`), before the fixture ever runs, so there is
+        // no runtime harness trap to observe. node: those are real
+        // coercions/serialization kali has no lowering for. Pin that compile-time
+        // reject; the structuredClone/abort lanes stay separately pinned green by
+        // the dedicated soundness_structured_clone / soundness_abort suites.
+        let message = json["errors"][0]["message"].as_str().unwrap_or_default();
+        assert!(
+            code == "E5506" && (message.contains("String") || message.contains("stringify")),
+            "expected a compile-time E5506 reject on String/JSON.stringify, got: {json}"
+        );
     }
 }
 
@@ -754,25 +792,58 @@ fn json_test_supports_web_baseline_structured_clone_and_event_primitives_when_br
             .output()
             .expect("run kali");
 
+        // Flipped pin (advanced by Stage P3 Task 5): the fixture now runs PAST
+        // both structuredClone (P2 deep-clone lane) AND the whole abort lane —
+        // `controller.signal instanceof AbortSignal` folds to a compile-time
+        // `true` (Task 5 allow lane). It next fails closed at the pre-existing
+        // `new Event('tick')` / `event.type` gap: `event.type` silently reads
+        // `0` (Event is not a P3 primitive), so the fixture's own self-check
+        // `throw new Error('unexpected Event behavior ...')` is the new
+        // fail-closed point. Still a fail-closed rejection (`success == false`).
         assert!(
-            output.status.success(),
-            "stdout: {}\nstderr: {}",
-            String::from_utf8_lossy(&output.stdout),
-            String::from_utf8_lossy(&output.stderr)
+            !output.status.success(),
+            "must be rejected fail-closed: {output:?}"
         );
         let json = parse_json_stdout(&output);
-        assert_eq!(json["schemaVersion"], 1);
-        assert_eq!(json["command"], "test");
-        assert_eq!(json["success"], true);
-        assert_eq!(json["exitCode"], 0);
-        assert_eq!(json["payload"]["total"], 1);
-        assert_eq!(json["payload"]["passed"], 1);
-        assert_eq!(json["payload"]["failed"], 0);
-        assert_eq!(json["payload"]["skipped"], 0);
-        assert_eq!(json["payload"]["hostContract"], "browser-requested");
-        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-        assert_eq!(json["stdout"], "");
-        assert_eq!(json["stderr"], "");
+        assert_eq!(json["success"], false);
+        let code = json["errors"][0]["code"].as_str().unwrap_or_default();
+        let harness_stderr = json["stderr"].as_str().unwrap_or_default();
+        // The fixture runs PAST structuredClone (P2 deep-clone lane SUCCEEDS —
+        // distinct object AND array, `cloned.values.join(',')` stays `'1,2,3'`
+        // after `original.values.push(4)`) AND past the entire P3 abort lane
+        // (`new AbortController()`, `controller.signal instanceof AbortSignal`
+        // now folds to compile-time `true` — Task 5). It next fails closed at
+        // the pre-existing `new Event('tick')` / `event.type` gap (`event.type`
+        // silently reads `0`; the fixture's `throw new Error('unexpected Event
+        // behavior ...')` self-check fires). In TEST mode that throw surfaces
+        // as a bare E4000 runtime trap in the `Kali.test` callback (empty
+        // top-level `errors`, no source token) on the non-browser surface, or
+        // `RuntimeError: unreachable` under the browser harness. Verified
+        // empirically on a fresh binary 2026-07-18 (run-mode message: `Uncaught
+        // Error: unexpected Event behavior 0`; test-mode stderr: `Uncaught
+        // exception\nerror[E4000]: runtime trap in callback
+        // '__kali_callback_NN'`). Still fail-closed (`success == false`).
+        assert!(
+            code == "E4000"
+                || code == "E5506"
+                || harness_stderr.contains("RuntimeError: unreachable")
+                || harness_stderr.contains("E4000"),
+            "expected fail-closed trap or reject, got: {json}"
+        );
+        // Task A2b: the fixture also uses `String(count)` and
+        // `JSON.stringify(cloned)`, now in the terminal deny-set. So the
+        // fail-closed point has moved even EARLIER than the P3 Event runtime gap
+        // — kali now rejects at COMPILE time with E5506 on a denied value-builtin
+        // (`String`/`JSON.stringify`), before the fixture ever runs, so there is
+        // no runtime harness trap to observe. node: those are real
+        // coercions/serialization kali has no lowering for. Pin that compile-time
+        // reject; the structuredClone/abort lanes stay separately pinned green by
+        // the dedicated soundness_structured_clone / soundness_abort suites.
+        let message = json["errors"][0]["message"].as_str().unwrap_or_default();
+        assert!(
+            code == "E5506" && (message.contains("String") || message.contains("stringify")),
+            "expected a compile-time E5506 reject on String/JSON.stringify, got: {json}"
+        );
     }
 }
 
@@ -1459,14 +1530,14 @@ fn json_test_merges_missing_tests_failed_from_browser_summary_stdout_when_browse
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(
         json["payload"],
         serde_json::json!({
@@ -1520,14 +1591,14 @@ fn json_test_uses_padded_browser_summary_labels_when_browser_harness_is_configur
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 4);
@@ -1956,14 +2027,14 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_has_invalid_tests_fa
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 7);
@@ -2006,14 +2077,14 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_has_non_integer_test
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 7);
@@ -2056,14 +2127,14 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_has_non_integer_test
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 7);
@@ -2106,14 +2177,14 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_has_invalid_labels_w
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 4);
@@ -2156,14 +2227,14 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_has_invalid_labels_a
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 8);
@@ -2206,14 +2277,14 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_has_invalid_array_it
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 8);
@@ -2256,14 +2327,14 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_has_invalid_args_whe
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 8);
@@ -2306,14 +2377,14 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_has_invalid_array_it
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 8);
@@ -2356,14 +2427,14 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_has_invalid_tests_ar
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 8);
@@ -2406,14 +2477,14 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_has_invalid_tests_ar
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 8);
@@ -2456,14 +2527,14 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_has_invalid_args_whe
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 8);
@@ -2506,14 +2577,14 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_has_invalid_labels_w
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 4);
@@ -2556,14 +2627,14 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_has_invalid_labels_a
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 8);
@@ -2656,14 +2727,14 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_is_incomplete_when_b
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
     assert_eq!(json["payload"]["total"], 1);
     assert_eq!(json["payload"]["passed"], 0);
     assert_eq!(json["payload"]["failed"], 1);
@@ -2759,26 +2830,16 @@ fn test_supports_try_catch_and_finally_sequencing_when_browser_harness_is_config
         .output()
         .expect("run kali");
 
+    // Flipped pin: try/catch/finally is rejected fail-closed (E5506): kali has no
+    // exception machinery; the old lowering was an if-shaped miscompile that
+    // only looked correct while `throw` was a silent no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["total"], 1);
-    assert_eq!(json["payload"]["passed"], 1);
-    assert_eq!(json["payload"]["failed"], 0);
-    assert_eq!(json["payload"]["skipped"], 0);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    assert!(
-        json["stdout"].as_str().expect("stdout").contains("2\n1"),
-        "json: {json}"
-    );
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -2800,26 +2861,16 @@ fn test_supports_try_catch_and_finally_sequencing_when_browser_harness_is_config
         .output()
         .expect("run kali");
 
+    // Flipped pin: try/catch/finally is rejected fail-closed (E5506): kali has no
+    // exception machinery; the old lowering was an if-shaped miscompile that
+    // only looked correct while `throw` was a silent no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["total"], 1);
-    assert_eq!(json["payload"]["passed"], 1);
-    assert_eq!(json["payload"]["failed"], 0);
-    assert_eq!(json["payload"]["skipped"], 0);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    assert!(
-        json["stdout"].as_str().expect("stdout").contains("2\n1"),
-        "json: {json}"
-    );
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -4048,14 +4099,16 @@ console.log(values.length);
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("2\nok 1"), "stdout: {stdout}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -4157,14 +4210,16 @@ console.log(values.length);
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("2\nok 1"), "stdout: {stdout}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -4269,26 +4324,17 @@ console.log(values.length);
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["total"], 1);
-    assert_eq!(json["payload"]["passed"], 1);
-    assert_eq!(json["payload"]["failed"], 0);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    assert!(
-        json["stdout"].as_str().expect("stdout").contains("2\n"),
-        "json: {json}"
-    );
-    assert_eq!(json["stderr"], "");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -4459,26 +4505,17 @@ console.log(values.length);
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["total"], 1);
-    assert_eq!(json["payload"]["passed"], 1);
-    assert_eq!(json["payload"]["failed"], 0);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    assert!(
-        json["stdout"].as_str().expect("stdout").contains("2\n"),
-        "json: {json}"
-    );
-    assert_eq!(json["stderr"], "");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -4512,29 +4549,17 @@ fn json_test_supports_object_enumeration_semantics_when_browser_api_surface_is_i
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["total"], 1);
-    assert_eq!(json["payload"]["passed"], 1);
-    assert_eq!(json["payload"]["failed"], 0);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    assert!(
-        json["stdout"]
-            .as_str()
-            .expect("stdout")
-            .contains("4\n4\n4\n"),
-        "json: {json}"
-    );
-    assert_eq!(json["stderr"], "");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -4568,29 +4593,17 @@ fn json_test_supports_object_enumeration_semantics_when_browser_api_surface_is_i
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["total"], 1);
-    assert_eq!(json["payload"]["passed"], 1);
-    assert_eq!(json["payload"]["failed"], 0);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    assert!(
-        json["stdout"]
-            .as_str()
-            .expect("stdout")
-            .contains("4\n4\n4\n"),
-        "json: {json}"
-    );
-    assert_eq!(json["stderr"], "");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -4652,29 +4665,17 @@ console.log(values.length);
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["total"], 1);
-    assert_eq!(json["payload"]["passed"], 1);
-    assert_eq!(json["payload"]["failed"], 0);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    assert!(
-        json["stdout"]
-            .as_str()
-            .expect("stdout")
-            .contains("4\n4\n4\n"),
-        "json: {json}"
-    );
-    assert_eq!(json["stderr"], "");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -4736,29 +4737,17 @@ console.log(values.length);
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["total"], 1);
-    assert_eq!(json["payload"]["passed"], 1);
-    assert_eq!(json["payload"]["failed"], 0);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    assert!(
-        json["stdout"]
-            .as_str()
-            .expect("stdout")
-            .contains("4\n4\n4\n"),
-        "json: {json}"
-    );
-    assert_eq!(json["stderr"], "");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -5419,21 +5408,16 @@ console.log(1);
         .output()
         .expect("run kali");
 
+    // Flipped pin: try/catch/finally is rejected fail-closed (E5506): kali has no
+    // exception machinery; the old lowering was an if-shaped miscompile that
+    // only looked correct while `throw` was a silent no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    assert!(
-        json["stdout"].as_str().expect("stdout").contains("2\n1"),
-        "json: {json}"
-    );
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -5469,21 +5453,16 @@ main();
         .output()
         .expect("run kali");
 
+    // Flipped pin: try/catch/finally is rejected fail-closed (E5506): kali has no
+    // exception machinery; the old lowering was an if-shaped miscompile that
+    // only looked correct while `throw` was a silent no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    assert!(
-        json["stdout"].as_str().expect("stdout").contains("1\n3"),
-        "json: {json}"
-    );
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -5519,21 +5498,16 @@ console.log(1);
         .output()
         .expect("run kali");
 
+    // Flipped pin: try/catch/finally is rejected fail-closed (E5506): kali has no
+    // exception machinery; the old lowering was an if-shaped miscompile that
+    // only looked correct while `throw` was a silent no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    assert!(
-        json["stdout"].as_str().expect("stdout").contains("2\n1"),
-        "json: {json}"
-    );
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -5569,21 +5543,16 @@ console.log(1);
         .output()
         .expect("run kali");
 
+    // Flipped pin: try/catch/finally is rejected fail-closed (E5506): kali has no
+    // exception machinery; the old lowering was an if-shaped miscompile that
+    // only looked correct while `throw` was a silent no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    assert!(
-        json["stdout"].as_str().expect("stdout").contains("2\n1"),
-        "json: {json}"
-    );
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -5604,24 +5573,9 @@ fn test_supports_queue_microtask_ordering_when_browser_harness_is_configured() {
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    assert!(
-        json["stdout"]
-            .as_str()
-            .expect("stdout")
-            .contains("queueMicrotask ok"),
-        "json: {json}"
-    );
+    // Honest re-pin (PR #16 rev2, family `microtask`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
@@ -5642,29 +5596,9 @@ fn json_test_supports_queue_microtask_ordering_when_browser_harness_is_configure
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["total"], 1);
-    assert_eq!(json["payload"]["passed"], 1);
-    assert_eq!(json["payload"]["failed"], 0);
-    assert_eq!(json["payload"]["skipped"], 0);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    assert!(
-        json["stdout"]
-            .as_str()
-            .expect("stdout")
-            .contains("queueMicrotask ok"),
-        "json: {json}"
-    );
+    // Honest re-pin (PR #16 rev2, family `microtask`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
@@ -5687,30 +5621,9 @@ fn test_supports_queue_microtask_ordering_when_browser_api_surface_is_inherited_
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}
-stderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["total"], 1);
-    assert_eq!(json["payload"]["passed"], 1);
-    assert_eq!(json["payload"]["failed"], 0);
-    assert_eq!(json["payload"]["skipped"], 0);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    assert!(
-        json["stdout"]
-            .as_str()
-            .expect("stdout")
-            .contains("queueMicrotask ok"),
-        "json: {json}"
-    );
+    // Honest re-pin (PR #16 rev2, family `microtask`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
@@ -5733,30 +5646,9 @@ fn json_test_supports_queue_microtask_ordering_when_browser_api_surface_is_inher
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}
-stderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["total"], 1);
-    assert_eq!(json["payload"]["passed"], 1);
-    assert_eq!(json["payload"]["failed"], 0);
-    assert_eq!(json["payload"]["skipped"], 0);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    assert!(
-        json["stdout"]
-            .as_str()
-            .expect("stdout")
-            .contains("queueMicrotask ok"),
-        "json: {json}"
-    );
+    // Honest re-pin (PR #16 rev2, family `microtask`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
@@ -5779,29 +5671,9 @@ fn test_supports_queue_microtask_ordering_when_browser_api_surface_is_inherited_
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["total"], 1);
-    assert_eq!(json["payload"]["passed"], 1);
-    assert_eq!(json["payload"]["failed"], 0);
-    assert_eq!(json["payload"]["skipped"], 0);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    assert!(
-        json["stdout"]
-            .as_str()
-            .expect("stdout")
-            .contains("queueMicrotask ok"),
-        "json: {json}"
-    );
+    // Honest re-pin (PR #16 rev2, family `microtask`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
@@ -5824,29 +5696,9 @@ fn json_test_supports_queue_microtask_ordering_when_browser_api_surface_is_inher
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["total"], 1);
-    assert_eq!(json["payload"]["passed"], 1);
-    assert_eq!(json["payload"]["failed"], 0);
-    assert_eq!(json["payload"]["skipped"], 0);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    assert!(
-        json["stdout"]
-            .as_str()
-            .expect("stdout")
-            .contains("queueMicrotask ok"),
-        "json: {json}"
-    );
+    // Honest re-pin (PR #16 rev2, family `microtask`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
@@ -5867,24 +5719,9 @@ fn test_supports_queue_microtask_ordering_when_browser_harness_is_configured_in_
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    assert!(
-        json["stdout"]
-            .as_str()
-            .expect("stdout")
-            .contains("queueMicrotask ok"),
-        "json: {json}"
-    );
+    // Honest re-pin (PR #16 rev2, family `microtask`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
@@ -5905,29 +5742,9 @@ fn json_test_supports_queue_microtask_ordering_when_browser_harness_is_configure
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["total"], 1);
-    assert_eq!(json["payload"]["passed"], 1);
-    assert_eq!(json["payload"]["failed"], 0);
-    assert_eq!(json["payload"]["skipped"], 0);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    assert!(
-        json["stdout"]
-            .as_str()
-            .expect("stdout")
-            .contains("queueMicrotask ok"),
-        "json: {json}"
-    );
+    // Honest re-pin (PR #16 rev2, family `microtask`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
@@ -5973,20 +5790,23 @@ Kali.test('browser runtime smoke', () => {});
         .output()
         .expect("run kali");
 
+    // Task A2b fail-closed flip: the source `console.log(String(value))`. Pre-A2b
+    // `String()` silently lowered to 0 (the stdout "0" this used to accept was the
+    // fake-green placeholder), so the browser-harness test succeeded. `String` is
+    // now in the terminal deny-set, so kali fails the build closed (E5506).
+    // node: `String(0n)` -> "0" via a real coercion kali cannot lower.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
+        !output.status.success(),
+        "expected fail-closed on String(): stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert_eq!(json["success"], false);
+    let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        json["stdout"].as_str().expect("stdout").contains("0"),
-        "json: {json}"
+        stdout.contains("E5506") && stdout.contains("String"),
+        "expected E5506 for 'String' in json errors, got: {stdout}"
     );
 }
 
@@ -6031,20 +5851,23 @@ Kali.test('browser runtime smoke', () => {});
         .output()
         .expect("run kali");
 
+    // Task A2b fail-closed flip: the source `console.log(String(value))`. Pre-A2b
+    // `String()` silently lowered to 0 (the stdout "0" this used to accept was the
+    // fake-green placeholder), so the browser-harness test succeeded. `String` is
+    // now in the terminal deny-set, so kali fails the build closed (E5506).
+    // node: `String(0n)` -> "0" via a real coercion kali cannot lower.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
+        !output.status.success(),
+        "expected fail-closed on String(): stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert_eq!(json["success"], false);
+    let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        json["stdout"].as_str().expect("stdout").contains("0"),
-        "json: {json}"
+        stdout.contains("E5506") && stdout.contains("String"),
+        "expected E5506 for 'String' in json errors, got: {stdout}"
     );
 }
 
@@ -6091,20 +5914,23 @@ Kali.test('browser runtime smoke', () => {});
         .output()
         .expect("run kali");
 
+    // Task A2b fail-closed flip: the source `console.log(String(value))`. Pre-A2b
+    // `String()` silently lowered to 0 (the stdout "0" this used to accept was the
+    // fake-green placeholder), so the browser-harness test succeeded. `String` is
+    // now in the terminal deny-set, so kali fails the build closed (E5506).
+    // node: `String(0n)` -> "0" via a real coercion kali cannot lower.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
+        !output.status.success(),
+        "expected fail-closed on String(): stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert_eq!(json["success"], false);
+    let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        json["stdout"].as_str().expect("stdout").contains("0"),
-        "json: {json}"
+        stdout.contains("E5506") && stdout.contains("String"),
+        "expected E5506 for 'String' in json errors, got: {stdout}"
     );
 }
 
@@ -8343,14 +8169,9 @@ fn test_supports_promise_all_sequencing() {
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+    // Honest re-pin (PR #16 rev2, family `promise`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
@@ -8366,14 +8187,9 @@ fn test_supports_promise_all_sequencing_in_js_input() {
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+    // Honest re-pin (PR #16 rev2, family `promise`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
@@ -8686,12 +8502,10 @@ main();
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
+    // Honest re-pin (PR #16 rev2, family `microtask`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E4000"), "stderr: {stderr}");
 }
 
 #[test]
@@ -8728,27 +8542,11 @@ main();
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["schemaVersion"], 1);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
-    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
-    assert!(
-        json["stdout"]
-            .as_str()
-            .expect("stdout")
-            .contains("queueMicrotask ok"),
-        "json: {json}"
-    );
-    assert_eq!(json["stderr"], "");
+    // Honest re-pin (PR #16 rev2, family `microtask`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("E4000"), "stdout: {stdout}");
 }
 
 #[test]
@@ -9156,14 +8954,15 @@ console.log(1);
         .output()
         .expect("run kali");
 
+    // Flipped pin: try/catch/finally is rejected fail-closed (E5506): kali has no
+    // exception machinery; the old lowering was an if-shaped miscompile that
+    // only looked correct while `throw` was a silent no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert_eq!(stdout.trim(), "ok 1", "stdout: {stdout}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -9194,14 +8993,15 @@ main();
         .output()
         .expect("run kali");
 
+    // Flipped pin: try/catch/finally is rejected fail-closed (E5506): kali has no
+    // exception machinery; the old lowering was an if-shaped miscompile that
+    // only looked correct while `throw` was a silent no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("1\n3\nok 1"), "stdout: {stdout}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -9249,6 +9049,9 @@ fn test_supports_browser_web_crypto_subtle_digest_and_random_uuid_when_browser_h
         &source_path,
         r#"async function main() {
   const bytes = new TextEncoder().encode('browser crypto');
+  if (bytes.byteLength !== 14) {
+    throw new Error(`unexpected encoded length ${bytes.byteLength}`);
+  }
   const digest = await crypto.subtle.digest('SHA-256', bytes);
   const uuid = crypto.randomUUID();
   if (digest.byteLength !== 32) {
@@ -9303,6 +9106,9 @@ fn test_supports_browser_web_crypto_subtle_digest_and_random_uuid_when_browser_h
         &source_path,
         r#"async function main() {
   const bytes = new TextEncoder().encode('browser crypto');
+  if (bytes.byteLength !== 14) {
+    throw new Error(`unexpected encoded length ${bytes.byteLength}`);
+  }
   const digest = await crypto.subtle.digest('SHA-256', bytes);
   const uuid = crypto.randomUUID();
   if (digest.byteLength !== 32) {
@@ -9690,13 +9496,9 @@ fn test_supports_object_from_entries_enumeration_semantics_with_satisfies_wrappe
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    assert_eq!(output.status.code(), Some(0));
+    // Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
@@ -9838,7 +9640,17 @@ fn test_supports_object_type_and_constructor_semantics() {
         .output()
         .expect("run kali");
 
-    assert!(output.status.success(), "test failed: {:?}", output);
+    // Flipped pin: `instanceof` fails closed at EVALUATION (E4000 print-then-trap; E5506 where a compile gate still fires): kali has no prototype
+    // chain; the token was previously dropped so the expression miscompiled
+    // to its left operand.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("E4000")
+            || stderr.contains("E5506")
+            || stderr.contains("RuntimeError: unreachable"),
+        "expected fail-closed trap or reject, stderr: {stderr}"
+    );
 }
 
 #[test]
@@ -9858,7 +9670,17 @@ fn test_supports_object_type_and_constructor_semantics_in_js_input() {
         .output()
         .expect("run kali");
 
-    assert!(output.status.success(), "test failed: {:?}", output);
+    // Flipped pin: `instanceof` fails closed at EVALUATION (E4000 print-then-trap; E5506 where a compile gate still fires): kali has no prototype
+    // chain; the token was previously dropped so the expression miscompiled
+    // to its left operand.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("E4000")
+            || stderr.contains("E5506")
+            || stderr.contains("RuntimeError: unreachable"),
+        "expected fail-closed trap or reject, stderr: {stderr}"
+    );
 }
 
 #[test]
@@ -11091,14 +10913,16 @@ console.log(values.length);
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}, stderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("2\nok 1"), "stdout: {stdout}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -11114,14 +10938,16 @@ fn test_supports_object_enumeration_semantics_with_overwrite_ordering() {
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("2\nok 1"), "stdout: {stdout}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -11137,14 +10963,16 @@ fn test_supports_object_enumeration_semantics_with_overwrite_ordering_in_js_inpu
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("2\nok 1"), "stdout: {stdout}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -11200,14 +11028,16 @@ console.log(values.length);
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("4\n4\n4\nok 1"), "stdout: {stdout}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -11263,14 +11093,16 @@ console.log(values.length);
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("4\n4\n4\nok 1"), "stdout: {stdout}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -11288,23 +11120,17 @@ fn json_test_supports_object_enumeration_semantics_with_overwrite_ordering_in_js
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["total"], 1);
-    assert_eq!(json["payload"]["passed"], 1);
-    assert_eq!(json["payload"]["failed"], 0);
-    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
-    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
-    assert_eq!(json["stdout"], "2\n");
-    assert_eq!(json["stderr"], "");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -11322,23 +11148,17 @@ fn json_test_supports_object_enumeration_semantics_with_overwrite_ordering_in_ts
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["total"], 1);
-    assert_eq!(json["payload"]["passed"], 1);
-    assert_eq!(json["payload"]["failed"], 0);
-    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
-    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
-    assert_eq!(json["stdout"], "2\n");
-    assert_eq!(json["stderr"], "");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -11354,10 +11174,15 @@ fn test_supports_set_and_map_constructor_iteration_in_js_input() {
         .output()
         .expect("run kali");
 
-    assert!(output.status.success());
-    assert_eq!(output.status.code(), Some(0));
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert_set_and_map_iteration(&stdout);
+    // Flipped pin: try/catch/finally is rejected fail-closed (E5506): kali has no
+    // exception machinery; the old lowering was an if-shaped miscompile that
+    // only looked correct while `throw` was a silent no-op.
+    assert!(
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -11375,19 +11200,16 @@ fn json_test_supports_set_and_map_constructor_iteration_in_js_input() {
         .output()
         .expect("run kali");
 
-    assert!(output.status.success());
-    assert_eq!(output.status.code(), Some(0));
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["schemaVersion"], 1);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    // Flipped pin: try/catch/finally is rejected fail-closed (E5506): kali has no
+    // exception machinery; the old lowering was an if-shaped miscompile that
+    // only looked correct while `throw` was a silent no-op.
     assert!(
-        json["stdout"]
-            .as_str()
-            .expect("stdout")
-            .contains("set and map constructor iteration ok"),
-        "json: {json}"
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -12854,10 +12676,15 @@ fn test_supports_set_and_map_constructor_iteration_in_browser_api_surface_with_h
         .output()
         .expect("run kali");
 
-    assert!(output.status.success());
-    assert_eq!(output.status.code(), Some(0));
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert_set_and_map_iteration(&stdout);
+    // Flipped pin: try/catch/finally is rejected fail-closed (E5506): kali has no
+    // exception machinery; the old lowering was an if-shaped miscompile that
+    // only looked correct while `throw` was a silent no-op.
+    assert!(
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -12879,19 +12706,16 @@ fn json_test_supports_set_and_map_constructor_iteration_in_browser_api_surface_w
         .output()
         .expect("run kali");
 
-    assert!(output.status.success());
-    assert_eq!(output.status.code(), Some(0));
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["schemaVersion"], 1);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
+    // Flipped pin: try/catch/finally is rejected fail-closed (E5506): kali has no
+    // exception machinery; the old lowering was an if-shaped miscompile that
+    // only looked correct while `throw` was a silent no-op.
     assert!(
-        json["stdout"]
-            .as_str()
-            .expect("stdout")
-            .contains("set and map constructor iteration ok"),
-        "json: {json}"
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -13866,23 +13690,17 @@ console.log(values.length);
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["total"], 1);
-    assert_eq!(json["payload"]["passed"], 1);
-    assert_eq!(json["payload"]["failed"], 0);
-    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
-    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
-    assert_eq!(json["stdout"], "4\n4\n4\n");
-    assert_eq!(json["stderr"], "");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -13940,23 +13758,17 @@ console.log(values.length);
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["total"], 1);
-    assert_eq!(json["payload"]["passed"], 1);
-    assert_eq!(json["payload"]["failed"], 0);
-    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
-    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
-    assert_eq!(json["stdout"], "4\n4\n4\n");
-    assert_eq!(json["stderr"], "");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -14520,15 +14332,16 @@ fn test_accepts_browser_api_surface_with_object_enumeration_in_js_input_when_a_b
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
-    assert!(stdout.contains("4\n4\n4"), "stdout: {stdout}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -14560,15 +14373,16 @@ fn test_accepts_inherited_browser_api_surface_with_object_enumeration_in_js_inpu
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
-    assert!(stdout.contains("4\n4\n4"), "stdout: {stdout}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -14592,15 +14406,16 @@ fn test_accepts_browser_api_surface_with_object_enumeration_in_ts_input_when_a_b
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
-    assert!(stdout.contains("4\n4\n4"), "stdout: {stdout}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -14632,15 +14447,16 @@ fn test_accepts_inherited_browser_api_surface_with_object_enumeration_in_ts_inpu
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
-    assert!(stdout.contains("4\n4\n4"), "stdout: {stdout}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -14664,15 +14480,16 @@ fn test_accepts_browser_api_surface_with_integer_like_object_enumeration_in_js_i
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
-    assert!(stdout.contains("4\n4\n4"), "stdout: {stdout}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -14704,15 +14521,16 @@ fn test_accepts_inherited_browser_api_surface_with_integer_like_object_enumerati
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
-    assert!(stdout.contains("4\n4\n4"), "stdout: {stdout}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -14736,15 +14554,16 @@ fn test_accepts_browser_api_surface_with_integer_like_object_enumeration_in_ts_i
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
-    assert!(stdout.contains("4\n4\n4"), "stdout: {stdout}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -14776,15 +14595,16 @@ fn test_accepts_inherited_browser_api_surface_with_integer_like_object_enumerati
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
-    assert!(stdout.contains("4\n4\n4"), "stdout: {stdout}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -15542,29 +15362,17 @@ fn json_test_supports_integer_like_object_enumeration_semantics_when_browser_har
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["total"], 1);
-    assert_eq!(json["payload"]["passed"], 1);
-    assert_eq!(json["payload"]["failed"], 0);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    assert!(
-        json["stdout"]
-            .as_str()
-            .expect("stdout")
-            .contains("4\n4\n4\n"),
-        "json: {json}"
-    );
-    assert_eq!(json["stderr"], "");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
@@ -15590,29 +15398,17 @@ fn json_test_supports_integer_like_object_enumeration_semantics_when_browser_har
         .output()
         .expect("run kali");
 
+    // Flipped pin: the fixture's array-literal-argument self-check preamble is rejected
+    // fail-closed (E5506): such arguments used to pass a zero placeholder, so
+    // callee element reads silently yielded 0. The checks behind the preamble
+    // never actually ran while `throw` was a no-op.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "must be rejected fail-closed: {output:?}"
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["total"], 1);
-    assert_eq!(json["payload"]["passed"], 1);
-    assert_eq!(json["payload"]["failed"], 0);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    assert!(
-        json["stdout"]
-            .as_str()
-            .expect("stdout")
-            .contains("4\n4\n4\n"),
-        "json: {json}"
-    );
-    assert_eq!(json["stderr"], "");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["errors"][0]["code"], "E5506");
 }
 
 #[test]
