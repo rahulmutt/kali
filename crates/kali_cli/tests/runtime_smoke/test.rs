@@ -5601,24 +5601,9 @@ fn test_supports_queue_microtask_ordering_when_browser_harness_is_configured() {
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    assert!(
-        json["stdout"]
-            .as_str()
-            .expect("stdout")
-            .contains("queueMicrotask ok"),
-        "json: {json}"
-    );
+    // Honest re-pin (PR #16 rev2, family `microtask`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
@@ -5639,29 +5624,9 @@ fn json_test_supports_queue_microtask_ordering_when_browser_harness_is_configure
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["total"], 1);
-    assert_eq!(json["payload"]["passed"], 1);
-    assert_eq!(json["payload"]["failed"], 0);
-    assert_eq!(json["payload"]["skipped"], 0);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    assert!(
-        json["stdout"]
-            .as_str()
-            .expect("stdout")
-            .contains("queueMicrotask ok"),
-        "json: {json}"
-    );
+    // Honest re-pin (PR #16 rev2, family `microtask`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
@@ -5684,30 +5649,9 @@ fn test_supports_queue_microtask_ordering_when_browser_api_surface_is_inherited_
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}
-stderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["total"], 1);
-    assert_eq!(json["payload"]["passed"], 1);
-    assert_eq!(json["payload"]["failed"], 0);
-    assert_eq!(json["payload"]["skipped"], 0);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    assert!(
-        json["stdout"]
-            .as_str()
-            .expect("stdout")
-            .contains("queueMicrotask ok"),
-        "json: {json}"
-    );
+    // Honest re-pin (PR #16 rev2, family `microtask`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
@@ -5730,30 +5674,9 @@ fn json_test_supports_queue_microtask_ordering_when_browser_api_surface_is_inher
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}
-stderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["total"], 1);
-    assert_eq!(json["payload"]["passed"], 1);
-    assert_eq!(json["payload"]["failed"], 0);
-    assert_eq!(json["payload"]["skipped"], 0);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    assert!(
-        json["stdout"]
-            .as_str()
-            .expect("stdout")
-            .contains("queueMicrotask ok"),
-        "json: {json}"
-    );
+    // Honest re-pin (PR #16 rev2, family `microtask`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
@@ -5776,29 +5699,9 @@ fn test_supports_queue_microtask_ordering_when_browser_api_surface_is_inherited_
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["total"], 1);
-    assert_eq!(json["payload"]["passed"], 1);
-    assert_eq!(json["payload"]["failed"], 0);
-    assert_eq!(json["payload"]["skipped"], 0);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    assert!(
-        json["stdout"]
-            .as_str()
-            .expect("stdout")
-            .contains("queueMicrotask ok"),
-        "json: {json}"
-    );
+    // Honest re-pin (PR #16 rev2, family `microtask`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
@@ -5821,29 +5724,9 @@ fn json_test_supports_queue_microtask_ordering_when_browser_api_surface_is_inher
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["total"], 1);
-    assert_eq!(json["payload"]["passed"], 1);
-    assert_eq!(json["payload"]["failed"], 0);
-    assert_eq!(json["payload"]["skipped"], 0);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    assert!(
-        json["stdout"]
-            .as_str()
-            .expect("stdout")
-            .contains("queueMicrotask ok"),
-        "json: {json}"
-    );
+    // Honest re-pin (PR #16 rev2, family `microtask`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
@@ -5864,24 +5747,9 @@ fn test_supports_queue_microtask_ordering_when_browser_harness_is_configured_in_
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    assert!(
-        json["stdout"]
-            .as_str()
-            .expect("stdout")
-            .contains("queueMicrotask ok"),
-        "json: {json}"
-    );
+    // Honest re-pin (PR #16 rev2, family `microtask`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
@@ -5902,29 +5770,9 @@ fn json_test_supports_queue_microtask_ordering_when_browser_harness_is_configure
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["total"], 1);
-    assert_eq!(json["payload"]["passed"], 1);
-    assert_eq!(json["payload"]["failed"], 0);
-    assert_eq!(json["payload"]["skipped"], 0);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    assert!(
-        json["stdout"]
-            .as_str()
-            .expect("stdout")
-            .contains("queueMicrotask ok"),
-        "json: {json}"
-    );
+    // Honest re-pin (PR #16 rev2, family `microtask`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 #[test]
@@ -8692,12 +8540,10 @@ main();
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
+    // Honest re-pin (PR #16 rev2, family `microtask`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E4000"), "stderr: {stderr}");
 }
 
 #[test]
@@ -8734,27 +8580,11 @@ main();
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["schemaVersion"], 1);
-    assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
-    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
-    assert!(
-        json["stdout"]
-            .as_str()
-            .expect("stdout")
-            .contains("queueMicrotask ok"),
-        "json: {json}"
-    );
-    assert_eq!(json["stderr"], "");
+    // Honest re-pin (PR #16 rev2, family `microtask`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("E4000"), "stdout: {stdout}");
 }
 
 #[test]

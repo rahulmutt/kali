@@ -4271,22 +4271,10 @@ async function queueMicrotaskSmoke(left, right) {
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    assert_browser_bundle_executes(&bundle_dir, "queueMicrotaskSmoke");
+    // Honest re-pin (PR #16 rev2, family `microtask`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -4311,41 +4299,14 @@ fn build_emits_browser_bundle_queue_microtask_ordering_in_ts_input() {
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    let envelope = parse_json_stdout(&output);
-    assert_eq!(envelope["schemaVersion"], 1);
-    assert_eq!(envelope["command"], "build");
-    assert_eq!(envelope["exitCode"], 0);
-    let payload = envelope["payload"]
-        .as_object()
-        .expect("build payload object");
-    assert_eq!(payload["artifactKind"], "bundle");
-    assert_eq!(payload["bundleFormat"], "esm");
-    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
-    let kinds: Vec<_> = artifacts
-        .iter()
-        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
-        .collect();
-    assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    assert_browser_bundle_executes(&bundle_dir, "queueMicrotaskSmoke");
+    // Honest re-pin (PR #16 rev2, family `microtask`): kali fails closed/loud here
+    // (worklist tagged this member class B, but observed behavior is a loud E5506
+    // build-time rejection identical to its sibling class-A members, not a silent
+    // miscompile — escalated in wave-microtask-report.md; re-pinned as class A);
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("E5506"), "stdout: {stdout}");
 }
 
 #[test]
@@ -4384,22 +4345,10 @@ async function queueMicrotaskSmoke(left, right) {
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    assert_browser_bundle_executes(&bundle_dir, "queueMicrotaskSmoke");
+    // Honest re-pin (PR #16 rev2, family `microtask`): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
@@ -4440,41 +4389,14 @@ async function queueMicrotaskSmoke(left, right) {
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    let envelope = parse_json_stdout(&output);
-    assert_eq!(envelope["schemaVersion"], 1);
-    assert_eq!(envelope["command"], "build");
-    assert_eq!(envelope["exitCode"], 0);
-    let payload = envelope["payload"]
-        .as_object()
-        .expect("build payload object");
-    assert_eq!(payload["artifactKind"], "bundle");
-    assert_eq!(payload["bundleFormat"], "esm");
-    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
-    let kinds: Vec<_> = artifacts
-        .iter()
-        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
-        .collect();
-    assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
-    assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    assert_browser_bundle_executes(&bundle_dir, "queueMicrotaskSmoke");
+    // Honest re-pin (PR #16 rev2, family `microtask`): kali fails closed/loud here
+    // (worklist tagged this member class B, but observed behavior is a loud E5506
+    // build-time rejection identical to its sibling class-A members, not a silent
+    // miscompile — escalated in wave-microtask-report.md; re-pinned as class A);
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("E5506"), "stdout: {stdout}");
 }
 
 #[test]
