@@ -61,9 +61,15 @@ fn supported_static_string_prefix_suffix_lowers_ascii_literals() {
     // `__streq` (throw-fallout Stage 1, also present in every module): the
     // identical-handles return, the len==0 return, the loop-increment
     // `i += 1`, and the all-bytes-equal result.
+    // + the Stage P4 Task 4 URLSearchParams scan synthetics (also present in
+    // every module): `__usp_get` = 1 (the `__streq`-match `== 1` compare);
+    // `__usp_has` = 2 (the compare + the `return 1` match); `__usp_getall` = 4
+    // (two passes × [compare + `count += 1`]); `__usp_set` = 3 (the compare +
+    // `found = 1`, PLUS `.matches` counts the `i64.const 16` grow term
+    // `cap*2*8` as a SUBSTRING of "i64.const 1"). Total new = 1+2+4+3 = 10.
     assert_eq!(
         printed.matches("i64.const 1").count(),
-        4 + 3 + 3 + 3 + 3 + 4,
+        4 + 3 + 3 + 3 + 3 + 4 + 1 + 2 + 4 + 3,
         "{printed}"
     );
     assert!(printed.contains("i64.const 0"), "{printed}");
@@ -101,9 +107,13 @@ fn supported_static_string_search_lowers_omitted_search_as_undefined() {
     // `__streq` (throw-fallout Stage 1, also present in every module): the
     // identical-handles return, the len==0 return, the loop-increment
     // `i += 1`, and the all-bytes-equal result.
+    // + the Stage P4 Task 4 URLSearchParams scan synthetics (also present in
+    // every module, module-invariant bodies): `__usp_get` = 1, `__usp_has` = 2,
+    // `__usp_getall` = 4, `__usp_set` = 3 (incl. the `i64.const 16` grow term
+    // counted as a "i64.const 1" SUBSTRING by `.matches`). Total new = 10.
     assert_eq!(
         printed.matches("i64.const 1").count(),
-        2 + 3 + 3 + 3 + 3 + 4,
+        2 + 3 + 3 + 3 + 3 + 4 + 1 + 2 + 4 + 3,
         "{printed}"
     );
     assert!(printed.contains("i64.const 6"), "{printed}");
