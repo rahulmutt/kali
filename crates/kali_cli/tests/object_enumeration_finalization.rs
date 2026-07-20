@@ -388,22 +388,15 @@ fn assert_object_enumeration_finalization(command: &str, filename: &str, source:
         .output()
         .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-
+    // Honest re-pin (PR #16 rev2): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
     let stdout = String::from_utf8_lossy(&output.stdout);
-    if command == "test" {
-        assert!(stdout.contains("ok 1"), "stdout: {stdout}");
-    } else {
-        assert!(
-            stdout.contains("object enumeration finalization ok"),
-            "stdout: {stdout}"
-        );
-    }
+    assert!(
+        stderr.contains("E5506") || stdout.contains("E5506"),
+        "stdout: {stdout}\nstderr: {stderr}"
+    );
 }
 
 #[test]

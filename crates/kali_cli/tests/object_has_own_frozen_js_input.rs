@@ -137,17 +137,65 @@ fn check_accepts_frozen_object_has_own_in_js_ts_jsx_tsx_input() {
     }
 }
 
+// Batch-local variant (PR #16 rev2, batch 7): `assert_frozen_object_has_own` above is shared
+// with `check_accepts_frozen_object_has_own_in_js_ts_jsx_tsx_input`, which is out of this batch
+// and currently green (the `check` command doesn't execute), so the shared helper is left
+// untouched. These 4 in-batch members (`run`/`test`, plain and json) all fail closed/loud:
+// the fixture's own self-check throws (`Uncaught Error: unexpected frozen Object.hasOwn
+// result`) and lowers to a wasm `error[E4000]` runtime trap, nonzero exit.
+fn assert_frozen_object_has_own_fails_closed<S: AsRef<str>>(
+    command: &str,
+    filename: &str,
+    source: S,
+    json_output: bool,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, source.as_ref()).expect("write source");
+
+    let mut output = Command::new(kali_bin());
+    output.current_dir(dir.path());
+    if json_output {
+        output.arg("--output").arg("json");
+    }
+    let output = output
+        .arg(command)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    // Honest re-pin (PR #16 rev2): kali fails closed/loud here;
+    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
+    assert!(!output.status.success(), "must fail closed: {output:?}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stderr.contains("E4000") || stdout.contains("E4000"),
+        "stdout: {stdout}\nstderr: {stderr}"
+    );
+}
+
 #[test]
 fn run_accepts_frozen_object_has_own_in_js_ts_jsx_tsx_input() {
     for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
-        assert_frozen_object_has_own("run", filename, frozen_object_has_own_source(), false);
+        assert_frozen_object_has_own_fails_closed(
+            "run",
+            filename,
+            frozen_object_has_own_source(),
+            false,
+        );
     }
 }
 
 #[test]
 fn json_run_accepts_frozen_object_has_own_in_js_ts_jsx_tsx_input() {
     for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
-        assert_frozen_object_has_own("run", filename, frozen_object_has_own_source(), true);
+        assert_frozen_object_has_own_fails_closed(
+            "run",
+            filename,
+            frozen_object_has_own_source(),
+            true,
+        );
     }
 }
 
@@ -159,7 +207,12 @@ fn test_accepts_frozen_object_has_own_in_js_ts_jsx_tsx_input() {
         "main.test.jsx",
         "main.test.tsx",
     ] {
-        assert_frozen_object_has_own("test", filename, frozen_object_has_own_test_source(), false);
+        assert_frozen_object_has_own_fails_closed(
+            "test",
+            filename,
+            frozen_object_has_own_test_source(),
+            false,
+        );
     }
 }
 
@@ -171,6 +224,11 @@ fn json_test_accepts_frozen_object_has_own_in_js_ts_jsx_tsx_input() {
         "main.test.jsx",
         "main.test.tsx",
     ] {
-        assert_frozen_object_has_own("test", filename, frozen_object_has_own_test_source(), true);
+        assert_frozen_object_has_own_fails_closed(
+            "test",
+            filename,
+            frozen_object_has_own_test_source(),
+            true,
+        );
     }
 }
