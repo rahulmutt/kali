@@ -979,6 +979,14 @@ tier, ordering is by blast radius.
 - **Mechanism hypothesis**: `split` is unimplemented and falls through to a default empty
   array rather than failing closed.
 - **Confidence**: high on behavior.
+- **STATUS 2026-07-20 (G6 item 4, shipped)**: PARTIALLY CLOSED. The runtime `.split()`
+  fallback is now in the Stream-A value-builtin deny-set (`split`) → E5506 fail-closed where
+  it reaches the terminal; the static-ASCII fold lane (`console.log("abc".split("")[0])` → `a`)
+  is preserved. RESIDUAL R-A4-4: the static-split element in a `+` concat position
+  (`"r=" + "abc".split("")[0]`) still leaks a raw tagged string-handle i64 (`-9223354436078796799`)
+  at exit 0 — a per-lane repr leak (G5-flavored), pre-existing, not closed. Note: the `split`
+  deny-set entry is belt-and-suspenders; the primary fail-close for constructible member forms
+  is upstream (`String.prototype.split` receiver guard).
 
 ### R-16: Per-method string-repr gap — `.slice()` / `.charAt()` / `.toUpperCase()` / `.repeat()` leak the handle in concat position
 
@@ -1095,6 +1103,14 @@ tier, ordering is by blast radius.
   which fails honestly** with `E3100: undefined identifier 'Number'`. Whatever makes `Number`
   fail closed is the behavior `String` should have.
 - **Confidence**: high on behavior (20+ transcripts, two sweeps, both scopes); low on mechanism.
+- **STATUS 2026-07-20 (G6 item 4, shipped `acfc9c87b`..`20790621c`)**: CLOSED for the canonical
+  spellings via the Stream-A value-builtin deny-set. `String(x)`, `x.toString()`, computed
+  `n["toString"]()`, and the concat/template/array/push/arg positions of `String(x)` now
+  fail closed E5506 (several of these were silent-0 before and were CLOSED by this work).
+  Program-defined same-name functions are unaffected (gate-1 pre-empts the deny-set).
+  RESIDUALS (pre-existing NAME-deny-set leaks, NOT closed — closable only by an allowlist at
+  the resolve choke point, Group 3): R-A4-1 `globalThis.String(x)` → silent `0`; R-A4-2
+  `globalThis["String"](x)` → silent `0`. New pin file: `crates/kali_cli/tests/soundness_unimplemented_builtins.rs`.
 
 ### R-20: `JSON.stringify(x)` silently returns `0` for every input
 
@@ -1112,6 +1128,12 @@ tier, ordering is by blast radius.
   **highest-value structural suspicion**: one choke-point fix (make unknown builtin calls fail
   closed) would convert R-19, R-20 and R-15 from silent-wrong into honest errors at once.
 - **Confidence**: high on behavior; low on mechanism.
+- **STATUS 2026-07-20 (G6 item 4, shipped)**: CLOSED for the canonical spellings via the
+  Stream-A deny-set. `JSON.stringify(o)` and computed `JSON["stringify"](o)` fail closed
+  E5506 (JSON-receiver-gated). RESIDUAL R-A4-3 (pre-existing): an ALIASED receiver
+  `const j = JSON; j.stringify(o)` escapes the receiver gate → silent `0` at exit 0
+  (Group-3 allowlist-at-resolve). NOTE: the E5506 message names the callee `stringify`
+  (not `JSON.stringify`) — cosmetic.
 
 ### R-21: There is no `undefined` value — absent, void and `undefined` reads render as `0` or `false`
 
@@ -1207,6 +1229,14 @@ tier, ordering is by blast radius.
 - **Mechanism hypothesis**: `Object.freeze(x)` is modelled purely as an identity wrapper for
   intrinsic-hardening recognition and never given write-barrier semantics.
 - **Confidence**: high on behavior; medium on mechanism.
+- **STATUS 2026-07-20 (G6 item 4)**: DEFERRED — NOT closed. Attempted under Stream C; the
+  plan's escape hatch fired. A receiver-SHAPE-only classifier cannot distinguish the unsound
+  `Object.freeze(o); o.x=99` (write leaks) from the SOUND `Object.freeze(o); …read-only /
+  Object.is / Reflect.ownKeys` — both are a bare program-bound object identifier at the freeze
+  site. Failing closed on the shape regressed `object_is_freeze.rs` (8→0) and 7 lib passthrough
+  tests (Object.is alias-chain / Reflect.ownKeys const-bound-iterable). Cleanly separating them
+  needs the write-barrier/dataflow analysis the fail-closed direction forbids. Becomes its own
+  follow-up plan (ledger item 8). R-24 STAYS OPEN.
 
 ### R-25: Array spread `[...a]` yields `len=1` and element `0`
 
@@ -1224,6 +1254,18 @@ tier, ordering is by blast radius.
   CLOSED (`E5506`).
 - **Severity**: silent-wrong-value.
 - **Confidence**: high on behavior.
+- **STATUS 2026-07-20 (G6 item 4, shipped `acfc9c87b`)**: PARTIALLY CLOSED. `[...a]` now fails
+  closed E5506 at the guarded fold sites: `.length` fold + numeric-index fold
+  (`emit/operators.rs`), the static-slice resolver (`emit/call.rs`), and the console static
+  length-render (`intrinsics/host.rs`); object spread `{...o}` already failed closed.
+  RESIDUAL (pre-existing, NOT closed — `array_literal_contains_spread` is consulted at only ~4
+  of ~30 `is_array_literal` consumers, so `is_array_literal` still returns true for a spread
+  literal at the unguarded sites): `console.log([...a])` → `0` at exit 0 (node `[ 1, 2 ]`);
+  `new Map([...a])` / `new Set([...a])` → `size=0` at exit 0. A fuller close is the
+  choke-point form (a single shared spread guard across the ~30 consumers, or make
+  `is_array_literal`'s consumers spread-aware) — deferred as a Group-3-style follow-up; the
+  per-site guarding is itself the "denylist of shapes leaks" pattern. New pin file:
+  `crates/kali_cli/tests/soundness_array_spread.rs`.
 
 ### R-26: Unary `+` on a non-numeric string yields garbage integers instead of `NaN`
 
@@ -1599,6 +1641,15 @@ act on, so each cluster states plainly what would raise its confidence.
 
 - **Members**: R-19 (`String`/`toString` → `0`), R-20 (`JSON.stringify` → `0`), R-15 (`split`
   → empty array), R-24 (`Object.freeze` → identity), R-25 (array spread → `len=1`).
+- **STATUS 2026-07-20 (G6 item 4 shipped)**: R-19/R-20 CLOSED for canonical spellings; R-15
+  runtime lane deny-set-closed (static concat leak residual R-A4-4); R-25 PARTIALLY closed
+  (fold sites only); R-24 DEFERRED (needs write-barrier/dataflow, not a fold gate). NET
+  mechanism = a value-builtin DENY-SET at emit_call's terminal fallback with warn+0 as the
+  restored default — NOT the "one choke-point fix makes all unknown builtins fail closed"
+  originally hypothesized (measurement proved the terminal is a SHARED choke point also reached
+  by ~300 unresolved-import calls + ~50 host fail-soft surfaces → a 361-test blast radius;
+  see the SDD ledger G6 section). RESIDUAL denylist leaks R-A4-1..3 (globalThis-qualified /
+  aliased receivers) closable only by an allowlist at the resolve choke point (Group 3).
 - **Signature**: a builtin that is not implemented produces a type-plausible zero value rather
   than a diagnostic.
 - **The discriminating control already exists**: `Number(...)` fails **honestly** with
@@ -1813,7 +1864,7 @@ applied at different sites.
 
 | # | entry | effort | risk | note |
 |---|---|---|---|---|
-| 4 | **G6 / R-19, R-20, R-15, R-25** unknown builtins fold to `0` | small | low | **Do the cluster experiment first** (§3 G6): call an absent-but-plausible builtin and see whether it yields `0` or `E3100`. If one choke point routes them, a single "unknown builtin ⇒ fail closed" edit converts four entries from silent-wrong to honest errors. Highest structural payoff for the effort in this document. |
+| 4 | **G6 / R-19, R-20, R-15, R-25** unknown builtins fold to `0` | small | low | **Do the cluster experiment first** (§3 G6): call an absent-but-plausible builtin and see whether it yields `0` or `E3100`. If one choke point routes them, a single "unknown builtin ⇒ fail closed" edit converts four entries from silent-wrong to honest errors. Highest structural payoff for the effort in this document. — DONE 2026-07-20 (partial: R-19/R-20 canonical + R-15 + R-25 folds; R-24 deferred to Group-3/own-plan). See SDD ledger G6 section + R-A4-1..5 residuals. |
 | 5 | **R-11** bitwise compound assignment | small | low | Write-back is simply missing. Fix the lowering; where a target is not admitted, route it to the same `E5506` the arithmetic sibling already emits, rather than adding shapes to a denylist. |
 | 6 | **R-09** `continue` skips the `for` update | small | low–medium | Add a dedicated continue target before the update expression. Self-contained; `while`/`do-while`/`for…of` are already correct and give a reference lowering. |
 | 7 | **R-16** per-method string repr arms | small | low | Add the missing `Repr::String` arms in `kali_types/src/static_analysis/string.rs` for `slice`/`charAt`/`toUpperCase`/`repeat`, mirroring `substring`. **But this is the hand-mirrored-oracle hazard itself**: prefer a structural change that makes the two tables impossible to desynchronize over adding four arms that the next method will again omit. |
