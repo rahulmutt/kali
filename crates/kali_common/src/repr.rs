@@ -38,6 +38,18 @@ pub enum Repr {
     /// allowlisted at the read site; unproven flows keep the I64 default
     /// and every abort operation on them fails closed.
     AbortHandle,
+    /// Pointer (i64) to an arena-allocated fixed 6-slot `URL` struct
+    /// (Stage P4): slots `[href][origin][pathname][search][hash][searchParams]`
+    /// at byte offsets 0/8/16/24/32/40. First five are interned string
+    /// handles; the sixth is a `UrlSearchParams` handle. Built once from a
+    /// compile-time-parsed string literal; immutable. Provenance-distinguished
+    /// exactly like `AbortHandle` — allowlisted at read sites, else fail closed.
+    Url,
+    /// Handle (i64, `ARRAY_HANDLE_TAG`) to a growable pair-store holding
+    /// interned/runtime string handles interleaved `[k0,v0,k1,v1,…]`
+    /// (Stage P4 `URLSearchParams`). The only mutable structure in the stage;
+    /// methods are synthetic guest fns over `__streq` + growable scan/push.
+    UrlSearchParams,
 }
 
 /// Representation decisions for a whole program, keyed by function + binding.
@@ -121,6 +133,8 @@ pub struct ReprTable {
     any_float: bool,
     any_string: bool,
     any_abort_handle: bool,
+    any_url: bool,
+    any_url_search_params: bool,
     /// `(func, binding)` scalars/params whose `Repr::String` value is a FRESH
     /// runtime `string_concat` handle (reachable from a `+`, interpolated
     /// template, or string `+=`), NOT an interned literal constant. Codegen may
@@ -196,6 +210,12 @@ impl ReprTable {
         if repr == Repr::AbortHandle {
             self.any_abort_handle = true;
         }
+        if repr == Repr::Url {
+            self.any_url = true;
+        }
+        if repr == Repr::UrlSearchParams {
+            self.any_url_search_params = true;
+        }
         self.scalars
             .insert((func.to_string(), binding.to_string()), repr);
     }
@@ -209,6 +229,12 @@ impl ReprTable {
         }
         if repr == Repr::AbortHandle {
             self.any_abort_handle = true;
+        }
+        if repr == Repr::Url {
+            self.any_url = true;
+        }
+        if repr == Repr::UrlSearchParams {
+            self.any_url_search_params = true;
         }
         self.array_elements
             .insert((func.to_string(), binding.to_string()), repr);
@@ -224,6 +250,12 @@ impl ReprTable {
         if repr == Repr::AbortHandle {
             self.any_abort_handle = true;
         }
+        if repr == Repr::Url {
+            self.any_url = true;
+        }
+        if repr == Repr::UrlSearchParams {
+            self.any_url_search_params = true;
+        }
         self.returns.insert(func.to_string(), repr);
     }
 
@@ -236,6 +268,12 @@ impl ReprTable {
         }
         if repr == Repr::AbortHandle {
             self.any_abort_handle = true;
+        }
+        if repr == Repr::Url {
+            self.any_url = true;
+        }
+        if repr == Repr::UrlSearchParams {
+            self.any_url_search_params = true;
         }
         self.params.insert((func.to_string(), index), repr);
     }
@@ -436,6 +474,8 @@ impl ReprTable {
         !self.any_float
             && !self.any_string
             && !self.any_abort_handle
+            && !self.any_url
+            && !self.any_url_search_params
             && self.shapes.is_empty()
             && self.shape_conflicts.is_empty()
     }
@@ -596,6 +636,24 @@ mod abort_handle_repr_tests {
         assert_eq!(table.scalar("_start", "c"), Repr::AbortHandle);
         // An abort handle is an i64 pointer whose positions must be gated;
         // codegen must never take the all-i64 fast path past it.
+        assert!(!table.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod url_repr_tests {
+    use super::{Repr, ReprTable};
+
+    #[test]
+    fn url_and_usp_scalars_defeat_the_all_i64_fast_path() {
+        let mut table = ReprTable::default();
+        assert!(table.is_empty());
+        table.set_scalar("_start", "u", Repr::Url);
+        table.set_scalar("_start", "q", Repr::UrlSearchParams);
+        assert_eq!(table.scalar("_start", "u"), Repr::Url);
+        assert_eq!(table.scalar("_start", "q"), Repr::UrlSearchParams);
+        // Both are i64 handles whose positions must be gated; codegen must
+        // never take the all-i64 fast path past them.
         assert!(!table.is_empty());
     }
 }

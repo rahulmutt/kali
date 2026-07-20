@@ -15,7 +15,10 @@ pub(crate) fn wasm_type(repr: kali_common::Repr) -> wasm_encoder::ValType {
         // handle repr — no new storage width needed.
         | kali_common::Repr::GrowableArrayI64
         // AbortHandle is an i64 pointer to an abort cell (Stage P3); same slot.
-        | kali_common::Repr::AbortHandle => wasm_encoder::ValType::I64,
+        | kali_common::Repr::AbortHandle
+        // URL struct pointer and USP growable handle — both one i64 slot.
+        | kali_common::Repr::Url
+        | kali_common::Repr::UrlSearchParams => wasm_encoder::ValType::I64,
     }
 }
 
