@@ -3260,8 +3260,23 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
-        if self.keep_warn_placeholder_lowering(node, &callee_node, callee_name) {
-            self.push_placeholder_fallback_diagnostic("call target", callee_name);
+        // Positive DENY-SET: a small set of recognized value-builtins that have
+        // no implemented lowering and, when their result is consumed, silently
+        // evaluate to 0 (R-19/R-20/R-15). Only these fail closed; everything
+        // else keeps the historical warn+0 escape hatch (below), so unresolved
+        // cross-package import calls and unimplemented host/web-platform
+        // surfaces are unaffected (Group 3 owns their surface-aware policy).
+        // A2's deny-by-default at this terminal had a 361-test blast radius;
+        // this narrows it back to the value-builtins actually pinned fail-closed.
+        if self.deny_placeholder_lowering(&callee_node, callee_name) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "calling '{callee_name}' is unavailable in the current phase: it is a recognized \
+                     builtin with no implemented lowering, so evaluating it would silently return 0; \
+                     use explicit literals or the later compatibility path — failing closed instead"
+                ),
+            ));
             for _ in node.children.iter().skip(1) {
                 function.instruction(&Instruction::Drop);
             }
@@ -3272,19 +3287,15 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
-        // Terminal fallback: a callee that reached here is neither a compiled
-        // function (denied above) nor an admitted fail-soft surface. Historically
-        // this warned and returned `i64.const 0`, which silently miscompiled
-        // String()/toString()/JSON.stringify()/runtime-split. Fail closed instead;
-        // the fail-soft surfaces are admitted by keep_warn_placeholder_lowering above.
-        self.diagnostics.push(Diagnostic::error(
-            e5::FEATURE_UNAVAILABLE as u32,
-            format!(
-                "calling '{callee_name}' is unavailable in the current phase: it is a recognized \
-                 builtin with no implemented lowering, so evaluating it would silently return 0; \
-                 use explicit literals or the later compatibility path — failing closed instead"
-            ),
-        ));
+        // Terminal fallback (DEFAULT): warn + `i64.const 0`. The historical
+        // compatibility escape hatch for a callee that is neither a compiled
+        // function (denied above) nor a denied value-builtin — an unresolved
+        // cross-package import call or an unimplemented host surface. It keeps
+        // those building through the placeholder until import-linking /
+        // surface-aware deferral (Group 3) lands. The deferred-registration
+        // surfaces (setTimeout/addEventListener/…) that gate-1 admits also land
+        // here and keep their ratified drop-the-callback behavior.
+        self.push_placeholder_fallback_diagnostic("call target", callee_name);
         for _ in node.children.iter().skip(1) {
             function.instruction(&Instruction::Drop);
         }
@@ -3295,30 +3306,52 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    /// The fail-soft allowlist: callee shapes that KEEP the historical warn+0
-    /// lowering because dropping the call is the ratified behavior (deferred
-    /// scheduling/event registration) or an acceptance-proven host no-op. This is
-    /// a POSITIVE allowlist — an unrecognized callee is NOT admitted here; it
-    /// reaches the E5506 fallback. Populated by the gate-convergence loop (each
-    /// entry names the fixture that requires it).
-    fn keep_warn_placeholder_lowering(
-        &self,
-        node: &LirNode,
-        callee_node: &LirNode,
-        callee_name: &str,
-    ) -> bool {
-        // Deferred-registration surfaces whose non-capturing callback is provably
-        // safe to drop (setTimeout(cb,0), addEventListener, ...). Same proof used
-        // at the arg-scan carve-out (call.rs:3336).
-        if is_deferred_registration_surface(callee_name)
-            && self.scheduling_call_args_provably_safe(node)
-        {
-            return true;
+    /// The positive DENY-SET for the terminal `emit_call` fallback: recognized
+    /// value-builtins with no implemented lowering that, when consumed, silently
+    /// evaluate to `0` (R-19/R-20/R-15). Returning true fails the call closed
+    /// (E5506) instead of the warn+0 default.
+    ///
+    /// This is deliberately a SMALL positive set, NOT a denylist of every
+    /// unknown callee: unresolved cross-package import calls and unimplemented
+    /// host/web-platform surfaces keep the warn+0 escape hatch (Group 3 owns
+    /// their surface-aware policy).
+    ///
+    /// Program-collision safety: gate-1
+    /// (`call_target_keeps_placeholder_lowering`) has already failed closed
+    /// before this point if a program-defined function of the same name might be
+    /// involved (a free name the program binds, or a member/element whose
+    /// property any literal binds to a function). So a callee reaching here with
+    /// one of these names denotes the intrinsic builtin, not a program value.
+    fn deny_placeholder_lowering(&self, callee_node: &LirNode, callee_name: &str) -> bool {
+        match callee_name {
+            // Free-name coercion calls: `String(x)` / `Boolean(x)`. A bare-
+            // identifier callee (no children); gate-1 denied any program binding
+            // of the name, so this is the intrinsic global. Both node-verified
+            // silent-0 when consumed (`String(42)`→0 not "42"; `Boolean(1)`→0
+            // not true). `Number` is NOT here: it fails at E3100 resolve as an
+            // undefined identifier and never reaches this terminal — probed.
+            "String" | "Boolean" => callee_node.children.is_empty(),
+            // Member calls: `x.toString()` and runtime `x.split(...)`. The
+            // static-ASCII `split` fold lands UPSTREAM and never reaches here, so
+            // `"abc".split("")[0]` is preserved. A member callee has a receiver
+            // child; gate-1 denied any program object literal binding a function
+            // to these property names.
+            "toString" | "split" => !callee_node.children.is_empty(),
+            // `JSON.stringify(o)` only — the receiver must be the `JSON`
+            // intrinsic, so a program object's `.stringify` is not caught here.
+            "stringify" => self.member_receiver_is_named(callee_node, "JSON"),
+            _ => false,
         }
-        let _ = callee_node;
-        // Host fail-soft no-op surfaces required by acceptance/golden fixtures.
-        // (Populated in Task A3. Each addition MUST name the fixture in a comment.)
-        false
+    }
+
+    /// True when `callee_node` is a member access whose receiver is the bare
+    /// free identifier `name` (e.g. `JSON.stringify` → receiver `JSON`).
+    fn member_receiver_is_named(&self, callee_node: &LirNode, name: &str) -> bool {
+        let Some(&receiver) = callee_node.children.first() else {
+            return false;
+        };
+        let receiver_node = self.node(receiver);
+        receiver_node.children.is_empty() && receiver_node.text.as_deref() == Some(name)
     }
 
     /// The Fix 5 allowlist: callee shapes that keep the historical

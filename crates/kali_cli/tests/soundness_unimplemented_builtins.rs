@@ -1,9 +1,12 @@
-//! Soundness pins for R-19/R-20/R-15 (Stream A): String()/x.toString()/
-//! JSON.stringify()/runtime-split slipped past emit_call's E5506 deny and
-//! landed on the terminal warning+`i64.const 0` placeholder (call.rs:3263),
-//! returning 0 at exit 0. The fix inverts that fallback to fail-closed-by-
-//! default (E5506) with a positive keep-warn+0 allowlist for genuinely
-//! fail-soft surfaces. The static-fold lanes upstream of the fallback (split
+//! Soundness pins for R-19/R-20/R-15 (Stream A): String()/Boolean()/
+//! x.toString()/JSON.stringify()/runtime-split slipped past emit_call's E5506
+//! deny and landed on the terminal warning+`i64.const 0` placeholder,
+//! returning 0 at exit 0. The fix (Task A2b) fails those closed via a small
+//! POSITIVE deny-set (`deny_placeholder_lowering`) at that terminal, while the
+//! warn+0 escape hatch stays the DEFAULT for everything else (unresolved
+//! cross-package imports + unimplemented host surfaces), so the deny is narrow
+//! (Number() is not in it — it fails at E3100 resolve, never reaching the
+//! terminal). The static-fold lanes upstream of the fallback (split
 //! static-ASCII, static toString) are preserved. Every expected value from node v26.
 
 use std::process::Command;
@@ -77,6 +80,14 @@ fn json_stringify_fails_closed() {
         r#"const o={f:1}; console.log("r="+JSON.stringify(o));"#,
         "unavailable",
     );
+}
+
+#[test]
+fn boolean_call_fails_closed() {
+    // node: r=true. Pre-fix kali: r=0 at exit 0 (silent-0 coercion, same class
+    // as String()). Number() is NOT pinned: it fails at E3100 resolve as an
+    // undefined identifier and never reaches the terminal call fallback.
+    assert_fails_closed(r#"const x=1; console.log("r="+Boolean(x));"#, "unavailable");
 }
 
 #[test]
