@@ -4763,22 +4763,25 @@ main();
         .output()
         .expect("run kali");
 
+    // Task A2b fail-closed flip: the source `console.log(String(value))`. Pre-A2b
+    // `String()` silently lowered to 0 (the stdout "0" this used to accept was the
+    // fake-green placeholder), so the browser-harness run succeeded. `String` is
+    // now in the terminal deny-set, so kali fails the build closed (E5506).
+    // node: `String(0n)` -> "0" via a real coercion kali cannot lower.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
+        !output.status.success(),
+        "expected fail-closed on String(): stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "run");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["exitCode"], 0);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    let combined = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
     assert!(
-        json["stdout"].as_str().expect("stdout").contains("0"),
-        "json: {json}"
+        combined.contains("E5506") && combined.contains("String"),
+        "expected E5506 for 'String', got: {combined}"
     );
 }
 
@@ -4820,14 +4823,22 @@ main();
         .output()
         .expect("run kali");
 
+    // Task A2b fail-closed flip: the source `console.log(String(value))`. Pre-A2b
+    // `String()` silently lowered to 0 (the stdout "0" this used to accept was the
+    // fake-green placeholder), so the browser-harness run succeeded. `String` is
+    // now in the terminal deny-set, so kali fails the build closed (E5506).
+    // node: `String(0n)` -> "0" via a real coercion kali cannot lower.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
+        !output.status.success(),
+        "expected fail-closed on String(): stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("0"), "stdout: {stdout}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("E5506") && stderr.contains("String"),
+        "expected E5506 for 'String', got stderr: {stderr}"
+    );
 }
 
 #[test]
@@ -4873,20 +4884,25 @@ Kali.test('browser runtime smoke', () => {});
         .output()
         .expect("run kali");
 
+    // Task A2b fail-closed flip: the source `console.log(String(value))`. Pre-A2b
+    // `String()` silently lowered to 0 (the stdout "0" this used to accept was the
+    // fake-green placeholder), so the browser-harness run succeeded. `String` is
+    // now in the terminal deny-set, so kali fails the build closed (E5506).
+    // node: `String(0n)` -> "0" via a real coercion kali cannot lower.
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
+        !output.status.success(),
+        "expected fail-closed on String(): stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "run");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    let combined = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
     assert!(
-        json["stdout"].as_str().expect("stdout").contains("0"),
-        "json: {json}"
+        combined.contains("E5506") && combined.contains("String"),
+        "expected E5506 for 'String', got: {combined}"
     );
 }
 

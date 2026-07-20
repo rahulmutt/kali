@@ -3775,6 +3775,15 @@ fn json_build_emits_browser_bundle_crypto_web_apis_in_js_input() {
     assert_browser_bundle_executes(&bundle_dir, "digestSmoke");
 }
 
+// Task A2b fail-closed flip (all four web-baseline bundle tests below):
+// `browser_bundle_web_baseline_source()` calls `String(...)` and
+// `JSON.stringify(...)`, now in the terminal deny-set. Pre-A2b those silently
+// lowered to 0 so the bundle build succeeded (fake-green on a String()->0
+// placeholder); kali now fails the build closed (E5506). node: they are real
+// coercions kali has no lowering for. The other web-platform surfaces in the
+// same fixture (structuredClone/AbortController/URLSearchParams/URL/
+// TextEncoder) correctly keep the warn+0 escape hatch (proven by the E3100
+// URLSearchParams warning that precedes the E5506).
 #[test]
 fn build_emits_browser_bundle_web_baseline_primitives() {
     let dir = tempdir().expect("tempdir");
@@ -3791,15 +3800,14 @@ fn build_emits_browser_bundle_web_baseline_primitives() {
         .output()
         .expect("run kali");
 
-    // Flipped pin (evaluation-trap layering): in/instanceof are runtime
-    // traps, not compile rejects, so the bundle BUILD must succeed —
-    // analysis and builds of code containing them stay usable (the browser
-    // package corpus pins this). Executing the smoke entrypoint traps
-    // fail-closed; that behavior is pinned by soundness_in_operator.rs and
-    // the run/test variants of this family.
     assert!(
-        output.status.success(),
-        "bundle build must succeed: {output:?}"
+        !output.status.success(),
+        "expected fail-closed on String/JSON.stringify: {output:?}"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("E5506") && stderr.contains("String"),
+        "expected E5506 for 'String', got stderr: {stderr}"
     );
 }
 
@@ -3819,15 +3827,14 @@ fn build_emits_browser_bundle_web_baseline_primitives_in_js_input() {
         .output()
         .expect("run kali");
 
-    // Flipped pin (evaluation-trap layering): in/instanceof are runtime
-    // traps, not compile rejects, so the bundle BUILD must succeed —
-    // analysis and builds of code containing them stay usable (the browser
-    // package corpus pins this). Executing the smoke entrypoint traps
-    // fail-closed; that behavior is pinned by soundness_in_operator.rs and
-    // the run/test variants of this family.
     assert!(
-        output.status.success(),
-        "bundle build must succeed: {output:?}"
+        !output.status.success(),
+        "expected fail-closed on String/JSON.stringify: {output:?}"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("E5506") && stderr.contains("String"),
+        "expected E5506 for 'String', got stderr: {stderr}"
     );
 }
 
@@ -3849,18 +3856,17 @@ fn json_build_emits_browser_bundle_web_baseline_primitives() {
         .output()
         .expect("run kali");
 
-    // Flipped pin (evaluation-trap layering): in/instanceof are runtime
-    // traps, not compile rejects, so the bundle BUILD must succeed —
-    // analysis and builds of code containing them stay usable (the browser
-    // package corpus pins this). Executing the smoke entrypoint traps
-    // fail-closed; that behavior is pinned by soundness_in_operator.rs and
-    // the run/test variants of this family.
     assert!(
-        output.status.success(),
-        "bundle build must succeed: {output:?}"
+        !output.status.success(),
+        "expected fail-closed on String/JSON.stringify: {output:?}"
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("E5506") && stdout.contains("String"),
+        "expected E5506 for 'String' in json errors, got: {stdout}"
+    );
 }
 
 #[test]
@@ -3881,18 +3887,17 @@ fn json_build_emits_browser_bundle_web_baseline_primitives_in_js_input() {
         .output()
         .expect("run kali");
 
-    // Flipped pin (evaluation-trap layering): in/instanceof are runtime
-    // traps, not compile rejects, so the bundle BUILD must succeed —
-    // analysis and builds of code containing them stay usable (the browser
-    // package corpus pins this). Executing the smoke entrypoint traps
-    // fail-closed; that behavior is pinned by soundness_in_operator.rs and
-    // the run/test variants of this family.
     assert!(
-        output.status.success(),
-        "bundle build must succeed: {output:?}"
+        !output.status.success(),
+        "expected fail-closed on String/JSON.stringify: {output:?}"
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("E5506") && stdout.contains("String"),
+        "expected E5506 for 'String' in json errors, got: {stdout}"
+    );
 }
 
 /// Stage D event lane, browser glue end-to-end: the bundle's JS import list
