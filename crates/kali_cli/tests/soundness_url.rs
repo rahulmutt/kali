@@ -96,3 +96,50 @@ fn non_literal_url_arg_fails_closed() {
     let out = run_kali(src);
     assert!(!out.status.success(), "must fail closed: {out:?}");
 }
+
+// --- Task 4: URLSearchParams query/mutation methods + composition -----------
+
+#[test]
+fn usp_get_returns_first_value() {
+    let src = "const q = new URLSearchParams('alpha=1&beta=two+words');\nconsole.log(q.get('alpha'));\nconsole.log(q.get('beta'));\n";
+    assert_eq!(run_kali_run(src).trim(), "1\ntwo words");
+}
+
+#[test]
+fn usp_set_replaces_and_get_reflects_dynamic_value() {
+    // Brief authored this with `String(count)`, but `String(x)` is fail-closed
+    // on this branch (the G6 value-builtin deny-set: `{String,Boolean,toString,
+    // split,JSON.stringify}` — a deliberate, shipped deny). The runtime int→
+    // string concat coercion `'' + count` is the equivalent SUPPORTED dynamic-
+    // string primitive: it produces the same runtime-computed string "7" (not a
+    // const-fold — `q.set`/`q.get` are runtime scans), preserving the test's
+    // intent (a dynamic value flows through `set` and `get` reflects it, and a
+    // duplicate-free single entry via `getAll(...).length == 1`). Verified
+    // byte-for-byte against `node`.
+    let src = "let count = 7;\nconst q = new URLSearchParams('alpha=1&beta=x');\nq.set('beta', '' + count);\nconsole.log(q.get('beta'));\nconsole.log(q.getAll('beta').length);\n";
+    assert_eq!(run_kali_run(src).trim(), "7\n1");
+}
+
+#[test]
+fn usp_append_and_has() {
+    // Dynamic booleans render `1`/`0` (the P3-ratified convention — see
+    // `soundness_abort::aborted_flag_reads_zero_then_one`; node prints
+    // true/false, a documented divergence never used in byte-for-byte
+    // acceptance). `.has` flows through the same boolean-print lane as
+    // `.aborted`, so it renders `1`/`0` too.
+    let src = "const q = new URLSearchParams('alpha=1');\nq.append('gamma', 'g');\nconsole.log(q.has('gamma'));\nconsole.log(q.has('nope'));\n";
+    assert_eq!(run_kali_run(src).trim(), "1\n0");
+}
+
+#[test]
+fn url_search_params_composition_get() {
+    let src = "const u = new URL('https://example.com/browser?alpha=1#fragment');\nconsole.log(u.searchParams.get('alpha'));\n";
+    assert_eq!(run_kali_run(src).trim(), "1");
+}
+
+#[test]
+fn unknown_method_on_usp_fails_closed() {
+    let src = "const q = new URLSearchParams('a=1');\nq.sort();\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}

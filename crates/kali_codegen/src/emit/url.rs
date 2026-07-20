@@ -19,7 +19,18 @@
 //! string handles.
 
 use crate::*;
-use wasm_encoder::{Function, Instruction, MemArg};
+use wasm_encoder::{BlockType, Function, Instruction, MemArg};
+
+/// The receiver of a recognized URLSearchParams method call (Stage P4 Task 4):
+/// a bare proven USP binding, or `<url-ident>.searchParams`. Each carries the
+/// LIR node the store handle is emitted from (see [`FunctionEmitter::usp_receiver`]).
+pub(crate) enum UspReceiver {
+    /// Bare proven USP binding — the carried node is the USP identifier.
+    Named(LirNodeId),
+    /// `<url>.searchParams` — the carried node is the URL base; a slot-5 load
+    /// after emitting it yields the embedded USP store handle.
+    OfUrl(LirNodeId),
+}
 
 /// A recognized URL component member read. Five yield an interned string
 /// handle; `SearchParams` yields the embedded USP handle.
@@ -230,6 +241,251 @@ impl<'a> FunctionEmitter<'a> {
     /// Slot index for a URL member (exposed for the component-read emit arm).
     pub(crate) fn url_member_slot(member: &UrlMember) -> u64 {
         member.slot()
+    }
+
+    /// The receiver of a method call recognized as a URLSearchParams: either a
+    /// bare proven USP binding, or `<url-ident>.searchParams`. Both variants
+    /// carry the LIR node whose emit (through the admit path) yields the store
+    /// handle — `Named` the USP identifier node, `OfUrl` the URL base node
+    /// (whose slot-5 load then yields the embedded USP). (The brief's
+    /// `Named(String)` is realized as the ident NODE so `emit_usp_store_handle`
+    /// can route both through the single `emit_url_receiver_handle` admit path.)
+    pub(crate) fn usp_receiver(&self, callee_node: &LirNode) -> Option<UspReceiver> {
+        let recv = callee_node.children.first().copied()?;
+        let rn = self.node(recv);
+        if rn.children.is_empty() {
+            let name = rn.text.as_deref()?;
+            return self
+                .is_url_search_params(name)
+                .then_some(UspReceiver::Named(recv));
+        }
+        if let Some((base_id, UrlMember::SearchParams)) = self.url_member_read_parts(recv) {
+            return Some(UspReceiver::OfUrl(base_id));
+        }
+        None
+    }
+
+    /// Emit the USP store handle (the tagged growable pair-store, i64) onto the
+    /// stack. Both variants flow through the single position-allowlist entry
+    /// point `emit_url_receiver_handle` (which sets `admit_url_handle_read`),
+    /// so the composition reaches slot 5 WITHOUT going through the (denying)
+    /// bare component-read arm in `control_flow.rs`.
+    pub(crate) fn emit_usp_store_handle(&mut self, function: &mut Function, recv: &UspReceiver) {
+        match recv {
+            UspReceiver::Named(ident) => {
+                let handle = self.emit_url_receiver_handle(function, *ident);
+                if !handle.produced {
+                    function.instruction(&Instruction::I64Const(0));
+                }
+            }
+            UspReceiver::OfUrl(base_id) => {
+                let handle = self.emit_url_receiver_handle(function, *base_id);
+                if !handle.produced {
+                    function.instruction(&Instruction::I64Const(0));
+                }
+                self.emit_url_slot_load(function, 5);
+            }
+        }
+    }
+
+    /// `q.append(k, v)` inline growable push of ONE element onto the USP store
+    /// (called twice — key then value). Self-contained mirror of
+    /// `emit_growable_push` sourcing the handle from `emit_usp_store_handle`
+    /// (the store lives in a binding local for `Named`, in URL slot 5 for
+    /// `OfUrl` — neither a `GrowableHandle::Local`/`Field`, so the proven push
+    /// idiom is reproduced here). The header indirection keeps the store handle
+    /// stable across a realloc, so the two sequential appends compose (the
+    /// second re-reads the same header and sees the updated `data_ptr`). Leaves
+    /// NOTHING on the stack — append returns undefined.
+    pub(crate) fn emit_usp_append(
+        &mut self,
+        function: &mut Function,
+        recv: &UspReceiver,
+        value: LirNodeId,
+    ) {
+        let scratch = self.growable_scratch_local();
+        let generic_scratch = self.locals.len() as u32;
+        let value_scratch = generic_scratch + 1;
+        // Realloc allocator: mirror `emit_growable_push` — a push inside a
+        // per-iteration loop arena must reallocate through the global heap so
+        // the replacement data block survives the end-of-iteration reset.
+        let alloc = if self
+            .arena_frames
+            .iter()
+            .any(|frame| frame.loop_frame_index.is_some())
+        {
+            self.alloc_global_fn_index()
+        } else {
+            self.alloc_callee_index()
+        };
+
+        // v evaluated FIRST (JS arg order; also frees the generic scratch slots).
+        let produced = self.emit_node(function, value, true);
+        if !produced.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
+        function.instruction(&Instruction::LocalSet(value_scratch));
+
+        // hdr (masked, i64) into the dedicated growable scratch.
+        self.emit_usp_store_handle(function, recv);
+        function.instruction(&Instruction::I64Const(
+            crate::emit::growable::GROWABLE_HANDLE_MASK,
+        ));
+        function.instruction(&Instruction::I64And);
+        function.instruction(&Instruction::LocalSet(scratch));
+
+        // if (len == cap) grow (cap*2, memory.copy of the live prefix).
+        self.emit_growable_scratch_hdr(function, scratch);
+        function.instruction(&Instruction::I64Load(MemArg {
+            offset: 0,
+            align: 3,
+            memory_index: 0,
+        }));
+        self.emit_growable_scratch_hdr(function, scratch);
+        function.instruction(&Instruction::I64Load(MemArg {
+            offset: 8,
+            align: 3,
+            memory_index: 0,
+        }));
+        function.instruction(&Instruction::I64Eq);
+        function.instruction(&Instruction::If(BlockType::Empty));
+        {
+            // new_data = alloc(cap * 2 * 8)
+            self.emit_growable_scratch_hdr(function, scratch);
+            function.instruction(&Instruction::I64Load(MemArg {
+                offset: 8,
+                align: 3,
+                memory_index: 0,
+            }));
+            function.instruction(&Instruction::I64Const(16));
+            function.instruction(&Instruction::I64Mul);
+            function.instruction(&Instruction::I32WrapI64);
+            function.instruction(&Instruction::Call(alloc));
+            function.instruction(&Instruction::I64ExtendI32U);
+            function.instruction(&Instruction::LocalSet(generic_scratch));
+
+            // memory.copy(dst = new_data, src = data_ptr, n = len * 8)
+            function.instruction(&Instruction::LocalGet(generic_scratch));
+            function.instruction(&Instruction::I32WrapI64);
+            self.emit_growable_scratch_hdr(function, scratch);
+            function.instruction(&Instruction::I64Load(MemArg {
+                offset: 16,
+                align: 3,
+                memory_index: 0,
+            }));
+            function.instruction(&Instruction::I32WrapI64);
+            self.emit_growable_scratch_hdr(function, scratch);
+            function.instruction(&Instruction::I64Load(MemArg {
+                offset: 0,
+                align: 3,
+                memory_index: 0,
+            }));
+            function.instruction(&Instruction::I64Const(8));
+            function.instruction(&Instruction::I64Mul);
+            function.instruction(&Instruction::I32WrapI64);
+            function.instruction(&Instruction::MemoryCopy {
+                src_mem: 0,
+                dst_mem: 0,
+            });
+
+            // hdr.data_ptr = new_data
+            self.emit_growable_scratch_hdr(function, scratch);
+            function.instruction(&Instruction::LocalGet(generic_scratch));
+            function.instruction(&Instruction::I64Store(MemArg {
+                offset: 16,
+                align: 3,
+                memory_index: 0,
+            }));
+
+            // hdr.cap = cap * 2
+            self.emit_growable_scratch_hdr(function, scratch);
+            self.emit_growable_scratch_hdr(function, scratch);
+            function.instruction(&Instruction::I64Load(MemArg {
+                offset: 8,
+                align: 3,
+                memory_index: 0,
+            }));
+            function.instruction(&Instruction::I64Const(2));
+            function.instruction(&Instruction::I64Mul);
+            function.instruction(&Instruction::I64Store(MemArg {
+                offset: 8,
+                align: 3,
+                memory_index: 0,
+            }));
+        }
+        function.instruction(&Instruction::End);
+
+        // *(data_ptr + len * 8) = v
+        self.emit_growable_scratch_hdr(function, scratch);
+        function.instruction(&Instruction::I64Load(MemArg {
+            offset: 16,
+            align: 3,
+            memory_index: 0,
+        }));
+        function.instruction(&Instruction::I32WrapI64);
+        self.emit_growable_scratch_hdr(function, scratch);
+        function.instruction(&Instruction::I64Load(MemArg {
+            offset: 0,
+            align: 3,
+            memory_index: 0,
+        }));
+        function.instruction(&Instruction::I32WrapI64);
+        function.instruction(&Instruction::I32Const(8));
+        function.instruction(&Instruction::I32Mul);
+        function.instruction(&Instruction::I32Add);
+        function.instruction(&Instruction::LocalGet(value_scratch));
+        function.instruction(&Instruction::I64Store(MemArg {
+            offset: 0,
+            align: 3,
+            memory_index: 0,
+        }));
+
+        // hdr.len = len + 1
+        self.emit_growable_scratch_hdr(function, scratch);
+        self.emit_growable_scratch_hdr(function, scratch);
+        function.instruction(&Instruction::I64Load(MemArg {
+            offset: 0,
+            align: 3,
+            memory_index: 0,
+        }));
+        function.instruction(&Instruction::I64Const(1));
+        function.instruction(&Instruction::I64Add);
+        function.instruction(&Instruction::I64Store(MemArg {
+            offset: 0,
+            align: 3,
+            memory_index: 0,
+        }));
+    }
+
+    /// Emit a USP method string argument through the normal expression path
+    /// (a string literal or an ordinary String handle — NO admit flag). Pushes
+    /// a `0` sentinel if the argument did not produce a value, keeping the value
+    /// stack balanced for the synthetic call.
+    pub(crate) fn emit_usp_method_argument(&mut self, function: &mut Function, arg: LirNodeId) {
+        let produced = self.emit_node(function, arg, true);
+        if !produced.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
+    }
+
+    /// `true` iff `node_id` is a `<usp>.getAll(<key>)` call — the base whose
+    /// growable result backs a `.length` read (`q.getAll('k').length`). Lets the
+    /// `.length` lane route to `emit_growable_length` over the call node (whose
+    /// emit leaves the tagged growable handle), since a call result is neither a
+    /// named growable binding nor a growable field.
+    pub(crate) fn is_usp_getall_call(&self, node_id: LirNodeId) -> bool {
+        let node = self.node(self.unwrap_transparent(node_id));
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+        let Some(callee) = node.children.first().copied() else {
+            return false;
+        };
+        let callee_node = self.node(callee);
+        if callee_node.text.as_deref() != Some("getAll") {
+            return false;
+        }
+        self.usp_receiver(callee_node).is_some()
     }
 
     /// The five-namespace shadow guard for a URL/USP builtin constructor name

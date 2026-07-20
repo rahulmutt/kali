@@ -354,6 +354,117 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
 
+        // Stage P4 Task 4: URLSearchParams query/mutation methods on a proven
+        // USP receiver (a bare USP binding, or `<url>.searchParams`). The
+        // RECEIVER store handle is emitted via the admit path
+        // (`emit_usp_store_handle` sets `admit_url_handle_read`); method string
+        // ARGUMENTS flow through the normal expression path (an ordinary String
+        // handle — no admit flag). Any method NOT in {append,set,get,getAll,has}
+        // fails closed E5506 (default-deny — the "any other method" arm).
+        if let Some(recv) = self.usp_receiver(&callee_node) {
+            let args: Vec<LirNodeId> = node.children[1..].to_vec();
+            let usp_get = self.functions["__usp_get"];
+            let usp_has = self.functions["__usp_has"];
+            let usp_getall = self.functions["__usp_getall"];
+            let usp_set = self.functions["__usp_set"];
+            match callee_node.text.as_deref() {
+                Some("append") => {
+                    if args.len() != 2 {
+                        return self.deny_e5506(
+                            function,
+                            "URLSearchParams.append requires exactly two arguments in the \
+                             current phase",
+                        );
+                    }
+                    self.emit_usp_append(function, &recv, args[0]);
+                    self.emit_usp_append(function, &recv, args[1]);
+                    // append returns undefined; push a placeholder scalar so a
+                    // value-position call is well-typed (statement position drops).
+                    function.instruction(&Instruction::I64Const(0));
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Scalar,
+                    };
+                }
+                Some("set") => {
+                    if args.len() != 2 {
+                        return self.deny_e5506(
+                            function,
+                            "URLSearchParams.set requires exactly two arguments in the \
+                             current phase",
+                        );
+                    }
+                    self.emit_usp_store_handle(function, &recv);
+                    self.emit_usp_method_argument(function, args[0]);
+                    self.emit_usp_method_argument(function, args[1]);
+                    function.instruction(&Instruction::Call(usp_set));
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Scalar,
+                    };
+                }
+                Some("get") => {
+                    if args.len() != 1 {
+                        return self.deny_e5506(
+                            function,
+                            "URLSearchParams.get requires exactly one argument in the \
+                             current phase",
+                        );
+                    }
+                    self.emit_usp_store_handle(function, &recv);
+                    self.emit_usp_method_argument(function, args[0]);
+                    function.instruction(&Instruction::Call(usp_get));
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::String,
+                    };
+                }
+                Some("getAll") => {
+                    if args.len() != 1 {
+                        return self.deny_e5506(
+                            function,
+                            "URLSearchParams.getAll requires exactly one argument in the \
+                             current phase",
+                        );
+                    }
+                    self.emit_usp_store_handle(function, &recv);
+                    self.emit_usp_method_argument(function, args[0]);
+                    function.instruction(&Instruction::Call(usp_getall));
+                    // A fresh tagged growable handle; `.length` reads its header.
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Scalar,
+                    };
+                }
+                Some("has") => {
+                    if args.len() != 1 {
+                        return self.deny_e5506(
+                            function,
+                            "URLSearchParams.has requires exactly one argument in the \
+                             current phase",
+                        );
+                    }
+                    self.emit_usp_store_handle(function, &recv);
+                    self.emit_usp_method_argument(function, args[0]);
+                    function.instruction(&Instruction::Call(usp_has));
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Boolean,
+                    };
+                }
+                other => {
+                    return self.deny_e5506(
+                        function,
+                        &format!(
+                            "'{}' is not supported on a URLSearchParams in the current phase \
+                             (fail-closed)",
+                            other.unwrap_or("<method>")
+                        ),
+                    );
+                }
+            }
+        }
+
         if self.is_kali_write_stdout_bytes_call(&callee_node) {
             let Some(index) = self.stdout_write_bytes_import_index else {
                 // Mirror the sibling `Kali.test` gate above: push the diagnostic

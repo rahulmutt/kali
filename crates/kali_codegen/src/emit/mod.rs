@@ -6,7 +6,7 @@ pub(crate) mod clone;
 mod closure_access;
 mod control_flow;
 pub(crate) mod equality;
-mod growable;
+pub(crate) mod growable;
 mod literal;
 mod object;
 mod operators;

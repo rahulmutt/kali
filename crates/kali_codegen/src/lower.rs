@@ -56,6 +56,10 @@ pub const SYNTHETIC_FUNCTIONS: &[&str] = &[
     "__join_growable_i64",
     "__join_growable_str",
     "__streq",
+    "__usp_get",
+    "__usp_has",
+    "__usp_getall",
+    "__usp_set",
 ];
 
 /// A synthetic function name is either an exact entry in `SYNTHETIC_FUNCTIONS`
@@ -739,6 +743,50 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         is_entry: false,
         flavor: None,
     });
+    // Synthetic URLSearchParams scan/mutation helpers (Stage P4 Task 4). Each
+    // takes the tagged growable pair-store handle (`store`) and scans the
+    // `[k0,v0,…]` data block, calling `__streq` for key comparison (its index is
+    // threaded into each body exactly as `alloc_global_index` is threaded into
+    // `emit_join_body`). `__usp_getall`/`__usp_set` also allocate through
+    // `__alloc_global` (a fresh result / a grown data block must not dangle
+    // across an arena reset). Inert-placeholder pattern like the synthetics
+    // above; bodies hand-emitted by `emit_usp_*_body` (dispatch below).
+    all_functions.push(FunctionPlan {
+        name: "__usp_get".to_string(),
+        params: vec!["store".to_string(), "key".to_string()],
+        locals: Vec::new(),
+        body: lir.root,
+        result: true,
+        is_entry: false,
+        flavor: None,
+    });
+    all_functions.push(FunctionPlan {
+        name: "__usp_has".to_string(),
+        params: vec!["store".to_string(), "key".to_string()],
+        locals: Vec::new(),
+        body: lir.root,
+        result: true,
+        is_entry: false,
+        flavor: None,
+    });
+    all_functions.push(FunctionPlan {
+        name: "__usp_getall".to_string(),
+        params: vec!["store".to_string(), "key".to_string()],
+        locals: Vec::new(),
+        body: lir.root,
+        result: true,
+        is_entry: false,
+        flavor: None,
+    });
+    all_functions.push(FunctionPlan {
+        name: "__usp_set".to_string(),
+        params: vec!["store".to_string(), "key".to_string(), "val".to_string()],
+        locals: Vec::new(),
+        body: lir.root,
+        result: true,
+        is_entry: false,
+        flavor: None,
+    });
     // Per-shape deep-clone synthetics `__clone_shape_<n>` (Stage P2 Lane 2):
     // appended AFTER the fixed synthetics and BEFORE any source-defined function
     // so, like the fixed synthetics, they shift every later function's index by
@@ -1352,6 +1400,18 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             local_decls.push((1, ValType::I64));
         } else if function.name == "__streq" {
             local_decls.push((4, ValType::I64));
+        } else if matches!(function.name.as_str(), "__usp_get" | "__usp_has") {
+            // `emit_usp_get_body`/`emit_usp_has_body`: 3 i64 — `len`, `i`, `data`
+            // (locals 2-4; locals 0-1 are `store`/`key`).
+            local_decls.push((3, ValType::I64));
+        } else if function.name == "__usp_getall" {
+            // `emit_usp_getall_body`: 6 i64 — `len`, `i`, `data`, `count`,
+            // `newhdr`, `newdata` (locals 2-7; locals 0-1 are `store`/`key`).
+            local_decls.push((6, ValType::I64));
+        } else if function.name == "__usp_set" {
+            // `emit_usp_set_body`: 7 i64 — `write`, `found`, `i`, `data`, `len`,
+            // `cap`, `newdata` (locals 3-9; locals 0-2 are `store`/`key`/`val`).
+            local_decls.push((7, ValType::I64));
         } else if matches!(function.name.as_str(), "__join" | "__join_arena") {
             local_decls.push((6, ValType::I64));
         } else if matches!(
@@ -1467,6 +1527,26 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                     emit_join_growable_body(&mut body, alloc_global_index, false)
                 }
                 "__streq" => emit_streq_body(&mut body),
+                // URLSearchParams scan/mutation helpers (Stage P4 Task 4). The
+                // `__streq` index is threaded for key comparison; getall/set also
+                // take `__alloc_global` (fresh result / grown block must outlive
+                // any arena reset), exactly as `__join` takes its allocator.
+                "__usp_get" => {
+                    emit_usp_get_body(&mut body, function_name_to_index["__streq"])
+                }
+                "__usp_has" => {
+                    emit_usp_has_body(&mut body, function_name_to_index["__streq"])
+                }
+                "__usp_getall" => emit_usp_getall_body(
+                    &mut body,
+                    function_name_to_index["__streq"],
+                    alloc_global_index,
+                ),
+                "__usp_set" => emit_usp_set_body(
+                    &mut body,
+                    function_name_to_index["__streq"],
+                    alloc_global_index,
+                ),
                 // Per-shape deep-clone synthetic (Stage P2 Lane 2). Recover the
                 // shape from the name and hand-emit its body: fresh object,
                 // verbatim scalar slots, deep-copied growable-i64 handles.
@@ -5930,6 +6010,466 @@ fn emit_streq_body(func: &mut Function) {
     // all len bytes equal
     func.instruction(&Instruction::I64Const(1));
     // NO trailing End — the dispatch loop appends it (same as every synthetic).
+}
+
+// === URLSearchParams scan/mutation synthetic bodies (Stage P4 Task 4) ========
+//
+// Shared store layout: `store` is the tagged growable handle
+// (`hdr | ARRAY_HANDLE_TAG`); `hdr_ptr = store & GROWABLE_HANDLE_MASK`;
+// `len = hdr[+0]`, `cap = hdr[+8]`, `data = hdr[+16]`; the data block is
+// `[k0,v0,k1,v1,…]` of interned i64 string handles. Key comparison is the
+// present-in-every-module `__streq` synthetic (index threaded in). No
+// `i64.eqz` anywhere (module-wide boolean-fast-path assertion) — zero tests use
+// `i64.const 0; i64.eq`.
+
+/// Push `hdr_ptr` (i32) of the tagged growable store handle held in `store_local`.
+fn usp_emit_hdr(func: &mut Function, store_local: u32) {
+    func.instruction(&Instruction::LocalGet(store_local));
+    func.instruction(&Instruction::I64Const(
+        crate::emit::growable::GROWABLE_HANDLE_MASK,
+    ));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I32WrapI64);
+}
+
+/// Push element base address `data + index*8` (i32); the caller's i64 load/store
+/// uses `offset` 0 for the key/first slot or 8 for the value/second slot.
+/// `data_local` holds the zero-extended `data_ptr` (i64); `index_local` the i64
+/// pair index.
+fn usp_emit_elem_addr(func: &mut Function, data_local: u32, index_local: u32) {
+    func.instruction(&Instruction::LocalGet(data_local));
+    func.instruction(&Instruction::LocalGet(index_local));
+    func.instruction(&Instruction::I64Const(8));
+    func.instruction(&Instruction::I64Mul);
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::I32WrapI64);
+}
+
+/// Push element value `data[index]` (`off` 0) or `data[index+1]` (`off` 8) as i64.
+fn usp_emit_load_elem(func: &mut Function, data_local: u32, index_local: u32, off: u64) {
+    usp_emit_elem_addr(func, data_local, index_local);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: off,
+        align: 3,
+        memory_index: 0,
+    }));
+}
+
+/// `__usp_get(store, key) -> i64`: `i=0; while i<len { if __streq(data[i],key)
+/// return data[i+1]; i+=2 } return 0`. Locals 0-1 = `store`/`key`; 2 = `len`,
+/// 3 = `i`, 4 = `data`.
+fn emit_usp_get_body(func: &mut Function, streq_index: u32) {
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(2)); // len
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 16,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(4)); // data
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(3)); // i = 0
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64LtS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    // if __streq(data[i], key) return data[i+1]
+    usp_emit_load_elem(func, 4, 3, 0);
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::Call(streq_index));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    usp_emit_load_elem(func, 4, 3, 8);
+    func.instruction(&Instruction::Return);
+    func.instruction(&Instruction::End);
+    // i += 2; continue
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(2));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::Br(1));
+    func.instruction(&Instruction::End); // i<len if
+    func.instruction(&Instruction::End); // loop
+    func.instruction(&Instruction::I64Const(0)); // not found → null sentinel
+    // NO trailing End.
+}
+
+/// `__usp_has(store, key) -> i64`: the `__usp_get` scan returning `1`/`0`.
+/// Locals identical to `__usp_get`.
+fn emit_usp_has_body(func: &mut Function, streq_index: u32) {
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(2)); // len
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 16,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(4)); // data
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(3)); // i = 0
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64LtS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    usp_emit_load_elem(func, 4, 3, 0);
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::Call(streq_index));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::Return);
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(2));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::Br(1));
+    func.instruction(&Instruction::End); // i<len if
+    func.instruction(&Instruction::End); // loop
+    func.instruction(&Instruction::I64Const(0)); // no match
+    // NO trailing End.
+}
+
+/// `__usp_getall(store, key) -> i64`: two-pass — count matches, allocate a fresh
+/// growable of exactly that length via `__alloc_global`, then fill it with each
+/// matching value. Returns the fresh tagged growable handle (its `.length`
+/// reads its own header). Two-pass avoids any grow-if-full inside the scan.
+/// Locals 0-1 = `store`/`key`; 2 = `len`, 3 = `i`, 4 = `data` (source), 5 =
+/// `count`/write-cursor, 6 = `newhdr`, 7 = `newdata`.
+fn emit_usp_getall_body(func: &mut Function, streq_index: u32, alloc_global_index: u32) {
+    // len / data (source)
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(2));
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 16,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(4));
+    // Pass 1: count = number of key matches.
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(5)); // count = 0
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(3)); // i = 0
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64LtS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    usp_emit_load_elem(func, 4, 3, 0);
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::Call(streq_index));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(5));
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(2));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::Br(1));
+    func.instruction(&Instruction::End); // i<len if
+    func.instruction(&Instruction::End); // loop
+    // Allocate the result growable: header(24) + data(count*8).
+    func.instruction(&Instruction::I32Const(24));
+    func.instruction(&Instruction::Call(alloc_global_index));
+    func.instruction(&Instruction::I64ExtendI32U);
+    func.instruction(&Instruction::LocalSet(6)); // newhdr (zero-extended ptr)
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I64Const(8));
+    func.instruction(&Instruction::I64Mul);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::Call(alloc_global_index));
+    func.instruction(&Instruction::I64ExtendI32U);
+    func.instruction(&Instruction::LocalSet(7)); // newdata
+    // newhdr.len = count
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    // newhdr.cap = count
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    // newhdr.data_ptr = newdata
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 16,
+        align: 3,
+        memory_index: 0,
+    }));
+    // Pass 2: fill newdata[count++] = data[i+1] for each match.
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(5)); // reuse as write cursor
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(3)); // i = 0
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64LtS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    usp_emit_load_elem(func, 4, 3, 0);
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::Call(streq_index));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    // newdata[count] = data[i+1]
+    usp_emit_elem_addr(func, 7, 5);
+    usp_emit_load_elem(func, 4, 3, 8);
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(5));
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(2));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::Br(1));
+    func.instruction(&Instruction::End); // i<len if
+    func.instruction(&Instruction::End); // loop
+    // return newhdr | ARRAY_HANDLE_TAG
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I64Const(crate::ARRAY_HANDLE_TAG as i64));
+    func.instruction(&Instruction::I64Or);
+    // NO trailing End.
+}
+
+/// `__usp_set(store, key, val) -> i64` (WHATWG): overwrite the FIRST matching
+/// key's value, remove subsequent matches (in-place compaction with a write
+/// cursor), else append `[key,val]` (grow-if-full via `__alloc_global`). Returns
+/// the store handle. Locals 0-2 = `store`/`key`/`val`; 3 = `write`, 4 = `found`,
+/// 5 = `i`, 6 = `data`, 7 = `len`, 8 = `cap`, 9 = `newdata`.
+fn emit_usp_set_body(func: &mut Function, streq_index: u32, alloc_global_index: u32) {
+    // data / len / cap
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 16,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(6)); // data
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(7)); // len
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(8)); // cap
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(3)); // write = 0
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(4)); // found = 0
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(5)); // i = 0
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I64LtS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    // matched = __streq(data[i], key)
+    usp_emit_load_elem(func, 6, 5, 0);
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::Call(streq_index));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    // matched: keep first (overwrite value), drop the rest.
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    // data[write] = key
+    usp_emit_elem_addr(func, 6, 3);
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    // data[write+1] = val
+    usp_emit_elem_addr(func, 6, 3);
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    // write += 2; found = 1
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(2));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::End); // found==0 if (else: drop)
+    func.instruction(&Instruction::Else);
+    // not matched: copy [data[i], data[i+1]] down to write.
+    usp_emit_elem_addr(func, 6, 3);
+    usp_emit_load_elem(func, 6, 5, 0);
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    usp_emit_elem_addr(func, 6, 3);
+    usp_emit_load_elem(func, 6, 5, 8);
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(2));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::End); // matched if/else
+    // i += 2; continue
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I64Const(2));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(5));
+    func.instruction(&Instruction::Br(1));
+    func.instruction(&Instruction::End); // i<len if
+    func.instruction(&Instruction::End); // loop
+    // if found == 0: append [key, val], growing the data block if needed.
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    // if write + 2 > cap: grow (cap*2; write==len here so this is len+2 vs cap).
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(2));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalGet(8));
+    func.instruction(&Instruction::I64GtS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    // newdata = __alloc_global(cap * 2 * 8)
+    func.instruction(&Instruction::LocalGet(8));
+    func.instruction(&Instruction::I64Const(16));
+    func.instruction(&Instruction::I64Mul);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::Call(alloc_global_index));
+    func.instruction(&Instruction::I64ExtendI32U);
+    func.instruction(&Instruction::LocalSet(9));
+    // memory.copy(newdata, data, write*8)
+    func.instruction(&Instruction::LocalGet(9));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(8));
+    func.instruction(&Instruction::I64Mul);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::MemoryCopy {
+        src_mem: 0,
+        dst_mem: 0,
+    });
+    // hdr.data_ptr = newdata
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::LocalGet(9));
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 16,
+        align: 3,
+        memory_index: 0,
+    }));
+    // hdr.cap = cap * 2
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::LocalGet(8));
+    func.instruction(&Instruction::I64Const(2));
+    func.instruction(&Instruction::I64Mul);
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    // data = newdata
+    func.instruction(&Instruction::LocalGet(9));
+    func.instruction(&Instruction::LocalSet(6));
+    func.instruction(&Instruction::End); // grow if
+    // data[write] = key
+    usp_emit_elem_addr(func, 6, 3);
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    // data[write+1] = val
+    usp_emit_elem_addr(func, 6, 3);
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    // write += 2
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(2));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::End); // found==0 append if
+    // hdr.len = write
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    // return store
+    func.instruction(&Instruction::LocalGet(0));
+    // NO trailing End.
 }
 
 /// `__join(arr, sep) -> i64`: copy every element string (i64 handles in the

@@ -1919,6 +1919,14 @@ impl<'a> FunctionEmitter<'a> {
                     if self.object_field_is_growable_array(base_id) {
                         return self.emit_growable_length(function, base_id);
                     }
+                    // Stage P4 Task 4: `q.getAll('k').length`. The base is a CALL
+                    // producing a fresh tagged growable handle — neither a named
+                    // growable binding nor a growable field — so route it through
+                    // `emit_growable_length`, whose base emit leaves the tagged
+                    // handle before the `hdr.len` decode.
+                    if self.is_usp_getall_call(base_id) {
+                        return self.emit_growable_length(function, base_id);
+                    }
                     if let Some(base_name) = self.assignment_target_name(node, base_id) {
                         // Growable runtime array `.length` (throw-fallout
                         // Stage 4): decode the tagged handle, read `hdr.len`.
