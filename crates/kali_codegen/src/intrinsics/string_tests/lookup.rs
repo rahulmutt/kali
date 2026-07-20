@@ -67,9 +67,16 @@ fn supported_static_string_prefix_suffix_lowers_ascii_literals() {
     // (two passes × [compare + `count += 1`]); `__usp_set` = 3 (the compare +
     // `found = 1`, PLUS `.matches` counts the `i64.const 16` grow term
     // `cap*2*8` as a SUBSTRING of "i64.const 1"). Total new = 1+2+4+3 = 10.
+    // + the Stage P4 Task 5 toString pair (also present in every module):
+    // `__percent_encode` = 5 (two `w += 1`s, the `i += 1`, PLUS the
+    // `i64.const 122` 'z' bound and `i64.const 15` low-nibble mask counted as
+    // "i64.const 1" SUBSTRINGS by `.matches`); `__usp_tostring` = 9 (the
+    // pass-1 `i += 1`, two separator `w += 1`s, and the twice-inlined
+    // component byte-copy loop's `w += 1`/`p += 1`/`n -= 1`). Total new =
+    // 5+9 = 14.
     assert_eq!(
         printed.matches("i64.const 1").count(),
-        4 + 3 + 3 + 3 + 3 + 4 + 1 + 2 + 4 + 3,
+        4 + 3 + 3 + 3 + 3 + 4 + 1 + 2 + 4 + 3 + 5 + 9,
         "{printed}"
     );
     assert!(printed.contains("i64.const 0"), "{printed}");
@@ -111,9 +118,13 @@ fn supported_static_string_search_lowers_omitted_search_as_undefined() {
     // every module, module-invariant bodies): `__usp_get` = 1, `__usp_has` = 2,
     // `__usp_getall` = 4, `__usp_set` = 3 (incl. the `i64.const 16` grow term
     // counted as a "i64.const 1" SUBSTRING by `.matches`). Total new = 10.
+    // + the Stage P4 Task 5 toString pair (also present in every module,
+    // module-invariant bodies): `__percent_encode` = 5 (incl. the
+    // `i64.const 122` / `i64.const 15` SUBSTRING counts), `__usp_tostring` =
+    // 9. Total new = 14.
     assert_eq!(
         printed.matches("i64.const 1").count(),
-        2 + 3 + 3 + 3 + 3 + 4 + 1 + 2 + 4 + 3,
+        2 + 3 + 3 + 3 + 3 + 4 + 1 + 2 + 4 + 3 + 5 + 9,
         "{printed}"
     );
     assert!(printed.contains("i64.const 6"), "{printed}");

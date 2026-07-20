@@ -818,6 +818,8 @@ fn count_tag_boxing_ops(bytes: &[u8]) -> usize {
         "__usp_has",
         "__usp_getall",
         "__usp_set",
+        "__percent_encode",
+        "__usp_tostring",
     ];
     let mut imported_functions = 0u32;
     let mut synthetic_indices = Vec::new();

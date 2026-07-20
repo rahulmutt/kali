@@ -359,14 +359,16 @@ impl<'a> FunctionEmitter<'a> {
         // RECEIVER store handle is emitted via the admit path
         // (`emit_usp_store_handle` sets `admit_url_handle_read`); method string
         // ARGUMENTS flow through the normal expression path (an ordinary String
-        // handle — no admit flag). Any method NOT in {append,set,get,getAll,has}
-        // fails closed E5506 (default-deny — the "any other method" arm).
+        // handle — no admit flag). Any method NOT in
+        // {append,set,get,getAll,has,toString} fails closed E5506 (default-deny
+        // — the "any other method" arm).
         if let Some(recv) = self.usp_receiver(&callee_node) {
             let args: Vec<LirNodeId> = node.children[1..].to_vec();
             let usp_get = self.functions["__usp_get"];
             let usp_has = self.functions["__usp_has"];
             let usp_getall = self.functions["__usp_getall"];
             let usp_set = self.functions["__usp_set"];
+            let usp_tostring = self.functions["__usp_tostring"];
             match callee_node.text.as_deref() {
                 Some("append") => {
                     if args.len() != 2 {
@@ -443,6 +445,22 @@ impl<'a> FunctionEmitter<'a> {
                     return EmittedValue {
                         produced: true,
                         shape: ValueShape::Scalar,
+                    };
+                }
+                Some("toString") => {
+                    if !args.is_empty() {
+                        return self.deny_e5506(
+                            function,
+                            "URLSearchParams.toString takes no arguments in the current phase",
+                        );
+                    }
+                    self.emit_usp_store_handle(function, &recv);
+                    function.instruction(&Instruction::Call(usp_tostring));
+                    // An ordinary global-heap String handle (the form-urlencoded
+                    // serialization) — sanctioned, exactly like `.get`'s result.
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::String,
                     };
                 }
                 Some("has") => {

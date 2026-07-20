@@ -148,6 +148,21 @@ fn usp_set_result_does_not_leak_the_store_handle() {
     assert_eq!(run_kali_run(src).trim(), "0\nb");
 }
 
+// --- Task 5: URLSearchParams.toString() serialization ------------------------
+
+#[test]
+fn usp_tostring_serializes_form_urlencoded() {
+    let src = "const q = new URLSearchParams('alpha=1&beta=two+words');\nconsole.log(q.toString());\n";
+    // application/x-www-form-urlencoded: space -> '+', pairs joined by '&'.
+    assert_eq!(run_kali_run(src).trim(), "alpha=1&beta=two+words");
+}
+
+#[test]
+fn usp_tostring_after_mutation() {
+    let src = "const q = new URLSearchParams('alpha=1');\nq.append('g', 'a b');\nconsole.log(q.toString());\n";
+    assert_eq!(run_kali_run(src).trim(), "alpha=1&g=a+b");
+}
+
 #[test]
 fn unknown_method_on_usp_fails_closed() {
     let src = "const q = new URLSearchParams('a=1');\nq.sort();\n";
