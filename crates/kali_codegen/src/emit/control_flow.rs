@@ -1046,6 +1046,29 @@ impl<'a> FunctionEmitter<'a> {
                             }
                         }
 
+                        // Stage P4 Task 6 review fix: BINDING a USP
+                        // `.getAll(...)` result (`const a = q.getAll('k')`,
+                        // any of const/let/var) has no sound lowering — the
+                        // call itself is admitted, but the binding loses the
+                        // growable classification at this declarator, so a
+                        // later `a.length` silently placeholder-0s (node
+                        // prints the count — a wrong-value miscompile on a
+                        // lane shipped this stage). Deny at the declarator
+                        // choke, keyed on the same receiver-provenance
+                        // recognizer as the admitted direct form
+                        // (`is_usp_getall_call`); only the direct
+                        // `q.getAll(k).length` composition is supported this
+                        // phase.
+                        if self.is_usp_getall_call(init) {
+                            self.deny_e5506(
+                                function,
+                                "binding the result of URLSearchParams.getAll(...) is not \
+                                 supported in the current phase; only the direct \
+                                 `q.getAll(k).length` composition is available (fail-closed)",
+                            );
+                            continue;
+                        }
+
                         // Stage P3 Task 4: `const s = c.signal` alias. The signal
                         // shares the controller's handle cell (identity), so
                         // binding `s` to the receiver handle makes `s.aborted`

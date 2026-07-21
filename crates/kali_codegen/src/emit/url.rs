@@ -488,6 +488,52 @@ impl<'a> FunctionEmitter<'a> {
         self.usp_receiver(callee_node).is_some()
     }
 
+    /// Walk a member-access chain (dot AND computed, ANY depth) down to its
+    /// ROOT identifier and report whether that root has URL/USP provenance in
+    /// THIS emitter's view (local proof, module-scope twin, or captured twin).
+    /// Task-6 review fix: the generic call fallback never emits a method call's
+    /// receiver, so a receiver PATH the recognizers don't admit
+    /// (`u['searchParams'].get(...)`, `u.searchParams.x.get(...)`) previously
+    /// reached the placeholder terminals without ANY choke firing — silent `0`
+    /// where node produces a value. Keying the deny on the root binding's
+    /// provenance (not on the path shape) makes every receiver spelling over a
+    /// URL/USP root deny by construction.
+    ///
+    /// Chain shapes (LIR): a childless `Value` with text = the root identifier;
+    /// a 1-child `Value` with non-empty text = dot member; a 2-child `Value`
+    /// whose text is not a binary operator = computed member `a[expr]`. Any
+    /// other shape terminates the walk with no root (`false` — the deny stays
+    /// scoped to provable URL/USP roots).
+    pub(crate) fn receiver_root_is_url_provenance(&self, receiver: LirNodeId) -> bool {
+        let mut current = self.unwrap_transparent(receiver);
+        loop {
+            let node = self.node(current);
+            if node.kind != LirNodeKind::Value {
+                return false;
+            }
+            match node.children.len() {
+                0 => {
+                    return node.text.as_deref().is_some_and(|name| {
+                        self.is_url(name)
+                            || self.is_url_search_params(name)
+                            || self.is_module_scope_url_handle(name)
+                            || self.is_captured_url_handle(name)
+                    });
+                }
+                1 if node.text.as_deref().is_some_and(|text| !text.is_empty()) => {
+                    current = self.unwrap_transparent(node.children[0]);
+                }
+                2 if !crate::lower::is_binary_operator_text(
+                    node.text.as_deref().unwrap_or_default(),
+                ) =>
+                {
+                    current = self.unwrap_transparent(node.children[0]);
+                }
+                _ => return false,
+            }
+        }
+    }
+
     /// The five-namespace shadow guard for a URL/USP builtin constructor name
     /// (mirrors `is_event_target_new` / `instanceof_right_is_unshadowed`): a
     /// user binding of `URL`/`URLSearchParams` in ANY codegen namespace refutes

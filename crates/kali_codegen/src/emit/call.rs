@@ -3440,6 +3440,30 @@ impl<'a> FunctionEmitter<'a> {
         // and a predicate `filter`, admitted by the kali_types allowlist but
         // never lowered, both silently no-opped).
         // ------------------------------------------------------------------
+        // Stage P4 Task 6 review fix (the TRUE choke for receiver-dropping
+        // terminals): every method call reaching this region has a callee no
+        // recognizer admitted, and all three terminals below DROP the receiver
+        // (arguments are dropped, the receiver is never emitted) — so the
+        // identifier/member chokes can never fire for it. A receiver PATH of
+        // ANY shape (dot, computed, any depth: `u['searchParams'].get(k)`,
+        // `u.searchParams.x.get(k)`) rooted at a binding with URL/USP
+        // provenance therefore silently evaluated to `0` where node produces a
+        // value. Deny by ROOT PROVENANCE, not path shape: walk the member
+        // chain to its root identifier and fail closed if that root is a
+        // URL/USP handle (local, module-scope, or captured). Admitted URL/USP
+        // forms returned from their own arms far above, so this cannot
+        // over-deny a working lowering.
+        if let Some(&receiver) = callee_node.children.first() {
+            if self.receiver_root_is_url_provenance(receiver) {
+                return self.deny_e5506(
+                    function,
+                    "this method call's receiver path is rooted at a URL/URLSearchParams \
+                     handle but is not a recognized URL/USP form; kali has no lowering for \
+                     it and evaluating it would silently return 0 (fail-closed)",
+                );
+            }
+        }
+
         if !self.call_target_keeps_placeholder_lowering(node, &callee_node, callee_name) {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,

@@ -217,8 +217,16 @@ fn url_identity_compare_fails_closed() {
 
 #[test]
 fn usp_json_stringify_fails_closed() {
+    // Dual deny: the G6 value-builtin deny-set rejects `JSON.stringify` for ALL
+    // inputs, so E5506 alone would pass even if the URL/USP gate regressed.
+    // Assert the URL/USP-specific identifier-choke message TOO, so the URL gate
+    // cannot hide behind G6.
     let stderr = run_kali_run_expect_error(&sink_src("console.log(JSON.stringify(q));"));
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("URL/URLSearchParams handle cannot be read in this position"),
+        "URL/USP identifier-choke deny missing (G6 alone is not enough): {stderr}"
+    );
 }
 
 #[test]
@@ -277,6 +285,58 @@ fn usp_captured_in_deferred_callback_fails_closed() {
 #[test]
 fn url_unknown_member_read_fails_closed() {
     let stderr = run_kali_run_expect_error(&sink_src("console.log(u.protocol);"));
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+// --- Task 6 review-fix wave: receiver-path shapes + getAll binding ----------
+//
+// Review probes falsified the member-receiver arm's "ANY method denies" claim:
+// the generic call fallback DROPS the receiver (never emits it), so a receiver
+// path the recognizers don't admit reached the placeholder terminals with NO
+// choke firing — silent 0. Closed by ROOT PROVENANCE at the terminal choke:
+// the member chain (dot AND computed, any depth) is walked to its root
+// identifier; a URL/USP root denies by construction.
+
+#[test]
+fn url_computed_searchparams_method_fails_closed() {
+    // Computed receiver at plain `_start` scope: `u['searchParams'].get(...)`
+    // silently printed 0 pre-fix (node prints 1).
+    let src = "const u = new URL('https://example.com/browser?alpha=1');\nconsole.log(u['searchParams'].get('alpha'));\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn url_computed_searchparams_method_from_fn_fails_closed() {
+    let src = "const u = new URL('https://example.com/browser?alpha=1');\nfunction f() { console.log(u['searchParams'].get('alpha')); }\nf();\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn url_computed_searchparams_method_captured_fails_closed() {
+    let src = "function m() { const u = new URL('https://example.com/browser?alpha=1'); setTimeout(function() { console.log(u['searchParams'].get('alpha')); }, 0); }\nm();\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn url_two_hop_member_method_fails_closed() {
+    // 2-hop dot chain over a URL root from inside a fn: silently 0'd pre-fix.
+    let src = "const u = new URL('https://example.com/browser?alpha=1');\nfunction f() { console.log(u.searchParams.x.get('alpha')); }\nf();\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn usp_getall_binding_fails_closed() {
+    // Review IMPORTANT: `const a = q.getAll('a'); a.length` silently printed 0
+    // (node prints 2) — the binding loses the growable classification at the
+    // declarator. Denied at the declarator choke; the direct
+    // `q.getAll(k).length` composition keeps working (see
+    // `usp_set_replaces_and_get_reflects_dynamic_value`).
+    let src = "const q = new URLSearchParams('a=1&a=2');\nconst a = q.getAll('a');\nconsole.log(a.length);\n";
+    let stderr = run_kali_run_expect_error(src);
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
 }
 
