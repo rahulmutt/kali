@@ -1006,6 +1006,13 @@ impl<'a> FunctionEmitter<'a> {
         if self.is_process_argv_element(self.node(id)).is_some() {
             return true;
         }
+        // Stage P4: URL component reads. `u.href`/`.origin`/`.pathname`/
+        // `.search`/`.hash` load an interned string handle, so console.log / `+`
+        // / `==` treat them as strings; `.searchParams` is a USP handle (not a
+        // string) and is excluded. Same recognizer the emit arm routes with.
+        if let Some((_, member)) = self.url_member_read_parts(id) {
+            return !matches!(member, crate::emit::url::UrlMember::SearchParams);
+        }
         let node = self.node(id);
         match node.kind {
             LirNodeKind::Literal => node.text.as_deref().is_some_and(|text| {
@@ -1244,6 +1251,23 @@ impl<'a> FunctionEmitter<'a> {
             self.diagnostics.push(Diagnostic::error(
                 e3::TYPE_MISMATCH as u32,
                 "a runtime string value is unavailable as a condition in the current direct-runtime path; its truthiness (empty vs non-empty) is not evaluated".to_string(),
+            ));
+        }
+        // Stage-review I-8: a bare `q.get(k)` / `q.toString()` result in
+        // condition position (if/while/for/ternary) fails closed E5506. JS
+        // truthiness here is `null` → falsy, `''` → falsy, any other string →
+        // truthy; the emitted i64 is a HANDLE, so `!= 0` truthiness reports an
+        // empty-string value truthy (node: falsy) — and the absent-key case
+        // only matched node by the sentinel coincidence. This choke covers all
+        // four condition sites (they all call this helper).
+        if self.is_usp_string_call(cond) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "a URLSearchParams get()/toString() result cannot be used directly as a \
+                 condition in the current phase (string truthiness over its handle would \
+                 report an empty-string value truthy); compare it explicitly instead \
+                 (fail-closed)"
+                    .to_string(),
             ));
         }
     }
@@ -1566,9 +1590,21 @@ impl<'a> FunctionEmitter<'a> {
     /// decimal-string handle via `int_to_string`.
     pub(crate) fn emit_as_string(&mut self, function: &mut Function, id: LirNodeId) {
         let is_string = self.is_string_valued(id);
+        let is_usp_string = self.is_usp_string_call(id);
         let emitted = self.emit_node(function, id, true);
         if !emitted.produced {
             function.instruction(&Instruction::I64Const(0));
+        }
+        // Stage-review I-5: a USP `get`/`toString` result in string-coercion
+        // position (`'v=' + q.get(k)`, multi-arg console) may carry the `0`
+        // null-sentinel, which the string ladder would concat as EMPTY where
+        // node renders `null`. Materialize the sentinel as the interned
+        // `"null"` handle at runtime; a present value passes through. (The
+        // equality lane deliberately does NOT materialize — `__streq`'s tag
+        // guard keeps `null === s` false, matching node.)
+        if is_usp_string {
+            self.emit_usp_null_string_materialize(function);
+            return;
         }
         if is_string {
             return;
@@ -1818,6 +1854,17 @@ impl<'a> FunctionEmitter<'a> {
         let right_string = is_equality_op && self.is_string_valued(right);
         let left_env = is_equality_op && !left_string && self.is_env_get_string_call(left);
         let right_env = is_equality_op && !right_string && self.is_env_get_string_call(right);
+        // USP string results (`q.get(k)` / `q.toString()` on a proven USP
+        // receiver — Stage P4 Task 7): admitted into the `__streq` lane exactly
+        // like env-get, and for the same reason (a tagged string handle OR the
+        // 0 null-sentinel, over which `__streq` is total). Without this the
+        // mixed usp-vs-literal compare fell through to raw handle-identity
+        // `i64.eq` — silently wrong for any dynamically-set value (fresh
+        // `string_concat` handle vs the interned literal). No relocation is
+        // needed (unlike env-vs-env): each result points at stable store /
+        // interned / global-heap bytes, never a shared scratch buffer.
+        let left_usp = is_equality_op && !left_string && self.is_usp_string_call(left);
+        let right_usp = is_equality_op && !right_string && self.is_usp_string_call(right);
         // ENV-VS-ENV (F-Stage1-2): both `Deno.env.get` results materialize into
         // the SAME reserved buffer [0,4096) (call.rs env lane), so the second
         // call OVERWRITES the first — a naive compare would read the second
@@ -1827,7 +1874,7 @@ impl<'a> FunctionEmitter<'a> {
         // interned string pool) BEFORE emitting the right operand, so `__streq`
         // reads the correct distinct bytes for each side.
         let both_env = left_env && right_env;
-        if (left_string || left_env) && (right_string || right_env) {
+        if (left_string || left_env || left_usp) && (right_string || right_env || right_usp) {
             let left_emitted = self.emit_node(function, left, true);
             if !left_emitted.produced {
                 function.instruction(&Instruction::I64Const(0));

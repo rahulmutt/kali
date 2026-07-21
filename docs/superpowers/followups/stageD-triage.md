@@ -624,9 +624,94 @@ closed or stays pre-existing-red rather than miscompiling):
      module-scope non-const-foldable heap bindings (read was already
      fail-closed; this stage closed the write side for abort handles
      only).
-- **Stage P4 — `URL` + `URLSearchParams`**.
+- **Stage P4 — `URL` + `URLSearchParams`**: **SHIPPED 2026-07-21**
+  (`a372b754e..af7ae9c1f` on `soundness-stage-p4`; spec/plan
+  `e7fc4fb0a`/`a372b754e`, 12 implementation commits
+  `b607099cb..af7ae9c1f`). Self-contained in-wasm hybrid:
+  compile-time-parsed `new URL(<lit>)` lowered to a 6-slot arena
+  struct and `new URLSearchParams(<lit>)` to a growable pair-store;
+  URL component reads; `get`/`getAll`/`has`/`set`/`append`/`toString`
+  via synthetic WASM fns (`__usp_get`/`__usp_has`/`__usp_getall`/
+  `__usp_set`/`__usp_append`/`__usp_tostring` + `__percent_encode`)
+  over `__streq`; `u.searchParams.get(...)` read-only composition;
+  USP `get`/`toString` results admitted to the `__streq`
+  content-equality lane (closing a raw handle-identity compare
+  fail-open on dynamically-set values); the null sentinel
+  materialized as `"null"` in the print/concat/store-arg lanes.
+  Acceptance:
+  `acceptance_web_baseline_with_url_matches_node_byte_for_byte` — the
+  web-baseline URL/USP block runs byte-for-byte vs node
+  (`web baseline url ok`).
+  Gate: the baseline at stage base was 100% GREEN — 0 failed (the
+  plan's "694 expected" was stale; PR #16 re-pinned the reds to
+  green), so every task gated on "workspace stays 0-failed"; final
+  double-enumerated gate 2×(0 failed / 9146 passed / 374 binaries),
+  zero drift, with the W-1 follow-up re-verified per-suite
+  (`soundness_url` 53/53, `kali_codegen` 355, `runtime_smoke` 1826,
+  fmt clean). 53 pins in `soundness_url.rs`.
+  **Whole-stage review:** 4 CRITICAL (C-1 composition mutation
+  desyncing `u.search`/`u.href`; C-2 leading `?` not stripped; C-3
+  `append` mutating between key push and value evaluation; C-4
+  block-scope shadow redeclaration wrong-value) + 5 Important (I-5
+  null-sentinel rendering 0/empty; I-6 `get().length` child-count;
+  I-7 `getAll()[0]` silent 0; I-8 empty-string truthiness; I-9
+  assignment-into-binding wild load) — the 7th consecutive stage
+  where the adversarial whole-stage review caught what per-task
+  reviews missed. All fixed in wave `1640ffaf1` (plus F10 deny-now
+  and the F11 free multibyte pin) + the W-1 follow-up `af7ae9c1f`;
+  all VERIFIED-CLOSED by fresh-probe re-review (no over-deny;
+  positive controls green).
+  Recorded fixture adaptations (Task 7): `String(count)` →
+  `'' + count` (G6 `String` deny); the get-compare → `!== '1'`
+  (runtime-vs-dynamic string compare is E3200 fail-closed by design);
+  untaken-path template-literal throws → plain concat (from the
+  plan's literal fixture text); `function main()` wrapper (P3
+  precedent). Flip pins remain at the compile-time `String` E5506
+  frontier (5 sites) — the TextEncoder advance is blocked on the
+  String deny, NOT yet at the P5 frontier.
+  Ratified conventions: `.has` renders 1/0 (P3 `.aborted` precedent);
+  `.set`/`.append` in value position render the void placeholder 0.
+  Residual inventory:
+  1. P4-R1: `u.searchParams` composition READ-ONLY (set/append denied
+     at the `OfUrl` arm); tripwire: any future admit of composition
+     mutation MUST re-derive `u.search`/`u.href` from the live store
+     or deny those reads after mutation.
+  2. P4-R2: repr seeds `usp_bindings` for `const sp = u.searchParams`
+     but codegen denies at the declarator (sound). Tripwire:
+     admitting the alias requires codegen provenance +
+     arena-lifetime proof, never repr alone.
+  3. P4-R3: CLOSED by F10 — inline/`let` ctor deny (deliberate
+     deny-upgrade of the Task-6 honest-behavior pin, recorded at the
+     pin).
+  4. P4-R4: general receiver-dropping placeholder lane
+     (`(u+1).get(...)` → 0) — pre-existing whole-compiler debt, not
+     URL-keyed, tracked outside P4.
+  5. P4-R5: CLOSED by C-3 — atomic `__usp_append` synthetic; no
+     emitter scratch live across argument emissions.
+  6. P4-R6: CLOSED by F11 — multibyte/reserved percent-encode pinned.
+  7. P4-R7: deliberate over-denies as supported-surface boundaries
+     (all E5506, never wrong-value): zero/two-arg/non-literal ctors,
+     ctor outside the const-declarator shape, getAll
+     binding/element/join, `.length` + condition position on
+     get/toString results, for-of, destructuring, typeof, assignment
+     into a URL/USP binding, redeclaration of a URL/USP name (both
+     orders), OfUrl mutation.
+  8. P4-R8: CLOSED — null-sentinel materialized in
+     print/concat/condition/store-arg (I-5 + W-1).
+  Outside-P4 (general inventory, not §8.6-scoped): generic
+  block-scope flatten (const redeclaration in an inner block leaks
+  the value outward, no URL involved) — pre-existing; C-4 closed only
+  the URL/USP slice. Also `is_new_abort_controller`'s
+  `args.is_empty()` looseness (Task-2 discovery: the parser folds
+  args into the callee `CallExpression`).
+  Note: after P5 (`TextEncoder`) AND a String-builtin lane land, the
+  final byte-for-byte `webBaselineSmoke` acceptance runs the whole
+  fixture three ways (`kali run` + browser + flipped build tests) —
+  see the acceptance bullet below.
 - **Stage P5 — `TextEncoder`/`TextDecoder`**.
-- **Final byte-for-byte `webBaselineSmoke` acceptance**: once P2-P5 land,
+- **Final byte-for-byte `webBaselineSmoke` acceptance**: once P5 lands
+  AND a String-builtin lane lands (P2-P4 shipped; the observed flip
+  point is the compile-time `String` E5506, not `TextEncoder`),
   execute `browser_bundle_web_baseline_source` (or its `webBaselineSmoke`
   export) end-to-end — via `kali run`, the browser lane, AND by flipping
   the 4 Task-7 build tests (§8.5.1) to also execute and assert real output

@@ -15,7 +15,10 @@ pub(crate) fn wasm_type(repr: kali_common::Repr) -> wasm_encoder::ValType {
         // handle repr — no new storage width needed.
         | kali_common::Repr::GrowableArrayI64
         // AbortHandle is an i64 pointer to an abort cell (Stage P3); same slot.
-        | kali_common::Repr::AbortHandle => wasm_encoder::ValType::I64,
+        | kali_common::Repr::AbortHandle
+        // URL struct pointer and USP growable handle — both one i64 slot.
+        | kali_common::Repr::Url
+        | kali_common::Repr::UrlSearchParams => wasm_encoder::ValType::I64,
     }
 }
 
@@ -53,6 +56,13 @@ pub const SYNTHETIC_FUNCTIONS: &[&str] = &[
     "__join_growable_i64",
     "__join_growable_str",
     "__streq",
+    "__usp_get",
+    "__usp_has",
+    "__usp_getall",
+    "__usp_set",
+    "__usp_append",
+    "__percent_encode",
+    "__usp_tostring",
 ];
 
 /// A synthetic function name is either an exact entry in `SYNTHETIC_FUNCTIONS`
@@ -736,6 +746,96 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         is_entry: false,
         flavor: None,
     });
+    // Synthetic URLSearchParams scan/mutation helpers (Stage P4 Task 4). Each
+    // takes the tagged growable pair-store handle (`store`) and scans the
+    // `[k0,v0,…]` data block, calling `__streq` for key comparison (its index is
+    // threaded into each body exactly as `alloc_global_index` is threaded into
+    // `emit_join_body`). `__usp_getall`/`__usp_set` also allocate through
+    // `__alloc_global` (a fresh result / a grown data block must not dangle
+    // across an arena reset). Inert-placeholder pattern like the synthetics
+    // above; bodies hand-emitted by `emit_usp_*_body` (dispatch below).
+    all_functions.push(FunctionPlan {
+        name: "__usp_get".to_string(),
+        params: vec!["store".to_string(), "key".to_string()],
+        locals: Vec::new(),
+        body: lir.root,
+        result: true,
+        is_entry: false,
+        flavor: None,
+    });
+    all_functions.push(FunctionPlan {
+        name: "__usp_has".to_string(),
+        params: vec!["store".to_string(), "key".to_string()],
+        locals: Vec::new(),
+        body: lir.root,
+        result: true,
+        is_entry: false,
+        flavor: None,
+    });
+    all_functions.push(FunctionPlan {
+        name: "__usp_getall".to_string(),
+        params: vec!["store".to_string(), "key".to_string()],
+        locals: Vec::new(),
+        body: lir.root,
+        result: true,
+        is_entry: false,
+        flavor: None,
+    });
+    all_functions.push(FunctionPlan {
+        name: "__usp_set".to_string(),
+        params: vec!["store".to_string(), "key".to_string(), "val".to_string()],
+        locals: Vec::new(),
+        body: lir.root,
+        result: true,
+        is_entry: false,
+        flavor: None,
+    });
+    // `__usp_append(store, key, val) -> i64` (stage-review C-3): pushes the
+    // `[key, val]` pair onto the store in ONE call, so BOTH argument
+    // expressions are fully evaluated BEFORE any mutation — the previous
+    // inline two-push lowering pushed the key first and a value expression
+    // observing the store (`q.append('b', q.has('b') ? ... : ...)`) saw
+    // half-appended state. Growth allocates through `__alloc_global` exactly
+    // like `__usp_set`'s append tail (a grown data block must not dangle
+    // across an arena reset).
+    all_functions.push(FunctionPlan {
+        name: "__usp_append".to_string(),
+        params: vec!["store".to_string(), "key".to_string(), "val".to_string()],
+        locals: Vec::new(),
+        body: lir.root,
+        result: true,
+        is_entry: false,
+        flavor: None,
+    });
+    // `URLSearchParams.toString()` serialization pair (Stage P4 Task 5).
+    // `__percent_encode(str) -> i64` re-encodes one component's bytes as
+    // application/x-www-form-urlencoded (unreserved verbatim, space → `+`,
+    // else `%XX` uppercase) into a fresh `__alloc_global` buffer and returns a
+    // packed String handle. `__usp_tostring(store) -> i64` walks the pair
+    // store and builds `enc(k0)=enc(v0)&enc(k1)=enc(v1)&…` in one
+    // `__alloc_global` buffer (separator bytes stored directly; each encoded
+    // component's bytes copied in — no `string_concat` import, no interned
+    // literals). Same inert-placeholder pattern as the synthetics above;
+    // bodies hand-emitted by `emit_percent_encode_body` /
+    // `emit_usp_tostring_body`.
+    all_functions.push(FunctionPlan {
+        name: "__percent_encode".to_string(),
+        params: vec!["str".to_string()],
+        locals: Vec::new(),
+        body: lir.root,
+        result: true,
+        is_entry: false,
+        flavor: None,
+    });
+    all_functions.push(FunctionPlan {
+        name: "__usp_tostring".to_string(),
+        params: vec!["store".to_string()],
+        locals: Vec::new(),
+        body: lir.root,
+        result: true,
+        is_entry: false,
+        flavor: None,
+    });
     // Per-shape deep-clone synthetics `__clone_shape_<n>` (Stage P2 Lane 2):
     // appended AFTER the fixed synthetics and BEFORE any source-defined function
     // so, like the fixed synthetics, they shift every later function's index by
@@ -1349,6 +1449,30 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             local_decls.push((1, ValType::I64));
         } else if function.name == "__streq" {
             local_decls.push((4, ValType::I64));
+        } else if matches!(function.name.as_str(), "__usp_get" | "__usp_has") {
+            // `emit_usp_get_body`/`emit_usp_has_body`: 3 i64 — `len`, `i`, `data`
+            // (locals 2-4; locals 0-1 are `store`/`key`).
+            local_decls.push((3, ValType::I64));
+        } else if function.name == "__usp_getall" {
+            // `emit_usp_getall_body`: 6 i64 — `len`, `i`, `data`, `count`,
+            // `newhdr`, `newdata` (locals 2-7; locals 0-1 are `store`/`key`).
+            local_decls.push((6, ValType::I64));
+        } else if function.name == "__usp_set" {
+            // `emit_usp_set_body`: 7 i64 — `write`, `found`, `i`, `data`, `len`,
+            // `cap`, `newdata` (locals 3-9; locals 0-2 are `store`/`key`/`val`).
+            local_decls.push((7, ValType::I64));
+        } else if function.name == "__usp_append" {
+            // `emit_usp_append_body`: 4 i64 — `len`, `data`, `cap`, `newdata`
+            // (locals 3-6; locals 0-2 are `store`/`key`/`val`).
+            local_decls.push((4, ValType::I64));
+        } else if function.name == "__percent_encode" {
+            // `emit_percent_encode_body`: 7 i64 — `len`, `src`, `out`, `w`,
+            // `i`, `b`, `n` (locals 1-7; local 0 is the `str` param).
+            local_decls.push((7, ValType::I64));
+        } else if function.name == "__usp_tostring" {
+            // `emit_usp_tostring_body`: 8 i64 — `len`, `i`, `data`, `w`,
+            // `out`, `h`, `p`, `n` (locals 1-8; local 0 is the `store` param).
+            local_decls.push((8, ValType::I64));
         } else if matches!(function.name.as_str(), "__join" | "__join_arena") {
             local_decls.push((6, ValType::I64));
         } else if matches!(
@@ -1464,6 +1588,39 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                     emit_join_growable_body(&mut body, alloc_global_index, false)
                 }
                 "__streq" => emit_streq_body(&mut body),
+                // URLSearchParams scan/mutation helpers (Stage P4 Task 4). The
+                // `__streq` index is threaded for key comparison; getall/set also
+                // take `__alloc_global` (fresh result / grown block must outlive
+                // any arena reset), exactly as `__join` takes its allocator.
+                "__usp_get" => emit_usp_get_body(&mut body, function_name_to_index["__streq"]),
+                "__usp_has" => emit_usp_has_body(&mut body, function_name_to_index["__streq"]),
+                "__usp_getall" => emit_usp_getall_body(
+                    &mut body,
+                    function_name_to_index["__streq"],
+                    alloc_global_index,
+                ),
+                "__usp_set" => emit_usp_set_body(
+                    &mut body,
+                    function_name_to_index["__streq"],
+                    alloc_global_index,
+                ),
+                // `__usp_append` mutates only after all its arguments were
+                // evaluated at the call site (C-3 atomic append); growth via
+                // `__alloc_global`, mirroring `__usp_set`'s append tail.
+                "__usp_append" => emit_usp_append_body(&mut body, alloc_global_index),
+                // `URLSearchParams.toString()` pair (Stage P4 Task 5): both
+                // allocate through `__alloc_global` (a toString result must
+                // outlive any arena reset, like `__join`); the joiner builds
+                // its output in ONE buffer — separator bytes stored directly,
+                // components copied from `__percent_encode` results — so it
+                // never touches the global `string_concat` import (whose
+                // absence a fully-granted module asserts) and interns nothing.
+                "__percent_encode" => emit_percent_encode_body(&mut body, alloc_global_index),
+                "__usp_tostring" => emit_usp_tostring_body(
+                    &mut body,
+                    function_name_to_index["__percent_encode"],
+                    alloc_global_index,
+                ),
                 // Per-shape deep-clone synthetic (Stage P2 Lane 2). Recover the
                 // shape from the name and hand-emit its body: fresh object,
                 // verbatim scalar slots, deep-copied growable-i64 handles.
@@ -2251,6 +2408,137 @@ pub(crate) fn declarator_init_is_abort_controller_new(
     nodes.get(call.children[0].0 as usize).is_some_and(|ctor| {
         ctor.text.as_deref() == Some("AbortController") && ctor.children.is_empty()
     })
+}
+
+/// Stage P4 (URL + URLSearchParams). Compile-time-parsed components in slot
+/// order (0..5). Built once from the string-literal constructor arg via the
+/// `url` crate; the emitted URL struct interns each of the five string
+/// components + an embedded USP built from `query_pairs`.
+pub(crate) struct UrlComponents {
+    pub href: String,
+    pub origin: String,
+    pub pathname: String,
+    pub search: String,
+    pub hash: String,
+    pub query_pairs: Vec<(String, String)>,
+}
+
+/// True when `init_id` is STRUCTURALLY `new <ctor>(<any args>)` with the bare
+/// constructor identifier `ctor` (arg-agnostic — used as the deny trigger so a
+/// non-admittable `new URL(...)` is rejected E5506 rather than silently lowering
+/// to the `0` placeholder). EMPIRICALLY-VERIFIED LIR shape (`new URL('x')`,
+/// dumped): the New wrapper is `Value(None, [Call(None, [Value(ctor), <args…>])])`
+/// — the OUTER new args are empty; the real args live in the callee
+/// `CallExpression`'s children AFTER the ctor.
+pub(crate) fn declarator_init_is_url_ctor(
+    nodes: &[LirNode],
+    init_id: LirNodeId,
+    ctor: &str,
+) -> bool {
+    let Some(node) = nodes.get(init_id.0 as usize) else {
+        return false;
+    };
+    if node.kind != LirNodeKind::Value || node.text.is_some() || node.children.len() != 1 {
+        return false;
+    }
+    let Some(call) = nodes.get(node.children[0].0 as usize) else {
+        return false;
+    };
+    if call.kind != LirNodeKind::Call || call.text.is_some() || call.children.is_empty() {
+        return false;
+    }
+    nodes
+        .get(call.children[0].0 as usize)
+        .is_some_and(|c| c.text.as_deref() == Some(ctor) && c.children.is_empty())
+}
+
+/// The single string-literal argument text (WITH delimiters) of a
+/// `new <ctor>(<string-literal>)` construction, or `None` when the ctor does not
+/// match, when there is not EXACTLY ONE argument, or when that argument is not a
+/// string literal. Two-arg `new URL(rel, base)` and non-literal `new URL(s)`
+/// both return `None` (not admitted → the declarator intercept denies). The arg
+/// lives at `call.children[1]` (index 0 is the ctor identifier).
+pub(crate) fn new_ctor_string_literal_arg(
+    nodes: &[LirNode],
+    init_id: LirNodeId,
+    ctor: &str,
+) -> Option<String> {
+    let node = nodes.get(init_id.0 as usize)?;
+    if node.kind != LirNodeKind::Value || node.text.is_some() || node.children.len() != 1 {
+        return None;
+    }
+    let call = nodes.get(node.children[0].0 as usize)?;
+    // Exactly one arg → the Call has TWO children: [ctor, arg].
+    if call.kind != LirNodeKind::Call || call.text.is_some() || call.children.len() != 2 {
+        return None;
+    }
+    let ctor_node = nodes.get(call.children[0].0 as usize)?;
+    if ctor_node.text.as_deref() != Some(ctor) || !ctor_node.children.is_empty() {
+        return None;
+    }
+    let arg = nodes.get(call.children[1].0 as usize)?;
+    if arg.kind != LirNodeKind::Literal {
+        return None;
+    }
+    let text = arg.text.as_deref()?;
+    let trimmed = text.trim();
+    let first = trimmed.chars().next()?;
+    let last = trimmed.chars().last()?;
+    let is_string = (first == '"' && last == '"')
+        || (first == '\'' && last == '\'')
+        || (first == '`' && last == '`');
+    is_string.then(|| text.to_string())
+}
+
+/// `true` iff `init_id` is `new URL(<string-literal>)`. The Task 3 declarator
+/// intercept uses the arg-agnostic `declarator_init_is_url_ctor` (so a
+/// non-admittable shape denies rather than silently placeholder-lowering);
+/// this narrow admit-predicate is the interface Tasks 4-5 consume.
+#[allow(dead_code)]
+pub(crate) fn declarator_init_is_url_new(nodes: &[LirNode], init_id: LirNodeId) -> bool {
+    new_ctor_string_literal_arg(nodes, init_id, "URL").is_some()
+}
+
+/// `true` iff `init_id` is `new URLSearchParams(<string-literal>)`. Interface
+/// for Tasks 4-5 (see `declarator_init_is_url_new`).
+#[allow(dead_code)]
+pub(crate) fn declarator_init_is_url_search_params_new(
+    nodes: &[LirNode],
+    init_id: LirNodeId,
+) -> bool {
+    new_ctor_string_literal_arg(nodes, init_id, "URLSearchParams").is_some()
+}
+
+/// Parse a URL string literal into its emitted components via the `url` crate.
+/// Returns `None` when the literal does not parse as an absolute URL — the
+/// declarator intercept then denies (a non-parseable literal is not admitted).
+pub(crate) fn parse_url_literal(text: &str) -> Option<UrlComponents> {
+    let u = url::Url::parse(text).ok()?;
+    Some(UrlComponents {
+        href: u.as_str().to_string(),
+        origin: u.origin().ascii_serialization(),
+        pathname: u.path().to_string(),
+        search: u.query().map(|q| format!("?{q}")).unwrap_or_default(),
+        hash: u.fragment().map(|f| format!("#{f}")).unwrap_or_default(),
+        query_pairs: u
+            .query_pairs()
+            .map(|(k, v)| (k.into_owned(), v.into_owned()))
+            .collect(),
+    })
+}
+
+/// `application/x-www-form-urlencoded` decode (`+`→space, `%XX`) of a
+/// URLSearchParams literal via `form_urlencoded`. Always succeeds (an empty or
+/// malformed body yields whatever pairs decode, matching the WHATWG parser).
+/// Per the WHATWG URLSearchParams constructor, exactly ONE leading `?` is
+/// stripped before parsing (`new URLSearchParams('?a=1')` ≡ `'a=1'`); without
+/// the strip the `?` was percent-encoded into the first key (`%3Fa=1`) and
+/// `get('a')` missed (stage-review C-2).
+pub(crate) fn parse_query_literal(text: &str) -> Vec<(String, String)> {
+    let text = text.strip_prefix('?').unwrap_or(text);
+    form_urlencoded::parse(text.as_bytes())
+        .into_owned()
+        .collect()
 }
 
 /// True when `init_id` is a PROVABLE ZERO-PLACEHOLDER construct — a
@@ -3174,11 +3462,24 @@ pub(crate) fn collect_function_locals(
         repr_table.return_repr(function_name),
         kali_common::Repr::Object(shape) if shape_has_growable_field(repr_table, shape)
     );
+    // Stage P4: a URL or URLSearchParams construction builds an embedded /
+    // standalone growable `[k0,v0,…]` pair-store via `emit_growable_alloc`,
+    // which requires the dedicated growable scratch. Reserve it whenever this
+    // function owns a `Repr::Url`/`Repr::UrlSearchParams` binding (over-reserving
+    // an unused i64 local is harmless; under-reserving panics in
+    // `growable_scratch_local`).
+    let constructs_url_or_usp = locals.iter().any(|name| {
+        matches!(
+            repr_table.scalar(function_name, name),
+            kali_common::Repr::Url | kali_common::Repr::UrlSearchParams
+        )
+    });
     if locals
         .iter()
         .any(|name| repr_table.is_growable_array_binding(function_name, name))
         || body_contains_field_push(nodes, body_id)
         || allocates_growable_object_field
+        || constructs_url_or_usp
     {
         locals.push(growable_scratch_local_name());
     }
@@ -5790,6 +6091,993 @@ fn emit_streq_body(func: &mut Function) {
     // all len bytes equal
     func.instruction(&Instruction::I64Const(1));
     // NO trailing End — the dispatch loop appends it (same as every synthetic).
+}
+
+// === URLSearchParams scan/mutation synthetic bodies (Stage P4 Task 4) ========
+//
+// Shared store layout: `store` is the tagged growable handle
+// (`hdr | ARRAY_HANDLE_TAG`); `hdr_ptr = store & GROWABLE_HANDLE_MASK`;
+// `len = hdr[+0]`, `cap = hdr[+8]`, `data = hdr[+16]`; the data block is
+// `[k0,v0,k1,v1,…]` of interned i64 string handles. Key comparison is the
+// present-in-every-module `__streq` synthetic (index threaded in). No
+// `i64.eqz` anywhere (module-wide boolean-fast-path assertion) — zero tests use
+// `i64.const 0; i64.eq`.
+
+/// Push `hdr_ptr` (i32) of the tagged growable store handle held in `store_local`.
+fn usp_emit_hdr(func: &mut Function, store_local: u32) {
+    func.instruction(&Instruction::LocalGet(store_local));
+    func.instruction(&Instruction::I64Const(
+        crate::emit::growable::GROWABLE_HANDLE_MASK,
+    ));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I32WrapI64);
+}
+
+/// Push element base address `data + index*8` (i32); the caller's i64 load/store
+/// uses `offset` 0 for the key/first slot or 8 for the value/second slot.
+/// `data_local` holds the zero-extended `data_ptr` (i64); `index_local` the i64
+/// pair index.
+fn usp_emit_elem_addr(func: &mut Function, data_local: u32, index_local: u32) {
+    func.instruction(&Instruction::LocalGet(data_local));
+    func.instruction(&Instruction::LocalGet(index_local));
+    func.instruction(&Instruction::I64Const(8));
+    func.instruction(&Instruction::I64Mul);
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::I32WrapI64);
+}
+
+/// Push element value `data[index]` (`off` 0) or `data[index+1]` (`off` 8) as i64.
+fn usp_emit_load_elem(func: &mut Function, data_local: u32, index_local: u32, off: u64) {
+    usp_emit_elem_addr(func, data_local, index_local);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: off,
+        align: 3,
+        memory_index: 0,
+    }));
+}
+
+/// `__usp_get(store, key) -> i64`: `i=0; while i<len { if __streq(data[i],key)
+/// return data[i+1]; i+=2 } return 0`. Locals 0-1 = `store`/`key`; 2 = `len`,
+/// 3 = `i`, 4 = `data`.
+fn emit_usp_get_body(func: &mut Function, streq_index: u32) {
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(2)); // len
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 16,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(4)); // data
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(3)); // i = 0
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64LtS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    // if __streq(data[i], key) return data[i+1]
+    usp_emit_load_elem(func, 4, 3, 0);
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::Call(streq_index));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    usp_emit_load_elem(func, 4, 3, 8);
+    func.instruction(&Instruction::Return);
+    func.instruction(&Instruction::End);
+    // i += 2; continue
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(2));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::Br(1));
+    func.instruction(&Instruction::End); // i<len if
+    func.instruction(&Instruction::End); // loop
+    func.instruction(&Instruction::I64Const(0)); // not found → null sentinel
+                                                 // NO trailing End.
+}
+
+/// `__usp_has(store, key) -> i64`: the `__usp_get` scan returning `1`/`0`.
+/// Locals identical to `__usp_get`.
+fn emit_usp_has_body(func: &mut Function, streq_index: u32) {
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(2)); // len
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 16,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(4)); // data
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(3)); // i = 0
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64LtS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    usp_emit_load_elem(func, 4, 3, 0);
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::Call(streq_index));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::Return);
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(2));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::Br(1));
+    func.instruction(&Instruction::End); // i<len if
+    func.instruction(&Instruction::End); // loop
+    func.instruction(&Instruction::I64Const(0)); // no match
+                                                 // NO trailing End.
+}
+
+/// `__usp_getall(store, key) -> i64`: two-pass — count matches, allocate a fresh
+/// growable of exactly that length via `__alloc_global`, then fill it with each
+/// matching value. Returns the fresh tagged growable handle (its `.length`
+/// reads its own header). Two-pass avoids any grow-if-full inside the scan.
+/// Locals 0-1 = `store`/`key`; 2 = `len`, 3 = `i`, 4 = `data` (source), 5 =
+/// `count`/write-cursor, 6 = `newhdr`, 7 = `newdata`.
+fn emit_usp_getall_body(func: &mut Function, streq_index: u32, alloc_global_index: u32) {
+    // len / data (source)
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(2));
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 16,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(4));
+    // Pass 1: count = number of key matches.
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(5)); // count = 0
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(3)); // i = 0
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64LtS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    usp_emit_load_elem(func, 4, 3, 0);
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::Call(streq_index));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(5));
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(2));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::Br(1));
+    func.instruction(&Instruction::End); // i<len if
+    func.instruction(&Instruction::End); // loop
+                                         // Allocate the result growable: header(24) + data(count*8).
+    func.instruction(&Instruction::I32Const(24));
+    func.instruction(&Instruction::Call(alloc_global_index));
+    func.instruction(&Instruction::I64ExtendI32U);
+    func.instruction(&Instruction::LocalSet(6)); // newhdr (zero-extended ptr)
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I64Const(8));
+    func.instruction(&Instruction::I64Mul);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::Call(alloc_global_index));
+    func.instruction(&Instruction::I64ExtendI32U);
+    func.instruction(&Instruction::LocalSet(7)); // newdata
+                                                 // newhdr.len = count
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    // newhdr.cap = count
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    // newhdr.data_ptr = newdata
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 16,
+        align: 3,
+        memory_index: 0,
+    }));
+    // Pass 2: fill newdata[count++] = data[i+1] for each match.
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(5)); // reuse as write cursor
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(3)); // i = 0
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64LtS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    usp_emit_load_elem(func, 4, 3, 0);
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::Call(streq_index));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    // newdata[count] = data[i+1]
+    usp_emit_elem_addr(func, 7, 5);
+    usp_emit_load_elem(func, 4, 3, 8);
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(5));
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(2));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::Br(1));
+    func.instruction(&Instruction::End); // i<len if
+    func.instruction(&Instruction::End); // loop
+                                         // return newhdr | ARRAY_HANDLE_TAG
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I64Const(crate::ARRAY_HANDLE_TAG as i64));
+    func.instruction(&Instruction::I64Or);
+    // NO trailing End.
+}
+
+/// `__usp_append(store, key, val) -> i64` (stage-review C-3): append the
+/// `[key, val]` pair in ONE call so both arguments are evaluated at the call
+/// site BEFORE any mutation (the inline two-push predecessor mutated between
+/// the key push and the value evaluation). Grow-if-full via `__alloc_global`
+/// (cap*2; cap starts at `GROWABLE_INITIAL_CAP` = 4, so `2*cap >= len+2`
+/// always holds), mirroring `__usp_set`'s append tail. Returns `0` (the call
+/// site drops it — WHATWG append returns undefined). Locals 0-2 =
+/// `store`/`key`/`val`; 3 = `len`, 4 = `data`, 5 = `cap`, 6 = `newdata`.
+fn emit_usp_append_body(func: &mut Function, alloc_global_index: u32) {
+    // len / data / cap
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(3)); // len
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 16,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(4)); // data
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(5)); // cap
+                                                 // if len + 2 > cap: grow.
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(2));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I64GtS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    // newdata = __alloc_global(cap * 2 * 8)
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I64Const(16));
+    func.instruction(&Instruction::I64Mul);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::Call(alloc_global_index));
+    func.instruction(&Instruction::I64ExtendI32U);
+    func.instruction(&Instruction::LocalSet(6));
+    // memory.copy(newdata, data, len * 8)
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(8));
+    func.instruction(&Instruction::I64Mul);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::MemoryCopy {
+        src_mem: 0,
+        dst_mem: 0,
+    });
+    // hdr.data_ptr = newdata
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 16,
+        align: 3,
+        memory_index: 0,
+    }));
+    // hdr.cap = cap * 2
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I64Const(2));
+    func.instruction(&Instruction::I64Mul);
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    // data = newdata
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::End);
+    // data[len] = key (pair index == len; slot offset 0)
+    usp_emit_elem_addr(func, 4, 3);
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    // data[len+1] = val (slot offset 8)
+    usp_emit_elem_addr(func, 4, 3);
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    // hdr.len = len + 2
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(2));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    // append returns undefined; the synthetic returns 0 and the call site drops.
+    func.instruction(&Instruction::I64Const(0));
+    // NO trailing End — the dispatch loop appends it.
+}
+
+/// `__usp_set(store, key, val) -> i64` (WHATWG): overwrite the FIRST matching
+/// key's value, remove subsequent matches (in-place compaction with a write
+/// cursor), else append `[key,val]` (grow-if-full via `__alloc_global`). Returns
+/// the store handle. Locals 0-2 = `store`/`key`/`val`; 3 = `write`, 4 = `found`,
+/// 5 = `i`, 6 = `data`, 7 = `len`, 8 = `cap`, 9 = `newdata`.
+fn emit_usp_set_body(func: &mut Function, streq_index: u32, alloc_global_index: u32) {
+    // data / len / cap
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 16,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(6)); // data
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(7)); // len
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(8)); // cap
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(3)); // write = 0
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(4)); // found = 0
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(5)); // i = 0
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I64LtS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    // matched = __streq(data[i], key)
+    usp_emit_load_elem(func, 6, 5, 0);
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::Call(streq_index));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    // matched: keep first (overwrite value), drop the rest.
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    // data[write] = key
+    usp_emit_elem_addr(func, 6, 3);
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    // data[write+1] = val
+    usp_emit_elem_addr(func, 6, 3);
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    // write += 2; found = 1
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(2));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::End); // found==0 if (else: drop)
+    func.instruction(&Instruction::Else);
+    // not matched: copy [data[i], data[i+1]] down to write.
+    usp_emit_elem_addr(func, 6, 3);
+    usp_emit_load_elem(func, 6, 5, 0);
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    usp_emit_elem_addr(func, 6, 3);
+    usp_emit_load_elem(func, 6, 5, 8);
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(2));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::End); // matched if/else
+                                         // i += 2; continue
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I64Const(2));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(5));
+    func.instruction(&Instruction::Br(1));
+    func.instruction(&Instruction::End); // i<len if
+    func.instruction(&Instruction::End); // loop
+                                         // if found == 0: append [key, val], growing the data block if needed.
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    // if write + 2 > cap: grow (cap*2; write==len here so this is len+2 vs cap).
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(2));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalGet(8));
+    func.instruction(&Instruction::I64GtS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    // newdata = __alloc_global(cap * 2 * 8)
+    func.instruction(&Instruction::LocalGet(8));
+    func.instruction(&Instruction::I64Const(16));
+    func.instruction(&Instruction::I64Mul);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::Call(alloc_global_index));
+    func.instruction(&Instruction::I64ExtendI32U);
+    func.instruction(&Instruction::LocalSet(9));
+    // memory.copy(newdata, data, write*8)
+    func.instruction(&Instruction::LocalGet(9));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(8));
+    func.instruction(&Instruction::I64Mul);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::MemoryCopy {
+        src_mem: 0,
+        dst_mem: 0,
+    });
+    // hdr.data_ptr = newdata
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::LocalGet(9));
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 16,
+        align: 3,
+        memory_index: 0,
+    }));
+    // hdr.cap = cap * 2
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::LocalGet(8));
+    func.instruction(&Instruction::I64Const(2));
+    func.instruction(&Instruction::I64Mul);
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    // data = newdata
+    func.instruction(&Instruction::LocalGet(9));
+    func.instruction(&Instruction::LocalSet(6));
+    func.instruction(&Instruction::End); // grow if
+                                         // data[write] = key
+    usp_emit_elem_addr(func, 6, 3);
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    // data[write+1] = val
+    usp_emit_elem_addr(func, 6, 3);
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    // write += 2
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(2));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::End); // found==0 append if
+                                         // hdr.len = write
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    // return store
+    func.instruction(&Instruction::LocalGet(0));
+    // NO trailing End.
+}
+
+/// `__percent_encode(str) -> i64` (Stage P4 Task 5): re-encode a tagged string
+/// handle's bytes as `application/x-www-form-urlencoded` — unreserved bytes
+/// (`A-Z a-z 0-9 * - . _`) verbatim, space (0x20) → `+`, everything else →
+/// `%` + two UPPERCASE hex digits — into a fresh buffer allocated through
+/// `__alloc_global` (worst case `3*len`; a toString result must outlive any
+/// arena reset, exactly as `__join` allocates globally). Returns the packed
+/// handle `TAG | out<<32 | written` (`encode_string_handle` layout; offsets
+/// decoded as `(h >> 32) & 0x7FFF_FFFF`, len as the low 32 bits — mirroring
+/// `emit_streq_body`/`emit_substring_body`). A non-string input (no
+/// `STRING_HANDLE_TAG`, e.g. a stray 0 sentinel) and the empty string both
+/// return the bare TAG (a zero-length handle is never dereferenced).
+/// Locals: 0 = `str` (param), 1 = `len`, 2 = `src`, 3 = `out`, 4 = `w`
+/// (write cursor), 5 = `i`, 6 = `b` (current byte), 7 = `n` (nibble temp).
+/// No `i64.eqz` anywhere (module-wide boolean-fast-path assertion — see the
+/// comment in `emit_join_body`); zero tests use `i64.const 0` + `i64.eq`.
+fn emit_percent_encode_body(func: &mut Function, alloc_global_index: u32) {
+    // if (str & TAG) == 0 return TAG — not a live string handle.
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I64Const(crate::STRING_HANDLE_TAG as i64));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::I64Const(crate::STRING_HANDLE_TAG as i64));
+    func.instruction(&Instruction::Return);
+    func.instruction(&Instruction::End);
+    // len = str & 0xFFFF_FFFF; if len == 0 return TAG (empty stays empty).
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::LocalSet(1));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::I64Const(crate::STRING_HANDLE_TAG as i64));
+    func.instruction(&Instruction::Return);
+    func.instruction(&Instruction::End);
+    // src = (str >> 32) & 0x7FFF_FFFF
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I64Const(32));
+    func.instruction(&Instruction::I64ShrU);
+    func.instruction(&Instruction::I64Const(0x7FFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::LocalSet(2));
+    // out = zext(__alloc_global(3 * len)) — worst case, every byte → %XX.
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Const(3));
+    func.instruction(&Instruction::I64Mul);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::Call(alloc_global_index));
+    func.instruction(&Instruction::I64ExtendI32U);
+    func.instruction(&Instruction::LocalSet(3));
+    // w = out; i = 0
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(5));
+    // loop over input bytes
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64LtS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    // b = *(src + i)
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load8U(MemArg {
+        offset: 0,
+        align: 0,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(6));
+    // unreserved: A-Z | a-z | 0-9 | '*' 42 | '-' 45 | '.' 46 | '_' 95
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I64Const(65));
+    func.instruction(&Instruction::I64GeS);
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I64Const(90));
+    func.instruction(&Instruction::I64LeS);
+    func.instruction(&Instruction::I32And);
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I64Const(97));
+    func.instruction(&Instruction::I64GeS);
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I64Const(122));
+    func.instruction(&Instruction::I64LeS);
+    func.instruction(&Instruction::I32And);
+    func.instruction(&Instruction::I32Or);
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I64Const(48));
+    func.instruction(&Instruction::I64GeS);
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I64Const(57));
+    func.instruction(&Instruction::I64LeS);
+    func.instruction(&Instruction::I32And);
+    func.instruction(&Instruction::I32Or);
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I64Const(42));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::I32Or);
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I64Const(45));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::I32Or);
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I64Const(46));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::I32Or);
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I64Const(95));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::I32Or);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    // unreserved: *w = b; w += 1
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I64Store8(MemArg {
+        offset: 0,
+        align: 0,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::Else);
+    // space → '+'
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I64Const(32));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Const(43));
+    func.instruction(&Instruction::I64Store8(MemArg {
+        offset: 0,
+        align: 0,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::Else);
+    // else: '%' + two UPPERCASE hex digits (digit = n + (n>9 ? 55 : 48)).
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Const(37));
+    func.instruction(&Instruction::I64Store8(MemArg {
+        offset: 0,
+        align: 0,
+        memory_index: 0,
+    }));
+    // n = b >> 4; *(w+1) = hexdigit(n)
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I64Const(4));
+    func.instruction(&Instruction::I64ShrU);
+    func.instruction(&Instruction::LocalSet(7));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I64Const(55));
+    func.instruction(&Instruction::I64Const(48));
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I64Const(9));
+    func.instruction(&Instruction::I64GtS);
+    func.instruction(&Instruction::Select);
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::I64Store8(MemArg {
+        offset: 1,
+        align: 0,
+        memory_index: 0,
+    }));
+    // n = b & 15; *(w+2) = hexdigit(n)
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I64Const(15));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::LocalSet(7));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I64Const(55));
+    func.instruction(&Instruction::I64Const(48));
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I64Const(9));
+    func.instruction(&Instruction::I64GtS);
+    func.instruction(&Instruction::Select);
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::I64Store8(MemArg {
+        offset: 2,
+        align: 0,
+        memory_index: 0,
+    }));
+    // w += 3
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I64Const(3));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::End); // space/else if
+    func.instruction(&Instruction::End); // unreserved if
+                                         // i += 1; continue
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(5));
+    func.instruction(&Instruction::Br(1));
+    func.instruction(&Instruction::End); // i<len if
+    func.instruction(&Instruction::End); // loop
+                                         // TAG | out<<32 | (w - out)
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(32));
+    func.instruction(&Instruction::I64Shl);
+    func.instruction(&Instruction::I64Const(crate::STRING_HANDLE_TAG as i64));
+    func.instruction(&Instruction::I64Or);
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Sub);
+    func.instruction(&Instruction::I64Or);
+    // NO trailing End.
+}
+
+/// Emit a separator byte: `*w = byte; w += 1` (`w_local` holds the i64 write
+/// cursor). Part of `emit_usp_tostring_body`'s single-buffer build.
+fn usp_emit_sep_byte(func: &mut Function, w_local: u32, byte: i64) {
+    func.instruction(&Instruction::LocalGet(w_local));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Const(byte));
+    func.instruction(&Instruction::I64Store8(MemArg {
+        offset: 0,
+        align: 0,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalGet(w_local));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(w_local));
+}
+
+/// Emit `enc = __percent_encode(data[i + slot]); copy enc's bytes to w` for
+/// `emit_usp_tostring_body`: calls the encoder on the element (`off` 0 = key,
+/// 8 = value), decodes the returned handle into `p` (source cursor) / `n`
+/// (remaining bytes), then byte-copies `n` bytes to the `w` cursor. Locals are
+/// `emit_usp_tostring_body`'s: 2 = `i`, 3 = `data`, 4 = `w`, 6 = `h`, 7 = `p`,
+/// 8 = `n`.
+fn usp_emit_encoded_component_copy(func: &mut Function, percent_encode_index: u32, off: u64) {
+    // h = __percent_encode(data[i]/data[i+1])
+    usp_emit_load_elem(func, 3, 2, off);
+    func.instruction(&Instruction::Call(percent_encode_index));
+    func.instruction(&Instruction::LocalSet(6));
+    // p = (h >> 32) & 0x7FFF_FFFF ; n = h & 0xFFFF_FFFF
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I64Const(32));
+    func.instruction(&Instruction::I64ShrU);
+    func.instruction(&Instruction::I64Const(0x7FFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::LocalSet(7));
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::LocalSet(8));
+    // while n > 0 { *w = *p; w += 1; p += 1; n -= 1 }
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(8));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::I64GtS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load8U(MemArg {
+        offset: 0,
+        align: 0,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::I64Store8(MemArg {
+        offset: 0,
+        align: 0,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(7));
+    func.instruction(&Instruction::LocalGet(8));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Sub);
+    func.instruction(&Instruction::LocalSet(8));
+    func.instruction(&Instruction::Br(1));
+    func.instruction(&Instruction::End); // n>0 if
+    func.instruction(&Instruction::End); // copy loop
+}
+
+/// `__usp_tostring(store) -> i64` (Stage P4 Task 5): serialize the pair store
+/// as `enc(k0)=enc(v0)&enc(k1)=enc(v1)&…` — each component percent-encoded by
+/// `__percent_encode` (index threaded in) — into ONE `__alloc_global` buffer
+/// (like `__join`; the result must outlive any arena reset). Pass 1 sums a
+/// worst-case size (`3 * Σ raw component len + len` — `len` slots is one more
+/// than the `len-1` separator bytes `n×'=' + (n-1)×'&'`); pass 2 writes
+/// separator bytes directly and byte-copies each encoded component from its
+/// own `__percent_encode` buffer. Deliberately NO `string_concat` import call
+/// (a fully-granted module asserts the global concat import is never called —
+/// see `granted_concat_in_loop_routes_to_arena_import`) and NO interned
+/// literals (key-table pins fix data-segment offsets). Empty store → bare TAG
+/// (empty string handle, never dereferenced). Returns `TAG | out<<32 |
+/// (w-out)`. Locals: 0 = `store` (param), 1 = `len`, 2 = `i`, 3 = `data`,
+/// 4 = `w` (size accumulator, then write cursor), 5 = `out`, 6 = `h`, 7 = `p`,
+/// 8 = `n`. No `i64.eqz` (see `emit_join_body`).
+fn emit_usp_tostring_body(func: &mut Function, percent_encode_index: u32, alloc_global_index: u32) {
+    // len = hdr[+0]; data = hdr[+16]
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(1));
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 16,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(3));
+    // if len == 0 return TAG (empty string handle)
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::I64Const(crate::STRING_HANDLE_TAG as i64));
+    func.instruction(&Instruction::Return);
+    func.instruction(&Instruction::End);
+    // Pass 1: w = len + Σ 3*(data[i] & 0xFFFF_FFFF) — worst-case output size.
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(2));
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64LtS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(4));
+    usp_emit_load_elem(func, 3, 2, 0);
+    func.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I64Const(3));
+    func.instruction(&Instruction::I64Mul);
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(2));
+    func.instruction(&Instruction::Br(1));
+    func.instruction(&Instruction::End); // i<len if
+    func.instruction(&Instruction::End); // pass-1 loop
+                                         // out = zext(__alloc_global(w)); w = out
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::Call(alloc_global_index));
+    func.instruction(&Instruction::I64ExtendI32U);
+    func.instruction(&Instruction::LocalSet(5));
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::LocalSet(4));
+    // Pass 2: for i in (0..len).step_by(2): [&] enc(key) = enc(val)
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(2));
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64LtS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    // if i > 0: *w = '&' (38); w += 1
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::I64GtS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    usp_emit_sep_byte(func, 4, 38);
+    func.instruction(&Instruction::End);
+    // encoded key bytes
+    usp_emit_encoded_component_copy(func, percent_encode_index, 0);
+    // *w = '=' (61); w += 1
+    usp_emit_sep_byte(func, 4, 61);
+    // encoded value bytes
+    usp_emit_encoded_component_copy(func, percent_encode_index, 8);
+    // i += 2; continue
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64Const(2));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(2));
+    func.instruction(&Instruction::Br(1));
+    func.instruction(&Instruction::End); // i<len if
+    func.instruction(&Instruction::End); // pass-2 loop
+                                         // TAG | out<<32 | (w - out)
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I64Const(32));
+    func.instruction(&Instruction::I64Shl);
+    func.instruction(&Instruction::I64Const(crate::STRING_HANDLE_TAG as i64));
+    func.instruction(&Instruction::I64Or);
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I64Sub);
+    func.instruction(&Instruction::I64Or);
+    // NO trailing End.
 }
 
 /// `__join(arr, sep) -> i64`: copy every element string (i64 handles in the

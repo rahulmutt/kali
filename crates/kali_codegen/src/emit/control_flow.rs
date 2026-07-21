@@ -805,6 +805,36 @@ impl<'a> FunctionEmitter<'a> {
                             }
                         }
 
+                        // Stage-review C-4: URL/USP provenance is name-keyed
+                        // and FLAT (no block scoping), so a block-scoped
+                        // redeclaration of a name already carrying URL/USP
+                        // provenance desyncs name→value (`{ const u = {...} }`
+                        // inside a URL `u`'s scope read 0 where node reads the
+                        // object). Deny at the declarator choke — the single
+                        // point every redeclaration must pass.
+                        if let Some(name) = declarator.text.as_deref() {
+                            if self.is_url(name) || self.is_url_search_params(name) {
+                                self.deny_e5506(
+                                    function,
+                                    "redeclaring a name bound to a URL/URLSearchParams in an \
+                                     inner scope is not supported in the current phase \
+                                     (URL/USP provenance is not block-scoped; the shadow \
+                                     would read the wrong value; fail-closed)",
+                                );
+                                continue;
+                            }
+                        }
+                        // C-4 mirror order: a URL/USP CONSTRUCTION intercept
+                        // below refuses a name that was already declared in
+                        // this emitter — the init then takes the generic path,
+                        // where the ctor deny (F10) fails it closed instead of
+                        // silently overwriting the outer binding's shared
+                        // local slot.
+                        let name_already_declared = declarator
+                            .text
+                            .clone()
+                            .is_some_and(|name| !self.declared_binding_names.insert(name));
+
                         // Stage D event lane: `const/let t = new EventTarget()`.
                         // This is the ONE position a handle acquires stable
                         // provenance — emit the host construction call, store the
@@ -928,6 +958,147 @@ impl<'a> FunctionEmitter<'a> {
                                     continue;
                                 }
                             }
+                        }
+
+                        // Stage P4 URL/URLSearchParams lane:
+                        // `const u = new URL(<string-literal>)` and
+                        // `const q = new URLSearchParams(<string-literal>)`. A
+                        // structural `new URL(...)` / `new URLSearchParams(...)`
+                        // with the UNSHADOWED builtin ctor is intercepted here:
+                        // an admittable single-string-literal arg that parses is
+                        // materialized (URL → 48-byte arena struct of interned
+                        // component handles + embedded USP; USP → growable
+                        // pair-store) and its handle bound; ANY non-admittable
+                        // shape (non-literal `new URL(s)` / multi-arg
+                        // `new URL(rel, base)` / non-parseable literal) is denied
+                        // E5506 instead of silently lowering to the `0`
+                        // placeholder — the raw handle representation must never
+                        // escape as a bare `0` (reject-don't-miscompile). A
+                        // user-shadowed ctor falls through to the normal call lane.
+                        if is_const {
+                            if let Some(name) = declarator.text.clone() {
+                                if crate::lower::declarator_init_is_url_ctor(
+                                    &self.program.nodes,
+                                    init,
+                                    "URL",
+                                ) && self.url_ctor_unshadowed("URL")
+                                    && !name_already_declared
+                                {
+                                    let admitted = if self.scalar_repr(&name)
+                                        == kali_common::Repr::Url
+                                    {
+                                        crate::lower::new_ctor_string_literal_arg(
+                                            &self.program.nodes,
+                                            init,
+                                            "URL",
+                                        )
+                                        .and_then(|t| {
+                                            crate::lower::parse_url_literal(
+                                                crate::strip_string_delimiters(&t),
+                                            )
+                                        })
+                                    } else {
+                                        None
+                                    };
+                                    if let Some(components) = admitted {
+                                        self.emit_url_construction(function, &components);
+                                        if let Some(index) = self.locals.get(&name).copied() {
+                                            function.instruction(&Instruction::LocalSet(index));
+                                        } else if let Some((depth, offset)) =
+                                            self.resolve_capture_access(&name)
+                                        {
+                                            let env_global = self.current_env_global();
+                                            let scratch2 = self.locals.len() as u32;
+                                            crate::closure::emit_cell_store(
+                                                function, env_global, depth, offset, scratch2,
+                                            );
+                                        } else {
+                                            function.instruction(&Instruction::Drop);
+                                        }
+                                        self.url_locals.insert(name);
+                                        continue;
+                                    }
+                                    self.deny_e5506(
+                                        function,
+                                        "a URL can only be constructed from a single \
+                                         string-literal argument that parses as an absolute URL \
+                                         in the current phase (fail-closed)",
+                                    );
+                                    continue;
+                                }
+                                if crate::lower::declarator_init_is_url_ctor(
+                                    &self.program.nodes,
+                                    init,
+                                    "URLSearchParams",
+                                ) && self.url_ctor_unshadowed("URLSearchParams")
+                                    && !name_already_declared
+                                {
+                                    let admitted = if self.scalar_repr(&name)
+                                        == kali_common::Repr::UrlSearchParams
+                                    {
+                                        crate::lower::new_ctor_string_literal_arg(
+                                            &self.program.nodes,
+                                            init,
+                                            "URLSearchParams",
+                                        )
+                                        .map(|t| {
+                                            crate::lower::parse_query_literal(
+                                                crate::strip_string_delimiters(&t),
+                                            )
+                                        })
+                                    } else {
+                                        None
+                                    };
+                                    if let Some(pairs) = admitted {
+                                        self.emit_usp_store_from_pairs(function, &pairs);
+                                        if let Some(index) = self.locals.get(&name).copied() {
+                                            function.instruction(&Instruction::LocalSet(index));
+                                        } else if let Some((depth, offset)) =
+                                            self.resolve_capture_access(&name)
+                                        {
+                                            let env_global = self.current_env_global();
+                                            let scratch2 = self.locals.len() as u32;
+                                            crate::closure::emit_cell_store(
+                                                function, env_global, depth, offset, scratch2,
+                                            );
+                                        } else {
+                                            function.instruction(&Instruction::Drop);
+                                        }
+                                        self.usp_locals.insert(name);
+                                        continue;
+                                    }
+                                    self.deny_e5506(
+                                        function,
+                                        "a URLSearchParams can only be constructed from a single \
+                                         string-literal argument in the current phase \
+                                         (fail-closed)",
+                                    );
+                                    continue;
+                                }
+                            }
+                        }
+
+                        // Stage P4 Task 6 review fix: BINDING a USP
+                        // `.getAll(...)` result (`const a = q.getAll('k')`,
+                        // any of const/let/var) has no sound lowering — the
+                        // call itself is admitted, but the binding loses the
+                        // growable classification at this declarator, so a
+                        // later `a.length` silently placeholder-0s (node
+                        // prints the count — a wrong-value miscompile on a
+                        // lane shipped this stage). Deny at the declarator
+                        // choke, keyed on the same receiver-provenance
+                        // recognizer as the admitted direct form
+                        // (`is_usp_getall_call`); only the direct
+                        // `q.getAll(k).length` composition is supported this
+                        // phase.
+                        if self.is_usp_getall_call(init) {
+                            self.deny_e5506(
+                                function,
+                                "binding the result of URLSearchParams.getAll(...) is not \
+                                 supported in the current phase; only the direct \
+                                 `q.getAll(k).length` composition is available (fail-closed)",
+                            );
+                            continue;
                         }
 
                         // Stage P3 Task 4: `const s = c.signal` alias. The signal
@@ -1559,6 +1730,54 @@ impl<'a> FunctionEmitter<'a> {
                              closed (fail-closed)",
                         );
                     }
+                    // Stage P4 URL/URLSearchParams escape choke point (spec §3):
+                    // a bare read of a URL/USP handle is E5506 unless an
+                    // allowlisted consumer set `admit_url_handle_read` while
+                    // emitting its receiver (`emit_url_receiver_handle`). The raw
+                    // i64 handle (a URL struct pointer or a tagged USP pair-store)
+                    // must never escape as an observable value
+                    // (`console.log(u)`, `u` as an argument, `return u`).
+                    // Allowlist the safe position at the single read site, don't
+                    // denylist sinks — the deny is total by construction because
+                    // every admitted consumer sets the flag.
+                    if (self.is_url(text) || self.is_url_search_params(text))
+                        && !self.admit_url_handle_read
+                    {
+                        return self.deny_e5506(
+                            function,
+                            "a URL/URLSearchParams handle cannot be read in this position: kali \
+                             admits it only as a recognized method/component receiver \
+                             (fail-closed)",
+                        );
+                    }
+                    // Read-position twin of the module-scope abort gate: a bare
+                    // read of a `_start`-owned URL/USP handle from a non-`_start`
+                    // emitter (arena lifetime unproven across frames, never
+                    // captured into the callee env). Deny fail-closed.
+                    if self.is_module_scope_url_handle(text) {
+                        return self.deny_e5506(
+                            function,
+                            "a URL/URLSearchParams handle declared at module scope (`_start`) \
+                             cannot cross the module/function boundary as a value in the current \
+                             phase; reading it from inside a function/closure fails closed \
+                             (fail-closed)",
+                        );
+                    }
+                    // Task 6 (enumeration-wave close): the CAPTURED twin — a
+                    // URL/USP handle owned by an enclosing function, reached via
+                    // the closure env plan. No captured lane exists for these
+                    // handles (the repr is not env-promotable), so absent this
+                    // gate the read falls through to the silent zero-placeholder
+                    // lane (`console.log(q)` inside a callback printed `0`).
+                    // Same choke point, same default-deny.
+                    if self.is_captured_url_handle(text) {
+                        return self.deny_e5506(
+                            function,
+                            "a URL/URLSearchParams handle captured from an enclosing function \
+                             cannot be read inside a closure/callback in the current phase \
+                             (fail-closed)",
+                        );
+                    }
                     // Spec 4a Task 5: a for-in key (or alias) emitted in a
                     // STRING-VALUE context materializes its interned field-name
                     // handle from this loop's key handle table at `base + ord*8`,
@@ -1734,6 +1953,23 @@ impl<'a> FunctionEmitter<'a> {
                 // handle used for element reads, for both i64 and f64 arrays.
                 if node.text.as_deref() == Some("length") {
                     let base_id = node.children[0];
+                    // Stage-review I-6: `.length` on a `q.get(k)` /
+                    // `q.toString()` result fails closed. The result is a
+                    // runtime string handle (or the 0 null-sentinel) with no
+                    // static length, and no runtime string-length lane exists
+                    // for it this phase (the handle's low-32 byte count is
+                    // only proven correct for the ASCII-provable lane, which
+                    // a USP value — percent-decoded, possibly multibyte — is
+                    // not). Must precede every lane below so nothing else
+                    // claims the shape.
+                    if self.is_usp_string_call(base_id) {
+                        return self.deny_e5506(
+                            function,
+                            "`.length` on a URLSearchParams get()/toString() result is not \
+                             supported in the current phase (no static or ASCII-provable \
+                             runtime length for it; fail-closed)",
+                        );
+                    }
                     // Runtime string length: low 32 bits of the tagged handle
                     // (byte count == JS code-unit count for ASCII-provable
                     // strings; `kali_types`'s `reject_unprovable_string_length`
@@ -1768,6 +2004,14 @@ impl<'a> FunctionEmitter<'a> {
                     // A scalar field (`o.count.length`) or a nested chain proves
                     // false and keeps its existing route.
                     if self.object_field_is_growable_array(base_id) {
+                        return self.emit_growable_length(function, base_id);
+                    }
+                    // Stage P4 Task 4: `q.getAll('k').length`. The base is a CALL
+                    // producing a fresh tagged growable handle — neither a named
+                    // growable binding nor a growable field — so route it through
+                    // `emit_growable_length`, whose base emit leaves the tagged
+                    // handle before the `hdr.len` decode.
+                    if self.is_usp_getall_call(base_id) {
                         return self.emit_growable_length(function, base_id);
                     }
                     if let Some(base_name) = self.assignment_target_name(node, base_id) {
@@ -1925,6 +2169,43 @@ impl<'a> FunctionEmitter<'a> {
                     }
                 }
 
+                // Stage P4: URL component member reads. `u.href`/`.origin`/
+                // `.pathname`/`.search`/`.hash` are pure loads of an interned
+                // string handle from the parsed arena struct; the receiver flows
+                // through the sole admitted read (`emit_url_receiver_handle`).
+                // `u.searchParams` is RECOGNIZED here (Task 4's
+                // `u.searchParams.get(...)` composition consults this recognizer
+                // via the method path in `call.rs`) but as a BARE VALUE read it
+                // fails closed: loading slot 5 would leak the raw USP handle
+                // integer into value sinks (`console.log(u.searchParams)`,
+                // `u.searchParams + 'z'`) — a plausible-value misrender (node
+                // prints `URLSearchParams { … }`). Admitted only as a method
+                // receiver; the alias bind (`const sp = u.searchParams`) lands in
+                // Task 4. Any OTHER field on a proven URL, or a member on a
+                // non-URL base, is NOT recognized (`url_member_read_parts` returns
+                // `None`) and falls through — its receiver emit hits the
+                // identifier choke point and denies (default-deny).
+                if let Some((base_id, member)) = self.url_member_read_parts(id) {
+                    if matches!(member, crate::emit::url::UrlMember::SearchParams) {
+                        return self.deny_e5506(
+                            function,
+                            "reading `.searchParams` as a bare value is not supported; it is \
+                             admitted only as a method receiver such as `u.searchParams.get(...)` \
+                             (fail-closed)",
+                        );
+                    }
+                    let handle = self.emit_url_receiver_handle(function, base_id);
+                    if !handle.produced {
+                        function.instruction(&Instruction::I64Const(0));
+                    }
+                    let slot = FunctionEmitter::url_member_slot(&member);
+                    self.emit_url_slot_load(function, slot);
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Scalar,
+                    };
+                }
+
                 if node.text.as_deref().unwrap_or_default().is_empty() {
                     self.emit_node(function, node.children[0], want_value)
                 } else {
@@ -1939,6 +2220,21 @@ impl<'a> FunctionEmitter<'a> {
                 // two shapes.
                 if is_binary_operator_text(node.text.as_deref().unwrap_or_default()) {
                     return self.emit_binary(function, id, node);
+                }
+
+                // Stage-review I-7: an element read of a `q.getAll(k)` result
+                // (`q.getAll('a')[0]`) fails closed — the fresh growable
+                // result is only admitted for the direct `.length`
+                // composition this phase; every element-read lane below
+                // misses the call-base shape and previously fell through to a
+                // silent placeholder `0` (node prints the element).
+                if self.is_usp_getall_call(node.children[0]) {
+                    return self.deny_e5506(
+                        function,
+                        "reading an element of a URLSearchParams.getAll(...) result is not \
+                         supported in the current phase; only the direct \
+                         `q.getAll(k).length` composition is available (fail-closed)",
+                    );
                 }
 
                 // Computed for-in-key read `obj[c]` over a uniform-repr fixed

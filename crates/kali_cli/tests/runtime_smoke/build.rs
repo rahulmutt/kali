@@ -3697,9 +3697,13 @@ fn json_build_emits_browser_bundle_crypto_web_apis_in_js_input() {
 // lowered to 0 so the bundle build succeeded (fake-green on a String()->0
 // placeholder); kali now fails the build closed (E5506). node: they are real
 // coercions kali has no lowering for. The other web-platform surfaces in the
-// same fixture (structuredClone/AbortController/URLSearchParams/URL/
-// TextEncoder) correctly keep the warn+0 escape hatch (proven by the E3100
-// URLSearchParams warning that precedes the E5506).
+// same fixture split two ways (Stage P4 Task 7): structuredClone/
+// AbortController/URLSearchParams/URL are now REAL supported lanes (URL/USP
+// compiles with no warning as of Stage P4 — the old "E3100 URLSearchParams
+// warning" proof no longer exists), while the TextEncoder/TextDecoder tail
+// (P5 scope) correctly keeps the warn+0 escape hatch (proven by the observed
+// E3100 'TextEncoder'/'TextDecoder'/'encode'/'decode' warnings interleaved
+// with the E5506s — verified on a fresh binary 2026-07-21).
 #[test]
 fn build_emits_browser_bundle_web_baseline_primitives() {
     let dir = tempdir().expect("tempdir");

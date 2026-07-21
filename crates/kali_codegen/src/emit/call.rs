@@ -33,6 +33,14 @@ impl<'a> FunctionEmitter<'a> {
             function.instruction(&Instruction::I64Const(0));
             return;
         }
+        // Stage-review I-5: a `q.get(k)` / `q.toString()` result may carry the
+        // `0` null-sentinel (absent key); materialize it as the interned
+        // `"null"` handle so `console.log(q.get('absent'))` prints node's
+        // `null` instead of `0`. A present value's handle passes through.
+        if self.is_usp_string_call(id) {
+            self.emit_usp_null_string_materialize(function);
+            return;
+        }
         if matches!(emitted.shape, ValueShape::Float)
             || (!self.is_string_valued(id) && self.is_float_valued(id))
         {
@@ -86,6 +94,40 @@ impl<'a> FunctionEmitter<'a> {
             .resolve_bound_member_callable_node(callee)
             .map(|bound| self.node(bound).clone())
             .unwrap_or_else(|| self.node(callee).clone());
+
+        // Stage-review F10 (adjudicated deny-now): a `new URL(...)` /
+        // `new URLSearchParams(...)` ANYWHERE outside the admitted
+        // `const <name> = new <ctor>(<string-literal>)` declarator intercept —
+        // inline argument/member position (`new URL(s).pathname`), a `let`/
+        // `var` declarator, a redeclaration the C-4 mirror refused — has no
+        // lowering and previously fell to the warn-plus-`0` placeholder
+        // (silent wrong value; node produces a real object). The admitted
+        // intercept never routes its init through `emit_call`, so EVERY
+        // URL/URLSearchParams ctor call reaching here is structurally outside
+        // it — deny by construction. The 5-namespace shadow guard keeps user
+        // classes/functions named `URL` on the normal call lane. This
+        // DELIBERATELY upgrades the Task-6 honest-behavior placeholder-zero
+        // pin to E5506 (deny upgrade, recorded at the pin).
+        if callee_node.children.is_empty() {
+            if let Some(ctor) = callee_node
+                .text
+                .as_deref()
+                .filter(|text| matches!(*text, "URL" | "URLSearchParams"))
+            {
+                if self.url_ctor_unshadowed(ctor) {
+                    return self.deny_e5506(
+                        function,
+                        &format!(
+                            "constructing a {ctor} is only supported as \
+                             `const <name> = new {ctor}(<string-literal>)` in the current \
+                             phase; any other construction position has no lowering and \
+                             would silently evaluate to 0 (fail-closed)"
+                        ),
+                    );
+                }
+            }
+        }
+
         if self.is_kali_test_call(&callee_node) {
             if let Some(callback_index) = self.kali_test_callback_index(node) {
                 function.instruction(&Instruction::I32Const(callback_index as i32));
@@ -332,6 +374,69 @@ impl<'a> FunctionEmitter<'a> {
                              could not prove) has no abort lowering (fail-closed)",
                         );
                     }
+                    // Stage P4 Task 6 (enumeration-wave close): a method call
+                    // whose bare-identifier receiver is a URL/USP handle
+                    // CAPTURED from an enclosing function. `usp_receiver` below
+                    // does not recognize it (`is_url_search_params` is
+                    // per-emitter, and there is no captured lane for these
+                    // handles), so absent this gate the call falls through to
+                    // the generic zero-placeholder fallback and silently
+                    // no-ops (`setTimeout(function() { q.get('a') })` — node
+                    // queries; kali did not). The write-position twin of the
+                    // identifier-choke `is_captured_url_handle` deny; a CHOKE
+                    // POINT, not a per-method case: ANY method on this shape
+                    // denies.
+                    if self.is_captured_url_handle(receiver_name) {
+                        let message = format!(
+                            "calling a method on URL/URLSearchParams handle '{receiver_name}' \
+                             captured from an enclosing function is not supported inside a \
+                             closure/callback in the current phase (fail-closed)"
+                        );
+                        return self.deny_e5506(function, &message);
+                    }
+                    // The module-scope twin (mirrors the abort
+                    // `is_module_scope_abort_handle` gate above): a method on a
+                    // `_start`-owned URL/USP handle from inside a function —
+                    // `q.get('a')` on a module `q` silently printed `0` via the
+                    // generic fallback (node queries; kali did not).
+                    if self.is_module_scope_url_handle(receiver_name) {
+                        let message = format!(
+                            "calling a method on URL/URLSearchParams handle '{receiver_name}' \
+                             declared at module scope is not supported from inside a \
+                             function/closure in the current phase (fail-closed)"
+                        );
+                        return self.deny_e5506(function, &message);
+                    }
+                }
+            }
+            // Stage P4 Task 6: the member-receiver twin of the two gates above
+            // (mirrors the abort Signal arm below): a method call whose receiver
+            // is `<ident>.<member>` where the BASE identifier is a module-scope
+            // or captured URL/USP handle (`u.searchParams.get('a')` from inside
+            // a function). `usp_receiver` cannot recognize it (`is_url` is
+            // per-emitter), and the generic fallback never emits the receiver
+            // (so the identifier choke never fires) — the call silently
+            // placeholder-0'd. Keyed on positive cross-function URL/USP base
+            // provenance at the method-call choke: ANY method through such a
+            // base denies.
+            if receiver_node.children.len() == 1
+                && receiver_node
+                    .text
+                    .as_deref()
+                    .is_some_and(|text| !text.is_empty())
+            {
+                let base = self.node(receiver_node.children[0]);
+                if base.children.is_empty()
+                    && base.text.as_deref().is_some_and(|name| {
+                        self.is_module_scope_url_handle(name) || self.is_captured_url_handle(name)
+                    })
+                {
+                    return self.deny_e5506(
+                        function,
+                        "calling a method through a member of a URL/URLSearchParams handle \
+                         that crosses a module/function or closure boundary is not supported \
+                         in the current phase (fail-closed)",
+                    );
                 }
             }
             // Stage P3 Task 4: a method call whose RECEIVER is `<ident>.signal`
@@ -351,6 +456,179 @@ impl<'a> FunctionEmitter<'a> {
                     "methods on an AbortSignal are not supported in the current phase; \
                      only `.aborted` is readable (fail-closed)",
                 );
+            }
+        }
+
+        // Stage P4 Task 4: URLSearchParams query/mutation methods on a proven
+        // USP receiver (a bare USP binding, or `<url>.searchParams`). The
+        // RECEIVER store handle is emitted via the admit path
+        // (`emit_usp_store_handle` sets `admit_url_handle_read`); method string
+        // ARGUMENTS flow through the normal expression path (an ordinary String
+        // handle — no admit flag). Any method NOT in
+        // {append,set,get,getAll,has,toString} fails closed E5506 (default-deny
+        // — the "any other method" arm).
+        if let Some(recv) = self.usp_receiver(&callee_node) {
+            let args: Vec<LirNodeId> = node.children[1..].to_vec();
+            // Stage-review C-1 (P4-R1 tripwire): MUTATION through the
+            // composition (`u.searchParams.set/append(...)`) is denied. The
+            // URL's five string slots (`u.search`, `u.href`, …) are
+            // compile-time-frozen, so mutating the embedded store desyncs them
+            // (`u.search` reads stale where node is live-coherent). Reads
+            // (get/getAll/has/toString) on `OfUrl` stay admitted — absent
+            // mutation the frozen slots and the store agree because both
+            // derive from the same compile-time parse. Standalone-USP
+            // mutation is unchanged.
+            if matches!(recv, crate::emit::url::UspReceiver::OfUrl(_))
+                && matches!(callee_node.text.as_deref(), Some("set") | Some("append"))
+            {
+                return self.deny_e5506(
+                    function,
+                    "mutating `<url>.searchParams` is not supported in the current phase: \
+                     the URL's `search`/`href` components are compile-time-frozen and would \
+                     desync from the mutated store; construct a standalone \
+                     `new URLSearchParams(...)` to mutate (fail-closed)",
+                );
+            }
+            let usp_get = self.functions["__usp_get"];
+            let usp_has = self.functions["__usp_has"];
+            let usp_getall = self.functions["__usp_getall"];
+            let usp_set = self.functions["__usp_set"];
+            let usp_append = self.functions["__usp_append"];
+            let usp_tostring = self.functions["__usp_tostring"];
+            match callee_node.text.as_deref() {
+                Some("append") => {
+                    if args.len() != 2 {
+                        return self.deny_e5506(
+                            function,
+                            "URLSearchParams.append requires exactly two arguments in the \
+                             current phase",
+                        );
+                    }
+                    // Stage-review C-3 (atomic append): receiver handle, key,
+                    // and value are ALL evaluated onto the stack BEFORE the
+                    // synthetic call mutates the store — exactly the `.set`
+                    // arm's ordering — so a value expression observing the
+                    // store (`q.append('b', q.has('b') ? ... : ...)`) sees the
+                    // PRE-append state, matching JS argument-evaluation order.
+                    // (The previous inline lowering pushed the key, then
+                    // evaluated the value against the half-appended store.)
+                    // The scratch discipline is untouched: no scratch local is
+                    // live across the argument emissions; mutation happens
+                    // entirely inside `__usp_append`'s own locals (P4-R5).
+                    self.emit_usp_store_handle(function, &recv);
+                    self.emit_usp_method_argument(function, args[0]);
+                    self.emit_usp_method_argument(function, args[1]);
+                    function.instruction(&Instruction::Call(usp_append));
+                    // append returns undefined; drop the synthetic's 0 result
+                    // and push the void-method placeholder, like the `.set` arm.
+                    function.instruction(&Instruction::Drop);
+                    function.instruction(&Instruction::I64Const(0));
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Scalar,
+                    };
+                }
+                Some("set") => {
+                    if args.len() != 2 {
+                        return self.deny_e5506(
+                            function,
+                            "URLSearchParams.set requires exactly two arguments in the \
+                             current phase",
+                        );
+                    }
+                    self.emit_usp_store_handle(function, &recv);
+                    self.emit_usp_method_argument(function, args[0]);
+                    self.emit_usp_method_argument(function, args[1]);
+                    function.instruction(&Instruction::Call(usp_set));
+                    // `__usp_set` returns the live tagged store handle internally
+                    // (used for in-place chaining), but that raw i64 must NEVER
+                    // escape as an observable value (the Global Constraint —
+                    // `.set`'s result is not a sanctioned ordinary result). WHATWG
+                    // `URLSearchParams.set` returns undefined; drop the handle and
+                    // render the void-method placeholder `0`, exactly like the
+                    // `.append` arm.
+                    function.instruction(&Instruction::Drop);
+                    function.instruction(&Instruction::I64Const(0));
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Scalar,
+                    };
+                }
+                Some("get") => {
+                    if args.len() != 1 {
+                        return self.deny_e5506(
+                            function,
+                            "URLSearchParams.get requires exactly one argument in the \
+                             current phase",
+                        );
+                    }
+                    self.emit_usp_store_handle(function, &recv);
+                    self.emit_usp_method_argument(function, args[0]);
+                    function.instruction(&Instruction::Call(usp_get));
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::String,
+                    };
+                }
+                Some("getAll") => {
+                    if args.len() != 1 {
+                        return self.deny_e5506(
+                            function,
+                            "URLSearchParams.getAll requires exactly one argument in the \
+                             current phase",
+                        );
+                    }
+                    self.emit_usp_store_handle(function, &recv);
+                    self.emit_usp_method_argument(function, args[0]);
+                    function.instruction(&Instruction::Call(usp_getall));
+                    // A fresh tagged growable handle; `.length` reads its header.
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Scalar,
+                    };
+                }
+                Some("toString") => {
+                    if !args.is_empty() {
+                        return self.deny_e5506(
+                            function,
+                            "URLSearchParams.toString takes no arguments in the current phase",
+                        );
+                    }
+                    self.emit_usp_store_handle(function, &recv);
+                    function.instruction(&Instruction::Call(usp_tostring));
+                    // An ordinary global-heap String handle (the form-urlencoded
+                    // serialization) — sanctioned, exactly like `.get`'s result.
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::String,
+                    };
+                }
+                Some("has") => {
+                    if args.len() != 1 {
+                        return self.deny_e5506(
+                            function,
+                            "URLSearchParams.has requires exactly one argument in the \
+                             current phase",
+                        );
+                    }
+                    self.emit_usp_store_handle(function, &recv);
+                    self.emit_usp_method_argument(function, args[0]);
+                    function.instruction(&Instruction::Call(usp_has));
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Boolean,
+                    };
+                }
+                other => {
+                    return self.deny_e5506(
+                        function,
+                        &format!(
+                            "'{}' is not supported on a URLSearchParams in the current phase \
+                             (fail-closed)",
+                            other.unwrap_or("<method>")
+                        ),
+                    );
+                }
             }
         }
 
@@ -3239,6 +3517,30 @@ impl<'a> FunctionEmitter<'a> {
         // and a predicate `filter`, admitted by the kali_types allowlist but
         // never lowered, both silently no-opped).
         // ------------------------------------------------------------------
+        // Stage P4 Task 6 review fix (the TRUE choke for receiver-dropping
+        // terminals): every method call reaching this region has a callee no
+        // recognizer admitted, and all three terminals below DROP the receiver
+        // (arguments are dropped, the receiver is never emitted) — so the
+        // identifier/member chokes can never fire for it. A receiver PATH of
+        // ANY shape (dot, computed, any depth: `u['searchParams'].get(k)`,
+        // `u.searchParams.x.get(k)`) rooted at a binding with URL/USP
+        // provenance therefore silently evaluated to `0` where node produces a
+        // value. Deny by ROOT PROVENANCE, not path shape: walk the member
+        // chain to its root identifier and fail closed if that root is a
+        // URL/USP handle (local, module-scope, or captured). Admitted URL/USP
+        // forms returned from their own arms far above, so this cannot
+        // over-deny a working lowering.
+        if let Some(&receiver) = callee_node.children.first() {
+            if self.receiver_root_is_url_provenance(receiver) {
+                return self.deny_e5506(
+                    function,
+                    "this method call's receiver path is rooted at a URL/URLSearchParams \
+                     handle but is not a recognized URL/USP form; kali has no lowering for \
+                     it and evaluating it would silently return 0 (fail-closed)",
+                );
+            }
+        }
+
         if !self.call_target_keeps_placeholder_lowering(node, &callee_node, callee_name) {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
@@ -4825,7 +5127,12 @@ impl<'a> FunctionEmitter<'a> {
             | kali_common::Repr::GrowableArrayI64
             // AbortHandle: i64 handle slot; never reaches this position
             // (inference gates it) — grouped with the other i64 handles.
-            | kali_common::Repr::AbortHandle => {
+            | kali_common::Repr::AbortHandle
+            // Url/UrlSearchParams: i64 handle slots (Stage P4); never reach
+            // this position yet (nothing seeds them into array elements) —
+            // grouped with the other i64 handles for exhaustiveness.
+            | kali_common::Repr::Url
+            | kali_common::Repr::UrlSearchParams => {
                 function.instruction(&Instruction::I64Load(mem_arg))
             }
         };
@@ -4904,7 +5211,12 @@ impl<'a> FunctionEmitter<'a> {
             | kali_common::Repr::GrowableArrayI64
             // AbortHandle: i64 handle slot; never reaches this position
             // (inference gates it) — grouped with the other i64 handles.
-            | kali_common::Repr::AbortHandle => {
+            | kali_common::Repr::AbortHandle
+            // Url/UrlSearchParams: i64 handle slots (Stage P4); never reach
+            // this position yet (nothing seeds them into array elements) —
+            // grouped with the other i64 handles for exhaustiveness.
+            | kali_common::Repr::Url
+            | kali_common::Repr::UrlSearchParams => {
                 function.instruction(&Instruction::I64Load(mem_arg))
             }
         };

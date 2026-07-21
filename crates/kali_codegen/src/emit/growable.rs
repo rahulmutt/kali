@@ -32,8 +32,9 @@ pub(crate) const GROWABLE_INITIAL_CAP: usize = 4;
 
 /// i64 mask clearing `ARRAY_HANDLE_TAG`: `handle & GROWABLE_HANDLE_MASK`
 /// yields the zero-extended header pointer (decode = mask + `I32WrapI64`,
-/// the string-handle idiom).
-const GROWABLE_HANDLE_MASK: i64 = !(crate::ARRAY_HANDLE_TAG) as i64;
+/// the string-handle idiom). `pub(crate)` so the USP `.append` inline-push
+/// lane (Stage P4 Task 4, `emit/url.rs`) shares the exact same decode.
+pub(crate) const GROWABLE_HANDLE_MASK: i64 = !(crate::ARRAY_HANDLE_TAG) as i64;
 
 /// Source of a growable array's tagged i64 handle for `emit_growable_push`
 /// (Stage P2 Lane 1 Task 5). Both variants leave the SAME single i64 handle on
@@ -62,7 +63,7 @@ impl<'a> FunctionEmitter<'a> {
     /// `collect_function_locals` for any function with a growable binding.
     /// Panics if missing — reservation and emission share the single
     /// `growable_scratch_local_name` helper, so a miss is a provisioning bug.
-    fn growable_scratch_local(&self) -> u32 {
+    pub(crate) fn growable_scratch_local(&self) -> u32 {
         self.locals
             .get(crate::lower::growable_scratch_local_name().as_str())
             .copied()
@@ -70,7 +71,7 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     /// Push `hdr_ptr` (i32) of the handle held in the dedicated scratch.
-    fn emit_growable_scratch_hdr(&self, function: &mut Function, scratch: u32) {
+    pub(crate) fn emit_growable_scratch_hdr(&self, function: &mut Function, scratch: u32) {
         function.instruction(&Instruction::LocalGet(scratch));
         function.instruction(&Instruction::I32WrapI64);
     }

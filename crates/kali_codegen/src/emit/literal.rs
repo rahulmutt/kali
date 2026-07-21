@@ -404,6 +404,53 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
 
+        // Stage P4 Task 6 (enumeration-wave close): the URL/USP twin of the
+        // abort member-write gate above. A WRITE whose TARGET is a member of a
+        // proven URL/URLSearchParams handle (`u.pathname = "/x"`, `q.size = 1`,
+        // `u.searchParams.x = v`) has no sound lowering — the parsed arena
+        // struct is compile-time-immutable in this phase, and every recognizer
+        // below misses the shape, so the store previously fell through to a
+        // SILENTLY DROPPED write (compiled green, did nothing — the Task-6 wave
+        // leak). node would re-parse/reflect the mutation; kali fails closed.
+        // Keyed on positive URL/USP base provenance (per-emitter local sets +
+        // the module-scope and captured cross-function twins) — an allowlist-
+        // style proof at the single member-write choke, not a per-sink denylist.
+        // Reject BEFORE emitting base/RHS so the value stack stays balanced.
+        if op == "=" {
+            let left_node = self.node(left).clone();
+            if left_node.kind == LirNodeKind::Value
+                && left_node.children.len() == 1
+                && left_node
+                    .text
+                    .as_deref()
+                    .is_some_and(|text| !text.is_empty())
+            {
+                let base_id = left_node.children[0];
+                let base = self.node(base_id);
+                let base_is_url_handle_ident = base.children.is_empty()
+                    && base.text.as_deref().is_some_and(|name| {
+                        self.is_url(name)
+                            || self.is_url_search_params(name)
+                            || self.is_module_scope_url_handle(name)
+                            || self.is_captured_url_handle(name)
+                    });
+                // `u.<component>.x = v` (e.g. `u.searchParams.sorted = 1`):
+                // the base is itself a recognized URL member read.
+                let base_is_url_member = self.url_member_read_parts(base_id).is_some();
+                if base_is_url_handle_ident || base_is_url_member {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        "writes to URL/URLSearchParams members are not supported in the \
+                         current phase (the parsed URL is compile-time-immutable; kali \
+                         fails closed)"
+                            .to_string(),
+                    ));
+                    function.instruction(&Instruction::I64Const(0));
+                    return true;
+                }
+            }
+        }
+
         // Stage P2 review C-1b (+ R1 rider): a WRITE through a `GrowableArrayI64`
         // object field has no sound lowering this phase — the growable field lane
         // is read-only except for `.push`. Two write shapes fall through every
@@ -555,7 +602,13 @@ impl<'a> FunctionEmitter<'a> {
                                 | kali_common::Repr::GrowableArrayI64
                                 // AbortHandle: i64 handle slot; never reaches
                                 // this position (inference gates it).
-                                | kali_common::Repr::AbortHandle => {
+                                | kali_common::Repr::AbortHandle
+                                // Url/UrlSearchParams: i64 handle slots (Stage
+                                // P4); never reach this position yet (nothing
+                                // seeds them into array elements) — grouped
+                                // with the other i64 handles for exhaustiveness.
+                                | kali_common::Repr::Url
+                                | kali_common::Repr::UrlSearchParams => {
                                     let rhs = self.emit_node(function, right, true);
                                     if !rhs.produced {
                                         function.instruction(&Instruction::I64Const(0));
@@ -609,6 +662,30 @@ impl<'a> FunctionEmitter<'a> {
             function.instruction(&Instruction::I64Const(0));
             return true;
         };
+        // Stage-review I-9: assignment INTO a URL/USP binding (`u = 5`,
+        // `q += x`, `u ??= y`) fails closed — the write-position twin of the
+        // member-write gate above. The binding's local holds a raw struct
+        // pointer / tagged store handle; overwriting it makes every admitted
+        // read (`u.pathname`) a wild load off the new value (observed: prints
+        // 0 at address 5+16; node throws on const reassignment). Keyed on all
+        // four provenance classifiers so the module-scope and captured twins
+        // are covered at the same choke.
+        if self.is_url(&name)
+            || self.is_url_search_params(&name)
+            || self.is_module_scope_url_handle(&name)
+            || self.is_captured_url_handle(&name)
+        {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "assigning into URL/URLSearchParams binding '{name}' is not supported in \
+                     the current phase (the binding holds an internal handle; overwriting it \
+                     would make later member reads load from a wild address; fail-closed)"
+                ),
+            ));
+            function.instruction(&Instruction::I64Const(0));
+            return true;
+        }
         // Module-scope mutable scalar promoted to a persistent global: route the
         // write through `GlobalSet` (from a function OR module scope). Gated on
         // the target NOT being a local/param FIRST — a same-named local `var`/

@@ -121,6 +121,30 @@ pub(crate) struct FunctionEmitter<'a> {
     /// binding is E5506 unless an allowlisted consumer set this while emitting
     /// its receiver (`emit_abort_receiver_handle`).
     pub(crate) admit_abort_handle_read: bool,
+    /// Stage P4: bindings proven to hold a URL handle (an i64 pointer to the
+    /// arena-allocated fixed 6-slot URL struct) in THIS emitter's scope —
+    /// `const u = new URL(<string-literal>)` declarators the intercept fired
+    /// for. Mirrors `abort_handle_locals`.
+    pub(crate) url_locals: std::collections::BTreeSet<String>,
+    /// Stage P4: bindings proven to hold a URLSearchParams handle (a tagged
+    /// growable pair-store handle) in THIS emitter's scope — a
+    /// `const q = new URLSearchParams(<string-literal>)` declarator the
+    /// intercept fired for.
+    pub(crate) usp_locals: std::collections::BTreeSet<String>,
+    /// Every declarator NAME already emitted in THIS emitter (source order).
+    /// Stage-review C-4: URL/USP provenance is name-keyed and FLAT (no block
+    /// scoping), so a block-scoped redeclaration of a provenance-carrying name
+    /// desyncs name→value. Two uses at the declarator choke: (1) declaring a
+    /// name already in `url_locals`/`usp_locals` is denied E5506; (2) the
+    /// URL/USP construction intercept refuses a name that was ALREADY declared
+    /// (the init then falls to the generic path, where the F10 ctor deny fails
+    /// it closed).
+    pub(crate) declared_binding_names: std::collections::BTreeSet<String>,
+    /// One position-allowlist flag covering BOTH URL/USP handle classes (both
+    /// are escape-restricted identically). A bare read of a URL/USP binding is
+    /// E5506 unless an allowlisted consumer set this while emitting its
+    /// receiver (`emit_url_receiver_handle`). Mirrors `admit_abort_handle_read`.
+    pub(crate) admit_url_handle_read: bool,
     pub(crate) diagnostics: &'a mut Vec<Diagnostic>,
     pub(crate) strings: &'a mut StringPool,
     pub(crate) source_path: Option<PathBuf>,
@@ -432,6 +456,10 @@ impl<'a> FunctionEmitter<'a> {
             event_target_locals: BTreeSet::new(),
             abort_handle_locals: BTreeSet::new(),
             admit_abort_handle_read: false,
+            url_locals: BTreeSet::new(),
+            usp_locals: BTreeSet::new(),
+            declared_binding_names: BTreeSet::new(),
+            admit_url_handle_read: false,
             diagnostics,
             strings,
             source_path,
@@ -585,6 +613,61 @@ impl<'a> FunctionEmitter<'a> {
             && !self.abort_handle_locals.contains(name)
             && !self.locals.contains_key(name)
             && self.repr_table.scalar("_start", name) == kali_common::Repr::AbortHandle
+    }
+
+    /// Stage P4: `name` is a proven URL binding in THIS emitter's scope.
+    pub(crate) fn is_url(&self, name: &str) -> bool {
+        self.url_locals.contains(name)
+    }
+
+    /// Stage P4: `name` is a proven URLSearchParams binding in THIS emitter's
+    /// scope.
+    pub(crate) fn is_url_search_params(&self, name: &str) -> bool {
+        self.usp_locals.contains(name)
+    }
+
+    /// Stage P4 read-position twin of the abort `is_module_scope_abort_handle`
+    /// gate: a `_start`-owned URL/USP binding reached from a non-`_start`
+    /// emitter. Fail-closed — the arena struct's lifetime is unproven across
+    /// frames, and the handle is never captured into the callee's env, so a
+    /// deferred read would be stale. Refuses when a same-named local shadows
+    /// the binding (that local routes through `is_url`/`is_url_search_params`).
+    pub(crate) fn is_module_scope_url_handle(&self, name: &str) -> bool {
+        self.function_name != "_start"
+            && !self.url_locals.contains(name)
+            && !self.usp_locals.contains(name)
+            && !self.locals.contains_key(name)
+            && matches!(
+                self.repr_table.scalar("_start", name),
+                kali_common::Repr::Url | kali_common::Repr::UrlSearchParams
+            )
+    }
+
+    /// Stage P4 Task 6 (enumeration-wave close): `name` is a URL/USP handle
+    /// OWNED BY AN ENCLOSING FUNCTION, reached through the closure env plan —
+    /// the CAPTURED twin of `is_module_scope_url_handle`, keyed on the OWNER's
+    /// repr verdict exactly like `is_abort_handle`'s captured clause. Unlike
+    /// abort (whose captured handles have a ratified admitted lane), URL/USP
+    /// handles have NO captured lane: the arena struct / pair store is never
+    /// materialized into an env cell (`cell_is_promotable` refuses the repr),
+    /// so `try_emit_captured_read` returns `None` and the read would fall
+    /// through to the silent zero-placeholder lane — a leak
+    /// (`setTimeout(function() { q.get('a') })` silently no-ops where node
+    /// queries). Consulted as a DENY at the identifier choke
+    /// (`emit/control_flow.rs`) and the method-call choke (`emit/call.rs`);
+    /// any depth, any non-module owner (module owners take the
+    /// `is_module_scope_url_handle` lane; they are never env-captured).
+    pub(crate) fn is_captured_url_handle(&self, name: &str) -> bool {
+        !self.url_locals.contains(name)
+            && !self.usp_locals.contains(name)
+            && !self.locals.contains_key(name)
+            && self.env_plan.captured.iter().any(|reference| {
+                reference.name == name
+                    && matches!(
+                        self.repr_table.scalar(&reference.owner, &reference.name),
+                        kali_common::Repr::Url | kali_common::Repr::UrlSearchParams
+                    )
+            })
     }
 
     /// Wasm function index of the allocator an allocation site in the

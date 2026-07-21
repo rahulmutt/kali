@@ -743,6 +743,26 @@ impl<'a> FunctionEmitter<'a> {
             return None;
         }
 
+        // Stage P4 Task 4: a `URLSearchParams.getAll(k)` result is a LIVE runtime
+        // growable whose length is not statically known. Bail so the dynamic
+        // growable-length lane (`is_usp_getall_call` → `emit_growable_length`)
+        // handles `q.getAll(k).length` — otherwise the Call node's child count
+        // (callee + args) is wrongly rendered as its "length". Resolves through a
+        // `const` binding too (this helper recurses via `bindings` below).
+        if self.is_usp_getall_call(*id) {
+            return None;
+        }
+
+        // Stage-review I-6: a `q.get(k)` / `q.toString()` result has no
+        // statically-known length either — without this bail the fallthrough
+        // below rendered the CALL node's child count (callee + args = 2) as
+        // the "length". Bailing routes `.length` to the runtime member arm,
+        // which denies E5506 (no runtime string-length lane exists for a USP
+        // string result this phase).
+        if self.is_usp_string_call(*id) {
+            return None;
+        }
+
         if let Some(parts) = self.resolve_static_string_split_parts_from_id(*id) {
             return Some(parts.len().to_string());
         }
