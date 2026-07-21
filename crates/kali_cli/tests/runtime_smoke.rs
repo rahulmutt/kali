@@ -5954,7 +5954,14 @@ fn assert_optimization_benchmark_fixture(fixture_stem: &str, benchmark_name: &st
         .expect("benchmark source file name");
     let source_fixture = fixture_path(format!("benchmarks/{source_file_name}"));
     let source = fs::read_to_string(&source_fixture).expect("read benchmark source");
-    let source_hash = format!("sha256-{:x}", Sha256::digest(source.as_bytes()));
+    let source_hash_bytes = Sha256::digest(source.as_bytes());
+    let source_hash = format!(
+        "sha256-{}",
+        source_hash_bytes
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect::<String>()
+    );
 
     assert_eq!(metadata["benchmark"], benchmark_name);
     assert_eq!(metadata["version"], 1);

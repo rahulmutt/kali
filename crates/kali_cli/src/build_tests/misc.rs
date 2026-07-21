@@ -803,7 +803,16 @@ fn build_artifact_metadata_records_profile_data_hash() {
     let expected_hash = {
         let normalized = profile_data.clone().normalized();
         let profile_json = serde_json::to_vec(&normalized).expect("serialize profile data");
-        format!("sha256-{:x}", Sha256::digest(profile_json))
+        {
+            let digest_bytes = Sha256::digest(profile_json);
+            format!(
+                "sha256-{}",
+                digest_bytes
+                    .iter()
+                    .map(|b| format!("{b:02x}"))
+                    .collect::<String>()
+            )
+        }
     };
 
     let metadata = build_artifact_metadata(
@@ -849,7 +858,16 @@ fn build_artifact_metadata_normalizes_equivalent_profile_data_hashes() {
     let expected_hash = {
         let normalized = equivalent_profiles[0].clone().normalized();
         let profile_json = serde_json::to_vec(&normalized).expect("serialize profile data");
-        format!("sha256-{:x}", Sha256::digest(profile_json))
+        {
+            let digest_bytes = Sha256::digest(profile_json);
+            format!(
+                "sha256-{}",
+                digest_bytes
+                    .iter()
+                    .map(|b| format!("{b:02x}"))
+                    .collect::<String>()
+            )
+        }
     };
 
     let hashes: Vec<_> = equivalent_profiles

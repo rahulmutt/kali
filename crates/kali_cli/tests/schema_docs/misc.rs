@@ -2294,7 +2294,14 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
             .expect("benchmark metadata parent")
             .join(source_file_name);
         let source = fs::read_to_string(&source_path).expect("read benchmark source fixture");
-        let source_hash = format!("sha256-{:x}", Sha256::digest(source.as_bytes()));
+        let source_hash_bytes = Sha256::digest(source.as_bytes());
+        let source_hash = format!(
+            "sha256-{}",
+            source_hash_bytes
+                .iter()
+                .map(|b| format!("{b:02x}"))
+                .collect::<String>()
+        );
         assert_eq!(metadata["sourceSha256"], source_hash, "{}", path.display());
     }
 

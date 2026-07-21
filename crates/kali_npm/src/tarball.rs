@@ -1,4 +1,19 @@
+use std::fmt::Write as _;
+
 use crate::*;
+
+/// Render bytes as a lowercase hex string.
+///
+/// `digest::Output` (a `hybrid-array` `Array`) no longer implements
+/// `LowerHex` as of digest 0.11, so hex-encode manually.
+fn hex_encode(bytes: impl AsRef<[u8]>) -> String {
+    let bytes = bytes.as_ref();
+    let mut out = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        write!(&mut out, "{:02x}", byte).expect("writing to a String cannot fail");
+    }
+    out
+}
 
 pub(crate) fn download_bytes(url: &str) -> Result<Vec<u8>, Diagnostic> {
     let client = Client::builder()
@@ -65,7 +80,7 @@ pub(crate) fn format_sha512(bytes: &[u8]) -> String {
 
 pub(crate) fn sha256_hex(bytes: &[u8]) -> String {
     let digest = Sha256::digest(bytes);
-    format!("{:x}", digest)
+    hex_encode(digest)
 }
 
 pub(crate) fn extract_tarball(bytes: &[u8], package_dir: &Path) -> Result<(), Vec<Diagnostic>> {

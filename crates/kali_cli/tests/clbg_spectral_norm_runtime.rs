@@ -42,7 +42,14 @@ fn spectral_norm_metadata_is_consistent() {
         serde_json::json!(["--fast", "--release", "--release-advanced"])
     );
     let src = fs::read(fixture("spectral-norm-benchmark-v1.ts")).expect("read source");
-    let digest = format!("sha256-{:x}", Sha256::digest(&src));
+    let digest_bytes = Sha256::digest(&src);
+    let digest = format!(
+        "sha256-{}",
+        digest_bytes
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect::<String>()
+    );
     assert_eq!(
         meta["sourceSha256"], digest,
         "metadata sha256 must match the source file"
