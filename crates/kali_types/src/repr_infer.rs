@@ -1894,22 +1894,15 @@ impl ReprInfer {
             // the abort arms above; the generic wiring below still runs
             // unconditionally afterward, same rationale as the abort case.
             if self.is_new_url_with_string_literal(init) {
-                self.url_bindings
-                    .insert((func.to_string(), id.to_string()));
-                self.url_origin
-                    .insert((func.to_string(), id.to_string()));
+                self.url_bindings.insert((func.to_string(), id.to_string()));
+                self.url_origin.insert((func.to_string(), id.to_string()));
             } else if self.is_new_usp_with_string_literal(init) {
-                self.usp_bindings
-                    .insert((func.to_string(), id.to_string()));
+                self.usp_bindings.insert((func.to_string(), id.to_string()));
             } else if let Expression::MemberExpression(member) = init {
                 if member.computed_index.is_none() && member.property == "searchParams" {
                     if let Expression::Identifier(base) = &member.object {
-                        if self
-                            .url_origin
-                            .contains(&(func.to_string(), base.clone()))
-                        {
-                            self.usp_bindings
-                                .insert((func.to_string(), id.to_string()));
+                        if self.url_origin.contains(&(func.to_string(), base.clone())) {
+                            self.usp_bindings.insert((func.to_string(), id.to_string()));
                         }
                     }
                 }
