@@ -10660,7 +10660,16 @@ fn build_with_profile_data_is_deterministic_across_repeated_invocations() {
     let expected_profile_data_hash = {
         let normalized = profile_data.clone().normalized();
         let profile_json = serde_json::to_vec(&normalized).expect("serialize profile data");
-        format!("sha256-{:x}", Sha256::digest(profile_json))
+        {
+            let digest_bytes = Sha256::digest(profile_json);
+            format!(
+                "sha256-{}",
+                digest_bytes
+                    .iter()
+                    .map(|b| format!("{b:02x}"))
+                    .collect::<String>()
+            )
+        }
     };
 
     let metadata: Value = serde_json::from_slice(&json_first_meta).expect("parse metadata");
@@ -11448,7 +11457,16 @@ fn json_build_emits_browser_bundle_artifacts_with_profile_data_hash() {
     let expected_profile_data_hash = {
         let normalized = profile_data.clone().normalized();
         let profile_json = serde_json::to_vec(&normalized).expect("serialize profile data");
-        format!("sha256-{:x}", Sha256::digest(profile_json))
+        {
+            let digest_bytes = Sha256::digest(profile_json);
+            format!(
+                "sha256-{}",
+                digest_bytes
+                    .iter()
+                    .map(|b| format!("{b:02x}"))
+                    .collect::<String>()
+            )
+        }
     };
 
     assert_eq!(payload["profileDataHash"], expected_profile_data_hash);

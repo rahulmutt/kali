@@ -147,7 +147,7 @@ pub(crate) fn profile_data_hash(profile_data: Option<&ProfileData>) -> Option<St
         let normalized = profile_data.clone().normalized();
         let profile_json = serde_json::to_vec(&normalized).expect("serialize profile data");
         let profile_hash = Sha256::digest(profile_json);
-        format!("sha256-{profile_hash:x}")
+        format!("sha256-{}", hex_encode(profile_hash))
     })
 }
 
@@ -561,7 +561,7 @@ pub(crate) fn incremental_cache_path(
             let profile = profile.clone().normalized();
             let profile_json = serde_json::to_string(&profile).expect("serialize profile data");
             let profile_hash = Sha256::digest(profile_json.as_bytes());
-            format!("profile:{profile_hash:x}")
+            format!("profile:{}", hex_encode(profile_hash))
         })
         .unwrap_or_else(|| "profile:none".to_string());
     let cache_key = format!(
@@ -914,7 +914,7 @@ pub(crate) fn source_hash_for_file(path: &Path) -> Result<String, std::io::Error
     let bytes = fs::read(path)?;
     let mut hasher = Sha256::new();
     hasher.update(bytes);
-    Ok(format!("sha256-{:x}", hasher.finalize()))
+    Ok(format!("sha256-{}", hex_encode(hasher.finalize())))
 }
 
 pub(crate) fn build_mode_name(mode: BuildMode) -> &'static str {

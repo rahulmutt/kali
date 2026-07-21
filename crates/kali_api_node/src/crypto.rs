@@ -1,13 +1,28 @@
 //! Node.js `crypto` module compatibility helpers.
 
+use std::fmt::Write as _;
+
 use getrandom::fill as fill_random_bytes;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use sha2::{Digest, Sha256, Sha384, Sha512};
+
+/// Render bytes as a lowercase hex string.
+///
+/// `digest::Output` (a `hybrid-array` `Array`) no longer implements
+/// `LowerHex` as of digest 0.11, so hex-encode manually.
+fn hex_encode(bytes: impl AsRef<[u8]>) -> String {
+    let bytes = bytes.as_ref();
+    let mut out = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        write!(&mut out, "{:02x}", byte).expect("writing to a String cannot fail");
+    }
+    out
+}
 
 /// Compute a SHA-256 digest as a lowercase hex string.
 pub fn sha256_hex(bytes: impl AsRef<[u8]>) -> String {
     let digest = Sha256::digest(bytes.as_ref());
-    format!("{:x}", digest)
+    hex_encode(digest)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -56,9 +71,9 @@ impl NodeDigestAlgorithm {
 
     fn digest_hex(self, bytes: impl AsRef<[u8]>) -> String {
         match self {
-            Self::Sha256 => format!("{:x}", Sha256::digest(bytes.as_ref())),
-            Self::Sha384 => format!("{:x}", Sha384::digest(bytes.as_ref())),
-            Self::Sha512 => format!("{:x}", Sha512::digest(bytes.as_ref())),
+            Self::Sha256 => hex_encode(Sha256::digest(bytes.as_ref())),
+            Self::Sha384 => hex_encode(Sha384::digest(bytes.as_ref())),
+            Self::Sha512 => hex_encode(Sha512::digest(bytes.as_ref())),
         }
     }
 
@@ -73,21 +88,21 @@ impl NodeDigestAlgorithm {
                 let mut mac = HmacSha256::new_from_slice(key.as_ref())
                     .map_err(|error| NodeCryptoError::invalid_key_length("sha256", error))?;
                 mac.update(bytes.as_ref());
-                Ok(format!("{:x}", mac.finalize().into_bytes()))
+                Ok(hex_encode(mac.finalize().into_bytes()))
             }
             Self::Sha384 => {
                 type HmacSha384 = Hmac<Sha384>;
                 let mut mac = HmacSha384::new_from_slice(key.as_ref())
                     .map_err(|error| NodeCryptoError::invalid_key_length("sha384", error))?;
                 mac.update(bytes.as_ref());
-                Ok(format!("{:x}", mac.finalize().into_bytes()))
+                Ok(hex_encode(mac.finalize().into_bytes()))
             }
             Self::Sha512 => {
                 type HmacSha512 = Hmac<Sha512>;
                 let mut mac = HmacSha512::new_from_slice(key.as_ref())
                     .map_err(|error| NodeCryptoError::invalid_key_length("sha512", error))?;
                 mac.update(bytes.as_ref());
-                Ok(format!("{:x}", mac.finalize().into_bytes()))
+                Ok(hex_encode(mac.finalize().into_bytes()))
             }
         }
     }

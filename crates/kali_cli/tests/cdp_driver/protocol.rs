@@ -106,7 +106,7 @@ impl CdpConnection {
             message["sessionId"] = json!(session_id);
         }
         self.socket
-            .send(Message::Text(message.to_string()))
+            .send(Message::text(message.to_string()))
             .map_err(|e| CdpError::Transport(e.to_string()))?;
         Ok(id)
     }

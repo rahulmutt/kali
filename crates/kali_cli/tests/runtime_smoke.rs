@@ -829,7 +829,7 @@ fn count_tag_boxing_ops(bytes: &[u8]) -> usize {
     for payload in Parser::new(0).parse_all(bytes) {
         match payload.expect("wasm payload") {
             Payload::ImportSection(reader) => {
-                for import in reader {
+                for import in reader.into_imports() {
                     if matches!(
                         import.expect("import entry").ty,
                         wasmparser::TypeRef::Func(_)
@@ -5954,7 +5954,14 @@ fn assert_optimization_benchmark_fixture(fixture_stem: &str, benchmark_name: &st
         .expect("benchmark source file name");
     let source_fixture = fixture_path(format!("benchmarks/{source_file_name}"));
     let source = fs::read_to_string(&source_fixture).expect("read benchmark source");
-    let source_hash = format!("sha256-{:x}", Sha256::digest(source.as_bytes()));
+    let source_hash_bytes = Sha256::digest(source.as_bytes());
+    let source_hash = format!(
+        "sha256-{}",
+        source_hash_bytes
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect::<String>()
+    );
 
     assert_eq!(metadata["benchmark"], benchmark_name);
     assert_eq!(metadata["version"], 1);

@@ -68,7 +68,11 @@ fn fasta_large_n_matches_node_sha256() {
         "stderr: {}",
         String::from_utf8_lossy(&output.stderr)
     );
-    let digest = format!("{:x}", Sha256::digest(&output.stdout));
+    let digest_bytes = Sha256::digest(&output.stdout);
+    let digest = digest_bytes
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect::<String>();
     assert_eq!(
         digest, NODE_SHA256,
         "fasta N={} output SHA-256 differs from the node v26.4.0 reference",
