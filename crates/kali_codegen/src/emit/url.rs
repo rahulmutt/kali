@@ -488,6 +488,39 @@ impl<'a> FunctionEmitter<'a> {
         self.usp_receiver(callee_node).is_some()
     }
 
+    /// `true` iff `node_id` is a `<usp>.get(<key>)` or `<usp>.toString()` call
+    /// on a proven USP receiver — the two USP methods whose emit arms return
+    /// `ValueShape::String` (call.rs Task 4/5). Same receiver recognizer the
+    /// emitter routes with (`usp_receiver`), so oracle and emission agree by
+    /// construction.
+    ///
+    /// Task 7 acceptance fix: consulted by the `==`/`!=`/`===`/`!==` lane in
+    /// operators.rs (mirroring `is_env_get_string_call`) so a USP string result
+    /// content-compares via `__streq`. Without this arm the compare fell
+    /// through to raw `i64.eq` HANDLE IDENTITY — parse-time/literal-set values
+    /// passed only because the intern pool dedups equal literals, while a
+    /// dynamically-set value (`q.set(k, '' + n)`) got a fresh `string_concat`
+    /// handle and compared unequal to an equal-content literal (silent wrong
+    /// branch; observed as the acceptance fixture's untaken throw firing).
+    /// Deliberately NOT an `is_string_valued` arm: `.get` can return the 0
+    /// null-sentinel (key absent), and only the equality lane is total over 0
+    /// (`__streq`'s tag guard keeps `null === s` false, matching node) —
+    /// `+`/`.length`/store positions must keep failing closed on a maybe-null.
+    pub(crate) fn is_usp_string_call(&self, node_id: LirNodeId) -> bool {
+        let node = self.node(self.unwrap_transparent(node_id));
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+        let Some(callee) = node.children.first().copied() else {
+            return false;
+        };
+        let callee_node = self.node(callee);
+        if !matches!(callee_node.text.as_deref(), Some("get") | Some("toString")) {
+            return false;
+        }
+        self.usp_receiver(callee_node).is_some()
+    }
+
     /// Walk a member-access chain (dot AND computed, ANY depth) down to its
     /// ROOT identifier and report whether that root has URL/USP provenance in
     /// THIS emitter's view (local proof, module-scope twin, or captured twin).

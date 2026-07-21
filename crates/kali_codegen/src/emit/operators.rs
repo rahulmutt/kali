@@ -1825,6 +1825,17 @@ impl<'a> FunctionEmitter<'a> {
         let right_string = is_equality_op && self.is_string_valued(right);
         let left_env = is_equality_op && !left_string && self.is_env_get_string_call(left);
         let right_env = is_equality_op && !right_string && self.is_env_get_string_call(right);
+        // USP string results (`q.get(k)` / `q.toString()` on a proven USP
+        // receiver — Stage P4 Task 7): admitted into the `__streq` lane exactly
+        // like env-get, and for the same reason (a tagged string handle OR the
+        // 0 null-sentinel, over which `__streq` is total). Without this the
+        // mixed usp-vs-literal compare fell through to raw handle-identity
+        // `i64.eq` — silently wrong for any dynamically-set value (fresh
+        // `string_concat` handle vs the interned literal). No relocation is
+        // needed (unlike env-vs-env): each result points at stable store /
+        // interned / global-heap bytes, never a shared scratch buffer.
+        let left_usp = is_equality_op && !left_string && self.is_usp_string_call(left);
+        let right_usp = is_equality_op && !right_string && self.is_usp_string_call(right);
         // ENV-VS-ENV (F-Stage1-2): both `Deno.env.get` results materialize into
         // the SAME reserved buffer [0,4096) (call.rs env lane), so the second
         // call OVERWRITES the first — a naive compare would read the second
@@ -1834,7 +1845,7 @@ impl<'a> FunctionEmitter<'a> {
         // interned string pool) BEFORE emitting the right operand, so `__streq`
         // reads the correct distinct bytes for each side.
         let both_env = left_env && right_env;
-        if (left_string || left_env) && (right_string || right_env) {
+        if (left_string || left_env || left_usp) && (right_string || right_env || right_usp) {
             let left_emitted = self.emit_node(function, left, true);
             if !left_emitted.produced {
                 function.instruction(&Instruction::I64Const(0));

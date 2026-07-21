@@ -665,6 +665,20 @@ fn json_test_supports_web_baseline_structured_clone_and_event_primitives_in_ts_a
         // coercions/serialization kali has no lowering for. Pin that compile-time
         // reject; the structuredClone/abort lanes stay separately pinned green by
         // the dedicated soundness_structured_clone / soundness_abort suites.
+        //
+        // Stage P4 Task 7 (observed 2026-07-21, fresh binary): the fixture's
+        // URL/URLSearchParams block is now a REAL supported lane (Stage P4 —
+        // pinned green incl. byte-for-byte acceptance in soundness_url.rs), so
+        // URL/USP is no longer an unsupported family here. The observed
+        // fail-closed point is UNCHANGED from A2b: compile-time E5506 "calling
+        // 'String' is unavailable in the current phase: it is a recognized
+        // builtin with no implemented lowering..." (4x, one per `String(count)`
+        // site; `stderr` field empty — the fixture never runs), because the
+        // `String(count)` sites INSIDE the USP block sit in the terminal
+        // deny-set. The token below stays "String"/"stringify" — the observed
+        // most content-bearing stable fragment. Only when a String-builtin
+        // lane lands will the fail point advance PAST URL/USP to the Event
+        // `.type` runtime gap and then the P5 TextEncoder/TextDecoder tail.
         let message = json["errors"][0]["message"].as_str().unwrap_or_default();
         assert!(
             code == "E5506" && (message.contains("String") || message.contains("stringify")),
@@ -747,6 +761,20 @@ fn json_test_supports_web_baseline_structured_clone_and_event_primitives_when_br
         // coercions/serialization kali has no lowering for. Pin that compile-time
         // reject; the structuredClone/abort lanes stay separately pinned green by
         // the dedicated soundness_structured_clone / soundness_abort suites.
+        //
+        // Stage P4 Task 7 (observed 2026-07-21, fresh binary): the fixture's
+        // URL/URLSearchParams block is now a REAL supported lane (Stage P4 —
+        // pinned green incl. byte-for-byte acceptance in soundness_url.rs), so
+        // URL/USP is no longer an unsupported family here. The observed
+        // fail-closed point is UNCHANGED from A2b: compile-time E5506 "calling
+        // 'String' is unavailable in the current phase: it is a recognized
+        // builtin with no implemented lowering..." (4x, one per `String(count)`
+        // site; `stderr` field empty — the fixture never runs), because the
+        // `String(count)` sites INSIDE the USP block sit in the terminal
+        // deny-set. The token below stays "String"/"stringify" — the observed
+        // most content-bearing stable fragment. Only when a String-builtin
+        // lane lands will the fail point advance PAST URL/USP to the Event
+        // `.type` runtime gap and then the P5 TextEncoder/TextDecoder tail.
         let message = json["errors"][0]["message"].as_str().unwrap_or_default();
         assert!(
             code == "E5506" && (message.contains("String") || message.contains("stringify")),
@@ -839,6 +867,20 @@ fn json_test_supports_web_baseline_structured_clone_and_event_primitives_when_br
         // coercions/serialization kali has no lowering for. Pin that compile-time
         // reject; the structuredClone/abort lanes stay separately pinned green by
         // the dedicated soundness_structured_clone / soundness_abort suites.
+        //
+        // Stage P4 Task 7 (observed 2026-07-21, fresh binary): the fixture's
+        // URL/URLSearchParams block is now a REAL supported lane (Stage P4 —
+        // pinned green incl. byte-for-byte acceptance in soundness_url.rs), so
+        // URL/USP is no longer an unsupported family here. The observed
+        // fail-closed point is UNCHANGED from A2b: compile-time E5506 "calling
+        // 'String' is unavailable in the current phase: it is a recognized
+        // builtin with no implemented lowering..." (4x, one per `String(count)`
+        // site; `stderr` field empty — the fixture never runs), because the
+        // `String(count)` sites INSIDE the USP block sit in the terminal
+        // deny-set. The token below stays "String"/"stringify" — the observed
+        // most content-bearing stable fragment. Only when a String-builtin
+        // lane lands will the fail point advance PAST URL/USP to the Event
+        // `.type` runtime gap and then the P5 TextEncoder/TextDecoder tail.
         let message = json["errors"][0]["message"].as_str().unwrap_or_default();
         assert!(
             code == "E5506" && (message.contains("String") || message.contains("stringify")),
