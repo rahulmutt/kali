@@ -672,10 +672,11 @@ fn json_test_supports_web_baseline_structured_clone_and_event_primitives_in_ts_a
         // URL/USP is no longer an unsupported family here. The observed
         // fail-closed point is UNCHANGED from A2b: compile-time E5506 "calling
         // 'String' is unavailable in the current phase: it is a recognized
-        // builtin with no implemented lowering..." (4x, one per `String(count)`
-        // site; `stderr` field empty — the fixture never runs), because the
-        // `String(count)` sites INSIDE the USP block sit in the terminal
-        // deny-set. The token below stays "String"/"stringify" — the observed
+        // builtin with no implemented lowering..." (5x, one per `String(count)`
+        // site — append, set, the get-compare, `encoder.encode(...)`, and the
+        // `decoder.decode(...)` compare; `stderr` field empty — the fixture
+        // never runs), because the `String(count)` sites INSIDE the USP and
+        // TextEncoder blocks sit in the terminal deny-set. The token below stays "String"/"stringify" — the observed
         // most content-bearing stable fragment. Only when a String-builtin
         // lane lands will the fail point advance PAST URL/USP to the Event
         // `.type` runtime gap and then the P5 TextEncoder/TextDecoder tail.
@@ -768,10 +769,11 @@ fn json_test_supports_web_baseline_structured_clone_and_event_primitives_when_br
         // URL/USP is no longer an unsupported family here. The observed
         // fail-closed point is UNCHANGED from A2b: compile-time E5506 "calling
         // 'String' is unavailable in the current phase: it is a recognized
-        // builtin with no implemented lowering..." (4x, one per `String(count)`
-        // site; `stderr` field empty — the fixture never runs), because the
-        // `String(count)` sites INSIDE the USP block sit in the terminal
-        // deny-set. The token below stays "String"/"stringify" — the observed
+        // builtin with no implemented lowering..." (5x, one per `String(count)`
+        // site — append, set, the get-compare, `encoder.encode(...)`, and the
+        // `decoder.decode(...)` compare; `stderr` field empty — the fixture
+        // never runs), because the `String(count)` sites INSIDE the USP and
+        // TextEncoder blocks sit in the terminal deny-set. The token below stays "String"/"stringify" — the observed
         // most content-bearing stable fragment. Only when a String-builtin
         // lane lands will the fail point advance PAST URL/USP to the Event
         // `.type` runtime gap and then the P5 TextEncoder/TextDecoder tail.
@@ -874,10 +876,11 @@ fn json_test_supports_web_baseline_structured_clone_and_event_primitives_when_br
         // URL/USP is no longer an unsupported family here. The observed
         // fail-closed point is UNCHANGED from A2b: compile-time E5506 "calling
         // 'String' is unavailable in the current phase: it is a recognized
-        // builtin with no implemented lowering..." (4x, one per `String(count)`
-        // site; `stderr` field empty — the fixture never runs), because the
-        // `String(count)` sites INSIDE the USP block sit in the terminal
-        // deny-set. The token below stays "String"/"stringify" — the observed
+        // builtin with no implemented lowering..." (5x, one per `String(count)`
+        // site — append, set, the get-compare, `encoder.encode(...)`, and the
+        // `decoder.decode(...)` compare; `stderr` field empty — the fixture
+        // never runs), because the `String(count)` sites INSIDE the USP and
+        // TextEncoder blocks sit in the terminal deny-set. The token below stays "String"/"stringify" — the observed
         // most content-bearing stable fragment. Only when a String-builtin
         // lane lands will the fail point advance PAST URL/USP to the Event
         // `.type` runtime gap and then the P5 TextEncoder/TextDecoder tail.

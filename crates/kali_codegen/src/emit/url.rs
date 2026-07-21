@@ -504,8 +504,16 @@ impl<'a> FunctionEmitter<'a> {
     /// branch; observed as the acceptance fixture's untaken throw firing).
     /// Deliberately NOT an `is_string_valued` arm: `.get` can return the 0
     /// null-sentinel (key absent), and only the equality lane is total over 0
-    /// (`__streq`'s tag guard keeps `null === s` false, matching node) —
-    /// `+`/`.length`/store positions must keep failing closed on a maybe-null.
+    /// (`__streq`'s tag guard keeps `null === s` false, matching node). The
+    /// equality lane is the only DELIBERATE admission this recognizer feeds;
+    /// `+` and `.length` positions currently take PRE-EXISTING sibling lanes
+    /// with OBSERVED divergences (Task-7 review probes, 2026-07-21):
+    /// `q.get(k).length` reads the pair-STORE flat length (kali 2 vs node 1
+    /// for a 1-char value — value-independent silent miscompile), and
+    /// `q.get(absent) + s` concats the 0 sentinel as EMPTY where node renders
+    /// `"null"`. Both predate this recognizer and are registered as
+    /// stage-review sweep items — do not cite this arm as proof those
+    /// positions fail closed.
     pub(crate) fn is_usp_string_call(&self, node_id: LirNodeId) -> bool {
         let node = self.node(self.unwrap_transparent(node_id));
         if node.kind != LirNodeKind::Call {
