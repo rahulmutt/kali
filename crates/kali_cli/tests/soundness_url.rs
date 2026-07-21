@@ -152,7 +152,8 @@ fn usp_set_result_does_not_leak_the_store_handle() {
 
 #[test]
 fn usp_tostring_serializes_form_urlencoded() {
-    let src = "const q = new URLSearchParams('alpha=1&beta=two+words');\nconsole.log(q.toString());\n";
+    let src =
+        "const q = new URLSearchParams('alpha=1&beta=two+words');\nconsole.log(q.toString());\n";
     // application/x-www-form-urlencoded: space -> '+', pairs joined by '&'.
     assert_eq!(run_kali_run(src).trim(), "alpha=1&beta=two+words");
 }
@@ -168,4 +169,126 @@ fn unknown_method_on_usp_fails_closed() {
     let src = "const q = new URLSearchParams('a=1');\nq.sort();\n";
     let stderr = run_kali_run_expect_error(src);
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+// --- Task 6: fail-closed enumeration wave (store sites + generic sinks) ------
+//
+// The standing lesson from 6 prior stages executed up front: pin EVERY store
+// site and generic value sink for BOTH handle classes NOW. Each pin proves the
+// Task-3 position gate (allowlist at the identifier/member choke point) denies
+// the position; any leak is fixed AT the choke, never per-sink.
+
+/// Shared two-binding prelude for the sink pins (one URL, one USP).
+fn sink_src(line: &str) -> String {
+    format!(
+        "const u = new URL('https://example.com/browser?alpha=1');\nconst q = new URLSearchParams('a=1');\n{line}\n"
+    )
+}
+
+#[test]
+fn url_string_concat_fails_closed() {
+    let stderr = run_kali_run_expect_error(&sink_src("console.log(\"v=\" + u);"));
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn usp_string_concat_fails_closed() {
+    let stderr = run_kali_run_expect_error(&sink_src("console.log(\"v=\" + q);"));
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn url_template_interp_fails_closed() {
+    let stderr = run_kali_run_expect_error(&sink_src("console.log(`v=${u}`);"));
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn url_arithmetic_fails_closed() {
+    let stderr = run_kali_run_expect_error(&sink_src("console.log(u + 1);"));
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn url_identity_compare_fails_closed() {
+    let stderr = run_kali_run_expect_error(&sink_src("console.log(u === u ? 1 : 0);"));
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn usp_json_stringify_fails_closed() {
+    let stderr = run_kali_run_expect_error(&sink_src("console.log(JSON.stringify(q));"));
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn url_return_position_fails_closed() {
+    let src = "function f() { const u = new URL('https://x/'); return u; }\nf();\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn usp_argument_position_fails_closed() {
+    let stderr = run_kali_run_expect_error(&sink_src("function f(x) { return 1; }\nf(q);"));
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn url_object_literal_field_fails_closed() {
+    // Store-site gating: the deny must fire even though the object is never
+    // observed afterwards — a silent green compile here IS the leak.
+    let stderr = run_kali_run_expect_error(&sink_src("const o = { h: u };"));
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn usp_array_element_fails_closed() {
+    let stderr = run_kali_run_expect_error(&sink_src("const a = [q];"));
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn usp_growable_push_fails_closed() {
+    let stderr = run_kali_run_expect_error(&sink_src("const a = [];\na.push(q);"));
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn url_computed_member_read_fails_closed() {
+    let stderr =
+        run_kali_run_expect_error(&sink_src("const k = \"pathname\";\nconsole.log(u[k]);"));
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn url_member_write_fails_closed() {
+    let stderr = run_kali_run_expect_error(&sink_src("u.pathname = \"/x\";"));
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn usp_captured_in_deferred_callback_fails_closed() {
+    let src = "function m() { const q = new URLSearchParams('a=1'); setTimeout(function() { q.get('a'); }, 0); }\nm();\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn url_unknown_member_read_fails_closed() {
+    let stderr = run_kali_run_expect_error(&sink_src("console.log(u.protocol);"));
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn inline_url_construct_in_argument_position_is_placeholder_zero() {
+    // HONEST-BEHAVIOR pin (flagged, not a deny pin): an inline value-position
+    // `new URL(...)` that never became a `const` binding takes the PRE-EXISTING
+    // non-const construct placeholder path (Task-3 documented class: cf.
+    // `let u = new URL(...)` → placeholder) — the argument lowers to `0`, so NO
+    // raw handle escapes (0 is not a struct pointer / tagged store). Fixing the
+    // class (deny or real lowering) is outside the Task-6 choke-point scope;
+    // this pin makes today's behavior visible so a future change is deliberate.
+    let src = "function f(x) { return x; }\nconsole.log(f(new URL('https://x/')));\n";
+    assert_eq!(run_kali_run(src).trim(), "0");
 }

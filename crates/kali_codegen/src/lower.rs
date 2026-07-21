@@ -1570,12 +1570,8 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                 // `__streq` index is threaded for key comparison; getall/set also
                 // take `__alloc_global` (fresh result / grown block must outlive
                 // any arena reset), exactly as `__join` takes its allocator.
-                "__usp_get" => {
-                    emit_usp_get_body(&mut body, function_name_to_index["__streq"])
-                }
-                "__usp_has" => {
-                    emit_usp_has_body(&mut body, function_name_to_index["__streq"])
-                }
+                "__usp_get" => emit_usp_get_body(&mut body, function_name_to_index["__streq"]),
+                "__usp_has" => emit_usp_has_body(&mut body, function_name_to_index["__streq"]),
                 "__usp_getall" => emit_usp_getall_body(
                     &mut body,
                     function_name_to_index["__streq"],
@@ -1593,9 +1589,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                 // components copied from `__percent_encode` results — so it
                 // never touches the global `string_concat` import (whose
                 // absence a fully-granted module asserts) and interns nothing.
-                "__percent_encode" => {
-                    emit_percent_encode_body(&mut body, alloc_global_index)
-                }
+                "__percent_encode" => emit_percent_encode_body(&mut body, alloc_global_index),
                 "__usp_tostring" => emit_usp_tostring_body(
                     &mut body,
                     function_name_to_index["__percent_encode"],
@@ -2511,7 +2505,9 @@ pub(crate) fn parse_url_literal(text: &str) -> Option<UrlComponents> {
 /// URLSearchParams literal via `form_urlencoded`. Always succeeds (an empty or
 /// malformed body yields whatever pairs decode, matching the WHATWG parser).
 pub(crate) fn parse_query_literal(text: &str) -> Vec<(String, String)> {
-    form_urlencoded::parse(text.as_bytes()).into_owned().collect()
+    form_urlencoded::parse(text.as_bytes())
+        .into_owned()
+        .collect()
 }
 
 /// True when `init_id` is a PROVABLE ZERO-PLACEHOLDER construct — a
@@ -6153,7 +6149,7 @@ fn emit_usp_get_body(func: &mut Function, streq_index: u32) {
     func.instruction(&Instruction::End); // i<len if
     func.instruction(&Instruction::End); // loop
     func.instruction(&Instruction::I64Const(0)); // not found → null sentinel
-    // NO trailing End.
+                                                 // NO trailing End.
 }
 
 /// `__usp_has(store, key) -> i64`: the `__usp_get` scan returning `1`/`0`.
@@ -6197,7 +6193,7 @@ fn emit_usp_has_body(func: &mut Function, streq_index: u32) {
     func.instruction(&Instruction::End); // i<len if
     func.instruction(&Instruction::End); // loop
     func.instruction(&Instruction::I64Const(0)); // no match
-    // NO trailing End.
+                                                 // NO trailing End.
 }
 
 /// `__usp_getall(store, key) -> i64`: two-pass — count matches, allocate a fresh
@@ -6250,7 +6246,7 @@ fn emit_usp_getall_body(func: &mut Function, streq_index: u32, alloc_global_inde
     func.instruction(&Instruction::Br(1));
     func.instruction(&Instruction::End); // i<len if
     func.instruction(&Instruction::End); // loop
-    // Allocate the result growable: header(24) + data(count*8).
+                                         // Allocate the result growable: header(24) + data(count*8).
     func.instruction(&Instruction::I32Const(24));
     func.instruction(&Instruction::Call(alloc_global_index));
     func.instruction(&Instruction::I64ExtendI32U);
@@ -6262,7 +6258,7 @@ fn emit_usp_getall_body(func: &mut Function, streq_index: u32, alloc_global_inde
     func.instruction(&Instruction::Call(alloc_global_index));
     func.instruction(&Instruction::I64ExtendI32U);
     func.instruction(&Instruction::LocalSet(7)); // newdata
-    // newhdr.len = count
+                                                 // newhdr.len = count
     func.instruction(&Instruction::LocalGet(6));
     func.instruction(&Instruction::I32WrapI64);
     func.instruction(&Instruction::LocalGet(5));
@@ -6325,7 +6321,7 @@ fn emit_usp_getall_body(func: &mut Function, streq_index: u32, alloc_global_inde
     func.instruction(&Instruction::Br(1));
     func.instruction(&Instruction::End); // i<len if
     func.instruction(&Instruction::End); // loop
-    // return newhdr | ARRAY_HANDLE_TAG
+                                         // return newhdr | ARRAY_HANDLE_TAG
     func.instruction(&Instruction::LocalGet(6));
     func.instruction(&Instruction::I64Const(crate::ARRAY_HANDLE_TAG as i64));
     func.instruction(&Instruction::I64Or);
@@ -6428,7 +6424,7 @@ fn emit_usp_set_body(func: &mut Function, streq_index: u32, alloc_global_index: 
     func.instruction(&Instruction::I64Add);
     func.instruction(&Instruction::LocalSet(3));
     func.instruction(&Instruction::End); // matched if/else
-    // i += 2; continue
+                                         // i += 2; continue
     func.instruction(&Instruction::LocalGet(5));
     func.instruction(&Instruction::I64Const(2));
     func.instruction(&Instruction::I64Add);
@@ -6436,7 +6432,7 @@ fn emit_usp_set_body(func: &mut Function, streq_index: u32, alloc_global_index: 
     func.instruction(&Instruction::Br(1));
     func.instruction(&Instruction::End); // i<len if
     func.instruction(&Instruction::End); // loop
-    // if found == 0: append [key, val], growing the data block if needed.
+                                         // if found == 0: append [key, val], growing the data block if needed.
     func.instruction(&Instruction::LocalGet(4));
     func.instruction(&Instruction::I64Const(0));
     func.instruction(&Instruction::I64Eq);
@@ -6491,7 +6487,7 @@ fn emit_usp_set_body(func: &mut Function, streq_index: u32, alloc_global_index: 
     func.instruction(&Instruction::LocalGet(9));
     func.instruction(&Instruction::LocalSet(6));
     func.instruction(&Instruction::End); // grow if
-    // data[write] = key
+                                         // data[write] = key
     usp_emit_elem_addr(func, 6, 3);
     func.instruction(&Instruction::LocalGet(1));
     func.instruction(&Instruction::I64Store(MemArg {
@@ -6513,7 +6509,7 @@ fn emit_usp_set_body(func: &mut Function, streq_index: u32, alloc_global_index: 
     func.instruction(&Instruction::I64Add);
     func.instruction(&Instruction::LocalSet(3));
     func.instruction(&Instruction::End); // found==0 append if
-    // hdr.len = write
+                                         // hdr.len = write
     usp_emit_hdr(func, 0);
     func.instruction(&Instruction::LocalGet(3));
     func.instruction(&Instruction::I64Store(MemArg {
@@ -6730,7 +6726,7 @@ fn emit_percent_encode_body(func: &mut Function, alloc_global_index: u32) {
     func.instruction(&Instruction::LocalSet(4));
     func.instruction(&Instruction::End); // space/else if
     func.instruction(&Instruction::End); // unreserved if
-    // i += 1; continue
+                                         // i += 1; continue
     func.instruction(&Instruction::LocalGet(5));
     func.instruction(&Instruction::I64Const(1));
     func.instruction(&Instruction::I64Add);
@@ -6738,7 +6734,7 @@ fn emit_percent_encode_body(func: &mut Function, alloc_global_index: u32) {
     func.instruction(&Instruction::Br(1));
     func.instruction(&Instruction::End); // i<len if
     func.instruction(&Instruction::End); // loop
-    // TAG | out<<32 | (w - out)
+                                         // TAG | out<<32 | (w - out)
     func.instruction(&Instruction::LocalGet(3));
     func.instruction(&Instruction::I64Const(32));
     func.instruction(&Instruction::I64Shl);
@@ -6842,11 +6838,7 @@ fn usp_emit_encoded_component_copy(func: &mut Function, percent_encode_index: u3
 /// (w-out)`. Locals: 0 = `store` (param), 1 = `len`, 2 = `i`, 3 = `data`,
 /// 4 = `w` (size accumulator, then write cursor), 5 = `out`, 6 = `h`, 7 = `p`,
 /// 8 = `n`. No `i64.eqz` (see `emit_join_body`).
-fn emit_usp_tostring_body(
-    func: &mut Function,
-    percent_encode_index: u32,
-    alloc_global_index: u32,
-) {
+fn emit_usp_tostring_body(func: &mut Function, percent_encode_index: u32, alloc_global_index: u32) {
     // len = hdr[+0]; data = hdr[+16]
     usp_emit_hdr(func, 0);
     func.instruction(&Instruction::I64Load(MemArg {
@@ -6895,7 +6887,7 @@ fn emit_usp_tostring_body(
     func.instruction(&Instruction::Br(1));
     func.instruction(&Instruction::End); // i<len if
     func.instruction(&Instruction::End); // pass-1 loop
-    // out = zext(__alloc_global(w)); w = out
+                                         // out = zext(__alloc_global(w)); w = out
     func.instruction(&Instruction::LocalGet(4));
     func.instruction(&Instruction::I32WrapI64);
     func.instruction(&Instruction::Call(alloc_global_index));
@@ -6932,7 +6924,7 @@ fn emit_usp_tostring_body(
     func.instruction(&Instruction::Br(1));
     func.instruction(&Instruction::End); // i<len if
     func.instruction(&Instruction::End); // pass-2 loop
-    // TAG | out<<32 | (w - out)
+                                         // TAG | out<<32 | (w - out)
     func.instruction(&Instruction::LocalGet(5));
     func.instruction(&Instruction::I64Const(32));
     func.instruction(&Instruction::I64Shl);

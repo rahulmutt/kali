@@ -332,6 +332,69 @@ impl<'a> FunctionEmitter<'a> {
                              could not prove) has no abort lowering (fail-closed)",
                         );
                     }
+                    // Stage P4 Task 6 (enumeration-wave close): a method call
+                    // whose bare-identifier receiver is a URL/USP handle
+                    // CAPTURED from an enclosing function. `usp_receiver` below
+                    // does not recognize it (`is_url_search_params` is
+                    // per-emitter, and there is no captured lane for these
+                    // handles), so absent this gate the call falls through to
+                    // the generic zero-placeholder fallback and silently
+                    // no-ops (`setTimeout(function() { q.get('a') })` — node
+                    // queries; kali did not). The write-position twin of the
+                    // identifier-choke `is_captured_url_handle` deny; a CHOKE
+                    // POINT, not a per-method case: ANY method on this shape
+                    // denies.
+                    if self.is_captured_url_handle(receiver_name) {
+                        let message = format!(
+                            "calling a method on URL/URLSearchParams handle '{receiver_name}' \
+                             captured from an enclosing function is not supported inside a \
+                             closure/callback in the current phase (fail-closed)"
+                        );
+                        return self.deny_e5506(function, &message);
+                    }
+                    // The module-scope twin (mirrors the abort
+                    // `is_module_scope_abort_handle` gate above): a method on a
+                    // `_start`-owned URL/USP handle from inside a function —
+                    // `q.get('a')` on a module `q` silently printed `0` via the
+                    // generic fallback (node queries; kali did not).
+                    if self.is_module_scope_url_handle(receiver_name) {
+                        let message = format!(
+                            "calling a method on URL/URLSearchParams handle '{receiver_name}' \
+                             declared at module scope is not supported from inside a \
+                             function/closure in the current phase (fail-closed)"
+                        );
+                        return self.deny_e5506(function, &message);
+                    }
+                }
+            }
+            // Stage P4 Task 6: the member-receiver twin of the two gates above
+            // (mirrors the abort Signal arm below): a method call whose receiver
+            // is `<ident>.<member>` where the BASE identifier is a module-scope
+            // or captured URL/USP handle (`u.searchParams.get('a')` from inside
+            // a function). `usp_receiver` cannot recognize it (`is_url` is
+            // per-emitter), and the generic fallback never emits the receiver
+            // (so the identifier choke never fires) — the call silently
+            // placeholder-0'd. Keyed on positive cross-function URL/USP base
+            // provenance at the method-call choke: ANY method through such a
+            // base denies.
+            if receiver_node.children.len() == 1
+                && receiver_node
+                    .text
+                    .as_deref()
+                    .is_some_and(|text| !text.is_empty())
+            {
+                let base = self.node(receiver_node.children[0]);
+                if base.children.is_empty()
+                    && base.text.as_deref().is_some_and(|name| {
+                        self.is_module_scope_url_handle(name) || self.is_captured_url_handle(name)
+                    })
+                {
+                    return self.deny_e5506(
+                        function,
+                        "calling a method through a member of a URL/URLSearchParams handle \
+                         that crosses a module/function or closure boundary is not supported \
+                         in the current phase (fail-closed)",
+                    );
                 }
             }
             // Stage P3 Task 4: a method call whose RECEIVER is `<ident>.signal`

@@ -1708,6 +1708,21 @@ impl<'a> FunctionEmitter<'a> {
                              (fail-closed)",
                         );
                     }
+                    // Task 6 (enumeration-wave close): the CAPTURED twin — a
+                    // URL/USP handle owned by an enclosing function, reached via
+                    // the closure env plan. No captured lane exists for these
+                    // handles (the repr is not env-promotable), so absent this
+                    // gate the read falls through to the silent zero-placeholder
+                    // lane (`console.log(q)` inside a callback printed `0`).
+                    // Same choke point, same default-deny.
+                    if self.is_captured_url_handle(text) {
+                        return self.deny_e5506(
+                            function,
+                            "a URL/URLSearchParams handle captured from an enclosing function \
+                             cannot be read inside a closure/callback in the current phase \
+                             (fail-closed)",
+                        );
+                    }
                     // Spec 4a Task 5: a for-in key (or alias) emitted in a
                     // STRING-VALUE context materializes its interned field-name
                     // handle from this loop's key handle table at `base + ord*8`,

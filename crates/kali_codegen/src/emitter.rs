@@ -633,6 +633,33 @@ impl<'a> FunctionEmitter<'a> {
             )
     }
 
+    /// Stage P4 Task 6 (enumeration-wave close): `name` is a URL/USP handle
+    /// OWNED BY AN ENCLOSING FUNCTION, reached through the closure env plan —
+    /// the CAPTURED twin of `is_module_scope_url_handle`, keyed on the OWNER's
+    /// repr verdict exactly like `is_abort_handle`'s captured clause. Unlike
+    /// abort (whose captured handles have a ratified admitted lane), URL/USP
+    /// handles have NO captured lane: the arena struct / pair store is never
+    /// materialized into an env cell (`cell_is_promotable` refuses the repr),
+    /// so `try_emit_captured_read` returns `None` and the read would fall
+    /// through to the silent zero-placeholder lane — a leak
+    /// (`setTimeout(function() { q.get('a') })` silently no-ops where node
+    /// queries). Consulted as a DENY at the identifier choke
+    /// (`emit/control_flow.rs`) and the method-call choke (`emit/call.rs`);
+    /// any depth, any non-module owner (module owners take the
+    /// `is_module_scope_url_handle` lane; they are never env-captured).
+    pub(crate) fn is_captured_url_handle(&self, name: &str) -> bool {
+        !self.url_locals.contains(name)
+            && !self.usp_locals.contains(name)
+            && !self.locals.contains_key(name)
+            && self.env_plan.captured.iter().any(|reference| {
+                reference.name == name
+                    && matches!(
+                        self.repr_table.scalar(&reference.owner, &reference.name),
+                        kali_common::Repr::Url | kali_common::Repr::UrlSearchParams
+                    )
+            })
+    }
+
     /// Wasm function index of the allocator an allocation site in the
     /// CURRENTLY-EMITTING function should call: `__alloc` (the current
     /// arena) when the escape gate marked this function `arena_eligible`,
