@@ -829,7 +829,7 @@ fn count_tag_boxing_ops(bytes: &[u8]) -> usize {
     for payload in Parser::new(0).parse_all(bytes) {
         match payload.expect("wasm payload") {
             Payload::ImportSection(reader) => {
-                for import in reader {
+                for import in reader.into_imports() {
                     if matches!(
                         import.expect("import entry").ty,
                         wasmparser::TypeRef::Func(_)
