@@ -317,10 +317,23 @@ impl<'a> FunctionEmitter<'a> {
     /// (a string literal or an ordinary String handle — NO admit flag). Pushes
     /// a `0` sentinel if the argument did not produce a value, keeping the value
     /// stack balanced for the synthetic call.
+    ///
+    /// Stage-review W-1: an argument that is ITSELF a `q.get(k)` /
+    /// `q.toString()` call can carry the `0` null-sentinel (absent key), which
+    /// would be stored RAW into the pair store and serialized as EMPTY
+    /// (`q.append('x', q.get('x'))` → kali `a=1&x=` vs node `a=1&x=null`).
+    /// Node coerces the argument to the string `"null"` before storing/looking
+    /// up, so the same interned-`"null"` materialization the I-5 print/concat
+    /// sinks use is applied here — at this single choke every mutator/query
+    /// argument position (append/set values AND get/has/getAll/set keys) is
+    /// covered at once.
     pub(crate) fn emit_usp_method_argument(&mut self, function: &mut Function, arg: LirNodeId) {
         let produced = self.emit_node(function, arg, true);
         if !produced.produced {
             function.instruction(&Instruction::I64Const(0));
+        }
+        if self.is_usp_string_call(arg) {
+            self.emit_usp_null_string_materialize(function);
         }
     }
 

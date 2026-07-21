@@ -506,6 +506,20 @@ fn url_binding_reassignment_fails_closed() {
 }
 
 #[test]
+fn usp_null_get_result_stored_as_null_string() {
+    // Stage-review W-1 (re-verification follow-up): a null-sentinel
+    // `q.get(absent)` result in a mutator-ARGUMENT position must store as the
+    // STRING "null" (node coerces before storing), not as the raw 0 sentinel
+    // (which `__usp_tostring` serialized as EMPTY: kali `a=1&x=` vs node
+    // `a=1&x=null`). Materialized at the single `emit_usp_method_argument`
+    // choke, so append values, set values, and key positions are covered at
+    // once. Node oracle (verified 2026-07-21): `a=1&x=null` / `null` /
+    // `a=null`.
+    let src = "const q = new URLSearchParams('a=1');\nq.append('x', q.get('x'));\nconsole.log(q.toString());\nconsole.log(q.get('x'));\nconst r = new URLSearchParams('a=1');\nr.set('a', r.get('nope'));\nconsole.log(r.toString());\n";
+    assert_eq!(run_kali_run(src).trim(), "a=1&x=null\nnull\na=null");
+}
+
+#[test]
 fn usp_tostring_multibyte_percent_encoding() {
     // Stage-review F11 (adjudicated pin-now, free pin): multibyte and
     // reserved-character percent-encoding is already node-identical.
