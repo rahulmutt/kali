@@ -60,6 +60,7 @@ pub const SYNTHETIC_FUNCTIONS: &[&str] = &[
     "__usp_has",
     "__usp_getall",
     "__usp_set",
+    "__usp_append",
     "__percent_encode",
     "__usp_tostring",
 ];
@@ -789,6 +790,23 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         is_entry: false,
         flavor: None,
     });
+    // `__usp_append(store, key, val) -> i64` (stage-review C-3): pushes the
+    // `[key, val]` pair onto the store in ONE call, so BOTH argument
+    // expressions are fully evaluated BEFORE any mutation — the previous
+    // inline two-push lowering pushed the key first and a value expression
+    // observing the store (`q.append('b', q.has('b') ? ... : ...)`) saw
+    // half-appended state. Growth allocates through `__alloc_global` exactly
+    // like `__usp_set`'s append tail (a grown data block must not dangle
+    // across an arena reset).
+    all_functions.push(FunctionPlan {
+        name: "__usp_append".to_string(),
+        params: vec!["store".to_string(), "key".to_string(), "val".to_string()],
+        locals: Vec::new(),
+        body: lir.root,
+        result: true,
+        is_entry: false,
+        flavor: None,
+    });
     // `URLSearchParams.toString()` serialization pair (Stage P4 Task 5).
     // `__percent_encode(str) -> i64` re-encodes one component's bytes as
     // application/x-www-form-urlencoded (unreserved verbatim, space → `+`,
@@ -1443,6 +1461,10 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             // `emit_usp_set_body`: 7 i64 — `write`, `found`, `i`, `data`, `len`,
             // `cap`, `newdata` (locals 3-9; locals 0-2 are `store`/`key`/`val`).
             local_decls.push((7, ValType::I64));
+        } else if function.name == "__usp_append" {
+            // `emit_usp_append_body`: 4 i64 — `len`, `data`, `cap`, `newdata`
+            // (locals 3-6; locals 0-2 are `store`/`key`/`val`).
+            local_decls.push((4, ValType::I64));
         } else if function.name == "__percent_encode" {
             // `emit_percent_encode_body`: 7 i64 — `len`, `src`, `out`, `w`,
             // `i`, `b`, `n` (locals 1-7; local 0 is the `str` param).
@@ -1582,6 +1604,10 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                     function_name_to_index["__streq"],
                     alloc_global_index,
                 ),
+                // `__usp_append` mutates only after all its arguments were
+                // evaluated at the call site (C-3 atomic append); growth via
+                // `__alloc_global`, mirroring `__usp_set`'s append tail.
+                "__usp_append" => emit_usp_append_body(&mut body, alloc_global_index),
                 // `URLSearchParams.toString()` pair (Stage P4 Task 5): both
                 // allocate through `__alloc_global` (a toString result must
                 // outlive any arena reset, like `__join`); the joiner builds
@@ -2504,7 +2530,12 @@ pub(crate) fn parse_url_literal(text: &str) -> Option<UrlComponents> {
 /// `application/x-www-form-urlencoded` decode (`+`→space, `%XX`) of a
 /// URLSearchParams literal via `form_urlencoded`. Always succeeds (an empty or
 /// malformed body yields whatever pairs decode, matching the WHATWG parser).
+/// Per the WHATWG URLSearchParams constructor, exactly ONE leading `?` is
+/// stripped before parsing (`new URLSearchParams('?a=1')` ≡ `'a=1'`); without
+/// the strip the `?` was percent-encoded into the first key (`%3Fa=1`) and
+/// `get('a')` missed (stage-review C-2).
 pub(crate) fn parse_query_literal(text: &str) -> Vec<(String, String)> {
+    let text = text.strip_prefix('?').unwrap_or(text);
     form_urlencoded::parse(text.as_bytes())
         .into_owned()
         .collect()
@@ -6326,6 +6357,118 @@ fn emit_usp_getall_body(func: &mut Function, streq_index: u32, alloc_global_inde
     func.instruction(&Instruction::I64Const(crate::ARRAY_HANDLE_TAG as i64));
     func.instruction(&Instruction::I64Or);
     // NO trailing End.
+}
+
+/// `__usp_append(store, key, val) -> i64` (stage-review C-3): append the
+/// `[key, val]` pair in ONE call so both arguments are evaluated at the call
+/// site BEFORE any mutation (the inline two-push predecessor mutated between
+/// the key push and the value evaluation). Grow-if-full via `__alloc_global`
+/// (cap*2; cap starts at `GROWABLE_INITIAL_CAP` = 4, so `2*cap >= len+2`
+/// always holds), mirroring `__usp_set`'s append tail. Returns `0` (the call
+/// site drops it — WHATWG append returns undefined). Locals 0-2 =
+/// `store`/`key`/`val`; 3 = `len`, 4 = `data`, 5 = `cap`, 6 = `newdata`.
+fn emit_usp_append_body(func: &mut Function, alloc_global_index: u32) {
+    // len / data / cap
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(3)); // len
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 16,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(4)); // data
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(5)); // cap
+                                                 // if len + 2 > cap: grow.
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(2));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I64GtS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    // newdata = __alloc_global(cap * 2 * 8)
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I64Const(16));
+    func.instruction(&Instruction::I64Mul);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::Call(alloc_global_index));
+    func.instruction(&Instruction::I64ExtendI32U);
+    func.instruction(&Instruction::LocalSet(6));
+    // memory.copy(newdata, data, len * 8)
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(8));
+    func.instruction(&Instruction::I64Mul);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::MemoryCopy {
+        src_mem: 0,
+        dst_mem: 0,
+    });
+    // hdr.data_ptr = newdata
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 16,
+        align: 3,
+        memory_index: 0,
+    }));
+    // hdr.cap = cap * 2
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I64Const(2));
+    func.instruction(&Instruction::I64Mul);
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    // data = newdata
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::End);
+    // data[len] = key (pair index == len; slot offset 0)
+    usp_emit_elem_addr(func, 4, 3);
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    // data[len+1] = val (slot offset 8)
+    usp_emit_elem_addr(func, 4, 3);
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    // hdr.len = len + 2
+    usp_emit_hdr(func, 0);
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(2));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    // append returns undefined; the synthetic returns 0 and the call site drops.
+    func.instruction(&Instruction::I64Const(0));
+    // NO trailing End — the dispatch loop appends it.
 }
 
 /// `__usp_set(store, key, val) -> i64` (WHATWG): overwrite the FIRST matching

@@ -753,6 +753,16 @@ impl<'a> FunctionEmitter<'a> {
             return None;
         }
 
+        // Stage-review I-6: a `q.get(k)` / `q.toString()` result has no
+        // statically-known length either — without this bail the fallthrough
+        // below rendered the CALL node's child count (callee + args = 2) as
+        // the "length". Bailing routes `.length` to the runtime member arm,
+        // which denies E5506 (no runtime string-length lane exists for a USP
+        // string result this phase).
+        if self.is_usp_string_call(*id) {
+            return None;
+        }
+
         if let Some(parts) = self.resolve_static_string_split_parts_from_id(*id) {
             return Some(parts.len().to_string());
         }

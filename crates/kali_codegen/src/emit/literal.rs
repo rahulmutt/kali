@@ -662,6 +662,30 @@ impl<'a> FunctionEmitter<'a> {
             function.instruction(&Instruction::I64Const(0));
             return true;
         };
+        // Stage-review I-9: assignment INTO a URL/USP binding (`u = 5`,
+        // `q += x`, `u ??= y`) fails closed — the write-position twin of the
+        // member-write gate above. The binding's local holds a raw struct
+        // pointer / tagged store handle; overwriting it makes every admitted
+        // read (`u.pathname`) a wild load off the new value (observed: prints
+        // 0 at address 5+16; node throws on const reassignment). Keyed on all
+        // four provenance classifiers so the module-scope and captured twins
+        // are covered at the same choke.
+        if self.is_url(&name)
+            || self.is_url_search_params(&name)
+            || self.is_module_scope_url_handle(&name)
+            || self.is_captured_url_handle(&name)
+        {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "assigning into URL/URLSearchParams binding '{name}' is not supported in \
+                     the current phase (the binding holds an internal handle; overwriting it \
+                     would make later member reads load from a wild address; fail-closed)"
+                ),
+            ));
+            function.instruction(&Instruction::I64Const(0));
+            return true;
+        }
         // Module-scope mutable scalar promoted to a persistent global: route the
         // write through `GlobalSet` (from a function OR module scope). Gated on
         // the target NOT being a local/param FIRST — a same-named local `var`/

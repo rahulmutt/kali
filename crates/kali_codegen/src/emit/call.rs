@@ -33,6 +33,14 @@ impl<'a> FunctionEmitter<'a> {
             function.instruction(&Instruction::I64Const(0));
             return;
         }
+        // Stage-review I-5: a `q.get(k)` / `q.toString()` result may carry the
+        // `0` null-sentinel (absent key); materialize it as the interned
+        // `"null"` handle so `console.log(q.get('absent'))` prints node's
+        // `null` instead of `0`. A present value's handle passes through.
+        if self.is_usp_string_call(id) {
+            self.emit_usp_null_string_materialize(function);
+            return;
+        }
         if matches!(emitted.shape, ValueShape::Float)
             || (!self.is_string_valued(id) && self.is_float_valued(id))
         {
@@ -86,6 +94,40 @@ impl<'a> FunctionEmitter<'a> {
             .resolve_bound_member_callable_node(callee)
             .map(|bound| self.node(bound).clone())
             .unwrap_or_else(|| self.node(callee).clone());
+
+        // Stage-review F10 (adjudicated deny-now): a `new URL(...)` /
+        // `new URLSearchParams(...)` ANYWHERE outside the admitted
+        // `const <name> = new <ctor>(<string-literal>)` declarator intercept —
+        // inline argument/member position (`new URL(s).pathname`), a `let`/
+        // `var` declarator, a redeclaration the C-4 mirror refused — has no
+        // lowering and previously fell to the warn-plus-`0` placeholder
+        // (silent wrong value; node produces a real object). The admitted
+        // intercept never routes its init through `emit_call`, so EVERY
+        // URL/URLSearchParams ctor call reaching here is structurally outside
+        // it — deny by construction. The 5-namespace shadow guard keeps user
+        // classes/functions named `URL` on the normal call lane. This
+        // DELIBERATELY upgrades the Task-6 honest-behavior placeholder-zero
+        // pin to E5506 (deny upgrade, recorded at the pin).
+        if callee_node.children.is_empty() {
+            if let Some(ctor) = callee_node
+                .text
+                .as_deref()
+                .filter(|text| matches!(*text, "URL" | "URLSearchParams"))
+            {
+                if self.url_ctor_unshadowed(ctor) {
+                    return self.deny_e5506(
+                        function,
+                        &format!(
+                            "constructing a {ctor} is only supported as \
+                             `const <name> = new {ctor}(<string-literal>)` in the current \
+                             phase; any other construction position has no lowering and \
+                             would silently evaluate to 0 (fail-closed)"
+                        ),
+                    );
+                }
+            }
+        }
+
         if self.is_kali_test_call(&callee_node) {
             if let Some(callback_index) = self.kali_test_callback_index(node) {
                 function.instruction(&Instruction::I32Const(callback_index as i32));
@@ -427,10 +469,31 @@ impl<'a> FunctionEmitter<'a> {
         // — the "any other method" arm).
         if let Some(recv) = self.usp_receiver(&callee_node) {
             let args: Vec<LirNodeId> = node.children[1..].to_vec();
+            // Stage-review C-1 (P4-R1 tripwire): MUTATION through the
+            // composition (`u.searchParams.set/append(...)`) is denied. The
+            // URL's five string slots (`u.search`, `u.href`, …) are
+            // compile-time-frozen, so mutating the embedded store desyncs them
+            // (`u.search` reads stale where node is live-coherent). Reads
+            // (get/getAll/has/toString) on `OfUrl` stay admitted — absent
+            // mutation the frozen slots and the store agree because both
+            // derive from the same compile-time parse. Standalone-USP
+            // mutation is unchanged.
+            if matches!(recv, crate::emit::url::UspReceiver::OfUrl(_))
+                && matches!(callee_node.text.as_deref(), Some("set") | Some("append"))
+            {
+                return self.deny_e5506(
+                    function,
+                    "mutating `<url>.searchParams` is not supported in the current phase: \
+                     the URL's `search`/`href` components are compile-time-frozen and would \
+                     desync from the mutated store; construct a standalone \
+                     `new URLSearchParams(...)` to mutate (fail-closed)",
+                );
+            }
             let usp_get = self.functions["__usp_get"];
             let usp_has = self.functions["__usp_has"];
             let usp_getall = self.functions["__usp_getall"];
             let usp_set = self.functions["__usp_set"];
+            let usp_append = self.functions["__usp_append"];
             let usp_tostring = self.functions["__usp_tostring"];
             match callee_node.text.as_deref() {
                 Some("append") => {
@@ -441,10 +504,24 @@ impl<'a> FunctionEmitter<'a> {
                              current phase",
                         );
                     }
-                    self.emit_usp_append(function, &recv, args[0]);
-                    self.emit_usp_append(function, &recv, args[1]);
-                    // append returns undefined; push a placeholder scalar so a
-                    // value-position call is well-typed (statement position drops).
+                    // Stage-review C-3 (atomic append): receiver handle, key,
+                    // and value are ALL evaluated onto the stack BEFORE the
+                    // synthetic call mutates the store — exactly the `.set`
+                    // arm's ordering — so a value expression observing the
+                    // store (`q.append('b', q.has('b') ? ... : ...)`) sees the
+                    // PRE-append state, matching JS argument-evaluation order.
+                    // (The previous inline lowering pushed the key, then
+                    // evaluated the value against the half-appended store.)
+                    // The scratch discipline is untouched: no scratch local is
+                    // live across the argument emissions; mutation happens
+                    // entirely inside `__usp_append`'s own locals (P4-R5).
+                    self.emit_usp_store_handle(function, &recv);
+                    self.emit_usp_method_argument(function, args[0]);
+                    self.emit_usp_method_argument(function, args[1]);
+                    function.instruction(&Instruction::Call(usp_append));
+                    // append returns undefined; drop the synthetic's 0 result
+                    // and push the void-method placeholder, like the `.set` arm.
+                    function.instruction(&Instruction::Drop);
                     function.instruction(&Instruction::I64Const(0));
                     return EmittedValue {
                         produced: true,

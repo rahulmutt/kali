@@ -342,15 +342,178 @@ fn usp_getall_binding_fails_closed() {
 
 #[test]
 fn inline_url_construct_in_argument_position_is_placeholder_zero() {
-    // HONEST-BEHAVIOR pin (flagged, not a deny pin): an inline value-position
-    // `new URL(...)` that never became a `const` binding takes the PRE-EXISTING
-    // non-const construct placeholder path (Task-3 documented class: cf.
-    // `let u = new URL(...)` → placeholder) — the argument lowers to `0`, so NO
-    // raw handle escapes (0 is not a struct pointer / tagged store). Fixing the
-    // class (deny or real lowering) is outside the Task-6 choke-point scope;
-    // this pin makes today's behavior visible so a future change is deliberate.
+    // DELIBERATE PIN FLIP (stage-review F10, adjudicated deny-now): this was
+    // the Task-6 HONEST-BEHAVIOR pin recording that an inline value-position
+    // `new URL(...)` lowered to the silent `0` placeholder. The fix-wave
+    // upgraded the class from placeholder-zero to E5506 at the `emit_call`
+    // ctor choke (a deny upgrade — silent-wrong → fail-closed), so the pin
+    // now asserts the deny. Name kept so the flip is visible in history.
     let src = "function f(x) { return x; }\nconsole.log(f(new URL('https://x/')));\n";
-    assert_eq!(run_kali_run(src).trim(), "0");
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn let_url_construct_fails_closed() {
+    // Stage-review F10: a `let`/`var` declarator is outside the admitted
+    // `const` intercept; its init falls to the generic call path where the
+    // ctor deny fires (previously: bound `0`, `u.pathname` printed 0; node
+    // prints `/p`).
+    let src = "let u = new URL('https://x/p');\nconsole.log(u.pathname);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn inline_url_member_read_fails_closed() {
+    // Stage-review F10: an inline member read over an un-bound construction
+    // (`new URL(s).pathname`) previously printed 0 with zero diagnostics.
+    let src = "console.log(new URL('https://x/p').pathname);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+// --- Task 8 fix wave: stage-review findings (C-1..I-9, F11) ------------------
+
+#[test]
+fn url_searchparams_composition_mutation_fails_closed() {
+    // Stage-review C-1: mutating through the composition
+    // (`u.searchParams.set/append`) desyncs the compile-time-frozen
+    // `u.search`/`u.href` slots from the live store (kali read stale `?a=1`
+    // where node reads `?a=2&b=z`). Composition is read-only this phase —
+    // both mutators deny E5506; standalone-USP mutation is unchanged.
+    for method_call in [
+        "u.searchParams.set('a', '2')",
+        "u.searchParams.append('b', 'z')",
+    ] {
+        let src = format!(
+            "const u = new URL('https://example.com/p?a=1');\n{method_call};\nconsole.log(u.search);\n"
+        );
+        let stderr = run_kali_run_expect_error(&src);
+        assert!(stderr.contains("E5506"), "case {method_call}: {stderr}");
+    }
+}
+
+#[test]
+fn usp_leading_question_mark_stripped() {
+    // Stage-review C-2 (WHATWG): exactly one leading `?` is stripped by the
+    // constructor. Before the fix `get('a')` missed (null sentinel printed 0)
+    // and toString rendered `%3Fa=1`. Node oracle: `1` / `a=1`.
+    let src =
+        "const q = new URLSearchParams('?a=1');\nconsole.log(q.get('a'));\nconsole.log(q.toString());\n";
+    assert_eq!(run_kali_run(src).trim(), "1\na=1");
+}
+
+#[test]
+fn usp_append_evaluates_args_before_mutation() {
+    // Stage-review C-3: `append` must evaluate BOTH argument expressions
+    // before mutating the store (JS argument-evaluation order). The reentrant
+    // value expression observes the PRE-append state: node prints `no` /
+    // `a=1&b=no`; the old inline two-push lowering pushed the key first and
+    // printed `yes`. Closed by the single `__usp_append(store, key, val)`
+    // synthetic (mirrors `.set`'s already-atomic shape).
+    let src = "const q = new URLSearchParams('a=1');\nq.append('b', q.has('b') ? 'yes' : 'no');\nconsole.log(q.get('b'));\nconsole.log(q.toString());\n";
+    assert_eq!(run_kali_run(src).trim(), "no\na=1&b=no");
+}
+
+#[test]
+fn url_binding_name_shadowing_fails_closed() {
+    // Stage-review C-4: URL/USP provenance is name-keyed and FLAT (no block
+    // scoping). A block-scoped shadow of a URL binding read 0 where node
+    // reads the shadow's value (7). Denied at the declarator choke; the
+    // REVERSE order (generic binding first, URL shadow second) is refused at
+    // the intercept and falls to the F10 ctor deny — both directions E5506.
+    let shadow_over_url = "const u = new URL('https://x/first');\n{\n  const u = { pathname: 7 };\n  console.log(u.pathname);\n}\n";
+    let stderr = run_kali_run_expect_error(shadow_over_url);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+
+    let url_over_generic = "const u = { pathname: 7 };\n{\n  const u = new URL('https://x/first');\n  console.log(u.pathname);\n}\n";
+    let stderr = run_kali_run_expect_error(url_over_generic);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn usp_get_absent_prints_null() {
+    // Stage-review I-5 (materialization): `q.get(absent)` returns the 0
+    // null-sentinel; the print lane substitutes the interned `"null"` handle
+    // at runtime, so kali prints node's `null` (previously `0`). The present
+    // key stays a plain handle pass-through (flagship admitted surface).
+    let src = "const q = new URLSearchParams('a=1');\nconsole.log(q.get('nope'));\nconsole.log(q.get('a'));\n";
+    assert_eq!(run_kali_run(src).trim(), "null\n1");
+}
+
+#[test]
+fn usp_get_absent_concat_renders_null() {
+    // Stage-review I-5 (concat lane): `'v=' + q.get(absent)` must render
+    // node's `v=null`, not `v=` (the 0 sentinel concatenated as empty).
+    let src = "const q = new URLSearchParams('a=1');\nconsole.log('v=' + q.get('a'));\nconsole.log('v=' + q.get('nope'));\n";
+    assert_eq!(run_kali_run(src).trim(), "v=1\nv=null");
+}
+
+#[test]
+fn usp_get_result_length_fails_closed() {
+    // Stage-review I-6: `q.get(k).length` statically rendered the CALL node's
+    // child count (2; node prints the value's length, 1 here). No static or
+    // ASCII-provable runtime length exists for a USP string result — the
+    // static render bails and the member arm denies E5506.
+    let src = "const q = new URLSearchParams('a=1');\nconsole.log(q.get('a').length);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn usp_getall_element_read_fails_closed() {
+    // Stage-review I-7: `q.getAll('a')[0]` silently printed 0 (node prints
+    // `1`). Element reads of the fresh growable result are unsupported this
+    // phase — denied at the computed-member arm keyed on the same
+    // `is_usp_getall_call` recognizer as the admitted `.length` composition.
+    let src = "const q = new URLSearchParams('a=1&a=22');\nconsole.log(q.getAll('a')[0]);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn usp_get_in_condition_fails_closed() {
+    // Stage-review I-8: a bare `q.get(k)` result in condition position tested
+    // HANDLE truthiness — `'a='` (empty-string value) was truthy where node
+    // is falsy (and the absent-key case matched node only by the sentinel
+    // coincidence). Denied at the shared condition choke
+    // (`reject_string_condition`), which covers if/while/for/ternary at once.
+    for src in [
+        "const q = new URLSearchParams('a=');\nif (q.get('a')) { console.log('t'); } else { console.log('f'); }\n",
+        "const q = new URLSearchParams('a=');\nconsole.log(q.get('a') ? 1 : 0);\n",
+        "const q = new URLSearchParams('a=');\nwhile (q.get('a')) { console.log('x'); }\n",
+    ] {
+        let stderr = run_kali_run_expect_error(src);
+        assert!(stderr.contains("E5506"), "case {src}: {stderr}");
+    }
+}
+
+#[test]
+fn url_binding_reassignment_fails_closed() {
+    // Stage-review I-9: `u = 5` overwrote the binding's handle local; the
+    // admitted `u.pathname` read then wild-loaded from address 5+16 and
+    // printed 0 (node throws on const reassignment). Denied at the
+    // identifier-assignment choke keyed on all four URL/USP provenance
+    // classifiers — the write-position twin of the member-write gate.
+    let src = "const u = new URL('https://example.com/p');\nu = 5;\nconsole.log(u.pathname);\n";
+    let stderr = run_kali_run_expect_error(src);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+
+    let usp = "const q = new URLSearchParams('a=1');\nq = 5;\nconsole.log(q.get('a'));\n";
+    let stderr = run_kali_run_expect_error(usp);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn usp_tostring_multibyte_percent_encoding() {
+    // Stage-review F11 (adjudicated pin-now, free pin): multibyte and
+    // reserved-character percent-encoding is already node-identical.
+    // Node oracle (verified 2026-07-21): `a=caf%C3%A9&sym=%26%3D` / `café`
+    // — the `é` round-trips (decode at parse, re-encode in toString) and the
+    // reserved `&`/`=` in the VALUE stay encoded.
+    let src = "const q = new URLSearchParams('a=caf%C3%A9&sym=%26%3D');\nconsole.log(q.toString());\nconsole.log(q.get('a'));\n";
+    assert_eq!(run_kali_run(src).trim(), "a=caf%C3%A9&sym=%26%3D\ncafé");
 }
 
 // --- Task 7: acceptance (byte-for-byte vs node) ------------------------------

@@ -805,6 +805,36 @@ impl<'a> FunctionEmitter<'a> {
                             }
                         }
 
+                        // Stage-review C-4: URL/USP provenance is name-keyed
+                        // and FLAT (no block scoping), so a block-scoped
+                        // redeclaration of a name already carrying URL/USP
+                        // provenance desyncs name→value (`{ const u = {...} }`
+                        // inside a URL `u`'s scope read 0 where node reads the
+                        // object). Deny at the declarator choke — the single
+                        // point every redeclaration must pass.
+                        if let Some(name) = declarator.text.as_deref() {
+                            if self.is_url(name) || self.is_url_search_params(name) {
+                                self.deny_e5506(
+                                    function,
+                                    "redeclaring a name bound to a URL/URLSearchParams in an \
+                                     inner scope is not supported in the current phase \
+                                     (URL/USP provenance is not block-scoped; the shadow \
+                                     would read the wrong value; fail-closed)",
+                                );
+                                continue;
+                            }
+                        }
+                        // C-4 mirror order: a URL/USP CONSTRUCTION intercept
+                        // below refuses a name that was already declared in
+                        // this emitter — the init then takes the generic path,
+                        // where the ctor deny (F10) fails it closed instead of
+                        // silently overwriting the outer binding's shared
+                        // local slot.
+                        let name_already_declared = declarator
+                            .text
+                            .clone()
+                            .is_some_and(|name| !self.declared_binding_names.insert(name));
+
                         // Stage D event lane: `const/let t = new EventTarget()`.
                         // This is the ONE position a handle acquires stable
                         // provenance — emit the host construction call, store the
@@ -952,6 +982,7 @@ impl<'a> FunctionEmitter<'a> {
                                     init,
                                     "URL",
                                 ) && self.url_ctor_unshadowed("URL")
+                                    && !name_already_declared
                                 {
                                     let admitted = if self.scalar_repr(&name)
                                         == kali_common::Repr::Url
@@ -1000,6 +1031,7 @@ impl<'a> FunctionEmitter<'a> {
                                     init,
                                     "URLSearchParams",
                                 ) && self.url_ctor_unshadowed("URLSearchParams")
+                                    && !name_already_declared
                                 {
                                     let admitted = if self.scalar_repr(&name)
                                         == kali_common::Repr::UrlSearchParams
@@ -1921,6 +1953,23 @@ impl<'a> FunctionEmitter<'a> {
                 // handle used for element reads, for both i64 and f64 arrays.
                 if node.text.as_deref() == Some("length") {
                     let base_id = node.children[0];
+                    // Stage-review I-6: `.length` on a `q.get(k)` /
+                    // `q.toString()` result fails closed. The result is a
+                    // runtime string handle (or the 0 null-sentinel) with no
+                    // static length, and no runtime string-length lane exists
+                    // for it this phase (the handle's low-32 byte count is
+                    // only proven correct for the ASCII-provable lane, which
+                    // a USP value — percent-decoded, possibly multibyte — is
+                    // not). Must precede every lane below so nothing else
+                    // claims the shape.
+                    if self.is_usp_string_call(base_id) {
+                        return self.deny_e5506(
+                            function,
+                            "`.length` on a URLSearchParams get()/toString() result is not \
+                             supported in the current phase (no static or ASCII-provable \
+                             runtime length for it; fail-closed)",
+                        );
+                    }
                     // Runtime string length: low 32 bits of the tagged handle
                     // (byte count == JS code-unit count for ASCII-provable
                     // strings; `kali_types`'s `reject_unprovable_string_length`
@@ -2171,6 +2220,21 @@ impl<'a> FunctionEmitter<'a> {
                 // two shapes.
                 if is_binary_operator_text(node.text.as_deref().unwrap_or_default()) {
                     return self.emit_binary(function, id, node);
+                }
+
+                // Stage-review I-7: an element read of a `q.getAll(k)` result
+                // (`q.getAll('a')[0]`) fails closed — the fresh growable
+                // result is only admitted for the direct `.length`
+                // composition this phase; every element-read lane below
+                // misses the call-base shape and previously fell through to a
+                // silent placeholder `0` (node prints the element).
+                if self.is_usp_getall_call(node.children[0]) {
+                    return self.deny_e5506(
+                        function,
+                        "reading an element of a URLSearchParams.getAll(...) result is not \
+                         supported in the current phase; only the direct \
+                         `q.getAll(k).length` composition is available (fail-closed)",
+                    );
                 }
 
                 // Computed for-in-key read `obj[c]` over a uniform-repr fixed

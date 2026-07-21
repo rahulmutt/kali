@@ -1253,6 +1253,23 @@ impl<'a> FunctionEmitter<'a> {
                 "a runtime string value is unavailable as a condition in the current direct-runtime path; its truthiness (empty vs non-empty) is not evaluated".to_string(),
             ));
         }
+        // Stage-review I-8: a bare `q.get(k)` / `q.toString()` result in
+        // condition position (if/while/for/ternary) fails closed E5506. JS
+        // truthiness here is `null` → falsy, `''` → falsy, any other string →
+        // truthy; the emitted i64 is a HANDLE, so `!= 0` truthiness reports an
+        // empty-string value truthy (node: falsy) — and the absent-key case
+        // only matched node by the sentinel coincidence. This choke covers all
+        // four condition sites (they all call this helper).
+        if self.is_usp_string_call(cond) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "a URLSearchParams get()/toString() result cannot be used directly as a \
+                 condition in the current phase (string truthiness over its handle would \
+                 report an empty-string value truthy); compare it explicitly instead \
+                 (fail-closed)"
+                    .to_string(),
+            ));
+        }
     }
 
     /// Returns the identifier name of an array base `a` in a member read `a[i]`,
@@ -1573,9 +1590,21 @@ impl<'a> FunctionEmitter<'a> {
     /// decimal-string handle via `int_to_string`.
     pub(crate) fn emit_as_string(&mut self, function: &mut Function, id: LirNodeId) {
         let is_string = self.is_string_valued(id);
+        let is_usp_string = self.is_usp_string_call(id);
         let emitted = self.emit_node(function, id, true);
         if !emitted.produced {
             function.instruction(&Instruction::I64Const(0));
+        }
+        // Stage-review I-5: a USP `get`/`toString` result in string-coercion
+        // position (`'v=' + q.get(k)`, multi-arg console) may carry the `0`
+        // null-sentinel, which the string ladder would concat as EMPTY where
+        // node renders `null`. Materialize the sentinel as the interned
+        // `"null"` handle at runtime; a present value passes through. (The
+        // equality lane deliberately does NOT materialize — `__streq`'s tag
+        // guard keeps `null === s` false, matching node.)
+        if is_usp_string {
+            self.emit_usp_null_string_materialize(function);
+            return;
         }
         if is_string {
             return;

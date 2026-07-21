@@ -288,173 +288,29 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    /// `q.append(k, v)` inline growable push of ONE element onto the USP store
-    /// (called twice — key then value). Self-contained mirror of
-    /// `emit_growable_push` sourcing the handle from `emit_usp_store_handle`
-    /// (the store lives in a binding local for `Named`, in URL slot 5 for
-    /// `OfUrl` — neither a `GrowableHandle::Local`/`Field`, so the proven push
-    /// idiom is reproduced here). The header indirection keeps the store handle
-    /// stable across a realloc, so the two sequential appends compose (the
-    /// second re-reads the same header and sees the updated `data_ptr`). Leaves
-    /// NOTHING on the stack — append returns undefined.
-    pub(crate) fn emit_usp_append(
-        &mut self,
-        function: &mut Function,
-        recv: &UspReceiver,
-        value: LirNodeId,
-    ) {
-        let scratch = self.growable_scratch_local();
-        let generic_scratch = self.locals.len() as u32;
-        let value_scratch = generic_scratch + 1;
-        // Realloc allocator: mirror `emit_growable_push` — a push inside a
-        // per-iteration loop arena must reallocate through the global heap so
-        // the replacement data block survives the end-of-iteration reset.
-        let alloc = if self
-            .arena_frames
-            .iter()
-            .any(|frame| frame.loop_frame_index.is_some())
-        {
-            self.alloc_global_fn_index()
-        } else {
-            self.alloc_callee_index()
-        };
-
-        // v evaluated FIRST (JS arg order; also frees the generic scratch slots).
-        let produced = self.emit_node(function, value, true);
-        if !produced.produced {
-            function.instruction(&Instruction::I64Const(0));
-        }
-        function.instruction(&Instruction::LocalSet(value_scratch));
-
-        // hdr (masked, i64) into the dedicated growable scratch.
-        self.emit_usp_store_handle(function, recv);
-        function.instruction(&Instruction::I64Const(
-            crate::emit::growable::GROWABLE_HANDLE_MASK,
-        ));
-        function.instruction(&Instruction::I64And);
+    /// With a `__usp_get`/`__usp_tostring`-style result on the stack top
+    /// (i64: a string handle, or the `0` null-sentinel for an absent key):
+    /// replace the sentinel with the interned `"null"` string handle at
+    /// RUNTIME, so print/concat sinks render node's `null` instead of `0` /
+    /// empty (stage-review I-5 materialization). A real handle passes through
+    /// unchanged — every string handle carries `STRING_HANDLE_TAG`, so `0` is
+    /// unambiguously the sentinel (an empty string's handle is tagged,
+    /// non-zero). Uses the generic trailing scratch transiently AFTER the
+    /// value emission completed, so no child emission can clobber it.
+    pub(crate) fn emit_usp_null_string_materialize(&mut self, function: &mut Function) {
+        let (offset, len) = self.strings.intern("null");
+        let null_handle = crate::encode_string_handle(offset, len);
+        let scratch = self.locals.len() as u32;
         function.instruction(&Instruction::LocalSet(scratch));
-
-        // if (len == cap) grow (cap*2, memory.copy of the live prefix).
-        self.emit_growable_scratch_hdr(function, scratch);
-        function.instruction(&Instruction::I64Load(MemArg {
-            offset: 0,
-            align: 3,
-            memory_index: 0,
-        }));
-        self.emit_growable_scratch_hdr(function, scratch);
-        function.instruction(&Instruction::I64Load(MemArg {
-            offset: 8,
-            align: 3,
-            memory_index: 0,
-        }));
-        function.instruction(&Instruction::I64Eq);
-        function.instruction(&Instruction::If(BlockType::Empty));
-        {
-            // new_data = alloc(cap * 2 * 8)
-            self.emit_growable_scratch_hdr(function, scratch);
-            function.instruction(&Instruction::I64Load(MemArg {
-                offset: 8,
-                align: 3,
-                memory_index: 0,
-            }));
-            function.instruction(&Instruction::I64Const(16));
-            function.instruction(&Instruction::I64Mul);
-            function.instruction(&Instruction::I32WrapI64);
-            function.instruction(&Instruction::Call(alloc));
-            function.instruction(&Instruction::I64ExtendI32U);
-            function.instruction(&Instruction::LocalSet(generic_scratch));
-
-            // memory.copy(dst = new_data, src = data_ptr, n = len * 8)
-            function.instruction(&Instruction::LocalGet(generic_scratch));
-            function.instruction(&Instruction::I32WrapI64);
-            self.emit_growable_scratch_hdr(function, scratch);
-            function.instruction(&Instruction::I64Load(MemArg {
-                offset: 16,
-                align: 3,
-                memory_index: 0,
-            }));
-            function.instruction(&Instruction::I32WrapI64);
-            self.emit_growable_scratch_hdr(function, scratch);
-            function.instruction(&Instruction::I64Load(MemArg {
-                offset: 0,
-                align: 3,
-                memory_index: 0,
-            }));
-            function.instruction(&Instruction::I64Const(8));
-            function.instruction(&Instruction::I64Mul);
-            function.instruction(&Instruction::I32WrapI64);
-            function.instruction(&Instruction::MemoryCopy {
-                src_mem: 0,
-                dst_mem: 0,
-            });
-
-            // hdr.data_ptr = new_data
-            self.emit_growable_scratch_hdr(function, scratch);
-            function.instruction(&Instruction::LocalGet(generic_scratch));
-            function.instruction(&Instruction::I64Store(MemArg {
-                offset: 16,
-                align: 3,
-                memory_index: 0,
-            }));
-
-            // hdr.cap = cap * 2
-            self.emit_growable_scratch_hdr(function, scratch);
-            self.emit_growable_scratch_hdr(function, scratch);
-            function.instruction(&Instruction::I64Load(MemArg {
-                offset: 8,
-                align: 3,
-                memory_index: 0,
-            }));
-            function.instruction(&Instruction::I64Const(2));
-            function.instruction(&Instruction::I64Mul);
-            function.instruction(&Instruction::I64Store(MemArg {
-                offset: 8,
-                align: 3,
-                memory_index: 0,
-            }));
-        }
+        function.instruction(&Instruction::LocalGet(scratch));
+        function.instruction(&Instruction::I64Eqz);
+        function.instruction(&Instruction::If(BlockType::Result(
+            wasm_encoder::ValType::I64,
+        )));
+        function.instruction(&Instruction::I64Const(null_handle));
+        function.instruction(&Instruction::Else);
+        function.instruction(&Instruction::LocalGet(scratch));
         function.instruction(&Instruction::End);
-
-        // *(data_ptr + len * 8) = v
-        self.emit_growable_scratch_hdr(function, scratch);
-        function.instruction(&Instruction::I64Load(MemArg {
-            offset: 16,
-            align: 3,
-            memory_index: 0,
-        }));
-        function.instruction(&Instruction::I32WrapI64);
-        self.emit_growable_scratch_hdr(function, scratch);
-        function.instruction(&Instruction::I64Load(MemArg {
-            offset: 0,
-            align: 3,
-            memory_index: 0,
-        }));
-        function.instruction(&Instruction::I32WrapI64);
-        function.instruction(&Instruction::I32Const(8));
-        function.instruction(&Instruction::I32Mul);
-        function.instruction(&Instruction::I32Add);
-        function.instruction(&Instruction::LocalGet(value_scratch));
-        function.instruction(&Instruction::I64Store(MemArg {
-            offset: 0,
-            align: 3,
-            memory_index: 0,
-        }));
-
-        // hdr.len = len + 1
-        self.emit_growable_scratch_hdr(function, scratch);
-        self.emit_growable_scratch_hdr(function, scratch);
-        function.instruction(&Instruction::I64Load(MemArg {
-            offset: 0,
-            align: 3,
-            memory_index: 0,
-        }));
-        function.instruction(&Instruction::I64Const(1));
-        function.instruction(&Instruction::I64Add);
-        function.instruction(&Instruction::I64Store(MemArg {
-            offset: 0,
-            align: 3,
-            memory_index: 0,
-        }));
     }
 
     /// Emit a USP method string argument through the normal expression path

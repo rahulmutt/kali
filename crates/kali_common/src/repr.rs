@@ -42,8 +42,13 @@ pub enum Repr {
     /// (Stage P4): slots `[href][origin][pathname][search][hash][searchParams]`
     /// at byte offsets 0/8/16/24/32/40. First five are interned string
     /// handles; the sixth is a `UrlSearchParams` handle. Built once from a
-    /// compile-time-parsed string literal; immutable. Provenance-distinguished
-    /// exactly like `AbortHandle` — allowlisted at read sites, else fail closed.
+    /// compile-time-parsed string literal. The five string slots are
+    /// COMPILE-TIME-FROZEN; the embedded slot-5 store is mutable ONLY via a
+    /// standalone `URLSearchParams` binding — mutation through the composition
+    /// (`u.searchParams.set/append`) is denied E5506, because it would desync
+    /// the frozen `search`/`href` slots from the live store (P4-R1 tripwire;
+    /// stage-review C-1). Provenance-distinguished exactly like `AbortHandle`
+    /// — allowlisted at read sites, else fail closed.
     Url,
     /// Handle (i64, `ARRAY_HANDLE_TAG`) to a growable pair-store holding
     /// interned/runtime string handles interleaved `[k0,v0,k1,v1,…]`

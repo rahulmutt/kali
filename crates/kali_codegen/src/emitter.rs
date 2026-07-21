@@ -131,6 +131,15 @@ pub(crate) struct FunctionEmitter<'a> {
     /// `const q = new URLSearchParams(<string-literal>)` declarator the
     /// intercept fired for.
     pub(crate) usp_locals: std::collections::BTreeSet<String>,
+    /// Every declarator NAME already emitted in THIS emitter (source order).
+    /// Stage-review C-4: URL/USP provenance is name-keyed and FLAT (no block
+    /// scoping), so a block-scoped redeclaration of a provenance-carrying name
+    /// desyncs name→value. Two uses at the declarator choke: (1) declaring a
+    /// name already in `url_locals`/`usp_locals` is denied E5506; (2) the
+    /// URL/USP construction intercept refuses a name that was ALREADY declared
+    /// (the init then falls to the generic path, where the F10 ctor deny fails
+    /// it closed).
+    pub(crate) declared_binding_names: std::collections::BTreeSet<String>,
     /// One position-allowlist flag covering BOTH URL/USP handle classes (both
     /// are escape-restricted identically). A bare read of a URL/USP binding is
     /// E5506 unless an allowlisted consumer set this while emitting its
@@ -449,6 +458,7 @@ impl<'a> FunctionEmitter<'a> {
             admit_abort_handle_read: false,
             url_locals: BTreeSet::new(),
             usp_locals: BTreeSet::new(),
+            declared_binding_names: BTreeSet::new(),
             admit_url_handle_read: false,
             diagnostics,
             strings,
