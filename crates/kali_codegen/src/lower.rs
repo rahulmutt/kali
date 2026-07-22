@@ -4454,6 +4454,20 @@ pub(crate) fn const_declarator_promotion(
             kali_common::Repr::AbortHandle
         )
     });
+    // Stage P5 bytes lane: a binding inference proved `Repr::Bytes`
+    // (`const b = new TextEncoder().encode(x)` inline, or `const b = e.encode(x)`
+    // bound) holds an i64 byte handle that MUST live in a stable local slot. The
+    // inline form is also caught by `declarator_init_is_crypto_call` above, but
+    // the BOUND form (`e.encode`) has an identifier receiver that structural
+    // recognizer does not match — repr-keyed promotion covers both uniformly.
+    // Without a slot the emitter's encode declarator arm falls to the drop branch
+    // and every read of `b` reads a zero handle.
+    let is_bytes_handle_binding = declarator_node.text.as_deref().is_some_and(|name| {
+        matches!(
+            repr_table.scalar(function_name, name),
+            kali_common::Repr::Bytes
+        )
+    });
     // The shapes above force promotion because each needs a stable
     // RUNTIME handle (a fresh allocation, a host registration, a
     // materialized object) — properties an allowlist over the init's
@@ -4479,7 +4493,8 @@ pub(crate) fn const_declarator_promotion(
         || is_event_target_construction
         || is_event_dispatch_result
         || is_structured_clone_result
-        || is_abort_handle_binding;
+        || is_abort_handle_binding
+        || is_bytes_handle_binding;
     if force_promote {
         return Some((name, ConstPromotion::Handle));
     }

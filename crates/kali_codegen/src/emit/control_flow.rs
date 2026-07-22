@@ -1078,6 +1078,81 @@ impl<'a> FunctionEmitter<'a> {
                             }
                         }
 
+                        // Stage P5 TextEncoder/encode lane:
+                        // `const e = new TextEncoder()` (a stateless marker whose
+                        // value is never read — recorded so a later `e.encode(...)`
+                        // is recognized as a bound receiver) and
+                        // `const b = new TextEncoder().encode(x)` /
+                        // `const b = e.encode(x)` (an i64 byte handle bound
+                        // `Repr::Bytes`; the encode arm emits the zero-copy
+                        // reinterpret, whose result the escape choke then denies
+                        // from escaping as an observable value). Mirrors the URL/USP
+                        // construction intercept above (recognize RHS shape → emit →
+                        // store into the promoted local → record the provenance
+                        // name).
+                        if is_const {
+                            if let Some(name) = declarator.text.clone() {
+                                let init_id = self.unwrap_transparent(init);
+                                let init_node = self.node(init_id).clone();
+                                if init_node.kind == LirNodeKind::Call && !name_already_declared {
+                                    let callee_node =
+                                        init_node.children.first().map(|&c| self.node(c).clone());
+                                    let is_marker = callee_node
+                                        .as_ref()
+                                        .is_some_and(|c| c.text.as_deref() == Some("TextEncoder"));
+                                    let is_encode = callee_node
+                                        .as_ref()
+                                        .is_some_and(|c| self.is_text_encoder_encode(c));
+                                    if is_marker {
+                                        // Stateless marker: emit a placeholder that
+                                        // is never observed, bind it (plain local /
+                                        // promoted env cell / drop), record the name.
+                                        function.instruction(&Instruction::I64Const(0));
+                                        if let Some(index) = self.locals.get(&name).copied() {
+                                            function.instruction(&Instruction::LocalSet(index));
+                                        } else if let Some((depth, offset)) =
+                                            self.resolve_capture_access(&name)
+                                        {
+                                            let env_global = self.current_env_global();
+                                            let scratch2 = self.locals.len() as u32;
+                                            crate::closure::emit_cell_store(
+                                                function, env_global, depth, offset, scratch2,
+                                            );
+                                        } else {
+                                            function.instruction(&Instruction::Drop);
+                                        }
+                                        self.text_encoder_locals.insert(name);
+                                        continue;
+                                    }
+                                    if is_encode {
+                                        // Emit the encode reinterpret (the encode arm
+                                        // in `emit/call.rs` fails closed on a
+                                        // non-string arg), bind the byte handle,
+                                        // record `bytes_locals`.
+                                        let produced = self.emit_node(function, init, true);
+                                        if !produced.produced {
+                                            function.instruction(&Instruction::I64Const(0));
+                                        }
+                                        if let Some(index) = self.locals.get(&name).copied() {
+                                            function.instruction(&Instruction::LocalSet(index));
+                                        } else if let Some((depth, offset)) =
+                                            self.resolve_capture_access(&name)
+                                        {
+                                            let env_global = self.current_env_global();
+                                            let scratch2 = self.locals.len() as u32;
+                                            crate::closure::emit_cell_store(
+                                                function, env_global, depth, offset, scratch2,
+                                            );
+                                        } else {
+                                            function.instruction(&Instruction::Drop);
+                                        }
+                                        self.bytes_locals.insert(name);
+                                        continue;
+                                    }
+                                }
+                            }
+                        }
+
                         // Stage P4 Task 6 review fix: BINDING a USP
                         // `.getAll(...)` result (`const a = q.getAll('k')`,
                         // any of const/let/var) has no sound lowering — the
@@ -1750,6 +1825,27 @@ impl<'a> FunctionEmitter<'a> {
                              (fail-closed)",
                         );
                     }
+                    // Stage P5 byte-array escape choke: a bare read of a
+                    // TextEncoder().encode byte handle (or a stateless encoder
+                    // marker) is E5506 unless an allowlisted consumer set
+                    // `admit_bytes_handle_read` (crypto.subtle.digest operand,
+                    // later TextDecoder().decode receiver-arg, `.byteLength`). The
+                    // raw i64 handle must never escape as an observable value
+                    // (`console.log(b)` — JS prints `104,105` not `hi` —,
+                    // `return b`, `'' + b`, `b.length`, store). Allowlist the safe
+                    // position at the single read site, don't denylist sinks — the
+                    // deny is total by construction because every admitted consumer
+                    // sets the flag.
+                    if (self.is_bytes_handle(text) || self.is_text_encoder_marker(text))
+                        && !self.admit_bytes_handle_read
+                    {
+                        return self.deny_e5506(
+                            function,
+                            "a TextEncoder byte buffer cannot be read in this position: kali \
+                             admits it only as a TextDecoder().decode or crypto.subtle.digest \
+                             operand (fail-closed)",
+                        );
+                    }
                     // Read-position twin of the module-scope abort gate: a bare
                     // read of a `_start`-owned URL/USP handle from a non-`_start`
                     // emitter (arena lifetime unproven across frames, never
@@ -1953,6 +2049,23 @@ impl<'a> FunctionEmitter<'a> {
                 // handle used for element reads, for both i64 and f64 arrays.
                 if node.text.as_deref() == Some("length") {
                     let base_id = node.children[0];
+                    // Stage P5: `.length` on a `TextEncoder().encode(...)` byte
+                    // handle (`Repr::Bytes`) fails closed. Unlike `.byteLength`
+                    // (an admitted consumer that reads the low-32 byte count),
+                    // `.length` on the byte buffer is its JS-observable element
+                    // count, which the string byte-count decode does NOT soundly
+                    // compute for non-ASCII input — and the raw handle must never
+                    // fall through to the generic fold that silently yields 0.
+                    // Must precede every lane below so nothing else claims it.
+                    if let Some(base_name) = self.assignment_target_name(node, base_id) {
+                        if self.is_bytes_handle(&base_name) {
+                            return self.deny_e5506(
+                                function,
+                                "`.length` on a TextEncoder().encode(...) byte buffer is not \
+                                 supported in the current phase; use `.byteLength` (fail-closed)",
+                            );
+                        }
+                    }
                     // Stage-review I-6: `.length` on a `q.get(k)` /
                     // `q.toString()` result fails closed. The result is a
                     // runtime string handle (or the 0 null-sentinel) with no
@@ -2068,6 +2181,34 @@ impl<'a> FunctionEmitter<'a> {
                             produced: true,
                             shape: ValueShape::Scalar,
                         };
+                    }
+                    // Stage P5: `.byteLength` on a `TextEncoder().encode(...)` byte
+                    // handle (`Repr::Bytes`). The zero-copy passthrough keeps the
+                    // tagged string-handle layout, so the low 32 bits ARE the byte
+                    // count — read it exactly as the string arm above does.
+                    // `.byteLength` is an ALLOWLISTED consumer of the byte handle,
+                    // so admit the base read across the choke (mirrors the digest
+                    // operand). `.length`, by contrast, has NO admit arm and so
+                    // fails closed at the identifier choke — the byte buffer's
+                    // JS-observable `.length` is the element count, which the
+                    // string byte-count decode does not soundly compute for
+                    // non-ASCII input.
+                    if let Some(base_name) = self.assignment_target_name(node, base_id) {
+                        if self.is_bytes_handle(&base_name) {
+                            let saved = self.admit_bytes_handle_read;
+                            self.admit_bytes_handle_read = true;
+                            let base = self.emit_node(function, base_id, true);
+                            self.admit_bytes_handle_read = saved;
+                            if !base.produced {
+                                function.instruction(&Instruction::I64Const(0));
+                            }
+                            function.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+                            function.instruction(&Instruction::I64And);
+                            return EmittedValue {
+                                produced: true,
+                                shape: ValueShape::Scalar,
+                            };
+                        }
                     }
                     if let Some(base_name) = self.assignment_target_name(node, base_id) {
                         if self.array_bindings.contains(&base_name) {

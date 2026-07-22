@@ -3200,7 +3200,15 @@ impl<'a> FunctionEmitter<'a> {
             self.emit_string_handle_ptr(function, handle_local);
             self.emit_string_handle_len(function, handle_local);
             // --- input (in_ptr, in_len) ---
+            // Stage P5: the input is a `Repr::Bytes` byte handle bound from
+            // `TextEncoder().encode(...)`. digest is an ALLOWLISTED consumer of
+            // that handle — set `admit_bytes_handle_read` across the operand emit
+            // so a bare read of the byte binding passes the escape choke (mirrors
+            // `emit_url_receiver_handle`'s set/restore).
+            let saved = self.admit_bytes_handle_read;
+            self.admit_bytes_handle_read = true;
             let produced = self.emit_node(function, input_expr, true);
+            self.admit_bytes_handle_read = saved;
             if !produced.produced {
                 function.instruction(&Instruction::I64Const(0));
             }
@@ -3264,6 +3272,24 @@ impl<'a> FunctionEmitter<'a> {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
                     "TextEncoder().encode only accepts a single string argument in the current phase"
+                        .to_string(),
+                ));
+                function.instruction(&Instruction::I64Const(0));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::String,
+                };
+            }
+            // Stage P5: the zero-copy reinterpret is sound ONLY when the argument
+            // already IS a contiguous UTF-8 string handle. A non-string operand
+            // (`encode(42n)`) would reinterpret an i64 scalar as a `(buf, len)`
+            // handle — a silent miscompile. Fail closed instead. (Symmetric with
+            // the kali_types encode arm, which only seeds `Repr::Bytes` for a
+            // string-valued argument.)
+            if !self.is_string_valued(input_expr) {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "TextEncoder().encode requires a string argument in the current phase"
                         .to_string(),
                 ));
                 function.instruction(&Instruction::I64Const(0));

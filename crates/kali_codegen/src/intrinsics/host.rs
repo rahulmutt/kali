@@ -332,14 +332,22 @@ impl<'a> FunctionEmitter<'a> {
             return false;
         };
         let object_node = self.node(object);
-        if object_node.kind != LirNodeKind::Call {
-            return false;
+        // inline `new TextEncoder().encode(...)` (the parser lowers the ctor to a
+        // `Call` node whose own callee text is `TextEncoder`).
+        if object_node.kind == LirNodeKind::Call {
+            if let Some(&ctor) = object_node.children.first() {
+                if self.node(ctor).text.as_deref() == Some("TextEncoder") {
+                    return true;
+                }
+            }
         }
-        object_node
-            .children
-            .first()
-            .map(|&ctor| self.node(ctor).text.as_deref() == Some("TextEncoder"))
-            .unwrap_or(false)
+        // Stage P5 bound receiver: `const e = new TextEncoder(); e.encode(...)` —
+        // a bare-identifier object that names a `text_encoder_locals` marker.
+        object_node.children.is_empty()
+            && object_node
+                .text
+                .as_deref()
+                .is_some_and(|name| self.is_text_encoder_marker(name))
     }
 
     pub(crate) fn render_console_call(&self, node: &LirNode) -> Option<String> {
@@ -821,6 +829,13 @@ impl<'a> FunctionEmitter<'a> {
 
         if node.children.is_empty() {
             if let Some(text) = node.text.as_deref() {
+                // Stage P5: `.length` on a `TextEncoder().encode(...)` byte handle
+                // has no statically-known value and MUST NOT bake a `0`. Bail so
+                // the runtime `.length` member arm handles it — which fails closed
+                // (the byte buffer's `.length` is unsupported; use `.byteLength`).
+                if self.is_bytes_handle(text) {
+                    return None;
+                }
                 if let Some(bound) = self.bindings.get(text).copied() {
                     return self.render_length(&bound);
                 }

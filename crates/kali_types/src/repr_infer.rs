@@ -454,6 +454,20 @@ struct ReprInfer {
     /// same `note_abort_shadow_name` call sites — see that function's
     /// updated doc.
     url_ctor_shadowed: bool,
+    /// Stage P5: `(func, binding)` pairs proven to hold a stateless
+    /// `new TextEncoder()` marker — `const e = new TextEncoder()`. Used only to
+    /// recognize a bound `e.encode(...)` receiver as a bytes-seeding shape (this
+    /// set is never seeded a repr of its own; the marker carries no value).
+    text_encoder_bindings: BTreeSet<(String, String)>,
+    /// Stage P5: `(func, binding)` pairs syntactically admitted for `Repr::Bytes`
+    /// seeding — a `const` declarator whose init is `new TextEncoder().encode(x)`
+    /// (inline) or `<enc>.encode(x)` where `<enc>` is a `text_encoder_bindings`
+    /// marker in the same function. Mirrors `usp_bindings`.
+    bytes_bindings: BTreeSet<(String, String)>,
+    /// Stage P5 program-wide shadow guard, mirroring `url_ctor_shadowed`: `true`
+    /// when ANY declared name anywhere in the program is `"TextEncoder"`. Set
+    /// from the same `note_abort_shadow_name` call sites.
+    text_encoder_shadowed: bool,
 }
 
 /// Identity of an object-holding slot for shape/aliasing purposes.
@@ -1540,6 +1554,11 @@ impl ReprInfer {
         if name == "URL" || name == "URLSearchParams" {
             self.url_ctor_shadowed = true;
         }
+        // Stage P5: same frontier — any shadow of `TextEncoder` disables
+        // `bytes_bindings` seeding program-wide.
+        if name == "TextEncoder" {
+            self.text_encoder_shadowed = true;
+        }
     }
 
     /// True when `name` is locally bound in `func`'s own scope (a parameter
@@ -1898,6 +1917,17 @@ impl ReprInfer {
                 self.url_origin.insert((func.to_string(), id.to_string()));
             } else if self.is_new_usp_with_string_literal(init) {
                 self.usp_bindings.insert((func.to_string(), id.to_string()));
+            } else if is_bare_new_text_encoder(init) {
+                // Stage P5: `const e = new TextEncoder()` — a stateless marker.
+                // Recorded so a later same-function `e.encode(...)` is recognized
+                // as a Bytes-seeding shape below.
+                self.text_encoder_bindings
+                    .insert((func.to_string(), id.to_string()));
+            } else if self.is_text_encoder_encode_init(func, init) {
+                // Stage P5: `const b = new TextEncoder().encode(x)` (inline) or
+                // `const b = e.encode(x)` (bound). Seed `Repr::Bytes`.
+                self.bytes_bindings
+                    .insert((func.to_string(), id.to_string()));
             } else if let Expression::MemberExpression(member) = init {
                 if member.computed_index.is_none() && member.property == "searchParams" {
                     if let Expression::Identifier(base) = &member.object {
@@ -1975,6 +2005,43 @@ impl ReprInfer {
             }
             _ => false,
         }
+    }
+
+    /// Stage P5: `expr` is a `TextEncoder().encode(<arg>)` declarator initializer
+    /// — either the inline `new TextEncoder().encode(x)` form (the parser hoists
+    /// the `new` to wrap the member-call chain, recognized by
+    /// `text_encoder_encode_new`) or the bound `enc.encode(x)` form where `enc`
+    /// is a `text_encoder_bindings` marker in the SAME function. Used to admit
+    /// the binding for `Repr::Bytes` seeding.
+    fn is_text_encoder_encode_init(&self, func: &str, expr: &Expression) -> bool {
+        if text_encoder_encode_new(expr).is_some() {
+            return true;
+        }
+        // Bound receiver: a plain member call `<ident>.encode(<arg>)`.
+        let Expression::CallExpression(call) = expr else {
+            return false;
+        };
+        let Expression::MemberExpression(member) = &call.callee else {
+            return false;
+        };
+        if member.computed_index.is_some() || member.property.as_str() != "encode" {
+            return false;
+        }
+        let Expression::Identifier(base) = &member.object else {
+            return false;
+        };
+        self.text_encoder_bindings
+            .contains(&(func.to_string(), base.clone()))
+    }
+
+    /// Stage P5: `expr` is a bare identifier naming a `text_encoder_bindings`
+    /// marker in `func` — the bound-receiver twin of `is_text_encoder_ctor`.
+    fn is_text_encoder_marker_object(&self, func: &str, expr: &Expression) -> bool {
+        matches!(
+            expr,
+            Expression::Identifier(name)
+                if self.text_encoder_bindings.contains(&(func.to_string(), name.clone()))
+        )
     }
 
     /// True when `expr` is `new URLSearchParams(<string-literal>)` — twin of
@@ -2286,10 +2353,14 @@ impl ReprInfer {
                     for arg in &encode_call.args {
                         self.visit_expr(func, arg);
                     }
-                    let result = self.new_node();
-                    self.add_string_seed(result);
-                    self.runtime_string_nodes.push(result);
-                    return result;
+                    // Stage P5: the result is a `Repr::Bytes` byte handle, NOT a
+                    // string — return an unseeded node so a binding it flows into
+                    // stays default `Repr::I64` and the `bytes_bindings` seeding
+                    // pass claims it `Repr::Bytes` (mirrors the URL/USP NewExpr
+                    // arm, which likewise seeds via the binding table, not the
+                    // node). Previously seeded `String`, which is the escaping-
+                    // handle hazard this stage closes.
+                    return self.new_node();
                 }
                 // Constructor arguments are visited for edges (e.g. `new Array`
                 // length is an int). The handle itself is i64.
@@ -2741,21 +2812,23 @@ impl ReprInfer {
                         self.runtime_string_nodes.push(result);
                         result
                     }
-                    // `new TextEncoder().encode(<string>)` is a thin reinterpret of
-                    // the input string handle to a contiguous byte buffer
-                    // (throw-fallout Stage 3 bucket #6 part 2). Codegen returns the
-                    // string handle unchanged, so the result carries `Repr::String`
-                    // and `.byteLength` reads the same low-32 byte count as
-                    // `.length`. Mirrors the codegen `is_text_encoder_encode` +
-                    // emit arm.
-                    "encode" if is_text_encoder_ctor(&member.object) => {
+                    // `new TextEncoder().encode(<string>)` / bound `enc.encode(x)`
+                    // is a thin reinterpret of the input string handle to a
+                    // contiguous byte buffer (Stage P5). Codegen returns the string
+                    // handle unchanged, but the result is now `Repr::Bytes` (NOT
+                    // String) — an OPAQUE byte handle that must not escape as a
+                    // string value. Return an unseeded node so a binding it flows
+                    // into stays default `Repr::I64` and the `bytes_bindings`
+                    // seeding pass claims it `Repr::Bytes`. Mirrors the codegen
+                    // `is_text_encoder_encode` + emit arm.
+                    "encode"
+                        if is_text_encoder_ctor(&member.object)
+                            || self.is_text_encoder_marker_object(func, &member.object) =>
+                    {
                         for arg in &call.args {
                             self.visit_expr(func, arg);
                         }
-                        let result = self.new_node();
-                        self.add_string_seed(result);
-                        self.runtime_string_nodes.push(result);
-                        result
+                        self.new_node()
                     }
                     "toFixed" => {
                         // The receiver is a float.
@@ -4308,6 +4381,18 @@ impl ReprInfer {
             }
         }
 
+        // Stage P5: `Repr::Bytes` seeding for `TextEncoder().encode(...)` bindings
+        // (inline + bound). Same shape as the URL/USP block — only when the
+        // program-wide `TextEncoder` shadow guard did not fire, and only for a
+        // binding no other axis already claimed (`Repr::I64` untouched default).
+        if !self.text_encoder_shadowed {
+            for (func, name) in &self.bytes_bindings {
+                if table.scalar(func, name) == Repr::I64 {
+                    table.set_scalar(func, name, Repr::Bytes);
+                }
+            }
+        }
+
         table
     }
 
@@ -4680,6 +4765,18 @@ fn text_encoder_encode_new(expr: &Expression) -> Option<&kali_ast::CallExpressio
     } else {
         None
     }
+}
+
+/// Stage P5: `expr` is a bare `new TextEncoder()` construction with NO member
+/// chain — i.e. a `NewExpression` whose callee is the `TextEncoder` identifier
+/// directly (not the `new TextEncoder().encode(...)` chain, whose callee is the
+/// `.encode` CallExpression — see `text_encoder_encode_new`).
+fn is_bare_new_text_encoder(expr: &Expression) -> bool {
+    matches!(
+        expr,
+        Expression::NewExpression(new_expr)
+            if matches!(&new_expr.callee, Expression::Identifier(name) if name == "TextEncoder")
+    )
 }
 
 fn is_console_object(expr: &Expression) -> bool {

@@ -94,3 +94,48 @@ fn string_of_function_ref_fails_closed() {
 fn string_of_arrow_fails_closed() {
     run_e5506("console.log(String(() => 1n));");
 }
+
+// --- encode provenance (Task 3) ---
+
+#[test]
+fn digest_consumes_bound_encode_bytes() {
+    // digest over a bound encode result must still succeed (migrated consumer).
+    let out = run_ok(
+        "const e = new TextEncoder(); const b = e.encode('hi'); \
+         const h = crypto.subtle.digest('SHA-256', b); console.log('ok');",
+    );
+    assert_eq!(out, "ok");
+}
+
+#[test]
+fn encode_result_cannot_print() {
+    // Was: silent `hi` (Repr::String hazard). Now: fail closed.
+    run_e5506("const b = new TextEncoder().encode('hi'); console.log(b);");
+}
+
+#[test]
+fn encode_bound_result_cannot_print() {
+    run_e5506("const e = new TextEncoder(); const b = e.encode('hi'); console.log(b);");
+}
+
+#[test]
+fn encode_result_cannot_return() {
+    run_e5506(
+        "function f() { const b = new TextEncoder().encode('hi'); return b; } console.log(f());",
+    );
+}
+
+#[test]
+fn encode_result_cannot_concat() {
+    run_e5506("const b = new TextEncoder().encode('hi'); console.log('' + b);");
+}
+
+#[test]
+fn encode_result_cannot_length() {
+    run_e5506("const b = new TextEncoder().encode('hi'); console.log(b.length);");
+}
+
+#[test]
+fn encode_non_string_arg_fails_closed() {
+    run_e5506("const b = new TextEncoder().encode(42n); console.log('x');");
+}
