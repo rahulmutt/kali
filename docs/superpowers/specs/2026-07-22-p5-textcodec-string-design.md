@@ -95,66 +95,121 @@ codec a thin, all-strings-sound provenance channel — no ASCII gate (unlike the
 substring lane, which needs ASCII because JS substring indexes by UTF-16 code
 unit; encode/decode have no such index mismatch).
 
-### 4.1 New value shape
+### 4.0 Starting point (discovered during planning)
 
-Introduce `ValueShape::Bytes` in `crates/kali_codegen/src/emitter.rs` — a tagged
-byte-array handle over `(buf, len)` bytes. It is a **provenance channel**: the
-only positions that may consume a `Bytes` value are `TextDecoder.decode(...)`
-(and `===` / structural comparison if a test exercises it).
+- **`encode` already exists but is inline-only and mis-typed.**
+  `new TextEncoder().encode(<string>)` is recognized (built for
+  `crypto.subtle.digest` in Stage 3) at `emit/call.rs:3236` +
+  `intrinsics/host.rs:327` (`is_text_encoder_encode`), and `repr_infer.rs:2751`
+  seeds its result **`Repr::String`**. It fires **only** when the receiver is
+  structurally `new TextEncoder()` (a `Call` node) — a **bound** receiver
+  `const enc = new TextEncoder(); enc.encode(...)` is NOT recognized. Because the
+  result carries `Repr::String`, `console.log(encoded)` / `encoded.length` /
+  `encoded === s` would silently take the STRING path and diverge from JS
+  `Uint8Array` semantics — a **live latent hazard** masked today only because the
+  sole consumer (`digest`) reinterprets it as bytes. Closing it is core P5 work.
+- **`decode` does not exist at all.** `TextDecoder` is only a bare name in
+  `builtins.rs:113`; no `.decode` handling anywhere in guest codegen.
+- **`digest` depends on `encode`→`Repr::String`.** `emit/call.rs:3203` blindly
+  `emit_node`s its second operand and reinterprets any i64 as a string handle,
+  and accepts a **bound** `const encoded = ...` operand (the package corpus
+  exercises exactly that). Migrating `encode` off `Repr::String` therefore
+  REQUIRES `digest` to also admit the new provenance (§4.2).
+
+### 4.1 Provenance mechanism — mirror URL/USP/Abort, no new `ValueShape`
+
+Byte-array provenance uses the project's proven two-channel opaque-handle
+pattern (identical to `AbortHandle`/`Url`/`UrlSearchParams`), NOT a new
+`ValueShape` variant. `ValueShape` is a transient per-emit shape; provenance
+must survive a `const` binding, which is the `Repr` axis' job. The result i64 is
+the argument's existing `(buf,len)` string handle (a kali string is already
+contiguous UTF-8) — a zero-copy reinterpret, exactly as the current inline
+`encode` does; no fresh buffer is allocated.
+
+- **New `Repr::Bytes`** in `crates/kali_common/src/repr.rs` (the cross-function /
+  capture channel; add arms to the `repr.rs:212-280` classifier chains).
+  `repr_infer` seeds the `encode` result `Repr::Bytes` instead of `Repr::String`
+  (`repr_infer.rs:2751`), and a `bytes_bindings` seeding set mirrors
+  `usp_bindings`/`abort_bindings`.
+- **Per-emitter same-function side-tables** in
+  `crates/kali_codegen/src/emitter.rs`, mirroring `usp_locals` /
+  `abort_handle_locals`: `bytes_locals`, plus stateless-marker sets
+  `text_encoder_locals` / `text_decoder_locals` (markers are same-function only;
+  a captured/module-scope encoder is YAGNI → fail closed). Inserted at the
+  declarator lane in `emit/control_flow.rs` (~957/1018/1067 neighborhood).
+- **`admit_bytes_handle_read: bool`** flag mirroring `admit_url_handle_read`, set
+  only while `decode`'s receiver-arg and `digest`'s operand are emitted.
 
 ### 4.2 What compiles
 
-- `new TextEncoder()` / `new TextDecoder()` → a stateless marker value. The
-  constructors carry no fields; the receiver exists only to dispatch
-  `.encode` / `.decode`.
-- `enc.encode(<string-valued arg>)` → bump-alloc a fresh global buffer,
-  `memory.copy` the argument string's UTF-8 bytes in, produce a `Bytes` handle.
-  (A fresh buffer, not aliasing the source, so the result outlives any arena
-  reset of the source — mirrors the join-result rule.)
-- `dec.decode(<Bytes-provenance arg>)` → re-tag the `(buf, len)` as a `String`
-  handle. Result shape `String`, flows into the `__streq` content-equality lane
-  (e.g. `decoder.decode(encoded) !== String(left + right)`).
+- `new TextEncoder()` / `new TextDecoder()` → a stateless marker binding
+  (recorded in `text_encoder_locals` / `text_decoder_locals`); the marker exists
+  only to dispatch `.encode` / `.decode` and may not be read as a value (§5).
+- `enc.encode(<string-valued arg>)`, receiver either inline `new TextEncoder()`
+  or a bound `text_encoder_locals` name → the existing zero-copy reinterpret, now
+  returning **`Repr::Bytes`** provenance. A bound `const encoded = enc.encode(s)`
+  records `encoded` in `bytes_locals`.
+- `dec.decode(<Bytes-provenance arg>)`, receiver inline or bound → re-label the
+  same `(buf,len)` handle back to a `String` result (shape `String`), flowing
+  into the `__streq` content-equality lane (e.g.
+  `decoder.decode(encoded) !== String(left + right)`). `decode` sets
+  `admit_bytes_handle_read` while emitting its argument.
+- `crypto.subtle.digest(algo, <Bytes-provenance arg>)` → unchanged runtime
+  reinterpret, but its operand emit now sets `admit_bytes_handle_read` so a
+  `bytes_locals` operand is admitted (migration of the existing consumer).
 
 ### 4.3 What fails closed (`E5506`)
 
-- `enc.encode(<non-string arg>)`.
-- `dec.decode(<arg not proven Bytes-provenance>)` — e.g. decode of a string
-  literal, an i64, an object.
-- **Every `Bytes`-escape position** — the soundness core (§5).
+- `enc.encode(<non-string arg>)`; 0-arg / multi-arg `encode`.
+- `dec.decode(<arg not proven Bytes-provenance>)` — decode of a string literal,
+  an i64, an object; 0-arg / multi-arg `decode`.
+- **Every `Bytes`-marker/handle escape position** — the soundness core (§5).
 
 ## 5. Soundness invariant (headline review risk)
 
-`ValueShape::Bytes` **must not escape** to any string/i64/float sink. Per the
-project's standing law — re-confirmed at for-in-key, throw-fallout Stage 5, and
-G6 — this is enforced by an **allowlist at the single read/resolve site** (only
-`decode(...)` and, if a test needs it, `===` consume a `Bytes` value), NOT by
-denylisting sinks. Every other position default-denies a `Bytes` value:
+A `Repr::Bytes` handle (and a stateless encoder/decoder marker) **must not
+escape** to any string/i64/float sink. Per the project's standing law —
+re-confirmed at for-in-key, throw-fallout Stage 5, and G6 — this is enforced by
+an **allowlist at the single identifier-read choke** (`emit/control_flow.rs`
+~1744, the same site that already denies `is_url` / `is_url_search_params` /
+`is_abort_handle` reads unless the matching `admit_*` flag is set), extended to
+deny `is_bytes_handle(text)` / `is_text_encoder_marker(text)` /
+`is_text_decoder_marker(text)` reads unless `admit_bytes_handle_read` is set. The
+only admitters are `decode`'s receiver-arg and `digest`'s operand.
 
-- `console.log(bytes)` / print → `E5506` (`emit_as_string` /
-  `emit_console_argument_as_string` reject `Bytes`).
-- `"" + bytes`, `` `${bytes}` ``, `s += bytes` → `E5506`.
-- `bytes.length`, `bytes[i]`, `for..of bytes`, `bytes.push(...)`,
-  `bytes.join(...)` → `E5506`.
-- Element / field store `a[i] = bytes`, `o.f = bytes` → `E5506`.
-- `bytes === <string>` / mixed comparison → `E5506` (only `Bytes === Bytes`, if
-  supported, is admitted).
+Because a bare read of a `bytes_locals` binding is denied at that ONE choke,
+every escape is closed **by construction** — `return encoded`, `f(encoded)`,
+`a[i] = encoded`, `o.f = encoded`, `console.log(encoded)`, `"" + encoded`,
+`` `${encoded}` ``, `encoded += x`, `encoded.length`, `encoded[i]`,
+`for..of encoded`, `encoded.push(...)`, `encoded.join(...)`,
+`encoded === <string>` are all reads at non-admit positions → `E5506`. This is
+NOT a per-sink denylist; the plan must still add a **fail-closed test per escape
+position** (the enumerate-store-sites-and-generic-sinks discipline the P2/P3/P4
+reviews each caught being missed) to prove the single choke covers them.
 
-This is the class the whole-stage adversarial review will hammer; the plan must
-enumerate STORE sites and generic value sinks (the recurring per-task blind spot
-called out in P2/P3/P4 reviews), not just the positions the fixture happens to
-touch.
+**Coherence guard:** `repr_infer` must seed `encode` results `Repr::Bytes` (not
+`Repr::String`) so `is_string_valued(encoded)` returns `false` — otherwise the
+string oracle and the `bytes_locals` choke disagree and a read could fall through
+the string path (repr-vs-codegen alias mismatch, cf. P4-R2).
 
 ## 6. Acceptance & testing
 
 ### 6.1 Acceptance
 
 `webBaselineSmoke` runs **verbatim byte-for-byte** vs node across `kali run`,
-browser, and bundle. The `'' + count` recorded adaptations are removed from the
-fixture builders (`browser_bundle_web_baseline_source` in
-`crates/kali_cli/tests/runtime_smoke.rs`, `write_web_baseline_interop_source` in
-`crates/kali_cli/tests/package_corpus.rs`, and the P3 aliased-signal
-`addEventListener` fail-closed expectations stay as-is — those are a separate,
-ratified residual).
+browser, and bundle. The fixture **source** is ALREADY verbatim — both
+`browser_bundle_web_baseline_source` (`runtime_smoke.rs:4442`) and
+`write_web_baseline_interop_source` (`package_corpus.rs:201`) already use real
+`String(...)` / `TextEncoder` / `TextDecoder` calls; there are **no `'' + x`
+text adaptations to delete**. The flip is in the **test assertions**: the
+`build_emits_browser_bundle_web_baseline_primitives*` family
+(`runtime_smoke/build.rs:3708+`) currently asserts
+`!success && stderr.contains("E5506") && stderr.contains("String")` (a
+fail-closed pin) and must become an assert-success + byte-for-byte output check.
+The P3 aliased-signal `addEventListener` fail-closed expectations
+(`browser_corpus.rs`) stay as-is — a separate, ratified residual. The
+`instanceof`/structured-clone run pins in `runtime_smoke/run.rs:380+` are a
+DIFFERENT source and are out of P5 scope.
 
 ### 6.2 New test module
 
@@ -199,10 +254,13 @@ synthetic.
 
 - `emit_call` String-coercion arm + `emit_as_string` reuse (no new coercion
   logic).
-- `ValueShape::Bytes` + its allowlisted consumers and default-deny sinks.
-- `TextEncoder`/`TextDecoder` constructor + `.encode`/`.decode` dispatch,
-  no host import.
-- `soundness_textcodec.rs`; deleted fixture adaptations.
+- `Repr::Bytes` axis + `bytes_bindings` (types) + `bytes_locals` /
+  `text_encoder_locals` / `text_decoder_locals` side-tables +
+  `admit_bytes_handle_read` flag + identifier-choke deny (no new `ValueShape`).
+- Bound-receiver `enc.encode` recognition; net-new `dec.decode` dispatch;
+  `digest` operand migrated to admit `Repr::Bytes`. No host import.
+- `soundness_textcodec.rs`; flipped `build_emits_browser_bundle_web_baseline_primitives*`
+  assertions (fixture source already verbatim).
 
 ## References
 
