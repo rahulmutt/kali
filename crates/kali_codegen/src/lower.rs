@@ -18,7 +18,10 @@ pub(crate) fn wasm_type(repr: kali_common::Repr) -> wasm_encoder::ValType {
         | kali_common::Repr::AbortHandle
         // URL struct pointer and USP growable handle — both one i64 slot.
         | kali_common::Repr::Url
-        | kali_common::Repr::UrlSearchParams => wasm_encoder::ValType::I64,
+        | kali_common::Repr::UrlSearchParams
+        // Bytes: TextEncoder byte-buffer handle (Stage P5) — same i64 slot
+        // as every other opaque handle repr.
+        | kali_common::Repr::Bytes => wasm_encoder::ValType::I64,
     }
 }
 

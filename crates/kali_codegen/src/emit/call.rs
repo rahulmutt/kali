@@ -5248,7 +5248,11 @@ impl<'a> FunctionEmitter<'a> {
             // this position yet (nothing seeds them into array elements) —
             // grouped with the other i64 handles for exhaustiveness.
             | kali_common::Repr::Url
-            | kali_common::Repr::UrlSearchParams => {
+            | kali_common::Repr::UrlSearchParams
+            // Bytes: TextEncoder byte-buffer handle (Stage P5); never reaches
+            // this position yet (nothing seeds it into array elements) —
+            // grouped with the other i64 handles for exhaustiveness.
+            | kali_common::Repr::Bytes => {
                 function.instruction(&Instruction::I64Load(mem_arg))
             }
         };
@@ -5332,7 +5336,11 @@ impl<'a> FunctionEmitter<'a> {
             // this position yet (nothing seeds them into array elements) —
             // grouped with the other i64 handles for exhaustiveness.
             | kali_common::Repr::Url
-            | kali_common::Repr::UrlSearchParams => {
+            | kali_common::Repr::UrlSearchParams
+            // Bytes: TextEncoder byte-buffer handle (Stage P5); never reaches
+            // this position yet (nothing seeds it into array elements) —
+            // grouped with the other i64 handles for exhaustiveness.
+            | kali_common::Repr::Bytes => {
                 function.instruction(&Instruction::I64Load(mem_arg))
             }
         };

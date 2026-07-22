@@ -55,6 +55,12 @@ pub enum Repr {
     /// (Stage P4 `URLSearchParams`). The only mutable structure in the stage;
     /// methods are synthetic guest fns over `__streq` + growable scan/push.
     UrlSearchParams,
+    /// A `TextEncoder().encode(...)` byte-array handle. The i64 is the
+    /// argument's `(buf,len)` string handle reinterpreted as contiguous
+    /// UTF-8 bytes (zero-copy). Provenance-only: it may be read solely as a
+    /// `TextDecoder.decode` / `crypto.subtle.digest` operand; any other read
+    /// fails closed at the codegen identifier choke (Stage P5).
+    Bytes,
 }
 
 /// Representation decisions for a whole program, keyed by function + binding.
@@ -140,6 +146,7 @@ pub struct ReprTable {
     any_abort_handle: bool,
     any_url: bool,
     any_url_search_params: bool,
+    any_bytes: bool,
     /// `(func, binding)` scalars/params whose `Repr::String` value is a FRESH
     /// runtime `string_concat` handle (reachable from a `+`, interpolated
     /// template, or string `+=`), NOT an interned literal constant. Codegen may
@@ -221,6 +228,9 @@ impl ReprTable {
         if repr == Repr::UrlSearchParams {
             self.any_url_search_params = true;
         }
+        if repr == Repr::Bytes {
+            self.any_bytes = true;
+        }
         self.scalars
             .insert((func.to_string(), binding.to_string()), repr);
     }
@@ -240,6 +250,9 @@ impl ReprTable {
         }
         if repr == Repr::UrlSearchParams {
             self.any_url_search_params = true;
+        }
+        if repr == Repr::Bytes {
+            self.any_bytes = true;
         }
         self.array_elements
             .insert((func.to_string(), binding.to_string()), repr);
@@ -261,6 +274,9 @@ impl ReprTable {
         if repr == Repr::UrlSearchParams {
             self.any_url_search_params = true;
         }
+        if repr == Repr::Bytes {
+            self.any_bytes = true;
+        }
         self.returns.insert(func.to_string(), repr);
     }
 
@@ -279,6 +295,9 @@ impl ReprTable {
         }
         if repr == Repr::UrlSearchParams {
             self.any_url_search_params = true;
+        }
+        if repr == Repr::Bytes {
+            self.any_bytes = true;
         }
         self.params.insert((func.to_string(), index), repr);
     }
@@ -481,6 +500,7 @@ impl ReprTable {
             && !self.any_abort_handle
             && !self.any_url
             && !self.any_url_search_params
+            && !self.any_bytes
             && self.shapes.is_empty()
             && self.shape_conflicts.is_empty()
     }

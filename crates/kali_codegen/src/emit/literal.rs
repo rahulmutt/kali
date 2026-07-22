@@ -608,7 +608,12 @@ impl<'a> FunctionEmitter<'a> {
                                 // seeds them into array elements) — grouped
                                 // with the other i64 handles for exhaustiveness.
                                 | kali_common::Repr::Url
-                                | kali_common::Repr::UrlSearchParams => {
+                                | kali_common::Repr::UrlSearchParams
+                                // Bytes: TextEncoder byte-buffer handle (Stage
+                                // P5); never reaches this position yet (nothing
+                                // seeds it into array elements) — grouped with
+                                // the other i64 handles for exhaustiveness.
+                                | kali_common::Repr::Bytes => {
                                     let rhs = self.emit_node(function, right, true);
                                     if !rhs.produced {
                                         function.instruction(&Instruction::I64Const(0));
