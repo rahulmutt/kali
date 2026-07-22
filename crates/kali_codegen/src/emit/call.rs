@@ -3324,6 +3324,53 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        // Stage P5: `String(<coercible>)` runtime coercion. A bare-identifier
+        // callee named `String`, not resolved to a program-compiled function
+        // (`resolved.is_none()`) and not otherwise program-bound
+        // (`name_is_program_bound` — the same predicate `gate-1`
+        // (`call_target_keeps_placeholder_lowering`) uses for a bare-identifier
+        // callee), so this is provably the intrinsic global, not a user
+        // shadow. Placed BEFORE the generic argument-emission loop below:
+        // that loop unconditionally `emit_node`s every argument for every
+        // call reaching this point, so an arm placed after it (as sequenced
+        // in the original plan) would re-emit the sole argument a second
+        // time via `emit_as_string` — a silent double-evaluation that
+        // miscompiles any argument with a side effect (`String(next())`
+        // would call `next()` twice). Handling it here, before the loop,
+        // keeps `emit_as_string` as the SOLE emission of the argument.
+        // Exactly one argument, whose repr the `emit_as_string` ladder
+        // renders soundly (string / boolean / float / i64). Everything else —
+        // objects, arrays, unproven values, 0-arg, multi-arg — fails closed
+        // E5506 rather than miscompiling (`String(obj)` cannot render
+        // `[object Object]`).
+        if callee_name == "String"
+            && callee_node.children.is_empty()
+            && resolved.is_none()
+            && !self.name_is_program_bound(callee_name)
+        {
+            let arg_ids: Vec<LirNodeId> = node.children.iter().skip(1).copied().collect();
+            if arg_ids.len() != 1 {
+                return self.deny_e5506(
+                    function,
+                    "String(...) is supported only with a single scalar/string argument \
+                     in the current phase (fail-closed)",
+                );
+            }
+            let arg = arg_ids[0];
+            if self.string_coercion_arg_is_unsupported_aggregate(arg) {
+                return self.deny_e5506(
+                    function,
+                    "String(<object/array>) is unavailable in the current phase: kali \
+                     cannot render an object's default string form (fail-closed)",
+                );
+            }
+            self.emit_as_string(function, arg);
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::String,
+            };
+        }
+
         for (arg_index, arg) in node.children.iter().skip(1).enumerate() {
             // An UNMATERIALIZED array literal (a direct `f([1, 2])` argument,
             // or a fold-lane `const arr = [1, 2]` alias) has no runtime
@@ -3608,6 +3655,60 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// True when `arg` is any object/array-shaped value the Stage P5
+    /// `String(<coercible>)` coercion arm must reject rather than lower —
+    /// `emit_as_string`'s ladder has no rendering for an aggregate and would
+    /// otherwise silently coerce whatever placeholder representation it gets
+    /// (an unmaterialized aggregate's `emit_aggregate_literal` zero, or a raw
+    /// array/object handle) into a wrong scalar string.
+    ///
+    /// Three independent shapes are checked because a single one under-covers:
+    /// - `object_shape_of_node`: a MATERIALIZED object (reached by a field
+    ///   WRITE, a `for..in`, or reassignment elsewhere) — the existing runtime
+    ///   heap-object detector.
+    /// - `resolve_literal_aggregate` + `is_array_literal`/`is_object_literal`:
+    ///   an UNMATERIALIZED array/object literal, reached directly
+    ///   (`String([1, 2])`) or through a fold-lane alias (`const o = {a: 1};
+    ///   String(o)` — `o` is read-only and never gets a `Repr::Object` entry,
+    ///   so `object_shape_of_node` alone finds nothing; confirmed by probing
+    ///   `console.log({a:1})`, which silently prints `0` today via the very
+    ///   same pre-existing gap in `emit_console_argument`).
+    /// - `array_bindings`/`growable_array_bindings` + `object_initialized_binding`:
+    ///   a bare-identifier argument bound to an array or an object literal
+    ///   that resolve_literal_aggregate's `bindings` alias map does not reach
+    ///   (a runtime-materialized array, or an object binding the fold lane
+    ///   lost track of) — the same syntactic taint `kali_types` already
+    ///   tracks for the compound/update gate (fasta Spec 7 Task 2).
+    fn string_coercion_arg_is_unsupported_aggregate(&self, arg: LirNodeId) -> bool {
+        if self.object_shape_of_node(arg).is_some() {
+            return true;
+        }
+        if let Some(resolved) = self.resolve_literal_aggregate(arg) {
+            let aggregate = self.node(resolved).clone();
+            if self.is_array_literal(&aggregate) || self.is_object_literal(&aggregate) {
+                return true;
+            }
+        }
+        let id = self.unwrap_transparent(arg);
+        let node = self.node(id);
+        if node.kind == LirNodeKind::Value && node.children.is_empty() {
+            if let Some(name) = node.text.clone() {
+                if self.array_bindings.contains(&name)
+                    || self.growable_array_bindings.contains(&name)
+                {
+                    return true;
+                }
+                if self
+                    .repr_table
+                    .object_initialized_binding(&self.function_name, &name)
+                {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
     /// The positive DENY-SET for the terminal `emit_call` fallback: recognized
     /// value-builtins with no implemented lowering that, when consumed, silently
     /// evaluate to `0` (R-19/R-20/R-15). Returning true fails the call closed
@@ -3626,13 +3727,11 @@ impl<'a> FunctionEmitter<'a> {
     /// one of these names denotes the intrinsic builtin, not a program value.
     fn deny_placeholder_lowering(&self, callee_node: &LirNode, callee_name: &str) -> bool {
         match callee_name {
-            // Free-name coercion calls: `String(x)` / `Boolean(x)`. A bare-
-            // identifier callee (no children); gate-1 denied any program binding
-            // of the name, so this is the intrinsic global. Both node-verified
-            // silent-0 when consumed (`String(42)`→0 not "42"; `Boolean(1)`→0
-            // not true). `Number` is NOT here: it fails at E3100 resolve as an
-            // undefined identifier and never reaches this terminal — probed.
-            "String" | "Boolean" => callee_node.children.is_empty(),
+            // Free-name coercion calls: `Boolean(x)`. `String(x)` is handled by the
+            // Stage P5 coercion arm above (removed from this deny-set); a `String`
+            // form that falls through the arm (already E5506'd there) never reaches
+            // here. `Boolean` remains silent-0 when consumed, so it stays denied.
+            "Boolean" => callee_node.children.is_empty(),
             // Member calls: `x.toString()` and runtime `x.split(...)`. The
             // static-ASCII `split` fold lands UPSTREAM and never reaches here, so
             // `"abc".split("")[0]` is preserved. A member callee has a receiver
