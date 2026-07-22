@@ -3340,9 +3340,12 @@ impl<'a> FunctionEmitter<'a> {
         // keeps `emit_as_string` as the SOLE emission of the argument.
         // Exactly one argument, whose repr the `emit_as_string` ladder
         // renders soundly (string / boolean / float / i64). Everything else —
-        // objects, arrays, unproven values, 0-arg, multi-arg — fails closed
-        // E5506 rather than miscompiling (`String(obj)` cannot render
-        // `[object Object]`).
+        // objects, arrays, a program-defined function value (`String(foo)`,
+        // `String(() => 1n)` — gate-1's own argument-scan rejection,
+        // re-applied here since this arm runs before gate-1), unproven
+        // values, 0-arg, multi-arg — fails closed E5506 rather than
+        // miscompiling (`String(obj)` cannot render `[object Object]`, and
+        // `String(foo)` cannot render a function's source text).
         if callee_name == "String"
             && callee_node.children.is_empty()
             && resolved.is_none()
@@ -3680,6 +3683,20 @@ impl<'a> FunctionEmitter<'a> {
     ///   lost track of) — the same syntactic taint `kali_types` already
     ///   tracks for the compound/update gate (fasta Spec 7 Task 2).
     fn string_coercion_arg_is_unsupported_aggregate(&self, arg: LirNodeId) -> bool {
+        // Mirrors gate-1's (`call_target_keeps_placeholder_lowering`) argument
+        // scan (`node.children.skip(1).any(denotes_program_function)`). This
+        // arm sits BEFORE gate-1 runs, so without this check `String(foo)` /
+        // `String(() => 1n)` bypassed gate-1's function-argument reject
+        // entirely and fell through to `emit_as_string`, which has no
+        // function-repr case and silently rendered `0`. Using the same
+        // single-node predicate gate-1 applies per-argument (not the
+        // subtree-walking `subtree_denotes_program_function`, which is
+        // reserved for scanning the CALLEE expression, not an argument) keeps
+        // this arm's rejection set identical to gate-1's for the one argument
+        // `String(...)` accepts — no wider, no narrower.
+        if self.denotes_program_function(arg) {
+            return true;
+        }
         if self.object_shape_of_node(arg).is_some() {
             return true;
         }

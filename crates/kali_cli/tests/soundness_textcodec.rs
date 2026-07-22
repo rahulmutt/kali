@@ -84,3 +84,13 @@ fn string_zero_arg_fails_closed() {
 fn string_multi_arg_fails_closed() {
     run_e5506("console.log(String(1n, 2n));");
 }
+
+#[test]
+fn string_of_function_ref_fails_closed() {
+    run_e5506("function foo(){ return 1n; } console.log(String(foo));");
+}
+
+#[test]
+fn string_of_arrow_fails_closed() {
+    run_e5506("console.log(String(() => 1n));");
+}
