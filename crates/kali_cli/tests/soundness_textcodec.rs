@@ -367,3 +367,106 @@ fn zero_arg_decoder_forms_still_roundtrip() {
         "hi"
     );
 }
+
+// C-3: construction-position allowlist. `new TextEncoder()` / `new TextDecoder()`
+// are lowered ONLY as (a) a `const` declarator initializer or (b) an immediate
+// `.encode`/`.decode` receiver. Every other construction position previously fell
+// to the undefined-callee zero placeholder: a `let`/`var` codec binding never
+// became a marker, so `d.decode(b)` silently evaluated to `0` (node prints the
+// decoded string) with only an `E3100` WARNING and exit 0.
+
+#[test]
+fn let_bound_decoder_fails_closed() {
+    run_e5506("let d = new TextDecoder(); console.log(d.decode(new TextEncoder().encode('hi')));");
+}
+
+#[test]
+fn let_bound_decoder_with_ctor_arg_fails_closed() {
+    run_e5506(
+        "let d = new TextDecoder('latin1'); \
+         console.log(d.decode(new TextEncoder().encode('hi')));",
+    );
+}
+
+#[test]
+fn let_bound_encoder_byte_length_fails_closed() {
+    run_e5506("let e = new TextEncoder(); console.log(e.encode('hi').byteLength);");
+}
+
+#[test]
+fn let_bound_encoder_fails_closed() {
+    run_e5506("let e = new TextEncoder(); console.log(e.encode('hi'));");
+}
+
+#[test]
+fn var_bound_encoder_fails_closed() {
+    run_e5506("var e = new TextEncoder(); console.log(e.encode('hi'));");
+}
+
+#[test]
+fn bare_encoder_construction_fails_closed() {
+    run_e5506("console.log(new TextEncoder());");
+}
+
+#[test]
+fn bare_decoder_construction_fails_closed() {
+    run_e5506("console.log(new TextDecoder());");
+}
+
+#[test]
+fn assigned_encoder_construction_fails_closed() {
+    run_e5506("let e; e = new TextEncoder(); console.log(e.encode('hi'));");
+}
+
+#[test]
+fn returned_encoder_construction_fails_closed() {
+    run_e5506("function f(){ return new TextEncoder(); } console.log(f());");
+}
+
+// C-4: PRODUCE-side escape choke for the raw byte handle. The identifier choke
+// only guards BOUND handles, so an inline, unbound `encode(...)` in a value
+// position escaped and printed the DECODED string (`hi`) where node prints
+// `Uint8Array(2) [ 104, 105 ]`.
+
+#[test]
+fn inline_unbound_encode_console_log_fails_closed() {
+    run_e5506("console.log(new TextEncoder().encode('hi'));");
+}
+
+#[test]
+fn bound_receiver_inline_encode_console_log_fails_closed() {
+    run_e5506("const e = new TextEncoder(); console.log(e.encode('hi'));");
+}
+
+#[test]
+fn inline_encode_string_concat_fails_closed() {
+    run_e5506("const e = new TextEncoder(); console.log('' + e.encode('hi'));");
+}
+
+#[test]
+fn nested_encode_of_encode_fails_closed() {
+    run_e5506("const e = new TextEncoder(); const b = e.encode(e.encode('hi')); console.log('x');");
+}
+
+/// The three admitted producer positions must keep working after the C-4 gate.
+#[test]
+fn admitted_encode_producer_positions_still_work() {
+    // (a) `const` declarator binding, then an allowlisted consumer.
+    assert_eq!(
+        run_ok("const e = new TextEncoder(); const b = e.encode('hi'); console.log(b.byteLength);"),
+        "2"
+    );
+    // (b) inline `TextDecoder().decode` operand.
+    assert_eq!(
+        run_ok("console.log(new TextDecoder().decode(new TextEncoder().encode('hi')));"),
+        "hi"
+    );
+    // (c) inline `crypto.subtle.digest` operand.
+    assert_eq!(
+        run_ok(
+            "const h = crypto.subtle.digest('SHA-256', new TextEncoder().encode('hi')); \
+             console.log(h.byteLength);"
+        ),
+        "32"
+    );
+}

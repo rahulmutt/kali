@@ -128,6 +128,53 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
 
+        // Stage P5 Task 4 review fix (C-3): the SAME construction-position
+        // allowlist for the codec markers. `new TextEncoder()` /
+        // `new TextDecoder()` have exactly two admitted positions:
+        //   (a) a `const <name> = new TextEncoder|TextDecoder()` declarator —
+        //       intercepted in `emit/control_flow.rs`, which `continue`s and so
+        //       NEVER routes the ctor call through `emit_call`; and
+        //   (b) an immediate `.encode(...)` / `.decode(...)` receiver — the
+        //       inline spelling, whose emit arms consume the receiver
+        //       structurally and never emit the ctor call node either.
+        // Therefore EVERY codec ctor call that reaches here is structurally
+        // outside the proven lane: a `let`/`var` declarator, a bare value
+        // position (`console.log(new TextEncoder())`), a redeclaration, an
+        // argument. All of those previously fell to the undefined-callee /
+        // warn-plus-`0` placeholder and silently evaluated to `0` — a
+        // `let d = new TextDecoder(); d.decode(b)` printed `0` where node
+        // prints the decoded string. Deny by construction rather than by
+        // patching each downstream call site: narrowing a recognizer alone
+        // leaves the rejected remainder on the silent-`0` fallback. The
+        // 5-namespace shadow guard keeps a user-defined `TextEncoder` /
+        // `TextDecoder` class/function on the normal call lane.
+        if callee_node.children.is_empty() {
+            if let Some(ctor) = callee_node
+                .text
+                .as_deref()
+                .filter(|text| matches!(*text, "TextEncoder" | "TextDecoder"))
+            {
+                if self.url_ctor_unshadowed(ctor) {
+                    let method = if ctor == "TextDecoder" {
+                        "decode"
+                    } else {
+                        "encode"
+                    };
+                    return self.deny_e5506(
+                        function,
+                        &format!(
+                            "constructing a {ctor} is only supported as \
+                             `const <name> = new {ctor}()` or as an immediate \
+                             `new {ctor}().{method}(...)` receiver in the current phase; \
+                             any other construction position (a `let`/`var` binding, a bare \
+                             value position) has no lowering and would silently evaluate to 0 \
+                             (fail-closed)"
+                        ),
+                    );
+                }
+            }
+        }
+
         if self.is_kali_test_call(&callee_node) {
             if let Some(callback_index) = self.kali_test_callback_index(node) {
                 function.instruction(&Instruction::I32Const(callback_index as i32));
@@ -3206,9 +3253,14 @@ impl<'a> FunctionEmitter<'a> {
             // so a bare read of the byte binding passes the escape choke (mirrors
             // `emit_url_receiver_handle`'s set/restore).
             let saved = self.admit_bytes_handle_read;
+            let saved_produce = self.admit_bytes_handle_produce;
             self.admit_bytes_handle_read = true;
+            // C-4: digest is also an allowlisted PRODUCER position — the operand
+            // may be an inline, unbound `new TextEncoder().encode(<string>)`.
+            self.admit_bytes_handle_produce = true;
             let produced = self.emit_node(function, input_expr, true);
             self.admit_bytes_handle_read = saved;
+            self.admit_bytes_handle_produce = saved_produce;
             if !produced.produced {
                 function.instruction(&Instruction::I64Const(0));
             }
@@ -3282,9 +3334,15 @@ impl<'a> FunctionEmitter<'a> {
                 );
             }
             let saved = self.admit_bytes_handle_read;
+            let saved_produce = self.admit_bytes_handle_produce;
             self.admit_bytes_handle_read = true;
+            // C-4: decode is also an allowlisted PRODUCER position — the operand
+            // may be an inline, unbound `new TextEncoder().encode(<string>)`
+            // (`arg_is_bytes_provenance` admits exactly that shape).
+            self.admit_bytes_handle_produce = true;
             let produced = self.emit_node(function, arg, true);
             self.admit_bytes_handle_read = saved;
+            self.admit_bytes_handle_produce = saved_produce;
             if !produced.produced {
                 function.instruction(&Instruction::I64Const(0));
             }
@@ -3296,6 +3354,26 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         if self.is_text_encoder_encode(&callee_node) {
+            // Stage P5 Task 4 review fix (C-4): PRODUCE-side escape choke. The
+            // encode result is a raw `Repr::Bytes` handle that must never escape
+            // as an observable value; the identifier choke covers only BOUND
+            // handles, so an inline, unbound spelling
+            // (`console.log(new TextEncoder().encode('hi'))`, `'' + e.encode(x)`,
+            // `return e.encode(x)`) previously slipped through and printed the
+            // DECODED string (`hi`) where node prints `Uint8Array(2) [104, 105]`.
+            // Allowlist the three positions that consume the handle structurally
+            // — the `const b = ...encode(...)` declarator intercept, the
+            // `TextDecoder().decode` operand, the `crypto.subtle.digest` operand
+            // — each of which sets this flag across the operand emit; everything
+            // else fails closed by construction.
+            if !self.admit_bytes_handle_produce {
+                return self.deny_e5506(
+                    function,
+                    "a TextEncoder().encode byte buffer cannot be produced in this position: \
+                     kali admits it only as a `const` binding, a TextDecoder().decode operand \
+                     or a crypto.subtle.digest operand (fail-closed)",
+                );
+            }
             // `new TextEncoder().encode(<string>)`: a thin reinterpret. A kali
             // string is ALREADY a tagged CONTIGUOUS byte-buffer handle
             // (`STRING_HANDLE_TAG | (buf << 32) | len`, `len` UTF-8 bytes at
@@ -3352,7 +3430,13 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::String,
                 };
             }
+            // C-4: the encode ARGUMENT is not itself an admitted producer
+            // position — clear the flag so a nested `e.encode(e.encode('hi'))`
+            // fails closed instead of inheriting this arm's admittance.
+            let saved_produce = self.admit_bytes_handle_produce;
+            self.admit_bytes_handle_produce = false;
             let produced = self.emit_node(function, input_expr, true);
+            self.admit_bytes_handle_produce = saved_produce;
             if !produced.produced {
                 function.instruction(&Instruction::I64Const(0));
             }

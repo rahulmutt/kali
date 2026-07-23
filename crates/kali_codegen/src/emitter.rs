@@ -170,6 +170,18 @@ pub(crate) struct FunctionEmitter<'a> {
     /// this while emitting its operand (`crypto.subtle.digest` operand; later
     /// `TextDecoder().decode` receiver-arg).
     pub(crate) admit_bytes_handle_read: bool,
+    /// Stage P5 Task 4 review fix (C-4): the PRODUCE-side twin of
+    /// `admit_bytes_handle_read`. The read choke only guards BOUND handles
+    /// (`bytes_locals` identifiers); an INLINE, unbound
+    /// `new TextEncoder().encode('hi')` never passes through an identifier read,
+    /// so `console.log(new TextEncoder().encode('hi'))` escaped the choke and
+    /// printed `hi` where node prints `Uint8Array(2) [ 104, 105 ]` — exactly the
+    /// divergence the read choke exists to prevent. The encode arm therefore
+    /// emits its handle ONLY while an allowlisted consumer set this flag: the
+    /// `const b = <enc>.encode(<string>)` declarator intercept, the
+    /// `TextDecoder().decode` operand, and the `crypto.subtle.digest` operand.
+    /// Every other position fails closed.
+    pub(crate) admit_bytes_handle_produce: bool,
     pub(crate) diagnostics: &'a mut Vec<Diagnostic>,
     pub(crate) strings: &'a mut StringPool,
     pub(crate) source_path: Option<PathBuf>,
@@ -489,6 +501,7 @@ impl<'a> FunctionEmitter<'a> {
             text_encoder_locals: BTreeSet::new(),
             text_decoder_locals: BTreeSet::new(),
             admit_bytes_handle_read: false,
+            admit_bytes_handle_produce: false,
             diagnostics,
             strings,
             source_path,

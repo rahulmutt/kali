@@ -1179,7 +1179,14 @@ impl<'a> FunctionEmitter<'a> {
                                         // in `emit/call.rs` fails closed on a
                                         // non-string arg), bind the byte handle,
                                         // record `bytes_locals`.
+                                        // C-4: this declarator IS the allowlisted
+                                        // producer position for the raw byte
+                                        // handle — the encode arm now denies
+                                        // producing one anywhere else.
+                                        let saved_produce = self.admit_bytes_handle_produce;
+                                        self.admit_bytes_handle_produce = true;
                                         let produced = self.emit_node(function, init, true);
+                                        self.admit_bytes_handle_produce = saved_produce;
                                         if !produced.produced {
                                             function.instruction(&Instruction::I64Const(0));
                                         }
