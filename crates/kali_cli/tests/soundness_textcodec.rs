@@ -916,3 +916,105 @@ fn string_call_of_string_valued_object_field_fails_closed() {
     assert_fails_closed("const o = { s: 'hello' }; console.log(String(o.s));");
     assert_fails_closed("const a = ['hi']; console.log(String(a[0]));");
 }
+
+// ---------------------------------------------------------------------------
+// Stage P5 T-new-B, round-2 review. Two arms of the argument proof rested on
+// `Repr::I64`, which is the UNRECORDED DEFAULT rather than evidence — the same
+// "default is not a proof" fallacy the round-1 fix rejected elsewhere.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn string_call_of_materialized_string_object_field_fails_closed() {
+    // REVIEW C-5. The MATERIALIZED spelling (the WRITE is what takes `o` off
+    // the fold lane and onto the shape-table lane) — deliberately kept
+    // ALONGSIDE the fold-lane pin above rather than replacing it: that
+    // `const`-shaped probe never reaches the shape-table arm at all, and its
+    // green result MASKED this hole (the bound-vs-unbound masking hazard).
+    //
+    // Measured on b73a45c6d: `encode(String(o.s)).byteLength` → 20 (node 5),
+    // `decode` → -9223354440373764091 (node hello), `String(o.s).length` → 20
+    // (node 5), console.log inside a function → -9223354440373764091.
+    assert_fails_closed(
+        "const e = new TextEncoder(); const o = { s: 'x' }; o.s = 'hello'; \
+         const b = e.encode(String(o.s)); console.log(b.byteLength);",
+    );
+    assert_fails_closed(
+        "const e = new TextEncoder(); const d = new TextDecoder(); \
+         const o = { s: 'x' }; o.s = 'hello'; const b = e.encode(String(o.s)); \
+         console.log(d.decode(b));",
+    );
+    assert_fails_closed("const o = { s: 'x' }; o.s = 'hello'; console.log(String(o.s).length);");
+    assert_fails_closed(
+        "function g(o) { console.log(String(o.s)); } \
+         const o = { s: 'x' }; o.s = 'hello'; g(o);",
+    );
+}
+
+#[test]
+fn string_call_of_binding_initialized_by_an_unproven_call_fails_closed() {
+    // REVIEW C-6. `function g(y){ return String(y) }` has no `Repr::String`
+    // return seed (F-newB-1), so `const s = g(1n)` keeps the DEFAULT `Repr::I64`
+    // and the identifier arm read that default as "proven scalar" — rendering a
+    // tagged string handle as digits. The console form is pre-existing; the
+    // ENCODE form was introduced by this task's widening (measured on
+    // b73a45c6d: `encode(String(s)).byteLength` → 20 where node says 1, while
+    // the parent 06b6dcc87 failed closed). A binding with a resolvable
+    // declarator initializer now requires that INITIALIZER proven.
+    assert_fails_closed(
+        "const e = new TextEncoder(); function g(y) { return String(y); } \
+         const s = g(1n); const b = e.encode(String(s)); console.log(b.byteLength);",
+    );
+    assert_fails_closed(
+        "function g(y) { return String(y); } const s = g(1n); console.log(String(s));",
+    );
+    assert_fails_closed(
+        "function g(y) { return String(y); } let s = g(1n); console.log(String(s));",
+    );
+}
+
+#[test]
+fn string_call_proof_reclaims_the_positively_numeric_shapes() {
+    // REVIEW I-2. Three shapes the round-1 fix over-denied, reclaimed with
+    // GENUINE positive proofs (not a default repr):
+    //   * a call whose callee's return is proven numeric by `repr_infer`
+    //     (`return_is_proven_numeric`: non-string axes AND every return is
+    //     arithmetic over literals/scalar-proven params) — note the unproven
+    //     twin `function g(y){ return String(y) }` is pinned fail-closed above,
+    //     which is what makes this evidence rather than a default;
+    //   * `Math.floor`/`trunc`/`ceil`, whose emit arm yields a plain integer
+    //     (the allowlist was inconsistent: `Math.sqrt` was already admitted);
+    //   * `typeof`, which yields a string — now proven in `is_string_valued`,
+    //     keyed on the same two lanes `emit_unary` lowers.
+    assert_eq!(
+        run_ok("function f(x) { return x + 1n; } console.log(String(f(41n)));"),
+        "42"
+    );
+    assert_eq!(run_ok("console.log(String(Math.floor(1.7)));"), "1");
+    assert_eq!(run_ok("console.log(String(Math.trunc(1.7)));"), "1");
+    assert_eq!(run_ok("console.log(String(typeof 1n));"), "bigint");
+    assert_eq!(run_ok("console.log(String(typeof 'a'));"), "string");
+    // The reclaimed call proof also feeds the encode lane.
+    assert_eq!(
+        run_ok(
+            "const e = new TextEncoder(); function f(x) { return x + 1n; } \
+             const b = e.encode(String(f(41n))); console.log(b.byteLength);"
+        ),
+        "2"
+    );
+    // `Date.now()` was ALREADY divergent on the parent build (`0` where node
+    // renders a real timestamp), so it stays denied.
+    assert_fails_closed("console.log(String(Date.now()));");
+}
+
+#[test]
+fn string_call_of_a_mutable_local_is_a_deliberate_narrowing() {
+    // The C-6 close denies EVERY non-parameter identifier that has no
+    // resolvable declarator initializer, because a `let`/`var` local carries no
+    // evidence beyond the default `Repr::I64` — which is exactly what let the
+    // handle-returning `g` case through in the `let` spelling (measured 20 /
+    // -9223354410308993023 on b73a45c6d). The cost is that a genuinely numeric
+    // mutable local also fails closed now (`let i = 0n; i++;` rendered `1`
+    // before). Fail-closed, never divergent, and pinned so the narrowing is
+    // visible rather than silently rediscovered later.
+    assert_fails_closed("let i = 0n; i++; console.log(String(i));");
+}

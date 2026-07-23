@@ -3991,8 +3991,26 @@ impl<'a> FunctionEmitter<'a> {
             return true;
         }
         // MATERIALIZED fixed-shape object field read whose field repr is a
-        // scalar — the same shape-table lookup `is_float_valued` performs,
-        // widened to I64. A String/aggregate field is not proven (see above).
+        // POSITIVELY-PROVEN number.
+        //
+        // REVIEW C-5. The first cut of this arm accepted `shape_field(..) ==
+        // I64` as "proven scalar". That was the default-is-not-a-proof fallacy:
+        // `repr_infer` interns ONLY `F64` or `I64` for an object field, so a
+        // STRING field interns as `I64` exactly like an integer one, and
+        // `const o = { s: 'x' }; o.s = 'hello'` (the MATERIALIZED spelling — the
+        // write is what puts it on this lane rather than the fold lane)
+        // rendered its tagged handle through `int_to_string`: measured
+        // `encode(String(o.s)).byteLength` → 20 and `decode` → the digits
+        // `-9223354440373764091`, where node says 5 / `hello`. The fold-lane
+        // pin for `String(o.s)` did not catch it because a `const`-shaped probe
+        // never reaches this arm at all (bound-vs-unbound masking).
+        //
+        // `shape_field_is_proven_numeric` is the evidence the repr cannot
+        // carry: `repr_infer` records it per field from the SOLVED string axis
+        // at shape-intern time, allowlist-style and default-deny across shape
+        // sharing. Object-pointer fields cannot appear here at all (a
+        // materialized owner with an object-shaped field is rejected outright
+        // by the shape inference's pointer-field conflict).
         let member = self.unwrap_transparent(arg);
         let member_node = self.node(member).clone();
         if member_node.kind == LirNodeKind::Value && member_node.children.len() == 1 {
@@ -4003,7 +4021,8 @@ impl<'a> FunctionEmitter<'a> {
                 if matches!(
                     self.repr_table.shape_field(shape, field),
                     Some((_, kali_common::Repr::I64 | kali_common::Repr::F64))
-                ) {
+                ) && self.repr_table.shape_field_is_proven_numeric(shape, field)
+                {
                     return true;
                 }
             }
@@ -4067,11 +4086,44 @@ impl<'a> FunctionEmitter<'a> {
         // `const v = f(41n)` carries the binding's repr evidence, which is lost
         // once the alias is resolved to the (unproven) call node.
         let raw = self.unwrap_transparent(arg);
-        let raw_node = self.node(raw);
+        let raw_node = self.node(raw).clone();
         if raw_node.kind == LirNodeKind::Value && raw_node.children.is_empty() {
             if let Some(name) = raw_node.text.as_deref() {
-                if self.binding_is_proven_string_coercion_scalar(name) {
-                    return true;
+                // REVIEW C-6. The taint-based repr proof below rests on
+                // `Repr::I64`, which is the UNRECORDED DEFAULT of every binding
+                // — including one initialized from a function whose return
+                // value is a tagged handle (`function g(y){ return String(y) }`
+                // has no `Repr::String` return seed, F-newB-1). Measured:
+                // `const s = g(1n); encode(String(s)).byteLength` → 20 where
+                // node says 1. So when the declarator INITIALIZER is
+                // resolvable, that initializer is the evidence and must itself
+                // be proven; the repr taints alone are accepted only for a
+                // binding with no resolvable inflow (a parameter — the shape
+                // the acceptance fixture's `String(left + right)` needs, which
+                // reaches this proof through the arithmetic arm's PARAM
+                // operands, never through an initialized binding).
+                //
+                // The `let`/`var` spelling has no fold-lane entry at all, so
+                // "require the initializer" cannot reach it — measured, it was
+                // the SAME open encode vector (`let s = g(1n)` → 20). Hence the
+                // remaining admission is restricted to a declared PARAMETER,
+                // the only binding kind whose value has no in-scope initializer
+                // to prove and the only one this lane exists for. Every other
+                // identifier (a `let`/`var` local, a captured name, a
+                // module-scope mutable) is DENIED by absence of evidence.
+                match self.bindings.get(name).copied() {
+                    Some(initializer) if initializer != raw => {
+                        if self.string_coercion_arg_is_proven_at_depth(initializer, depth + 1) {
+                            return true;
+                        }
+                    }
+                    _ => {
+                        if self.name_is_declared_parameter(name)
+                            && self.binding_is_proven_string_coercion_scalar(name)
+                        {
+                            return true;
+                        }
+                    }
                 }
             }
         }
@@ -4134,11 +4186,73 @@ impl<'a> FunctionEmitter<'a> {
                 self.string_coercion_arg_is_proven_at_depth(node.children[1], depth + 1)
                     && self.string_coercion_arg_is_proven_at_depth(node.children[2], depth + 1)
             }
+            // REVIEW I-2, call arm 1: `Math.floor`/`trunc`/`ceil`, whose emit
+            // arm produces a plain `I64Const`/integer-math result (never a
+            // handle). Keyed on the SAME recognizer that arm dispatches with,
+            // so proof and emission agree by construction. This also makes the
+            // allowlist principled: `String(Math.sqrt(2))` was already admitted
+            // through `is_float_valued` while `String(Math.floor(1.7))` — the
+            // *more* obviously numeric of the two — failed closed.
+            LirNodeKind::Call if self.is_integer_rounding_math_call(&node) => true,
+            // REVIEW I-2, call arm 2: a call to a program function whose RETURN
+            // is POSITIVELY proven numeric. `return_repr(..) == I64` alone is
+            // NOT this proof — it is the unrecorded default that C-6 above
+            // rejects for bindings, and it is what `function g(y){ return
+            // String(y) }` (a tagged handle) also reports. The evidence is
+            // `return_is_proven_numeric`, which `repr_infer` records only when
+            // the solved axes are non-string AND every `return` statement is
+            // arithmetic over numeric literals and parameters that call-site
+            // flow proved scalar. `g` fails it (its return is a CALL), so the
+            // C-6 initializer proof still denies `const s = g(1n); String(s)`.
+            LirNodeKind::Call => node
+                .children
+                .first()
+                .map(|&callee| self.unwrap_transparent(callee))
+                .and_then(|callee| self.node(callee).text.clone())
+                .is_some_and(|name| {
+                    self.functions.contains_key(&name)
+                        && self.repr_table.return_is_proven_numeric(&name)
+                        && matches!(
+                            self.repr_table.return_repr(&name),
+                            kali_common::Repr::I64 | kali_common::Repr::F64
+                        )
+                }),
             // Everything else — a field read (`o.s`), an element read (`a[0]`),
-            // a call (`h()`), a `new`, an unbound global (`globalThis`) — has no
-            // proof and fails closed.
+            // a `new`, an unbound global (`globalThis`) — has no proof and
+            // fails closed.
             _ => false,
         }
+    }
+
+    /// `name` is a declared PARAMETER of the function being emitted (review
+    /// C-6). Keyed on the same `function_param_names` table the deferred-callback
+    /// capture gate uses. A parameter is the one binding kind with no in-scope
+    /// declarator initializer to prove, which is why it keeps the repr-taint
+    /// admission while every other identifier is denied for lack of evidence.
+    fn name_is_declared_parameter(&self, name: &str) -> bool {
+        self.function_param_names
+            .get(&self.function_name)
+            .is_some_and(|params| params.iter().any(|param| param == name))
+    }
+
+    /// `node` is a `Math.floor`/`Math.trunc`/`Math.ceil` call — the SAME
+    /// recognizer `emit_call`'s integer-rounding arm dispatches with (callee
+    /// text plus `is_math_object`, which carries the `Math`-shadow guard), so
+    /// the coercion proof and the emission cannot disagree. That arm always
+    /// produces a plain integer (a folded `I64Const` or the integer-math
+    /// import's result), never a tagged handle.
+    fn is_integer_rounding_math_call(&self, node: &LirNode) -> bool {
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+        let Some(&callee) = node.children.first() else {
+            return false;
+        };
+        let callee_node = self.node(self.unwrap_transparent(callee)).clone();
+        matches!(
+            callee_node.text.as_deref(),
+            Some("floor") | Some("trunc") | Some("ceil")
+        ) && self.is_math_object(&callee_node)
     }
 
     /// A bare identifier holds a PROVEN scalar number for coercion purposes.

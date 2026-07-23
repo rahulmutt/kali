@@ -1045,6 +1045,24 @@ impl<'a> FunctionEmitter<'a> {
             LirNodeKind::Value if node.children.len() == 3 && node.text.as_deref() == Some("?") => {
                 self.is_string_valued(node.children[1]) || self.is_string_valued(node.children[2])
             }
+            // Stage P5 T-new-B review I-2: `typeof x` in the two lanes
+            // `emit_unary` actually lowers — a statically-classified operand
+            // and a proven runtime string — emits an INTERNED type-name handle
+            // with `ValueShape::String`, so every string consumer must classify
+            // it as a string (the equality lane already did, via
+            // `EqClass::String`). Keyed on the SAME two predicates that arm
+            // dispatches with, so the oracle and the emission agree by
+            // construction: the third, unproven lane (a runtime operand with no
+            // static classification, which falls through to the pre-existing
+            // warn+0 placeholder) is NOT proven a string here.
+            LirNodeKind::Value
+                if node.children.len() == 1
+                    && node.text.as_deref() == Some("typeof")
+                    && (self.typeof_static_text(node.children[0]).is_some()
+                        || self.is_string_valued(node.children[0])) =>
+            {
+                true
+            }
             // Bare identifier read: string iff its binding's repr is String.
             LirNodeKind::Value if node.children.is_empty() => {
                 node.text.as_deref().is_some_and(|name| {

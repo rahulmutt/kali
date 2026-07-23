@@ -181,6 +181,26 @@ pub struct ReprTable {
     /// SHALLOW-SHARE the nested object. Empty for programs that never construct
     /// an object literal.
     clone_safe_shapes: HashSet<ShapeId>,
+    /// `(shape, field)` pairs whose field repr is POSITIVELY proven a plain
+    /// number (Stage P5 T-new-B review C-5). A shape field interns as `F64` or
+    /// `I64` and NOTHING else — a STRING field interns as `I64` exactly like an
+    /// integer one — so `shape_field(..) == I64` is the UNRECORDED DEFAULT, not
+    /// evidence. Consumers that must render a field as a number (the `String()`
+    /// coercion proof) require membership here instead. Computed
+    /// ALLOWLIST-style at shape-intern time and default-deny across shape
+    /// SHARING: two object slots with identical field names/reprs intern to one
+    /// `ShapeId`, so a field is admitted only when EVERY contributing slot
+    /// proved it numeric (a single string-typed slot taints it away).
+    numeric_shape_fields: HashSet<(ShapeId, String)>,
+    /// Functions whose RETURN value is POSITIVELY proven a plain number (Stage
+    /// P5 T-new-B review I-2). Same hazard as above: `return_repr` defaults to
+    /// `Repr::I64`, so an unrecorded return (including one that hands back an
+    /// internal string/handle value, e.g. `function g(y){ return String(y) }`)
+    /// is indistinguishable from a real integer return by repr alone. This set
+    /// is written only for a return whose EVERY return statement is an
+    /// arithmetic expression over numeric literals and provably-scalar
+    /// parameters, and whose solved axes are not string.
+    numeric_returns: HashSet<String>,
     /// Gate messages from the shape inference (contradictory or unsupported
     /// object usage). Any entry makes compilation fail with E5506.
     shape_conflicts: Vec<String>,
@@ -560,6 +580,34 @@ impl ReprTable {
             .enumerate()
             .find(|(_, (field, _))| field == name)
             .map(|(index, (_, repr))| (index, *repr))
+    }
+
+    /// Record the ALLOWLIST-computed proven-numeric shape fields
+    /// (see [`numeric_shape_fields`](Self::numeric_shape_fields)); called once
+    /// by `repr_infer`'s `emit_table`.
+    pub fn set_numeric_shape_fields(&mut self, fields: HashSet<(ShapeId, String)>) {
+        self.numeric_shape_fields = fields;
+    }
+
+    /// Whether `shape`.`name` is POSITIVELY proven to hold a plain number.
+    /// Callers must still check the field's repr; this only adds the evidence
+    /// that `Repr::I64` alone cannot carry.
+    pub fn shape_field_is_proven_numeric(&self, shape: ShapeId, name: &str) -> bool {
+        self.numeric_shape_fields
+            .contains(&(shape, name.to_string()))
+    }
+
+    /// Record a function whose return value is POSITIVELY proven numeric
+    /// (see [`numeric_returns`](Self::numeric_returns)).
+    pub fn mark_numeric_return(&mut self, func: &str) {
+        self.numeric_returns.insert(func.to_string());
+    }
+
+    /// Whether `func`'s return value is POSITIVELY proven a plain number.
+    /// Callers must still check `return_repr`; this only adds the evidence the
+    /// default `Repr::I64` cannot carry.
+    pub fn return_is_proven_numeric(&self, func: &str) -> bool {
+        self.numeric_returns.contains(func)
     }
 
     pub fn add_shape_conflict(&mut self, message: String) {

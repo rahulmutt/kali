@@ -172,6 +172,17 @@ struct ReprInfer {
     return_node: BTreeMap<String, usize>,
     /// Ordered parameter names of every user `FunctionDeclaration`.
     functions: BTreeMap<String, Vec<String>>,
+    /// Stage P5 T-new-B review I-2: per-function AND-accumulator over every
+    /// `return` statement — true while EVERY return so far is an arithmetic
+    /// expression over numeric literals and the function's own parameters (the
+    /// only syntactic shape whose emitted value is a plain integer/float rather
+    /// than a possibly-tagged handle). A bare `return;`, an object return, a
+    /// call return (`return String(y)` — the exact F-newB-1 leak), a member
+    /// read or an identifier that is not a parameter all clear it. A function
+    /// with NO return statement never gets an entry, so it is denied by
+    /// absence. Consumed by `emit_table`, which additionally requires the
+    /// solved axes and the parameters' own scalar-inflow proof.
+    numeric_return_candidates: BTreeMap<String, bool>,
     /// Names locally bound within a given scope: a function's own parameters
     /// plus every `let`/`const`/`var` declarator reachable from its body
     /// without descending into a nested function (module scope uses the
@@ -751,6 +762,51 @@ impl ReprInfer {
         let n = self.new_node();
         self.return_node.insert(func.to_string(), n);
         n
+    }
+
+    /// Stage P5 T-new-B review I-2: is `expr` (a `return` argument of `func`)
+    /// an ARITHMETIC expression over numeric literals and `func`'s own
+    /// parameters?
+    ///
+    /// This is the syntactic half of the positive numeric-return proof. It is
+    /// an ALLOWLIST of shapes whose emitted value is a plain number:
+    ///
+    /// * a numeric / BigInt literal,
+    /// * a bare identifier that is a PARAMETER of `func` (a non-parameter local
+    ///   could hold an object/array/string handle with no evidence at this
+    ///   site; `emit_table` separately requires every parameter to carry a
+    ///   proven scalar inflow, which is what makes a parameter admissible),
+    /// * unary `-`/`+`/`~` over a proven operand,
+    /// * `+`/`-`/`*`/`%` and the bitwise operators over proven operands.
+    ///
+    /// Everything else — a CALL (`return String(y)`, the F-newB-1 handle leak),
+    /// a member read, a ternary, a template, `/` and `**` (which may lower on
+    /// the float lane without a float axis seed), a comparison (`emit_as_string`
+    /// renders a boolean only from an emitted `ValueShape::Boolean`, which a
+    /// call result is not) — is denied.
+    fn return_expr_is_numeric_over_params(&self, func: &str, expr: &Expression) -> bool {
+        match strip_parenthesized(expr) {
+            Expression::Literal(LiteralValue::Number(_)) | Expression::BigIntLiteral(_) => true,
+            Expression::Identifier(name) => self
+                .functions
+                .get(func)
+                .is_some_and(|params| params.iter().any(|param| param == name)),
+            Expression::UnaryExpression(unary)
+                if matches!(unary.operator.as_str(), "-" | "+" | "~") =>
+            {
+                self.return_expr_is_numeric_over_params(func, &unary.argument)
+            }
+            Expression::BinaryExpression(binary)
+                if matches!(
+                    binary.operator.as_str(),
+                    "+" | "-" | "*" | "%" | "&" | "|" | "^" | "<<" | ">>" | ">>>"
+                ) =>
+            {
+                self.return_expr_is_numeric_over_params(func, &binary.left)
+                    && self.return_expr_is_numeric_over_params(func, &binary.right)
+            }
+            _ => false,
+        }
     }
 
     fn obj_field_node_for(&mut self, slot: &ObjSlot, field: &str) -> usize {
@@ -1663,6 +1719,18 @@ impl ReprInfer {
                 self.visit_expr(func, &stmt.expression);
             }
             Statement::ReturnStatement(stmt) => {
+                // Review I-2: AND-accumulate the positive numeric-return proof
+                // over every return statement of `func` (see
+                // `numeric_return_candidates`).
+                let numeric_return = stmt
+                    .argument
+                    .as_ref()
+                    .is_some_and(|arg| self.return_expr_is_numeric_over_params(func, arg));
+                let entry = self
+                    .numeric_return_candidates
+                    .entry(func.to_string())
+                    .or_insert(true);
+                *entry = *entry && numeric_return;
                 if let Some(arg) = &stmt.argument {
                     if let Expression::ObjectExpression(obj) = arg {
                         self.record_object_literal(func, ObjSlot::Return(func.to_string()), obj);
@@ -3164,6 +3232,13 @@ impl ReprInfer {
             Expression::Literal(LiteralValue::Number(_))
             | Expression::Literal(LiteralValue::String(_))
             | Expression::Literal(LiteralValue::Boolean(_)) => true,
+            // A BigInt literal (`41n`) is exactly as scalar as a numeric one —
+            // it lowers to the same plain i64 — and the parser gives it its own
+            // variant, so it was silently missing from this set (Stage P5
+            // T-new-B review I-2: `f(41n)` left `f`'s param without scalar
+            // inflow evidence, so no proof that consults that evidence could
+            // ever admit a BigInt-called function).
+            Expression::BigIntLiteral(_) => true,
             // Interpolated/plain template — a string primitive.
             Expression::TemplateLiteral(_) => true,
             // Arithmetic/comparison/bitwise/`+` — a number/boolean/string
@@ -4055,6 +4130,7 @@ impl ReprInfer {
         }
 
         // Returns.
+        let mut numeric_return_candidates: Vec<String> = Vec::new();
         let returns: Vec<(String, usize)> = self
             .return_node
             .iter()
@@ -4088,6 +4164,21 @@ impl ReprInfer {
                 }
                 (false, true) => table.set_return(&func, Repr::F64),
                 (false, false) => {}
+            }
+            // Review I-2: the AXES half of the POSITIVE numeric-return proof —
+            // a return that is not string-reachable AND whose every return
+            // statement is arithmetic over literals/params. The remaining
+            // conditions (per-parameter scalar-inflow proof, array/object
+            // return) need the fully-populated table and are applied at the end
+            // of `emit_table`.
+            if !string[node]
+                && self
+                    .numeric_return_candidates
+                    .get(&func)
+                    .copied()
+                    .unwrap_or(false)
+            {
+                numeric_return_candidates.push(func.clone());
             }
         }
 
@@ -4177,11 +4268,24 @@ impl ReprInfer {
             std::collections::HashSet::new();
         let mut clone_tainted_shapes: std::collections::HashSet<kali_common::ShapeId> =
             std::collections::HashSet::new();
+        let mut numeric_field_candidates: std::collections::HashSet<(
+            kali_common::ShapeId,
+            String,
+        )> = std::collections::HashSet::new();
+        let mut numeric_field_taints: std::collections::HashSet<(kali_common::ShapeId, String)> =
+            std::collections::HashSet::new();
         for (slot, names) in &fields_of {
             if !materialized.contains(slot) {
                 continue;
             }
             let mut fields: Vec<(String, Repr)> = Vec::with_capacity(names.len());
+            // Stage P5 T-new-B review C-5: per-field POSITIVE numeric evidence,
+            // collected alongside the repr because it is NOT recoverable from
+            // the interned repr (a string field interns as `I64`, exactly like
+            // an integer one). Candidate/taint pair so that shape SHARING
+            // defaults to deny: a field is admitted only if some slot proves it
+            // numeric and NO slot contradicts.
+            let mut numeric_fields: Vec<(String, bool)> = Vec::with_capacity(names.len());
             for name in names {
                 let repr = if let Some(&(elem_node, growable_shape)) =
                     obj_array_fields.get(&(slot.clone(), name.clone()))
@@ -4207,6 +4311,13 @@ impl ReprInfer {
                 } else {
                     let node = self.obj_field_node_for(slot, name);
                     let rep = self.uf.find(node);
+                    // A field is proven numeric when the solved axes say float
+                    // (`F64`, positive) or say NOT string on the plain lane.
+                    // Object-pointer fields cannot reach here as "numeric": a
+                    // materialized owner with an object-shaped field is
+                    // rejected outright by step 4b's `pointer_field_candidates`
+                    // conflict, and only MATERIALIZED slots are interned.
+                    numeric_fields.push((name.clone(), !string[rep]));
                     if float[rep] {
                         Repr::F64
                     } else {
@@ -4216,6 +4327,13 @@ impl ReprInfer {
                 fields.push((name.clone(), repr));
             }
             let shape = table.intern_shape(fields);
+            for (name, numeric) in numeric_fields {
+                if numeric {
+                    numeric_field_candidates.insert((shape, name));
+                } else {
+                    numeric_field_taints.insert((shape, name));
+                }
+            }
             // Clone-safety accounting: only object-LITERAL slots construct, so
             // only they decide a shape's clone-safety. A clean literal PROVES
             // the shape safe; a clone-unsafe literal (an object-pointer field)
@@ -4282,6 +4400,14 @@ impl ReprInfer {
                 .copied()
                 .collect();
         table.set_clone_safe_shapes(clone_safe_shapes);
+        // Finalize the proven-numeric field allowlist the same way (review
+        // C-5): proven by some slot AND contradicted by none.
+        table.set_numeric_shape_fields(
+            numeric_field_candidates
+                .difference(&numeric_field_taints)
+                .cloned()
+                .collect(),
+        );
 
         for message in std::mem::take(&mut self.obj_conflicts) {
             table.add_shape_conflict(message);
@@ -4316,6 +4442,39 @@ impl ReprInfer {
                 {
                     table.mark_param_lacking_scalar_inflow(func, name);
                 }
+            }
+        }
+
+        // Review I-2, finalize the POSITIVE numeric-return allowlist. The axes
+        // + syntactic halves were collected above; this adds the conditions
+        // that need the finished table:
+        //   * every parameter carries a PROVEN scalar inflow and neither the
+        //     array-argument nor the object taint. A parameter is admissible as
+        //     an arithmetic operand only because actual call-site flow proved
+        //     it scalar — its default `Repr::I64` is NOT evidence (exactly the
+        //     fallacy this whole proof exists to avoid),
+        //   * the function returns neither an array binding nor an object.
+        for func in std::mem::take(&mut numeric_return_candidates) {
+            if self
+                .array_binding_returns
+                .iter()
+                .any(|(owner, _)| *owner == func)
+            {
+                continue;
+            }
+            if !matches!(table.return_repr(&func), Repr::I64 | Repr::F64) {
+                continue;
+            }
+            let params_proven = self.functions.get(&func).is_some_and(|params| {
+                params.iter().all(|param| {
+                    !table.param_lacks_scalar_inflow(&func, param)
+                        && !table.is_non_scalar_param(&func, param)
+                        && !table.object_initialized_binding(&func, param)
+                        && matches!(table.scalar(&func, param), Repr::I64 | Repr::F64)
+                })
+            });
+            if params_proven {
+                table.mark_numeric_return(&func);
             }
         }
 
