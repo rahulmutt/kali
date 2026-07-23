@@ -269,22 +269,13 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
 
-        // Stage P5 T-new-E: a bare-identifier reassignment `s = String(1n)` (or
-        // `s = <tainted>`) makes `s` hold a String() coercion result whose repr
-        // stays `I64` (F-newB-1); record it so a later render fails closed
-        // instead of printing the raw handle bits. Only a bare-identifier target
-        // carries name-keyed provenance — a member/element target is handled by
-        // the aggregate-store hazards above. Recording is additive (never clears
-        // taint) and fail-closed-safe; it does not short-circuit the store, which
-        // proceeds below.
-        if op == "="
-            && self.node(left).children.is_empty()
-            && self.init_is_string_result_value(right)
-        {
-            if let Some(name) = self.node(left).text.clone() {
-                self.string_result_locals.insert(name);
-            }
-        }
+        // Stage P5 T-new-E: a bare-identifier reassignment `s = String(1n)`
+        // makes `s` hold a String() coercion result whose repr stays `I64`
+        // (F-newB-1). The provenance is now computed STRUCTURALLY in
+        // `repr_infer`'s whole-program taint (`string_result_bindings`), which
+        // sees the reassignment through its `visit_assignment` hook, so no
+        // codegen-side recording is needed here — the render/arithmetic sinks
+        // query the repr_infer taint directly.
 
         if op == "=" {
             if let Some(key_text) = process_env_property_key(&self.program.nodes, left) {

@@ -4684,142 +4684,93 @@ impl<'a> FunctionEmitter<'a> {
         })
     }
 
-    /// Stage P5 T-new-E: whole-program set of function names whose RETURN is a
-    /// `String()` intrinsic coercion result. `repr_infer` never seeds
-    /// `Repr::String` for such a return, so `is_string_valued` on a call to one
-    /// answers `false` and the tagged string handle the function returns would
-    /// render through `int_to_string` at the caller — the measured
-    /// `x-9223354375949254655` divergence for `const s = g(1n); 'x' + s`.
-    ///
-    /// A function joins the set iff SOME `return` statement in its own body (not
-    /// descending into nested functions) returns a value that is — directly or
-    /// through the SAME `is_intrinsic_string_coercion_call` recognizer the
-    /// emitter dispatches with — a `String(...)` intrinsic coercion call.
-    /// Keyed on the emitter's own recognizer so the callee-side taint and the
-    /// String() emission agree by construction. Whole-program structural fact,
-    /// computed once per emitter.
-    fn program_string_result_functions(&self) -> &HashSet<String> {
-        self.program_string_result_functions_cache.get_or_init(|| {
-            let nodes = &self.program.nodes;
-            let mut names: HashSet<String> = HashSet::new();
-            for (index, node) in nodes.iter().enumerate() {
-                if !crate::lower::is_function_like(nodes, LirNodeId(index as u32)) {
-                    continue;
-                }
-                let Some(fn_name) = node.text.clone() else {
-                    continue;
-                };
-                // The body is the LAST child of a function-shaped node.
-                let Some(&body_id) = node.children.last() else {
-                    continue;
-                };
-                if self.function_body_returns_string_result(body_id) {
-                    names.insert(fn_name);
-                }
-            }
-            names
-        })
+    /// Stage P5 T-new-E: `name` is a binding `repr_infer` proved carries a
+    /// `String()`-result value (the deny twin of `binding_is_proven_numeric`).
+    /// Resolves local-vs-module scope with the SAME rule that helper (and
+    /// `is_string_valued`) uses, which is also the rule `repr_infer`'s
+    /// `binding_scope` mirrors, so the taint is looked up under the key it was
+    /// filed under. Both this function's own scope and the module fallback are
+    /// consulted (a captured local is stored under its lexically-declaring
+    /// function while codegen's storage fallback would send the read to
+    /// `_start`) — not a widening, since the taint is only ever filed under a
+    /// scope that lexically declares the name.
+    fn binding_is_string_result(&self, name: &str) -> bool {
+        let func: &str = if !self.locals.contains_key(name) && self.function_name != "_start" {
+            "_start"
+        } else {
+            &self.function_name
+        };
+        self.repr_table.binding_is_string_result(func, name)
+            || self
+                .repr_table
+                .binding_is_string_result(&self.function_name, name)
     }
 
-    /// DFS of a function body collecting whether ANY `return <expr>` yields a
-    /// `String()` intrinsic coercion result. Does NOT descend into nested
-    /// function-like nodes — a nested function's returns belong to that function,
-    /// not this one. An expression-bodied arrow lowers its body directly to the
-    /// `Branch("return")` statement, so that node is inspected the same way.
-    fn function_body_returns_string_result(&self, body_id: LirNodeId) -> bool {
-        let nodes = &self.program.nodes;
-        let mut stack = vec![body_id];
-        let mut seen: HashSet<LirNodeId> = HashSet::new();
-        while let Some(id) = stack.pop() {
-            if !seen.insert(id) {
-                continue;
-            }
-            // Never cross a function boundary (except the body root itself).
-            if id != body_id && crate::lower::is_function_like(nodes, id) {
-                continue;
-            }
-            let Some(node) = nodes.get(id.0 as usize) else {
-                continue;
-            };
-            if node.kind == LirNodeKind::Branch && node.text.as_deref() == Some("return") {
-                if let Some(&expr) = node.children.first() {
-                    let expr = self.unwrap_transparent(expr);
-                    if self.node(expr).kind == LirNodeKind::Call
-                        && self.is_intrinsic_string_coercion_call(expr)
-                    {
-                        return true;
-                    }
-                }
-            }
-            for child in &node.children {
-                stack.push(*child);
-            }
-        }
-        false
-    }
-
-    /// Stage P5 T-new-E: `id` reaches a numeric-render sink (`+`, template
-    /// literal, `console.log`) carrying `String()`-result provenance but WITHOUT
-    /// a proven `Repr::String` — the F-newB-1 hazard. Render sites consult this
-    /// and fail CLOSED (E5506) rather than running the tagged string handle
-    /// through `int_to_string` and printing its raw bits.
+    /// Stage P5 T-new-E: `id` reaches a numeric sink (`+`, template literal,
+    /// multi-arg console via `emit_as_string`, or arithmetic operator lowering)
+    /// carrying `String()`-result provenance but WITHOUT a proven `Repr::String`
+    /// — the F-newB-1 hazard. Sink sites consult this and fail CLOSED (E5506)
+    /// rather than running the tagged string handle through `int_to_string`.
     ///
-    /// Positive provenance only (never keyed on the `I64` default, which is not a
-    /// proof): a value already PROVEN a string is exempt (an inline `String(...)`
-    /// call and a fold-aliased `const s = String(1n)` both resolve to a proven
-    /// handle and render correctly). Two taint sources:
-    /// - a bare identifier recorded in `string_result_locals` (a const/let/var
-    ///   binding — including the `let t = s` laundering chain — whose repr
-    ///   defaulted to `I64`), and
-    /// - a call to a `program_string_result_functions` function (covers `g(1n)`
-    ///   inline AND `const s = g(1n)` fold-aliased to the call node).
+    /// The provenance is computed STRUCTURALLY in `repr_infer`'s whole-program
+    /// taint fixpoint (`string_result_bindings` / `string_result_returns`),
+    /// which follows value-flow through bindings, laundering copies,
+    /// reassignments, and function returns (return-of-local, return-of-reassign,
+    /// transitive returns) by construction. This function only maps the sink
+    /// NODE to the repr_infer key and queries the taint:
+    /// - a bare identifier → the binding taint (checked on the raw name AND on
+    ///   the fold-alias-resolved node, so both a `let`/`var` local and a `const`
+    ///   fold-alias `const r = g(1n)` are covered);
+    /// - a call → the callee's return taint, with the callee resolved THROUGH
+    ///   fold-alias bindings (`resolve_bound_node`) so a fn-expr/arrow bound via
+    ///   a declarator — keyed on its synthetic `__kali_fn_N` name in repr_infer
+    ///   — is caught (root B), not just a bare `FunctionDeclaration` name.
+    ///
+    /// Positive provenance only: a value already PROVEN a string is exempt (an
+    /// inline `String(...)` and a fold-aliased `const s = String(1n)` both
+    /// resolve to a proven handle and render correctly), and a genuine numeric
+    /// `Repr::I64` (the acceptance fixture's `left`/`right` bigint params) is
+    /// never seeded, so it is never denied.
     pub(crate) fn string_result_render_taint(&self, id: LirNodeId) -> bool {
         // A value already proven a string renders correctly — never taint it.
         if self.is_string_valued(id) {
             return false;
         }
         let base = self.unwrap_transparent(id);
-        let resolved = self.unwrap_transparent(self.resolve_bound_node(base));
-        let node = self.node(resolved);
-        // (1) a let/var/const binding recorded as holding a String() result.
-        if node.kind == LirNodeKind::Value && node.children.is_empty() {
-            if let Some(name) = node.text.as_deref() {
-                if self.string_result_locals.contains(name) {
+        // (1a) bare identifier, BEFORE resolving the fold-alias: a `let`/`var`
+        // local carries its taint by name (it is not in `self.bindings`).
+        let base_node = self.node(base);
+        if base_node.kind == LirNodeKind::Value && base_node.children.is_empty() {
+            if let Some(name) = base_node.text.as_deref() {
+                if self.binding_is_string_result(name) {
                     return true;
                 }
             }
         }
-        // (2) a call to a String()-result-returning program function.
+        let resolved = self.unwrap_transparent(self.resolve_bound_node(base));
+        let node = self.node(resolved);
+        // (1b) a fold-alias that resolved to another bare identifier.
+        if node.kind == LirNodeKind::Value && node.children.is_empty() {
+            if let Some(name) = node.text.as_deref() {
+                if self.binding_is_string_result(name) {
+                    return true;
+                }
+            }
+        }
+        // (2) a call to a String()-result-returning function. Resolve the callee
+        // through fold-alias bindings so a fn-expr/arrow bound to a `const`
+        // (whose repr_infer key is its `__kali_fn_N` name) is matched too.
         if node.kind == LirNodeKind::Call {
             if let Some(&callee) = node.children.first() {
-                let callee = self.unwrap_transparent(callee);
+                let callee = self.resolve_bound_node(self.unwrap_transparent(callee));
                 if let Some(name) = self.node(callee).text.as_deref() {
-                    if self.program_string_result_functions().contains(name) {
+                    if self.repr_table.return_is_string_result(name) {
                         return true;
                     }
                 }
             }
         }
         false
-    }
-
-    /// Stage P5 T-new-E: `init` (a declarator initializer or an assignment RHS)
-    /// evaluates to a `String()` intrinsic coercion RESULT — the direct call, or
-    /// a value that already carries String()-result render taint (laundering
-    /// through a prior binding / a String()-result-returning function). Recorded
-    /// into `string_result_locals` at every binding choke so the provenance
-    /// survives a binding or a second binding. Over-recording is fail-closed-safe
-    /// (it only adds a deny, never proves a wrong value), unlike the string
-    /// ORACLE, so the array-tunnelling `unwrap_transparent` C-2 trap does not
-    /// apply here.
-    pub(crate) fn init_is_string_result_value(&self, init: LirNodeId) -> bool {
-        let unwrapped = self.unwrap_transparent(init);
-        if self.node(unwrapped).kind == LirNodeKind::Call
-            && self.is_intrinsic_string_coercion_call(unwrapped)
-        {
-            return true;
-        }
-        self.string_result_render_taint(init)
     }
 
     /// Property names that some object literal in the program binds to a

@@ -180,20 +180,6 @@ pub(crate) struct FunctionEmitter<'a> {
     /// identifier choke. Mirrors `text_encoder_locals` (a marker side-table),
     /// with the type text as the payload.
     pub(crate) event_marker_locals: std::collections::BTreeMap<String, String>,
-    /// Stage P5 T-new-E: names bound (const/let/var declarator, `let t = s`
-    /// laundering, or a bare-identifier reassignment) to a `String()` intrinsic
-    /// coercion RESULT whose repr defaulted to `I64` — the F-newB-1 hazard.
-    /// `repr_infer` seeds no `Repr::String` for a `String()` result, so a
-    /// bound/returned result is a real string handle carried in an `I64` slot;
-    /// reaching a `+`/template/console numeric-render site, it would run through
-    /// `int_to_string` and print the raw handle bits. Every render site consults
-    /// `string_result_render_taint` and fails CLOSED (E5506) on a tainted read.
-    /// A fold-aliased `const s = String(1n)` is recorded here too but is exempt
-    /// from over-deny by the helper's `is_string_valued` guard (it resolves to a
-    /// proven string handle and renders correctly). Correct-output support
-    /// (seeding `Repr::String`) is the top-queued follow-up F-newB-1; this table
-    /// only restores the merge-base fail-closed invariant.
-    pub(crate) string_result_locals: std::collections::BTreeSet<String>,
     /// Stage P5 Task 4 review fix (C-4): the PRODUCE-side twin of
     /// `admit_bytes_handle_read`. The read choke only guards BOUND handles
     /// (`bytes_locals` identifiers); an INLINE, unbound
@@ -278,14 +264,6 @@ pub(crate) struct FunctionEmitter<'a> {
     pub(crate) program_bound_names_cache: std::cell::OnceCell<HashSet<String>>,
     pub(crate) program_fn_valued_property_names_cache: std::cell::OnceCell<HashSet<String>>,
     pub(crate) program_stores_function_in_aggregate_cache: std::cell::OnceCell<bool>,
-    /// Stage P5 T-new-E: whole-program set of function names whose RETURN is a
-    /// `String()` intrinsic coercion result (`function g(y){ return String(y) }`)
-    /// that `repr_infer` never seeds `Repr::String` for. A call to such a
-    /// function carries String()-result render taint at the call site AND through
-    /// a `const s = g(1n)` fold-alias, so a later `+`/template/console render
-    /// fails closed instead of printing the raw handle bits. Whole-program fact,
-    /// computed once per emitter (`program_string_result_functions`).
-    pub(crate) program_string_result_functions_cache: std::cell::OnceCell<HashSet<String>>,
     /// Names of locals that hold a linear-memory array handle (`new Array(n)`).
     pub(crate) array_bindings: HashSet<String>,
     /// Names of locals that hold a GROWABLE runtime-array tagged handle
@@ -553,7 +531,6 @@ impl<'a> FunctionEmitter<'a> {
             text_decoder_locals: BTreeSet::new(),
             admit_bytes_handle_read: false,
             event_marker_locals: std::collections::BTreeMap::new(),
-            string_result_locals: std::collections::BTreeSet::new(),
             admit_bytes_handle_produce: false,
             crypto_random_result_bindings: BTreeSet::new(),
             crypto_random_result_array_bindings: BTreeSet::new(),
@@ -573,7 +550,6 @@ impl<'a> FunctionEmitter<'a> {
             program_bound_names_cache: std::cell::OnceCell::new(),
             program_fn_valued_property_names_cache: std::cell::OnceCell::new(),
             program_stores_function_in_aggregate_cache: std::cell::OnceCell::new(),
-            program_string_result_functions_cache: std::cell::OnceCell::new(),
             array_bindings,
             growable_array_bindings,
             growable_for_of_active: None,

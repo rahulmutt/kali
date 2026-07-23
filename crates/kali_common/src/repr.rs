@@ -224,6 +224,37 @@ pub struct ReprTable {
     /// binding itself and parameters with a proven scalar inflow, and the
     /// binding carries no array/growable/object taint.
     numeric_bindings: HashSet<(String, String)>,
+    /// `(scope, binding)` pairs that provably carry a `String()` intrinsic
+    /// coercion RESULT (Stage P5 T-new-E). Unlike the numeric_* allowlists
+    /// above, this is a DENY taint: `repr_infer` seeds no `Repr::String` for a
+    /// `String()` result (F-newB-1 is the deferred correct-output follow-up), so
+    /// a result bound to a `let`/`var`/`const`, laundered through a second
+    /// binding, reassigned, or handed back from a String()-result-returning
+    /// function sits as a real tagged string handle in a default `Repr::I64`
+    /// slot. Reaching a numeric-render sink (`+`, template literal, multi-arg
+    /// console via `emit_as_string`, or arithmetic operator lowering) the handle
+    /// would be run through `int_to_string` and its raw bits printed — the
+    /// measured `x-9223354375949254655` silent divergence. Codegen consults this
+    /// at those sinks and fails CLOSED (E5506). Computed by a whole-program
+    /// monotone taint fixpoint (`resolve_string_result_taint`) that follows
+    /// value-flow through bindings, reassignments, laundering copies, and
+    /// function returns (including return-of-local, return-of-reassign, and
+    /// transitive returns across direct calls) BY CONSTRUCTION. Positive
+    /// provenance only — a purely-numeric binding is never seeded, so a genuine
+    /// `Repr::I64` is never over-denied.
+    string_result_bindings: HashSet<(String, String)>,
+    /// Functions whose RETURN provably carries a `String()`-result value on SOME
+    /// path (Stage P5 T-new-E). The return twin of
+    /// [`string_result_bindings`](Self::string_result_bindings): a direct
+    /// `return String(x)`, a `return <tainted-local>`, or a `return
+    /// <call-to-tainted-fn>` all taint the function's return. Codegen taints a
+    /// CALL to such a function at the render/arithmetic sink (the callee resolved
+    /// through fold-alias bindings so a fn-expr/arrow bound via a declarator —
+    /// keyed on its synthetic `__kali_fn_N` name — is caught too). Conservative:
+    /// a return that is a String() result on one path and a number on another is
+    /// tainted (fail closed), but a return that is never a String() result is
+    /// left untainted (a purely-numeric function keeps rendering).
+    string_result_returns: HashSet<String>,
     /// Gate messages from the shape inference (contradictory or unsupported
     /// object usage). Any entry makes compilation fail with E5506.
     shape_conflicts: Vec<String>,
@@ -659,6 +690,32 @@ impl ReprTable {
     pub fn binding_is_proven_numeric(&self, scope: &str, binding: &str) -> bool {
         self.numeric_bindings
             .contains(&(scope.to_string(), binding.to_string()))
+    }
+
+    /// Record the whole-program String()-result taint sets (Stage P5 T-new-E);
+    /// called once by `repr_infer`'s `emit_table` after the fixpoint.
+    pub fn set_string_result_taint(
+        &mut self,
+        bindings: HashSet<(String, String)>,
+        returns: HashSet<String>,
+    ) {
+        self.string_result_bindings = bindings;
+        self.string_result_returns = returns;
+    }
+
+    /// Whether `scope`.`binding` provably carries a `String()`-result value
+    /// (Stage P5 T-new-E deny taint — see
+    /// [`string_result_bindings`](Self::string_result_bindings)).
+    pub fn binding_is_string_result(&self, scope: &str, binding: &str) -> bool {
+        self.string_result_bindings
+            .contains(&(scope.to_string(), binding.to_string()))
+    }
+
+    /// Whether `func`'s return provably carries a `String()`-result value on
+    /// some path (Stage P5 T-new-E deny taint — see
+    /// [`string_result_returns`](Self::string_result_returns)).
+    pub fn return_is_string_result(&self, func: &str) -> bool {
+        self.string_result_returns.contains(func)
     }
 
     pub fn add_shape_conflict(&mut self, message: String) {

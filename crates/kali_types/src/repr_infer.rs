@@ -118,6 +118,20 @@ struct CallEdge {
     result_node: usize,
 }
 
+/// Stage P5 T-new-E: classification of a value written into a binding or
+/// returned from a function, for the String()-result taint value-flow.
+enum StringResultRhs {
+    /// A direct `String(<arg>)` intrinsic coercion — a taint SEED.
+    Seed,
+    /// A bare identifier read — a launder/return of `(scope, name)`.
+    FromBinding(String, String),
+    /// A call to a named program function — propagates that function's return
+    /// taint.
+    FromReturn(String),
+    /// No String()-result provenance.
+    None,
+}
+
 #[derive(Default)]
 struct ReprInfer {
     /// Bidirectional union-find, used ONLY for array-element storage aliasing
@@ -228,6 +242,29 @@ struct ReprInfer {
     /// blunt: over-denying an unrelated same-named binding is fail-closed,
     /// which is the direction this whole proof errs in.
     numeric_binding_name_taints: BTreeSet<String>,
+    /// Stage P5 T-new-E — String()-result taint, SEED half. `(scope, binding)`
+    /// pairs directly written a `String()` intrinsic coercion call (`let s =
+    /// String(x)`, `s = String(x)`). Scope is `binding_scope(func, name)` so it
+    /// keys under exactly what codegen's local-vs-module resolution looks up.
+    string_result_binding_seeds: BTreeSet<(String, String)>,
+    /// SEED half for RETURNS: functions with a direct `return String(x)` path.
+    string_result_return_seeds: BTreeSet<String>,
+    /// Propagation edge `dst_binding <- src_binding` (laundering `let t = s` /
+    /// `t = s`): if the source binding is tainted, so is the destination.
+    string_result_binding_from_binding: Vec<((String, String), (String, String))>,
+    /// Propagation edge `dst_binding <- callee-return` (`let s = g(x)` / `s =
+    /// g(x)`): if the callee's return is tainted, so is the destination binding.
+    /// The callee is a bare function name (a `FunctionDeclaration`); a fn-expr
+    /// bound alias this pass cannot name simply never propagates (fail-safe: the
+    /// binding stays untainted, and the DIRECT render/call sink still catches the
+    /// `__kali_fn_N` return taint via codegen's fold-alias callee resolution).
+    string_result_binding_from_return: Vec<((String, String), String)>,
+    /// Propagation edge `func-return <- src_binding` (`return s`): a return of a
+    /// tainted local taints the function's return.
+    string_result_return_from_binding: Vec<(String, (String, String))>,
+    /// Propagation edge `func-return <- callee-return` (`return g(x)`): a return
+    /// of a tainted call result taints the function's return (transitive).
+    string_result_return_from_return: Vec<(String, String)>,
     /// Names locally bound within a given scope: a function's own parameters
     /// plus every `let`/`const`/`var` declarator reachable from its body
     /// without descending into a nested function (module scope uses the
@@ -1002,6 +1039,131 @@ impl ReprInfer {
         }
         self.numeric_binding_candidates
             .insert((scope, name.to_string()));
+    }
+
+    /// Stage P5 T-new-E: classify a declarator-init / assignment-RHS / return
+    /// expression, as read inside `func`, for the String()-result taint. The
+    /// classification is deliberately conservative on the DENY side (an
+    /// unrecognized shape is `None`, i.e. no taint) but never FALSE-negative for
+    /// the value-flow shapes the leaks travel: a direct `String(...)` coercion,
+    /// a bare-identifier launder, or a call to a named function whose return may
+    /// be tainted.
+    fn classify_string_result_rhs(&self, func: &str, expr: &Expression) -> StringResultRhs {
+        match strip_parenthesized(expr) {
+            // `String(<arg>)` — the unshadowed intrinsic coercion. Mirrors
+            // codegen's `is_intrinsic_string_coercion_callee`: a user function
+            // named `String` (absurd, but handled) is not the intrinsic. The
+            // arity is not constrained here — a `String()` / `String(a, b)` that
+            // codegen fails closed on never renders, so tainting its binding is
+            // harmless (still fail-closed).
+            Expression::CallExpression(call) => {
+                if let Expression::Identifier(callee) = strip_parenthesized(&call.callee) {
+                    if callee == "String" && !self.functions.contains_key("String") {
+                        return StringResultRhs::Seed;
+                    }
+                    // A call to a named program function: its return may carry
+                    // the taint (resolved in the fixpoint). A callee that is not
+                    // a known function name (a fn-expr alias, a builtin) does not
+                    // propagate here — the direct render/call sink still catches
+                    // a fn-expr's `__kali_fn_N` return taint via codegen.
+                    if self.functions.contains_key(callee) {
+                        return StringResultRhs::FromReturn(callee.clone());
+                    }
+                }
+                StringResultRhs::None
+            }
+            // `let t = s` / `return s` — a bare-identifier launder/return.
+            Expression::Identifier(name) => {
+                StringResultRhs::FromBinding(self.binding_scope(func, name), name.clone())
+            }
+            // `await <expr>` settles to its operand (mirrors visit_expr): follow
+            // through so `const s = await g(x)` inherits the return taint.
+            Expression::AwaitExpression(a) => self.classify_string_result_rhs(func, &a.argument),
+            _ => StringResultRhs::None,
+        }
+    }
+
+    /// Record one WRITE to `name` in `func` (a declarator init or an `=`
+    /// assignment RHS) against the String()-result taint (Stage P5 T-new-E).
+    /// Seeds or edges are additive/monotone, so a reassignment that taints a
+    /// binding whose declarator did not (`let s = 0n; s = String(1n)`) is caught.
+    fn record_string_result_binding_write(&mut self, func: &str, name: &str, value: &Expression) {
+        let dst = (self.binding_scope(func, name), name.to_string());
+        match self.classify_string_result_rhs(func, value) {
+            StringResultRhs::Seed => {
+                self.string_result_binding_seeds.insert(dst);
+            }
+            StringResultRhs::FromBinding(src_scope, src_name) => {
+                self.string_result_binding_from_binding
+                    .push((dst, (src_scope, src_name)));
+            }
+            StringResultRhs::FromReturn(callee) => {
+                self.string_result_binding_from_return.push((dst, callee));
+            }
+            StringResultRhs::None => {}
+        }
+    }
+
+    /// Record a `return <expr>` in `func` against the String()-result taint.
+    fn record_string_result_return(&mut self, func: &str, arg: &Expression) {
+        match self.classify_string_result_rhs(func, arg) {
+            StringResultRhs::Seed => {
+                self.string_result_return_seeds.insert(func.to_string());
+            }
+            StringResultRhs::FromBinding(src_scope, src_name) => {
+                self.string_result_return_from_binding
+                    .push((func.to_string(), (src_scope, src_name)));
+            }
+            StringResultRhs::FromReturn(callee) => {
+                self.string_result_return_from_return
+                    .push((func.to_string(), callee));
+            }
+            StringResultRhs::None => {}
+        }
+    }
+
+    /// Stage P5 T-new-E: run the whole-program String()-result taint to a
+    /// monotone fixpoint over the seeds + edges collected during the body walk,
+    /// then write both sets into `table`. Follows value-flow through bindings,
+    /// laundering copies, reassignments, and function returns (return-of-local,
+    /// return-of-reassign, transitive returns across direct calls) BY
+    /// CONSTRUCTION — the same shape as the numeric_* allowlists, but a DENY
+    /// taint rather than a positive proof.
+    fn resolve_string_result_taint(&self, table: &mut ReprTable) {
+        let mut tainted_bindings: std::collections::HashSet<(String, String)> =
+            self.string_result_binding_seeds.iter().cloned().collect();
+        let mut tainted_returns: std::collections::HashSet<String> =
+            self.string_result_return_seeds.iter().cloned().collect();
+        // Naive worklist: iterate edges until neither set grows. Programs are
+        // small and the edge sets are proportional to source size; monotone
+        // growth bounds the loop by the number of (binding, return) keys.
+        loop {
+            let mut changed = false;
+            for (dst, src) in &self.string_result_binding_from_binding {
+                if tainted_bindings.contains(src) && tainted_bindings.insert(dst.clone()) {
+                    changed = true;
+                }
+            }
+            for (dst, callee) in &self.string_result_binding_from_return {
+                if tainted_returns.contains(callee) && tainted_bindings.insert(dst.clone()) {
+                    changed = true;
+                }
+            }
+            for (func, src) in &self.string_result_return_from_binding {
+                if tainted_bindings.contains(src) && tainted_returns.insert(func.clone()) {
+                    changed = true;
+                }
+            }
+            for (func, callee) in &self.string_result_return_from_return {
+                if tainted_returns.contains(callee) && tainted_returns.insert(func.clone()) {
+                    changed = true;
+                }
+            }
+            if !changed {
+                break;
+            }
+        }
+        table.set_string_result_taint(tainted_bindings, tainted_returns);
     }
 
     fn obj_field_node_for(&mut self, slot: &ObjSlot, field: &str) -> usize {
@@ -1903,6 +2065,8 @@ impl ReprInfer {
                     // value is `undefined` and which therefore taints.
                     self.record_numeric_binding_write(func, &d.id, d.init.as_ref(), false);
                     if let Some(init) = &d.init {
+                        // Stage P5 T-new-E: String()-result taint value-flow.
+                        self.record_string_result_binding_write(func, &d.id, init);
                         self.visit_declarator_init(func, &decl.kind, &d.id, init);
                     }
                 }
@@ -1936,6 +2100,12 @@ impl ReprInfer {
                     .entry(func.to_string())
                     .or_insert(true);
                 *entry = *entry && numeric_return;
+                if let Some(arg) = &stmt.argument {
+                    // Stage P5 T-new-E: String()-result taint on the return —
+                    // a direct `return String(x)`, `return <tainted local>`, or
+                    // `return <call to tainted fn>` taints `func`'s return.
+                    self.record_string_result_return(func, arg);
+                }
                 if let Some(arg) = &stmt.argument {
                     if let Expression::ObjectExpression(obj) = arg {
                         self.record_object_literal(func, ObjSlot::Return(func.to_string()), obj);
@@ -1983,6 +2153,8 @@ impl ReprInfer {
                                     false,
                                 );
                                 if let Some(i) = &d.init {
+                                    // Stage P5 T-new-E: String()-result taint.
+                                    self.record_string_result_binding_write(func, &d.id, i);
                                     self.visit_declarator_init(func, &decl.kind, &d.id, i);
                                 }
                             }
@@ -2827,6 +2999,12 @@ impl ReprInfer {
                     // expression under the arrow's own scope so its seeds/edges
                     // (e.g. a string `+`) are registered under `__kali_fn_N`.
                     self.visit_expr(id, &a.body);
+                    // Stage P5 T-new-E: the body expression IS the arrow's
+                    // implicit return, so a `(y) => String(y)` taints the arrow's
+                    // return exactly like a block-bodied `return String(y)`
+                    // (root B arrow-bound). Block-bodied arrows parse as
+                    // `FunctionExpression` and reach the ReturnStatement hook.
+                    self.record_string_result_return(id, &a.body);
                 }
                 self.new_node()
             }
@@ -2880,6 +3058,15 @@ impl ReprInfer {
         // function, ahead of every early `return` below, so no assignment shape
         // can escape the accounting (the object-literal-RHS arm returns early).
         if let Expression::Identifier(name) = &assign.left {
+            // Stage P5 T-new-E: a plain `s = String(x)` / `s = <tainted>`
+            // reassignment taints the binding (additive/monotone — a later
+            // numeric write does not clear it, matching the conservative
+            // "some path is a String() result" deny). Compound assignments
+            // (`+=` etc.) produce a genuine string concat or a number and are
+            // handled by the existing string/numeric flow, so only `=` here.
+            if matches!(assign.operator, AssignmentOperator::Assign) {
+                self.record_string_result_binding_write(func, name, &assign.right);
+            }
             match assign.operator {
                 // `x = <value>` — the value itself must be proven.
                 AssignmentOperator::Assign => {
@@ -3497,6 +3684,37 @@ impl ReprInfer {
             // Bare-identifier call: candidate user-function call. Record an
             // interprocedural edge (resolved after all bodies are walked).
             Expression::Identifier(callee) => {
+                // Stage P5 T-new-E: forward String()-result taint across the
+                // call boundary — a positional arg carrying String()-result
+                // provenance taints the callee's param at that index, so a
+                // `'x' + p` render inside the callee fails closed rather than
+                // over-rendering the tagged handle (`g(String(1n))` — the
+                // caller→callee sibling of root A's callee→caller return flow).
+                // A param the taint reaches is conservatively denied; a
+                // purely-numeric param (never fed a String() result) is never
+                // seeded, so it keeps rendering. A fn-expr-bound callee this pass
+                // cannot name simply does not propagate (fail-safe).
+                if let Some(params) = self.functions.get(callee).cloned() {
+                    for (index, arg) in call.args.iter().enumerate() {
+                        let Some(param) = params.get(index) else {
+                            break;
+                        };
+                        let dst = (callee.clone(), param.clone());
+                        match self.classify_string_result_rhs(func, arg) {
+                            StringResultRhs::Seed => {
+                                self.string_result_binding_seeds.insert(dst);
+                            }
+                            StringResultRhs::FromBinding(s_scope, s_name) => {
+                                self.string_result_binding_from_binding
+                                    .push((dst, (s_scope, s_name)));
+                            }
+                            StringResultRhs::FromReturn(g) => {
+                                self.string_result_binding_from_return.push((dst, g));
+                            }
+                            StringResultRhs::None => {}
+                        }
+                    }
+                }
                 let mut arg_nodes = Vec::with_capacity(call.args.len());
                 let mut arg_array_names = Vec::with_capacity(call.args.len());
                 let mut arg_obj_slots = Vec::with_capacity(call.args.len());
@@ -5028,6 +5246,10 @@ impl ReprInfer {
                 }
             }
         }
+
+        // Stage P5 T-new-E: finalize the whole-program String()-result deny
+        // taint over the seeds + edges collected during the body walk.
+        self.resolve_string_result_taint(&mut table);
 
         table
     }

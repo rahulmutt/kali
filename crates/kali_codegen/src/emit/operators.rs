@@ -1988,6 +1988,24 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        // Stage P5 T-new-E (root C): a `String()`-result operand carried in an
+        // `I64` slot (F-newB-1) has NO correct arithmetic/relational/equality
+        // lowering here — it is a tagged string handle, not a number. Every
+        // sound string position has already returned above (a genuine
+        // string-concat `+` at the `is_string_valued` arm, a both-string
+        // equality at the `__streq` arm), so a tainted operand reaching this
+        // point would otherwise fall through to `int_to_string`/`i64.mul`/
+        // `i64.sub` on the raw handle bits — the measured `n=35321811042306`
+        // (`s * 2n`) / `n=-9223…` (`s - 1n`) silent divergence. Fail CLOSED.
+        // Positive provenance only (`string_result_render_taint` never fires on
+        // a genuine numeric operand), so a bigint `a + b` / `a - a` is untouched.
+        // This ALSO covers a tainted `+` whose operand was not recognized as a
+        // string (the exact F-newB-1 shape): it did not take the concat arm, so
+        // denying here is the only sound outcome.
+        if self.string_result_render_taint(left) || self.string_result_render_taint(right) {
+            return self.deny_e5506(function, Self::STRING_RESULT_RENDER_DENY);
+        }
+
         // A string operand in a NON-`+` position has no correct lowering here.
         // Static string folds have already returned above (relational literal
         // folds, `===`/`!==` bigint folds), so a string operand reaching this

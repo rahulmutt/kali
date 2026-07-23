@@ -1455,3 +1455,121 @@ fn p5_string_result_no_over_deny_string_literal_encode_bytelength() {
         "2"
     );
 }
+
+// --- T-new-E round-2: the structural-taint leak rows the round-1 name-sets ----
+// missed. Each is SILENT (`x-9223…`, exit 0) on parent e8177812b and fails
+// closed (E5506) now — the taint follows value-flow in `repr_infer`'s fixpoint.
+
+/// Root A — RETURN-OF-LOCAL: `g` returns a String()-result LOCAL (not a direct
+/// `return String(...)`), so round-1's direct-return-only recognizer missed it.
+/// Provenance: seed `s` → return(`g`) → call-result `r` → render `'x'+r`.
+#[test]
+fn p5_string_result_return_of_local_fails_closed() {
+    run_e5506("function g(y){ let s=String(y); return s } const r=g(1n); console.log('x'+r);");
+}
+
+/// Root A — RETURN-OF-REASSIGN: `s` is seeded by a REASSIGNMENT, not its
+/// declarator; the taint still reaches the return and the call result.
+#[test]
+fn p5_string_result_return_of_reassign_fails_closed() {
+    run_e5506(
+        "function g(y){ let s=0n; s=String(y); return s } const r=g(1n); console.log('x'+r);",
+    );
+}
+
+/// Root A — TRANSITIVE RETURN: `h` returns `g(y)` where `g` returns a String()
+/// result; the return taint propagates `g` → `h` through the fixpoint's
+/// return-from-return edge, and the direct `'x'+h(1n)` render fails closed.
+#[test]
+fn p5_string_result_transitive_return_fails_closed() {
+    run_e5506("function g(y){return String(y)} function h(y){return g(y)} console.log('x'+h(1n));");
+}
+
+/// Root A — TEMPLATE OF INDIRECT return: a return-of-local String() result
+/// reaching a TEMPLATE literal (the template ladder shares `emit_as_string`).
+#[test]
+fn p5_string_result_template_of_indirect_return_fails_closed() {
+    run_e5506("function g(y){let s=String(y);return s} console.log(`v=${g(1n)}`);");
+}
+
+/// Root B — FN-EXPR BOUND: `const g = function(y){ return String(y) }`. The
+/// function's repr_infer key is its synthetic `__kali_fn_N` name; round-1 keyed
+/// the callee set on the fn NODE text and the declarator name `g` never matched.
+/// Now the render resolves `g` through the fold-alias binding to `__kali_fn_N`.
+#[test]
+fn p5_string_result_fn_expr_bound_render_fails_closed() {
+    run_e5506("const g = function(y){ return String(y) }; console.log('x'+g(1n));");
+}
+
+/// Root B — ARROW BOUND: `const g = (y) => String(y)`. An expression-bodied
+/// arrow's body IS its implicit return, so the taint seeds the arrow's return
+/// exactly like a block-bodied `return String(y)`.
+#[test]
+fn p5_string_result_arrow_bound_render_fails_closed() {
+    run_e5506("const g = (y) => String(y); console.log('x'+g(1n));");
+}
+
+/// Root C — ARITHMETIC (`*`): a String()-result binding in a MULTIPLY position.
+/// Parent silently ran `int_to_string`/`i64.mul` on the raw handle bits
+/// (`n=35321811042306`); now the arithmetic operator lowering fails closed.
+#[test]
+fn p5_string_result_arithmetic_mul_fails_closed() {
+    run_e5506("let s=String(1n); console.log('n='+(s*2n));");
+}
+
+/// Root C — ARITHMETIC (`-`): a String()-result binding in a SUBTRACT position
+/// (node throws a TypeError for BigInt/string mixing; E5506 is the sound
+/// fail-closed outcome). Parent: silent `n=-9223…`.
+#[test]
+fn p5_string_result_arithmetic_sub_fails_closed() {
+    run_e5506("let s=String(1n); console.log('n='+(s-1n));");
+}
+
+/// NO-OVER-DENY: a genuinely-numeric function (`return y + 1n`) must NOT be
+/// tainted — the deny keys on String()-result provenance, never the `I64`
+/// default. `'x'+f(1n)` renders `x2`.
+#[test]
+fn p5_string_result_no_over_deny_numeric_function() {
+    assert_eq!(
+        run_ok("function f(y){return y+1n} console.log('x'+f(1n));"),
+        "x2"
+    );
+}
+
+/// NO-OVER-DENY: a genuine bigint arithmetic operand (`a * b`, the exact root-C
+/// operator shape but over untainted params) keeps its numeric lowering.
+#[test]
+fn p5_string_result_no_over_deny_genuine_arithmetic() {
+    assert_eq!(
+        run_ok("function f(a,b){ console.log('n=' + (a * b)); } f(3n,4n);"),
+        "n=12"
+    );
+}
+
+/// Root A SIBLING (caller→callee): a String()-result passed as an ARGUMENT
+/// taints the callee's param, so a `'x'+p` render INSIDE the callee fails closed
+/// rather than over-rendering the raw handle. Parent: silent `x-9223…`.
+#[test]
+fn p5_string_result_arg_into_param_fails_closed() {
+    run_e5506("function g(p){ return 'x'+p } console.log(g(String(1n)));");
+}
+
+/// arg→param through a String()-result-RETURNING function (the taint reaches the
+/// param via the return-taint edge, then denies at the render).
+#[test]
+fn p5_string_result_arg_into_param_via_fn_return_fails_closed() {
+    run_e5506(
+        "function mk(y){return String(y)} function g(p){return 'x'+p} console.log(g(mk(1n)));",
+    );
+}
+
+/// NO-OVER-DENY: a NUMERIC argument to the same param shape keeps rendering — a
+/// param is tainted only when a String() result actually flows to it, never by
+/// the `I64` default.
+#[test]
+fn p5_string_result_no_over_deny_numeric_arg_into_param() {
+    assert_eq!(
+        run_ok("function g(p){ return 'x'+p } console.log(g(2n));"),
+        "x2"
+    );
+}
