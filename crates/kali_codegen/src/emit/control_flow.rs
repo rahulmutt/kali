@@ -846,6 +846,26 @@ impl<'a> FunctionEmitter<'a> {
                             self.record_crypto_random_result_binding(&name, init);
                         }
 
+                        // Stage P5 T-new-E: binding provenance for a `String()`
+                        // intrinsic coercion RESULT (`let s = String(1n)`,
+                        // `const s = g(1n)` where `g` returns one, `let t = s`
+                        // laundering). `repr_infer` seeds no `Repr::String`, so
+                        // the bound handle sits in an `I64` slot and a later
+                        // render would print its raw bits (F-newB-1). Recorded
+                        // here — before EVERY early `continue` below, and for all
+                        // of const/let/var — so the deny domain is complete; a
+                        // fold-aliased `const` is protected from over-deny by the
+                        // render-taint helper's own `is_string_valued` guard. The
+                        // wasm `int_to_string` render sites (`+`, template literal,
+                        // multi-arg console — all via `emit_as_string`) fail closed
+                        // on a tainted read; this task restores the merge-base
+                        // fail-closed invariant, NOT correct output.
+                        if let Some(name) = declarator.text.as_deref() {
+                            if self.init_is_string_result_value(init) {
+                                self.string_result_locals.insert(name.to_string());
+                            }
+                        }
+
                         // Stage P5 T-new-A (review finding I-3): the aggregate
                         // LAUNDERING close. `const o = { buf: fb }` / `const a =
                         // [fb]` copy the result handle into a slot whose later

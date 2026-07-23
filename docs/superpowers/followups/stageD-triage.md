@@ -842,17 +842,42 @@ closed or stays pre-existing-red rather than miscompiling):
      it silently folds the member call to 0 (the unresolved-member
      /call-folds-to-0 class, ≈ register R-02/G2). DROPPED from the
      tripwires and filed here instead.
-  5. F-newB-1 **[SILENT MISCOMPILE]** (reviewer rates TOP OF QUEUE):
-     no `repr_infer` `Repr::String` return seed for a `String()`
-     result, so a `String()` value that leaves its own choke leaks a
-     tagged handle at the `+`-concat and template sites —
-     `function g(y){return String(y)} const s=g(1n); 'x'+s` →
-     `x-9223354375949254655`, node `x1`; `String(s)` →
-     `-9223354410308993023`, node `1`. Reaches let locals +
-     reassignments; sits on the two most common stringify sites.
-     T-new-B closed only its OWN choke; NOT closable inside the
-     encode lane (denying every default-I64 identifier would deny the
-     acceptance fixture).
+  5. F-newB-1 **[was SILENT MISCOMPILE — fail-closed by T-new-E
+     2026-07-23; correct-output fix STILL TOP OF QUEUE]**:
+     CLASSIFICATION CORRECTION — this item was mis-filed "pre-existing".
+     It is **stage-introduced**: at merge-base `694607bb2` `String` was
+     deny-set, so `let s = String(1n)` / `const s = g(1n)` (g returns
+     `String`) failed CLOSED (E5506, exit 1); P5 Task 1 de-denylisted
+     `String()` and routed it through `emit_as_string` WITHOUT a
+     `repr_infer` `Repr::String` return seed, turning that fail-closed
+     into a silent divergence — `function g(y){return String(y)} const
+     s=g(1n); 'x'+s` → `x-9223354375949254655`, node `x1`. So the stage
+     both introduced the regression and it is the reviewer's TOP-OF-QUEUE.
+     **T-new-E (this task) RESTORES the fail-closed invariant** — a
+     `String()` result bound to a let/var/const, laundered through a
+     second binding, reassigned, or returned from a function and then
+     reaching a `+` / template-literal / MULTI-arg-console render site
+     (the wasm `int_to_string` ladder in `emit_as_string`) fails closed
+     E5506 via positive String()-result provenance
+     (`string_result_render_taint`, keyed on `string_result_locals` +
+     `program_string_result_functions`, NEVER on the `I64` default).
+     T-new-E does **NOT** make the output correct: the remaining
+     **correct-output fix** — seed `Repr::String` for a `String()`
+     result so it prints `x1` — is what stays queued here. Two boundary
+     notes: (a) SINGLE-arg `console.log(s)` prints correctly (`1`) on its
+     own — the host renderer decodes the string-handle tag, so that lane
+     is sound and is deliberately NOT tainted; the divergence is confined
+     to the wasm `int_to_string` ladder. (b) `String(s)` (a `String()`
+     whose ARGUMENT is a tainted binding) already fails closed at the
+     existing `string_coercion_arg_is_proven` gate (an `I64`-repr
+     identifier is not a proven arg), so it is NOT an open divergence.
+     ARITHMETIC on a tainted binding (`s * 2n`, `s - 1n`) is the one
+     remaining silent sibling T-new-E does not cover — the operator
+     lowering has no String()-provenance guard; the correct-output
+     repr-seed fix subsumes it (see the T-new-E report). NOT
+     closable inside the encode lane (denying every default-I64
+     identifier would deny the acceptance fixture's genuine bigint
+     `left + right`); the render-site provenance choke is the sound close.
   6. F-newB-2/3/4 **[SILENT MISCOMPILE]**: `String(v).byteLength`
      → 2 (node `undefined`); `String(v)[0]` / `String(v).repeat()`
      silent 0; `String(undefined)` → `false`, `String(null)` → `0`

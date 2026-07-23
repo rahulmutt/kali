@@ -1664,6 +1664,18 @@ impl<'a> FunctionEmitter<'a> {
     /// `String(number)` semantics); otherwise the produced i64 is coerced to a
     /// decimal-string handle via `int_to_string`.
     pub(crate) fn emit_as_string(&mut self, function: &mut Function, id: LirNodeId) {
+        // Stage P5 T-new-E: a `String()`-result bound to a variable or returned
+        // from a function carries a real string handle in an `I64` slot
+        // (`repr_infer` seeds no `Repr::String` — F-newB-1). Reaching this
+        // coercion ladder (the `+`, template-literal, and multi-arg console
+        // render path) it would fall through to `int_to_string` and print the
+        // raw handle bits — the measured `x-9223354375949254655` silent
+        // divergence. Fail CLOSED. Positive provenance only, so a genuine `I64`
+        // (the acceptance fixture's `left`/`right` bigint params) is untouched.
+        if self.string_result_render_taint(id) {
+            self.deny_e5506(function, Self::STRING_RESULT_RENDER_DENY);
+            return;
+        }
         let is_string = self.is_string_valued(id);
         let is_usp_string = self.is_usp_string_call(id);
         let emitted = self.emit_node(function, id, true);

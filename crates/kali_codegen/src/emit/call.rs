@@ -28,6 +28,13 @@ impl<'a> FunctionEmitter<'a> {
                     .to_string(),
             ));
         }
+        // Stage P5 T-new-E note: the SINGLE-argument console lane hands the host
+        // a raw tagged i64 and lets IT render — the host decodes a string-handle
+        // tag and prints the text, so `console.log(s)` for a `String()`-result
+        // binding prints correctly (measured `1` on parent, matching node) and
+        // must NOT be tainted here. The divergence is confined to the wasm
+        // `int_to_string` ladder (`+`, template literal, MULTI-arg console), which
+        // routes through `emit_as_string` — guarded there, not here.
         let emitted = self.emit_node(function, id, true);
         if !emitted.produced {
             function.instruction(&Instruction::I64Const(0));
@@ -4675,6 +4682,144 @@ impl<'a> FunctionEmitter<'a> {
             }
             names
         })
+    }
+
+    /// Stage P5 T-new-E: whole-program set of function names whose RETURN is a
+    /// `String()` intrinsic coercion result. `repr_infer` never seeds
+    /// `Repr::String` for such a return, so `is_string_valued` on a call to one
+    /// answers `false` and the tagged string handle the function returns would
+    /// render through `int_to_string` at the caller — the measured
+    /// `x-9223354375949254655` divergence for `const s = g(1n); 'x' + s`.
+    ///
+    /// A function joins the set iff SOME `return` statement in its own body (not
+    /// descending into nested functions) returns a value that is — directly or
+    /// through the SAME `is_intrinsic_string_coercion_call` recognizer the
+    /// emitter dispatches with — a `String(...)` intrinsic coercion call.
+    /// Keyed on the emitter's own recognizer so the callee-side taint and the
+    /// String() emission agree by construction. Whole-program structural fact,
+    /// computed once per emitter.
+    fn program_string_result_functions(&self) -> &HashSet<String> {
+        self.program_string_result_functions_cache.get_or_init(|| {
+            let nodes = &self.program.nodes;
+            let mut names: HashSet<String> = HashSet::new();
+            for (index, node) in nodes.iter().enumerate() {
+                if !crate::lower::is_function_like(nodes, LirNodeId(index as u32)) {
+                    continue;
+                }
+                let Some(fn_name) = node.text.clone() else {
+                    continue;
+                };
+                // The body is the LAST child of a function-shaped node.
+                let Some(&body_id) = node.children.last() else {
+                    continue;
+                };
+                if self.function_body_returns_string_result(body_id) {
+                    names.insert(fn_name);
+                }
+            }
+            names
+        })
+    }
+
+    /// DFS of a function body collecting whether ANY `return <expr>` yields a
+    /// `String()` intrinsic coercion result. Does NOT descend into nested
+    /// function-like nodes — a nested function's returns belong to that function,
+    /// not this one. An expression-bodied arrow lowers its body directly to the
+    /// `Branch("return")` statement, so that node is inspected the same way.
+    fn function_body_returns_string_result(&self, body_id: LirNodeId) -> bool {
+        let nodes = &self.program.nodes;
+        let mut stack = vec![body_id];
+        let mut seen: HashSet<LirNodeId> = HashSet::new();
+        while let Some(id) = stack.pop() {
+            if !seen.insert(id) {
+                continue;
+            }
+            // Never cross a function boundary (except the body root itself).
+            if id != body_id && crate::lower::is_function_like(nodes, id) {
+                continue;
+            }
+            let Some(node) = nodes.get(id.0 as usize) else {
+                continue;
+            };
+            if node.kind == LirNodeKind::Branch && node.text.as_deref() == Some("return") {
+                if let Some(&expr) = node.children.first() {
+                    let expr = self.unwrap_transparent(expr);
+                    if self.node(expr).kind == LirNodeKind::Call
+                        && self.is_intrinsic_string_coercion_call(expr)
+                    {
+                        return true;
+                    }
+                }
+            }
+            for child in &node.children {
+                stack.push(*child);
+            }
+        }
+        false
+    }
+
+    /// Stage P5 T-new-E: `id` reaches a numeric-render sink (`+`, template
+    /// literal, `console.log`) carrying `String()`-result provenance but WITHOUT
+    /// a proven `Repr::String` — the F-newB-1 hazard. Render sites consult this
+    /// and fail CLOSED (E5506) rather than running the tagged string handle
+    /// through `int_to_string` and printing its raw bits.
+    ///
+    /// Positive provenance only (never keyed on the `I64` default, which is not a
+    /// proof): a value already PROVEN a string is exempt (an inline `String(...)`
+    /// call and a fold-aliased `const s = String(1n)` both resolve to a proven
+    /// handle and render correctly). Two taint sources:
+    /// - a bare identifier recorded in `string_result_locals` (a const/let/var
+    ///   binding — including the `let t = s` laundering chain — whose repr
+    ///   defaulted to `I64`), and
+    /// - a call to a `program_string_result_functions` function (covers `g(1n)`
+    ///   inline AND `const s = g(1n)` fold-aliased to the call node).
+    pub(crate) fn string_result_render_taint(&self, id: LirNodeId) -> bool {
+        // A value already proven a string renders correctly — never taint it.
+        if self.is_string_valued(id) {
+            return false;
+        }
+        let base = self.unwrap_transparent(id);
+        let resolved = self.unwrap_transparent(self.resolve_bound_node(base));
+        let node = self.node(resolved);
+        // (1) a let/var/const binding recorded as holding a String() result.
+        if node.kind == LirNodeKind::Value && node.children.is_empty() {
+            if let Some(name) = node.text.as_deref() {
+                if self.string_result_locals.contains(name) {
+                    return true;
+                }
+            }
+        }
+        // (2) a call to a String()-result-returning program function.
+        if node.kind == LirNodeKind::Call {
+            if let Some(&callee) = node.children.first() {
+                let callee = self.unwrap_transparent(callee);
+                if let Some(name) = self.node(callee).text.as_deref() {
+                    if self.program_string_result_functions().contains(name) {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    }
+
+    /// Stage P5 T-new-E: `init` (a declarator initializer or an assignment RHS)
+    /// evaluates to a `String()` intrinsic coercion RESULT — the direct call, or
+    /// a value that already carries String()-result render taint (laundering
+    /// through a prior binding / a String()-result-returning function). Recorded
+    /// into `string_result_locals` at every binding choke so the provenance
+    /// survives a binding or a second binding. Over-recording is fail-closed-safe
+    /// (it only adds a deny, never proves a wrong value), unlike the string
+    /// ORACLE, so the array-tunnelling `unwrap_transparent` C-2 trap does not
+    /// apply here.
+    pub(crate) fn init_is_string_result_value(&self, init: LirNodeId) -> bool {
+        let unwrapped = self.unwrap_transparent(init);
+        if self.node(unwrapped).kind == LirNodeKind::Call
+            && self.is_intrinsic_string_coercion_call(unwrapped)
+        {
+            return true;
+        }
+        self.string_result_render_taint(init)
     }
 
     /// Property names that some object literal in the program binds to a

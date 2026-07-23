@@ -269,6 +269,23 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
 
+        // Stage P5 T-new-E: a bare-identifier reassignment `s = String(1n)` (or
+        // `s = <tainted>`) makes `s` hold a String() coercion result whose repr
+        // stays `I64` (F-newB-1); record it so a later render fails closed
+        // instead of printing the raw handle bits. Only a bare-identifier target
+        // carries name-keyed provenance — a member/element target is handled by
+        // the aggregate-store hazards above. Recording is additive (never clears
+        // taint) and fail-closed-safe; it does not short-circuit the store, which
+        // proceeds below.
+        if op == "="
+            && self.node(left).children.is_empty()
+            && self.init_is_string_result_value(right)
+        {
+            if let Some(name) = self.node(left).text.clone() {
+                self.string_result_locals.insert(name);
+            }
+        }
+
         if op == "=" {
             if let Some(key_text) = process_env_property_key(&self.program.nodes, left) {
                 let right_node = self.node(right);

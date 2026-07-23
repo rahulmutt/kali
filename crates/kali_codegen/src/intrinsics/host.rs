@@ -484,6 +484,16 @@ impl<'a> FunctionEmitter<'a> {
         false
     }
 
+    /// Stage P5 T-new-E: the E5506 message for a `String()`-result that reaches
+    /// a numeric-render sink (`+`, template literal, `console.log`) without a
+    /// proven `Repr::String` (F-newB-1). See `string_result_render_taint`.
+    pub(crate) const STRING_RESULT_RENDER_DENY: &'static str =
+        "rendering a String() result bound to a variable (let/var/const) or returned from a \
+         function is unavailable in the current phase: kali seeds no string representation for it, \
+         so the tagged string handle would print as raw integer bits instead of the text; use the \
+         String() call inline at the render site (fail-closed; correct-output support is \
+         follow-up F-newB-1)";
+
     /// The E5506 message for [`Self::is_crypto_random_result_value`] stores.
     pub(crate) const CRYPTO_RANDOM_RESULT_STORE_DENY: &'static str =
         "storing a crypto.getRandomValues(...) result into an object field or array element is \

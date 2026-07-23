@@ -1300,3 +1300,158 @@ fn p5_r_block_redeclaration_shadow_of_codec_name_denies() {
          console.log(e.encode('x'));\n",
     );
 }
+
+// --- Stage P5 T-new-E: String()-result render provenance (F-newB-1) ----------
+// `repr_infer` seeds no `Repr::String` for a `String()` RESULT, so a result
+// bound to a let/var/const or returned from a function carries a real string
+// handle in an `I64` slot. Reaching a `+` / template-literal / console
+// numeric-render site it was run through `int_to_string` and printed as raw
+// handle bits — measured on parent ee8e2571e as
+// `x-9223354375949254655` (exit 0, SILENT) where node prints `x1`. The
+// merge-base (694607bb2) failed CLOSED because `String` was deny-set, so this
+// is a stage-introduced fail-closed -> silent-divergent REGRESSION. This task
+// restores the fail-closed invariant (E5506); correct-output support (seeding
+// `Repr::String`) is the top-queued follow-up F-newB-1.
+
+/// let-bound String() result reaching `+`. Parent: silent `x-9223…`.
+#[test]
+fn p5_string_result_let_bound_render_fails_closed() {
+    let stderr = run_e5506("let s = String(1n); console.log('x' + s);");
+    assert!(stderr.contains("F-newB-1"), "stderr: {stderr}");
+}
+
+/// var-bound String() result reaching `+`. Parent: silent `x-9223…`.
+#[test]
+fn p5_string_result_var_bound_render_fails_closed() {
+    run_e5506("var s = String(1n); console.log('x' + s);");
+}
+
+/// function-return-bound String() result reaching `+` (provenance crosses the
+/// function boundary via a String()-result-returning function). Parent: silent.
+#[test]
+fn p5_string_result_function_return_render_fails_closed() {
+    run_e5506("function g(y){ return String(y) } const s = g(1n); console.log('x' + s);");
+}
+
+/// function-return-bound String() result reaching a TEMPLATE LITERAL. Parent:
+/// silent `x-9223…` (the template ladder shares `emit_as_string`).
+#[test]
+fn p5_string_result_template_literal_render_fails_closed() {
+    run_e5506("function g(y){ return String(y) } const s = g(1n); console.log(`x${s}`);");
+}
+
+/// direct `g(1n)` inline in `+` (the return-provenance call site itself, no
+/// binding) also fails closed. Parent: silent.
+#[test]
+fn p5_string_result_direct_call_render_fails_closed() {
+    run_e5506("function g(y){ return String(y) } console.log('x' + g(1n));");
+}
+
+/// LAUNDERING through a second binding (`let t = s`) still fails closed — the
+/// provenance survives the copy. Parent: silent.
+#[test]
+fn p5_string_result_launder_through_second_binding_fails_closed() {
+    run_e5506("let s = String(1n); let t = s; console.log('x' + t);");
+}
+
+/// MULTI-argument `console.log('x', s)` routes each argument through
+/// `emit_as_string` (the wasm `int_to_string` ladder), so a tainted operand
+/// fails closed. Parent: silent raw-handle render for `s`.
+#[test]
+fn p5_string_result_multi_arg_console_fails_closed() {
+    run_e5506("let s = String(1n); console.log('x', s);");
+}
+
+/// NO-OVER-DENY, single-argument console: the single-arg lane hands the host the
+/// raw tagged handle, which the host decodes and prints as text — so
+/// `console.log(s)` for a `String()`-result binding stays CORRECT (`1`, matching
+/// node) and must NOT be tainted. This is the divergence's boundary: it is
+/// confined to the wasm `int_to_string` ladder, not the host renderer.
+#[test]
+fn p5_string_result_single_arg_console_stays_correct() {
+    assert_eq!(run_ok("let s = String(1n); console.log(s);"), "1");
+}
+
+/// bare-identifier REASSIGNMENT `s = String(1n)` records provenance too. Parent:
+/// silent `x-9223…`. Now fails closed.
+#[test]
+fn p5_string_result_reassignment_render_fails_closed() {
+    run_e5506("let s = 0n; s = String(1n); console.log('x' + s);");
+}
+
+// --- no-over-deny: the must-stay-correct shapes ------------------------------
+
+/// INLINE `String(1n)` as a `+` operand renders correctly (never tainted — a
+/// proven string handle).
+#[test]
+fn p5_string_result_inline_plus_stays_correct() {
+    assert_eq!(run_ok("console.log('x' + String(1n));"), "x1");
+}
+
+/// fold-aliased `const s = String(1n)` renders correctly (resolves to a proven
+/// string handle; exempt from the render-taint deny by the `is_string_valued`
+/// guard).
+#[test]
+fn p5_string_result_const_fold_alias_stays_correct() {
+    assert_eq!(run_ok("const s = String(1n); console.log('x' + s);"), "x1");
+}
+
+/// Acceptance-path position 1: a String() result INLINE as the `encode`
+/// argument, over genuine bigint params, must keep working (a real i64
+/// `a + b`, NOT String()-result taint).
+#[test]
+fn p5_string_result_no_over_deny_encode_arg() {
+    assert_eq!(
+        run_ok(
+            "function f(a,b){ const e=new TextEncoder(); \
+             const enc=e.encode(String(a+b)); console.log(enc.byteLength); } f(1n,2n);"
+        ),
+        "1"
+    );
+}
+
+/// Acceptance-path position 2: a String() result INLINE as a print argument
+/// over a genuine bigint param.
+#[test]
+fn p5_string_result_no_over_deny_print_arg() {
+    assert_eq!(
+        run_ok("function f(a){ console.log(String(a)); } f(42n);"),
+        "42"
+    );
+}
+
+/// Acceptance-path position 3: a String() result INLINE in a `!==`
+/// content-equality (`__streq`), the exact fixture shape.
+#[test]
+fn p5_string_result_no_over_deny_streq_compare() {
+    assert_eq!(
+        run_ok(
+            "function f(a,b){ const e=new TextEncoder(); const d=new TextDecoder(); \
+             const enc=e.encode(String(a+b)); \
+             if (d.decode(enc) !== String(a+b)) { throw new Error('x'); } \
+             console.log('ok'); } f(1n,2n);"
+        ),
+        "ok"
+    );
+}
+
+/// A genuine bigint param subtraction (`left - left`, the fixture's numeric
+/// return path) must NOT be tainted — proves the deny keys on String()-result
+/// provenance, not on the `I64` default.
+#[test]
+fn p5_string_result_no_over_deny_genuine_i64_render() {
+    assert_eq!(
+        run_ok("function f(a){ console.log('n=' + (a - a)); } f(5n);"),
+        "n=0"
+    );
+}
+
+/// `String(42n)` byte length via encode (bound result consumed by digest/length
+/// lanes) stays available.
+#[test]
+fn p5_string_result_no_over_deny_string_literal_encode_bytelength() {
+    assert_eq!(
+        run_ok("const b = new TextEncoder().encode(String(42n)); console.log(b.byteLength);"),
+        "2"
+    );
+}
