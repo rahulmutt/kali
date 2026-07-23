@@ -708,7 +708,262 @@ closed or stays pre-existing-red rather than miscompiling):
   final byte-for-byte `webBaselineSmoke` acceptance runs the whole
   fixture three ways (`kali run` + browser + flipped build tests) —
   see the acceptance bullet below.
-- **Stage P5 — `TextEncoder`/`TextDecoder`**.
+- **Stage P5 — `String()` coercion + `TextEncoder`/`TextDecoder`**:
+  **SHIPPED 2026-07-23** (`38797be9e..2448dd883` on
+  `soundness-stage-p5`; spec/plan `051f6b33f` and earlier —
+  `docs/superpowers/plans/2026-07-22-p5-textcodec-string.md`;
+  18 implementation/test commits `38797be9e..2448dd883`, list
+  confirmed against `git log --oneline 051f6b33f..HEAD`:
+  `38797be9e` `41b0156d0` (Task 1 String coercion),
+  `ebfae19d7` (Task 2 `Repr::Bytes`),
+  `c91ad51c6` `33926f5c9` (Task 3 encode→Bytes),
+  `396e7f3b0` `7a6da215a` `06b6dcc87` (Task 4 decode),
+  `8cd1f3c83` `b73a45c6d` `f5217e65a` `19c8c7274` (T-new-B
+  encode-of-`String()`), `83c4a0c0c` `590187072` (T-new-A
+  `getRandomValues` length), `95e43638d` `e14c40004` (T-new-C
+  Event `.type`), `baf431e29` (T-new-D unified shadow guard),
+  `2448dd883` (Task 5 re-pin)).
+  What shipped: `String(x)` runtime coercion via `emit_as_string`
+  (the terminal-deny-set `String` entry REMOVED), with a positive
+  argument proof (`string_coercion_arg_is_proven`) so only shapes
+  `emit_as_string` renders soundly are admitted and the
+  function-valued/aggregate holes fail closed; an inert
+  `Repr::Bytes` opaque provenance handle (Task 2, grouped with
+  Url/USP → I64 at all lowering sites, never co-grouped with
+  String/F64); `encode`→`Repr::Bytes` for bound+inline receivers
+  with `crypto.subtle.digest` migrated to admit Bytes and the
+  escape choke extended (produce-side `admit_bytes_handle_produce`
+  twin for unbound producers); net-new `decode` relabelling
+  Bytes→String with zero-arg-ctor + unshadowed-ctor guards;
+  `encode` admitting a bare `String()` result as its argument via
+  three POSITIVE `repr_infer` allowlists (`numeric_shape_fields` /
+  `numeric_returns` / `numeric_bindings`) — each load-bearing
+  against a measured wrong-value defect, because `Repr::I64` is the
+  UNRECORDED DEFAULT, never evidence; `crypto.getRandomValues`
+  result now carries its buffer length so `.length`/`.byteLength`
+  read correctly (was silent 0 → bundle built but TRAPPED); Event
+  `.type` via a compile-time marker riding `__streq` content
+  equality; and a unified `stale_provenance_shadow_lane(name)` guard
+  (`emitter.rs:651`) ORing all EIGHT name-keyed handle/marker lane
+  predicates, called from BOTH binding chokes (declarator
+  `control_flow.rs:465` + for-of/for-await `~:1774`), closing the
+  block-redeclare + for-of shadow hijack family across every lane
+  in one place.
+  Acceptance: `webBaselineSmoke`
+  (`browser_bundle_web_baseline_source`) and the crypto
+  `digestSmoke` fixture BUILD and EXECUTE byte-for-byte vs node
+  v26.5.0 — the crypto/web-baseline bundle pins assert EXECUTION
+  (`assert_browser_bundle_executes_with_result` → `digestSmoke(1n,2n)
+  == 0`), not just build, closing the build-only gap that let the
+  original `getRandomValues` silent miscompile pin green. 44 stale
+  fail-closed pins (the pre-P5 "`String()` fails closed E5506" era)
+  reconciled to node-correct behavior across 5 test files, every
+  assertion EXACT-EQUALITY so a wrong-reason pass is structurally
+  unavailable.
+  Gate: controller-independent `cargo test --workspace
+  --no-fail-fast` = **9294 passed / 0 failed** (matches implementer
+  + reviewer). 96 pins in `soundness_textcodec.rs` plus 12 Task-6
+  boundary tripwires (`p5_boundary_*` / `p5_r_*`).
+  **Per-task reviews (opus):** Task 3 APPROVED (1 Important
+  fail-open closed: inline-unbound `encode().byteLength`/`.length`);
+  Task 4 APPROVED round 3 (4 Criticals: C-1 TextDecoder ctor-arg
+  ignored — non-UTF-8 labels silently decoded as UTF-8; C-2 inline
+  ctor hijacked a user-defined `TextDecoder`; C-3 let/var-bound
+  markers silent-0; C-4 UNBOUND encode result escaped the choke);
+  T-new-B APPROVED round 4 (3 of 4 Criticals were the same
+  `Repr::I64`-as-evidence fallacy in a new position, closed by the
+  three positive allowlists; one FALSE-DRAIN caught — a `let`/`var`
+  over-deny turned 3 tests green for the WRONG reason); T-new-A
+  APPROVED round 2 (I-1 = the task's own silent-0 surviving one
+  scope inwards, into a capturing closure); T-new-C APPROVED round 2
+  (C-1 marker redeclaration lacked the guard the sibling URL lane
+  already shipped, + a for-of sibling one lowering away); T-new-D
+  APPROVED (hoisted the per-lane guards to one choke). Task 5
+  APPROVED (execution-mutation reproduced: expected 0→7 makes the
+  harness throw, proving the wasm runs and its return value is
+  observed).
+  **HEADLINE LESSONS:** (1) narrowing a recognizer is NOT a fix —
+  the rejected remainder falls through to a silent-0 fallback;
+  narrow AND explicitly deny. (2) An escape choke on BOUND handles
+  does not cover UNBOUND producers — a value class needs a
+  produce-side twin. (3) A probe that uses a bound handle MASKS the
+  unbound hole; vary the binding form in probes, not just the shape.
+  (4) `Repr::I64` is the UNRECORDED DEFAULT, not proof — a soundness
+  proof must be a POSITIVE allowlist, never "no taint recorded". (5)
+  A test turning green is not evidence of progress; check WHY it went
+  green (the false-drain). (6) A name-keyed flat side-table
+  redeclaration hazard is STRUCTURAL to every lane — hoist ONE guard
+  to the binding chokes rather than let each lane remember two
+  places (5 of 7 remembered neither).
+  Ratified conventions: any `new TextDecoder(<arg>)` — including the
+  explicit default `'utf-8'` — is E5506 (conservative over-deny);
+  `.has`-style boolean reads render 1/0 (P3/P4 precedent).
+  **USER DECISION (AskUserQuestion, 2026-07-23) — BINDING:** accept
+  the re-pin to fail-closed for the two Stage-D pins
+  `event_custom_event_with_detail_out_of_lane_*` and
+  `event_bound_event_argument_out_of_lane_*` — they asserted
+  `new CustomEvent(...)` BUILDS, but what it built was a silent
+  listener DROP; CustomEvent stays unsupported but stops lying (blast
+  radius exactly those 2 tests).
+
+  **P5 residual inventory.** Each item is marked **[DELIBERATE
+  OVER-DENY]** (fail-closed boundary, E5506, never a wrong value) or
+  **[SILENT MISCOMPILE]** (exit 0, wrong value — the dangerous
+  class). All measured on the fresh HEAD binary; pre-existing unless
+  noted.
+
+  Deliberate over-denies (pinned as Task-6 tripwires, all E5506):
+  1. P5-R7-boundaries **[DELIBERATE OVER-DENY]**: zero-arg
+     `String()`, multi-arg `String(1n, 2n)`, function-valued
+     `String(() => 1n)` / `String(namedFn)` (the Task-1 hole),
+     nested bytes handle `[b][0]` (the escape choke), any
+     `new TextDecoder(<arg>)` incl. `'utf-8'` (the T4/T-new-C ctor
+     boundary), `d.decode('hi')` / `d.decode(42n)` (non-bytes decode
+     args), and the for-of + block-redeclaration shadows of a codec
+     or bytes-handle name (the T-new-D unified guard). Never a wrong
+     value; a future accidental admit turns the pinned tripwire red.
+  2. P5-R-utf8-label **[DELIBERATE OVER-DENY]**: explicitly-`'utf-8'`
+     TextDecoder labels are denied along with non-default labels (any
+     ctor arg ⇒ E5506). Conservative by design; revisit if a fixture
+     needs the default label spelled out.
+  3. P5-R-let-array **[DELIBERATE OVER-DENY, partial]**: only `const`
+     array aliases are guarded, so `let arr=[1,2,3]; String(arr)`
+     prints `"0"` not E5506 — this ONE spelling is a silent
+     miscompile (mirrors `console.log(arr)`=0; needs a kali_types
+     let/var array-literal taint set, out of Task 1 scope). The
+     function-value hole IS fixed; deferred WITH ticket.
+
+  Silent miscompiles (exit 0, wrong value — DO NOT pin as expected):
+  4. P5-R-globalthis-string **[SILENT MISCOMPILE]** (NEW, found
+     Task 6): the member-call form `globalThis.String(1n)` prints
+     `0` (exit 0, no warning) where node prints `1`; `globalThis.
+     String(42)` and the const-bound spelling identical. Was listed
+     in the brief as a boundary expected to deny — it does NOT deny,
+     it silently folds the member call to 0 (the unresolved-member
+     /call-folds-to-0 class, ≈ register R-02/G2). DROPPED from the
+     tripwires and filed here instead.
+  5. F-newB-1 **[SILENT MISCOMPILE]** (reviewer rates TOP OF QUEUE):
+     no `repr_infer` `Repr::String` return seed for a `String()`
+     result, so a `String()` value that leaves its own choke leaks a
+     tagged handle at the `+`-concat and template sites —
+     `function g(y){return String(y)} const s=g(1n); 'x'+s` →
+     `x-9223354375949254655`, node `x1`; `String(s)` →
+     `-9223354410308993023`, node `1`. Reaches let locals +
+     reassignments; sits on the two most common stringify sites.
+     T-new-B closed only its OWN choke; NOT closable inside the
+     encode lane (denying every default-I64 identifier would deny the
+     acceptance fixture).
+  6. F-newB-2/3/4 **[SILENT MISCOMPILE]**: `String(v).byteLength`
+     → 2 (node `undefined`); `String(v)[0]` / `String(v).repeat()`
+     silent 0; `String(undefined)` → `false`, `String(null)` → `0`
+     (node `"undefined"` / `"null"`).
+  7. P5-R-modulescope-growable-push **[SILENT MISCOMPILE, HIGH —
+     FILE AS ONE TASK]**: `push` on a module-scope growable binding
+     is a silent NO-OP — element never lands, length header never
+     increments. `const g=[]; g.push(7)` at module scope → `g.length`
+     0, `g[0]` undefined, `g.join('-')` empty (node 1/7/7); ALSO
+     dropped when the push is inside a function targeting a
+     module-scope growable (`const g=[]; function add(){g.push(7)}
+     add(); g.length` → 0 — the common real shape). Fixed-size
+     module-scope arrays are fine. A silent WRITE loss is worse than
+     a read divergence: every downstream reader sees a plausible
+     empty array, `warnings:[]`, exit 0. Min close if the lane is
+     expensive: fail closed on `push` whose receiver is a
+     module-scope growable. (The earlier "module-scope growable join
+     prints an empty line" is a DOWNSTREAM SYMPTOM, not an
+     independent bug.)
+  8. P5-R-aggregate-array-provenance **[SILENT MISCOMPILE, HIGH —
+     OWN TASK]**: an array handle stored into an aggregate loses its
+     length, silently, no crypto — `const rb=new Array(4);
+     const o={buf:rb}; o.buf.length` → **1** (node 4); `holder[0]=rb;
+     holder[0].length` → **2** (node 4). The emitted values are the
+     CHILD COUNT / HOLDER LENGTH — maximally plausible wrong numbers,
+     the worst class. T-new-A did only a cheap partial close (4
+     chokes denying laundering of a deny-domain name into an
+     aggregate). ≈ register R-14.
+  9. P5-R-newA-residuals **[SILENT MISCOMPILE, Minor/Important]**:
+     I-4 — the 4 aggregate chokes are a DENYLIST and 2 routes leak:
+     `const z = fb; z.length` → 0 and `function mk(){return fb}
+     mk().length` → 1 (node 4 both), silent; same array-provenance
+     family as #8. Cheap partial for the alias route only; the return
+     route is not name-keyable. M-3 (deny-seed over-attribution) is a
+     sound over-deny; M-4 (`emit/object.rs:118` store gate) and M-5
+     (`lower.rs:1571` assigns-not-extends the seed) are correct-by-
+     inspection, unexercised — latent tripwires.
+  10. P5-R-computed-length **[SILENT MISCOMPILE]**: computed
+      `["length"]` on ANY runtime string → 0 —
+      `id('hello')["length"]` → 0, `(t+'!')["length"]` → 0,
+      `decoder.decode(b)["length"]` → 0, node 5/6/5. Static-fold
+      `const t='hello'; t["length"]` → 5 correctly. Hits Task 4's own
+      decode result. Not coercion-specific.
+  11. P5-R-bytelength-undef **[SILENT MISCOMPILE]** (NEW, Task 4
+      M-1): `.byteLength` on ANY runtime string returns a byte count
+      where JS gives `undefined` (`const a='h'; (a+'i').byteLength`
+      → 2). Pre-existing for all runtime strings, but the Task-4
+      `is_string_valued` arm newly routes decode results into it, and
+      it contradicts the `.length`-deny on decode results.
+  12. P5-R-digest-operand-shape **[SILENT MISCOMPILE, HIGHER
+      PRIORITY]** (Task 4 r3): digest-operand admittance is
+      POSITION-scoped not SHAPE-scoped — the admit flag stays set
+      across the whole operand subtree, so `digest('SHA-256', '' +
+      e.encode('a'))` and `digest('SHA-256', id2(e.encode('a')))` are
+      admitted and hash something node rejects (node needs a
+      BufferSource; `''+Uint8Array` is a string → TypeError). Fix:
+      give the digest operand the `arg_is_bytes_provenance` shape
+      proof `decode` already has.
+  13. P5-R-unbound-digest-member **[SILENT MISCOMPILE, HIGHER
+      PRIORITY]** (Task 4 r3): `crypto.subtle.digest('SHA-256',
+      new TextEncoder().encode('hi')).byteLength` → 0; bound form and
+      node both → 32. Divergent number on the digest lane P5's OWN
+      acceptance path uses. Fix = structural bail mirroring the
+      `.length`-on-decode one.
+  14. P5-R-array-elem-fold **[SILENT MISCOMPILE]** (Task 4 r3):
+      `const a=[new TextEncoder()]; a.length` → 0, node → 1. NOT
+      generic array behavior (`[new Foo()].length` → 1); a
+      `render_length` single-element string-identity fold tunnelling
+      into the element — same hazard class as the Task-3 fold bails.
+      C-3's runtime choke cannot see it.
+  15. P5-R-tostring-length **[SILENT MISCOMPILE]** (Task 4 M-4):
+      `arr.toString().length` → **1** for both `new Uint8Array(4)`
+      (node 7) and `new Array(4)` (node 3).
+  16. F-newD-1 **[SILENT MISCOMPILE]** (T-new-D review): a BLOCK
+      FUNCTION-DECLARATION shadow of a handle name bypasses BOTH
+      chokes structurally — `{ function u(){} console.log(u.pathname)
+      }` returns the outer handle's REAL `/p` (crypto: `8`), node
+      `undefined`, exit 0. A hoisted fn decl is its own FunctionPlan
+      and introduces its name through no declarator/for-of node, so
+      `stale_provenance_shadow_lane` never sees it; closing needs a
+      name-collision check at the RECORDING sites or a module-wide
+      pre-pass over `functions` — its own task. Identical on parent +
+      branch (pre-existing, neither introduced nor widened). ≈
+      register R-10, but NOT closed by the T-new-D guard.
+  17. P5-R-classmethod-zero **[SILENT MISCOMPILE]** (Task 4 fix
+      wave): `class Foo{m(x){return 'A';}} new Foo().m('x')` prints 0.
+      Surfaces now that a shadowing `class TextEncoder` correctly
+      takes the user lane. Same class as the Stage-5 "class-method
+      bodies return 0" finding; the `function` spelling of the same
+      shadow fails closed.
+  18. P5-R-destructuring-assign **[SILENT MISCOMPILE, HIGH]** (NEW,
+      T-new-B wave 3): the PARSER SILENTLY DROPS destructuring
+      assignment — `let a=0n; [a]=[1n]; console.log(a)` prints `0`,
+      node `1n`; the AST dump shows the statement decaying into two
+      unrelated ExpressionStatements, no diagnostic. A defensive taint
+      is in place for when the parser stops dropping it; today it
+      protects nothing observable and a dropped write cannot inject a
+      handle into a proven binding, so `numeric_bindings`' induction
+      is not unsound today — but it is only as complete as the AST,
+      which MUST be written into the proof's doc comment.
+
+  Scope-model tripwire (not itself a live wrong value on the new keys):
+  19. P5-R-blockscope-numeric **[DELIBERATE — latent coupling]**
+      (T-new-B r4): kali has NO BLOCK SCOPING — `let s=7n; function
+      f(){ { let s=0n; s+=1n; } return s; } f()` → 1, node → 7n (no
+      `String()` involved). Not reachable through the new proof keys
+      (it misroutes the READ before any proof is consulted), so
+      `numeric_bindings` is sound today — BUT it is keyed on a
+      function-granular scope model codegen does not implement at
+      block granularity, so **any future block-scoping fix MUST
+      revisit both sides together.** ≈ register R-10.
 - **Final byte-for-byte `webBaselineSmoke` acceptance**: once P5 lands
   AND a String-builtin lane lands (P2-P4 shipped; the observed flip
   point is the compile-time `String` E5506, not `TextEncoder`),

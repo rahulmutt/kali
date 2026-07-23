@@ -1190,3 +1190,113 @@ fn for_of_binding_without_codec_shadow_is_unaffected() {
         "2\n2\nhi\n2"
     );
 }
+
+// --- Task 6: deliberate fail-closed boundary tripwires -----------------------
+//
+// Every test below pins a shape that CORRECTLY denies with E5506 today and must
+// keep denying. A future change that accidentally opens one of these turns the
+// tripwire red. Each was RUN on a freshly built binary and confirmed to exit
+// non-zero with `E5506` in stderr before being pinned — none prints a value.
+//
+// DROPPED, recorded in the inventory instead (docs/superpowers/followups/
+// stageD-triage.md §8.6 and the silent-miscompile register): the member-call
+// form `globalThis.String(1n)` was expected to deny but instead prints `0`
+// (exit 0, no warning) where node prints `1` — a SILENT MISCOMPILE, not a
+// boundary, so pinning kali's `0` as "expected" would bake a wrong value into
+// the suite. It is filed as P5-R-globalthis-string.
+
+/// Zero-arg `String()` is not the single-argument coercion arm; denies.
+#[test]
+fn p5_boundary_string_zero_arg_denies() {
+    run_e5506("console.log(String());");
+}
+
+/// Multi-arg `String(1n, 2n)` is not the single-argument coercion arm; denies.
+#[test]
+fn p5_boundary_string_multi_arg_denies() {
+    run_e5506("console.log(String(1n, 2n));");
+}
+
+/// The function-valued argument hole Task 1 closed — arrow form.
+#[test]
+fn p5_boundary_string_of_arrow_function_denies() {
+    run_e5506("console.log(String(() => 1n));");
+}
+
+/// The function-valued argument hole Task 1 closed — named-function form.
+#[test]
+fn p5_boundary_string_of_named_function_denies() {
+    run_e5506("function foo() { return 1n; }\nconsole.log(String(foo));");
+}
+
+/// The escape choke: a bytes handle in a nested position (array literal element,
+/// read back by index) may not escape as a value.
+#[test]
+fn p5_boundary_bytes_handle_in_array_element_denies() {
+    run_e5506(
+        "const b = new TextEncoder().encode('hi');\n\
+         const a = [b];\n\
+         console.log(a[0]);\n",
+    );
+}
+
+/// The T-new-C/T4 ctor-arg boundary: ANY `new TextDecoder(<arg>)` denies — even
+/// the explicit default label `'utf-8'` (conservative over-deny by design).
+#[test]
+fn p5_boundary_text_decoder_with_ctor_arg_denies() {
+    run_e5506("const d = new TextDecoder('utf-8');\nconsole.log(1);");
+}
+
+/// `decode` on a non-bytes argument — string form.
+#[test]
+fn p5_boundary_decode_of_string_arg_denies() {
+    run_e5506("const d = new TextDecoder();\nconsole.log(d.decode('hi'));");
+}
+
+/// `decode` on a non-bytes argument — i64 form.
+#[test]
+fn p5_boundary_decode_of_i64_arg_denies() {
+    run_e5506("const d = new TextDecoder();\nconsole.log(d.decode(42n));");
+}
+
+/// T-new-D unified guard, ENCODER lane: a for-of binding shadowing a codec name
+/// denies (kali otherwise RUNS a program node rejects with a TypeError).
+#[test]
+fn p5_r_for_of_shadow_of_encoder_name_denies() {
+    run_e5506(
+        "const e = new TextEncoder();\n\
+         for (const e of ['aa']) { console.log(e.encode('x')); }\n",
+    );
+}
+
+/// T-new-D unified guard, DECODER lane: for-of shadow of a decoder name denies.
+#[test]
+fn p5_r_for_of_shadow_of_decoder_name_denies() {
+    run_e5506(
+        "const d = new TextDecoder();\n\
+         const b = new TextEncoder().encode('hi');\n\
+         for (const d of ['aa']) { console.log(d.decode(b)); }\n",
+    );
+}
+
+/// T-new-D unified guard, BYTES-HANDLE lane: for-of shadow of a bytes-handle
+/// name denies (the flat handle table is one sink away from divergence).
+#[test]
+fn p5_r_for_of_shadow_of_bytes_handle_name_denies() {
+    run_e5506(
+        "const dec = new TextDecoder();\n\
+         const b = new TextEncoder().encode('hi');\n\
+         for (const b of ['aa']) { console.log(dec.decode(b)); }\n",
+    );
+}
+
+/// T-new-D unified guard, declarator choke: a block redeclaration shadow of a
+/// codec name denies.
+#[test]
+fn p5_r_block_redeclaration_shadow_of_codec_name_denies() {
+    run_e5506(
+        "const e = new TextEncoder();\n\
+         { const e = 5; console.log(e); }\n\
+         console.log(e.encode('x'));\n",
+    );
+}
