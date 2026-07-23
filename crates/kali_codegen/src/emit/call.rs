@@ -4103,27 +4103,43 @@ impl<'a> FunctionEmitter<'a> {
                 // reaches this proof through the arithmetic arm's PARAM
                 // operands, never through an initialized binding).
                 //
-                // The `let`/`var` spelling has no fold-lane entry at all, so
-                // "require the initializer" cannot reach it — measured, it was
-                // the SAME open encode vector (`let s = g(1n)` → 20). Hence the
-                // remaining admission is restricted to a declared PARAMETER,
-                // the only binding kind whose value has no in-scope initializer
-                // to prove and the only one this lane exists for. Every other
-                // identifier (a `let`/`var` local, a captured name, a
-                // module-scope mutable) is DENIED by absence of evidence.
-                match self.bindings.get(name).copied() {
-                    Some(initializer) if initializer != raw => {
-                        if self.string_coercion_arg_is_proven_at_depth(initializer, depth + 1) {
-                            return true;
-                        }
+                // ROUND 3. `self.bindings` holds `const` FOLD-ALIASES only, so
+                // the round-2 shape above ("prove the initializer, else require
+                // a parameter") denied every `let`/`var` numeric local — `let
+                // count = 0; String(count)` failed closed where node says `0`,
+                // and the stage's own structuredClone/event fixture stopped
+                // compiling. The fix is not to relax back to reading the
+                // default `Repr::I64` (the fallacy behind all three Criticals
+                // in this task) but to add the missing POSITIVE proof:
+                // `repr_infer`'s `numeric_bindings`, the binding twin of
+                // `numeric_shape_fields` / `numeric_returns`, which admits a
+                // binding only when EVERY write to it is arithmetic over
+                // numeric literals, the binding itself and scalar-inflow-proven
+                // parameters. It covers the mutation spellings (`count += 1`,
+                // `count = count + 1n`) that a declarator-initializer lookup
+                // cannot.
+                //
+                // Three independent admissions, each POSITIVE, and every other
+                // identifier (a captured name, an unproven local, an
+                // unmodelled write target) is DENIED by absence of evidence:
+                //   * a resolvable fold-lane declarator initializer that is
+                //     itself proven,
+                //   * a declared PARAMETER (the binding kind with no in-scope
+                //     initializer, the shape the acceptance fixture's
+                //     `String(left + right)` needs),
+                //   * a `repr_infer`-proven numeric binding.
+                // The repr taints are required on top of the latter two.
+                if let Some(initializer) = self.bindings.get(name).copied() {
+                    if initializer != raw
+                        && self.string_coercion_arg_is_proven_at_depth(initializer, depth + 1)
+                    {
+                        return true;
                     }
-                    _ => {
-                        if self.name_is_declared_parameter(name)
-                            && self.binding_is_proven_string_coercion_scalar(name)
-                        {
-                            return true;
-                        }
-                    }
+                }
+                if (self.name_is_declared_parameter(name) || self.binding_is_proven_numeric(name))
+                    && self.binding_is_proven_string_coercion_scalar(name)
+                {
+                    return true;
                 }
             }
         }
@@ -4233,6 +4249,34 @@ impl<'a> FunctionEmitter<'a> {
         self.function_param_names
             .get(&self.function_name)
             .is_some_and(|params| params.iter().any(|param| param == name))
+    }
+
+    /// `name` is a binding `repr_infer` POSITIVELY proved to hold a plain
+    /// number (round 3). Resolves local-vs-module scope with the same rule as
+    /// `binding_is_proven_string_coercion_scalar` / `is_string_valued`, which
+    /// is also the rule `repr_infer`'s `binding_scope` mirrors, so the proof is
+    /// looked up under the key it was recorded under.
+    fn binding_is_proven_numeric(&self, name: &str) -> bool {
+        let func: &str = if !self.locals.contains_key(name) && self.function_name != "_start" {
+            "_start"
+        } else {
+            &self.function_name
+        };
+        if self.repr_table.binding_is_proven_numeric(func, name) {
+            return true;
+        }
+        // The `self.locals` fallback above is about codegen's own STORAGE, not
+        // lexical scope: a binding this function declares but that a nested
+        // arrow CAPTURES lives in an env cell, not in `locals`, so the fallback
+        // sends the lookup to `_start` while `repr_infer` filed the proof under
+        // this function (the scope that lexically declares it) — measured on
+        // the stage's own `Kali.test(() => { let count = 0;
+        // target.addEventListener(..., () => { count += 1 }); String(count) })`.
+        // Consulting the emitting function's own key too is not a widening: a
+        // proof is filed ONLY under a scope that lexically declares the name, so
+        // a hit here means this very binding was proven.
+        self.repr_table
+            .binding_is_proven_numeric(&self.function_name, name)
     }
 
     /// `node` is a `Math.floor`/`Math.trunc`/`Math.ceil` call — the SAME

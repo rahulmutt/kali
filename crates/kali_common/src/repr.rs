@@ -201,6 +201,17 @@ pub struct ReprTable {
     /// arithmetic expression over numeric literals and provably-scalar
     /// parameters, and whose solved axes are not string.
     numeric_returns: HashSet<String>,
+    /// `(scope, binding)` pairs whose value is POSITIVELY proven a plain number
+    /// (Stage P5 T-new-B round 3) — the binding member of the same
+    /// evidence-not-default family as [`numeric_shape_fields`](Self::numeric_shape_fields)
+    /// and [`numeric_returns`](Self::numeric_returns). `scalar(..) == I64` is
+    /// the UNRECORDED DEFAULT of every binding, including one holding a tagged
+    /// `String()` handle, so it can never be the proof that a value may be
+    /// rendered with `int_to_string`. `repr_infer` writes an entry only when
+    /// EVERY write to the binding is arithmetic over numeric literals, the
+    /// binding itself and parameters with a proven scalar inflow, and the
+    /// binding carries no array/growable/object taint.
+    numeric_bindings: HashSet<(String, String)>,
     /// Gate messages from the shape inference (contradictory or unsupported
     /// object usage). Any entry makes compilation fail with E5506.
     shape_conflicts: Vec<String>,
@@ -608,6 +619,21 @@ impl ReprTable {
     /// default `Repr::I64` cannot carry.
     pub fn return_is_proven_numeric(&self, func: &str) -> bool {
         self.numeric_returns.contains(func)
+    }
+
+    /// Record the ALLOWLIST-computed proven-numeric bindings
+    /// (see [`numeric_bindings`](Self::numeric_bindings)); called once by
+    /// `repr_infer`'s `emit_table`.
+    pub fn set_numeric_bindings(&mut self, bindings: HashSet<(String, String)>) {
+        self.numeric_bindings = bindings;
+    }
+
+    /// Whether `scope`.`binding` is POSITIVELY proven to hold a plain number.
+    /// Callers must still check the binding's repr; this only adds the evidence
+    /// the default `Repr::I64` cannot carry.
+    pub fn binding_is_proven_numeric(&self, scope: &str, binding: &str) -> bool {
+        self.numeric_bindings
+            .contains(&(scope.to_string(), binding.to_string()))
     }
 
     pub fn add_shape_conflict(&mut self, message: String) {

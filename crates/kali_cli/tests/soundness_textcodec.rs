@@ -1007,14 +1007,84 @@ fn string_call_proof_reclaims_the_positively_numeric_shapes() {
 }
 
 #[test]
-fn string_call_of_a_mutable_local_is_a_deliberate_narrowing() {
-    // The C-6 close denies EVERY non-parameter identifier that has no
-    // resolvable declarator initializer, because a `let`/`var` local carries no
-    // evidence beyond the default `Repr::I64` — which is exactly what let the
-    // handle-returning `g` case through in the `let` spelling (measured 20 /
-    // -9223354410308993023 on b73a45c6d). The cost is that a genuinely numeric
-    // mutable local also fails closed now (`let i = 0n; i++;` rendered `1`
-    // before). Fail-closed, never divergent, and pinned so the narrowing is
-    // visible rather than silently rediscovered later.
-    assert_fails_closed("let i = 0n; i++; console.log(String(i));");
+fn string_call_of_a_proven_numeric_mutable_local_renders_the_number() {
+    // ROUND 3 — this test previously pinned the OPPOSITE (that `let i = 0n;
+    // i++` fails closed) and encoded an over-deny as intended behavior. The
+    // round-2 C-6 close required a resolvable declarator initializer, but
+    // codegen's `self.bindings` holds `const` FOLD-ALIASES only, so every
+    // `let`/`var` fell through to "must be a parameter" and was denied. That
+    // was a real stage-progress regression: the structuredClone/event fixture's
+    // `let count = 0; count += 1; String(count)` stopped COMPILING.
+    //
+    // The close is now a positive proof instead of an over-deny —
+    // `repr_infer`'s `numeric_bindings` allowlist (every write arithmetic over
+    // numeric literals / the binding itself / scalar-inflow-proven params) —
+    // so the genuinely numeric mutable local renders its number and the
+    // handle-returning twin below stays fail-closed.
+    assert_eq!(run_ok("let i = 0n; i++; console.log(String(i));"), "1");
+    // node: 0 / 1 / 1. All three were E5506 on f5217e65a.
+    assert_eq!(run_ok("let count = 0; console.log(String(count));"), "0");
+    assert_eq!(
+        run_ok("let count = 0; count += 1; console.log(String(count));"),
+        "1"
+    );
+    assert_eq!(
+        run_ok("let count = 0n; count = count + 1n; console.log(String(count));"),
+        "1"
+    );
+    // `var` spelling, and the encode lane this task widened.
+    assert_eq!(run_ok("var n = 7n; n *= 6n; console.log(String(n));"), "42");
+    assert_eq!(
+        run_ok(
+            "const e = new TextEncoder(); let count = 0; count += 1; \
+             const b = e.encode(String(count)); console.log(b.byteLength);"
+        ),
+        "1"
+    );
+    // And the round-trip through the decoder, so the admitted value is proven
+    // to be the NUMBER's digits and not a raw handle rendered by coincidence.
+    assert_eq!(
+        run_ok(
+            "const e = new TextEncoder(); const d = new TextDecoder(); \
+             let count = 0; count += 41; \
+             const b = e.encode(String(count)); console.log(d.decode(b));"
+        ),
+        "41"
+    );
+}
+
+#[test]
+fn numeric_binding_proof_is_evidence_not_the_default_repr() {
+    // The round-3 admission must not become a back door to the very fallacy
+    // that caused three Criticals in this task ("`Repr::I64` is the default,
+    // therefore the value is a number"). Each of these bindings has the default
+    // I64 repr and an UNPROVABLE write, so each must still fail closed.
+    //
+    // A handle-returning callee, in all three declaration spellings (node: 1).
+    for kind in ["const", "let", "var"] {
+        assert_fails_closed(&format!(
+            "function g(y) {{ return String(y); }} {kind} s = g(1n); \
+             console.log(String(s));"
+        ));
+    }
+    // A binding that is numeric at its declarator but is LATER overwritten from
+    // the handle-returning callee: one unprovable write denies the binding
+    // (this proof is not flow-sensitive and must not pretend to be).
+    assert_fails_closed(
+        "function g(y) { return String(y); } let x = 0n; x = g(1n); console.log(String(x));",
+    );
+    // A declarator with no initializer holds `undefined` (node prints
+    // `undefined`; kali has no rendering for it).
+    assert_fails_closed("let z; console.log(String(z));");
+    // A `for..of` element and a `catch` parameter are never proven numbers.
+    assert_fails_closed("const a = [1n, 2n]; for (const v of a) { console.log(String(v)); }");
+    // Non-arithmetic compound assignment can write the RHS's own value through.
+    assert_fails_closed(
+        "function g(y) { return String(y); } let x = 0n; x ||= g(1n); console.log(String(x));",
+    );
+    // Encode lane: same denials at the widened argument gate.
+    assert_fails_closed(
+        "const e = new TextEncoder(); function g(y) { return String(y); } let s = g(1n); \
+         const b = e.encode(String(s)); console.log(b.byteLength);",
+    );
 }

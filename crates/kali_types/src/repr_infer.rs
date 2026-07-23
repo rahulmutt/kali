@@ -183,6 +183,51 @@ struct ReprInfer {
     /// absence. Consumed by `emit_table`, which additionally requires the
     /// solved axes and the parameters' own scalar-inflow proof.
     numeric_return_candidates: BTreeMap<String, bool>,
+    /// Stage P5 T-new-B round-3: `(scope, binding)` pairs with at least one
+    /// write whose value is POSITIVELY proven a plain number — the binding twin
+    /// of `numeric_return_candidates`, and the third member of the
+    /// evidence-not-default family alongside `numeric_shape_fields` /
+    /// `numeric_returns`. A binding's `Repr::I64` is the UNRECORDED DEFAULT, so
+    /// it can never itself be the proof that `String(x)` may render `x` with
+    /// `int_to_string`; membership here is that proof.
+    ///
+    /// A "proven write" is an initializer / assignment RHS that is arithmetic
+    /// over numeric literals, the function's own parameters, and the target
+    /// binding itself (`count = count + 1`). Compound arithmetic assignment
+    /// (`count += 1`) is proven from its RHS, since the implied `count op rhs`
+    /// is exactly the self-reference form.
+    numeric_binding_candidates: BTreeSet<(String, String)>,
+    /// The default-deny half of `numeric_binding_candidates`: any write this
+    /// pass CANNOT prove numeric — an unproven initializer (`const s = g(1n)`,
+    /// the C-6 leak), a declarator with NO initializer (`let x;` is
+    /// `undefined`), a non-arithmetic compound (`&&=`, `??=`), a `for..in` key
+    /// (an interned STRING handle) or `for..of` loop variable, a `catch`
+    /// parameter. Subtracted from the candidates at `emit_table` time, so one
+    /// unproven write anywhere in the program denies the binding outright —
+    /// bindings are keyed by scope, not by program point, and this proof makes
+    /// no flow-sensitivity claim.
+    numeric_binding_taints: BTreeSet<(String, String)>,
+    /// `(scope, binding, func, param)`: a proven write for `scope::binding`
+    /// used `func`'s parameter `param` as an arithmetic operand. A parameter's
+    /// own `Repr::I64` is the same unrecorded default, so `emit_table` finalizes
+    /// the binding only once every parameter it depends on carries a real
+    /// call-site scalar-inflow proof (identical treatment to
+    /// `numeric_returns`). Recorded per-dependency rather than "all params of
+    /// the owning function" so a binding that never mentions a parameter
+    /// (`let count = 0`) is not denied by an unrelated unproven parameter.
+    numeric_binding_param_deps: BTreeSet<(String, String, String, String)>,
+    /// Scope-blind taint for an unprovable write whose TARGET is not declared
+    /// in the writing function — a nested function / arrow assigning to a
+    /// captured or module-scope name. `binding_scope` resolves such a write to
+    /// module scope only when module scope declares the name; a name captured
+    /// from an intermediate scope (`Kali.test(() => { let count = 0;
+    /// target.addEventListener('tick', () => { count = <unproven> }) })`)
+    /// resolves to NEITHER the declaring scope nor module scope, so a
+    /// scope-keyed taint would be filed under a key the consumer never reads —
+    /// a fail-OPEN. Names here deny the binding in EVERY scope. Deliberately
+    /// blunt: over-denying an unrelated same-named binding is fail-closed,
+    /// which is the direction this whole proof errs in.
+    numeric_binding_name_taints: BTreeSet<String>,
     /// Names locally bound within a given scope: a function's own parameters
     /// plus every `let`/`const`/`var` declarator reachable from its body
     /// without descending into a nested function (module scope uses the
@@ -807,6 +852,131 @@ impl ReprInfer {
             }
             _ => false,
         }
+    }
+
+    /// Scope a binding name resolves to, mirroring `visit_expr`'s `Identifier`
+    /// arm (and `kali_codegen`'s `self.locals` fallback): a name a non-top-level
+    /// function does not declare itself, but module scope does, reads the
+    /// module entry.
+    fn binding_scope(&self, func: &str, name: &str) -> String {
+        if func != TOP_LEVEL
+            && !self.is_locally_declared(func, name)
+            && self.is_locally_declared(TOP_LEVEL, name)
+        {
+            TOP_LEVEL.to_string()
+        } else {
+            func.to_string()
+        }
+    }
+
+    /// Value half of the positive numeric-BINDING proof (round 3): `expr`, as
+    /// the value written into `scope::target` inside `func`, is arithmetic over
+    /// numeric literals, `func`'s own parameters (collected into `params` so
+    /// `emit_table` can require their scalar-inflow proof), and — when
+    /// `allow_self` — `target` itself, which is what makes `count = count + 1`
+    /// and (via its implied RHS) `count += 1` provable by induction over the
+    /// binding's other writes.
+    ///
+    /// Self-reference is refused in DECLARATOR position (`allow_self == false`):
+    /// `let x = x` reads an outer binding (or the TDZ), not this one.
+    ///
+    /// Everything else is denied, notably a CALL (`let s = g(1n)`, where `g`
+    /// returns a tagged `String()` handle — the exact C-6 leak), a member read,
+    /// a template/string literal, and `/`/`**`.
+    fn write_value_is_numeric(
+        &self,
+        func: &str,
+        target: &str,
+        expr: &Expression,
+        allow_self: bool,
+        params: &mut Vec<String>,
+    ) -> bool {
+        match strip_parenthesized(expr) {
+            Expression::Literal(LiteralValue::Number(_)) | Expression::BigIntLiteral(_) => true,
+            Expression::Identifier(name) => {
+                if allow_self && name == target {
+                    return true;
+                }
+                if self
+                    .functions
+                    .get(func)
+                    .is_some_and(|declared| declared.iter().any(|param| param == name))
+                {
+                    params.push(name.clone());
+                    return true;
+                }
+                false
+            }
+            Expression::UnaryExpression(unary)
+                if matches!(unary.operator.as_str(), "-" | "+" | "~") =>
+            {
+                self.write_value_is_numeric(func, target, &unary.argument, allow_self, params)
+            }
+            Expression::BinaryExpression(binary)
+                if matches!(
+                    binary.operator.as_str(),
+                    "+" | "-" | "*" | "%" | "&" | "|" | "^" | "<<" | ">>" | ">>>"
+                ) =>
+            {
+                self.write_value_is_numeric(func, target, &binary.left, allow_self, params)
+                    && self.write_value_is_numeric(func, target, &binary.right, allow_self, params)
+            }
+            _ => false,
+        }
+    }
+
+    /// Record one WRITE to `name` in `func` against the numeric-binding proof.
+    /// `value == None` is an unprovable write by definition (a declarator with
+    /// no initializer, a `for..in`/`for..of` loop variable, a `catch`
+    /// parameter, a non-arithmetic compound assignment).
+    fn record_numeric_binding_write(
+        &mut self,
+        func: &str,
+        name: &str,
+        value: Option<&Expression>,
+        allow_self: bool,
+    ) {
+        let scope = self.binding_scope(func, name);
+        let mut params = Vec::new();
+        let proven = value.is_some_and(|expr| {
+            self.write_value_is_numeric(func, name, expr, allow_self, &mut params)
+        });
+        if !proven {
+            // Taint under BOTH keys: `binding_scope` and codegen's own
+            // local-vs-module fallback agree for every declared name, but an
+            // UNDECLARED write target resolves to `func` here and could resolve
+            // elsewhere — a taint must never be filed under a key the consumer
+            // will not look at.
+            self.numeric_binding_taints
+                .insert((scope, name.to_string()));
+            self.numeric_binding_taints
+                .insert((func.to_string(), name.to_string()));
+            if !self.is_locally_declared(func, name) {
+                // The write crosses a scope boundary and `binding_scope` cannot
+                // name the declaring scope — see `numeric_binding_name_taints`.
+                self.numeric_binding_name_taints.insert(name.to_string());
+            }
+            return;
+        }
+        if !self.is_locally_declared(&scope, name) {
+            // A PROVEN write whose target the resolved scope does not declare
+            // is evidence about a binding this pass cannot name. Filing it as a
+            // candidate under a guessed key could admit a binding whose OTHER
+            // writes were accounted under a different key — so it proves
+            // nothing. (It still cannot hide a taint: the unprovable case above
+            // returns before this point and taints scope-blind.)
+            return;
+        }
+        for param in params {
+            self.numeric_binding_param_deps.insert((
+                scope.clone(),
+                name.to_string(),
+                func.to_string(),
+                param,
+            ));
+        }
+        self.numeric_binding_candidates
+            .insert((scope, name.to_string()));
     }
 
     fn obj_field_node_for(&mut self, slot: &ObjSlot, field: &str) -> usize {
@@ -1697,6 +1867,10 @@ impl ReprInfer {
                     // P3 Task 2 shadow guard: every declarator name, even one
                     // with no initializer (`let AbortController;`), can shadow.
                     self.note_abort_shadow_name(&d.id);
+                    // Round 3: every declarator is a WRITE against the numeric
+                    // binding proof — including one with no initializer, whose
+                    // value is `undefined` and which therefore taints.
+                    self.record_numeric_binding_write(func, &d.id, d.init.as_ref(), false);
                     if let Some(init) = &d.init {
                         self.visit_declarator_init(func, &decl.kind, &d.id, init);
                     }
@@ -1769,6 +1943,14 @@ impl ReprInfer {
                             for d in &decl.declarations {
                                 // P3 Task 2 shadow guard (see note above).
                                 self.note_abort_shadow_name(&d.id);
+                                // Round 3, same write accounting as a plain
+                                // declaration statement (see above).
+                                self.record_numeric_binding_write(
+                                    func,
+                                    &d.id,
+                                    d.init.as_ref(),
+                                    false,
+                                );
                                 if let Some(i) = &d.init {
                                     self.visit_declarator_init(func, &decl.kind, &d.id, i);
                                 }
@@ -1816,6 +1998,11 @@ impl ReprInfer {
                     for d in &decl.declarations {
                         // P3 Task 2 shadow guard (see note above).
                         self.note_abort_shadow_name(&d.id);
+                        // Round 3: a `for..in` key is an ORDINAL that a string
+                        // USE materializes into an interned STRING handle — the
+                        // single most dangerous "looks like a plain I64" value
+                        // in the compiler. Taint it unconditionally.
+                        self.record_numeric_binding_write(func, &d.id, None, false);
                         let _ = self.scalar_node_for(func, &d.id);
                     }
                 }
@@ -1833,6 +2020,11 @@ impl ReprInfer {
                     ForInLefthand::Expression(Expression::Identifier(name)) => Some(name.clone()),
                     _ => None,
                 };
+                // Round 3: cover the bare-identifier `for (c in obj)` spelling
+                // too (the declaration spelling is tainted above).
+                if let ForInLefthand::Expression(Expression::Identifier(name)) = &stmt.left {
+                    self.record_numeric_binding_write(func, name, None, false);
+                }
                 if let (Some(key), Some(base)) = (key_name, &base_slot) {
                     let _ = self.scalar_node_for(func, &key);
                     // Grow-only record for the persistent string-sink provenance
@@ -1865,7 +2057,16 @@ impl ReprInfer {
                 if let kali_ast::ForOfLefthand::VariableDeclaration(decl) = &stmt.left {
                     for d in &decl.declarations {
                         self.note_abort_shadow_name(&d.id);
+                        // Round 3: a `for..of` element can be a string handle,
+                        // an object pointer or a growable element — never a
+                        // proven plain number. Taint.
+                        self.record_numeric_binding_write(func, &d.id, None, false);
                     }
+                }
+                if let kali_ast::ForOfLefthand::Expression(Expression::Identifier(name)) =
+                    &stmt.left
+                {
+                    self.record_numeric_binding_write(func, name, None, false);
                 }
                 let string_items = for_of_string_items(&stmt.right);
                 if !matches!(string_items, ForOfStringItems::No) {
@@ -1931,6 +2132,9 @@ impl ReprInfer {
                 if let Some(handler) = &stmt.handler {
                     // P3 Task 2 shadow guard (see note above).
                     self.note_abort_shadow_name(&handler.param);
+                    // Round 3: a caught value is whatever was thrown — never a
+                    // proven plain number. Taint.
+                    self.record_numeric_binding_write(func, &handler.param, None, false);
                     self.visit_block(func, &handler.body);
                 }
                 if let Some(finalizer) = &stmt.finalizer {
@@ -2594,6 +2798,52 @@ impl ReprInfer {
     }
 
     fn visit_assignment(&mut self, func: &str, assign: &kali_ast::AssignmentExpression) -> usize {
+        // Round 3, numeric-binding write accounting. FIRST thing in the
+        // function, ahead of every early `return` below, so no assignment shape
+        // can escape the accounting (the object-literal-RHS arm returns early).
+        if let Expression::Identifier(name) = &assign.left {
+            match assign.operator {
+                // `x = <value>` — the value itself must be proven.
+                AssignmentOperator::Assign => {
+                    self.record_numeric_binding_write(func, name, Some(&assign.right), true)
+                }
+                // `x += v` etc. compute `x <op> v`; with `x` admissible as a
+                // self-reference, proving `v` proves the whole write.
+                AssignmentOperator::AddAssign
+                | AssignmentOperator::SubtractAssign
+                | AssignmentOperator::MultiplyAssign
+                | AssignmentOperator::ModuloAssign => {
+                    self.record_numeric_binding_write(func, name, Some(&assign.right), true)
+                }
+                // `/=` and `**=` lower on lanes this proof does not model, and
+                // `&&=`/`||=`/`??=` can write the RHS's own (possibly tagged)
+                // value through unchanged. Deny.
+                AssignmentOperator::DivideAssign
+                | AssignmentOperator::ExponentAssign
+                | AssignmentOperator::NullishAssign
+                | AssignmentOperator::AndAssign
+                | AssignmentOperator::OrAssign => {
+                    self.record_numeric_binding_write(func, name, None, true)
+                }
+            }
+        }
+        // DESTRUCTURING assignment (`[a, b] = ...`, `({a} = ...)`). kali's
+        // runtime currently makes this a silent NO-OP (measured: `let a = 0n;
+        // [a] = [1n]; console.log(a)` prints `0` where node prints `1n`, on
+        // this build AND on the parent — a pre-existing miscompile outside this
+        // task), so today no value actually reaches the target. That is exactly
+        // why it must be tainted rather than ignored: the moment the write is
+        // implemented, a silently-unaccounted write would make the numeric
+        // proof claim evidence it never had. Scope-blind, since a destructuring
+        // target may name anything.
+        if matches!(
+            assign.left,
+            Expression::ArrayExpression(_) | Expression::ObjectExpression(_)
+        ) {
+            for name in destructuring_target_names(&assign.left) {
+                self.numeric_binding_name_taints.insert(name);
+            }
+        }
         // Whole-object (re)assignment through a plain identifier target.
         if let Expression::Identifier(name) = &assign.left {
             if matches!(assign.operator, AssignmentOperator::Assign) {
@@ -4478,6 +4728,50 @@ impl ReprInfer {
             }
         }
 
+        // Round 3, finalize the POSITIVE numeric-BINDING allowlist. Candidates
+        // minus taints (one unprovable write anywhere denies the binding), then
+        // the conditions that need the finished table:
+        //   * the binding's own solved repr is a plain scalar. A String-solved
+        //     binding is `Repr::String` here, so this also excludes it — and it
+        //     needs no coercion proof anyway (codegen's `is_string_valued`
+        //     proves it one level up),
+        //   * none of the aggregate taints that SHARE the default I64 repr (a
+        //     plain array, a growable array, an array-argument param, an
+        //     object-literal-initialized binding),
+        //   * every PARAMETER the proof leaned on carries a real call-site
+        //     scalar-inflow proof — a parameter's own default `Repr::I64` is
+        //     not evidence, exactly as for `numeric_returns`.
+        let numeric_bindings: std::collections::HashSet<(String, String)> = self
+            .numeric_binding_candidates
+            .difference(&self.numeric_binding_taints)
+            .filter(|(scope, name)| {
+                if self.numeric_binding_name_taints.contains(name.as_str()) {
+                    return false;
+                }
+                if !matches!(table.scalar(scope, name), Repr::I64 | Repr::F64) {
+                    return false;
+                }
+                if table.is_array_binding(scope, name)
+                    || table.is_growable_array_binding(scope, name)
+                    || table.is_non_scalar_param(scope, name)
+                    || table.object_initialized_binding(scope, name)
+                {
+                    return false;
+                }
+                self.numeric_binding_param_deps
+                    .iter()
+                    .filter(|(dep_scope, dep_name, _, _)| dep_scope == scope && dep_name == name)
+                    .all(|(_, _, owner, param)| {
+                        !table.param_lacks_scalar_inflow(owner, param)
+                            && !table.is_non_scalar_param(owner, param)
+                            && !table.object_initialized_binding(owner, param)
+                            && matches!(table.scalar(owner, param), Repr::I64 | Repr::F64)
+                    })
+            })
+            .cloned()
+            .collect();
+        table.set_numeric_bindings(numeric_bindings);
+
         // Growable-array promotion (throw-fallout Stage 4) — the repr half
         // of the gate, over the Phase A3 syntactic candidates. A candidate
         // promotes iff its element axis and EVERY pushed value solve either
@@ -4798,6 +5092,40 @@ fn is_float_literal(n: f64) -> bool {
 /// True when `expr` is the `Math` object (`Math` identifier).
 fn is_math_object(expr: &Expression) -> bool {
     matches!(expr, Expression::Identifier(name) if name == "Math")
+}
+
+/// Every bare identifier a DESTRUCTURING assignment pattern could write
+/// (`[a, b]`, `{x: a}`, nested). Over-collects on purpose — it only ever feeds
+/// a scope-blind TAINT, so a spurious name is fail-closed.
+fn destructuring_target_names(pattern: &Expression) -> Vec<String> {
+    let mut names = Vec::new();
+    collect_destructuring_target_names(pattern, &mut names);
+    names
+}
+
+fn collect_destructuring_target_names(pattern: &Expression, names: &mut Vec<String>) {
+    match strip_parenthesized(pattern) {
+        Expression::Identifier(name) => names.push(name.clone()),
+        Expression::ArrayExpression(array) => {
+            for element in array.elements.iter().flatten() {
+                match element {
+                    kali_ast::ExpressionOrSpread::Expression(expr) => {
+                        collect_destructuring_target_names(expr, names)
+                    }
+                    kali_ast::ExpressionOrSpread::Spread(spread) => {
+                        collect_destructuring_target_names(&spread.argument, names)
+                    }
+                    kali_ast::ExpressionOrSpread::Empty => {}
+                }
+            }
+        }
+        Expression::ObjectExpression(object) => {
+            for property in &object.properties {
+                collect_destructuring_target_names(&property.value, names);
+            }
+        }
+        _ => {}
+    }
 }
 
 /// Strip `ParenthesizedExpression` wrappers (Task 6 enumeration recognizer).
