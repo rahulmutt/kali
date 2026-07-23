@@ -350,6 +350,27 @@ impl<'a> FunctionEmitter<'a> {
                 .is_some_and(|name| self.is_text_encoder_marker(name))
     }
 
+    /// Stage P5 review fix: recognize a member-access BASE node that is itself
+    /// an inline, UNBOUND `new TextEncoder().encode(<string>)` call — e.g. the
+    /// `new TextEncoder().encode('hi')` in
+    /// `new TextEncoder().encode('hi').byteLength`. The bound path
+    /// (`const b = e.encode(x); b.byteLength`) is keyed on `bytes_locals` via
+    /// `assignment_target_name`, which only resolves a bare identifier; a
+    /// `Call` base has no name and so is invisible to that lane. This mirrors
+    /// `is_text_encoder_encode` one level up: `base_id` must itself be a
+    /// `Call` node whose OWN callee is recognized by `is_text_encoder_encode`.
+    pub(crate) fn is_inline_text_encoder_encode_call(&self, base_id: LirNodeId) -> bool {
+        let base_node = self.node(base_id);
+        if base_node.kind != LirNodeKind::Call {
+            return false;
+        }
+        let Some(&callee_id) = base_node.children.first() else {
+            return false;
+        };
+        let callee_node = self.node(callee_id).clone();
+        self.is_text_encoder_encode(&callee_node)
+    }
+
     pub(crate) fn render_console_call(&self, node: &LirNode) -> Option<String> {
         let args = node.children.iter().skip(1).copied().collect::<Vec<_>>();
         self.render_console_arguments(&args)
@@ -819,6 +840,17 @@ impl<'a> FunctionEmitter<'a> {
             // (control_flow.rs's string-length arm) instead of falling through
             // to the identifier branch below, which would bake in a wrong
             // static `0`.
+            return None;
+        }
+
+        // Stage P5 review fix: the INLINE-UNBOUND twin of the `is_bytes_handle`
+        // bail below. `new TextEncoder().encode('hi').length` has a `Call` base,
+        // so it is invisible to the name-keyed bail; without this gate it fell
+        // through to the `children.len()` fallbacks and rendered the node's
+        // CHILD COUNT as the length (`2` for `encode('hi')` — coincidentally
+        // right for ASCII, divergent for any multi-byte string). Bail so the
+        // runtime `.length` member arm fails it closed.
+        if self.is_inline_text_encoder_encode_call(*id) {
             return None;
         }
 

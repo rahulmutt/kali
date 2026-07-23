@@ -2066,6 +2066,23 @@ impl<'a> FunctionEmitter<'a> {
                             );
                         }
                     }
+                    // Stage P5 review fix: the INLINE-UNBOUND twin of the deny
+                    // above — `new TextEncoder().encode('hi').length` with no
+                    // intervening `const`. The base has no name
+                    // (`assignment_target_name` returns `None` for a `Call`
+                    // node), so absent this gate the read falls through to the
+                    // generic lanes below and yields a silent, wrong value
+                    // instead of E5506. Recognized structurally on the base
+                    // node itself via `is_inline_text_encoder_encode_call`
+                    // (mirrors `is_text_encoder_encode`, one level up) — no new
+                    // inference, same recognizer already used to admit the call.
+                    if self.is_inline_text_encoder_encode_call(base_id) {
+                        return self.deny_e5506(
+                            function,
+                            "`.length` on a TextEncoder().encode(...) byte buffer is not \
+                             supported in the current phase; use `.byteLength` (fail-closed)",
+                        );
+                    }
                     // Stage-review I-6: `.length` on a `q.get(k)` /
                     // `q.toString()` result fails closed. The result is a
                     // runtime string handle (or the 0 null-sentinel) with no
@@ -2223,6 +2240,26 @@ impl<'a> FunctionEmitter<'a> {
                                 shape: ValueShape::Scalar,
                             };
                         }
+                    }
+                    // Stage P5 review fix: unlike `.length` above, `.byteLength`
+                    // on a BOUND byte handle is an ALLOWLISTED admit (reads the
+                    // low-32 byte count across the choke). But an
+                    // INLINE-UNBOUND receiver — `new TextEncoder().encode('hi')
+                    // .byteLength` — has no name for `assignment_target_name`
+                    // to key on, so it fell through every lane above (including
+                    // the admit arm) to the generic fallback and yielded a
+                    // silent value instead of E5506. Kali does not admit this
+                    // shape this phase (no receiver-name to gate an env-cell
+                    // read/write against), so deny fail-closed rather than
+                    // silently reinterpret. Recognized structurally on the base
+                    // node itself, same recognizer as the `.length` gate above.
+                    if self.is_inline_text_encoder_encode_call(base_id) {
+                        return self.deny_e5506(
+                            function,
+                            "`.byteLength` on an inline, unbound TextEncoder().encode(...) byte \
+                             buffer is not supported in the current phase; bind it first \
+                             (`const b = ...encode(...); b.byteLength`) (fail-closed)",
+                        );
                     }
                 }
 

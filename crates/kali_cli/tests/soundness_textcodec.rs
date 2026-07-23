@@ -139,3 +139,13 @@ fn encode_result_cannot_length() {
 fn encode_non_string_arg_fails_closed() {
     run_e5506("const b = new TextEncoder().encode(42n); console.log('x');");
 }
+
+#[test]
+fn encode_inline_unbound_bytelength_fails_closed() {
+    run_e5506("console.log(new TextEncoder().encode('hi').byteLength);");
+}
+
+#[test]
+fn encode_inline_unbound_length_fails_closed() {
+    run_e5506("console.log(new TextEncoder().encode('hi').length);");
+}
