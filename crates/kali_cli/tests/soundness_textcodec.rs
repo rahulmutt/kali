@@ -294,3 +294,76 @@ fn decode_bound_result_prints_and_compares() {
 fn decode_marker_cannot_escape_by_return() {
     run_e5506("function f() { const d = new TextDecoder(); return d; } console.log(f());");
 }
+
+// --- Stage P5 Task 4 review fixes ---------------------------------------------
+//
+// C-1: `TextDecoder` constructor arguments are SEMANTIC (encoding label,
+// `{fatal}` options) and only the default utf-8 / non-fatal decoder is
+// implemented. Before the fix the ctor filter matched on callee TEXT only, so
+// `new TextDecoder('latin1').decode(b)` silently decoded as UTF-8 (kali printed
+// `héllo` where node prints `hÃ©llo`).
+
+#[test]
+fn decode_bound_ctor_label_arg_fails_closed() {
+    run_e5506(
+        "const e = new TextEncoder(); const b = e.encode('héllo'); \
+         const d = new TextDecoder('latin1'); console.log(d.decode(b));",
+    );
+}
+
+#[test]
+fn decode_bound_ctor_options_arg_fails_closed() {
+    run_e5506(
+        "const e = new TextEncoder(); const b = e.encode('hi'); \
+         const d = new TextDecoder({ fatal: true }); console.log(d.decode(b));",
+    );
+}
+
+#[test]
+fn decode_inline_ctor_label_arg_fails_closed() {
+    run_e5506("console.log(new TextDecoder('utf-16le').decode(new TextEncoder().encode('hi')));");
+}
+
+#[test]
+fn decode_ctor_label_arg_fails_closed_even_unused() {
+    // The construction itself is unsupported, so it is denied at the declarator
+    // rather than left on the undefined-callee lane (which pushes a silent 0).
+    run_e5506("const d = new TextDecoder('utf-8'); console.log('unused');");
+}
+
+// C-2: the INLINE recognizers had no shadow guard, so a user-defined
+// `TextEncoder`/`TextDecoder` was hijacked into the intrinsic (kali printed the
+// intrinsic result where node runs the user function).
+
+#[test]
+fn inline_decode_does_not_hijack_user_text_decoder() {
+    run_e5506(
+        "function TextDecoder() { return { decode: function (x) { return 'USER'; } }; } \
+         const e = new TextEncoder(); const b = e.encode('hi'); \
+         console.log(new TextDecoder().decode(b));",
+    );
+}
+
+#[test]
+fn inline_encode_does_not_hijack_user_text_encoder() {
+    run_e5506(
+        "function TextEncoder() { return { encode: function (x) { return 'USER'; } }; } \
+         console.log(new TextEncoder().encode('hi'));",
+    );
+}
+
+/// The legitimate zero-argument forms must keep working after the C-1/C-2 gates.
+#[test]
+fn zero_arg_decoder_forms_still_roundtrip() {
+    assert_eq!(
+        run_ok(
+            "const e = new TextEncoder(); const d = new TextDecoder(); \
+             console.log(d.decode(e.encode('héllo')));"
+        ),
+        "héllo"
+    );
+    assert_eq!(
+        run_ok("console.log(new TextDecoder().decode(new TextEncoder().encode('hi')));"),
+        "hi"
+    );
+}

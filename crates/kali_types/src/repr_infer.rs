@@ -4852,11 +4852,21 @@ fn text_encoder_encode_new(expr: &Expression) -> Option<&kali_ast::CallExpressio
 /// chain — i.e. a `NewExpression` whose callee is the `TextEncoder` identifier
 /// directly (not the `new TextEncoder().encode(...)` chain, whose callee is the
 /// `.encode` CallExpression — see `text_encoder_encode_new`).
+///
+/// Stage P5 review fix (M-2): this used to match only a bare `Identifier`
+/// callee, which the parser NEVER produces — `new TextEncoder()` parses as
+/// `NewExpression { callee: CallExpression { callee: Identifier("TextEncoder"),
+/// args: [] } }` — so `text_encoder_bindings` was never populated and Task 3's
+/// bound-form `Repr::Bytes` seed was inert. Use `constructor_name`, which
+/// encodes exactly that dual shape (and still refuses the member-chained
+/// `new TextEncoder().encode(x)`, whose inner callee is a `MemberExpression`),
+/// matching the live decoder twin. Constructor ARGUMENTS are deliberately
+/// tolerated here: JS ignores `TextEncoder`'s, unlike `TextDecoder`'s.
 fn is_bare_new_text_encoder(expr: &Expression) -> bool {
     matches!(
         expr,
         Expression::NewExpression(new_expr)
-            if matches!(&new_expr.callee, Expression::Identifier(name) if name == "TextEncoder")
+            if constructor_name(&new_expr.callee).as_deref() == Some("TextEncoder")
     )
 }
 
@@ -4864,13 +4874,20 @@ fn is_bare_new_text_encoder(expr: &Expression) -> bool {
 /// twin of `is_text_encoder_ctor` (both the `NewExpression` spelling and the
 /// bare `TextDecoder()` call the parser leaves as the `.decode` object when it
 /// hoists the `new`).
+///
+/// Stage P5 review fix (C-1): only the ZERO-ARGUMENT construction is the
+/// intrinsic default `utf-8`, non-fatal decoder. `new TextDecoder('latin1')`
+/// carries a semantic encoding label this lane does not implement, so it must
+/// not be recognized here — codegen fails it closed.
 fn is_text_decoder_ctor(expr: &Expression) -> bool {
     match expr {
         Expression::NewExpression(new_expr) => {
-            matches!(&new_expr.callee, Expression::Identifier(name) if name == "TextDecoder")
+            new_expr.args.is_empty()
+                && matches!(&new_expr.callee, Expression::Identifier(name) if name == "TextDecoder")
         }
         Expression::CallExpression(call) => {
-            matches!(&call.callee, Expression::Identifier(name) if name == "TextDecoder")
+            call.args.is_empty()
+                && matches!(&call.callee, Expression::Identifier(name) if name == "TextDecoder")
         }
         _ => false,
     }
@@ -4910,12 +4927,28 @@ fn text_decoder_decode_new(expr: &Expression) -> Option<&kali_ast::CallExpressio
 /// `Identifier` callee), and it correctly REFUSES the member-chained
 /// `new TextDecoder().decode(b)` (whose inner callee is a `MemberExpression`), so it
 /// keeps the marker and the inline-decode shapes disjoint.
+/// Stage P5 review fix (C-1): zero-argument only — see `is_text_decoder_ctor`.
 fn is_bare_new_text_decoder(expr: &Expression) -> bool {
     matches!(
         expr,
         Expression::NewExpression(new_expr)
-            if constructor_name(&new_expr.callee).as_deref() == Some("TextDecoder")
+            if new_expr.args.is_empty()
+                && zero_arg_constructor_name(&new_expr.callee).as_deref() == Some("TextDecoder")
     )
+}
+
+/// `constructor_name`, but refusing the folded `Ctor(args...)` callee shape when
+/// it carries arguments — used by the TextEncoder/TextDecoder marker predicates,
+/// where the argument list is (for the decoder) semantic.
+fn zero_arg_constructor_name(callee: &Expression) -> Option<String> {
+    match callee {
+        Expression::Identifier(name) => Some(name.clone()),
+        Expression::CallExpression(call) if call.args.is_empty() => match &call.callee {
+            Expression::Identifier(name) => Some(name.clone()),
+            _ => None,
+        },
+        _ => None,
+    }
 }
 
 fn is_console_object(expr: &Expression) -> bool {

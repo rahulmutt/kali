@@ -336,7 +336,16 @@ impl<'a> FunctionEmitter<'a> {
         // `Call` node whose own callee text is `TextEncoder`).
         if object_node.kind == LirNodeKind::Call {
             if let Some(&ctor) = object_node.children.first() {
-                if self.node(ctor).text.as_deref() == Some("TextEncoder") {
+                // Stage P5 review fix (C-2 twin): the INLINE spelling must honor
+                // the same shadow guard the bound declarator lane already
+                // applies — a user-defined `function`/`class`/`const TextEncoder`
+                // must keep its own lane instead of being hijacked into the
+                // intrinsic. (No ctor-arity check here: JS ignores `TextEncoder`
+                // constructor arguments, so `new TextEncoder(x).encode(...)` is
+                // genuinely the intrinsic.)
+                if self.node(ctor).text.as_deref() == Some("TextEncoder")
+                    && self.url_ctor_unshadowed("TextEncoder")
+                {
                     return true;
                 }
             }
@@ -367,7 +376,20 @@ impl<'a> FunctionEmitter<'a> {
         // inline `new TextDecoder().decode(...)`
         if object_node.kind == LirNodeKind::Call {
             if let Some(&ctor) = object_node.children.first() {
-                if self.node(ctor).text.as_deref() == Some("TextDecoder") {
+                // Stage P5 review fixes:
+                // C-1 — the decoder's constructor arguments are SEMANTIC (the
+                //   encoding label / `{fatal}` options), and this lane implements
+                //   ONLY the default `utf-8`, non-fatal decoder. A ctor call node
+                //   with more than the callee child carries arguments we cannot
+                //   honor, so it must fall through and fail closed rather than
+                //   silently decode as UTF-8.
+                // C-2 — honor the ctor shadow guard the bound declarator lane
+                //   already applies, so a user-defined `TextDecoder` is not
+                //   hijacked into the intrinsic.
+                if self.node(ctor).text.as_deref() == Some("TextDecoder")
+                    && object_node.children.len() == 1
+                    && self.url_ctor_unshadowed("TextDecoder")
+                {
                     return true;
                 }
             }
@@ -378,6 +400,29 @@ impl<'a> FunctionEmitter<'a> {
                 .text
                 .as_deref()
                 .is_some_and(|name| self.is_text_decoder_marker(name))
+    }
+
+    /// Stage P5 review fix (C-1): the SHAPE of an inline, unshadowed
+    /// `new TextDecoder(...).decode(...)`, regardless of whether the
+    /// constructor arguments make it admissible. `is_text_decoder_decode` is the
+    /// allowlist (zero-arg, unshadowed); this is the strictly-wider shape used
+    /// to route the non-admitted remainder to an explicit E5506 deny instead of
+    /// letting it fall into the text-less-aggregate / undefined-callee lane,
+    /// which pushes a silent `0`.
+    pub(crate) fn is_text_decoder_decode_shape(&self, callee_node: &LirNode) -> bool {
+        if callee_node.text.as_deref() != Some("decode") {
+            return false;
+        }
+        let Some(&object) = callee_node.children.first() else {
+            return false;
+        };
+        let object_node = self.node(object);
+        object_node.kind == LirNodeKind::Call
+            && object_node
+                .children
+                .first()
+                .is_some_and(|&ctor| self.node(ctor).text.as_deref() == Some("TextDecoder"))
+            && self.url_ctor_unshadowed("TextDecoder")
     }
 
     /// Stage P5 Task 4: `id` IS a `TextDecoder().decode(...)` call node (not its

@@ -239,13 +239,19 @@ impl TypeContext {
     /// or the bare `TextDecoder()` call the parser leaves as the `.decode` object
     /// when it hoists the `new`. Structural mirror of `repr_infer::is_text_decoder_ctor`
     /// and the twin of `is_new_text_encoder`.
+    /// Stage P5 review fix (C-1): zero-argument only — a ctor argument is a
+    /// semantic encoding label this lane does not implement, so those shapes
+    /// fall through to codegen's fail-closed deny instead of being diagnosed
+    /// (and treated) as the default utf-8 decoder.
     fn is_new_text_decoder(expr: &Expression) -> bool {
         match expr {
             Expression::NewExpression(new_expr) => {
-                matches!(&new_expr.callee, Expression::Identifier(name) if name == "TextDecoder")
+                new_expr.args.is_empty()
+                    && matches!(&new_expr.callee, Expression::Identifier(name) if name == "TextDecoder")
             }
             Expression::CallExpression(call) => {
-                matches!(&call.callee, Expression::Identifier(name) if name == "TextDecoder")
+                call.args.is_empty()
+                    && matches!(&call.callee, Expression::Identifier(name) if name == "TextDecoder")
             }
             _ => false,
         }

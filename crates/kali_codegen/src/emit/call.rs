@@ -3241,6 +3241,23 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if !self.is_text_decoder_decode(&callee_node)
+            && self.is_text_decoder_decode_shape(&callee_node)
+        {
+            // Review fix (C-1): an inline, unshadowed `new TextDecoder(<args>)`
+            // receiver whose ctor arguments this lane cannot honor — the encoding
+            // label / `{fatal}` options. Only the default utf-8, non-fatal decoder
+            // is implemented, so fail CLOSED here rather than let the shape reach
+            // the undefined-callee zero placeholder (a silent wrong value) or be
+            // decoded as UTF-8 under a different label (a divergent value).
+            return self.deny_e5506(
+                function,
+                "only the default 'new TextDecoder()' (utf-8, non-fatal) is available in the \
+                 current phase; constructor arguments (encoding label, options) are not \
+                 supported (fail-closed)",
+            );
+        }
+
         if self.is_text_decoder_decode(&callee_node) {
             // `TextDecoder().decode(<bytes>)`: the byte handle IS a contiguous
             // UTF-8 `(buf,len)` (the encode lane is a zero-copy relabel of a kali

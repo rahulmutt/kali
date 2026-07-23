@@ -1115,6 +1115,36 @@ impl<'a> FunctionEmitter<'a> {
                                             matches!(*text, "TextEncoder" | "TextDecoder")
                                         })
                                         .filter(|text| self.url_ctor_unshadowed(text))
+                                        // Stage P5 review fix (C-1): `TextDecoder`
+                                        // constructor arguments are SEMANTIC (the
+                                        // encoding label / `{fatal}` options) and this
+                                        // lane implements only the default `utf-8`,
+                                        // non-fatal decoder, so any argument must fall
+                                        // through and fail closed instead of silently
+                                        // decoding as UTF-8. A ctor `Call` node has the
+                                        // callee as its ONLY child when there are no
+                                        // arguments. `TextEncoder` is exempt: JS ignores
+                                        // its constructor arguments entirely.
+                                        .filter(|text| {
+                                            if *text == "TextDecoder"
+                                                && init_node.children.len() != 1
+                                            {
+                                                // Deny AT THE CONSTRUCTION: the binding is
+                                                // unsupported, so every downstream use is too.
+                                                // (Merely refusing the marker would leave
+                                                // `d.decode(...)` on the undefined-callee lane,
+                                                // which pushes a silent `0`.)
+                                                self.diagnostics.push(Diagnostic::error(
+                                                    e5::FEATURE_UNAVAILABLE as u32,
+                                                    "only the default 'new TextDecoder()' (utf-8, non-fatal) is \
+                                                     available in the current phase; constructor arguments \
+                                                     (encoding label, options) are not supported (fail-closed)"
+                                                        .to_string(),
+                                                ));
+                                                return false;
+                                            }
+                                            true
+                                        })
                                         .map(str::to_string);
                                     let is_encode = callee_node
                                         .as_ref()
@@ -1714,6 +1744,11 @@ impl<'a> FunctionEmitter<'a> {
                         // either relabels a proven byte handle or fails closed.
                         if self.is_text_encoder_encode(&callee_node)
                             || self.is_text_decoder_decode(&callee_node)
+                            // Review fix (C-1): the NON-admitted decoder shapes
+                            // (`new TextDecoder('latin1').decode(b)`) must also pass
+                            // through, so the call arm can fail them CLOSED. Without
+                            // this they land in the aggregate fallback and push `0`.
+                            || self.is_text_decoder_decode_shape(&callee_node)
                         {
                             return self.emit_node(function, child, want_value);
                         }
