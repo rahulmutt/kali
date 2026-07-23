@@ -501,7 +501,11 @@ impl<'a> FunctionEmitter<'a> {
             memory_index: 0,
         }));
         function.instruction(&Instruction::I32WrapI64);
-        let index_value = self.emit_node(function, index, true);
+        // Stage P5 T-new-E: a `String()`-result index on a growable array is a
+        // numeric-consumption sink (the handle bits would be `i32.wrap_i64`'d
+        // into an offset); route through the numeric-materialization choke so it
+        // fails closed instead of reading a garbage element.
+        let index_value = self.emit_numeric_operand(function, index);
         if !index_value.produced {
             function.instruction(&Instruction::I64Const(0));
         }

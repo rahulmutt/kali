@@ -1573,3 +1573,122 @@ fn p5_string_result_no_over_deny_numeric_arg_into_param() {
         "x2"
     );
 }
+
+// === T-new-E ROUND 3 — the remaining NUMERIC-CONSUMPTION sinks =============
+//
+// Round 2 consulted the String()-result taint at only two sinks
+// (`emit_as_string`, `emit_binary`). These pins cover the sinks round 2 left
+// UNGUARDED: unary operators, the update expression, compound-assign, and the
+// dynamic computed-index. All are now routed through the single
+// `emit_numeric_operand` materialization choke (or, for the update expression,
+// consult the same predicate directly), so a String()-result value carried in
+// an `I64` slot fails CLOSED at every numeric consumption. Each was silent
+// (exit 0, raw handle bits) on parent 7b683abb0.
+
+/// UNARY negate `-s`: parent ran `0 - <handle>` and rendered `n=9223…`.
+#[test]
+fn p5_string_result_unary_neg_fails_closed() {
+    run_e5506("let s=String(1n); console.log('n='+(-s));");
+}
+
+/// UNARY plus `+s` (numeric-coercion identity on a non-string-repr operand):
+/// parent pushed the raw handle as the number and rendered `n=-9223…`.
+#[test]
+fn p5_string_result_unary_plus_fails_closed() {
+    run_e5506("let s=String(1n); console.log('n='+(+s));");
+}
+
+/// UNARY bitwise-not `~s`: parent ran `-1 - <handle>` and rendered garbage.
+#[test]
+fn p5_string_result_unary_bitnot_fails_closed() {
+    run_e5506("let s=String(1n); console.log('n='+(~s));");
+}
+
+/// UNARY logical-not `!s`: the handle bits reach `i64.eqz`; a tainted value has
+/// no sound truthiness lowering here, so it fails closed.
+#[test]
+fn p5_string_result_unary_lognot_fails_closed() {
+    run_e5506("let s=String(1n); console.log('n='+(!s));");
+}
+
+/// UNARY negate on a String()-result reached VIA A FUNCTION RETURN (the taint
+/// flows through the return edge, then denies at the unary sink).
+#[test]
+fn p5_string_result_unary_neg_via_return_fails_closed() {
+    run_e5506("function g(y){let s=String(y);return s} let s=g(1n); console.log('n='+(-s));");
+}
+
+/// UPDATE expression `s++`: parent read the handle and ran `i64.add` on the raw
+/// bits. Isolated from the render guard by stashing the (postfix) OLD value in a
+/// plain-i64 array element and rendering THAT element — a bare `I64`, NOT a
+/// String()-result, so `emit_as_string`'s round-2 guard never fires; only the
+/// update-expression choke closes it. Parent: silent `r=-9223…`.
+#[test]
+fn p5_string_result_update_increment_fails_closed() {
+    run_e5506("let s=String(1n); let a=new Array(2); a[0]=s++; console.log('r='+a[0]);");
+}
+
+/// COMPOUND-ASSIGN `n += s` (i64 accumulator): parent ran `i64.add` on the raw
+/// handle (`n=51`-class garbage). The RHS now routes through the numeric choke.
+#[test]
+fn p5_string_result_compound_add_assign_fails_closed() {
+    run_e5506("let n=5n; let s=String(1n); n+=s; console.log('n='+n);");
+}
+
+/// COMPOUND-ASSIGN `n -= s`: the subtract twin of the above.
+#[test]
+fn p5_string_result_compound_sub_assign_fails_closed() {
+    run_e5506("let n=5n; let s=String(1n); n-=s; console.log('n='+n);");
+}
+
+/// COMPUTED-INDEX READ `a[s]` on a working dynamic array (`new Array` + element
+/// stores — the shape whose index read actually executes): parent used the
+/// handle bits as the offset. Now the index operand fails closed. (A
+/// module-scope scalar array LITERAL `[10n,20n]` is a separate pre-existing
+/// unsupported-read placeholder that returns `0` for every index and never
+/// materializes the index as a number — see the report.)
+#[test]
+fn p5_string_result_computed_index_read_fails_closed() {
+    run_e5506("let a=new Array(3); a[0]=10n; a[1]=20n; let s=String(1n); console.log(a[s]);");
+}
+
+/// COMPUTED-INDEX STORE `a[s] = v` on a working dynamic array: the index in a
+/// store position is the same `emit_array_element_address_node` choke, so the
+/// store fails closed too. Parent silently stored at the handle-derived offset
+/// (exit 0, `r=99`). (`new Array` because a literal-array store `[10n,20n][s]=v`
+/// is separately rejected by the pre-existing literal-mutation gate.)
+#[test]
+fn p5_string_result_computed_index_store_fails_closed() {
+    run_e5506(
+        "let a=new Array(3); a[0]=10n; a[1]=20n; let s=String(1n); a[s]=99n; console.log('r='+a[1]);",
+    );
+}
+
+// --- NO-OVER-DENY: every guarded sink keeps a GENUINE numeric operand correct.
+
+/// A genuine numeric unary negate stays correct (`-5`).
+#[test]
+fn p5_string_result_no_over_deny_genuine_unary_neg() {
+    assert_eq!(run_ok("let n=5n; console.log('n='+(-n));"), "n=-5");
+}
+
+/// A genuine numeric update expression stays correct (`6`).
+#[test]
+fn p5_string_result_no_over_deny_genuine_update() {
+    assert_eq!(run_ok("let n=5n; n++; console.log('n='+n);"), "n=6");
+}
+
+/// A genuine numeric compound-assign stays correct (`10`).
+#[test]
+fn p5_string_result_no_over_deny_genuine_compound_assign() {
+    assert_eq!(run_ok("let n=5n; n+=5n; console.log('n='+n);"), "n=10");
+}
+
+/// A genuine numeric dynamic-array index read stays correct (`20`).
+#[test]
+fn p5_string_result_no_over_deny_genuine_index_read() {
+    assert_eq!(
+        run_ok("let a=new Array(3); a[0]=10n; a[1]=20n; let i=1n; console.log(a[i]);"),
+        "20"
+    );
+}

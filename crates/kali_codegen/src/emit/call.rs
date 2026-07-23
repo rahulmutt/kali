@@ -4773,6 +4773,41 @@ impl<'a> FunctionEmitter<'a> {
         false
     }
 
+    /// Stage P5 T-new-E: the SINGLE numeric-materialization choke. Push `id`
+    /// onto the wasm stack as an operand that a NUMERIC instruction
+    /// (`i64.add`/`i64.mul`/`i64.sub`/`i32.wrap_i64`/`int_to_string`/…) is about
+    /// to consume as a NUMBER, denying it CLOSED first if it carries
+    /// `String()`-result provenance in an `I64` slot (the F-newB-1 hazard — a
+    /// tagged string handle whose raw bits would be run through arithmetic /
+    /// indexing / the render ladder).
+    ///
+    /// This exists because kali has NO single physical "materialize as number"
+    /// instruction: a scalar and a string handle share the i64 representation and
+    /// the SAME polymorphic `emit_node` path, so the numeric-vs-render intent
+    /// lives entirely in the CONSUMING site. Rather than scatter the taint check
+    /// across `emit_unary`, computed-index, and compound-assign one at a time
+    /// (the leaking-denylist pattern), every numeric-context operand PUSH routes
+    /// through here, so a tainted value fails closed at EVERY such sink — and any
+    /// new numeric sink that materializes its operand through this helper is
+    /// covered by construction. `emit_binary` and `emit_as_string` consult the
+    /// SAME predicate (`string_result_render_taint`) as a pre-guard because they
+    /// emit their operands internally, interleaved with string/`__streq`
+    /// handling that cannot cleanly route through this helper.
+    ///
+    /// Positive provenance only: a genuine numeric `Repr::I64` operand (the
+    /// acceptance fixture's `left`/`right` bigint params, any real arithmetic) is
+    /// never tainted, so it is materialized unchanged — no over-deny.
+    pub(crate) fn emit_numeric_operand(
+        &mut self,
+        function: &mut Function,
+        id: LirNodeId,
+    ) -> EmittedValue {
+        if self.string_result_render_taint(id) {
+            return self.deny_e5506(function, Self::STRING_RESULT_RENDER_DENY);
+        }
+        self.emit_node(function, id, true)
+    }
+
     /// Property names that some object literal in the program binds to a
     /// function-like value (`{ f: function () { … } }`, `{ f: () => … }`).
     /// A member call on such a property is a call through a first-class
@@ -6074,7 +6109,11 @@ impl<'a> FunctionEmitter<'a> {
         index_id: LirNodeId,
     ) {
         self.emit_array_base_address(function, base_id);
-        let _ = self.emit_node(function, index_id, true);
+        // Stage P5 T-new-E: the index operand is `i32.wrap_i64`'d and multiplied
+        // — a numeric-consumption sink. A `String()`-result index (`a[s]`, and
+        // its store twin `a[s] = v`, both routed here) fails closed rather than
+        // indexing on the raw handle bits (`a[String(1n)]` → placeholder `0`).
+        let _ = self.emit_numeric_operand(function, index_id);
         function.instruction(&Instruction::I32WrapI64);
         function.instruction(&Instruction::I32Const(8));
         function.instruction(&Instruction::I32Mul);

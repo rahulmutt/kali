@@ -8,6 +8,15 @@ impl<'a> FunctionEmitter<'a> {
         op: &str,
         arg: LirNodeId,
     ) -> EmittedValue {
+        // Stage P5 T-new-E: `s++`/`s--`/`++s`/`--s` on a `String()`-result
+        // binding reads its tagged handle and runs `i64.add`/`i64.sub` on the
+        // raw bits — a numeric-consumption sink. Fail CLOSED (same predicate as
+        // every other numeric sink). Positive provenance only, so a genuine
+        // numeric counter is untouched. A member target (`obj.x++`) is never a
+        // bare String()-result identifier, so the predicate answers false there.
+        if self.string_result_render_taint(arg) {
+            return self.deny_e5506(function, Self::STRING_RESULT_RENDER_DENY);
+        }
         let Some(name) = self.assignment_target_name(node, arg) else {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
@@ -115,7 +124,7 @@ impl<'a> FunctionEmitter<'a> {
             }
             "-" => {
                 if self.is_float_valued(arg) {
-                    let _ = self.emit_node(function, arg, true);
+                    let _ = self.emit_numeric_operand(function, arg);
                     function.instruction(&Instruction::F64Neg);
                     return EmittedValue {
                         produced: true,
@@ -123,7 +132,7 @@ impl<'a> FunctionEmitter<'a> {
                     };
                 }
                 function.instruction(&Instruction::I64Const(0));
-                let _ = self.emit_node(function, arg, true);
+                let _ = self.emit_numeric_operand(function, arg);
                 function.instruction(&Instruction::I64Sub);
                 EmittedValue {
                     produced: true,
@@ -134,11 +143,11 @@ impl<'a> FunctionEmitter<'a> {
                 if self.is_string_valued(arg) {
                     return self.emit_string_to_i64_parse(function, arg);
                 }
-                self.emit_node(function, arg, true)
+                self.emit_numeric_operand(function, arg)
             }
             "~" => {
                 function.instruction(&Instruction::I64Const(0));
-                let _ = self.emit_node(function, arg, true);
+                let _ = self.emit_numeric_operand(function, arg);
                 function.instruction(&Instruction::I64Sub);
                 function.instruction(&Instruction::I64Const(1));
                 function.instruction(&Instruction::I64Sub);
@@ -148,7 +157,7 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             "!" => {
-                let _ = self.emit_node(function, arg, true);
+                let _ = self.emit_numeric_operand(function, arg);
                 function.instruction(&Instruction::I64Eqz);
                 function.instruction(&Instruction::I64ExtendI32U);
                 EmittedValue {

@@ -997,7 +997,7 @@ impl<'a> FunctionEmitter<'a> {
                         return true;
                     }
                     function.instruction(&Instruction::LocalGet(index));
-                    let rhs = self.emit_node(function, right, true);
+                    let rhs = self.emit_numeric_operand(function, right);
                     if !rhs.produced {
                         function.instruction(&Instruction::F64Const(0.0.into()));
                     } else if !self.is_float_valued(right) {
@@ -1015,7 +1015,7 @@ impl<'a> FunctionEmitter<'a> {
                     return true;
                 }
                 function.instruction(&Instruction::LocalGet(index));
-                let rhs = self.emit_node(function, right, true);
+                let rhs = self.emit_numeric_operand(function, right);
                 if !rhs.produced {
                     function.instruction(&Instruction::I64Const(0));
                 }
@@ -1083,7 +1083,7 @@ impl<'a> FunctionEmitter<'a> {
                     return true;
                 }
                 function.instruction(&Instruction::GlobalGet(global_index));
-                let rhs = self.emit_node(function, right, true);
+                let rhs = self.emit_numeric_operand(function, right);
                 if is_f64 {
                     if !rhs.produced {
                         function.instruction(&Instruction::F64Const(0.0.into()));
