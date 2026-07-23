@@ -3527,6 +3527,23 @@ impl<'a> FunctionEmitter<'a> {
                      cannot render an object's default string form (fail-closed)",
                 );
             }
+            // Stage-review C-1: the aggregate reject above is a SYNTACTIC
+            // denylist that any call boundary, field read or element read
+            // defeats; everything it let through fell into `emit_as_string`'s
+            // terminal `int_to_string` and rendered a tagged handle (or a
+            // placeholder `0`) as digits. Require the same POSITIVE proof the
+            // `is_string_valued` recognizer now requires, so the two agree and
+            // an unproven argument fails closed at the SOURCE rather than
+            // downstream.
+            if !self.string_coercion_arg_is_proven(arg) {
+                return self.deny_e5506(
+                    function,
+                    "String(<unproven value>) is unavailable in the current phase: kali \
+                     can render only a proven string or a proven scalar (number / boolean) \
+                     here — anything else would be coerced through the integer ladder and \
+                     print a raw handle or a placeholder 0 (fail-closed)",
+                );
+            }
             self.emit_as_string(function, arg);
             return EmittedValue {
                 produced: true,
@@ -3841,16 +3858,31 @@ impl<'a> FunctionEmitter<'a> {
     /// will render through `emit_as_string`.
     ///
     /// This is the SAME admittance test that arm dispatches with (intrinsic
-    /// unshadowed callee → exactly one argument → not an unsupported
-    /// aggregate/function value), so the `is_string_valued` oracle and the
-    /// emission agree by construction. Every `String(...)` form the coercion arm
-    /// DENIES (0-arg, multi-arg, object/array, function-valued, shadowed)
-    /// returns `None` here, so it is not proven string-valued either — it stays
-    /// on whatever lane it had, and the coercion arm still fails it closed with
-    /// E5506 before it can be consumed. Widening the recognizer therefore cannot
-    /// widen the admitted set past what Task 1 proved renders soundly.
+    /// unshadowed callee → exactly one argument → an argument POSITIVELY proven
+    /// to be a value `emit_as_string` renders soundly), so the `is_string_valued`
+    /// oracle and the emission agree by construction.
+    ///
+    /// STAGE-REVIEW C-1 CORRECTION. The original doc here claimed that reusing
+    /// Task 1's admittance test "cannot widen the admitted set past what Task 1
+    /// proved renders soundly". That claim was FALSE: Task 1 never proved its
+    /// argument renders soundly — it only rejected *syntactically visible*
+    /// aggregates, and everything else fell through to `emit_as_string`'s
+    /// terminal `int_to_string`, which renders a tagged string handle as a
+    /// 20-digit integer. Before the widening the encode gate blocked that
+    /// garbage; the widening turned it into "proven string" (measured:
+    /// `encode(String(o.s)).byteLength` → 20 where node says 5, and a decode
+    /// roundtrip printing `-9223354444668731387` for `'hello'`). The recognizer
+    /// therefore now requires `string_coercion_arg_is_proven`, a POSITIVE proof,
+    /// and the `emit_call` arm applies the same proof so an unproven argument
+    /// fails closed at the source instead of being rendered.
+    ///
+    /// The node at `id` must ITSELF be the call: this helper deliberately does
+    /// NOT tunnel through `unwrap_transparent` (stage-review C-2 — that helper's
+    /// own doc warns it tunnels a single-element ARRAY literal, so
+    /// `encode([String(v)])` was proven a string and silently encoded the array
+    /// literal's `0` placeholder). Callers that hold a wrapper node must resolve
+    /// it themselves and keep the array carve-out.
     pub(crate) fn string_coercion_call_arg(&self, id: LirNodeId) -> Option<LirNodeId> {
-        let id = self.unwrap_transparent(id);
         let node = self.node(id);
         if node.kind != LirNodeKind::Call {
             return None;
@@ -3865,10 +3897,287 @@ impl<'a> FunctionEmitter<'a> {
         if args.next().is_some() {
             return None;
         }
-        if self.string_coercion_arg_is_unsupported_aggregate(arg) {
+        if !self.string_coercion_arg_is_proven(arg) {
             return None;
         }
         Some(arg)
+    }
+
+    /// SHAPE-only recognizer: `id` is a call to the unshadowed intrinsic
+    /// `String` (any arity, argument proven or not). Distinct from
+    /// `string_coercion_call_arg`, which additionally requires the argument
+    /// proof — consumers that must not fall through to a generic fallback for a
+    /// DENIED `String(...)` (e.g. `render_length`, whose fallback renders the
+    /// call node's CHILD COUNT as a length) key on this instead, so that a
+    /// fail-closed coercion cannot be silently re-rendered by another lane.
+    pub(crate) fn is_intrinsic_string_coercion_call(&self, id: LirNodeId) -> bool {
+        let node = self.node(id);
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+        let Some(&callee) = node.children.first() else {
+            return false;
+        };
+        let callee_node = self.node(self.unwrap_transparent(callee)).clone();
+        self.is_intrinsic_string_coercion_callee(&callee_node)
+    }
+
+    /// POSITIVE proof (stage-review C-1) that `emit_as_string` renders `arg`
+    /// the way node does — the single admittance predicate shared by the
+    /// `emit_call` coercion arm and the `is_string_valued` oracle.
+    ///
+    /// `emit_as_string` has exactly four sound arms — a proven string handle
+    /// (returned untouched), an emitted `Boolean` shape, an emitted/proven
+    /// `Float` (`float_to_string`), and otherwise `int_to_string`, which is
+    /// sound ONLY for a value that really is a plain integer. So this mirrors
+    /// those arms with STATIC proofs and denies everything else. An ALLOWLIST,
+    /// not a denylist of aggregate shapes: the previous syntactic
+    /// aggregate-reject was defeated by any call boundary (`String(h())` for an
+    /// object-returning `h`), by a field read (`String(o.s)`), by an element
+    /// read (`String(a[0])`), and by the bare globals `globalThis` / `undefined`
+    /// / `null` — all measured divergent before this proof landed.
+    pub(crate) fn string_coercion_arg_is_proven(&self, arg: LirNodeId) -> bool {
+        // Aggregate reject stays as the FIRST gate: it carries the distinct
+        // "cannot render an object's default string form" diagnostic and it
+        // catches materialized/aliased aggregates whose repr the proof below
+        // would otherwise read as a plain scalar.
+        if self.string_coercion_arg_is_unsupported_aggregate(arg) {
+            return false;
+        }
+        self.string_coercion_arg_is_proven_at_depth(arg, 0)
+    }
+
+    fn string_coercion_arg_is_proven_at_depth(&self, arg: LirNodeId, depth: u32) -> bool {
+        // Structural recursion over operand trees; the guard is a belt-and-braces
+        // stop for a pathological/cyclic LIR shape (fail closed at the limit).
+        if depth > 8 {
+            return false;
+        }
+        // A proven runtime/static STRING: `emit_as_string` returns the handle
+        // untouched. This also covers a nested admitted `String(...)`.
+        if self.is_string_valued(arg) {
+            return true;
+        }
+        // A proven FLOAT (`float_to_string`) or a BigInt/const-bound BigInt
+        // literal (`int_to_string`). Both predicates resolve fold-lane bindings
+        // themselves, so `const k = 1.5; String(k)` is proven too.
+        if self.is_float_valued(arg) || self.is_bigint_literal_valued(arg) {
+            return true;
+        }
+        // `emit_as_string` has a dedicated sound arm for a URLSearchParams
+        // `get()`/`toString()` result (it materializes the `0` null-sentinel as
+        // the interned `"null"` handle), so mirror it here rather than denying
+        // a value the emitter renders correctly.
+        if self.is_usp_string_call(arg) {
+            return true;
+        }
+        // A statically-resolvable NUMERIC/BOOLEAN value — the fold lane emits
+        // the literal itself, which `emit_as_string` renders correctly. This is
+        // what keeps a const-folded object field / array element readable
+        // (`const o = { n: 42n }; String(o.n)` → `42`). `String` is
+        // deliberately EXCLUDED even though the fold resolves it: the emitted
+        // value is a tagged handle and `is_string_valued` has no object-field
+        // arm, so `emit_as_string` would send it through `int_to_string` — the
+        // measured `String(o.s)` → `-9223354444668731387` divergence. `Null` /
+        // `Undefined` are excluded because the ladder has no rendering for them.
+        if matches!(
+            self.resolve_static_object_identity_value(arg),
+            Some(
+                StaticObjectIdentityValue::Number(_)
+                    | StaticObjectIdentityValue::BigInt(_)
+                    | StaticObjectIdentityValue::Boolean(_)
+            )
+        ) {
+            return true;
+        }
+        // MATERIALIZED fixed-shape object field read whose field repr is a
+        // scalar — the same shape-table lookup `is_float_valued` performs,
+        // widened to I64. A String/aggregate field is not proven (see above).
+        let member = self.unwrap_transparent(arg);
+        let member_node = self.node(member).clone();
+        if member_node.kind == LirNodeKind::Value && member_node.children.len() == 1 {
+            if let (Some(field), Some(shape)) = (
+                member_node.text.as_deref().filter(|text| !text.is_empty()),
+                self.object_shape_of_node(member_node.children[0]),
+            ) {
+                if matches!(
+                    self.repr_table.shape_field(shape, field),
+                    Some((_, kali_common::Repr::I64 | kali_common::Repr::F64))
+                ) {
+                    return true;
+                }
+            }
+        }
+        // Runtime PLAIN-array element read whose element axis is a proven scalar
+        // — the numeric twin of `is_string_valued`'s string-element arm, keyed
+        // on the same recognizer the emitter dispatches with. Growable arrays
+        // are deliberately excluded: `const a = []; a.push(1n); String(a[0])`
+        // rendered `false` on the parent build (node: `1`), i.e. that read does
+        // not reach `emit_as_string` as a plain i64, so it stays fail-closed.
+        if let Some(base) = self.dynamic_array_read_base(&member_node) {
+            if matches!(
+                self.array_elem_repr(&base),
+                kali_common::Repr::I64 | kali_common::Repr::F64
+            ) {
+                return true;
+            }
+        }
+        // FOLD-LANE member read (`const o = { n: 42n }; String(o.n)`,
+        // `const a = [7n, 8n]; String(a[0])`). `emit_value`'s member arm
+        // substitutes the literal aggregate's field/element node and emits THAT,
+        // so the coercion is proven exactly when the substituted node is — using
+        // the same two resolvers the emitter dispatches with.
+        //
+        // The `!is_string_valued(substituted)` guard is load-bearing: a STRING
+        // field/element substitutes a string literal, but `emit_as_string` keys
+        // its string arm on the ORIGINAL node (`o.s`, which no oracle arm
+        // proves) and the emitted shape is not `ValueShape::String` either, so
+        // the handle would still go through `int_to_string` — the measured
+        // `String(o.s)` → `-9223354444668731387`. Scalars have no such
+        // asymmetry: every ladder arm below the string one keys on the emitted
+        // value.
+        let fold_substitution = match self.resolve_static_index_member(&member_node) {
+            Some(StaticIndexMemberResult::Node(element)) => Some(element),
+            _ => self
+                .resolve_literal_aggregate(member_node.children.first().copied().unwrap_or(member))
+                .map(|aggregate| self.node(aggregate).clone())
+                .and_then(|aggregate| {
+                    member_node
+                        .text
+                        .as_deref()
+                        .and_then(|field| self.object_literal_field(&aggregate, field))
+                }),
+        };
+        if let Some(substituted) = fold_substitution {
+            if !self.is_string_valued(substituted)
+                && self.string_coercion_arg_is_proven_at_depth(substituted, depth + 1)
+            {
+                return true;
+            }
+        }
+        // A statically-known `.length` (`String(a.length)`): the fold renders the
+        // count as a plain integer.
+        if member_node.text.as_deref() == Some("length")
+            && member_node.children.len() == 1
+            && self.render_length(&member).is_some()
+        {
+            return true;
+        }
+        // Bare identifier, checked BEFORE `resolve_bound_node`: a fold-lane
+        // `const v = f(41n)` carries the binding's repr evidence, which is lost
+        // once the alias is resolved to the (unproven) call node.
+        let raw = self.unwrap_transparent(arg);
+        let raw_node = self.node(raw);
+        if raw_node.kind == LirNodeKind::Value && raw_node.children.is_empty() {
+            if let Some(name) = raw_node.text.as_deref() {
+                if self.binding_is_proven_string_coercion_scalar(name) {
+                    return true;
+                }
+            }
+        }
+        let id = self.resolve_bound_node(raw);
+        let node = self.node(id).clone();
+        match node.kind {
+            // Numeric and boolean literals only. `null` / `undefined` are
+            // deliberately NOT proven: `emit_as_string` has no rendering for
+            // them (measured `String(undefined)` → `false`, `String(null)` → `0`
+            // where node says `undefined` / `null`), which is why the report's
+            // residual "F-newB-4 … unreachable from this task's widening" was
+            // wrong — they were reachable, and they now fail closed.
+            LirNodeKind::Literal => node.text.as_deref().is_some_and(|text| {
+                matches!(text, "true" | "false")
+                    || crate::intrinsics::parse_numeric_literal_value(text).is_some()
+            }),
+            // Unary `-`/`+`/`!` over a proven operand stays on the scalar
+            // (i64/f64/boolean) lane.
+            LirNodeKind::Value
+                if node.children.len() == 1
+                    && matches!(node.text.as_deref(), Some("-" | "+" | "!")) =>
+            {
+                self.string_coercion_arg_is_proven_at_depth(node.children[0], depth + 1)
+            }
+            // Arithmetic over two proven operands is a number; a comparison /
+            // equality over two proven operands emits `ValueShape::Boolean`,
+            // which `emit_as_string` renders as `true`/`false`. `+` with a
+            // string operand never reaches here — `is_string_valued` above
+            // already proved it. This is the arm the acceptance fixture's
+            // `encode(String(left + right))` (bigint params) needs.
+            LirNodeKind::Value
+                if node.children.len() == 2
+                    && matches!(
+                        node.text.as_deref(),
+                        Some(
+                            "+" | "-"
+                                | "*"
+                                | "/"
+                                | "%"
+                                | "**"
+                                | "==="
+                                | "!=="
+                                | "=="
+                                | "!="
+                                | "<"
+                                | ">"
+                                | "<="
+                                | ">="
+                        )
+                    ) =>
+            {
+                node.children
+                    .iter()
+                    .all(|&child| self.string_coercion_arg_is_proven_at_depth(child, depth + 1))
+            }
+            // Ternary (marker text "?"): proven when BOTH arms are. A ternary
+            // with a string arm never reaches here — `is_string_valued`'s own
+            // ternary arm proved it already.
+            LirNodeKind::Value if node.children.len() == 3 && node.text.as_deref() == Some("?") => {
+                self.string_coercion_arg_is_proven_at_depth(node.children[1], depth + 1)
+                    && self.string_coercion_arg_is_proven_at_depth(node.children[2], depth + 1)
+            }
+            // Everything else — a field read (`o.s`), an element read (`a[0]`),
+            // a call (`h()`), a `new`, an unbound global (`globalThis`) — has no
+            // proof and fails closed.
+            _ => false,
+        }
+    }
+
+    /// A bare identifier holds a PROVEN scalar number for coercion purposes.
+    ///
+    /// `Repr::I64` is the DEFAULT of every unrecorded binding, so the repr alone
+    /// is not a proof — the name must first be a binding the program actually
+    /// declares (`name_is_program_bound`, which denies `globalThis` /
+    /// `undefined` / `NaN` and every other free global), and it must carry none
+    /// of the aggregate taints (`is_array_binding` / growable / array-argument
+    /// param / object-initialized) that share the default I64 repr. String
+    /// bindings never reach here: `is_string_valued` proved them one level up.
+    ///
+    /// Deliberately NOT requiring `param_lacks_scalar_inflow == false` (the
+    /// types-side compound-assign gate's extra param proof): the acceptance
+    /// fixture's `webBaselineSmoke(left, right)` is an EXPORT with no call edge
+    /// in the bundle, so its params have no inflow evidence at all and that
+    /// stricter proof would deny the very shape this lane exists for.
+    fn binding_is_proven_string_coercion_scalar(&self, name: &str) -> bool {
+        if !self.name_is_program_bound(name) {
+            return false;
+        }
+        // Mirrors `is_string_valued`'s local-vs-module resolution: a name not
+        // declared locally in a non-`_start` function reads the module table.
+        let func: &str = if !self.locals.contains_key(name) && self.function_name != "_start" {
+            "_start"
+        } else {
+            &self.function_name
+        };
+        if self.repr_table.is_array_binding(func, name)
+            || self.repr_table.is_growable_array_binding(func, name)
+            || self.repr_table.is_non_scalar_param(func, name)
+            || self.repr_table.object_initialized_binding(func, name)
+        {
+            return false;
+        }
+        matches!(
+            self.repr_table.scalar(func, name),
+            kali_common::Repr::I64 | kali_common::Repr::F64
+        )
     }
 
     /// True when `arg` is any object/array-shaped value the Stage P5

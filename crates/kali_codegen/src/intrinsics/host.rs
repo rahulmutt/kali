@@ -918,6 +918,19 @@ impl<'a> FunctionEmitter<'a> {
             return None;
         }
 
+        // Stage P5 T-new-B (stage-review I-1): a `String(...)` coercion receiver
+        // has NO statically-known length. Without this bail the fallbacks below
+        // render the CALL node's CHILD COUNT (callee + arg = 2) as the length —
+        // measured `String(o.s).length` → 2 where node says 5. Bail so the
+        // runtime `.length` member arm decides: a PROVEN coercion takes the
+        // handle-byte-count lane behind its ASCII gate, an UNPROVEN one fails
+        // closed when the base is emitted. Keyed on the SHAPE recognizer, not on
+        // `string_coercion_call_arg`, precisely so a denied coercion cannot slip
+        // back into a fallback render.
+        if self.is_intrinsic_string_coercion_call(*id) {
+            return None;
+        }
+
         if let Some(parts) = self.resolve_static_string_split_parts_from_id(*id) {
             return Some(parts.len().to_string());
         }

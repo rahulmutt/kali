@@ -658,3 +658,261 @@ fn bare_string_call_compares_by_content() {
         "0"
     );
 }
+
+// --- Stage P5 T-new-B stage review: the positive argument proof --------------
+//
+// C-1: the T-new-B recognizer admitted `String(<anything not syntactically an
+// aggregate>)`, which is NOT a proof that `emit_as_string` renders it — every
+// unproven shape fell into the terminal `int_to_string` and printed a tagged
+// handle (or an unmaterialized aggregate's placeholder `0`) as digits. Each
+// case below was measured divergent-vs-node on the parent build (8cd1f3c83) and
+// now fails closed. E5506 is the pin: fail-closed is always allowed, a silent
+// wrong number never is.
+
+/// Helper: assert the program fails closed, whatever the exact E5506 site.
+fn assert_fails_closed(source: &str) {
+    run_e5506(source);
+}
+
+#[test]
+fn encode_of_string_call_on_object_field_fails_closed() {
+    // parent: byteLength 20 (node: 5)
+    assert_fails_closed(
+        "const e = new TextEncoder(); const o = { s: 'hello' }; \
+         const b = e.encode(String(o.s)); console.log(b.byteLength);",
+    );
+}
+
+#[test]
+fn decode_of_string_call_on_object_field_fails_closed() {
+    // parent: printed -9223354444668731387 (node: hello)
+    assert_fails_closed(
+        "const e = new TextEncoder(); const d = new TextDecoder(); \
+         const o = { s: 'hello' }; const b = e.encode(String(o.s)); \
+         console.log(d.decode(b));",
+    );
+}
+
+#[test]
+fn encode_of_string_call_on_array_element_fails_closed() {
+    // parent: byteLength 20 (node: 5)
+    assert_fails_closed(
+        "const e = new TextEncoder(); const a = ['hello']; \
+         const b = e.encode(String(a[0])); console.log(b.byteLength);",
+    );
+}
+
+#[test]
+fn encode_of_string_call_on_object_returning_call_fails_closed() {
+    // parent: byteLength 1 (node: 15) — the syntactic aggregate denylist is
+    // defeated by a call boundary.
+    assert_fails_closed(
+        "function h() { return { a: 1n }; } const e = new TextEncoder(); \
+         const b = e.encode(String(h())); console.log(b.byteLength);",
+    );
+}
+
+#[test]
+fn encode_of_string_call_on_array_returning_call_fails_closed() {
+    // parent: byteLength 1 (node: 3)
+    assert_fails_closed(
+        "function h() { return [1n, 2n]; } const e = new TextEncoder(); \
+         const b = e.encode(String(h())); console.log(b.byteLength);",
+    );
+}
+
+#[test]
+fn encode_of_string_call_on_global_this_fails_closed() {
+    // parent: byteLength 1 (node: 15)
+    assert_fails_closed(
+        "const e = new TextEncoder(); const b = e.encode(String(globalThis)); \
+         console.log(b.byteLength);",
+    );
+}
+
+#[test]
+fn encode_of_string_call_on_undefined_fails_closed() {
+    // parent: byteLength 5 (node: 9) — the T-new-B report claimed this was
+    // "unreachable from this task's widening"; it was reachable and divergent.
+    assert_fails_closed(
+        "const e = new TextEncoder(); const b = e.encode(String(undefined)); \
+         console.log(b.byteLength);",
+    );
+}
+
+#[test]
+fn encode_of_string_call_on_null_fails_closed() {
+    // parent: byteLength 1 (node: 4)
+    assert_fails_closed(
+        "const e = new TextEncoder(); const b = e.encode(String(null)); \
+         console.log(b.byteLength);",
+    );
+}
+
+#[test]
+fn encode_of_array_wrapped_string_call_fails_closed() {
+    // C-2. parent: byteLength 0 (node: 2). `unwrap_transparent` tunnels a
+    // single-element ARRAY literal, so `[String(v)]` was proven a string and the
+    // array literal's placeholder `0` was encoded.
+    assert_fails_closed(
+        "function f(x) { return x + 1n; } const v = f(41n); \
+         const e = new TextEncoder(); const b = e.encode([String(v)]); \
+         console.log(b.byteLength);",
+    );
+}
+
+#[test]
+fn string_call_length_on_unproven_receiver_fails_closed() {
+    // I-1. parent: 20 (node: 5) via the runtime handle byte count; with the
+    // static-fold bail removed it would render the CALL node's child count (2).
+    assert_fails_closed("const o = { s: 'hello' }; console.log(String(o.s).length);");
+    assert_fails_closed("const a = ['hello']; console.log(String(a[0]).length);");
+}
+
+#[test]
+fn string_call_of_unproven_receiver_fails_closed_in_every_position() {
+    // Siblings of the same class found while probing: the coercion itself, not
+    // just its `encode`/`.length` consumers, must fail closed.
+    assert_fails_closed("const o = { s: 'hello' }; console.log(String(o.s));");
+    assert_fails_closed("const o = { s: 'hello' }; console.log(String(o.s) + '!');");
+    assert_fails_closed("console.log(String(new Error('m')));");
+    assert_fails_closed(
+        "function h() { return { a: 1n }; } const w = h(); console.log(String(w));",
+    );
+}
+
+// No-over-deny pins: the shapes the proof must keep admitting, each verified
+// against node v26.5.0.
+
+#[test]
+fn string_call_proof_admits_scalars_and_proven_strings() {
+    let encode = "const e = new TextEncoder(); const b = e.encode(";
+    // String(42n) -> "42" (2 bytes)
+    assert_eq!(
+        run_ok(&format!("{encode}String(42n)); console.log(b.byteLength);")),
+        "2"
+    );
+    // String(true) -> "true" (4 bytes)
+    assert_eq!(
+        run_ok(&format!(
+            "{encode}String(true)); console.log(b.byteLength);"
+        )),
+        "4"
+    );
+    // String(1.5) -> "1.5" (3 bytes)
+    assert_eq!(
+        run_ok(&format!("{encode}String(1.5)); console.log(b.byteLength);")),
+        "3"
+    );
+    // repr-seeded string binding
+    assert_eq!(
+        run_ok(
+            "function id(s) { return s; } const t = id('hello'); \
+             const e = new TextEncoder(); const d = new TextDecoder(); \
+             const b = e.encode(String(t)); console.log(b.byteLength); \
+             console.log(d.decode(b));"
+        ),
+        "5\nhello"
+    );
+    // non-ASCII string binding: 6 bytes, roundtrips
+    assert_eq!(
+        run_ok(
+            "function id(s) { return s; } const t = id('h\u{e9}llo'); \
+             const e = new TextEncoder(); const d = new TextDecoder(); \
+             const b = e.encode(String(t)); console.log(b.byteLength); \
+             console.log(d.decode(b));"
+        ),
+        "6\nh\u{e9}llo"
+    );
+    // runtime i64 through a fold-lane const binding
+    assert_eq!(
+        run_ok(
+            "function f(x) { return x + 1n; } const v = f(41n); \
+             const e = new TextEncoder(); const b = e.encode(String(v)); \
+             console.log(b.byteLength);"
+        ),
+        "2"
+    );
+    // comparison operands stay renderable as booleans
+    assert_eq!(run_ok("console.log(String(1n === 1n));"), "true");
+}
+
+#[test]
+fn string_call_proof_admits_the_acceptance_fixture_shape() {
+    // `encode(String(left + right))` with bigint PARAMS — the shape T-new-B
+    // exists for. node: 2 then 42.
+    assert_eq!(
+        run_ok(
+            "function smoke(left, right) {\n\
+             const e = new TextEncoder();\n\
+             const d = new TextDecoder();\n\
+             const b = e.encode(String(left + right));\n\
+             if (d.decode(b) !== String(left + right)) { throw new Error('bad'); }\n\
+             console.log(b.byteLength);\n\
+             return left - left;\n\
+             }\n\
+             console.log(smoke(40n, 2n));"
+        ),
+        "2\n0"
+    );
+}
+
+#[test]
+fn string_call_proof_admits_the_scalar_shapes_the_parent_build_rendered() {
+    // Shapes the positive proof must keep — each verified against node v26.5.0
+    // and against the parent build (8cd1f3c83), which rendered them correctly.
+    // Without these arms the proof would be a NARROWING, not just a soundness
+    // fix. Ordered: fold-lane object field, fold-lane array element, boolean
+    // field, materialized object field, runtime array element, static
+    // `.length`, ternary, USP `get()`, float call.
+    assert_eq!(
+        run_ok("const o = { n: 42n }; console.log(String(o.n));"),
+        "42"
+    );
+    assert_eq!(
+        run_ok("const o = { n: 1.5 }; console.log(String(o.n));"),
+        "1.5"
+    );
+    assert_eq!(
+        run_ok("const a = [7n, 8n]; console.log(String(a[0]));"),
+        "7"
+    );
+    assert_eq!(
+        run_ok("const o = { b: true }; console.log(String(o.b));"),
+        "true"
+    );
+    assert_eq!(
+        run_ok("function g() { const o = { n: 1n }; o.n = 42n; return String(o.n); } console.log(g());"),
+        "42"
+    );
+    assert_eq!(
+        run_ok("const a = new Array(2); a[0] = 7n; console.log(String(a[0]));"),
+        "7"
+    );
+    assert_eq!(
+        run_ok("const a = [1n, 2n]; console.log(String(a.length));"),
+        "2"
+    );
+    assert_eq!(
+        run_ok("const c = 1n; console.log(String(c > 0n ? 1n : 2n));"),
+        "1"
+    );
+    assert_eq!(
+        run_ok("const q = new URLSearchParams('a=1'); console.log(String(q.get('a')));"),
+        "1"
+    );
+    assert_eq!(
+        run_ok("console.log(String(Math.sqrt(2)));"),
+        "1.4142135623730951"
+    );
+}
+
+#[test]
+fn string_call_of_string_valued_object_field_fails_closed() {
+    // The fold lane substitutes a STRING field's literal, but `emit_as_string`
+    // keys its string arm on the ORIGINAL receiver — so the handle would go
+    // through `int_to_string`. Measured on the parent build:
+    // `String(o.s)` → -9223354444668731387, `String(a[0])` → -9223354444668731390.
+    assert_fails_closed("const o = { s: 'hello' }; console.log(String(o.s));");
+    assert_fails_closed("const a = ['hi']; console.log(String(a[0]));");
+}

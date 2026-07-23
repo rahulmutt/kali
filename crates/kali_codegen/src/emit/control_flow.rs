@@ -2199,14 +2199,24 @@ impl<'a> FunctionEmitter<'a> {
                     // `String()` call arm, so it never fires here. A STRUCTURAL
                     // bail (the Task 3 lesson: a `Call` base is invisible to
                     // every name-keyed lane) keeps the widened oracle from
-                    // turning a `Call` receiver into a divergent byte count:
-                    // admit only the shapes whose rendering is ASCII BY
-                    // CONSTRUCTION — a non-string argument (i64/float/boolean
-                    // renders as digits / `true` / `false` / `NaN`) or a
-                    // statically-resolvable ASCII string. A runtime string
-                    // argument (`String(t).length` for a non-ASCII `t` — 6
-                    // where node says 5) and a non-ASCII static string both
-                    // fail closed.
+                    // turning a `Call` receiver into a divergent byte count.
+                    //
+                    // What the negative branch actually guarantees (stage-review
+                    // I-1 correction — it used to advertise a closure it did not
+                    // deliver): `string_coercion_call_arg` returns `Some` ONLY
+                    // for an argument `string_coercion_arg_is_proven` accepts,
+                    // i.e. a proven string or a PROVEN SCALAR. So
+                    // `!is_string_valued(coerced)` here means "proven scalar",
+                    // whose rendering (digits / `true` / `false` / `NaN` /
+                    // `1.5`) is ASCII BY CONSTRUCTION. Before the C-1 positive
+                    // proof landed, `!is_string_valued` merely meant "unproven"
+                    // — including a real string — and `String(o.s).length`
+                    // reported 20 (a raw handle through `int_to_string`) where
+                    // node says 5. A proven-STRING argument is admitted only
+                    // when it additionally resolves to a static ASCII string; a
+                    // runtime string argument (`String(t).length` for a
+                    // non-ASCII `t` — 6 where node says 5) and a non-ASCII
+                    // static string both fail closed.
                     if let Some(coerced) = self.string_coercion_call_arg(base_id) {
                         let ascii_by_construction = !self.is_string_valued(coerced)
                             || matches!(

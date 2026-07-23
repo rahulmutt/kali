@@ -965,6 +965,17 @@ impl<'a> FunctionEmitter<'a> {
     /// to allow exactly the operands these arms also recognize, so the two never
     /// disagree.
     pub(crate) fn is_string_valued(&self, id: LirNodeId) -> bool {
+        // Stage P5 T-new-B (stage-review C-2): remember whether the node the
+        // caller handed us is a textless one-child `Value` — the shape a
+        // single-element ARRAY literal `[x]` and a transparent wrapper share
+        // (see `unwrap_transparent`'s doc). The `String()` coercion arm below
+        // must not fire through such a wrapper: `encode([String(v)])` was
+        // proven a "string", and the array literal's `0` placeholder was
+        // encoded, silently producing a 0-byte buffer where node produces 2.
+        let entered_through_wrapper = {
+            let node = self.node(id);
+            node.kind == LirNodeKind::Value && node.children.len() == 1 && node.text.is_none()
+        };
         let id = self.unwrap_transparent(id);
         // Resolve a local `const` fold-alias (`self.bindings`) BEFORE the bare-
         // identifier repr lookup below, mirroring `is_float_valued` (which has
@@ -1064,7 +1075,15 @@ impl<'a> FunctionEmitter<'a> {
             // and its whole denial set), so oracle and emission agree by
             // construction: a `String()` form Task 1 fails closed on returns
             // `None` here and is NOT proven a string.
-            LirNodeKind::Call if self.string_coercion_call_arg(id).is_some() => true,
+            // The `!entered_through_wrapper` guard is the C-2 carve-out
+            // described at the top of this function: a `[String(v)]` array
+            // literal reaches here as the tunnelled call node and must NOT be
+            // proven a string.
+            LirNodeKind::Call
+                if !entered_through_wrapper && self.string_coercion_call_arg(id).is_some() =>
+            {
+                true
+            }
             // Call to a string-returning function.
             LirNodeKind::Call => {
                 let Some(callee) = node.children.first().copied() else {
