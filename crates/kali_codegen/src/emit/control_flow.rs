@@ -2191,6 +2191,40 @@ impl<'a> FunctionEmitter<'a> {
                              runtime length for it; fail-closed)",
                         );
                     }
+                    // Stage P5 T-new-B: `String(<coercible>).length`. The
+                    // runtime arm below reads the handle's low-32 BYTE count,
+                    // which equals the JS character count only for ASCII, and
+                    // the types-side ASCII gate (`reject_unprovable_string_length`)
+                    // cannot see this receiver at all — its mirrors have no
+                    // `String()` call arm, so it never fires here. A STRUCTURAL
+                    // bail (the Task 3 lesson: a `Call` base is invisible to
+                    // every name-keyed lane) keeps the widened oracle from
+                    // turning a `Call` receiver into a divergent byte count:
+                    // admit only the shapes whose rendering is ASCII BY
+                    // CONSTRUCTION — a non-string argument (i64/float/boolean
+                    // renders as digits / `true` / `false` / `NaN`) or a
+                    // statically-resolvable ASCII string. A runtime string
+                    // argument (`String(t).length` for a non-ASCII `t` — 6
+                    // where node says 5) and a non-ASCII static string both
+                    // fail closed.
+                    if let Some(coerced) = self.string_coercion_call_arg(base_id) {
+                        let ascii_by_construction = !self.is_string_valued(coerced)
+                            || matches!(
+                                self.resolve_static_object_identity_value(coerced),
+                                Some(StaticObjectIdentityValue::String(ref value))
+                                    if value.is_ascii()
+                            );
+                        if !ascii_by_construction {
+                            return self.deny_e5506(
+                                function,
+                                "'.length' on a String(...) coercion result is unavailable \
+                                 unless the coerced value is a scalar or an ASCII-provable \
+                                 static string in the current phase: a non-ASCII string \
+                                 would report a byte count, not a JS character count \
+                                 (fail-closed)",
+                            );
+                        }
+                    }
                     // Runtime string length: low 32 bits of the tagged handle
                     // (byte count == JS code-unit count for ASCII-provable
                     // strings; `kali_types`'s `reject_unprovable_string_length`

@@ -1054,6 +1054,17 @@ impl<'a> FunctionEmitter<'a> {
             // `===` lane sees a non-string operand and fails closed on a
             // well-formed decode comparison.
             LirNodeKind::Call if self.is_text_decoder_decode_call(id) => true,
+            // Stage P5 T-new-B: an ADMITTED `String(<coercible>)` intrinsic
+            // coercion call (Task 1) produces a real runtime string handle via
+            // `emit_as_string`, so every string consumer — `+`, `===`,
+            // `.length`, and the `TextEncoder().encode` argument gate the
+            // acceptance fixture needs — must classify it as a string. Keyed on
+            // the SAME recognizer the coercion arm dispatches with
+            // (`string_coercion_call_arg`, which carries that arm's shadow guard
+            // and its whole denial set), so oracle and emission agree by
+            // construction: a `String()` form Task 1 fails closed on returns
+            // `None` here and is NOT proven a string.
+            LirNodeKind::Call if self.string_coercion_call_arg(id).is_some() => true,
             // Call to a string-returning function.
             LirNodeKind::Call => {
                 let Some(callee) = node.children.first().copied() else {

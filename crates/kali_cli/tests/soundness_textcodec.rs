@@ -470,3 +470,191 @@ fn admitted_encode_producer_positions_still_work() {
         "32"
     );
 }
+
+// --- Stage P5 T-new-B: `encode` admits a bare `String(x)` result -------------
+//
+// The acceptance fixture (`browser_bundle_web_baseline_source`) spells
+// `encoder.encode(String(left + right))` — a BARE `String()` call in argument
+// position. The gate proved string-ness with `is_string_valued`, which had no
+// arm for the Task-1 coercion call, so the whole fixture failed closed. The fix
+// is an `is_string_valued` arm keyed on the SAME recognizer the coercion arm
+// dispatches with, so oracle and emission agree by construction: a `String()`
+// form Task 1 DENIES (0-arg / multi-arg / aggregate / function-valued / shadowed)
+// is not admitted here either.
+
+#[test]
+fn encode_of_bare_string_call_i64() {
+    assert_eq!(
+        run_ok(
+            "const e = new TextEncoder(); const b = e.encode(String(42n)); \
+             console.log(b.byteLength);"
+        ),
+        "2"
+    );
+}
+
+#[test]
+fn encode_of_bare_string_call_runtime_i64() {
+    // A RUNTIME i64 (not a const-foldable literal), so the coercion ladder — not
+    // the static fold — produces the string handle the encode gate consumes.
+    assert_eq!(
+        run_ok(
+            "function f(x) { return x + 1n; } const v = f(41n); \
+             const e = new TextEncoder(); const b = e.encode(String(v)); \
+             console.log(b.byteLength);"
+        ),
+        "2"
+    );
+}
+
+#[test]
+fn encode_of_bare_string_call_concat() {
+    // The acceptance fixture's exact shape: `encode(String(left + right))` with
+    // two bound (parameter) operands, plus a decode roundtrip recovering the
+    // same text. node: `2` then `42`.
+    assert_eq!(
+        run_ok(
+            "function smoke(left, right) {\n\
+               const e = new TextEncoder();\n\
+               const d = new TextDecoder();\n\
+               const b = e.encode(String(left + right));\n\
+               console.log(b.byteLength);\n\
+               console.log(d.decode(b));\n\
+               return 0n;\n\
+             }\n\
+             smoke(40n, 2n);"
+        ),
+        "2\n42"
+    );
+}
+
+#[test]
+fn encode_decode_roundtrip_through_string_call() {
+    assert_eq!(
+        run_ok(
+            "function f(x) { return x + 1n; } const v = f(41n); \
+             const e = new TextEncoder(); const d = new TextDecoder(); \
+             console.log(d.decode(e.encode(String(v))));"
+        ),
+        "42"
+    );
+}
+
+#[test]
+fn encode_of_bare_string_call_non_ascii_byte_length() {
+    // Byte length (6) differs from the character count (5), so a
+    // character-count bug cannot pass by coincidence.
+    assert_eq!(
+        run_ok(
+            "function id(s) { return s; } const t = id('héllo'); \
+             const e = new TextEncoder(); const b = e.encode(String(t)); \
+             console.log(b.byteLength);"
+        ),
+        "6"
+    );
+}
+
+#[test]
+fn encode_of_bare_string_call_non_ascii_roundtrips() {
+    assert_eq!(
+        run_ok(
+            "function id(s) { return s; } const t = id('héllo'); \
+             const e = new TextEncoder(); const d = new TextDecoder(); \
+             console.log(d.decode(e.encode(String(t))));"
+        ),
+        "héllo"
+    );
+}
+
+// Fail-closed pins that must NOT regress now that the same lane is wider.
+
+#[test]
+fn encode_of_zero_arg_string_call_fails_closed() {
+    run_e5506("const e = new TextEncoder(); const b = e.encode(String()); console.log('x');");
+}
+
+#[test]
+fn encode_of_multi_arg_string_call_fails_closed() {
+    run_e5506("const e = new TextEncoder(); const b = e.encode(String(1n, 2n)); console.log('x');");
+}
+
+#[test]
+fn encode_of_function_valued_string_call_fails_closed() {
+    run_e5506(
+        "function foo() { return 1n; } const e = new TextEncoder(); \
+         const b = e.encode(String(foo)); console.log('x');",
+    );
+}
+
+#[test]
+fn encode_of_arrow_valued_string_call_fails_closed() {
+    run_e5506(
+        "const e = new TextEncoder(); const b = e.encode(String(() => 1n)); console.log('x');",
+    );
+}
+
+#[test]
+fn encode_of_object_valued_string_call_fails_closed() {
+    run_e5506(
+        "const o = { a: 1n }; const e = new TextEncoder(); \
+         const b = e.encode(String(o)); console.log('x');",
+    );
+}
+
+#[test]
+fn encode_of_shadowed_string_call_fails_closed() {
+    // A user-defined `String` keeps its own lane: the intrinsic recognizer is
+    // unshadowed-only, so this is NOT admitted as a proven string.
+    run_e5506(
+        "function String(x) { return 1n; } const e = new TextEncoder(); \
+         const b = e.encode(String(1n)); console.log('x');",
+    );
+}
+
+// The Step-5 remainder: everything outside the widened set must still fail
+// closed, not fall through to a silent `0` or a divergent value.
+
+#[test]
+fn encode_remainder_still_denies() {
+    run_e5506("const e = new TextEncoder(); const b = e.encode(42n); console.log('x');");
+    run_e5506(
+        "const o = { a: 1n }; const e = new TextEncoder(); const b = e.encode(o); \
+         console.log('x');",
+    );
+    run_e5506(
+        "const e = new TextEncoder(); const b = e.encode('hi'); const c = e.encode(b); \
+         console.log('x');",
+    );
+    run_e5506("const e = new TextEncoder(); const b = e.encode(e.encode('hi')); console.log('x');");
+}
+
+// Consumers of the same `is_string_valued` proof that the widened arm also
+// makes correct (they silently miscompiled before: a raw tagged handle rendered
+// as an integer, a call node's CHILD COUNT rendered as `.length`, and a handle
+// compared numerically instead of by content).
+
+#[test]
+fn bare_string_call_length_is_the_string_length() {
+    assert_eq!(
+        run_ok(
+            "function f(x) { return x + 1n; } const v = f(3999n); console.log(String(v).length);"
+        ),
+        "4"
+    );
+}
+
+#[test]
+fn bare_string_call_compares_by_content() {
+    assert_eq!(
+        run_ok(
+            "function f(x) { return x + 1n; } const v = f(41n); console.log(String(v) === '42');"
+        ),
+        "1"
+    );
+    assert_eq!(
+        run_ok(
+            "function f(x) { return x + 1n; } const v = f(41n); console.log(String(v) === '43');"
+        ),
+        "0"
+    );
+}

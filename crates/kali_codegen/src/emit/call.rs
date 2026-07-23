@@ -3510,11 +3510,7 @@ impl<'a> FunctionEmitter<'a> {
         // values, 0-arg, multi-arg — fails closed E5506 rather than
         // miscompiling (`String(obj)` cannot render `[object Object]`, and
         // `String(foo)` cannot render a function's source text).
-        if callee_name == "String"
-            && callee_node.children.is_empty()
-            && resolved.is_none()
-            && !self.name_is_program_bound(callee_name)
-        {
+        if self.is_intrinsic_string_coercion_callee(&callee_node) {
             let arg_ids: Vec<LirNodeId> = node.children.iter().skip(1).copied().collect();
             if arg_ids.len() != 1 {
                 return self.deny_e5506(
@@ -3820,6 +3816,59 @@ impl<'a> FunctionEmitter<'a> {
             produced: true,
             shape: ValueShape::Unknown,
         }
+    }
+
+    /// The callee of a bare `String(...)` call IS the intrinsic global — a
+    /// childless bare-identifier `String` that resolves to no program-compiled
+    /// function and is not otherwise program-bound (`name_is_program_bound`,
+    /// the same predicate gate-1 applies to a bare-identifier callee). This is
+    /// the SHADOW GUARD for the whole coercion lane (the codec lane's
+    /// `url_ctor_unshadowed` analogue): `function String(x) {...}` keeps its
+    /// own lane instead of being hijacked into the intrinsic.
+    ///
+    /// Factored out of the `emit_call` coercion arm so the emitter and the
+    /// `is_string_valued` oracle (via `string_coercion_call_arg`) key on ONE
+    /// definition of "this is the intrinsic `String`" and cannot drift apart.
+    pub(crate) fn is_intrinsic_string_coercion_callee(&self, callee_node: &LirNode) -> bool {
+        callee_node.text.as_deref() == Some("String")
+            && callee_node.children.is_empty()
+            && !self.functions.contains_key("String")
+            && !self.name_is_program_bound("String")
+    }
+
+    /// Stage P5 T-new-B: `id` is an ADMITTED `String(<coercible>)` intrinsic
+    /// coercion call — returns the sole argument the `emit_call` coercion arm
+    /// will render through `emit_as_string`.
+    ///
+    /// This is the SAME admittance test that arm dispatches with (intrinsic
+    /// unshadowed callee → exactly one argument → not an unsupported
+    /// aggregate/function value), so the `is_string_valued` oracle and the
+    /// emission agree by construction. Every `String(...)` form the coercion arm
+    /// DENIES (0-arg, multi-arg, object/array, function-valued, shadowed)
+    /// returns `None` here, so it is not proven string-valued either — it stays
+    /// on whatever lane it had, and the coercion arm still fails it closed with
+    /// E5506 before it can be consumed. Widening the recognizer therefore cannot
+    /// widen the admitted set past what Task 1 proved renders soundly.
+    pub(crate) fn string_coercion_call_arg(&self, id: LirNodeId) -> Option<LirNodeId> {
+        let id = self.unwrap_transparent(id);
+        let node = self.node(id);
+        if node.kind != LirNodeKind::Call {
+            return None;
+        }
+        let callee = self.unwrap_transparent(*node.children.first()?);
+        let callee_node = self.node(callee).clone();
+        if !self.is_intrinsic_string_coercion_callee(&callee_node) {
+            return None;
+        }
+        let mut args = node.children.iter().skip(1);
+        let arg = *args.next()?;
+        if args.next().is_some() {
+            return None;
+        }
+        if self.string_coercion_arg_is_unsupported_aggregate(arg) {
+            return None;
+        }
+        Some(arg)
     }
 
     /// True when `arg` is any object/array-shaped value the Stage P5
