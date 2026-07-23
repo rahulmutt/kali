@@ -849,6 +849,27 @@ impl<'a> FunctionEmitter<'a> {
                                 );
                                 continue;
                             }
+                            // Stage P5 T-new-C review C-1: the EVENT-MARKER twin
+                            // of the C-4 guard above. `event_marker_locals` is
+                            // name-keyed and equally FLAT, and a later same-name
+                            // declarator is skipped for RECORDING
+                            // (`!name_already_declared`) without INVALIDATING the
+                            // entry — so `.type` kept answering the stale
+                            // marker's text through the shadow (`const e = new
+                            // Event('tick'); { const e = { type: 'x' };
+                            // e.type }` printed `tick` where node prints `x`,
+                            // exit 0). Deny at the same choke every
+                            // redeclaration passes through.
+                            if self.is_event_marker(name) {
+                                self.deny_e5506(
+                                    function,
+                                    "redeclaring a name bound to an Event/CustomEvent in an \
+                                     inner scope is not supported in the current phase \
+                                     (the marker's type text is not block-scoped; the shadow \
+                                     would read the wrong value; fail-closed)",
+                                );
+                                continue;
+                            }
                         }
                         // C-4 mirror order: a URL/USP CONSTRUCTION intercept
                         // below refuses a name that was already declared in
@@ -1161,7 +1182,7 @@ impl<'a> FunctionEmitter<'a> {
                                     if let Some(event_type) = self
                                         .event_construction_literal(
                                             &init_node,
-                                            &["Event", "CustomEvent"],
+                                            crate::intrinsics::EVENT_CTORS,
                                         )
                                         .filter(|text| text.is_ascii())
                                         .filter(|_| repr_proves_event)
@@ -1750,6 +1771,24 @@ impl<'a> FunctionEmitter<'a> {
                     self.emit_break_or_continue(function, true, &node)
                 }
                 Some("for-of") | Some("for-await-of") => {
+                    // Stage P5 T-new-C review C-1 sibling (found while probing
+                    // the redeclaration choke): a for-of LOOP BINDING does not
+                    // pass through the declarator choke, so `const e = new
+                    // Event('tick'); for (const e of ['aa','bb']) e.type`
+                    // printed `tick` twice where node prints `undefined` — the
+                    // same stale-marker hijack, one lowering away from the
+                    // guard. Deny on the same evidence.
+                    if let Some(binding) = self.for_of_binding_name(&node) {
+                        if self.is_event_marker(&binding) {
+                            return self.deny_e5506(
+                                function,
+                                "a for-of loop binding may not shadow a name bound to an \
+                                 Event/CustomEvent in the current phase (the marker's type \
+                                 text is not block-scoped; the shadowed `.type` would read \
+                                 the wrong value; fail-closed)",
+                            );
+                        }
+                    }
                     self.emit_for_of_array_iteration(function, &node)
                 }
                 Some("return") => self.emit_return(function, &node),

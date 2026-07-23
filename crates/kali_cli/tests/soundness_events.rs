@@ -886,3 +886,111 @@ fn event_computed_type_read_fails_closed() {
 fn event_type_property_on_plain_object_is_unaffected() {
     assert_stdout("const o = { type: 'x' };\nconsole.log(o.type);\n", "x\n");
 }
+
+// --- Review C-1/M-1 regression pins: the marker side-table is name-keyed and
+// --- FLAT, so a shadowing redeclaration must INVALIDATE it, and the read-only
+// --- `.type` must deny in write position. ------------------------------------
+
+/// Like [`assert_e5506`] but pins the DIAGNOSTIC TEXT too: these shapes already
+/// deny for several unrelated pre-existing reasons, so a bare "contains E5506"
+/// assertion could pass on the wrong error.
+fn assert_e5506_containing(source: &str, needle: &str) {
+    let out = run_kali(source);
+    assert!(!out.status.success(), "expected E5506, got exit 0");
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains(needle),
+        "expected '{needle}' in diagnostic, got: {stderr}"
+    );
+}
+
+/// REVIEW C-1 (Critical, silent wrong value): the marker side-table is keyed by
+/// NAME with no block scoping, and a later same-name declarator was skipped for
+/// RECORDING without invalidating the entry — so the inner `e.type` kept
+/// answering the OUTER marker's text. Measured before the fix: `tick`, exit 0;
+/// node v26.5.0 prints `x`.
+#[test]
+fn event_marker_redeclared_by_inner_object_fails_closed() {
+    assert_e5506_containing(
+        "const e = new Event('tick');\n{ const e = { type: 'x' }; console.log(e.type); }\n",
+        "redeclaring a name bound to an Event/CustomEvent",
+    );
+}
+
+/// REVIEW C-1, scalar shadow: measured before the fix `tick`, exit 0; node
+/// v26.5.0 prints `undefined`.
+#[test]
+fn event_marker_redeclared_by_inner_scalar_fails_closed() {
+    assert_e5506_containing(
+        "const e = new Event('tick');\n{ const e = 5; console.log(e.type); }\n",
+        "redeclaring a name bound to an Event/CustomEvent",
+    );
+}
+
+/// REVIEW C-1, FUNCTION scope — proves the hazard is not confined to `_start`
+/// (the marker table is per-emitter, and both declarators live in `f`). Measured
+/// before the fix `tick`, exit 0; node v26.5.0 prints `inner`.
+#[test]
+fn event_marker_redeclared_inside_function_fails_closed() {
+    assert_e5506_containing(
+        "function f(){ const e = new Event('tick'); { const e = { type: 'inner' }; return e.type; } }\nconsole.log(f());\n",
+        "redeclaring a name bound to an Event/CustomEvent",
+    );
+}
+
+/// REVIEW C-1 sibling found while probing the fix: a for-of LOOP BINDING does
+/// not pass through the declarator choke, so the same stale-marker hijack was
+/// live one lowering away. Measured before the sibling fix: `tick\ntick\n`,
+/// exit 0; node v26.5.0 prints `undefined` twice.
+#[test]
+fn event_marker_shadowed_by_for_of_binding_fails_closed() {
+    assert_e5506_containing(
+        "const e = new Event('tick');\nfor (const e of ['aa','bb']) { console.log(e.type); }\n",
+        "for-of loop binding may not shadow",
+    );
+}
+
+/// REVIEW M-1: `.type` is a read-only compile-time value, so a STORE had no
+/// arm at all and fell out of the lane — silently dropped (kali printed the
+/// original `tick`, exit 0). That matches node in CJS/sloppy mode but diverges
+/// under ESM/strict, where node throws
+/// `TypeError: Cannot assign to read only property 'type'`. Deny the write.
+#[test]
+fn event_marker_type_assignment_fails_closed() {
+    assert_e5506_containing(
+        "const e = new Event('tick');\ne.type = 'z';\nconsole.log(e.type);\n",
+        "assigning to a property of an Event/CustomEvent",
+    );
+}
+
+/// M-1 twin: a store to a non-`.type` property is denied by the same arm (it
+/// was likewise dropped silently).
+#[test]
+fn event_marker_other_property_assignment_fails_closed() {
+    assert_e5506_containing(
+        "const e = new Event('tick');\ne.bubbles = true;\nconsole.log('after');\n",
+        "assigning to a property of an Event/CustomEvent",
+    );
+}
+
+/// Control for the redeclaration guard: two SEPARATE emitters may each bind the
+/// same name — the side-table is per-emitter, so this is not a shadow and must
+/// keep working. node v26.5.0: "tick\ng\n".
+#[test]
+fn event_marker_same_name_in_two_functions_is_unaffected() {
+    assert_stdout(
+        "function f(){ const e = new Event('tick'); return e.type; }\nfunction g(){ const e = { type: 'g' }; return e.type; }\nconsole.log(f());\nconsole.log(g());\n",
+        "tick\ng\n",
+    );
+}
+
+/// Control for the for-of guard: a loop binding that does NOT shadow a marker
+/// keeps its ordinary lane. node v26.5.0: "2\n2\n".
+#[test]
+fn for_of_binding_without_marker_shadow_is_unaffected() {
+    assert_stdout(
+        "const e = new Event('tick');\nfor (const x of ['aa','bb']) { console.log(x.length); }\nconsole.log(e.type);\n",
+        "2\n2\ntick\n",
+    );
+}

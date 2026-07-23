@@ -240,6 +240,35 @@ impl<'a> FunctionEmitter<'a> {
             return true;
         }
 
+        // Stage P5 T-new-C review M-1: the WRITE position of an event marker
+        // member (`e.type = 'z'`, `e.type += 'z'`, `e.bubbles = true`). The
+        // `.type` lane is read-only — its value is a compile-time literal
+        // materialized on each read — so a store has nowhere to land; before
+        // this arm it fell out of the lane entirely and was silently dropped
+        // (kali printed the ORIGINAL `tick`, which happens to match node's
+        // sloppy-mode no-op but diverges under ESM/strict, where node throws
+        // `TypeError: Cannot assign to read only property 'type'`). Deny; never
+        // silently discard a store. The cross-scope twins are covered too: an
+        // enclosing-scope marker has no side-table entry here, so it is denied
+        // on the same evidence the read arm uses.
+        {
+            let left_node = self.node(left).clone();
+            if let Some(base_name) = self.bare_member_receiver_name(&left_node) {
+                if self.is_event_marker(&base_name)
+                    || self.is_module_scope_event_marker(&base_name)
+                    || self.is_captured_event_marker(&base_name)
+                {
+                    self.deny_e5506(
+                        function,
+                        "assigning to a property of an Event/CustomEvent is not supported in \
+                         the current phase (the event's `type` is a read-only compile-time \
+                         value; a store would be silently dropped; fail-closed)",
+                    );
+                    return true;
+                }
+            }
+        }
+
         if op == "=" {
             if let Some(key_text) = process_env_property_key(&self.program.nodes, left) {
                 let right_node = self.node(right);

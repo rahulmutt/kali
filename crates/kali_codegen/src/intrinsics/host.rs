@@ -1,6 +1,16 @@
 //! Host environment intrinsic call recognition and code emission (console, env, process, semver).
 use crate::*;
 
+/// Stage P5 T-new-C (review M-2): the SINGLE list of event constructor names the
+/// marker lane recognizes. Both sides of the lane read it — the ADMIT recognizer
+/// (`event_construction_literal`'s `ctor_names` argument, at the declarator
+/// intercept) and the DENY recognizer (`is_unshadowed_event_construction`, the
+/// `emit_value` choke). They were hand-mirrored; a third constructor added to the
+/// admit side alone would reopen the drop-and-push-`0` placeholder for it, and
+/// this project has a documented history of hand-mirrored predicates failing open
+/// when only one side is updated.
+pub(crate) const EVENT_CTORS: &[&str] = &["Event", "CustomEvent"];
+
 pub(crate) fn semver_min_version(range: &str) -> Option<String> {
     let trimmed = range.trim();
     let candidate = trimmed
@@ -1403,7 +1413,7 @@ impl<'a> FunctionEmitter<'a> {
         let Some(ctor_name) = ctor.text.as_deref() else {
             return false;
         };
-        matches!(ctor_name, "Event" | "CustomEvent") && self.event_ctor_unshadowed(ctor_name)
+        EVENT_CTORS.contains(&ctor_name) && self.event_ctor_unshadowed(ctor_name)
     }
 
     /// The delimiter-stripped content of a string-literal argument (unwrapping
