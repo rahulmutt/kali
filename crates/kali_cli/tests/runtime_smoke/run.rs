@@ -9177,6 +9177,16 @@ console.log('ok');
 }
 
 #[test]
+fn run_supports_browser_web_crypto_get_random_values_result_length_in_js_input() {
+    assert_browser_requested_web_crypto_get_random_values_result_length("main.js");
+}
+
+#[test]
+fn run_supports_browser_web_crypto_get_random_values_result_length_in_ts_input() {
+    assert_browser_requested_web_crypto_get_random_values_result_length("main.ts");
+}
+
+#[test]
 fn run_supports_browser_web_crypto_get_random_values_when_browser_api_surface_is_inherited_when_browser_harness_is_configured_in_ts_input(
 ) {
     assert_browser_requested_web_crypto_get_random_values_when_browser_api_surface_is_inherited(

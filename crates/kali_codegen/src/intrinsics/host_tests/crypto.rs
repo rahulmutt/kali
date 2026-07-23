@@ -97,3 +97,55 @@ fn text_encoder_encode_is_a_pure_guest_side_reinterpret() {
         "{printed}"
     );
 }
+
+/// Stage P5 T-new-A: `.length` / `.byteLength` read off the RESULT of
+/// `crypto.getRandomValues(buf)` lower to the i64 length-header load at `+0` of
+/// the handle the result binding holds — the same lane the receiver binding's
+/// own `.length` uses, since the call returns the argument handle unchanged.
+/// End-to-end node parity is pinned by the `runtime_smoke` target
+/// `run_supports_browser_web_crypto_get_random_values_result_length_*`.
+#[test]
+fn crypto_get_random_values_result_length_reads_the_buffer_length_header() {
+    let program = parse_and_lower_lir(
+        "const rb = new Uint8Array(8);\nconst fb = crypto.getRandomValues(rb);\nconsole.log(fb.length);\nconsole.log(fb.byteLength);\n",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("validate");
+}
+
+/// Stage P5 T-new-A: the remainder DENIES. An INLINE, unbound receiver
+/// (`crypto.getRandomValues(rb).length`) is invisible to every name-keyed lane
+/// and would otherwise fall through to a placeholder zero; admitting it would
+/// additionally drop the buffer-filling side effect. Element reads of a result
+/// binding deny for the same reason.
+#[test]
+fn crypto_get_random_values_result_outside_the_proven_path_fails_closed() {
+    for source in [
+        "const rb = new Uint8Array(8);\nconsole.log(crypto.getRandomValues(rb).length);\n",
+        "const rb = new Uint8Array(8);\nconst fb = crypto.getRandomValues(rb);\nconsole.log(fb[0]);\n",
+        "const o = { a: 1 };\nconst fb = crypto.getRandomValues(o);\nconsole.log(fb.length);\n",
+    ] {
+        let program = parse_and_lower_lir(source);
+        let mut ctx = CodegenCtx::new(TargetConfig {
+            max_specializations: 16,
+            compat_eval: false,
+            coverage: false,
+        });
+        let result = lower_lir_to_wasm(&mut ctx, &program);
+        assert!(
+            result.diagnostics.iter().any(|diag| diag.code
+                == Some(e5::FEATURE_UNAVAILABLE as u32)
+                && diag.message.contains("crypto.getRandomValues(...) result")),
+            "{source}: {:?}",
+            result.diagnostics
+        );
+    }
+}

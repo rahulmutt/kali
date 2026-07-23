@@ -691,6 +691,23 @@ impl<'a> FunctionEmitter<'a> {
             function.instruction(&Instruction::I64Const(0));
             return true;
         }
+        // Stage P5 T-new-A: an assignment REPLACES what the local holds, so the
+        // `crypto.getRandomValues(...)` result provenance is re-derived at this
+        // choke exactly as at the declarator. `record_...` first revokes any
+        // previous ADMISSION (an admitted `.length` loads a length header off
+        // the local — a stale grant over `fb = 5` would load off address 5),
+        // then re-admits only if the new RHS is itself a proven result. A
+        // COMPOUND op only ever REVOKES — its result is a derived value, never
+        // the buffer handle, even when its RHS happens to be a result call
+        // (`fb += crypto.getRandomValues(rb)`) — and deny-domain membership is
+        // never revoked, so the reassigned name's `.length` fails closed
+        // instead of silently zeroing.
+        if op == "=" {
+            self.record_crypto_random_result_binding(&name, right);
+        } else {
+            self.crypto_random_result_array_bindings.remove(&name);
+        }
+
         // Module-scope mutable scalar promoted to a persistent global: route the
         // write through `GlobalSet` (from a function OR module scope). Gated on
         // the target NOT being a local/param FIRST — a same-named local `var`/

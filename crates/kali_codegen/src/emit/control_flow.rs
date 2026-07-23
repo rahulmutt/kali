@@ -805,6 +805,19 @@ impl<'a> FunctionEmitter<'a> {
                             }
                         }
 
+                        // Stage P5 T-new-A: binding provenance for a
+                        // `crypto.getRandomValues(...)` CALL RESULT. Recorded
+                        // here — before EVERY early `continue` below, and before
+                        // any admission test — so the deny domain is complete:
+                        // a result binding that is not provably array-backed (or
+                        // that an earlier arm re-routes, e.g. a captured
+                        // env-cell declarator) must fail its `.length` closed,
+                        // never fall through to the placeholder zero.
+                        if let Some(name) = declarator.text.as_deref() {
+                            let name = name.to_string();
+                            self.record_crypto_random_result_binding(&name, init);
+                        }
+
                         // Stage-review C-4: URL/USP provenance is name-keyed
                         // and FLAT (no block scoping), so a block-scoped
                         // redeclaration of a name already carrying URL/USP
@@ -2106,6 +2119,60 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             1 => {
+                // Stage P5 T-new-A — ALLOWLIST AT THE CHOKE for a
+                // `crypto.getRandomValues(...)` CALL RESULT receiver. The call
+                // returns the ARGUMENT's handle unchanged (JS identity, which
+                // the emit arm preserves), but the RESULT binding carried no
+                // array provenance, so every member read off it missed each
+                // named lane below and fell through to a placeholder: measured
+                // `fb.length` / `fb.byteLength` → `0` where node reads `8`
+                // (silently, `"warnings":[]`), and `fb[0]` → `0` where node
+                // reads the element. This single gate is the ONE place that
+                // classification is consumed:
+                //  - ADMITTED (`Some(true)`, a positively-proven result binding
+                //    holding an array handle in its own local): `.length` /
+                //    `.byteLength` load the i64 length header at `+0` of that
+                //    handle — the SAME lane, and the same value, the receiver
+                //    binding's own `.length` reads (`Uint8Array` is an
+                //    i64-element linear-memory array, so element count ==
+                //    byteLength; see `is_array_like_constructor`);
+                //  - every other property, and every element read, of an
+                //    admitted result: E5506 (this phase proves the length
+                //    header, nothing else about the aliased binding's repr);
+                //  - NOT admitted (`Some(false)`): E5506 — widening the
+                //    recognizer alone would leave this remainder on the silent
+                //    zero, so it is denied explicitly.
+                //
+                // Gated on a NON-EMPTY `text`: a one-child `Value` with no text
+                // is a transparent wrapper around its child, not a member read,
+                // and must keep its existing routing (the bare handle read that
+                // `fb === rb` depends on flows through such wrappers).
+                let property = node.text.as_deref().unwrap_or_default();
+                if let Some(admitted) = (!property.is_empty())
+                    .then(|| self.crypto_random_result_receiver(node, node.children[0]))
+                    .flatten()
+                {
+                    if admitted && matches!(property, "length" | "byteLength") {
+                        self.emit_array_base_address(function, node.children[0]);
+                        function.instruction(&Instruction::I64Load(MemArg {
+                            offset: 0,
+                            align: 3,
+                            memory_index: 0,
+                        }));
+                        return EmittedValue {
+                            produced: true,
+                            shape: ValueShape::Scalar,
+                        };
+                    }
+                    return self.deny_e5506(
+                        function,
+                        "reading this member of a crypto.getRandomValues(...) result is not \
+                         supported in the current phase; only `.length` / `.byteLength` on a \
+                         result bound to a mutable local whose argument is a proven typed-array \
+                         binding are available (fail-closed)",
+                    );
+                }
+
                 if let Some(result) = self.resolve_static_index_member(node) {
                     return self.emit_static_index_member_result(function, result);
                 }
@@ -2533,6 +2600,24 @@ impl<'a> FunctionEmitter<'a> {
                 // two shapes.
                 if is_binary_operator_text(node.text.as_deref().unwrap_or_default()) {
                     return self.emit_binary(function, id, node);
+                }
+
+                // Stage P5 T-new-A: the 2-child (computed `fb[<expr>]`) twin of
+                // the 1-child allowlist gate above. No element read of a
+                // `crypto.getRandomValues(...)` result is admitted this phase —
+                // only its `.length` / `.byteLength` — so deny rather than let
+                // the computed read fall through to the placeholder zero it
+                // returned before (`fb[0]` → `0` where node reads the element).
+                if self
+                    .crypto_random_result_receiver(node, node.children[0])
+                    .is_some()
+                {
+                    return self.deny_e5506(
+                        function,
+                        "reading an element of a crypto.getRandomValues(...) result is not \
+                         supported in the current phase; read it off the buffer binding passed \
+                         to the call instead (fail-closed)",
+                    );
                 }
 
                 // Stage-review I-7: an element read of a `q.getAll(k)` result

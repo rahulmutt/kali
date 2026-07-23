@@ -182,6 +182,25 @@ pub(crate) struct FunctionEmitter<'a> {
     /// `TextDecoder().decode` operand, and the `crypto.subtle.digest` operand.
     /// Every other position fails closed.
     pub(crate) admit_bytes_handle_produce: bool,
+    /// Stage P5 T-new-A: every binding in THIS emitter's scope whose
+    /// initializer is structurally a `crypto.getRandomValues(...)` CALL RESULT
+    /// — the DENY DOMAIN. Recorded unconditionally at the declarator/assignment
+    /// choke, BEFORE any admission test, so a result that is not provably
+    /// array-backed can never fall through to the silent-zero placeholder
+    /// (`fb.length` read `0` where node reads `8`, and the crypto bundle
+    /// trapped on its own self-check).
+    pub(crate) crypto_random_result_bindings: std::collections::BTreeSet<String>,
+    /// Stage P5 T-new-A: the ADMITTED SUBSET of
+    /// `crypto_random_result_bindings` — those whose recorded init additionally
+    /// proved (a) the callee lowered through the `crypto_get_random_values`
+    /// import arm, which returns the argument handle UNCHANGED (JS identity),
+    /// (b) exactly one argument, which is a bare identifier RECORDED in
+    /// `array_bindings` (a `new Array(n)` / `new Uint8Array(n)` allocation or a
+    /// repr-table-proven array param — positive recorded evidence, never a
+    /// default), and (c) the binding itself owns a WASM local slot, so its
+    /// `.length` reads the header off the handle IT holds (not off the
+    /// argument's binding, which may be reassigned in between).
+    pub(crate) crypto_random_result_array_bindings: std::collections::BTreeSet<String>,
     pub(crate) diagnostics: &'a mut Vec<Diagnostic>,
     pub(crate) strings: &'a mut StringPool,
     pub(crate) source_path: Option<PathBuf>,
@@ -502,6 +521,8 @@ impl<'a> FunctionEmitter<'a> {
             text_decoder_locals: BTreeSet::new(),
             admit_bytes_handle_read: false,
             admit_bytes_handle_produce: false,
+            crypto_random_result_bindings: BTreeSet::new(),
+            crypto_random_result_array_bindings: BTreeSet::new(),
             diagnostics,
             strings,
             source_path,

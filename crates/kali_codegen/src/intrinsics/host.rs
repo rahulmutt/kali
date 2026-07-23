@@ -285,6 +285,119 @@ impl<'a> FunctionEmitter<'a> {
         self.crypto_get_random_values_import_index
     }
 
+    /// Stage P5 T-new-A: the SHAPE-ONLY twin of
+    /// [`Self::crypto_get_random_values_import_index`] — `id` (resolved through
+    /// a `const` denotation and transparent value wrappers) is a
+    /// `crypto.getRandomValues(...)` CALL, returning that call's node id. Arity
+    /// is deliberately NOT constrained here: the emit arm lowers any arity ≥ 1
+    /// (extra arguments are evaluated and dropped) and still returns the buffer
+    /// handle, so every arity belongs to the DENY DOMAIN; the ADMIT test
+    /// (`record_crypto_random_result_binding`) is the one that requires exactly
+    /// one argument. The import index is likewise not required: on an API
+    /// surface without the import the call does not lower to the
+    /// identity-preserving arm at all, and denying is the correct answer there
+    /// too.
+    pub(crate) fn crypto_get_random_values_result_call(&self, id: LirNodeId) -> Option<LirNodeId> {
+        let target = self.unwrap_transparent_value_node(self.resolve_bound_node(id));
+        let node = self.node(target);
+        if node.kind != LirNodeKind::Call || node.children.is_empty() {
+            return None;
+        }
+        let callee_node = self.node(node.children[0]);
+        if callee_node.text.as_deref() != Some("getRandomValues") {
+            return None;
+        }
+        let object = callee_node.children.first().copied()?;
+        if self.node(object).text.as_deref() != Some("crypto") {
+            return None;
+        }
+        Some(target)
+    }
+
+    /// Stage P5 T-new-A: record the binding provenance of a
+    /// `crypto.getRandomValues(...)` call RESULT at its declaration/assignment
+    /// choke. `name` always joins the deny domain
+    /// (`crypto_random_result_bindings`); it joins the ADMITTED subset only on
+    /// POSITIVE evidence, all three parts of which are recorded facts rather
+    /// than defaults:
+    ///  - the callee resolves through `crypto_get_random_values_import_index`,
+    ///    the same recognizer the emit arm uses to lower the identity-preserving
+    ///    host call (so the binding provably holds the ARGUMENT's handle);
+    ///  - the call has exactly one argument, and that argument is a bare
+    ///    identifier present in `array_bindings` — a set populated only by a
+    ///    `new Array(n)` / `new Uint8Array(n)` allocation site or a
+    ///    repr-table-proven array parameter (so a length header provably sits at
+    ///    `+0` of the handle);
+    ///  - `name` owns a WASM local slot, so the later `.length` read loads the
+    ///    header off the handle THIS binding holds.
+    pub(crate) fn record_crypto_random_result_binding(&mut self, name: &str, init: LirNodeId) {
+        // Any (re)binding of the name INVALIDATES a previous admission: the
+        // admitted `.length` loads a length header off whatever the local holds,
+        // so a stale grant surviving `{ const fb = 5; }` (the provenance sets
+        // are name-keyed and flat, like URL/USP) would load off address 5.
+        // Deny-domain membership, by contrast, is never revoked — over-denying a
+        // rebound name is sound, silently zeroing it is not.
+        self.crypto_random_result_array_bindings.remove(name);
+        let Some(call) = self.crypto_get_random_values_result_call(init) else {
+            return;
+        };
+        self.crypto_random_result_bindings.insert(name.to_string());
+
+        let call_node = self.node(call).clone();
+        if call_node.children.len() != 2 {
+            return;
+        }
+        let callee_node = self.node(call_node.children[0]).clone();
+        if self
+            .crypto_get_random_values_import_index(&callee_node)
+            .is_none()
+        {
+            return;
+        }
+        let Some(arg_name) = self.bare_identifier_name(call_node.children[1]) else {
+            return;
+        };
+        if !self.array_bindings.contains(&arg_name) {
+            return;
+        }
+        if !self.locals.contains_key(name) {
+            return;
+        }
+        self.crypto_random_result_array_bindings
+            .insert(name.to_string());
+    }
+
+    /// Stage P5 T-new-A: classify a member-read RECEIVER against the
+    /// `crypto.getRandomValues(...)` result lane. `Some(true)` = an ADMITTED
+    /// result binding (its `.length`/`.byteLength` read the header off its own
+    /// handle); `Some(false)` = a result outside the proven path, which every
+    /// caller must fail closed (E5506) rather than let fall through to a
+    /// placeholder zero; `None` = unrelated receiver, unchanged routing.
+    ///
+    /// The name-keyed test runs FIRST so a slot-owning binding (which has no
+    /// `bindings` denotation entry, and is therefore invisible to the
+    /// structural resolver) is classified; the structural test then covers the
+    /// INLINE-UNBOUND receiver (`crypto.getRandomValues(b).length`) and a
+    /// fold-lane `const` — both denied, the inline one because admitting it
+    /// would read the argument's length WITHOUT emitting the call, dropping the
+    /// buffer-filling side effect node performs.
+    pub(crate) fn crypto_random_result_receiver(
+        &self,
+        node: &LirNode,
+        base_id: LirNodeId,
+    ) -> Option<bool> {
+        if let Some(name) = self.assignment_target_name(node, base_id) {
+            if self.crypto_random_result_array_bindings.contains(&name) {
+                return Some(true);
+            }
+            if self.crypto_random_result_bindings.contains(&name) {
+                return Some(false);
+            }
+        }
+        self.crypto_get_random_values_result_call(base_id)
+            .map(|_| false)
+    }
+
     /// Recognize `crypto.randomUUID()` (throw-fallout Stage 3 bucket #6): callee
     /// method text `"randomUUID"`, object text `"crypto"`.
     pub(crate) fn crypto_random_uuid_import_index(&self, callee_node: &LirNode) -> Option<u32> {
@@ -931,6 +1044,15 @@ impl<'a> FunctionEmitter<'a> {
             return None;
         }
 
+        // Stage P5 T-new-A (structural, the Task 3 lesson): an INLINE / fold-lane
+        // `crypto.getRandomValues(b).length` has a `Call` receiver invisible to
+        // every name-keyed bail below. Without this it fell through to the
+        // `children.len()` fallbacks and rendered the CALL NODE'S CHILD COUNT as
+        // the length. Bail so the runtime member arm decides (it denies E5506).
+        if self.crypto_get_random_values_result_call(*id).is_some() {
+            return None;
+        }
+
         if let Some(parts) = self.resolve_static_string_split_parts_from_id(*id) {
             return Some(parts.len().to_string());
         }
@@ -1005,6 +1127,16 @@ impl<'a> FunctionEmitter<'a> {
                 // the runtime `.length` member arm handles it — which fails closed
                 // (the byte buffer's `.length` is unsupported; use `.byteLength`).
                 if self.is_bytes_handle(text) {
+                    return None;
+                }
+                // Stage P5 T-new-A: a `crypto.getRandomValues(...)` RESULT
+                // binding owns a local slot and therefore has NO `bindings`
+                // denotation entry — it reached the `Some("0")` fallback below
+                // and baked a compile-time `0` into `console.log(fb.length)`
+                // (node prints the buffer length). Bail for the whole deny
+                // domain (admitted or not): the runtime member arm either reads
+                // the real header or fails closed.
+                if self.crypto_random_result_bindings.contains(text) {
                     return None;
                 }
                 if let Some(bound) = self.bindings.get(text).copied() {

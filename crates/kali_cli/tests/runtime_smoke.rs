@@ -2488,6 +2488,73 @@ console.log('ok');
 "#
 }
 
+/// Stage P5 T-new-A: `.length` / `.byteLength` read off the CALL RESULT of
+/// `crypto.getRandomValues(buf)` (not off the receiver binding). Node prints
+/// `same/8/8/8/3/3/ok`; before the fix kali printed `same/8/0/0/0/0` and then
+/// trapped on the self-check. Two different sizes (8 and 3) so a hardcoded `8`
+/// cannot pass, both `const` and `let` binding forms, the identity check
+/// (`fb === rb`) so the fix cannot regress it, and the receiver-binding read
+/// (`rb.length`) which was already correct.
+fn browser_requested_web_crypto_get_random_values_result_length_source() -> &'static str {
+    r#"const rb = new globalThis["Uint8Array"](8);
+const fb = crypto.getRandomValues(rb);
+console.log(fb === rb ? 'same' : 'diff');
+console.log(rb.length);
+console.log(fb.length);
+console.log(fb.byteLength);
+let rb3 = new globalThis["Uint8Array"](3);
+let fb3 = crypto.getRandomValues(rb3);
+console.log(fb3.length);
+console.log(fb3.byteLength);
+if (fb.length !== 8 || fb.byteLength !== 8 || fb3.length !== 3 || fb3.byteLength !== 3) {
+  throw new Error('unexpected call-result lengths');
+}
+console.log('ok');
+"#
+}
+
+fn assert_browser_requested_web_crypto_get_random_values_result_length(filename: &str) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(
+        &source_path,
+        browser_requested_web_crypto_get_random_values_result_length_source(),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    // node-verified (`node main.js`): same/8/8/8/3/3/ok
+    assert_eq!(
+        json["stdout"].as_str().expect("stdout"),
+        "same\n8\n8\n8\n3\n3\nok\n",
+        "json: {json}"
+    );
+}
+
 fn assert_browser_requested_web_crypto_get_random_values_when_browser_api_surface_is_inherited(
     command: &str,
     filename: &str,
