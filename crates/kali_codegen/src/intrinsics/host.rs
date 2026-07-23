@@ -347,6 +347,18 @@ impl<'a> FunctionEmitter<'a> {
         if call_node.children.len() != 2 {
             return;
         }
+        // Review finding I-2 (the Task-4 `url_ctor_unshadowed` precedent): the
+        // `crypto` recognizers are TEXT-KEYED, so a user binding
+        // (`const crypto = { getRandomValues: (b) => 99 }`) is hijacked by the
+        // pre-existing emit arm. That hijack is not this task's to fix, but
+        // ADMITTING on top of it would replace the old wrong `0` with a NEW
+        // plausible number (`4`) — differently wrong, not safer. Admission
+        // therefore requires an UNSHADOWED `crypto` in every codegen namespace;
+        // the shadowed case stays in the deny domain (E5506), which IS strictly
+        // safer than the silent zero it replaces.
+        if !self.url_ctor_unshadowed("crypto") {
+            return;
+        }
         let callee_node = self.node(call_node.children[0]).clone();
         if self
             .crypto_get_random_values_import_index(&callee_node)
@@ -397,6 +409,76 @@ impl<'a> FunctionEmitter<'a> {
         self.crypto_get_random_values_result_call(base_id)
             .map(|_| false)
     }
+
+    /// Stage P5 T-new-A (review finding I-3): is `id` — as a VALUE being stored
+    /// — a `crypto.getRandomValues(...)` result?
+    ///
+    /// The deny domain is name-keyed, so storing such a handle into an
+    /// aggregate LAUNDERS it: the receiver of a later read (`o.buf`,
+    /// `holder[0]`) yields no binding name at all, so every gate in this lane
+    /// misses it and the read falls through to the pre-existing
+    /// aggregate-provenance bug, which prints the object's field count / the
+    /// holder's length instead of the buffer length (measured: `1` and `2`
+    /// where node reads `4`). That general bug is out of scope (its own task);
+    /// this predicate is the CHEAP PARTIAL CLOSE for this lane only — every
+    /// aggregate store of a deny-domain value fails closed.
+    ///
+    /// Both the name-keyed and the structural (inline-unbound) forms count: the
+    /// whole deny domain, admitted subset included, since admission proves only
+    /// the length header of the binding's OWN local, nothing about a copy of the
+    /// handle that outlives it in a heap slot.
+    pub(crate) fn is_crypto_random_result_value(&self, id: LirNodeId) -> bool {
+        if let Some(name) = self.assignment_target_name(self.node(id), id) {
+            if self.crypto_random_result_bindings.contains(&name) {
+                return true;
+            }
+        }
+        self.crypto_get_random_values_result_call(id).is_some()
+    }
+
+    /// Stage P5 T-new-A (I-3), the literal-aggregate twin of
+    /// [`Self::is_crypto_random_result_value`]: does `init` resolve to an
+    /// object/array LITERAL one of whose immediate property values / elements is
+    /// a `crypto.getRandomValues(...)` result?
+    ///
+    /// The `emit_object_allocation` gate only covers a MATERIALIZED literal
+    /// (repr `Object(shape)`); `const o = { buf: fb }` whose repr was never
+    /// inferred as an object stays on the compile-time FOLD lane, where
+    /// `o.buf.length` rendered the literal's child count (`1`) — the same
+    /// laundering by a different route. This predicate is checked at the
+    /// declarator choke, before either lane claims the init.
+    ///
+    /// Only IMMEDIATE values are scanned, deliberately: a deeper walk would also
+    /// deny `{ n: fb.length }`, whose value is already gated by the member
+    /// arm and is not a laundering of the handle.
+    pub(crate) fn crypto_random_result_in_literal_aggregate(&self, init: LirNodeId) -> bool {
+        let Some(aggregate_id) = self.resolve_literal_aggregate(init) else {
+            return false;
+        };
+        let aggregate = self.node(aggregate_id).clone();
+        if self.is_object_literal(&aggregate) {
+            return aggregate.children.iter().any(|child| {
+                self.node(*child)
+                    .children
+                    .get(1)
+                    .copied()
+                    .is_some_and(|value| self.is_crypto_random_result_value(value))
+            });
+        }
+        if self.is_array_literal(&aggregate) {
+            return aggregate
+                .children
+                .iter()
+                .any(|child| self.is_crypto_random_result_value(*child));
+        }
+        false
+    }
+
+    /// The E5506 message for [`Self::is_crypto_random_result_value`] stores.
+    pub(crate) const CRYPTO_RANDOM_RESULT_STORE_DENY: &'static str =
+        "storing a crypto.getRandomValues(...) result into an object field or array element is \
+         not supported in the current phase; the stored handle loses its length provenance and \
+         a later read would diverge (fail-closed)";
 
     /// Recognize `crypto.randomUUID()` (throw-fallout Stage 3 bucket #6): callee
     /// method text `"randomUUID"`, object text `"crypto"`.

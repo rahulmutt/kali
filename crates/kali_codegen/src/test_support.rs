@@ -44,6 +44,28 @@ pub(crate) fn parse_and_lower_lir(source: &str) -> LirProgram {
     kali_lir::LirLowerer::new().lower_program(&mir)
 }
 
+/// [`parse_and_lower_lir`] plus the closure ENV PLANS the real driver derives
+/// (`kali_cli/src/build/compile.rs`: `ctx.env_plans =
+/// kali_mir::derive_env_plans(&mir)`). Codegen sees a capture ONLY through
+/// these plans, so a unit test about closure behaviour that leaves
+/// `ctx.env_plans` empty is testing a program with no closures in it.
+pub(crate) fn parse_and_lower_lir_with_env_plans(
+    source: &str,
+) -> (
+    LirProgram,
+    std::collections::BTreeMap<String, kali_mir::EnvPlan>,
+) {
+    let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
+    let tokens = lexer.lex_all().tokens;
+    let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+    let statements = parser.parse(None).statements;
+    let mut hir_lowerer = kali_hir::HirLowerer::new();
+    let hir = hir_lowerer.lower_statements(&statements);
+    let mir = kali_mir::MirLowerer::new().lower_hir_result(&hir);
+    let env_plans = kali_mir::derive_env_plans(&mir);
+    (kali_lir::LirLowerer::new().lower_program(&mir), env_plans)
+}
+
 /// `setup` mirrors the real compiler driver's context priming (e.g. the
 /// `kali_types`-produced `ReprTable` shape entries a `for..in` fixture needs —
 /// `parse_and_lower_lir` runs no type inference; see

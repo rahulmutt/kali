@@ -818,6 +818,19 @@ impl<'a> FunctionEmitter<'a> {
                             self.record_crypto_random_result_binding(&name, init);
                         }
 
+                        // Stage P5 T-new-A (review finding I-3): the aggregate
+                        // LAUNDERING close. `const o = { buf: fb }` / `const a =
+                        // [fb]` copy the result handle into a slot whose later
+                        // read has no binding name, so every gate in this lane
+                        // misses it and the read diverges silently (measured
+                        // `1` / `2` where node reads `4`). Denied here, at the
+                        // declarator choke, because the folded literal never
+                        // reaches `emit_object_allocation`'s store gate.
+                        if self.crypto_random_result_in_literal_aggregate(init) {
+                            return self
+                                .deny_e5506(function, Self::CRYPTO_RANDOM_RESULT_STORE_DENY);
+                        }
+
                         // Stage-review C-4: URL/USP provenance is name-keyed
                         // and FLAT (no block scoping), so a block-scoped
                         // redeclaration of a name already carrying URL/USP
@@ -2166,10 +2179,15 @@ impl<'a> FunctionEmitter<'a> {
                     }
                     return self.deny_e5506(
                         function,
+                        // M-2: the old wording said "bound to a mutable local",
+                        // which was wrong twice — the admitted canonical form is
+                        // a `const`, and the same message is emitted for the
+                        // INLINE-UNBOUND receiver, which is bound to nothing.
                         "reading this member of a crypto.getRandomValues(...) result is not \
-                         supported in the current phase; only `.length` / `.byteLength` on a \
-                         result bound to a mutable local whose argument is a proven typed-array \
-                         binding are available (fail-closed)",
+                         supported in the current phase; only `.length` / `.byteLength` are \
+                         available, and only on a result held in its own local slot whose call \
+                         argument is a proven typed-array binding (an inline, unbound call \
+                         result does not qualify) (fail-closed)",
                     );
                 }
 

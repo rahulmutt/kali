@@ -110,6 +110,18 @@ impl<'a> FunctionEmitter<'a> {
                 ));
                 continue;
             };
+            // Stage P5 T-new-A (review finding I-3): an object-literal field
+            // initialized from a `crypto.getRandomValues(...)` result launders
+            // the handle out of the name-keyed deny domain (`const o = {buf:
+            // fb}; o.buf.length` printed the field COUNT, `1`, where node reads
+            // `4`). Reject before anything is emitted for this field.
+            if self.is_crypto_random_result_value(value_id) {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    Self::CRYPTO_RANDOM_RESULT_STORE_DENY.to_string(),
+                ));
+                continue;
+            }
             let mem = MemArg {
                 offset: (index * 8) as u64,
                 align: 3,

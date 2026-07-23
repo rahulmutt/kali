@@ -627,6 +627,13 @@ impl<'a> FunctionEmitter<'a> {
                 shape: ValueShape::Unknown,
             };
         }
+        // Stage P5 T-new-A (review finding I-3): `g.push(fb)` is the growable
+        // twin of the aggregate store — the handle lands in a slot whose later
+        // read has no binding name (`g[0].length` printed the growable's
+        // length, `2`, where node reads `4`). Same lane, same close.
+        if self.is_crypto_random_result_value(args[0]) {
+            return self.deny_e5506(function, Self::CRYPTO_RANDOM_RESULT_STORE_DENY);
+        }
         match receiver {
             GrowablePushReceiver::Named(base_name) => {
                 // Self-push guard (Stage 4 Task 4 review fix): a push onto the

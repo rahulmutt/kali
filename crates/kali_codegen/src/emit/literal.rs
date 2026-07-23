@@ -226,6 +226,20 @@ impl<'a> FunctionEmitter<'a> {
             return false;
         }
 
+        // Stage P5 T-new-A (review finding I-3): storing a
+        // `crypto.getRandomValues(...)` result into an AGGREGATE slot
+        // (`o.buf = fb`, `holder[0] = fb`) launders the handle out of the
+        // name-keyed deny domain — the later read's receiver has no binding
+        // name, so every gate in this lane misses it and the read diverges
+        // silently (measured `0` / `2` where node reads `4`). A store to a bare
+        // identifier (childless target node) is NOT affected: that target keeps
+        // its name, and `record_crypto_random_result_binding` below re-derives
+        // its provenance. Placed first so no other arm can claim the shape.
+        if !self.node(left).children.is_empty() && self.is_crypto_random_result_value(right) {
+            self.deny_e5506(function, Self::CRYPTO_RANDOM_RESULT_STORE_DENY);
+            return true;
+        }
+
         if op == "=" {
             if let Some(key_text) = process_env_property_key(&self.program.nodes, left) {
                 let right_node = self.node(right);
