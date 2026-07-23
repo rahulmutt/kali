@@ -1024,6 +1024,25 @@ impl<'a> FunctionEmitter<'a> {
         if let Some((_, member)) = self.url_member_read_parts(id) {
             return !matches!(member, crate::emit::url::UrlMember::SearchParams);
         }
+        // Stage P5 T-new-C: `<event-marker>.type` materializes an INTERNED
+        // string handle (`ValueShape::String`) at the emit site, so every string
+        // consumer must classify it as a string — the `===`/`!==` `__streq`
+        // content-equality lane above all (the fixture compares it against a
+        // string literal). Keyed on the SAME recorded evidence the emit arm
+        // dispatches with (`event_marker_type`, the declarator intercept's
+        // side-table entry — never a repr default), so oracle and emission agree
+        // by construction; a member on a non-marker base, or any other property
+        // on a marker, is not proven a string here.
+        {
+            let node = self.node(id);
+            if node.text.as_deref() == Some("type") {
+                if let Some(base_name) = self.bare_member_receiver_name(node) {
+                    if self.event_marker_type(&base_name).is_some() {
+                        return true;
+                    }
+                }
+            }
+        }
         let node = self.node(id);
         match node.kind {
             LirNodeKind::Literal => node.text.as_deref().is_some_and(|text| {

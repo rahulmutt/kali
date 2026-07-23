@@ -61,6 +61,17 @@ pub enum Repr {
     /// `TextDecoder.decode` / `crypto.subtle.digest` operand; any other read
     /// fails closed at the codegen identifier choke (Stage P5).
     Bytes,
+    /// A `new Event(<string literal>)` / `new CustomEvent(<string literal>)`
+    /// COMPILE-TIME marker (Stage P5). Unlike every other handle repr the slot
+    /// carries NO runtime value at all: the event's only observable this phase
+    /// is its `type`, whose text is known at compile time and materialized as an
+    /// interned string handle directly at the `<ident>.type` read site. The repr
+    /// exists purely as provenance so every OTHER position — a bare read, any
+    /// other property, a cross-function/captured read, a store — is denied at
+    /// the codegen identifier choke instead of yielding the placeholder `0`
+    /// that this variant replaces. Seeded ONLY from a `const` declarator whose
+    /// init is that construction with the constructor unshadowed program-wide.
+    Event,
 }
 
 /// Representation decisions for a whole program, keyed by function + binding.
@@ -147,6 +158,7 @@ pub struct ReprTable {
     any_url: bool,
     any_url_search_params: bool,
     any_bytes: bool,
+    any_event: bool,
     /// `(func, binding)` scalars/params whose `Repr::String` value is a FRESH
     /// runtime `string_concat` handle (reachable from a `+`, interpolated
     /// template, or string `+=`), NOT an interned literal constant. Codegen may
@@ -262,6 +274,9 @@ impl ReprTable {
         if repr == Repr::Bytes {
             self.any_bytes = true;
         }
+        if repr == Repr::Event {
+            self.any_event = true;
+        }
         self.scalars
             .insert((func.to_string(), binding.to_string()), repr);
     }
@@ -284,6 +299,9 @@ impl ReprTable {
         }
         if repr == Repr::Bytes {
             self.any_bytes = true;
+        }
+        if repr == Repr::Event {
+            self.any_event = true;
         }
         self.array_elements
             .insert((func.to_string(), binding.to_string()), repr);
@@ -308,6 +326,9 @@ impl ReprTable {
         if repr == Repr::Bytes {
             self.any_bytes = true;
         }
+        if repr == Repr::Event {
+            self.any_event = true;
+        }
         self.returns.insert(func.to_string(), repr);
     }
 
@@ -329,6 +350,9 @@ impl ReprTable {
         }
         if repr == Repr::Bytes {
             self.any_bytes = true;
+        }
+        if repr == Repr::Event {
+            self.any_event = true;
         }
         self.params.insert((func.to_string(), index), repr);
     }
@@ -532,6 +556,7 @@ impl ReprTable {
             && !self.any_url
             && !self.any_url_search_params
             && !self.any_bytes
+            && !self.any_event
             && self.shapes.is_empty()
             && self.shape_conflicts.is_empty()
     }

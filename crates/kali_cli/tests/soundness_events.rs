@@ -254,42 +254,40 @@ fn event_listener_options_arg_fails_closed() {
     );
 }
 
-/// OUT-OF-LANE PRESERVATION (spec §2): a `dispatchEvent` argument that is not
-/// an inline `new CustomEvent(<literal>)` — here a CustomEvent with a `detail`
-/// (extra ctor arg) — on an in-lane receiver keeps PRE-LANE behavior: the
-/// dispatch falls through to the backstop and is silently dropped, the build
-/// SUCCEEDS (the browser web-baseline corpus relies on this — an in-lane target
-/// with out-of-lane dispatches must stay deployable). The empty-body listener
-/// makes the drop node-observationally inert here; the general silent-drop is
-/// the inventoried Stage-P3 residual. node v26.5.0: "" (no output).
+/// A `dispatchEvent` argument that is not an inline `new CustomEvent(<literal>)`
+/// — here a CustomEvent with a `detail` (extra ctor arg) — on an in-lane
+/// receiver.
+///
+/// STAGE P5 T-new-C RE-PIN (deliberate tightening — the pre-P5 expectation was
+/// `success` + empty stdout): the `Event`/`CustomEvent` construction choke in
+/// `emit_value` now denies EVERY out-of-lane construction, because leaving it on
+/// the drop-and-push-`0` aggregate placeholder is exactly what made `.type` (and
+/// every other property) answer a silent `0`. The silent listener DROP this pin
+/// documented is a real node divergence — node fires the `tick` listener here —
+/// so converting it from "builds and silently diverges" to "fails closed" is the
+/// stage's reject-don't-miscompile rule applied to an inventoried residual, not
+/// a regression. Nothing in the package corpus or the browser bundle lanes moved
+/// with it (full-workspace gate: these two pins were the only tests affected).
 #[test]
-fn event_custom_event_with_detail_out_of_lane_builds() {
-    let out = run_kali(
+fn event_custom_event_with_detail_out_of_lane_fails_closed() {
+    assert_e5506(
         "const t = new EventTarget(); t.addEventListener(\"tick\", function () {}); t.dispatchEvent(new CustomEvent(\"tick\", { detail: 1 }));\n",
     );
-    assert!(
-        out.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&out.stderr)
-    );
-    assert_eq!(String::from_utf8_lossy(&out.stdout), "");
 }
 
-/// OUT-OF-LANE PRESERVATION (spec §2): a bound (non-inline) event argument on
-/// an in-lane receiver falls through to the backstop and BUILDS (same rationale
-/// as `event_custom_event_with_detail_out_of_lane_builds`). No listener is
-/// registered here, so the drop is node-observationally inert. node v26.5.0: "".
+/// A bound (non-inline) event argument on an in-lane receiver.
+///
+/// STAGE P5 T-new-C RE-PIN (same rationale as
+/// `event_custom_event_with_detail_out_of_lane_fails_closed`; the pre-P5
+/// expectation was `success` + empty stdout): `const ev = new CustomEvent("tick")`
+/// is now a proven event MARKER, and the marker's escape choke denies every bare
+/// read of its name — including this dispatch argument. node v26.5.0 dispatches
+/// the event; kali dropped it silently. Fail closed.
 #[test]
-fn event_bound_event_argument_out_of_lane_builds() {
-    let out = run_kali(
+fn event_bound_event_argument_out_of_lane_fails_closed() {
+    assert_e5506(
         "const t = new EventTarget(); const ev = new CustomEvent(\"tick\"); t.dispatchEvent(ev);\n",
     );
-    assert!(
-        out.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&out.stderr)
-    );
-    assert_eq!(String::from_utf8_lossy(&out.stdout), "");
 }
 
 /// `removeEventListener` has no lowering; the handle-escape discipline forbids
@@ -628,4 +626,263 @@ fn deferred_capture_nested_shadow_placeholder_denies() {
         "function outer(){\n  const c = { x: 4 };\n  function inner(){ const c = new AbortController(); }\n  inner();\n  setTimeout(function(){ console.log(\"x=\" + c.x); }, 0);\n}\nouter();\n",
         "local",
     );
+}
+
+// ---------------------------------------------------------------------------
+// Stage P5 T-new-C: `Event`/`CustomEvent` `.type`.
+//
+// `const e = new Event(<string literal>)` (unshadowed ctor) records a
+// COMPILE-TIME event marker; `e.type` materializes the interned type string, so
+// it flows through the runtime string-equality lane (`__streq`), `+`
+// concatenation and `console.log`. Everything else about the marker — a bare
+// read, any other property, a non-`const` binding, a non-literal type argument,
+// an unbound construction, a captured/cross-function read — fails closed
+// (E5506). Before this task the whole family was a silent `0`.
+//
+// Every expected stdout below was verified against node v26.5.0 before being
+// asserted (commands recorded in the task report).
+// ---------------------------------------------------------------------------
+
+/// Run a `Kali.test(...)` fixture through `kali test` (the acceptance fixture's
+/// shape: the whole body is a `__kali_callback_N` closure emitter, which is a
+/// DIFFERENT emitter from `_start` with its own empty side-tables).
+fn run_kali_test(source: &str) -> std::process::Output {
+    let dir = tempdir().expect("tempdir");
+    let path = dir.path().join("main.test.js");
+    fs::write(&path, source).expect("write source");
+    Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&path)
+        .output()
+        .expect("run kali")
+}
+
+fn assert_stdout(source: &str, expected: &str) {
+    let out = run_kali(source);
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout), expected);
+}
+
+/// `.type` compared against a MATCHING string literal takes the equal branch.
+/// node v26.5.0 (`node t1.js`): "eq\n".
+#[test]
+fn event_type_matching_literal_takes_equal_branch() {
+    assert_stdout(
+        "const e = new Event('tick');\nif (e.type === 'tick') { console.log('eq'); } else { console.log('ne'); }\n",
+        "eq\n",
+    );
+}
+
+/// `.type` compared against a NON-matching string literal takes the unequal
+/// branch — a stub returning a constant cannot pass both this and the test
+/// above. node v26.5.0 (`node t2.js`): "ne\n".
+#[test]
+fn event_type_non_matching_literal_takes_unequal_branch() {
+    assert_stdout(
+        "const e = new Event('tick');\nif (e.type === 'tock') { console.log('eq'); } else { console.log('ne'); }\n",
+        "ne\n",
+    );
+}
+
+/// TWO DIFFERENT event types in ONE program (and both constructors): a
+/// hardcoded single type cannot pass. node v26.5.0 (`node t3.js`):
+/// "alpha\nbeta\n".
+#[test]
+fn event_type_two_distinct_types_in_one_program() {
+    assert_stdout(
+        "const a = new Event('alpha');\nconst b = new CustomEvent('beta');\nconsole.log(a.type);\nconsole.log(b.type);\n",
+        "alpha\nbeta\n",
+    );
+}
+
+/// `.type` read into a binding (all three binding forms) and THEN compared —
+/// not only compared inline. The comparisons are written as BRANCHES rather
+/// than `console.log(a === b)` because kali prints string-equality booleans as
+/// `1`/`0` (a pre-existing residual unrelated to this task). node v26.5.0
+/// (`node t4.js`, adapted): "tick\ntick\ntick\nc-eq\nl-ne\n".
+#[test]
+fn event_type_bound_then_compared_in_every_binding_form() {
+    assert_stdout(
+        "const e = new Event('tick');\nconst c = e.type;\nlet l = e.type;\nvar v = e.type;\nconsole.log(c);\nconsole.log(l);\nconsole.log(v);\nif (c === 'tick') { console.log('c-eq'); } else { console.log('c-ne'); }\nif (l === 'tock') { console.log('l-eq'); } else { console.log('l-ne'); }\n",
+        "tick\ntick\ntick\nc-eq\nl-ne\n",
+    );
+}
+
+/// `console.log(event.type)` prints the type string, and it concatenates.
+/// node v26.5.0 (`node t5.js`, first three lines): "tick\ntype=tick\ntype=tick\n".
+#[test]
+fn event_type_prints_and_concatenates() {
+    assert_stdout(
+        "const e = new Event('tick');\nconsole.log(e.type);\nconsole.log('type=' + e.type);\nconsole.log(`type=${e.type}`);\n",
+        "tick\ntype=tick\ntype=tick\n",
+    );
+}
+
+/// The acceptance fixture's shape: the marker and the read both live inside a
+/// `Kali.test` arrow (a `__kali_callback_N` closure emitter, whose side-tables
+/// are separate from `_start`'s). node v26.5.0 equivalent: the guard does not
+/// fire.
+#[test]
+fn event_type_inside_kali_test_callback() {
+    let out = run_kali_test(
+        "Kali.test('t', () => {\n  const e = new Event('tick');\n  if (e.type !== 'tick') { throw new Error(`bad ${e.type}`); }\n  console.log('ok');\n});\n",
+    );
+    assert!(
+        out.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("ok"), "stdout: {stdout}");
+    assert!(!stdout.contains("FAILED"), "stdout: {stdout}");
+}
+
+/// A user-defined `Event` keeps its OWN lane — the marker recognizer is
+/// shadow-guarded in every codegen namespace and program-wide in `repr_infer`.
+/// node v26.5.0 (`node t6.js`): "user\n".
+#[test]
+fn event_shadowed_constructor_keeps_user_lane() {
+    assert_stdout(
+        "function Event(name) { return { type: 'user' }; }\nconst e = Event('tick');\nconsole.log(e.type);\n",
+        "user\n",
+    );
+}
+
+// --- Fail-closed remainder (Step 5): every shape outside the proven path -----
+
+/// A bare read of the marker must not escape as a value (node prints
+/// `Event { type: 'tick', … }`; a silent `0` is the pre-task behavior).
+#[test]
+fn event_marker_bare_read_fails_closed() {
+    assert_e5506("const e = new Event('tick');\nconsole.log(e);\n");
+}
+
+/// An unsupported property on a proven marker denies rather than returning a
+/// plausible value (node: `e.bubbles` is `false`; kali returned `0`, which
+/// PRINTS as `0` — a divergent value).
+#[test]
+fn event_marker_unsupported_property_fails_closed() {
+    assert_e5506("const e = new Event('tick');\nconsole.log(e.bubbles);\n");
+}
+
+/// A `let`-bound construction is out of lane (the binding is mutable, so the
+/// compile-time type text cannot be proven) — deny, do not fall through to the
+/// zero placeholder.
+#[test]
+fn event_let_bound_construction_fails_closed() {
+    assert_e5506("let e = new Event('tick');\nconsole.log(e.type);\n");
+}
+
+/// Same for `var`.
+#[test]
+fn event_var_bound_construction_fails_closed() {
+    assert_e5506("var e = new Event('tick');\nconsole.log(e.type);\n");
+}
+
+/// A non-literal type argument has no compile-time text — deny.
+#[test]
+fn event_non_literal_type_argument_fails_closed() {
+    assert_e5506("const n = 'tick';\nconst e = new Event(n);\nconsole.log(e.type);\n");
+}
+
+/// An UNBOUND construction (a bare expression statement) has no binding to
+/// carry the marker — deny rather than emit the drop-and-push-0 placeholder.
+#[test]
+fn event_unbound_construction_fails_closed() {
+    assert_e5506("new Event('tick');\nconsole.log('after');\n");
+}
+
+/// The marker passed across a function boundary has no lowering — deny.
+#[test]
+fn event_marker_passed_to_function_fails_closed() {
+    assert_e5506("function f(x) { return 1; }\nconst e = new Event('tick');\nconsole.log(f(e));\n");
+}
+
+/// The marker CAPTURED BY A CLOSURE (a distinct emitter with its own empty
+/// side-table) — the shape the immediately preceding task shipped a silent `0`
+/// for. node prints `tick`; kali must deny.
+#[test]
+fn event_marker_captured_by_closure_fails_closed() {
+    assert_e5506(
+        "function outer(){ const e = new Event('tick'); const f = () => e.type; return f(); }\nconsole.log(outer());\n",
+    );
+}
+
+/// The marker read from a function while declared at module scope.
+#[test]
+fn event_marker_read_across_module_boundary_fails_closed() {
+    assert_e5506(
+        "const e = new Event('tick');\nfunction f() { return e.type; }\nconsole.log(f());\n",
+    );
+}
+
+/// The marker stored into an OBJECT FIELD and read back.
+#[test]
+fn event_marker_stored_in_object_field_fails_closed() {
+    assert_e5506("const e = new Event('tick');\nconst o = { ev: e };\nconsole.log(o.ev.type);\n");
+}
+
+/// The marker stored into an ARRAY ELEMENT and read back.
+#[test]
+fn event_marker_stored_in_array_element_fails_closed() {
+    assert_e5506("const e = new Event('tick');\nconst a = [e];\nconsole.log(a[0].type);\n");
+}
+
+/// `.type.length` on an ASCII type text matches node (the interned handle's
+/// byte count IS the character count for ASCII). node v26.5.0: "4\n".
+#[test]
+fn event_type_length_on_ascii_type_matches_node() {
+    assert_stdout(
+        "const e = new Event('tick');\nconsole.log(e.type.length);\n",
+        "4\n",
+    );
+}
+
+/// STEP-5 REGRESSION PIN (a measured miscompile in the first cut of this task):
+/// a NON-ASCII type text must deny the whole marker. `.type` materializes a
+/// runtime interned handle whose `.length` reads the BYTE count, so
+/// `new Event('tíck').type.length` answered 5 where node answers 4 — a
+/// plausible wrong number, not a fail-closed. The marker admission now requires
+/// an ASCII type text, so the construction itself denies.
+#[test]
+fn event_non_ascii_type_text_fails_closed() {
+    assert_e5506("const e = new Event('t\u{ed}ck');\nconsole.log(e.type.length);\n");
+}
+
+/// STEP-5 REGRESSION PIN (the second measured miscompile in the first cut):
+/// codegen's marker recognizer is shadow-guarded PER EMITTER (five namespaces),
+/// while `repr_infer`'s `Repr::Event` seeding is guarded PROGRAM-WIDE. A shadow
+/// of `Event` in a DIFFERENT function silences the repr verdict while the
+/// per-emitter recognizer still fires — which left the repr-keyed cross-scope
+/// denies blind, and a CAPTURED `e.type` fell through to a silent `0` (node
+/// prints `tick`). The marker admission now requires BOTH proofs, so the whole
+/// construction denies in that state.
+#[test]
+fn event_marker_with_foreign_shadow_and_capture_fails_closed() {
+    assert_e5506(
+        "function outer(){ const e = new Event('tick'); const f = () => e.type; return f(); }\nfunction g(){ const Event = 1; return Event; }\nconsole.log(outer());\nconsole.log(g());\n",
+    );
+}
+
+/// A computed `e['type']` read is NOT admitted (the recognizer is keyed on the
+/// non-computed property node) — deny rather than fall through to the generic
+/// computed-member lane. node v26.5.0 prints `tick`; this is an inventoried
+/// residual, pinned fail-closed.
+#[test]
+fn event_computed_type_read_fails_closed() {
+    assert_e5506("const e = new Event('tick');\nconsole.log(e['type']);\n");
+}
+
+/// `.type` on a NON-event object keeps its ordinary object-field lane — the
+/// recognizer must be keyed on the marker's provenance, not on the property
+/// TEXT. node v26.5.0: "x\n".
+#[test]
+fn event_type_property_on_plain_object_is_unaffected() {
+    assert_stdout("const o = { type: 'x' };\nconsole.log(o.type);\n", "x\n");
 }

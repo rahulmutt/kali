@@ -627,7 +627,12 @@ impl<'a> FunctionEmitter<'a> {
                                 // P5); never reaches this position yet (nothing
                                 // seeds it into array elements) — grouped with
                                 // the other i64 handles for exhaustiveness.
-                                | kali_common::Repr::Bytes => {
+                                | kali_common::Repr::Bytes
+                                // Event: a compile-time marker (Stage P5);
+                                // never reaches this position (a store of an
+                                // event marker is denied at the identifier
+                                // choke) — grouped for exhaustiveness.
+                                | kali_common::Repr::Event => {
                                     let rhs = self.emit_node(function, right, true);
                                     if !rhs.produced {
                                         function.instruction(&Instruction::I64Const(0));

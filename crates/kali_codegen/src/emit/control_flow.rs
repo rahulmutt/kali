@@ -1104,6 +1104,94 @@ impl<'a> FunctionEmitter<'a> {
                             }
                         }
 
+                        // Stage P5 T-new-C event-marker lane:
+                        // `const e = new Event('tick')` /
+                        // `new CustomEvent('tick')` with the constructor
+                        // unshadowed. The event's only observable this phase is
+                        // its `type`, whose text is a compile-time literal, so
+                        // the binding is a MARKER exactly like the stateless
+                        // TextEncoder one below — no runtime value is stored, and
+                        // `<ident>.type` materializes the interned text from
+                        // `event_marker_locals`. Recorded here (and `continue`d)
+                        // so the construction never reaches `emit_value`, whose
+                        // event arm denies the whole out-of-lane remainder.
+                        if is_const {
+                            if let Some(name) = declarator.text.clone() {
+                                if !name_already_declared {
+                                    let init_node = self.node(init).clone();
+                                    // TWO independent positive proofs are
+                                    // required, and they must agree:
+                                    //
+                                    // (1) the LIR shape + the five-namespace
+                                    //     shadow guard, per-emitter
+                                    //     (`event_construction_literal`), and
+                                    // (2) the RECORDED `Repr::Event` verdict for
+                                    //     this exact `(function, binding)` —
+                                    //     `repr_infer`'s own admission, gated by
+                                    //     its PROGRAM-WIDE `Event`/`CustomEvent`
+                                    //     shadow guard.
+                                    //
+                                    // Requiring (2) is not belt-and-braces: the
+                                    // two shadow guards have different scopes, and
+                                    // a shadow of `Event` in a DIFFERENT function
+                                    // silences (2) while (1) still fires here.
+                                    // Recording a marker in that state left the
+                                    // repr-keyed cross-scope denies
+                                    // (`is_captured_event_marker` /
+                                    // `is_module_scope_event_marker`) blind, and a
+                                    // captured `e.type` fell through to a silent
+                                    // `0` (measured). Note this is a POSITIVE
+                                    // verdict, not the unrecorded `Repr::I64`
+                                    // default — `Repr::Event` is only ever set by
+                                    // the seeding pass.
+                                    //
+                                    // The type text must also be ASCII: `.type`
+                                    // materializes a RUNTIME interned handle, and
+                                    // kali's runtime `.length` reads the handle's
+                                    // BYTE count, so `new Event('tíck').type.length`
+                                    // answered 5 where node answers 4 (measured).
+                                    // A string LITERAL takes the static char-count
+                                    // fold instead, so the divergence is specific
+                                    // to this lane; deny the whole non-ASCII
+                                    // marker rather than emit a plausible wrong
+                                    // number.
+                                    let repr_proves_event =
+                                        self.repr_table.scalar(&self.function_name, &name)
+                                            == kali_common::Repr::Event;
+                                    if let Some(event_type) = self
+                                        .event_construction_literal(
+                                            &init_node,
+                                            &["Event", "CustomEvent"],
+                                        )
+                                        .filter(|text| text.is_ascii())
+                                        .filter(|_| repr_proves_event)
+                                    {
+                                        // Bind a placeholder that is never
+                                        // observed (every read of the name is
+                                        // denied at the identifier choke), so a
+                                        // provisioned local / promoted env cell
+                                        // is left in a defined state.
+                                        function.instruction(&Instruction::I64Const(0));
+                                        if let Some(index) = self.locals.get(&name).copied() {
+                                            function.instruction(&Instruction::LocalSet(index));
+                                        } else if let Some((depth, offset)) =
+                                            self.resolve_capture_access(&name)
+                                        {
+                                            let env_global = self.current_env_global();
+                                            let scratch2 = self.locals.len() as u32;
+                                            crate::closure::emit_cell_store(
+                                                function, env_global, depth, offset, scratch2,
+                                            );
+                                        } else {
+                                            function.instruction(&Instruction::Drop);
+                                        }
+                                        self.event_marker_locals.insert(name, event_type);
+                                        continue;
+                                    }
+                                }
+                            }
+                        }
+
                         // Stage P5 TextEncoder/encode lane:
                         // `const e = new TextEncoder()` (a stateless marker whose
                         // value is never read — recorded so a later `e.encode(...)`
@@ -1750,6 +1838,30 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::Unknown,
                 };
             }
+            // Stage P5 T-new-C: a `new Event(...)` / `new CustomEvent(...)`
+            // reaching the generic value path is OUTSIDE the admitted marker lane
+            // — an unbound construction, a `let`/`var` binding, a non-literal type
+            // argument, or extra/zero args (the `const` + string-literal shape is
+            // intercepted and `continue`d by the declarator lane before any init
+            // reaches here). The drop-and-push-`0` aggregate placeholder below
+            // would silently discard the constructor and answer `0` for `.type`
+            // and every other property, so fail closed instead. Shadow-guarded, so
+            // a user-defined `Event` keeps its own lane. Placed before the
+            // dispatch-argument passthroughs; note an INLINE
+            // `t.dispatchEvent(new CustomEvent('x'))` never reaches `emit_value`
+            // (the dispatch arm consumes the argument node structurally).
+            if self.is_unshadowed_event_construction(node) {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "an Event/CustomEvent is supported only as `const e = new Event(<string literal>)` in \
+                     the current phase, and only its `.type` may be read (fail-closed)"
+                        .to_string(),
+                ));
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            }
             // `new TextEncoder().encode(<string>)` (throw-fallout Stage 3 bucket #6
             // part 2): the parser hoists the `new` to wrap the whole member-call
             // chain, so this arrives as a text-less 1-child wrapper (the `new`)
@@ -1943,6 +2055,39 @@ impl<'a> FunctionEmitter<'a> {
                             "a TextEncoder byte buffer cannot be read in this position: kali \
                              admits it only as a TextDecoder().decode or crypto.subtle.digest \
                              operand (fail-closed)",
+                        );
+                    }
+                    // Stage P5 T-new-C event-marker escape choke: a bare read of
+                    // an Event/CustomEvent marker is ALWAYS E5506 — there is no
+                    // admitted consumer that reads the name, because the single
+                    // supported observable (`.type`) materializes its interned
+                    // text from the compile-time side-table WITHOUT emitting the
+                    // receiver. So the deny needs no admit flag and is total by
+                    // construction: `console.log(e)` (node prints
+                    // `Event { type: 'tick', … }`), `f(e)`, `return e`, `'' + e`,
+                    // a field/element store — all denied, where each previously
+                    // yielded a silent `0`.
+                    if self.is_event_marker(text) {
+                        return self.deny_e5506(
+                            function,
+                            "an Event/CustomEvent cannot be read as a value in the current phase: kali \
+                             admits only its `.type` property (fail-closed)",
+                        );
+                    }
+                    // The module-scope and CAPTURED twins of the choke above: a
+                    // marker owned by `_start` (read from a function) or by an
+                    // enclosing function (read through the closure env plan). The
+                    // marker's type text lives in the DECLARING emitter's
+                    // side-table only, so an inner emitter cannot reproduce it —
+                    // deny instead of falling through to the module-binding /
+                    // zero-placeholder lanes.
+                    if self.is_module_scope_event_marker(text)
+                        || self.is_captured_event_marker(text)
+                    {
+                        return self.deny_e5506(
+                            function,
+                            "an Event/CustomEvent declared in an enclosing scope cannot be read inside a \
+                             function/closure in the current phase (fail-closed)",
                         );
                     }
                     // Read-position twin of the module-scope abort gate: a bare
@@ -2602,6 +2747,51 @@ impl<'a> FunctionEmitter<'a> {
                         produced: true,
                         shape: ValueShape::Scalar,
                     };
+                }
+
+                // Stage P5 T-new-C: `<event-marker>.type`. The type text is a
+                // compile-time literal recorded by the declarator intercept, so
+                // this materializes its INTERNED string handle directly and never
+                // emits the receiver — which is why the identifier choke can deny
+                // every read of the marker name unconditionally. The result is a
+                // `ValueShape::String` interned handle, identical to the one the
+                // same literal interns to, so `===`/`!==` take the `__streq`
+                // content-equality lane and `+`/console.log take the string lanes
+                // (`is_string_valued` carries the mirroring oracle arm).
+                //
+                // The cross-scope twins deny FIRST: a member read whose receiver
+                // is a marker owned by `_start` or by an enclosing function is
+                // not in this emitter's side-table, so without the gate it would
+                // fall through to the generic member fallback and yield `0`.
+                if let Some(base_name) = self.bare_member_receiver_name(node) {
+                    if self.is_module_scope_event_marker(&base_name)
+                        || self.is_captured_event_marker(&base_name)
+                    {
+                        return self.deny_e5506(
+                            function,
+                            "an Event/CustomEvent declared in an enclosing scope cannot be read inside a \
+                             function/closure in the current phase; its `.type` fails closed \
+                             (fail-closed)",
+                        );
+                    }
+                    // Any property OTHER than `.type` on a proven marker is NOT
+                    // recognized here and falls through to the generic member
+                    // fallback, whose receiver emit hits the identifier choke and
+                    // denies (default-deny — `e.bubbles` must not answer `0`
+                    // where node answers `false`).
+                    if node.text.as_deref() == Some("type") {
+                        if let Some(event_type) = self.event_marker_type(&base_name) {
+                            let event_type = event_type.to_string();
+                            let (offset, len) = self.strings.intern(&event_type);
+                            function.instruction(&Instruction::I64Const(
+                                crate::encode_string_handle(offset, len),
+                            ));
+                            return EmittedValue {
+                                produced: true,
+                                shape: ValueShape::String,
+                            };
+                        }
+                    }
                 }
 
                 if node.text.as_deref().unwrap_or_default().is_empty() {

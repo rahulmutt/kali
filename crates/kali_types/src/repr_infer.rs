@@ -532,6 +532,31 @@ struct ReprInfer {
     /// `true` when ANY declared name anywhere in the program is `"TextDecoder"`,
     /// which disables the decode string seeding (the call is then a user call).
     text_decoder_shadowed: bool,
+    /// Stage P5 T-new-C: `(func, binding)` pairs syntactically admitted for
+    /// `Repr::Event` seeding — a `const` declarator whose init is
+    /// `new Event(<string-literal>)` / `new CustomEvent(<string-literal>)`.
+    /// Mirrors `url_bindings`: this set IS the "is this an Event marker"
+    /// predicate (no alias shape is admitted), and it doubles as the origin
+    /// check for the `<ident>.type` string-seeding arm in `visit_member`.
+    event_bindings: BTreeSet<(String, String)>,
+    /// Stage P5 T-new-C program-wide shadow guard, twin of `url_ctor_shadowed`:
+    /// `true` when ANY declared name anywhere in the program is `"Event"` or
+    /// `"CustomEvent"`, which disables the marker seeding program-wide (the
+    /// construction is then a user call). Set from the same
+    /// `note_abort_shadow_name` call sites, so the shadow frontier cannot drift
+    /// from the seeding frontier.
+    event_ctor_shadowed: bool,
+    /// Stage P5 T-new-C: `(func, binding)` pairs declared with an init that is a
+    /// non-computed `<ident>.type` read where `<ident>` is an `event_bindings`
+    /// marker in the SAME function (any binding form). Seeded `Repr::String` in
+    /// `emit_table` under the same program-wide shadow guard, so a bound
+    /// `const t = e.type; console.log(t)` prints the type text instead of
+    /// classifying the interned handle as a number. Deliberately recorded here
+    /// and seeded there (rather than `add_string_seed`-ing during the walk): the
+    /// shadow guard is not final until the whole program has been walked, and a
+    /// walk-time string seed on a SHADOWED `Event` would vouch for a user
+    /// object's field — a fail-open.
+    event_type_read_bindings: BTreeSet<(String, String)>,
 }
 
 /// Identity of an object-holding slot for shape/aliasing purposes.
@@ -1798,6 +1823,12 @@ impl ReprInfer {
         if name == "TextDecoder" {
             self.text_decoder_shadowed = true;
         }
+        // Stage P5 T-new-C: same frontier for the event constructors — any
+        // shadow of `Event`/`CustomEvent` disables `event_bindings` seeding
+        // program-wide, so a user-defined `Event` keeps its own lane.
+        if name == "Event" || name == "CustomEvent" {
+            self.event_ctor_shadowed = true;
+        }
     }
 
     /// True when `name` is locally bound in `func`'s own scope (a parameter
@@ -2220,12 +2251,41 @@ impl ReprInfer {
                 // `const b = e.encode(x)` (bound). Seed `Repr::Bytes`.
                 self.bytes_bindings
                     .insert((func.to_string(), id.to_string()));
+            } else if self.is_new_event_with_string_literal(init) {
+                // Stage P5 T-new-C: `const e = new Event('tick')` /
+                // `new CustomEvent('tick')` — a COMPILE-TIME marker. Seeded
+                // `Repr::Event` in `emit_table` (subject to the program-wide
+                // shadow guard) purely as provenance: the marker carries no
+                // runtime value, and the repr is what lets codegen deny every
+                // cross-function / captured / escaping read instead of
+                // yielding the zero placeholder it lowered to before.
+                self.event_bindings
+                    .insert((func.to_string(), id.to_string()));
             } else if let Expression::MemberExpression(member) = init {
                 if member.computed_index.is_none() && member.property == "searchParams" {
                     if let Expression::Identifier(base) = &member.object {
                         if self.url_origin.contains(&(func.to_string(), base.clone())) {
                             self.usp_bindings.insert((func.to_string(), id.to_string()));
                         }
+                    }
+                }
+            }
+        }
+        // Stage P5 T-new-C: `<kind> t = <event-marker>.type` in ANY binding form
+        // (`const`/`let`/`var`) — record for the deferred `Repr::String` seeding
+        // in `emit_table`. `event_bindings` is populated in source order within
+        // a function by the `const` block above, so a same-function forward
+        // reference resolves in this one pass (mirrors the `.searchParams`
+        // alias arm); a cross-function base is never admitted.
+        if let Expression::MemberExpression(member) = init {
+            if member.computed_index.is_none() && member.property.as_str() == "type" {
+                if let Expression::Identifier(base) = &member.object {
+                    if self
+                        .event_bindings
+                        .contains(&(func.to_string(), base.clone()))
+                    {
+                        self.event_type_read_bindings
+                            .insert((func.to_string(), id.to_string()));
                     }
                 }
             }
@@ -2294,6 +2354,24 @@ impl ReprInfer {
             Expression::NewExpression(n) => {
                 constructor_name(&n.callee).as_deref() == Some("URL")
                     && Self::single_string_literal_ctor_arg(n)
+            }
+            _ => false,
+        }
+    }
+
+    /// Stage P5 T-new-C: `expr` is `new Event(<string-literal>)` or
+    /// `new CustomEvent(<string-literal>)` — the ONLY admitted `Repr::Event`
+    /// marker-seeding shape. Structurally identical to
+    /// [`Self::is_new_url_with_string_literal`] with the constructor name set
+    /// widened to the two event constructors; the program-wide shadow guard is
+    /// applied at seeding time (`emit_table`), exactly like the URL lane.
+    fn is_new_event_with_string_literal(&self, expr: &Expression) -> bool {
+        match expr {
+            Expression::NewExpression(n) => {
+                matches!(
+                    constructor_name(&n.callee).as_deref(),
+                    Some("Event") | Some("CustomEvent")
+                ) && Self::single_string_literal_ctor_arg(n)
             }
             _ => false,
         }
@@ -4923,6 +5001,30 @@ impl ReprInfer {
             for (func, name) in &self.bytes_bindings {
                 if table.scalar(func, name) == Repr::I64 {
                     table.set_scalar(func, name, Repr::Bytes);
+                }
+            }
+        }
+
+        // Stage P5 T-new-C: `Repr::Event` marker seeding. Same shape as the
+        // URL/USP and Bytes blocks — only when the program-wide
+        // `Event`/`CustomEvent` shadow guard did not fire, and only for a
+        // binding no other axis already claimed.
+        if !self.event_ctor_shadowed {
+            for (func, name) in &self.event_bindings {
+                if table.scalar(func, name) == Repr::I64 {
+                    table.set_scalar(func, name, Repr::Event);
+                }
+            }
+            // A binding holding a `<marker>.type` read is a real interned
+            // STRING handle. Marked non-ASCII unconditionally: the event type
+            // text is not carried into this pass, so `.length`/substring on the
+            // bound name must fail closed rather than report a byte count where
+            // node reports UTF-16 code units. NOT concat-tainted — the handle is
+            // the interned literal, identical to the one `'tick'` interns to.
+            for (func, name) in &self.event_type_read_bindings {
+                if table.scalar(func, name) == Repr::I64 {
+                    table.set_scalar(func, name, Repr::String);
+                    table.mark_string_non_ascii(func, name);
                 }
             }
         }

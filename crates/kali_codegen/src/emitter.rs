@@ -170,6 +170,16 @@ pub(crate) struct FunctionEmitter<'a> {
     /// this while emitting its operand (`crypto.subtle.digest` operand; later
     /// `TextDecoder().decode` receiver-arg).
     pub(crate) admit_bytes_handle_read: bool,
+    /// Stage P5 T-new-C: bindings proven to hold an `Event`/`CustomEvent`
+    /// COMPILE-TIME marker in THIS emitter's scope, mapped to the event's type
+    /// TEXT (the constructor's string-literal argument). Recorded by the
+    /// declarator intercept for a `const` whose init is
+    /// `new Event(<string literal>)` with the constructor unshadowed. The marker
+    /// carries no runtime value: `<ident>.type` materializes the interned text
+    /// directly from this map, and EVERY other read of the name is denied at the
+    /// identifier choke. Mirrors `text_encoder_locals` (a marker side-table),
+    /// with the type text as the payload.
+    pub(crate) event_marker_locals: std::collections::BTreeMap<String, String>,
     /// Stage P5 Task 4 review fix (C-4): the PRODUCE-side twin of
     /// `admit_bytes_handle_read`. The read choke only guards BOUND handles
     /// (`bytes_locals` identifiers); an INLINE, unbound
@@ -520,6 +530,7 @@ impl<'a> FunctionEmitter<'a> {
             text_encoder_locals: BTreeSet::new(),
             text_decoder_locals: BTreeSet::new(),
             admit_bytes_handle_read: false,
+            event_marker_locals: std::collections::BTreeMap::new(),
             admit_bytes_handle_produce: false,
             crypto_random_result_bindings: BTreeSet::new(),
             crypto_random_result_array_bindings: BTreeSet::new(),
@@ -705,6 +716,67 @@ impl<'a> FunctionEmitter<'a> {
     /// in THIS emitter's scope.
     pub(crate) fn is_text_decoder_marker(&self, name: &str) -> bool {
         self.text_decoder_locals.contains(name)
+    }
+
+    /// Stage P5 T-new-C: the BARE-identifier receiver name of a one-child
+    /// member node `<ident>.<field>`. `None` when the receiver is anything other
+    /// than a childless identifier (a nested member, a call, a literal), so a
+    /// chained `o.e.type` never resolves to a marker name. Deliberately does NOT
+    /// unwrap transparent wrappers: a textless one-child `Value` is also a
+    /// single-element ARRAY literal, and tunneling would let `[e].type` claim the
+    /// marker.
+    pub(crate) fn bare_member_receiver_name(&self, node: &LirNode) -> Option<String> {
+        if node.children.len() != 1 {
+            return None;
+        }
+        let base = self.node(node.children[0]);
+        if !base.children.is_empty() {
+            return None;
+        }
+        base.text.clone().filter(|text| !text.is_empty())
+    }
+
+    /// Stage P5 T-new-C: the compile-time event TYPE text of a proven
+    /// `Event`/`CustomEvent` marker in THIS emitter's scope, or `None` when
+    /// `name` is not such a marker. This is RECORDED EVIDENCE (the declarator
+    /// intercept fired and stored the constructor's literal argument), never a
+    /// default.
+    pub(crate) fn event_marker_type(&self, name: &str) -> Option<&str> {
+        self.event_marker_locals.get(name).map(String::as_str)
+    }
+
+    /// Stage P5 T-new-C: `name` is a proven event marker in THIS emitter's scope.
+    pub(crate) fn is_event_marker(&self, name: &str) -> bool {
+        self.event_marker_locals.contains_key(name)
+    }
+
+    /// Stage P5 T-new-C read-position twin of `is_module_scope_url_handle`: a
+    /// `_start`-owned event marker reached from a non-`_start` emitter. The
+    /// marker is a COMPILE-TIME side-table entry private to the emitter that
+    /// declared it, so an inner function has no way to recover the type text —
+    /// deny rather than fall through to the placeholder/module-binding lanes.
+    pub(crate) fn is_module_scope_event_marker(&self, name: &str) -> bool {
+        self.function_name != "_start"
+            && !self.event_marker_locals.contains_key(name)
+            && !self.locals.contains_key(name)
+            && self.repr_table.scalar("_start", name) == kali_common::Repr::Event
+    }
+
+    /// Stage P5 T-new-C CAPTURED twin of `is_captured_url_handle`: an event
+    /// marker owned by an ENCLOSING function, reached through the closure env
+    /// plan. Keyed on the OWNER's recorded repr verdict. There is no captured
+    /// lane for a marker (it has no runtime value to promote into an env cell),
+    /// so absent this gate an inner `e.type` falls through to the silent
+    /// zero-placeholder lane — the exact defect the preceding task shipped one
+    /// scope inwards.
+    pub(crate) fn is_captured_event_marker(&self, name: &str) -> bool {
+        !self.event_marker_locals.contains_key(name)
+            && !self.locals.contains_key(name)
+            && self.env_plan.captured.iter().any(|reference| {
+                reference.name == name
+                    && self.repr_table.scalar(&reference.owner, &reference.name)
+                        == kali_common::Repr::Event
+            })
     }
 
     /// Stage P4 read-position twin of the abort `is_module_scope_abort_handle`

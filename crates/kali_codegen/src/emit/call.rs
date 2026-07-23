@@ -5932,7 +5932,11 @@ impl<'a> FunctionEmitter<'a> {
             // Bytes: TextEncoder byte-buffer handle (Stage P5); never reaches
             // this position yet (nothing seeds it into array elements) —
             // grouped with the other i64 handles for exhaustiveness.
-            | kali_common::Repr::Bytes => {
+            | kali_common::Repr::Bytes
+            // Event: a compile-time marker (Stage P5); never reaches this
+            // position (a store of an event marker is denied at the identifier
+            // choke) — grouped with the other i64 slots for exhaustiveness.
+            | kali_common::Repr::Event => {
                 function.instruction(&Instruction::I64Load(mem_arg))
             }
         };
@@ -6020,7 +6024,11 @@ impl<'a> FunctionEmitter<'a> {
             // Bytes: TextEncoder byte-buffer handle (Stage P5); never reaches
             // this position yet (nothing seeds it into array elements) —
             // grouped with the other i64 handles for exhaustiveness.
-            | kali_common::Repr::Bytes => {
+            | kali_common::Repr::Bytes
+            // Event: a compile-time marker (Stage P5); never reaches this
+            // position (a store of an event marker is denied at the identifier
+            // choke) — grouped with the other i64 slots for exhaustiveness.
+            | kali_common::Repr::Event => {
                 function.instruction(&Instruction::I64Load(mem_arg))
             }
         };

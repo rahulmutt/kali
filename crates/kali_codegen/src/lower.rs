@@ -21,7 +21,10 @@ pub(crate) fn wasm_type(repr: kali_common::Repr) -> wasm_encoder::ValType {
         | kali_common::Repr::UrlSearchParams
         // Bytes: TextEncoder byte-buffer handle (Stage P5) — same i64 slot
         // as every other opaque handle repr.
-        | kali_common::Repr::Bytes => wasm_encoder::ValType::I64,
+        | kali_common::Repr::Bytes
+        // Event: a compile-time marker with no runtime value (Stage P5); it
+        // still occupies an ordinary i64 slot when a binding is provisioned.
+        | kali_common::Repr::Event => wasm_encoder::ValType::I64,
     }
 }
 
@@ -2622,7 +2625,15 @@ pub(crate) fn declarator_init_is_placeholder_construct(
         // `AbortController` joined this list in Stage P3 (real global abort
         // cell); its `const`-declarator lowering is intercepted at emit under
         // the `Repr::AbortHandle` proof + shadow guard.
-        Some("Array" | "Uint8Array" | "EventTarget" | "AbortController") => false,
+        // Stage P5 T-new-C: `Event`/`CustomEvent` joined this list — a bound
+        // `const e = new Event('tick')` is no longer a zero placeholder but a
+        // compile-time MARKER whose type text lives in the declaring emitter's
+        // side-table, so a deferred/captured read cannot reproduce it. Admitting
+        // the capture here would hand the callback the `0` cell and let the read
+        // fall through; excluding them keeps the capture denied (fail-closed).
+        Some(
+            "Array" | "Uint8Array" | "EventTarget" | "AbortController" | "Event" | "CustomEvent",
+        ) => false,
         // Any other bare `new X()` lowers to the drop-and-push-0 placeholder.
         Some(_) => true,
         None => false,

@@ -1327,6 +1327,22 @@ impl<'a> FunctionEmitter<'a> {
     /// this validator expects). Anything else (bound event, `detail`, extra
     /// args, shadowed ctor) falls out of lane.
     pub(crate) fn event_dispatch_literal(&self, node: &LirNode) -> Option<String> {
+        self.event_construction_literal(node, &["CustomEvent"])
+    }
+
+    /// Stage P5 T-new-C: shared body of [`Self::event_dispatch_literal`] and the
+    /// `Event`/`CustomEvent` MARKER recognizer, parameterised by the admitted
+    /// constructor names. Validates the New wrapper
+    /// `Value(None, [Call(None, [Value(<ctor>), Literal("\"tick\"")])])` with
+    /// the constructor name UNSHADOWED in all five codegen namespaces and
+    /// exactly one STRING-literal argument, and returns the delimiter-stripped
+    /// type text. Takes the RAW wrapper node — never an `unwrap_transparent`-
+    /// stripped one, which would strip the wrapper this validator descends.
+    pub(crate) fn event_construction_literal(
+        &self,
+        node: &LirNode,
+        ctor_names: &[&str],
+    ) -> Option<String> {
         if node.text.is_some() || node.children.len() != 1 {
             return None;
         }
@@ -1335,15 +1351,11 @@ impl<'a> FunctionEmitter<'a> {
             return None;
         }
         let ctor = self.node(call.children[0]);
-        if ctor.text.as_deref() != Some("CustomEvent") || !ctor.children.is_empty() {
+        if !ctor.children.is_empty() {
             return None;
         }
-        if self.locals.contains_key("CustomEvent")
-            || self.bindings.contains_key("CustomEvent")
-            || self.module_binding_names.contains("CustomEvent")
-            || self.fn_valued_locals.contains_key("CustomEvent")
-            || self.functions.contains_key("CustomEvent")
-        {
+        let ctor_name = ctor.text.as_deref()?;
+        if !ctor_names.contains(&ctor_name) || !self.event_ctor_unshadowed(ctor_name) {
             return None;
         }
         let arg = self.node(call.children[1]);
@@ -1351,6 +1363,47 @@ impl<'a> FunctionEmitter<'a> {
             return None;
         }
         quoted_string_literal_content(arg.text.as_deref()?)
+    }
+
+    /// The five-namespace shadow guard shared by every event-constructor
+    /// recognizer (same rule as `scheduling_surface` / `is_event_target_new`):
+    /// any user binding, local, module binding, function-valued local, or
+    /// function of that name shadows the global and the construction takes the
+    /// ordinary user lane.
+    pub(crate) fn event_ctor_unshadowed(&self, name: &str) -> bool {
+        !(self.locals.contains_key(name)
+            || self.bindings.contains_key(name)
+            || self.module_binding_names.contains(name)
+            || self.fn_valued_locals.contains_key(name)
+            || self.functions.contains_key(name))
+    }
+
+    /// Stage P5 T-new-C: `node` is ANY `new Event(...)` / `new CustomEvent(...)`
+    /// New-wrapper with the constructor unshadowed — INCLUDING the shapes the
+    /// marker lane does not admit (a non-literal type argument, zero args, extra
+    /// args). Used as the fail-closed choke in `emit_value`: the admitted
+    /// `const` declarator shape is intercepted and `continue`d before any init
+    /// reaches the generic value path, so anything that DOES reach it is out of
+    /// lane and must deny rather than fall through to the drop-and-push-`0`
+    /// aggregate placeholder (which silently answered `0` for `.type` and every
+    /// other property). Narrow AND deny: the recognizer above narrows, this one
+    /// denies the whole remainder.
+    pub(crate) fn is_unshadowed_event_construction(&self, node: &LirNode) -> bool {
+        if node.text.is_some() || node.children.len() != 1 {
+            return false;
+        }
+        let call = self.node(node.children[0]);
+        if call.kind != LirNodeKind::Call || call.text.is_some() || call.children.is_empty() {
+            return false;
+        }
+        let ctor = self.node(call.children[0]);
+        if !ctor.children.is_empty() {
+            return false;
+        }
+        let Some(ctor_name) = ctor.text.as_deref() else {
+            return false;
+        };
+        matches!(ctor_name, "Event" | "CustomEvent") && self.event_ctor_unshadowed(ctor_name)
     }
 
     /// The delimiter-stripped content of a string-literal argument (unwrapping
