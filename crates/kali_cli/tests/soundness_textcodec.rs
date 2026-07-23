@@ -1088,3 +1088,105 @@ fn numeric_binding_proof_is_evidence_not_the_default_repr() {
          const b = e.encode(String(s)); console.log(b.byteLength);",
     );
 }
+
+// --- Stage P5 T-new-D: the UNIFIED stale-provenance shadow guard ------------
+// `text_encoder_locals` / `text_decoder_locals` / `bytes_locals` are name-keyed
+// and flat and had no arm at either binding choke. Measured on parent
+// e14c40004, both codec rows COMPILED AND RAN, printing `hi` (exit 0), where
+// node v26.5.0 throws a TypeError (`enc.encode` / `dec.decode` is not a
+// function on a string).
+
+/// Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane.
+fn assert_e5506_containing(source: &str, needle: &str) {
+    let stderr = run_e5506(source);
+    assert!(
+        stderr.contains(needle),
+        "expected '{needle}' in diagnostic, got: {stderr}"
+    );
+}
+
+/// T-new-D, for-of choke (NEW), ENCODER marker: measured pre-fix `hi`, exit 0.
+#[test]
+fn text_encoder_marker_shadowed_by_for_of_binding_fails_closed() {
+    assert_e5506_containing(
+        "const enc = new TextEncoder(); const dec = new TextDecoder();\n\
+         for (const enc of ['aa']) { console.log(dec.decode(enc.encode('hi'))); }\n",
+        "for-of loop binding may not shadow a name bound to a TextEncoder",
+    );
+}
+
+/// T-new-D, for-of choke (NEW), DECODER marker: measured pre-fix `hi`, exit 0.
+#[test]
+fn text_decoder_marker_shadowed_by_for_of_binding_fails_closed() {
+    assert_e5506_containing(
+        "const enc = new TextEncoder(); const dec = new TextDecoder();\n\
+         const b = enc.encode('hi');\n\
+         for (const dec of ['aa']) { console.log(dec.decode(b)); }\n",
+        "for-of loop binding may not shadow a name bound to a TextDecoder",
+    );
+}
+
+/// T-new-D, for-of choke, BYTE HANDLE: measured NOT hijacked pre-fix (the
+/// string `.length` lane wins first), but the handle table is equally flat, so
+/// the unified guard covers it too — a lane one sink away from divergence.
+#[test]
+fn bytes_handle_shadowed_by_for_of_binding_fails_closed() {
+    assert_e5506_containing(
+        "const enc = new TextEncoder(); const dec = new TextDecoder();\n\
+         const b = enc.encode('hi');\n\
+         for (const b of ['aa']) { console.log(dec.decode(b)); }\n",
+        "for-of loop binding may not shadow a name bound to a TextEncoder().encode() byte handle",
+    );
+}
+
+/// T-new-D, declarator choke (NEW), encoder marker.
+#[test]
+fn text_encoder_marker_redeclared_in_an_inner_block_fails_closed() {
+    assert_e5506_containing(
+        "const enc = new TextEncoder(); const dec = new TextDecoder();\n\
+         { const enc = 5; console.log(enc); }\n\
+         console.log(dec.decode(enc.encode('hi')));\n",
+        "redeclaring a name bound to a TextEncoder",
+    );
+}
+
+/// T-new-D, declarator choke (NEW), decoder marker.
+#[test]
+fn text_decoder_marker_redeclared_in_an_inner_block_fails_closed() {
+    assert_e5506_containing(
+        "const enc = new TextEncoder(); const dec = new TextDecoder();\n\
+         const b = enc.encode('hi');\n\
+         { const dec = 5; console.log(dec); }\n\
+         console.log(dec.decode(b));\n",
+        "redeclaring a name bound to a TextDecoder",
+    );
+}
+
+/// T-new-D, declarator choke (NEW), byte handle.
+#[test]
+fn bytes_handle_redeclared_in_an_inner_block_fails_closed() {
+    assert_e5506_containing(
+        "const enc = new TextEncoder(); const dec = new TextDecoder();\n\
+         const b = enc.encode('hi');\n\
+         { const b = 5; console.log(b); }\n\
+         console.log(dec.decode(b));\n",
+        "redeclaring a name bound to a TextEncoder().encode() byte handle",
+    );
+}
+
+/// T-new-D no-over-deny control: the roundtrip still works next to a for-of
+/// binding whose name does not shadow any codec handle. node v26.5.0:
+/// "2\n2\nhi\n2\n".
+#[test]
+fn for_of_binding_without_codec_shadow_is_unaffected() {
+    assert_eq!(
+        run_ok(
+            "const enc = new TextEncoder(); const dec = new TextDecoder();\n\
+             const b = enc.encode('hi');\n\
+             for (const x of ['aa','bb']) { console.log(x.length); }\n\
+             console.log(dec.decode(b));\n\
+             console.log(b.byteLength);\n"
+        ),
+        "2\n2\nhi\n2"
+    );
+}

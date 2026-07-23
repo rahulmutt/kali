@@ -994,3 +994,30 @@ fn for_of_binding_without_marker_shadow_is_unaffected() {
         "2\n2\ntick\n",
     );
 }
+
+// --- Stage P5 T-new-D: the UNIFIED stale-provenance shadow guard ------------
+// The Event-marker arms above (declarator + for-of) were the model the unified
+// `stale_provenance_shadow_lane` helper generalizes; their diagnostics are
+// unchanged, so the pins above are the Event lane's regression coverage. The
+// EVENT TARGET handle table is the sibling that had NO arm at either choke.
+// Measured on parent e14c40004 it was not observably hijacked (the shadowed
+// call falls to a zero placeholder with no registration), but the table is
+// equally flat — it is now covered by the same predicate.
+
+/// T-new-D, for-of choke (NEW), EventTarget handle.
+#[test]
+fn event_target_handle_shadowed_by_for_of_binding_fails_closed() {
+    assert_e5506_containing(
+        "const t = new EventTarget();\nfor (const t of ['aa']) { console.log(t.length); }\n",
+        "for-of loop binding may not shadow a name bound to an EventTarget",
+    );
+}
+
+/// T-new-D, declarator choke (NEW), EventTarget handle.
+#[test]
+fn event_target_handle_redeclared_in_an_inner_block_fails_closed() {
+    assert_e5506_containing(
+        "const t = new EventTarget();\n{ const t = 5; console.log(t); }\n",
+        "redeclaring a name bound to an EventTarget",
+    );
+}

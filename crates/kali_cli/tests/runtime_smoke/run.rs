@@ -9187,6 +9187,11 @@ fn run_supports_browser_web_crypto_get_random_values_result_length_in_ts_input()
 }
 
 #[test]
+fn run_rejects_crypto_random_result_shadowed_by_a_for_of_binding() {
+    assert_crypto_random_result_for_of_shadow_fails_closed("main.js");
+}
+
+#[test]
 fn run_supports_browser_web_crypto_get_random_values_when_browser_api_surface_is_inherited_when_browser_harness_is_configured_in_ts_input(
 ) {
     assert_browser_requested_web_crypto_get_random_values_when_browser_api_surface_is_inherited(

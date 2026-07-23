@@ -273,3 +273,61 @@ fn crypto_get_random_values_result_stored_into_an_aggregate_fails_closed() {
         );
     }
 }
+
+/// Stage P5 T-new-D: the result deny domain is name-keyed and FLAT, so a
+/// SHADOWING binding desyncs name→value and the shadow's member read is
+/// answered from the stale handle. The declarator choke already invalidated
+/// admission (a pre-existing-coverage row below), but a for-of LOOP BINDING
+/// never passes through it — measured on parent e14c40004,
+/// `for (const fb of ['aa','bbb']) fb.byteLength` printed `8` twice (exit 0)
+/// where node v26.5.0 prints `undefined`. Both chokes now call the ONE
+/// `stale_provenance_shadow_lane` predicate.
+#[test]
+fn crypto_get_random_values_result_shadowed_by_a_binding_fails_closed() {
+    for (source, needle) in [
+        // NEW: the for-of choke.
+        (
+            "const rb = new Uint8Array(8);\nconst fb = crypto.getRandomValues(rb);\nfor (const fb of ['aa','bbb']) { console.log(fb.byteLength); }\n",
+            "for-of loop binding may not shadow a name bound to a crypto.getRandomValues(...) result",
+        ),
+        // NEW: the declarator choke denies the redeclaration itself (before,
+        // the redeclaration was merely un-admitted and the later read denied
+        // — pre-existing partial coverage, now a hard deny at the choke).
+        (
+            "const rb = new Uint8Array(8);\nconst fb = crypto.getRandomValues(rb);\n{ const fb = 5; console.log(fb); }\n",
+            "redeclaring a name bound to a crypto.getRandomValues(...) result",
+        ),
+    ] {
+        let program = parse_and_lower_lir(source);
+        let mut ctx = CodegenCtx::new(TargetConfig {
+            max_specializations: 16,
+            compat_eval: false,
+            coverage: false,
+        });
+        let result = lower_lir_to_wasm(&mut ctx, &program);
+        assert!(
+            result.diagnostics.iter().any(|diag| diag.code
+                == Some(e5::FEATURE_UNAVAILABLE as u32)
+                && diag.message.contains(needle)),
+            "{source}: {:?}",
+            result.diagnostics
+        );
+    }
+}
+
+/// T-new-D no-over-deny control: a for-of binding whose name does NOT shadow
+/// the result binding keeps its ordinary lane, and the admitted `.length` /
+/// `.byteLength` reads still emit (no E5506 anywhere in the program).
+#[test]
+fn crypto_get_random_values_result_unshadowed_for_of_binding_still_compiles() {
+    let program = parse_and_lower_lir(
+        "const rb = new Uint8Array(8);\nconst fb = crypto.getRandomValues(rb);\nfor (const x of ['aa','bb']) { console.log(x.length); }\nconsole.log(fb.length);\nconsole.log(fb.byteLength);\n",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+}

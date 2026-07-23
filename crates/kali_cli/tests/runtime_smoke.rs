@@ -2555,6 +2555,52 @@ fn assert_browser_requested_web_crypto_get_random_values_result_length(filename:
     );
 }
 
+/// Stage P5 T-new-D: the `crypto.getRandomValues(...)` result deny domain is
+/// name-keyed and FLAT, and a for-of LOOP BINDING never passes through the
+/// declarator choke that maintains it. Measured on parent e14c40004 this
+/// program ran to completion printing `8\n8\n8\n` (exit 0, `"warnings":[]`) —
+/// the shadowed `fb.byteLength` was answered from the STALE handle, UPGRADING
+/// an already-wrong `0` into a specific, plausible `8`; node v26.5.0 prints
+/// `8\nundefined\nundefined\n`. The unified shadow guard denies it E5506.
+fn crypto_random_result_for_of_shadow_source() -> &'static str {
+    r#"const rb = new globalThis["Uint8Array"](8);
+const fb = crypto.getRandomValues(rb);
+console.log(fb.byteLength);
+for (const fb of ['aa','bbb']) { console.log(fb.byteLength); }
+"#
+}
+
+fn assert_crypto_random_result_for_of_shadow_fails_closed(filename: &str) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, crypto_random_result_for_of_shadow_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        !output.status.success(),
+        "must fail closed; stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains(
+            "for-of loop binding may not shadow a name bound to a crypto.getRandomValues(...) \
+             result"
+        ),
+        "stderr: {stderr}"
+    );
+}
+
 fn assert_browser_requested_web_crypto_get_random_values_when_browser_api_surface_is_inherited(
     command: &str,
     filename: &str,

@@ -805,6 +805,34 @@ impl<'a> FunctionEmitter<'a> {
                             }
                         }
 
+                        // Stage P5 T-new-D: the UNIFIED stale-provenance shadow
+                        // guard, choke 1 of 2 (the declarator list). Supersedes
+                        // the per-lane C-4 (URL/USP) and T-new-C (Event marker)
+                        // arms that used to sit further down: every name-keyed
+                        // handle/marker table is flat, so ANY redeclaration of a
+                        // recorded name desyncs name→value and the shadowed read
+                        // is answered from the stale handle. One predicate, both
+                        // chokes — a new lane joins the OR in
+                        // `stale_provenance_shadow_lane` and is closed here and
+                        // at the for-of binding by construction.
+                        //
+                        // Ordered BEFORE the crypto recorder below on purpose:
+                        // the recorder inserts the name being declared into the
+                        // deny domain, so a guard placed after it would deny the
+                        // lane's own first declaration.
+                        if let Some(name) = declarator.text.as_deref() {
+                            if let Some(lane) = self.stale_provenance_shadow_lane(name) {
+                                let message = format!(
+                                    "redeclaring a name bound to {lane} in an inner scope is \
+                                     not supported in the current phase (this provenance is \
+                                     name-keyed and not block-scoped; the shadow would read \
+                                     the wrong value; fail-closed)"
+                                );
+                                self.deny_e5506(function, &message);
+                                continue;
+                            }
+                        }
+
                         // Stage P5 T-new-A: binding provenance for a
                         // `crypto.getRandomValues(...)` CALL RESULT. Recorded
                         // here — before EVERY early `continue` below, and before
@@ -831,46 +859,12 @@ impl<'a> FunctionEmitter<'a> {
                                 .deny_e5506(function, Self::CRYPTO_RANDOM_RESULT_STORE_DENY);
                         }
 
-                        // Stage-review C-4: URL/USP provenance is name-keyed
-                        // and FLAT (no block scoping), so a block-scoped
-                        // redeclaration of a name already carrying URL/USP
-                        // provenance desyncs name→value (`{ const u = {...} }`
-                        // inside a URL `u`'s scope read 0 where node reads the
-                        // object). Deny at the declarator choke — the single
-                        // point every redeclaration must pass.
-                        if let Some(name) = declarator.text.as_deref() {
-                            if self.is_url(name) || self.is_url_search_params(name) {
-                                self.deny_e5506(
-                                    function,
-                                    "redeclaring a name bound to a URL/URLSearchParams in an \
-                                     inner scope is not supported in the current phase \
-                                     (URL/USP provenance is not block-scoped; the shadow \
-                                     would read the wrong value; fail-closed)",
-                                );
-                                continue;
-                            }
-                            // Stage P5 T-new-C review C-1: the EVENT-MARKER twin
-                            // of the C-4 guard above. `event_marker_locals` is
-                            // name-keyed and equally FLAT, and a later same-name
-                            // declarator is skipped for RECORDING
-                            // (`!name_already_declared`) without INVALIDATING the
-                            // entry — so `.type` kept answering the stale
-                            // marker's text through the shadow (`const e = new
-                            // Event('tick'); { const e = { type: 'x' };
-                            // e.type }` printed `tick` where node prints `x`,
-                            // exit 0). Deny at the same choke every
-                            // redeclaration passes through.
-                            if self.is_event_marker(name) {
-                                self.deny_e5506(
-                                    function,
-                                    "redeclaring a name bound to an Event/CustomEvent in an \
-                                     inner scope is not supported in the current phase \
-                                     (the marker's type text is not block-scoped; the shadow \
-                                     would read the wrong value; fail-closed)",
-                                );
-                                continue;
-                            }
-                        }
+                        // (Stage-review C-4 for URL/USP and Stage P5 T-new-C
+                        // review C-1 for the Event marker USED to sit here as
+                        // two hand-written arms; both are now folded into the
+                        // unified `stale_provenance_shadow_lane` guard above,
+                        // with their original diagnostic needles preserved.)
+                        //
                         // C-4 mirror order: a URL/USP CONSTRUCTION intercept
                         // below refuses a name that was already declared in
                         // this emitter — the init then takes the generic path,
@@ -1771,22 +1765,26 @@ impl<'a> FunctionEmitter<'a> {
                     self.emit_break_or_continue(function, true, &node)
                 }
                 Some("for-of") | Some("for-await-of") => {
-                    // Stage P5 T-new-C review C-1 sibling (found while probing
-                    // the redeclaration choke): a for-of LOOP BINDING does not
-                    // pass through the declarator choke, so `const e = new
-                    // Event('tick'); for (const e of ['aa','bb']) e.type`
-                    // printed `tick` twice where node prints `undefined` — the
-                    // same stale-marker hijack, one lowering away from the
-                    // guard. Deny on the same evidence.
+                    // Stage P5 T-new-D: the UNIFIED stale-provenance shadow
+                    // guard, choke 2 of 2. A for-of LOOP BINDING never passes
+                    // through the declarator choke, so every name-keyed
+                    // provenance lane was hijackable here (measured, exit 0:
+                    // `for (const u of ['aa']) u.pathname` -> the outer URL's
+                    // `/p`; `for (const c of ['aa']) c.abort()` fired a REAL
+                    // side effect through the shadow; the codec markers let
+                    // kali RUN a program node rejects). Keyed on the binding
+                    // NAME (never on the iterable), so it holds for literal and
+                    // bound arrays, string iteration, `for await`, nested and
+                    // labelled loops, and `let` bindings alike.
                     if let Some(binding) = self.for_of_binding_name(&node) {
-                        if self.is_event_marker(&binding) {
-                            return self.deny_e5506(
-                                function,
-                                "a for-of loop binding may not shadow a name bound to an \
-                                 Event/CustomEvent in the current phase (the marker's type \
-                                 text is not block-scoped; the shadowed `.type` would read \
-                                 the wrong value; fail-closed)",
+                        if let Some(lane) = self.stale_provenance_shadow_lane(&binding) {
+                            let message = format!(
+                                "a for-of loop binding may not shadow a name bound to {lane} \
+                                 in the current phase (this provenance is name-keyed and not \
+                                 block-scoped; the shadowed read would use the wrong value; \
+                                 fail-closed)"
                             );
+                            return self.deny_e5506(function, &message);
                         }
                     }
                     self.emit_for_of_array_iteration(function, &node)

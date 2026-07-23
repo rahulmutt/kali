@@ -750,6 +750,68 @@ impl<'a> FunctionEmitter<'a> {
         self.event_marker_locals.contains_key(name)
     }
 
+    /// Stage P5 T-new-D: the ONE stale-provenance shadow test.
+    ///
+    /// Every opaque-handle / marker lane in this emitter keeps a NAME-KEYED,
+    /// FLAT side-table (`url_locals`, `usp_locals`, `abort_handle_locals`,
+    /// `bytes_locals`, `text_encoder_locals`, `text_decoder_locals`,
+    /// `event_marker_locals`, `event_target_locals`,
+    /// `crypto_random_result_bindings`). None of them is block-scoped, so when
+    /// an INNER binding shadows a recorded name, a member read on the SHADOWING
+    /// binding is answered from the STALE handle — measured across four lanes
+    /// as a silent, exit-0 wrong value (`for (const u of ['aa']) u.pathname`
+    /// printed the outer URL's `/p`; `for (const c of ['aa']) c.abort()` fired
+    /// a real side effect through the shadow).
+    ///
+    /// There are exactly TWO binding-introduction chokes a shadow can enter
+    /// through — the `const`/`let`/`var` DECLARATOR list and the FOR-OF loop
+    /// binding — and before this helper each lane had to remember to add an arm
+    /// at both (five of the lanes remembered neither or only one). A per-lane
+    /// arm is a denylist that leaks on every new lane; this predicate is the
+    /// single test both chokes call, so a lane added to the OR below is closed
+    /// at both by construction.
+    ///
+    /// Returns the LANE LABEL (a noun phrase for the diagnostic) so each call
+    /// site can phrase its own sentence while keeping the per-lane needle a
+    /// test can key on; `None` when `name` carries no handle provenance (the
+    /// overwhelmingly common case — this must not over-deny an ordinary
+    /// binding).
+    pub(crate) fn stale_provenance_shadow_lane(&self, name: &str) -> Option<&'static str> {
+        // URL/USP share one label: the C-4 guard's original wording, which the
+        // Stage P4 pins key on.
+        if self.is_url(name) || self.is_url_search_params(name) {
+            return Some("a URL/URLSearchParams");
+        }
+        if self.is_event_marker(name) {
+            return Some("an Event/CustomEvent");
+        }
+        if self.event_target_locals.contains(name) {
+            return Some("an EventTarget");
+        }
+        // The whole abort DENY domain, captured handles included (the read
+        // sites use exactly this predicate, so any shadow they could answer
+        // from is denied here).
+        if self.is_abort_handle(name) {
+            return Some("an AbortController/AbortSignal");
+        }
+        if self.is_bytes_handle(name) {
+            return Some("a TextEncoder().encode() byte handle");
+        }
+        if self.is_text_encoder_marker(name) {
+            return Some("a TextEncoder");
+        }
+        if self.is_text_decoder_marker(name) {
+            return Some("a TextDecoder");
+        }
+        // The crypto DENY DOMAIN (admitted subset included): the admitted
+        // `.length` loads a length header off whatever the local holds, so a
+        // shadow would load off the shadowing value.
+        if self.crypto_random_result_bindings.contains(name) {
+            return Some("a crypto.getRandomValues(...) result");
+        }
+        None
+    }
+
     /// Stage P5 T-new-C read-position twin of `is_module_scope_url_handle`: a
     /// `_start`-owned event marker reached from a non-`_start` emitter. The
     /// marker is a COMPILE-TIME side-table entry private to the emitter that

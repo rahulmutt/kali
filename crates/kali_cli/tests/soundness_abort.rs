@@ -677,3 +677,49 @@ main();
         "web baseline prefix ok"
     );
 }
+
+// --- Stage P5 T-new-D: the UNIFIED stale-provenance shadow guard ------------
+// `abort_handle_locals` is name-keyed and flat and had NO arm at either binding
+// choke. Measured on parent e14c40004: `const c = new AbortController(); for
+// (const c of ['aa']) { c.abort(); }` fired the REAL abort side effect through
+// the shadowed name (`aborted=true`, exit 0) where node v26.5.0 throws
+// `TypeError: c.abort is not a function`.
+
+/// Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane.
+fn assert_e5506_containing(source: &str, needle: &str) {
+    let stderr = run_kali_run_expect_error(source);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains(needle),
+        "expected '{needle}' in diagnostic, got: {stderr}"
+    );
+}
+
+/// T-new-D, for-of choke (NEW) — the SIDE-EFFECT row: measured pre-fix
+/// `aborted=true`, exit 0.
+#[test]
+fn abort_handle_shadowed_by_for_of_binding_fails_closed() {
+    assert_e5506_containing(
+        "const c = new AbortController();\nfor (const c of ['aa']) { c.abort(); }\nconsole.log('aborted=' + c.signal.aborted);\n",
+        "for-of loop binding may not shadow a name bound to an AbortController/AbortSignal",
+    );
+}
+
+/// T-new-D, declarator choke (NEW): the abort lane had no C-4-style arm, so a
+/// block redeclaration left the handle recorded and a later `c.abort()` /
+/// `c.signal.aborted` answered from the stale cell.
+#[test]
+fn abort_handle_redeclared_in_an_inner_block_fails_closed() {
+    assert_e5506_containing(
+        "const c = new AbortController();\n{ const c = 5; console.log(c); }\nconsole.log('aborted=' + c.signal.aborted);\n",
+        "redeclaring a name bound to an AbortController/AbortSignal",
+    );
+}
+
+/// T-new-D no-over-deny control: normal abort usage plus a for-of binding whose
+/// name does not shadow the handle. node v26.5.0: "2\n2\naborted=true\n".
+#[test]
+fn for_of_binding_without_abort_shadow_is_unaffected() {
+    let src = "const c = new AbortController();\nfor (const x of ['aa','bb']) { console.log(x.length); }\nc.abort();\nconsole.log('aborted=' + c.signal.aborted);\n";
+    assert_eq!(run_kali_run(src), "2\n2\naborted=true\n");
+}

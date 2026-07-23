@@ -669,3 +669,83 @@ main();
         "web baseline url ok"
     );
 }
+
+// --- Stage P5 T-new-D: the UNIFIED stale-provenance shadow guard ------------
+// The URL/USP side-tables are name-keyed and flat. The DECLARATOR choke has
+// guarded them since stage-review C-4, but a for-of LOOP BINDING never passes
+// through that choke, so the same hijack was live one lowering away: measured
+// on parent e14c40004, `for (const u of ['aa']) console.log(u.pathname)`
+// printed the OUTER url's `/p` (exit 0) where node v26.5.0 prints `undefined`,
+// and the USP twin printed `1` where node throws a TypeError.
+
+/// Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane
+/// (`needle`) — these shapes can deny for unrelated pre-existing reasons, so a
+/// bare "contains E5506" assertion could pass on the wrong error.
+fn assert_e5506_containing(source: &str, needle: &str) {
+    let stderr = run_kali_run_expect_error(source);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains(needle),
+        "expected '{needle}' in diagnostic, got: {stderr}"
+    );
+}
+
+/// T-new-D, for-of choke (NEW): measured pre-fix `/p`, exit 0; node prints
+/// `undefined`.
+#[test]
+fn url_shadowed_by_for_of_binding_fails_closed() {
+    assert_e5506_containing(
+        "const u = new URL('https://e.com/p');\nfor (const u of ['aa']) { console.log(u.pathname); }\n",
+        "for-of loop binding may not shadow a name bound to a URL/URLSearchParams",
+    );
+}
+
+/// T-new-D, for-of choke (NEW), FUNCTION scope — the tables are per-emitter, so
+/// the hazard is not confined to `_start`. Measured pre-fix `/p`, exit 0.
+#[test]
+fn url_shadowed_by_for_of_binding_inside_a_function_fails_closed() {
+    assert_e5506_containing(
+        "function f(){ const u = new URL('https://e.com/p'); for (const u of ['aa']) { return u.pathname; } return 'x'; }\nconsole.log(f());\n",
+        "for-of loop binding may not shadow a name bound to a URL/URLSearchParams",
+    );
+}
+
+/// T-new-D, for-of choke (NEW), USP twin: measured pre-fix `1`, exit 0; node
+/// throws `TypeError: q.get is not a function`.
+#[test]
+fn url_search_params_shadowed_by_for_of_binding_fails_closed() {
+    assert_e5506_containing(
+        "const q = new URLSearchParams('alpha=1');\nfor (const q of ['aa']) { console.log(q.get('alpha')); }\n",
+        "for-of loop binding may not shadow a name bound to a URL/URLSearchParams",
+    );
+}
+
+/// T-new-D requirement 2 — PRE-EXISTING COVERAGE pin (passes before and after):
+/// the declarator route was already denied by the C-4 guard, which this task
+/// folded into the unified helper. The pin exists so a future refactor cannot
+/// silently drop one of the two call sites.
+#[test]
+fn url_redeclared_in_an_inner_block_fails_closed_pre_existing_coverage() {
+    assert_e5506_containing(
+        "const u = new URL('https://e.com/p');\n{ const u = { pathname: 'x' }; console.log(u.pathname); }\n",
+        "redeclaring a name bound to a URL/URLSearchParams",
+    );
+}
+
+/// PRE-EXISTING COVERAGE pin, USP twin.
+#[test]
+fn url_search_params_redeclared_in_an_inner_block_fails_closed_pre_existing_coverage() {
+    assert_e5506_containing(
+        "const q = new URLSearchParams('alpha=1');\n{ const q = 5; console.log(q); }\n",
+        "redeclaring a name bound to a URL/URLSearchParams",
+    );
+}
+
+/// T-new-D no-over-deny control: a for-of binding whose name does NOT shadow a
+/// handle keeps its ordinary lane, and the handle's own reads still work.
+/// node v26.5.0: "2\n2\n/p\n1\n".
+#[test]
+fn for_of_binding_without_url_shadow_is_unaffected() {
+    let src = "const u = new URL('https://e.com/p');\nconst q = new URLSearchParams('alpha=1');\nfor (const x of ['aa','bb']) { console.log(x.length); }\nconsole.log(u.pathname);\nconsole.log(q.get('alpha'));\n";
+    assert_eq!(run_kali_run(src), "2\n2\n/p\n1\n");
+}
