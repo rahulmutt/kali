@@ -1097,13 +1097,29 @@ impl<'a> FunctionEmitter<'a> {
                                 if init_node.kind == LirNodeKind::Call && !name_already_declared {
                                     let callee_node =
                                         init_node.children.first().map(|&c| self.node(c).clone());
-                                    let is_marker = callee_node
+                                    // Stage P5 Task 4: the DECODER marker
+                                    // (`const d = new TextDecoder()`) is the exact
+                                    // structural twin of the encoder marker — same
+                                    // stateless placeholder emit, same escape
+                                    // choke, only a different provenance set — so
+                                    // both are recognized here and the shared block
+                                    // below records the one that matched. The
+                                    // 5-namespace shadow guard keeps a user-defined
+                                    // `TextEncoder`/`TextDecoder` (class, function,
+                                    // import, local) on its own lane instead of
+                                    // being hijacked into a marker.
+                                    let ctor = callee_node
                                         .as_ref()
-                                        .is_some_and(|c| c.text.as_deref() == Some("TextEncoder"));
+                                        .and_then(|c| c.text.as_deref())
+                                        .filter(|text| {
+                                            matches!(*text, "TextEncoder" | "TextDecoder")
+                                        })
+                                        .filter(|text| self.url_ctor_unshadowed(text))
+                                        .map(str::to_string);
                                     let is_encode = callee_node
                                         .as_ref()
                                         .is_some_and(|c| self.is_text_encoder_encode(c));
-                                    if is_marker {
+                                    if let Some(ctor) = ctor {
                                         // Stateless marker: emit a placeholder that
                                         // is never observed, bind it (plain local /
                                         // promoted env cell / drop), record the name.
@@ -1121,7 +1137,11 @@ impl<'a> FunctionEmitter<'a> {
                                         } else {
                                             function.instruction(&Instruction::Drop);
                                         }
-                                        self.text_encoder_locals.insert(name);
+                                        if ctor == "TextDecoder" {
+                                            self.text_decoder_locals.insert(name);
+                                        } else {
+                                            self.text_encoder_locals.insert(name);
+                                        }
                                         continue;
                                     }
                                     if is_encode {
@@ -1686,7 +1706,15 @@ impl<'a> FunctionEmitter<'a> {
                 if child_node.kind == LirNodeKind::Call {
                     if let Some(callee) = child_node.children.first().copied() {
                         let callee_node = self.node(callee).clone();
-                        if self.is_text_encoder_encode(&callee_node) {
+                        // Stage P5 Task 4: the same hoisted-`new` wrapper arrives
+                        // for an inline `new TextDecoder().decode(b)`. Without
+                        // this arm the text-less aggregate fallback below DROPS
+                        // the decode and pushes `0` — a silent wrong value.
+                        // Passing through routes it to the decode arm, which
+                        // either relabels a proven byte handle or fails closed.
+                        if self.is_text_encoder_encode(&callee_node)
+                            || self.is_text_decoder_decode(&callee_node)
+                        {
                             return self.emit_node(function, child, want_value);
                         }
                     }
@@ -1826,8 +1854,9 @@ impl<'a> FunctionEmitter<'a> {
                         );
                     }
                     // Stage P5 byte-array escape choke: a bare read of a
-                    // TextEncoder().encode byte handle (or a stateless encoder
-                    // marker) is E5506 unless an allowlisted consumer set
+                    // TextEncoder().encode byte handle (or a stateless encoder /
+                    // DECODER marker — Task 4) is E5506 unless an allowlisted
+                    // consumer set
                     // `admit_bytes_handle_read` (crypto.subtle.digest operand,
                     // later TextDecoder().decode receiver-arg, `.byteLength`). The
                     // raw i64 handle must never escape as an observable value
@@ -1836,7 +1865,9 @@ impl<'a> FunctionEmitter<'a> {
                     // position at the single read site, don't denylist sinks — the
                     // deny is total by construction because every admitted consumer
                     // sets the flag.
-                    if (self.is_bytes_handle(text) || self.is_text_encoder_marker(text))
+                    if (self.is_bytes_handle(text)
+                        || self.is_text_encoder_marker(text)
+                        || self.is_text_decoder_marker(text))
                         && !self.admit_bytes_handle_read
                     {
                         return self.deny_e5506(
@@ -2081,6 +2112,24 @@ impl<'a> FunctionEmitter<'a> {
                             function,
                             "`.length` on a TextEncoder().encode(...) byte buffer is not \
                              supported in the current phase; use `.byteLength` (fail-closed)",
+                        );
+                    }
+                    // Stage P5 Task 4 (structural twin of the bail above): the
+                    // INLINE `d.decode(b).length` base is a `Call`, so it is
+                    // invisible to every name-keyed lane. Its value IS a runtime
+                    // string handle whose low 32 bits are a BYTE count — equal to
+                    // the JS character count only for ASCII, and the decode lane
+                    // deliberately admits non-ASCII payloads (the roundtrip pin).
+                    // No ASCII proof exists for the decoded bytes, so fail closed
+                    // rather than emit a byte count where node reports characters.
+                    // `render_length` has the matching static-fold bail.
+                    if self.is_text_decoder_decode_call(base_id) {
+                        return self.deny_e5506(
+                            function,
+                            "`.length` on a TextDecoder().decode(...) result is not supported in \
+                             the current phase (no ASCII proof for the decoded bytes, so the \
+                             handle byte count may diverge from the JS character count; \
+                             fail-closed)",
                         );
                     }
                     // Stage-review I-6: `.length` on a `q.get(k)` /

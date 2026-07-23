@@ -459,6 +459,10 @@ struct ReprInfer {
     /// recognize a bound `e.encode(...)` receiver as a bytes-seeding shape (this
     /// set is never seeded a repr of its own; the marker carries no value).
     text_encoder_bindings: BTreeSet<(String, String)>,
+    /// Stage P5 Task 4: `(func, binding)` pairs proven to hold a stateless
+    /// `new TextDecoder()` marker — the decoder twin of `text_encoder_bindings`,
+    /// used only to recognize a bound `d.decode(...)` receiver.
+    text_decoder_bindings: BTreeSet<(String, String)>,
     /// Stage P5: `(func, binding)` pairs syntactically admitted for `Repr::Bytes`
     /// seeding — a `const` declarator whose init is `new TextEncoder().encode(x)`
     /// (inline) or `<enc>.encode(x)` where `<enc>` is a `text_encoder_bindings`
@@ -468,6 +472,10 @@ struct ReprInfer {
     /// when ANY declared name anywhere in the program is `"TextEncoder"`. Set
     /// from the same `note_abort_shadow_name` call sites.
     text_encoder_shadowed: bool,
+    /// Stage P5 Task 4 program-wide shadow guard, twin of `text_encoder_shadowed`:
+    /// `true` when ANY declared name anywhere in the program is `"TextDecoder"`,
+    /// which disables the decode string seeding (the call is then a user call).
+    text_decoder_shadowed: bool,
 }
 
 /// Identity of an object-holding slot for shape/aliasing purposes.
@@ -1559,6 +1567,11 @@ impl ReprInfer {
         if name == "TextEncoder" {
             self.text_encoder_shadowed = true;
         }
+        // Stage P5 Task 4: same frontier for the decoder — any shadow of
+        // `TextDecoder` disables the `decode` string seeding program-wide.
+        if name == "TextDecoder" {
+            self.text_decoder_shadowed = true;
+        }
     }
 
     /// True when `name` is locally bound in `func`'s own scope (a parameter
@@ -1923,6 +1936,13 @@ impl ReprInfer {
                 // as a Bytes-seeding shape below.
                 self.text_encoder_bindings
                     .insert((func.to_string(), id.to_string()));
+            } else if is_bare_new_text_decoder(init) {
+                // Stage P5 Task 4: `const d = new TextDecoder()` — a stateless
+                // marker, recorded so a later same-function `d.decode(...)` is
+                // recognized as a string-producing shape below. Like the encoder
+                // marker it is never seeded a repr of its own.
+                self.text_decoder_bindings
+                    .insert((func.to_string(), id.to_string()));
             } else if self.is_text_encoder_encode_init(func, init) {
                 // Stage P5: `const b = new TextEncoder().encode(x)` (inline) or
                 // `const b = e.encode(x)` (bound). Seed `Repr::Bytes`.
@@ -2041,6 +2061,17 @@ impl ReprInfer {
             expr,
             Expression::Identifier(name)
                 if self.text_encoder_bindings.contains(&(func.to_string(), name.clone()))
+        )
+    }
+
+    /// Stage P5 Task 4: `expr` is a bare identifier naming a
+    /// `text_decoder_bindings` marker in `func` — the bound-receiver twin of
+    /// `is_text_decoder_ctor`.
+    fn is_text_decoder_marker_object(&self, func: &str, expr: &Expression) -> bool {
+        matches!(
+            expr,
+            Expression::Identifier(name)
+                if self.text_decoder_bindings.contains(&(func.to_string(), name.clone()))
         )
     }
 
@@ -2361,6 +2392,26 @@ impl ReprInfer {
                     // node). Previously seeded `String`, which is the escaping-
                     // handle hazard this stage closes.
                     return self.new_node();
+                }
+                // Stage P5 Task 4: the same hoisted-`new` shape for an inline
+                // `new TextDecoder().decode(<bytes>)` — a `NewExpression` whose
+                // callee is the `.decode` call. Codegen passes it through to the
+                // decode arm (control_flow's `new`-wrapper passthrough), which
+                // yields a tagged STRING handle, so seed the result `String` +
+                // runtime-string here (mirror of the `visit_call` decode arm).
+                if let Some(decode_call) = text_decoder_decode_new(expr) {
+                    if !self.text_decoder_shadowed {
+                        for arg in &decode_call.args {
+                            self.visit_expr(func, arg);
+                        }
+                        let result = self.new_node();
+                        self.add_string_seed(result);
+                        self.runtime_string_nodes.push(result);
+                        // No ASCII proof for decoded bytes — see the `visit_call`
+                        // decode arm.
+                        self.non_ascii_seeds.push(result);
+                        return result;
+                    }
                 }
                 // Constructor arguments are visited for edges (e.g. `new Array`
                 // length is an int). The handle itself is i64.
@@ -2829,6 +2880,36 @@ impl ReprInfer {
                             self.visit_expr(func, arg);
                         }
                         self.new_node()
+                    }
+                    // Stage P5 Task 4: `new TextDecoder().decode(<bytes>)` /
+                    // bound `d.decode(<bytes>)` relabels the byte handle back to
+                    // a tagged STRING handle (codegen returns it with
+                    // `ValueShape::String`), so seed the result `String` + mark it
+                    // a runtime string node — exactly like the `digest` arm above.
+                    // A binding it flows into then resolves `Repr::String`, and a
+                    // `d.decode(b) === '42'` comparison types as a string compare.
+                    // Gated on the program-wide `TextDecoder` shadow guard: a user
+                    // `TextDecoder` makes this a normal user call.
+                    "decode"
+                        if !self.text_decoder_shadowed
+                            && (is_text_decoder_ctor(&member.object)
+                                || self.is_text_decoder_marker_object(func, &member.object)) =>
+                    {
+                        for arg in &call.args {
+                            self.visit_expr(func, arg);
+                        }
+                        let result = self.new_node();
+                        self.add_string_seed(result);
+                        self.runtime_string_nodes.push(result);
+                        // NO ASCII PROOF: the decoded bytes are an opaque buffer
+                        // (the roundtrip lane deliberately admits non-ASCII
+                        // payloads), and codegen's runtime `.length` reads the
+                        // handle's BYTE count. Seeding non-ASCII makes the shared
+                        // `reject_unprovable_string_length` / substring gates fail
+                        // a bound `const s = d.decode(b); s.length` closed instead
+                        // of reporting a byte count where node reports characters.
+                        self.non_ascii_seeds.push(result);
+                        result
                     }
                     "toFixed" => {
                         // The receiver is a float.
@@ -4776,6 +4857,64 @@ fn is_bare_new_text_encoder(expr: &Expression) -> bool {
         expr,
         Expression::NewExpression(new_expr)
             if matches!(&new_expr.callee, Expression::Identifier(name) if name == "TextEncoder")
+    )
+}
+
+/// Stage P5 Task 4: `expr` invokes the `TextDecoder` constructor — the decoder
+/// twin of `is_text_encoder_ctor` (both the `NewExpression` spelling and the
+/// bare `TextDecoder()` call the parser leaves as the `.decode` object when it
+/// hoists the `new`).
+fn is_text_decoder_ctor(expr: &Expression) -> bool {
+    match expr {
+        Expression::NewExpression(new_expr) => {
+            matches!(&new_expr.callee, Expression::Identifier(name) if name == "TextDecoder")
+        }
+        Expression::CallExpression(call) => {
+            matches!(&call.callee, Expression::Identifier(name) if name == "TextDecoder")
+        }
+        _ => false,
+    }
+}
+
+/// Stage P5 Task 4: recognize the hoisted `new TextDecoder().decode(<bytes>)`
+/// expression — a `NewExpression` whose callee is the `.decode` `CallExpression`.
+/// Twin of `text_encoder_encode_new`.
+fn text_decoder_decode_new(expr: &Expression) -> Option<&kali_ast::CallExpression> {
+    let Expression::NewExpression(new_expr) = expr else {
+        return None;
+    };
+    let Expression::CallExpression(call) = &new_expr.callee else {
+        return None;
+    };
+    let Expression::MemberExpression(member) = &call.callee else {
+        return None;
+    };
+    if member.computed_index.is_some() || member.property.as_str() != "decode" {
+        return None;
+    }
+    if is_text_decoder_ctor(&member.object) {
+        Some(call)
+    } else {
+        None
+    }
+}
+
+/// Stage P5 Task 4: `expr` is a bare `new TextDecoder()` construction with NO
+/// member chain — the marker-declarator shape.
+///
+/// EMPIRICALLY VERIFIED against the parser (dumped `const d = new TextDecoder()`):
+/// the zero-arg construction is `NewExpression { callee: CallExpression { callee:
+/// Identifier("TextDecoder"), args: [] } }` — the parser's `parse_call_expression`
+/// folds the `()` into the callee — NOT a bare `Identifier` callee. `constructor_name`
+/// already encodes exactly that dual shape (`Identifier` OR `CallExpression` with an
+/// `Identifier` callee), and it correctly REFUSES the member-chained
+/// `new TextDecoder().decode(b)` (whose inner callee is a `MemberExpression`), so it
+/// keeps the marker and the inline-decode shapes disjoint.
+fn is_bare_new_text_decoder(expr: &Expression) -> bool {
+    matches!(
+        expr,
+        Expression::NewExpression(new_expr)
+            if constructor_name(&new_expr.callee).as_deref() == Some("TextDecoder")
     )
 }
 

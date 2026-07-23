@@ -149,3 +149,148 @@ fn encode_inline_unbound_bytelength_fails_closed() {
 fn encode_inline_unbound_length_fails_closed() {
     run_e5506("console.log(new TextEncoder().encode('hi').length);");
 }
+
+// --- decode roundtrip (Task 4) ---
+
+#[test]
+fn encode_decode_roundtrip_ascii() {
+    assert_eq!(
+        run_ok(
+            "const e=new TextEncoder(); const d=new TextDecoder(); \
+                const b=e.encode('hi'); console.log(d.decode(b));"
+        ),
+        "hi"
+    );
+}
+
+#[test]
+fn encode_decode_roundtrip_non_ascii() {
+    assert_eq!(
+        run_ok(
+            "const e=new TextEncoder(); const d=new TextDecoder(); \
+                const b=e.encode('héllo'); console.log(d.decode(b));"
+        ),
+        "héllo"
+    );
+}
+
+#[test]
+fn decode_result_is_a_real_string() {
+    // decode output is a normal string: CONTENT comparison + concat work.
+    //
+    // The brief's literal expectation was `"true"`; kali renders a RUNTIME
+    // comparison result as `1`/`0`, not `true`/`false` (pre-existing and
+    // unrelated to this lane — `let x='ab'; console.log(x === 'ab')` prints `1`
+    // on the parent commit too; only STATICALLY FOLDED comparisons render the
+    // JS word). Asserting `1`/`0` pins the same property the brief wanted —
+    // that the decode result takes the `__streq` content-equality lane instead
+    // of failing closed or comparing raw handles — without smuggling an
+    // unrelated console-rendering change into this task.
+    assert_eq!(
+        run_ok(
+            "const e=new TextEncoder(); const d=new TextDecoder(); \
+                const b=e.encode('42'); console.log(d.decode(b) === '42');"
+        ),
+        "1"
+    );
+    assert_eq!(
+        run_ok(
+            "const e=new TextEncoder(); const d=new TextDecoder(); \
+                const b=e.encode('42'); console.log(d.decode(b) === '43');"
+        ),
+        "0"
+    );
+    assert_eq!(
+        run_ok(
+            "const e=new TextEncoder(); const d=new TextDecoder(); \
+                const b=e.encode('42'); console.log('v=' + d.decode(b));"
+        ),
+        "v=42"
+    );
+}
+
+#[test]
+fn decode_of_string_literal_fails_closed() {
+    run_e5506("const d = new TextDecoder(); console.log(d.decode('hi'));");
+}
+
+#[test]
+fn decode_of_i64_fails_closed() {
+    run_e5506("const d = new TextDecoder(); console.log(d.decode(42n));");
+}
+
+#[test]
+fn decode_marker_cannot_print() {
+    run_e5506("const d = new TextDecoder(); console.log(d);");
+}
+
+#[test]
+fn decode_inline_unbound_roundtrip() {
+    // Fully inline (neither the decoder nor the byte buffer is bound): the
+    // hoisted-`new` wrapper passes through to the decode arm instead of the
+    // drop-and-push-`0` aggregate fallback.
+    assert_eq!(
+        run_ok("console.log(new TextDecoder().decode(new TextEncoder().encode('hi')));"),
+        "hi"
+    );
+}
+
+#[test]
+fn decode_of_unproven_identifier_fails_closed() {
+    // A same-shaped i64 that is NOT byte-provenance must not be relabelled as a
+    // string handle (that is the miscompile the provenance gate exists for).
+    run_e5506("const d = new TextDecoder(); const b = 42n; console.log(d.decode(b));");
+}
+
+#[test]
+fn decode_multi_arg_fails_closed() {
+    run_e5506(
+        "const e = new TextEncoder(); const d = new TextDecoder(); const b = e.encode('hi'); \
+         console.log(d.decode(b, b));",
+    );
+}
+
+#[test]
+fn decode_zero_arg_fails_closed() {
+    run_e5506("const d = new TextDecoder(); console.log(d.decode());");
+}
+
+#[test]
+fn decode_result_length_fails_closed() {
+    // Structural static-fold hazard (the Task 3 lesson): a `Call` base is
+    // invisible to every name-keyed lane, so `render_length` would have rendered
+    // the call node's CHILD COUNT as the length. The decoded bytes have no ASCII
+    // proof, so `.length` fails closed rather than reporting a byte count.
+    run_e5506(
+        "const e = new TextEncoder(); const d = new TextDecoder(); const b = e.encode('héllo'); \
+         console.log(d.decode(b).length);",
+    );
+}
+
+#[test]
+fn decode_bound_result_length_fails_closed() {
+    // The BOUND twin: `const s = d.decode(b); s.length` would have reported the
+    // handle's byte count (6) where node reports the character count (5). The
+    // decode repr seed is marked NON-ASCII, so the shared ASCII gate rejects it.
+    run_e5506(
+        "const e = new TextEncoder(); const d = new TextDecoder(); const b = e.encode('héllo'); \
+         const s = d.decode(b); console.log(s.length);",
+    );
+}
+
+#[test]
+fn decode_bound_result_prints_and_compares() {
+    // A bound decode result is a first-class runtime string binding.
+    assert_eq!(
+        run_ok(
+            "const e = new TextEncoder(); const d = new TextDecoder(); \
+             const b = e.encode('héllo'); const s = d.decode(b); console.log(s);"
+        ),
+        "héllo"
+    );
+}
+
+#[test]
+fn decode_marker_cannot_escape_by_return() {
+    run_e5506("function f() { const d = new TextDecoder(); return d; } console.log(f());");
+}

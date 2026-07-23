@@ -1046,6 +1046,14 @@ impl<'a> FunctionEmitter<'a> {
             }
             // Runtime substring: a slice of a string is a string.
             LirNodeKind::Call if self.runtime_substring_call_parts(node).is_some() => true,
+            // Stage P5 Task 4: `TextDecoder().decode(<bytes>)` produces a tagged
+            // string handle (the emit arm relabels the byte handle's `(buf,len)`
+            // and returns `ValueShape::String`), so `+`/`===`/console must
+            // classify it as a string — SAME recognizer the emit arm dispatches
+            // with, so oracle and emission agree by construction. Without this the
+            // `===` lane sees a non-string operand and fails closed on a
+            // well-formed decode comparison.
+            LirNodeKind::Call if self.is_text_decoder_decode_call(id) => true,
             // Call to a string-returning function.
             LirNodeKind::Call => {
                 let Some(callee) = node.children.first().copied() else {

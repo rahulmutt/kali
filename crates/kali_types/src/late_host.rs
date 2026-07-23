@@ -162,6 +162,22 @@ impl TypeContext {
                         }
                         return;
                     }
+                    "decode" if Self::is_new_text_decoder(&member.object) => {
+                        // Stage P5 Task 4, mirroring the `encode` arm above: the
+                        // codegen decode arm rejects ONLY on arity here (its
+                        // ARGUMENT-provenance gate is a separate, structural
+                        // fail-closed deny that this pass cannot see, and which
+                        // errors on its own), so reject the same arity mismatch
+                        // symmetrically and let every other shape fall through.
+                        if expr.args.len() != 1 {
+                            self.diagnostics.push(Diagnostic::error(
+                                e5::FEATURE_UNAVAILABLE as u32,
+                                "TextDecoder().decode requires exactly a single argument in the current phase"
+                                    .to_string(),
+                            ));
+                        }
+                        return;
+                    }
                     _ => {}
                 }
             }
@@ -214,6 +230,22 @@ impl TypeContext {
             }
             Expression::CallExpression(call) => {
                 matches!(&call.callee, Expression::Identifier(name) if name == "TextEncoder")
+            }
+            _ => false,
+        }
+    }
+
+    /// True when `expr` invokes the `TextDecoder` constructor — `new TextDecoder()`
+    /// or the bare `TextDecoder()` call the parser leaves as the `.decode` object
+    /// when it hoists the `new`. Structural mirror of `repr_infer::is_text_decoder_ctor`
+    /// and the twin of `is_new_text_encoder`.
+    fn is_new_text_decoder(expr: &Expression) -> bool {
+        match expr {
+            Expression::NewExpression(new_expr) => {
+                matches!(&new_expr.callee, Expression::Identifier(name) if name == "TextDecoder")
+            }
+            Expression::CallExpression(call) => {
+                matches!(&call.callee, Expression::Identifier(name) if name == "TextDecoder")
             }
             _ => false,
         }

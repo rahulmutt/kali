@@ -157,6 +157,13 @@ pub(crate) struct FunctionEmitter<'a> {
     /// exists only to recognize a bound `enc.encode(...)` receiver). Mirrors
     /// `usp_locals`.
     pub(crate) text_encoder_locals: std::collections::BTreeSet<String>,
+    /// Stage P5 Task 4: bindings proven to hold a stateless `new TextDecoder()`
+    /// marker — the decoder twin of `text_encoder_locals`. The decoder is
+    /// stateless (kali only supports the default `utf-8`, non-fatal decoder), so
+    /// the marker carries no value: the binding exists only to recognize a bound
+    /// `dec.decode(...)` receiver. Reads are denied at the SAME identifier choke
+    /// as the encoder marker / byte handle.
+    pub(crate) text_decoder_locals: std::collections::BTreeSet<String>,
     /// Stage P5 position-allowlist flag for byte-handle reads (the
     /// `admit_url_handle_read` pattern): a bare read of a `bytes_locals` /
     /// `text_encoder_locals` binding is E5506 unless an allowlisted consumer set
@@ -480,6 +487,7 @@ impl<'a> FunctionEmitter<'a> {
             admit_url_handle_read: false,
             bytes_locals: BTreeSet::new(),
             text_encoder_locals: BTreeSet::new(),
+            text_decoder_locals: BTreeSet::new(),
             admit_bytes_handle_read: false,
             diagnostics,
             strings,
@@ -657,6 +665,12 @@ impl<'a> FunctionEmitter<'a> {
     /// emitter's scope.
     pub(crate) fn is_text_encoder_marker(&self, name: &str) -> bool {
         self.text_encoder_locals.contains(name)
+    }
+
+    /// Stage P5 Task 4: `name` is a proven stateless `new TextDecoder()` marker
+    /// in THIS emitter's scope.
+    pub(crate) fn is_text_decoder_marker(&self, name: &str) -> bool {
+        self.text_decoder_locals.contains(name)
     }
 
     /// Stage P4 read-position twin of the abort `is_module_scope_abort_handle`

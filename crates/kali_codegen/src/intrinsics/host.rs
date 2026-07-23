@@ -350,6 +350,76 @@ impl<'a> FunctionEmitter<'a> {
                 .is_some_and(|name| self.is_text_encoder_marker(name))
     }
 
+    /// Stage P5 Task 4: recognize `TextDecoder().decode(<bytes>)` — callee method
+    /// text `"decode"` whose object is either an inline `new TextDecoder()`
+    /// construction (a `Call` node whose own callee text is `"TextDecoder"`) or a
+    /// bare-identifier `text_decoder_locals` marker. The exact structural twin of
+    /// `is_text_encoder_encode`; like it, a pure GUEST-SIDE relabel with no host
+    /// import, so it returns a bool.
+    pub(crate) fn is_text_decoder_decode(&self, callee_node: &LirNode) -> bool {
+        if callee_node.text.as_deref() != Some("decode") {
+            return false;
+        }
+        let Some(&object) = callee_node.children.first() else {
+            return false;
+        };
+        let object_node = self.node(object);
+        // inline `new TextDecoder().decode(...)`
+        if object_node.kind == LirNodeKind::Call {
+            if let Some(&ctor) = object_node.children.first() {
+                if self.node(ctor).text.as_deref() == Some("TextDecoder") {
+                    return true;
+                }
+            }
+        }
+        // bound `const d = new TextDecoder(); d.decode(...)`
+        object_node.children.is_empty()
+            && object_node
+                .text
+                .as_deref()
+                .is_some_and(|name| self.is_text_decoder_marker(name))
+    }
+
+    /// Stage P5 Task 4: `id` IS a `TextDecoder().decode(...)` call node (not its
+    /// callee) — the one-level-up twin of `is_inline_text_encoder_encode_call`,
+    /// used by the value-classification oracles (`is_string_valued`) and by the
+    /// static-fold bails (`render_length`), so every consumer keys on the SAME
+    /// recognizer the emit arm dispatches with. Tunnels transparent wrappers
+    /// (including the parser's hoisted `new`) so an inline
+    /// `new TextDecoder().decode(b)` is recognized in either spelling.
+    pub(crate) fn is_text_decoder_decode_call(&self, id: LirNodeId) -> bool {
+        let node = self.node(self.unwrap_transparent(id));
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+        let Some(&callee_id) = node.children.first() else {
+            return false;
+        };
+        let callee_node = self.node(callee_id).clone();
+        self.is_text_decoder_decode(&callee_node)
+    }
+
+    /// Stage P5 Task 4: `arg` has PROVEN byte-buffer provenance for the
+    /// `TextDecoder().decode` argument position — either a bound `bytes_locals`
+    /// identifier (`const b = e.encode(x); d.decode(b)`) or an inline, unbound
+    /// `new TextEncoder().encode(x)` call (`d.decode(new TextEncoder().encode(x))`).
+    /// Everything else (a string literal, an i64, an array, an unproven
+    /// identifier) is denied: the decode lane RELABELS its argument's `(buf,len)`
+    /// as a string, which is sound only when those bits already are a contiguous
+    /// UTF-8 handle. Default-deny — a shape nobody proved fails closed.
+    pub(crate) fn arg_is_bytes_provenance(&self, arg: LirNodeId) -> bool {
+        let arg = self.unwrap_transparent(arg);
+        if self.is_inline_text_encoder_encode_call(arg) {
+            return true;
+        }
+        let node = self.node(arg);
+        node.children.is_empty()
+            && node
+                .text
+                .as_deref()
+                .is_some_and(|name| self.is_bytes_handle(name))
+    }
+
     /// Stage P5 review fix: recognize a member-access BASE node that is itself
     /// an inline, UNBOUND `new TextEncoder().encode(<string>)` call — e.g. the
     /// `new TextEncoder().encode('hi')` in
@@ -789,6 +859,17 @@ impl<'a> FunctionEmitter<'a> {
         // which denies E5506 (no runtime string-length lane exists for a USP
         // string result this phase).
         if self.is_usp_string_call(*id) {
+            return None;
+        }
+
+        // Stage P5 Task 4 (structural, NOT name-keyed — the Task 3 fix-wave
+        // lesson): `d.decode(b).length` has a `Call` base with no binding name,
+        // so absent this bail it falls through to the `children.len()` fallbacks
+        // below and renders the CALL NODE'S CHILD COUNT as the length. Bail so
+        // the runtime `.length` member arm handles it (the decode result is a
+        // runtime string handle; `is_string_valued` proves it, and the handle's
+        // low-32 byte count is the same value the string lane reads).
+        if self.is_text_decoder_decode_call(*id) {
             return None;
         }
 

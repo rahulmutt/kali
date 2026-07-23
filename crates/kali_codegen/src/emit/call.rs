@@ -3241,6 +3241,43 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if self.is_text_decoder_decode(&callee_node) {
+            // `TextDecoder().decode(<bytes>)`: the byte handle IS a contiguous
+            // UTF-8 `(buf,len)` (the encode lane is a zero-copy relabel of a kali
+            // string handle), so decoding is the inverse relabel — the same i64,
+            // now carried as a String. Arity 1 only; the argument must have PROVEN
+            // byte provenance (a `bytes_locals` binding or an inline `encode`
+            // call), admitted across the escape choke only while it is emitted.
+            let arg_ids: Vec<LirNodeId> = node.children.iter().skip(1).copied().collect();
+            if arg_ids.len() != 1 {
+                return self.deny_e5506(
+                    function,
+                    "TextDecoder().decode requires exactly one byte-buffer argument \
+                     in the current phase (fail-closed)",
+                );
+            }
+            let arg = arg_ids[0];
+            if !self.arg_is_bytes_provenance(arg) {
+                return self.deny_e5506(
+                    function,
+                    "TextDecoder().decode only accepts a TextEncoder().encode byte buffer \
+                     in the current phase (fail-closed)",
+                );
+            }
+            let saved = self.admit_bytes_handle_read;
+            self.admit_bytes_handle_read = true;
+            let produced = self.emit_node(function, arg, true);
+            self.admit_bytes_handle_read = saved;
+            if !produced.produced {
+                function.instruction(&Instruction::I64Const(0));
+            }
+            // The i64 is already STRING_HANDLE_TAG | (buf<<32) | len — return as String.
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::String,
+            };
+        }
+
         if self.is_text_encoder_encode(&callee_node) {
             // `new TextEncoder().encode(<string>)`: a thin reinterpret. A kali
             // string is ALREADY a tagged CONTIGUOUS byte-buffer handle
