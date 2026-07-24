@@ -889,6 +889,15 @@ closed or stays pre-existing-red rather than miscompiling):
      sink. No over-deny: `Math.abs(5n)`→`5`, `Math.floor(1.7)`→`1`,
      `Math.max(1n,2n)`→`2`, `let n=5n; Math.abs(n)`→`5` all still execute.
      Gate 9360→9372, 0 newly-red; acceptance byte-for-byte (`ok 1` / `result: 0n`).
+  5a. P5-R-new-array-dynamic-arg **[SILENT MISCOMPILE — PRE-EXISTING, NOT the String() class]**:
+     `new Array(<dynamic arg>).length` diverges — `new Array(String(2n)).length`
+     → kali `2`, node `1`; but this is NOT the F-newB-1 raw-bits signature and is
+     independent of `String()`: it diverges IDENTICALLY for a plain bigint
+     (`new Array(2n).length` → kali `2`, node `1`, no string involved). Root is
+     kali's pre-existing bigint-as-i64 / Array-constructor length-vs-element
+     semantics (single numeric arg = length in JS, but kali treats it as an
+     element). Surfaced by the T-new-F final review; deferred as its own
+     pre-existing item, out of the String()-result scalar class.
   6. F-newB-2/3/4 **[SILENT MISCOMPILE]**: `String(v).byteLength`
      → 2 (node `undefined`); `String(v)[0]` / `String(v).repeat()`
      silent 0; `String(undefined)` → `false`, `String(null)` → `0`
