@@ -2367,13 +2367,25 @@ impl TypeContext {
     /// closing `let o={a:"3"}; let n=o.a; n|=1;` (the R-06-R4
     /// "string-field-sink-corruption" residual reaching this gate) along
     /// with the other target-axis leaks. Cost: a real, deliberate
-    /// over-denial — `numeric_bindings` does not model a member-expression
-    /// RHS at all, so `let o={a:3}; let n=o.a; n|=1;` (a NUMBER field, a
-    /// case node computes CORRECTLY as `3`) now also fails closed, because
-    /// `n`'s only write evidence is an object-field read this proof cannot
-    /// see through. Accepted under this project's "refuse rather than
+    /// over-denial. Round 4 A/B-measured its actual extent against the
+    /// round-2 parent (`820e3dd91`) — it is NOT the single object-field case
+    /// an earlier revision of this doc named, but the whole COMPLEMENT of
+    /// `write_value_is_numeric`'s allowlist
+    /// (`crates/kali_types/src/repr_infer.rs:1010-1041`): that proof admits
+    /// only a numeric/BigInt literal, a self-reference, a PARAMETER of the
+    /// current function, and unary/binary arithmetic over those, so a target
+    /// initialized from a non-parameter identifier (another local or a
+    /// `const`), a CALL, a MEMBER read, or an INDEX read gets no positive
+    /// evidence and fails closed even when node computes the program
+    /// correctly (six such shapes measured, all previously correct except
+    /// the array-element one, which was a wrong value). The literal /
+    /// arithmetic-over-literals / self-reference / parameter core is
+    /// unaffected. Accepted under this project's "refuse rather than
     /// miscompile" policy; tracked for the Task 6 audit as a known cost, not
-    /// a silently absorbed regression.
+    /// a silently absorbed regression. Recovering the lost cases means
+    /// widening `write_value_is_numeric` to model member/call/local-identifier
+    /// inflow — not loosening this predicate or codegen's guard. Pinned in
+    /// `crates/kali_cli/tests/soundness_bitwise_compound.rs`.
     pub(crate) fn bitwise_compound_target_is_admitted_local_scalar(
         &self,
         left: &Expression,

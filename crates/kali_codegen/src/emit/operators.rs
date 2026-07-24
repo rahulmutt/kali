@@ -1485,10 +1485,15 @@ impl<'a> FunctionEmitter<'a> {
     /// participate in — see `literal.rs`'s target check and
     /// `repr_infer.rs`'s `visit_assignment`. `let o={a:"3"}; let n=o.a; n |=
     /// 1;` now fails closed `E5506` instead of printing `1` (node: `3`) —
-    /// closed, at the cost of a documented over-denial on an unrelated,
-    /// previously-CORRECT case (`let o={a:3}; let n=o.a; n|=1;`, a NUMBER
-    /// field this new proof cannot see through either — see the target
-    /// check's own comment).
+    /// closed, at the cost of a documented over-denial on unrelated,
+    /// previously-CORRECT cases. Round 4 measured that cost's real extent:
+    /// it is every target whose write evidence falls outside
+    /// `write_value_is_numeric`'s allowlist
+    /// (`crates/kali_types/src/repr_infer.rs:1010-1041`) — a non-parameter
+    /// identifier, a call, a member read, or an index read — not just the
+    /// single numeric-object-field example (`let o={a:3}; let n=o.a; n|=1;`)
+    /// this doc previously named. See the target check's own comment in
+    /// `emit/literal.rs` for the full measured list.
     pub(crate) fn bitwise_compound_rhs_is_provably_i64(&self, id: LirNodeId) -> bool {
         let id = self.unwrap_transparent(id);
         let id = self.resolve_bound_node(id);

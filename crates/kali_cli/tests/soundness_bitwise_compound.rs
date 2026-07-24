@@ -275,11 +275,13 @@ fn bitwise_compound_on_non_integer_fails_closed() {
 // via `scalar_repr(name) == Repr::I64`, which is `ReprTable::scalar`'s
 // `#[default]`, indistinguishable from "repr_infer recorded nothing at all."
 // Fixed by requiring an EXPLICIT `ReprTable::scalar_entry` record instead.
-// Five of the six round-2 reproductions are RHS-axis and are now closed; the
-// sixth (`bitwise_compound_target_axis_string_field_leak_is_a_tracked_residual`
-// below) is TARGET-axis and remains open — see that test's doc comment for
-// why, and do not "fix" it by adding a passing test that asserts the wrong
-// value.
+// Five of the six round-2 reproductions are RHS-axis and were closed in that
+// round; the sixth is TARGET-axis and was closed in round 3 by a different
+// mechanism (`binding_is_proven_numeric`) — see
+// `bitwise_compound_fails_closed_on_target_from_string_object_field` below.
+// (An earlier revision of this comment named a
+// `..._is_a_tracked_residual` test that recorded the then-open leak with no
+// assertions; round 3 replaced it with that real pin.)
 
 #[test]
 fn bitwise_compound_fails_closed_on_rhs_from_string_object_field() {
@@ -356,22 +358,85 @@ fn bitwise_compound_fails_closed_on_target_from_string_object_field() {
 }
 
 #[test]
-fn bitwise_compound_target_axis_over_denial_is_a_documented_known_cost() {
-    // Review round 3: the `binding_is_proven_numeric` fix that closes the
-    // leak above is not free. `write_value_is_numeric` (the proof
-    // `numeric_bindings` is built from) does not model a member-expression
-    // RHS at all, so a target whose ONLY write evidence is an object-field
-    // read now fails closed EVEN WHEN the field genuinely holds a number and
-    // node computes the correct value — a real loss of a previously-CORRECT
-    // case, not a wrong value. Accepted under this project's "refuse rather
-    // than miscompile" policy (fail-closed is preferred to a silent
-    // miscompile), and pinned here so a future change that narrows
-    // `numeric_bindings` further doesn't silently change this row from
-    // "known, accepted over-denial" to "yet another shape denied" without
-    // review. node: 3 (this program is NOT a miscompile in node — kali is
-    // conservative here, not wrong).
+fn bitwise_compound_over_denies_write_values_outside_the_numeric_proof() {
+    // DELIBERATE-COST PINS, not correctness pins. Read this before "fixing"
+    // any row below.
+    //
+    // Review round 3 added `binding_is_proven_numeric` to codegen's target
+    // guard (`crates/kali_codegen/src/emit/literal.rs`), which closed a
+    // family of silent miscompiles. It is not free. The proof that guard
+    // consults is built by `write_value_is_numeric`
+    // (`crates/kali_types/src/repr_infer.rs:1010-1041`), whose allowlist
+    // admits ONLY: a numeric/BigInt literal, a self-reference, a PARAMETER of
+    // the current function, and unary `- + ~` / binary
+    // `+ - * % & | ^ << >> >>>` recursively over those. Every other write
+    // value leaves the target unproven, so the guard denies it — including
+    // when node computes the program correctly.
+    //
+    // Round 3 reported this cost as ONE shape ("a numeric object field read
+    // into a local"). An A/B measurement against the round-2 parent binary
+    // (`820e3dd91`, where every row below printed node's value at exit 0)
+    // found SIX. All six are pinned here so a future change cannot move them
+    // silently in either direction. Each is fail-CLOSED (E5506, nonzero
+    // exit), never a wrong value.
+    //
+    // These rows are EXPECTED to flip back to `assert_stdout` value
+    // assertions one day. The follow-up that does it is widening
+    // `write_value_is_numeric` to model member/call/local-identifier inflow —
+    // NOT loosening the codegen guard or the resolve-stage admit predicate,
+    // which is what the guard is there to prevent. A row flipping to a VALUE
+    // is progress; a row starting to print a wrong value, or being denied by
+    // some unrelated diagnostic, is a regression.
+
+    // 1. Arithmetic whose leaves are non-parameter LOCALS. node: 9.
+    assert_fails_closed(
+        "let a = 3; let b = 3; let n = a * b; n |= 0; console.log(n);\n",
+        "|=",
+    );
+    // 2. Initialized from a CALL return. node: 24.
+    assert_fails_closed(
+        "function f() { return 6; }\nlet n = f(); n <<= 2; console.log(n);\n",
+        "<<=",
+    );
+    // 3. Initialized from a numeric object FIELD (the one case round 3
+    //    named). node: 3.
     assert_fails_closed(
         "let o = {a: 3}; let n = o.a; n |= 1; console.log(n);\n",
+        "|=",
+    );
+    // 4. Initialized from a `const` binding — an identifier, not a
+    //    parameter. node: 24.
+    assert_fails_closed("const c = 6; let n = c; n <<= 2; console.log(n);\n", "<<=");
+    // 5. Initialized from another LOCAL. node: 24.
+    assert_fails_closed("let m = 6; let n = m; n <<= 2; console.log(n);\n", "<<=");
+    // 6. Reassigned from a CALL after a provable initializer — one
+    //    unprovable write is enough to unprove the binding. node: 28.
+    assert_fails_closed(
+        "function f() { return 7; }\nlet n = 0; n = f(); n <<= 2; console.log(n);\n",
+        "<<=",
+    );
+}
+
+#[test]
+fn bitwise_compound_fails_closed_on_target_from_array_element() {
+    // NOT a deliberate-cost pin — this one is a CLOSED MISCOMPILE, and it
+    // was closed incidentally (and unreported) by round 3's
+    // `binding_is_proven_numeric` tightening. Measured on the round-2 parent
+    // binary (`820e3dd91`): this program printed `1` at exit 0. node prints
+    // `3`. At HEAD it fails closed with E5506.
+    //
+    // It shares the round-4 over-denial's mechanism — an index read is
+    // outside `write_value_is_numeric`'s allowlist
+    // (`crates/kali_types/src/repr_infer.rs:1010-1041`), so `n` gets no
+    // positive numeric evidence — but it is pinned separately because the
+    // fact it protects is different: the six rows in
+    // `bitwise_compound_over_denies_write_values_outside_the_numeric_proof`
+    // may legitimately flip to value assertions when that proof is widened,
+    // whereas this row must NEVER go back to printing `1`. If a future
+    // widening admits array-element inflow, this row flips to
+    // `assert_stdout(.., "3\n")` — node's value — and to nothing else.
+    assert_fails_closed(
+        "let a = [1, 2, 3]; let n = a[1]; n |= 1; console.log(n);\n",
         "|=",
     );
 }

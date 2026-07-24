@@ -1104,15 +1104,41 @@ impl<'a> FunctionEmitter<'a> {
                 // `repr_infer`'s numeric-binding-write proof, never defaulted
                 // — that the six bitwise ops now participate in
                 // (`repr_infer.rs`'s `visit_assignment`). Requiring it here
-                // closes the target-axis leak (verified in the fix report)
-                // at the cost of a real, deliberate over-denial: a target
-                // whose ONLY evidence is an untracked provenance chain
-                // (an object field read into a local, even a NUMBER field —
-                // `write_value_is_numeric` does not model member-expression
-                // RHS at all) now fails closed instead of computing the
-                // correct value. Accepted under this project's standing
-                // "refuse rather than miscompile" policy; not silently
-                // absorbed — see the fix report for the measured case.
+                // closes the target-axis leak (verified in the fix report).
+                //
+                // COST — the real shape class, measured (round 4; the round-3
+                // comment here understated it as the single "numeric object
+                // field read into a local" case). The over-denial is exactly
+                // the COMPLEMENT of `write_value_is_numeric`'s allowlist —
+                // `crates/kali_types/src/repr_infer.rs:1010-1041`, the value
+                // half of the proof `numeric_bindings` is built from. That
+                // allowlist admits only: a numeric/BigInt literal, a
+                // self-reference, a PARAMETER of the current function, and
+                // unary `- + ~` / binary `+ - * % & | ^ << >> >>>` recursively
+                // over those. Any other write value leaves the target
+                // unproven and is therefore denied HERE — including when node
+                // computes the program correctly. Six such shapes were
+                // A/B-measured against the round-2 parent (`820e3dd91`), where
+                // each printed node's value and now returns E5506: an
+                // initializer that is an identifier which is NOT a parameter
+                // (a copy of another local, `let m=6; let n=m; n<<=2` → node
+                // 24; or of a `const`, `const c=6; let n=c;` → 24; or
+                // arithmetic whose LEAVES are such identifiers, `let a=3,b=3;
+                // let n=a*b; n|=0` → 9), a CALL (`let n=f(); n<<=2` → 24, and
+                // the same via reassignment `n=f()` → 28), a MEMBER read
+                // (`let o={a:3}; let n=o.a; n|=1` → 3), or an INDEX read
+                // (`let a=[1,2,3]; let n=a[1];` — this one was a WRONG VALUE
+                // at round 2, not a lost-correct case). The literal /
+                // arithmetic-over-literals / self-reference / parameter core
+                // is 100% intact, and every lost case fails closed rather
+                // than miscompiling. Accepted under this project's standing
+                // "refuse rather than miscompile" policy. Recovering them is
+                // a tracked follow-up and belongs in `write_value_is_numeric`
+                // — teach it member/call/local-identifier inflow — NOT in a
+                // loosening of this guard. All seven programs are pinned in
+                // `crates/kali_cli/tests/soundness_bitwise_compound.rs`
+                // (`bitwise_compound_over_denies_write_values_outside_the_numeric_proof`,
+                // `bitwise_compound_fails_closed_on_target_from_array_element`).
                 if self.scalar_repr(&name) != kali_common::Repr::I64
                     || !self.binding_is_proven_numeric(&name)
                     || !self.bitwise_compound_rhs_is_provably_i64(right)
