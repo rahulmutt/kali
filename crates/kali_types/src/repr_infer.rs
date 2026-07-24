@@ -5772,8 +5772,39 @@ fn object_field_value_is_safe_for_materialization(expr: &Expression) -> bool {
     match strip_parenthesized(expr) {
         Expression::Literal(LiteralValue::Number(_)) => true,
         Expression::Literal(LiteralValue::String(_)) => true,
-        Expression::UnaryExpression(unary) if unary.operator == "-" || unary.operator == "+" => {
-            object_field_value_is_safe_for_materialization(&unary.argument)
+        // Only a NUMERIC literal (never a string) may sit under a unary
+        // `+`/`-` — round-3 review CRITICAL: recursing into the general
+        // predicate here (which admits `String` at the top level) wrongly
+        // admitted `+"hi"`/`-"3"`/`+"0x10"`/`+"  5  "` too, since a
+        // materialized field has no string->number coercion (kali reads
+        // the raw string bytes as an integer, not the JS `ToNumber` value —
+        // `+"3"` happening to read back `3` is COINCIDENTAL, not proof of
+        // soundness; `+"hi"`/`+"0x10"`/`+"  5  "` read back garbage
+        // (`617`/`7210`/`-175676` on the fresh binary that exposed this).
+        // `unary_numeric_literal_operand` below is numeric-literal-only and
+        // does NOT accept a string at any depth.
+        Expression::UnaryExpression(unary)
+            if (unary.operator == "-" || unary.operator == "+")
+                && unary_numeric_literal_operand(&unary.argument) =>
+        {
+            true
+        }
+        _ => false,
+    }
+}
+
+/// `true` iff `expr` is a numeric literal, or a unary `+`/`-` applied
+/// (recursively) to one — NEVER a string literal at any depth. A narrower,
+/// numeric-only sibling of `object_field_value_is_safe_for_materialization`,
+/// used ONLY to gate that predicate's own unary arm so a string literal can
+/// never be admitted underneath a unary operator (only at the bare top
+/// level, where no coercion is implied).
+fn unary_numeric_literal_operand(expr: &Expression) -> bool {
+    match strip_parenthesized(expr) {
+        Expression::Literal(LiteralValue::Number(_)) => true,
+        Expression::UnaryExpression(unary) => {
+            (unary.operator == "-" || unary.operator == "+")
+                && unary_numeric_literal_operand(&unary.argument)
         }
         _ => false,
     }

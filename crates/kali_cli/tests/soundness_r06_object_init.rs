@@ -131,6 +131,37 @@ fn var_object_negative_field_reads_value() {
     assert_eq!(run_ok("var o = { f: -7 }; console.log(o.f);"), "-7");
 }
 
+// ---- Unary-on-string pins (task review round 4, 2026-07-24) ----
+//
+// The unary +/- arm of `object_field_value_is_safe_for_materialization`
+// used to recurse into the GENERAL predicate, which admits `String` at
+// the top level — so it wrongly admitted `+"hi"`/`-"3"` too. A
+// materialized field has no string->number coercion (kali reads the raw
+// string bytes as an integer), so `+"3"` happening to read back `3` is
+// COINCIDENTAL, not proof of soundness; `+"hi"`/`+"0x10"`/`+"  5  "` read
+// back garbage. The fix restricts the unary arm to a numeric-literal-only
+// sub-check (`unary_numeric_literal_operand`) that never accepts a string
+// at any depth — a string is admitted ONLY as a bare top-level field
+// value, never underneath a unary operator.
+
+#[test]
+fn unary_plus_on_nonnumeric_string_fails_closed() {
+    run_e5506("var o={f:+\"hi\"}; console.log(o.f);");
+}
+
+#[test]
+fn unary_plus_on_decimal_string_fails_closed() {
+    // Coincidentally-correct today (`+"3"` would read back `3`), but
+    // unsound in general (see `unary_plus_on_nonnumeric_string_fails_closed`)
+    // — must fail closed regardless of this specific value.
+    run_e5506("var o={f:+\"3\"}; console.log(o.f);");
+}
+
+#[test]
+fn unary_minus_on_string_fails_closed() {
+    run_e5506("var o={f:-\"3\"}; console.log(o.f);");
+}
+
 #[test]
 fn var_object_multi_field_reads_all() {
     assert_eq!(
