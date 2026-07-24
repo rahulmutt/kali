@@ -1618,23 +1618,34 @@ impl<'a> FunctionEmitter<'a> {
         function.instruction(&Instruction::I32WrapI64);
         self.emit_float_operand(function, right, false);
         function.instruction(&Instruction::I32WrapI64);
-        match op {
-            "&" => function.instruction(&Instruction::I32And),
-            "|" => function.instruction(&Instruction::I32Or),
-            "^" => function.instruction(&Instruction::I32Xor),
-            "<<" => function.instruction(&Instruction::I32Shl),
-            ">>" => function.instruction(&Instruction::I32ShrS),
-            ">>>" => function.instruction(&Instruction::I32ShrU),
-            _ => unreachable!("emit_bitwise called with non-bitwise op"),
-        };
-        if op == ">>>" {
-            function.instruction(&Instruction::I64ExtendI32U);
-        } else {
-            function.instruction(&Instruction::I64ExtendI32S);
-        }
+        self.emit_bitwise_i32_op_extend(function, op);
         EmittedValue {
             produced: true,
             shape: ValueShape::Scalar,
+        }
+    }
+
+    /// Applies a JS bitwise op to two `i32` operands already on the value stack
+    /// (left pushed first, then right) and extends the `i32` result back to
+    /// `i64` — sign-extended for every op except `>>>`, which zero-extends
+    /// (uint32). The SOLE home of bitwise result semantics: the plain operators
+    /// (`emit_bitwise`) and every compound-assignment target arm route through
+    /// here, so the two forms cannot desynchronize. Accepts both the plain op
+    /// text (`"<<"`) and the compound op text (`"<<="`).
+    pub(crate) fn emit_bitwise_i32_op_extend(&mut self, function: &mut Function, op: &str) {
+        match op {
+            "&" | "&=" => function.instruction(&Instruction::I32And),
+            "|" | "|=" => function.instruction(&Instruction::I32Or),
+            "^" | "^=" => function.instruction(&Instruction::I32Xor),
+            "<<" | "<<=" => function.instruction(&Instruction::I32Shl),
+            ">>" | ">>=" => function.instruction(&Instruction::I32ShrS),
+            ">>>" | ">>>=" => function.instruction(&Instruction::I32ShrU),
+            _ => unreachable!("emit_bitwise_i32_op_extend called with non-bitwise op"),
+        };
+        if matches!(op, ">>>" | ">>>=") {
+            function.instruction(&Instruction::I64ExtendI32U);
+        } else {
+            function.instruction(&Instruction::I64ExtendI32S);
         }
     }
 
