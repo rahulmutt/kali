@@ -2556,6 +2556,19 @@ impl TypeContext {
 /// `AssignmentOperator` variants). Used solely to drive the temporary
 /// fail-closed gate in `resolve_expression`'s `AssignmentExpression` arm
 /// above, ahead of Task 2 landing the real codegen lowering.
+///
+/// Review finding (Important 1): this match is deliberately EXHAUSTIVE with
+/// no `_` wildcard, listing every `AssignmentOperator` variant one-by-one —
+/// including explicit `None` arms for the ten pre-existing, non-bitwise
+/// operators. A wildcard `_ => None` here would reintroduce the exact
+/// silent-admit mechanism report §9/§4 blames for making this gate
+/// necessary in the first place: a future 7th `AssignmentOperator` variant
+/// would silently fall through to `None`, sail past this gate unflagged,
+/// and land in the generic scalar admit path with zero compiler signal.
+/// Written exhaustively, growing the enum again makes THIS function (the
+/// choke point) a compile error, forcing a conscious decision instead of a
+/// silent default — the same allowlist-at-the-choke-point discipline this
+/// codebase uses everywhere else a new variant must be triaged.
 fn bitwise_compound_assign_op_text(op: &AssignmentOperator) -> Option<&'static str> {
     match op {
         AssignmentOperator::BitAndAssign => Some("&="),
@@ -2564,7 +2577,16 @@ fn bitwise_compound_assign_op_text(op: &AssignmentOperator) -> Option<&'static s
         AssignmentOperator::LeftShiftAssign => Some("<<="),
         AssignmentOperator::RightShiftAssign => Some(">>="),
         AssignmentOperator::UnsignedRightShiftAssign => Some(">>>="),
-        _ => None,
+        AssignmentOperator::Assign => None,
+        AssignmentOperator::AddAssign => None,
+        AssignmentOperator::SubtractAssign => None,
+        AssignmentOperator::MultiplyAssign => None,
+        AssignmentOperator::DivideAssign => None,
+        AssignmentOperator::ModuloAssign => None,
+        AssignmentOperator::ExponentAssign => None,
+        AssignmentOperator::NullishAssign => None,
+        AssignmentOperator::AndAssign => None,
+        AssignmentOperator::OrAssign => None,
     }
 }
 
