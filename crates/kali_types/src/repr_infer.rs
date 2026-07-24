@@ -474,6 +474,16 @@ struct ReprInfer {
     /// resolve-phase compound/update gate can reject fail-closed regardless of
     /// whether the object ever gets a shape (fasta Spec 7 Task 2).
     object_initialized_bindings: BTreeSet<(String, String)>,
+    /// `(func, binding)` object-literal bindings declared with a MUTABLE kind
+    /// (`var`/`let`, never `const`), stored as their `ObjSlot::Binding`. A
+    /// read-only mutable object literal cannot use the const-only compile-time
+    /// fold lane (folding a mutable binding is the R-07 miscompile), so a field
+    /// READ must materialize it into a real `Repr::Object` allocation — else the
+    /// read falls to the silent-0 fold fallback (R-06). Populated in
+    /// `visit_declarator_init`; consumed by the read-materialization block in
+    /// `resolve_objects`. `const` bindings are absent, so they keep their
+    /// byte-identical fold-first lowering.
+    mutable_object_literal_bindings: BTreeSet<ObjSlot>,
     /// Syntactic growable-array candidates `(func, binding)` from the Stage 4
     /// choke-point predicate ([`crate::growable::growable_array_candidates`]),
     /// computed in Phase A3 before any body walk. The `.push` visit arm
@@ -2623,6 +2633,13 @@ impl ReprInfer {
             // so never gets promoted to `Repr::Object` below.
             self.object_initialized_bindings
                 .insert((func.to_string(), id.to_string()));
+            // R-06: a var/let (mutable) object-literal binding must materialize
+            // on a field READ (const stays fold-first). Recorded here; the
+            // read-materialization block in `resolve_objects` consumes it.
+            if kind != "const" {
+                self.mutable_object_literal_bindings
+                    .insert(ObjSlot::Binding(func.to_string(), id.to_string()));
+            }
             self.record_object_literal(
                 func,
                 ObjSlot::Binding(func.to_string(), id.to_string()),
@@ -4319,7 +4336,7 @@ impl ReprInfer {
         //      stays on the fold lane untouched (fold-first). See the doc
         //      comment on `pending_slots_reached_by_a_read` for the exact
         //      rule and why it is shaped this way.
-        let promote_via_read = self.pending_slots_reached_by_a_read();
+        let mut promote_via_read = self.pending_slots_reached_by_a_read();
 
         // 2.6. Pre-mark materialization for every WRITE access on a
         //      known-shape base, BEFORE gating individual accesses in step 3
@@ -4334,6 +4351,49 @@ impl ReprInfer {
                         self.obj_materialized.insert(access.base.clone());
                     }
                 }
+            }
+        }
+
+        // 2.7. Read-materialize a MUTABLE object-literal binding (R-06). A
+        //      var/let object literal is absent from the const-only fold table,
+        //      so a field READ has no compile-time value to fold and must get a
+        //      real Repr::Object allocation. Marking it materialized here means a
+        //      known-field read lowers through the allocation (step 3's read arm
+        //      + shape intern), and an UNKNOWN-field read promotes to a
+        //      fail-closed conflict (step 3, ~line 4352) instead of the silent-0
+        //      fold fallback. `const` bindings are absent from the set and keep
+        //      their byte-identical fold-first lowering.
+        for access in &self.obj_accesses {
+            if !access.is_write
+                && self.mutable_object_literal_bindings.contains(&access.base)
+                && fields_of.contains_key(&access.base)
+            {
+                self.obj_materialized.insert(access.base.clone());
+            }
+        }
+
+        // 2.7b. A MUTABLE literal that `record_object_literal` bailed on
+        //       structurally (nested object / getter-setter / non-identifier
+        //       key — recorded in `obj_pending_conflicts`, which never gets a
+        //       `fields_of` entry, so 2.7 above cannot see it) has no
+        //       fold-lane substitution to fall back on either: the codegen
+        //       const-fold alias table is populated for `const`-style
+        //       bindings only. Step 2.5's "a read-only pending literal is
+        //       safe to leave on the fold lane" rule is sound for `const`
+        //       (the fold lane really does substitute the literal text), but
+        //       does NOT hold for a mutable binding — nothing folds it, so a
+        //       bare read-only field READ on it would otherwise fall through
+        //       every codegen guard to the generic silent-0 placeholder,
+        //       which is exactly the R-06 class of bug applied to a
+        //       structurally-unsupported shape. Promote ANY read (not just
+        //       write+read / cross-slot flow) on a mutable pending slot, so
+        //       it fails closed (E5506) instead of silent-0.
+        for access in &self.obj_accesses {
+            if !access.is_write
+                && self.mutable_object_literal_bindings.contains(&access.base)
+                && self.obj_pending_conflicts.contains_key(&access.base)
+            {
+                promote_via_read.insert(access.base.clone());
             }
         }
 
