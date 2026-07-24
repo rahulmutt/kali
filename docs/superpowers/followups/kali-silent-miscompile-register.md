@@ -1981,6 +1981,95 @@ opaque compiler-internals message instead of a clear one. Added by soundness-bat
 
 ---
 
+## 7.9 Stage P5 sightings (2026-07-23)
+
+Silent miscompiles observed while building Stage P5 (`String()` coercion +
+`TextEncoder`/`TextDecoder`). These are **sightings + cross-references only** — no
+fixes were attempted, and existing entries are NOT renumbered. Each is measured on
+the freshly built HEAD binary; all pre-existing unless marked NEW. Full context is
+in `docs/superpowers/followups/stageD-triage.md` §8.6 (the "Stage P5" SHIPPED
+entry inventory), whose item numbers are cross-referenced below.
+
+Maps to an existing register entry:
+
+- **Block-function-declaration shadow of a handle name** (§8.6 #16, F-newD-1) — a
+  hoisted `{ function u(){} u.pathname }` returns the OUTER handle's real value
+  (URL `/p`, crypto `8`) where node gives `undefined`, exit 0. Bypasses both
+  binding chokes structurally (a fn decl is its own plan, introduces its name
+  through no declarator/for-of node), so the Stage-P5 `stale_provenance_shadow_lane`
+  guard cannot see it. **≈ R-10** (block-scoped shadowing unmodeled) — the same
+  root, a different introduction site than the block-`const` redeclaration R-10
+  documents, and NOT closed by the P5 guard.
+- **Numeric block-scope divergence** (§8.6 #19, P5-R-blockscope-numeric) —
+  `let s=7n; function f(){ { let s=0n; s+=1n; } return s; } f()` → 1, node 7n, no
+  `String()` involved. **≈ R-10.** Sound w.r.t. the new `numeric_bindings` proof
+  today, but the proof is keyed on a function-granular scope model; any R-10 fix
+  must revisit both sides together.
+- **Array handle stored into an aggregate reads back with the wrong length** (§8.6
+  #8, P5-R-aggregate-array-provenance; and the leaking alias/return routes in #9,
+  P5-R-newA-residuals I-4) — `const o={buf:rb}; o.buf.length` → 1 (node 4);
+  `holder[0]=rb; holder[0].length` → 2 (node 4); `const z=fb; z.length` → 0;
+  `function mk(){return fb} mk().length` → 1 (node 4). The emitted values are the
+  child-count / holder-length — maximally plausible wrong numbers. **≈ R-14** (an
+  array returned from a function reads back as zeros) — same escape/arena
+  provenance-loss family, now also seen through object-field and index stores.
+- **`class`-method bodies return `0`** (§8.6 #17, P5-R-classmethod-zero) —
+  `class Foo{m(x){return 'A';}} new Foo().m('x')` → 0; surfaces now that a
+  shadowing `class TextEncoder` correctly takes the user lane. **Corresponds to the
+  Stage-5 "class-method bodies return 0" finding** (recorded in
+  `kali-throw-fallout-stage5.md`); the `function` spelling of the same shadow fails
+  closed.
+- **Computed / method string-length and rendering divergences** (§8.6 #10
+  P5-R-computed-length → `s["length"]` = 0; #15 P5-R-tostring-length →
+  `arr.toString().length` = 1; #11 P5-R-bytelength-undef → `.byteLength` on a
+  runtime string = byte count where node gives `undefined`). Same per-sink /
+  per-method string-repr family as **R-16** (per-method string-repr gap) and the
+  computed-member handling of **R-13**.
+- **`String(x)` result leaks a tagged handle once it leaves its choke** (§8.6 #5
+  F-newB-1, #6 F-newB-2/3/4) — `function g(y){return String(y)} const s=g(1n);
+  'x'+s` → `x-9223354375949254655`, node `x1`. The P5 String coercion is sound at
+  its own choke but there is no `Repr::String` return seed, so the value reads as a
+  raw handle at `+`-concat/template/`.byteLength`. **Related to R-16/R-17/R-19** —
+  a string value reaching a consumer that never proved it was a string (cluster
+  G5). Note R-19 ("`String(x)` … silently return `0`") is now PARTLY SUPERSEDED:
+  P5 made bare-identifier `String(x)` coerce correctly; the residual leak is the
+  return-seed/concat-site gap, not a blanket `0`.
+
+Appears NEW (no clean pre-existing register entry):
+
+- **Module-scope growable `push` is a silent no-op** (§8.6 #7,
+  P5-R-modulescope-growable-push, HIGH) — `const g=[]; g.push(7); g.length` → 0,
+  `g[0]` undefined, `g.join('-')` empty (node 1/7/7); also dropped when the push is
+  inside a function targeting a module-scope growable. Fixed-size module-scope
+  arrays are fine. A silent WRITE loss — worse than a read divergence, since every
+  downstream reader sees a plausible empty array with `warnings:[]`, exit 0. No
+  existing register entry covers the module-scope growable write lane specifically
+  (distinct from R-06's `var`/`let` initializer drop, which is const-vs-non-const
+  and about the declaration, not `push` on a `const [] ` at module scope).
+- **`globalThis.String(1n)` folds to `0`** (§8.6 #4, P5-R-globalthis-string, NEW
+  in Task 6) — the member-call form prints `0` (exit 0) where node prints `1`. The
+  bare-identifier `String(1n)` now coerces (P5 Task 1); the member-call spelling
+  hits the unresolved-member/call-folds-to-`0` path instead. **Closest existing
+  entry is R-02** (calling through a first-class function value returns `0`) / the
+  G2 unresolvable-callee-folds-to-`0` cluster, but the specific
+  `globalThis.<builtin>(...)` member spelling is not separately entried.
+- **Parser silently drops destructuring assignment** (§8.6 #18,
+  P5-R-destructuring-assign, NEW, HIGH) — `let a=0n; [a]=[1n]; console.log(a)` → 0,
+  node `1n`; the AST shows the statement decaying into two unrelated
+  `ExpressionStatement`s, no diagnostic. A parser fail-open recovery (cluster G1),
+  but no register entry covers destructuring-assignment drop specifically.
+- **The for-of / block-`const`-redeclaration shadow family, now PARTIALLY CLOSED**
+  by the P5 T-new-D `stale_provenance_shadow_lane` guard — a for-of or block-const
+  redeclaration shadowing a name bound to a TextEncoder/TextDecoder marker, a bytes
+  handle, a URL/USP handle, an abort handle, an Event marker, or a
+  `getRandomValues` result now fails closed (E5506) at BOTH binding chokes rather
+  than serving the stale handle. Recorded here so the register reflects that this
+  slice of the R-10 shadow hazard is closed for the eight P5/P4/P3 name-keyed lanes;
+  the block-fn-decl introduction site (F-newD-1 above) and the general R-10 scope
+  model remain open.
+
+---
+
 ## 8. Cross-references
 
 - `docs/superpowers/followups/pr16-honest-repin-inventory.md` — the 694-test adjudication map

@@ -145,6 +145,72 @@ pub(crate) struct FunctionEmitter<'a> {
     /// E5506 unless an allowlisted consumer set this while emitting its
     /// receiver (`emit_url_receiver_handle`). Mirrors `admit_abort_handle_read`.
     pub(crate) admit_url_handle_read: bool,
+    /// Stage P5: bindings proven to hold a `TextEncoder().encode(...)` byte
+    /// handle (an i64 handle to the zero-copy byte buffer) in THIS emitter's
+    /// scope — a `const b = enc.encode(<string>)` / `new TextEncoder().encode`
+    /// declarator the intercept fired for. Repr::Bytes provenance; the raw
+    /// handle must never escape as an observable value — reads are denied at the
+    /// identifier choke unless `admit_bytes_handle_read`. Mirrors `usp_locals`.
+    pub(crate) bytes_locals: std::collections::BTreeSet<String>,
+    /// Stage P5: bindings proven to hold a stateless `new TextEncoder()` marker
+    /// (the encoder is stateless, so the marker carries no value — the binding
+    /// exists only to recognize a bound `enc.encode(...)` receiver). Mirrors
+    /// `usp_locals`.
+    pub(crate) text_encoder_locals: std::collections::BTreeSet<String>,
+    /// Stage P5 Task 4: bindings proven to hold a stateless `new TextDecoder()`
+    /// marker — the decoder twin of `text_encoder_locals`. The decoder is
+    /// stateless (kali only supports the default `utf-8`, non-fatal decoder), so
+    /// the marker carries no value: the binding exists only to recognize a bound
+    /// `dec.decode(...)` receiver. Reads are denied at the SAME identifier choke
+    /// as the encoder marker / byte handle.
+    pub(crate) text_decoder_locals: std::collections::BTreeSet<String>,
+    /// Stage P5 position-allowlist flag for byte-handle reads (the
+    /// `admit_url_handle_read` pattern): a bare read of a `bytes_locals` /
+    /// `text_encoder_locals` binding is E5506 unless an allowlisted consumer set
+    /// this while emitting its operand (`crypto.subtle.digest` operand; later
+    /// `TextDecoder().decode` receiver-arg).
+    pub(crate) admit_bytes_handle_read: bool,
+    /// Stage P5 T-new-C: bindings proven to hold an `Event`/`CustomEvent`
+    /// COMPILE-TIME marker in THIS emitter's scope, mapped to the event's type
+    /// TEXT (the constructor's string-literal argument). Recorded by the
+    /// declarator intercept for a `const` whose init is
+    /// `new Event(<string literal>)` with the constructor unshadowed. The marker
+    /// carries no runtime value: `<ident>.type` materializes the interned text
+    /// directly from this map, and EVERY other read of the name is denied at the
+    /// identifier choke. Mirrors `text_encoder_locals` (a marker side-table),
+    /// with the type text as the payload.
+    pub(crate) event_marker_locals: std::collections::BTreeMap<String, String>,
+    /// Stage P5 Task 4 review fix (C-4): the PRODUCE-side twin of
+    /// `admit_bytes_handle_read`. The read choke only guards BOUND handles
+    /// (`bytes_locals` identifiers); an INLINE, unbound
+    /// `new TextEncoder().encode('hi')` never passes through an identifier read,
+    /// so `console.log(new TextEncoder().encode('hi'))` escaped the choke and
+    /// printed `hi` where node prints `Uint8Array(2) [ 104, 105 ]` — exactly the
+    /// divergence the read choke exists to prevent. The encode arm therefore
+    /// emits its handle ONLY while an allowlisted consumer set this flag: the
+    /// `const b = <enc>.encode(<string>)` declarator intercept, the
+    /// `TextDecoder().decode` operand, and the `crypto.subtle.digest` operand.
+    /// Every other position fails closed.
+    pub(crate) admit_bytes_handle_produce: bool,
+    /// Stage P5 T-new-A: every binding in THIS emitter's scope whose
+    /// initializer is structurally a `crypto.getRandomValues(...)` CALL RESULT
+    /// — the DENY DOMAIN. Recorded unconditionally at the declarator/assignment
+    /// choke, BEFORE any admission test, so a result that is not provably
+    /// array-backed can never fall through to the silent-zero placeholder
+    /// (`fb.length` read `0` where node reads `8`, and the crypto bundle
+    /// trapped on its own self-check).
+    pub(crate) crypto_random_result_bindings: std::collections::BTreeSet<String>,
+    /// Stage P5 T-new-A: the ADMITTED SUBSET of
+    /// `crypto_random_result_bindings` — those whose recorded init additionally
+    /// proved (a) the callee lowered through the `crypto_get_random_values`
+    /// import arm, which returns the argument handle UNCHANGED (JS identity),
+    /// (b) exactly one argument, which is a bare identifier RECORDED in
+    /// `array_bindings` (a `new Array(n)` / `new Uint8Array(n)` allocation or a
+    /// repr-table-proven array param — positive recorded evidence, never a
+    /// default), and (c) the binding itself owns a WASM local slot, so its
+    /// `.length` reads the header off the handle IT holds (not off the
+    /// argument's binding, which may be reassigned in between).
+    pub(crate) crypto_random_result_array_bindings: std::collections::BTreeSet<String>,
     pub(crate) diagnostics: &'a mut Vec<Diagnostic>,
     pub(crate) strings: &'a mut StringPool,
     pub(crate) source_path: Option<PathBuf>,
@@ -460,6 +526,14 @@ impl<'a> FunctionEmitter<'a> {
             usp_locals: BTreeSet::new(),
             declared_binding_names: BTreeSet::new(),
             admit_url_handle_read: false,
+            bytes_locals: BTreeSet::new(),
+            text_encoder_locals: BTreeSet::new(),
+            text_decoder_locals: BTreeSet::new(),
+            admit_bytes_handle_read: false,
+            event_marker_locals: std::collections::BTreeMap::new(),
+            admit_bytes_handle_produce: false,
+            crypto_random_result_bindings: BTreeSet::new(),
+            crypto_random_result_array_bindings: BTreeSet::new(),
             diagnostics,
             strings,
             source_path,
@@ -624,6 +698,147 @@ impl<'a> FunctionEmitter<'a> {
     /// scope.
     pub(crate) fn is_url_search_params(&self, name: &str) -> bool {
         self.usp_locals.contains(name)
+    }
+
+    /// Stage P5: `name` is a proven `TextEncoder().encode(...)` byte handle
+    /// (Repr::Bytes) in THIS emitter's scope.
+    pub(crate) fn is_bytes_handle(&self, name: &str) -> bool {
+        self.bytes_locals.contains(name)
+    }
+
+    /// Stage P5: `name` is a proven stateless `new TextEncoder()` marker in THIS
+    /// emitter's scope.
+    pub(crate) fn is_text_encoder_marker(&self, name: &str) -> bool {
+        self.text_encoder_locals.contains(name)
+    }
+
+    /// Stage P5 Task 4: `name` is a proven stateless `new TextDecoder()` marker
+    /// in THIS emitter's scope.
+    pub(crate) fn is_text_decoder_marker(&self, name: &str) -> bool {
+        self.text_decoder_locals.contains(name)
+    }
+
+    /// Stage P5 T-new-C: the BARE-identifier receiver name of a one-child
+    /// member node `<ident>.<field>`. `None` when the receiver is anything other
+    /// than a childless identifier (a nested member, a call, a literal), so a
+    /// chained `o.e.type` never resolves to a marker name. Deliberately does NOT
+    /// unwrap transparent wrappers: a textless one-child `Value` is also a
+    /// single-element ARRAY literal, and tunneling would let `[e].type` claim the
+    /// marker.
+    pub(crate) fn bare_member_receiver_name(&self, node: &LirNode) -> Option<String> {
+        if node.children.len() != 1 {
+            return None;
+        }
+        let base = self.node(node.children[0]);
+        if !base.children.is_empty() {
+            return None;
+        }
+        base.text.clone().filter(|text| !text.is_empty())
+    }
+
+    /// Stage P5 T-new-C: the compile-time event TYPE text of a proven
+    /// `Event`/`CustomEvent` marker in THIS emitter's scope, or `None` when
+    /// `name` is not such a marker. This is RECORDED EVIDENCE (the declarator
+    /// intercept fired and stored the constructor's literal argument), never a
+    /// default.
+    pub(crate) fn event_marker_type(&self, name: &str) -> Option<&str> {
+        self.event_marker_locals.get(name).map(String::as_str)
+    }
+
+    /// Stage P5 T-new-C: `name` is a proven event marker in THIS emitter's scope.
+    pub(crate) fn is_event_marker(&self, name: &str) -> bool {
+        self.event_marker_locals.contains_key(name)
+    }
+
+    /// Stage P5 T-new-D: the ONE stale-provenance shadow test.
+    ///
+    /// Every opaque-handle / marker lane in this emitter keeps a NAME-KEYED,
+    /// FLAT side-table (`url_locals`, `usp_locals`, `abort_handle_locals`,
+    /// `bytes_locals`, `text_encoder_locals`, `text_decoder_locals`,
+    /// `event_marker_locals`, `event_target_locals`,
+    /// `crypto_random_result_bindings`). None of them is block-scoped, so when
+    /// an INNER binding shadows a recorded name, a member read on the SHADOWING
+    /// binding is answered from the STALE handle — measured across four lanes
+    /// as a silent, exit-0 wrong value (`for (const u of ['aa']) u.pathname`
+    /// printed the outer URL's `/p`; `for (const c of ['aa']) c.abort()` fired
+    /// a real side effect through the shadow).
+    ///
+    /// There are exactly TWO binding-introduction chokes a shadow can enter
+    /// through — the `const`/`let`/`var` DECLARATOR list and the FOR-OF loop
+    /// binding — and before this helper each lane had to remember to add an arm
+    /// at both (five of the lanes remembered neither or only one). A per-lane
+    /// arm is a denylist that leaks on every new lane; this predicate is the
+    /// single test both chokes call, so a lane added to the OR below is closed
+    /// at both by construction.
+    ///
+    /// Returns the LANE LABEL (a noun phrase for the diagnostic) so each call
+    /// site can phrase its own sentence while keeping the per-lane needle a
+    /// test can key on; `None` when `name` carries no handle provenance (the
+    /// overwhelmingly common case — this must not over-deny an ordinary
+    /// binding).
+    pub(crate) fn stale_provenance_shadow_lane(&self, name: &str) -> Option<&'static str> {
+        // URL/USP share one label: the C-4 guard's original wording, which the
+        // Stage P4 pins key on.
+        if self.is_url(name) || self.is_url_search_params(name) {
+            return Some("a URL/URLSearchParams");
+        }
+        if self.is_event_marker(name) {
+            return Some("an Event/CustomEvent");
+        }
+        if self.event_target_locals.contains(name) {
+            return Some("an EventTarget");
+        }
+        // The whole abort DENY domain, captured handles included (the read
+        // sites use exactly this predicate, so any shadow they could answer
+        // from is denied here).
+        if self.is_abort_handle(name) {
+            return Some("an AbortController/AbortSignal");
+        }
+        if self.is_bytes_handle(name) {
+            return Some("a TextEncoder().encode() byte handle");
+        }
+        if self.is_text_encoder_marker(name) {
+            return Some("a TextEncoder");
+        }
+        if self.is_text_decoder_marker(name) {
+            return Some("a TextDecoder");
+        }
+        // The crypto DENY DOMAIN (admitted subset included): the admitted
+        // `.length` loads a length header off whatever the local holds, so a
+        // shadow would load off the shadowing value.
+        if self.crypto_random_result_bindings.contains(name) {
+            return Some("a crypto.getRandomValues(...) result");
+        }
+        None
+    }
+
+    /// Stage P5 T-new-C read-position twin of `is_module_scope_url_handle`: a
+    /// `_start`-owned event marker reached from a non-`_start` emitter. The
+    /// marker is a COMPILE-TIME side-table entry private to the emitter that
+    /// declared it, so an inner function has no way to recover the type text —
+    /// deny rather than fall through to the placeholder/module-binding lanes.
+    pub(crate) fn is_module_scope_event_marker(&self, name: &str) -> bool {
+        self.function_name != "_start"
+            && !self.event_marker_locals.contains_key(name)
+            && !self.locals.contains_key(name)
+            && self.repr_table.scalar("_start", name) == kali_common::Repr::Event
+    }
+
+    /// Stage P5 T-new-C CAPTURED twin of `is_captured_url_handle`: an event
+    /// marker owned by an ENCLOSING function, reached through the closure env
+    /// plan. Keyed on the OWNER's recorded repr verdict. There is no captured
+    /// lane for a marker (it has no runtime value to promote into an env cell),
+    /// so absent this gate an inner `e.type` falls through to the silent
+    /// zero-placeholder lane — the exact defect the preceding task shipped one
+    /// scope inwards.
+    pub(crate) fn is_captured_event_marker(&self, name: &str) -> bool {
+        !self.event_marker_locals.contains_key(name)
+            && !self.locals.contains_key(name)
+            && self.env_plan.captured.iter().any(|reference| {
+                reference.name == name
+                    && self.repr_table.scalar(&reference.owner, &reference.name)
+                        == kali_common::Repr::Event
+            })
     }
 
     /// Stage P4 read-position twin of the abort `is_module_scope_abort_handle`

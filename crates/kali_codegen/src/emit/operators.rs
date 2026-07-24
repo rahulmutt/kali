@@ -8,6 +8,17 @@ impl<'a> FunctionEmitter<'a> {
         op: &str,
         arg: LirNodeId,
     ) -> EmittedValue {
+        // Stage P5 T-new-E/F: `s++`/`s--`/`++s`/`--s` on a `String()`-result
+        // binding reads its tagged handle and runs `i64.add`/`i64.sub` on the
+        // raw bits — a numeric-consumption sink. Fail CLOSED. `is_string_valued`
+        // covers a SEEDED String() result (the taint short-circuits false on it,
+        // T-new-F); the taint covers the un-seeded backstop (a param / mixed
+        // binding). Positive provenance only, so a genuine numeric counter is
+        // untouched. A member target (`obj.x++`) is never a bare String()-result
+        // identifier, so both predicates answer false there.
+        if self.is_string_valued(arg) || self.string_result_render_taint(arg) {
+            return self.deny_e5506(function, Self::STRING_RESULT_RENDER_DENY);
+        }
         let Some(name) = self.assignment_target_name(node, arg) else {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
@@ -115,7 +126,7 @@ impl<'a> FunctionEmitter<'a> {
             }
             "-" => {
                 if self.is_float_valued(arg) {
-                    let _ = self.emit_node(function, arg, true);
+                    let _ = self.emit_numeric_operand(function, arg);
                     function.instruction(&Instruction::F64Neg);
                     return EmittedValue {
                         produced: true,
@@ -123,7 +134,7 @@ impl<'a> FunctionEmitter<'a> {
                     };
                 }
                 function.instruction(&Instruction::I64Const(0));
-                let _ = self.emit_node(function, arg, true);
+                let _ = self.emit_numeric_operand(function, arg);
                 function.instruction(&Instruction::I64Sub);
                 EmittedValue {
                     produced: true,
@@ -134,11 +145,11 @@ impl<'a> FunctionEmitter<'a> {
                 if self.is_string_valued(arg) {
                     return self.emit_string_to_i64_parse(function, arg);
                 }
-                self.emit_node(function, arg, true)
+                self.emit_numeric_operand(function, arg)
             }
             "~" => {
                 function.instruction(&Instruction::I64Const(0));
-                let _ = self.emit_node(function, arg, true);
+                let _ = self.emit_numeric_operand(function, arg);
                 function.instruction(&Instruction::I64Sub);
                 function.instruction(&Instruction::I64Const(1));
                 function.instruction(&Instruction::I64Sub);
@@ -148,7 +159,7 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             "!" => {
-                let _ = self.emit_node(function, arg, true);
+                let _ = self.emit_numeric_operand(function, arg);
                 function.instruction(&Instruction::I64Eqz);
                 function.instruction(&Instruction::I64ExtendI32U);
                 EmittedValue {
@@ -965,6 +976,17 @@ impl<'a> FunctionEmitter<'a> {
     /// to allow exactly the operands these arms also recognize, so the two never
     /// disagree.
     pub(crate) fn is_string_valued(&self, id: LirNodeId) -> bool {
+        // Stage P5 T-new-B (stage-review C-2): remember whether the node the
+        // caller handed us is a textless one-child `Value` — the shape a
+        // single-element ARRAY literal `[x]` and a transparent wrapper share
+        // (see `unwrap_transparent`'s doc). The `String()` coercion arm below
+        // must not fire through such a wrapper: `encode([String(v)])` was
+        // proven a "string", and the array literal's `0` placeholder was
+        // encoded, silently producing a 0-byte buffer where node produces 2.
+        let entered_through_wrapper = {
+            let node = self.node(id);
+            node.kind == LirNodeKind::Value && node.children.len() == 1 && node.text.is_none()
+        };
         let id = self.unwrap_transparent(id);
         // Resolve a local `const` fold-alias (`self.bindings`) BEFORE the bare-
         // identifier repr lookup below, mirroring `is_float_valued` (which has
@@ -1013,6 +1035,25 @@ impl<'a> FunctionEmitter<'a> {
         if let Some((_, member)) = self.url_member_read_parts(id) {
             return !matches!(member, crate::emit::url::UrlMember::SearchParams);
         }
+        // Stage P5 T-new-C: `<event-marker>.type` materializes an INTERNED
+        // string handle (`ValueShape::String`) at the emit site, so every string
+        // consumer must classify it as a string — the `===`/`!==` `__streq`
+        // content-equality lane above all (the fixture compares it against a
+        // string literal). Keyed on the SAME recorded evidence the emit arm
+        // dispatches with (`event_marker_type`, the declarator intercept's
+        // side-table entry — never a repr default), so oracle and emission agree
+        // by construction; a member on a non-marker base, or any other property
+        // on a marker, is not proven a string here.
+        {
+            let node = self.node(id);
+            if node.text.as_deref() == Some("type") {
+                if let Some(base_name) = self.bare_member_receiver_name(node) {
+                    if self.event_marker_type(&base_name).is_some() {
+                        return true;
+                    }
+                }
+            }
+        }
         let node = self.node(id);
         match node.kind {
             LirNodeKind::Literal => node.text.as_deref().is_some_and(|text| {
@@ -1034,6 +1075,24 @@ impl<'a> FunctionEmitter<'a> {
             LirNodeKind::Value if node.children.len() == 3 && node.text.as_deref() == Some("?") => {
                 self.is_string_valued(node.children[1]) || self.is_string_valued(node.children[2])
             }
+            // Stage P5 T-new-B review I-2: `typeof x` in the two lanes
+            // `emit_unary` actually lowers — a statically-classified operand
+            // and a proven runtime string — emits an INTERNED type-name handle
+            // with `ValueShape::String`, so every string consumer must classify
+            // it as a string (the equality lane already did, via
+            // `EqClass::String`). Keyed on the SAME two predicates that arm
+            // dispatches with, so the oracle and the emission agree by
+            // construction: the third, unproven lane (a runtime operand with no
+            // static classification, which falls through to the pre-existing
+            // warn+0 placeholder) is NOT proven a string here.
+            LirNodeKind::Value
+                if node.children.len() == 1
+                    && node.text.as_deref() == Some("typeof")
+                    && (self.typeof_static_text(node.children[0]).is_some()
+                        || self.is_string_valued(node.children[0])) =>
+            {
+                true
+            }
             // Bare identifier read: string iff its binding's repr is String.
             LirNodeKind::Value if node.children.is_empty() => {
                 node.text.as_deref().is_some_and(|name| {
@@ -1046,12 +1105,48 @@ impl<'a> FunctionEmitter<'a> {
             }
             // Runtime substring: a slice of a string is a string.
             LirNodeKind::Call if self.runtime_substring_call_parts(node).is_some() => true,
-            // Call to a string-returning function.
+            // Stage P5 Task 4: `TextDecoder().decode(<bytes>)` produces a tagged
+            // string handle (the emit arm relabels the byte handle's `(buf,len)`
+            // and returns `ValueShape::String`), so `+`/`===`/console must
+            // classify it as a string — SAME recognizer the emit arm dispatches
+            // with, so oracle and emission agree by construction. Without this the
+            // `===` lane sees a non-string operand and fails closed on a
+            // well-formed decode comparison.
+            LirNodeKind::Call if self.is_text_decoder_decode_call(id) => true,
+            // Stage P5 T-new-B: an ADMITTED `String(<coercible>)` intrinsic
+            // coercion call (Task 1) produces a real runtime string handle via
+            // `emit_as_string`, so every string consumer — `+`, `===`,
+            // `.length`, and the `TextEncoder().encode` argument gate the
+            // acceptance fixture needs — must classify it as a string. Keyed on
+            // the SAME recognizer the coercion arm dispatches with
+            // (`string_coercion_call_arg`, which carries that arm's shadow guard
+            // and its whole denial set), so oracle and emission agree by
+            // construction: a `String()` form Task 1 fails closed on returns
+            // `None` here and is NOT proven a string.
+            // The `!entered_through_wrapper` guard is the C-2 carve-out
+            // described at the top of this function: a `[String(v)]` array
+            // literal reaches here as the tunnelled call node and must NOT be
+            // proven a string.
+            LirNodeKind::Call
+                if !entered_through_wrapper && self.string_coercion_call_arg(id).is_some() =>
+            {
+                true
+            }
+            // Call to a string-returning function. Resolve the callee THROUGH
+            // fold-alias bindings before reading `return_repr`, mirroring
+            // `string_result_render_taint`'s callee resolution: a fn-expr/arrow
+            // bound to a `const` (`const g = () => 'hi'` / `const g =
+            // function(y){ return String(y) }`) is keyed on its synthetic
+            // `__kali_fn_N` name in the repr table, so the bare bound-name text
+            // `g` would never match its String return — the measured pre-existing
+            // `'x'+g()` -> raw-bit render (T-new-F Step 1). Resolving the alias
+            // proves it a string so the render is correct (and, for a numeric
+            // sink, fails closed).
             LirNodeKind::Call => {
                 let Some(callee) = node.children.first().copied() else {
                     return false;
                 };
-                let callee = self.unwrap_transparent(callee);
+                let callee = self.resolve_bound_node(self.unwrap_transparent(callee));
                 let callee_node = self.node(callee);
                 callee_node.text.as_deref().is_some_and(|name| {
                     self.repr_table.return_repr(name) == kali_common::Repr::String
@@ -1589,6 +1684,18 @@ impl<'a> FunctionEmitter<'a> {
     /// `String(number)` semantics); otherwise the produced i64 is coerced to a
     /// decimal-string handle via `int_to_string`.
     pub(crate) fn emit_as_string(&mut self, function: &mut Function, id: LirNodeId) {
+        // Stage P5 T-new-E: a `String()`-result bound to a variable or returned
+        // from a function carries a real string handle in an `I64` slot
+        // (`repr_infer` seeds no `Repr::String` — F-newB-1). Reaching this
+        // coercion ladder (the `+`, template-literal, and multi-arg console
+        // render path) it would fall through to `int_to_string` and print the
+        // raw handle bits — the measured `x-9223354375949254655` silent
+        // divergence. Fail CLOSED. Positive provenance only, so a genuine `I64`
+        // (the acceptance fixture's `left`/`right` bigint params) is untouched.
+        if self.string_result_render_taint(id) {
+            self.deny_e5506(function, Self::STRING_RESULT_RENDER_DENY);
+            return;
+        }
         let is_string = self.is_string_valued(id);
         let is_usp_string = self.is_usp_string_call(id);
         let emitted = self.emit_node(function, id, true);
@@ -1899,6 +2006,24 @@ impl<'a> FunctionEmitter<'a> {
                 produced: true,
                 shape: ValueShape::Boolean,
             };
+        }
+
+        // Stage P5 T-new-E (root C): a `String()`-result operand carried in an
+        // `I64` slot (F-newB-1) has NO correct arithmetic/relational/equality
+        // lowering here — it is a tagged string handle, not a number. Every
+        // sound string position has already returned above (a genuine
+        // string-concat `+` at the `is_string_valued` arm, a both-string
+        // equality at the `__streq` arm), so a tainted operand reaching this
+        // point would otherwise fall through to `int_to_string`/`i64.mul`/
+        // `i64.sub` on the raw handle bits — the measured `n=35321811042306`
+        // (`s * 2n`) / `n=-9223…` (`s - 1n`) silent divergence. Fail CLOSED.
+        // Positive provenance only (`string_result_render_taint` never fires on
+        // a genuine numeric operand), so a bigint `a + b` / `a - a` is untouched.
+        // This ALSO covers a tainted `+` whose operand was not recognized as a
+        // string (the exact F-newB-1 shape): it did not take the concat arm, so
+        // denying here is the only sound outcome.
+        if self.string_result_render_taint(left) || self.string_result_render_taint(right) {
+            return self.deny_e5506(function, Self::STRING_RESULT_RENDER_DENY);
         }
 
         // A string operand in a NON-`+` position has no correct lowering here.

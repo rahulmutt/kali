@@ -28,6 +28,13 @@ impl<'a> FunctionEmitter<'a> {
                     .to_string(),
             ));
         }
+        // Stage P5 T-new-E note: the SINGLE-argument console lane hands the host
+        // a raw tagged i64 and lets IT render — the host decodes a string-handle
+        // tag and prints the text, so `console.log(s)` for a `String()`-result
+        // binding prints correctly (measured `1` on parent, matching node) and
+        // must NOT be tainted here. The divergence is confined to the wasm
+        // `int_to_string` ladder (`+`, template literal, MULTI-arg console), which
+        // routes through `emit_as_string` — guarded there, not here.
         let emitted = self.emit_node(function, id, true);
         if !emitted.produced {
             function.instruction(&Instruction::I64Const(0));
@@ -122,6 +129,53 @@ impl<'a> FunctionEmitter<'a> {
                              `const <name> = new {ctor}(<string-literal>)` in the current \
                              phase; any other construction position has no lowering and \
                              would silently evaluate to 0 (fail-closed)"
+                        ),
+                    );
+                }
+            }
+        }
+
+        // Stage P5 Task 4 review fix (C-3): the SAME construction-position
+        // allowlist for the codec markers. `new TextEncoder()` /
+        // `new TextDecoder()` have exactly two admitted positions:
+        //   (a) a `const <name> = new TextEncoder|TextDecoder()` declarator —
+        //       intercepted in `emit/control_flow.rs`, which `continue`s and so
+        //       NEVER routes the ctor call through `emit_call`; and
+        //   (b) an immediate `.encode(...)` / `.decode(...)` receiver — the
+        //       inline spelling, whose emit arms consume the receiver
+        //       structurally and never emit the ctor call node either.
+        // Therefore EVERY codec ctor call that reaches here is structurally
+        // outside the proven lane: a `let`/`var` declarator, a bare value
+        // position (`console.log(new TextEncoder())`), a redeclaration, an
+        // argument. All of those previously fell to the undefined-callee /
+        // warn-plus-`0` placeholder and silently evaluated to `0` — a
+        // `let d = new TextDecoder(); d.decode(b)` printed `0` where node
+        // prints the decoded string. Deny by construction rather than by
+        // patching each downstream call site: narrowing a recognizer alone
+        // leaves the rejected remainder on the silent-`0` fallback. The
+        // 5-namespace shadow guard keeps a user-defined `TextEncoder` /
+        // `TextDecoder` class/function on the normal call lane.
+        if callee_node.children.is_empty() {
+            if let Some(ctor) = callee_node
+                .text
+                .as_deref()
+                .filter(|text| matches!(*text, "TextEncoder" | "TextDecoder"))
+            {
+                if self.url_ctor_unshadowed(ctor) {
+                    let method = if ctor == "TextDecoder" {
+                        "decode"
+                    } else {
+                        "encode"
+                    };
+                    return self.deny_e5506(
+                        function,
+                        &format!(
+                            "constructing a {ctor} is only supported as \
+                             `const <name> = new {ctor}()` or as an immediate \
+                             `new {ctor}().{method}(...)` receiver in the current phase; \
+                             any other construction position (a `let`/`var` binding, a bare \
+                             value position) has no lowering and would silently evaluate to 0 \
+                             (fail-closed)"
                         ),
                     );
                 }
@@ -3200,7 +3254,20 @@ impl<'a> FunctionEmitter<'a> {
             self.emit_string_handle_ptr(function, handle_local);
             self.emit_string_handle_len(function, handle_local);
             // --- input (in_ptr, in_len) ---
+            // Stage P5: the input is a `Repr::Bytes` byte handle bound from
+            // `TextEncoder().encode(...)`. digest is an ALLOWLISTED consumer of
+            // that handle — set `admit_bytes_handle_read` across the operand emit
+            // so a bare read of the byte binding passes the escape choke (mirrors
+            // `emit_url_receiver_handle`'s set/restore).
+            let saved = self.admit_bytes_handle_read;
+            let saved_produce = self.admit_bytes_handle_produce;
+            self.admit_bytes_handle_read = true;
+            // C-4: digest is also an allowlisted PRODUCER position — the operand
+            // may be an inline, unbound `new TextEncoder().encode(<string>)`.
+            self.admit_bytes_handle_produce = true;
             let produced = self.emit_node(function, input_expr, true);
+            self.admit_bytes_handle_read = saved;
+            self.admit_bytes_handle_produce = saved_produce;
             if !produced.produced {
                 function.instruction(&Instruction::I64Const(0));
             }
@@ -3233,7 +3300,87 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if !self.is_text_decoder_decode(&callee_node)
+            && self.is_text_decoder_decode_shape(&callee_node)
+        {
+            // Review fix (C-1): an inline, unshadowed `new TextDecoder(<args>)`
+            // receiver whose ctor arguments this lane cannot honor — the encoding
+            // label / `{fatal}` options. Only the default utf-8, non-fatal decoder
+            // is implemented, so fail CLOSED here rather than let the shape reach
+            // the undefined-callee zero placeholder (a silent wrong value) or be
+            // decoded as UTF-8 under a different label (a divergent value).
+            return self.deny_e5506(
+                function,
+                "only the default 'new TextDecoder()' (utf-8, non-fatal) is available in the \
+                 current phase; constructor arguments (encoding label, options) are not \
+                 supported (fail-closed)",
+            );
+        }
+
+        if self.is_text_decoder_decode(&callee_node) {
+            // `TextDecoder().decode(<bytes>)`: the byte handle IS a contiguous
+            // UTF-8 `(buf,len)` (the encode lane is a zero-copy relabel of a kali
+            // string handle), so decoding is the inverse relabel — the same i64,
+            // now carried as a String. Arity 1 only; the argument must have PROVEN
+            // byte provenance (a `bytes_locals` binding or an inline `encode`
+            // call), admitted across the escape choke only while it is emitted.
+            let arg_ids: Vec<LirNodeId> = node.children.iter().skip(1).copied().collect();
+            if arg_ids.len() != 1 {
+                return self.deny_e5506(
+                    function,
+                    "TextDecoder().decode requires exactly one byte-buffer argument \
+                     in the current phase (fail-closed)",
+                );
+            }
+            let arg = arg_ids[0];
+            if !self.arg_is_bytes_provenance(arg) {
+                return self.deny_e5506(
+                    function,
+                    "TextDecoder().decode only accepts a TextEncoder().encode byte buffer \
+                     in the current phase (fail-closed)",
+                );
+            }
+            let saved = self.admit_bytes_handle_read;
+            let saved_produce = self.admit_bytes_handle_produce;
+            self.admit_bytes_handle_read = true;
+            // C-4: decode is also an allowlisted PRODUCER position — the operand
+            // may be an inline, unbound `new TextEncoder().encode(<string>)`
+            // (`arg_is_bytes_provenance` admits exactly that shape).
+            self.admit_bytes_handle_produce = true;
+            let produced = self.emit_node(function, arg, true);
+            self.admit_bytes_handle_read = saved;
+            self.admit_bytes_handle_produce = saved_produce;
+            if !produced.produced {
+                function.instruction(&Instruction::I64Const(0));
+            }
+            // The i64 is already STRING_HANDLE_TAG | (buf<<32) | len — return as String.
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::String,
+            };
+        }
+
         if self.is_text_encoder_encode(&callee_node) {
+            // Stage P5 Task 4 review fix (C-4): PRODUCE-side escape choke. The
+            // encode result is a raw `Repr::Bytes` handle that must never escape
+            // as an observable value; the identifier choke covers only BOUND
+            // handles, so an inline, unbound spelling
+            // (`console.log(new TextEncoder().encode('hi'))`, `'' + e.encode(x)`,
+            // `return e.encode(x)`) previously slipped through and printed the
+            // DECODED string (`hi`) where node prints `Uint8Array(2) [104, 105]`.
+            // Allowlist the three positions that consume the handle structurally
+            // — the `const b = ...encode(...)` declarator intercept, the
+            // `TextDecoder().decode` operand, the `crypto.subtle.digest` operand
+            // — each of which sets this flag across the operand emit; everything
+            // else fails closed by construction.
+            if !self.admit_bytes_handle_produce {
+                return self.deny_e5506(
+                    function,
+                    "a TextEncoder().encode byte buffer cannot be produced in this position: \
+                     kali admits it only as a `const` binding, a TextDecoder().decode operand \
+                     or a crypto.subtle.digest operand (fail-closed)",
+                );
+            }
             // `new TextEncoder().encode(<string>)`: a thin reinterpret. A kali
             // string is ALREADY a tagged CONTIGUOUS byte-buffer handle
             // (`STRING_HANDLE_TAG | (buf << 32) | len`, `len` UTF-8 bytes at
@@ -3272,7 +3419,31 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::String,
                 };
             }
+            // Stage P5: the zero-copy reinterpret is sound ONLY when the argument
+            // already IS a contiguous UTF-8 string handle. A non-string operand
+            // (`encode(42n)`) would reinterpret an i64 scalar as a `(buf, len)`
+            // handle — a silent miscompile. Fail closed instead. (Symmetric with
+            // the kali_types encode arm, which only seeds `Repr::Bytes` for a
+            // string-valued argument.)
+            if !self.is_string_valued(input_expr) {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "TextEncoder().encode requires a string argument in the current phase"
+                        .to_string(),
+                ));
+                function.instruction(&Instruction::I64Const(0));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::String,
+                };
+            }
+            // C-4: the encode ARGUMENT is not itself an admitted producer
+            // position — clear the flag so a nested `e.encode(e.encode('hi'))`
+            // fails closed instead of inheriting this arm's admittance.
+            let saved_produce = self.admit_bytes_handle_produce;
+            self.admit_bytes_handle_produce = false;
             let produced = self.emit_node(function, input_expr, true);
+            self.admit_bytes_handle_produce = saved_produce;
             if !produced.produced {
                 function.instruction(&Instruction::I64Const(0));
             }
@@ -3321,6 +3492,69 @@ impl<'a> FunctionEmitter<'a> {
             return EmittedValue {
                 produced: true,
                 shape: ValueShape::Boolean,
+            };
+        }
+
+        // Stage P5: `String(<coercible>)` runtime coercion. A bare-identifier
+        // callee named `String`, not resolved to a program-compiled function
+        // (`resolved.is_none()`) and not otherwise program-bound
+        // (`name_is_program_bound` — the same predicate `gate-1`
+        // (`call_target_keeps_placeholder_lowering`) uses for a bare-identifier
+        // callee), so this is provably the intrinsic global, not a user
+        // shadow. Placed BEFORE the generic argument-emission loop below:
+        // that loop unconditionally `emit_node`s every argument for every
+        // call reaching this point, so an arm placed after it (as sequenced
+        // in the original plan) would re-emit the sole argument a second
+        // time via `emit_as_string` — a silent double-evaluation that
+        // miscompiles any argument with a side effect (`String(next())`
+        // would call `next()` twice). Handling it here, before the loop,
+        // keeps `emit_as_string` as the SOLE emission of the argument.
+        // Exactly one argument, whose repr the `emit_as_string` ladder
+        // renders soundly (string / boolean / float / i64). Everything else —
+        // objects, arrays, a program-defined function value (`String(foo)`,
+        // `String(() => 1n)` — gate-1's own argument-scan rejection,
+        // re-applied here since this arm runs before gate-1), unproven
+        // values, 0-arg, multi-arg — fails closed E5506 rather than
+        // miscompiling (`String(obj)` cannot render `[object Object]`, and
+        // `String(foo)` cannot render a function's source text).
+        if self.is_intrinsic_string_coercion_callee(&callee_node) {
+            let arg_ids: Vec<LirNodeId> = node.children.iter().skip(1).copied().collect();
+            if arg_ids.len() != 1 {
+                return self.deny_e5506(
+                    function,
+                    "String(...) is supported only with a single scalar/string argument \
+                     in the current phase (fail-closed)",
+                );
+            }
+            let arg = arg_ids[0];
+            if self.string_coercion_arg_is_unsupported_aggregate(arg) {
+                return self.deny_e5506(
+                    function,
+                    "String(<object/array>) is unavailable in the current phase: kali \
+                     cannot render an object's default string form (fail-closed)",
+                );
+            }
+            // Stage-review C-1: the aggregate reject above is a SYNTACTIC
+            // denylist that any call boundary, field read or element read
+            // defeats; everything it let through fell into `emit_as_string`'s
+            // terminal `int_to_string` and rendered a tagged handle (or a
+            // placeholder `0`) as digits. Require the same POSITIVE proof the
+            // `is_string_valued` recognizer now requires, so the two agree and
+            // an unproven argument fails closed at the SOURCE rather than
+            // downstream.
+            if !self.string_coercion_arg_is_proven(arg) {
+                return self.deny_e5506(
+                    function,
+                    "String(<unproven value>) is unavailable in the current phase: kali \
+                     can render only a proven string or a proven scalar (number / boolean) \
+                     here — anything else would be coerced through the integer ladder and \
+                     print a raw handle or a placeholder 0 (fail-closed)",
+                );
+            }
+            self.emit_as_string(function, arg);
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::String,
             };
         }
 
@@ -3608,6 +3842,577 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// The callee of a bare `String(...)` call IS the intrinsic global — a
+    /// childless bare-identifier `String` that resolves to no program-compiled
+    /// function and is not otherwise program-bound (`name_is_program_bound`,
+    /// the same predicate gate-1 applies to a bare-identifier callee). This is
+    /// the SHADOW GUARD for the whole coercion lane (the codec lane's
+    /// `url_ctor_unshadowed` analogue): `function String(x) {...}` keeps its
+    /// own lane instead of being hijacked into the intrinsic.
+    ///
+    /// Factored out of the `emit_call` coercion arm so the emitter and the
+    /// `is_string_valued` oracle (via `string_coercion_call_arg`) key on ONE
+    /// definition of "this is the intrinsic `String`" and cannot drift apart.
+    pub(crate) fn is_intrinsic_string_coercion_callee(&self, callee_node: &LirNode) -> bool {
+        callee_node.text.as_deref() == Some("String")
+            && callee_node.children.is_empty()
+            && !self.functions.contains_key("String")
+            && !self.name_is_program_bound("String")
+    }
+
+    /// Stage P5 T-new-B: `id` is an ADMITTED `String(<coercible>)` intrinsic
+    /// coercion call — returns the sole argument the `emit_call` coercion arm
+    /// will render through `emit_as_string`.
+    ///
+    /// This is the SAME admittance test that arm dispatches with (intrinsic
+    /// unshadowed callee → exactly one argument → an argument POSITIVELY proven
+    /// to be a value `emit_as_string` renders soundly), so the `is_string_valued`
+    /// oracle and the emission agree by construction.
+    ///
+    /// STAGE-REVIEW C-1 CORRECTION. The original doc here claimed that reusing
+    /// Task 1's admittance test "cannot widen the admitted set past what Task 1
+    /// proved renders soundly". That claim was FALSE: Task 1 never proved its
+    /// argument renders soundly — it only rejected *syntactically visible*
+    /// aggregates, and everything else fell through to `emit_as_string`'s
+    /// terminal `int_to_string`, which renders a tagged string handle as a
+    /// 20-digit integer. Before the widening the encode gate blocked that
+    /// garbage; the widening turned it into "proven string" (measured:
+    /// `encode(String(o.s)).byteLength` → 20 where node says 5, and a decode
+    /// roundtrip printing `-9223354444668731387` for `'hello'`). The recognizer
+    /// therefore now requires `string_coercion_arg_is_proven`, a POSITIVE proof,
+    /// and the `emit_call` arm applies the same proof so an unproven argument
+    /// fails closed at the source instead of being rendered.
+    ///
+    /// The node at `id` must ITSELF be the call: this helper deliberately does
+    /// NOT tunnel through `unwrap_transparent` (stage-review C-2 — that helper's
+    /// own doc warns it tunnels a single-element ARRAY literal, so
+    /// `encode([String(v)])` was proven a string and silently encoded the array
+    /// literal's `0` placeholder). Callers that hold a wrapper node must resolve
+    /// it themselves and keep the array carve-out.
+    pub(crate) fn string_coercion_call_arg(&self, id: LirNodeId) -> Option<LirNodeId> {
+        let node = self.node(id);
+        if node.kind != LirNodeKind::Call {
+            return None;
+        }
+        let callee = self.unwrap_transparent(*node.children.first()?);
+        let callee_node = self.node(callee).clone();
+        if !self.is_intrinsic_string_coercion_callee(&callee_node) {
+            return None;
+        }
+        let mut args = node.children.iter().skip(1);
+        let arg = *args.next()?;
+        if args.next().is_some() {
+            return None;
+        }
+        if !self.string_coercion_arg_is_proven(arg) {
+            return None;
+        }
+        Some(arg)
+    }
+
+    /// SHAPE-only recognizer: `id` is a call to the unshadowed intrinsic
+    /// `String` (any arity, argument proven or not). Distinct from
+    /// `string_coercion_call_arg`, which additionally requires the argument
+    /// proof — consumers that must not fall through to a generic fallback for a
+    /// DENIED `String(...)` (e.g. `render_length`, whose fallback renders the
+    /// call node's CHILD COUNT as a length) key on this instead, so that a
+    /// fail-closed coercion cannot be silently re-rendered by another lane.
+    pub(crate) fn is_intrinsic_string_coercion_call(&self, id: LirNodeId) -> bool {
+        let node = self.node(id);
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+        let Some(&callee) = node.children.first() else {
+            return false;
+        };
+        let callee_node = self.node(self.unwrap_transparent(callee)).clone();
+        self.is_intrinsic_string_coercion_callee(&callee_node)
+    }
+
+    /// POSITIVE proof (stage-review C-1) that `emit_as_string` renders `arg`
+    /// the way node does — the single admittance predicate shared by the
+    /// `emit_call` coercion arm and the `is_string_valued` oracle.
+    ///
+    /// `emit_as_string` has exactly four sound arms — a proven string handle
+    /// (returned untouched), an emitted `Boolean` shape, an emitted/proven
+    /// `Float` (`float_to_string`), and otherwise `int_to_string`, which is
+    /// sound ONLY for a value that really is a plain integer. So this mirrors
+    /// those arms with STATIC proofs and denies everything else. An ALLOWLIST,
+    /// not a denylist of aggregate shapes: the previous syntactic
+    /// aggregate-reject was defeated by any call boundary (`String(h())` for an
+    /// object-returning `h`), by a field read (`String(o.s)`), by an element
+    /// read (`String(a[0])`), and by the bare globals `globalThis` / `undefined`
+    /// / `null` — all measured divergent before this proof landed.
+    pub(crate) fn string_coercion_arg_is_proven(&self, arg: LirNodeId) -> bool {
+        // Aggregate reject stays as the FIRST gate: it carries the distinct
+        // "cannot render an object's default string form" diagnostic and it
+        // catches materialized/aliased aggregates whose repr the proof below
+        // would otherwise read as a plain scalar.
+        if self.string_coercion_arg_is_unsupported_aggregate(arg) {
+            return false;
+        }
+        self.string_coercion_arg_is_proven_at_depth(arg, 0)
+    }
+
+    fn string_coercion_arg_is_proven_at_depth(&self, arg: LirNodeId, depth: u32) -> bool {
+        // Structural recursion over operand trees; the guard is a belt-and-braces
+        // stop for a pathological/cyclic LIR shape (fail closed at the limit).
+        if depth > 8 {
+            return false;
+        }
+        // A proven runtime/static STRING: `emit_as_string` returns the handle
+        // untouched. This also covers a nested admitted `String(...)`.
+        if self.is_string_valued(arg) {
+            return true;
+        }
+        // A proven FLOAT (`float_to_string`) or a BigInt/const-bound BigInt
+        // literal (`int_to_string`). Both predicates resolve fold-lane bindings
+        // themselves, so `const k = 1.5; String(k)` is proven too.
+        if self.is_float_valued(arg) || self.is_bigint_literal_valued(arg) {
+            return true;
+        }
+        // `emit_as_string` has a dedicated sound arm for a URLSearchParams
+        // `get()`/`toString()` result (it materializes the `0` null-sentinel as
+        // the interned `"null"` handle), so mirror it here rather than denying
+        // a value the emitter renders correctly.
+        if self.is_usp_string_call(arg) {
+            return true;
+        }
+        // A statically-resolvable NUMERIC/BOOLEAN value — the fold lane emits
+        // the literal itself, which `emit_as_string` renders correctly. This is
+        // what keeps a const-folded object field / array element readable
+        // (`const o = { n: 42n }; String(o.n)` → `42`). `String` is
+        // deliberately EXCLUDED even though the fold resolves it: the emitted
+        // value is a tagged handle and `is_string_valued` has no object-field
+        // arm, so `emit_as_string` would send it through `int_to_string` — the
+        // measured `String(o.s)` → `-9223354444668731387` divergence. `Null` /
+        // `Undefined` are excluded because the ladder has no rendering for them.
+        if matches!(
+            self.resolve_static_object_identity_value(arg),
+            Some(
+                StaticObjectIdentityValue::Number(_)
+                    | StaticObjectIdentityValue::BigInt(_)
+                    | StaticObjectIdentityValue::Boolean(_)
+            )
+        ) {
+            return true;
+        }
+        // MATERIALIZED fixed-shape object field read whose field repr is a
+        // POSITIVELY-PROVEN number.
+        //
+        // REVIEW C-5. The first cut of this arm accepted `shape_field(..) ==
+        // I64` as "proven scalar". That was the default-is-not-a-proof fallacy:
+        // `repr_infer` interns ONLY `F64` or `I64` for an object field, so a
+        // STRING field interns as `I64` exactly like an integer one, and
+        // `const o = { s: 'x' }; o.s = 'hello'` (the MATERIALIZED spelling — the
+        // write is what puts it on this lane rather than the fold lane)
+        // rendered its tagged handle through `int_to_string`: measured
+        // `encode(String(o.s)).byteLength` → 20 and `decode` → the digits
+        // `-9223354440373764091`, where node says 5 / `hello`. The fold-lane
+        // pin for `String(o.s)` did not catch it because a `const`-shaped probe
+        // never reaches this arm at all (bound-vs-unbound masking).
+        //
+        // `shape_field_is_proven_numeric` is the evidence the repr cannot
+        // carry: `repr_infer` records it per field from the SOLVED string axis
+        // at shape-intern time, allowlist-style and default-deny across shape
+        // sharing. Object-pointer fields cannot appear here at all (a
+        // materialized owner with an object-shaped field is rejected outright
+        // by the shape inference's pointer-field conflict).
+        let member = self.unwrap_transparent(arg);
+        let member_node = self.node(member).clone();
+        if member_node.kind == LirNodeKind::Value && member_node.children.len() == 1 {
+            if let (Some(field), Some(shape)) = (
+                member_node.text.as_deref().filter(|text| !text.is_empty()),
+                self.object_shape_of_node(member_node.children[0]),
+            ) {
+                if matches!(
+                    self.repr_table.shape_field(shape, field),
+                    Some((_, kali_common::Repr::I64 | kali_common::Repr::F64))
+                ) && self.repr_table.shape_field_is_proven_numeric(shape, field)
+                {
+                    return true;
+                }
+            }
+        }
+        // Runtime PLAIN-array element read whose element axis is a proven scalar
+        // — the numeric twin of `is_string_valued`'s string-element arm, keyed
+        // on the same recognizer the emitter dispatches with. Growable arrays
+        // are deliberately excluded: `const a = []; a.push(1n); String(a[0])`
+        // rendered `false` on the parent build (node: `1`), i.e. that read does
+        // not reach `emit_as_string` as a plain i64, so it stays fail-closed.
+        if let Some(base) = self.dynamic_array_read_base(&member_node) {
+            if matches!(
+                self.array_elem_repr(&base),
+                kali_common::Repr::I64 | kali_common::Repr::F64
+            ) {
+                return true;
+            }
+        }
+        // FOLD-LANE member read (`const o = { n: 42n }; String(o.n)`,
+        // `const a = [7n, 8n]; String(a[0])`). `emit_value`'s member arm
+        // substitutes the literal aggregate's field/element node and emits THAT,
+        // so the coercion is proven exactly when the substituted node is — using
+        // the same two resolvers the emitter dispatches with.
+        //
+        // The `!is_string_valued(substituted)` guard is load-bearing: a STRING
+        // field/element substitutes a string literal, but `emit_as_string` keys
+        // its string arm on the ORIGINAL node (`o.s`, which no oracle arm
+        // proves) and the emitted shape is not `ValueShape::String` either, so
+        // the handle would still go through `int_to_string` — the measured
+        // `String(o.s)` → `-9223354444668731387`. Scalars have no such
+        // asymmetry: every ladder arm below the string one keys on the emitted
+        // value.
+        let fold_substitution = match self.resolve_static_index_member(&member_node) {
+            Some(StaticIndexMemberResult::Node(element)) => Some(element),
+            _ => self
+                .resolve_literal_aggregate(member_node.children.first().copied().unwrap_or(member))
+                .map(|aggregate| self.node(aggregate).clone())
+                .and_then(|aggregate| {
+                    member_node
+                        .text
+                        .as_deref()
+                        .and_then(|field| self.object_literal_field(&aggregate, field))
+                }),
+        };
+        if let Some(substituted) = fold_substitution {
+            if !self.is_string_valued(substituted)
+                && self.string_coercion_arg_is_proven_at_depth(substituted, depth + 1)
+            {
+                return true;
+            }
+        }
+        // A statically-known `.length` (`String(a.length)`): the fold renders the
+        // count as a plain integer.
+        if member_node.text.as_deref() == Some("length")
+            && member_node.children.len() == 1
+            && self.render_length(&member).is_some()
+        {
+            return true;
+        }
+        // Bare identifier, checked BEFORE `resolve_bound_node`: a fold-lane
+        // `const v = f(41n)` carries the binding's repr evidence, which is lost
+        // once the alias is resolved to the (unproven) call node.
+        let raw = self.unwrap_transparent(arg);
+        let raw_node = self.node(raw).clone();
+        if raw_node.kind == LirNodeKind::Value && raw_node.children.is_empty() {
+            if let Some(name) = raw_node.text.as_deref() {
+                // REVIEW C-6. The taint-based repr proof below rests on
+                // `Repr::I64`, which is the UNRECORDED DEFAULT of every binding
+                // — including one initialized from a function whose return
+                // value is a tagged handle (`function g(y){ return String(y) }`
+                // has no `Repr::String` return seed, F-newB-1). Measured:
+                // `const s = g(1n); encode(String(s)).byteLength` → 20 where
+                // node says 1. So when the declarator INITIALIZER is
+                // resolvable, that initializer is the evidence and must itself
+                // be proven; the repr taints alone are accepted only for a
+                // binding with no resolvable inflow (a parameter — the shape
+                // the acceptance fixture's `String(left + right)` needs, which
+                // reaches this proof through the arithmetic arm's PARAM
+                // operands, never through an initialized binding).
+                //
+                // ROUND 3. `self.bindings` holds `const` FOLD-ALIASES only, so
+                // the round-2 shape above ("prove the initializer, else require
+                // a parameter") denied every `let`/`var` numeric local — `let
+                // count = 0; String(count)` failed closed where node says `0`,
+                // and the stage's own structuredClone/event fixture stopped
+                // compiling. The fix is not to relax back to reading the
+                // default `Repr::I64` (the fallacy behind all three Criticals
+                // in this task) but to add the missing POSITIVE proof:
+                // `repr_infer`'s `numeric_bindings`, the binding twin of
+                // `numeric_shape_fields` / `numeric_returns`, which admits a
+                // binding only when EVERY write to it is arithmetic over
+                // numeric literals, the binding itself and scalar-inflow-proven
+                // parameters. It covers the mutation spellings (`count += 1`,
+                // `count = count + 1n`) that a declarator-initializer lookup
+                // cannot.
+                //
+                // Three independent admissions, each POSITIVE, and every other
+                // identifier (a captured name, an unproven local, an
+                // unmodelled write target) is DENIED by absence of evidence:
+                //   * a resolvable fold-lane declarator initializer that is
+                //     itself proven,
+                //   * a declared PARAMETER (the binding kind with no in-scope
+                //     initializer, the shape the acceptance fixture's
+                //     `String(left + right)` needs),
+                //   * a `repr_infer`-proven numeric binding.
+                // The repr taints are required on top of the latter two.
+                if let Some(initializer) = self.bindings.get(name).copied() {
+                    if initializer != raw
+                        && self.string_coercion_arg_is_proven_at_depth(initializer, depth + 1)
+                    {
+                        return true;
+                    }
+                }
+                if (self.name_is_declared_parameter(name) || self.binding_is_proven_numeric(name))
+                    && self.binding_is_proven_string_coercion_scalar(name)
+                {
+                    return true;
+                }
+            }
+        }
+        let id = self.resolve_bound_node(raw);
+        let node = self.node(id).clone();
+        match node.kind {
+            // Numeric and boolean literals only. `null` / `undefined` are
+            // deliberately NOT proven: `emit_as_string` has no rendering for
+            // them (measured `String(undefined)` → `false`, `String(null)` → `0`
+            // where node says `undefined` / `null`), which is why the report's
+            // residual "F-newB-4 … unreachable from this task's widening" was
+            // wrong — they were reachable, and they now fail closed.
+            LirNodeKind::Literal => node.text.as_deref().is_some_and(|text| {
+                matches!(text, "true" | "false")
+                    || crate::intrinsics::parse_numeric_literal_value(text).is_some()
+            }),
+            // Unary `-`/`+`/`!` over a proven operand stays on the scalar
+            // (i64/f64/boolean) lane.
+            LirNodeKind::Value
+                if node.children.len() == 1
+                    && matches!(node.text.as_deref(), Some("-" | "+" | "!")) =>
+            {
+                self.string_coercion_arg_is_proven_at_depth(node.children[0], depth + 1)
+            }
+            // Arithmetic over two proven operands is a number; a comparison /
+            // equality over two proven operands emits `ValueShape::Boolean`,
+            // which `emit_as_string` renders as `true`/`false`. `+` with a
+            // string operand never reaches here — `is_string_valued` above
+            // already proved it. This is the arm the acceptance fixture's
+            // `encode(String(left + right))` (bigint params) needs.
+            LirNodeKind::Value
+                if node.children.len() == 2
+                    && matches!(
+                        node.text.as_deref(),
+                        Some(
+                            "+" | "-"
+                                | "*"
+                                | "/"
+                                | "%"
+                                | "**"
+                                | "==="
+                                | "!=="
+                                | "=="
+                                | "!="
+                                | "<"
+                                | ">"
+                                | "<="
+                                | ">="
+                        )
+                    ) =>
+            {
+                node.children
+                    .iter()
+                    .all(|&child| self.string_coercion_arg_is_proven_at_depth(child, depth + 1))
+            }
+            // Ternary (marker text "?"): proven when BOTH arms are. A ternary
+            // with a string arm never reaches here — `is_string_valued`'s own
+            // ternary arm proved it already.
+            LirNodeKind::Value if node.children.len() == 3 && node.text.as_deref() == Some("?") => {
+                self.string_coercion_arg_is_proven_at_depth(node.children[1], depth + 1)
+                    && self.string_coercion_arg_is_proven_at_depth(node.children[2], depth + 1)
+            }
+            // REVIEW I-2, call arm 1: `Math.floor`/`trunc`/`ceil`, whose emit
+            // arm produces a plain `I64Const`/integer-math result (never a
+            // handle). Keyed on the SAME recognizer that arm dispatches with,
+            // so proof and emission agree by construction. This also makes the
+            // allowlist principled: `String(Math.sqrt(2))` was already admitted
+            // through `is_float_valued` while `String(Math.floor(1.7))` — the
+            // *more* obviously numeric of the two — failed closed.
+            LirNodeKind::Call if self.is_integer_rounding_math_call(&node) => true,
+            // REVIEW I-2, call arm 2: a call to a program function whose RETURN
+            // is POSITIVELY proven numeric. `return_repr(..) == I64` alone is
+            // NOT this proof — it is the unrecorded default that C-6 above
+            // rejects for bindings, and it is what `function g(y){ return
+            // String(y) }` (a tagged handle) also reports. The evidence is
+            // `return_is_proven_numeric`, which `repr_infer` records only when
+            // the solved axes are non-string AND every `return` statement is
+            // arithmetic over numeric literals and parameters that call-site
+            // flow proved scalar. `g` fails it (its return is a CALL), so the
+            // C-6 initializer proof still denies `const s = g(1n); String(s)`.
+            LirNodeKind::Call => node
+                .children
+                .first()
+                .map(|&callee| self.unwrap_transparent(callee))
+                .and_then(|callee| self.node(callee).text.clone())
+                .is_some_and(|name| {
+                    self.functions.contains_key(&name)
+                        && self.repr_table.return_is_proven_numeric(&name)
+                        && matches!(
+                            self.repr_table.return_repr(&name),
+                            kali_common::Repr::I64 | kali_common::Repr::F64
+                        )
+                }),
+            // Everything else — a field read (`o.s`), an element read (`a[0]`),
+            // a `new`, an unbound global (`globalThis`) — has no proof and
+            // fails closed.
+            _ => false,
+        }
+    }
+
+    /// `name` is a declared PARAMETER of the function being emitted (review
+    /// C-6). Keyed on the same `function_param_names` table the deferred-callback
+    /// capture gate uses. A parameter is the one binding kind with no in-scope
+    /// declarator initializer to prove, which is why it keeps the repr-taint
+    /// admission while every other identifier is denied for lack of evidence.
+    fn name_is_declared_parameter(&self, name: &str) -> bool {
+        self.function_param_names
+            .get(&self.function_name)
+            .is_some_and(|params| params.iter().any(|param| param == name))
+    }
+
+    /// `name` is a binding `repr_infer` POSITIVELY proved to hold a plain
+    /// number (round 3). Resolves local-vs-module scope with the same rule as
+    /// `binding_is_proven_string_coercion_scalar` / `is_string_valued`, which
+    /// is also the rule `repr_infer`'s `binding_scope` mirrors, so the proof is
+    /// looked up under the key it was recorded under.
+    fn binding_is_proven_numeric(&self, name: &str) -> bool {
+        let func: &str = if !self.locals.contains_key(name) && self.function_name != "_start" {
+            "_start"
+        } else {
+            &self.function_name
+        };
+        if self.repr_table.binding_is_proven_numeric(func, name) {
+            return true;
+        }
+        // The `self.locals` fallback above is about codegen's own STORAGE, not
+        // lexical scope: a binding this function declares but that a nested
+        // arrow CAPTURES lives in an env cell, not in `locals`, so the fallback
+        // sends the lookup to `_start` while `repr_infer` filed the proof under
+        // this function (the scope that lexically declares it) — measured on
+        // the stage's own `Kali.test(() => { let count = 0;
+        // target.addEventListener(..., () => { count += 1 }); String(count) })`.
+        // Consulting the emitting function's own key too is not a widening: a
+        // proof is filed ONLY under a scope that lexically declares the name, so
+        // a hit here means this very binding was proven.
+        self.repr_table
+            .binding_is_proven_numeric(&self.function_name, name)
+    }
+
+    /// `node` is a `Math.floor`/`Math.trunc`/`Math.ceil` call — the SAME
+    /// recognizer `emit_call`'s integer-rounding arm dispatches with (callee
+    /// text plus `is_math_object`, which carries the `Math`-shadow guard), so
+    /// the coercion proof and the emission cannot disagree. That arm always
+    /// produces a plain integer (a folded `I64Const` or the integer-math
+    /// import's result), never a tagged handle.
+    fn is_integer_rounding_math_call(&self, node: &LirNode) -> bool {
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+        let Some(&callee) = node.children.first() else {
+            return false;
+        };
+        let callee_node = self.node(self.unwrap_transparent(callee)).clone();
+        matches!(
+            callee_node.text.as_deref(),
+            Some("floor") | Some("trunc") | Some("ceil")
+        ) && self.is_math_object(&callee_node)
+    }
+
+    /// A bare identifier holds a PROVEN scalar number for coercion purposes.
+    ///
+    /// `Repr::I64` is the DEFAULT of every unrecorded binding, so the repr alone
+    /// is not a proof — the name must first be a binding the program actually
+    /// declares (`name_is_program_bound`, which denies `globalThis` /
+    /// `undefined` / `NaN` and every other free global), and it must carry none
+    /// of the aggregate taints (`is_array_binding` / growable / array-argument
+    /// param / object-initialized) that share the default I64 repr. String
+    /// bindings never reach here: `is_string_valued` proved them one level up.
+    ///
+    /// Deliberately NOT requiring `param_lacks_scalar_inflow == false` (the
+    /// types-side compound-assign gate's extra param proof): the acceptance
+    /// fixture's `webBaselineSmoke(left, right)` is an EXPORT with no call edge
+    /// in the bundle, so its params have no inflow evidence at all and that
+    /// stricter proof would deny the very shape this lane exists for.
+    fn binding_is_proven_string_coercion_scalar(&self, name: &str) -> bool {
+        if !self.name_is_program_bound(name) {
+            return false;
+        }
+        // Mirrors `is_string_valued`'s local-vs-module resolution: a name not
+        // declared locally in a non-`_start` function reads the module table.
+        let func: &str = if !self.locals.contains_key(name) && self.function_name != "_start" {
+            "_start"
+        } else {
+            &self.function_name
+        };
+        if self.repr_table.is_array_binding(func, name)
+            || self.repr_table.is_growable_array_binding(func, name)
+            || self.repr_table.is_non_scalar_param(func, name)
+            || self.repr_table.object_initialized_binding(func, name)
+        {
+            return false;
+        }
+        matches!(
+            self.repr_table.scalar(func, name),
+            kali_common::Repr::I64 | kali_common::Repr::F64
+        )
+    }
+
+    /// True when `arg` is any object/array-shaped value the Stage P5
+    /// `String(<coercible>)` coercion arm must reject rather than lower —
+    /// `emit_as_string`'s ladder has no rendering for an aggregate and would
+    /// otherwise silently coerce whatever placeholder representation it gets
+    /// (an unmaterialized aggregate's `emit_aggregate_literal` zero, or a raw
+    /// array/object handle) into a wrong scalar string.
+    ///
+    /// Three independent shapes are checked because a single one under-covers:
+    /// - `object_shape_of_node`: a MATERIALIZED object (reached by a field
+    ///   WRITE, a `for..in`, or reassignment elsewhere) — the existing runtime
+    ///   heap-object detector.
+    /// - `resolve_literal_aggregate` + `is_array_literal`/`is_object_literal`:
+    ///   an UNMATERIALIZED array/object literal, reached directly
+    ///   (`String([1, 2])`) or through a fold-lane alias (`const o = {a: 1};
+    ///   String(o)` — `o` is read-only and never gets a `Repr::Object` entry,
+    ///   so `object_shape_of_node` alone finds nothing; confirmed by probing
+    ///   `console.log({a:1})`, which silently prints `0` today via the very
+    ///   same pre-existing gap in `emit_console_argument`).
+    /// - `array_bindings`/`growable_array_bindings` + `object_initialized_binding`:
+    ///   a bare-identifier argument bound to an array or an object literal
+    ///   that resolve_literal_aggregate's `bindings` alias map does not reach
+    ///   (a runtime-materialized array, or an object binding the fold lane
+    ///   lost track of) — the same syntactic taint `kali_types` already
+    ///   tracks for the compound/update gate (fasta Spec 7 Task 2).
+    fn string_coercion_arg_is_unsupported_aggregate(&self, arg: LirNodeId) -> bool {
+        // Mirrors gate-1's (`call_target_keeps_placeholder_lowering`) argument
+        // scan (`node.children.skip(1).any(denotes_program_function)`). This
+        // arm sits BEFORE gate-1 runs, so without this check `String(foo)` /
+        // `String(() => 1n)` bypassed gate-1's function-argument reject
+        // entirely and fell through to `emit_as_string`, which has no
+        // function-repr case and silently rendered `0`. Using the same
+        // single-node predicate gate-1 applies per-argument (not the
+        // subtree-walking `subtree_denotes_program_function`, which is
+        // reserved for scanning the CALLEE expression, not an argument) keeps
+        // this arm's rejection set identical to gate-1's for the one argument
+        // `String(...)` accepts — no wider, no narrower.
+        if self.denotes_program_function(arg) {
+            return true;
+        }
+        if self.object_shape_of_node(arg).is_some() {
+            return true;
+        }
+        if let Some(resolved) = self.resolve_literal_aggregate(arg) {
+            let aggregate = self.node(resolved).clone();
+            if self.is_array_literal(&aggregate) || self.is_object_literal(&aggregate) {
+                return true;
+            }
+        }
+        let id = self.unwrap_transparent(arg);
+        let node = self.node(id);
+        if node.kind == LirNodeKind::Value && node.children.is_empty() {
+            if let Some(name) = node.text.clone() {
+                if self.array_bindings.contains(&name)
+                    || self.growable_array_bindings.contains(&name)
+                {
+                    return true;
+                }
+                if self
+                    .repr_table
+                    .object_initialized_binding(&self.function_name, &name)
+                {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
     /// The positive DENY-SET for the terminal `emit_call` fallback: recognized
     /// value-builtins with no implemented lowering that, when consumed, silently
     /// evaluate to `0` (R-19/R-20/R-15). Returning true fails the call closed
@@ -3626,13 +4431,11 @@ impl<'a> FunctionEmitter<'a> {
     /// one of these names denotes the intrinsic builtin, not a program value.
     fn deny_placeholder_lowering(&self, callee_node: &LirNode, callee_name: &str) -> bool {
         match callee_name {
-            // Free-name coercion calls: `String(x)` / `Boolean(x)`. A bare-
-            // identifier callee (no children); gate-1 denied any program binding
-            // of the name, so this is the intrinsic global. Both node-verified
-            // silent-0 when consumed (`String(42)`→0 not "42"; `Boolean(1)`→0
-            // not true). `Number` is NOT here: it fails at E3100 resolve as an
-            // undefined identifier and never reaches this terminal — probed.
-            "String" | "Boolean" => callee_node.children.is_empty(),
+            // Free-name coercion calls: `Boolean(x)`. `String(x)` is handled by the
+            // Stage P5 coercion arm above (removed from this deny-set); a `String`
+            // form that falls through the arm (already E5506'd there) never reaches
+            // here. `Boolean` remains silent-0 when consumed, so it stays denied.
+            "Boolean" => callee_node.children.is_empty(),
             // Member calls: `x.toString()` and runtime `x.split(...)`. The
             // static-ASCII `split` fold lands UPSTREAM and never reaches here, so
             // `"abc".split("")[0]` is preserved. A member callee has a receiver
@@ -3879,6 +4682,140 @@ impl<'a> FunctionEmitter<'a> {
             }
             names
         })
+    }
+
+    /// Stage P5 T-new-E: `name` is a binding `repr_infer` proved carries a
+    /// `String()`-result value (the deny twin of `binding_is_proven_numeric`).
+    /// Resolves local-vs-module scope with the SAME rule that helper (and
+    /// `is_string_valued`) uses, which is also the rule `repr_infer`'s
+    /// `binding_scope` mirrors, so the taint is looked up under the key it was
+    /// filed under. Both this function's own scope and the module fallback are
+    /// consulted (a captured local is stored under its lexically-declaring
+    /// function while codegen's storage fallback would send the read to
+    /// `_start`) — not a widening, since the taint is only ever filed under a
+    /// scope that lexically declares the name.
+    fn binding_is_string_result(&self, name: &str) -> bool {
+        let func: &str = if !self.locals.contains_key(name) && self.function_name != "_start" {
+            "_start"
+        } else {
+            &self.function_name
+        };
+        self.repr_table.binding_is_string_result(func, name)
+            || self
+                .repr_table
+                .binding_is_string_result(&self.function_name, name)
+    }
+
+    /// Stage P5 T-new-E: `id` reaches a numeric sink (`+`, template literal,
+    /// multi-arg console via `emit_as_string`, or arithmetic operator lowering)
+    /// carrying `String()`-result provenance but WITHOUT a proven `Repr::String`
+    /// — the F-newB-1 hazard. Sink sites consult this and fail CLOSED (E5506)
+    /// rather than running the tagged string handle through `int_to_string`.
+    ///
+    /// The provenance is computed STRUCTURALLY in `repr_infer`'s whole-program
+    /// taint fixpoint (`string_result_bindings` / `string_result_returns`),
+    /// which follows value-flow through bindings, laundering copies,
+    /// reassignments, and function returns (return-of-local, return-of-reassign,
+    /// transitive returns) by construction. This function only maps the sink
+    /// NODE to the repr_infer key and queries the taint:
+    /// - a bare identifier → the binding taint (checked on the raw name AND on
+    ///   the fold-alias-resolved node, so both a `let`/`var` local and a `const`
+    ///   fold-alias `const r = g(1n)` are covered);
+    /// - a call → the callee's return taint, with the callee resolved THROUGH
+    ///   fold-alias bindings (`resolve_bound_node`) so a fn-expr/arrow bound via
+    ///   a declarator — keyed on its synthetic `__kali_fn_N` name in repr_infer
+    ///   — is caught (root B), not just a bare `FunctionDeclaration` name.
+    ///
+    /// Positive provenance only: a value already PROVEN a string is exempt (an
+    /// inline `String(...)` and a fold-aliased `const s = String(1n)` both
+    /// resolve to a proven handle and render correctly), and a genuine numeric
+    /// `Repr::I64` (the acceptance fixture's `left`/`right` bigint params) is
+    /// never seeded, so it is never denied.
+    pub(crate) fn string_result_render_taint(&self, id: LirNodeId) -> bool {
+        // A value already proven a string renders correctly — never taint it.
+        if self.is_string_valued(id) {
+            return false;
+        }
+        let base = self.unwrap_transparent(id);
+        // (1a) bare identifier, BEFORE resolving the fold-alias: a `let`/`var`
+        // local carries its taint by name (it is not in `self.bindings`).
+        let base_node = self.node(base);
+        if base_node.kind == LirNodeKind::Value && base_node.children.is_empty() {
+            if let Some(name) = base_node.text.as_deref() {
+                if self.binding_is_string_result(name) {
+                    return true;
+                }
+            }
+        }
+        let resolved = self.unwrap_transparent(self.resolve_bound_node(base));
+        let node = self.node(resolved);
+        // (1b) a fold-alias that resolved to another bare identifier.
+        if node.kind == LirNodeKind::Value && node.children.is_empty() {
+            if let Some(name) = node.text.as_deref() {
+                if self.binding_is_string_result(name) {
+                    return true;
+                }
+            }
+        }
+        // (2) a call to a String()-result-returning function. Resolve the callee
+        // through fold-alias bindings so a fn-expr/arrow bound to a `const`
+        // (whose repr_infer key is its `__kali_fn_N` name) is matched too.
+        if node.kind == LirNodeKind::Call {
+            if let Some(&callee) = node.children.first() {
+                let callee = self.resolve_bound_node(self.unwrap_transparent(callee));
+                if let Some(name) = self.node(callee).text.as_deref() {
+                    if self.repr_table.return_is_string_result(name) {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    }
+
+    /// Stage P5 T-new-E: the SINGLE numeric-materialization choke. Push `id`
+    /// onto the wasm stack as an operand that a NUMERIC instruction
+    /// (`i64.add`/`i64.mul`/`i64.sub`/`i32.wrap_i64`/`int_to_string`/…) is about
+    /// to consume as a NUMBER, denying it CLOSED first if it carries
+    /// `String()`-result provenance in an `I64` slot (the F-newB-1 hazard — a
+    /// tagged string handle whose raw bits would be run through arithmetic /
+    /// indexing / the render ladder).
+    ///
+    /// This exists because kali has NO single physical "materialize as number"
+    /// instruction: a scalar and a string handle share the i64 representation and
+    /// the SAME polymorphic `emit_node` path, so the numeric-vs-render intent
+    /// lives entirely in the CONSUMING site. Rather than scatter the taint check
+    /// across `emit_unary`, computed-index, and compound-assign one at a time
+    /// (the leaking-denylist pattern), every numeric-context operand PUSH routes
+    /// through here, so a tainted value fails closed at EVERY such sink — and any
+    /// new numeric sink that materializes its operand through this helper is
+    /// covered by construction. `emit_binary` and `emit_as_string` consult the
+    /// SAME predicate (`string_result_render_taint`) as a pre-guard because they
+    /// emit their operands internally, interleaved with string/`__streq`
+    /// handling that cannot cleanly route through this helper.
+    ///
+    /// Positive provenance only: a genuine numeric `Repr::I64` operand (the
+    /// acceptance fixture's `left`/`right` bigint params, any real arithmetic) is
+    /// never a string, so it is materialized unchanged — no over-deny.
+    ///
+    /// Stage P5 T-new-F: the guard is `is_string_valued || taint`, not the taint
+    /// alone. Once a `String()` result carries a SEEDED `Repr::String`,
+    /// `string_result_render_taint` short-circuits `false` on it (it is a proven
+    /// string), so the seed would otherwise BYPASS this choke — a seeded index
+    /// `a[s]` / compound `n+=s` / `!s` would run the handle bits through
+    /// `i32.wrap_i64`/`i64.add`/`i64.eqz`. `is_string_valued` closes that (and
+    /// also fails closed a substring/decode/USP string in a numeric position — a
+    /// pre-existing silent hole). node throws a `TypeError` for a string in these
+    /// BigInt-numeric positions, so E5506 is the sound match.
+    pub(crate) fn emit_numeric_operand(
+        &mut self,
+        function: &mut Function,
+        id: LirNodeId,
+    ) -> EmittedValue {
+        if self.is_string_valued(id) || self.string_result_render_taint(id) {
+            return self.deny_e5506(function, Self::STRING_RESULT_RENDER_DENY);
+        }
+        self.emit_node(function, id, true)
     }
 
     /// Property names that some object literal in the program binds to a
@@ -5132,7 +6069,15 @@ impl<'a> FunctionEmitter<'a> {
             // this position yet (nothing seeds them into array elements) —
             // grouped with the other i64 handles for exhaustiveness.
             | kali_common::Repr::Url
-            | kali_common::Repr::UrlSearchParams => {
+            | kali_common::Repr::UrlSearchParams
+            // Bytes: TextEncoder byte-buffer handle (Stage P5); never reaches
+            // this position yet (nothing seeds it into array elements) —
+            // grouped with the other i64 handles for exhaustiveness.
+            | kali_common::Repr::Bytes
+            // Event: a compile-time marker (Stage P5); never reaches this
+            // position (a store of an event marker is denied at the identifier
+            // choke) — grouped with the other i64 slots for exhaustiveness.
+            | kali_common::Repr::Event => {
                 function.instruction(&Instruction::I64Load(mem_arg))
             }
         };
@@ -5174,7 +6119,11 @@ impl<'a> FunctionEmitter<'a> {
         index_id: LirNodeId,
     ) {
         self.emit_array_base_address(function, base_id);
-        let _ = self.emit_node(function, index_id, true);
+        // Stage P5 T-new-E: the index operand is `i32.wrap_i64`'d and multiplied
+        // — a numeric-consumption sink. A `String()`-result index (`a[s]`, and
+        // its store twin `a[s] = v`, both routed here) fails closed rather than
+        // indexing on the raw handle bits (`a[String(1n)]` → placeholder `0`).
+        let _ = self.emit_numeric_operand(function, index_id);
         function.instruction(&Instruction::I32WrapI64);
         function.instruction(&Instruction::I32Const(8));
         function.instruction(&Instruction::I32Mul);
@@ -5216,7 +6165,15 @@ impl<'a> FunctionEmitter<'a> {
             // this position yet (nothing seeds them into array elements) —
             // grouped with the other i64 handles for exhaustiveness.
             | kali_common::Repr::Url
-            | kali_common::Repr::UrlSearchParams => {
+            | kali_common::Repr::UrlSearchParams
+            // Bytes: TextEncoder byte-buffer handle (Stage P5); never reaches
+            // this position yet (nothing seeds it into array elements) —
+            // grouped with the other i64 handles for exhaustiveness.
+            | kali_common::Repr::Bytes
+            // Event: a compile-time marker (Stage P5); never reaches this
+            // position (a store of an event marker is denied at the identifier
+            // choke) — grouped with the other i64 slots for exhaustiveness.
+            | kali_common::Repr::Event => {
                 function.instruction(&Instruction::I64Load(mem_arg))
             }
         };

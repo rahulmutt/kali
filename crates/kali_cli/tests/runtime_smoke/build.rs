@@ -3601,9 +3601,29 @@ fn build_emits_browser_bundle_crypto_web_apis() {
         .output()
         .expect("run kali");
 
-    // Honest re-pin (PR #16 rev2, family `crypto`): kali fails closed/loud here;
-    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
-    assert!(!output.status.success(), "must fail closed: {output:?}");
+    // Stage P5 Task 5 reconciliation: the crypto bundle now BUILDS and EXECUTES
+    // correctly. `String()` lowers (Stage P5 Task 1) and the
+    // `crypto.getRandomValues` return-value length repr was fixed (Stage P5
+    // T-new-A) — previously this bundle built at exit 0 but TRAPPED at runtime
+    // (`filledBytes.length` read 0, tripping the fixture's own self-check), a
+    // silent miscompile that a build-only assertion would have pinned green. So
+    // this asserts BOTH a clean build AND end-to-end execution.
+    // `digestSmoke(1n, 2n)` returns `left - left === 0n` (referee: node v26.5.0 —
+    // the same fixture body returns 0 after every self-check passes; the compiled
+    // bundle was verified to run and return 0, no trap).
+    assert!(
+        output.status.success(),
+        "expected clean build: stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_eq!(metadata["apiSurface"], "browser");
+    assert_browser_bundle_executes_with_result(&bundle_dir, "digestSmoke", "0");
 }
 
 #[test]
@@ -3626,9 +3646,23 @@ fn build_emits_browser_bundle_crypto_web_apis_in_js_input() {
         .output()
         .expect("run kali");
 
-    // Honest re-pin (PR #16 rev2, family `crypto`): kali fails closed/loud here;
-    // see docs/superpowers/followups/pr16-honest-repin-inventory.md.
-    assert!(!output.status.success(), "must fail closed: {output:?}");
+    // Stage P5 Task 5 reconciliation: see the .ts sibling above — the crypto
+    // bundle now builds AND executes. `digestSmoke(1n, 2n)` returns `0n` (node
+    // v26.5.0 referee); the compiled bundle runs and returns 0 with no runtime
+    // trap (the getRandomValues length miscompile was fixed by T-new-A).
+    assert!(
+        output.status.success(),
+        "expected clean build: stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_eq!(metadata["apiSurface"], "browser");
+    assert_browser_bundle_executes_with_result(&bundle_dir, "digestSmoke", "0");
 }
 
 #[test]
@@ -3653,12 +3687,25 @@ fn json_build_emits_browser_bundle_crypto_web_apis_in_ts_input() {
         .output()
         .expect("run kali");
 
-    // Honest re-pin (PR #16 rev2, family `crypto`): kali fails closed/loud here
-    // (worklist tagged both this file's json_ crypto members class B, but direct
-    // verification shows each panics on this exact assertion — a loud E5506
-    // rejection of the `String(...)` call, not a silent wrong value; re-pinned as
-    // class A — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
-    assert!(!output.status.success(), "must fail closed: {output:?}");
+    // Stage P5 Task 5 reconciliation: the crypto bundle now builds AND executes
+    // (String() lowers + the getRandomValues length miscompile fixed by
+    // T-new-A). Assert a clean JSON build result AND end-to-end execution.
+    // `digestSmoke(1n, 2n)` -> `0n` (node v26.5.0 referee).
+    assert!(
+        output.status.success(),
+        "expected clean build: stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["success"], true, "json: {json}");
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_eq!(metadata["apiSurface"], "browser");
+    assert_browser_bundle_executes_with_result(&bundle_dir, "digestSmoke", "0");
 }
 
 #[test]
@@ -3683,27 +3730,39 @@ fn json_build_emits_browser_bundle_crypto_web_apis_in_js_input() {
         .output()
         .expect("run kali");
 
-    // Honest re-pin (PR #16 rev2, family `crypto`): kali fails closed/loud here
-    // (worklist tagged both this file's json_ crypto members class B, but direct
-    // verification shows each panics on this exact assertion — a loud E5506
-    // rejection of the `String(...)` call, not a silent wrong value; re-pinned as
-    // class A — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
-    assert!(!output.status.success(), "must fail closed: {output:?}");
+    // Stage P5 Task 5 reconciliation: see the ..._in_ts_input sibling above — the
+    // crypto bundle now builds AND executes. Assert a clean JSON build result AND
+    // end-to-end execution; `digestSmoke(1n, 2n)` -> `0n` (node v26.5.0 referee).
+    assert!(
+        output.status.success(),
+        "expected clean build: stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["success"], true, "json: {json}");
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_eq!(metadata["apiSurface"], "browser");
+    assert_browser_bundle_executes_with_result(&bundle_dir, "digestSmoke", "0");
 }
 
-// Task A2b fail-closed flip (all four web-baseline bundle tests below):
-// `browser_bundle_web_baseline_source()` calls `String(...)` and
-// `JSON.stringify(...)`, now in the terminal deny-set. Pre-A2b those silently
-// lowered to 0 so the bundle build succeeded (fake-green on a String()->0
-// placeholder); kali now fails the build closed (E5506). node: they are real
-// coercions kali has no lowering for. The other web-platform surfaces in the
-// same fixture split two ways (Stage P4 Task 7): structuredClone/
-// AbortController/URLSearchParams/URL are now REAL supported lanes (URL/USP
-// compiles with no warning as of Stage P4 — the old "E3100 URLSearchParams
-// warning" proof no longer exists), while the TextEncoder/TextDecoder tail
-// (P5 scope) correctly keeps the warn+0 escape hatch (proven by the observed
-// E3100 'TextEncoder'/'TextDecoder'/'encode'/'decode' warnings interleaved
-// with the E5506s — verified on a fresh binary 2026-07-21).
+// Stage P5 Task 5 reconciliation (all four web-baseline bundle tests below):
+// `browser_bundle_web_baseline_source()` (`webBaselineSmoke`) exercises
+// structuredClone / AbortController / EventTarget+CustomEvent / URLSearchParams
+// / URL / TextEncoder+TextDecoder plus `String(...)`. With all of Stage P5
+// landed — `String()` lowering (Task 1), the TextEncoder/TextDecoder roundtrip
+// and encode-of-`String()` admission (Tasks 2-4), and the Event/EventTarget
+// lanes — the bundle now BUILDS clean AND EXECUTES correctly. So these assert a
+// clean build AND end-to-end execution (the fixture's TextEncoder/TextDecoder
+// tail is a real runtime path, so a build-only assertion would not prove the
+// codec roundtrip actually works). `webBaselineSmoke(1n, 2n)` returns
+// `left - left === 0n` after every self-check passes — referee: node v26.5.0
+// runs the same body and returns 0; the compiled bundle was verified to run and
+// return 0.
 #[test]
 fn build_emits_browser_bundle_web_baseline_primitives() {
     let dir = tempdir().expect("tempdir");
@@ -3721,14 +3780,18 @@ fn build_emits_browser_bundle_web_baseline_primitives() {
         .expect("run kali");
 
     assert!(
-        !output.status.success(),
-        "expected fail-closed on String/JSON.stringify: {output:?}"
+        output.status.success(),
+        "expected clean build: stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
     );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr.contains("E5506") && stderr.contains("String"),
-        "expected E5506 for 'String', got stderr: {stderr}"
-    );
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_eq!(metadata["apiSurface"], "browser");
+    assert_browser_bundle_executes_with_result(&bundle_dir, "webBaselineSmoke", "0");
 }
 
 #[test]
@@ -3748,14 +3811,18 @@ fn build_emits_browser_bundle_web_baseline_primitives_in_js_input() {
         .expect("run kali");
 
     assert!(
-        !output.status.success(),
-        "expected fail-closed on String/JSON.stringify: {output:?}"
+        output.status.success(),
+        "expected clean build: stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
     );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr.contains("E5506") && stderr.contains("String"),
-        "expected E5506 for 'String', got stderr: {stderr}"
-    );
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_eq!(metadata["apiSurface"], "browser");
+    assert_browser_bundle_executes_with_result(&bundle_dir, "webBaselineSmoke", "0");
 }
 
 #[test]
@@ -3777,16 +3844,20 @@ fn json_build_emits_browser_bundle_web_baseline_primitives() {
         .expect("run kali");
 
     assert!(
-        !output.status.success(),
-        "expected fail-closed on String/JSON.stringify: {output:?}"
+        output.status.success(),
+        "expected clean build: stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["success"], false);
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(
-        stdout.contains("E5506") && stdout.contains("String"),
-        "expected E5506 for 'String' in json errors, got: {stdout}"
-    );
+    assert_eq!(json["success"], true, "json: {json}");
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_eq!(metadata["apiSurface"], "browser");
+    assert_browser_bundle_executes_with_result(&bundle_dir, "webBaselineSmoke", "0");
 }
 
 #[test]
@@ -3808,16 +3879,20 @@ fn json_build_emits_browser_bundle_web_baseline_primitives_in_js_input() {
         .expect("run kali");
 
     assert!(
-        !output.status.success(),
-        "expected fail-closed on String/JSON.stringify: {output:?}"
+        output.status.success(),
+        "expected clean build: stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["success"], false);
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(
-        stdout.contains("E5506") && stdout.contains("String"),
-        "expected E5506 for 'String' in json errors, got: {stdout}"
-    );
+    assert_eq!(json["success"], true, "json: {json}");
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_eq!(metadata["apiSurface"], "browser");
+    assert_browser_bundle_executes_with_result(&bundle_dir, "webBaselineSmoke", "0");
 }
 
 /// Stage D event lane, browser glue end-to-end: the bundle's JS import list

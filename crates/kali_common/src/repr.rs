@@ -55,6 +55,23 @@ pub enum Repr {
     /// (Stage P4 `URLSearchParams`). The only mutable structure in the stage;
     /// methods are synthetic guest fns over `__streq` + growable scan/push.
     UrlSearchParams,
+    /// A `TextEncoder().encode(...)` byte-array handle. The i64 is the
+    /// argument's `(buf,len)` string handle reinterpreted as contiguous
+    /// UTF-8 bytes (zero-copy). Provenance-only: it may be read solely as a
+    /// `TextDecoder.decode` / `crypto.subtle.digest` operand; any other read
+    /// fails closed at the codegen identifier choke (Stage P5).
+    Bytes,
+    /// A `new Event(<string literal>)` / `new CustomEvent(<string literal>)`
+    /// COMPILE-TIME marker (Stage P5). Unlike every other handle repr the slot
+    /// carries NO runtime value at all: the event's only observable this phase
+    /// is its `type`, whose text is known at compile time and materialized as an
+    /// interned string handle directly at the `<ident>.type` read site. The repr
+    /// exists purely as provenance so every OTHER position — a bare read, any
+    /// other property, a cross-function/captured read, a store — is denied at
+    /// the codegen identifier choke instead of yielding the placeholder `0`
+    /// that this variant replaces. Seeded ONLY from a `const` declarator whose
+    /// init is that construction with the constructor unshadowed program-wide.
+    Event,
 }
 
 /// Representation decisions for a whole program, keyed by function + binding.
@@ -140,6 +157,8 @@ pub struct ReprTable {
     any_abort_handle: bool,
     any_url: bool,
     any_url_search_params: bool,
+    any_bytes: bool,
+    any_event: bool,
     /// `(func, binding)` scalars/params whose `Repr::String` value is a FRESH
     /// runtime `string_concat` handle (reachable from a `+`, interpolated
     /// template, or string `+=`), NOT an interned literal constant. Codegen may
@@ -174,6 +193,68 @@ pub struct ReprTable {
     /// SHALLOW-SHARE the nested object. Empty for programs that never construct
     /// an object literal.
     clone_safe_shapes: HashSet<ShapeId>,
+    /// `(shape, field)` pairs whose field repr is POSITIVELY proven a plain
+    /// number (Stage P5 T-new-B review C-5). A shape field interns as `F64` or
+    /// `I64` and NOTHING else — a STRING field interns as `I64` exactly like an
+    /// integer one — so `shape_field(..) == I64` is the UNRECORDED DEFAULT, not
+    /// evidence. Consumers that must render a field as a number (the `String()`
+    /// coercion proof) require membership here instead. Computed
+    /// ALLOWLIST-style at shape-intern time and default-deny across shape
+    /// SHARING: two object slots with identical field names/reprs intern to one
+    /// `ShapeId`, so a field is admitted only when EVERY contributing slot
+    /// proved it numeric (a single string-typed slot taints it away).
+    numeric_shape_fields: HashSet<(ShapeId, String)>,
+    /// Functions whose RETURN value is POSITIVELY proven a plain number (Stage
+    /// P5 T-new-B review I-2). Same hazard as above: `return_repr` defaults to
+    /// `Repr::I64`, so an unrecorded return (including one that hands back an
+    /// internal string/handle value, e.g. `function g(y){ return String(y) }`)
+    /// is indistinguishable from a real integer return by repr alone. This set
+    /// is written only for a return whose EVERY return statement is an
+    /// arithmetic expression over numeric literals and provably-scalar
+    /// parameters, and whose solved axes are not string.
+    numeric_returns: HashSet<String>,
+    /// `(scope, binding)` pairs whose value is POSITIVELY proven a plain number
+    /// (Stage P5 T-new-B round 3) — the binding member of the same
+    /// evidence-not-default family as [`numeric_shape_fields`](Self::numeric_shape_fields)
+    /// and [`numeric_returns`](Self::numeric_returns). `scalar(..) == I64` is
+    /// the UNRECORDED DEFAULT of every binding, including one holding a tagged
+    /// `String()` handle, so it can never be the proof that a value may be
+    /// rendered with `int_to_string`. `repr_infer` writes an entry only when
+    /// EVERY write to the binding is arithmetic over numeric literals, the
+    /// binding itself and parameters with a proven scalar inflow, and the
+    /// binding carries no array/growable/object taint.
+    numeric_bindings: HashSet<(String, String)>,
+    /// `(scope, binding)` pairs that provably carry a `String()` intrinsic
+    /// coercion RESULT (Stage P5 T-new-E). Unlike the numeric_* allowlists
+    /// above, this is a DENY taint: `repr_infer` seeds no `Repr::String` for a
+    /// `String()` result (F-newB-1 is the deferred correct-output follow-up), so
+    /// a result bound to a `let`/`var`/`const`, laundered through a second
+    /// binding, reassigned, or handed back from a String()-result-returning
+    /// function sits as a real tagged string handle in a default `Repr::I64`
+    /// slot. Reaching a numeric-render sink (`+`, template literal, multi-arg
+    /// console via `emit_as_string`, or arithmetic operator lowering) the handle
+    /// would be run through `int_to_string` and its raw bits printed — the
+    /// measured `x-9223354375949254655` silent divergence. Codegen consults this
+    /// at those sinks and fails CLOSED (E5506). Computed by a whole-program
+    /// monotone taint fixpoint (`resolve_string_result_taint`) that follows
+    /// value-flow through bindings, reassignments, laundering copies, and
+    /// function returns (including return-of-local, return-of-reassign, and
+    /// transitive returns across direct calls) BY CONSTRUCTION. Positive
+    /// provenance only — a purely-numeric binding is never seeded, so a genuine
+    /// `Repr::I64` is never over-denied.
+    string_result_bindings: HashSet<(String, String)>,
+    /// Functions whose RETURN provably carries a `String()`-result value on SOME
+    /// path (Stage P5 T-new-E). The return twin of
+    /// [`string_result_bindings`](Self::string_result_bindings): a direct
+    /// `return String(x)`, a `return <tainted-local>`, or a `return
+    /// <call-to-tainted-fn>` all taint the function's return. Codegen taints a
+    /// CALL to such a function at the render/arithmetic sink (the callee resolved
+    /// through fold-alias bindings so a fn-expr/arrow bound via a declarator —
+    /// keyed on its synthetic `__kali_fn_N` name — is caught too). Conservative:
+    /// a return that is a String() result on one path and a number on another is
+    /// tainted (fail closed), but a return that is never a String() result is
+    /// left untainted (a purely-numeric function keeps rendering).
+    string_result_returns: HashSet<String>,
     /// Gate messages from the shape inference (contradictory or unsupported
     /// object usage). Any entry makes compilation fail with E5506.
     shape_conflicts: Vec<String>,
@@ -221,6 +302,12 @@ impl ReprTable {
         if repr == Repr::UrlSearchParams {
             self.any_url_search_params = true;
         }
+        if repr == Repr::Bytes {
+            self.any_bytes = true;
+        }
+        if repr == Repr::Event {
+            self.any_event = true;
+        }
         self.scalars
             .insert((func.to_string(), binding.to_string()), repr);
     }
@@ -240,6 +327,12 @@ impl ReprTable {
         }
         if repr == Repr::UrlSearchParams {
             self.any_url_search_params = true;
+        }
+        if repr == Repr::Bytes {
+            self.any_bytes = true;
+        }
+        if repr == Repr::Event {
+            self.any_event = true;
         }
         self.array_elements
             .insert((func.to_string(), binding.to_string()), repr);
@@ -261,6 +354,12 @@ impl ReprTable {
         if repr == Repr::UrlSearchParams {
             self.any_url_search_params = true;
         }
+        if repr == Repr::Bytes {
+            self.any_bytes = true;
+        }
+        if repr == Repr::Event {
+            self.any_event = true;
+        }
         self.returns.insert(func.to_string(), repr);
     }
 
@@ -279,6 +378,12 @@ impl ReprTable {
         }
         if repr == Repr::UrlSearchParams {
             self.any_url_search_params = true;
+        }
+        if repr == Repr::Bytes {
+            self.any_bytes = true;
+        }
+        if repr == Repr::Event {
+            self.any_event = true;
         }
         self.params.insert((func.to_string(), index), repr);
     }
@@ -481,6 +586,8 @@ impl ReprTable {
             && !self.any_abort_handle
             && !self.any_url
             && !self.any_url_search_params
+            && !self.any_bytes
+            && !self.any_event
             && self.shapes.is_empty()
             && self.shape_conflicts.is_empty()
     }
@@ -540,6 +647,75 @@ impl ReprTable {
             .enumerate()
             .find(|(_, (field, _))| field == name)
             .map(|(index, (_, repr))| (index, *repr))
+    }
+
+    /// Record the ALLOWLIST-computed proven-numeric shape fields
+    /// (see [`numeric_shape_fields`](Self::numeric_shape_fields)); called once
+    /// by `repr_infer`'s `emit_table`.
+    pub fn set_numeric_shape_fields(&mut self, fields: HashSet<(ShapeId, String)>) {
+        self.numeric_shape_fields = fields;
+    }
+
+    /// Whether `shape`.`name` is POSITIVELY proven to hold a plain number.
+    /// Callers must still check the field's repr; this only adds the evidence
+    /// that `Repr::I64` alone cannot carry.
+    pub fn shape_field_is_proven_numeric(&self, shape: ShapeId, name: &str) -> bool {
+        self.numeric_shape_fields
+            .contains(&(shape, name.to_string()))
+    }
+
+    /// Record a function whose return value is POSITIVELY proven numeric
+    /// (see [`numeric_returns`](Self::numeric_returns)).
+    pub fn mark_numeric_return(&mut self, func: &str) {
+        self.numeric_returns.insert(func.to_string());
+    }
+
+    /// Whether `func`'s return value is POSITIVELY proven a plain number.
+    /// Callers must still check `return_repr`; this only adds the evidence the
+    /// default `Repr::I64` cannot carry.
+    pub fn return_is_proven_numeric(&self, func: &str) -> bool {
+        self.numeric_returns.contains(func)
+    }
+
+    /// Record the ALLOWLIST-computed proven-numeric bindings
+    /// (see [`numeric_bindings`](Self::numeric_bindings)); called once by
+    /// `repr_infer`'s `emit_table`.
+    pub fn set_numeric_bindings(&mut self, bindings: HashSet<(String, String)>) {
+        self.numeric_bindings = bindings;
+    }
+
+    /// Whether `scope`.`binding` is POSITIVELY proven to hold a plain number.
+    /// Callers must still check the binding's repr; this only adds the evidence
+    /// the default `Repr::I64` cannot carry.
+    pub fn binding_is_proven_numeric(&self, scope: &str, binding: &str) -> bool {
+        self.numeric_bindings
+            .contains(&(scope.to_string(), binding.to_string()))
+    }
+
+    /// Record the whole-program String()-result taint sets (Stage P5 T-new-E);
+    /// called once by `repr_infer`'s `emit_table` after the fixpoint.
+    pub fn set_string_result_taint(
+        &mut self,
+        bindings: HashSet<(String, String)>,
+        returns: HashSet<String>,
+    ) {
+        self.string_result_bindings = bindings;
+        self.string_result_returns = returns;
+    }
+
+    /// Whether `scope`.`binding` provably carries a `String()`-result value
+    /// (Stage P5 T-new-E deny taint — see
+    /// [`string_result_bindings`](Self::string_result_bindings)).
+    pub fn binding_is_string_result(&self, scope: &str, binding: &str) -> bool {
+        self.string_result_bindings
+            .contains(&(scope.to_string(), binding.to_string()))
+    }
+
+    /// Whether `func`'s return provably carries a `String()`-result value on
+    /// some path (Stage P5 T-new-E deny taint — see
+    /// [`string_result_returns`](Self::string_result_returns)).
+    pub fn return_is_string_result(&self, func: &str) -> bool {
+        self.string_result_returns.contains(func)
     }
 
     pub fn add_shape_conflict(&mut self, message: String) {

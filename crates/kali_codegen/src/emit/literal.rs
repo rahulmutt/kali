@@ -226,6 +226,57 @@ impl<'a> FunctionEmitter<'a> {
             return false;
         }
 
+        // Stage P5 T-new-A (review finding I-3): storing a
+        // `crypto.getRandomValues(...)` result into an AGGREGATE slot
+        // (`o.buf = fb`, `holder[0] = fb`) launders the handle out of the
+        // name-keyed deny domain — the later read's receiver has no binding
+        // name, so every gate in this lane misses it and the read diverges
+        // silently (measured `0` / `2` where node reads `4`). A store to a bare
+        // identifier (childless target node) is NOT affected: that target keeps
+        // its name, and `record_crypto_random_result_binding` below re-derives
+        // its provenance. Placed first so no other arm can claim the shape.
+        if !self.node(left).children.is_empty() && self.is_crypto_random_result_value(right) {
+            self.deny_e5506(function, Self::CRYPTO_RANDOM_RESULT_STORE_DENY);
+            return true;
+        }
+
+        // Stage P5 T-new-C review M-1: the WRITE position of an event marker
+        // member (`e.type = 'z'`, `e.type += 'z'`, `e.bubbles = true`). The
+        // `.type` lane is read-only — its value is a compile-time literal
+        // materialized on each read — so a store has nowhere to land; before
+        // this arm it fell out of the lane entirely and was silently dropped
+        // (kali printed the ORIGINAL `tick`, which happens to match node's
+        // sloppy-mode no-op but diverges under ESM/strict, where node throws
+        // `TypeError: Cannot assign to read only property 'type'`). Deny; never
+        // silently discard a store. The cross-scope twins are covered too: an
+        // enclosing-scope marker has no side-table entry here, so it is denied
+        // on the same evidence the read arm uses.
+        {
+            let left_node = self.node(left).clone();
+            if let Some(base_name) = self.bare_member_receiver_name(&left_node) {
+                if self.is_event_marker(&base_name)
+                    || self.is_module_scope_event_marker(&base_name)
+                    || self.is_captured_event_marker(&base_name)
+                {
+                    self.deny_e5506(
+                        function,
+                        "assigning to a property of an Event/CustomEvent is not supported in \
+                         the current phase (the event's `type` is a read-only compile-time \
+                         value; a store would be silently dropped; fail-closed)",
+                    );
+                    return true;
+                }
+            }
+        }
+
+        // Stage P5 T-new-E: a bare-identifier reassignment `s = String(1n)`
+        // makes `s` hold a String() coercion result whose repr stays `I64`
+        // (F-newB-1). The provenance is now computed STRUCTURALLY in
+        // `repr_infer`'s whole-program taint (`string_result_bindings`), which
+        // sees the reassignment through its `visit_assignment` hook, so no
+        // codegen-side recording is needed here — the render/arithmetic sinks
+        // query the repr_infer taint directly.
+
         if op == "=" {
             if let Some(key_text) = process_env_property_key(&self.program.nodes, left) {
                 let right_node = self.node(right);
@@ -608,7 +659,17 @@ impl<'a> FunctionEmitter<'a> {
                                 // seeds them into array elements) — grouped
                                 // with the other i64 handles for exhaustiveness.
                                 | kali_common::Repr::Url
-                                | kali_common::Repr::UrlSearchParams => {
+                                | kali_common::Repr::UrlSearchParams
+                                // Bytes: TextEncoder byte-buffer handle (Stage
+                                // P5); never reaches this position yet (nothing
+                                // seeds it into array elements) — grouped with
+                                // the other i64 handles for exhaustiveness.
+                                | kali_common::Repr::Bytes
+                                // Event: a compile-time marker (Stage P5);
+                                // never reaches this position (a store of an
+                                // event marker is denied at the identifier
+                                // choke) — grouped for exhaustiveness.
+                                | kali_common::Repr::Event => {
                                     let rhs = self.emit_node(function, right, true);
                                     if !rhs.produced {
                                         function.instruction(&Instruction::I64Const(0));
@@ -686,6 +747,23 @@ impl<'a> FunctionEmitter<'a> {
             function.instruction(&Instruction::I64Const(0));
             return true;
         }
+        // Stage P5 T-new-A: an assignment REPLACES what the local holds, so the
+        // `crypto.getRandomValues(...)` result provenance is re-derived at this
+        // choke exactly as at the declarator. `record_...` first revokes any
+        // previous ADMISSION (an admitted `.length` loads a length header off
+        // the local — a stale grant over `fb = 5` would load off address 5),
+        // then re-admits only if the new RHS is itself a proven result. A
+        // COMPOUND op only ever REVOKES — its result is a derived value, never
+        // the buffer handle, even when its RHS happens to be a result call
+        // (`fb += crypto.getRandomValues(rb)`) — and deny-domain membership is
+        // never revoked, so the reassigned name's `.length` fails closed
+        // instead of silently zeroing.
+        if op == "=" {
+            self.record_crypto_random_result_binding(&name, right);
+        } else {
+            self.crypto_random_result_array_bindings.remove(&name);
+        }
+
         // Module-scope mutable scalar promoted to a persistent global: route the
         // write through `GlobalSet` (from a function OR module scope). Gated on
         // the target NOT being a local/param FIRST — a same-named local `var`/
@@ -919,7 +997,7 @@ impl<'a> FunctionEmitter<'a> {
                         return true;
                     }
                     function.instruction(&Instruction::LocalGet(index));
-                    let rhs = self.emit_node(function, right, true);
+                    let rhs = self.emit_numeric_operand(function, right);
                     if !rhs.produced {
                         function.instruction(&Instruction::F64Const(0.0.into()));
                     } else if !self.is_float_valued(right) {
@@ -937,7 +1015,7 @@ impl<'a> FunctionEmitter<'a> {
                     return true;
                 }
                 function.instruction(&Instruction::LocalGet(index));
-                let rhs = self.emit_node(function, right, true);
+                let rhs = self.emit_numeric_operand(function, right);
                 if !rhs.produced {
                     function.instruction(&Instruction::I64Const(0));
                 }
@@ -1005,7 +1083,7 @@ impl<'a> FunctionEmitter<'a> {
                     return true;
                 }
                 function.instruction(&Instruction::GlobalGet(global_index));
-                let rhs = self.emit_node(function, right, true);
+                let rhs = self.emit_numeric_operand(function, right);
                 if is_f64 {
                     if !rhs.produced {
                         function.instruction(&Instruction::F64Const(0.0.into()));

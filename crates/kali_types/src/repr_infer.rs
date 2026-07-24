@@ -118,6 +118,29 @@ struct CallEdge {
     result_node: usize,
 }
 
+/// Stage P5 T-new-E: classification of a value written into a binding or
+/// returned from a function, for the String()-result taint value-flow.
+enum StringResultRhs {
+    /// A direct `String(<arg>)` intrinsic coercion — a taint SEED.
+    Seed,
+    /// A bare identifier read — a launder/return of `(scope, name)`.
+    FromBinding(String, String),
+    /// A call to a named program function — propagates that function's return
+    /// taint.
+    FromReturn(String),
+    /// No String()-result provenance.
+    None,
+}
+
+/// Stage P5 T-new-F: the destination a String()-result value flows to — a
+/// binding `(scope, name)` or a function's return — so one composite-aware
+/// recorder (`record_string_result_value`) serves declarator/assignment/return
+/// and the arg->param edge uniformly.
+enum StringResultDst {
+    Binding((String, String)),
+    Return(String),
+}
+
 #[derive(Default)]
 struct ReprInfer {
     /// Bidirectional union-find, used ONLY for array-element storage aliasing
@@ -172,6 +195,102 @@ struct ReprInfer {
     return_node: BTreeMap<String, usize>,
     /// Ordered parameter names of every user `FunctionDeclaration`.
     functions: BTreeMap<String, Vec<String>>,
+    /// Stage P5 T-new-B review I-2: per-function AND-accumulator over every
+    /// `return` statement — true while EVERY return so far is an arithmetic
+    /// expression over numeric literals and the function's own parameters (the
+    /// only syntactic shape whose emitted value is a plain integer/float rather
+    /// than a possibly-tagged handle). A bare `return;`, an object return, a
+    /// call return (`return String(y)` — the exact F-newB-1 leak), a member
+    /// read or an identifier that is not a parameter all clear it. A function
+    /// with NO return statement never gets an entry, so it is denied by
+    /// absence. Consumed by `emit_table`, which additionally requires the
+    /// solved axes and the parameters' own scalar-inflow proof.
+    numeric_return_candidates: BTreeMap<String, bool>,
+    /// Stage P5 T-new-B round-3: `(scope, binding)` pairs with at least one
+    /// write whose value is POSITIVELY proven a plain number — the binding twin
+    /// of `numeric_return_candidates`, and the third member of the
+    /// evidence-not-default family alongside `numeric_shape_fields` /
+    /// `numeric_returns`. A binding's `Repr::I64` is the UNRECORDED DEFAULT, so
+    /// it can never itself be the proof that `String(x)` may render `x` with
+    /// `int_to_string`; membership here is that proof.
+    ///
+    /// A "proven write" is an initializer / assignment RHS that is arithmetic
+    /// over numeric literals, the function's own parameters, and the target
+    /// binding itself (`count = count + 1`). Compound arithmetic assignment
+    /// (`count += 1`) is proven from its RHS, since the implied `count op rhs`
+    /// is exactly the self-reference form.
+    numeric_binding_candidates: BTreeSet<(String, String)>,
+    /// The default-deny half of `numeric_binding_candidates`: any write this
+    /// pass CANNOT prove numeric — an unproven initializer (`const s = g(1n)`,
+    /// the C-6 leak), a declarator with NO initializer (`let x;` is
+    /// `undefined`), a non-arithmetic compound (`&&=`, `??=`), a `for..in` key
+    /// (an interned STRING handle) or `for..of` loop variable, a `catch`
+    /// parameter. Subtracted from the candidates at `emit_table` time, so one
+    /// unproven write anywhere in the program denies the binding outright —
+    /// bindings are keyed by scope, not by program point, and this proof makes
+    /// no flow-sensitivity claim.
+    numeric_binding_taints: BTreeSet<(String, String)>,
+    /// `(scope, binding, func, param)`: a proven write for `scope::binding`
+    /// used `func`'s parameter `param` as an arithmetic operand. A parameter's
+    /// own `Repr::I64` is the same unrecorded default, so `emit_table` finalizes
+    /// the binding only once every parameter it depends on carries a real
+    /// call-site scalar-inflow proof (identical treatment to
+    /// `numeric_returns`). Recorded per-dependency rather than "all params of
+    /// the owning function" so a binding that never mentions a parameter
+    /// (`let count = 0`) is not denied by an unrelated unproven parameter.
+    numeric_binding_param_deps: BTreeSet<(String, String, String, String)>,
+    /// Scope-blind taint for an unprovable write whose TARGET is not declared
+    /// in the writing function — a nested function / arrow assigning to a
+    /// captured or module-scope name. `binding_scope` resolves such a write to
+    /// module scope only when module scope declares the name; a name captured
+    /// from an intermediate scope (`Kali.test(() => { let count = 0;
+    /// target.addEventListener('tick', () => { count = <unproven> }) })`)
+    /// resolves to NEITHER the declaring scope nor module scope, so a
+    /// scope-keyed taint would be filed under a key the consumer never reads —
+    /// a fail-OPEN. Names here deny the binding in EVERY scope. Deliberately
+    /// blunt: over-denying an unrelated same-named binding is fail-closed,
+    /// which is the direction this whole proof errs in.
+    numeric_binding_name_taints: BTreeSet<String>,
+    /// Stage P5 T-new-E — String()-result taint, SEED half. `(scope, binding)`
+    /// pairs directly written a `String()` intrinsic coercion call (`let s =
+    /// String(x)`, `s = String(x)`). Scope is `binding_scope(func, name)` so it
+    /// keys under exactly what codegen's local-vs-module resolution looks up.
+    string_result_binding_seeds: BTreeSet<(String, String)>,
+    /// SEED half for RETURNS: functions with a direct `return String(x)` path.
+    string_result_return_seeds: BTreeSet<String>,
+    /// Propagation edge `dst_binding <- src_binding` (laundering `let t = s` /
+    /// `t = s`): if the source binding is tainted, so is the destination.
+    string_result_binding_from_binding: Vec<((String, String), (String, String))>,
+    /// Propagation edge `dst_binding <- callee-return` (`let s = g(x)` / `s =
+    /// g(x)`): if the callee's return is tainted, so is the destination binding.
+    /// The callee is a bare function name (a `FunctionDeclaration`); a fn-expr
+    /// bound alias this pass cannot name simply never propagates (fail-safe: the
+    /// binding stays untainted, and the DIRECT render/call sink still catches the
+    /// `__kali_fn_N` return taint via codegen's fold-alias callee resolution).
+    string_result_binding_from_return: Vec<((String, String), String)>,
+    /// Propagation edge `func-return <- src_binding` (`return s`): a return of a
+    /// tainted local taints the function's return.
+    string_result_return_from_binding: Vec<(String, (String, String))>,
+    /// Propagation edge `func-return <- callee-return` (`return g(x)`): a return
+    /// of a tainted call result taints the function's return (transitive).
+    string_result_return_from_return: Vec<(String, String)>,
+    /// Stage P5 T-new-F — the MONOMORPHIC-seed accounting. A dst is seeded
+    /// `Repr::String` (rendering correctly) only when EVERY write / return-path /
+    /// operative composite-arm feeding it is provably a `String()` result; a dst
+    /// with ANY non-string ("plain") write stays UNSEEDED and falls back to the
+    /// round-2 taint's fail-closed backstop at the render sinks. These record the
+    /// plain writes so `resolve_string_result_taint` can exclude them.
+    /// A binding write / composite-arm that classified `None` (not a String()
+    /// result): `let s = 0n`, the `5n` arm of `b ? String(1n) : 5n`, …
+    string_result_binding_plain: BTreeSet<(String, String)>,
+    /// A return-path / composite-arm that classified `None` (`return 5n` on one
+    /// branch of a function whose other branch is `return String(x)`).
+    string_result_return_plain: BTreeSet<String>,
+    /// `(callee, param)` dsts reached via the arg->param forward taint. Params
+    /// are POLYMORPHIC across call sites, so they are NEVER seeded `Repr::String`
+    /// (a numeric call site would then miscompile); they rely on the taint
+    /// backstop to fail closed at the render. Recorded so the seed excludes them.
+    string_result_param_dsts: BTreeSet<(String, String)>,
     /// Names locally bound within a given scope: a function's own parameters
     /// plus every `let`/`const`/`var` declarator reachable from its body
     /// without descending into a nested function (module scope uses the
@@ -454,6 +573,53 @@ struct ReprInfer {
     /// same `note_abort_shadow_name` call sites — see that function's
     /// updated doc.
     url_ctor_shadowed: bool,
+    /// Stage P5: `(func, binding)` pairs proven to hold a stateless
+    /// `new TextEncoder()` marker — `const e = new TextEncoder()`. Used only to
+    /// recognize a bound `e.encode(...)` receiver as a bytes-seeding shape (this
+    /// set is never seeded a repr of its own; the marker carries no value).
+    text_encoder_bindings: BTreeSet<(String, String)>,
+    /// Stage P5 Task 4: `(func, binding)` pairs proven to hold a stateless
+    /// `new TextDecoder()` marker — the decoder twin of `text_encoder_bindings`,
+    /// used only to recognize a bound `d.decode(...)` receiver.
+    text_decoder_bindings: BTreeSet<(String, String)>,
+    /// Stage P5: `(func, binding)` pairs syntactically admitted for `Repr::Bytes`
+    /// seeding — a `const` declarator whose init is `new TextEncoder().encode(x)`
+    /// (inline) or `<enc>.encode(x)` where `<enc>` is a `text_encoder_bindings`
+    /// marker in the same function. Mirrors `usp_bindings`.
+    bytes_bindings: BTreeSet<(String, String)>,
+    /// Stage P5 program-wide shadow guard, mirroring `url_ctor_shadowed`: `true`
+    /// when ANY declared name anywhere in the program is `"TextEncoder"`. Set
+    /// from the same `note_abort_shadow_name` call sites.
+    text_encoder_shadowed: bool,
+    /// Stage P5 Task 4 program-wide shadow guard, twin of `text_encoder_shadowed`:
+    /// `true` when ANY declared name anywhere in the program is `"TextDecoder"`,
+    /// which disables the decode string seeding (the call is then a user call).
+    text_decoder_shadowed: bool,
+    /// Stage P5 T-new-C: `(func, binding)` pairs syntactically admitted for
+    /// `Repr::Event` seeding — a `const` declarator whose init is
+    /// `new Event(<string-literal>)` / `new CustomEvent(<string-literal>)`.
+    /// Mirrors `url_bindings`: this set IS the "is this an Event marker"
+    /// predicate (no alias shape is admitted), and it doubles as the origin
+    /// check for the `<ident>.type` string-seeding arm in `visit_member`.
+    event_bindings: BTreeSet<(String, String)>,
+    /// Stage P5 T-new-C program-wide shadow guard, twin of `url_ctor_shadowed`:
+    /// `true` when ANY declared name anywhere in the program is `"Event"` or
+    /// `"CustomEvent"`, which disables the marker seeding program-wide (the
+    /// construction is then a user call). Set from the same
+    /// `note_abort_shadow_name` call sites, so the shadow frontier cannot drift
+    /// from the seeding frontier.
+    event_ctor_shadowed: bool,
+    /// Stage P5 T-new-C: `(func, binding)` pairs declared with an init that is a
+    /// non-computed `<ident>.type` read where `<ident>` is an `event_bindings`
+    /// marker in the SAME function (any binding form). Seeded `Repr::String` in
+    /// `emit_table` under the same program-wide shadow guard, so a bound
+    /// `const t = e.type; console.log(t)` prints the type text instead of
+    /// classifying the interned handle as a number. Deliberately recorded here
+    /// and seeded there (rather than `add_string_seed`-ing during the walk): the
+    /// shadow guard is not final until the whole program has been walked, and a
+    /// walk-time string seed on a SHADOWED `Event` would vouch for a user
+    /// object's field — a fail-open.
+    event_type_read_bindings: BTreeSet<(String, String)>,
 }
 
 /// Identity of an object-holding slot for shape/aliasing purposes.
@@ -729,6 +895,429 @@ impl ReprInfer {
         let n = self.new_node();
         self.return_node.insert(func.to_string(), n);
         n
+    }
+
+    /// Stage P5 T-new-B review I-2: is `expr` (a `return` argument of `func`)
+    /// an ARITHMETIC expression over numeric literals and `func`'s own
+    /// parameters?
+    ///
+    /// This is the syntactic half of the positive numeric-return proof. It is
+    /// an ALLOWLIST of shapes whose emitted value is a plain number:
+    ///
+    /// * a numeric / BigInt literal,
+    /// * a bare identifier that is a PARAMETER of `func` (a non-parameter local
+    ///   could hold an object/array/string handle with no evidence at this
+    ///   site; `emit_table` separately requires every parameter to carry a
+    ///   proven scalar inflow, which is what makes a parameter admissible),
+    /// * unary `-`/`+`/`~` over a proven operand,
+    /// * `+`/`-`/`*`/`%` and the bitwise operators over proven operands.
+    ///
+    /// Everything else — a CALL (`return String(y)`, the F-newB-1 handle leak),
+    /// a member read, a ternary, a template, `/` and `**` (which may lower on
+    /// the float lane without a float axis seed), a comparison (`emit_as_string`
+    /// renders a boolean only from an emitted `ValueShape::Boolean`, which a
+    /// call result is not) — is denied.
+    fn return_expr_is_numeric_over_params(&self, func: &str, expr: &Expression) -> bool {
+        match strip_parenthesized(expr) {
+            Expression::Literal(LiteralValue::Number(_)) | Expression::BigIntLiteral(_) => true,
+            Expression::Identifier(name) => self
+                .functions
+                .get(func)
+                .is_some_and(|params| params.iter().any(|param| param == name)),
+            Expression::UnaryExpression(unary)
+                if matches!(unary.operator.as_str(), "-" | "+" | "~") =>
+            {
+                self.return_expr_is_numeric_over_params(func, &unary.argument)
+            }
+            Expression::BinaryExpression(binary)
+                if matches!(
+                    binary.operator.as_str(),
+                    "+" | "-" | "*" | "%" | "&" | "|" | "^" | "<<" | ">>" | ">>>"
+                ) =>
+            {
+                self.return_expr_is_numeric_over_params(func, &binary.left)
+                    && self.return_expr_is_numeric_over_params(func, &binary.right)
+            }
+            _ => false,
+        }
+    }
+
+    /// Scope a binding name resolves to, mirroring `visit_expr`'s `Identifier`
+    /// arm (and `kali_codegen`'s `self.locals` fallback): a name a non-top-level
+    /// function does not declare itself, but module scope does, reads the
+    /// module entry.
+    fn binding_scope(&self, func: &str, name: &str) -> String {
+        if func != TOP_LEVEL
+            && !self.is_locally_declared(func, name)
+            && self.is_locally_declared(TOP_LEVEL, name)
+        {
+            TOP_LEVEL.to_string()
+        } else {
+            func.to_string()
+        }
+    }
+
+    /// Value half of the positive numeric-BINDING proof (round 3): `expr`, as
+    /// the value written into `scope::target` inside `func`, is arithmetic over
+    /// numeric literals, `func`'s own parameters (collected into `params` so
+    /// `emit_table` can require their scalar-inflow proof), and — when
+    /// `allow_self` — `target` itself, which is what makes `count = count + 1`
+    /// and (via its implied RHS) `count += 1` provable by induction over the
+    /// binding's other writes.
+    ///
+    /// Self-reference is refused in DECLARATOR position (`allow_self == false`):
+    /// `let x = x` reads an outer binding (or the TDZ), not this one.
+    ///
+    /// Everything else is denied, notably a CALL (`let s = g(1n)`, where `g`
+    /// returns a tagged `String()` handle — the exact C-6 leak), a member read,
+    /// a template/string literal, and `/`/`**`.
+    fn write_value_is_numeric(
+        &self,
+        func: &str,
+        target: &str,
+        expr: &Expression,
+        allow_self: bool,
+        params: &mut Vec<String>,
+    ) -> bool {
+        match strip_parenthesized(expr) {
+            Expression::Literal(LiteralValue::Number(_)) | Expression::BigIntLiteral(_) => true,
+            Expression::Identifier(name) => {
+                if allow_self && name == target {
+                    return true;
+                }
+                if self
+                    .functions
+                    .get(func)
+                    .is_some_and(|declared| declared.iter().any(|param| param == name))
+                {
+                    params.push(name.clone());
+                    return true;
+                }
+                false
+            }
+            Expression::UnaryExpression(unary)
+                if matches!(unary.operator.as_str(), "-" | "+" | "~") =>
+            {
+                self.write_value_is_numeric(func, target, &unary.argument, allow_self, params)
+            }
+            Expression::BinaryExpression(binary)
+                if matches!(
+                    binary.operator.as_str(),
+                    "+" | "-" | "*" | "%" | "&" | "|" | "^" | "<<" | ">>" | ">>>"
+                ) =>
+            {
+                self.write_value_is_numeric(func, target, &binary.left, allow_self, params)
+                    && self.write_value_is_numeric(func, target, &binary.right, allow_self, params)
+            }
+            _ => false,
+        }
+    }
+
+    /// Record one WRITE to `name` in `func` against the numeric-binding proof.
+    /// `value == None` is an unprovable write by definition (a declarator with
+    /// no initializer, a `for..in`/`for..of` loop variable, a `catch`
+    /// parameter, a non-arithmetic compound assignment).
+    fn record_numeric_binding_write(
+        &mut self,
+        func: &str,
+        name: &str,
+        value: Option<&Expression>,
+        allow_self: bool,
+    ) {
+        let scope = self.binding_scope(func, name);
+        let mut params = Vec::new();
+        let proven = value.is_some_and(|expr| {
+            self.write_value_is_numeric(func, name, expr, allow_self, &mut params)
+        });
+        if !proven {
+            // Taint under BOTH keys: `binding_scope` and codegen's own
+            // local-vs-module fallback agree for every declared name, but an
+            // UNDECLARED write target resolves to `func` here and could resolve
+            // elsewhere — a taint must never be filed under a key the consumer
+            // will not look at.
+            self.numeric_binding_taints
+                .insert((scope, name.to_string()));
+            self.numeric_binding_taints
+                .insert((func.to_string(), name.to_string()));
+            if !self.is_locally_declared(func, name) {
+                // The write crosses a scope boundary and `binding_scope` cannot
+                // name the declaring scope — see `numeric_binding_name_taints`.
+                self.numeric_binding_name_taints.insert(name.to_string());
+            }
+            return;
+        }
+        if !self.is_locally_declared(&scope, name) {
+            // A PROVEN write whose target the resolved scope does not declare
+            // is evidence about a binding this pass cannot name. Filing it as a
+            // candidate under a guessed key could admit a binding whose OTHER
+            // writes were accounted under a different key — so it proves
+            // nothing. (It still cannot hide a taint: the unprovable case above
+            // returns before this point and taints scope-blind.)
+            return;
+        }
+        for param in params {
+            self.numeric_binding_param_deps.insert((
+                scope.clone(),
+                name.to_string(),
+                func.to_string(),
+                param,
+            ));
+        }
+        self.numeric_binding_candidates
+            .insert((scope, name.to_string()));
+    }
+
+    /// Stage P5 T-new-E: classify a declarator-init / assignment-RHS / return
+    /// expression, as read inside `func`, for the String()-result taint. The
+    /// classification is deliberately conservative on the DENY side (an
+    /// unrecognized shape is `None`, i.e. no taint) but never FALSE-negative for
+    /// the value-flow shapes the leaks travel: a direct `String(...)` coercion,
+    /// a bare-identifier launder, or a call to a named function whose return may
+    /// be tainted.
+    fn classify_string_result_rhs(&self, func: &str, expr: &Expression) -> StringResultRhs {
+        match strip_parenthesized(expr) {
+            // `String(<arg>)` — the unshadowed intrinsic coercion. Mirrors
+            // codegen's `is_intrinsic_string_coercion_callee`: a user function
+            // named `String` (absurd, but handled) is not the intrinsic. The
+            // arity is not constrained here — a `String()` / `String(a, b)` that
+            // codegen fails closed on never renders, so tainting its binding is
+            // harmless (still fail-closed).
+            Expression::CallExpression(call) => {
+                if let Expression::Identifier(callee) = strip_parenthesized(&call.callee) {
+                    if callee == "String" && !self.functions.contains_key("String") {
+                        return StringResultRhs::Seed;
+                    }
+                    // A call to a named program function: its return may carry
+                    // the taint (resolved in the fixpoint). A callee that is not
+                    // a known function name (a fn-expr alias, a builtin) does not
+                    // propagate here — the direct render/call sink still catches
+                    // a fn-expr's `__kali_fn_N` return taint via codegen.
+                    if self.functions.contains_key(callee) {
+                        return StringResultRhs::FromReturn(callee.clone());
+                    }
+                }
+                StringResultRhs::None
+            }
+            // `let t = s` / `return s` — a bare-identifier launder/return.
+            Expression::Identifier(name) => {
+                StringResultRhs::FromBinding(self.binding_scope(func, name), name.clone())
+            }
+            // `await <expr>` settles to its operand (mirrors visit_expr): follow
+            // through so `const s = await g(x)` inherits the return taint.
+            Expression::AwaitExpression(a) => self.classify_string_result_rhs(func, &a.argument),
+            _ => StringResultRhs::None,
+        }
+    }
+
+    /// Record one WRITE to `name` in `func` (a declarator init or an `=`
+    /// assignment RHS) against the String()-result taint (Stage P5 T-new-E).
+    /// Seeds or edges are additive/monotone, so a reassignment that taints a
+    /// binding whose declarator did not (`let s = 0n; s = String(1n)`) is caught.
+    fn record_string_result_binding_write(&mut self, func: &str, name: &str, value: &Expression) {
+        let dst = StringResultDst::Binding((self.binding_scope(func, name), name.to_string()));
+        self.record_string_result_value(func, &dst, value);
+    }
+
+    /// Record a `return <expr>` in `func` against the String()-result taint.
+    fn record_string_result_return(&mut self, func: &str, arg: &Expression) {
+        let dst = StringResultDst::Return(func.to_string());
+        self.record_string_result_value(func, &dst, arg);
+    }
+
+    /// Stage P5 T-new-F: record a VALUE flowing to `dst` (a binding, a return,
+    /// or an arg->param edge) against the String()-result taint, following the
+    /// VALUE-CARRYING composite forms `classify_string_result_rhs` cannot model
+    /// with its single-provenance return (the round-3 leaks measured as raw-bit
+    /// renders). A form is SEED-SAFE (may render correctly) only when codegen
+    /// materializes its String() operand value UNCHANGED:
+    /// - `ConditionalExpression` `t?a:b` SELECTS an arm on a SEPARATE test, so the
+    ///   chosen operand's handle is stored VERBATIM — SEED-SAFE. Each arm is
+    ///   recorded; a non-string arm marks `dst` PLAIN (not monomorphic → the
+    ///   mixed value fails closed instead of rendering raw bits).
+    /// - `a&&b`/`a||b`/`a??b` (the parser emits these as `BinaryExpression`, NOT
+    ///   `LogicalExpression`) SELECT on the OPERAND's own truthiness, which kali
+    ///   cannot evaluate for a string handle (every handle, empty or not, is
+    ///   non-zero — `"" || x` would wrongly keep `""`). NOT seed-safe: record the
+    ///   arms for the taint, then FORCE `dst` plain so it fails CLOSED at render.
+    /// - `SequenceExpression` `(a,b,c)` yields its LAST operand semantically, but
+    ///   kali's sequence codegen mis-emits it as the FIRST (measured `(0n,5n)`→0).
+    ///   NOT seed-safe: record the last arm for the taint, then force `dst` plain.
+    ///
+    /// A leaf that classifies `None` marks `dst` plain; otherwise its
+    /// seed/binding/return edge is pushed for the fixpoint.
+    fn record_string_result_value(
+        &mut self,
+        func: &str,
+        dst: &StringResultDst,
+        value: &Expression,
+    ) {
+        match strip_parenthesized(value) {
+            Expression::ConditionalExpression(c) => {
+                self.record_string_result_value(func, dst, &c.consequent);
+                self.record_string_result_value(func, dst, &c.alternate);
+                return;
+            }
+            // `&&`/`||`/`??` — seed-UNSAFE (operand-truthiness select). Record the
+            // arms' provenance for the taint, then force plain (fail closed).
+            Expression::BinaryExpression(b)
+                if matches!(b.operator.as_str(), "&&" | "||" | "??") =>
+            {
+                self.record_string_result_value(func, dst, &b.left);
+                self.record_string_result_value(func, dst, &b.right);
+                self.mark_string_result_plain(dst);
+                return;
+            }
+            // Sequence — seed-UNSAFE (mis-emitted value). Record the last operand's
+            // provenance for the taint, then force plain (fail closed).
+            Expression::SequenceExpression(s) => {
+                if let Some(last) = s.expressions.last() {
+                    self.record_string_result_value(func, dst, last);
+                }
+                self.mark_string_result_plain(dst);
+                return;
+            }
+            _ => {}
+        }
+        match self.classify_string_result_rhs(func, value) {
+            StringResultRhs::Seed => match dst {
+                StringResultDst::Binding(key) => {
+                    self.string_result_binding_seeds.insert(key.clone());
+                }
+                StringResultDst::Return(f) => {
+                    self.string_result_return_seeds.insert(f.clone());
+                }
+            },
+            StringResultRhs::FromBinding(src_scope, src_name) => match dst {
+                StringResultDst::Binding(key) => {
+                    self.string_result_binding_from_binding
+                        .push((key.clone(), (src_scope, src_name)));
+                }
+                StringResultDst::Return(f) => {
+                    self.string_result_return_from_binding
+                        .push((f.clone(), (src_scope, src_name)));
+                }
+            },
+            StringResultRhs::FromReturn(callee) => match dst {
+                StringResultDst::Binding(key) => {
+                    self.string_result_binding_from_return
+                        .push((key.clone(), callee));
+                }
+                StringResultDst::Return(f) => {
+                    self.string_result_return_from_return
+                        .push((f.clone(), callee));
+                }
+            },
+            StringResultRhs::None => self.mark_string_result_plain(dst),
+        }
+    }
+
+    /// Mark `dst` as having a NON-String()-result write/return-path/arm — it can
+    /// never be MONOMORPHICALLY seeded `Repr::String` (Stage P5 T-new-F).
+    fn mark_string_result_plain(&mut self, dst: &StringResultDst) {
+        match dst {
+            StringResultDst::Binding(key) => {
+                self.string_result_binding_plain.insert(key.clone());
+            }
+            StringResultDst::Return(f) => {
+                self.string_result_return_plain.insert(f.clone());
+            }
+        }
+    }
+
+    /// Stage P5 T-new-E: run the whole-program String()-result taint to a
+    /// monotone fixpoint over the seeds + edges collected during the body walk,
+    /// then write both sets into `table`. Follows value-flow through bindings,
+    /// laundering copies, reassignments, and function returns (return-of-local,
+    /// return-of-reassign, transitive returns across direct calls) BY
+    /// CONSTRUCTION — the same shape as the numeric_* allowlists, but a DENY
+    /// taint rather than a positive proof.
+    fn resolve_string_result_taint(&self, table: &mut ReprTable) {
+        let mut tainted_bindings: std::collections::HashSet<(String, String)> =
+            self.string_result_binding_seeds.iter().cloned().collect();
+        let mut tainted_returns: std::collections::HashSet<String> =
+            self.string_result_return_seeds.iter().cloned().collect();
+        // Naive worklist: iterate edges until neither set grows. Programs are
+        // small and the edge sets are proportional to source size; monotone
+        // growth bounds the loop by the number of (binding, return) keys.
+        loop {
+            let mut changed = false;
+            for (dst, src) in &self.string_result_binding_from_binding {
+                if tainted_bindings.contains(src) && tainted_bindings.insert(dst.clone()) {
+                    changed = true;
+                }
+            }
+            for (dst, callee) in &self.string_result_binding_from_return {
+                if tainted_returns.contains(callee) && tainted_bindings.insert(dst.clone()) {
+                    changed = true;
+                }
+            }
+            for (func, src) in &self.string_result_return_from_binding {
+                if tainted_bindings.contains(src) && tainted_returns.insert(func.clone()) {
+                    changed = true;
+                }
+            }
+            for (func, callee) in &self.string_result_return_from_return {
+                if tainted_returns.contains(callee) && tainted_returns.insert(func.clone()) {
+                    changed = true;
+                }
+            }
+            if !changed {
+                break;
+            }
+        }
+
+        // Stage P5 T-new-F: SEED `Repr::String` for the MONOMORPHIC subset — a
+        // binding/return whose EVERY feeding write/return-path/composite-arm is a
+        // String() result, so the value is provably a string on ALL runtime paths
+        // and renders correctly at every string sink by construction. A dst with
+        // any non-string ("plain") write, or a from-edge to an UNtainted source,
+        // is NOT monomorphic and stays UNSEEDED — the round-2 taint (written
+        // below, unchanged) remains its fail-closed backstop at the render sinks.
+        // Params are excluded (polymorphic across call sites). The seed only
+        // claims the untouched `Repr::I64` default (mirrors the abort/url/bytes/
+        // event seeds), so a value another axis already claimed is never overwritten.
+        let binding_is_monomorphic = |key: &(String, String)| -> bool {
+            if self.string_result_param_dsts.contains(key)
+                || self.string_result_binding_plain.contains(key)
+            {
+                return false;
+            }
+            self.string_result_binding_from_binding
+                .iter()
+                .filter(|(dst, _)| dst == key)
+                .all(|(_, src)| tainted_bindings.contains(src))
+                && self
+                    .string_result_binding_from_return
+                    .iter()
+                    .filter(|(dst, _)| dst == key)
+                    .all(|(_, callee)| tainted_returns.contains(callee))
+        };
+        let return_is_monomorphic = |func: &String| -> bool {
+            if self.string_result_return_plain.contains(func) {
+                return false;
+            }
+            self.string_result_return_from_binding
+                .iter()
+                .filter(|(f, _)| f == func)
+                .all(|(_, src)| tainted_bindings.contains(src))
+                && self
+                    .string_result_return_from_return
+                    .iter()
+                    .filter(|(f, _)| f == func)
+                    .all(|(_, callee)| tainted_returns.contains(callee))
+        };
+        for key in &tainted_bindings {
+            if binding_is_monomorphic(key) && table.scalar(&key.0, &key.1) == Repr::I64 {
+                table.set_scalar(&key.0, &key.1, Repr::String);
+            }
+        }
+        for func in &tainted_returns {
+            if return_is_monomorphic(func) && table.return_repr(func) == Repr::I64 {
+                table.set_return(func, Repr::String);
+            }
+        }
+
+        table.set_string_result_taint(tainted_bindings, tainted_returns);
     }
 
     fn obj_field_node_for(&mut self, slot: &ObjSlot, field: &str) -> usize {
@@ -1540,6 +2129,22 @@ impl ReprInfer {
         if name == "URL" || name == "URLSearchParams" {
             self.url_ctor_shadowed = true;
         }
+        // Stage P5: same frontier — any shadow of `TextEncoder` disables
+        // `bytes_bindings` seeding program-wide.
+        if name == "TextEncoder" {
+            self.text_encoder_shadowed = true;
+        }
+        // Stage P5 Task 4: same frontier for the decoder — any shadow of
+        // `TextDecoder` disables the `decode` string seeding program-wide.
+        if name == "TextDecoder" {
+            self.text_decoder_shadowed = true;
+        }
+        // Stage P5 T-new-C: same frontier for the event constructors — any
+        // shadow of `Event`/`CustomEvent` disables `event_bindings` seeding
+        // program-wide, so a user-defined `Event` keeps its own lane.
+        if name == "Event" || name == "CustomEvent" {
+            self.event_ctor_shadowed = true;
+        }
     }
 
     /// True when `name` is locally bound in `func`'s own scope (a parameter
@@ -1609,7 +2214,13 @@ impl ReprInfer {
                     // P3 Task 2 shadow guard: every declarator name, even one
                     // with no initializer (`let AbortController;`), can shadow.
                     self.note_abort_shadow_name(&d.id);
+                    // Round 3: every declarator is a WRITE against the numeric
+                    // binding proof — including one with no initializer, whose
+                    // value is `undefined` and which therefore taints.
+                    self.record_numeric_binding_write(func, &d.id, d.init.as_ref(), false);
                     if let Some(init) = &d.init {
+                        // Stage P5 T-new-E: String()-result taint value-flow.
+                        self.record_string_result_binding_write(func, &d.id, init);
                         self.visit_declarator_init(func, &decl.kind, &d.id, init);
                     }
                 }
@@ -1631,6 +2242,24 @@ impl ReprInfer {
                 self.visit_expr(func, &stmt.expression);
             }
             Statement::ReturnStatement(stmt) => {
+                // Review I-2: AND-accumulate the positive numeric-return proof
+                // over every return statement of `func` (see
+                // `numeric_return_candidates`).
+                let numeric_return = stmt
+                    .argument
+                    .as_ref()
+                    .is_some_and(|arg| self.return_expr_is_numeric_over_params(func, arg));
+                let entry = self
+                    .numeric_return_candidates
+                    .entry(func.to_string())
+                    .or_insert(true);
+                *entry = *entry && numeric_return;
+                if let Some(arg) = &stmt.argument {
+                    // Stage P5 T-new-E: String()-result taint on the return —
+                    // a direct `return String(x)`, `return <tainted local>`, or
+                    // `return <call to tainted fn>` taints `func`'s return.
+                    self.record_string_result_return(func, arg);
+                }
                 if let Some(arg) = &stmt.argument {
                     if let Expression::ObjectExpression(obj) = arg {
                         self.record_object_literal(func, ObjSlot::Return(func.to_string()), obj);
@@ -1669,7 +2298,17 @@ impl ReprInfer {
                             for d in &decl.declarations {
                                 // P3 Task 2 shadow guard (see note above).
                                 self.note_abort_shadow_name(&d.id);
+                                // Round 3, same write accounting as a plain
+                                // declaration statement (see above).
+                                self.record_numeric_binding_write(
+                                    func,
+                                    &d.id,
+                                    d.init.as_ref(),
+                                    false,
+                                );
                                 if let Some(i) = &d.init {
+                                    // Stage P5 T-new-E: String()-result taint.
+                                    self.record_string_result_binding_write(func, &d.id, i);
                                     self.visit_declarator_init(func, &decl.kind, &d.id, i);
                                 }
                             }
@@ -1716,6 +2355,11 @@ impl ReprInfer {
                     for d in &decl.declarations {
                         // P3 Task 2 shadow guard (see note above).
                         self.note_abort_shadow_name(&d.id);
+                        // Round 3: a `for..in` key is an ORDINAL that a string
+                        // USE materializes into an interned STRING handle — the
+                        // single most dangerous "looks like a plain I64" value
+                        // in the compiler. Taint it unconditionally.
+                        self.record_numeric_binding_write(func, &d.id, None, false);
                         let _ = self.scalar_node_for(func, &d.id);
                     }
                 }
@@ -1733,6 +2377,11 @@ impl ReprInfer {
                     ForInLefthand::Expression(Expression::Identifier(name)) => Some(name.clone()),
                     _ => None,
                 };
+                // Round 3: cover the bare-identifier `for (c in obj)` spelling
+                // too (the declaration spelling is tainted above).
+                if let ForInLefthand::Expression(Expression::Identifier(name)) = &stmt.left {
+                    self.record_numeric_binding_write(func, name, None, false);
+                }
                 if let (Some(key), Some(base)) = (key_name, &base_slot) {
                     let _ = self.scalar_node_for(func, &key);
                     // Grow-only record for the persistent string-sink provenance
@@ -1765,7 +2414,16 @@ impl ReprInfer {
                 if let kali_ast::ForOfLefthand::VariableDeclaration(decl) = &stmt.left {
                     for d in &decl.declarations {
                         self.note_abort_shadow_name(&d.id);
+                        // Round 3: a `for..of` element can be a string handle,
+                        // an object pointer or a growable element — never a
+                        // proven plain number. Taint.
+                        self.record_numeric_binding_write(func, &d.id, None, false);
                     }
+                }
+                if let kali_ast::ForOfLefthand::Expression(Expression::Identifier(name)) =
+                    &stmt.left
+                {
+                    self.record_numeric_binding_write(func, name, None, false);
                 }
                 let string_items = for_of_string_items(&stmt.right);
                 if !matches!(string_items, ForOfStringItems::No) {
@@ -1831,6 +2489,9 @@ impl ReprInfer {
                 if let Some(handler) = &stmt.handler {
                     // P3 Task 2 shadow guard (see note above).
                     self.note_abort_shadow_name(&handler.param);
+                    // Round 3: a caught value is whatever was thrown — never a
+                    // proven plain number. Taint.
+                    self.record_numeric_binding_write(func, &handler.param, None, false);
                     self.visit_block(func, &handler.body);
                 }
                 if let Some(finalizer) = &stmt.finalizer {
@@ -1898,12 +2559,59 @@ impl ReprInfer {
                 self.url_origin.insert((func.to_string(), id.to_string()));
             } else if self.is_new_usp_with_string_literal(init) {
                 self.usp_bindings.insert((func.to_string(), id.to_string()));
+            } else if is_bare_new_text_encoder(init) {
+                // Stage P5: `const e = new TextEncoder()` — a stateless marker.
+                // Recorded so a later same-function `e.encode(...)` is recognized
+                // as a Bytes-seeding shape below.
+                self.text_encoder_bindings
+                    .insert((func.to_string(), id.to_string()));
+            } else if is_bare_new_text_decoder(init) {
+                // Stage P5 Task 4: `const d = new TextDecoder()` — a stateless
+                // marker, recorded so a later same-function `d.decode(...)` is
+                // recognized as a string-producing shape below. Like the encoder
+                // marker it is never seeded a repr of its own.
+                self.text_decoder_bindings
+                    .insert((func.to_string(), id.to_string()));
+            } else if self.is_text_encoder_encode_init(func, init) {
+                // Stage P5: `const b = new TextEncoder().encode(x)` (inline) or
+                // `const b = e.encode(x)` (bound). Seed `Repr::Bytes`.
+                self.bytes_bindings
+                    .insert((func.to_string(), id.to_string()));
+            } else if self.is_new_event_with_string_literal(init) {
+                // Stage P5 T-new-C: `const e = new Event('tick')` /
+                // `new CustomEvent('tick')` — a COMPILE-TIME marker. Seeded
+                // `Repr::Event` in `emit_table` (subject to the program-wide
+                // shadow guard) purely as provenance: the marker carries no
+                // runtime value, and the repr is what lets codegen deny every
+                // cross-function / captured / escaping read instead of
+                // yielding the zero placeholder it lowered to before.
+                self.event_bindings
+                    .insert((func.to_string(), id.to_string()));
             } else if let Expression::MemberExpression(member) = init {
                 if member.computed_index.is_none() && member.property == "searchParams" {
                     if let Expression::Identifier(base) = &member.object {
                         if self.url_origin.contains(&(func.to_string(), base.clone())) {
                             self.usp_bindings.insert((func.to_string(), id.to_string()));
                         }
+                    }
+                }
+            }
+        }
+        // Stage P5 T-new-C: `<kind> t = <event-marker>.type` in ANY binding form
+        // (`const`/`let`/`var`) — record for the deferred `Repr::String` seeding
+        // in `emit_table`. `event_bindings` is populated in source order within
+        // a function by the `const` block above, so a same-function forward
+        // reference resolves in this one pass (mirrors the `.searchParams`
+        // alias arm); a cross-function base is never admitted.
+        if let Expression::MemberExpression(member) = init {
+            if member.computed_index.is_none() && member.property.as_str() == "type" {
+                if let Expression::Identifier(base) = &member.object {
+                    if self
+                        .event_bindings
+                        .contains(&(func.to_string(), base.clone()))
+                    {
+                        self.event_type_read_bindings
+                            .insert((func.to_string(), id.to_string()));
                     }
                 }
             }
@@ -1975,6 +2683,72 @@ impl ReprInfer {
             }
             _ => false,
         }
+    }
+
+    /// Stage P5 T-new-C: `expr` is `new Event(<string-literal>)` or
+    /// `new CustomEvent(<string-literal>)` — the ONLY admitted `Repr::Event`
+    /// marker-seeding shape. Structurally identical to
+    /// [`Self::is_new_url_with_string_literal`] with the constructor name set
+    /// widened to the two event constructors; the program-wide shadow guard is
+    /// applied at seeding time (`emit_table`), exactly like the URL lane.
+    fn is_new_event_with_string_literal(&self, expr: &Expression) -> bool {
+        match expr {
+            Expression::NewExpression(n) => {
+                matches!(
+                    constructor_name(&n.callee).as_deref(),
+                    Some("Event") | Some("CustomEvent")
+                ) && Self::single_string_literal_ctor_arg(n)
+            }
+            _ => false,
+        }
+    }
+
+    /// Stage P5: `expr` is a `TextEncoder().encode(<arg>)` declarator initializer
+    /// — either the inline `new TextEncoder().encode(x)` form (the parser hoists
+    /// the `new` to wrap the member-call chain, recognized by
+    /// `text_encoder_encode_new`) or the bound `enc.encode(x)` form where `enc`
+    /// is a `text_encoder_bindings` marker in the SAME function. Used to admit
+    /// the binding for `Repr::Bytes` seeding.
+    fn is_text_encoder_encode_init(&self, func: &str, expr: &Expression) -> bool {
+        if text_encoder_encode_new(expr).is_some() {
+            return true;
+        }
+        // Bound receiver: a plain member call `<ident>.encode(<arg>)`.
+        let Expression::CallExpression(call) = expr else {
+            return false;
+        };
+        let Expression::MemberExpression(member) = &call.callee else {
+            return false;
+        };
+        if member.computed_index.is_some() || member.property.as_str() != "encode" {
+            return false;
+        }
+        let Expression::Identifier(base) = &member.object else {
+            return false;
+        };
+        self.text_encoder_bindings
+            .contains(&(func.to_string(), base.clone()))
+    }
+
+    /// Stage P5: `expr` is a bare identifier naming a `text_encoder_bindings`
+    /// marker in `func` — the bound-receiver twin of `is_text_encoder_ctor`.
+    fn is_text_encoder_marker_object(&self, func: &str, expr: &Expression) -> bool {
+        matches!(
+            expr,
+            Expression::Identifier(name)
+                if self.text_encoder_bindings.contains(&(func.to_string(), name.clone()))
+        )
+    }
+
+    /// Stage P5 Task 4: `expr` is a bare identifier naming a
+    /// `text_decoder_bindings` marker in `func` — the bound-receiver twin of
+    /// `is_text_decoder_ctor`.
+    fn is_text_decoder_marker_object(&self, func: &str, expr: &Expression) -> bool {
+        matches!(
+            expr,
+            Expression::Identifier(name)
+                if self.text_decoder_bindings.contains(&(func.to_string(), name.clone()))
+        )
     }
 
     /// True when `expr` is `new URLSearchParams(<string-literal>)` — twin of
@@ -2286,10 +3060,34 @@ impl ReprInfer {
                     for arg in &encode_call.args {
                         self.visit_expr(func, arg);
                     }
-                    let result = self.new_node();
-                    self.add_string_seed(result);
-                    self.runtime_string_nodes.push(result);
-                    return result;
+                    // Stage P5: the result is a `Repr::Bytes` byte handle, NOT a
+                    // string — return an unseeded node so a binding it flows into
+                    // stays default `Repr::I64` and the `bytes_bindings` seeding
+                    // pass claims it `Repr::Bytes` (mirrors the URL/USP NewExpr
+                    // arm, which likewise seeds via the binding table, not the
+                    // node). Previously seeded `String`, which is the escaping-
+                    // handle hazard this stage closes.
+                    return self.new_node();
+                }
+                // Stage P5 Task 4: the same hoisted-`new` shape for an inline
+                // `new TextDecoder().decode(<bytes>)` — a `NewExpression` whose
+                // callee is the `.decode` call. Codegen passes it through to the
+                // decode arm (control_flow's `new`-wrapper passthrough), which
+                // yields a tagged STRING handle, so seed the result `String` +
+                // runtime-string here (mirror of the `visit_call` decode arm).
+                if let Some(decode_call) = text_decoder_decode_new(expr) {
+                    if !self.text_decoder_shadowed {
+                        for arg in &decode_call.args {
+                            self.visit_expr(func, arg);
+                        }
+                        let result = self.new_node();
+                        self.add_string_seed(result);
+                        self.runtime_string_nodes.push(result);
+                        // No ASCII proof for decoded bytes — see the `visit_call`
+                        // decode arm.
+                        self.non_ascii_seeds.push(result);
+                        return result;
+                    }
                 }
                 // Constructor arguments are visited for edges (e.g. `new Array`
                 // length is an int). The handle itself is i64.
@@ -2355,6 +3153,12 @@ impl ReprInfer {
                     // expression under the arrow's own scope so its seeds/edges
                     // (e.g. a string `+`) are registered under `__kali_fn_N`.
                     self.visit_expr(id, &a.body);
+                    // Stage P5 T-new-E: the body expression IS the arrow's
+                    // implicit return, so a `(y) => String(y)` taints the arrow's
+                    // return exactly like a block-bodied `return String(y)`
+                    // (root B arrow-bound). Block-bodied arrows parse as
+                    // `FunctionExpression` and reach the ReturnStatement hook.
+                    self.record_string_result_return(id, &a.body);
                 }
                 self.new_node()
             }
@@ -2404,6 +3208,61 @@ impl ReprInfer {
     }
 
     fn visit_assignment(&mut self, func: &str, assign: &kali_ast::AssignmentExpression) -> usize {
+        // Round 3, numeric-binding write accounting. FIRST thing in the
+        // function, ahead of every early `return` below, so no assignment shape
+        // can escape the accounting (the object-literal-RHS arm returns early).
+        if let Expression::Identifier(name) = &assign.left {
+            // Stage P5 T-new-E: a plain `s = String(x)` / `s = <tainted>`
+            // reassignment taints the binding (additive/monotone — a later
+            // numeric write does not clear it, matching the conservative
+            // "some path is a String() result" deny). Compound assignments
+            // (`+=` etc.) produce a genuine string concat or a number and are
+            // handled by the existing string/numeric flow, so only `=` here.
+            if matches!(assign.operator, AssignmentOperator::Assign) {
+                self.record_string_result_binding_write(func, name, &assign.right);
+            }
+            match assign.operator {
+                // `x = <value>` — the value itself must be proven.
+                AssignmentOperator::Assign => {
+                    self.record_numeric_binding_write(func, name, Some(&assign.right), true)
+                }
+                // `x += v` etc. compute `x <op> v`; with `x` admissible as a
+                // self-reference, proving `v` proves the whole write.
+                AssignmentOperator::AddAssign
+                | AssignmentOperator::SubtractAssign
+                | AssignmentOperator::MultiplyAssign
+                | AssignmentOperator::ModuloAssign => {
+                    self.record_numeric_binding_write(func, name, Some(&assign.right), true)
+                }
+                // `/=` and `**=` lower on lanes this proof does not model, and
+                // `&&=`/`||=`/`??=` can write the RHS's own (possibly tagged)
+                // value through unchanged. Deny.
+                AssignmentOperator::DivideAssign
+                | AssignmentOperator::ExponentAssign
+                | AssignmentOperator::NullishAssign
+                | AssignmentOperator::AndAssign
+                | AssignmentOperator::OrAssign => {
+                    self.record_numeric_binding_write(func, name, None, true)
+                }
+            }
+        }
+        // DESTRUCTURING assignment (`[a, b] = ...`, `({a} = ...)`). kali's
+        // runtime currently makes this a silent NO-OP (measured: `let a = 0n;
+        // [a] = [1n]; console.log(a)` prints `0` where node prints `1n`, on
+        // this build AND on the parent — a pre-existing miscompile outside this
+        // task), so today no value actually reaches the target. That is exactly
+        // why it must be tainted rather than ignored: the moment the write is
+        // implemented, a silently-unaccounted write would make the numeric
+        // proof claim evidence it never had. Scope-blind, since a destructuring
+        // target may name anything.
+        if matches!(
+            assign.left,
+            Expression::ArrayExpression(_) | Expression::ObjectExpression(_)
+        ) {
+            for name in destructuring_target_names(&assign.left) {
+                self.numeric_binding_name_taints.insert(name);
+            }
+        }
         // Whole-object (re)assignment through a plain identifier target.
         if let Expression::Identifier(name) = &assign.left {
             if matches!(assign.operator, AssignmentOperator::Assign) {
@@ -2741,20 +3600,52 @@ impl ReprInfer {
                         self.runtime_string_nodes.push(result);
                         result
                     }
-                    // `new TextEncoder().encode(<string>)` is a thin reinterpret of
-                    // the input string handle to a contiguous byte buffer
-                    // (throw-fallout Stage 3 bucket #6 part 2). Codegen returns the
-                    // string handle unchanged, so the result carries `Repr::String`
-                    // and `.byteLength` reads the same low-32 byte count as
-                    // `.length`. Mirrors the codegen `is_text_encoder_encode` +
-                    // emit arm.
-                    "encode" if is_text_encoder_ctor(&member.object) => {
+                    // `new TextEncoder().encode(<string>)` / bound `enc.encode(x)`
+                    // is a thin reinterpret of the input string handle to a
+                    // contiguous byte buffer (Stage P5). Codegen returns the string
+                    // handle unchanged, but the result is now `Repr::Bytes` (NOT
+                    // String) — an OPAQUE byte handle that must not escape as a
+                    // string value. Return an unseeded node so a binding it flows
+                    // into stays default `Repr::I64` and the `bytes_bindings`
+                    // seeding pass claims it `Repr::Bytes`. Mirrors the codegen
+                    // `is_text_encoder_encode` + emit arm.
+                    "encode"
+                        if is_text_encoder_ctor(&member.object)
+                            || self.is_text_encoder_marker_object(func, &member.object) =>
+                    {
+                        for arg in &call.args {
+                            self.visit_expr(func, arg);
+                        }
+                        self.new_node()
+                    }
+                    // Stage P5 Task 4: `new TextDecoder().decode(<bytes>)` /
+                    // bound `d.decode(<bytes>)` relabels the byte handle back to
+                    // a tagged STRING handle (codegen returns it with
+                    // `ValueShape::String`), so seed the result `String` + mark it
+                    // a runtime string node — exactly like the `digest` arm above.
+                    // A binding it flows into then resolves `Repr::String`, and a
+                    // `d.decode(b) === '42'` comparison types as a string compare.
+                    // Gated on the program-wide `TextDecoder` shadow guard: a user
+                    // `TextDecoder` makes this a normal user call.
+                    "decode"
+                        if !self.text_decoder_shadowed
+                            && (is_text_decoder_ctor(&member.object)
+                                || self.is_text_decoder_marker_object(func, &member.object)) =>
+                    {
                         for arg in &call.args {
                             self.visit_expr(func, arg);
                         }
                         let result = self.new_node();
                         self.add_string_seed(result);
                         self.runtime_string_nodes.push(result);
+                        // NO ASCII PROOF: the decoded bytes are an opaque buffer
+                        // (the roundtrip lane deliberately admits non-ASCII
+                        // payloads), and codegen's runtime `.length` reads the
+                        // handle's BYTE count. Seeding non-ASCII makes the shared
+                        // `reject_unprovable_string_length` / substring gates fail
+                        // a bound `const s = d.decode(b); s.length` closed instead
+                        // of reporting a byte count where node reports characters.
+                        self.non_ascii_seeds.push(result);
                         result
                     }
                     "toFixed" => {
@@ -2947,6 +3838,32 @@ impl ReprInfer {
             // Bare-identifier call: candidate user-function call. Record an
             // interprocedural edge (resolved after all bodies are walked).
             Expression::Identifier(callee) => {
+                // Stage P5 T-new-E: forward String()-result taint across the
+                // call boundary — a positional arg carrying String()-result
+                // provenance taints the callee's param at that index, so a
+                // `'x' + p` render inside the callee fails closed rather than
+                // over-rendering the tagged handle (`g(String(1n))` — the
+                // caller→callee sibling of root A's callee→caller return flow).
+                // A param the taint reaches is conservatively denied; a
+                // purely-numeric param (never fed a String() result) is never
+                // seeded, so it keeps rendering. A fn-expr-bound callee this pass
+                // cannot name simply does not propagate (fail-safe).
+                if let Some(params) = self.functions.get(callee).cloned() {
+                    for (index, arg) in call.args.iter().enumerate() {
+                        let Some(param) = params.get(index) else {
+                            break;
+                        };
+                        let key = (callee.clone(), param.clone());
+                        // T-new-F: a param is POLYMORPHIC across call sites, so it
+                        // is never MONOMORPHICALLY seeded `Repr::String` — record
+                        // it so the seed excludes it; the taint backstop still
+                        // fails a `'x'+p` render closed. Uses the composite-aware
+                        // recorder so a ternary/logical/sequence arg propagates too.
+                        self.string_result_param_dsts.insert(key.clone());
+                        let dst = StringResultDst::Binding(key);
+                        self.record_string_result_value(func, &dst, arg);
+                    }
+                }
                 let mut arg_nodes = Vec::with_capacity(call.args.len());
                 let mut arg_array_names = Vec::with_capacity(call.args.len());
                 let mut arg_obj_slots = Vec::with_capacity(call.args.len());
@@ -3010,6 +3927,13 @@ impl ReprInfer {
             Expression::Literal(LiteralValue::Number(_))
             | Expression::Literal(LiteralValue::String(_))
             | Expression::Literal(LiteralValue::Boolean(_)) => true,
+            // A BigInt literal (`41n`) is exactly as scalar as a numeric one —
+            // it lowers to the same plain i64 — and the parser gives it its own
+            // variant, so it was silently missing from this set (Stage P5
+            // T-new-B review I-2: `f(41n)` left `f`'s param without scalar
+            // inflow evidence, so no proof that consults that evidence could
+            // ever admit a BigInt-called function).
+            Expression::BigIntLiteral(_) => true,
             // Interpolated/plain template — a string primitive.
             Expression::TemplateLiteral(_) => true,
             // Arithmetic/comparison/bitwise/`+` — a number/boolean/string
@@ -3901,6 +4825,7 @@ impl ReprInfer {
         }
 
         // Returns.
+        let mut numeric_return_candidates: Vec<String> = Vec::new();
         let returns: Vec<(String, usize)> = self
             .return_node
             .iter()
@@ -3934,6 +4859,21 @@ impl ReprInfer {
                 }
                 (false, true) => table.set_return(&func, Repr::F64),
                 (false, false) => {}
+            }
+            // Review I-2: the AXES half of the POSITIVE numeric-return proof —
+            // a return that is not string-reachable AND whose every return
+            // statement is arithmetic over literals/params. The remaining
+            // conditions (per-parameter scalar-inflow proof, array/object
+            // return) need the fully-populated table and are applied at the end
+            // of `emit_table`.
+            if !string[node]
+                && self
+                    .numeric_return_candidates
+                    .get(&func)
+                    .copied()
+                    .unwrap_or(false)
+            {
+                numeric_return_candidates.push(func.clone());
             }
         }
 
@@ -4023,11 +4963,24 @@ impl ReprInfer {
             std::collections::HashSet::new();
         let mut clone_tainted_shapes: std::collections::HashSet<kali_common::ShapeId> =
             std::collections::HashSet::new();
+        let mut numeric_field_candidates: std::collections::HashSet<(
+            kali_common::ShapeId,
+            String,
+        )> = std::collections::HashSet::new();
+        let mut numeric_field_taints: std::collections::HashSet<(kali_common::ShapeId, String)> =
+            std::collections::HashSet::new();
         for (slot, names) in &fields_of {
             if !materialized.contains(slot) {
                 continue;
             }
             let mut fields: Vec<(String, Repr)> = Vec::with_capacity(names.len());
+            // Stage P5 T-new-B review C-5: per-field POSITIVE numeric evidence,
+            // collected alongside the repr because it is NOT recoverable from
+            // the interned repr (a string field interns as `I64`, exactly like
+            // an integer one). Candidate/taint pair so that shape SHARING
+            // defaults to deny: a field is admitted only if some slot proves it
+            // numeric and NO slot contradicts.
+            let mut numeric_fields: Vec<(String, bool)> = Vec::with_capacity(names.len());
             for name in names {
                 let repr = if let Some(&(elem_node, growable_shape)) =
                     obj_array_fields.get(&(slot.clone(), name.clone()))
@@ -4053,6 +5006,13 @@ impl ReprInfer {
                 } else {
                     let node = self.obj_field_node_for(slot, name);
                     let rep = self.uf.find(node);
+                    // A field is proven numeric when the solved axes say float
+                    // (`F64`, positive) or say NOT string on the plain lane.
+                    // Object-pointer fields cannot reach here as "numeric": a
+                    // materialized owner with an object-shaped field is
+                    // rejected outright by step 4b's `pointer_field_candidates`
+                    // conflict, and only MATERIALIZED slots are interned.
+                    numeric_fields.push((name.clone(), !string[rep]));
                     if float[rep] {
                         Repr::F64
                     } else {
@@ -4062,6 +5022,13 @@ impl ReprInfer {
                 fields.push((name.clone(), repr));
             }
             let shape = table.intern_shape(fields);
+            for (name, numeric) in numeric_fields {
+                if numeric {
+                    numeric_field_candidates.insert((shape, name));
+                } else {
+                    numeric_field_taints.insert((shape, name));
+                }
+            }
             // Clone-safety accounting: only object-LITERAL slots construct, so
             // only they decide a shape's clone-safety. A clean literal PROVES
             // the shape safe; a clone-unsafe literal (an object-pointer field)
@@ -4128,6 +5095,14 @@ impl ReprInfer {
                 .copied()
                 .collect();
         table.set_clone_safe_shapes(clone_safe_shapes);
+        // Finalize the proven-numeric field allowlist the same way (review
+        // C-5): proven by some slot AND contradicted by none.
+        table.set_numeric_shape_fields(
+            numeric_field_candidates
+                .difference(&numeric_field_taints)
+                .cloned()
+                .collect(),
+        );
 
         for message in std::mem::take(&mut self.obj_conflicts) {
             table.add_shape_conflict(message);
@@ -4164,6 +5139,83 @@ impl ReprInfer {
                 }
             }
         }
+
+        // Review I-2, finalize the POSITIVE numeric-return allowlist. The axes
+        // + syntactic halves were collected above; this adds the conditions
+        // that need the finished table:
+        //   * every parameter carries a PROVEN scalar inflow and neither the
+        //     array-argument nor the object taint. A parameter is admissible as
+        //     an arithmetic operand only because actual call-site flow proved
+        //     it scalar — its default `Repr::I64` is NOT evidence (exactly the
+        //     fallacy this whole proof exists to avoid),
+        //   * the function returns neither an array binding nor an object.
+        for func in std::mem::take(&mut numeric_return_candidates) {
+            if self
+                .array_binding_returns
+                .iter()
+                .any(|(owner, _)| *owner == func)
+            {
+                continue;
+            }
+            if !matches!(table.return_repr(&func), Repr::I64 | Repr::F64) {
+                continue;
+            }
+            let params_proven = self.functions.get(&func).is_some_and(|params| {
+                params.iter().all(|param| {
+                    !table.param_lacks_scalar_inflow(&func, param)
+                        && !table.is_non_scalar_param(&func, param)
+                        && !table.object_initialized_binding(&func, param)
+                        && matches!(table.scalar(&func, param), Repr::I64 | Repr::F64)
+                })
+            });
+            if params_proven {
+                table.mark_numeric_return(&func);
+            }
+        }
+
+        // Round 3, finalize the POSITIVE numeric-BINDING allowlist. Candidates
+        // minus taints (one unprovable write anywhere denies the binding), then
+        // the conditions that need the finished table:
+        //   * the binding's own solved repr is a plain scalar. A String-solved
+        //     binding is `Repr::String` here, so this also excludes it — and it
+        //     needs no coercion proof anyway (codegen's `is_string_valued`
+        //     proves it one level up),
+        //   * none of the aggregate taints that SHARE the default I64 repr (a
+        //     plain array, a growable array, an array-argument param, an
+        //     object-literal-initialized binding),
+        //   * every PARAMETER the proof leaned on carries a real call-site
+        //     scalar-inflow proof — a parameter's own default `Repr::I64` is
+        //     not evidence, exactly as for `numeric_returns`.
+        let numeric_bindings: std::collections::HashSet<(String, String)> = self
+            .numeric_binding_candidates
+            .difference(&self.numeric_binding_taints)
+            .filter(|(scope, name)| {
+                if self.numeric_binding_name_taints.contains(name.as_str()) {
+                    return false;
+                }
+                if !matches!(table.scalar(scope, name), Repr::I64 | Repr::F64) {
+                    return false;
+                }
+                if table.is_array_binding(scope, name)
+                    || table.is_growable_array_binding(scope, name)
+                    || table.is_non_scalar_param(scope, name)
+                    || table.object_initialized_binding(scope, name)
+                {
+                    return false;
+                }
+                self.numeric_binding_param_deps
+                    .iter()
+                    .filter(|(dep_scope, dep_name, _, _)| dep_scope == scope && dep_name == name)
+                    .all(|(_, _, owner, param)| {
+                        !table.param_lacks_scalar_inflow(owner, param)
+                            && !table.is_non_scalar_param(owner, param)
+                            && !table.object_initialized_binding(owner, param)
+                            && matches!(table.scalar(owner, param), Repr::I64 | Repr::F64)
+                    })
+            })
+            .cloned()
+            .collect();
+        table.set_numeric_bindings(numeric_bindings);
 
         // Growable-array promotion (throw-fallout Stage 4) — the repr half
         // of the gate, over the Phase A3 syntactic candidates. A candidate
@@ -4307,6 +5359,46 @@ impl ReprInfer {
                 }
             }
         }
+
+        // Stage P5: `Repr::Bytes` seeding for `TextEncoder().encode(...)` bindings
+        // (inline + bound). Same shape as the URL/USP block — only when the
+        // program-wide `TextEncoder` shadow guard did not fire, and only for a
+        // binding no other axis already claimed (`Repr::I64` untouched default).
+        if !self.text_encoder_shadowed {
+            for (func, name) in &self.bytes_bindings {
+                if table.scalar(func, name) == Repr::I64 {
+                    table.set_scalar(func, name, Repr::Bytes);
+                }
+            }
+        }
+
+        // Stage P5 T-new-C: `Repr::Event` marker seeding. Same shape as the
+        // URL/USP and Bytes blocks — only when the program-wide
+        // `Event`/`CustomEvent` shadow guard did not fire, and only for a
+        // binding no other axis already claimed.
+        if !self.event_ctor_shadowed {
+            for (func, name) in &self.event_bindings {
+                if table.scalar(func, name) == Repr::I64 {
+                    table.set_scalar(func, name, Repr::Event);
+                }
+            }
+            // A binding holding a `<marker>.type` read is a real interned
+            // STRING handle. Marked non-ASCII unconditionally: the event type
+            // text is not carried into this pass, so `.length`/substring on the
+            // bound name must fail closed rather than report a byte count where
+            // node reports UTF-16 code units. NOT concat-tainted — the handle is
+            // the interned literal, identical to the one `'tick'` interns to.
+            for (func, name) in &self.event_type_read_bindings {
+                if table.scalar(func, name) == Repr::I64 {
+                    table.set_scalar(func, name, Repr::String);
+                    table.mark_string_non_ascii(func, name);
+                }
+            }
+        }
+
+        // Stage P5 T-new-E: finalize the whole-program String()-result deny
+        // taint over the seeds + edges collected during the body walk.
+        self.resolve_string_result_taint(&mut table);
 
         table
     }
@@ -4473,6 +5565,40 @@ fn is_float_literal(n: f64) -> bool {
 /// True when `expr` is the `Math` object (`Math` identifier).
 fn is_math_object(expr: &Expression) -> bool {
     matches!(expr, Expression::Identifier(name) if name == "Math")
+}
+
+/// Every bare identifier a DESTRUCTURING assignment pattern could write
+/// (`[a, b]`, `{x: a}`, nested). Over-collects on purpose — it only ever feeds
+/// a scope-blind TAINT, so a spurious name is fail-closed.
+fn destructuring_target_names(pattern: &Expression) -> Vec<String> {
+    let mut names = Vec::new();
+    collect_destructuring_target_names(pattern, &mut names);
+    names
+}
+
+fn collect_destructuring_target_names(pattern: &Expression, names: &mut Vec<String>) {
+    match strip_parenthesized(pattern) {
+        Expression::Identifier(name) => names.push(name.clone()),
+        Expression::ArrayExpression(array) => {
+            for element in array.elements.iter().flatten() {
+                match element {
+                    kali_ast::ExpressionOrSpread::Expression(expr) => {
+                        collect_destructuring_target_names(expr, names)
+                    }
+                    kali_ast::ExpressionOrSpread::Spread(spread) => {
+                        collect_destructuring_target_names(&spread.argument, names)
+                    }
+                    kali_ast::ExpressionOrSpread::Empty => {}
+                }
+            }
+        }
+        Expression::ObjectExpression(object) => {
+            for property in &object.properties {
+                collect_destructuring_target_names(&property.value, names);
+            }
+        }
+        _ => {}
+    }
 }
 
 /// Strip `ParenthesizedExpression` wrappers (Task 6 enumeration recognizer).
@@ -4679,6 +5805,109 @@ fn text_encoder_encode_new(expr: &Expression) -> Option<&kali_ast::CallExpressio
         Some(call)
     } else {
         None
+    }
+}
+
+/// Stage P5: `expr` is a bare `new TextEncoder()` construction with NO member
+/// chain — i.e. a `NewExpression` whose callee is the `TextEncoder` identifier
+/// directly (not the `new TextEncoder().encode(...)` chain, whose callee is the
+/// `.encode` CallExpression — see `text_encoder_encode_new`).
+///
+/// Stage P5 review fix (M-2): this used to match only a bare `Identifier`
+/// callee, which the parser NEVER produces — `new TextEncoder()` parses as
+/// `NewExpression { callee: CallExpression { callee: Identifier("TextEncoder"),
+/// args: [] } }` — so `text_encoder_bindings` was never populated and Task 3's
+/// bound-form `Repr::Bytes` seed was inert. Use `constructor_name`, which
+/// encodes exactly that dual shape (and still refuses the member-chained
+/// `new TextEncoder().encode(x)`, whose inner callee is a `MemberExpression`),
+/// matching the live decoder twin. Constructor ARGUMENTS are deliberately
+/// tolerated here: JS ignores `TextEncoder`'s, unlike `TextDecoder`'s.
+fn is_bare_new_text_encoder(expr: &Expression) -> bool {
+    matches!(
+        expr,
+        Expression::NewExpression(new_expr)
+            if constructor_name(&new_expr.callee).as_deref() == Some("TextEncoder")
+    )
+}
+
+/// Stage P5 Task 4: `expr` invokes the `TextDecoder` constructor — the decoder
+/// twin of `is_text_encoder_ctor` (both the `NewExpression` spelling and the
+/// bare `TextDecoder()` call the parser leaves as the `.decode` object when it
+/// hoists the `new`).
+///
+/// Stage P5 review fix (C-1): only the ZERO-ARGUMENT construction is the
+/// intrinsic default `utf-8`, non-fatal decoder. `new TextDecoder('latin1')`
+/// carries a semantic encoding label this lane does not implement, so it must
+/// not be recognized here — codegen fails it closed.
+fn is_text_decoder_ctor(expr: &Expression) -> bool {
+    match expr {
+        Expression::NewExpression(new_expr) => {
+            new_expr.args.is_empty()
+                && matches!(&new_expr.callee, Expression::Identifier(name) if name == "TextDecoder")
+        }
+        Expression::CallExpression(call) => {
+            call.args.is_empty()
+                && matches!(&call.callee, Expression::Identifier(name) if name == "TextDecoder")
+        }
+        _ => false,
+    }
+}
+
+/// Stage P5 Task 4: recognize the hoisted `new TextDecoder().decode(<bytes>)`
+/// expression — a `NewExpression` whose callee is the `.decode` `CallExpression`.
+/// Twin of `text_encoder_encode_new`.
+fn text_decoder_decode_new(expr: &Expression) -> Option<&kali_ast::CallExpression> {
+    let Expression::NewExpression(new_expr) = expr else {
+        return None;
+    };
+    let Expression::CallExpression(call) = &new_expr.callee else {
+        return None;
+    };
+    let Expression::MemberExpression(member) = &call.callee else {
+        return None;
+    };
+    if member.computed_index.is_some() || member.property.as_str() != "decode" {
+        return None;
+    }
+    if is_text_decoder_ctor(&member.object) {
+        Some(call)
+    } else {
+        None
+    }
+}
+
+/// Stage P5 Task 4: `expr` is a bare `new TextDecoder()` construction with NO
+/// member chain — the marker-declarator shape.
+///
+/// EMPIRICALLY VERIFIED against the parser (dumped `const d = new TextDecoder()`):
+/// the zero-arg construction is `NewExpression { callee: CallExpression { callee:
+/// Identifier("TextDecoder"), args: [] } }` — the parser's `parse_call_expression`
+/// folds the `()` into the callee — NOT a bare `Identifier` callee. `constructor_name`
+/// already encodes exactly that dual shape (`Identifier` OR `CallExpression` with an
+/// `Identifier` callee), and it correctly REFUSES the member-chained
+/// `new TextDecoder().decode(b)` (whose inner callee is a `MemberExpression`), so it
+/// keeps the marker and the inline-decode shapes disjoint.
+/// Stage P5 review fix (C-1): zero-argument only — see `is_text_decoder_ctor`.
+fn is_bare_new_text_decoder(expr: &Expression) -> bool {
+    matches!(
+        expr,
+        Expression::NewExpression(new_expr)
+            if new_expr.args.is_empty()
+                && zero_arg_constructor_name(&new_expr.callee).as_deref() == Some("TextDecoder")
+    )
+}
+
+/// `constructor_name`, but refusing the folded `Ctor(args...)` callee shape when
+/// it carries arguments — used by the TextEncoder/TextDecoder marker predicates,
+/// where the argument list is (for the decoder) semantic.
+fn zero_arg_constructor_name(callee: &Expression) -> Option<String> {
+    match callee {
+        Expression::Identifier(name) => Some(name.clone()),
+        Expression::CallExpression(call) if call.args.is_empty() => match &call.callee {
+            Expression::Identifier(name) => Some(name.clone()),
+            _ => None,
+        },
+        _ => None,
     }
 }
 

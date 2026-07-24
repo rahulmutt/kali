@@ -8,6 +8,11 @@
 //! (Number() is not in it — it fails at E3100 resolve, never reaching the
 //! terminal). The static-fold lanes upstream of the fallback (split
 //! static-ASCII, static toString) are preserved. Every expected value from node v26.
+//!
+//! Stage P5 Task 1/5 update: `String` was REMOVED from that deny-set and now
+//! routes through the real `emit_as_string` coercion ladder, so `String(x)`
+//! coerces (see `string_call_coerces`). `toString`/`JSON.stringify`/`Boolean`
+//! remain denied and stay fail-closed.
 
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -59,9 +64,14 @@ fn assert_fails_closed(src: &str, needle: &str) {
 }
 
 #[test]
-fn string_call_fails_closed() {
-    // node: r=42. Pre-fix kali: r=0 at exit 0.
-    assert_fails_closed(r#"const x=42; console.log("r="+String(x));"#, "unavailable");
+fn string_call_coerces() {
+    // Stage P5 Task 5 reconciliation: `String` was removed from the terminal
+    // deny-set (Stage P5 Task 1) and now routes through the `emit_as_string`
+    // coercion ladder, so `String(42)` -> "42" as a real runtime coercion (was
+    // a fail-closed E5506 pin). node v26.5.0 referee: `r=42`. The siblings below
+    // (`toString`/`JSON.stringify`/`Boolean`) are NOT de-denylisted and stay
+    // fail-closed. (Formerly `string_call_fails_closed`.)
+    assert_stdout(r#"const x=42; console.log("r="+String(x));"#, "r=42\n");
 }
 
 #[test]

@@ -618,73 +618,31 @@ fn json_test_supports_web_baseline_structured_clone_and_event_primitives_in_ts_a
             .output()
             .expect("run kali");
 
-        // Flipped pin (advanced by Stage P3 Task 5): the fixture now runs PAST
-        // both structuredClone (P2 deep-clone lane) AND the whole abort lane —
-        // `controller.signal instanceof AbortSignal` folds to a compile-time
-        // `true` (Task 5 allow lane). It next fails closed at the pre-existing
-        // `new Event('tick')` / `event.type` gap: `event.type` silently reads
-        // `0` (Event is not a P3 primitive), so the fixture's own self-check
-        // `throw new Error('unexpected Event behavior ...')` is the new
-        // fail-closed point. Still a fail-closed rejection (`success == false`).
+        // Stage P5 Task 5 reconciliation: with all of Stage P5 landed —
+        // `String()` lowering (Task 1), the TextEncoder/TextDecoder roundtrip +
+        // encode-of-`String()` admission (Tasks 2-4), and the Event/`event.type`
+        // lane — this fixture now runs END-TO-END and PASSES. Every prior
+        // fail-closed point (the String()/JSON.stringify E5506, the pre-existing
+        // Event `.type` runtime gap, the codec tail) is closed, so
+        // structuredClone / AbortController / Event / EventTarget+CustomEvent /
+        // URLSearchParams / URL / TextEncoder / TextDecoder / `String(count)` all
+        // behave node-correctly. `passed == 1` (failed == 0) is real EXECUTION
+        // proof, not a build-only signal: the `Kali.test` callback ran to
+        // completion, and the fixture's own self-checks (`structuredClone` deep
+        // -clone distinctness, `event.type === 'tick'`, the codec roundtrip
+        // equality `decoder.decode(encoded) === String(count)`, ...) each `throw`
+        // on any wrong value — so a silent miscompile could not have passed.
+        // Referee: node v26.5.0 runs the same body without throwing.
         assert!(
-            !output.status.success(),
-            "must be rejected fail-closed: {output:?}"
+            output.status.success(),
+            "expected the web-baseline test to pass: {output:?}"
         );
         let json = parse_json_stdout(&output);
-        assert_eq!(json["success"], false);
-        let code = json["errors"][0]["code"].as_str().unwrap_or_default();
-        let harness_stderr = json["stderr"].as_str().unwrap_or_default();
-        // The fixture runs PAST structuredClone (P2 deep-clone lane SUCCEEDS —
-        // distinct object AND array, `cloned.values.join(',')` stays `'1,2,3'`
-        // after `original.values.push(4)`) AND past the entire P3 abort lane
-        // (`new AbortController()`, `controller.signal instanceof AbortSignal`
-        // now folds to compile-time `true` — Task 5). It next fails closed at
-        // the pre-existing `new Event('tick')` / `event.type` gap (`event.type`
-        // silently reads `0`; the fixture's `throw new Error('unexpected Event
-        // behavior ...')` self-check fires). In TEST mode that throw surfaces
-        // as a bare E4000 runtime trap in the `Kali.test` callback (empty
-        // top-level `errors`, no source token) on the non-browser surface, or
-        // `RuntimeError: unreachable` under the browser harness. Verified
-        // empirically on a fresh binary 2026-07-18 (run-mode message: `Uncaught
-        // Error: unexpected Event behavior 0`; test-mode stderr: `Uncaught
-        // exception\nerror[E4000]: runtime trap in callback
-        // '__kali_callback_NN'`). Still fail-closed (`success == false`).
-        assert!(
-            code == "E4000"
-                || code == "E5506"
-                || harness_stderr.contains("RuntimeError: unreachable")
-                || harness_stderr.contains("E4000"),
-            "expected fail-closed trap or reject, got: {json}"
-        );
-        // Task A2b: the fixture also uses `String(count)` and
-        // `JSON.stringify(cloned)`, now in the terminal deny-set. So the
-        // fail-closed point has moved even EARLIER than the P3 Event runtime gap
-        // — kali now rejects at COMPILE time with E5506 on a denied value-builtin
-        // (`String`/`JSON.stringify`), before the fixture ever runs, so there is
-        // no runtime harness trap to observe. node: those are real
-        // coercions/serialization kali has no lowering for. Pin that compile-time
-        // reject; the structuredClone/abort lanes stay separately pinned green by
-        // the dedicated soundness_structured_clone / soundness_abort suites.
-        //
-        // Stage P4 Task 7 (observed 2026-07-21, fresh binary): the fixture's
-        // URL/URLSearchParams block is now a REAL supported lane (Stage P4 —
-        // pinned green incl. byte-for-byte acceptance in soundness_url.rs), so
-        // URL/USP is no longer an unsupported family here. The observed
-        // fail-closed point is UNCHANGED from A2b: compile-time E5506 "calling
-        // 'String' is unavailable in the current phase: it is a recognized
-        // builtin with no implemented lowering..." (5x, one per `String(count)`
-        // site — append, set, the get-compare, `encoder.encode(...)`, and the
-        // `decoder.decode(...)` compare; `stderr` field empty — the fixture
-        // never runs), because the `String(count)` sites INSIDE the USP and
-        // TextEncoder blocks sit in the terminal deny-set. The token below stays "String"/"stringify" — the observed
-        // most content-bearing stable fragment. Only when a String-builtin
-        // lane lands will the fail point advance PAST URL/USP to the Event
-        // `.type` runtime gap and then the P5 TextEncoder/TextDecoder tail.
-        let message = json["errors"][0]["message"].as_str().unwrap_or_default();
-        assert!(
-            code == "E5506" && (message.contains("String") || message.contains("stringify")),
-            "expected a compile-time E5506 reject on String/JSON.stringify, got: {json}"
-        );
+        assert_eq!(json["command"], "test", "json: {json}");
+        assert_eq!(json["success"], true, "json: {json}");
+        assert_eq!(json["payload"]["total"], 1, "json: {json}");
+        assert_eq!(json["payload"]["passed"], 1, "json: {json}");
+        assert_eq!(json["payload"]["failed"], 0, "json: {json}");
     }
 }
 
@@ -715,73 +673,31 @@ fn json_test_supports_web_baseline_structured_clone_and_event_primitives_when_br
             .output()
             .expect("run kali");
 
-        // Flipped pin (advanced by Stage P3 Task 5): the fixture now runs PAST
-        // both structuredClone (P2 deep-clone lane) AND the whole abort lane —
-        // `controller.signal instanceof AbortSignal` folds to a compile-time
-        // `true` (Task 5 allow lane). It next fails closed at the pre-existing
-        // `new Event('tick')` / `event.type` gap: `event.type` silently reads
-        // `0` (Event is not a P3 primitive), so the fixture's own self-check
-        // `throw new Error('unexpected Event behavior ...')` is the new
-        // fail-closed point. Still a fail-closed rejection (`success == false`).
+        // Stage P5 Task 5 reconciliation: with all of Stage P5 landed —
+        // `String()` lowering (Task 1), the TextEncoder/TextDecoder roundtrip +
+        // encode-of-`String()` admission (Tasks 2-4), and the Event/`event.type`
+        // lane — this fixture now runs END-TO-END and PASSES. Every prior
+        // fail-closed point (the String()/JSON.stringify E5506, the pre-existing
+        // Event `.type` runtime gap, the codec tail) is closed, so
+        // structuredClone / AbortController / Event / EventTarget+CustomEvent /
+        // URLSearchParams / URL / TextEncoder / TextDecoder / `String(count)` all
+        // behave node-correctly. `passed == 1` (failed == 0) is real EXECUTION
+        // proof, not a build-only signal: the `Kali.test` callback ran to
+        // completion, and the fixture's own self-checks (`structuredClone` deep
+        // -clone distinctness, `event.type === 'tick'`, the codec roundtrip
+        // equality `decoder.decode(encoded) === String(count)`, ...) each `throw`
+        // on any wrong value — so a silent miscompile could not have passed.
+        // Referee: node v26.5.0 runs the same body without throwing.
         assert!(
-            !output.status.success(),
-            "must be rejected fail-closed: {output:?}"
+            output.status.success(),
+            "expected the web-baseline test to pass: {output:?}"
         );
         let json = parse_json_stdout(&output);
-        assert_eq!(json["success"], false);
-        let code = json["errors"][0]["code"].as_str().unwrap_or_default();
-        let harness_stderr = json["stderr"].as_str().unwrap_or_default();
-        // The fixture runs PAST structuredClone (P2 deep-clone lane SUCCEEDS —
-        // distinct object AND array, `cloned.values.join(',')` stays `'1,2,3'`
-        // after `original.values.push(4)`) AND past the entire P3 abort lane
-        // (`new AbortController()`, `controller.signal instanceof AbortSignal`
-        // now folds to compile-time `true` — Task 5). It next fails closed at
-        // the pre-existing `new Event('tick')` / `event.type` gap (`event.type`
-        // silently reads `0`; the fixture's `throw new Error('unexpected Event
-        // behavior ...')` self-check fires). In TEST mode that throw surfaces
-        // as a bare E4000 runtime trap in the `Kali.test` callback (empty
-        // top-level `errors`, no source token) on the non-browser surface, or
-        // `RuntimeError: unreachable` under the browser harness. Verified
-        // empirically on a fresh binary 2026-07-18 (run-mode message: `Uncaught
-        // Error: unexpected Event behavior 0`; test-mode stderr: `Uncaught
-        // exception\nerror[E4000]: runtime trap in callback
-        // '__kali_callback_NN'`). Still fail-closed (`success == false`).
-        assert!(
-            code == "E4000"
-                || code == "E5506"
-                || harness_stderr.contains("RuntimeError: unreachable")
-                || harness_stderr.contains("E4000"),
-            "expected fail-closed trap or reject, got: {json}"
-        );
-        // Task A2b: the fixture also uses `String(count)` and
-        // `JSON.stringify(cloned)`, now in the terminal deny-set. So the
-        // fail-closed point has moved even EARLIER than the P3 Event runtime gap
-        // — kali now rejects at COMPILE time with E5506 on a denied value-builtin
-        // (`String`/`JSON.stringify`), before the fixture ever runs, so there is
-        // no runtime harness trap to observe. node: those are real
-        // coercions/serialization kali has no lowering for. Pin that compile-time
-        // reject; the structuredClone/abort lanes stay separately pinned green by
-        // the dedicated soundness_structured_clone / soundness_abort suites.
-        //
-        // Stage P4 Task 7 (observed 2026-07-21, fresh binary): the fixture's
-        // URL/URLSearchParams block is now a REAL supported lane (Stage P4 —
-        // pinned green incl. byte-for-byte acceptance in soundness_url.rs), so
-        // URL/USP is no longer an unsupported family here. The observed
-        // fail-closed point is UNCHANGED from A2b: compile-time E5506 "calling
-        // 'String' is unavailable in the current phase: it is a recognized
-        // builtin with no implemented lowering..." (5x, one per `String(count)`
-        // site — append, set, the get-compare, `encoder.encode(...)`, and the
-        // `decoder.decode(...)` compare; `stderr` field empty — the fixture
-        // never runs), because the `String(count)` sites INSIDE the USP and
-        // TextEncoder blocks sit in the terminal deny-set. The token below stays "String"/"stringify" — the observed
-        // most content-bearing stable fragment. Only when a String-builtin
-        // lane lands will the fail point advance PAST URL/USP to the Event
-        // `.type` runtime gap and then the P5 TextEncoder/TextDecoder tail.
-        let message = json["errors"][0]["message"].as_str().unwrap_or_default();
-        assert!(
-            code == "E5506" && (message.contains("String") || message.contains("stringify")),
-            "expected a compile-time E5506 reject on String/JSON.stringify, got: {json}"
-        );
+        assert_eq!(json["command"], "test", "json: {json}");
+        assert_eq!(json["success"], true, "json: {json}");
+        assert_eq!(json["payload"]["total"], 1, "json: {json}");
+        assert_eq!(json["payload"]["passed"], 1, "json: {json}");
+        assert_eq!(json["payload"]["failed"], 0, "json: {json}");
     }
 }
 
@@ -822,73 +738,31 @@ fn json_test_supports_web_baseline_structured_clone_and_event_primitives_when_br
             .output()
             .expect("run kali");
 
-        // Flipped pin (advanced by Stage P3 Task 5): the fixture now runs PAST
-        // both structuredClone (P2 deep-clone lane) AND the whole abort lane —
-        // `controller.signal instanceof AbortSignal` folds to a compile-time
-        // `true` (Task 5 allow lane). It next fails closed at the pre-existing
-        // `new Event('tick')` / `event.type` gap: `event.type` silently reads
-        // `0` (Event is not a P3 primitive), so the fixture's own self-check
-        // `throw new Error('unexpected Event behavior ...')` is the new
-        // fail-closed point. Still a fail-closed rejection (`success == false`).
+        // Stage P5 Task 5 reconciliation: with all of Stage P5 landed —
+        // `String()` lowering (Task 1), the TextEncoder/TextDecoder roundtrip +
+        // encode-of-`String()` admission (Tasks 2-4), and the Event/`event.type`
+        // lane — this fixture now runs END-TO-END and PASSES. Every prior
+        // fail-closed point (the String()/JSON.stringify E5506, the pre-existing
+        // Event `.type` runtime gap, the codec tail) is closed, so
+        // structuredClone / AbortController / Event / EventTarget+CustomEvent /
+        // URLSearchParams / URL / TextEncoder / TextDecoder / `String(count)` all
+        // behave node-correctly. `passed == 1` (failed == 0) is real EXECUTION
+        // proof, not a build-only signal: the `Kali.test` callback ran to
+        // completion, and the fixture's own self-checks (`structuredClone` deep
+        // -clone distinctness, `event.type === 'tick'`, the codec roundtrip
+        // equality `decoder.decode(encoded) === String(count)`, ...) each `throw`
+        // on any wrong value — so a silent miscompile could not have passed.
+        // Referee: node v26.5.0 runs the same body without throwing.
         assert!(
-            !output.status.success(),
-            "must be rejected fail-closed: {output:?}"
+            output.status.success(),
+            "expected the web-baseline test to pass: {output:?}"
         );
         let json = parse_json_stdout(&output);
-        assert_eq!(json["success"], false);
-        let code = json["errors"][0]["code"].as_str().unwrap_or_default();
-        let harness_stderr = json["stderr"].as_str().unwrap_or_default();
-        // The fixture runs PAST structuredClone (P2 deep-clone lane SUCCEEDS —
-        // distinct object AND array, `cloned.values.join(',')` stays `'1,2,3'`
-        // after `original.values.push(4)`) AND past the entire P3 abort lane
-        // (`new AbortController()`, `controller.signal instanceof AbortSignal`
-        // now folds to compile-time `true` — Task 5). It next fails closed at
-        // the pre-existing `new Event('tick')` / `event.type` gap (`event.type`
-        // silently reads `0`; the fixture's `throw new Error('unexpected Event
-        // behavior ...')` self-check fires). In TEST mode that throw surfaces
-        // as a bare E4000 runtime trap in the `Kali.test` callback (empty
-        // top-level `errors`, no source token) on the non-browser surface, or
-        // `RuntimeError: unreachable` under the browser harness. Verified
-        // empirically on a fresh binary 2026-07-18 (run-mode message: `Uncaught
-        // Error: unexpected Event behavior 0`; test-mode stderr: `Uncaught
-        // exception\nerror[E4000]: runtime trap in callback
-        // '__kali_callback_NN'`). Still fail-closed (`success == false`).
-        assert!(
-            code == "E4000"
-                || code == "E5506"
-                || harness_stderr.contains("RuntimeError: unreachable")
-                || harness_stderr.contains("E4000"),
-            "expected fail-closed trap or reject, got: {json}"
-        );
-        // Task A2b: the fixture also uses `String(count)` and
-        // `JSON.stringify(cloned)`, now in the terminal deny-set. So the
-        // fail-closed point has moved even EARLIER than the P3 Event runtime gap
-        // — kali now rejects at COMPILE time with E5506 on a denied value-builtin
-        // (`String`/`JSON.stringify`), before the fixture ever runs, so there is
-        // no runtime harness trap to observe. node: those are real
-        // coercions/serialization kali has no lowering for. Pin that compile-time
-        // reject; the structuredClone/abort lanes stay separately pinned green by
-        // the dedicated soundness_structured_clone / soundness_abort suites.
-        //
-        // Stage P4 Task 7 (observed 2026-07-21, fresh binary): the fixture's
-        // URL/URLSearchParams block is now a REAL supported lane (Stage P4 —
-        // pinned green incl. byte-for-byte acceptance in soundness_url.rs), so
-        // URL/USP is no longer an unsupported family here. The observed
-        // fail-closed point is UNCHANGED from A2b: compile-time E5506 "calling
-        // 'String' is unavailable in the current phase: it is a recognized
-        // builtin with no implemented lowering..." (5x, one per `String(count)`
-        // site — append, set, the get-compare, `encoder.encode(...)`, and the
-        // `decoder.decode(...)` compare; `stderr` field empty — the fixture
-        // never runs), because the `String(count)` sites INSIDE the USP and
-        // TextEncoder blocks sit in the terminal deny-set. The token below stays "String"/"stringify" — the observed
-        // most content-bearing stable fragment. Only when a String-builtin
-        // lane lands will the fail point advance PAST URL/USP to the Event
-        // `.type` runtime gap and then the P5 TextEncoder/TextDecoder tail.
-        let message = json["errors"][0]["message"].as_str().unwrap_or_default();
-        assert!(
-            code == "E5506" && (message.contains("String") || message.contains("stringify")),
-            "expected a compile-time E5506 reject on String/JSON.stringify, got: {json}"
-        );
+        assert_eq!(json["command"], "test", "json: {json}");
+        assert_eq!(json["success"], true, "json: {json}");
+        assert_eq!(json["payload"]["total"], 1, "json: {json}");
+        assert_eq!(json["payload"]["passed"], 1, "json: {json}");
+        assert_eq!(json["payload"]["failed"], 0, "json: {json}");
     }
 }
 
@@ -5835,23 +5709,29 @@ Kali.test('browser runtime smoke', () => {});
         .output()
         .expect("run kali");
 
-    // Task A2b fail-closed flip: the source `console.log(String(value))`. Pre-A2b
-    // `String()` silently lowered to 0 (the stdout "0" this used to accept was the
-    // fake-green placeholder), so the browser-harness test succeeded. `String` is
-    // now in the terminal deny-set, so kali fails the build closed (E5506).
-    // node: `String(0n)` -> "0" via a real coercion kali cannot lower.
+    // Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin): the source
+    // `console.log(String(value))` with `value === 0n`, wrapped by a
+    // `Kali.test(...)`. `String()` is now a real runtime coercion, so the
+    // browser-harness test SUCCEEDS: program stdout `0\n` and one passing test
+    // (referee: node v26.5.0, `String(0n)` -> "0"). Pin the exact program stdout
+    // and the passing test count so a wrong-reason pass is not available.
     assert!(
-        !output.status.success(),
-        "expected fail-closed on String(): stdout: {}\nstderr: {}",
+        output.status.success(),
+        "expected success (String() now lowers): stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["success"], false);
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(
-        stdout.contains("E5506") && stdout.contains("String"),
-        "expected E5506 for 'String' in json errors, got: {stdout}"
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert_eq!(json["payload"]["passed"], 1);
+    assert_eq!(json["payload"]["failed"], 0);
+    assert_eq!(
+        json["stdout"].as_str().expect("stdout"),
+        "0\n",
+        "json: {json}"
     );
 }
 
@@ -5896,23 +5776,29 @@ Kali.test('browser runtime smoke', () => {});
         .output()
         .expect("run kali");
 
-    // Task A2b fail-closed flip: the source `console.log(String(value))`. Pre-A2b
-    // `String()` silently lowered to 0 (the stdout "0" this used to accept was the
-    // fake-green placeholder), so the browser-harness test succeeded. `String` is
-    // now in the terminal deny-set, so kali fails the build closed (E5506).
-    // node: `String(0n)` -> "0" via a real coercion kali cannot lower.
+    // Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin): the source
+    // `console.log(String(value))` with `value === 0n`, wrapped by a
+    // `Kali.test(...)`. `String()` is now a real runtime coercion, so the
+    // browser-harness test SUCCEEDS: program stdout `0\n` and one passing test
+    // (referee: node v26.5.0, `String(0n)` -> "0"). Pin the exact program stdout
+    // and the passing test count so a wrong-reason pass is not available.
     assert!(
-        !output.status.success(),
-        "expected fail-closed on String(): stdout: {}\nstderr: {}",
+        output.status.success(),
+        "expected success (String() now lowers): stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["success"], false);
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(
-        stdout.contains("E5506") && stdout.contains("String"),
-        "expected E5506 for 'String' in json errors, got: {stdout}"
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert_eq!(json["payload"]["passed"], 1);
+    assert_eq!(json["payload"]["failed"], 0);
+    assert_eq!(
+        json["stdout"].as_str().expect("stdout"),
+        "0\n",
+        "json: {json}"
     );
 }
 
@@ -5959,23 +5845,29 @@ Kali.test('browser runtime smoke', () => {});
         .output()
         .expect("run kali");
 
-    // Task A2b fail-closed flip: the source `console.log(String(value))`. Pre-A2b
-    // `String()` silently lowered to 0 (the stdout "0" this used to accept was the
-    // fake-green placeholder), so the browser-harness test succeeded. `String` is
-    // now in the terminal deny-set, so kali fails the build closed (E5506).
-    // node: `String(0n)` -> "0" via a real coercion kali cannot lower.
+    // Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin): the source
+    // `console.log(String(value))` with `value === 0n`, wrapped by a
+    // `Kali.test(...)`. `String()` is now a real runtime coercion, so the
+    // browser-harness test SUCCEEDS: program stdout `0\n` and one passing test
+    // (referee: node v26.5.0, `String(0n)` -> "0"). Pin the exact program stdout
+    // and the passing test count so a wrong-reason pass is not available.
     assert!(
-        !output.status.success(),
-        "expected fail-closed on String(): stdout: {}\nstderr: {}",
+        output.status.success(),
+        "expected success (String() now lowers): stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["success"], false);
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(
-        stdout.contains("E5506") && stdout.contains("String"),
-        "expected E5506 for 'String' in json errors, got: {stdout}"
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert_eq!(json["payload"]["passed"], 1);
+    assert_eq!(json["payload"]["failed"], 0);
+    assert_eq!(
+        json["stdout"].as_str().expect("stdout"),
+        "0\n",
+        "json: {json}"
     );
 }
 

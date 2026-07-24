@@ -18,7 +18,13 @@ pub(crate) fn wasm_type(repr: kali_common::Repr) -> wasm_encoder::ValType {
         | kali_common::Repr::AbortHandle
         // URL struct pointer and USP growable handle — both one i64 slot.
         | kali_common::Repr::Url
-        | kali_common::Repr::UrlSearchParams => wasm_encoder::ValType::I64,
+        | kali_common::Repr::UrlSearchParams
+        // Bytes: TextEncoder byte-buffer handle (Stage P5) — same i64 slot
+        // as every other opaque handle repr.
+        | kali_common::Repr::Bytes
+        // Event: a compile-time marker with no runtime value (Stage P5); it
+        // still occupies an ordinary i64 slot when a binding is provisioned.
+        | kali_common::Repr::Event => wasm_encoder::ValType::I64,
     }
 }
 
@@ -1395,6 +1401,13 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         &ctx.repr_table,
     ));
 
+    // Stage P5 T-new-A (review finding I-1): the per-function deny domain of the
+    // `crypto.getRandomValues(...)` result lane, computed module-wide so a
+    // CAPTURING closure's emitter can inherit the enclosing function's denies
+    // (its own set starts empty, which fell back to the silent zero). See
+    // `collect_crypto_random_result_bindings`.
+    let crypto_random_result_deny = collect_crypto_random_result_bindings(lir, &all_functions);
+
     let mut code_section = CodeSection::new();
     for (coverage_id, function) in all_functions.iter().enumerate() {
         // Two extra i64 scratch locals: `self.locals.len()` is the general-purpose
@@ -1558,6 +1571,29 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                 .unwrap_or_default(),
             &ctx.env_plans,
         );
+        // Stage P5 T-new-A (I-1): inherit — DENY ONLY, never admission — the
+        // enclosing function's `crypto.getRandomValues(...)` result bindings for
+        // every name this function CAPTURES. `CapturedRef::owner` names the
+        // function that owns the binding, so this is a lexical, owner-keyed
+        // inheritance rather than a module-wide flood. Module-root-owned
+        // captures need no seed: reading a module binding from inside a function
+        // is already E5506 unless it is a compile-time-constant `const`
+        // (measured), so that position cannot reach the placeholder.
+        emitter.crypto_random_result_bindings = ctx
+            .env_plans
+            .get(&function.name)
+            .map(|plan| {
+                plan.captured
+                    .iter()
+                    .filter(|captured| {
+                        crypto_random_result_deny
+                            .get(&captured.owner)
+                            .is_some_and(|names| names.contains(&captured.name))
+                    })
+                    .map(|captured| captured.name.clone())
+                    .collect()
+            })
+            .unwrap_or_default();
         let coverage_id = ctx.target.coverage.then_some(coverage_id as u32);
         if is_synthetic_function(&function.name) {
             // Hand-emitted: not lowered from LIR (there is no source-level
@@ -2589,7 +2625,15 @@ pub(crate) fn declarator_init_is_placeholder_construct(
         // `AbortController` joined this list in Stage P3 (real global abort
         // cell); its `const`-declarator lowering is intercepted at emit under
         // the `Repr::AbortHandle` proof + shadow guard.
-        Some("Array" | "Uint8Array" | "EventTarget" | "AbortController") => false,
+        // Stage P5 T-new-C: `Event`/`CustomEvent` joined this list — a bound
+        // `const e = new Event('tick')` is no longer a zero placeholder but a
+        // compile-time MARKER whose type text lives in the declaring emitter's
+        // side-table, so a deferred/captured read cannot reproduce it. Admitting
+        // the capture here would hand the callback the `0` cell and let the read
+        // fall through; excluding them keeps the capture denied (fail-closed).
+        Some(
+            "Array" | "Uint8Array" | "EventTarget" | "AbortController" | "Event" | "CustomEvent",
+        ) => false,
         // Any other bare `new X()` lowers to the drop-and-push-0 placeholder.
         Some(_) => true,
         None => false,
@@ -3791,6 +3835,126 @@ fn body_contains_process_argv_element(nodes: &[LirNode], body_id: LirNodeId) -> 
     walk(nodes, body_id)
 }
 
+/// Stage P5 T-new-A (review finding I-1): the module-wide DENY-DOMAIN seed for
+/// the `crypto.getRandomValues(...)` result lane.
+///
+/// `FunctionEmitter::crypto_random_result_bindings` is per-emitter, i.e.
+/// per-LIR-function, and every function (including a closure body, which is its
+/// own `__kali_fn_N` LIR function) gets a FRESH, EMPTY set. So a result binding
+/// recorded while emitting `outer` was invisible to the emitter of a closure
+/// that CAPTURES it, and `fb.byteLength` inside that closure fell straight back
+/// to the silent-zero placeholder this task exists to kill:
+///
+/// ```js
+/// function outer() {
+///   const rb = new globalThis["Uint8Array"](4);
+///   const fb = crypto.getRandomValues(rb);
+///   return (() => fb.byteLength)();   // node 4, kali 0 (silent)
+/// }
+/// ```
+///
+/// This pre-pass therefore computes, BEFORE any function is emitted, the deny
+/// domain each function OWNS, so the capturer's emitter can be seeded from its
+/// `EnvPlan::captured` refs (owner-keyed). It mirrors ONLY the deny half of
+/// `record_crypto_random_result_binding` — the shape test — deliberately:
+/// admission requires facts (`array_bindings` membership, local-slot ownership)
+/// that are the OWNER emitter's, not the capturer's, and an admitted read in a
+/// capturer would load a length header off a cell this phase has not proven.
+/// The capturer therefore only ever inherits DENY, never ADMIT.
+///
+/// Over-approximation is sound here (it can only add E5506): the walk does not
+/// stop at a nested function-expression body, so an inner declarator may be
+/// attributed to the enclosing function too — that can only deny a name a
+/// capturer captures from that function.
+pub(crate) fn collect_crypto_random_result_bindings(
+    lir: &LirProgram,
+    function_plans: &[FunctionPlan],
+) -> BTreeMap<String, BTreeSet<String>> {
+    /// The shape-only twin of
+    /// `FunctionEmitter::crypto_get_random_values_result_call`, over the raw
+    /// LIR (no `bindings` denotation map exists before emission): unwrap
+    /// transparent one-child `Value` wrappers, then require a `Call` whose
+    /// callee text is `getRandomValues` on an object whose text is `crypto`.
+    fn is_crypto_random_call(lir: &LirProgram, id: LirNodeId) -> bool {
+        let mut current = id;
+        loop {
+            let node = &lir.nodes[current.0 as usize];
+            if node.kind == LirNodeKind::Value
+                && node.children.len() == 1
+                && node.text.as_deref().is_none_or(str::is_empty)
+            {
+                current = node.children[0];
+                continue;
+            }
+            if node.kind != LirNodeKind::Call || node.children.is_empty() {
+                return false;
+            }
+            let callee = &lir.nodes[node.children[0].0 as usize];
+            if callee.text.as_deref() != Some("getRandomValues") {
+                return false;
+            }
+            let Some(object) = callee.children.first().copied() else {
+                return false;
+            };
+            return lir.nodes[object.0 as usize].text.as_deref() == Some("crypto");
+        }
+    }
+
+    let mut per_function: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    for plan in function_plans {
+        let mut names: BTreeSet<String> = BTreeSet::new();
+        let mut stack = vec![plan.body];
+        let mut seen: HashSet<LirNodeId> = HashSet::new();
+        while let Some(id) = stack.pop() {
+            if !seen.insert(id) {
+                continue;
+            }
+            let node = &lir.nodes[id.0 as usize];
+            match node.kind {
+                // `const`/`let`/`var` declarator list: each child carries the
+                // bound name in `text` and the initializer at `children[1]`
+                // (same shape the module-binding pre-pass above walks).
+                LirNodeKind::Instruction
+                    if matches!(node.text.as_deref(), Some("const" | "let" | "var")) =>
+                {
+                    for declarator_id in &node.children {
+                        let declarator = &lir.nodes[declarator_id.0 as usize];
+                        if declarator.children.len() >= 2
+                            && is_crypto_random_call(lir, declarator.children[1])
+                        {
+                            if let Some(name) = declarator.text.clone() {
+                                names.insert(name);
+                            }
+                        }
+                    }
+                }
+                // Plain assignment `name = <call>` (a two-child node whose text
+                // is the operator — see `emit_binary`/`emit_assignment`). Only
+                // `=` rebinds the handle; a compound operator's value is
+                // derived, and the emitter-side recorder already refuses to
+                // admit those.
+                _ if node.text.as_deref() == Some("=") && node.children.len() == 2 => {
+                    let target = &lir.nodes[node.children[0].0 as usize];
+                    if target.children.is_empty() && is_crypto_random_call(lir, node.children[1]) {
+                        if let Some(name) = target.text.clone() {
+                            names.insert(name);
+                        }
+                    }
+                }
+                _ => {}
+            }
+            stack.extend(node.children.iter().copied());
+        }
+        if !names.is_empty() {
+            per_function
+                .entry(plan.name.clone())
+                .or_default()
+                .extend(names);
+        }
+    }
+    per_function
+}
+
 /// WASM globals reserved before any module-scope mutable scalar global:
 /// g0 (heap/page frontier) + g1..g7 (arena page-pool state) + g8
 /// (`current_env`, Stage C closures — see `crate::closure::CURRENT_ENV_GLOBAL`).
@@ -4451,6 +4615,20 @@ pub(crate) fn const_declarator_promotion(
             kali_common::Repr::AbortHandle
         )
     });
+    // Stage P5 bytes lane: a binding inference proved `Repr::Bytes`
+    // (`const b = new TextEncoder().encode(x)` inline, or `const b = e.encode(x)`
+    // bound) holds an i64 byte handle that MUST live in a stable local slot. The
+    // inline form is also caught by `declarator_init_is_crypto_call` above, but
+    // the BOUND form (`e.encode`) has an identifier receiver that structural
+    // recognizer does not match — repr-keyed promotion covers both uniformly.
+    // Without a slot the emitter's encode declarator arm falls to the drop branch
+    // and every read of `b` reads a zero handle.
+    let is_bytes_handle_binding = declarator_node.text.as_deref().is_some_and(|name| {
+        matches!(
+            repr_table.scalar(function_name, name),
+            kali_common::Repr::Bytes
+        )
+    });
     // The shapes above force promotion because each needs a stable
     // RUNTIME handle (a fresh allocation, a host registration, a
     // materialized object) — properties an allowlist over the init's
@@ -4476,7 +4654,8 @@ pub(crate) fn const_declarator_promotion(
         || is_event_target_construction
         || is_event_dispatch_result
         || is_structured_clone_result
-        || is_abort_handle_binding;
+        || is_abort_handle_binding
+        || is_bytes_handle_binding;
     if force_promote {
         return Some((name, ConstPromotion::Handle));
     }

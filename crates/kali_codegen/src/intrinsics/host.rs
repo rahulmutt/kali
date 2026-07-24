@@ -1,6 +1,16 @@
 //! Host environment intrinsic call recognition and code emission (console, env, process, semver).
 use crate::*;
 
+/// Stage P5 T-new-C (review M-2): the SINGLE list of event constructor names the
+/// marker lane recognizes. Both sides of the lane read it — the ADMIT recognizer
+/// (`event_construction_literal`'s `ctor_names` argument, at the declarator
+/// intercept) and the DENY recognizer (`is_unshadowed_event_construction`, the
+/// `emit_value` choke). They were hand-mirrored; a third constructor added to the
+/// admit side alone would reopen the drop-and-push-`0` placeholder for it, and
+/// this project has a documented history of hand-mirrored predicates failing open
+/// when only one side is updated.
+pub(crate) const EVENT_CTORS: &[&str] = &["Event", "CustomEvent"];
+
 pub(crate) fn semver_min_version(range: &str) -> Option<String> {
     let trimmed = range.trim();
     let candidate = trimmed
@@ -285,6 +295,211 @@ impl<'a> FunctionEmitter<'a> {
         self.crypto_get_random_values_import_index
     }
 
+    /// Stage P5 T-new-A: the SHAPE-ONLY twin of
+    /// [`Self::crypto_get_random_values_import_index`] — `id` (resolved through
+    /// a `const` denotation and transparent value wrappers) is a
+    /// `crypto.getRandomValues(...)` CALL, returning that call's node id. Arity
+    /// is deliberately NOT constrained here: the emit arm lowers any arity ≥ 1
+    /// (extra arguments are evaluated and dropped) and still returns the buffer
+    /// handle, so every arity belongs to the DENY DOMAIN; the ADMIT test
+    /// (`record_crypto_random_result_binding`) is the one that requires exactly
+    /// one argument. The import index is likewise not required: on an API
+    /// surface without the import the call does not lower to the
+    /// identity-preserving arm at all, and denying is the correct answer there
+    /// too.
+    pub(crate) fn crypto_get_random_values_result_call(&self, id: LirNodeId) -> Option<LirNodeId> {
+        let target = self.unwrap_transparent_value_node(self.resolve_bound_node(id));
+        let node = self.node(target);
+        if node.kind != LirNodeKind::Call || node.children.is_empty() {
+            return None;
+        }
+        let callee_node = self.node(node.children[0]);
+        if callee_node.text.as_deref() != Some("getRandomValues") {
+            return None;
+        }
+        let object = callee_node.children.first().copied()?;
+        if self.node(object).text.as_deref() != Some("crypto") {
+            return None;
+        }
+        Some(target)
+    }
+
+    /// Stage P5 T-new-A: record the binding provenance of a
+    /// `crypto.getRandomValues(...)` call RESULT at its declaration/assignment
+    /// choke. `name` always joins the deny domain
+    /// (`crypto_random_result_bindings`); it joins the ADMITTED subset only on
+    /// POSITIVE evidence, all three parts of which are recorded facts rather
+    /// than defaults:
+    ///  - the callee resolves through `crypto_get_random_values_import_index`,
+    ///    the same recognizer the emit arm uses to lower the identity-preserving
+    ///    host call (so the binding provably holds the ARGUMENT's handle);
+    ///  - the call has exactly one argument, and that argument is a bare
+    ///    identifier present in `array_bindings` — a set populated only by a
+    ///    `new Array(n)` / `new Uint8Array(n)` allocation site or a
+    ///    repr-table-proven array parameter (so a length header provably sits at
+    ///    `+0` of the handle);
+    ///  - `name` owns a WASM local slot, so the later `.length` read loads the
+    ///    header off the handle THIS binding holds.
+    pub(crate) fn record_crypto_random_result_binding(&mut self, name: &str, init: LirNodeId) {
+        // Any (re)binding of the name INVALIDATES a previous admission: the
+        // admitted `.length` loads a length header off whatever the local holds,
+        // so a stale grant surviving `{ const fb = 5; }` (the provenance sets
+        // are name-keyed and flat, like URL/USP) would load off address 5.
+        // Deny-domain membership, by contrast, is never revoked — over-denying a
+        // rebound name is sound, silently zeroing it is not.
+        self.crypto_random_result_array_bindings.remove(name);
+        let Some(call) = self.crypto_get_random_values_result_call(init) else {
+            return;
+        };
+        self.crypto_random_result_bindings.insert(name.to_string());
+
+        let call_node = self.node(call).clone();
+        if call_node.children.len() != 2 {
+            return;
+        }
+        // Review finding I-2 (the Task-4 `url_ctor_unshadowed` precedent): the
+        // `crypto` recognizers are TEXT-KEYED, so a user binding
+        // (`const crypto = { getRandomValues: (b) => 99 }`) is hijacked by the
+        // pre-existing emit arm. That hijack is not this task's to fix, but
+        // ADMITTING on top of it would replace the old wrong `0` with a NEW
+        // plausible number (`4`) — differently wrong, not safer. Admission
+        // therefore requires an UNSHADOWED `crypto` in every codegen namespace;
+        // the shadowed case stays in the deny domain (E5506), which IS strictly
+        // safer than the silent zero it replaces.
+        if !self.url_ctor_unshadowed("crypto") {
+            return;
+        }
+        let callee_node = self.node(call_node.children[0]).clone();
+        if self
+            .crypto_get_random_values_import_index(&callee_node)
+            .is_none()
+        {
+            return;
+        }
+        let Some(arg_name) = self.bare_identifier_name(call_node.children[1]) else {
+            return;
+        };
+        if !self.array_bindings.contains(&arg_name) {
+            return;
+        }
+        if !self.locals.contains_key(name) {
+            return;
+        }
+        self.crypto_random_result_array_bindings
+            .insert(name.to_string());
+    }
+
+    /// Stage P5 T-new-A: classify a member-read RECEIVER against the
+    /// `crypto.getRandomValues(...)` result lane. `Some(true)` = an ADMITTED
+    /// result binding (its `.length`/`.byteLength` read the header off its own
+    /// handle); `Some(false)` = a result outside the proven path, which every
+    /// caller must fail closed (E5506) rather than let fall through to a
+    /// placeholder zero; `None` = unrelated receiver, unchanged routing.
+    ///
+    /// The name-keyed test runs FIRST so a slot-owning binding (which has no
+    /// `bindings` denotation entry, and is therefore invisible to the
+    /// structural resolver) is classified; the structural test then covers the
+    /// INLINE-UNBOUND receiver (`crypto.getRandomValues(b).length`) and a
+    /// fold-lane `const` — both denied, the inline one because admitting it
+    /// would read the argument's length WITHOUT emitting the call, dropping the
+    /// buffer-filling side effect node performs.
+    pub(crate) fn crypto_random_result_receiver(
+        &self,
+        node: &LirNode,
+        base_id: LirNodeId,
+    ) -> Option<bool> {
+        if let Some(name) = self.assignment_target_name(node, base_id) {
+            if self.crypto_random_result_array_bindings.contains(&name) {
+                return Some(true);
+            }
+            if self.crypto_random_result_bindings.contains(&name) {
+                return Some(false);
+            }
+        }
+        self.crypto_get_random_values_result_call(base_id)
+            .map(|_| false)
+    }
+
+    /// Stage P5 T-new-A (review finding I-3): is `id` — as a VALUE being stored
+    /// — a `crypto.getRandomValues(...)` result?
+    ///
+    /// The deny domain is name-keyed, so storing such a handle into an
+    /// aggregate LAUNDERS it: the receiver of a later read (`o.buf`,
+    /// `holder[0]`) yields no binding name at all, so every gate in this lane
+    /// misses it and the read falls through to the pre-existing
+    /// aggregate-provenance bug, which prints the object's field count / the
+    /// holder's length instead of the buffer length (measured: `1` and `2`
+    /// where node reads `4`). That general bug is out of scope (its own task);
+    /// this predicate is the CHEAP PARTIAL CLOSE for this lane only — every
+    /// aggregate store of a deny-domain value fails closed.
+    ///
+    /// Both the name-keyed and the structural (inline-unbound) forms count: the
+    /// whole deny domain, admitted subset included, since admission proves only
+    /// the length header of the binding's OWN local, nothing about a copy of the
+    /// handle that outlives it in a heap slot.
+    pub(crate) fn is_crypto_random_result_value(&self, id: LirNodeId) -> bool {
+        if let Some(name) = self.assignment_target_name(self.node(id), id) {
+            if self.crypto_random_result_bindings.contains(&name) {
+                return true;
+            }
+        }
+        self.crypto_get_random_values_result_call(id).is_some()
+    }
+
+    /// Stage P5 T-new-A (I-3), the literal-aggregate twin of
+    /// [`Self::is_crypto_random_result_value`]: does `init` resolve to an
+    /// object/array LITERAL one of whose immediate property values / elements is
+    /// a `crypto.getRandomValues(...)` result?
+    ///
+    /// The `emit_object_allocation` gate only covers a MATERIALIZED literal
+    /// (repr `Object(shape)`); `const o = { buf: fb }` whose repr was never
+    /// inferred as an object stays on the compile-time FOLD lane, where
+    /// `o.buf.length` rendered the literal's child count (`1`) — the same
+    /// laundering by a different route. This predicate is checked at the
+    /// declarator choke, before either lane claims the init.
+    ///
+    /// Only IMMEDIATE values are scanned, deliberately: a deeper walk would also
+    /// deny `{ n: fb.length }`, whose value is already gated by the member
+    /// arm and is not a laundering of the handle.
+    pub(crate) fn crypto_random_result_in_literal_aggregate(&self, init: LirNodeId) -> bool {
+        let Some(aggregate_id) = self.resolve_literal_aggregate(init) else {
+            return false;
+        };
+        let aggregate = self.node(aggregate_id).clone();
+        if self.is_object_literal(&aggregate) {
+            return aggregate.children.iter().any(|child| {
+                self.node(*child)
+                    .children
+                    .get(1)
+                    .copied()
+                    .is_some_and(|value| self.is_crypto_random_result_value(value))
+            });
+        }
+        if self.is_array_literal(&aggregate) {
+            return aggregate
+                .children
+                .iter()
+                .any(|child| self.is_crypto_random_result_value(*child));
+        }
+        false
+    }
+
+    /// Stage P5 T-new-E: the E5506 message for a `String()`-result that reaches
+    /// a numeric-render sink (`+`, template literal, `console.log`) without a
+    /// proven `Repr::String` (F-newB-1). See `string_result_render_taint`.
+    pub(crate) const STRING_RESULT_RENDER_DENY: &'static str =
+        "rendering a String() result bound to a variable (let/var/const) or returned from a \
+         function is unavailable in the current phase: kali seeds no string representation for it, \
+         so the tagged string handle would print as raw integer bits instead of the text; use the \
+         String() call inline at the render site (fail-closed; correct-output support is \
+         follow-up F-newB-1)";
+
+    /// The E5506 message for [`Self::is_crypto_random_result_value`] stores.
+    pub(crate) const CRYPTO_RANDOM_RESULT_STORE_DENY: &'static str =
+        "storing a crypto.getRandomValues(...) result into an object field or array element is \
+         not supported in the current phase; the stored handle loses its length provenance and \
+         a later read would diverge (fail-closed)";
+
     /// Recognize `crypto.randomUUID()` (throw-fallout Stage 3 bucket #6): callee
     /// method text `"randomUUID"`, object text `"crypto"`.
     pub(crate) fn crypto_random_uuid_import_index(&self, callee_node: &LirNode) -> Option<u32> {
@@ -332,14 +547,158 @@ impl<'a> FunctionEmitter<'a> {
             return false;
         };
         let object_node = self.node(object);
-        if object_node.kind != LirNodeKind::Call {
+        // inline `new TextEncoder().encode(...)` (the parser lowers the ctor to a
+        // `Call` node whose own callee text is `TextEncoder`).
+        if object_node.kind == LirNodeKind::Call {
+            if let Some(&ctor) = object_node.children.first() {
+                // Stage P5 review fix (C-2 twin): the INLINE spelling must honor
+                // the same shadow guard the bound declarator lane already
+                // applies — a user-defined `function`/`class`/`const TextEncoder`
+                // must keep its own lane instead of being hijacked into the
+                // intrinsic. (No ctor-arity check here: JS ignores `TextEncoder`
+                // constructor arguments, so `new TextEncoder(x).encode(...)` is
+                // genuinely the intrinsic.)
+                if self.node(ctor).text.as_deref() == Some("TextEncoder")
+                    && self.url_ctor_unshadowed("TextEncoder")
+                {
+                    return true;
+                }
+            }
+        }
+        // Stage P5 bound receiver: `const e = new TextEncoder(); e.encode(...)` —
+        // a bare-identifier object that names a `text_encoder_locals` marker.
+        object_node.children.is_empty()
+            && object_node
+                .text
+                .as_deref()
+                .is_some_and(|name| self.is_text_encoder_marker(name))
+    }
+
+    /// Stage P5 Task 4: recognize `TextDecoder().decode(<bytes>)` — callee method
+    /// text `"decode"` whose object is either an inline `new TextDecoder()`
+    /// construction (a `Call` node whose own callee text is `"TextDecoder"`) or a
+    /// bare-identifier `text_decoder_locals` marker. The exact structural twin of
+    /// `is_text_encoder_encode`; like it, a pure GUEST-SIDE relabel with no host
+    /// import, so it returns a bool.
+    pub(crate) fn is_text_decoder_decode(&self, callee_node: &LirNode) -> bool {
+        if callee_node.text.as_deref() != Some("decode") {
             return false;
         }
-        object_node
-            .children
-            .first()
-            .map(|&ctor| self.node(ctor).text.as_deref() == Some("TextEncoder"))
-            .unwrap_or(false)
+        let Some(&object) = callee_node.children.first() else {
+            return false;
+        };
+        let object_node = self.node(object);
+        // inline `new TextDecoder().decode(...)`
+        if object_node.kind == LirNodeKind::Call {
+            if let Some(&ctor) = object_node.children.first() {
+                // Stage P5 review fixes:
+                // C-1 — the decoder's constructor arguments are SEMANTIC (the
+                //   encoding label / `{fatal}` options), and this lane implements
+                //   ONLY the default `utf-8`, non-fatal decoder. A ctor call node
+                //   with more than the callee child carries arguments we cannot
+                //   honor, so it must fall through and fail closed rather than
+                //   silently decode as UTF-8.
+                // C-2 — honor the ctor shadow guard the bound declarator lane
+                //   already applies, so a user-defined `TextDecoder` is not
+                //   hijacked into the intrinsic.
+                if self.node(ctor).text.as_deref() == Some("TextDecoder")
+                    && object_node.children.len() == 1
+                    && self.url_ctor_unshadowed("TextDecoder")
+                {
+                    return true;
+                }
+            }
+        }
+        // bound `const d = new TextDecoder(); d.decode(...)`
+        object_node.children.is_empty()
+            && object_node
+                .text
+                .as_deref()
+                .is_some_and(|name| self.is_text_decoder_marker(name))
+    }
+
+    /// Stage P5 review fix (C-1): the SHAPE of an inline, unshadowed
+    /// `new TextDecoder(...).decode(...)`, regardless of whether the
+    /// constructor arguments make it admissible. `is_text_decoder_decode` is the
+    /// allowlist (zero-arg, unshadowed); this is the strictly-wider shape used
+    /// to route the non-admitted remainder to an explicit E5506 deny instead of
+    /// letting it fall into the text-less-aggregate / undefined-callee lane,
+    /// which pushes a silent `0`.
+    pub(crate) fn is_text_decoder_decode_shape(&self, callee_node: &LirNode) -> bool {
+        if callee_node.text.as_deref() != Some("decode") {
+            return false;
+        }
+        let Some(&object) = callee_node.children.first() else {
+            return false;
+        };
+        let object_node = self.node(object);
+        object_node.kind == LirNodeKind::Call
+            && object_node
+                .children
+                .first()
+                .is_some_and(|&ctor| self.node(ctor).text.as_deref() == Some("TextDecoder"))
+            && self.url_ctor_unshadowed("TextDecoder")
+    }
+
+    /// Stage P5 Task 4: `id` IS a `TextDecoder().decode(...)` call node (not its
+    /// callee) — the one-level-up twin of `is_inline_text_encoder_encode_call`,
+    /// used by the value-classification oracles (`is_string_valued`) and by the
+    /// static-fold bails (`render_length`), so every consumer keys on the SAME
+    /// recognizer the emit arm dispatches with. Tunnels transparent wrappers
+    /// (including the parser's hoisted `new`) so an inline
+    /// `new TextDecoder().decode(b)` is recognized in either spelling.
+    pub(crate) fn is_text_decoder_decode_call(&self, id: LirNodeId) -> bool {
+        let node = self.node(self.unwrap_transparent(id));
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+        let Some(&callee_id) = node.children.first() else {
+            return false;
+        };
+        let callee_node = self.node(callee_id).clone();
+        self.is_text_decoder_decode(&callee_node)
+    }
+
+    /// Stage P5 Task 4: `arg` has PROVEN byte-buffer provenance for the
+    /// `TextDecoder().decode` argument position — either a bound `bytes_locals`
+    /// identifier (`const b = e.encode(x); d.decode(b)`) or an inline, unbound
+    /// `new TextEncoder().encode(x)` call (`d.decode(new TextEncoder().encode(x))`).
+    /// Everything else (a string literal, an i64, an array, an unproven
+    /// identifier) is denied: the decode lane RELABELS its argument's `(buf,len)`
+    /// as a string, which is sound only when those bits already are a contiguous
+    /// UTF-8 handle. Default-deny — a shape nobody proved fails closed.
+    pub(crate) fn arg_is_bytes_provenance(&self, arg: LirNodeId) -> bool {
+        let arg = self.unwrap_transparent(arg);
+        if self.is_inline_text_encoder_encode_call(arg) {
+            return true;
+        }
+        let node = self.node(arg);
+        node.children.is_empty()
+            && node
+                .text
+                .as_deref()
+                .is_some_and(|name| self.is_bytes_handle(name))
+    }
+
+    /// Stage P5 review fix: recognize a member-access BASE node that is itself
+    /// an inline, UNBOUND `new TextEncoder().encode(<string>)` call — e.g. the
+    /// `new TextEncoder().encode('hi')` in
+    /// `new TextEncoder().encode('hi').byteLength`. The bound path
+    /// (`const b = e.encode(x); b.byteLength`) is keyed on `bytes_locals` via
+    /// `assignment_target_name`, which only resolves a bare identifier; a
+    /// `Call` base has no name and so is invisible to that lane. This mirrors
+    /// `is_text_encoder_encode` one level up: `base_id` must itself be a
+    /// `Call` node whose OWN callee is recognized by `is_text_encoder_encode`.
+    pub(crate) fn is_inline_text_encoder_encode_call(&self, base_id: LirNodeId) -> bool {
+        let base_node = self.node(base_id);
+        if base_node.kind != LirNodeKind::Call {
+            return false;
+        }
+        let Some(&callee_id) = base_node.children.first() else {
+            return false;
+        };
+        let callee_node = self.node(callee_id).clone();
+        self.is_text_encoder_encode(&callee_node)
     }
 
     pub(crate) fn render_console_call(&self, node: &LirNode) -> Option<String> {
@@ -763,6 +1122,39 @@ impl<'a> FunctionEmitter<'a> {
             return None;
         }
 
+        // Stage P5 Task 4 (structural, NOT name-keyed — the Task 3 fix-wave
+        // lesson): `d.decode(b).length` has a `Call` base with no binding name,
+        // so absent this bail it falls through to the `children.len()` fallbacks
+        // below and renders the CALL NODE'S CHILD COUNT as the length. Bail so
+        // the runtime `.length` member arm handles it (the decode result is a
+        // runtime string handle; `is_string_valued` proves it, and the handle's
+        // low-32 byte count is the same value the string lane reads).
+        if self.is_text_decoder_decode_call(*id) {
+            return None;
+        }
+
+        // Stage P5 T-new-B (stage-review I-1): a `String(...)` coercion receiver
+        // has NO statically-known length. Without this bail the fallbacks below
+        // render the CALL node's CHILD COUNT (callee + arg = 2) as the length —
+        // measured `String(o.s).length` → 2 where node says 5. Bail so the
+        // runtime `.length` member arm decides: a PROVEN coercion takes the
+        // handle-byte-count lane behind its ASCII gate, an UNPROVEN one fails
+        // closed when the base is emitted. Keyed on the SHAPE recognizer, not on
+        // `string_coercion_call_arg`, precisely so a denied coercion cannot slip
+        // back into a fallback render.
+        if self.is_intrinsic_string_coercion_call(*id) {
+            return None;
+        }
+
+        // Stage P5 T-new-A (structural, the Task 3 lesson): an INLINE / fold-lane
+        // `crypto.getRandomValues(b).length` has a `Call` receiver invisible to
+        // every name-keyed bail below. Without this it fell through to the
+        // `children.len()` fallbacks and rendered the CALL NODE'S CHILD COUNT as
+        // the length. Bail so the runtime member arm decides (it denies E5506).
+        if self.crypto_get_random_values_result_call(*id).is_some() {
+            return None;
+        }
+
         if let Some(parts) = self.resolve_static_string_split_parts_from_id(*id) {
             return Some(parts.len().to_string());
         }
@@ -814,6 +1206,17 @@ impl<'a> FunctionEmitter<'a> {
             return None;
         }
 
+        // Stage P5 review fix: the INLINE-UNBOUND twin of the `is_bytes_handle`
+        // bail below. `new TextEncoder().encode('hi').length` has a `Call` base,
+        // so it is invisible to the name-keyed bail; without this gate it fell
+        // through to the `children.len()` fallbacks and rendered the node's
+        // CHILD COUNT as the length (`2` for `encode('hi')` — coincidentally
+        // right for ASCII, divergent for any multi-byte string). Bail so the
+        // runtime `.length` member arm fails it closed.
+        if self.is_inline_text_encoder_encode_call(*id) {
+            return None;
+        }
+
         let node = self.node(*id);
         if node.text.is_none() {
             return Some(node.children.len().to_string());
@@ -821,6 +1224,23 @@ impl<'a> FunctionEmitter<'a> {
 
         if node.children.is_empty() {
             if let Some(text) = node.text.as_deref() {
+                // Stage P5: `.length` on a `TextEncoder().encode(...)` byte handle
+                // has no statically-known value and MUST NOT bake a `0`. Bail so
+                // the runtime `.length` member arm handles it — which fails closed
+                // (the byte buffer's `.length` is unsupported; use `.byteLength`).
+                if self.is_bytes_handle(text) {
+                    return None;
+                }
+                // Stage P5 T-new-A: a `crypto.getRandomValues(...)` RESULT
+                // binding owns a local slot and therefore has NO `bindings`
+                // denotation entry — it reached the `Some("0")` fallback below
+                // and baked a compile-time `0` into `console.log(fb.length)`
+                // (node prints the buffer length). Bail for the whole deny
+                // domain (admitted or not): the runtime member arm either reads
+                // the real header or fails closed.
+                if self.crypto_random_result_bindings.contains(text) {
+                    return None;
+                }
                 if let Some(bound) = self.bindings.get(text).copied() {
                     return self.render_length(&bound);
                 }
@@ -927,6 +1347,22 @@ impl<'a> FunctionEmitter<'a> {
     /// this validator expects). Anything else (bound event, `detail`, extra
     /// args, shadowed ctor) falls out of lane.
     pub(crate) fn event_dispatch_literal(&self, node: &LirNode) -> Option<String> {
+        self.event_construction_literal(node, &["CustomEvent"])
+    }
+
+    /// Stage P5 T-new-C: shared body of [`Self::event_dispatch_literal`] and the
+    /// `Event`/`CustomEvent` MARKER recognizer, parameterised by the admitted
+    /// constructor names. Validates the New wrapper
+    /// `Value(None, [Call(None, [Value(<ctor>), Literal("\"tick\"")])])` with
+    /// the constructor name UNSHADOWED in all five codegen namespaces and
+    /// exactly one STRING-literal argument, and returns the delimiter-stripped
+    /// type text. Takes the RAW wrapper node — never an `unwrap_transparent`-
+    /// stripped one, which would strip the wrapper this validator descends.
+    pub(crate) fn event_construction_literal(
+        &self,
+        node: &LirNode,
+        ctor_names: &[&str],
+    ) -> Option<String> {
         if node.text.is_some() || node.children.len() != 1 {
             return None;
         }
@@ -935,15 +1371,11 @@ impl<'a> FunctionEmitter<'a> {
             return None;
         }
         let ctor = self.node(call.children[0]);
-        if ctor.text.as_deref() != Some("CustomEvent") || !ctor.children.is_empty() {
+        if !ctor.children.is_empty() {
             return None;
         }
-        if self.locals.contains_key("CustomEvent")
-            || self.bindings.contains_key("CustomEvent")
-            || self.module_binding_names.contains("CustomEvent")
-            || self.fn_valued_locals.contains_key("CustomEvent")
-            || self.functions.contains_key("CustomEvent")
-        {
+        let ctor_name = ctor.text.as_deref()?;
+        if !ctor_names.contains(&ctor_name) || !self.event_ctor_unshadowed(ctor_name) {
             return None;
         }
         let arg = self.node(call.children[1]);
@@ -951,6 +1383,47 @@ impl<'a> FunctionEmitter<'a> {
             return None;
         }
         quoted_string_literal_content(arg.text.as_deref()?)
+    }
+
+    /// The five-namespace shadow guard shared by every event-constructor
+    /// recognizer (same rule as `scheduling_surface` / `is_event_target_new`):
+    /// any user binding, local, module binding, function-valued local, or
+    /// function of that name shadows the global and the construction takes the
+    /// ordinary user lane.
+    pub(crate) fn event_ctor_unshadowed(&self, name: &str) -> bool {
+        !(self.locals.contains_key(name)
+            || self.bindings.contains_key(name)
+            || self.module_binding_names.contains(name)
+            || self.fn_valued_locals.contains_key(name)
+            || self.functions.contains_key(name))
+    }
+
+    /// Stage P5 T-new-C: `node` is ANY `new Event(...)` / `new CustomEvent(...)`
+    /// New-wrapper with the constructor unshadowed — INCLUDING the shapes the
+    /// marker lane does not admit (a non-literal type argument, zero args, extra
+    /// args). Used as the fail-closed choke in `emit_value`: the admitted
+    /// `const` declarator shape is intercepted and `continue`d before any init
+    /// reaches the generic value path, so anything that DOES reach it is out of
+    /// lane and must deny rather than fall through to the drop-and-push-`0`
+    /// aggregate placeholder (which silently answered `0` for `.type` and every
+    /// other property). Narrow AND deny: the recognizer above narrows, this one
+    /// denies the whole remainder.
+    pub(crate) fn is_unshadowed_event_construction(&self, node: &LirNode) -> bool {
+        if node.text.is_some() || node.children.len() != 1 {
+            return false;
+        }
+        let call = self.node(node.children[0]);
+        if call.kind != LirNodeKind::Call || call.text.is_some() || call.children.is_empty() {
+            return false;
+        }
+        let ctor = self.node(call.children[0]);
+        if !ctor.children.is_empty() {
+            return false;
+        }
+        let Some(ctor_name) = ctor.text.as_deref() else {
+            return false;
+        };
+        EVENT_CTORS.contains(&ctor_name) && self.event_ctor_unshadowed(ctor_name)
     }
 
     /// The delimiter-stripped content of a string-literal argument (unwrapping

@@ -160,31 +160,74 @@ fn assert_browser_requested_template_literal_dynamic_import(
     }
     let output = cli.arg(&source_path).output().expect("run kali");
 
-    // Task A2b fail-closed flip. Every fixture routed through this helper does
-    // `console.log(String(value))`. Pre-A2b `String()` silently lowered to 0, so
-    // these assertions accepted a stdout containing "0" (the fake-green
-    // placeholder, NOT a real coercion) and the package looked deployable.
-    // `String` is now in the terminal deny-set, so kali fails the build closed
-    // (E5506) rather than miscompiling. node: `String(0n)` -> "0" via a real
-    // coercion, but kali has no `String` lowering. In `--output json` mode the
-    // diagnostic is emitted as a JSON error on stdout; otherwise on stderr — so
-    // check the combined stream.
-    let _ = expect_test_runner;
+    // Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin). `String()` is
+    // now a real runtime coercion (String de-denylisted + routed through the
+    // `emit_as_string` ladder), so the pre-A2b behavior is restored HONESTLY:
+    // every fixture routed through this helper does `console.log(String(value))`
+    // (the freeze variant does three such lines) where `value` is the imported
+    // `0n`. `String(0n)` -> "0" on both kali and node (referee: node v26.5.0), so
+    // the browser-harness run/test SUCCEEDS with node-correct stdout. Derive the
+    // expected program stdout FROM the fixture — one `0\n` per `console.log(String(`
+    // site, then `main loaded\n` — so the assertion is exact and a wrong-reason
+    // pass on a stray substring (e.g. a surviving deny that happens to print "0")
+    // is not available. In `--output json` mode the program's own stdout is the
+    // clean `stdout` JSON field (the TAP `ok 1` test summary stays out of it);
+    // for a non-json `test` run the TAP summary trails the program output.
+    let string_log_count = source.matches("console.log(String(").count();
+    let mut expected_stdout = "0\n".repeat(string_log_count);
+    expected_stdout.push_str("main loaded\n");
+
     assert!(
-        !output.status.success(),
-        "expected fail-closed on String(), got success. stdout: {}\nstderr: {}",
+        output.status.success(),
+        "expected success (String() now lowers), got failure. stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    let combined = format!(
-        "{}{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    assert!(
-        combined.contains("E5506") && combined.contains("String"),
-        "expected E5506 for 'String' (json_output={json_output}), got: {combined}"
-    );
+
+    if json_output {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let json: serde_json::Value =
+            serde_json::from_str(&stdout).expect("parse kali json stdout");
+        assert_eq!(json["command"], command, "json: {json}");
+        assert_eq!(json["success"], true, "json: {json}");
+        assert_eq!(
+            json["payload"]["hostContract"], "browser-requested",
+            "json: {json}"
+        );
+        assert_eq!(
+            json["payload"]["runtimeBackend"], "browser-harness",
+            "json: {json}"
+        );
+        if expect_test_runner {
+            assert_eq!(json["payload"]["passed"], 1, "json: {json}");
+            assert_eq!(json["payload"]["failed"], 0, "json: {json}");
+        }
+        assert_eq!(
+            json["stdout"].as_str().expect("json stdout string"),
+            expected_stdout,
+            "json: {json}"
+        );
+    } else {
+        let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+        if expect_test_runner {
+            assert!(
+                stdout.starts_with(&expected_stdout),
+                "expected stdout to start with {expected_stdout:?}, got: {stdout:?} (stderr: {})",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            assert!(
+                stdout.contains("ok 1") && !stdout.contains("not ok"),
+                "expected a passing TAP summary, got: {stdout:?}"
+            );
+        } else {
+            assert_eq!(
+                stdout,
+                expected_stdout,
+                "stderr: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+    }
 }
 
 #[test]

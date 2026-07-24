@@ -4661,25 +4661,27 @@ main();
         .output()
         .expect("run kali");
 
-    // Task A2b fail-closed flip: the source `console.log(String(value))`. Pre-A2b
-    // `String()` silently lowered to 0 (the stdout "0" this used to accept was the
-    // fake-green placeholder), so the browser-harness run succeeded. `String` is
-    // now in the terminal deny-set, so kali fails the build closed (E5506).
-    // node: `String(0n)` -> "0" via a real coercion kali cannot lower.
+    // Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin): the source
+    // `console.log(String(value))` with `value === 0n`. `String()` is now a real
+    // runtime coercion, so the browser-harness run SUCCEEDS with node-correct
+    // stdout `0\n` (referee: node v26.5.0, `String(0n)` -> "0"). Pin the exact
+    // program stdout in the JSON `stdout` field so a wrong-reason pass is not
+    // available.
     assert!(
-        !output.status.success(),
-        "expected fail-closed on String(): stdout: {}\nstderr: {}",
+        output.status.success(),
+        "expected success (String() now lowers): stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    let combined = format!(
-        "{}{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    assert!(
-        combined.contains("E5506") && combined.contains("String"),
-        "expected E5506 for 'String', got: {combined}"
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert_eq!(
+        json["stdout"].as_str().expect("stdout"),
+        "0\n",
+        "json: {json}"
     );
 }
 
@@ -4721,21 +4723,22 @@ main();
         .output()
         .expect("run kali");
 
-    // Task A2b fail-closed flip: the source `console.log(String(value))`. Pre-A2b
-    // `String()` silently lowered to 0 (the stdout "0" this used to accept was the
-    // fake-green placeholder), so the browser-harness run succeeded. `String` is
-    // now in the terminal deny-set, so kali fails the build closed (E5506).
-    // node: `String(0n)` -> "0" via a real coercion kali cannot lower.
+    // Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin): the source
+    // `console.log(String(value))` with `value === 0n`. `String()` is now a real
+    // runtime coercion, so the non-json browser-harness run SUCCEEDS with exactly
+    // the node-correct program stdout `0\n` (referee: node v26.5.0). Exact-match
+    // so a wrong-reason pass is not available.
     assert!(
-        !output.status.success(),
-        "expected fail-closed on String(): stdout: {}\nstderr: {}",
+        output.status.success(),
+        "expected success (String() now lowers): stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr.contains("E5506") && stderr.contains("String"),
-        "expected E5506 for 'String', got stderr: {stderr}"
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "0\n",
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
     );
 }
 
@@ -4782,25 +4785,26 @@ Kali.test('browser runtime smoke', () => {});
         .output()
         .expect("run kali");
 
-    // Task A2b fail-closed flip: the source `console.log(String(value))`. Pre-A2b
-    // `String()` silently lowered to 0 (the stdout "0" this used to accept was the
-    // fake-green placeholder), so the browser-harness run succeeded. `String` is
-    // now in the terminal deny-set, so kali fails the build closed (E5506).
-    // node: `String(0n)` -> "0" via a real coercion kali cannot lower.
+    // Stage P5 Task 5 reconciliation (was Task A2b fail-closed pin): the source
+    // `console.log(String(value))` with `value === 0n`. `String()` is now a real
+    // runtime coercion, so the browser-harness run SUCCEEDS with node-correct
+    // stdout `0\n` (referee: node v26.5.0). Pin the exact program stdout in the
+    // JSON `stdout` field so a wrong-reason pass is not available.
     assert!(
-        !output.status.success(),
-        "expected fail-closed on String(): stdout: {}\nstderr: {}",
+        output.status.success(),
+        "expected success (String() now lowers): stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    let combined = format!(
-        "{}{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    assert!(
-        combined.contains("E5506") && combined.contains("String"),
-        "expected E5506 for 'String', got: {combined}"
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert_eq!(
+        json["stdout"].as_str().expect("stdout"),
+        "0\n",
+        "json: {json}"
     );
 }
 
@@ -9174,6 +9178,21 @@ console.log('ok');
         json["stdout"].as_str().expect("stdout").contains("ok"),
         "json: {json}"
     );
+}
+
+#[test]
+fn run_supports_browser_web_crypto_get_random_values_result_length_in_js_input() {
+    assert_browser_requested_web_crypto_get_random_values_result_length("main.js");
+}
+
+#[test]
+fn run_supports_browser_web_crypto_get_random_values_result_length_in_ts_input() {
+    assert_browser_requested_web_crypto_get_random_values_result_length("main.ts");
+}
+
+#[test]
+fn run_rejects_crypto_random_result_shadowed_by_a_for_of_binding() {
+    assert_crypto_random_result_for_of_shadow_fails_closed("main.js");
 }
 
 #[test]

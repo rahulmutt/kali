@@ -805,25 +805,66 @@ impl<'a> FunctionEmitter<'a> {
                             }
                         }
 
-                        // Stage-review C-4: URL/USP provenance is name-keyed
-                        // and FLAT (no block scoping), so a block-scoped
-                        // redeclaration of a name already carrying URL/USP
-                        // provenance desyncs name→value (`{ const u = {...} }`
-                        // inside a URL `u`'s scope read 0 where node reads the
-                        // object). Deny at the declarator choke — the single
-                        // point every redeclaration must pass.
+                        // Stage P5 T-new-D: the UNIFIED stale-provenance shadow
+                        // guard, choke 1 of 2 (the declarator list). Supersedes
+                        // the per-lane C-4 (URL/USP) and T-new-C (Event marker)
+                        // arms that used to sit further down: every name-keyed
+                        // handle/marker table is flat, so ANY redeclaration of a
+                        // recorded name desyncs name→value and the shadowed read
+                        // is answered from the stale handle. One predicate, both
+                        // chokes — a new lane joins the OR in
+                        // `stale_provenance_shadow_lane` and is closed here and
+                        // at the for-of binding by construction.
+                        //
+                        // Ordered BEFORE the crypto recorder below on purpose:
+                        // the recorder inserts the name being declared into the
+                        // deny domain, so a guard placed after it would deny the
+                        // lane's own first declaration.
                         if let Some(name) = declarator.text.as_deref() {
-                            if self.is_url(name) || self.is_url_search_params(name) {
-                                self.deny_e5506(
-                                    function,
-                                    "redeclaring a name bound to a URL/URLSearchParams in an \
-                                     inner scope is not supported in the current phase \
-                                     (URL/USP provenance is not block-scoped; the shadow \
-                                     would read the wrong value; fail-closed)",
+                            if let Some(lane) = self.stale_provenance_shadow_lane(name) {
+                                let message = format!(
+                                    "redeclaring a name bound to {lane} in an inner scope is \
+                                     not supported in the current phase (this provenance is \
+                                     name-keyed and not block-scoped; the shadow would read \
+                                     the wrong value; fail-closed)"
                                 );
+                                self.deny_e5506(function, &message);
                                 continue;
                             }
                         }
+
+                        // Stage P5 T-new-A: binding provenance for a
+                        // `crypto.getRandomValues(...)` CALL RESULT. Recorded
+                        // here — before EVERY early `continue` below, and before
+                        // any admission test — so the deny domain is complete:
+                        // a result binding that is not provably array-backed (or
+                        // that an earlier arm re-routes, e.g. a captured
+                        // env-cell declarator) must fail its `.length` closed,
+                        // never fall through to the placeholder zero.
+                        if let Some(name) = declarator.text.as_deref() {
+                            let name = name.to_string();
+                            self.record_crypto_random_result_binding(&name, init);
+                        }
+
+                        // Stage P5 T-new-A (review finding I-3): the aggregate
+                        // LAUNDERING close. `const o = { buf: fb }` / `const a =
+                        // [fb]` copy the result handle into a slot whose later
+                        // read has no binding name, so every gate in this lane
+                        // misses it and the read diverges silently (measured
+                        // `1` / `2` where node reads `4`). Denied here, at the
+                        // declarator choke, because the folded literal never
+                        // reaches `emit_object_allocation`'s store gate.
+                        if self.crypto_random_result_in_literal_aggregate(init) {
+                            return self
+                                .deny_e5506(function, Self::CRYPTO_RANDOM_RESULT_STORE_DENY);
+                        }
+
+                        // (Stage-review C-4 for URL/USP and Stage P5 T-new-C
+                        // review C-1 for the Event marker USED to sit here as
+                        // two hand-written arms; both are now folded into the
+                        // unified `stale_provenance_shadow_lane` guard above,
+                        // with their original diagnostic needles preserved.)
+                        //
                         // C-4 mirror order: a URL/USP CONSTRUCTION intercept
                         // below refuses a name that was already declared in
                         // this emitter — the init then takes the generic path,
@@ -1074,6 +1115,226 @@ impl<'a> FunctionEmitter<'a> {
                                          (fail-closed)",
                                     );
                                     continue;
+                                }
+                            }
+                        }
+
+                        // Stage P5 T-new-C event-marker lane:
+                        // `const e = new Event('tick')` /
+                        // `new CustomEvent('tick')` with the constructor
+                        // unshadowed. The event's only observable this phase is
+                        // its `type`, whose text is a compile-time literal, so
+                        // the binding is a MARKER exactly like the stateless
+                        // TextEncoder one below — no runtime value is stored, and
+                        // `<ident>.type` materializes the interned text from
+                        // `event_marker_locals`. Recorded here (and `continue`d)
+                        // so the construction never reaches `emit_value`, whose
+                        // event arm denies the whole out-of-lane remainder.
+                        if is_const {
+                            if let Some(name) = declarator.text.clone() {
+                                if !name_already_declared {
+                                    let init_node = self.node(init).clone();
+                                    // TWO independent positive proofs are
+                                    // required, and they must agree:
+                                    //
+                                    // (1) the LIR shape + the five-namespace
+                                    //     shadow guard, per-emitter
+                                    //     (`event_construction_literal`), and
+                                    // (2) the RECORDED `Repr::Event` verdict for
+                                    //     this exact `(function, binding)` —
+                                    //     `repr_infer`'s own admission, gated by
+                                    //     its PROGRAM-WIDE `Event`/`CustomEvent`
+                                    //     shadow guard.
+                                    //
+                                    // Requiring (2) is not belt-and-braces: the
+                                    // two shadow guards have different scopes, and
+                                    // a shadow of `Event` in a DIFFERENT function
+                                    // silences (2) while (1) still fires here.
+                                    // Recording a marker in that state left the
+                                    // repr-keyed cross-scope denies
+                                    // (`is_captured_event_marker` /
+                                    // `is_module_scope_event_marker`) blind, and a
+                                    // captured `e.type` fell through to a silent
+                                    // `0` (measured). Note this is a POSITIVE
+                                    // verdict, not the unrecorded `Repr::I64`
+                                    // default — `Repr::Event` is only ever set by
+                                    // the seeding pass.
+                                    //
+                                    // The type text must also be ASCII: `.type`
+                                    // materializes a RUNTIME interned handle, and
+                                    // kali's runtime `.length` reads the handle's
+                                    // BYTE count, so `new Event('tíck').type.length`
+                                    // answered 5 where node answers 4 (measured).
+                                    // A string LITERAL takes the static char-count
+                                    // fold instead, so the divergence is specific
+                                    // to this lane; deny the whole non-ASCII
+                                    // marker rather than emit a plausible wrong
+                                    // number.
+                                    let repr_proves_event =
+                                        self.repr_table.scalar(&self.function_name, &name)
+                                            == kali_common::Repr::Event;
+                                    if let Some(event_type) = self
+                                        .event_construction_literal(
+                                            &init_node,
+                                            crate::intrinsics::EVENT_CTORS,
+                                        )
+                                        .filter(|text| text.is_ascii())
+                                        .filter(|_| repr_proves_event)
+                                    {
+                                        // Bind a placeholder that is never
+                                        // observed (every read of the name is
+                                        // denied at the identifier choke), so a
+                                        // provisioned local / promoted env cell
+                                        // is left in a defined state.
+                                        function.instruction(&Instruction::I64Const(0));
+                                        if let Some(index) = self.locals.get(&name).copied() {
+                                            function.instruction(&Instruction::LocalSet(index));
+                                        } else if let Some((depth, offset)) =
+                                            self.resolve_capture_access(&name)
+                                        {
+                                            let env_global = self.current_env_global();
+                                            let scratch2 = self.locals.len() as u32;
+                                            crate::closure::emit_cell_store(
+                                                function, env_global, depth, offset, scratch2,
+                                            );
+                                        } else {
+                                            function.instruction(&Instruction::Drop);
+                                        }
+                                        self.event_marker_locals.insert(name, event_type);
+                                        continue;
+                                    }
+                                }
+                            }
+                        }
+
+                        // Stage P5 TextEncoder/encode lane:
+                        // `const e = new TextEncoder()` (a stateless marker whose
+                        // value is never read — recorded so a later `e.encode(...)`
+                        // is recognized as a bound receiver) and
+                        // `const b = new TextEncoder().encode(x)` /
+                        // `const b = e.encode(x)` (an i64 byte handle bound
+                        // `Repr::Bytes`; the encode arm emits the zero-copy
+                        // reinterpret, whose result the escape choke then denies
+                        // from escaping as an observable value). Mirrors the URL/USP
+                        // construction intercept above (recognize RHS shape → emit →
+                        // store into the promoted local → record the provenance
+                        // name).
+                        if is_const {
+                            if let Some(name) = declarator.text.clone() {
+                                let init_id = self.unwrap_transparent(init);
+                                let init_node = self.node(init_id).clone();
+                                if init_node.kind == LirNodeKind::Call && !name_already_declared {
+                                    let callee_node =
+                                        init_node.children.first().map(|&c| self.node(c).clone());
+                                    // Stage P5 Task 4: the DECODER marker
+                                    // (`const d = new TextDecoder()`) is the exact
+                                    // structural twin of the encoder marker — same
+                                    // stateless placeholder emit, same escape
+                                    // choke, only a different provenance set — so
+                                    // both are recognized here and the shared block
+                                    // below records the one that matched. The
+                                    // 5-namespace shadow guard keeps a user-defined
+                                    // `TextEncoder`/`TextDecoder` (class, function,
+                                    // import, local) on its own lane instead of
+                                    // being hijacked into a marker.
+                                    let ctor = callee_node
+                                        .as_ref()
+                                        .and_then(|c| c.text.as_deref())
+                                        .filter(|text| {
+                                            matches!(*text, "TextEncoder" | "TextDecoder")
+                                        })
+                                        .filter(|text| self.url_ctor_unshadowed(text))
+                                        // Stage P5 review fix (C-1): `TextDecoder`
+                                        // constructor arguments are SEMANTIC (the
+                                        // encoding label / `{fatal}` options) and this
+                                        // lane implements only the default `utf-8`,
+                                        // non-fatal decoder, so any argument must fall
+                                        // through and fail closed instead of silently
+                                        // decoding as UTF-8. A ctor `Call` node has the
+                                        // callee as its ONLY child when there are no
+                                        // arguments. `TextEncoder` is exempt: JS ignores
+                                        // its constructor arguments entirely.
+                                        .filter(|text| {
+                                            if *text == "TextDecoder"
+                                                && init_node.children.len() != 1
+                                            {
+                                                // Deny AT THE CONSTRUCTION: the binding is
+                                                // unsupported, so every downstream use is too.
+                                                // (Merely refusing the marker would leave
+                                                // `d.decode(...)` on the undefined-callee lane,
+                                                // which pushes a silent `0`.)
+                                                self.diagnostics.push(Diagnostic::error(
+                                                    e5::FEATURE_UNAVAILABLE as u32,
+                                                    "only the default 'new TextDecoder()' (utf-8, non-fatal) is \
+                                                     available in the current phase; constructor arguments \
+                                                     (encoding label, options) are not supported (fail-closed)"
+                                                        .to_string(),
+                                                ));
+                                                return false;
+                                            }
+                                            true
+                                        })
+                                        .map(str::to_string);
+                                    let is_encode = callee_node
+                                        .as_ref()
+                                        .is_some_and(|c| self.is_text_encoder_encode(c));
+                                    if let Some(ctor) = ctor {
+                                        // Stateless marker: emit a placeholder that
+                                        // is never observed, bind it (plain local /
+                                        // promoted env cell / drop), record the name.
+                                        function.instruction(&Instruction::I64Const(0));
+                                        if let Some(index) = self.locals.get(&name).copied() {
+                                            function.instruction(&Instruction::LocalSet(index));
+                                        } else if let Some((depth, offset)) =
+                                            self.resolve_capture_access(&name)
+                                        {
+                                            let env_global = self.current_env_global();
+                                            let scratch2 = self.locals.len() as u32;
+                                            crate::closure::emit_cell_store(
+                                                function, env_global, depth, offset, scratch2,
+                                            );
+                                        } else {
+                                            function.instruction(&Instruction::Drop);
+                                        }
+                                        if ctor == "TextDecoder" {
+                                            self.text_decoder_locals.insert(name);
+                                        } else {
+                                            self.text_encoder_locals.insert(name);
+                                        }
+                                        continue;
+                                    }
+                                    if is_encode {
+                                        // Emit the encode reinterpret (the encode arm
+                                        // in `emit/call.rs` fails closed on a
+                                        // non-string arg), bind the byte handle,
+                                        // record `bytes_locals`.
+                                        // C-4: this declarator IS the allowlisted
+                                        // producer position for the raw byte
+                                        // handle — the encode arm now denies
+                                        // producing one anywhere else.
+                                        let saved_produce = self.admit_bytes_handle_produce;
+                                        self.admit_bytes_handle_produce = true;
+                                        let produced = self.emit_node(function, init, true);
+                                        self.admit_bytes_handle_produce = saved_produce;
+                                        if !produced.produced {
+                                            function.instruction(&Instruction::I64Const(0));
+                                        }
+                                        if let Some(index) = self.locals.get(&name).copied() {
+                                            function.instruction(&Instruction::LocalSet(index));
+                                        } else if let Some((depth, offset)) =
+                                            self.resolve_capture_access(&name)
+                                        {
+                                            let env_global = self.current_env_global();
+                                            let scratch2 = self.locals.len() as u32;
+                                            crate::closure::emit_cell_store(
+                                                function, env_global, depth, offset, scratch2,
+                                            );
+                                        } else {
+                                            function.instruction(&Instruction::Drop);
+                                        }
+                                        self.bytes_locals.insert(name);
+                                        continue;
+                                    }
                                 }
                             }
                         }
@@ -1504,6 +1765,28 @@ impl<'a> FunctionEmitter<'a> {
                     self.emit_break_or_continue(function, true, &node)
                 }
                 Some("for-of") | Some("for-await-of") => {
+                    // Stage P5 T-new-D: the UNIFIED stale-provenance shadow
+                    // guard, choke 2 of 2. A for-of LOOP BINDING never passes
+                    // through the declarator choke, so every name-keyed
+                    // provenance lane was hijackable here (measured, exit 0:
+                    // `for (const u of ['aa']) u.pathname` -> the outer URL's
+                    // `/p`; `for (const c of ['aa']) c.abort()` fired a REAL
+                    // side effect through the shadow; the codec markers let
+                    // kali RUN a program node rejects). Keyed on the binding
+                    // NAME (never on the iterable), so it holds for literal and
+                    // bound arrays, string iteration, `for await`, nested and
+                    // labelled loops, and `let` bindings alike.
+                    if let Some(binding) = self.for_of_binding_name(&node) {
+                        if let Some(lane) = self.stale_provenance_shadow_lane(&binding) {
+                            let message = format!(
+                                "a for-of loop binding may not shadow a name bound to {lane} \
+                                 in the current phase (this provenance is name-keyed and not \
+                                 block-scoped; the shadowed read would use the wrong value; \
+                                 fail-closed)"
+                            );
+                            return self.deny_e5506(function, &message);
+                        }
+                    }
                     self.emit_for_of_array_iteration(function, &node)
                 }
                 Some("return") => self.emit_return(function, &node),
@@ -1592,6 +1875,30 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::Unknown,
                 };
             }
+            // Stage P5 T-new-C: a `new Event(...)` / `new CustomEvent(...)`
+            // reaching the generic value path is OUTSIDE the admitted marker lane
+            // — an unbound construction, a `let`/`var` binding, a non-literal type
+            // argument, or extra/zero args (the `const` + string-literal shape is
+            // intercepted and `continue`d by the declarator lane before any init
+            // reaches here). The drop-and-push-`0` aggregate placeholder below
+            // would silently discard the constructor and answer `0` for `.type`
+            // and every other property, so fail closed instead. Shadow-guarded, so
+            // a user-defined `Event` keeps its own lane. Placed before the
+            // dispatch-argument passthroughs; note an INLINE
+            // `t.dispatchEvent(new CustomEvent('x'))` never reaches `emit_value`
+            // (the dispatch arm consumes the argument node structurally).
+            if self.is_unshadowed_event_construction(node) {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "an Event/CustomEvent is supported only as `const e = new Event(<string literal>)` in \
+                     the current phase, and only its `.type` may be read (fail-closed)"
+                        .to_string(),
+                ));
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            }
             // `new TextEncoder().encode(<string>)` (throw-fallout Stage 3 bucket #6
             // part 2): the parser hoists the `new` to wrap the whole member-call
             // chain, so this arrives as a text-less 1-child wrapper (the `new`)
@@ -1611,7 +1918,20 @@ impl<'a> FunctionEmitter<'a> {
                 if child_node.kind == LirNodeKind::Call {
                     if let Some(callee) = child_node.children.first().copied() {
                         let callee_node = self.node(callee).clone();
-                        if self.is_text_encoder_encode(&callee_node) {
+                        // Stage P5 Task 4: the same hoisted-`new` wrapper arrives
+                        // for an inline `new TextDecoder().decode(b)`. Without
+                        // this arm the text-less aggregate fallback below DROPS
+                        // the decode and pushes `0` — a silent wrong value.
+                        // Passing through routes it to the decode arm, which
+                        // either relabels a proven byte handle or fails closed.
+                        if self.is_text_encoder_encode(&callee_node)
+                            || self.is_text_decoder_decode(&callee_node)
+                            // Review fix (C-1): the NON-admitted decoder shapes
+                            // (`new TextDecoder('latin1').decode(b)`) must also pass
+                            // through, so the call arm can fail them CLOSED. Without
+                            // this they land in the aggregate fallback and push `0`.
+                            || self.is_text_decoder_decode_shape(&callee_node)
+                        {
                             return self.emit_node(function, child, want_value);
                         }
                     }
@@ -1748,6 +2068,63 @@ impl<'a> FunctionEmitter<'a> {
                             "a URL/URLSearchParams handle cannot be read in this position: kali \
                              admits it only as a recognized method/component receiver \
                              (fail-closed)",
+                        );
+                    }
+                    // Stage P5 byte-array escape choke: a bare read of a
+                    // TextEncoder().encode byte handle (or a stateless encoder /
+                    // DECODER marker — Task 4) is E5506 unless an allowlisted
+                    // consumer set
+                    // `admit_bytes_handle_read` (crypto.subtle.digest operand,
+                    // later TextDecoder().decode receiver-arg, `.byteLength`). The
+                    // raw i64 handle must never escape as an observable value
+                    // (`console.log(b)` — JS prints `104,105` not `hi` —,
+                    // `return b`, `'' + b`, `b.length`, store). Allowlist the safe
+                    // position at the single read site, don't denylist sinks — the
+                    // deny is total by construction because every admitted consumer
+                    // sets the flag.
+                    if (self.is_bytes_handle(text)
+                        || self.is_text_encoder_marker(text)
+                        || self.is_text_decoder_marker(text))
+                        && !self.admit_bytes_handle_read
+                    {
+                        return self.deny_e5506(
+                            function,
+                            "a TextEncoder byte buffer cannot be read in this position: kali \
+                             admits it only as a TextDecoder().decode or crypto.subtle.digest \
+                             operand (fail-closed)",
+                        );
+                    }
+                    // Stage P5 T-new-C event-marker escape choke: a bare read of
+                    // an Event/CustomEvent marker is ALWAYS E5506 — there is no
+                    // admitted consumer that reads the name, because the single
+                    // supported observable (`.type`) materializes its interned
+                    // text from the compile-time side-table WITHOUT emitting the
+                    // receiver. So the deny needs no admit flag and is total by
+                    // construction: `console.log(e)` (node prints
+                    // `Event { type: 'tick', … }`), `f(e)`, `return e`, `'' + e`,
+                    // a field/element store — all denied, where each previously
+                    // yielded a silent `0`.
+                    if self.is_event_marker(text) {
+                        return self.deny_e5506(
+                            function,
+                            "an Event/CustomEvent cannot be read as a value in the current phase: kali \
+                             admits only its `.type` property (fail-closed)",
+                        );
+                    }
+                    // The module-scope and CAPTURED twins of the choke above: a
+                    // marker owned by `_start` (read from a function) or by an
+                    // enclosing function (read through the closure env plan). The
+                    // marker's type text lives in the DECLARING emitter's
+                    // side-table only, so an inner emitter cannot reproduce it —
+                    // deny instead of falling through to the module-binding /
+                    // zero-placeholder lanes.
+                    if self.is_module_scope_event_marker(text)
+                        || self.is_captured_event_marker(text)
+                    {
+                        return self.deny_e5506(
+                            function,
+                            "an Event/CustomEvent declared in an enclosing scope cannot be read inside a \
+                             function/closure in the current phase (fail-closed)",
                         );
                     }
                     // Read-position twin of the module-scope abort gate: a bare
@@ -1937,6 +2314,65 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             1 => {
+                // Stage P5 T-new-A — ALLOWLIST AT THE CHOKE for a
+                // `crypto.getRandomValues(...)` CALL RESULT receiver. The call
+                // returns the ARGUMENT's handle unchanged (JS identity, which
+                // the emit arm preserves), but the RESULT binding carried no
+                // array provenance, so every member read off it missed each
+                // named lane below and fell through to a placeholder: measured
+                // `fb.length` / `fb.byteLength` → `0` where node reads `8`
+                // (silently, `"warnings":[]`), and `fb[0]` → `0` where node
+                // reads the element. This single gate is the ONE place that
+                // classification is consumed:
+                //  - ADMITTED (`Some(true)`, a positively-proven result binding
+                //    holding an array handle in its own local): `.length` /
+                //    `.byteLength` load the i64 length header at `+0` of that
+                //    handle — the SAME lane, and the same value, the receiver
+                //    binding's own `.length` reads (`Uint8Array` is an
+                //    i64-element linear-memory array, so element count ==
+                //    byteLength; see `is_array_like_constructor`);
+                //  - every other property, and every element read, of an
+                //    admitted result: E5506 (this phase proves the length
+                //    header, nothing else about the aliased binding's repr);
+                //  - NOT admitted (`Some(false)`): E5506 — widening the
+                //    recognizer alone would leave this remainder on the silent
+                //    zero, so it is denied explicitly.
+                //
+                // Gated on a NON-EMPTY `text`: a one-child `Value` with no text
+                // is a transparent wrapper around its child, not a member read,
+                // and must keep its existing routing (the bare handle read that
+                // `fb === rb` depends on flows through such wrappers).
+                let property = node.text.as_deref().unwrap_or_default();
+                if let Some(admitted) = (!property.is_empty())
+                    .then(|| self.crypto_random_result_receiver(node, node.children[0]))
+                    .flatten()
+                {
+                    if admitted && matches!(property, "length" | "byteLength") {
+                        self.emit_array_base_address(function, node.children[0]);
+                        function.instruction(&Instruction::I64Load(MemArg {
+                            offset: 0,
+                            align: 3,
+                            memory_index: 0,
+                        }));
+                        return EmittedValue {
+                            produced: true,
+                            shape: ValueShape::Scalar,
+                        };
+                    }
+                    return self.deny_e5506(
+                        function,
+                        // M-2: the old wording said "bound to a mutable local",
+                        // which was wrong twice — the admitted canonical form is
+                        // a `const`, and the same message is emitted for the
+                        // INLINE-UNBOUND receiver, which is bound to nothing.
+                        "reading this member of a crypto.getRandomValues(...) result is not \
+                         supported in the current phase; only `.length` / `.byteLength` are \
+                         available, and only on a result held in its own local slot whose call \
+                         argument is a proven typed-array binding (an inline, unbound call \
+                         result does not qualify) (fail-closed)",
+                    );
+                }
+
                 if let Some(result) = self.resolve_static_index_member(node) {
                     return self.emit_static_index_member_result(function, result);
                 }
@@ -1953,6 +2389,58 @@ impl<'a> FunctionEmitter<'a> {
                 // handle used for element reads, for both i64 and f64 arrays.
                 if node.text.as_deref() == Some("length") {
                     let base_id = node.children[0];
+                    // Stage P5: `.length` on a `TextEncoder().encode(...)` byte
+                    // handle (`Repr::Bytes`) fails closed. Unlike `.byteLength`
+                    // (an admitted consumer that reads the low-32 byte count),
+                    // `.length` on the byte buffer is its JS-observable element
+                    // count, which the string byte-count decode does NOT soundly
+                    // compute for non-ASCII input — and the raw handle must never
+                    // fall through to the generic fold that silently yields 0.
+                    // Must precede every lane below so nothing else claims it.
+                    if let Some(base_name) = self.assignment_target_name(node, base_id) {
+                        if self.is_bytes_handle(&base_name) {
+                            return self.deny_e5506(
+                                function,
+                                "`.length` on a TextEncoder().encode(...) byte buffer is not \
+                                 supported in the current phase; use `.byteLength` (fail-closed)",
+                            );
+                        }
+                    }
+                    // Stage P5 review fix: the INLINE-UNBOUND twin of the deny
+                    // above — `new TextEncoder().encode('hi').length` with no
+                    // intervening `const`. The base has no name
+                    // (`assignment_target_name` returns `None` for a `Call`
+                    // node), so absent this gate the read falls through to the
+                    // generic lanes below and yields a silent, wrong value
+                    // instead of E5506. Recognized structurally on the base
+                    // node itself via `is_inline_text_encoder_encode_call`
+                    // (mirrors `is_text_encoder_encode`, one level up) — no new
+                    // inference, same recognizer already used to admit the call.
+                    if self.is_inline_text_encoder_encode_call(base_id) {
+                        return self.deny_e5506(
+                            function,
+                            "`.length` on a TextEncoder().encode(...) byte buffer is not \
+                             supported in the current phase; use `.byteLength` (fail-closed)",
+                        );
+                    }
+                    // Stage P5 Task 4 (structural twin of the bail above): the
+                    // INLINE `d.decode(b).length` base is a `Call`, so it is
+                    // invisible to every name-keyed lane. Its value IS a runtime
+                    // string handle whose low 32 bits are a BYTE count — equal to
+                    // the JS character count only for ASCII, and the decode lane
+                    // deliberately admits non-ASCII payloads (the roundtrip pin).
+                    // No ASCII proof exists for the decoded bytes, so fail closed
+                    // rather than emit a byte count where node reports characters.
+                    // `render_length` has the matching static-fold bail.
+                    if self.is_text_decoder_decode_call(base_id) {
+                        return self.deny_e5506(
+                            function,
+                            "`.length` on a TextDecoder().decode(...) result is not supported in \
+                             the current phase (no ASCII proof for the decoded bytes, so the \
+                             handle byte count may diverge from the JS character count; \
+                             fail-closed)",
+                        );
+                    }
                     // Stage-review I-6: `.length` on a `q.get(k)` /
                     // `q.toString()` result fails closed. The result is a
                     // runtime string handle (or the 0 null-sentinel) with no
@@ -1969,6 +2457,50 @@ impl<'a> FunctionEmitter<'a> {
                              supported in the current phase (no static or ASCII-provable \
                              runtime length for it; fail-closed)",
                         );
+                    }
+                    // Stage P5 T-new-B: `String(<coercible>).length`. The
+                    // runtime arm below reads the handle's low-32 BYTE count,
+                    // which equals the JS character count only for ASCII, and
+                    // the types-side ASCII gate (`reject_unprovable_string_length`)
+                    // cannot see this receiver at all — its mirrors have no
+                    // `String()` call arm, so it never fires here. A STRUCTURAL
+                    // bail (the Task 3 lesson: a `Call` base is invisible to
+                    // every name-keyed lane) keeps the widened oracle from
+                    // turning a `Call` receiver into a divergent byte count.
+                    //
+                    // What the negative branch actually guarantees (stage-review
+                    // I-1 correction — it used to advertise a closure it did not
+                    // deliver): `string_coercion_call_arg` returns `Some` ONLY
+                    // for an argument `string_coercion_arg_is_proven` accepts,
+                    // i.e. a proven string or a PROVEN SCALAR. So
+                    // `!is_string_valued(coerced)` here means "proven scalar",
+                    // whose rendering (digits / `true` / `false` / `NaN` /
+                    // `1.5`) is ASCII BY CONSTRUCTION. Before the C-1 positive
+                    // proof landed, `!is_string_valued` merely meant "unproven"
+                    // — including a real string — and `String(o.s).length`
+                    // reported 20 (a raw handle through `int_to_string`) where
+                    // node says 5. A proven-STRING argument is admitted only
+                    // when it additionally resolves to a static ASCII string; a
+                    // runtime string argument (`String(t).length` for a
+                    // non-ASCII `t` — 6 where node says 5) and a non-ASCII
+                    // static string both fail closed.
+                    if let Some(coerced) = self.string_coercion_call_arg(base_id) {
+                        let ascii_by_construction = !self.is_string_valued(coerced)
+                            || matches!(
+                                self.resolve_static_object_identity_value(coerced),
+                                Some(StaticObjectIdentityValue::String(ref value))
+                                    if value.is_ascii()
+                            );
+                        if !ascii_by_construction {
+                            return self.deny_e5506(
+                                function,
+                                "'.length' on a String(...) coercion result is unavailable \
+                                 unless the coerced value is a scalar or an ASCII-provable \
+                                 static string in the current phase: a non-ASCII string \
+                                 would report a byte count, not a JS character count \
+                                 (fail-closed)",
+                            );
+                        }
                     }
                     // Runtime string length: low 32 bits of the tagged handle
                     // (byte count == JS code-unit count for ASCII-provable
@@ -2069,6 +2601,34 @@ impl<'a> FunctionEmitter<'a> {
                             shape: ValueShape::Scalar,
                         };
                     }
+                    // Stage P5: `.byteLength` on a `TextEncoder().encode(...)` byte
+                    // handle (`Repr::Bytes`). The zero-copy passthrough keeps the
+                    // tagged string-handle layout, so the low 32 bits ARE the byte
+                    // count — read it exactly as the string arm above does.
+                    // `.byteLength` is an ALLOWLISTED consumer of the byte handle,
+                    // so admit the base read across the choke (mirrors the digest
+                    // operand). `.length`, by contrast, has NO admit arm and so
+                    // fails closed at the identifier choke — the byte buffer's
+                    // JS-observable `.length` is the element count, which the
+                    // string byte-count decode does not soundly compute for
+                    // non-ASCII input.
+                    if let Some(base_name) = self.assignment_target_name(node, base_id) {
+                        if self.is_bytes_handle(&base_name) {
+                            let saved = self.admit_bytes_handle_read;
+                            self.admit_bytes_handle_read = true;
+                            let base = self.emit_node(function, base_id, true);
+                            self.admit_bytes_handle_read = saved;
+                            if !base.produced {
+                                function.instruction(&Instruction::I64Const(0));
+                            }
+                            function.instruction(&Instruction::I64Const(0xFFFF_FFFF));
+                            function.instruction(&Instruction::I64And);
+                            return EmittedValue {
+                                produced: true,
+                                shape: ValueShape::Scalar,
+                            };
+                        }
+                    }
                     if let Some(base_name) = self.assignment_target_name(node, base_id) {
                         if self.array_bindings.contains(&base_name) {
                             self.emit_array_base_address(function, base_id);
@@ -2082,6 +2642,26 @@ impl<'a> FunctionEmitter<'a> {
                                 shape: ValueShape::Scalar,
                             };
                         }
+                    }
+                    // Stage P5 review fix: unlike `.length` above, `.byteLength`
+                    // on a BOUND byte handle is an ALLOWLISTED admit (reads the
+                    // low-32 byte count across the choke). But an
+                    // INLINE-UNBOUND receiver — `new TextEncoder().encode('hi')
+                    // .byteLength` — has no name for `assignment_target_name`
+                    // to key on, so it fell through every lane above (including
+                    // the admit arm) to the generic fallback and yielded a
+                    // silent value instead of E5506. Kali does not admit this
+                    // shape this phase (no receiver-name to gate an env-cell
+                    // read/write against), so deny fail-closed rather than
+                    // silently reinterpret. Recognized structurally on the base
+                    // node itself, same recognizer as the `.length` gate above.
+                    if self.is_inline_text_encoder_encode_call(base_id) {
+                        return self.deny_e5506(
+                            function,
+                            "`.byteLength` on an inline, unbound TextEncoder().encode(...) byte \
+                             buffer is not supported in the current phase; bind it first \
+                             (`const b = ...encode(...); b.byteLength`) (fail-closed)",
+                        );
                     }
                 }
 
@@ -2206,6 +2786,51 @@ impl<'a> FunctionEmitter<'a> {
                     };
                 }
 
+                // Stage P5 T-new-C: `<event-marker>.type`. The type text is a
+                // compile-time literal recorded by the declarator intercept, so
+                // this materializes its INTERNED string handle directly and never
+                // emits the receiver — which is why the identifier choke can deny
+                // every read of the marker name unconditionally. The result is a
+                // `ValueShape::String` interned handle, identical to the one the
+                // same literal interns to, so `===`/`!==` take the `__streq`
+                // content-equality lane and `+`/console.log take the string lanes
+                // (`is_string_valued` carries the mirroring oracle arm).
+                //
+                // The cross-scope twins deny FIRST: a member read whose receiver
+                // is a marker owned by `_start` or by an enclosing function is
+                // not in this emitter's side-table, so without the gate it would
+                // fall through to the generic member fallback and yield `0`.
+                if let Some(base_name) = self.bare_member_receiver_name(node) {
+                    if self.is_module_scope_event_marker(&base_name)
+                        || self.is_captured_event_marker(&base_name)
+                    {
+                        return self.deny_e5506(
+                            function,
+                            "an Event/CustomEvent declared in an enclosing scope cannot be read inside a \
+                             function/closure in the current phase; its `.type` fails closed \
+                             (fail-closed)",
+                        );
+                    }
+                    // Any property OTHER than `.type` on a proven marker is NOT
+                    // recognized here and falls through to the generic member
+                    // fallback, whose receiver emit hits the identifier choke and
+                    // denies (default-deny — `e.bubbles` must not answer `0`
+                    // where node answers `false`).
+                    if node.text.as_deref() == Some("type") {
+                        if let Some(event_type) = self.event_marker_type(&base_name) {
+                            let event_type = event_type.to_string();
+                            let (offset, len) = self.strings.intern(&event_type);
+                            function.instruction(&Instruction::I64Const(
+                                crate::encode_string_handle(offset, len),
+                            ));
+                            return EmittedValue {
+                                produced: true,
+                                shape: ValueShape::String,
+                            };
+                        }
+                    }
+                }
+
                 if node.text.as_deref().unwrap_or_default().is_empty() {
                     self.emit_node(function, node.children[0], want_value)
                 } else {
@@ -2220,6 +2845,24 @@ impl<'a> FunctionEmitter<'a> {
                 // two shapes.
                 if is_binary_operator_text(node.text.as_deref().unwrap_or_default()) {
                     return self.emit_binary(function, id, node);
+                }
+
+                // Stage P5 T-new-A: the 2-child (computed `fb[<expr>]`) twin of
+                // the 1-child allowlist gate above. No element read of a
+                // `crypto.getRandomValues(...)` result is admitted this phase —
+                // only its `.length` / `.byteLength` — so deny rather than let
+                // the computed read fall through to the placeholder zero it
+                // returned before (`fb[0]` → `0` where node reads the element).
+                if self
+                    .crypto_random_result_receiver(node, node.children[0])
+                    .is_some()
+                {
+                    return self.deny_e5506(
+                        function,
+                        "reading an element of a crypto.getRandomValues(...) result is not \
+                         supported in the current phase; read it off the buffer binding passed \
+                         to the call instead (fail-closed)",
+                    );
                 }
 
                 // Stage-review I-7: an element read of a `q.getAll(k)` result

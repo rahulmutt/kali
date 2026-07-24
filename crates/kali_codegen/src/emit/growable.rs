@@ -501,7 +501,11 @@ impl<'a> FunctionEmitter<'a> {
             memory_index: 0,
         }));
         function.instruction(&Instruction::I32WrapI64);
-        let index_value = self.emit_node(function, index, true);
+        // Stage P5 T-new-E: a `String()`-result index on a growable array is a
+        // numeric-consumption sink (the handle bits would be `i32.wrap_i64`'d
+        // into an offset); route through the numeric-materialization choke so it
+        // fails closed instead of reading a garbage element.
+        let index_value = self.emit_numeric_operand(function, index);
         if !index_value.produced {
             function.instruction(&Instruction::I64Const(0));
         }
@@ -626,6 +630,13 @@ impl<'a> FunctionEmitter<'a> {
                 produced: false,
                 shape: ValueShape::Unknown,
             };
+        }
+        // Stage P5 T-new-A (review finding I-3): `g.push(fb)` is the growable
+        // twin of the aggregate store — the handle lands in a slot whose later
+        // read has no binding name (`g[0].length` printed the growable's
+        // length, `2`, where node reads `4`). Same lane, same close.
+        if self.is_crypto_random_result_value(args[0]) {
+            return self.deny_e5506(function, Self::CRYPTO_RANDOM_RESULT_STORE_DENY);
         }
         match receiver {
             GrowablePushReceiver::Named(base_name) => {
