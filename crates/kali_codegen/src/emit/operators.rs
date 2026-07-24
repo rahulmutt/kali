@@ -1416,21 +1416,47 @@ impl<'a> FunctionEmitter<'a> {
                 .is_some_and(|digits| digits.parse::<i64>().is_ok())
     }
 
-    /// R-11 T2 review Critical 1 / Important 4: POSITIVE proof that `id` (after
-    /// unwrapping transparent wrappers and resolving const bindings) evaluates
-    /// to a genuine `Repr::I64` integer — never a denylist. Consulted by the
-    /// bitwise compound-assign arm (`literal.rs`) to admit its RHS.
+    /// R-11 T2 review Critical 1 (round 2) / Important 4: proof that `id`
+    /// (after unwrapping transparent wrappers and resolving const bindings)
+    /// evaluates to a genuine `Repr::I64` integer — never a denylist.
+    /// Consulted by the bitwise compound-assign arm (`literal.rs`) to admit
+    /// its RHS.
     ///
-    /// Admitted, narrowly:
-    /// - a plain integer literal (`parse_number_literal` succeeds — rejects
-    ///   both float literal text and a BigInt `n`-suffixed literal, since
-    ///   neither is a wrapped-i32-safe integer here),
+    /// **What is actually proven, stated plainly** (round 1 of this fix
+    /// claimed a "positive proof" that was really `ReprTable::scalar`'s
+    /// `#[default]` value in disguise — `Repr::I64` is the default every
+    /// unrecorded binding reads back as, and NOTHING in this codebase ever
+    /// calls `set_scalar(.., Repr::I64)`, so `scalar_repr(name) == I64` can
+    /// never be told apart from "repr_infer recorded nothing about this
+    /// binding at all"; confirmed by inspection of every `set_scalar` call
+    /// site and by measurement — see the identifier branch below):
+    /// - a plain integer literal is genuine positive evidence — its own text
+    ///   IS the proof, not a default (`parse_number_literal` succeeds AND the
+    ///   text does not end in `n`; a BigInt-suffixed literal is explicitly
+    ///   rejected, not silently treated as its digits — BigInt lowering
+    ///   through this operator stays deferred, matching the plain bitwise
+    ///   operators' existing gap),
     /// - a bare identifier that is a LOCAL/PARAM of the CURRENT function
-    ///   (`self.locals.contains_key`, not `scalar_repr` alone — a module
-    ///   global or captured cell falls outside `self.locals` for this
-    ///   function's emitter, and trusting `scalar_repr`'s cross-function
-    ///   default there would re-open exactly the kind of leak this fixes)
-    ///   whose `scalar_repr` is EXACTLY `Repr::I64`,
+    ///   (`self.locals.contains_key`) is admitted ONLY when
+    ///   `ReprTable::scalar_entry` (an `Option`-returning accessor, added for
+    ///   this fix, that does NOT apply the default) returns an EXPLICIT
+    ///   `Some(Repr::I64)` — i.e. some OTHER positive-evidence write
+    ///   (`set_scalar` is called with `I64`... never, in fact; in practice
+    ///   this means the identifier branch is honest about proving nothing it
+    ///   cannot back up, and today NO currently-modeled write path leaves an
+    ///   explicit `I64` entry, so this branch is a hard `false` for every
+    ///   identifier until `repr_infer` gains one. It is NOT dead by mistake:
+    ///   requiring the default would have re-admitted the exact leak this
+    ///   fixes — `let s = o.a; n &= s;`, where `s` reads a STRING object
+    ///   field but `repr_infer` does not yet propagate `Repr::String` onto a
+    ///   binding through this provenance chain (the pre-existing R-06-R4
+    ///   "string-field-sink-corruption" residual) and so gets NO entry at
+    ///   all, positive or negative — `scalar_repr` and `scalar_entry` agree
+    ///   `s` "looks like I64" only because neither can tell "no evidence"
+    ///   from "proven I64". Costs nothing on the currently-supported
+    ///   surface: no Task-2 test exercises an identifier RHS (every passing
+    ///   test's RHS is a literal) — verified by the full regression run in
+    ///   the fix report,
     /// - a unary `-` over either of the above.
     ///
     /// Everything else — a string literal, a template literal, `+` concat, a
@@ -1439,6 +1465,18 @@ impl<'a> FunctionEmitter<'a> {
     /// here only costs an unimplemented RHS shape; a false positive would
     /// re-open the string-handle-truncation miscompile (`n |= "5"` → `1`,
     /// node `5`) this predicate exists to close.
+    ///
+    /// **Residual NOT closed by this predicate** (out of its scope — it only
+    /// covers the RHS): the TARGET's own repr check in `literal.rs`
+    /// (`self.scalar_repr(&name) != Repr::I64`) has the IDENTICAL "default is
+    /// not a proof" defect, and switching IT to `scalar_entry` the same way
+    /// was measured to deny every currently-passing Task-2 happy-path test —
+    /// `Repr::I64` is never explicitly recorded for ANY binding anywhere in
+    /// this codebase, so an explicit-entry requirement on the target denies
+    /// 100% of admissions, not just the leak. `let o={a:"3"}; let n=o.a; n |=
+    /// 1;` therefore still prints `1` (node: `3`) at exit 0 — reported to the
+    /// task coordinator as a residual for the Task 6 audit, not silently
+    /// left uncovered by a passing test that encodes the wrong value.
     pub(crate) fn bitwise_compound_rhs_is_provably_i64(&self, id: LirNodeId) -> bool {
         let id = self.unwrap_transparent(id);
         let id = self.resolve_bound_node(id);
@@ -1450,15 +1488,48 @@ impl<'a> FunctionEmitter<'a> {
             return self.bitwise_compound_rhs_is_provably_i64(node.children[0]);
         }
         if node.kind == LirNodeKind::Literal {
+            // Review round 2, false-doc-claim fix: `parse_number_literal`
+            // STRIPS a trailing `n` and parses the remainder — it does NOT
+            // reject a BigInt literal (measured: `n &= 3n` used to admit and
+            // print `2` at exit 0 where node throws `TypeError: Cannot mix
+            // BigInt`). BigInt lowering stays deferred (a separate, tracked
+            // gap — the plain bitwise operators have the exact same hole);
+            // this predicate must fail closed for it rather than silently
+            // treating the digits as a plain i64. Reject the `n` suffix
+            // explicitly before trusting the parse.
             return node
                 .text
                 .as_deref()
-                .is_some_and(|text| parse_number_literal(text).is_some());
+                .is_some_and(|text| !text.ends_with('n') && parse_number_literal(text).is_some());
         }
         if node.kind == LirNodeKind::Value && node.children.is_empty() {
             if let Some(name) = node.text.as_deref() {
+                // Review round 2, Critical 1 (still open on this axis):
+                // `scalar_repr`/`ReprTable::scalar` return `Repr::I64` for
+                // BOTH a binding with genuine positive I64 evidence AND one
+                // `repr_infer` never recorded anything about — I64 is the
+                // table's `#[default]`, and NOTHING in this codebase ever
+                // calls `set_scalar(.., Repr::I64)` (confirmed by inspection:
+                // every `set_scalar` call site passes String/F64/Object/
+                // AbortHandle/Url/UrlSearchParams/Bytes/Event, never I64), so
+                // `scalar_repr(name) == I64` can never be distinguished from
+                // "unproven" through that accessor. Use `scalar_entry`
+                // instead (Option-returning, added for this fix) and require
+                // an EXPLICIT record — closes the leak this review measured
+                // (`let s = o.a; n &= s;` — `s` reads a STRING object field
+                // but `repr_infer` does not yet propagate `Repr::String` onto
+                // a binding through this provenance chain, the pre-existing
+                // R-06-R4 "string-field-sink-corruption" residual — `s` gets
+                // NO entry at all, positive or negative, so it now correctly
+                // fails closed instead of defaulting to "looks like I64").
+                // Costs nothing on the currently-supported surface: no
+                // Task-2 test exercises an identifier RHS at all (every
+                // passing test's RHS is a literal), so this tightening does
+                // not narrow any admitted case — verified by the full
+                // regression run in the fix report.
                 return self.locals.contains_key(name)
-                    && self.scalar_repr(name) == kali_common::Repr::I64;
+                    && self.repr_table.scalar_entry(&self.function_name, name)
+                        == Some(kali_common::Repr::I64);
             }
         }
         false

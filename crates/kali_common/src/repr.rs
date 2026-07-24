@@ -268,6 +268,20 @@ impl ReprTable {
             .unwrap_or_default()
     }
 
+    /// R-11 T2 review Critical 1 round 2: `scalar` above answers "what repr
+    /// should codegen use," which is `Repr::I64` (`#[default]`) for BOTH a
+    /// binding with genuine positive I64 evidence AND one `repr_infer` never
+    /// recorded anything about at all — the two are indistinguishable through
+    /// `scalar` alone. This accessor answers the narrower, honest question:
+    /// does the table hold an EXPLICIT entry for `(func, binding)`, or is
+    /// there none? Does not change `scalar`'s default or any existing
+    /// caller's behavior — purely additive.
+    pub fn scalar_entry(&self, func: &str, binding: &str) -> Option<Repr> {
+        self.scalars
+            .get(&(func.to_string(), binding.to_string()))
+            .copied()
+    }
+
     pub fn array_element(&self, func: &str, binding: &str) -> Repr {
         self.array_elements
             .get(&(func.to_string(), binding.to_string()))

@@ -2330,19 +2330,38 @@ impl TypeContext {
     ///
     /// A float-repr target, a float-valued RHS, or (review Critical 1) a
     /// STRING-valued RHS is deliberately NOT excluded here — codegen's
-    /// bitwise arm (`literal.rs`) denies all three itself via a POSITIVE
-    /// allowlist (target repr `== Repr::I64` AND the RHS positively proven
-    /// `Repr::I64`, not a "reject float/string" denylist — an open `Repr`
-    /// enum leaks through a denylist by construction) with its own E5506
-    /// (message includes the op text, matching this gate's contract), so the
-    /// boundary pins that exercise those rows stay green either way;
-    /// duplicating the check here would just be two gates disagreeing about
-    /// the same fact. Do NOT rely on `repr_infer.rs`'s scalar-node graph for
-    /// this either: its `_ => {}` arm for the six bitwise ops withholds a
-    /// float edge (correct — a bitwise target never floats), but withholds
-    /// no comparable protection against a STRING RHS, so codegen's own
-    /// allowlist is the only thing standing between an admitted local and a
-    /// truncated string-handle miscompile.
+    /// bitwise arm (`literal.rs`) denies all three itself via an allowlist
+    /// (target repr `== Repr::I64` AND the RHS positively proven `Repr::I64`
+    /// by `bitwise_compound_rhs_is_provably_i64`, not a "reject float/string"
+    /// denylist — an open `Repr` enum leaks through a denylist by
+    /// construction) with its own E5506 (message includes the op text,
+    /// matching this gate's contract), so the boundary pins that exercise
+    /// those rows stay green either way; duplicating the check here would
+    /// just be two gates disagreeing about the same fact. Do NOT rely on
+    /// `repr_infer.rs`'s scalar-node graph for this either: its `_ => {}` arm
+    /// for the six bitwise ops withholds a float edge (correct — a bitwise
+    /// target never floats), but withholds no comparable protection against a
+    /// STRING RHS, so codegen's own allowlist is the only thing standing
+    /// between an admitted local and a truncated string-handle miscompile.
+    ///
+    /// **Known residual, review round 2 (stated here so this doc does not
+    /// claim a closure it does not have):** codegen's RHS check
+    /// (`bitwise_compound_rhs_is_provably_i64`) requires an EXPLICIT
+    /// `ReprTable::scalar_entry` record for an identifier RHS, not the
+    /// defaulted `scalar_repr` — because `Repr::I64` is `ReprTable::scalar`'s
+    /// `#[default]` and is NEVER written explicitly anywhere in this
+    /// codebase, so `scalar_repr(x) == I64` cannot distinguish "proven" from
+    /// "unrecorded." The TARGET check in `literal.rs` (`scalar_repr(&name) !=
+    /// Repr::I64`) has the identical defect but CANNOT be tightened the same
+    /// way: doing so was measured to deny every currently-passing Task-2
+    /// local-scalar test, because no write path in this codebase ever leaves
+    /// an explicit `I64` entry for ANY binding (not a coverage gap — an
+    /// architectural fact about `repr_infer`). So `let o={a:"3"}; let
+    /// n=o.a; n |= 1;` (`n` reads a string object field, defaults to `I64`
+    /// with no positive evidence either way) still silently truncates today.
+    /// This is the pre-existing R-06-R4 "string-field-sink-corruption"
+    /// residual reaching this gate, not something this predicate introduced
+    /// or was expected to fix — tracked for the Task 6 audit.
     pub(crate) fn bitwise_compound_target_is_admitted_local_scalar(
         &self,
         left: &Expression,

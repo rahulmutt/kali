@@ -261,6 +261,100 @@ fn bitwise_compound_on_non_integer_fails_closed() {
         "let a = \"1\"; let b = \"2\"; let n = 6; n &= a + b; console.log(n);\n",
         "&=",
     ); // node: 4
+       // Review round 2 doc-fix: `parse_number_literal` strips a trailing `n`
+       // and parses the remainder, so a naive integer-literal check would admit
+       // a BigInt literal RHS unchanged (measured: `n &= 3n` printed `2` at exit
+       // 0; node throws `TypeError: Cannot mix BigInt`). BigInt lowering stays
+       // deferred — the plain bitwise operators have the identical gap — but
+       // this predicate must fail closed for it, not silently truncate.
+    assert_fails_closed("let n = 6; n &= 3n; console.log(n);\n", "&=");
+}
+
+// --- Task 2 review round 2: Critical 1 was still open on the RHS-IDENTIFIER
+// axis — `bitwise_compound_rhs_is_provably_i64`'s identifier branch admitted
+// via `scalar_repr(name) == Repr::I64`, which is `ReprTable::scalar`'s
+// `#[default]`, indistinguishable from "repr_infer recorded nothing at all."
+// Fixed by requiring an EXPLICIT `ReprTable::scalar_entry` record instead.
+// Five of the six round-2 reproductions are RHS-axis and are now closed; the
+// sixth (`bitwise_compound_target_axis_string_field_leak_is_a_tracked_residual`
+// below) is TARGET-axis and remains open — see that test's doc comment for
+// why, and do not "fix" it by adding a passing test that asserts the wrong
+// value.
+
+#[test]
+fn bitwise_compound_fails_closed_on_rhs_from_string_object_field() {
+    // node: 2. `s` reads a STRING object field (`o.a`); `repr_infer` does not
+    // propagate `Repr::String` onto `s` through this provenance chain (the
+    // pre-existing R-06-R4 residual), so `s` has NO explicit repr entry at
+    // all — `scalar_entry` correctly reports "unproven" rather than
+    // defaulting to "looks like I64".
+    assert_fails_closed(
+        "let o = {a: \"3\"}; let s = o.a; let n = 6; n &= s; console.log(n);\n",
+        "&=",
+    );
+}
+
+#[test]
+fn bitwise_compound_fails_closed_on_rhs_from_string_object_field_or_assign() {
+    // node: 5.
+    assert_fails_closed(
+        "let o = {a: \"5\"}; let s = o.a; let n = 0; n |= s; console.log(n);\n",
+        "|=",
+    );
+}
+
+#[test]
+fn bitwise_compound_fails_closed_on_rhs_from_computed_string_object_field() {
+    // node: 2. Computed-key variant of the field-read leak above.
+    assert_fails_closed(
+        "let o = {a: \"3\"}; let k = \"a\"; let s = o[k]; let n = 6; n &= s; console.log(n);\n",
+        "&=",
+    );
+}
+
+#[test]
+fn bitwise_compound_fails_closed_on_unary_minus_over_string_field_rhs() {
+    // node: 4. Unary `-` over the same tainted identifier — the recursive
+    // arm must not unwrap past the identifier check.
+    assert_fails_closed(
+        "let o = {a: \"3\"}; let s = o.a; let n = 6; n &= -s; console.log(n);\n",
+        "&=",
+    );
+}
+
+#[test]
+fn bitwise_compound_fails_closed_on_growable_array_rhs() {
+    // node: 1. `a` is a growable-array HANDLE, not an integer — its own
+    // `scalar_entry` is also unset (never explicitly I64), so the same fix
+    // closes this leak too, incidentally.
+    assert_fails_closed(
+        "let a = []; a.push(1); let n = -1; n &= a; console.log(n);\n",
+        "&=",
+    );
+}
+
+#[test]
+fn bitwise_compound_target_axis_string_field_leak_is_a_tracked_residual() {
+    // Review round 2, Critical 1: STILL OPEN. `n` itself (the bitwise
+    // compound-assign TARGET, not the RHS) is assigned from a string object
+    // field (`o.a`) and therefore has no positive repr evidence either way —
+    // `repr_infer` never records an explicit `Repr::I64` entry for ANY
+    // binding anywhere in this codebase (confirmed by inspection: no
+    // `set_scalar` call site ever passes `Repr::I64`, since it is `Repr`'s
+    // `#[default]`), so tightening the TARGET check in `literal.rs` the same
+    // way the RHS check was tightened above was MEASURED to deny every
+    // currently-passing Task-2 happy-path test (`bitwise_compound_on_let_scalar`,
+    // `bitwise_compound_int32_edges`, `bitwise_compound_in_function_scope_and_param`,
+    // `bitwise_compound_on_var_scalar`, `bitwise_compound_admitted_on_plain_scalar_all_six_ops`
+    // — 5/11 tests in this file, 100% of the admitted lane) — there is no
+    // explicit-entry signal on the target axis to require. This is the
+    // pre-existing R-06-R4 "string-field-sink-corruption" residual reaching
+    // this gate, not introduced or expected to be fixed by R-11 T2; tracked
+    // for the Task 6 audit. Left commented out rather than asserted, so this
+    // suite never encodes the wrong value as an expectation:
+    //
+    // let out = run_source("let o = {a: \"3\"}; let n = o.a; n |= 1; console.log(n);\n");
+    // as of this commit: exit 0, stdout "1\n" (node: "3\n") — WRONG, tracked, not pinned.
 }
 
 // --- Task 2 review Important 3: the admit predicate's actual boundary on a
