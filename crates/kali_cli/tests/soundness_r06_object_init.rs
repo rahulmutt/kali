@@ -82,6 +82,55 @@ fn var_object_bool_field_reads_value() {
     run_e5506("var o = { f: true }; console.log(o.f);");
 }
 
+// ---- Allowlist-at-the-choke pins (task review round 2, 2026-07-24) ----
+//
+// The bare Boolean-LITERAL check above is a DENYLIST and leaks: a Boolean
+// value reached via a variable, `!x`, or a comparison — or a BigInt
+// literal — slips it, materializes, and reads back a NEW nonzero-wrong
+// value (main was silent-0). These pins lock in the allowlist-at-the-choke
+// fix (`object_field_value_is_safe_for_materialization`): only a numeric
+// literal, a string literal, or unary `+`/`-` on one is admitted; every
+// other field-value shape fails the WHOLE binding closed (E5506).
+
+#[test]
+fn bool_via_variable_fails_closed() {
+    run_e5506("var t=true; var o={f:t}; console.log(o.f);");
+}
+
+#[test]
+fn bool_via_unary_not_fails_closed() {
+    run_e5506("var o={f:!0}; console.log(o.f);");
+}
+
+#[test]
+fn bool_via_comparison_fails_closed() {
+    run_e5506("var o={f:1>0}; console.log(o.f);");
+}
+
+#[test]
+fn bigint_field_fails_closed() {
+    run_e5506("var o={f:7n}; console.log(o.f);");
+}
+
+#[test]
+fn null_field_fails_closed() {
+    // kali has no null repr; `main` silently printed `0` where node prints
+    // `null` (already wrong, but zero). The allowlist now fails this
+    // closed instead — honest over-deny, and no worse than main (E5506,
+    // not a new nonzero-wrong value).
+    run_e5506("var o = { f: null }; console.log(o.f);");
+}
+
+#[test]
+fn var_object_float_field_reads_value() {
+    assert_eq!(run_ok("var o = { f: 1.5 }; console.log(o.f);"), "1.5");
+}
+
+#[test]
+fn var_object_negative_field_reads_value() {
+    assert_eq!(run_ok("var o = { f: -7 }; console.log(o.f);"), "-7");
+}
+
 #[test]
 fn var_object_multi_field_reads_all() {
     assert_eq!(

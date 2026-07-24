@@ -485,17 +485,23 @@ struct ReprInfer {
     /// byte-identical fold-first lowering.
     mutable_object_literal_bindings: BTreeSet<ObjSlot>,
     /// Subset of `mutable_object_literal_bindings` whose object literal has
-    /// AT LEAST ONE Boolean-literal (`true`/`false`) property value.
-    /// Populated in `visit_declarator_init`; consumed only by the
-    /// read-materialization block in `resolve_objects`, which fails such a
-    /// binding closed (E5506) on a field READ instead of materializing it —
-    /// a materialized object field has no runtime Boolean repr axis, so
-    /// reading it back would silently print `1`/`0` (a new nonzero-wrong
-    /// value R-06 must never introduce). Never consulted for a binding
-    /// already materialized via a WRITE (see the 2.7 read-materialization
-    /// block's `obj_materialized` guard) — that pre-existing silent-`1`
-    /// behavior is out of R-06's scope and must not change.
-    mutable_object_literal_bool_field_bindings: BTreeSet<ObjSlot>,
+    /// AT LEAST ONE property value that is not provably admissible for
+    /// materialized storage (see `object_field_value_is_safe_for_materialization`
+    /// — an ALLOWLIST of numeric/string literals and unary +/- on one; a
+    /// bare-shape denylist leaks (round-2 review, 2026-07-24): a Boolean
+    /// value reached via a variable/`!x`/comparison, or a BigInt literal,
+    /// slips a bare-literal-only bool check but still has no safe repr axis
+    /// in a materialized object field, silently reading back `1`/`7` where
+    /// JS prints `true`/`7n` — a NEW nonzero-wrong value R-06 must never
+    /// introduce. Populated in `visit_declarator_init`; consumed only by
+    /// the read-materialization block in `resolve_objects`, which fails
+    /// such a binding closed (E5506) on a field READ instead of
+    /// materializing it. Never consulted for a binding already
+    /// materialized via a WRITE (see the 2.7 read-materialization block's
+    /// `obj_materialized` guard) — that pre-existing behavior (e.g.
+    /// silent-`1` for a Boolean field) is out of R-06's scope and must not
+    /// change.
+    mutable_object_literal_unsafe_field_bindings: BTreeSet<ObjSlot>,
     /// Syntactic growable-array candidates `(func, binding)` from the Stage 4
     /// choke-point predicate ([`crate::growable::growable_array_candidates`]),
     /// computed in Phase A3 before any body walk. The `.push` visit arm
@@ -2651,24 +2657,29 @@ impl ReprInfer {
             if kind != "const" {
                 let slot = ObjSlot::Binding(func.to_string(), id.to_string());
                 self.mutable_object_literal_bindings.insert(slot.clone());
-                // R-06 Boolean-field residual (task review 2026-07-24): a
-                // materialized object field has no runtime Boolean repr axis
-                // (fields are I64/F64 only), so reading a Boolean-literal
-                // field back through a real allocation would silently print
-                // `1`/`0` where JS prints `true`/`false` — a NEW nonzero-
-                // wrong value R-06 must never introduce. Recorded here;
-                // consumed only by the read-materialization block in
-                // `resolve_objects`, which fails such a binding closed
+                // Allowlist-at-the-choke (task review round 2, 2026-07-24):
+                // a materialized object field has no safe repr axis for a
+                // Boolean or BigInt value (fields are I64/F64/String only),
+                // so reading one back through a real allocation would
+                // silently print `1`/`7` where JS prints `true`/`7n` — a
+                // NEW nonzero-wrong value R-06 must never introduce. A
+                // bare-shape denylist (Boolean literal only) leaks: `!x`,
+                // `1>0`, a variable bound to a bool, and BigInt literals all
+                // slip it. Default-DENY instead: materialize this binding
+                // ONLY if EVERY field value is provably safe per
+                // `object_field_value_is_safe_for_materialization`; recorded
+                // here, consumed only by the read-materialization block in
+                // `resolve_objects`, which fails the WHOLE binding closed
                 // (E5506) instead of materializing it — but ONLY when the
                 // binding is not already materialized via a WRITE (whose
-                // pre-existing silent-`1` behavior is untouched).
-                if obj.properties.iter().any(|prop| {
-                    matches!(
-                        strip_parenthesized(&prop.value),
-                        Expression::Literal(kali_ast::LiteralValue::Boolean(_))
-                    )
-                }) {
-                    self.mutable_object_literal_bool_field_bindings.insert(slot);
+                // pre-existing behavior is untouched; see that block).
+                if !obj
+                    .properties
+                    .iter()
+                    .all(|prop| object_field_value_is_safe_for_materialization(&prop.value))
+                {
+                    self.mutable_object_literal_unsafe_field_bindings
+                        .insert(slot);
                 }
             }
             self.record_object_literal(
@@ -4395,20 +4406,24 @@ impl ReprInfer {
         //      fold fallback. `const` bindings are absent from the set and keep
         //      their byte-identical fold-first lowering.
         //
-        //      EXCEPTION (task review 2026-07-24): a binding with a Boolean
-        //      field (`mutable_object_literal_bool_field_bindings`) fails
-        //      closed instead — a materialized object field has no runtime
-        //      Boolean repr axis, so reading it back would silently print
-        //      `1`/`0` instead of `true`/`false`, a NEW nonzero-wrong value
-        //      R-06 must never introduce (the fold-fallback default was
-        //      `0`; read-only fold-first behavior on `main` never printed a
-        //      wrong NONZERO value). Gated on `!obj_materialized.contains`
-        //      so a binding ALREADY materialized via a WRITE (block 2.6,
-        //      untouched) is left alone: its pre-existing silent-`1` is out
-        //      of R-06's scope. `bool_field_read_rejected` dedupes the
-        //      pushed diagnostic across multiple read accesses on the same
-        //      slot.
-        let mut bool_field_read_rejected: BTreeSet<ObjSlot> = BTreeSet::new();
+        //      EXCEPTION (allowlist-at-the-choke, task review round 2,
+        //      2026-07-24): a binding with ANY field value that is not
+        //      provably safe (`mutable_object_literal_unsafe_field_bindings`
+        //      — see `object_field_value_is_safe_for_materialization`) fails
+        //      closed instead of materializing — a materialized object
+        //      field only supports the I64/F64/String repr axes, so an
+        //      unproven field (Boolean via any syntactic form, BigInt, null,
+        //      an identifier/call/member/nested-literal we do not trace)
+        //      could silently read back a NEW nonzero-wrong value (e.g. `1`
+        //      for `true`, `7` for `7n`) where the fold-fallback default was
+        //      `0` — read-only fold-first behavior on `main` never printed a
+        //      wrong NONZERO value, so this must not either. Gated on
+        //      `!obj_materialized.contains` so a binding ALREADY
+        //      materialized via a WRITE (block 2.6, untouched) is left
+        //      alone: its pre-existing behavior is out of R-06's scope.
+        //      `unsafe_field_read_rejected` dedupes the pushed diagnostic
+        //      across multiple read accesses on the same slot.
+        let mut unsafe_field_read_rejected: BTreeSet<ObjSlot> = BTreeSet::new();
         for access in &self.obj_accesses {
             if access.is_write
                 || !self.mutable_object_literal_bindings.contains(&access.base)
@@ -4418,12 +4433,12 @@ impl ReprInfer {
             }
             if !self.obj_materialized.contains(&access.base)
                 && self
-                    .mutable_object_literal_bool_field_bindings
+                    .mutable_object_literal_unsafe_field_bindings
                     .contains(&access.base)
             {
-                if bool_field_read_rejected.insert(access.base.clone()) {
+                if unsafe_field_read_rejected.insert(access.base.clone()) {
                     self.obj_conflicts.push(format!(
-                        "object literal for {:?} has a Boolean field, which cannot be read back through a materialized read-only allocation in the current phase",
+                        "object literal for {:?} has a field value that is not provably a number or string, which cannot be read back through a materialized read-only allocation in the current phase",
                         access.base
                     ));
                 }
@@ -5728,6 +5743,40 @@ fn strip_parenthesized(expr: &Expression) -> &Expression {
         current = &inner.expression;
     }
     current
+}
+
+/// R-06 allowlist-at-the-choke (task review round 2, 2026-07-24): `true`
+/// only for an object-literal field VALUE that provably lowers to a safe
+/// materialized-field repr (`I64`/`F64`/`String` — the only axes a real
+/// object-field allocation supports). Used ONLY to gate whether a
+/// read-only MUTABLE (`var`/`let`) object literal may materialize on a
+/// field READ (`mutable_object_literal_unsafe_field_bindings`); `const`
+/// and write-materialized objects never consult this.
+///
+/// Deliberately NOT `expr_is_syntactic_scalar` (returns `true` for
+/// `Boolean`/`BigIntLiteral`, which is exactly the leak this closes) and
+/// NOT `expr_is_proven_scalar_source` (returns `true` for ANY
+/// `UnaryExpression`, including `!x`, and for `Literal(_)` regardless of
+/// kind, including `Boolean`/`Null`). A DEFAULT-DENY allowlist, not a
+/// denylist of dangerous shapes: only a numeric literal, a string literal,
+/// or a unary `+`/`-` applied (recursively) to one of those is admitted.
+/// Everything else — a Boolean literal, `!x`, a comparison (`1>0`,
+/// parsed as `BinaryExpression`), a BigInt literal (`7n`), `null`, an
+/// identifier, a call, a member read, a template literal, a nested
+/// object/array literal — is conservatively rejected, even where the
+/// value might in fact be numeric/string at runtime (e.g. a plain
+/// identifier bound to a number): proving that would require tracing the
+/// identifier's own binding, which this conservative gate does not
+/// attempt — honest over-deny beats admitting anything unproven.
+fn object_field_value_is_safe_for_materialization(expr: &Expression) -> bool {
+    match strip_parenthesized(expr) {
+        Expression::Literal(LiteralValue::Number(_)) => true,
+        Expression::Literal(LiteralValue::String(_)) => true,
+        Expression::UnaryExpression(unary) if unary.operator == "-" || unary.operator == "+" => {
+            object_field_value_is_safe_for_materialization(&unary.argument)
+        }
+        _ => false,
+    }
 }
 
 /// Stage P2 Lane 2b clone-safety allowlist: `expr` (already paren-stripped) is a
