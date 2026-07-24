@@ -65,6 +65,12 @@ impl Parser {
             TokenType::NullCoalesceEq => Some(AssignmentOperator::NullishAssign),
             TokenType::AndAndEq => Some(AssignmentOperator::AndAssign),
             TokenType::OrOrEq => Some(AssignmentOperator::OrAssign),
+            TokenType::AmpEq => Some(AssignmentOperator::BitAndAssign),
+            TokenType::PipeEq => Some(AssignmentOperator::BitOrAssign),
+            TokenType::CaretEq => Some(AssignmentOperator::BitXorAssign),
+            TokenType::LtLtEq => Some(AssignmentOperator::LeftShiftAssign),
+            TokenType::GtGtEq => Some(AssignmentOperator::RightShiftAssign),
+            TokenType::GtGtGtEq => Some(AssignmentOperator::UnsignedRightShiftAssign),
             _ => None,
         }
     }

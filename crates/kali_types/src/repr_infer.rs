@@ -3296,11 +3296,27 @@ impl ReprInfer {
                 // `/=` and `**=` lower on lanes this proof does not model, and
                 // `&&=`/`||=`/`??=` can write the RHS's own (possibly tagged)
                 // value through unchanged. Deny.
+                // R-11 T1.5: the six bitwise compound assigns (`&= |= ^= <<=
+                // >>= >>>=`) join the deny group too. A bitwise compound
+                // always produces an int32 regardless of the RHS, so a
+                // tighter proof is *available* in principle — but this pass
+                // has not been extended to model that shape yet. Denying
+                // costs only a missed optimization (the binding stays
+                // unpromoted), never correctness: proving too little here
+                // just falls back to the slower default lane. Tightening
+                // this is a legitimate follow-up once the bitwise codegen
+                // lane (R-11 T2+) is validated end-to-end.
                 AssignmentOperator::DivideAssign
                 | AssignmentOperator::ExponentAssign
                 | AssignmentOperator::NullishAssign
                 | AssignmentOperator::AndAssign
-                | AssignmentOperator::OrAssign => {
+                | AssignmentOperator::OrAssign
+                | AssignmentOperator::BitAndAssign
+                | AssignmentOperator::BitOrAssign
+                | AssignmentOperator::BitXorAssign
+                | AssignmentOperator::LeftShiftAssign
+                | AssignmentOperator::RightShiftAssign
+                | AssignmentOperator::UnsignedRightShiftAssign => {
                     self.record_numeric_binding_write(func, name, None, true)
                 }
             }

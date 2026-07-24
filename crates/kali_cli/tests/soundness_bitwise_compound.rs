@@ -67,3 +67,29 @@ fn plain_binary_bitwise_operators_unchanged() {
     assert_stdout("console.log(1 << 31);\n", "-2147483648\n");
     assert_stdout("console.log(1 << 32);\n", "1\n");
 }
+
+// --- Task 1.5: the front end no longer silently mis-parses the six ops ---
+
+#[test]
+fn bitwise_compound_ops_are_not_silently_misparsed() {
+    // Before Task 1.5 these lexed as two unrelated tokens and the statement
+    // decayed into no-ops at exit 0 with ZERO diagnostics — the true R-11 root
+    // cause. After Task 1.5 the op reaches codegen; Task 2 makes it compute the
+    // right value. Here we pin only that the silent-garbage parse is gone: the
+    // program must NOT exit 0 while printing the unmodified operand.
+    for src in [
+        "let n = 6; n &= 3; console.log(n);\n",
+        "let n = 6; n |= 8; console.log(n);\n",
+        "let n = 6; n ^= 1; console.log(n);\n",
+        "let n = 6; n <<= 2; console.log(n);\n",
+        "let n = 6; n >>= 1; console.log(n);\n",
+        "let n = 6; n >>>= 1; console.log(n);\n",
+    ] {
+        let out = run_source(src);
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        assert!(
+            !(out.status.success() && stdout.trim() == "6"),
+            "silent no-op survived for {src:?}: {out:?}"
+        );
+    }
+}

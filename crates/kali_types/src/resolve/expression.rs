@@ -1791,6 +1791,34 @@ impl TypeContext {
                     return;
                 }
 
+                // R-11 T1.5: the six bitwise compound assignment operators
+                // (`&= |= ^= <<= >>= >>>=`) are new syntax this task teaches
+                // the front end to recognize; no codegen lowering for them
+                // exists yet (that is Task 2's job). Without an explicit
+                // gate here, the generic scalar-target admit path below (and
+                // the for-in-key member-target admit path just after it)
+                // would let the op through with NO diagnostic — resolve has
+                // no way to know these specific new variants lack a codegen
+                // lane, since its fallthrough logic predates them. The op
+                // would then reach `kali_codegen::emit_binary`, whose
+                // catch-all unimplemented-operator arm computes a value and
+                // DISCARDS it without ever storing to the target — silently
+                // reproducing this project's exact no-op symptom one layer
+                // deeper (parsed correctly, then silently dropped in codegen
+                // instead of silently dropped in the lexer). Deny explicitly
+                // and fail closed, for every target shape (identifier,
+                // member, for-in-key alias), until Task 2 lands the real
+                // lowering and can delete this gate.
+                if let Some(op_text) = bitwise_compound_assign_op_text(&expr.operator) {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        format!(
+                            "bitwise compound assignment ('{op_text}') is recognized by the parser but has no codegen lowering yet in the current phase; use the plain binary operator with a separate assignment, or the later compatibility path"
+                        ),
+                    ));
+                    return;
+                }
+
                 if matches!(expr.operator, AssignmentOperator::Assign) {
                     if let Expression::MemberExpression(member) = &expr.left {
                         let dotted = Self::member_access_name(member)
@@ -2520,6 +2548,23 @@ impl TypeContext {
         }
 
         Ok(true)
+    }
+}
+
+/// R-11 T1.5: `Some(<op text>)` for the six new bitwise compound assignment
+/// operators, `None` for everything else (including the pre-existing ten
+/// `AssignmentOperator` variants). Used solely to drive the temporary
+/// fail-closed gate in `resolve_expression`'s `AssignmentExpression` arm
+/// above, ahead of Task 2 landing the real codegen lowering.
+fn bitwise_compound_assign_op_text(op: &AssignmentOperator) -> Option<&'static str> {
+    match op {
+        AssignmentOperator::BitAndAssign => Some("&="),
+        AssignmentOperator::BitOrAssign => Some("|="),
+        AssignmentOperator::BitXorAssign => Some("^="),
+        AssignmentOperator::LeftShiftAssign => Some("<<="),
+        AssignmentOperator::RightShiftAssign => Some(">>="),
+        AssignmentOperator::UnsignedRightShiftAssign => Some(">>>="),
+        _ => None,
     }
 }
 
