@@ -1142,6 +1142,7 @@ impl ReprInfer {
     /// - `SequenceExpression` `(a,b,c)` yields its LAST operand semantically, but
     ///   kali's sequence codegen mis-emits it as the FIRST (measured `(0n,5n)`→0).
     ///   NOT seed-safe: record the last arm for the taint, then force `dst` plain.
+    ///
     /// A leaf that classifies `None` marks `dst` plain; otherwise its
     /// seed/binding/return edge is pushed for the fixpoint.
     fn record_string_result_value(
