@@ -484,6 +484,18 @@ struct ReprInfer {
     /// `resolve_objects`. `const` bindings are absent, so they keep their
     /// byte-identical fold-first lowering.
     mutable_object_literal_bindings: BTreeSet<ObjSlot>,
+    /// Subset of `mutable_object_literal_bindings` whose object literal has
+    /// AT LEAST ONE Boolean-literal (`true`/`false`) property value.
+    /// Populated in `visit_declarator_init`; consumed only by the
+    /// read-materialization block in `resolve_objects`, which fails such a
+    /// binding closed (E5506) on a field READ instead of materializing it —
+    /// a materialized object field has no runtime Boolean repr axis, so
+    /// reading it back would silently print `1`/`0` (a new nonzero-wrong
+    /// value R-06 must never introduce). Never consulted for a binding
+    /// already materialized via a WRITE (see the 2.7 read-materialization
+    /// block's `obj_materialized` guard) — that pre-existing silent-`1`
+    /// behavior is out of R-06's scope and must not change.
+    mutable_object_literal_bool_field_bindings: BTreeSet<ObjSlot>,
     /// Syntactic growable-array candidates `(func, binding)` from the Stage 4
     /// choke-point predicate ([`crate::growable::growable_array_candidates`]),
     /// computed in Phase A3 before any body walk. The `.push` visit arm
@@ -2637,8 +2649,27 @@ impl ReprInfer {
             // on a field READ (const stays fold-first). Recorded here; the
             // read-materialization block in `resolve_objects` consumes it.
             if kind != "const" {
-                self.mutable_object_literal_bindings
-                    .insert(ObjSlot::Binding(func.to_string(), id.to_string()));
+                let slot = ObjSlot::Binding(func.to_string(), id.to_string());
+                self.mutable_object_literal_bindings.insert(slot.clone());
+                // R-06 Boolean-field residual (task review 2026-07-24): a
+                // materialized object field has no runtime Boolean repr axis
+                // (fields are I64/F64 only), so reading a Boolean-literal
+                // field back through a real allocation would silently print
+                // `1`/`0` where JS prints `true`/`false` — a NEW nonzero-
+                // wrong value R-06 must never introduce. Recorded here;
+                // consumed only by the read-materialization block in
+                // `resolve_objects`, which fails such a binding closed
+                // (E5506) instead of materializing it — but ONLY when the
+                // binding is not already materialized via a WRITE (whose
+                // pre-existing silent-`1` behavior is untouched).
+                if obj.properties.iter().any(|prop| {
+                    matches!(
+                        strip_parenthesized(&prop.value),
+                        Expression::Literal(kali_ast::LiteralValue::Boolean(_))
+                    )
+                }) {
+                    self.mutable_object_literal_bool_field_bindings.insert(slot);
+                }
             }
             self.record_object_literal(
                 func,
@@ -4363,13 +4394,42 @@ impl ReprInfer {
         //      fail-closed conflict (step 3, ~line 4352) instead of the silent-0
         //      fold fallback. `const` bindings are absent from the set and keep
         //      their byte-identical fold-first lowering.
+        //
+        //      EXCEPTION (task review 2026-07-24): a binding with a Boolean
+        //      field (`mutable_object_literal_bool_field_bindings`) fails
+        //      closed instead — a materialized object field has no runtime
+        //      Boolean repr axis, so reading it back would silently print
+        //      `1`/`0` instead of `true`/`false`, a NEW nonzero-wrong value
+        //      R-06 must never introduce (the fold-fallback default was
+        //      `0`; read-only fold-first behavior on `main` never printed a
+        //      wrong NONZERO value). Gated on `!obj_materialized.contains`
+        //      so a binding ALREADY materialized via a WRITE (block 2.6,
+        //      untouched) is left alone: its pre-existing silent-`1` is out
+        //      of R-06's scope. `bool_field_read_rejected` dedupes the
+        //      pushed diagnostic across multiple read accesses on the same
+        //      slot.
+        let mut bool_field_read_rejected: BTreeSet<ObjSlot> = BTreeSet::new();
         for access in &self.obj_accesses {
-            if !access.is_write
-                && self.mutable_object_literal_bindings.contains(&access.base)
-                && fields_of.contains_key(&access.base)
+            if access.is_write
+                || !self.mutable_object_literal_bindings.contains(&access.base)
+                || !fields_of.contains_key(&access.base)
             {
-                self.obj_materialized.insert(access.base.clone());
+                continue;
             }
+            if !self.obj_materialized.contains(&access.base)
+                && self
+                    .mutable_object_literal_bool_field_bindings
+                    .contains(&access.base)
+            {
+                if bool_field_read_rejected.insert(access.base.clone()) {
+                    self.obj_conflicts.push(format!(
+                        "object literal for {:?} has a Boolean field, which cannot be read back through a materialized read-only allocation in the current phase",
+                        access.base
+                    ));
+                }
+                continue;
+            }
+            self.obj_materialized.insert(access.base.clone());
         }
 
         // 2.7b. A MUTABLE literal that `record_object_literal` bailed on

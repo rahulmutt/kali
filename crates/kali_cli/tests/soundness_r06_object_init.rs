@@ -66,15 +66,20 @@ fn var_object_string_field_reads_value() {
 }
 
 #[test]
-#[ignore] // R-06-R5: pre-existing, unrelated to object materialization — kali
-          // has no first-class runtime Boolean repr at all. `var b = true;
-          // console.log(b);` (NO object involved) already prints "1", and the
-          // SAME field prints "1" via the pre-existing write-materialization
-          // lane (`var o={f:false}; o.f=true; console.log(o.f);"1"`), proving
-          // this is not something R-06's read-materialization introduces or
-          // can fix. Verified 2026-07-24; see task-1-report.md.
 fn var_object_bool_field_reads_value() {
-    assert_eq!(run_ok("var o = { f: true }; console.log(o.f);"), "true");
+    // R-06 Boolean-field residual (task review 2026-07-24): kali has no
+    // first-class runtime Boolean repr axis at all (`var b = true;
+    // console.log(b);` — NO object involved — already prints "1", not
+    // "true"), so a materialized object field can NEVER read a Boolean
+    // field back correctly. Read-materializing this binding would turn the
+    // pre-fix silent-`0` into a NEW nonzero-wrong value (silent `1`) —
+    // exactly what R-06 must never introduce. It fails closed (E5506)
+    // instead: honest over-deny beats a new silent-wrong value. A
+    // write-materialized Boolean field's pre-existing silent-`1` behavior
+    // (`var o={f:false}; o.f=true; console.log(o.f)` -> "1", unchanged) is
+    // a separate, out-of-scope, pre-existing bug this fix deliberately
+    // leaves untouched.
+    run_e5506("var o = { f: true }; console.log(o.f);");
 }
 
 #[test]
@@ -86,17 +91,18 @@ fn var_object_multi_field_reads_all() {
 }
 
 #[test]
-#[ignore] // R-06-R4: pre-existing, unrelated to object materialization —
-          // object fields have no Repr::String axis (documented FLOAT-ONLY
-          // i64/f64 at repr_infer.rs's uniform-computed-read comment); a
-          // single-arg `console.log(o.s)` happens to still print "hi" via an
-          // existing fallback, but the SAME string field corrupts to a raw
-          // decoded handle when it is the second arg of a multi-arg
-          // console.log call following a numeric arg — reproduces
-          // byte-for-byte via the pre-existing write-materialization lane
-          // (`o.n=7; o.s="hi"; console.log(o.n,o.s)` also prints garbage),
-          // proving R-06's read-materialization is not the cause. Verified
-          // 2026-07-24; see task-1-report.md.
+#[ignore] // R-06-R4 (root cause corrected on task review 2026-07-24): this is
+          // a pre-existing multi-arg `console.log` SINK bug, not a
+          // field-repr gap. A single-arg `console.log(o.s)` reads a String
+          // field correctly ("hi"), which disproves "object fields have no
+          // Repr::String axis" — the field itself is fine. The corruption
+          // is specific to a String field being a NON-SOLE argument of a
+          // multi-arg `console.log` call: `const o={n:7,s:"hi"};
+          // console.log(o.n,o.s)` corrupts IDENTICALLY, and `const` never
+          // materializes / never touches R-06 at all, proving this is a
+          // pre-existing downstream sink bug outside R-06's scope. R-06
+          // merely routes the read-only var object to the same
+          // already-broken sink. See task-1-report.md.
 fn var_object_mixed_fields_read() {
     assert_eq!(
         run_ok("var o = { n: 7, s: \"hi\" }; console.log(o.n, o.s);"),
