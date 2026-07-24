@@ -869,6 +869,26 @@ closed or stays pre-existing-red rather than miscompiling):
      silent raw-bit render for a fn-expr `const g=function(){return 'hi'}`
      (the expression-bodied ARROW literal twin remains — memory F-AB-1 — its
      return is never String-seeded by the normal solve; separate, out of scope).
+     **T-new-F FOLLOW-UP (2026-07-24, `[stageP5]`): Math.* / host-numeric-call
+     arg sink CLOSED.** The final whole-task review found the one seeded-string
+     sink T-new-F had missed: `Math.*` numeric-argument emission went through the
+     shared `emit_integer_math_arg` helper (`intrinsics/number.rs:442`), whose
+     bare `emit_node` had NO string guard — so a seeded `Repr::String`
+     (`let s=String(1n); Math.abs(s)` → `9223354…`, node throws) and, identically,
+     the PRE-EXISTING general `Math.abs("hi".substring(0,2))` twin (substring
+     predates P5) materialized the tagged handle as raw integer bits, exit 0,
+     SILENT. Fix: route that ONE shared arg-emit helper — every Math.* handler
+     (abs/floor/round/sign/max/min/trunc/ceil/imul/clz32/…) feeds runtime args
+     through it — through the SAME `is_string_valued || string_result_render_taint`
+     choke as `emit_numeric_operand`, guarding on string PROVENANCE at the
+     arg-materialization point (not a per-Math-name recognizer, which is the
+     leaking-denylist pattern this remediation exists to avoid). Closes the
+     `String()` spelling AND the substring→Math twin in one place, covering every
+     Math handler by construction. `parseInt`/`parseFloat`/`Number()` are
+     compile-time static-fold-only (no runtime string-arg emit) — not a runtime
+     sink. No over-deny: `Math.abs(5n)`→`5`, `Math.floor(1.7)`→`1`,
+     `Math.max(1n,2n)`→`2`, `let n=5n; Math.abs(n)`→`5` all still execute.
+     Gate 9360→9372, 0 newly-red; acceptance byte-for-byte (`ok 1` / `result: 0n`).
   6. F-newB-2/3/4 **[SILENT MISCOMPILE]**: `String(v).byteLength`
      → 2 (node `undefined`); `String(v)[0]` / `String(v).repeat()`
      silent 0; `String(undefined)` → `false`, `String(null)` → `0`

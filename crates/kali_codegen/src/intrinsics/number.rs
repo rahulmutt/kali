@@ -439,6 +439,22 @@ impl<'a> FunctionEmitter<'a> {
             return false;
         }
 
+        // T-new-F: a value carrying a seeded `Repr::String` (a `String()` result)
+        // or a tainted string result in a Math.* / host-numeric-call argument
+        // position must fail closed — never materialize the tagged string handle
+        // as raw integer bits. This is the SAME `is_string_valued ||
+        // string_result_render_taint` choke the other numeric sinks use
+        // (`emit_numeric_operand`); guarding here — the single shared Math-arg
+        // emit helper — covers every Math.* handler (abs/floor/round/sign/max/min/
+        // ...) AND the pre-existing `.substring(..)`→Math twin by construction,
+        // guarding on string PROVENANCE at the arg-materialization point, not on
+        // the callee name. node THROWS TypeError for `Math.abs(aString)` on a
+        // BigInt→string coercion, so fail-closed is the correct match.
+        if self.is_string_valued(arg) || self.string_result_render_taint(arg) {
+            let _ = self.deny_e5506(function, Self::STRING_RESULT_RENDER_DENY);
+            return false;
+        }
+
         let _ = self.emit_node(function, arg, true);
         true
     }

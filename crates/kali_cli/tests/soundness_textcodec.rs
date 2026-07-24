@@ -1869,3 +1869,96 @@ fn p5_fn_expr_literal_string_return_now_renders() {
         "xhi"
     );
 }
+
+// ===========================================================================
+// T-new-F fix — Math.* / host-numeric-call argument sink.
+//
+// A value carrying a seeded `Repr::String` (a `String()` result bound to a
+// let/var/reassignment/return) OR a tainted string result reaching a `Math.*`
+// numeric-argument position was materialized RAW via `emit_integer_math_arg`'s
+// bare `emit_node`, silently miscompiling (measured on parent ccc9b5345:
+// `Math.abs(String(1n))` → `9223354375949254655`, node THROWS TypeError).
+// The fix routes the single shared `emit_integer_math_arg` choke through the
+// same `is_string_valued || string_result_render_taint` guard the other numeric
+// sinks use — closing every Math.* handler by construction AND the pre-existing
+// substring→Math twin. All rows below were RUN on parent ccc9b5345 (silent
+// value, exit 0) before the fix and fail closed (E5506/E3200, exit 1) after.
+// ===========================================================================
+
+/// `Math.abs` of a seeded String() result → fail-closed (node THROWS TypeError
+/// for BigInt→string coercion). Parent ccc9b5345: `9223354375949254655`, exit 0.
+#[test]
+fn p5_math_abs_of_string_result_fails_closed() {
+    run_fail_closed("let s = String(1n); console.log(Math.abs(s));");
+}
+
+/// `Math.floor` of a seeded String() result → fail-closed. Parent: raw bits.
+#[test]
+fn p5_math_floor_of_string_result_fails_closed() {
+    run_fail_closed("let s = String(1n); console.log(Math.floor(s));");
+}
+
+/// `Math.round` of a seeded String() result → fail-closed. Parent: raw bits.
+#[test]
+fn p5_math_round_of_string_result_fails_closed() {
+    run_fail_closed("let s = String(1n); console.log(Math.round(s));");
+}
+
+/// `Math.sign` of a seeded String() result → fail-closed. Parent: `-1`.
+#[test]
+fn p5_math_sign_of_string_result_fails_closed() {
+    run_fail_closed("let s = String(1n); console.log(Math.sign(s));");
+}
+
+/// `Math.max` with a seeded String() result argument → fail-closed. Parent: `2`.
+#[test]
+fn p5_math_max_of_string_result_fails_closed() {
+    run_fail_closed("let s = String(1n); console.log(Math.max(s, 2n));");
+}
+
+/// `Math.min` with a seeded String() result argument → fail-closed.
+#[test]
+fn p5_math_min_of_string_result_fails_closed() {
+    run_fail_closed("let s = String(1n); console.log(Math.min(s, 2n));");
+}
+
+/// PRE-EXISTING general twin this same choke also closes: a runtime `Repr::String`
+/// from `.substring` (predates P5) into `Math.abs`. Parent ccc9b5345: raw bits,
+/// exit 0 — a silent miscompile that was never String()-specific.
+#[test]
+fn p5_math_abs_of_substring_fails_closed() {
+    run_fail_closed("let s = \"hi\".substring(0, 2); console.log(Math.abs(s));");
+}
+
+// --- No-over-deny: genuine numeric Math arguments must still execute. ---
+
+/// `Math.abs(5n)` → `5` (genuine bigint literal).
+#[test]
+fn p5_math_abs_positive_still_works() {
+    assert_eq!(run_ok("console.log(Math.abs(5n));"), "5");
+}
+
+/// `Math.abs(-3n)` → `3`.
+#[test]
+fn p5_math_abs_negative_still_works() {
+    assert_eq!(run_ok("console.log(Math.abs(-3n));"), "3");
+}
+
+/// `Math.floor(1.7)` → `1`.
+#[test]
+fn p5_math_floor_float_still_works() {
+    assert_eq!(run_ok("console.log(Math.floor(1.7));"), "1");
+}
+
+/// `Math.max(1n, 2n)` → `2`.
+#[test]
+fn p5_math_max_bigints_still_works() {
+    assert_eq!(run_ok("console.log(Math.max(1n, 2n));"), "2");
+}
+
+/// A genuine NUMERIC binding fed to `Math.abs` — the binding is not a string, so
+/// the guard must not over-deny it. `let n=5n; Math.abs(n)` → `5`.
+#[test]
+fn p5_math_abs_of_numeric_binding_still_works() {
+    assert_eq!(run_ok("let n = 5n; console.log(Math.abs(n));"), "5");
+}
