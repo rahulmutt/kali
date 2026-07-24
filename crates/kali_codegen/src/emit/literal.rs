@@ -802,15 +802,30 @@ impl<'a> FunctionEmitter<'a> {
                 return false;
             }
 
+            // R-11 T2 review Important 3: append `op` (was `name`-only) so
+            // this message carries the operator text — a bitwise op reaching
+            // here (e.g. a variable owned by the CURRENTLY-TRACKED function
+            // but promoted to an env cell because a nested closure captures
+            // it — `bitwise_compound_target_is_admitted_local_scalar` admits
+            // it at resolve, since it structurally IS this function's own
+            // binding, but codegen has no compound-assign lane for a captured
+            // cell yet) must still satisfy the `"&="`-style needle every
+            // other bitwise deny path in this file already carries, so the
+            // boundary pins (`bitwise_compound_fails_closed_on_every_target_shape`)
+            // can key on the SAME substring regardless of which choke point
+            // actually catches a given shape. Appended after the existing
+            // "for binding '{name}'" phrase (not interleaved before it) so the
+            // pre-existing exact-substring pin
+            // (`compound_assignment_on_immutable_bindings_reports_feature_unavailable`,
+            // which asserts "compound assignment lowering is unavailable for
+            // binding 'value'" as a contiguous prefix) still matches.
             let message = if op == "??=" {
                 format!(
-                    "nullish assignment lowering is unavailable for binding '{}' unless it is a mutable local binding; use a mutable variable or the later compatibility path",
-                    name
+                    "nullish assignment lowering is unavailable for binding '{name}' unless it is a mutable local binding; use a mutable variable or the later compatibility path"
                 )
             } else {
                 format!(
-                    "compound assignment lowering is unavailable for binding '{}' unless it is a mutable local binding; use a mutable variable or the later compatibility path",
-                    name
+                    "compound assignment lowering is unavailable for binding '{name}' (operator '{op}') unless it is a mutable local binding; use a mutable variable or the later compatibility path"
                 )
             };
             self.diagnostics
@@ -1048,15 +1063,30 @@ impl<'a> FunctionEmitter<'a> {
             }
             "&=" | "|=" | "^=" | "<<=" | ">>=" | ">>>=" => {
                 // JS bitwise compound: a op= b ≡ a = ToInt32(a) <op> ToInt32(b).
-                // Float/string targets and a float RHS have no integer meaning —
-                // fail closed, mirroring emit_binary's bitwise float rejection
-                // and the arithmetic arm's string rejection. (Emitting the
-                // I32WrapI64 over an f64 would produce a malformed module, E4201
-                // — the wrong error kind — so this guard is load-bearing.)
-                if matches!(
-                    self.scalar_repr(&name),
-                    kali_common::Repr::F64 | kali_common::Repr::String
-                ) || self.is_float_valued(right)
+                //
+                // Review finding (Critical 1): a denylist here ("reject F64 or
+                // String or ...") leaks by construction against `kali_common::Repr`,
+                // which has MORE variants than F64/String (Object,
+                // GrowableArrayI64, AbortHandle, Url, Bytes, Event, ...) — any of
+                // them would fall through unrejected. It also does not look at
+                // the RHS's OWN shape at all: `is_float_valued(right)` answers
+                // "is the RHS a float", not "is the RHS safe" — a STRING RHS
+                // (`n |= "5"`, `n <<= someStringVar`, a template literal, a `+`
+                // concat) is neither F64 nor float-valued, so it fell through to
+                // `I32WrapI64`, which truncates the tagged string HANDLE to its
+                // low 32 bits and computes a wrong-but-plausible integer at exit
+                // 0 (measured: `n |= "5"` printed `1`, node prints `5`).
+                //
+                // Fixed as a POSITIVE allowlist instead: admit only when the
+                // TARGET's repr is EXACTLY `Repr::I64` (not "not F64/String") and
+                // the RHS is POSITIVELY proven `Repr::I64` by
+                // `bitwise_compound_rhs_is_provably_i64` (an integer literal, a
+                // local/param identifier whose own scalar repr is `I64`, or a
+                // unary `-` over either) — everything else, including every
+                // other current and future `Repr` variant and every RHS shape
+                // this oracle does not specifically recognize, fails closed.
+                if self.scalar_repr(&name) != kali_common::Repr::I64
+                    || !self.bitwise_compound_rhs_is_provably_i64(right)
                 {
                     self.diagnostics.push(Diagnostic::error(
                         e5::FEATURE_UNAVAILABLE as u32,

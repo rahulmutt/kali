@@ -2294,12 +2294,29 @@ impl TypeContext {
     ///
     /// - a member/computed target (`o.a`, `a[i]`, `o[k]`) — not an
     ///   identifier, `resolve_update_binding_name` returns `None`;
-    /// - a closure-captured variable, or a module global referenced from
-    ///   inside a function — `binding_repr_function_key` walks past the
-    ///   tracked function's own scope without finding `name` there and
-    ///   returns `Some("_start")` regardless of which function actually owns
-    ///   it (mirrors codegen's locals-miss fallback), which disagrees with
-    ///   `current_function_name()` for any real function scope;
+    /// - a variable referenced from a function OTHER than the one that owns
+    ///   it — a closure body reading/writing an OUTER function's variable
+    ///   (`function outer(){ let x; function g(){ x &= 3; } }`, from inside
+    ///   `g`), or a plain free reference to a module global from inside any
+    ///   function (`let g = 6; function f(){ g &= 3; }`) — `binding_repr_function_key`
+    ///   walks past the tracked function's own scope without finding `name`
+    ///   there and returns `Some("_start")` regardless of which function
+    ///   actually owns it (mirrors codegen's locals-miss fallback), which
+    ///   disagrees with `current_function_name()` for any real function
+    ///   scope. **NOT excluded by this check alone:** a variable referenced
+    ///   from INSIDE the function that owns it, even when some OTHER nested
+    ///   closure also captures it (`function outer(){ let x = 6; const g =
+    ///   () => x; x &= 3; }`, the `x &= 3` line itself, still inside
+    ///   `outer`) — `x` is structurally `outer`'s own binding, so this
+    ///   predicate admits it. Codegen's later env-cell promotion (Stage C:
+    ///   `x` is captured by `g`, so it is NOT a plain `self.locals` entry
+    ///   even inside `outer`) is what actually denies that shape today, via
+    ///   the generic `literal.rs` fallback a few lines below the local match
+    ///   — which is why that fallback's message was fixed (Important 3) to
+    ///   also carry the operator text, so the `"&="`-style needle contract
+    ///   holds regardless of WHICH choke point catches a given shape. Pinned
+    ///   by `bitwise_compound_fails_closed_on_owning_function_captured_variable`
+    ///   and `bitwise_compound_fails_closed_on_module_global_read_via_closure`.
     /// - a for-in-key alias — structurally a plain identifier local to this
     ///   function (would otherwise pass the two checks above), but its
     ///   `self.locals` slot holds an ENUMERATION ORDINAL, not a JS-visible
@@ -2311,12 +2328,21 @@ impl TypeContext {
     ///   ten pre-existing compound operators already use below, reused
     ///   as-is so bitwise cannot admit a shape they would not.
     ///
-    /// A float-repr target or a float-valued RHS is deliberately NOT excluded
-    /// here — codegen's new bitwise arm (`literal.rs`) denies those itself
-    /// with its own E5506 (message includes the op text, matching this
-    /// gate's contract), so the boundary pins that exercise those two rows
-    /// stay green either way; duplicating the check here would just be two
-    /// gates disagreeing about the same fact.
+    /// A float-repr target, a float-valued RHS, or (review Critical 1) a
+    /// STRING-valued RHS is deliberately NOT excluded here — codegen's
+    /// bitwise arm (`literal.rs`) denies all three itself via a POSITIVE
+    /// allowlist (target repr `== Repr::I64` AND the RHS positively proven
+    /// `Repr::I64`, not a "reject float/string" denylist — an open `Repr`
+    /// enum leaks through a denylist by construction) with its own E5506
+    /// (message includes the op text, matching this gate's contract), so the
+    /// boundary pins that exercise those rows stay green either way;
+    /// duplicating the check here would just be two gates disagreeing about
+    /// the same fact. Do NOT rely on `repr_infer.rs`'s scalar-node graph for
+    /// this either: its `_ => {}` arm for the six bitwise ops withholds a
+    /// float edge (correct — a bitwise target never floats), but withholds
+    /// no comparable protection against a STRING RHS, so codegen's own
+    /// allowlist is the only thing standing between an admitted local and a
+    /// truncated string-handle miscompile.
     pub(crate) fn bitwise_compound_target_is_admitted_local_scalar(
         &self,
         left: &Expression,

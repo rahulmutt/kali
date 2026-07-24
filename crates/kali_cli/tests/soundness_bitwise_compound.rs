@@ -240,7 +240,53 @@ fn bitwise_compound_in_function_scope_and_param() {
 fn bitwise_compound_on_non_integer_fails_closed() {
     // float target, float RHS, string target — all E5506, never a wrong value
     // and never an internal E4201.
-    assert_fails_closed("let x = 1.5; x <<= 1; console.log(x);\n", "unavailable");
-    assert_fails_closed("let n = 6; n <<= 1.5; console.log(n);\n", "unavailable");
-    assert_fails_closed("let s = \"a\"; s <<= 1; console.log(s);\n", "unavailable");
+    assert_fails_closed("let x = 1.5; x <<= 1; console.log(x);\n", "<<=");
+    assert_fails_closed("let n = 6; n <<= 1.5; console.log(n);\n", "<<=");
+    assert_fails_closed("let s = \"a\"; s <<= 1; console.log(s);\n", "<<=");
+    // Review Critical 1: a STRING RHS (as opposed to a string TARGET, the row
+    // above) was the actual miscompile the original guard missed —
+    // `is_float_valued(right)` answers "is the RHS a float", not "is the RHS
+    // safe", so a string RHS fell through to `I32WrapI64`, which truncates
+    // the tagged string HANDLE to its low 32 bits and silently computes a
+    // wrong-but-plausible integer at exit 0. Four reproductions from the
+    // review, node v26.5.0 values noted in each comment (all wrong under the
+    // pre-fix guard: `1`, `12`, `0`, `2` respectively):
+    assert_fails_closed("let n = 0; n |= \"5\"; console.log(n);\n", "|="); // node: 5
+    assert_fails_closed(
+        "let s = \"3\"; let n = 6; n <<= s; console.log(n);\n",
+        "<<=",
+    ); // node: 48
+    assert_fails_closed("let k = 3; let n = 6; n &= `${k}`; console.log(n);\n", "&="); // node: 2
+    assert_fails_closed(
+        "let a = \"1\"; let b = \"2\"; let n = 6; n &= a + b; console.log(n);\n",
+        "&=",
+    ); // node: 4
+}
+
+// --- Task 2 review Important 3: the admit predicate's actual boundary on a
+// variable that is captured by SOME closure but referenced from the function
+// that OWNS it (as opposed to referenced from the CAPTURING closure, already
+// covered by `bitwise_compound_fails_closed_on_every_target_shape`'s
+// "Closure-captured variable" row). `bitwise_compound_target_is_admitted_local_scalar`
+// admits both of these at resolve — `x`/`g` below are structurally owned by
+// the function doing the write — so codegen is what denies them: an env-cell
+// promotion (Stage C, function scope) or the module-global lane (module
+// scope). Neither shape is a soundness gap (both fail closed today), but
+// neither was pinned before this review, and the function-scope row's
+// denial message did not carry the operator text until this fix.
+
+#[test]
+fn bitwise_compound_fails_closed_on_owning_function_captured_variable() {
+    assert_fails_closed(
+        "function outer(){ let x = 6; const g = () => x; x &= 3; return x + g(); } console.log(outer());\n",
+        "&=",
+    );
+}
+
+#[test]
+fn bitwise_compound_fails_closed_on_module_global_read_via_closure() {
+    assert_fails_closed(
+        "let x = 6; const g = () => x; x &= 3; console.log(x);\n",
+        "&=",
+    );
 }

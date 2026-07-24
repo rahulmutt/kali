@@ -1416,6 +1416,54 @@ impl<'a> FunctionEmitter<'a> {
                 .is_some_and(|digits| digits.parse::<i64>().is_ok())
     }
 
+    /// R-11 T2 review Critical 1 / Important 4: POSITIVE proof that `id` (after
+    /// unwrapping transparent wrappers and resolving const bindings) evaluates
+    /// to a genuine `Repr::I64` integer — never a denylist. Consulted by the
+    /// bitwise compound-assign arm (`literal.rs`) to admit its RHS.
+    ///
+    /// Admitted, narrowly:
+    /// - a plain integer literal (`parse_number_literal` succeeds — rejects
+    ///   both float literal text and a BigInt `n`-suffixed literal, since
+    ///   neither is a wrapped-i32-safe integer here),
+    /// - a bare identifier that is a LOCAL/PARAM of the CURRENT function
+    ///   (`self.locals.contains_key`, not `scalar_repr` alone — a module
+    ///   global or captured cell falls outside `self.locals` for this
+    ///   function's emitter, and trusting `scalar_repr`'s cross-function
+    ///   default there would re-open exactly the kind of leak this fixes)
+    ///   whose `scalar_repr` is EXACTLY `Repr::I64`,
+    /// - a unary `-` over either of the above.
+    ///
+    /// Everything else — a string literal, a template literal, `+` concat, a
+    /// call, a member/array read, a module global/captured/const reference —
+    /// returns `false` and the caller fails closed `E5506`. A false negative
+    /// here only costs an unimplemented RHS shape; a false positive would
+    /// re-open the string-handle-truncation miscompile (`n |= "5"` → `1`,
+    /// node `5`) this predicate exists to close.
+    pub(crate) fn bitwise_compound_rhs_is_provably_i64(&self, id: LirNodeId) -> bool {
+        let id = self.unwrap_transparent(id);
+        let id = self.resolve_bound_node(id);
+        let node = self.node(id);
+        if node.kind == LirNodeKind::Value
+            && node.children.len() == 1
+            && node.text.as_deref() == Some("-")
+        {
+            return self.bitwise_compound_rhs_is_provably_i64(node.children[0]);
+        }
+        if node.kind == LirNodeKind::Literal {
+            return node
+                .text
+                .as_deref()
+                .is_some_and(|text| parse_number_literal(text).is_some());
+        }
+        if node.kind == LirNodeKind::Value && node.children.is_empty() {
+            if let Some(name) = node.text.as_deref() {
+                return self.locals.contains_key(name)
+                    && self.scalar_repr(name) == kali_common::Repr::I64;
+            }
+        }
+        false
+    }
+
     /// Structural oracle: true when the value produced by `id` is represented as an
     /// `f64`. Mirrors `is_string_valued`; consulted per-operand by `emit_binary`
     /// to decide instruction selection and int->float promotion.
