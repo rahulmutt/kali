@@ -138,3 +138,68 @@ fn var_object_unknown_field_fails_closed() {
     // `undefined`; honest over-deny beats today's silent-0).
     run_e5506("var o = { f: 7 }; console.log(o.zzz);");
 }
+
+// ---- Residual guards (out of scope): must be NO WORSE than main. Each may
+//      stay silent-0 or fail closed, but must never crash and never produce a
+//      NEW nonzero-wrong value. ----
+
+/// A newly-materialized object that ESCAPES via return then a member-on-call
+/// read (R-06-R1 / R-14). Today: silent-0. Guard: exit 0 with "0", OR a
+/// fail-closed diagnostic — never a crash, never a nonzero-wrong value.
+#[test]
+fn returned_object_member_read_no_worse() {
+    let out = run("function h(){ var o = { f: 7 }; return o; } console.log(h().f);");
+    if out.status.success() {
+        // May not print node's "7" yet (R-14 escape is a later stage), but it
+        // must not print a WRONG NONZERO value. Silent-0 is the tolerated state.
+        let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        assert!(
+            stdout == "0" || stdout == "7",
+            "returned-object read produced a new nonzero-wrong value: {stdout:?}"
+        );
+    }
+    // A non-success exit (fail-closed) is also acceptable — the only forbidden
+    // outcome is a silent NONZERO-wrong value, guarded above.
+}
+
+/// Whole-object reassignment to an object literal (R-06-R2), a distinct store
+/// mechanism from the declarator init. Today: the reassigned read is silent-0.
+/// Guard: no crash, no new nonzero-wrong value.
+#[test]
+fn object_literal_reassignment_no_worse() {
+    let out = run("var o = { f: 1 }; console.log(o.f); o = { f: 2 }; console.log(o.f);");
+    if out.status.success() {
+        let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        // First read is correct (1); the reassigned read is the residual.
+        assert!(
+            stdout == "1\n0" || stdout == "1\n2",
+            "reassignment read produced a new nonzero-wrong value: {stdout:?}"
+        );
+    }
+}
+
+// ---- Regression pins (Task 1 review): lock in R-06 soundness invariants ----
+
+/// R-06's bool fail-close (see `var_object_bool_field_reads_value` above) must
+/// NOT bleed into the pre-existing WRITE-materialization path, which is a
+/// distinct mechanism from the read-only declarator-init lane R-06 touches.
+/// Confirmed on a fresh build: prints "1", exit 0 (NOT E5506) — this locks in
+/// the load-bearing `!obj_materialized.contains` guard that scopes R-06's
+/// Boolean-field fail-close to read-only bindings only.
+#[test]
+fn write_materialized_bool_stays_untouched() {
+    assert_eq!(
+        run_ok("var o = { f: false }; o.f = true; console.log(o.f);"),
+        "1"
+    );
+}
+
+/// The bool fail-close is scoped to the WHOLE binding, not per-field: a
+/// read-only mutable object with ANY Boolean-literal field fails closed even
+/// when only a safe numeric field is read. Confirmed on a fresh build: E5506,
+/// exit 1. This documents an intended honest over-deny; per-field precision
+/// is a possible later refinement, not a bug.
+#[test]
+fn mixed_bool_numeric_field_over_denies_e5506() {
+    run_e5506("var o = { f: 7, g: true }; console.log(o.f);");
+}
