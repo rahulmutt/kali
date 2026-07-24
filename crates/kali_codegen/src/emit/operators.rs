@@ -1466,17 +1466,29 @@ impl<'a> FunctionEmitter<'a> {
     /// re-open the string-handle-truncation miscompile (`n |= "5"` → `1`,
     /// node `5`) this predicate exists to close.
     ///
-    /// **Residual NOT closed by this predicate** (out of its scope — it only
-    /// covers the RHS): the TARGET's own repr check in `literal.rs`
-    /// (`self.scalar_repr(&name) != Repr::I64`) has the IDENTICAL "default is
-    /// not a proof" defect, and switching IT to `scalar_entry` the same way
-    /// was measured to deny every currently-passing Task-2 happy-path test —
-    /// `Repr::I64` is never explicitly recorded for ANY binding anywhere in
-    /// this codebase, so an explicit-entry requirement on the target denies
-    /// 100% of admissions, not just the leak. `let o={a:"3"}; let n=o.a; n |=
-    /// 1;` therefore still prints `1` (node: `3`) at exit 0 — reported to the
-    /// task coordinator as a residual for the Task 6 audit, not silently
-    /// left uncovered by a passing test that encodes the wrong value.
+    /// **Round 3 update — the target axis is ALSO closed now, by a different
+    /// mechanism than this predicate uses** (out of this predicate's own
+    /// scope — it only covers the RHS): the TARGET's own repr check in
+    /// `literal.rs` (`self.scalar_repr(&name) == Repr::I64`) had the
+    /// IDENTICAL "default is not a proof" defect this predicate's identifier
+    /// branch has. Switching the target check to `scalar_entry` the same way
+    /// this predicate does was measured (round 2) to deny every
+    /// currently-passing Task-2 happy-path test — `Repr::I64` is never
+    /// explicitly recorded for ANY binding anywhere in this codebase via
+    /// `set_scalar`, so an explicit-entry requirement on the TARGET denies
+    /// 100% of admissions, not just the leak (this predicate's own RHS
+    /// identifier branch does not have that problem, because no Task-2 test
+    /// exercises an identifier RHS at all). The fix was a DIFFERENT
+    /// positive-evidence signal: `ReprTable::numeric_bindings` /
+    /// `binding_is_proven_numeric`, a pre-existing allowlist `repr_infer`
+    /// writes affirmatively (not defaulted) that the six bitwise ops now
+    /// participate in — see `literal.rs`'s target check and
+    /// `repr_infer.rs`'s `visit_assignment`. `let o={a:"3"}; let n=o.a; n |=
+    /// 1;` now fails closed `E5506` instead of printing `1` (node: `3`) —
+    /// closed, at the cost of a documented over-denial on an unrelated,
+    /// previously-CORRECT case (`let o={a:3}; let n=o.a; n|=1;`, a NUMBER
+    /// field this new proof cannot see through either — see the target
+    /// check's own comment).
     pub(crate) fn bitwise_compound_rhs_is_provably_i64(&self, id: LirNodeId) -> bool {
         let id = self.unwrap_transparent(id);
         let id = self.resolve_bound_node(id);
@@ -1502,36 +1514,29 @@ impl<'a> FunctionEmitter<'a> {
                 .as_deref()
                 .is_some_and(|text| !text.ends_with('n') && parse_number_literal(text).is_some());
         }
-        if node.kind == LirNodeKind::Value && node.children.is_empty() {
-            if let Some(name) = node.text.as_deref() {
-                // Review round 2, Critical 1 (still open on this axis):
-                // `scalar_repr`/`ReprTable::scalar` return `Repr::I64` for
-                // BOTH a binding with genuine positive I64 evidence AND one
-                // `repr_infer` never recorded anything about — I64 is the
-                // table's `#[default]`, and NOTHING in this codebase ever
-                // calls `set_scalar(.., Repr::I64)` (confirmed by inspection:
-                // every `set_scalar` call site passes String/F64/Object/
-                // AbortHandle/Url/UrlSearchParams/Bytes/Event, never I64), so
-                // `scalar_repr(name) == I64` can never be distinguished from
-                // "unproven" through that accessor. Use `scalar_entry`
-                // instead (Option-returning, added for this fix) and require
-                // an EXPLICIT record — closes the leak this review measured
-                // (`let s = o.a; n &= s;` — `s` reads a STRING object field
-                // but `repr_infer` does not yet propagate `Repr::String` onto
-                // a binding through this provenance chain, the pre-existing
-                // R-06-R4 "string-field-sink-corruption" residual — `s` gets
-                // NO entry at all, positive or negative, so it now correctly
-                // fails closed instead of defaulting to "looks like I64").
-                // Costs nothing on the currently-supported surface: no
-                // Task-2 test exercises an identifier RHS at all (every
-                // passing test's RHS is a literal), so this tightening does
-                // not narrow any admitted case — verified by the full
-                // regression run in the fix report.
-                return self.locals.contains_key(name)
-                    && self.repr_table.scalar_entry(&self.function_name, name)
-                        == Some(kali_common::Repr::I64);
-            }
-        }
+        // Review round 2, Critical 1 / round 3 item 4: an identifier RHS is
+        // DENIED explicitly, not admitted through a check that happens to be
+        // false today. `scalar_repr(name) == Repr::I64` cannot be trusted —
+        // `Repr::I64` is `Repr`'s `#[default]`, so it cannot tell "proven
+        // I64" from "repr_infer recorded nothing about this binding at all"
+        // (measured leak: `let s = o.a; n &= s;`, `s` reads a STRING object
+        // field `repr_infer` does not yet propagate onto `s`, the
+        // pre-existing R-06-R4 "string-field-sink-corruption" residual — `s`
+        // gets no repr evidence at all, positive or negative, so trusting
+        // the default silently truncated its string handle). The genuinely
+        // positive-evidence signal for this, `ReprTable::numeric_bindings` /
+        // `binding_is_proven_numeric`, is now wired into the TARGET's own
+        // check in `literal.rs` (round 3) but is deliberately NOT wired in
+        // here: doing so would ADMIT more identifier shapes than any test in
+        // this file has exercised or this review has measured, an unreviewed
+        // widening this fix round does not make on its own authority. If a
+        // future round wires `binding_is_proven_numeric` (or an equivalent
+        // positive-evidence accessor) into this branch, that is a deliberate
+        // widening to review and test explicitly — not a side effect of some
+        // OTHER accessor (e.g. `scalar_entry`, or `scalar_repr`'s default)
+        // starting to "look true" by coincidence. Denying an identifier RHS
+        // costs nothing on the currently-supported surface: no Task-2 test
+        // exercises one (every passing test's RHS is a literal).
         false
     }
 

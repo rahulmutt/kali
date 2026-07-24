@@ -1078,14 +1078,43 @@ impl<'a> FunctionEmitter<'a> {
                 // 0 (measured: `n |= "5"` printed `1`, node prints `5`).
                 //
                 // Fixed as a POSITIVE allowlist instead: admit only when the
-                // TARGET's repr is EXACTLY `Repr::I64` (not "not F64/String") and
-                // the RHS is POSITIVELY proven `Repr::I64` by
-                // `bitwise_compound_rhs_is_provably_i64` (an integer literal, a
-                // local/param identifier whose own scalar repr is `I64`, or a
-                // unary `-` over either) — everything else, including every
-                // other current and future `Repr` variant and every RHS shape
-                // this oracle does not specifically recognize, fails closed.
+                // TARGET's repr is EXACTLY `Repr::I64` (not "not F64/String")
+                // and the RHS is POSITIVELY proven `Repr::I64` by
+                // `bitwise_compound_rhs_is_provably_i64` (see that function's
+                // doc for exactly what it does and does not prove) —
+                // everything else, including every other current and future
+                // `Repr` variant and every RHS shape this oracle does not
+                // specifically recognize, fails closed.
+                //
+                // Review round 3: `scalar_repr(&name) == Repr::I64` ALONE has
+                // the identical "default is not a proof" defect the RHS axis
+                // had — `Repr::I64` is `Repr`'s `#[default]`, so it cannot
+                // tell "repr_infer proved this I64" from "repr_infer recorded
+                // nothing about this binding at all" (e.g. `let n = o.a;`
+                // where `o.a` is a STRING field `repr_infer` does not yet
+                // propagate onto `n`, the pre-existing R-06-R4
+                // "string-field-sink-corruption" residual). Round 2 measured
+                // that requiring an EXPLICIT `ReprTable::scalar_entry` record
+                // here denies 100% of the admitted lane (`Repr::I64` is never
+                // written explicitly anywhere in this codebase) and reported
+                // that as an apparent impossibility. It was not: `numeric_bindings`
+                // / `binding_is_proven_numeric` (`kali_common::repr`,
+                // `emit/call.rs`) is a DIFFERENT, already-existing
+                // positive-evidence allowlist — written AFFIRMATIVELY by
+                // `repr_infer`'s numeric-binding-write proof, never defaulted
+                // — that the six bitwise ops now participate in
+                // (`repr_infer.rs`'s `visit_assignment`). Requiring it here
+                // closes the target-axis leak (verified in the fix report)
+                // at the cost of a real, deliberate over-denial: a target
+                // whose ONLY evidence is an untracked provenance chain
+                // (an object field read into a local, even a NUMBER field —
+                // `write_value_is_numeric` does not model member-expression
+                // RHS at all) now fails closed instead of computing the
+                // correct value. Accepted under this project's standing
+                // "refuse rather than miscompile" policy; not silently
+                // absorbed — see the fix report for the measured case.
                 if self.scalar_repr(&name) != kali_common::Repr::I64
+                    || !self.binding_is_proven_numeric(&name)
                     || !self.bitwise_compound_rhs_is_provably_i64(right)
                 {
                     self.diagnostics.push(Diagnostic::error(

@@ -3287,36 +3287,53 @@ impl ReprInfer {
                 }
                 // `x += v` etc. compute `x <op> v`; with `x` admissible as a
                 // self-reference, proving `v` proves the whole write.
+                //
+                // R-11 T2 review round 3: the six bitwise compound assigns
+                // (`&= |= ^= <<= >>= >>>=`) moved OUT of the deny group below
+                // and into this proof — the tightening the T1.5-era comment
+                // on the deny arm called "available in principle" once the
+                // bitwise codegen lane was validated end to end (it now is,
+                // R-11 T2). A bitwise compound always produces an int32
+                // regardless of the RHS's own numeric value, so exactly the
+                // same rule as `+=`/`-=`/`*=`/`%=` applies: `x` is admissible
+                // as a self-reference, and proving `v` numeric proves the
+                // whole write numeric. `record_numeric_binding_write`'s own
+                // `write_value_is_numeric` recognizes literals, BigInt
+                // literals, a proven param, a self-reference, and nested
+                // +/-/*/%/&/|/^/<<//>>/>>> — the identical allowlist the
+                // arithmetic arm above already trusts, so this is not a new
+                // proof surface, just extending an existing one to six more
+                // operators. Consumed by `FunctionEmitter::binding_is_proven_numeric`
+                // (`emit/call.rs`), which the bitwise TARGET check in
+                // `literal.rs` now also requires — closing the target-axis
+                // leak `scalar_repr(&name) == Repr::I64` alone could not
+                // (measured in the R-11 T2 review: `ReprTable::scalar_entry`
+                // requiring an explicit I64 record denied every admitted
+                // case, because I64 is `Repr`'s `#[default]` and is never
+                // written explicitly; `numeric_bindings` is a DIFFERENT,
+                // already-existing allowlist that does not have that
+                // problem — it is written affirmatively by this very match
+                // arm, not defaulted).
                 AssignmentOperator::AddAssign
                 | AssignmentOperator::SubtractAssign
                 | AssignmentOperator::MultiplyAssign
-                | AssignmentOperator::ModuloAssign => {
-                    self.record_numeric_binding_write(func, name, Some(&assign.right), true)
-                }
-                // `/=` and `**=` lower on lanes this proof does not model, and
-                // `&&=`/`||=`/`??=` can write the RHS's own (possibly tagged)
-                // value through unchanged. Deny.
-                // R-11 T1.5: the six bitwise compound assigns (`&= |= ^= <<=
-                // >>= >>>=`) join the deny group too. A bitwise compound
-                // always produces an int32 regardless of the RHS, so a
-                // tighter proof is *available* in principle — but this pass
-                // has not been extended to model that shape yet. Denying
-                // costs only a missed optimization (the binding stays
-                // unpromoted), never correctness: proving too little here
-                // just falls back to the slower default lane. Tightening
-                // this is a legitimate follow-up once the bitwise codegen
-                // lane (R-11 T2+) is validated end-to-end.
-                AssignmentOperator::DivideAssign
-                | AssignmentOperator::ExponentAssign
-                | AssignmentOperator::NullishAssign
-                | AssignmentOperator::AndAssign
-                | AssignmentOperator::OrAssign
+                | AssignmentOperator::ModuloAssign
                 | AssignmentOperator::BitAndAssign
                 | AssignmentOperator::BitOrAssign
                 | AssignmentOperator::BitXorAssign
                 | AssignmentOperator::LeftShiftAssign
                 | AssignmentOperator::RightShiftAssign
                 | AssignmentOperator::UnsignedRightShiftAssign => {
+                    self.record_numeric_binding_write(func, name, Some(&assign.right), true)
+                }
+                // `/=` and `**=` lower on lanes this proof does not model, and
+                // `&&=`/`||=`/`??=` can write the RHS's own (possibly tagged)
+                // value through unchanged. Deny.
+                AssignmentOperator::DivideAssign
+                | AssignmentOperator::ExponentAssign
+                | AssignmentOperator::NullishAssign
+                | AssignmentOperator::AndAssign
+                | AssignmentOperator::OrAssign => {
                     self.record_numeric_binding_write(func, name, None, true)
                 }
             }

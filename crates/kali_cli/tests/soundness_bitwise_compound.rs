@@ -334,27 +334,46 @@ fn bitwise_compound_fails_closed_on_growable_array_rhs() {
 }
 
 #[test]
-fn bitwise_compound_target_axis_string_field_leak_is_a_tracked_residual() {
-    // Review round 2, Critical 1: STILL OPEN. `n` itself (the bitwise
-    // compound-assign TARGET, not the RHS) is assigned from a string object
-    // field (`o.a`) and therefore has no positive repr evidence either way —
-    // `repr_infer` never records an explicit `Repr::I64` entry for ANY
-    // binding anywhere in this codebase (confirmed by inspection: no
-    // `set_scalar` call site ever passes `Repr::I64`, since it is `Repr`'s
-    // `#[default]`), so tightening the TARGET check in `literal.rs` the same
-    // way the RHS check was tightened above was MEASURED to deny every
-    // currently-passing Task-2 happy-path test (`bitwise_compound_on_let_scalar`,
-    // `bitwise_compound_int32_edges`, `bitwise_compound_in_function_scope_and_param`,
-    // `bitwise_compound_on_var_scalar`, `bitwise_compound_admitted_on_plain_scalar_all_six_ops`
-    // — 5/11 tests in this file, 100% of the admitted lane) — there is no
-    // explicit-entry signal on the target axis to require. This is the
-    // pre-existing R-06-R4 "string-field-sink-corruption" residual reaching
-    // this gate, not introduced or expected to be fixed by R-11 T2; tracked
-    // for the Task 6 audit. Left commented out rather than asserted, so this
-    // suite never encodes the wrong value as an expectation:
-    //
-    // let out = run_source("let o = {a: \"3\"}; let n = o.a; n |= 1; console.log(n);\n");
-    // as of this commit: exit 0, stdout "1\n" (node: "3\n") — WRONG, tracked, not pinned.
+fn bitwise_compound_fails_closed_on_target_from_string_object_field() {
+    // Review round 2 found this OPEN; round 3 closed it. `n` itself (the
+    // bitwise compound-assign TARGET, not the RHS) is assigned from a string
+    // object field (`o.a`) and therefore had no positive repr evidence in
+    // either direction under the round-2 fix — `repr_infer` never records an
+    // explicit `Repr::I64` `ReprTable::scalar` entry for ANY binding anywhere
+    // in this codebase (confirmed by inspection: no `set_scalar` call site
+    // ever passes `Repr::I64`, since it is `Repr`'s `#[default]`), so an
+    // explicit-entry requirement on the TARGET (mirroring the RHS fix
+    // verbatim) was measured to deny 100% of the admitted lane instead of
+    // just the leak. Round 3 closed it with a DIFFERENT positive-evidence
+    // signal instead: `ReprTable::numeric_bindings` / `binding_is_proven_numeric`,
+    // a pre-existing allowlist `repr_infer` writes affirmatively (not
+    // defaulted), now covering the six bitwise ops too
+    // (`crates/kali_types/src/repr_infer.rs`'s `visit_assignment`). node: 3.
+    assert_fails_closed(
+        "let o = {a: \"3\"}; let n = o.a; n |= 1; console.log(n);\n",
+        "|=",
+    );
+}
+
+#[test]
+fn bitwise_compound_target_axis_over_denial_is_a_documented_known_cost() {
+    // Review round 3: the `binding_is_proven_numeric` fix that closes the
+    // leak above is not free. `write_value_is_numeric` (the proof
+    // `numeric_bindings` is built from) does not model a member-expression
+    // RHS at all, so a target whose ONLY write evidence is an object-field
+    // read now fails closed EVEN WHEN the field genuinely holds a number and
+    // node computes the correct value — a real loss of a previously-CORRECT
+    // case, not a wrong value. Accepted under this project's "refuse rather
+    // than miscompile" policy (fail-closed is preferred to a silent
+    // miscompile), and pinned here so a future change that narrows
+    // `numeric_bindings` further doesn't silently change this row from
+    // "known, accepted over-denial" to "yet another shape denied" without
+    // review. node: 3 (this program is NOT a miscompile in node — kali is
+    // conservative here, not wrong).
+    assert_fails_closed(
+        "let o = {a: 3}; let n = o.a; n |= 1; console.log(n);\n",
+        "|=",
+    );
 }
 
 // --- Task 2 review Important 3: the admit predicate's actual boundary on a

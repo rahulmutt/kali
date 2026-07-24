@@ -2344,24 +2344,36 @@ impl TypeContext {
     /// STRING RHS, so codegen's own allowlist is the only thing standing
     /// between an admitted local and a truncated string-handle miscompile.
     ///
-    /// **Known residual, review round 2 (stated here so this doc does not
-    /// claim a closure it does not have):** codegen's RHS check
-    /// (`bitwise_compound_rhs_is_provably_i64`) requires an EXPLICIT
-    /// `ReprTable::scalar_entry` record for an identifier RHS, not the
-    /// defaulted `scalar_repr` — because `Repr::I64` is `ReprTable::scalar`'s
-    /// `#[default]` and is NEVER written explicitly anywhere in this
-    /// codebase, so `scalar_repr(x) == I64` cannot distinguish "proven" from
-    /// "unrecorded." The TARGET check in `literal.rs` (`scalar_repr(&name) !=
-    /// Repr::I64`) has the identical defect but CANNOT be tightened the same
-    /// way: doing so was measured to deny every currently-passing Task-2
-    /// local-scalar test, because no write path in this codebase ever leaves
-    /// an explicit `I64` entry for ANY binding (not a coverage gap — an
-    /// architectural fact about `repr_infer`). So `let o={a:"3"}; let
-    /// n=o.a; n |= 1;` (`n` reads a string object field, defaults to `I64`
-    /// with no positive evidence either way) still silently truncates today.
-    /// This is the pre-existing R-06-R4 "string-field-sink-corruption"
-    /// residual reaching this gate, not something this predicate introduced
-    /// or was expected to fix — tracked for the Task 6 audit.
+    /// **Review rounds 2-3, both axes now closed at codegen (stated here so
+    /// this doc does not claim less, or more, than what is true):** codegen's
+    /// RHS check (`bitwise_compound_rhs_is_provably_i64`) requires an
+    /// EXPLICIT `ReprTable::scalar_entry` record for an identifier RHS, not
+    /// the defaulted `scalar_repr` — because `Repr::I64` is
+    /// `ReprTable::scalar`'s `#[default]`, so `scalar_repr(x) == I64` cannot
+    /// distinguish "proven" from "unrecorded." The TARGET check in
+    /// `literal.rs` (`scalar_repr(&name) == Repr::I64`) has the identical
+    /// defect but `scalar_entry` cannot close it: round 2 measured that
+    /// requiring an explicit `I64` record there denies every
+    /// currently-passing Task-2 local-scalar test, because NOTHING in this
+    /// codebase ever writes `Repr::I64` explicitly (it is the table's
+    /// default, not an omission). The available positive-evidence signal
+    /// instead is `ReprTable::numeric_bindings` /
+    /// `binding_is_proven_numeric` (`kali_common::repr`, `emit/call.rs`) — a
+    /// DIFFERENT, pre-existing allowlist `repr_infer` writes AFFIRMATIVELY
+    /// (never defaulted) for a binding whose every write is arithmetic over
+    /// numeric literals, self-reference, or a proven-scalar parameter. Round
+    /// 3 extended it to the six bitwise ops (`repr_infer.rs`'s
+    /// `visit_assignment`) and added it to the `literal.rs` target check,
+    /// closing `let o={a:"3"}; let n=o.a; n|=1;` (the R-06-R4
+    /// "string-field-sink-corruption" residual reaching this gate) along
+    /// with the other target-axis leaks. Cost: a real, deliberate
+    /// over-denial — `numeric_bindings` does not model a member-expression
+    /// RHS at all, so `let o={a:3}; let n=o.a; n|=1;` (a NUMBER field, a
+    /// case node computes CORRECTLY as `3`) now also fails closed, because
+    /// `n`'s only write evidence is an object-field read this proof cannot
+    /// see through. Accepted under this project's "refuse rather than
+    /// miscompile" policy; tracked for the Task 6 audit as a known cost, not
+    /// a silently absorbed regression.
     pub(crate) fn bitwise_compound_target_is_admitted_local_scalar(
         &self,
         left: &Expression,
