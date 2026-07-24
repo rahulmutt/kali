@@ -47,7 +47,10 @@ fn assert_fails_closed(src: &str, needle: &str) {
         "expected a fail-closed diagnostic, got success: {out:?}"
     );
     assert!(stderr.contains("E5506"), "expected E5506, got: {stderr}");
-    assert!(stderr.contains(needle), "expected {needle:?}, got: {stderr}");
+    assert!(
+        stderr.contains(needle),
+        "expected {needle:?}, got: {stderr}"
+    );
 }
 
 // --- Task 1: plain binary bitwise operators stay correct (refactor is neutral) ---
