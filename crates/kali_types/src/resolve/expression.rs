@@ -1792,31 +1792,53 @@ impl TypeContext {
                 }
 
                 // R-11 T1.5: the six bitwise compound assignment operators
-                // (`&= |= ^= <<= >>= >>>=`) are new syntax this task teaches
-                // the front end to recognize; no codegen lowering for them
-                // exists yet (that is Task 2's job). Without an explicit
-                // gate here, the generic scalar-target admit path below (and
-                // the for-in-key member-target admit path just after it)
-                // would let the op through with NO diagnostic — resolve has
-                // no way to know these specific new variants lack a codegen
-                // lane, since its fallthrough logic predates them. The op
-                // would then reach `kali_codegen::emit_binary`, whose
-                // catch-all unimplemented-operator arm computes a value and
-                // DISCARDS it without ever storing to the target — silently
-                // reproducing this project's exact no-op symptom one layer
-                // deeper (parsed correctly, then silently dropped in codegen
-                // instead of silently dropped in the lexer). Deny explicitly
-                // and fail closed, for every target shape (identifier,
-                // member, for-in-key alias), until Task 2 lands the real
-                // lowering and can delete this gate.
+                // (`&= |= ^= <<= >>= >>>=`) are new syntax the front end
+                // recognizes; codegen has a real lowering for exactly ONE
+                // target shape so far (R-11 T2: a bare identifier that is a
+                // mutable, scalar, `let`/`var`/parameter binding owned by the
+                // CURRENTLY-TRACKED function's own scope — see
+                // `bitwise_compound_target_is_admitted_local_scalar`). Without
+                // an explicit gate here, the generic scalar-target admit path
+                // below (and the for-in-key member-target admit path just
+                // after it) would let the op through with NO diagnostic for
+                // every OTHER shape too — resolve has no way to know these
+                // specific new variants lack a codegen lane there, since its
+                // fallthrough logic predates them. The op would then reach
+                // `kali_codegen::emit_binary`'s catch-all unimplemented-
+                // operator arm, which computes a value and DISCARDS it
+                // without ever storing to the target — silently reproducing
+                // this project's exact no-op symptom one layer deeper (parsed
+                // correctly, then silently dropped in codegen instead of
+                // silently dropped in the lexer).
+                //
+                // NARROWED, not deleted, as each shape's codegen lane lands
+                // (R-11 T2 opens local/param scalar; T3-T5 open module
+                // global, captured cell, and object field in turn): admit
+                // only the one shape T2's codegen change actually lowers and
+                // keep denying explicitly, fail closed, for every other
+                // shape (member, computed/for-in-key, closure-captured,
+                // module global, non-scalar, immutable, or a shape crossing
+                // an untracked scope) — the generic scalar admit path below
+                // was written and tested against the ten pre-existing
+                // operators only, and must not silently inherit an unaudited
+                // 11th-16th.
                 if let Some(op_text) = bitwise_compound_assign_op_text(&expr.operator) {
-                    self.diagnostics.push(Diagnostic::error(
-                        e5::FEATURE_UNAVAILABLE as u32,
-                        format!(
-                            "bitwise compound assignment ('{op_text}') is recognized by the parser but has no codegen lowering yet in the current phase; use the plain binary operator with a separate assignment, or the later compatibility path"
-                        ),
-                    ));
-                    return;
+                    if !self.bitwise_compound_target_is_admitted_local_scalar(&expr.left) {
+                        self.diagnostics.push(Diagnostic::error(
+                            e5::FEATURE_UNAVAILABLE as u32,
+                            format!(
+                                "bitwise compound assignment ('{op_text}') is recognized by the parser but has no codegen lowering yet for this target in the current phase; use the plain binary operator with a separate assignment, or the later compatibility path"
+                            ),
+                        ));
+                        return;
+                    }
+                    // Admitted: fall through to the generic scalar
+                    // compound-assign path below (same code the ten
+                    // pre-existing operators use), which calls
+                    // `invalidate_static_binding` and re-validates mutability
+                    // and scalar-ness before returning. Codegen itself still
+                    // fails closed (E5506) on an F64/String-repr target or a
+                    // float-valued RHS (`literal.rs`'s new bitwise arm).
                 }
 
                 if matches!(expr.operator, AssignmentOperator::Assign) {
@@ -2259,6 +2281,56 @@ impl TypeContext {
                 .get(name)
                 .copied()
                 .unwrap_or(false)
+    }
+
+    /// R-11 T2: the narrow admit predicate for the bitwise compound-assign
+    /// gate above. `true` only for the ONE target shape T2's codegen change
+    /// actually lowers — a bare identifier that is a mutable, scalar
+    /// `let`/`var`/parameter binding owned by the CURRENTLY-TRACKED
+    /// function's own scope (module scope's `_start` counts as "the
+    /// currently-tracked function" for top-level code). Every other shape
+    /// must return `false` so the caller keeps denying with the op-bearing
+    /// message:
+    ///
+    /// - a member/computed target (`o.a`, `a[i]`, `o[k]`) — not an
+    ///   identifier, `resolve_update_binding_name` returns `None`;
+    /// - a closure-captured variable, or a module global referenced from
+    ///   inside a function — `binding_repr_function_key` walks past the
+    ///   tracked function's own scope without finding `name` there and
+    ///   returns `Some("_start")` regardless of which function actually owns
+    ///   it (mirrors codegen's locals-miss fallback), which disagrees with
+    ///   `current_function_name()` for any real function scope;
+    /// - a for-in-key alias — structurally a plain identifier local to this
+    ///   function (would otherwise pass the two checks above), but its
+    ///   `self.locals` slot holds an ENUMERATION ORDINAL, not a JS-visible
+    ///   integer; a real bitwise op on the ordinal would silently corrupt
+    ///   the key used to index the shape's field table, so it is excluded
+    ///   explicitly rather than left to codegen to notice;
+    /// - `const`, or a non-scalar (array/object) binding — the exact
+    ///   `binding_is_mutable` / `compound_update_target_is_scalar` gate the
+    ///   ten pre-existing compound operators already use below, reused
+    ///   as-is so bitwise cannot admit a shape they would not.
+    ///
+    /// A float-repr target or a float-valued RHS is deliberately NOT excluded
+    /// here — codegen's new bitwise arm (`literal.rs`) denies those itself
+    /// with its own E5506 (message includes the op text, matching this
+    /// gate's contract), so the boundary pins that exercise those two rows
+    /// stay green either way; duplicating the check here would just be two
+    /// gates disagreeing about the same fact.
+    pub(crate) fn bitwise_compound_target_is_admitted_local_scalar(
+        &self,
+        left: &Expression,
+    ) -> bool {
+        let Some(name) = self.resolve_update_binding_name(left) else {
+            return false;
+        };
+        if self.binding_repr_function_key(&name).as_deref() != Some(self.current_function_name()) {
+            return false;
+        }
+        if self.for_in_key_shape(&name).is_some() {
+            return false;
+        }
+        self.binding_is_mutable(&name) && self.compound_update_target_is_scalar(&name)
     }
 
     pub(crate) fn resolve_import_expression(&mut self, expr: &ImportExpression) {

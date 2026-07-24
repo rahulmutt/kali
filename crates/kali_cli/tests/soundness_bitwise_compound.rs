@@ -121,18 +121,26 @@ fn bitwise_compound_ops_are_not_silently_misparsed() {
 // does not support will fail here (not silently pass), because the message
 // text pinned is specific to this gate and no other diagnostic in this
 // codebase reuses it.
+//
+// R-11 T2 update: the local-scalar row below has now flipped, exactly as
+// anticipated — the resolve-stage gate (`bitwise_compound_target_is_admitted_local_scalar`)
+// narrowly admits a bare-identifier mutable scalar `let`/`var`/parameter
+// owned by the current function's own scope, and codegen's new local-branch
+// arm (`literal.rs`) computes the real value. Renamed from
+// `bitwise_compound_fails_closed_on_plain_scalar_all_six_ops` to reflect
+// that it now pins ADMISSION, not denial, for this one shape.
 
 #[test]
-fn bitwise_compound_fails_closed_on_plain_scalar_all_six_ops() {
-    for (src, op_text) in [
-        ("let n = 6; n &= 3; console.log(n);\n", "&="),
-        ("let n = 6; n |= 8; console.log(n);\n", "|="),
-        ("let n = 6; n ^= 1; console.log(n);\n", "^="),
-        ("let n = 6; n <<= 2; console.log(n);\n", "<<="),
-        ("let n = 6; n >>= 1; console.log(n);\n", ">>="),
-        ("let n = 6; n >>>= 1; console.log(n);\n", ">>>="),
+fn bitwise_compound_admitted_on_plain_scalar_all_six_ops() {
+    for (src, expected) in [
+        ("let n = 6; n &= 3; console.log(n);\n", "2\n"),
+        ("let n = 6; n |= 8; console.log(n);\n", "14\n"),
+        ("let n = 6; n ^= 1; console.log(n);\n", "7\n"),
+        ("let n = 6; n <<= 2; console.log(n);\n", "24\n"),
+        ("let n = 6; n >>= 1; console.log(n);\n", "3\n"),
+        ("let n = 6; n >>>= 1; console.log(n);\n", "3\n"),
     ] {
-        assert_fails_closed(src, op_text);
+        assert_stdout(src, expected);
     }
 }
 
@@ -142,9 +150,10 @@ fn bitwise_compound_fails_closed_on_every_target_shape() {
     // decides purely on `AssignmentOperator`, before it ever looks at the
     // LHS shape (`crates/kali_types/src/resolve/expression.rs:1794-1820` runs
     // ahead of every shape-specific admit path), so all six operators take
-    // the same route through every shape below. `bitwise_compound_fails_closed_on_plain_scalar_all_six_ops`
+    // the same route through every shape below. `bitwise_compound_admitted_on_plain_scalar_all_six_ops`
     // above already covers the cross-operator axis on the one shape Task 2
-    // is expected to admit first; this test covers the cross-shape axis.
+    // admits; this test covers the cross-shape axis (every OTHER shape,
+    // still denied).
     let needle = "&=";
     assert_fails_closed(
         // Member target (`o.a`).
@@ -186,4 +195,52 @@ fn bitwise_compound_fails_closed_on_every_target_shape() {
         "const c = 6; c &= 3; console.log(c);\n",
         needle,
     );
+}
+
+// --- Task 2: local / parameter scalar targets ---
+
+#[test]
+fn bitwise_compound_on_let_scalar() {
+    assert_stdout("let n = 6; n &= 3; console.log(n);\n", "2\n");
+    assert_stdout("let n = 6; n |= 8; console.log(n);\n", "14\n");
+    assert_stdout("let n = 6; n ^= 1; console.log(n);\n", "7\n");
+    assert_stdout("let n = 6; n <<= 2; console.log(n);\n", "24\n");
+    assert_stdout("let n = 6; n >>= 1; console.log(n);\n", "3\n");
+    assert_stdout("let n = 6; n >>>= 1; console.log(n);\n", "3\n");
+}
+
+#[test]
+fn bitwise_compound_on_var_scalar() {
+    assert_stdout("var n = 6; n <<= 2; console.log(n);\n", "24\n");
+}
+
+#[test]
+fn bitwise_compound_int32_edges() {
+    // shift-count masking, sign, and uint32 round-trip through the slot.
+    assert_stdout("let x = 1; x <<= 31; console.log(x);\n", "-2147483648\n");
+    assert_stdout("let x = 1; x <<= 32; console.log(x);\n", "1\n");
+    assert_stdout("let x = -8; x >>= 1; console.log(x);\n", "-4\n");
+    assert_stdout("let x = -1; x >>>= 0; console.log(x);\n", "4294967295\n");
+    assert_stdout("let x = 6; x <<= 2; x |= 1; console.log(x);\n", "25\n");
+}
+
+#[test]
+fn bitwise_compound_in_function_scope_and_param() {
+    assert_stdout(
+        "function f(p) { p <<= 2; return p; } console.log(f(6));\n",
+        "24\n",
+    );
+    assert_stdout(
+        "function g() { let n = 5; n |= 2; return n; } console.log(g());\n",
+        "7\n",
+    );
+}
+
+#[test]
+fn bitwise_compound_on_non_integer_fails_closed() {
+    // float target, float RHS, string target — all E5506, never a wrong value
+    // and never an internal E4201.
+    assert_fails_closed("let x = 1.5; x <<= 1; console.log(x);\n", "unavailable");
+    assert_fails_closed("let n = 6; n <<= 1.5; console.log(n);\n", "unavailable");
+    assert_fails_closed("let s = \"a\"; s <<= 1; console.log(s);\n", "unavailable");
 }

@@ -221,7 +221,21 @@ impl<'a> FunctionEmitter<'a> {
     ) -> bool {
         if !matches!(
             op,
-            "=" | "??=" | "&&=" | "||=" | "+=" | "-=" | "*=" | "/=" | "%=" | "**="
+            "=" | "??="
+                | "&&="
+                | "||="
+                | "+="
+                | "-="
+                | "*="
+                | "/="
+                | "%="
+                | "**="
+                | "&="
+                | "|="
+                | "^="
+                | "<<="
+                | ">>="
+                | ">>>="
         ) {
             return false;
         }
@@ -1032,7 +1046,50 @@ impl<'a> FunctionEmitter<'a> {
                 function.instruction(&Instruction::LocalGet(index));
                 true
             }
-            _ => false,
+            "&=" | "|=" | "^=" | "<<=" | ">>=" | ">>>=" => {
+                // JS bitwise compound: a op= b ≡ a = ToInt32(a) <op> ToInt32(b).
+                // Float/string targets and a float RHS have no integer meaning —
+                // fail closed, mirroring emit_binary's bitwise float rejection
+                // and the arithmetic arm's string rejection. (Emitting the
+                // I32WrapI64 over an f64 would produce a malformed module, E4201
+                // — the wrong error kind — so this guard is load-bearing.)
+                if matches!(
+                    self.scalar_repr(&name),
+                    kali_common::Repr::F64 | kali_common::Repr::String
+                ) || self.is_float_valued(right)
+                {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        format!(
+                            "bitwise compound assignment '{op}' on a non-integer binding '{name}' is unavailable in the current phase"
+                        ),
+                    ));
+                    function.instruction(&Instruction::I64Const(0));
+                    return true;
+                }
+                function.instruction(&Instruction::LocalGet(index));
+                function.instruction(&Instruction::I32WrapI64);
+                self.emit_float_operand(function, right, false);
+                function.instruction(&Instruction::I32WrapI64);
+                self.emit_bitwise_i32_op_extend(function, op);
+                function.instruction(&Instruction::LocalTee(index));
+                true
+            }
+            _ => {
+                // Default-deny. After the gate admits `= ??= &&= ||= += -= *= /=
+                // %= **=` and the six bitwise ops (all with explicit arms above),
+                // nothing reaches here. Fail closed rather than returning `false`
+                // — the caller turns `false` into a silent bare read of the
+                // target, which was the R-11 fail-open.
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    format!(
+                        "compound assignment '{op}' on binding '{name}' is unavailable in the current phase"
+                    ),
+                ));
+                function.instruction(&Instruction::I64Const(0));
+                true
+            }
         }
     }
 
