@@ -29,6 +29,132 @@ and `.../scratchpad/consolidate/` (controller re-verification).
 
 ---
 
+## 0. RE-DERIVATION 2026-07-24 (HEAD `62d786e74`, main) — READ THIS FIRST
+
+The register below was written against branch `soundness-batch1-pra` and is now
+**substantially stale**. Every entry was re-verified on a freshly-built binary
+(`./target/debug/kali`, HEAD `62d786e74`) against `node v26.5.0` on 2026-07-24 by
+four independent surface sweeps (A output/coercion, B operators/control-flow,
+C functions/calls, D data-structures). **Where a per-entry headline below conflicts
+with this section, this section wins.** Full per-surface probe logs:
+`scratchpad/resweep/sweep-{a,b,c,d}-rederived.md`.
+
+### 0.1 Headline
+
+The register's own top priority — the **Group-1 evidence-corrupting defects
+(R-01, R-04, R-07)** — are all resolved, and the entire **functions/calls/scope
+surface** (R-02, R-05) has moved from silent-miscompile to honest **fail-closed
+E5506**. That validates the "allowlist at the call-lowering choke" interim fix the
+register recommended for cluster G2. As a result the silent-miscompile frontier has
+**moved**: the highest-blast-radius *silent* defect on the current binary is no
+longer any original Tier-1 entry but **R-35 (`switch` selects the wrong clause)**,
+newly found this re-derivation.
+
+### 0.2 Current status of every register entry
+
+FIXED = kali matches node, exit 0. FAIL-CLOSED = honest Enn nonzero (acceptable —
+not a silent defect). SILENT = exit 0, no diagnostic, wrong (the dangerous class).
+FL-INTERNAL = nonzero but wrong *kind* (E4201/E4003 internal, not honest E5506).
+
+| entry | 2026-07-24 status | note |
+|---|---|---|
+| R-01 default param truncates module | **FAIL-CLOSED** | E5506 "default parameter is not supported", all forms; no truncation. |
+| R-02 call through fn value → 0 | **FAIL-CLOSED** | every broken lane now E5506 (the recommended G2 interim fix); callee never runs, but honestly. Supported set unchanged (direct call, const-arrow/fnlit, IIFE, sibling capture). |
+| R-03 forEach / expr-arrow filter | **FAIL-CLOSED** | E5506 via first-class-fn-value guard; `reduce`/`map` unchanged. |
+| R-04 console drops later args | **FIXED** | all sinks, both scopes; multi-arg now routes booleans through `emit_as_string` correctly. |
+| R-05 object-literal method / `this` → 0 | **FAIL-CLOSED** | E5506. BUT class-method `this.field` REGRESSED to SILENT — see **R-36**. |
+| R-06 var/let composite init | **objects FIXED / arrays SILENT** | objects-half closed PR #26. Arrays-half is **R-06-R3**, still silent (see below). |
+| R-07 `const` is not a binding | **FIXED** | all 6 shapes (swap/stale/param/double-read/loop-carry) match; `const` is a real binding now. |
+| R-08 `===`/`!==`/`==`/`!=` half | **FIXED** | conflation cases all correct; null-guard now fail-closed. |
+| R-08 `??` half | **SILENT** | `let a=0; a??9`→9, param/var/call-return all →9/10. `0??9` & `const c=0;c??9` match. Residual-3 `f(false)===0`→111 also silent. Unchanged. |
+| R-09 `continue` skips for-update | **SILENT (+ hang)** | skip-ahead form silent-wrong; `i%2` form now **FL-INTERNAL E4003** (infinite loop → fuel trap). |
+| R-10 block-scope shadowing | **SILENT** | 5/5 shapes alias the outer binding. Unchanged. |
+| R-11 bitwise compound assign | **SILENT — 48/48** | 6 ops × 8 target kinds, uniform no-op returning the unmodified operand. Object-field/array-elem/computed bypass the E5506 their `+=` sibling honors. **ACTIVE FIX TARGET.** |
+| R-12 alias defeats array-store guard | **SILENT** | both scopes; unaliased control still correctly E5506. |
+| R-13 computed var-key get/set | **SILENT** | read →0, write vanishes; literal-key control correct. |
+| R-14 returned array reads zeros | **SILENT** | + the "object-return is correct" control has FLIPPED (`f().a`→0) — now **R-44**; arrays broken even when bound. |
+| R-15 `.split()` result | **SILENT** | element-read shape → len 0 + garbage handle; `.length`-only folds correctly. |
+| R-16 per-method string repr leak | **SILENT** | slice/charAt/toUpperCase/repeat leak the raw handle in concat; wider method set added below (was N4). |
+| R-17 string handles escape as ints | **SILENT** | join/element/Object.keys concat lanes. |
+| R-18 string literal `&&`/`\|\|` leaks handle | **SILENT** | + case-3 truthiness also backwards. |
+| R-19 `String(x)` / `.toString()` → 0 | **FIXED (String) / FAIL-CLOSED (toString)** | Stage P5 gain: `String()` of a proven scalar/string now COMPUTES (var-bound too, un-poisons concat); `String(null/undefined)` and `.toString()` fail closed. No silent path. |
+| R-20 `JSON.stringify` → 0 | **FAIL-CLOSED** | E5506. |
+| R-21 no `undefined` value | **SILENT** | all forms (`null`/`undefined`/absent field/void call/template) render `0`/`false`; `undefined+1`→1. |
+| R-22 `==` cross-type coercion | **SILENT (num↔str)** | `1=="1"`→false; `"1"==true`→fail-closed; `1==true`/`null==undefined`/`1==1.0` correct. |
+| R-23 `typeof` non-literal | **SILENT** | any binding/expression →0; literal correct. |
+| R-24 `Object.freeze` no-op | **SILENT** | write goes through; `isFrozen`→0. |
+| R-25 array spread `[...a]` | **FAIL-CLOSED (idx/len) / SILENT (console.log)** | `b.length`/`b[i]` E5506; `console.log([...a])`→0 residual still silent. |
+| R-26 unary `+` on non-numeric string | **SILENT** | `+"abc"`→garbage int; `+"42"`→42 ok. |
+| R-27 comma operator → 0 | **SILENT** | value lost; side effect fires once. |
+| R-28 `-0` | **SILENT** | `1/-0`→Infinity (node -Infinity). |
+| R-29 assign to `const` | **SILENT (node throws)** | write discarded, exit 0; no const-write guard. |
+| R-30 booleans render 1/0 in direct log | **SILENT (single-arg direct only)** | multi-arg + concat + `const b` now correct (R-04 fix); narrowed. |
+| R-31 log array→len / object→0 | **SILENT** | array→length, object→0, concat/template→0. |
+| R-32 no exponential notation | **SILENT** | `1e21`/`1e-7` direct wrong; concat path correct. |
+| R-33 `console.warn` `[warn]` prefix | **SILENT/WARN** | prefix persists; `console.error` correct. |
+| R-34 bool user-fn renders 1/0 (concat & multi-arg) | **SILENT** | live; concat AND multi-arg both `1`. |
+
+**Net:** of the register's ~29 silent-class entries, the sweep confirms **FIXED/fail-closed: R-01, R-02, R-03, R-04, R-05, R-07, R-08(=== half), R-19, R-20**; **still SILENT: R-06-R3, R-08(?? half), R-09, R-10, R-11, R-12, R-13, R-14, R-15, R-16, R-17, R-18, R-21, R-22, R-23, R-24, R-25(residual), R-26, R-27, R-28, R-29, R-30, R-31, R-32, R-33, R-34.**
+
+### 0.3 NEW silent miscompiles found this re-derivation (exit 0, no diagnostic, wrong)
+
+- **R-35 — `switch` selects the wrong clause (HEADLINE, high blast radius).** codegen has
+  **no `Switch` arm** (`grep Switch crates/kali_codegen` = 0); an all-`return`, no-`break`,
+  no-local `switch` emits its cases sequentially, so "first `return` wins regardless of
+  discriminant" (+ an erratic case for `disc=0`).
+  `switch(x){case 10:return"A";case 20:return"B";default:return"D"}` → `s(20)`="A" (node "B"),
+  `s(40)`="A" (node "D"), `s(0)`="B" (node "D"). `s(10)` coincidentally correct. Boundary: a
+  `break` in a case → E5506; a local read in a case → E3100 — so the silent window is exactly
+  all-return/no-break/no-local, but that is an everyday enum-dispatch shape.
+- **R-36 — class instance fields round-trip to `0` (REGRESSION).** `constructor(){this.v=3}` then
+  `this.v` / `c.v` reads →0; the method body runs, only the field value is lost. The register had
+  class `this` as FAIL-CLOSED (E4201); it is now silent, exit 0. Single-field only (2+ fields →
+  FL-04). `class C{constructor(){this.v=3}} new C().v`→0 (node 3).
+- **R-37 — `new Map()` is a silent 0-stub.** `m.set("k",5); m.get("k")`→0 (node 5); `m.size`→0.
+- **R-38 — `new Set()` is a silent 0-stub, value-wrong in control flow.** `s.add(3); s.has(3)`→0
+  (node true), and `if(s.has(3))` takes the ELSE branch — a silent branch flip, not just a value.
+- **R-39 — `Array.prototype.pop()` returns `0`.** `[1,2,3].pop()`→0 (node 3).
+- **R-40 — `.push` on a const array-literal is silently ignored.** `const a=[1,2]; a.push(3);
+  a.length`→2 (node 3); `a[2]`→undefined. (The supported growable-array lane is fine; the
+  literal-array lane swallows the push.)
+- **R-41 — `Array.prototype.concat` is ignored.** `[1,2].concat([3,4]).length`→2 (node 4); result
+  is just the receiver.
+- **R-42 — `Array.prototype.slice` element reads `0`.** `[1,2,3].slice(1)[0]`→0 (node 2); the
+  result `.length`→2 is correct, contents zeroed (R-14-flavored).
+- **R-43 — array destructuring ASSIGNMENT is a no-op.** `let a=1,b=2; [a,b]=[b,a]`→`1,2` (node
+  `2,1`). (Destructuring DECLARATION fails closed, but with a *misdiagnosed* "reserved word"
+  message — see 0.5.)
+- **R-44 — chained member on a function-CALL result → `0`.** `function f(){return{a:1}} f().a`→0
+  (node 1); `const r=f(); r.a`→1 is correct. This is the R-06-R1 "member-on-call hole" and it
+  FALSIFIES R-14's old "object-return is correct" control. `"a,b,c".split(",").length`→0 is the
+  same shape (method-chain result). Arrays are strictly worse (`const a=f(); a[0]`→0 too).
+- **R-45 — `NaN` is not represented in a slot.** `var x=NaN; log(x)`→0 (node NaN); `NaN+1`→1
+  (node NaN). A real value silently collapses to `0` (distinct from R-28's `-0`). (The LITERAL
+  concat form instead crashes — FL-02.)
+- **R-46 — `-Infinity` rendering / handling.** `console.log(-Infinity)`→`-inf` (C-style, silent);
+  a `var`-bound `-Infinity` instead crashes (FL-02). Positive `Infinity`/`NaN` direct-log correct.
+
+### 0.4 NEW fail-loud-INTERNAL crashes (exit 1, wrong error KIND — belong with §7 FL family)
+
+These exit nonzero (so no silent-trust is at stake) but via an internal `E4201`/`E4003`
+("WebAssembly translation error" / fuel) instead of an honest `E5506` naming the limit.
+
+- **FL-02 — non-finite float literal in string concat → E4201.** `"v="+NaN`, `"v="+Infinity`,
+  `"v="+(-Infinity)`, and `var x=-Infinity; log(x)`. Finite-float concat is fine. The
+  float→string sink cannot render a non-finite f64 and traps module load.
+- **FL-03 — `NaN === NaN` / `NaN < 1` → E4201.** (`isNaN(NaN)` and `x=0/0; x!==x` are correct.)
+- **FL-04 — class with 2+ instance fields → E4201.** `constructor(x){this.v=x;this.w=10}`.
+- **FL-05 — excess-arity call → E4201.** `function f(a){} f(1,2,3)`.
+- **FL-06 — spread in call → E4201.** `add(...[1,2,3])`.
+
+### 0.5 Diagnostic-quality note (fails closed, but wrong reason)
+
+`const [x,y]=[1,2]` / `const {a,b}={a:1,b:2}` → `E5506 "a reserved word cannot be used as a
+binding name"`. The names are not reserved words; destructuring *declaration* is simply
+unsupported and the message misdiagnoses it. Honest (exit 1) but misleading.
+
+---
+
 ## 1. Executive summary
 
 **42 raw defects → 33 after deduplication.** Nine entries were folded into siblings that
