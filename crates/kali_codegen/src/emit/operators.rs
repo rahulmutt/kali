@@ -8,13 +8,15 @@ impl<'a> FunctionEmitter<'a> {
         op: &str,
         arg: LirNodeId,
     ) -> EmittedValue {
-        // Stage P5 T-new-E: `s++`/`s--`/`++s`/`--s` on a `String()`-result
+        // Stage P5 T-new-E/F: `s++`/`s--`/`++s`/`--s` on a `String()`-result
         // binding reads its tagged handle and runs `i64.add`/`i64.sub` on the
-        // raw bits — a numeric-consumption sink. Fail CLOSED (same predicate as
-        // every other numeric sink). Positive provenance only, so a genuine
-        // numeric counter is untouched. A member target (`obj.x++`) is never a
-        // bare String()-result identifier, so the predicate answers false there.
-        if self.string_result_render_taint(arg) {
+        // raw bits — a numeric-consumption sink. Fail CLOSED. `is_string_valued`
+        // covers a SEEDED String() result (the taint short-circuits false on it,
+        // T-new-F); the taint covers the un-seeded backstop (a param / mixed
+        // binding). Positive provenance only, so a genuine numeric counter is
+        // untouched. A member target (`obj.x++`) is never a bare String()-result
+        // identifier, so both predicates answer false there.
+        if self.is_string_valued(arg) || self.string_result_render_taint(arg) {
             return self.deny_e5506(function, Self::STRING_RESULT_RENDER_DENY);
         }
         let Some(name) = self.assignment_target_name(node, arg) else {
@@ -1130,12 +1132,21 @@ impl<'a> FunctionEmitter<'a> {
             {
                 true
             }
-            // Call to a string-returning function.
+            // Call to a string-returning function. Resolve the callee THROUGH
+            // fold-alias bindings before reading `return_repr`, mirroring
+            // `string_result_render_taint`'s callee resolution: a fn-expr/arrow
+            // bound to a `const` (`const g = () => 'hi'` / `const g =
+            // function(y){ return String(y) }`) is keyed on its synthetic
+            // `__kali_fn_N` name in the repr table, so the bare bound-name text
+            // `g` would never match its String return — the measured pre-existing
+            // `'x'+g()` -> raw-bit render (T-new-F Step 1). Resolving the alias
+            // proves it a string so the render is correct (and, for a numeric
+            // sink, fails closed).
             LirNodeKind::Call => {
                 let Some(callee) = node.children.first().copied() else {
                     return false;
                 };
-                let callee = self.unwrap_transparent(callee);
+                let callee = self.resolve_bound_node(self.unwrap_transparent(callee));
                 let callee_node = self.node(callee);
                 callee_node.text.as_deref().is_some_and(|name| {
                     self.repr_table.return_repr(name) == kali_common::Repr::String

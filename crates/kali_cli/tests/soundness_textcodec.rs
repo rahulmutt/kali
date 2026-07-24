@@ -45,6 +45,28 @@ fn run_e5506(source: &str) -> String {
     stderr
 }
 
+/// Compile+run, assert fail-closed with EITHER diagnostic code — used where the
+/// value carries a SEEDED `Repr::String` (T-new-F) so a numeric-sink rejection
+/// surfaces as E3200 (the pre-existing "runtime string in a numeric position"
+/// type-mismatch, the accurate match for node's `TypeError`) rather than E5506.
+/// Both are fail-closed (non-zero exit); the point is that a raw handle is never
+/// materialized as a number.
+fn run_fail_closed(source: &str) -> String {
+    let out = run(source);
+    assert!(
+        !out.status.success(),
+        "expected fail-closed\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&out.stderr).to_string();
+    assert!(
+        stderr.contains("E3200") || stderr.contains("E5506"),
+        "expected E3200/E5506 fail-closed, got: {stderr}"
+    );
+    stderr
+}
+
 #[test]
 fn string_of_i64_renders_decimal() {
     assert_eq!(run_ok("console.log(String(40n + 2n));"), "42");
@@ -951,24 +973,27 @@ fn string_call_of_materialized_string_object_field_fails_closed() {
 }
 
 #[test]
-fn string_call_of_binding_initialized_by_an_unproven_call_fails_closed() {
-    // REVIEW C-6. `function g(y){ return String(y) }` has no `Repr::String`
-    // return seed (F-newB-1), so `const s = g(1n)` keeps the DEFAULT `Repr::I64`
-    // and the identifier arm read that default as "proven scalar" — rendering a
-    // tagged string handle as digits. The console form is pre-existing; the
-    // ENCODE form was introduced by this task's widening (measured on
-    // b73a45c6d: `encode(String(s)).byteLength` → 20 where node says 1, while
-    // the parent 06b6dcc87 failed closed). A binding with a resolvable
-    // declarator initializer now requires that INITIALIZER proven.
-    assert_fails_closed(
-        "const e = new TextEncoder(); function g(y) { return String(y); } \
-         const s = g(1n); const b = e.encode(String(s)); console.log(b.byteLength);",
+fn string_call_of_binding_initialized_by_a_string_result_call_now_renders() {
+    // REVIEW C-6 (T-new-B) closed this fail-closed because `const s = g(1n)` kept
+    // the DEFAULT `Repr::I64` (F-newB-1), so `String(s)` read the default as a
+    // number. T-new-F now SEEDS `s` `Repr::String` (its return is monomorphically
+    // a String() result), so `String(s)` is a proven-string IDENTITY coercion and
+    // renders CORRECTLY — no longer the I64-default fallacy, a real positive
+    // proof. All three forms verified against node (`1`).
+    assert_eq!(
+        run_ok(
+            "const e = new TextEncoder(); function g(y) { return String(y); } \
+             const s = g(1n); const b = e.encode(String(s)); console.log(b.byteLength);"
+        ),
+        "1"
     );
-    assert_fails_closed(
-        "function g(y) { return String(y); } const s = g(1n); console.log(String(s));",
+    assert_eq!(
+        run_ok("function g(y) { return String(y); } const s = g(1n); console.log(String(s));"),
+        "1"
     );
-    assert_fails_closed(
-        "function g(y) { return String(y); } let s = g(1n); console.log(String(s));",
+    assert_eq!(
+        run_ok("function g(y) { return String(y); } let s = g(1n); console.log(String(s));"),
+        "1"
     );
 }
 
@@ -1054,38 +1079,45 @@ fn string_call_of_a_proven_numeric_mutable_local_renders_the_number() {
 }
 
 #[test]
-fn numeric_binding_proof_is_evidence_not_the_default_repr() {
-    // The round-3 admission must not become a back door to the very fallacy
-    // that caused three Criticals in this task ("`Repr::I64` is the default,
-    // therefore the value is a number"). Each of these bindings has the default
-    // I64 repr and an UNPROVABLE write, so each must still fail closed.
-    //
-    // A handle-returning callee, in all three declaration spellings (node: 1).
+fn string_result_binding_is_a_real_proof_not_the_default_repr() {
+    // T-new-F does not re-open the "`Repr::I64` default is a number" fallacy: it
+    // seeds `Repr::String` only from a POSITIVE monomorphic String()-result
+    // proof. A binding a String()-returning callee monomorphically initializes IS
+    // provably a string, so `String(s)` (identity) renders correctly in all three
+    // declaration spellings + the encode lane (node: `1`).
     for kind in ["const", "let", "var"] {
-        assert_fails_closed(&format!(
-            "function g(y) {{ return String(y); }} {kind} s = g(1n); \
-             console.log(String(s));"
-        ));
+        assert_eq!(
+            run_ok(&format!(
+                "function g(y) {{ return String(y); }} {kind} s = g(1n); \
+                 console.log(String(s));"
+            )),
+            "1"
+        );
     }
-    // A binding that is numeric at its declarator but is LATER overwritten from
-    // the handle-returning callee: one unprovable write denies the binding
-    // (this proof is not flow-sensitive and must not pretend to be).
+    assert_eq!(
+        run_ok(
+            "const e = new TextEncoder(); function g(y) { return String(y); } let s = g(1n); \
+             const b = e.encode(String(s)); console.log(b.byteLength);"
+        ),
+        "1"
+    );
+    // But a binding WITHOUT a monomorphic proof keeps the default `Repr::I64` and
+    // still fails CLOSED — the seed never reads the default as evidence:
+    //
+    // numeric at its declarator, LATER overwritten from the callee (a plain `0n`
+    // write is not a String() result, so `x` is not monomorphic — this proof is
+    // not flow-sensitive and must not pretend the dead `0n` away).
     assert_fails_closed(
         "function g(y) { return String(y); } let x = 0n; x = g(1n); console.log(String(x));",
     );
-    // A declarator with no initializer holds `undefined` (node prints
-    // `undefined`; kali has no rendering for it).
+    // A declarator with no initializer holds `undefined` (no rendering for it).
     assert_fails_closed("let z; console.log(String(z));");
-    // A `for..of` element and a `catch` parameter are never proven numbers.
+    // A `for..of` element is never proven a String() result.
     assert_fails_closed("const a = [1n, 2n]; for (const v of a) { console.log(String(v)); }");
-    // Non-arithmetic compound assignment can write the RHS's own value through.
+    // `||=` is not the `=` the taint records, so `x` (plain `0n` declarator) is
+    // not seeded and fails closed.
     assert_fails_closed(
         "function g(y) { return String(y); } let x = 0n; x ||= g(1n); console.log(String(x));",
-    );
-    // Encode lane: same denials at the widened argument gate.
-    assert_fails_closed(
-        "const e = new TextEncoder(); function g(y) { return String(y); } let s = g(1n); \
-         const b = e.encode(String(s)); console.log(b.byteLength);",
     );
 }
 
@@ -1301,65 +1333,75 @@ fn p5_r_block_redeclaration_shadow_of_codec_name_denies() {
     );
 }
 
-// --- Stage P5 T-new-E: String()-result render provenance (F-newB-1) ----------
-// `repr_infer` seeds no `Repr::String` for a `String()` RESULT, so a result
-// bound to a let/var/const or returned from a function carries a real string
-// handle in an `I64` slot. Reaching a `+` / template-literal / console
-// numeric-render site it was run through `int_to_string` and printed as raw
-// handle bits — measured on parent ee8e2571e as
-// `x-9223354375949254655` (exit 0, SILENT) where node prints `x1`. The
-// merge-base (694607bb2) failed CLOSED because `String` was deny-set, so this
-// is a stage-introduced fail-closed -> silent-divergent REGRESSION. This task
-// restores the fail-closed invariant (E5506); correct-output support (seeding
-// `Repr::String`) is the top-queued follow-up F-newB-1.
+// --- Stage P5 T-new-F: String()-result render provenance (F-newB-1) CLOSED ----
+// `repr_infer` now SEEDS `Repr::String` for a value proven MONOMORPHICALLY a
+// `String()` result (every write/return-path/composite-arm is a String()
+// result), reusing the round-2 value-flow fixpoint. The seeded value carries its
+// string repr, so a let/var/return/launder/ternary result renders CORRECTLY at
+// every string sink (`+`, template, console, `===`, `.length`) BY CONSTRUCTION —
+// no sink enumeration. Parent ee8e2571e/70a5a7660 fail-closed (E5506, F-newB-1);
+// these rows FLIP to the node-correct output. A NON-monomorphic value
+// (reassign-with-a-numeric-write, a param, a `&&`/`||`/`??`/sequence composite)
+// stays UNSEEDED and fails CLOSED via the round-2 taint backstop (below). Each
+// value below verified against node.
 
-/// let-bound String() result reaching `+`. Parent: silent `x-9223…`.
+/// let-bound String() result reaching `+` renders correctly (node: `x1`).
 #[test]
-fn p5_string_result_let_bound_render_fails_closed() {
-    let stderr = run_e5506("let s = String(1n); console.log('x' + s);");
-    assert!(stderr.contains("F-newB-1"), "stderr: {stderr}");
+fn p5_string_result_let_bound_render_renders() {
+    assert_eq!(run_ok("let s = String(1n); console.log('x' + s);"), "x1");
 }
 
-/// var-bound String() result reaching `+`. Parent: silent `x-9223…`.
+/// var-bound String() result reaching `+` (node: `x1`).
 #[test]
-fn p5_string_result_var_bound_render_fails_closed() {
-    run_e5506("var s = String(1n); console.log('x' + s);");
+fn p5_string_result_var_bound_render_renders() {
+    assert_eq!(run_ok("var s = String(1n); console.log('x' + s);"), "x1");
 }
 
-/// function-return-bound String() result reaching `+` (provenance crosses the
-/// function boundary via a String()-result-returning function). Parent: silent.
+/// function-return-bound String() result reaching `+` — provenance crosses the
+/// function boundary via a String()-result-returning function (node: `x1`).
 #[test]
-fn p5_string_result_function_return_render_fails_closed() {
-    run_e5506("function g(y){ return String(y) } const s = g(1n); console.log('x' + s);");
+fn p5_string_result_function_return_render_renders() {
+    assert_eq!(
+        run_ok("function g(y){ return String(y) } const s = g(1n); console.log('x' + s);"),
+        "x1"
+    );
 }
 
-/// function-return-bound String() result reaching a TEMPLATE LITERAL. Parent:
-/// silent `x-9223…` (the template ladder shares `emit_as_string`).
+/// function-return-bound String() result reaching a TEMPLATE LITERAL (the
+/// template ladder shares the render lane) (node: `x1`).
 #[test]
-fn p5_string_result_template_literal_render_fails_closed() {
-    run_e5506("function g(y){ return String(y) } const s = g(1n); console.log(`x${s}`);");
+fn p5_string_result_template_literal_render_renders() {
+    assert_eq!(
+        run_ok("function g(y){ return String(y) } const s = g(1n); console.log(`x${s}`);"),
+        "x1"
+    );
 }
 
 /// direct `g(1n)` inline in `+` (the return-provenance call site itself, no
-/// binding) also fails closed. Parent: silent.
+/// binding) renders via the seeded return repr (node: `x1`).
 #[test]
-fn p5_string_result_direct_call_render_fails_closed() {
-    run_e5506("function g(y){ return String(y) } console.log('x' + g(1n));");
+fn p5_string_result_direct_call_render_renders() {
+    assert_eq!(
+        run_ok("function g(y){ return String(y) } console.log('x' + g(1n));"),
+        "x1"
+    );
 }
 
-/// LAUNDERING through a second binding (`let t = s`) still fails closed — the
-/// provenance survives the copy. Parent: silent.
+/// LAUNDERING through a second binding (`let t = s`) — the seed propagates the
+/// String repr through the copy (node: `x1`).
 #[test]
-fn p5_string_result_launder_through_second_binding_fails_closed() {
-    run_e5506("let s = String(1n); let t = s; console.log('x' + t);");
+fn p5_string_result_launder_through_second_binding_renders() {
+    assert_eq!(
+        run_ok("let s = String(1n); let t = s; console.log('x' + t);"),
+        "x1"
+    );
 }
 
-/// MULTI-argument `console.log('x', s)` routes each argument through
-/// `emit_as_string` (the wasm `int_to_string` ladder), so a tainted operand
-/// fails closed. Parent: silent raw-handle render for `s`.
+/// MULTI-argument `console.log('x', s)` renders the seeded string in each
+/// argument slot (node: `x 1`, space-separated).
 #[test]
-fn p5_string_result_multi_arg_console_fails_closed() {
-    run_e5506("let s = String(1n); console.log('x', s);");
+fn p5_string_result_multi_arg_console_renders() {
+    assert_eq!(run_ok("let s = String(1n); console.log('x', s);"), "x 1");
 }
 
 /// NO-OVER-DENY, single-argument console: the single-arg lane hands the host the
@@ -1372,8 +1414,12 @@ fn p5_string_result_single_arg_console_stays_correct() {
     assert_eq!(run_ok("let s = String(1n); console.log(s);"), "1");
 }
 
-/// bare-identifier REASSIGNMENT `s = String(1n)` records provenance too. Parent:
-/// silent `x-9223…`. Now fails closed.
+/// bare-identifier REASSIGNMENT `let s = 0n; s = String(1n)` is NOT
+/// monomorphically a String() result — its declarator write (`0n`) is a plain
+/// numeric write, so T-new-F does NOT seed it `Repr::String` (this proof is not
+/// flow-sensitive, so it cannot know the `0n` is dead). It stays fail-closed via
+/// the round-2 taint backstop. node would render `x1`; kali conservatively fails
+/// closed here — sound (no silent bits), never a miscompile.
 #[test]
 fn p5_string_result_reassignment_render_fails_closed() {
     run_e5506("let s = 0n; s = String(1n); console.log('x' + s);");
@@ -1456,73 +1502,93 @@ fn p5_string_result_no_over_deny_string_literal_encode_bytelength() {
     );
 }
 
-// --- T-new-E round-2: the structural-taint leak rows the round-1 name-sets ----
-// missed. Each is SILENT (`x-9223…`, exit 0) on parent e8177812b and fails
-// closed (E5506) now — the taint follows value-flow in `repr_infer`'s fixpoint.
+// --- T-new-F: the round-2 value-flow rows now RENDER (were fail-closed) -------
+// The taint fixpoint that made each fail closed now feeds the MONOMORPHIC seed,
+// so these render CORRECTLY (verified against node). The ARITHMETIC rows stay
+// fail-closed (a string in a BigInt-numeric position — node throws TypeError).
 
-/// Root A — RETURN-OF-LOCAL: `g` returns a String()-result LOCAL (not a direct
-/// `return String(...)`), so round-1's direct-return-only recognizer missed it.
-/// Provenance: seed `s` → return(`g`) → call-result `r` → render `'x'+r`.
+/// Root A — RETURN-OF-LOCAL: `g` returns a String()-result LOCAL. The return is
+/// monomorphically a String() result → seeded → `'x'+r` renders (node: `x1`).
 #[test]
-fn p5_string_result_return_of_local_fails_closed() {
-    run_e5506("function g(y){ let s=String(y); return s } const r=g(1n); console.log('x'+r);");
+fn p5_string_result_return_of_local_renders() {
+    assert_eq!(
+        run_ok("function g(y){ let s=String(y); return s } const r=g(1n); console.log('x'+r);"),
+        "x1"
+    );
 }
 
-/// Root A — RETURN-OF-REASSIGN: `s` is seeded by a REASSIGNMENT, not its
-/// declarator; the taint still reaches the return and the call result.
+/// Root A — RETURN-OF-REASSIGN: `s` is written by a REASSIGNMENT after a plain
+/// `0n` declarator, so the BINDING `s` is not seeded — but the RETURN `return s`
+/// is monomorphically a String() result (the only return path), so the seed
+/// lands on the return and the call renders (node: `x1`).
 #[test]
-fn p5_string_result_return_of_reassign_fails_closed() {
-    run_e5506(
-        "function g(y){ let s=0n; s=String(y); return s } const r=g(1n); console.log('x'+r);",
+fn p5_string_result_return_of_reassign_renders() {
+    assert_eq!(
+        run_ok(
+            "function g(y){ let s=0n; s=String(y); return s } const r=g(1n); console.log('x'+r);"
+        ),
+        "x1"
     );
 }
 
 /// Root A — TRANSITIVE RETURN: `h` returns `g(y)` where `g` returns a String()
-/// result; the return taint propagates `g` → `h` through the fixpoint's
-/// return-from-return edge, and the direct `'x'+h(1n)` render fails closed.
+/// result; the seed propagates `g` → `h` through the return-from-return edge
+/// (node: `x1`).
 #[test]
-fn p5_string_result_transitive_return_fails_closed() {
-    run_e5506("function g(y){return String(y)} function h(y){return g(y)} console.log('x'+h(1n));");
+fn p5_string_result_transitive_return_renders() {
+    assert_eq!(
+        run_ok(
+            "function g(y){return String(y)} function h(y){return g(y)} console.log('x'+h(1n));"
+        ),
+        "x1"
+    );
 }
 
-/// Root A — TEMPLATE OF INDIRECT return: a return-of-local String() result
-/// reaching a TEMPLATE literal (the template ladder shares `emit_as_string`).
+/// Root A — TEMPLATE OF INDIRECT return: a return-of-local String() result in a
+/// TEMPLATE literal (node: `v=1`).
 #[test]
-fn p5_string_result_template_of_indirect_return_fails_closed() {
-    run_e5506("function g(y){let s=String(y);return s} console.log(`v=${g(1n)}`);");
+fn p5_string_result_template_of_indirect_return_renders() {
+    assert_eq!(
+        run_ok("function g(y){let s=String(y);return s} console.log(`v=${g(1n)}`);"),
+        "v=1"
+    );
 }
 
 /// Root B — FN-EXPR BOUND: `const g = function(y){ return String(y) }`. The
-/// function's repr_infer key is its synthetic `__kali_fn_N` name; round-1 keyed
-/// the callee set on the fn NODE text and the declarator name `g` never matched.
-/// Now the render resolves `g` through the fold-alias binding to `__kali_fn_N`.
+/// return is seeded under the synthetic `__kali_fn_N` key; `is_string_valued`'s
+/// Call arm resolves the bound-name `g` through the fold-alias to that key, so
+/// the render is proven a string (node: `x1`).
 #[test]
-fn p5_string_result_fn_expr_bound_render_fails_closed() {
-    run_e5506("const g = function(y){ return String(y) }; console.log('x'+g(1n));");
+fn p5_string_result_fn_expr_bound_render_renders() {
+    assert_eq!(
+        run_ok("const g = function(y){ return String(y) }; console.log('x'+g(1n));"),
+        "x1"
+    );
 }
 
-/// Root B — ARROW BOUND: `const g = (y) => String(y)`. An expression-bodied
-/// arrow's body IS its implicit return, so the taint seeds the arrow's return
-/// exactly like a block-bodied `return String(y)`.
+/// Root B — ARROW BOUND: `const g = (y) => String(y)`. The expression body IS the
+/// implicit return, seeded like a block-bodied `return String(y)` (node: `x1`).
 #[test]
-fn p5_string_result_arrow_bound_render_fails_closed() {
-    run_e5506("const g = (y) => String(y); console.log('x'+g(1n));");
+fn p5_string_result_arrow_bound_render_renders() {
+    assert_eq!(
+        run_ok("const g = (y) => String(y); console.log('x'+g(1n));"),
+        "x1"
+    );
 }
 
 /// Root C — ARITHMETIC (`*`): a String()-result binding in a MULTIPLY position.
-/// Parent silently ran `int_to_string`/`i64.mul` on the raw handle bits
-/// (`n=35321811042306`); now the arithmetic operator lowering fails closed.
+/// node throws `TypeError` (BigInt/string mixing). Seeded `Repr::String` makes
+/// the pre-existing "runtime string in arithmetic" reject fire (E3200) — the
+/// accurate diagnostic for node's throw; still fail-closed, never raw bits.
 #[test]
 fn p5_string_result_arithmetic_mul_fails_closed() {
-    run_e5506("let s=String(1n); console.log('n='+(s*2n));");
+    run_fail_closed("let s=String(1n); console.log('n='+(s*2n));");
 }
 
-/// Root C — ARITHMETIC (`-`): a String()-result binding in a SUBTRACT position
-/// (node throws a TypeError for BigInt/string mixing; E5506 is the sound
-/// fail-closed outcome). Parent: silent `n=-9223…`.
+/// Root C — ARITHMETIC (`-`): the subtract twin (node throws `TypeError`).
 #[test]
 fn p5_string_result_arithmetic_sub_fails_closed() {
-    run_e5506("let s=String(1n); console.log('n='+(s-1n));");
+    run_fail_closed("let s=String(1n); console.log('n='+(s-1n));");
 }
 
 /// NO-OVER-DENY: a genuinely-numeric function (`return y + 1n`) must NOT be
@@ -1585,37 +1651,43 @@ fn p5_string_result_no_over_deny_numeric_arg_into_param() {
 // an `I64` slot fails CLOSED at every numeric consumption. Each was silent
 // (exit 0, raw handle bits) on parent 7b683abb0.
 
-/// UNARY negate `-s`: parent ran `0 - <handle>` and rendered `n=9223…`.
+/// UNARY negate `-s`: seeded `Repr::String` makes the pre-existing "runtime
+/// string under unary `-`" reject fire (E3200, fail-closed). node coerces
+/// `-"1"` to `-1` (no throw), but kali has no string→number unary-minus lowering,
+/// so it fail-closes soundly rather than miscompiling.
 #[test]
 fn p5_string_result_unary_neg_fails_closed() {
-    run_e5506("let s=String(1n); console.log('n='+(-s));");
+    run_fail_closed("let s=String(1n); console.log('n='+(-s));");
 }
 
-/// UNARY plus `+s` (numeric-coercion identity on a non-string-repr operand):
-/// parent pushed the raw handle as the number and rendered `n=-9223…`.
+/// UNARY plus `+s`: a seeded `Repr::String` takes the EXISTING inline
+/// decimal-parse coercion (`emit_string_to_i64_parse`, fasta Spec 5), so `+"1"`
+/// parses to `1` — matching node (`+"1"` === 1). FLIPPED from fail-closed.
 #[test]
-fn p5_string_result_unary_plus_fails_closed() {
-    run_e5506("let s=String(1n); console.log('n='+(+s));");
+fn p5_string_result_unary_plus_renders() {
+    assert_eq!(run_ok("let s=String(1n); console.log('n='+(+s));"), "n=1");
 }
 
-/// UNARY bitwise-not `~s`: parent ran `-1 - <handle>` and rendered garbage.
+/// UNARY bitwise-not `~s`: seeded string under `~` → E3200 fail-closed (kali has
+/// no string→number bitnot lowering; node would coerce).
 #[test]
 fn p5_string_result_unary_bitnot_fails_closed() {
-    run_e5506("let s=String(1n); console.log('n='+(~s));");
+    run_fail_closed("let s=String(1n); console.log('n='+(~s));");
 }
 
-/// UNARY logical-not `!s`: the handle bits reach `i64.eqz`; a tainted value has
-/// no sound truthiness lowering here, so it fails closed.
+/// UNARY logical-not `!s`: reaches `emit_numeric_operand`, which now fails closed
+/// on a seeded string (`is_string_valued`) → E5506. node truthiness (`!"1"` ===
+/// false) is not soundly lowerable on a handle here, so fail-closed is correct.
 #[test]
 fn p5_string_result_unary_lognot_fails_closed() {
     run_e5506("let s=String(1n); console.log('n='+(!s));");
 }
 
-/// UNARY negate on a String()-result reached VIA A FUNCTION RETURN (the taint
-/// flows through the return edge, then denies at the unary sink).
+/// UNARY negate on a String()-result reached VIA A FUNCTION RETURN (the seed
+/// flows through the return edge; `-s` then fails closed at the unary sink).
 #[test]
 fn p5_string_result_unary_neg_via_return_fails_closed() {
-    run_e5506("function g(y){let s=String(y);return s} let s=g(1n); console.log('n='+(-s));");
+    run_fail_closed("function g(y){let s=String(y);return s} let s=g(1n); console.log('n='+(-s));");
 }
 
 /// UPDATE expression `s++`: parent read the handle and ran `i64.add` on the raw
@@ -1690,5 +1762,110 @@ fn p5_string_result_no_over_deny_genuine_index_read() {
     assert_eq!(
         run_ok("let a=new Array(3); a[0]=10n; a[1]=20n; let i=1n; console.log(a[i]);"),
         "20"
+    );
+}
+
+// === T-new-F: new coverage — composites, string sinks, the fn-expr literal fix ===
+// Ternary is SEED-SAFE (arm selected on a separate test, handle stored verbatim)
+// and renders; `&&`/`||`/`??` (operand-truthiness select) and sequence
+// (mis-emitted value) are seed-UNSAFE and fail CLOSED. All measured SILENT
+// (raw-bit render, exit 0) on parent 70a5a7660.
+
+/// TERNARY, both arms a String() result: monomorphic → seeded → renders (node
+/// `x2`). Both arms are `String()` calls (both default I64 in the union-find, so
+/// no merge conflict), and the seed lands on the binding.
+#[test]
+fn p5_string_result_ternary_both_arms_renders() {
+    assert_eq!(
+        run_ok("let b=1n; let s=b===1n?String(2n):String(9n); console.log('x'+s);"),
+        "x2"
+    );
+}
+
+/// TERNARY with a NON-string arm (`5n`): not monomorphic → not seeded → fails
+/// closed (node would render `x2`/`x5`; kali conservatively fails closed).
+#[test]
+fn p5_string_result_ternary_mixed_arm_fails_closed() {
+    run_e5506("let b=1n; let s=b===1n?String(2n):5n; console.log('x'+s);");
+}
+
+/// TERNARY both arms String() in an ARITHMETIC sink → fail closed (the seeded
+/// string reaches `*` — node throws `TypeError`). The round-3 leak, now sound.
+#[test]
+fn p5_string_result_ternary_arithmetic_fails_closed() {
+    run_fail_closed("let b=1n; let s=b===1n?String(2n):String(9n); console.log('n='+(s*2n));");
+}
+
+/// LOGICAL `||` of two String() results — seed-UNSAFE (kali cannot evaluate a
+/// string handle's truthiness: every handle, empty or not, is non-zero). Fails
+/// closed via the taint backstop rather than rendering raw bits.
+#[test]
+fn p5_string_result_logical_or_fails_closed() {
+    run_e5506("let s=String(1n)||String(2n); console.log('x'+s);");
+}
+
+/// LOGICAL `&&` twin.
+#[test]
+fn p5_string_result_logical_and_fails_closed() {
+    run_e5506("let s=String(1n)&&String(2n); console.log('x'+s);");
+}
+
+/// SEQUENCE `(a, String(1n))` — kali's sequence codegen mis-emits the value (as
+/// the FIRST operand), so a String() sequence is seed-UNSAFE and fails closed.
+#[test]
+fn p5_string_result_sequence_fails_closed() {
+    run_fail_closed("let s=(0n,String(1n)); console.log('x'+s);");
+}
+
+/// NO-OVER-DENY: a genuine-numeric `&&`/`||` keeps its value-select lowering.
+#[test]
+fn p5_string_result_no_over_deny_genuine_logical() {
+    assert_eq!(run_ok("let s=5n||9n; console.log('n='+(s+1n));"), "n=6");
+}
+
+/// STRING SINK `.length` of a let-bound String() result (node: `3`).
+#[test]
+fn p5_string_result_length_renders() {
+    assert_eq!(run_ok("let s=String(123n); console.log(s.length);"), "3");
+}
+
+/// STRING SINK `===` of a let-bound String() result vs a literal: the seeded
+/// string routes through `__streq` content-equality (`s==='1'` is true → the
+/// `eq` branch). (`console.log(<bool>)` prints `1`/`0` pre-existing, so the
+/// comparison is exercised via an `if` instead.)
+#[test]
+fn p5_string_result_streq_renders() {
+    assert_eq!(
+        run_ok("let s=String(1n); if (s==='1') { console.log('eq'); } else { console.log('ne'); }"),
+        "eq"
+    );
+}
+
+/// A `String()` result INLINE as the `encode` argument over genuine bigint
+/// params still builds+runs (acceptance-path position; the seed must not perturb
+/// the inline-coercion admission). node: `1`.
+#[test]
+fn p5_string_result_bound_encode_arg_renders() {
+    assert_eq!(
+        run_ok(
+            "function f(a,b){ const e=new TextEncoder(); let s=String(a+b); \
+             const enc=e.encode(s); console.log(enc.byteLength); } f(1n,2n);"
+        ),
+        "1"
+    );
+}
+
+/// T-new-F Step-1 incidental fix: a fn-EXPR bound to a `const` returning a STRING
+/// LITERAL (`__kali_fn_N`-keyed, return-String-seeded by the normal solve) was a
+/// SILENT raw-bit render at the call site because `is_string_valued`'s Call arm
+/// did not resolve the fold-alias. Resolving it (mirroring the taint's callee
+/// resolution) fixes it (node: `xhi`). (The expression-bodied ARROW `()=>'hi'`
+/// twin is a SEPARATE pre-existing bug — its return is never String-seeded by the
+/// normal solve, memory F-AB-1 — and is out of scope here.)
+#[test]
+fn p5_fn_expr_literal_string_return_now_renders() {
+    assert_eq!(
+        run_ok("const g = function(){return 'hi'}; console.log('x'+g());"),
+        "xhi"
     );
 }

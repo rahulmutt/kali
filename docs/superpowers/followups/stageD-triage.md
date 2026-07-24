@@ -842,42 +842,33 @@ closed or stays pre-existing-red rather than miscompiling):
      it silently folds the member call to 0 (the unresolved-member
      /call-folds-to-0 class, ≈ register R-02/G2). DROPPED from the
      tripwires and filed here instead.
-  5. F-newB-1 **[was SILENT MISCOMPILE — fail-closed by T-new-E
-     2026-07-23; correct-output fix STILL TOP OF QUEUE]**:
-     CLASSIFICATION CORRECTION — this item was mis-filed "pre-existing".
-     It is **stage-introduced**: at merge-base `694607bb2` `String` was
-     deny-set, so `let s = String(1n)` / `const s = g(1n)` (g returns
-     `String`) failed CLOSED (E5506, exit 1); P5 Task 1 de-denylisted
-     `String()` and routed it through `emit_as_string` WITHOUT a
-     `repr_infer` `Repr::String` return seed, turning that fail-closed
-     into a silent divergence — `function g(y){return String(y)} const
-     s=g(1n); 'x'+s` → `x-9223354375949254655`, node `x1`. So the stage
-     both introduced the regression and it is the reviewer's TOP-OF-QUEUE.
-     **T-new-E (this task) RESTORES the fail-closed invariant** — a
-     `String()` result bound to a let/var/const, laundered through a
-     second binding, reassigned, or returned from a function and then
-     reaching a `+` / template-literal / MULTI-arg-console render site
-     (the wasm `int_to_string` ladder in `emit_as_string`) fails closed
-     E5506 via positive String()-result provenance
-     (`string_result_render_taint`, keyed on `string_result_locals` +
-     `program_string_result_functions`, NEVER on the `I64` default).
-     T-new-E does **NOT** make the output correct: the remaining
-     **correct-output fix** — seed `Repr::String` for a `String()`
-     result so it prints `x1` — is what stays queued here. Two boundary
-     notes: (a) SINGLE-arg `console.log(s)` prints correctly (`1`) on its
-     own — the host renderer decodes the string-handle tag, so that lane
-     is sound and is deliberately NOT tainted; the divergence is confined
-     to the wasm `int_to_string` ladder. (b) `String(s)` (a `String()`
-     whose ARGUMENT is a tainted binding) already fails closed at the
-     existing `string_coercion_arg_is_proven` gate (an `I64`-repr
-     identifier is not a proven arg), so it is NOT an open divergence.
-     ARITHMETIC on a tainted binding (`s * 2n`, `s - 1n`) is the one
-     remaining silent sibling T-new-E does not cover — the operator
-     lowering has no String()-provenance guard; the correct-output
-     repr-seed fix subsumes it (see the T-new-E report). NOT
-     closable inside the encode lane (denying every default-I64
-     identifier would deny the acceptance fixture's genuine bigint
-     `left + right`); the render-site provenance choke is the sound close.
+  5. F-newB-1 **[CLOSED BY CONSTRUCTION — T-new-F 2026-07-24 (repr seed)]**:
+     stage-introduced silent miscompile (merge-base `694607bb2` had `String`
+     deny-set → fail-closed; P5 Task 1 de-denylisted it without a
+     `repr_infer` `Repr::String` seed → `function g(y){return String(y)}
+     const s=g(1n); 'x'+s` → `x-9223354375949254655`, node `x1`). T-new-E
+     rounds 1-3 fail-closed it (a denylist of shapes+sinks, rejected 3× for
+     leaking one position over — ternary/`&&`/`||`/sequence). **T-new-F is
+     the STRUCTURAL close**: `repr_infer` now SEEDS `Repr::String` for a
+     value proven MONOMORPHICALLY a `String()` result (every write /
+     return-path / operative composite-arm is a String() result), reusing
+     the round-2 value-flow fixpoint (`resolve_string_result_taint`) with
+     added composite source arms (`ConditionalExpression`, and the
+     BinaryExpression `&&`/`||`/`??` the parser really emits, and
+     `SequenceExpression`). The seeded value renders correctly at EVERY
+     string sink (`+`, template, console, `===`, `.length`) BY CONSTRUCTION
+     — no sink enumeration. Numeric sinks fail closed on `is_string_valued`
+     (node throws for BigInt/string). Non-monomorphic values
+     (reassign-with-a-numeric-write, params, `&&`/`||`/`??`/sequence — the
+     last two seed-UNSAFE because kali cannot test a string handle's
+     truthiness and mis-emits sequence values) stay UNSEEDED and fail
+     CLOSED via the round-2 taint BACKSTOP (kept). `let s=String(1n); 'x'+s`
+     → `x1`; `s*2n` → fail closed. Gate 9349→9360, 0 newly-red; acceptance
+     byte-for-byte. See the T-new-F report. Incidental fix: `is_string_valued`'s
+     Call arm now resolves the fold-alias callee, closing a pre-existing
+     silent raw-bit render for a fn-expr `const g=function(){return 'hi'}`
+     (the expression-bodied ARROW literal twin remains — memory F-AB-1 — its
+     return is never String-seeded by the normal solve; separate, out of scope).
   6. F-newB-2/3/4 **[SILENT MISCOMPILE]**: `String(v).byteLength`
      → 2 (node `undefined`); `String(v)[0]` / `String(v).repeat()`
      silent 0; `String(undefined)` → `false`, `String(null)` → `0`

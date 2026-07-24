@@ -4796,13 +4796,23 @@ impl<'a> FunctionEmitter<'a> {
     ///
     /// Positive provenance only: a genuine numeric `Repr::I64` operand (the
     /// acceptance fixture's `left`/`right` bigint params, any real arithmetic) is
-    /// never tainted, so it is materialized unchanged — no over-deny.
+    /// never a string, so it is materialized unchanged — no over-deny.
+    ///
+    /// Stage P5 T-new-F: the guard is `is_string_valued || taint`, not the taint
+    /// alone. Once a `String()` result carries a SEEDED `Repr::String`,
+    /// `string_result_render_taint` short-circuits `false` on it (it is a proven
+    /// string), so the seed would otherwise BYPASS this choke — a seeded index
+    /// `a[s]` / compound `n+=s` / `!s` would run the handle bits through
+    /// `i32.wrap_i64`/`i64.add`/`i64.eqz`. `is_string_valued` closes that (and
+    /// also fails closed a substring/decode/USP string in a numeric position — a
+    /// pre-existing silent hole). node throws a `TypeError` for a string in these
+    /// BigInt-numeric positions, so E5506 is the sound match.
     pub(crate) fn emit_numeric_operand(
         &mut self,
         function: &mut Function,
         id: LirNodeId,
     ) -> EmittedValue {
-        if self.string_result_render_taint(id) {
+        if self.is_string_valued(id) || self.string_result_render_taint(id) {
             return self.deny_e5506(function, Self::STRING_RESULT_RENDER_DENY);
         }
         self.emit_node(function, id, true)

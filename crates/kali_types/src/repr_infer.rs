@@ -132,6 +132,15 @@ enum StringResultRhs {
     None,
 }
 
+/// Stage P5 T-new-F: the destination a String()-result value flows to — a
+/// binding `(scope, name)` or a function's return — so one composite-aware
+/// recorder (`record_string_result_value`) serves declarator/assignment/return
+/// and the arg->param edge uniformly.
+enum StringResultDst {
+    Binding((String, String)),
+    Return(String),
+}
+
 #[derive(Default)]
 struct ReprInfer {
     /// Bidirectional union-find, used ONLY for array-element storage aliasing
@@ -265,6 +274,23 @@ struct ReprInfer {
     /// Propagation edge `func-return <- callee-return` (`return g(x)`): a return
     /// of a tainted call result taints the function's return (transitive).
     string_result_return_from_return: Vec<(String, String)>,
+    /// Stage P5 T-new-F — the MONOMORPHIC-seed accounting. A dst is seeded
+    /// `Repr::String` (rendering correctly) only when EVERY write / return-path /
+    /// operative composite-arm feeding it is provably a `String()` result; a dst
+    /// with ANY non-string ("plain") write stays UNSEEDED and falls back to the
+    /// round-2 taint's fail-closed backstop at the render sinks. These record the
+    /// plain writes so `resolve_string_result_taint` can exclude them.
+    /// A binding write / composite-arm that classified `None` (not a String()
+    /// result): `let s = 0n`, the `5n` arm of `b ? String(1n) : 5n`, …
+    string_result_binding_plain: BTreeSet<(String, String)>,
+    /// A return-path / composite-arm that classified `None` (`return 5n` on one
+    /// branch of a function whose other branch is `return String(x)`).
+    string_result_return_plain: BTreeSet<String>,
+    /// `(callee, param)` dsts reached via the arg->param forward taint. Params
+    /// are POLYMORPHIC across call sites, so they are NEVER seeded `Repr::String`
+    /// (a numeric call site would then miscompile); they rely on the taint
+    /// backstop to fail closed at the render. Recorded so the seed excludes them.
+    string_result_param_dsts: BTreeSet<(String, String)>,
     /// Names locally bound within a given scope: a function's own parameters
     /// plus every `let`/`const`/`var` declarator reachable from its body
     /// without descending into a nested function (module scope uses the
@@ -1088,37 +1114,112 @@ impl ReprInfer {
     /// Seeds or edges are additive/monotone, so a reassignment that taints a
     /// binding whose declarator did not (`let s = 0n; s = String(1n)`) is caught.
     fn record_string_result_binding_write(&mut self, func: &str, name: &str, value: &Expression) {
-        let dst = (self.binding_scope(func, name), name.to_string());
-        match self.classify_string_result_rhs(func, value) {
-            StringResultRhs::Seed => {
-                self.string_result_binding_seeds.insert(dst);
-            }
-            StringResultRhs::FromBinding(src_scope, src_name) => {
-                self.string_result_binding_from_binding
-                    .push((dst, (src_scope, src_name)));
-            }
-            StringResultRhs::FromReturn(callee) => {
-                self.string_result_binding_from_return.push((dst, callee));
-            }
-            StringResultRhs::None => {}
-        }
+        let dst = StringResultDst::Binding((self.binding_scope(func, name), name.to_string()));
+        self.record_string_result_value(func, &dst, value);
     }
 
     /// Record a `return <expr>` in `func` against the String()-result taint.
     fn record_string_result_return(&mut self, func: &str, arg: &Expression) {
-        match self.classify_string_result_rhs(func, arg) {
-            StringResultRhs::Seed => {
-                self.string_result_return_seeds.insert(func.to_string());
+        let dst = StringResultDst::Return(func.to_string());
+        self.record_string_result_value(func, &dst, arg);
+    }
+
+    /// Stage P5 T-new-F: record a VALUE flowing to `dst` (a binding, a return,
+    /// or an arg->param edge) against the String()-result taint, following the
+    /// VALUE-CARRYING composite forms `classify_string_result_rhs` cannot model
+    /// with its single-provenance return (the round-3 leaks measured as raw-bit
+    /// renders). A form is SEED-SAFE (may render correctly) only when codegen
+    /// materializes its String() operand value UNCHANGED:
+    /// - `ConditionalExpression` `t?a:b` SELECTS an arm on a SEPARATE test, so the
+    ///   chosen operand's handle is stored VERBATIM — SEED-SAFE. Each arm is
+    ///   recorded; a non-string arm marks `dst` PLAIN (not monomorphic → the
+    ///   mixed value fails closed instead of rendering raw bits).
+    /// - `a&&b`/`a||b`/`a??b` (the parser emits these as `BinaryExpression`, NOT
+    ///   `LogicalExpression`) SELECT on the OPERAND's own truthiness, which kali
+    ///   cannot evaluate for a string handle (every handle, empty or not, is
+    ///   non-zero — `"" || x` would wrongly keep `""`). NOT seed-safe: record the
+    ///   arms for the taint, then FORCE `dst` plain so it fails CLOSED at render.
+    /// - `SequenceExpression` `(a,b,c)` yields its LAST operand semantically, but
+    ///   kali's sequence codegen mis-emits it as the FIRST (measured `(0n,5n)`→0).
+    ///   NOT seed-safe: record the last arm for the taint, then force `dst` plain.
+    /// A leaf that classifies `None` marks `dst` plain; otherwise its
+    /// seed/binding/return edge is pushed for the fixpoint.
+    fn record_string_result_value(
+        &mut self,
+        func: &str,
+        dst: &StringResultDst,
+        value: &Expression,
+    ) {
+        match strip_parenthesized(value) {
+            Expression::ConditionalExpression(c) => {
+                self.record_string_result_value(func, dst, &c.consequent);
+                self.record_string_result_value(func, dst, &c.alternate);
+                return;
             }
-            StringResultRhs::FromBinding(src_scope, src_name) => {
-                self.string_result_return_from_binding
-                    .push((func.to_string(), (src_scope, src_name)));
+            // `&&`/`||`/`??` — seed-UNSAFE (operand-truthiness select). Record the
+            // arms' provenance for the taint, then force plain (fail closed).
+            Expression::BinaryExpression(b)
+                if matches!(b.operator.as_str(), "&&" | "||" | "??") =>
+            {
+                self.record_string_result_value(func, dst, &b.left);
+                self.record_string_result_value(func, dst, &b.right);
+                self.mark_string_result_plain(dst);
+                return;
             }
-            StringResultRhs::FromReturn(callee) => {
-                self.string_result_return_from_return
-                    .push((func.to_string(), callee));
+            // Sequence — seed-UNSAFE (mis-emitted value). Record the last operand's
+            // provenance for the taint, then force plain (fail closed).
+            Expression::SequenceExpression(s) => {
+                if let Some(last) = s.expressions.last() {
+                    self.record_string_result_value(func, dst, last);
+                }
+                self.mark_string_result_plain(dst);
+                return;
             }
-            StringResultRhs::None => {}
+            _ => {}
+        }
+        match self.classify_string_result_rhs(func, value) {
+            StringResultRhs::Seed => match dst {
+                StringResultDst::Binding(key) => {
+                    self.string_result_binding_seeds.insert(key.clone());
+                }
+                StringResultDst::Return(f) => {
+                    self.string_result_return_seeds.insert(f.clone());
+                }
+            },
+            StringResultRhs::FromBinding(src_scope, src_name) => match dst {
+                StringResultDst::Binding(key) => {
+                    self.string_result_binding_from_binding
+                        .push((key.clone(), (src_scope, src_name)));
+                }
+                StringResultDst::Return(f) => {
+                    self.string_result_return_from_binding
+                        .push((f.clone(), (src_scope, src_name)));
+                }
+            },
+            StringResultRhs::FromReturn(callee) => match dst {
+                StringResultDst::Binding(key) => {
+                    self.string_result_binding_from_return
+                        .push((key.clone(), callee));
+                }
+                StringResultDst::Return(f) => {
+                    self.string_result_return_from_return
+                        .push((f.clone(), callee));
+                }
+            },
+            StringResultRhs::None => self.mark_string_result_plain(dst),
+        }
+    }
+
+    /// Mark `dst` as having a NON-String()-result write/return-path/arm — it can
+    /// never be MONOMORPHICALLY seeded `Repr::String` (Stage P5 T-new-F).
+    fn mark_string_result_plain(&mut self, dst: &StringResultDst) {
+        match dst {
+            StringResultDst::Binding(key) => {
+                self.string_result_binding_plain.insert(key.clone());
+            }
+            StringResultDst::Return(f) => {
+                self.string_result_return_plain.insert(f.clone());
+            }
         }
     }
 
@@ -1163,6 +1264,58 @@ impl ReprInfer {
                 break;
             }
         }
+
+        // Stage P5 T-new-F: SEED `Repr::String` for the MONOMORPHIC subset — a
+        // binding/return whose EVERY feeding write/return-path/composite-arm is a
+        // String() result, so the value is provably a string on ALL runtime paths
+        // and renders correctly at every string sink by construction. A dst with
+        // any non-string ("plain") write, or a from-edge to an UNtainted source,
+        // is NOT monomorphic and stays UNSEEDED — the round-2 taint (written
+        // below, unchanged) remains its fail-closed backstop at the render sinks.
+        // Params are excluded (polymorphic across call sites). The seed only
+        // claims the untouched `Repr::I64` default (mirrors the abort/url/bytes/
+        // event seeds), so a value another axis already claimed is never overwritten.
+        let binding_is_monomorphic = |key: &(String, String)| -> bool {
+            if self.string_result_param_dsts.contains(key)
+                || self.string_result_binding_plain.contains(key)
+            {
+                return false;
+            }
+            self.string_result_binding_from_binding
+                .iter()
+                .filter(|(dst, _)| dst == key)
+                .all(|(_, src)| tainted_bindings.contains(src))
+                && self
+                    .string_result_binding_from_return
+                    .iter()
+                    .filter(|(dst, _)| dst == key)
+                    .all(|(_, callee)| tainted_returns.contains(callee))
+        };
+        let return_is_monomorphic = |func: &String| -> bool {
+            if self.string_result_return_plain.contains(func) {
+                return false;
+            }
+            self.string_result_return_from_binding
+                .iter()
+                .filter(|(f, _)| f == func)
+                .all(|(_, src)| tainted_bindings.contains(src))
+                && self
+                    .string_result_return_from_return
+                    .iter()
+                    .filter(|(f, _)| f == func)
+                    .all(|(_, callee)| tainted_returns.contains(callee))
+        };
+        for key in &tainted_bindings {
+            if binding_is_monomorphic(key) && table.scalar(&key.0, &key.1) == Repr::I64 {
+                table.set_scalar(&key.0, &key.1, Repr::String);
+            }
+        }
+        for func in &tainted_returns {
+            if return_is_monomorphic(func) && table.return_repr(func) == Repr::I64 {
+                table.set_return(func, Repr::String);
+            }
+        }
+
         table.set_string_result_taint(tainted_bindings, tainted_returns);
     }
 
@@ -3699,20 +3852,15 @@ impl ReprInfer {
                         let Some(param) = params.get(index) else {
                             break;
                         };
-                        let dst = (callee.clone(), param.clone());
-                        match self.classify_string_result_rhs(func, arg) {
-                            StringResultRhs::Seed => {
-                                self.string_result_binding_seeds.insert(dst);
-                            }
-                            StringResultRhs::FromBinding(s_scope, s_name) => {
-                                self.string_result_binding_from_binding
-                                    .push((dst, (s_scope, s_name)));
-                            }
-                            StringResultRhs::FromReturn(g) => {
-                                self.string_result_binding_from_return.push((dst, g));
-                            }
-                            StringResultRhs::None => {}
-                        }
+                        let key = (callee.clone(), param.clone());
+                        // T-new-F: a param is POLYMORPHIC across call sites, so it
+                        // is never MONOMORPHICALLY seeded `Repr::String` — record
+                        // it so the seed excludes it; the taint backstop still
+                        // fails a `'x'+p` render closed. Uses the composite-aware
+                        // recorder so a ternary/logical/sequence arg propagates too.
+                        self.string_result_param_dsts.insert(key.clone());
+                        let dst = StringResultDst::Binding(key);
+                        self.record_string_result_value(func, &dst, arg);
                     }
                 }
                 let mut arg_nodes = Vec::with_capacity(call.args.len());
