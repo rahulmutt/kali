@@ -1642,12 +1642,19 @@ fn bitwise_compound_tripwire_object_reassignment_write_is_dropped() {
         "3\n",
     );
     assert_stdout("let o;\no = { a: 22 };\nconsole.log(o.a | 3);\n", "3\n");
-    // The rest of the class, for completeness — a denser A/B (10 object-inflow
-    // routes x 13 values x 3 ops = 390 programs) shows the surviving
-    // wrong-value rows here are exactly {`&=`, `|=`, `<<=`} x {reassign,
-    // no-init form}. These two expect `0` and so do NOT discriminate a no-op
-    // (over a zero base both `&` and `<<` give `0` whether the arm ran or
-    // not); they are here so the class cannot move partially. node: `2`, `176`.
+    // The rest of the class. A denser A/B (10 object-inflow routes x 13 values
+    // x 3 ops = 390 programs) reported the wrong-value rows here as
+    // {`&=`, `|=`, `<<=`} x {reassign, no-init form} — but THREE was the
+    // operator set that corpus happened to run, not a measured exhaustion.
+    // Re-measured across all six: every one is wrong on this shape
+    // (`&=` 0/2, `|=` 3/23, `^=` 3/21, `<<=` 0/176, `>>=` 0/2, `>>>=` 0/2,
+    // kali/node), so `>>=` and `>>>=` were unpinned members of a pinned class.
+    // All six are pinned now.
+    //
+    // The rows expecting `0` do NOT discriminate a no-op (over a zero base
+    // `&`, `<<`, `>>` and `>>>` all give `0` whether the arm ran or not); they
+    // are here so the class cannot move partially. The `3` rows do
+    // discriminate — see the note above.
     assert_stdout(
         "let o = { a: 6 };\no = { a: 22 };\no.a &= 3;\nconsole.log(o.a);\n",
         "0\n",
@@ -1655,6 +1662,68 @@ fn bitwise_compound_tripwire_object_reassignment_write_is_dropped() {
     assert_stdout(
         "let o = { a: 6 };\no = { a: 22 };\no.a <<= 3;\nconsole.log(o.a);\n",
         "0\n",
+    );
+    assert_stdout(
+        "let o = { a: 6 };\no = { a: 22 };\no.a >>= 3;\nconsole.log(o.a);\n",
+        "0\n",
+    );
+    assert_stdout(
+        "let o = { a: 6 };\no = { a: 22 };\no.a >>>= 3;\nconsole.log(o.a);\n",
+        "0\n",
+    );
+}
+
+#[test]
+fn bitwise_compound_over_denies_a_target_whose_name_is_shadowed_by_an_unrelated_float() {
+    // DELIBERATE-COST PIN, not a correctness pin — the third member of the
+    // family `bitwise_compound_over_denies_write_values_outside_the_numeric_proof`
+    // and `bitwise_compound_over_denies_object_fields_reached_by_a_non_literal_inflow`
+    // belong to.
+    //
+    // EVERY name-keyed taint set in R-11 (`module_global_bigint_targets`,
+    // `captured_cell_bigint_targets`, `captured_cell_float_targets` and T6
+    // review round 1's `module_global_float_targets`) is keyed by NAME ONLY,
+    // never by (owner, name). That is documented as a deliberate,
+    // conservative over-denial on the captured lane and inherited verbatim by
+    // the module-global lane, because the module-global float scan REUSES the
+    // captured lane's walk rather than mirroring it. The consequence: an
+    // UNRELATED local in some other function, sharing the target's name,
+    // taints the module global.
+    //
+    // Below, `flags` the module global only ever holds `6`; the float lives in
+    // a completely separate binding that happens to be spelled the same.
+    // node 14, pre-task `e416b22a1` 14, parent `e2578aa7e` 14, HEAD E5506 —
+    // so this IS a regression of a previously-correct program, in the
+    // fail-closed direction. It was not visible until a SHADOWING axis was
+    // added to the audit corpus; on that corpus 42 rows move MATCH -> E5506
+    // (7 shadow forms x {float, NaN, Infinity} x 2 lanes) with zero
+    // `ok -> wrong`. That 42 is a property of the corpus, not a bound.
+    //
+    // The follow-up that recovers these rows is keying the taint sets by
+    // (owner, name) — for BOTH lanes at once, since they now share one
+    // implementation — NOT deleting the scan, which is load-bearing against
+    // the `E4201` it was added to close.
+    assert_fails_closed(
+        "let flags = 6;\nfunction other() { let flags = 6.5; return flags; }\nother();\nfunction f() { flags |= 8; }\nf();\nconsole.log(flags);\n",
+        "module global",
+    );
+    // Same shape, `NaN` instead of a float literal. node: 14.
+    assert_fails_closed(
+        "let flags = 6;\nfunction other() { let flags = NaN; return flags; }\nother();\nfunction f() { flags |= 8; }\nf();\nconsole.log(flags);\n",
+        "module global",
+    );
+    // The shadow does not even have to be reachable — `other` is never called.
+    // node: 14.
+    assert_fails_closed(
+        "let flags = 6;\nfunction other() { let flags = 6.5; return flags; }\nfunction f() { flags |= 8; }\nf();\nconsole.log(flags);\n",
+        "module global",
+    );
+    // The admitted lane is NOT lost when the shadow holds an integer — this
+    // row proves the over-denial is keyed on the VALUE class, not merely on
+    // the existence of a same-named binding. node: 14.
+    assert_stdout(
+        "let flags = 6;\nfunction other() { let flags = 9; return flags; }\nother();\nfunction f() { flags |= 8; }\nf();\nconsole.log(flags);\n",
+        "14\n",
     );
 }
 
@@ -1688,24 +1757,38 @@ fn bitwise_compound_tripwire_local_scalar_bigint_target_matches_the_plain_operat
 // pinned because they are `E4201`, so a future change that makes R-11 the
 // CAUSE of one would have to move a pin instead of landing silently.
 //
-// EXACTLY TWO such shapes remain, both on the OBJECT-FIELD lane, and both
-// measured BYTE-FOR-BYTE identical on the pre-task binary `e416b22a1` — with
-// AND without the bitwise line — so R-11 changes nothing about them. The root
-// cause is the standing deferred "float-into-i64-cell storage bug". Whoever
-// fixes that bug flips these to value assertions (node's values are in the
-// comments), NOT deletes them. One of the two is pinned above as
-// `bitwise_compound_object_field_unmasks_preexisting_float_into_i64_cell_e4201`
-// (the arrow-parameter write); the computed-key write is pinned below.
+// THE CLAIM THAT HOLDS — and read the next paragraph before strengthening it:
+// **no `E4201` is CAUSED by an R-11 admission.** Every `E4201` shape found so
+// far is `E4201` on the pre-task binary `e416b22a1` as well, with the bitwise
+// line, without it, with `+=` in its place, and on a plain `n & 3` read. The
+// root cause is the standing deferred "float-into-i64-cell storage bug" (and,
+// for the shadow shape, the general shadowing bug). Whoever fixes those flips
+// these pins to value assertions (node's values are in the comments), NOT
+// deletes them.
 //
-// Two OTHER shapes that used to reach `E4201` no longer do, and each has a
-// fail-closed pin instead of an `E4201` pin:
+// DO NOT restate this as a COUNT. Earlier revisions of this comment said
+// "exactly two such shapes remain, both on the object-field lane". A five-line
+// probe falsified it — a `const` shadow in an unrelated function is a third:
+//
+//   let n = 6; function other() { const n = 6.5; return n; } other();
+//   function f() { n &= 3; } f(); console.log(n);     // E4201; node: 2
+//
+// That is the THIRD time in this task an absolute derived from a corpus was
+// falsified by an axis the corpus lacked (object-inflow, then self-reference,
+// then shadowing). The census is a lower bound on what exists, never an
+// enumeration of it. State the DIRECTION, not the count, unless the axis is
+// proven exhaustive. Latest census, 2028-row corpus, four binaries:
+// pre-task 59, parent `e2578aa7e` 6, `d61821a46` 12, HEAD 4 — and all 4 of
+// HEAD's are `E4201` on the pre-task binary too.
+//
+// Shapes that used to reach `E4201` and no longer do, each with a fail-closed
+// pin instead of an `E4201` pin:
 //   * a float write to a CAPTURED cell — closed by Task 4's
 //     `collect_float_tainted_captured_cells`, pinned by
 //     `bitwise_compound_fails_closed_on_float_write_reaching_captured_target_from_sibling_function`;
 //   * a float write to a MODULE GLOBAL — closed by Task 6 review round 1's
-//     `collect_float_tainted_module_scalars`, pinned immediately below. This
-//     one E4201'd on `e416b22a1` AND on `e2578aa7e`, so the module-global lane
-//     is now strictly better than it was before R-11 started. ---
+//     `collect_float_tainted_module_scalars`, pinned immediately below. That
+//     one E4201'd on `e416b22a1` AND on `e2578aa7e`. ---
 
 fn assert_fails_with_e4201(src: &str) {
     let out = run_source(src);
