@@ -69,8 +69,14 @@ Two further items every future investigator needs before running any probe at al
 - **R-04 — `console.log` (and `.error`/`.warn`/`.info`) silently discards every argument
   after the first whenever any argument is non-literal.** This is the primary instrument of
   every sweep. It must be validated before use, and probes must pass exactly one argument.
-- **R-11 — every bitwise compound assignment (`&= |= ^= <<= >>= >>>=`) is a silent no-op**,
-  including on targets where the *arithmetic* sibling (`+=`) correctly fails closed.
+- **R-11 — ~~every bitwise compound assignment (`&= |= ^= <<= >>= >>>=`) is a silent no-op~~ —
+  CLOSED 2026-07-25** (branch `r11-bitwise-compound-assign`, `0104f5baf`..`9dcdcc3c1`). The six
+  operators now compute correct values on proven-integer targets and fail closed `E5506`
+  everywhere else. Re-measured over the final 49-target × 6-op audit matrix: on the pre-R-11
+  binary `e416b22a1`, **209 of 294 cells printed the unmodified operand at exit 0**; on
+  `9dcdcc3c1`, **0** — 144 MATCH, 150 `E5506`, 0 `WRONG`, 0 `E4201`, and **no cell moved into
+  `WRONG` or `E4201`**. See the R-11 entry in §2 for the full close note and §7.10 for the
+  sightings, accepted costs and lessons this project produced.
 
 ---
 
@@ -857,7 +863,7 @@ tier, ordering is by blast radius.
 - **Confidence**: high on behavior (7 transcripts, both scopes, 4 block forms); medium on
   mechanism.
 
-### R-11: Every bitwise compound assignment (`&= |= ^= <<= >>= >>>=`) is a silent no-op
+### R-11: Every bitwise compound assignment (`&= |= ^= <<= >>= >>>=`) is a silent no-op — **CLOSED 2026-07-25**
 
 - **Folds in**: D-B-2.
 - **Verification**: `sweep-only` (both scopes, 4 target kinds).
@@ -894,6 +900,70 @@ tier, ordering is by blast radius.
 - **Confidence**: high on behavior (11 transcripts); low on mechanism.
 - **Not affected**: the bitwise *binary* operators (`& | ^ ~ << >> >>>`) are correct,
   including shift-count masking and 32-bit wraparound. Only the assignment forms are no-ops.
+- **STATUS — CLOSED 2026-07-25** (branch `r11-bitwise-compound-assign`,
+  `0104f5baf`..`9dcdcc3c1`; oracle node v26.5.0). Bitwise result semantics now live in exactly
+  one place, `FunctionEmitter::emit_bitwise_i32_op_extend`
+  (`crates/kali_codegen/src/emit/operators.rs`): it applies the JS op to two `i32` operands and
+  extends back to `i64`, **sign**-extended for every op and **zero**-extended (uint32) only for
+  `>>>`/`>>>=`. The plain binary operators (`emit_bitwise`) and all four compound-assign target
+  arms route through it, so the two forms cannot desynchronize. The four lowering sites are:
+  scalar local/param (`emit/literal.rs`, `emit_local_compound_assignment`), module-scope integer
+  global (`emit/literal.rs`, `emit_module_global_assignment`), captured scalar env cell
+  (`emit/closure_access.rs`, `try_emit_captured_assign`), and static dot-field on a fixed-shape
+  object (`emit/object.rs`, `emit_object_field_bitwise_compound_assign`). Every other target —
+  array element, computed/for-in-key member, `const`, non-scalar, class field, growable-array
+  element, handle members, a base that is a call/nested member — and every non-integer target
+  or RHS (float, string, BigInt, boolean, `null`, template, concat, call, member, index, and
+  every non-literal identifier) fails closed `E5506`, never `E4201`. The
+  `TypeContext::resolve_expression` gate (`crates/kali_types/src/resolve/expression.rs`) now
+  admits the six ops through two narrow structural predicates
+  (`bitwise_compound_target_is_admitted_local_scalar`,
+  `bitwise_compound_dot_field_target_is_admitted`) and denies everything else with the operator
+  text in the message; the local-scalar arm's `_ => false` fail-open — which the caller turned
+  into a silent bare read of the target, i.e. *this defect* — is now a default-deny that emits
+  `E5506` instead. Admission is positive-evidence only: the target must be `Repr::I64` **and**
+  in `ReprTable::numeric_bindings` (`binding_is_proven_numeric`), plus per-lane BigInt and float
+  taint scans (`module_global_bigint_targets`, `module_global_float_targets`,
+  `captured_cell_bigint_targets`, `captured_cell_float_targets`, `shape_field_bigint_targets`);
+  the RHS must be positively proven by `bitwise_compound_rhs_is_provably_i64`.
+  **Headline, precisely.** Re-derived for this close on a freshly built `e416b22a1` binary
+  against the final 49-target × 6-op matrix (294 cells), oracle node v26.5.0:
+
+  | binary | MATCH | `E5506` | WRONG | node-throws | `E4201` | **prints the unmodified operand at exit 0** |
+  |---|---|---|---|---|---|---|
+  | `e416b22a1` (pre-R-11) | 2 | 42 | 232 | 12 | 6 | **209** |
+  | `9dcdcc3c1` (HEAD) | 144 | 150 | 0 | 0 | 0 | **0** |
+
+  252 cells moved, **0 of them into `WRONG` or `E4201`** (144 `WRONG→MATCH`, 88
+  `WRONG→E5506`, 12 `node-throws→E5506`, 6 `E4201→E5506`, 2 `MATCH→E5506`). No R-11 signature
+  failure survives in any independently-run corpus (the 1596-row laundering corpus, the
+  390-program object-inflow corpus, the 85-row read-route corpus, or the Task-7 review sweeps).
+  *Note on an earlier figure*: the Task-6 report's "143" was measured over the round-1 222-cell
+  corpus under a slightly narrower signature definition; over that same 37-target subset this
+  re-derivation counts 149. The corpus-bound count is not the claim — the **direction** is: no
+  cell of any measured corpus prints the unmodified operand at exit 0 on HEAD, and no cell moved
+  into a wrong value.
+- **PLAN-DEFECT FINDING — the stated root cause was wrong, and the way it was wrong is the
+  lesson.** The plan's mechanism hypothesis (recorded above: "the compound-assign lowering
+  handles the arithmetic operator set and silently falls through for the bitwise set") named a
+  codegen fix site. That site was **unreachable**: the six operators never tokenized at all.
+  `crates/kali_lexer/src/punctuation.rs` had no rules for `&= |= ^= <<= >>= >>>=`, and
+  `kali_ast::AssignmentOperator` had no bitwise variants, so `n &= 3` lexed as `&` followed by
+  `=` and the operator never reached codegen in any form. An inserted prerequisite task (T1.5,
+  `2f9d14dfe`) had to build the whole lexer → AST → parser → HIR → types path before the
+  planned fix had any input to act on. **A root-cause trace that starts at the fix site and
+  never verifies that the input arrives there is not a trace** — it is a plausible story about
+  a code path, confirmed only against itself. The cheap falsifier was one token dump.
+- **Deliberate scope boundaries** (fail-closed, pinned, recovery work — not defects): the
+  arithmetic sibling of the object-field lane is still unclaimed
+  (`o.a += 1` → `E5506`; `emit_object_field_compound_assign_dynamic` still covers only the
+  computed for-in-key form); a BigInt-literal target on the **local** lane is treated as a plain
+  i64 (`let n=7n; n&=3` → `3`, which is exactly what kali's own plain `n & 3` prints on every
+  binary back to `e416b22a1`; node throws) — pinned by
+  `bitwise_compound_tripwire_local_scalar_bigint_target_matches_the_plain_operator`. See §7.10
+  for the measured over-denial costs and their recovery routes.
+- **Pins**: `crates/kali_cli/tests/soundness_bitwise_compound.rs` — 66 tests, all green
+  (`test result: ok. 66 passed; 0 failed`).
 
 ### R-12: One alias binding defeats the fail-closed array-element-store guard, in BOTH scopes
 
@@ -1875,7 +1945,7 @@ applied at different sites.
 | # | entry | effort | risk | note |
 |---|---|---|---|---|
 | 4 | **G6 / R-19, R-20, R-15, R-25** unknown builtins fold to `0` | small | low | **Do the cluster experiment first** (§3 G6): call an absent-but-plausible builtin and see whether it yields `0` or `E3100`. If one choke point routes them, a single "unknown builtin ⇒ fail closed" edit converts four entries from silent-wrong to honest errors. Highest structural payoff for the effort in this document. — DONE 2026-07-20 (partial: R-19/R-20 canonical + R-15 + R-25 folds; R-24 deferred to Group-3/own-plan). See SDD ledger G6 section + R-A4-1..5 residuals. |
-| 5 | **R-11** bitwise compound assignment | small | low | Write-back is simply missing. Fix the lowering; where a target is not admitted, route it to the same `E5506` the arithmetic sibling already emits, rather than adding shapes to a denylist. |
+| 5 | **R-11** bitwise compound assignment | ~~small~~ **medium** | low | ~~Write-back is simply missing.~~ **DONE 2026-07-25** (`0104f5baf`..`9dcdcc3c1`). The "write-back is simply missing" sizing was wrong for the reason §2's R-11 close note records: the operators never tokenized, so the whole lexer→AST→parser→HIR→types path had to be built first (T1.5) before any codegen fix had an input. The rest went as recommended: one shared combiner (`emit_bitwise_i32_op_extend`), four target arms, and everything else routed to `E5506` by a positive-evidence allowlist rather than a denylist of shapes. |
 | 6 | **R-09** `continue` skips the `for` update | small | low–medium | Add a dedicated continue target before the update expression. Self-contained; `while`/`do-while`/`for…of` are already correct and give a reference lowering. |
 | 7 | **R-16** per-method string repr arms | small | low | Add the missing `Repr::String` arms in `kali_types/src/static_analysis/string.rs` for `slice`/`charAt`/`toUpperCase`/`repeat`, mirroring `substring`. **But this is the hand-mirrored-oracle hazard itself**: prefer a structural change that makes the two tables impossible to desynchronize over adding four arms that the next method will again omit. |
 | 8 | **R-24** `Object.freeze` no-op | small | low | Either implement the write barrier or fail closed on `freeze`. Failing closed is defensible and cheaper. Verify with the bind-first probe (R-24's caveat), not the folding one. |
@@ -2077,6 +2147,137 @@ Appears NEW (no clean pre-existing register entry):
   slice of the R-10 shadow hazard is closed for the eight P5/P4/P3 name-keyed lanes;
   the block-fn-decl introduction site (F-newD-1 above) and the general R-10 scope
   model remain open.
+
+---
+
+## 7.10 R-11 sightings, accepted costs and lessons (2026-07-25)
+
+Found while closing **R-11** (bitwise compound assignment, branch
+`r11-bitwise-compound-assign`). Everything in the first block is **pre-existing** — each was
+re-measured on a `main`-worktree binary (`62d786e74`) with no bitwise operator anywhere in the
+program, so none of it is caused by R-11. **Nothing here was fixed**; these are sightings, and
+existing entries are NOT renumbered. Oracle: node v26.5.0.
+
+### Sightings (pre-existing, verified by measurement, unfixed)
+
+- **An element store into a `let` array literal is silently dropped.**
+  `let a=[1,2,3]; a[1] = 5; console.log(a[1]);` → `0`, node `5`, exit 0, no diagnostic. Same
+  family as **R-12**/**R-06-R3**, but this is the un-aliased `let` spelling, which R-12's entry
+  records as *correctly fail-closed* for `const`.
+- **Reads off a `let` array literal return `0` too.** `let a=[1,2,3]; console.log(a.length)` →
+  `0` (node `3`); `console.log(a[0])` → `0` (node `1`). So the store above is not merely lost —
+  the whole binding reads back as an empty/zero array. **≈ R-06-R3.**
+- **`for..of` over a `let` array binding iterates the characters of the binding's NAME.**
+  `let a=[1,2,3]; for (const x of a) console.log(x);` prints `a` — one line, the letter `a` —
+  where node prints `1 2 3`. `let zz=[1,2,3]; …` prints `z` then `z`; `let a=[10,20]; for
+  (const q of a) …` prints `a`. Exit 0, no diagnostic. The `const` spelling
+  (`const a=[1,2,3]`) is CORRECT (`1 2 3`) and the `var` spelling fails **closed** (`E5506`
+  "for-of array iteration lowering is unavailable…"), so this is the `let` lane only: the
+  iterable is being resolved as the identifier's own text and iterated as a string. Maximally
+  deceptive — the output is plausible-looking data, and the loop body does run.
+- **Whole-object reassignment is a dropped write.** `let o={a:6}; o={a:9}; console.log(o.a);` →
+  `0`, node `9`, exit 0. This is **R-06-R2** re-confirmed on current `main` (R-06's objects-half
+  close did not touch the assignment-store mechanism, only the declarator init).
+- **An array stored into an `I64` object field reads back `0`.** `let o={a:6}; o.a=[1,2];
+  console.log(o.a);` → `0` (node `[ 1, 2 ]`); identical through an alias (`let b=[1,2]; o.a=b`).
+  The field keeps its `Repr::I64` and the handle is lost. **≈ R-14 / the P5
+  aggregate-array-provenance family in §7.9.**
+- **`expr_is_provably_not_bigint`'s BigInt-literal check is `text.ends_with('n')`**
+  (`crates/kali_codegen/src/lower.rs`). A bare `Value` node's text is either a literal *or an
+  identifier*, so any identifier ending in `n` — `n`, `len`, `min`, `fn`, `in`, `train` — is read
+  as a BigInt literal. **Over-taint only**: the misread makes the predicate return `false`
+  (unproven ⇒ tainted ⇒ denied), and it cannot under-taint, because the arm can only turn a
+  would-be `true` into `false`. But it silently disables the interprocedural
+  parameter-inflow arm for those names, so a program using the canonical `n` gets a strictly
+  weaker proof than one using `k`. Recovery: distinguish literal from identifier at the node
+  level instead of by suffix.
+- **The imported-module hole — the one place an R-11-unsound program still reaches exit 0
+  silently, and it is unpinnable by construction.** Imports are never analyzed, so the R-11
+  resolve gate cannot fire inside imported code. With `lib.ts` = `export const s = "hi"; export
+  function bump(){ let n = 6; n &= s; console.log(n); }` and `main.ts` = `import { bump } from
+  "./lib.ts"; bump();` — kali exits 0 printing **nothing**, with **zero diagnostics**; node
+  prints `0`. This is the tracked **"static named imports never link"** bug
+  (`kali-throw-fallout-stage5.md`): the call is dropped, so the unsound line never runs *and*
+  never gets diagnosed. It cannot be pinned as an R-11 regression test, because the pin would
+  assert the import bug's behavior rather than R-11's; when static imports are made to link,
+  the R-11 gate will start seeing this code and must be re-audited at that time.
+
+### Accepted costs and follow-ups (deliberate, fail-closed, pinned — recovery work, not defects)
+
+- **The float taint set is name-keyed.** `collect_float_tainted_module_scalars` /
+  `collect_float_tainted_captured_cells` key on the binding NAME over module-global slot names,
+  so an unrelated same-named local elsewhere in the program over-denies the real target
+  (`let flags=6; function other(){ let flags=6.5; return flags; } other(); function f(){
+  flags|=8; } f();` → node `14`, pre-R-11 `14`, HEAD `E5506`). Measured over a 576-program
+  shadow-axis corpus: **168 rows `MATCH → E5506`, 0 `ok → wrong`** — a corpus-bound count, so
+  the claim is the direction: every move is toward fail-closed. Recovery: re-key by
+  `(owner, name)` for the module-global **and** captured lanes **at once** — they share
+  `collect_float_tainted_scalars`, and re-keying one alone would leave the other blind.
+  **Never delete the scan**: it is the only guard that refuses a float on either lane
+  (`is_f64` reads the promoted slot's repr, and `write_value_is_numeric`'s literal arm accepts
+  `6.5` — a float IS "numeric" by that proof), and without it the lane emits an invalid module
+  (`E4201`).
+- **`write_value_is_numeric`'s allowlist is narrower than correctness needs.**
+  (`crates/kali_types/src/repr_infer.rs`.) It admits only a numeric/BigInt literal, a
+  self-reference, a PARAMETER of the current function, and unary/binary arithmetic over those.
+  A target initialized from a non-parameter identifier (another local or a `const`), a CALL, a
+  MEMBER read, or an INDEX read therefore gets no positive evidence and is denied even where
+  node computes the program correctly — measured at **6 of 32 previously-correct programs
+  (~19%)** of the local-scalar bitwise lane, **all `ok → DENY`, none `ok → wrong`**. Recovery:
+  teach `write_value_is_numeric` member/call/local-identifier
+  inflow — **not** a loosening of the codegen guard. Pinned by
+  `bitwise_compound_over_denies_write_values_outside_the_numeric_proof`; **do not weaken that
+  test** — widening the proof should make it need updating on the *admit* side, not deletion.
+- **Three object-field write routes are uncovered by the BigInt/float taint scan and are safe
+  ONLY because those writes are currently silently dropped**: computed `o[k] = v`,
+  arrow-parameter dot write (`const w=(x)=>{ x.a = 7n; }`), and for-of element dot write
+  (`for (const o of os) { o.a = 7n; }`). `collect_bigint_tainted_shape_fields` walks only
+  object-literal declarator inits and static dot-field writes. Three tripwire tests pin the
+  current dropped-write behavior (`bitwise_compound_tripwire_{computed_key,arrow_parameter,
+  forof_element}_write_not_covered_by_bigint_taint_scan`) — pinned as *current behavior*, not as
+  certified-correct output (all three diverge from node, which throws). **Do not implement any
+  of those write lanes without extending `collect_bigint_tainted_shape_fields` first**: partial
+  coverage would be worse than none, because it would look like a proof.
+- **`emit_object_field_compound_assign_dynamic` is still unclaimed for static dot fields.** No
+  static dot-field *arithmetic* compound assign lowers (`o.a += 1` → `E5506`). If a later task
+  opens it, it must reuse the object-field lane's **three-check target proof**
+  (`shape_field(..) == Some((_, Repr::I64))` **and** `shape_field_is_proven_numeric` **and**
+  `!shape_field_bigint_targets.contains(&(shape, field))`), not the `Repr::I64` default —
+  `Repr::I64` is `ReprTable::scalar`'s `#[default]` and proves nothing.
+- One related latent gap, safe today: `unstable_provenance_names`
+  (`crates/kali_codegen/src/lower.rs`) does not list the six bitwise compound operators, so a
+  bitwise write does not invalidate function-value provenance. Safe **only** because the resolve
+  gate and `binding_is_proven_numeric` deny a bitwise compound on a function-valued binding
+  (verified: `let f=()=>1; f &= 1;` → `E5506`). Any widening of admission must extend that list.
+
+### Lessons this project produced
+
+- **A default is not a proof.** `ReprTable::scalar` is `unwrap_or_default()` with default
+  `Repr::I64`, and *nothing in the codebase ever writes `Repr::I64` explicitly* — so
+  `scalar_repr(x) == I64` cannot distinguish "proven integer" from "repr_infer recorded nothing
+  about this binding at all". Two tasks shipped Criticals built on that reading (a string handle
+  truncated by `I32WrapI64` into a wrong-but-plausible integer at exit 0). The fix was not a
+  stricter reading of the same accessor — requiring an explicit `scalar_entry` record denies
+  100% of the lane — but a *different, affirmatively written* signal,
+  `ReprTable::numeric_bindings` / `binding_is_proven_numeric`.
+- **A guard keyed on one binding class leaks to sibling classes.** Hit **six times** on this
+  project alone (module-global slots → module const inits → module binding names →
+  hand-mirrored predicate list → one added `emit_identifier` arm reopened it in a single
+  commit). Widening the denylist failed every time. It closed only when the second copy was
+  *deleted*: `resolve_identifier_kind` → `IdentifierResolution` is now the single classifier,
+  both consumers `match` it exhaustively with no `_` arm, and a new resolution arm is a compile
+  error until handled at both sites. Divergence is prevented by the type system, not by
+  discipline.
+- **State the direction, not the count, unless the axis is proven exhaustive.** Three audit
+  rounds each replaced a corpus-bound count with a stronger absolute ("all N cells", "the cost
+  is exactly this one shape"), and each time a missing corpus axis falsified it in about five
+  lines. This close does the same to its own predecessor: the Task-6 "143 cells" figure is a
+  222-cell-corpus number, and the same measurement over the final 294-cell corpus gives 209.
+  Both support the claim that actually matters, which is directional.
+- **A fix a task adds must enter that task's own measurement corpus in the same round.** Twice a
+  round's blast-radius numbers were computed over a program space that excluded the change the
+  round had just made, so the reported cost was of the *previous* build. Re-run the corpus after
+  the last edit, not before it.
 
 ---
 
