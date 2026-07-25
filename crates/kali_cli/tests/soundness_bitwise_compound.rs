@@ -154,6 +154,14 @@ fn bitwise_compound_fails_closed_on_every_target_shape() {
     // above already covers the cross-operator axis on the one shape Task 2
     // admits; this test covers the cross-shape axis (every OTHER shape,
     // still denied).
+    //
+    // R-11 T3: the "module global written from a function" row that used to
+    // live here (`let g = 6; function f(){ g &= 3; } f(); console.log(g);`)
+    // is now an ADMITTED shape (T3's codegen change lowers it) and was moved
+    // to `bitwise_compound_on_module_global_from_function` below as a value
+    // assertion — leaving it here asserting `assert_fails_closed` would pin
+    // the exact silent-no-op-turned-diagnostic regression this project
+    // exists to fix, the wrong direction now that the shape is supported.
     let needle = "&=";
     assert_fails_closed(
         // Member target (`o.a`).
@@ -173,11 +181,6 @@ fn bitwise_compound_fails_closed_on_every_target_shape() {
     assert_fails_closed(
         // Closure-captured variable.
         "function outer(){ let x = 6; function g(){ x &= 3; } g(); console.log(x); } outer();\n",
-        needle,
-    );
-    assert_fails_closed(
-        // Module global written from a function.
-        "let g = 6; function f(){ g &= 3; } f(); console.log(g);\n",
         needle,
     );
     assert_fails_closed(
@@ -268,6 +271,54 @@ fn bitwise_compound_on_non_integer_fails_closed() {
        // deferred — the plain bitwise operators have the identical gap — but
        // this predicate must fail closed for it, not silently truncate.
     assert_fails_closed("let n = 6; n &= 3n; console.log(n);\n", "&=");
+}
+
+// --- Task 3: module-scope global written across functions (promotes to a WASM global) ---
+
+#[test]
+fn bitwise_compound_on_module_global() {
+    // `flags` is mutated inside a function AND read at module scope → promoted
+    // to a persistent WASM global, exercising emit_module_global_assignment.
+    assert_stdout(
+        "let flags = 6;\nfunction set() { flags |= 8; }\nset();\nconsole.log(flags);\n",
+        "14\n",
+    );
+    assert_stdout(
+        "let h = 6;\nfunction sh() { h <<= 2; }\nsh();\nconsole.log(h);\n",
+        "24\n",
+    );
+    assert_stdout(
+        "let u = -1;\nfunction z() { u >>>= 0; }\nz();\nconsole.log(u);\n",
+        "4294967295\n",
+    );
+}
+
+#[test]
+fn bitwise_compound_on_module_global_from_function() {
+    // Moved from `bitwise_compound_fails_closed_on_every_target_shape`'s
+    // "Module global written from a function" row: that shape is now
+    // ADMITTED (T3's codegen change lowers it), so it belongs here as a
+    // value assertion, not a fail-closed pin. node: 6 & 3 = 2.
+    assert_stdout(
+        "let g = 6; function f(){ g &= 3; } f(); console.log(g);\n",
+        "2\n",
+    );
+}
+
+#[test]
+fn bitwise_compound_on_module_global_read_via_closure() {
+    // Renamed from `bitwise_compound_fails_closed_on_module_global_read_via_closure`
+    // (Task 2 review Important 3): `x` here is a module-scope `let` that is
+    // also READ by a closure (`g`) — `collect_module_scalar_globals`
+    // (`lower.rs`) promotes it to the SAME persistent WASM global lane a
+    // plain "written from a function" module global uses (reading it from a
+    // closure needs no special seeding — `emit_module_global_assignment`
+    // does not care who else reads the global), so it is admitted by the
+    // exact same T3 codegen change, not a distinct shape. node: 6 & 3 = 2.
+    assert_stdout(
+        "let x = 6; const g = () => x; x &= 3; console.log(x);\n",
+        "2\n",
+    );
 }
 
 // --- Task 2 review round 2: Critical 1 was still open on the RHS-IDENTIFIER
@@ -447,24 +498,19 @@ fn bitwise_compound_fails_closed_on_target_from_array_element() {
 // covered by `bitwise_compound_fails_closed_on_every_target_shape`'s
 // "Closure-captured variable" row). `bitwise_compound_target_is_admitted_local_scalar`
 // admits both of these at resolve — `x`/`g` below are structurally owned by
-// the function doing the write — so codegen is what denies them: an env-cell
-// promotion (Stage C, function scope) or the module-global lane (module
-// scope). Neither shape is a soundness gap (both fail closed today), but
-// neither was pinned before this review, and the function-scope row's
-// denial message did not carry the operator text until this fix.
+// the function doing the write. The FUNCTION-scope row (`outer`'s own `x`,
+// captured by a nested `g`) still fails closed at codegen (Stage C env-cell
+// promotion, T4's unopened territory). The MODULE-scope row (module-level
+// `x`, read by a closure `g`) is now admitted — R-11 T3's codegen change
+// lowers it via the same module-global lane a plain "written from a
+// function" module global uses — see
+// `bitwise_compound_on_module_global_read_via_closure` above, which replaces
+// the fail-closed pin this comment used to describe for it.
 
 #[test]
 fn bitwise_compound_fails_closed_on_owning_function_captured_variable() {
     assert_fails_closed(
         "function outer(){ let x = 6; const g = () => x; x &= 3; return x + g(); } console.log(outer());\n",
-        "&=",
-    );
-}
-
-#[test]
-fn bitwise_compound_fails_closed_on_module_global_read_via_closure() {
-    assert_fails_closed(
-        "let x = 6; const g = () => x; x &= 3; console.log(x);\n",
         "&=",
     );
 }

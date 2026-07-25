@@ -1257,6 +1257,63 @@ impl<'a> FunctionEmitter<'a> {
                 function.instruction(&Instruction::GlobalGet(global_index));
                 true
             }
+            "&=" | "|=" | "^=" | "<<=" | ">>=" | ">>>=" => {
+                // R-11 T3: bitwise compound on a module-scope integer global
+                // (promoted to a persistent WASM global — `flags` mutated
+                // inside a function AND read at module scope, or vice
+                // versa). Mirrors the local-scalar bitwise arm above
+                // (`emit_local_compound_assignment`) but the TARGET-axis
+                // proof is different and does NOT need
+                // `binding_is_proven_numeric` here: a name only ever reaches
+                // `module_global_slots` (and therefore this function) when
+                // `collect_module_scalar_globals` / `scan_numeric_assignments`
+                // (`lower.rs`) already proved every declarator init and every
+                // reassignment RHS across the WHOLE program — including this
+                // very compound op — `is_numeric_expr`, and `repr` here is
+                // one of exactly `I64`/`F64` (never `ReprTable::scalar`'s bare
+                // default guess). The pre-existing arithmetic-compound arm
+                // just above trusts the identical `is_f64` split for the same
+                // reason.
+                //
+                // The RHS axis is NOT covered by that promotion proof to the
+                // precision this lane's raw `I32WrapI64` combiner needs:
+                // `scan_numeric_assignments`'s `is_numeric_expr` admits an
+                // F64-repr'd identifier or a numeric-returning call as
+                // "numeric", neither of which `emit_bitwise_i32_op_extend`'s
+                // int32 combiner can safely consume without a float-aware
+                // conversion path this slice does not implement. Guarding on
+                // `is_float_valued(right)` alone would repeat Task 2 round
+                // 1's defect (it answers "is the RHS a float", not "is the
+                // RHS safe" — a STRING RHS is neither float nor float-valued
+                // and would fall through to `I32WrapI64`, truncating a tagged
+                // handle into a wrong-but-plausible i32). Reuse the same
+                // narrow positive-evidence RHS oracle the local arm uses
+                // instead: `bitwise_compound_rhs_is_provably_i64` (literal
+                // non-BigInt numeral, or unary `-` over one).
+                if is_f64 || !self.bitwise_compound_rhs_is_provably_i64(right) {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        format!(
+                            "bitwise compound assignment '{op}' on a non-integer module global is unavailable in the current phase"
+                        ),
+                    ));
+                    // Modeled as `i64` unconditionally on the reject path,
+                    // matching the local-scalar bitwise arm's dummy (bitwise
+                    // compound results are always i64 in this model — the
+                    // reject dummy is not "whatever type the denied target
+                    // happened to be").
+                    function.instruction(&Instruction::I64Const(0));
+                    return true;
+                }
+                function.instruction(&Instruction::GlobalGet(global_index));
+                function.instruction(&Instruction::I32WrapI64);
+                self.emit_float_operand(function, right, false);
+                function.instruction(&Instruction::I32WrapI64);
+                self.emit_bitwise_i32_op_extend(function, op);
+                function.instruction(&Instruction::GlobalSet(global_index));
+                function.instruction(&Instruction::GlobalGet(global_index));
+                true
+            }
             // `??= &&= ||=` on a module global: out of scope, fail-closed.
             _ => {
                 self.diagnostics.push(Diagnostic::error(

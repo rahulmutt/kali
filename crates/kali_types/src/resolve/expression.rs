@@ -2393,13 +2393,60 @@ impl TypeContext {
         let Some(name) = self.resolve_update_binding_name(left) else {
             return false;
         };
-        if self.binding_repr_function_key(&name).as_deref() != Some(self.current_function_name()) {
+        let is_own_scope =
+            self.binding_repr_function_key(&name).as_deref() == Some(self.current_function_name());
+        // R-11 T3: also admit a genuine free reference to a MODULE-scope
+        // `let`/`var` scalar from inside a function body — the module-global
+        // target shape T3's codegen change (`emit_module_global_assignment`)
+        // now lowers. Deliberately NOT reusing `binding_repr_function_key`'s
+        // `Some("_start")` fallback for this: that fallback fires for TWO
+        // structurally different shapes (see its own doc above) — (a) a
+        // genuine free reference reaching true module scope, and (b) a
+        // reference to an ENCLOSING function's own local that codegen has no
+        // closure model for (`function outer(){ let x; function g(){ x &=
+        // 3; } }`, from inside `g` — still T4's unopened territory) — and it
+        // cannot tell them apart, by design (it stops at the tracked
+        // function's own top scope to mirror codegen's flat locals-miss
+        // fallback, never walking further to see what it would actually
+        // hit). `binding_declared_at_module_scope` below walks the FULL
+        // scope chain instead, so it can tell (a) from (b) directly: `name`
+        // counts as a module global only when the SCOPE THAT ACTUALLY
+        // DECLARES IT (found by walking `.parent` links all the way, not
+        // stopping at a function boundary) is the top-level `Module` scope.
+        // An enclosing function's own local is declared in THAT function's
+        // `Function` scope, never `Module`, so shape (b) is excluded by
+        // construction — only a real module global is admitted here.
+        let is_module_global = !is_own_scope && self.binding_declared_at_module_scope(&name);
+        if !is_own_scope && !is_module_global {
             return false;
         }
         if self.for_in_key_shape(&name).is_some() {
             return false;
         }
         self.binding_is_mutable(&name) && self.compound_update_target_is_scalar(&name)
+    }
+
+    /// Walks the FULL lexical scope chain (unlike `binding_repr_function_key`,
+    /// which deliberately stops at the tracked function's own top scope to
+    /// mirror codegen's flat locals model) to find the scope that actually
+    /// declares `name`, and reports whether that scope is the top-level
+    /// `Module` scope. Used only by
+    /// `bitwise_compound_target_is_admitted_local_scalar` (R-11 T3) to
+    /// disambiguate a genuine module global from an enclosing function's own
+    /// local — both of which `binding_repr_function_key` maps to the same
+    /// `Some("_start")` answer.
+    fn binding_declared_at_module_scope(&self, name: &str) -> bool {
+        let mut current = self.current_scope_id();
+        while let Some(scope_id) = current {
+            let Some(scope) = self.scopes.get(&scope_id) else {
+                return false;
+            };
+            if scope.contains(name) {
+                return scope.scope_type == ScopeType::Module;
+            }
+            current = scope.parent;
+        }
+        false
     }
 
     pub(crate) fn resolve_import_expression(&mut self, expr: &ImportExpression) {
