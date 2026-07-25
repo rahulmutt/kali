@@ -4263,7 +4263,16 @@ impl<'a> FunctionEmitter<'a> {
     /// `binding_is_proven_string_coercion_scalar` / `is_string_valued`, which
     /// is also the rule `repr_infer`'s `binding_scope` mirrors, so the proof is
     /// looked up under the key it was recorded under.
-    fn binding_is_proven_numeric(&self, name: &str) -> bool {
+    ///
+    /// `pub(crate)` (was private to this module) since R-11 T2 review round 3:
+    /// the bitwise compound-assign TARGET check (`literal.rs`) also consumes
+    /// this — the same "default is not a proof" defect `scalar_repr(&name) ==
+    /// Repr::I64` has on the RHS axis applies to the target axis too, and
+    /// this is the positive-evidence signal that actually closes it (unlike
+    /// `ReprTable::scalar_entry`, which denies the target axis 100% because
+    /// `Repr::I64` — unlike `String`/`F64`/etc. — is never written explicitly
+    /// anywhere in this codebase).
+    pub(crate) fn binding_is_proven_numeric(&self, name: &str) -> bool {
         let func: &str = if !self.locals.contains_key(name) && self.function_name != "_start" {
             "_start"
         } else {

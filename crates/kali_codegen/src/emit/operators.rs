@@ -1416,6 +1416,135 @@ impl<'a> FunctionEmitter<'a> {
                 .is_some_and(|digits| digits.parse::<i64>().is_ok())
     }
 
+    /// R-11 T2 review Critical 1 (round 2) / Important 4: proof that `id`
+    /// (after unwrapping transparent wrappers and resolving const bindings)
+    /// evaluates to a genuine `Repr::I64` integer — never a denylist.
+    /// Consulted by the bitwise compound-assign arm (`literal.rs`) to admit
+    /// its RHS.
+    ///
+    /// **What is actually proven, stated plainly** (round 1 of this fix
+    /// claimed a "positive proof" that was really `ReprTable::scalar`'s
+    /// `#[default]` value in disguise — `Repr::I64` is the default every
+    /// unrecorded binding reads back as, and NOTHING in this codebase ever
+    /// calls `set_scalar(.., Repr::I64)`, so `scalar_repr(name) == I64` can
+    /// never be told apart from "repr_infer recorded nothing about this
+    /// binding at all"; confirmed by inspection of every `set_scalar` call
+    /// site and by measurement — see the identifier branch below):
+    /// - a plain integer literal is genuine positive evidence — its own text
+    ///   IS the proof, not a default (`parse_number_literal` succeeds AND the
+    ///   text does not end in `n`; a BigInt-suffixed literal is explicitly
+    ///   rejected, not silently treated as its digits — BigInt lowering
+    ///   through this operator stays deferred, matching the plain bitwise
+    ///   operators' existing gap),
+    /// - a bare identifier that is a LOCAL/PARAM of the CURRENT function
+    ///   (`self.locals.contains_key`) is admitted ONLY when
+    ///   `ReprTable::scalar_entry` (an `Option`-returning accessor, added for
+    ///   this fix, that does NOT apply the default) returns an EXPLICIT
+    ///   `Some(Repr::I64)` — i.e. some OTHER positive-evidence write
+    ///   (`set_scalar` is called with `I64`... never, in fact; in practice
+    ///   this means the identifier branch is honest about proving nothing it
+    ///   cannot back up, and today NO currently-modeled write path leaves an
+    ///   explicit `I64` entry, so this branch is a hard `false` for every
+    ///   identifier until `repr_infer` gains one. It is NOT dead by mistake:
+    ///   requiring the default would have re-admitted the exact leak this
+    ///   fixes — `let s = o.a; n &= s;`, where `s` reads a STRING object
+    ///   field but `repr_infer` does not yet propagate `Repr::String` onto a
+    ///   binding through this provenance chain (the pre-existing R-06-R4
+    ///   "string-field-sink-corruption" residual) and so gets NO entry at
+    ///   all, positive or negative — `scalar_repr` and `scalar_entry` agree
+    ///   `s` "looks like I64" only because neither can tell "no evidence"
+    ///   from "proven I64". Costs nothing on the currently-supported
+    ///   surface: no Task-2 test exercises an identifier RHS (every passing
+    ///   test's RHS is a literal) — verified by the full regression run in
+    ///   the fix report,
+    /// - a unary `-` over either of the above.
+    ///
+    /// Everything else — a string literal, a template literal, `+` concat, a
+    /// call, a member/array read, a module global/captured/const reference —
+    /// returns `false` and the caller fails closed `E5506`. A false negative
+    /// here only costs an unimplemented RHS shape; a false positive would
+    /// re-open the string-handle-truncation miscompile (`n |= "5"` → `1`,
+    /// node `5`) this predicate exists to close.
+    ///
+    /// **Round 3 update — the target axis is ALSO closed now, by a different
+    /// mechanism than this predicate uses** (out of this predicate's own
+    /// scope — it only covers the RHS): the TARGET's own repr check in
+    /// `literal.rs` (`self.scalar_repr(&name) == Repr::I64`) had the
+    /// IDENTICAL "default is not a proof" defect this predicate's identifier
+    /// branch has. Switching the target check to `scalar_entry` the same way
+    /// this predicate does was measured (round 2) to deny every
+    /// currently-passing Task-2 happy-path test — `Repr::I64` is never
+    /// explicitly recorded for ANY binding anywhere in this codebase via
+    /// `set_scalar`, so an explicit-entry requirement on the TARGET denies
+    /// 100% of admissions, not just the leak (this predicate's own RHS
+    /// identifier branch does not have that problem, because no Task-2 test
+    /// exercises an identifier RHS at all). The fix was a DIFFERENT
+    /// positive-evidence signal: `ReprTable::numeric_bindings` /
+    /// `binding_is_proven_numeric`, a pre-existing allowlist `repr_infer`
+    /// writes affirmatively (not defaulted) that the six bitwise ops now
+    /// participate in — see `literal.rs`'s target check and
+    /// `repr_infer.rs`'s `visit_assignment`. `let o={a:"3"}; let n=o.a; n |=
+    /// 1;` now fails closed `E5506` instead of printing `1` (node: `3`) —
+    /// closed, at the cost of a documented over-denial on unrelated,
+    /// previously-CORRECT cases. Round 4 measured that cost's real extent:
+    /// it is every target whose write evidence falls outside
+    /// `write_value_is_numeric`'s allowlist
+    /// (`crates/kali_types/src/repr_infer.rs:1010-1041`) — a non-parameter
+    /// identifier, a call, a member read, or an index read — not just the
+    /// single numeric-object-field example (`let o={a:3}; let n=o.a; n|=1;`)
+    /// this doc previously named. See the target check's own comment in
+    /// `emit/literal.rs` for the full measured list.
+    pub(crate) fn bitwise_compound_rhs_is_provably_i64(&self, id: LirNodeId) -> bool {
+        let id = self.unwrap_transparent(id);
+        let id = self.resolve_bound_node(id);
+        let node = self.node(id);
+        if node.kind == LirNodeKind::Value
+            && node.children.len() == 1
+            && node.text.as_deref() == Some("-")
+        {
+            return self.bitwise_compound_rhs_is_provably_i64(node.children[0]);
+        }
+        if node.kind == LirNodeKind::Literal {
+            // Review round 2, false-doc-claim fix: `parse_number_literal`
+            // STRIPS a trailing `n` and parses the remainder — it does NOT
+            // reject a BigInt literal (measured: `n &= 3n` used to admit and
+            // print `2` at exit 0 where node throws `TypeError: Cannot mix
+            // BigInt`). BigInt lowering stays deferred (a separate, tracked
+            // gap — the plain bitwise operators have the exact same hole);
+            // this predicate must fail closed for it rather than silently
+            // treating the digits as a plain i64. Reject the `n` suffix
+            // explicitly before trusting the parse.
+            return node
+                .text
+                .as_deref()
+                .is_some_and(|text| !text.ends_with('n') && parse_number_literal(text).is_some());
+        }
+        // Review round 2, Critical 1 / round 3 item 4: an identifier RHS is
+        // DENIED explicitly, not admitted through a check that happens to be
+        // false today. `scalar_repr(name) == Repr::I64` cannot be trusted —
+        // `Repr::I64` is `Repr`'s `#[default]`, so it cannot tell "proven
+        // I64" from "repr_infer recorded nothing about this binding at all"
+        // (measured leak: `let s = o.a; n &= s;`, `s` reads a STRING object
+        // field `repr_infer` does not yet propagate onto `s`, the
+        // pre-existing R-06-R4 "string-field-sink-corruption" residual — `s`
+        // gets no repr evidence at all, positive or negative, so trusting
+        // the default silently truncated its string handle). The genuinely
+        // positive-evidence signal for this, `ReprTable::numeric_bindings` /
+        // `binding_is_proven_numeric`, is now wired into the TARGET's own
+        // check in `literal.rs` (round 3) but is deliberately NOT wired in
+        // here: doing so would ADMIT more identifier shapes than any test in
+        // this file has exercised or this review has measured, an unreviewed
+        // widening this fix round does not make on its own authority. If a
+        // future round wires `binding_is_proven_numeric` (or an equivalent
+        // positive-evidence accessor) into this branch, that is a deliberate
+        // widening to review and test explicitly — not a side effect of some
+        // OTHER accessor (e.g. `scalar_entry`, or `scalar_repr`'s default)
+        // starting to "look true" by coincidence. Denying an identifier RHS
+        // costs nothing on the currently-supported surface: no Task-2 test
+        // exercises one (every passing test's RHS is a literal).
+        false
+    }
+
     /// Structural oracle: true when the value produced by `id` is represented as an
     /// `f64`. Mirrors `is_string_valued`; consulted per-operand by `emit_binary`
     /// to decide instruction selection and int->float promotion.
@@ -1618,23 +1747,34 @@ impl<'a> FunctionEmitter<'a> {
         function.instruction(&Instruction::I32WrapI64);
         self.emit_float_operand(function, right, false);
         function.instruction(&Instruction::I32WrapI64);
-        match op {
-            "&" => function.instruction(&Instruction::I32And),
-            "|" => function.instruction(&Instruction::I32Or),
-            "^" => function.instruction(&Instruction::I32Xor),
-            "<<" => function.instruction(&Instruction::I32Shl),
-            ">>" => function.instruction(&Instruction::I32ShrS),
-            ">>>" => function.instruction(&Instruction::I32ShrU),
-            _ => unreachable!("emit_bitwise called with non-bitwise op"),
-        };
-        if op == ">>>" {
-            function.instruction(&Instruction::I64ExtendI32U);
-        } else {
-            function.instruction(&Instruction::I64ExtendI32S);
-        }
+        self.emit_bitwise_i32_op_extend(function, op);
         EmittedValue {
             produced: true,
             shape: ValueShape::Scalar,
+        }
+    }
+
+    /// Applies a JS bitwise op to two `i32` operands already on the value stack
+    /// (left pushed first, then right) and extends the `i32` result back to
+    /// `i64` — sign-extended for every op except `>>>`, which zero-extends
+    /// (uint32). The SOLE home of bitwise result semantics: the plain operators
+    /// (`emit_bitwise`) and every compound-assignment target arm route through
+    /// here, so the two forms cannot desynchronize. Accepts both the plain op
+    /// text (`"<<"`) and the compound op text (`"<<="`).
+    pub(crate) fn emit_bitwise_i32_op_extend(&mut self, function: &mut Function, op: &str) {
+        match op {
+            "&" | "&=" => function.instruction(&Instruction::I32And),
+            "|" | "|=" => function.instruction(&Instruction::I32Or),
+            "^" | "^=" => function.instruction(&Instruction::I32Xor),
+            "<<" | "<<=" => function.instruction(&Instruction::I32Shl),
+            ">>" | ">>=" => function.instruction(&Instruction::I32ShrS),
+            ">>>" | ">>>=" => function.instruction(&Instruction::I32ShrU),
+            _ => unreachable!("emit_bitwise_i32_op_extend called with non-bitwise op"),
+        };
+        if matches!(op, ">>>" | ">>>=") {
+            function.instruction(&Instruction::I64ExtendI32U);
+        } else {
+            function.instruction(&Instruction::I64ExtendI32S);
         }
     }
 

@@ -41,6 +41,12 @@ pub(crate) fn assignment_op_text(op: &AssignmentOperator) -> &'static str {
         AssignmentOperator::NullishAssign => "??=",
         AssignmentOperator::AndAssign => "&&=",
         AssignmentOperator::OrAssign => "||=",
+        AssignmentOperator::BitAndAssign => "&=",
+        AssignmentOperator::BitOrAssign => "|=",
+        AssignmentOperator::BitXorAssign => "^=",
+        AssignmentOperator::LeftShiftAssign => "<<=",
+        AssignmentOperator::RightShiftAssign => ">>=",
+        AssignmentOperator::UnsignedRightShiftAssign => ">>>=",
     }
 }
 

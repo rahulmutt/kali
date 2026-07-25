@@ -132,7 +132,31 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     // stays a `_start` local (byte-identical); heap types (object/array/string)
     // are NEVER promoted — a mutable global heap root is a persistent GC root
     // the region reclamation does not model, so those stay fail-closed (E5506).
-    let module_global_slots = collect_module_scalar_globals(lir, &ctx.repr_table, &function_plans);
+    let (module_global_slots, module_global_bigint_targets) =
+        collect_module_scalar_globals(lir, &ctx.repr_table, &function_plans);
+    // R-11 T4: the captured-cell twin of the BigInt-taint scan just above —
+    // see `collect_bigint_tainted_captured_cells`'s own doc. `ctx.env_plans`
+    // is already populated by the caller (`kali_cli`'s build driver sets it
+    // before invoking this function) so every function's promoted-cell set is
+    // available here.
+    let captured_cell_bigint_targets =
+        collect_bigint_tainted_captured_cells(lir, &function_plans, &ctx.env_plans);
+    // R-11 T4 review Important 1: the float-taint twin — see
+    // `collect_float_tainted_captured_cells`'s own doc for why this cannot be
+    // folded into the BigInt scan above or left to `cell_is_promotable`
+    // alone.
+    let captured_cell_float_targets =
+        collect_float_tainted_captured_cells(lir, &function_plans, &ctx.env_plans);
+    // R-11 T6 review Important 1: the MODULE-GLOBAL twin of the float taint
+    // above. The module-global lane never had one — see
+    // `collect_float_tainted_module_scalars`'s own doc for why its absence was
+    // invisible until T6 removed an unrelated over-taint that was masking it.
+    let module_global_float_targets =
+        collect_float_tainted_module_scalars(lir, &function_plans, &module_global_slots);
+    // R-11 T5: the heap-object-FIELD twin of the two BigInt-taint scans above
+    // — see `collect_bigint_tainted_shape_fields`'s own doc.
+    let shape_field_bigint_targets =
+        collect_bigint_tainted_shape_fields(lir, &ctx.repr_table, &function_plans);
     if function_plans.iter().any(|plan| {
         matches!(
             plan.flavor,
@@ -1565,6 +1589,11 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             &module_const_inits,
             &module_binding_names,
             &module_global_slots,
+            &module_global_bigint_targets,
+            &captured_cell_bigint_targets,
+            &captured_cell_float_targets,
+            &module_global_float_targets,
+            &shape_field_bigint_targets,
             ctx.env_plans
                 .get(&function.name)
                 .cloned()
@@ -3975,11 +4004,16 @@ pub(crate) const RESERVED_GLOBAL_COUNT: u32 = 9;
 /// A `const` is excluded (it stays on the compile-time inline path). A scalar
 /// referenced only at module scope is NOT promoted (it keeps its byte-identical
 /// `_start`-local lowering).
+///
+/// The second return value is the R-11 T3 review Important-1 BigInt-taint set
+/// (`collect_bigint_tainted_module_scalars`), filtered to promoted names only
+/// — purely additive provenance for the bitwise compound-assign codegen arm;
+/// it does not influence which names end up in the first return value.
 pub(crate) fn collect_module_scalar_globals(
     lir: &LirProgram,
     repr_table: &kali_common::ReprTable,
     function_plans: &[FunctionPlan],
-) -> BTreeMap<String, (u32, kali_common::Repr)> {
+) -> (BTreeMap<String, (u32, kali_common::Repr)>, HashSet<String>) {
     // Top-level `var`/`let` numeric scalar declarators (never `const`).
     let mut candidates: BTreeMap<String, kali_common::Repr> = BTreeMap::new();
     let mut stack = vec![lir.root];
@@ -4016,7 +4050,7 @@ pub(crate) fn collect_module_scalar_globals(
         }
     }
     if candidates.is_empty() {
-        return BTreeMap::new();
+        return (BTreeMap::new(), HashSet::new());
     }
 
     // Names used ANYWHERE as a member/index base (`o.x`, `a[i]`) are heap
@@ -4057,6 +4091,37 @@ pub(crate) fn collect_module_scalar_globals(
         );
     }
 
+    // R-11 T3 review round 2, Important 1: BigInt taint (allowlist —
+    // `expr_is_provably_not_bigint` — not the round-1 denylist of shapes),
+    // scanned over the same `candidates` set BEFORE it is consumed below.
+    // Purely additive — does not affect `numeric_ok`, `referenced`, or
+    // `slots`. `function_params` and `call_args` are the interprocedural
+    // parameter-argument-inflow evidence the allowlist's identifier branch
+    // needs.
+    let function_params: BTreeMap<String, Vec<String>> = function_plans
+        .iter()
+        .map(|plan| (plan.name.clone(), plan.params.clone()))
+        .collect();
+    let mut call_args: BTreeMap<String, Vec<(String, Vec<LirNodeId>)>> = BTreeMap::new();
+    {
+        let mut seen = HashSet::new();
+        collect_call_argument_sites(&lir.nodes, lir.root, "_start", &mut seen, &mut call_args);
+    }
+    let mut bigint_tainted: HashSet<String> = HashSet::new();
+    {
+        let mut seen = HashSet::new();
+        collect_bigint_tainted_module_scalars(
+            &lir.nodes,
+            lir.root,
+            "_start",
+            &candidates,
+            &function_params,
+            &call_args,
+            &mut seen,
+            &mut bigint_tainted,
+        );
+    }
+
     // Only bindings referenced from inside a function need a persistent global;
     // a module-only scalar stays a `_start` local (byte-identical).
     let mut referenced: HashSet<String> = HashSet::new();
@@ -4079,7 +4144,8 @@ pub(crate) fn collect_module_scalar_globals(
             next_index += 1;
         }
     }
-    slots
+    bigint_tainted.retain(|name| slots.contains_key(name));
+    (slots, bigint_tainted)
 }
 
 /// Collect every identifier used as a member/index base — the `o` in `o.x`,
@@ -4360,6 +4426,1215 @@ fn scan_numeric_assignments(
         scan_numeric_assignments(
             nodes, *child, func, repr_table, candidates, seen, numeric_ok,
         );
+    }
+}
+
+/// R-11 T3 review round 2, Important 1: identifies every CANDIDATE
+/// module-scope scalar (`candidates`, from `collect_module_scalar_globals`'s
+/// own declarator scan) whose declarator init OR any reassignment RHS —
+/// reached from module scope or from inside any function, mirroring
+/// `scan_numeric_assignments`'s own function-boundary-crossing walk exactly
+/// so this cannot diverge from what that promotion proof already visits —
+/// MAY be a BigInt at runtime (`!expr_is_provably_not_bigint`, an ALLOWLIST:
+/// taint unless proven safe, never a denylist of BigInt-producing shapes —
+/// review round 1 closed only the exact literal/unary-minus row it was
+/// shown and missed the class this round closes). `is_numeric_expr`'s
+/// literal branch strips a trailing `n` before checking
+/// (`parse_numeric_literal_value`), so a BigInt-initialized/reassigned
+/// module global is "provably numeric" to promotion and gets promoted
+/// exactly like a genuine integer — a pre-existing, deferred gap for the ten
+/// arithmetic/plain-assignment operators (BigInt truncation) this task does
+/// not touch or fix. This scan is purely ADDITIVE: it does not change
+/// `candidates`, `numeric_ok`, or which names get promoted. It is consumed
+/// ONLY by the bitwise compound-assign codegen arm (`emit/literal.rs`),
+/// which cannot silently share that pre-existing gap — the raw
+/// `I32WrapI64` combiner would turn it into a NEW wrong-value-at-exit-0
+/// regression instead of the pre-existing (and out of scope) truncation.
+#[allow(clippy::too_many_arguments)]
+fn collect_bigint_tainted_module_scalars(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    func: &str,
+    candidates: &BTreeMap<String, kali_common::Repr>,
+    function_params: &BTreeMap<String, Vec<String>>,
+    call_args: &BTreeMap<String, Vec<(String, Vec<LirNodeId>)>>,
+    seen: &mut HashSet<LirNodeId>,
+    tainted: &mut HashSet<String>,
+) {
+    if !seen.insert(id) {
+        return;
+    }
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return;
+    };
+
+    // Function boundary: descend into the body under the function's own
+    // name, mirroring `scan_numeric_assignments` — needed here (unlike
+    // round 1) because `expr_is_provably_not_bigint`'s identifier branch
+    // resolves a bare name against the ENCLOSING function's own parameter
+    // list.
+    if let Some((name, _, body_id, _)) = function_shape(nodes, id) {
+        collect_bigint_tainted_module_scalars(
+            nodes,
+            body_id,
+            &name,
+            candidates,
+            function_params,
+            call_args,
+            seen,
+            tainted,
+        );
+        return;
+    }
+
+    // Declarator init (`var`/`let name = init`).
+    if node.kind == LirNodeKind::Instruction && matches!(node.text.as_deref(), Some("let" | "var"))
+    {
+        for declarator_id in &node.children {
+            let Some(declarator) = nodes.get(declarator_id.0 as usize) else {
+                continue;
+            };
+            let Some(name) = declarator.text.as_deref() else {
+                continue;
+            };
+            if candidates.contains_key(name) {
+                if let Some(&init) = declarator.children.get(1) {
+                    if !expr_is_provably_not_bigint(
+                        nodes,
+                        init,
+                        func,
+                        function_params,
+                        call_args,
+                        // Declarator init: no self-reference, mirroring
+                        // `record_numeric_binding_write(.., allow_self=false)`.
+                        None,
+                        0,
+                    ) {
+                        tainted.insert(name.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    // Reassignment (`name = rhs`, or a compound `name op= rhs`).
+    if node.kind == LirNodeKind::Value
+        && node.children.len() == 2
+        && is_assignment_operator_text(node.text.as_deref().unwrap_or_default())
+    {
+        let lhs = unwrap_transparent_value(nodes, node.children[0]);
+        if let Some(lhs_node) = nodes.get(lhs.0 as usize) {
+            if lhs_node.kind == LirNodeKind::Value && lhs_node.children.is_empty() {
+                if let Some(name) = lhs_node.text.as_deref() {
+                    if candidates.contains_key(name)
+                        && !expr_is_provably_not_bigint(
+                            nodes,
+                            node.children[1],
+                            func,
+                            function_params,
+                            call_args,
+                            // Reassignment: self-reference allowed, mirroring
+                            // `record_numeric_binding_write(.., allow_self=true)`.
+                            Some(name),
+                            0,
+                        )
+                    {
+                        tainted.insert(name.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    for child in &node.children {
+        collect_bigint_tainted_module_scalars(
+            nodes,
+            *child,
+            func,
+            candidates,
+            function_params,
+            call_args,
+            seen,
+            tainted,
+        );
+    }
+}
+
+/// R-11 T4: whole-program BigInt taint for scalar CAPTURED cells (a `let`/
+/// `var` some nested closure promotes into an env cell) — the identical class
+/// Task 3 closed for module globals (`collect_bigint_tainted_module_scalars`,
+/// just above), reapplied to this shape. `write_value_is_numeric` admits a
+/// BigInt literal write exactly like a plain number, so
+/// `binding_is_proven_numeric` cannot by itself tell `let flags = 6n;` from
+/// `let flags = 6;` — the bitwise compound-assign captured-cell codegen arm
+/// (`closure_access.rs`) needs the same separate, additive provenance signal
+/// the module-global arm already has.
+///
+/// Reuses `collect_bigint_tainted_module_scalars`'s exact walk UNCHANGED — no
+/// new traversal logic, so this cannot diverge from the proven declarator /
+/// reassignment / cross-function / parameter-argument-inflow coverage that
+/// walk already has. Its `candidates` parameter is consulted only as a NAME
+/// filter (`candidates.contains_key(name)`); passing the set of promoted
+/// SCALAR cell names (from every function's `EnvPlan::cells`, across the
+/// whole program) in place of module-global names taints identically.
+///
+/// Keyed by NAME ONLY, not `(owner, name)`: two different functions that each
+/// own a same-named captured local share one taint bucket. That is a
+/// deliberate, conservative OVER-denial (this project's standing "refuse
+/// rather than miscompile" cost — matching `module_global_bigint_targets`'s
+/// own name-only key, which has the analogous property against unrelated
+/// same-named module/local bindings), never an under-taint: the walk itself
+/// still resolves each write's own safety against its OWN enclosing function
+/// (`expr_is_provably_not_bigint`'s `func` parameter), so tainting is never
+/// weaker than the module-global scan's.
+pub(crate) fn collect_bigint_tainted_captured_cells(
+    lir: &LirProgram,
+    function_plans: &[FunctionPlan],
+    env_plans: &std::collections::BTreeMap<String, kali_mir::EnvPlan>,
+) -> HashSet<String> {
+    let mut candidates: BTreeMap<String, kali_common::Repr> = BTreeMap::new();
+    for plan in env_plans.values() {
+        for cell in &plan.cells {
+            if cell.is_scalar {
+                candidates.insert(cell.name.clone(), kali_common::Repr::I64);
+            }
+        }
+    }
+    if candidates.is_empty() {
+        return HashSet::new();
+    }
+    let function_params: BTreeMap<String, Vec<String>> = function_plans
+        .iter()
+        .map(|plan| (plan.name.clone(), plan.params.clone()))
+        .collect();
+    let mut call_args: BTreeMap<String, Vec<(String, Vec<LirNodeId>)>> = BTreeMap::new();
+    {
+        let mut seen = HashSet::new();
+        collect_call_argument_sites(&lir.nodes, lir.root, "_start", &mut seen, &mut call_args);
+    }
+    let mut tainted: HashSet<String> = HashSet::new();
+    {
+        let mut seen = HashSet::new();
+        collect_bigint_tainted_module_scalars(
+            &lir.nodes,
+            lir.root,
+            "_start",
+            &candidates,
+            &function_params,
+            &call_args,
+            &mut seen,
+            &mut tainted,
+        );
+    }
+    tainted
+}
+
+/// R-11 T5: whole-program BigInt taint for HEAP-OBJECT FIELDS — the
+/// shape-field twin of `collect_bigint_tainted_module_scalars` /
+/// `collect_bigint_tainted_captured_cells` above, reapplied to a `Repr::Object`
+/// field instead of a scalar binding/cell.
+///
+/// `shape_field_is_proven_numeric` (`repr_infer`'s per-field proof, consulted
+/// by the bitwise compound-assign object-field arm in `object.rs`) proves only
+/// that NO value flowing into the field is a STRING — `repr_infer` interns a
+/// field's repr as `I64` for a plain integer, a boolean, AND a BigInt literal
+/// alike (there is no separate BigInt axis), so it cannot by itself tell `{a:
+/// 6n}` from `{a: 6}`. This scan closes that gap the same way Task 3/4 closed
+/// it for a scalar binding/cell: an ADDITIVE, allowlist-based
+/// (`expr_is_provably_not_bigint`, reused verbatim) taint set, keyed by
+/// `(ShapeId, field name)` rather than by binding name — the natural key
+/// here, since a field's static type is a property of the SHAPE, not of any
+/// one binding that happens to hold an instance of it (mirrors
+/// `shape_field_is_proven_numeric`'s own shape-level, not binding-level, key).
+///
+/// Scans two sources per function, both attributed to that function's own
+/// `func` name (mirroring the declarator/reassignment split the scalar scans
+/// use):
+///   * a declarator init that is an object-literal expression
+///     (`resolve_object_literal_properties`) whose bound name's repr is
+///     `Repr::Object(shape)` — every property value must be provably not
+///     BigInt;
+///   * a static dot-field WRITE (`name.field = rhs`) whose base is a bare
+///     identifier with a `Repr::Object(shape)` repr — the store-site sibling,
+///     since a later write can inject a BigInt value into an
+///     otherwise-literal-safe field. Restricted to `=` (a bitwise/arithmetic
+///     compound dot-field write has no lowering at all as of this task, so it
+///     cannot exist in an accepted program yet).
+///
+/// Purely additive: never widens what the codegen arm can admit on its own,
+/// only narrows it further when a taint is found. A field this scan cannot
+/// see at all is simply never added to the taint set.
+///
+/// **T5 review Important 2 / T6 audit — WRITE-ROUTE INVENTORY, read before
+/// touching either this scan or any of the write routes below.** These are
+/// the source-language routes that can put a value into an admitted field:
+///   1. an object-literal declarator init — covered;
+///   2. a static dot-field `=` write off a BARE IDENTIFIER — covered;
+///   3. a computed-key write `o["a"] = <expr>` — NOT covered;
+///   4. a dot-field write off a PARAMETER (e.g. an arrow-function body
+///      `(x) => { x.a = <expr>; }`) — NOT covered. Params get their
+///      `Repr::Object(shape)` via `ReprTable::set_param`, a DIFFERENT
+///      accessor than the `repr_table.scalar(func, name)` lookup this scan's
+///      write-detection consults, so a parameter-based base is invisible to
+///      it;
+///   5. a `for..of`/`for..in` element dot-field write — NOT covered;
+///   6. a declarator init that is NOT an object literal — a call result
+///      (`let o = m();`), a parameter-threaded object (`m(7n)`), an alias
+///      (`let o = src;`), a ternary — **covered as of R-11 T6**, by tainting
+///      every field of the shape (`taint_shape_fields_from_object_inflow`).
+///      This was the open hole T5's "safe because the write is dropped"
+///      argument did not reach: a declarator init IS the binding's write and
+///      is never dropped;
+///   7. a WHOLE-BINDING reassignment `o = <expr>` — **covered as of R-11 T6**,
+///      through the same choke point. (The underlying object reassignment is
+///      itself a pre-existing silently-dropped write — `let o={a:6}; o={a:9};
+///      console.log(o.a)` prints `0`, no bitwise op involved — so this route
+///      buys refusal, not a correct value.) **Scope, T6 review Important 2:**
+///      like every route through this choke point, it taints only when the
+///      inflow is not a cleanly-parsed, provably-safe literal. A SAFE-literal
+///      reassignment (`o = { a: 22 }`) is still admitted and still reads the
+///      dropped write's garbage — `o.a |= 3` prints `3` where node prints
+///      `23`, exactly as kali's own plain `o.a | 3` does on every binary
+///      back to the pre-task baseline. That is the deferred dropped-write
+///      bug, not a bitwise defect, and it is pinned in both forms in
+///      `soundness_bitwise_compound.rs`.
+///
+/// Routes 1, 2, 6 and 7 all funnel through
+/// `taint_shape_fields_from_object_inflow` / the dot-field arm below; routes
+/// 3, 4 and 5 remain uncovered and are tripwired (see below).
+///
+/// Routes 3-5 do not produce a wrong VALUE today only because each of those
+/// WRITES is itself currently silently dropped (a pre-existing gap,
+/// independent of this scan and of bitwise entirely — reproduces with no
+/// bitwise op in the program at all) — the field genuinely keeps its
+/// original, scan-visible value. **The moment any of routes 3-5 starts
+/// actually storing**, this scan and `shape_field_is_proven_numeric` (which
+/// has the identical blind spot on the same three routes, for the STRING
+/// axis) both go unsound SILENTLY: a BigInt or string could reach an
+/// admitted `Repr::I64` field through one of them and this arm would
+/// `I32WrapI64` it. Do NOT implement routes 3-5 without extending this scan
+/// (and its float-axis analogue, if one is ever added — see the R-11 T5
+/// review's Important 1 note on the arrow-parameter-write route surfacing
+/// `E4201` through the SAME blind spot on the FLOAT axis) FIRST. Tripwire
+/// tests pin the current (write-dropped) behavior for routes 3 and 4 in
+/// `crates/kali_cli/tests/soundness_bitwise_compound.rs`
+/// (`bitwise_compound_tripwire_computed_key_write_not_covered_by_bigint_taint_scan`,
+/// `bitwise_compound_tripwire_arrow_parameter_write_not_covered_by_bigint_taint_scan`);
+/// route 5 is separately denied by the for-of-over-object-array gate today,
+/// pinned by
+/// `bitwise_compound_tripwire_forof_element_write_not_covered_by_bigint_taint_scan`.
+pub(crate) fn collect_bigint_tainted_shape_fields(
+    lir: &LirProgram,
+    repr_table: &kali_common::ReprTable,
+    function_plans: &[FunctionPlan],
+) -> HashSet<(kali_common::ShapeId, String)> {
+    let function_params: BTreeMap<String, Vec<String>> = function_plans
+        .iter()
+        .map(|plan| (plan.name.clone(), plan.params.clone()))
+        .collect();
+    let mut call_args: BTreeMap<String, Vec<(String, Vec<LirNodeId>)>> = BTreeMap::new();
+    {
+        let mut seen = HashSet::new();
+        collect_call_argument_sites(&lir.nodes, lir.root, "_start", &mut seen, &mut call_args);
+    }
+    let mut tainted: HashSet<(kali_common::ShapeId, String)> = HashSet::new();
+    let mut seen = HashSet::new();
+    collect_bigint_tainted_shape_fields_walk(
+        &lir.nodes,
+        lir.root,
+        "_start",
+        repr_table,
+        &function_params,
+        &call_args,
+        &mut seen,
+        &mut tainted,
+    );
+    tainted
+}
+
+/// Unwraps sequence wrappers (mirrors `declarator_init_is_object_literal`,
+/// which this duplicates the unwrap loop of because that function reports
+/// only a boolean and this caller additionally needs the resolved property
+/// list) and returns `(key, value node id)` pairs when `id` is an
+/// object-literal expression; `None` for anything else (a non-literal init, a
+/// getter/setter property, or a non-literal key).
+/// Result of scanning a candidate object-literal node for its
+/// `(key, value node)` properties.
+enum ObjectLiteralPropertyScan {
+    /// Every property was `init`/`get`/`set` with a `Literal` key — the
+    /// scan can name each field precisely.
+    Clean(Vec<(String, LirNodeId)>),
+    /// The node IS object-literal-shaped, but at least one property could
+    /// not be read this way (a spread, a computed key, or anything else
+    /// this scan does not model). Currently unreachable in practice —
+    /// `repr_infer`'s `record_object_literal` already denies such a literal
+    /// a `Repr::Object` shape at all (`obj_pending_conflicts`), so a
+    /// declarator this scan reaches with a confirmed `Repr::Object(shape)`
+    /// should never carry one — kept as a real, handled case rather than an
+    /// assumption, per the MINOR 1 review finding below.
+    Partial,
+}
+
+/// T5 review Minor 1: on ANY unparsable property, the ORIGINAL version of
+/// this scan returned `None` for the WHOLE literal — silently dropping
+/// taint for every OTHER field too, not just the unparsable one. For an
+/// ADDITIVE, default-deny taint set that is exactly backwards: the caller
+/// must taint every field of a literal it cannot fully parse
+/// (`ObjectLiteralPropertyScan::Partial`), never treat "could not parse" as
+/// "nothing to taint." This is the same denylist-vs-allowlist failure shape
+/// this project has hit repeatedly — a partial-information default must
+/// fail toward MORE taint, not less. Inverted here while it is cheap, even
+/// though it is currently unreachable (see `Partial`'s own doc).
+fn resolve_object_literal_properties(
+    nodes: &[LirNode],
+    id: LirNodeId,
+) -> Option<ObjectLiteralPropertyScan> {
+    let mut id = id;
+    let mut guard = 0;
+    loop {
+        let node = nodes.get(id.0 as usize)?;
+        if node.kind == LirNodeKind::Value
+            && node.text.as_deref() == Some("")
+            && !node.children.is_empty()
+        {
+            id = *node.children.last()?;
+            guard += 1;
+            if guard > 64 {
+                return None;
+            }
+            continue;
+        }
+        if node.kind != LirNodeKind::Value || node.text.is_some() || node.children.is_empty() {
+            return None;
+        }
+        let mut props = Vec::with_capacity(node.children.len());
+        for child in &node.children {
+            let Some(child_node) = nodes.get(child.0 as usize) else {
+                return Some(ObjectLiteralPropertyScan::Partial);
+            };
+            if child_node.children.len() != 2
+                || !matches!(child_node.text.as_deref(), Some("init" | "get" | "set"))
+            {
+                return Some(ObjectLiteralPropertyScan::Partial);
+            }
+            let Some(key_node) = nodes.get(child_node.children[0].0 as usize) else {
+                return Some(ObjectLiteralPropertyScan::Partial);
+            };
+            if key_node.kind != LirNodeKind::Literal {
+                return Some(ObjectLiteralPropertyScan::Partial);
+            }
+            let Some(key) = key_node.text.as_deref() else {
+                return Some(ObjectLiteralPropertyScan::Partial);
+            };
+            props.push((key.trim_matches('"').to_string(), child_node.children[1]));
+        }
+        return Some(ObjectLiteralPropertyScan::Clean(props));
+    }
+}
+
+/// R-11 T6 audit, work items 1 + "enumerate WRITE routes": the single choke
+/// point through which an OBJECT VALUE flows into a binding whose repr is
+/// `Repr::Object(shape)`.
+///
+/// The contract is an ALLOWLIST, stated positively: a field of `shape` escapes
+/// taint from this inflow ONLY when the inflow is an object literal this scan
+/// can fully parse (`ObjectLiteralPropertyScan::Clean`) AND that property's
+/// value is `expr_is_provably_not_bigint`. Every other inflow — a call result,
+/// a parameter, an alias, a ternary, an index/member read, a partially
+/// parsable literal, or a literal nested deeper than the unwrap guard allows —
+/// taints EVERY known field of the shape.
+///
+/// Before this existed, the `None` ("not an object-literal-shaped node at
+/// all") outcome added no taint, on the argument that the routes it covers
+/// have their writes dropped anyway. That argument does not hold for a
+/// DECLARATOR INIT, whose "write" is the binding's own initialisation and is
+/// most certainly not dropped — measured on `e2578aa7e`:
+///
+/// ```text
+/// function m() { return { a: 7n }; }  let o = m();  o.a &= 3;  // kali 3, node throws
+/// function m(v) { return { a: v }; }  let o = m(7n); o.a &= 3; // kali 3, node throws
+/// ```
+///
+/// Note the asymmetry this replaces: `Partial` (a per-property bail) already
+/// tainted every field, while the OUTER `None` — including the `guard > 64`
+/// depth bail, which is a bail on an inflow this scan genuinely could not
+/// read — tainted nothing. A partial-information default must fail toward
+/// MORE taint on BOTH bails, not one.
+#[allow(clippy::too_many_arguments)]
+fn taint_shape_fields_from_object_inflow(
+    nodes: &[LirNode],
+    inflow: LirNodeId,
+    shape: kali_common::ShapeId,
+    func: &str,
+    repr_table: &kali_common::ReprTable,
+    function_params: &BTreeMap<String, Vec<String>>,
+    call_args: &BTreeMap<String, Vec<(String, Vec<LirNodeId>)>>,
+    tainted: &mut HashSet<(kali_common::ShapeId, String)>,
+) {
+    match resolve_object_literal_properties(nodes, inflow) {
+        Some(ObjectLiteralPropertyScan::Clean(props)) => {
+            for (key, value_id) in props {
+                if !expr_is_provably_not_bigint(
+                    nodes,
+                    value_id,
+                    func,
+                    function_params,
+                    call_args,
+                    None,
+                    0,
+                ) {
+                    tainted.insert((shape, key));
+                }
+            }
+        }
+        // T5 review MINOR 1: an unparsable PROPERTY taints every known field
+        // of this shape, not just the one property this scan could not read.
+        // T6 work item 1: an unparsable INFLOW does the same — see the doc
+        // header.
+        Some(ObjectLiteralPropertyScan::Partial) | None => {
+            for (field_name, _) in repr_table.shape_fields(shape) {
+                tainted.insert((shape, field_name.clone()));
+            }
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn collect_bigint_tainted_shape_fields_walk(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    func: &str,
+    repr_table: &kali_common::ReprTable,
+    function_params: &BTreeMap<String, Vec<String>>,
+    call_args: &BTreeMap<String, Vec<(String, Vec<LirNodeId>)>>,
+    seen: &mut HashSet<LirNodeId>,
+    tainted: &mut HashSet<(kali_common::ShapeId, String)>,
+) {
+    if !seen.insert(id) {
+        return;
+    }
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return;
+    };
+
+    // Function boundary: descend into the body under the function's own
+    // name, exactly like `collect_bigint_tainted_module_scalars`.
+    if let Some((name, _, body_id, _)) = function_shape(nodes, id) {
+        collect_bigint_tainted_shape_fields_walk(
+            nodes,
+            body_id,
+            &name,
+            repr_table,
+            function_params,
+            call_args,
+            seen,
+            tainted,
+        );
+        return;
+    }
+
+    // Declarator init (`const`/`let`/`var name = {...}`).
+    if node.kind == LirNodeKind::Instruction
+        && matches!(node.text.as_deref(), Some("let" | "var" | "const"))
+    {
+        for declarator_id in &node.children {
+            let Some(declarator) = nodes.get(declarator_id.0 as usize) else {
+                continue;
+            };
+            let Some(name) = declarator.text.as_deref() else {
+                continue;
+            };
+            if let kali_common::Repr::Object(shape) = repr_table.scalar(func, name) {
+                if let Some(&init) = declarator.children.get(1) {
+                    taint_shape_fields_from_object_inflow(
+                        nodes,
+                        init,
+                        shape,
+                        func,
+                        repr_table,
+                        function_params,
+                        call_args,
+                        tainted,
+                    );
+                }
+            }
+        }
+    }
+
+    // Static dot-field WRITE (`name.field = rhs`) — the store-site sibling of
+    // the declarator init above, needed because a later write can inject a
+    // BigInt value into an otherwise-safe field.
+    if node.kind == LirNodeKind::Value
+        && node.children.len() == 2
+        && node.text.as_deref() == Some("=")
+    {
+        let lhs = unwrap_transparent_value(nodes, node.children[0]);
+        if let Some(lhs_node) = nodes.get(lhs.0 as usize) {
+            if lhs_node.kind == LirNodeKind::Value && lhs_node.children.len() == 1 {
+                if let Some(field) = lhs_node.text.as_deref().filter(|t| !t.is_empty()) {
+                    let base = unwrap_transparent_value(nodes, lhs_node.children[0]);
+                    if let Some(base_node) = nodes.get(base.0 as usize) {
+                        if base_node.kind == LirNodeKind::Value && base_node.children.is_empty() {
+                            if let Some(base_name) = base_node.text.as_deref() {
+                                if let kali_common::Repr::Object(shape) =
+                                    repr_table.scalar(func, base_name)
+                                {
+                                    if !expr_is_provably_not_bigint(
+                                        nodes,
+                                        node.children[1],
+                                        func,
+                                        function_params,
+                                        call_args,
+                                        // `o.a = o.a + 1` reaches the member
+                                        // arm, not the bare-identifier arm, so
+                                        // there is no self-reference to admit
+                                        // here.
+                                        None,
+                                        0,
+                                    ) {
+                                        tainted.insert((shape, field.to_string()));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // R-11 T6 audit, route 7: WHOLE-BINDING reassignment
+            // (`o = <expr>`) where `o` holds a `Repr::Object(shape)`. The same
+            // inflow choke point as the declarator init above — an object
+            // arriving from anywhere this scan cannot read taints every field
+            // of the shape.
+            if lhs_node.kind == LirNodeKind::Value && lhs_node.children.is_empty() {
+                if let Some(name) = lhs_node.text.as_deref() {
+                    if let kali_common::Repr::Object(shape) = repr_table.scalar(func, name) {
+                        taint_shape_fields_from_object_inflow(
+                            nodes,
+                            node.children[1],
+                            shape,
+                            func,
+                            repr_table,
+                            function_params,
+                            call_args,
+                            tainted,
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    for child in &node.children {
+        collect_bigint_tainted_shape_fields_walk(
+            nodes,
+            *child,
+            func,
+            repr_table,
+            function_params,
+            call_args,
+            seen,
+            tainted,
+        );
+    }
+}
+
+/// R-11 T4 review Important 1: whole-program taint for a promoted SCALAR
+/// captured cell whose declarator OR any reassignment (from ANY function)
+/// might store a FLOAT — the sibling of `collect_bigint_tainted_captured_cells`
+/// on a different axis, needed because `repr_infer`'s own scalar-repr
+/// union-find CANNOT be trusted to catch this the way
+/// `crate::closure::cell_is_promotable`'s owner-scoped `scalar(owner, name)
+/// == I64` check normally would.
+///
+/// The reason is a real gap in `repr_infer::binding_scope` (`kali_types`,
+/// used by BOTH the scalar-repr union AND the `numeric_bindings` proof this
+/// module's `binding_is_proven_numeric` check already leans on): it resolves
+/// an off-scope write's node key to `TOP_LEVEL` when the true owner is module
+/// scope, or to the WRITING function when the write happens inside the
+/// binding's own declaring scope — but has no way to resolve to the true
+/// owner when the write is reached from a THIRD function that is neither the
+/// declaring scope nor top-level (e.g. a SIBLING closure of the one
+/// performing the bitwise op, both nested inside the true owner). Such a
+/// write is filed under `scalar_node[(writing_func, name)]` — a DIFFERENT,
+/// disconnected union-find node from `scalar_node[(owner, name)]` — so it
+/// never reaches `ReprTable::scalar(&owner, name)` at all. Measured: `function
+/// o(){ let n=6; function w(){ n=6.5; } function s(){ n&=3; } w(); s();
+/// console.log(n); } o();` — `cell_is_promotable`/`scalar(&owner,name)` both
+/// see only `n`'s I64 declarator (blind to `w`'s float write), so the cell
+/// promotes and the target check passes; the raw `I32WrapI64` combiner then
+/// either reads garbage or — because the cell's own store width disagrees
+/// with `w`'s untouched f64 write elsewhere — the module fails WASM
+/// validation outright (`E4201`), which the plan's Global Constraints
+/// forbid (non-integer targets must fail closed `E5506`, never an internal
+/// `E4201`).
+///
+/// This scan closes the gap the SAME way Task 3 closed the analogous BigInt
+/// gap: an ADDITIVE, whole-program, NAME-keyed taint that does not depend on
+/// `binding_scope` naming the right owner — it walks every declarator and
+/// reassignment ANYWHERE in the program (crossing every function boundary,
+/// mirroring `collect_bigint_tainted_module_scalars`'s own walk) and taints
+/// the target NAME whenever the write is not STRUCTURALLY proven to be a
+/// plain, non-BigInt, non-float, integer-literal-or-arithmetic value
+/// (`expr_is_provably_i64_literal_or_arith`, below). Kept as its OWN walk
+/// (`mark_non_i64_tainted_captured_scalars`) rather than reusing or
+/// parameterizing `collect_bigint_tainted_module_scalars` — that function has
+/// two existing callers (the module-global BigInt lane and
+/// `collect_bigint_tainted_captured_cells` above), and this task must leave
+/// Task 3's module-global lane byte-for-byte unchanged; duplicating the small
+/// walk is cheaper than risking that.
+pub(crate) fn collect_float_tainted_captured_cells(
+    lir: &LirProgram,
+    function_plans: &[FunctionPlan],
+    env_plans: &std::collections::BTreeMap<String, kali_mir::EnvPlan>,
+) -> HashSet<String> {
+    let mut candidates: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    for plan in env_plans.values() {
+        for cell in &plan.cells {
+            if cell.is_scalar {
+                candidates.insert(cell.name.clone());
+            }
+        }
+    }
+    collect_float_tainted_scalars(lir, function_plans, candidates)
+}
+
+/// R-11 T6 review Important 1: the MODULE-GLOBAL twin of
+/// `collect_float_tainted_captured_cells`, over the promoted module-global
+/// slot names.
+///
+/// **Why this did not exist before, and why its absence was invisible.** The
+/// module-global bitwise arm's four guards are `is_f64`,
+/// `binding_is_proven_numeric`, `module_global_bigint_targets` and the RHS
+/// oracle. None of them refuses a FLOAT written from another function:
+/// `is_f64` reads the promoted slot's own repr (a float written elsewhere does
+/// not necessarily flip it), and `binding_is_proven_numeric` rests on
+/// `write_value_is_numeric`, whose literal arm accepts `6.5` — a float IS
+/// "numeric" by that proof's definition, which is exactly the distinction T4
+/// built `collect_float_tainted_captured_cells` to make for the captured lane.
+///
+/// The lane was nonetheless safe *by accident*: a program that writes a float
+/// to a module global from one function and bitwise-compound-assigns it from
+/// another almost always also contains a write the BigInt scan could not prove
+/// (`n = n + 1` was, until T6, one such write, because that scan had no
+/// self-reference arm). The BigInt taint therefore refused the program on an
+/// unrelated axis. T6's work-item-5 fix removed that over-taint — correct on
+/// the BigInt axis — and the float hole underneath it became reachable:
+///
+/// ```text
+/// let n = 6;
+/// function g() { n = n + 1; }   // g need not even be called
+/// function h() { n = 6.5; }
+/// h();
+/// function f() { n &= 3; }
+/// f();                          // parent: clean E5506.  T6 before this fix:
+/// console.log(n);               // E4201 invalid module.  node: 2
+/// ```
+///
+/// That is a Global-Constraint violation (a non-integer target must fail
+/// closed `E5506`, never an internal `E4201`), so the lane gets the real
+/// signal rather than keeping the incidental one. Reuses
+/// `mark_non_i64_tainted_captured_scalars` VERBATIM — the same walk, the same
+/// `expr_is_provably_i64_literal_or_arith` predicate, only a different
+/// candidate name set — so the two lanes cannot drift.
+pub(crate) fn collect_float_tainted_module_scalars(
+    lir: &LirProgram,
+    function_plans: &[FunctionPlan],
+    module_global_slots: &BTreeMap<String, (u32, kali_common::Repr)>,
+) -> HashSet<String> {
+    let candidates: std::collections::BTreeSet<String> =
+        module_global_slots.keys().cloned().collect();
+    collect_float_tainted_scalars(lir, function_plans, candidates)
+}
+
+/// The body shared by `collect_float_tainted_captured_cells` and
+/// `collect_float_tainted_module_scalars` — extracted so the two lanes are one
+/// implementation rather than two hand-mirrored copies (this project's
+/// standing lesson about mirrored predicates that drift).
+fn collect_float_tainted_scalars(
+    lir: &LirProgram,
+    function_plans: &[FunctionPlan],
+    candidates: std::collections::BTreeSet<String>,
+) -> HashSet<String> {
+    if candidates.is_empty() {
+        return HashSet::new();
+    }
+    let function_params: BTreeMap<String, Vec<String>> = function_plans
+        .iter()
+        .map(|plan| (plan.name.clone(), plan.params.clone()))
+        .collect();
+    let mut call_args: BTreeMap<String, Vec<(String, Vec<LirNodeId>)>> = BTreeMap::new();
+    {
+        let mut seen = HashSet::new();
+        collect_call_argument_sites(&lir.nodes, lir.root, "_start", &mut seen, &mut call_args);
+    }
+    let mut tainted: HashSet<String> = HashSet::new();
+    {
+        let mut seen = HashSet::new();
+        mark_non_i64_tainted_captured_scalars(
+            &lir.nodes,
+            lir.root,
+            "_start",
+            &candidates,
+            &function_params,
+            &call_args,
+            &mut seen,
+            &mut tainted,
+        );
+    }
+    tainted
+}
+
+/// The walk `collect_float_tainted_captured_cells` uses — structurally
+/// IDENTICAL to `collect_bigint_tainted_module_scalars` (function-boundary
+/// descent via `function_shape`, a declarator scan, a reassignment scan, then
+/// recurse into every child), the only difference being the safety predicate
+/// (`expr_is_provably_i64_literal_or_arith` instead of
+/// `expr_is_provably_not_bigint`) and a `BTreeSet<String>` candidates filter
+/// (this scan needs no `Repr` payload per name, unlike the module-global
+/// scan's `BTreeMap<String, Repr>`, which the shared function it does NOT
+/// reuse was written against).
+#[allow(clippy::too_many_arguments)]
+fn mark_non_i64_tainted_captured_scalars(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    func: &str,
+    candidates: &std::collections::BTreeSet<String>,
+    function_params: &BTreeMap<String, Vec<String>>,
+    call_args: &BTreeMap<String, Vec<(String, Vec<LirNodeId>)>>,
+    seen: &mut HashSet<LirNodeId>,
+    tainted: &mut HashSet<String>,
+) {
+    if !seen.insert(id) {
+        return;
+    }
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return;
+    };
+
+    if let Some((name, _, body_id, _)) = function_shape(nodes, id) {
+        mark_non_i64_tainted_captured_scalars(
+            nodes,
+            body_id,
+            &name,
+            candidates,
+            function_params,
+            call_args,
+            seen,
+            tainted,
+        );
+        return;
+    }
+
+    // Declarator init (`var`/`let name = init`).
+    if node.kind == LirNodeKind::Instruction && matches!(node.text.as_deref(), Some("let" | "var"))
+    {
+        for declarator_id in &node.children {
+            let Some(declarator) = nodes.get(declarator_id.0 as usize) else {
+                continue;
+            };
+            let Some(name) = declarator.text.as_deref() else {
+                continue;
+            };
+            if candidates.contains(name) {
+                if let Some(&init) = declarator.children.get(1) {
+                    if !expr_is_provably_i64_literal_or_arith(
+                        nodes,
+                        init,
+                        func,
+                        function_params,
+                        call_args,
+                        // Declarator init: no self-reference (see the twin).
+                        None,
+                        0,
+                    ) {
+                        tainted.insert(name.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    // Reassignment (`name = rhs`, or a compound `name op= rhs`).
+    if node.kind == LirNodeKind::Value
+        && node.children.len() == 2
+        && is_assignment_operator_text(node.text.as_deref().unwrap_or_default())
+    {
+        let lhs = unwrap_transparent_value(nodes, node.children[0]);
+        if let Some(lhs_node) = nodes.get(lhs.0 as usize) {
+            if lhs_node.kind == LirNodeKind::Value && lhs_node.children.is_empty() {
+                if let Some(name) = lhs_node.text.as_deref() {
+                    if candidates.contains(name)
+                        && !expr_is_provably_i64_literal_or_arith(
+                            nodes,
+                            node.children[1],
+                            func,
+                            function_params,
+                            call_args,
+                            // Reassignment: self-reference allowed (see the twin).
+                            Some(name),
+                            0,
+                        )
+                    {
+                        tainted.insert(name.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    for child in &node.children {
+        mark_non_i64_tainted_captured_scalars(
+            nodes,
+            *child,
+            func,
+            candidates,
+            function_params,
+            call_args,
+            seen,
+            tainted,
+        );
+    }
+}
+
+/// R-11 T4 review Important 1: TRUE only when `id` is STRUCTURALLY proven to
+/// never evaluate to anything other than a plain (non-BigInt, non-float)
+/// integer — `expr_is_provably_not_bigint`'s exact closure shape (unary
+/// `- + ~`, binary `+ - * % & | ^ << >> >>>`, a parameter whose every
+/// call-site argument is itself proven safe), but with a STRICTER literal
+/// check: `parse_number_literal` (`kali_codegen::intrinsics::number`, a plain
+/// `i64::parse`, fails on `"6.5"`) instead of `parse_numeric_literal_value`
+/// (an `f64::parse`, which SUCCEEDS on `"6.5"`). `expr_is_provably_not_bigint`
+/// treats a float literal exactly like a safe plain integer — correct for
+/// ITS axis (a float is not a BigInt), wrong for this one.
+///
+/// `self_target` carries `write_value_is_numeric`'s `allow_self` — see
+/// `expr_is_provably_not_bigint`'s own doc for the soundness argument, which
+/// applies verbatim on this axis (a write `n = <arith over n and provably-i64
+/// leaves>` cannot introduce float-ness that some OTHER, separately-scanned
+/// write did not already introduce). Kept in lockstep with its twin
+/// deliberately: these two predicates are hand-mirrored, and this project's
+/// standing lesson is that hand-mirrored predicates which drift are where the
+/// next fail-open lives.
+fn expr_is_provably_i64_literal_or_arith(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    func: &str,
+    function_params: &BTreeMap<String, Vec<String>>,
+    call_args: &BTreeMap<String, Vec<(String, Vec<LirNodeId>)>>,
+    self_target: Option<&str>,
+    depth: usize,
+) -> bool {
+    if depth > 24 {
+        return false;
+    }
+    let id = unwrap_transparent_value(nodes, id);
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return false;
+    };
+    match node.kind {
+        LirNodeKind::Literal => node
+            .text
+            .as_deref()
+            .is_some_and(|t| !t.ends_with('n') && parse_number_literal(t).is_some()),
+        LirNodeKind::Value => match node.children.len() {
+            0 => {
+                let Some(t) = node.text.as_deref() else {
+                    return false;
+                };
+                // Self-reference (`n = n + 1`): safe, see the doc header.
+                // Checked BEFORE the literal arms on purpose — `t` is a bare
+                // `Value` node's text, which is either an IDENTIFIER or a
+                // literal, and `self_target` is a binding NAME, so a match
+                // proves `t` is the identifier. Placing this after the
+                // `ends_with('n')` BigInt-literal arm would make it dead for
+                // every binding whose name ends in `n` — including the
+                // canonical `let n = ...` of this whole feature.
+                if self_target == Some(t) {
+                    return true;
+                }
+                if t.ends_with('n') {
+                    return false;
+                }
+                if parse_number_literal(t).is_some() {
+                    return true;
+                }
+                let Some(params) = function_params.get(func) else {
+                    return false;
+                };
+                let Some(idx) = params.iter().position(|p| p == t) else {
+                    return false;
+                };
+                let Some(sites) = call_args.get(func) else {
+                    return false;
+                };
+                !sites.is_empty()
+                    && sites.iter().all(|(caller, args)| {
+                        args.get(idx).is_some_and(|&arg| {
+                            expr_is_provably_i64_literal_or_arith(
+                                nodes,
+                                arg,
+                                caller,
+                                function_params,
+                                call_args,
+                                // The argument is evaluated in the CALLER's
+                                // scope, where `self_target`'s name denotes a
+                                // different binding — drop it rather than
+                                // carry it across the boundary.
+                                None,
+                                depth + 1,
+                            )
+                        })
+                    })
+            }
+            1 => {
+                let t = node.text.as_deref().unwrap_or_default();
+                matches!(t, "-" | "+" | "~")
+                    && expr_is_provably_i64_literal_or_arith(
+                        nodes,
+                        node.children[0],
+                        func,
+                        function_params,
+                        call_args,
+                        self_target,
+                        depth + 1,
+                    )
+            }
+            2 => {
+                let t = node.text.as_deref().unwrap_or_default();
+                matches!(
+                    t,
+                    "+" | "-" | "*" | "%" | "&" | "|" | "^" | "<<" | ">>" | ">>>"
+                ) && expr_is_provably_i64_literal_or_arith(
+                    nodes,
+                    node.children[0],
+                    func,
+                    function_params,
+                    call_args,
+                    self_target,
+                    depth + 1,
+                ) && expr_is_provably_i64_literal_or_arith(
+                    nodes,
+                    node.children[1],
+                    func,
+                    function_params,
+                    call_args,
+                    self_target,
+                    depth + 1,
+                )
+            }
+            _ => false,
+        },
+        _ => false,
+    }
+}
+
+/// R-11 T3 review round 2: TRUE only when `id` is STRUCTURALLY proven to
+/// never evaluate to a BigInt — the allowlist Review Important 1 required
+/// ("taint unless you can prove the write is not BigInt"), mirroring
+/// `write_value_is_numeric`'s exact closure (`kali_types::repr_infer`,
+/// `:1002-1039`) one level down at the LIR/free-function layer: a plain
+/// numeric literal (never a BigInt literal — round 1's `expr_is_bigint_literal`
+/// checked only this shape, which is why it missed the other five), unary
+/// `- + ~` over a provably-safe operand, binary `+ - * % & | ^ << >> >>>`
+/// over two provably-safe operands, or a PARAMETER whose EVERY call-site
+/// argument (`call_args`, interprocedural) is itself provably safe. Anything
+/// this closure does not recognize — a non-parameter identifier, a call
+/// result, a member/index read, an object/array literal, `true`/`false`/
+/// `undefined`/`null` — is UNSAFE (returns `false`, i.e. tainted) by
+/// default. Depth-capped (not cycle-tracked) against a pathological/mutually
+/// recursive call graph; exceeding the cap is treated as unproven (tainted).
+///
+/// **R-11 T6 audit, work item 5 — `self_target`.** This predicate claims to
+/// mirror `write_value_is_numeric` (`kali_types::repr_infer`) but had no
+/// counterpart to that function's `allow_self` arm, so a self-referential
+/// write (`n = n + 1`) tainted the binding and denied the whole lane — the
+/// commonest counter idiom there is, and a fail-CLOSED but unpinned
+/// divergence between the two "mirrors". `self_target` restores the arm with
+/// the same caller-chosen gating `write_value_is_numeric` uses: `Some(name)`
+/// on a REASSIGNMENT (`record_numeric_binding_write(.., allow_self = true)`),
+/// `None` on a declarator init (`allow_self = false`).
+///
+/// Soundness: the taint set is a UNION over every write to the binding, from
+/// every function, and the whole set is computed before any of it is
+/// consulted. A self-referential write can only propagate BigInt-ness the
+/// binding ALREADY had; for it to already have it some OTHER write must have
+/// introduced it, and that write is itself scanned — a BigInt literal there
+/// is refused by the literal arm, and any expression this closure does not
+/// recognise (a call, a member read, a non-self identifier) is refused by
+/// default. So no BigInt can enter a binding whose every write is either
+/// provably-safe or self-referential-over-provably-safe. `n = n + 1n` still
+/// taints (the `1n` leaf is refused) and `n = n / 2` still taints (`/` is not
+/// in the binary allowlist).
+fn expr_is_provably_not_bigint(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    func: &str,
+    function_params: &BTreeMap<String, Vec<String>>,
+    call_args: &BTreeMap<String, Vec<(String, Vec<LirNodeId>)>>,
+    self_target: Option<&str>,
+    depth: usize,
+) -> bool {
+    if depth > 24 {
+        return false;
+    }
+    let id = unwrap_transparent_value(nodes, id);
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return false;
+    };
+    match node.kind {
+        LirNodeKind::Literal => node
+            .text
+            .as_deref()
+            .is_some_and(|t| !t.ends_with('n') && parse_numeric_literal_value(t).is_some()),
+        LirNodeKind::Value => match node.children.len() {
+            0 => {
+                let Some(t) = node.text.as_deref() else {
+                    return false;
+                };
+                // Self-reference (`n = n + 1`): safe, see the doc header.
+                // Checked BEFORE the literal arms on purpose — `t` is a bare
+                // `Value` node's text, which is either an IDENTIFIER or a
+                // literal, and `self_target` is a binding NAME, so a match
+                // proves `t` is the identifier. Placing this after the
+                // `ends_with('n')` BigInt-literal arm would make it dead for
+                // every binding whose name ends in `n` — including the
+                // canonical `let n = ...` of this whole feature.
+                if self_target == Some(t) {
+                    return true;
+                }
+                // A literal-shaped bare `Value` node (mirrors
+                // `is_numeric_expr`'s own dual literal check): a raw BigInt
+                // literal is unsafe; a plain numeric literal is safe.
+                if t.ends_with('n') {
+                    return false;
+                }
+                if parse_numeric_literal_value(t).is_some() {
+                    return true;
+                }
+                // Bare identifier: safe ONLY as a parameter of `func` with
+                // every call-site argument at that position proven safe
+                // (interprocedural parameter-argument inflow). No recorded
+                // call site at all (never called by a plain named call this
+                // scan can see, e.g. a callback alias) is UNPROVEN — fails
+                // closed, not assumed safe.
+                let Some(params) = function_params.get(func) else {
+                    return false;
+                };
+                let Some(idx) = params.iter().position(|p| p == t) else {
+                    return false;
+                };
+                let Some(sites) = call_args.get(func) else {
+                    return false;
+                };
+                !sites.is_empty()
+                    && sites.iter().all(|(caller, args)| {
+                        args.get(idx).is_some_and(|&arg| {
+                            expr_is_provably_not_bigint(
+                                nodes,
+                                arg,
+                                caller,
+                                function_params,
+                                call_args,
+                                // Evaluated in the CALLER's scope, where
+                                // `self_target`'s name denotes a different
+                                // binding — drop it at the boundary.
+                                None,
+                                depth + 1,
+                            )
+                        })
+                    })
+            }
+            1 => {
+                let t = node.text.as_deref().unwrap_or_default();
+                matches!(t, "-" | "+" | "~")
+                    && expr_is_provably_not_bigint(
+                        nodes,
+                        node.children[0],
+                        func,
+                        function_params,
+                        call_args,
+                        self_target,
+                        depth + 1,
+                    )
+            }
+            2 => {
+                let t = node.text.as_deref().unwrap_or_default();
+                matches!(
+                    t,
+                    "+" | "-" | "*" | "%" | "&" | "|" | "^" | "<<" | ">>" | ">>>"
+                ) && expr_is_provably_not_bigint(
+                    nodes,
+                    node.children[0],
+                    func,
+                    function_params,
+                    call_args,
+                    self_target,
+                    depth + 1,
+                ) && expr_is_provably_not_bigint(
+                    nodes,
+                    node.children[1],
+                    func,
+                    function_params,
+                    call_args,
+                    self_target,
+                    depth + 1,
+                )
+            }
+            _ => false,
+        },
+        _ => false,
+    }
+}
+
+/// R-11 T3 review round 2: for every plain named call `f(...)` anywhere in
+/// the program, records `(caller_function_name, positional_argument_ids)`
+/// keyed by the callee name `f` — the parameter-argument inflow evidence
+/// `expr_is_provably_not_bigint` needs to prove (or refute) that a
+/// parameter is safe. Crosses function boundaries via `function_shape`
+/// (mirroring `scan_numeric_assignments`) so every call site is attributed
+/// to the function that lexically contains it, never the callee. A member
+/// call (`o.f(...)`) or a computed/aliased callee is not tracked — the
+/// target parameter, if any, then has no recorded call site and
+/// `expr_is_provably_not_bigint` fails closed (tainted) for it, never
+/// silently assumes safety.
+fn collect_call_argument_sites(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    func: &str,
+    seen: &mut HashSet<LirNodeId>,
+    out: &mut BTreeMap<String, Vec<(String, Vec<LirNodeId>)>>,
+) {
+    if !seen.insert(id) {
+        return;
+    }
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return;
+    };
+
+    if let Some((name, _, body_id, _)) = function_shape(nodes, id) {
+        collect_call_argument_sites(nodes, body_id, &name, seen, out);
+        return;
+    }
+
+    if node.kind == LirNodeKind::Call {
+        if let Some(&callee_id) = node.children.first() {
+            let callee = unwrap_transparent_value(nodes, callee_id);
+            if let Some(callee_node) = nodes.get(callee.0 as usize) {
+                if callee_node.kind == LirNodeKind::Value && callee_node.children.is_empty() {
+                    if let Some(callee_name) = callee_node.text.clone() {
+                        let args: Vec<LirNodeId> = node.children[1..].to_vec();
+                        out.entry(callee_name)
+                            .or_default()
+                            .push((func.to_string(), args));
+                    }
+                }
+            }
+        }
+    }
+
+    for child in &node.children {
+        collect_call_argument_sites(nodes, *child, func, seen, out);
     }
 }
 

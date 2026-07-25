@@ -167,3 +167,44 @@ fn test_parse_compound_assignment_expression() {
         AssignmentOperator::OrAssign
     ));
 }
+
+// --- Task 1.5: the six bitwise compound assignment operators ---
+
+#[test]
+fn test_parse_bitwise_compound_assignment_expression() {
+    let tokens = lex("n &= 1; n |= 2; n ^= 3; n <<= 4; n >>= 5; n >>>= 6;");
+    let mut parser = Parser::new(kali_common::FileId::new(0), tokens);
+    let output = parser.parse(None);
+
+    assert!(
+        output.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        output.diagnostics
+    );
+    assert_eq!(output.statements.len(), 6);
+
+    let expected = [
+        AssignmentOperator::BitAndAssign,
+        AssignmentOperator::BitOrAssign,
+        AssignmentOperator::BitXorAssign,
+        AssignmentOperator::LeftShiftAssign,
+        AssignmentOperator::RightShiftAssign,
+        AssignmentOperator::UnsignedRightShiftAssign,
+    ];
+
+    for (i, want) in expected.iter().enumerate() {
+        let Statement::ExpressionStatement(stmt) = &output.statements[i] else {
+            panic!(
+                "statement {i}: expected ExpressionStatement, got {:?}",
+                output.statements[i]
+            );
+        };
+        let Expression::AssignmentExpression(assign) = stmt.expression.as_ref() else {
+            panic!(
+                "statement {i}: expected AssignmentExpression, got {:?}",
+                stmt.expression
+            );
+        };
+        assert_eq!(&assign.operator, want, "statement {i} operator mismatch");
+    }
+}

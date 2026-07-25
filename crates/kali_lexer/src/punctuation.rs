@@ -21,10 +21,35 @@ impl Lexer {
             }
             '!' if self.nth(1) == Some('=') => (TokenType::Neq, "!=".to_string(), 2),
             '<' if self.nth(1) == Some('=') => (TokenType::LtEq, "<=".to_string(), 2),
+            // `<<=` must be checked before the bare `<<` arm below — its guard
+            // (nth(2) == '=') is a strict superset match that the bare arm's
+            // guard (nth(1) == '<' alone) would otherwise swallow first.
+            '<' if self.nth(1) == Some('<') && self.nth(2) == Some('=') => {
+                (TokenType::LtLtEq, "<<=".to_string(), 3)
+            }
             '<' if self.nth(1) == Some('<') => (TokenType::LtLt, "<<".to_string(), 2),
             '>' if self.nth(1) == Some('=') => (TokenType::GtEq, ">=".to_string(), 2),
+            // `>>>=` must be checked before the existing `>>>` arm: that arm's
+            // guard only inspects nth(1)/nth(2) and does not look at nth(3), so
+            // it would otherwise consume `>>>=` as `>>>` followed by a stray
+            // `=` token. Distinct TokenType from plain `>>>` (unlike the
+            // pre-existing `>>`/`>>>` pair below, which share `GtGt` and are
+            // told apart only by lexeme — do not replicate that here).
+            '>' if self.nth(1) == Some('>')
+                && self.nth(2) == Some('>')
+                && self.nth(3) == Some('=') =>
+            {
+                (TokenType::GtGtGtEq, ">>>=".to_string(), 4)
+            }
             '>' if self.nth(1) == Some('>') && self.nth(2) == Some('>') => {
                 (TokenType::GtGt, ">>>".to_string(), 3)
+            }
+            // `>>=` must be checked before the bare `>>` arm below, for the
+            // same reason as `<<=` above. Its guard (nth(2) == '=') is disjoint
+            // from the `>>>`/`>>>=` arms' guard (nth(2) == '>'), so ordering
+            // relative to those two does not matter.
+            '>' if self.nth(1) == Some('>') && self.nth(2) == Some('=') => {
+                (TokenType::GtGtEq, ">>=".to_string(), 3)
             }
             '>' if self.nth(1) == Some('>') => (TokenType::GtGt, ">>".to_string(), 2),
             '?' if self.nth(1) == Some('?') && self.nth(2) == Some('=') => {
@@ -49,6 +74,15 @@ impl Lexer {
             '-' => (TokenType::Minus, "-".to_string(), 1),
             '*' => (TokenType::Star, "*".to_string(), 1),
             '/' => (TokenType::Slash, "/".to_string(), 1),
+            // `&=`/`|=`/`^=` must be checked before the bare single-char arms
+            // below, for the same reason as the shift compound-assigns above.
+            // They do not collide with the `&&=`/`&&`/`||=`/`||` arms earlier
+            // in this match: those guard on nth(1) being `&`/`|` (a second
+            // copy of the same character), which is mutually exclusive with
+            // nth(1) == '='.
+            '&' if self.nth(1) == Some('=') => (TokenType::AmpEq, "&=".to_string(), 2),
+            '|' if self.nth(1) == Some('=') => (TokenType::PipeEq, "|=".to_string(), 2),
+            '^' if self.nth(1) == Some('=') => (TokenType::CaretEq, "^=".to_string(), 2),
             '&' => (TokenType::Ampersand, "&".to_string(), 1),
             '|' => (TokenType::Pipe, "|".to_string(), 1),
             '^' => (TokenType::Caret, "^".to_string(), 1),

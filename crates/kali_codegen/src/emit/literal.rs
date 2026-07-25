@@ -221,7 +221,21 @@ impl<'a> FunctionEmitter<'a> {
     ) -> bool {
         if !matches!(
             op,
-            "=" | "??=" | "&&=" | "||=" | "+=" | "-=" | "*=" | "/=" | "%=" | "**="
+            "=" | "??="
+                | "&&="
+                | "||="
+                | "+="
+                | "-="
+                | "*="
+                | "/="
+                | "%="
+                | "**="
+                | "&="
+                | "|="
+                | "^="
+                | "<<="
+                | ">>="
+                | ">>>="
         ) {
             return false;
         }
@@ -403,6 +417,33 @@ impl<'a> FunctionEmitter<'a> {
                         }
                         return true;
                     }
+                }
+            }
+        }
+
+        // R-11 T5: bitwise compound-assign to a STATIC dot-field target on a
+        // fixed-shape object (`o.a <<= 2`). Same 1-child dot-member node
+        // shape as the `op == "="` fixed-shape field store arm just above
+        // (base in `children[0]`, field name in `text`) — restricted to the
+        // six bitwise ops so it can never intercept the `=`/arithmetic
+        // compound targets those other arms (and the growable/abort/URL
+        // member-write gates above, which all run under `op == "="` only)
+        // already own. All target/RHS proofs (shape existence, `Repr::I64`,
+        // `shape_field_is_proven_numeric`, and the BigInt-literal-field
+        // guard) live in `emit_object_field_bitwise_compound_assign`
+        // (`object.rs`), which fails closed E5506 on anything it cannot
+        // prove — including when `base_id` is not an object at all (e.g. an
+        // array element target `a[0] &= 3`, denied earlier at the resolve
+        // stage and never reaching a real object shape here either).
+        if matches!(op, "&=" | "|=" | "^=" | "<<=" | ">>=" | ">>>=") {
+            let left_node = self.node(left).clone();
+            if left_node.kind == LirNodeKind::Value && left_node.children.len() == 1 {
+                if let Some(field) = left_node.text.clone().filter(|text| !text.is_empty()) {
+                    let base_id = left_node.children[0];
+                    self.emit_object_field_bitwise_compound_assign(
+                        function, base_id, &field, right, op,
+                    );
+                    return true;
                 }
             }
         }
@@ -771,8 +812,97 @@ impl<'a> FunctionEmitter<'a> {
         // slot (JS lexical scoping), so this yields to the local lookup below.
         // (In `_start` a promoted name is never a local, so this still fires.)
         if !self.locals.contains_key(&name) {
+            // R-11 T3 review round 2, Important 2 / R-11 T4 review Critical 1
+            // / R-11 T4 review rounds 3-4: a `let`/`var` declared inside THIS
+            // function but captured by a NESTED closure is promoted OUT of
+            // `self.locals` (Stage C — "the cell IS its storage", see the
+            // `module_global_slots` field doc in `emitter.rs`), so the
+            // `!self.locals.contains_key` check above does NOT exclude it.
+            // Without this guard, a same-named binding of ANY OTHER kind that
+            // `emit_identifier`/`emit_value` (`control_flow.rs:1987-2308`)
+            // resolves BEFORE `try_emit_captured_read` silently absorbs the
+            // write (or a subsequent read) meant for this function's OWN
+            // shadowing local.
+            //
+            // Rounds 1-2 enumerated a growing DENYLIST of the specific tables
+            // measured to leak (`module_global_slots`, then `+
+            // module_const_inits + module_binding_names`). Round 3 replaced
+            // that with a HAND-MIRRORED copy of every predicate
+            // `emit_identifier` calls — which the round-3 review proved was
+            // STILL not enough: adding one new arm to `emit_identifier`
+            // (`"Reflect"`) silently reopened the identical wrong-value hole,
+            // because a hand-mirror is a SECOND copy of the resolution order
+            // with nothing forcing it to stay in sync with the first. This is
+            // the SIXTH project-wide incident of a guard leaking to a sibling
+            // class. Round 4 does not add a fourth (or eighth, or a smarter)
+            // mirror — it deletes the second copy: `emit_identifier`'s
+            // resolution order now lives in EXACTLY ONE place
+            // (`control_flow.rs::resolve_identifier_kind`, returning
+            // `IdentifierResolution`), `emit_identifier` dispatches on it
+            // with an EXHAUSTIVE `match`, and this guard
+            // (`identifier_read_resolves_only_through_captured_cell`,
+            // `closure_access.rs`) asks that SAME classifier whether anything
+            // ahead of the captured-cell lane claims `name`. A future arm
+            // added to `emit_identifier` must add an `IdentifierResolution`
+            // variant (the exhaustive match makes omitting it a compile
+            // error there) and this guard denies any variant it does not
+            // explicitly recognize as the captured-cell case — divergence is
+            // now prevented by the type system, not by a comment asking the
+            // next implementer to remember. `"Infinity"`/`"NaN"` remain a
+            // separate, explicit, documented carve-out (see the guard's own
+            // doc) because their interception is NOT part of
+            // `emit_identifier`'s resolution order at all. A module-scope
+            // named `function` declaration is PROVEN — by this same
+            // classifier, and independently measured — NOT part of the
+            // shadow class (functions are never a module "binding" any
+            // `IdentifierResolution` variant tracks), so it stays a
+            // value-computing shape
+            // (`bitwise_compound_on_module_function_name_does_not_shadow_captured_cell`).
+            //
+            // `try_emit_captured_assign` below still cannot catch this itself
+            // for the bitwise ops even after T4's widening — the shadow
+            // resolution has to happen HERE, before every other module/
+            // handle/keyword lane, so the write is refused uniformly
+            // regardless of which lane would have won the read. This bug (a
+            // captured local silently losing to a same-named binding of
+            // another kind) is PRE-EXISTING for `=`/`+=`/etc. and general
+            // reads (byte-identical wrong output on the pre-T4 parent —
+            // confirmed, out of scope, not this task's to fix) but the
+            // parent refused every bitwise op on EVERY captured cell
+            // uniformly at resolve, so silently computing through to the
+            // WRONG target here is a regression T4 introduced. Scoped to the
+            // six bitwise ops only — does not touch general assignment
+            // dispatch or `=`/`+=`'s existing (wrong) behavior. Also gated on
+            // `name` actually being a captured cell (own or outer) — a
+            // captured local with no colliding binding of any kind already
+            // denies correctly via the pre-existing fallback further down
+            // (Task 2's pinned
+            // `bitwise_compound_fails_closed_on_owning_function_captured_variable`)
+            // and that message stays accurate — this arm exists only to
+            // intercept the shadow case before it reaches any competing lane.
+            if matches!(op, "&=" | "|=" | "^=" | "<<=" | ">>=" | ">>>=")
+                && !self.identifier_read_resolves_only_through_captured_cell(&name)
+                && (self.env_plan.cell_for(&name).is_some()
+                    || self.env_plan.captured_for(&name).is_some())
+            {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    format!(
+                        "bitwise compound assignment '{op}' on binding '{name}' is unavailable in the current phase (the binding is shadowed by a same-named module-scope binding; use a mutable variable or the later compatibility path)"
+                    ),
+                ));
+                function.instruction(&Instruction::I64Const(0));
+                return true;
+            }
             if let Some(&(global_index, repr)) = self.module_global_slots.get(&name) {
-                return self.emit_module_global_assignment(function, op, global_index, repr, right);
+                return self.emit_module_global_assignment(
+                    function,
+                    op,
+                    global_index,
+                    repr,
+                    right,
+                    &name,
+                );
             }
             // Stage C: a captured scalar promoted to an env cell (own cell or a
             // single-level synchronous outer capture) — route the write through
@@ -788,15 +918,30 @@ impl<'a> FunctionEmitter<'a> {
                 return false;
             }
 
+            // R-11 T2 review Important 3: append `op` (was `name`-only) so
+            // this message carries the operator text — a bitwise op reaching
+            // here (e.g. a variable owned by the CURRENTLY-TRACKED function
+            // but promoted to an env cell because a nested closure captures
+            // it — `bitwise_compound_target_is_admitted_local_scalar` admits
+            // it at resolve, since it structurally IS this function's own
+            // binding, but codegen has no compound-assign lane for a captured
+            // cell yet) must still satisfy the `"&="`-style needle every
+            // other bitwise deny path in this file already carries, so the
+            // boundary pins (`bitwise_compound_fails_closed_on_every_target_shape`)
+            // can key on the SAME substring regardless of which choke point
+            // actually catches a given shape. Appended after the existing
+            // "for binding '{name}'" phrase (not interleaved before it) so the
+            // pre-existing exact-substring pin
+            // (`compound_assignment_on_immutable_bindings_reports_feature_unavailable`,
+            // which asserts "compound assignment lowering is unavailable for
+            // binding 'value'" as a contiguous prefix) still matches.
             let message = if op == "??=" {
                 format!(
-                    "nullish assignment lowering is unavailable for binding '{}' unless it is a mutable local binding; use a mutable variable or the later compatibility path",
-                    name
+                    "nullish assignment lowering is unavailable for binding '{name}' unless it is a mutable local binding; use a mutable variable or the later compatibility path"
                 )
             } else {
                 format!(
-                    "compound assignment lowering is unavailable for binding '{}' unless it is a mutable local binding; use a mutable variable or the later compatibility path",
-                    name
+                    "compound assignment lowering is unavailable for binding '{name}' (operator '{op}') unless it is a mutable local binding; use a mutable variable or the later compatibility path"
                 )
             };
             self.diagnostics
@@ -1032,7 +1177,120 @@ impl<'a> FunctionEmitter<'a> {
                 function.instruction(&Instruction::LocalGet(index));
                 true
             }
-            _ => false,
+            "&=" | "|=" | "^=" | "<<=" | ">>=" | ">>>=" => {
+                // JS bitwise compound: a op= b ≡ a = ToInt32(a) <op> ToInt32(b).
+                //
+                // Review finding (Critical 1): a denylist here ("reject F64 or
+                // String or ...") leaks by construction against `kali_common::Repr`,
+                // which has MORE variants than F64/String (Object,
+                // GrowableArrayI64, AbortHandle, Url, Bytes, Event, ...) — any of
+                // them would fall through unrejected. It also does not look at
+                // the RHS's OWN shape at all: `is_float_valued(right)` answers
+                // "is the RHS a float", not "is the RHS safe" — a STRING RHS
+                // (`n |= "5"`, `n <<= someStringVar`, a template literal, a `+`
+                // concat) is neither F64 nor float-valued, so it fell through to
+                // `I32WrapI64`, which truncates the tagged string HANDLE to its
+                // low 32 bits and computes a wrong-but-plausible integer at exit
+                // 0 (measured: `n |= "5"` printed `1`, node prints `5`).
+                //
+                // Fixed as a POSITIVE allowlist instead: admit only when the
+                // TARGET's repr is EXACTLY `Repr::I64` (not "not F64/String")
+                // and the RHS is POSITIVELY proven `Repr::I64` by
+                // `bitwise_compound_rhs_is_provably_i64` (see that function's
+                // doc for exactly what it does and does not prove) —
+                // everything else, including every other current and future
+                // `Repr` variant and every RHS shape this oracle does not
+                // specifically recognize, fails closed.
+                //
+                // Review round 3: `scalar_repr(&name) == Repr::I64` ALONE has
+                // the identical "default is not a proof" defect the RHS axis
+                // had — `Repr::I64` is `Repr`'s `#[default]`, so it cannot
+                // tell "repr_infer proved this I64" from "repr_infer recorded
+                // nothing about this binding at all" (e.g. `let n = o.a;`
+                // where `o.a` is a STRING field `repr_infer` does not yet
+                // propagate onto `n`, the pre-existing R-06-R4
+                // "string-field-sink-corruption" residual). Round 2 measured
+                // that requiring an EXPLICIT `ReprTable::scalar_entry` record
+                // here denies 100% of the admitted lane (`Repr::I64` is never
+                // written explicitly anywhere in this codebase) and reported
+                // that as an apparent impossibility. It was not: `numeric_bindings`
+                // / `binding_is_proven_numeric` (`kali_common::repr`,
+                // `emit/call.rs`) is a DIFFERENT, already-existing
+                // positive-evidence allowlist — written AFFIRMATIVELY by
+                // `repr_infer`'s numeric-binding-write proof, never defaulted
+                // — that the six bitwise ops now participate in
+                // (`repr_infer.rs`'s `visit_assignment`). Requiring it here
+                // closes the target-axis leak (verified in the fix report).
+                //
+                // COST — the real shape class, measured (round 4; the round-3
+                // comment here understated it as the single "numeric object
+                // field read into a local" case). The over-denial is exactly
+                // the COMPLEMENT of `write_value_is_numeric`'s allowlist —
+                // `crates/kali_types/src/repr_infer.rs:1010-1041`, the value
+                // half of the proof `numeric_bindings` is built from. That
+                // allowlist admits only: a numeric/BigInt literal, a
+                // self-reference, a PARAMETER of the current function, and
+                // unary `- + ~` / binary `+ - * % & | ^ << >> >>>` recursively
+                // over those. Any other write value leaves the target
+                // unproven and is therefore denied HERE — including when node
+                // computes the program correctly. Six such shapes were
+                // A/B-measured against the round-2 parent (`820e3dd91`), where
+                // each printed node's value and now returns E5506: an
+                // initializer that is an identifier which is NOT a parameter
+                // (a copy of another local, `let m=6; let n=m; n<<=2` → node
+                // 24; or of a `const`, `const c=6; let n=c;` → 24; or
+                // arithmetic whose LEAVES are such identifiers, `let a=3,b=3;
+                // let n=a*b; n|=0` → 9), a CALL (`let n=f(); n<<=2` → 24, and
+                // the same via reassignment `n=f()` → 28), a MEMBER read
+                // (`let o={a:3}; let n=o.a; n|=1` → 3), or an INDEX read
+                // (`let a=[1,2,3]; let n=a[1];` — this one was a WRONG VALUE
+                // at round 2, not a lost-correct case). The literal /
+                // arithmetic-over-literals / self-reference / parameter core
+                // is 100% intact, and every lost case fails closed rather
+                // than miscompiling. Accepted under this project's standing
+                // "refuse rather than miscompile" policy. Recovering them is
+                // a tracked follow-up and belongs in `write_value_is_numeric`
+                // — teach it member/call/local-identifier inflow — NOT in a
+                // loosening of this guard. All seven programs are pinned in
+                // `crates/kali_cli/tests/soundness_bitwise_compound.rs`
+                // (`bitwise_compound_over_denies_write_values_outside_the_numeric_proof`,
+                // `bitwise_compound_fails_closed_on_target_from_array_element`).
+                if self.scalar_repr(&name) != kali_common::Repr::I64
+                    || !self.binding_is_proven_numeric(&name)
+                    || !self.bitwise_compound_rhs_is_provably_i64(right)
+                {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        format!(
+                            "bitwise compound assignment '{op}' on a non-integer binding '{name}' is unavailable in the current phase"
+                        ),
+                    ));
+                    function.instruction(&Instruction::I64Const(0));
+                    return true;
+                }
+                function.instruction(&Instruction::LocalGet(index));
+                function.instruction(&Instruction::I32WrapI64);
+                self.emit_float_operand(function, right, false);
+                function.instruction(&Instruction::I32WrapI64);
+                self.emit_bitwise_i32_op_extend(function, op);
+                function.instruction(&Instruction::LocalTee(index));
+                true
+            }
+            _ => {
+                // Default-deny. After the gate admits `= ??= &&= ||= += -= *= /=
+                // %= **=` and the six bitwise ops (all with explicit arms above),
+                // nothing reaches here. Fail closed rather than returning `false`
+                // — the caller turns `false` into a silent bare read of the
+                // target, which was the R-11 fail-open.
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    format!(
+                        "compound assignment '{op}' on binding '{name}' is unavailable in the current phase"
+                    ),
+                ));
+                function.instruction(&Instruction::I64Const(0));
+                true
+            }
         }
     }
 
@@ -1053,6 +1311,7 @@ impl<'a> FunctionEmitter<'a> {
         global_index: u32,
         repr: kali_common::Repr,
         right: LirNodeId,
+        name: &str,
     ) -> bool {
         let is_f64 = repr == kali_common::Repr::F64;
         match op {
@@ -1111,6 +1370,110 @@ impl<'a> FunctionEmitter<'a> {
                         _ => unreachable!(),
                     };
                 }
+                function.instruction(&Instruction::GlobalSet(global_index));
+                function.instruction(&Instruction::GlobalGet(global_index));
+                true
+            }
+            "&=" | "|=" | "^=" | "<<=" | ">>=" | ">>>=" => {
+                // R-11 T3: bitwise compound on a module-scope integer global
+                // (promoted to a persistent WASM global — `flags` mutated
+                // inside a function AND read at module scope, or vice
+                // versa). Mirrors the local-scalar bitwise arm above
+                // (`emit_local_compound_assignment`, `:1143`) as closely as
+                // this shape allows.
+                //
+                // TARGET axis — review Critical 1 (round 1): `is_f64` alone
+                // is NOT a proof `repr` is genuinely `I64`. A name reaches
+                // `module_global_slots` (and therefore this function) once
+                // `collect_module_scalar_globals` / `scan_numeric_assignments`
+                // (`lower.rs`) call every declarator init and every
+                // reassignment RHS across the whole program `is_numeric_expr`
+                // — but that helper's bare-identifier branch is
+                // `repr_table.scalar(func, t)` (`lower.rs:4288`), the
+                // `unwrap_or_default()` accessor whose default is `Repr::I64`
+                // (`kali_common::Repr`'s `#[default]`). A binding whose
+                // `Repr::String` provenance was lost (the pre-existing
+                // R-06-R4 residual — e.g. `let o={a:"3"}; let s=o.a; let
+                // n=s;`) is therefore "proven numeric" by DEFAULT, promoted,
+                // and reaches here with `is_f64 == false` despite never
+                // holding a real integer — measured: `n&=3` printed `1` at
+                // exit 0 where node prints `3` (a truncated string handle).
+                // The local arm already closed this exact leak in Task 2
+                // round 3 with `binding_is_proven_numeric` — a DIFFERENT,
+                // AFFIRMATIVELY-written allowlist (`repr_infer`'s numeric
+                // proof, never defaulted); this arm must reuse it too, on
+                // `name` (now threaded through from the call site, which
+                // already had it).
+                //
+                // Also target axis — review Important 1: a BigInt-literal
+                // declarator/reassignment (`let n = 6n;`) is likewise
+                // "numeric" to `is_numeric_expr` (it strips the trailing `n`
+                // before parsing) and promotes with `is_f64 == false` too —
+                // `binding_is_proven_numeric` does NOT close this one (the
+                // binding genuinely holds a proven-numeric-shaped write by
+                // that proof's own definition). Denied separately via
+                // `module_global_bigint_targets`
+                // (`collect_bigint_tainted_module_scalars`, `lower.rs`), a
+                // narrow ADDITIVE scan that does not change promotion and is
+                // consulted only here — restores the pre-T3 refusal for this
+                // one shape without attempting BigInt semantics generally
+                // (the ten pre-existing operators' BigInt-module-global
+                // truncation stays exactly as deferred as before).
+                //
+                // RHS axis — unchanged from round 1: NOT covered by the
+                // promotion proof to the precision this lane's raw
+                // `I32WrapI64` combiner needs (`is_numeric_expr` admits an
+                // F64-repr'd identifier or a numeric-returning call as
+                // "numeric", neither of which the combiner can safely
+                // consume). Guarding on `is_float_valued(right)` alone would
+                // repeat Task 2 round 1's defect (it answers "is the RHS a
+                // float", not "is the RHS safe" — a STRING RHS is neither
+                // float nor float-valued and would fall through to
+                // `I32WrapI64`, truncating a tagged handle into a
+                // wrong-but-plausible i32). Reuse the same narrow
+                // positive-evidence RHS oracle the local arm uses instead:
+                // `bitwise_compound_rhs_is_provably_i64` (literal non-BigInt
+                // numeral, or unary `-` over one).
+                // Also target axis — R-11 T6 review Important 1: a FLOAT
+                // written to this global from ANOTHER function is refused by
+                // none of the three checks above. `is_f64` reads the promoted
+                // slot's own repr; `binding_is_proven_numeric` rests on
+                // `write_value_is_numeric`, whose literal arm accepts `6.5`
+                // (a float IS "numeric" by that proof — the exact distinction
+                // T4 built the captured lane's float scan to make); and the
+                // BigInt scan is a different axis. Until T6 the lane was safe
+                // only INCIDENTALLY, because such a program almost always also
+                // carried a write the BigInt scan could not prove. T6's
+                // self-reference arm removed one such over-taint and the hole
+                // underneath became reachable as an `E4201` invalid module —
+                // a Global-Constraint violation. `module_global_float_targets`
+                // (`collect_float_tainted_module_scalars`, `lower.rs`) is the
+                // real signal, and reuses the captured lane's walk verbatim.
+                if is_f64
+                    || !self.binding_is_proven_numeric(name)
+                    || self.module_global_bigint_targets.contains(name)
+                    || self.module_global_float_targets.contains(name)
+                    || !self.bitwise_compound_rhs_is_provably_i64(right)
+                {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        format!(
+                            "bitwise compound assignment '{op}' on a non-integer module global is unavailable in the current phase"
+                        ),
+                    ));
+                    // Modeled as `i64` unconditionally on the reject path,
+                    // matching the local-scalar bitwise arm's dummy (bitwise
+                    // compound results are always i64 in this model — the
+                    // reject dummy is not "whatever type the denied target
+                    // happened to be").
+                    function.instruction(&Instruction::I64Const(0));
+                    return true;
+                }
+                function.instruction(&Instruction::GlobalGet(global_index));
+                function.instruction(&Instruction::I32WrapI64);
+                self.emit_float_operand(function, right, false);
+                function.instruction(&Instruction::I32WrapI64);
+                self.emit_bitwise_i32_op_extend(function, op);
                 function.instruction(&Instruction::GlobalSet(global_index));
                 function.instruction(&Instruction::GlobalGet(global_index));
                 true

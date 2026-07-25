@@ -452,6 +452,178 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// R-11 T5: bitwise compound-assign to a STATIC dot-field target on a
+    /// fixed-shape object (`o.a <<= 2`) — the fixed-offset twin of
+    /// `emit_object_field_compound_assign_dynamic` above, which handles the
+    /// COMPUTED for-in-key member form (`obj[c] op= v`) at a dynamic
+    /// `base + ord*8` address. This one addresses the field at its static
+    /// `index * 8` offset, exactly like the `op == "="` fixed-shape field
+    /// store arm in `literal.rs` — RMW instead of a plain store.
+    ///
+    /// Reachability note (Step 2 of the task brief): a dot-field compound
+    /// assign does NOT reach `emit_object_field_compound_assign_dynamic` —
+    /// that function's own doc header says so (`obj[c] op= rhs` over a
+    /// headerless UNIFORM shape via a for-in-key ordinal), and before this
+    /// task NO static dot-field compound assign (arithmetic or bitwise) had
+    /// any codegen lowering at all: `target.value += 2` was already
+    /// fail-closed E5506 pre-T5 (see
+    /// `runtime_smoke::compound_assignment_non_local_source`), because
+    /// `resolve_update_binding_name` returns `None` for a `MemberExpression`
+    /// and the generic compound-assign fallback in `literal.rs` denies it.
+    /// This function is therefore new lowering, not a widened existing arm.
+    ///
+    /// TARGET-axis proof (three independent checks, all required):
+    ///   1. `shape_field(shape, field) == Some((_, Repr::I64))` — not F64,
+    ///      not any other `Repr` variant (Object/String/GrowableArrayI64/...).
+    ///   2. `shape_field_is_proven_numeric(shape, field)` — the whole-program,
+    ///      affirmatively-written proof that NO write (literal init or a
+    ///      later `o.a = ...`) ever stored a string into this field. Without
+    ///      this, `Repr::I64` alone cannot distinguish a real integer field
+    ///      from a STRING field (repr_infer interns a string field as `I64`
+    ///      too — see `call.rs` review C-5) — the exact R-06-R4
+    ///      string-field-sink-corruption class this project keeps re-finding.
+    ///   3. `!shape_field_bigint_targets.contains(&(shape, field))` — the
+    ///      object-field analogue of Task 3's `module_global_bigint_targets` /
+    ///      Task 4's `captured_cell_bigint_targets`. Neither (1) nor (2)
+    ///      excludes a BigInt-literal field (`{a: 6n}` interns as plain
+    ///      `Repr::I64`, "numeric" by the string-only proof above) — this
+    ///      whole-program, additive taint set
+    ///      (`kali_codegen::lower::collect_bigint_tainted_shape_fields`)
+    ///      closes that gap by walking every object-literal declarator init
+    ///      and every static dot-field write for a BigInt-literal value.
+    ///      Keyed by `(shape, field)`, not by the binding used at this call
+    ///      site — a field's static type is a property of the shape, exactly
+    ///      the same key `shape_field_is_proven_numeric` already uses.
+    ///
+    /// RHS-axis proof: `bitwise_compound_rhs_is_provably_i64(rhs)` plus an
+    /// explicit `is_float_valued(rhs)` reject, exactly mirroring every other
+    /// R-11 target arm (Tasks 2-4) — reused verbatim, not a new oracle.
+    pub(crate) fn emit_object_field_bitwise_compound_assign(
+        &mut self,
+        function: &mut Function,
+        base_id: LirNodeId,
+        field: &str,
+        rhs: LirNodeId,
+        op: &str,
+    ) -> EmittedValue {
+        let fail_closed = |this: &mut Self, function: &mut Function, message: String| {
+            this.diagnostics
+                .push(Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, message));
+            function.instruction(&Instruction::I64Const(0));
+            EmittedValue {
+                produced: true,
+                shape: ValueShape::Scalar,
+            }
+        };
+
+        let Some(shape) = self.object_shape_of_node(base_id) else {
+            return fail_closed(
+                self,
+                function,
+                format!(
+                    "bitwise compound assignment '{op}' on an object field is unavailable in the current phase"
+                ),
+            );
+        };
+        // T5 review Critical 1: a shape carrying a field literally named
+        // `length` is excluded ENTIRELY, not just when `length` is this
+        // compound-assign's own target field — see the identical guard (and
+        // its full doc) on `bitwise_compound_dot_field_target_is_admitted`
+        // in `kali_types::resolve::expression`, mirrored here as
+        // defense-in-depth so codegen never trusts the resolve gate alone.
+        // Measured: `o={a:6,length:9}; o.a&=3;` computes `o.a` correctly
+        // (this store never touches the `length` slot) but a LATER
+        // `o.length` read elsewhere in the program silently returns `0`
+        // (node: `9`) via the pre-existing array-`.length` read ambiguity —
+        // unrelated to which field this arm targets, so the whole shape is
+        // refused rather than just the `field == "length"` case.
+        if self.repr_table.shape_field(shape, "length").is_some() {
+            return fail_closed(
+                self,
+                function,
+                format!(
+                    "bitwise compound assignment '{op}' is unavailable on an object shape with a field named 'length' in the current phase (ambiguous with the array `.length` read)"
+                ),
+            );
+        }
+        let Some((index, repr)) = self.repr_table.shape_field(shape, field) else {
+            return fail_closed(
+                self,
+                function,
+                format!(
+                    "bitwise compound assignment '{op}' on an unknown field '{field}' is unavailable in the current phase"
+                ),
+            );
+        };
+        if !matches!(repr, kali_common::Repr::I64)
+            || !self.repr_table.shape_field_is_proven_numeric(shape, field)
+        {
+            return fail_closed(
+                self,
+                function,
+                format!(
+                    "bitwise compound assignment '{op}' on a non-integer object field '{field}' is unavailable in the current phase"
+                ),
+            );
+        }
+        // Target-axis BigInt guard (point 3 of the doc above): whole-program
+        // proof, keyed on `(shape, field)`, that no contributing value was a
+        // raw BigInt literal.
+        if self
+            .shape_field_bigint_targets
+            .contains(&(shape, field.to_string()))
+        {
+            return fail_closed(
+                self,
+                function,
+                format!(
+                    "bitwise compound assignment '{op}' on object field '{field}' is unavailable in the current phase (a BigInt value was observed for this field elsewhere in the program)"
+                ),
+            );
+        }
+        if self.is_float_valued(rhs) || !self.bitwise_compound_rhs_is_provably_i64(rhs) {
+            return fail_closed(
+                self,
+                function,
+                format!(
+                    "bitwise compound assignment '{op}' with a non-integer right-hand side on object field '{field}' is unavailable in the current phase"
+                ),
+            );
+        }
+
+        let scratch = self.locals.len() as u32;
+        let produced = self.emit_node(function, base_id, true);
+        if !produced.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
+        function.instruction(&Instruction::LocalTee(scratch));
+        function.instruction(&Instruction::I32WrapI64);
+        let memarg = MemArg {
+            offset: (index * 8) as u64,
+            align: 3,
+            memory_index: 0,
+        };
+        // RMW: current field value combined with the RHS via the shared
+        // int32 bitwise combiner (Task 1), stored back, then reloaded as the
+        // assignment expression's result — mirrors every other R-11 target
+        // arm's RMW shape.
+        function.instruction(&Instruction::LocalGet(scratch));
+        function.instruction(&Instruction::I32WrapI64);
+        function.instruction(&Instruction::I64Load(memarg));
+        function.instruction(&Instruction::I32WrapI64);
+        self.emit_float_operand(function, rhs, false);
+        function.instruction(&Instruction::I32WrapI64);
+        self.emit_bitwise_i32_op_extend(function, op);
+        function.instruction(&Instruction::I64Store(memarg));
+        function.instruction(&Instruction::LocalGet(scratch));
+        function.instruction(&Instruction::I32WrapI64);
+        function.instruction(&Instruction::I64Load(memarg));
+        EmittedValue {
+            produced: true,
+            shape: ValueShape::Scalar,
+        }
+    }
+
     /// `<base>.field` read on a shaped base: typed load at the field's static
     /// offset. Unknown fields are gated, never miscompiled.
     pub(crate) fn emit_object_field_read(

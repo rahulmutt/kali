@@ -24,6 +24,45 @@ pub(crate) enum ValueShape {
     Float,
 }
 
+/// R-11 T4 review round 4: the SINGLE resolution `emit_value`'s bare-
+/// identifier arm (`emit/control_flow.rs`'s `resolve_identifier_kind`, which
+/// owns this enum's full ordering doc) reaches for a name — the shared
+/// classifier both that function's dispatch and the bitwise compound-assign
+/// captured-cell shadow guard (`emit/closure_access.rs`) `match`
+/// EXHAUSTIVELY, so the two cannot independently drift. See
+/// `resolve_identifier_kind`'s doc for the full arm-by-arm mapping and why
+/// this replaces three prior rounds of hand-mirrored denylists.
+#[derive(Clone, Debug)]
+pub(crate) enum IdentifierResolution {
+    EventTargetHandle,
+    AbortHandleDenied,
+    ModuleScopeAbortHandle,
+    UrlHandleDenied,
+    BytesHandleDenied,
+    EventMarker,
+    ModuleScopeOrCapturedEventMarker,
+    ModuleScopeUrlHandle,
+    CapturedUrlHandle,
+    /// `(data-segment table base, ordinal local index)`.
+    ForInKeyStringHandle(u32, u32),
+    /// `(WASM global index, repr)`.
+    ModuleGlobal(u32, kali_common::Repr),
+    /// WASM local index.
+    Local(u32),
+    /// Compile-time bound alias node.
+    Binding(LirNodeId),
+    /// Module `const` compile-time-pure initializer node.
+    ModuleConstPureInline(LirNodeId),
+    ModuleBindingDenied,
+    NumericLiteral(i64),
+    KeywordTrue,
+    KeywordFalsyBoolean,
+    KeywordSetOrMap,
+    /// Not resolved by any earlier lane — eligible for the captured-scalar
+    /// lane, or the terminal placeholder fallback.
+    CapturedCellOrPlaceholder,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum ObjectEnumerationMode {
     Keys,
@@ -375,6 +414,68 @@ pub(crate) struct FunctionEmitter<'a> {
     /// write to `GlobalSet`; the declarator init in `_start` stores through
     /// `GlobalSet`. See `kali_codegen::lower::collect_module_scalar_globals`.
     pub(crate) module_global_slots: &'a BTreeMap<String, (u32, kali_common::Repr)>,
+    /// R-11 T3 review Important 1: names in `module_global_slots` whose
+    /// declarator init OR some reassignment RHS is a raw BigInt literal
+    /// (optionally negated, e.g. `let n = 6n;` or `n = -3n;` reached from any
+    /// scope). `is_numeric_expr` (the promotion proof in
+    /// `collect_module_scalar_globals`/`scan_numeric_assignments`) strips the
+    /// trailing `n` before checking, so such a name is "provably numeric" and
+    /// promotes exactly like a genuine integer — a pre-existing, deferred gap
+    /// for the ten arithmetic/plain-assignment operators (BigInt truncation)
+    /// this task does not touch. The six bitwise ops' raw `I32WrapI64`
+    /// combiner cannot share that gap silently: consulted ONLY by the
+    /// bitwise compound-assign arm (`literal.rs`) to fail closed instead of
+    /// computing a wrong value from a truncated BigInt. See
+    /// `kali_codegen::lower::collect_bigint_tainted_module_scalars`.
+    pub(crate) module_global_bigint_targets: &'a HashSet<String>,
+    /// R-11 T4: whole-program BigInt-taint set for promoted SCALAR env
+    /// cells — the identical class `module_global_bigint_targets` closes for
+    /// module globals, reapplied to captured bindings. `numeric_bindings`
+    /// (the proof `binding_is_proven_numeric` reads) admits a BigInt literal
+    /// write exactly like a plain number, so it cannot by itself tell `let
+    /// flags = 6n;` from `let flags = 6;`. Consulted ONLY by the bitwise
+    /// compound-assign captured-cell arm (`closure_access.rs`'s
+    /// `try_emit_captured_assign`), keyed by NAME ONLY (not `(owner, name)`)
+    /// — see `kali_codegen::lower::collect_bigint_tainted_captured_cells`'s
+    /// doc for why that is a deliberate, conservative over-denial rather
+    /// than an under-taint.
+    pub(crate) captured_cell_bigint_targets: &'a HashSet<String>,
+    /// R-11 T4 review Important 1: whole-program FLOAT-taint set for promoted
+    /// SCALAR env cells (`collect_float_tainted_captured_cells`), the sibling
+    /// of `captured_cell_bigint_targets` on a different axis.
+    /// `crate::closure::cell_is_promotable`'s owner-scoped `scalar(owner,
+    /// name) == I64` check cannot be trusted to exclude every float write to
+    /// a captured cell: `repr_infer`'s scalar-repr union-find resolves an
+    /// off-scope write's node key via `binding_scope`, which cannot name the
+    /// true owner when the write is reached from a THIRD function (neither
+    /// the owner nor top-level module scope) — such a write is filed under a
+    /// disconnected union-find node the owner-scoped query never sees. Also
+    /// keyed by NAME ONLY, for the same reason
+    /// `captured_cell_bigint_targets` is.
+    pub(crate) captured_cell_float_targets: &'a HashSet<String>,
+    /// R-11 T6 review Important 1: whole-program FLOAT-taint set for promoted
+    /// MODULE-GLOBAL scalars (`collect_float_tainted_module_scalars`) — the
+    /// module-global twin of `captured_cell_float_targets`, and the only guard
+    /// on this lane that actually refuses a float. `is_f64` reads the promoted
+    /// slot's own repr, and `binding_is_proven_numeric` rests on
+    /// `write_value_is_numeric`, whose literal arm accepts `6.5` — a float IS
+    /// "numeric" by that proof. Without this set the lane emits an invalid
+    /// module (`E4201`) instead of a clean `E5506`. Keyed by NAME ONLY, for
+    /// the same reason its captured-cell sibling is.
+    pub(crate) module_global_float_targets: &'a HashSet<String>,
+    /// R-11 T5: whole-program BigInt-taint set for HEAP-OBJECT FIELDS, keyed
+    /// by `(ShapeId, field name)` rather than by binding name (a field's
+    /// static type is a property of the shape, not of any one binding that
+    /// happens to hold an instance of it — the same key
+    /// `shape_field_is_proven_numeric` already uses on the string axis).
+    /// `shape_field_is_proven_numeric` alone cannot tell a BigInt-literal
+    /// field (`{a: 6n}`, interned as plain `Repr::I64`) from a genuine
+    /// integer one — this is the object-field twin of
+    /// `module_global_bigint_targets` / `captured_cell_bigint_targets`.
+    /// Consulted ONLY by the bitwise compound-assign object-field arm
+    /// (`object.rs`'s `emit_object_field_bitwise_compound_assign`). See
+    /// `kali_codegen::lower::collect_bigint_tainted_shape_fields`'s doc.
+    pub(crate) shape_field_bigint_targets: &'a HashSet<(kali_common::ShapeId, String)>,
     /// This function's closure environment plan (Stage C, `derive_env_plans`):
     /// the promoted scalar/heap cells it OWNS in its own env record and the
     /// outer bindings it captures through the parent chain. Default (owns_env
@@ -434,6 +535,11 @@ impl<'a> FunctionEmitter<'a> {
         module_const_inits: &'a BTreeMap<String, LirNodeId>,
         module_binding_names: &'a BTreeSet<String>,
         module_global_slots: &'a BTreeMap<String, (u32, kali_common::Repr)>,
+        module_global_bigint_targets: &'a HashSet<String>,
+        captured_cell_bigint_targets: &'a HashSet<String>,
+        captured_cell_float_targets: &'a HashSet<String>,
+        module_global_float_targets: &'a HashSet<String>,
+        shape_field_bigint_targets: &'a HashSet<(kali_common::ShapeId, String)>,
         env_plan: kali_mir::EnvPlan,
         env_plans: &'a std::collections::BTreeMap<String, kali_mir::EnvPlan>,
     ) -> Self {
@@ -567,6 +673,11 @@ impl<'a> FunctionEmitter<'a> {
             module_const_inits,
             module_binding_names,
             module_global_slots,
+            module_global_bigint_targets,
+            captured_cell_bigint_targets,
+            captured_cell_float_targets,
+            module_global_float_targets,
+            shape_field_bigint_targets,
             env_plan,
             env_plans,
         }

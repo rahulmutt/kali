@@ -610,6 +610,59 @@ impl TypeContext {
             )
     }
 
+    /// R-11 T5: STRUCTURAL admission for a bitwise compound-assign target
+    /// that is a STATIC dot-field member on a proven fixed-shape object
+    /// (`o.a <<= 2`) — the identifier-base, non-computed twin of
+    /// `forin_key_member_target_is_uniform` just above (that one only
+    /// bypasses the COMPUTED for-in-key member form; a plain dot field never
+    /// sets `computed_index`, so it never reaches that check at all).
+    ///
+    /// Proves only: `left` is a `MemberExpression` with no computed index,
+    /// its base is a bare identifier bound to a proven object shape, and the
+    /// named field exists on that shape. Deliberately does NOT prove the
+    /// field's repr is integer (a float or string field), that the field is
+    /// free of BigInt taint, or that the RHS is a safe i64 — codegen's own
+    /// arm (`emit_object_field_bitwise_compound_assign`, `object.rs`) proves
+    /// all of that and fails closed E5506 on anything it cannot, exactly the
+    /// "structural admission only" pattern
+    /// `bitwise_compound_target_is_admitted_local_scalar`'s doc establishes
+    /// for the local/module/captured shapes.
+    ///
+    /// T5 review Critical 1: a shape carrying a field literally named
+    /// `length` is excluded ENTIRELY (not just when `length` is the
+    /// compound-assign's own target field) — a plain read `o.length`
+    /// elsewhere in the program is ambiguous with an ARRAY `.length` read at
+    /// the same 1-child dot-node shape, and `object_shape_of_node`
+    /// (`kali_codegen`) resolves that ambiguity by treating ANY `.length`
+    /// access as the array form first, never routing to the object-field
+    /// lookup — so a later `o.length` read silently returns `0` instead of
+    /// the real field value, regardless of which OTHER field this
+    /// compound-assign targets. That read bug is pre-existing and
+    /// reproduces identically via a plain `=` write (out of scope to fix
+    /// here), but this admission is what makes it newly REACHABLE for a
+    /// program that also uses a bitwise compound-assign on the same shape —
+    /// denying the whole shape here (mirrored in
+    /// `emit_object_field_bitwise_compound_assign`, `object.rs`) closes it
+    /// by construction rather than trying to prove exactly when the later
+    /// read would fire.
+    pub(crate) fn bitwise_compound_dot_field_target_is_admitted(&self, left: &Expression) -> bool {
+        let Expression::MemberExpression(member) = left else {
+            return false;
+        };
+        if member.computed_index.is_some() {
+            return false;
+        }
+        let Some(shape) = self.object_shape_of_expression(&member.object) else {
+            return false;
+        };
+        if self.repr_table.shape_field(shape, "length").is_some() {
+            return false;
+        }
+        self.repr_table
+            .shape_field(shape, &member.property)
+            .is_some()
+    }
+
     /// `Some(shape)` iff `expr` is a bare identifier whose `ReprTable` scalar
     /// is proven `Repr::Object(shape)` — used to derive the shape a
     /// `for..in`'s `right` enumerates (Spec 4a Task 2). Reuses the same
@@ -1791,6 +1844,77 @@ impl TypeContext {
                     return;
                 }
 
+                // R-11 T1.5: the six bitwise compound assignment operators
+                // (`&= |= ^= <<= >>= >>>=`) are new syntax the front end
+                // recognizes; codegen has a real lowering for exactly ONE
+                // target shape so far (R-11 T2: a bare identifier that is a
+                // mutable, scalar, `let`/`var`/parameter binding owned by the
+                // CURRENTLY-TRACKED function's own scope — see
+                // `bitwise_compound_target_is_admitted_local_scalar`). Without
+                // an explicit gate here, the generic scalar-target admit path
+                // below (and the for-in-key member-target admit path just
+                // after it) would let the op through with NO diagnostic for
+                // every OTHER shape too — resolve has no way to know these
+                // specific new variants lack a codegen lane there, since its
+                // fallthrough logic predates them. The op would then reach
+                // `kali_codegen::emit_binary`'s catch-all unimplemented-
+                // operator arm, which computes a value and DISCARDS it
+                // without ever storing to the target — silently reproducing
+                // this project's exact no-op symptom one layer deeper (parsed
+                // correctly, then silently dropped in codegen instead of
+                // silently dropped in the lexer).
+                //
+                // NARROWED, not deleted, as each shape's codegen lane lands
+                // (R-11 T2 opens local/param scalar; T3-T5 open module
+                // global, captured cell, and object field in turn): admit
+                // only the one shape T2's codegen change actually lowers and
+                // keep denying explicitly, fail closed, for every other
+                // shape (member, computed/for-in-key, closure-captured,
+                // module global, non-scalar, immutable, or a shape crossing
+                // an untracked scope) — the generic scalar admit path below
+                // was written and tested against the ten pre-existing
+                // operators only, and must not silently inherit an unaudited
+                // 11th-16th.
+                if let Some(op_text) = bitwise_compound_assign_op_text(&expr.operator) {
+                    // R-11 T5: a STATIC dot-field target on a proven fixed
+                    // shape (`o.a <<= 2`) — a MemberExpression, so it can
+                    // never satisfy `resolve_update_binding_name` (identifier
+                    // targets only) and would otherwise always fall to the
+                    // generic deny below `bitwise_compound_target_is_admitted_local_scalar`.
+                    // Structural admission ONLY (mirrors the local/module/
+                    // captured comment just below: this does not prove the
+                    // field's repr is integer, that no write ever stored a
+                    // string into it, or that the field is BigInt-free —
+                    // codegen's own arm, `emit_object_field_bitwise_compound_assign`
+                    // in `object.rs`, proves all three and fails closed
+                    // E5506 on anything it cannot). Returns immediately
+                    // (rather than falling through to the identifier-keyed
+                    // generic path below, which does not understand a
+                    // MemberExpression target and would otherwise emit a
+                    // SECOND, misleading diagnostic and still deny it) —
+                    // there is no scalar binding NAME here to invalidate or
+                    // re-check mutability for.
+                    if self.bitwise_compound_dot_field_target_is_admitted(&expr.left) {
+                        return;
+                    }
+                    if !self.bitwise_compound_target_is_admitted_local_scalar(&expr.left) {
+                        self.diagnostics.push(Diagnostic::error(
+                            e5::FEATURE_UNAVAILABLE as u32,
+                            format!(
+                                "bitwise compound assignment ('{op_text}') is recognized by the parser but has no codegen lowering yet for this target in the current phase; use the plain binary operator with a separate assignment, or the later compatibility path"
+                            ),
+                        ));
+                        return;
+                    }
+                    // Admitted: fall through to the generic scalar
+                    // compound-assign path below (same code the ten
+                    // pre-existing operators use), which calls
+                    // `invalidate_static_binding` and re-validates mutability
+                    // and scalar-ness before returning. Codegen itself still
+                    // fails closed (E5506) on an F64/String-repr target or a
+                    // float-valued RHS (`literal.rs`'s new bitwise arm).
+                }
+
                 if matches!(expr.operator, AssignmentOperator::Assign) {
                     if let Expression::MemberExpression(member) = &expr.left {
                         let dotted = Self::member_access_name(member)
@@ -2233,6 +2357,244 @@ impl TypeContext {
                 .unwrap_or(false)
     }
 
+    /// R-11 T2: the narrow admit predicate for the bitwise compound-assign
+    /// gate above. `true` only for the ONE target shape T2's codegen change
+    /// actually lowers — a bare identifier that is a mutable, scalar
+    /// `let`/`var`/parameter binding owned by the CURRENTLY-TRACKED
+    /// function's own scope (module scope's `_start` counts as "the
+    /// currently-tracked function" for top-level code). Every other shape
+    /// must return `false` so the caller keeps denying with the op-bearing
+    /// message:
+    ///
+    /// - a member/computed target (`o.a`, `a[i]`, `o[k]`) — not an
+    ///   identifier, `resolve_update_binding_name` returns `None`;
+    /// - a variable referenced from a function OTHER than the one that owns
+    ///   it — a closure body reading/writing an OUTER function's variable
+    ///   (`function outer(){ let x; function g(){ x &= 3; } }`, from inside
+    ///   `g`), or a plain free reference to a module global from inside any
+    ///   function (`let g = 6; function f(){ g &= 3; }`) — `binding_repr_function_key`
+    ///   walks past the tracked function's own scope without finding `name`
+    ///   there and returns `Some("_start")` regardless of which function
+    ///   actually owns it (mirrors codegen's locals-miss fallback), which
+    ///   disagrees with `current_function_name()` for any real function
+    ///   scope, so `is_own_scope` is `false` for BOTH sub-cases. As of R-11
+    ///   T3/T4 this bullet's two sub-cases are each admitted by a DIFFERENT,
+    ///   narrower check below (never by `is_own_scope`): the module-global
+    ///   free reference by `is_module_global` (T3), and the outer-function
+    ///   closure-captured variable by `is_captured_ancestor` (T4) — the exact
+    ///   pair `binding_declared_at_module_scope`/
+    ///   `binding_declared_at_ancestor_function_scope` were written to tell
+    ///   apart, since `binding_repr_function_key` alone cannot. **NOT
+    ///   excluded by this check alone:** a variable referenced from INSIDE
+    ///   the function that owns it, even when some OTHER nested closure also
+    ///   captures it (`function outer(){ let x = 6; const g = () => x; x &=
+    ///   3; }`, the `x &= 3` line itself, still inside `outer`) — `x` is
+    ///   structurally `outer`'s own binding, so this predicate admits it via
+    ///   `is_own_scope` directly (T2, unchanged by T3/T4). Before T4,
+    ///   codegen's env-cell promotion (Stage C: `x` is captured by `g`, so it
+    ///   is NOT a plain `self.locals` entry even inside `outer`) denied that
+    ///   shape via the generic `literal.rs` fallback a few lines below the
+    ///   local match — which is why that fallback's message was fixed
+    ///   (Important 3) to also carry the operator text, so the `"&="`-style
+    ///   needle contract holds regardless of WHICH choke point catches a
+    ///   given shape. T4's codegen change now lowers it (own-cell branch of
+    ///   `try_emit_captured_assign`) — see
+    ///   `bitwise_compound_on_owning_function_captured_variable` and
+    ///   `bitwise_compound_on_module_global_read_via_closure`.
+    /// - a for-in-key alias — structurally a plain identifier local to this
+    ///   function (would otherwise pass the two checks above), but its
+    ///   `self.locals` slot holds an ENUMERATION ORDINAL, not a JS-visible
+    ///   integer; a real bitwise op on the ordinal would silently corrupt
+    ///   the key used to index the shape's field table, so it is excluded
+    ///   explicitly rather than left to codegen to notice;
+    /// - `const`, or a non-scalar (array/object) binding — the exact
+    ///   `binding_is_mutable` / `compound_update_target_is_scalar` gate the
+    ///   ten pre-existing compound operators already use below, reused
+    ///   as-is so bitwise cannot admit a shape they would not.
+    ///
+    /// A float-repr target, a float-valued RHS, or (review Critical 1) a
+    /// STRING-valued RHS is deliberately NOT excluded here — codegen's
+    /// bitwise arm (`literal.rs`) denies all three itself via an allowlist
+    /// (target repr `== Repr::I64` AND the RHS positively proven `Repr::I64`
+    /// by `bitwise_compound_rhs_is_provably_i64`, not a "reject float/string"
+    /// denylist — an open `Repr` enum leaks through a denylist by
+    /// construction) with its own E5506 (message includes the op text,
+    /// matching this gate's contract), so the boundary pins that exercise
+    /// those rows stay green either way; duplicating the check here would
+    /// just be two gates disagreeing about the same fact. Do NOT rely on
+    /// `repr_infer.rs`'s scalar-node graph for this either: its `_ => {}` arm
+    /// for the six bitwise ops withholds a float edge (correct — a bitwise
+    /// target never floats), but withholds no comparable protection against a
+    /// STRING RHS, so codegen's own allowlist is the only thing standing
+    /// between an admitted local and a truncated string-handle miscompile.
+    ///
+    /// **Review rounds 2-3, both axes now closed at codegen (stated here so
+    /// this doc does not claim less, or more, than what is true):** codegen's
+    /// RHS check (`bitwise_compound_rhs_is_provably_i64`) requires an
+    /// EXPLICIT `ReprTable::scalar_entry` record for an identifier RHS, not
+    /// the defaulted `scalar_repr` — because `Repr::I64` is
+    /// `ReprTable::scalar`'s `#[default]`, so `scalar_repr(x) == I64` cannot
+    /// distinguish "proven" from "unrecorded." The TARGET check in
+    /// `literal.rs` (`scalar_repr(&name) == Repr::I64`) has the identical
+    /// defect but `scalar_entry` cannot close it: round 2 measured that
+    /// requiring an explicit `I64` record there denies every
+    /// currently-passing Task-2 local-scalar test, because NOTHING in this
+    /// codebase ever writes `Repr::I64` explicitly (it is the table's
+    /// default, not an omission). The available positive-evidence signal
+    /// instead is `ReprTable::numeric_bindings` /
+    /// `binding_is_proven_numeric` (`kali_common::repr`, `emit/call.rs`) — a
+    /// DIFFERENT, pre-existing allowlist `repr_infer` writes AFFIRMATIVELY
+    /// (never defaulted) for a binding whose every write is arithmetic over
+    /// numeric literals, self-reference, or a proven-scalar parameter. Round
+    /// 3 extended it to the six bitwise ops (`repr_infer.rs`'s
+    /// `visit_assignment`) and added it to the `literal.rs` target check,
+    /// closing `let o={a:"3"}; let n=o.a; n|=1;` (the R-06-R4
+    /// "string-field-sink-corruption" residual reaching this gate) along
+    /// with the other target-axis leaks. Cost: a real, deliberate
+    /// over-denial. Round 4 A/B-measured its actual extent against the
+    /// round-2 parent (`820e3dd91`) — it is NOT the single object-field case
+    /// an earlier revision of this doc named, but the whole COMPLEMENT of
+    /// `write_value_is_numeric`'s allowlist
+    /// (`crates/kali_types/src/repr_infer.rs:1010-1041`): that proof admits
+    /// only a numeric/BigInt literal, a self-reference, a PARAMETER of the
+    /// current function, and unary/binary arithmetic over those, so a target
+    /// initialized from a non-parameter identifier (another local or a
+    /// `const`), a CALL, a MEMBER read, or an INDEX read gets no positive
+    /// evidence and fails closed even when node computes the program
+    /// correctly (six such shapes measured, all previously correct except
+    /// the array-element one, which was a wrong value). The literal /
+    /// arithmetic-over-literals / self-reference / parameter core is
+    /// unaffected. Accepted under this project's "refuse rather than
+    /// miscompile" policy; tracked for the Task 6 audit as a known cost, not
+    /// a silently absorbed regression. Recovering the lost cases means
+    /// widening `write_value_is_numeric` to model member/call/local-identifier
+    /// inflow — not loosening this predicate or codegen's guard. Pinned in
+    /// `crates/kali_cli/tests/soundness_bitwise_compound.rs`.
+    pub(crate) fn bitwise_compound_target_is_admitted_local_scalar(
+        &self,
+        left: &Expression,
+    ) -> bool {
+        let Some(name) = self.resolve_update_binding_name(left) else {
+            return false;
+        };
+        let is_own_scope =
+            self.binding_repr_function_key(&name).as_deref() == Some(self.current_function_name());
+        // R-11 T3: also admit a genuine free reference to a MODULE-scope
+        // `let`/`var` scalar from inside a function body — the module-global
+        // target shape T3's codegen change (`emit_module_global_assignment`)
+        // now lowers. Deliberately NOT reusing `binding_repr_function_key`'s
+        // `Some("_start")` fallback for this: that fallback fires for TWO
+        // structurally different shapes (see its own doc above) — (a) a
+        // genuine free reference reaching true module scope, and (b) a
+        // reference to an ENCLOSING function's own local that codegen has no
+        // closure model for (`function outer(){ let x; function g(){ x &=
+        // 3; } }`, from inside `g` — still T4's unopened territory) — and it
+        // cannot tell them apart, by design (it stops at the tracked
+        // function's own top scope to mirror codegen's flat locals-miss
+        // fallback, never walking further to see what it would actually
+        // hit). `binding_declared_at_module_scope` below walks the FULL
+        // scope chain instead, so it can tell (a) from (b) directly: `name`
+        // counts as a module global only when the SCOPE THAT ACTUALLY
+        // DECLARES IT (found by walking `.parent` links all the way, not
+        // stopping at a function boundary) is the top-level `Module` scope.
+        // An enclosing function's own local is declared in THAT function's
+        // `Function` scope, never `Module`, so shape (b) is excluded by
+        // construction — only a real module global is admitted here.
+        let is_module_global = !is_own_scope && self.binding_declared_at_module_scope(&name);
+        // R-11 T4: also admit shape (b) from the doc above — a reference to
+        // an ENCLOSING function's own local, written from the CAPTURING
+        // closure (`function outer(){ let x; function g(){ x &= 3; } }`,
+        // from inside `g`) — now that Stage C's env-cell promotion lane
+        // (`FunctionEmitter::try_emit_captured_assign`) has a real bitwise
+        // lowering for it. `binding_declared_at_ancestor_function_scope`
+        // walks the SAME full scope chain `binding_declared_at_module_scope`
+        // does, so it can tell shape (b) apart from shape (a) (already
+        // admitted above) and from a genuinely unresolvable name (declaring
+        // scope not found at all, e.g. a program-level resolve error
+        // elsewhere) exactly the way that walk already does for the module
+        // case — the only difference is which scope TYPE the found
+        // declaration counts as.
+        //
+        // This is a STRUCTURAL admission only: it does not itself prove the
+        // cell is promotable, that the env-walk depth to its owner is
+        // provable, or that the owner's `numeric_bindings` proof holds —
+        // codegen's own gates (`resolve_scalar_capture_access`'s
+        // `cell_is_promotable`/`env_walk_depth_for`, and the bitwise arm's
+        // owner-keyed `binding_is_proven_numeric` /
+        // `bitwise_compound_rhs_is_provably_i64` / BigInt-taint checks) still
+        // fail closed on every shape this predicate cannot see (a multi-hop
+        // capture chain, a non-scalar cell, a BigInt-tainted target, an
+        // unproven RHS) via the SAME generic "compound assignment lowering is
+        // unavailable ... unless it is a mutable local binding" fallback that
+        // already caught this whole shape before this task — duplicating
+        // those proofs here would just be two gates disagreeing about the
+        // same fact, exactly as the doc above already argues for the
+        // float/string RHS axis.
+        let is_captured_ancestor = !is_own_scope
+            && !is_module_global
+            && self.binding_declared_at_ancestor_function_scope(&name);
+        if !is_own_scope && !is_module_global && !is_captured_ancestor {
+            return false;
+        }
+        if self.for_in_key_shape(&name).is_some() {
+            return false;
+        }
+        self.binding_is_mutable(&name) && self.compound_update_target_is_scalar(&name)
+    }
+
+    /// Walks the FULL lexical scope chain (unlike `binding_repr_function_key`,
+    /// which deliberately stops at the tracked function's own top scope to
+    /// mirror codegen's flat locals model) to find the scope that actually
+    /// declares `name`, and reports whether that scope is the top-level
+    /// `Module` scope. Used only by
+    /// `bitwise_compound_target_is_admitted_local_scalar` (R-11 T3) to
+    /// disambiguate a genuine module global from an enclosing function's own
+    /// local — both of which `binding_repr_function_key` maps to the same
+    /// `Some("_start")` answer.
+    fn binding_declared_at_module_scope(&self, name: &str) -> bool {
+        let mut current = self.current_scope_id();
+        while let Some(scope_id) = current {
+            let Some(scope) = self.scopes.get(&scope_id) else {
+                return false;
+            };
+            if scope.contains(name) {
+                return scope.scope_type == ScopeType::Module;
+            }
+            current = scope.parent;
+        }
+        false
+    }
+
+    /// R-11 T4: the sibling of `binding_declared_at_module_scope` above —
+    /// same FULL scope-chain walk (never stopping at a function boundary,
+    /// unlike `binding_repr_function_key`), but reporting whether the scope
+    /// that actually declares `name` is anything OTHER than the top-level
+    /// `Module` scope. Called only after the caller has already established
+    /// `!is_own_scope && !is_module_global`, so a `true` here means `name`'s
+    /// declaring scope is some ANCESTOR function's own `Function` scope (or a
+    /// block nested inside one) reached by walking OUT of the current,
+    /// possibly deeply-nested, function — i.e. a genuine lexical capture,
+    /// exactly the shape Stage C's env-cell promotion exists for.
+    ///
+    /// This does not by itself prove the capture is PROMOTABLE, that its
+    /// env-walk depth to the owner is provable, or that the owner's
+    /// `numeric_bindings` proof holds for it — see the call site's own doc on
+    /// why leaving those to codegen's independent gates is intentional, not
+    /// an oversight.
+    fn binding_declared_at_ancestor_function_scope(&self, name: &str) -> bool {
+        let mut current = self.current_scope_id();
+        while let Some(scope_id) = current {
+            let Some(scope) = self.scopes.get(&scope_id) else {
+                return false;
+            };
+            if scope.contains(name) {
+                return scope.scope_type != ScopeType::Module;
+            }
+            current = scope.parent;
+        }
+        false
+    }
+
     pub(crate) fn resolve_import_expression(&mut self, expr: &ImportExpression) {
         self.resolve_static_string_fold_position(&expr.source);
 
@@ -2520,6 +2882,45 @@ impl TypeContext {
         }
 
         Ok(true)
+    }
+}
+
+/// R-11 T1.5: `Some(<op text>)` for the six new bitwise compound assignment
+/// operators, `None` for everything else (including the pre-existing ten
+/// `AssignmentOperator` variants). Used solely to drive the temporary
+/// fail-closed gate in `resolve_expression`'s `AssignmentExpression` arm
+/// above, ahead of Task 2 landing the real codegen lowering.
+///
+/// Review finding (Important 1): this match is deliberately EXHAUSTIVE with
+/// no `_` wildcard, listing every `AssignmentOperator` variant one-by-one —
+/// including explicit `None` arms for the ten pre-existing, non-bitwise
+/// operators. A wildcard `_ => None` here would reintroduce the exact
+/// silent-admit mechanism report §9/§4 blames for making this gate
+/// necessary in the first place: a future 7th `AssignmentOperator` variant
+/// would silently fall through to `None`, sail past this gate unflagged,
+/// and land in the generic scalar admit path with zero compiler signal.
+/// Written exhaustively, growing the enum again makes THIS function (the
+/// choke point) a compile error, forcing a conscious decision instead of a
+/// silent default — the same allowlist-at-the-choke-point discipline this
+/// codebase uses everywhere else a new variant must be triaged.
+fn bitwise_compound_assign_op_text(op: &AssignmentOperator) -> Option<&'static str> {
+    match op {
+        AssignmentOperator::BitAndAssign => Some("&="),
+        AssignmentOperator::BitOrAssign => Some("|="),
+        AssignmentOperator::BitXorAssign => Some("^="),
+        AssignmentOperator::LeftShiftAssign => Some("<<="),
+        AssignmentOperator::RightShiftAssign => Some(">>="),
+        AssignmentOperator::UnsignedRightShiftAssign => Some(">>>="),
+        AssignmentOperator::Assign => None,
+        AssignmentOperator::AddAssign => None,
+        AssignmentOperator::SubtractAssign => None,
+        AssignmentOperator::MultiplyAssign => None,
+        AssignmentOperator::DivideAssign => None,
+        AssignmentOperator::ModuloAssign => None,
+        AssignmentOperator::ExponentAssign => None,
+        AssignmentOperator::NullishAssign => None,
+        AssignmentOperator::AndAssign => None,
+        AssignmentOperator::OrAssign => None,
     }
 }
 

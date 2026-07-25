@@ -235,6 +235,12 @@ pub enum AssignmentOperator {
     NullishAssign,
     AndAssign,
     OrAssign,
+    BitAndAssign,
+    BitOrAssign,
+    BitXorAssign,
+    LeftShiftAssign,
+    RightShiftAssign,
+    UnsignedRightShiftAssign,
 }
 
 /// Logical expression

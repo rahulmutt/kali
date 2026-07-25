@@ -47,6 +47,99 @@ impl<'a> FunctionEmitter<'a> {
         self.resolve_capture_access_inner(name, true)
     }
 
+    /// R-11 T4: the plan-key (`ReprTable`/`numeric_bindings` namespace) that
+    /// LEXICALLY DECLARES `name` — the OWNER of the scalar env cell
+    /// `resolve_scalar_capture_access` already validated for `name`, not
+    /// `self.function_name` (the function CURRENTLY EMITTING the write, which
+    /// for a capture read/written from a nested closure is the CAPTURER, a
+    /// different function). `repr_infer` files the `numeric_bindings` proof
+    /// under the binding's own declaring scope
+    /// (`record_numeric_binding_write`'s `binding_scope`), so a caller that
+    /// wants the OWNER's proof — not the capturer's, and not the module's —
+    /// must resolve this key explicitly rather than reuse
+    /// `FunctionEmitter::binding_is_proven_numeric`'s `self.function_name`/
+    /// `_start` heuristic, which is tuned for the local/module shapes and
+    /// does not fit a captured write.
+    ///
+    /// Mirrors `resolve_capture_access_inner`'s own two branches without
+    /// re-deriving them: an OWN cell's owner is this function itself; an
+    /// outer capture's owner is `CapturedRef::owner` (the ancestor whose env
+    /// record actually holds the cell — see that struct's own doc on why the
+    /// OWNER's namespace, not the capturer's, is authoritative). Callers must
+    /// only invoke this after `resolve_scalar_capture_access(name)` already
+    /// returned `Some` for the same `name` — it does not re-verify
+    /// promotability itself, only reads the same underlying plan data.
+    fn scalar_capture_owner(&self, name: &str) -> Option<String> {
+        if self.env_plan.cell_for(name).is_some() {
+            return Some(self.function_name.clone());
+        }
+        self.env_plan
+            .captured_for(name)
+            .map(|reference| reference.owner.clone())
+    }
+
+    /// R-11 T4 review round 4: the shadow guard, now backed by the SHARED
+    /// classifier instead of a second, hand-mirrored copy of
+    /// `emit_identifier`'s resolution order.
+    ///
+    /// Rounds 1-3 each independently re-derived that order: round 1/2
+    /// widened a denylist of specific module-binding tables; round 3
+    /// replaced that with a hand-mirrored `!(A || B || … )` of every
+    /// predicate `emit_identifier` calls. The round-3 review PROVED that
+    /// mirror could still drift: it added ONE arm to `emit_identifier`
+    /// (`"Reflect"` alongside `"Set"`/`"Map"`), left the round-3 guard
+    /// untouched, rebuilt, and reproduced the identical silent-wrong-value
+    /// failure mode as rounds 1 and 2 — the sixth such incident
+    /// project-wide, and it took only one added arm to show it, disproving
+    /// the round-3 doc's claim that an unmirrored arm could only over-deny.
+    ///
+    /// This round deletes the second copy entirely.
+    /// `control_flow.rs::resolve_identifier_kind` is now the ONLY place
+    /// `emit_identifier`'s resolution order is written, returning an
+    /// [`IdentifierResolution`]; `emit_identifier` dispatches on it with an
+    /// EXHAUSTIVE `match` (no `_` arm), and this guard asks the identical
+    /// question the classifier already answers: "does anything ahead of the
+    /// captured-cell lane claim this name?" A future arm added to
+    /// `emit_identifier` MUST add a new `IdentifierResolution` variant (the
+    /// exhaustive `match` there is a compile error otherwise) — and this
+    /// guard, unaware of that variant by name, does not match it either, so
+    /// it correctly denies rather than silently admitting. Divergence is now
+    /// impossible by construction, not by discipline: there is exactly one
+    /// resolution order, not two.
+    ///
+    /// `"Infinity"` / `"NaN"` remain a SEPARATE, explicit, DOCUMENTED
+    /// carve-out — NOT part of `IdentifierResolution` at all, because their
+    /// real interception mechanism is NOT `emit_identifier`'s resolution
+    /// order. They are resolved by `resolve_static_object_identity_value`
+    /// (`intrinsics/object.rs`), a wholly separate static-fold consumer used
+    /// by `console.log` and others, which ALREADY treats ANY binding named
+    /// `Infinity`/`NaN` (not just a captured one — a measured, PRE-EXISTING,
+    /// out-of-scope bug: a bare `let Infinity = 12; console.log(Infinity);`,
+    /// zero closures involved, already fails `E4201` on the pre-R-11 parent)
+    /// as the JS global unconditionally. Denying the BITWISE WRITE for these
+    /// two names does not fix that general bug (a plain local named
+    /// `Infinity` is still broken either way) — it only prevents THIS task's
+    /// new captured-cell admission from turning that pre-existing breakage
+    /// into a silent WRONG VALUE at exit 0 instead of its pre-existing
+    /// `E4201`. Folding this into the classifier would be DISHONEST — it
+    /// would claim `resolve_identifier_kind` is a complete mirror of
+    /// `emit_identifier` when it is not (that function has no
+    /// `Infinity`/`NaN` arm at all) — so it stays a separate, visible `if`
+    /// here instead.
+    ///
+    /// Returns `true` when `name` is proven interception-free — i.e. it is
+    /// safe to route the bitwise write through the captured-cell lane. The
+    /// caller denies whenever this returns `false`.
+    pub(crate) fn identifier_read_resolves_only_through_captured_cell(&self, name: &str) -> bool {
+        if matches!(name, "Infinity" | "NaN") {
+            return false;
+        }
+        matches!(
+            self.resolve_identifier_kind(name),
+            IdentifierResolution::CapturedCellOrPlaceholder
+        )
+    }
+
     /// Env-walk depth (number of `parent_env` links to follow from
     /// `current_env`) for a capture whose MIR `depth` is `mir_depth` env-owning
     /// hops to the owner. `None` when this task cannot PROVE the record chain is
@@ -169,7 +262,10 @@ impl<'a> FunctionEmitter<'a> {
         name: &str,
         right: LirNodeId,
     ) -> Option<bool> {
-        if !matches!(op, "=" | "+=" | "-=" | "*=" | "/=" | "%=") {
+        if !matches!(
+            op,
+            "=" | "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^=" | "<<=" | ">>=" | ">>>="
+        ) {
             return None;
         }
         // Scalar-only: a captured OBJECT cell (C2) keeps its baseline write path
@@ -202,6 +298,117 @@ impl<'a> FunctionEmitter<'a> {
                     // `emit_module_global_assignment` (`literal.rs`).
                     _ => unreachable!("compound op set fixed by the arm guard"),
                 };
+                crate::closure::emit_cell_store(function, env_global, depth, offset, scratch);
+            }
+            "&=" | "|=" | "^=" | "<<=" | ">>=" | ">>>=" => {
+                // R-11 T4: bitwise compound on a captured scalar env cell —
+                // the sibling shape to the local (`literal.rs`'s
+                // `emit_local_compound_assignment`) and module-global
+                // (`emit_module_global_assignment`) bitwise arms, over a
+                // THIRD storage location (the env cell this function either
+                // owns or reaches through the parent chain).
+                //
+                // TARGET axis — the identical "default is not a proof" trap
+                // those two arms already closed applies here with an extra
+                // twist: `FunctionEmitter::binding_is_proven_numeric` (the
+                // helper those two arms call directly) has its OWN
+                // `self.function_name`/`_start` heuristic baked in, tuned for
+                // "this name is either a local of the CURRENTLY EMITTING
+                // function or a module global" — neither holds for a captured
+                // write, where `self.function_name` is the CAPTURING
+                // function (e.g. `set`), not the LEXICALLY DECLARING one
+                // (e.g. `outer`) `repr_infer` files the proof under
+                // (`record_numeric_binding_write`'s `binding_scope`). Calling
+                // that helper as-is would consult `_start`'s namespace (or
+                // this function's own), find no entry, and — because
+                // `numeric_bindings` membership is a HashSet lookup with no
+                // default — correctly return `false` for every genuinely
+                // admissible case too, denying 100% of this shape rather than
+                // leaking. That is a safe failure mode, but not the right
+                // one: `scalar_capture_owner` resolves the OWNER's plan key
+                // (the same key `resolve_scalar_capture_access` already
+                // proved this cell is promoted under) and the OWNER's
+                // `ReprTable::numeric_bindings` entry is consulted directly,
+                // bypassing the mismatched heuristic entirely.
+                //
+                // RHS axis — reused verbatim, unchanged from the local/module
+                // arms: `bitwise_compound_rhs_is_provably_i64` already
+                // refuses a float, a string, a BigInt literal, and every
+                // identifier (positive evidence only).
+                //
+                // BigInt target axis — `numeric_bindings` admits a BigInt
+                // literal write exactly like a plain number
+                // (`write_value_is_numeric`'s `BigIntLiteral` arm), so
+                // `binding_is_proven_numeric` alone cannot tell `let flags =
+                // 6n;` from `let flags = 6;` — the identical gap Task 3 found
+                // for module globals and closed with a separate, additive
+                // whole-program BigInt-taint scan
+                // (`module_global_bigint_targets`). `captured_cell_bigint_targets`
+                // is that same scan (`collect_bigint_tainted_captured_cells`,
+                // `lower.rs`) reapplied to promoted scalar cell names —
+                // required here because, unlike the local lane (a known,
+                // deferred, pre-existing gap this task does not touch), this
+                // whole shape is NEW: before this task every bitwise op on a
+                // captured cell refused uniformly (resolve denied it
+                // entirely), so silently truncating a BigInt now would be a
+                // fresh regression, not an inherited one.
+                //
+                // FLOAT target axis — T4 review Important 1.
+                // `self.repr_table.scalar(&owner, name) != Repr::I64` (never
+                // `self.scalar_repr`, which is `self.function_name`-scoped —
+                // the CAPTURING function, not the owner, the identical
+                // capturer/owner mismatch the target-axis paragraph above
+                // already closed for `binding_is_proven_numeric`) mirrors the
+                // local/module arms' own additional check
+                // (`literal.rs`'s local arm, `:1196`) and is harmless to keep,
+                // but by ITSELF it is not sufficient here: it queries the
+                // exact same `(owner, name)` key
+                // `crate::closure::cell_is_promotable` already required to be
+                // `I64` before this cell was ever promoted in the first
+                // place, so it is redundant for every case promotion already
+                // saw — and blind to exactly the same case promotion was
+                // blind to. That blind spot is real: `repr_infer`'s
+                // scalar-repr union-find resolves an off-scope write's node
+                // key via `binding_scope`, which cannot name the true OWNER
+                // when the write is reached from a THIRD function (neither
+                // the owner nor top-level module scope) — e.g. a SIBLING
+                // closure of the one performing the bitwise op, both nested
+                // inside the true owner. Such a write is filed under a
+                // DIFFERENT, disconnected union-find node
+                // `scalar(&owner, name)` never sees (measured: `function
+                // o(){ let n=6; function w(){ n=6.5; } function s(){ n&=3; }
+                // w(); s(); ... }` — `w`'s float write reaches neither this
+                // check nor `cell_is_promotable`, so the cell promotes and
+                // this check passes, and the raw `I32WrapI64` combiner then
+                // emits WASM the validator rejects outright, `E4201`, which
+                // the plan's Global Constraints forbid). Closed instead by
+                // `captured_cell_bigint_targets`'s sibling,
+                // `captured_cell_float_targets`
+                // (`collect_float_tainted_captured_cells`, `lower.rs`): an
+                // ADDITIVE, whole-program, NAME-keyed scan that does not
+                // depend on `binding_scope` naming the right owner at all —
+                // it walks every declarator/reassignment directly.
+                let owner = self.scalar_capture_owner(name)?;
+                if self.repr_table.scalar(&owner, name) != kali_common::Repr::I64
+                    || !self.repr_table.binding_is_proven_numeric(&owner, name)
+                    || self.captured_cell_bigint_targets.contains(name)
+                    || self.captured_cell_float_targets.contains(name)
+                    || !self.bitwise_compound_rhs_is_provably_i64(right)
+                {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        format!(
+                            "bitwise compound assignment '{op}' on a captured binding '{name}' is unavailable in the current phase"
+                        ),
+                    ));
+                    function.instruction(&Instruction::I64Const(0));
+                    return Some(true);
+                }
+                crate::closure::emit_cell_load(function, env_global, depth, offset);
+                function.instruction(&Instruction::I32WrapI64);
+                self.emit_float_operand(function, right, false);
+                function.instruction(&Instruction::I32WrapI64);
+                self.emit_bitwise_i32_op_extend(function, op);
                 crate::closure::emit_cell_store(function, env_global, depth, offset, scratch);
             }
             // Unreachable: the outer `matches!` guard already returned for any

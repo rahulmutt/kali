@@ -45,6 +45,29 @@ fn repr_table_defaults_int_and_records_float() {
 }
 
 #[test]
+fn repr_table_scalar_entry_distinguishes_unrecorded_from_explicit() {
+    // R-11 T2 review round 2/3: `scalar` alone cannot tell "no entry, reads
+    // back as the I64 default" from "an entry was recorded, and it happens
+    // to be I64" — because NOTHING in this codebase ever records `Repr::I64`
+    // explicitly (it is `Repr`'s `#[default]`). `scalar_entry` is the
+    // `Option`-returning accessor that answers the honest, narrower
+    // question. This pins that it applies no default of its own and does
+    // not disturb `scalar`'s existing default behavior.
+    let mut t = ReprTable::default();
+    // Unrecorded: `scalar` defaults to I64, but `scalar_entry` must say so
+    // honestly (`None`), not agree with the default.
+    assert_eq!(t.scalar("f", "x"), Repr::I64);
+    assert_eq!(t.scalar_entry("f", "x"), None);
+    // An explicit non-I64 entry is visible through both accessors.
+    t.set_scalar("f", "x", Repr::String);
+    assert_eq!(t.scalar("f", "x"), Repr::String);
+    assert_eq!(t.scalar_entry("f", "x"), Some(Repr::String));
+    // A different (func, binding) key remains unrecorded.
+    assert_eq!(t.scalar_entry("f", "y"), None);
+    assert_eq!(t.scalar_entry("g", "x"), None);
+}
+
+#[test]
 fn repr_table_tracks_array_bindings() {
     let mut t = ReprTable::default();
     // Unset bindings default to false.
