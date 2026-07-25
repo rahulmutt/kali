@@ -785,71 +785,64 @@ impl<'a> FunctionEmitter<'a> {
         // slot (JS lexical scoping), so this yields to the local lookup below.
         // (In `_start` a promoted name is never a local, so this still fires.)
         if !self.locals.contains_key(&name) {
-            // R-11 T3 review round 2, Important 2 / R-11 T4 review Critical 1:
-            // a `let`/`var` declared inside THIS function but captured by a
-            // NESTED closure is promoted OUT of `self.locals` (Stage C — "the
-            // cell IS its storage", see the `module_global_slots` field doc in
-            // `emitter.rs`), so the `!self.locals.contains_key` check above
-            // does NOT exclude it. Without this guard, a same-named MODULE
-            // binding silently absorbs the write (or a subsequent read)
-            // meant for this function's OWN shadowing local. Originally
-            // measured only against `module_global_slots` (a same-named
-            // mutable module global — `let n=6; function f(){ let n=9; const
-            // g=()=>n; n&=3; return n+g(); } f(); console.log(n);` — reading
-            // the MODULE `n` after calling `f()` printed `1` where node
-            // prints `6`), but T4 review Critical 1 measured the identical
-            // class through a DIFFERENT module-binding storage mechanism: a
-            // module-scope `const` is never in `module_global_slots` (consts
-            // are never promoted to a WASM global — they are compile-time
-            // INLINED at each read site from `module_const_inits`, a wholly
-            // separate table `emit_identifier`, `control_flow.rs:2238`,
-            // consults BEFORE `try_emit_captured_read`, `:2298`). Denying the
-            // bitwise WRITE only when `module_global_slots` contains `name`
-            // therefore let the write to the captured cell through (correctly
-            // targeting the right storage) while a LATER read of the same
-            // name from the owning function's own body silently inlined the
-            // UNRELATED module `const` instead of loading the cell (measured:
-            // `const n=6; function f(){ let n=12; function s(){ n&=7; } s();
-            // console.log(n); } f();` printed `6` where node prints `4`, at
-            // exit 0 — a wrong value, not a diagnostic). Widened to ALSO deny
-            // whenever `name` is a module-scope `const` (`module_const_inits`)
-            // or any other top-level module binding at all
-            // (`module_binding_names` — every top-level `const`/`let`/`var`
-            // name, whether or not it was promoted; covers a module `let`/
-            // `var` that fails promotion for a reason unrelated to this
-            // shadow, e.g. a non-numeric module scalar, so this guard does not
-            // depend on `collect_module_scalar_globals`'s promotion heuristic
-            // agreeing in every case). A module-scope named `function`
-            // declaration is NOT in any of these three tables (functions are
-            // never module "bindings" in this sense) and is not part of this
-            // shadow class — measured separately, it does not intercept the
-            // captured read at all (`bitwise_compound_on_module_function_name_does_not_shadow_captured_cell`).
+            // R-11 T3 review round 2, Important 2 / R-11 T4 review Critical 1
+            // / R-11 T4 review round 3: a `let`/`var` declared inside THIS
+            // function but captured by a NESTED closure is promoted OUT of
+            // `self.locals` (Stage C — "the cell IS its storage", see the
+            // `module_global_slots` field doc in `emitter.rs`), so the
+            // `!self.locals.contains_key` check above does NOT exclude it.
+            // Without this guard, a same-named binding of ANY OTHER kind that
+            // `emit_identifier`/`emit_value` (`control_flow.rs:1987-2308`)
+            // resolves BEFORE `try_emit_captured_read` silently absorbs the
+            // write (or a subsequent read) meant for this function's OWN
+            // shadowing local.
+            //
+            // Rounds 1-2 enumerated a growing DENYLIST of the specific tables
+            // measured to leak (`module_global_slots`, then `+
+            // module_const_inits + module_binding_names`) — round 3's review
+            // measured that denylist was STILL incomplete (`Set`/`Map` text,
+            // and the whole EventTarget/AbortController/URL/TextEncoder/Event
+            // escape-choke family, none of which live in those three tables)
+            // and named this the SIXTH project-wide incident of a guard
+            // leaking to a sibling class. Rather than add a fourth (or
+            // eighth) table, the guard now calls
+            // `identifier_read_resolves_only_through_captured_cell`
+            // (`closure_access.rs`) — a single, positively-derived mirror of
+            // `emit_identifier`'s ENTIRE resolution order ahead of the
+            // captured read, kept in lockstep with that function by
+            // construction (see that helper's own doc for the full
+            // arm-by-arm justification, the deliberate `Infinity`/`NaN`
+            // carve-out, and why two arms are provably inapplicable and
+            // omitted). A module-scope named `function` declaration is
+            // PROVEN — by this same helper, and independently measured — NOT
+            // part of the shadow class (functions are never a module
+            // "binding" any of these tables track), so it stays a
+            // value-computing shape
+            // (`bitwise_compound_on_module_function_name_does_not_shadow_captured_cell`).
+            //
             // `try_emit_captured_assign` below still cannot catch this itself
             // for the bitwise ops even after T4's widening — the shadow
-            // resolution has to happen HERE, before either the const-inline
-            // or the module-global-slot lookup, so the write is refused
-            // uniformly regardless of which module-binding table would have
-            // won the read. This bug (a captured local silently losing to a
-            // same-named module const/global/binding) is PRE-EXISTING for
-            // `=`/`+=`/etc. and general reads (byte-identical wrong output on
-            // the pre-T4 parent — confirmed, out of scope, not this task's to
-            // fix) but the parent refused every bitwise op on EVERY captured
-            // cell uniformly at resolve, so silently computing through to the
+            // resolution has to happen HERE, before every other module/
+            // handle/keyword lane, so the write is refused uniformly
+            // regardless of which lane would have won the read. This bug (a
+            // captured local silently losing to a same-named binding of
+            // another kind) is PRE-EXISTING for `=`/`+=`/etc. and general
+            // reads (byte-identical wrong output on the pre-T4 parent —
+            // confirmed, out of scope, not this task's to fix) but the
+            // parent refused every bitwise op on EVERY captured cell
+            // uniformly at resolve, so silently computing through to the
             // WRONG target here is a regression T4 introduced. Scoped to the
             // six bitwise ops only — does not touch general assignment
             // dispatch or `=`/`+=`'s existing (wrong) behavior. Also gated on
-            // an ACTUAL same-named module binding existing (not just `name`
-            // being a cell/capture in isolation): a captured local with NO
-            // colliding module binding already denies correctly via the
-            // pre-existing fallback further down (Task 2's pinned
+            // `name` actually being a captured cell (own or outer) — a
+            // captured local with no colliding binding of any kind already
+            // denies correctly via the pre-existing fallback further down
+            // (Task 2's pinned
             // `bitwise_compound_fails_closed_on_owning_function_captured_variable`)
             // and that message stays accurate — this arm exists only to
-            // intercept the shadow case before it reaches any module-binding
-            // lookup.
+            // intercept the shadow case before it reaches any competing lane.
             if matches!(op, "&=" | "|=" | "^=" | "<<=" | ">>=" | ">>>=")
-                && (self.module_global_slots.contains_key(&name)
-                    || self.module_const_inits.contains_key(&name)
-                    || self.module_binding_names.contains(&name))
+                && !self.identifier_read_resolves_only_through_captured_cell(&name)
                 && (self.env_plan.cell_for(&name).is_some()
                     || self.env_plan.captured_for(&name).is_some())
             {

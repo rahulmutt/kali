@@ -871,6 +871,25 @@ fn bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell() {
     );
 }
 
+// Round 3 review Minor 2: this is a MESSAGE pin, by design, not a
+// wrong-value-prevention pin — all three rows below already failed closed
+// (exit 1, E5506) on the PARENT too, before this task's shadow guard existed
+// at all: the numeric `let`/`var` rows were always caught by the
+// pre-existing `module_global_slots`-only guard (a numeric module scalar
+// whose name recurs inside a function is ALWAYS promoted by
+// `collect_module_scalar_globals`'s name-based, scope-blind reference scan —
+// a necessary condition for a shadow to exist at all, so this sub-case never
+// depended on the widening), and the STRING `let` row was independently
+// caught by the pre-existing READ-side `module_binding_names` gate
+// (`control_flow.rs:2243`, "reading module binding ... is only available for
+// compile-time-constant `const`") even with the WRITE-side guard's original,
+// narrower `module_global_slots`-only condition — measured directly: with
+// only that original condition, the STRING row still exits 1, just via TWO
+// diagnostics (the read-gate's own, plus nothing from the write guard) rather
+// than one. So no row here demonstrates a value the fix prevented; each row
+// only confirms the CHOKE POINT that catches the shadow (this task's own
+// write-side guard, via its `identifier_read_resolves_only_through_captured_cell`
+// needle) rather than some OTHER, coincidentally-safe pre-existing gate.
 #[test]
 fn bitwise_compound_fails_closed_on_module_let_or_var_shadowing_captured_cell() {
     let needle = "shadowed by a same-named module-scope binding";
@@ -887,11 +906,10 @@ fn bitwise_compound_fails_closed_on_module_let_or_var_shadowing_captured_cell() 
         needle,
     );
     // Module `let` holding a STRING — never promoted to `module_global_slots`
-    // (only `I64`/`F64` scalars promote), so only `module_binding_names`
-    // covers it. Confirms the widening's third clause is load-bearing, not
-    // just "for completeness": the write-side shadow guard now denies this
-    // BEFORE the pre-existing (and already fail-closed) read-side
-    // `module_binding_names` gate would have. node: 4 / "hi".
+    // (only `I64`/`F64` scalars promote), so only the write-side guard's
+    // `module_binding_names`-derived coverage (now folded into
+    // `identifier_read_resolves_only_through_captured_cell`) intercepts it
+    // at the WRITE. node: 4 / "hi".
     assert_fails_closed(
         "let n = \"hi\";\nfunction f() { let n = 12; function s() { n &= 7; } s(); console.log(n); }\nf();\nconsole.log(n);\n",
         needle,
@@ -950,5 +968,128 @@ fn bitwise_compound_fails_closed_on_float_write_reaching_captured_target_from_si
     assert_fails_closed(
         "function o(){ let n=6; function w(){ n=-0.5; } function s(){ n&=3; } w(); s(); console.log(n); } o();\n",
         needle,
+    );
+}
+
+// --- Task 4 review round 3, Minor 1: `collect_float_tainted_captured_cells`
+// is keyed by NAME ONLY (globally, across the whole program — see that
+// function's own doc for why, mirroring `captured_cell_bigint_targets`'s
+// identical policy). A float LOCAL in a completely unrelated function that
+// happens to share a name with a captured int cell elsewhere disables the
+// bitwise lane for that unrelated cell too. This is fail-closed (never a
+// wrong value) and was already documented, but not previously pinned —
+// pinned here as a deliberate, accepted over-denial cost so it cannot move
+// silently. node: 2 (a real, correctly-computable value this compiler does
+// not reach because of the name collision, not because the shape itself is
+// unsupported).
+
+#[test]
+fn bitwise_compound_fails_closed_on_unrelated_float_local_sharing_a_captured_cell_name() {
+    assert_fails_closed(
+        "function q(){ let n=6.5; return n; } function o(){ let n=6; function s(){ n&=3; } s(); console.log(n); } o();\n",
+        "on a captured binding",
+    );
+}
+
+// --- Task 4 review round 3: the shadow guard is INVERTED
+// (`FunctionEmitter::identifier_read_resolves_only_through_captured_cell`,
+// `closure_access.rs`) — rather than enumerating the module-binding TABLES
+// that can intercept a same-named identifier read ahead of
+// `try_emit_captured_read`, it positively re-derives whether
+// `emit_identifier` (`control_flow.rs:1987-2308`) would resolve the name
+// through ANY earlier arm at all, calling the same predicates that function
+// calls. This test walks EVERY arm in that resolution order (not just the
+// `Set`/`Map`/`Infinity`/`NaN` names the review measured) and pins each one
+// as a same-named captured-cell shadow, so a future arm inserted ahead of
+// the captured read that this helper does NOT also cover shows up here as a
+// newly-passing VALUE assertion instead of silently staying green.
+//
+// Two arms in `emit_value`'s dispatch (`is_process_kill`,
+// `is_supported_callable_reference`) are NOT included below: both require a
+// member-expression or single-child-call node shape and structurally cannot
+// match a bare 0-children identifier at all, so there is no repro to pin.
+//
+// Every row was measured against BOTH the round-2 build (commit
+// `5e7dbb622`, before this round's choke-point inversion) and the current
+// build. The `Set`/`Map`/`Infinity`/`NaN` rows are non-vacuous — they
+// printed a WRONG VALUE at exit 0 on round 2 and now fail closed. The
+// EventTarget/AbortController/URL/URLSearchParams/TextEncoder/Event rows
+// were ALREADY fail-closed on round 2 too (via the pre-existing resolve-side
+// scalar-repr gate, or the pre-existing module-binding read gate) — included
+// here anyway as defense-in-depth against a FUTURE loosening of those
+// upstream gates, not because round 2 leaked them.
+
+#[test]
+fn bitwise_compound_fails_closed_on_every_emit_identifier_interception_arm() {
+    // `Set` / `Map` — round-2 WRONG VALUE: printed `0` at exit 0 (both).
+    // node: 4 (both).
+    assert_fails_closed(
+        "function f(){ let Set=12; function s(){ Set &= 7; } s(); console.log(Set); } f();\n",
+        "shadowed by a same-named module-scope binding",
+    );
+    assert_fails_closed(
+        "function f(){ let Map=12; function s(){ Map &= 7; } s(); console.log(Map); } f();\n",
+        "shadowed by a same-named module-scope binding",
+    );
+    // `Infinity` / `NaN` — round-2 WRONG VALUE: printed `Infinity` / `NaN`
+    // (the JS global text) at exit 0. node: 4 (both). Defensive-only: the
+    // real interception mechanism is `resolve_static_object_identity_value`
+    // (`intrinsics/object.rs`), a SEPARATE, pre-existing, out-of-scope bug
+    // that also breaks a PLAIN (non-captured) local named `Infinity`/`NaN`
+    // with zero relation to R-11 — see the fix report for the measured
+    // `let Infinity = 12; console.log(Infinity);` → `E4201` on the pre-R-11
+    // parent. This pin only proves the CAPTURED-bitwise combination no
+    // longer computes a silent wrong value; it does not claim the general
+    // bug is fixed.
+    assert_fails_closed(
+        "function f(){ let Infinity=12; function s(){ Infinity &= 7; } s(); console.log(Infinity); } f();\n",
+        "shadowed by a same-named module-scope binding",
+    );
+    assert_fails_closed(
+        "function f(){ let NaN=12; function s(){ NaN &= 7; } s(); console.log(NaN); } f();\n",
+        "shadowed by a same-named module-scope binding",
+    );
+    // `EventTarget` — already fail-closed on round 2 (a module-scope object
+    // handle is never an inlinable `const`, so the read-side module-binding
+    // gate already denied). node: 4.
+    assert_fails_closed(
+        "const t = new EventTarget(); function f(){ let t=12; function s(){ t &= 7; } s(); console.log(t); } f();\n",
+        "&=",
+    );
+    // `AbortController` — already fail-closed on round 2 at RESOLVE (an
+    // AbortHandle-repr target is not a scalar `I64`/`F64`/`String`, so
+    // `compound_update_target_is_scalar` never admits it). node: 4.
+    assert_fails_closed(
+        "const c = new AbortController(); function f(){ let c=12; function s(){ c &= 7; } s(); console.log(c); } f();\n",
+        "&=",
+    );
+    // `URL` / `URLSearchParams` — same resolve-side reasoning as
+    // AbortController. node: 4 (both).
+    assert_fails_closed(
+        "const u = new URL(\"https://a.b/\"); function f(){ let u=12; function s(){ u &= 7; } s(); console.log(u); } f();\n",
+        "&=",
+    );
+    assert_fails_closed(
+        "const p = new URLSearchParams(\"a=1\"); function f(){ let p=12; function s(){ p &= 7; } s(); console.log(p); } f();\n",
+        "&=",
+    );
+    // `TextEncoder` — same reasoning as EventTarget (module-binding read
+    // gate). node: 4.
+    assert_fails_closed(
+        "const e = new TextEncoder(); function f(){ let e=12; function s(){ e &= 7; } s(); console.log(e); } f();\n",
+        "&=",
+    );
+    // `Event` — same resolve-side reasoning as AbortController. node: 4.
+    assert_fails_closed(
+        "const ev = new Event(\"tick\"); function f(){ let ev=12; function s(){ ev &= 7; } s(); console.log(ev); } f();\n",
+        "&=",
+    );
+    // `undefined` — not a reserved word in JS but rejected by kali's own
+    // parser/lexer as a binding name before this ever reaches codegen or
+    // resolve; included to document that this arm's collision risk is
+    // already closed at a completely different layer. node: 4.
+    assert_fails_closed(
+        "function f(){ let undefined=12; function s(){ undefined &= 7; } s(); console.log(undefined); } f();\n",
+        "reserved word",
     );
 }

@@ -78,6 +78,91 @@ impl<'a> FunctionEmitter<'a> {
             .map(|reference| reference.owner.clone())
     }
 
+    /// R-11 T4 review round 3: the shadow guard, INVERTED. Rounds 1-2 each
+    /// widened a DENYLIST of module-binding tables
+    /// (`module_global_slots`, then `+ module_const_inits +
+    /// module_binding_names`) that can intercept a same-named identifier
+    /// read ahead of `try_emit_captured_read`
+    /// (`emit_identifier`/`emit_value`, `control_flow.rs:1987-2308`) — and
+    /// round 3's review measured that the denylist was STILL incomplete
+    /// (`Set`/`Map`, and the whole family of escape-choke arms for
+    /// EventTarget/AbortController/URL/TextEncoder/Event handles, none of
+    /// which are in any of those three tables). This is the SIXTH incident
+    /// project-wide of a guard keyed on one binding class leaking to a
+    /// sibling class, and the third within this task alone — so this round
+    /// does not add a fourth (or eighth) table to the list. Instead it
+    /// re-derives, in ONE place, the POSITIVE property that actually makes
+    /// the captured write safe: that `emit_identifier` would resolve `name`
+    /// through NO earlier arm than `try_emit_captured_read` itself. Every
+    /// condition below is copied from — and must be kept in lockstep with —
+    /// `emit_identifier`'s own resolution order, calling the SAME named
+    /// predicates that function calls (`self.event_target_locals.contains`,
+    /// `self.is_abort_handle`, …), so a future arm inserted ahead of the
+    /// captured read either (a) also updates this list, keeping the two in
+    /// sync by construction, or (b) is missed here and OVER-denies (fails
+    /// closed) rather than under-denies — never the silent-leak failure
+    /// mode every prior round had. Two arms structurally cannot match a
+    /// bare 0-children identifier at all (`is_process_kill`,
+    /// `is_supported_callable_reference` — both require a member-expression
+    /// or single-child call shape) and are omitted for that reason, not by
+    /// oversight; the trailing catch-all (`self.push_placeholder_fallback_diagnostic`)
+    /// is AFTER `try_emit_captured_read` and is therefore not a competing
+    /// interceptor.
+    ///
+    /// Every "admit" flag the read-side arms separately consult
+    /// (`admit_abort_handle_read`, `admit_url_handle_read`,
+    /// `admit_bytes_handle_read`) is a MOMENTARY per-emit-call flag set right
+    /// before emitting one specific receiver expression. At WRITE time (when
+    /// this runs) there is no way to know a FUTURE read site's flag state, so
+    /// those flags are deliberately IGNORED here — the underlying handle
+    /// membership alone disqualifies, regardless of whether some later read
+    /// would have been admitted. This can only over-deny, never under-deny.
+    ///
+    /// `"Infinity"` / `"NaN"` are included defensively even though their real
+    /// interception mechanism is NOT `emit_identifier` at all — they are
+    /// resolved by `resolve_static_object_identity_value`
+    /// (`intrinsics/object.rs`), a wholly separate static-fold consumer used
+    /// by `console.log` and others, which ALREADY treats ANY binding named
+    /// `Infinity`/`NaN` (not just a captured one — a measured, PRE-EXISTING,
+    /// out-of-scope bug: a bare `let Infinity = 12; console.log(Infinity);`,
+    /// zero closures involved, already fails `E4201` on the pre-R-11 parent)
+    /// as the JS global unconditionally. Denying the BITWISE WRITE for these
+    /// two names does not fix that general bug (a plain local named
+    /// `Infinity` is still broken either way) — it only prevents THIS task's
+    /// new captured-cell admission from turning that pre-existing breakage
+    /// into a silent WRONG VALUE at exit 0 instead of its pre-existing E4201
+    /// (see the fix report for the measured distinction).
+    ///
+    /// Returns `true` when `name` is proven interception-free — i.e. it is
+    /// safe to route the bitwise write through the captured-cell lane. The
+    /// caller denies whenever this returns `false`.
+    pub(crate) fn identifier_read_resolves_only_through_captured_cell(&self, name: &str) -> bool {
+        !(self.event_target_locals.contains(name)
+            || self.is_abort_handle(name)
+            || self.is_module_scope_abort_handle(name)
+            || self.is_url(name)
+            || self.is_url_search_params(name)
+            || self.is_module_scope_url_handle(name)
+            || self.is_captured_url_handle(name)
+            || self.is_bytes_handle(name)
+            || self.is_text_encoder_marker(name)
+            || self.is_text_decoder_marker(name)
+            || self.is_event_marker(name)
+            || self.is_module_scope_event_marker(name)
+            || self.is_captured_event_marker(name)
+            || self.for_in_key_handle_tables.contains_key(name)
+            || self.module_global_slots.contains_key(name)
+            || self.locals.contains_key(name)
+            || self.bindings.contains_key(name)
+            || self.module_const_inits.contains_key(name)
+            || self.module_binding_names.contains(name)
+            || parse_number_literal(name).is_some()
+            || matches!(
+                name,
+                "true" | "false" | "null" | "undefined" | "Set" | "Map" | "Infinity" | "NaN"
+            ))
+    }
+
     /// Env-walk depth (number of `parent_env` links to follow from
     /// `current_env`) for a capture whose MIR `depth` is `mir_depth` env-owning
     /// hops to the owner. `None` when this task cannot PROVE the record chain is
