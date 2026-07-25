@@ -4498,6 +4498,9 @@ fn collect_bigint_tainted_module_scalars(
                         func,
                         function_params,
                         call_args,
+                        // Declarator init: no self-reference, mirroring
+                        // `record_numeric_binding_write(.., allow_self=false)`.
+                        None,
                         0,
                     ) {
                         tainted.insert(name.to_string());
@@ -4523,6 +4526,9 @@ fn collect_bigint_tainted_module_scalars(
                             func,
                             function_params,
                             call_args,
+                            // Reassignment: self-reference allowed, mirroring
+                            // `record_numeric_binding_write(.., allow_self=true)`.
+                            Some(name),
                             0,
                         )
                     {
@@ -4652,10 +4658,9 @@ pub(crate) fn collect_bigint_tainted_captured_cells(
 /// only narrows it further when a taint is found. A field this scan cannot
 /// see at all is simply never added to the taint set.
 ///
-/// **T5 review Important 2 — coverage gap, read before touching either this
-/// scan or any of the write routes below.** This scan sees only TWO of (at
-/// least) five source-language routes that can write a value into an
-/// admitted field:
+/// **T5 review Important 2 / T6 audit — WRITE-ROUTE INVENTORY, read before
+/// touching either this scan or any of the write routes below.** These are
+/// the source-language routes that can put a value into an admitted field:
 ///   1. an object-literal declarator init — covered;
 ///   2. a static dot-field `=` write off a BARE IDENTIFIER — covered;
 ///   3. a computed-key write `o["a"] = <expr>` — NOT covered;
@@ -4665,7 +4670,23 @@ pub(crate) fn collect_bigint_tainted_captured_cells(
 ///      accessor than the `repr_table.scalar(func, name)` lookup this scan's
 ///      write-detection consults, so a parameter-based base is invisible to
 ///      it;
-///   5. a `for..of`/`for..in` element dot-field write — NOT covered.
+///   5. a `for..of`/`for..in` element dot-field write — NOT covered;
+///   6. a declarator init that is NOT an object literal — a call result
+///      (`let o = m();`), a parameter-threaded object (`m(7n)`), an alias
+///      (`let o = src;`), a ternary — **covered as of R-11 T6**, by tainting
+///      every field of the shape (`taint_shape_fields_from_object_inflow`).
+///      This was the open hole T5's "safe because the write is dropped"
+///      argument did not reach: a declarator init IS the binding's write and
+///      is never dropped;
+///   7. a WHOLE-BINDING reassignment `o = <expr>` — **covered as of R-11 T6**,
+///      through the same choke point. (The underlying object reassignment is
+///      itself a pre-existing silently-dropped write — `let o={a:6}; o={a:9};
+///      console.log(o.a)` prints `0`, no bitwise op involved — so this route
+///      buys refusal, not a correct value.)
+///
+/// Routes 1, 2, 6 and 7 all funnel through
+/// `taint_shape_fields_from_object_inflow` / the dot-field arm below; routes
+/// 3, 4 and 5 remain uncovered and are tripwired (see below).
 ///
 /// Routes 3-5 do not produce a wrong VALUE today only because each of those
 /// WRITES is itself currently silently dropped (a pre-existing gap,
@@ -4796,6 +4817,73 @@ fn resolve_object_literal_properties(
     }
 }
 
+/// R-11 T6 audit, work items 1 + "enumerate WRITE routes": the single choke
+/// point through which an OBJECT VALUE flows into a binding whose repr is
+/// `Repr::Object(shape)`.
+///
+/// The contract is an ALLOWLIST, stated positively: a field of `shape` escapes
+/// taint from this inflow ONLY when the inflow is an object literal this scan
+/// can fully parse (`ObjectLiteralPropertyScan::Clean`) AND that property's
+/// value is `expr_is_provably_not_bigint`. Every other inflow — a call result,
+/// a parameter, an alias, a ternary, an index/member read, a partially
+/// parsable literal, or a literal nested deeper than the unwrap guard allows —
+/// taints EVERY known field of the shape.
+///
+/// Before this existed, the `None` ("not an object-literal-shaped node at
+/// all") outcome added no taint, on the argument that the routes it covers
+/// have their writes dropped anyway. That argument does not hold for a
+/// DECLARATOR INIT, whose "write" is the binding's own initialisation and is
+/// most certainly not dropped — measured on `e2578aa7e`:
+///
+/// ```text
+/// function m() { return { a: 7n }; }  let o = m();  o.a &= 3;  // kali 3, node throws
+/// function m(v) { return { a: v }; }  let o = m(7n); o.a &= 3; // kali 3, node throws
+/// ```
+///
+/// Note the asymmetry this replaces: `Partial` (a per-property bail) already
+/// tainted every field, while the OUTER `None` — including the `guard > 64`
+/// depth bail, which is a bail on an inflow this scan genuinely could not
+/// read — tainted nothing. A partial-information default must fail toward
+/// MORE taint on BOTH bails, not one.
+#[allow(clippy::too_many_arguments)]
+fn taint_shape_fields_from_object_inflow(
+    nodes: &[LirNode],
+    inflow: LirNodeId,
+    shape: kali_common::ShapeId,
+    func: &str,
+    repr_table: &kali_common::ReprTable,
+    function_params: &BTreeMap<String, Vec<String>>,
+    call_args: &BTreeMap<String, Vec<(String, Vec<LirNodeId>)>>,
+    tainted: &mut HashSet<(kali_common::ShapeId, String)>,
+) {
+    match resolve_object_literal_properties(nodes, inflow) {
+        Some(ObjectLiteralPropertyScan::Clean(props)) => {
+            for (key, value_id) in props {
+                if !expr_is_provably_not_bigint(
+                    nodes,
+                    value_id,
+                    func,
+                    function_params,
+                    call_args,
+                    None,
+                    0,
+                ) {
+                    tainted.insert((shape, key));
+                }
+            }
+        }
+        // T5 review MINOR 1: an unparsable PROPERTY taints every known field
+        // of this shape, not just the one property this scan could not read.
+        // T6 work item 1: an unparsable INFLOW does the same — see the doc
+        // header.
+        Some(ObjectLiteralPropertyScan::Partial) | None => {
+            for (field_name, _) in repr_table.shape_fields(shape) {
+                tainted.insert((shape, field_name.clone()));
+            }
+        }
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn collect_bigint_tainted_shape_fields_walk(
     nodes: &[LirNode],
@@ -4843,32 +4931,16 @@ fn collect_bigint_tainted_shape_fields_walk(
             };
             if let kali_common::Repr::Object(shape) = repr_table.scalar(func, name) {
                 if let Some(&init) = declarator.children.get(1) {
-                    match resolve_object_literal_properties(nodes, init) {
-                        Some(ObjectLiteralPropertyScan::Clean(props)) => {
-                            for (key, value_id) in props {
-                                if !expr_is_provably_not_bigint(
-                                    nodes,
-                                    value_id,
-                                    func,
-                                    function_params,
-                                    call_args,
-                                    0,
-                                ) {
-                                    tainted.insert((shape, key));
-                                }
-                            }
-                        }
-                        // MINOR 1: an unparsable property taints EVERY known
-                        // field of this shape, not just the one property
-                        // this scan could not read — see
-                        // `ObjectLiteralPropertyScan::Partial`'s doc.
-                        Some(ObjectLiteralPropertyScan::Partial) => {
-                            for (field_name, _) in repr_table.shape_fields(shape) {
-                                tainted.insert((shape, field_name.clone()));
-                            }
-                        }
-                        None => {}
-                    }
+                    taint_shape_fields_from_object_inflow(
+                        nodes,
+                        init,
+                        shape,
+                        func,
+                        repr_table,
+                        function_params,
+                        call_args,
+                        tainted,
+                    );
                 }
             }
         }
@@ -4898,6 +4970,11 @@ fn collect_bigint_tainted_shape_fields_walk(
                                         func,
                                         function_params,
                                         call_args,
+                                        // `o.a = o.a + 1` reaches the member
+                                        // arm, not the bare-identifier arm, so
+                                        // there is no self-reference to admit
+                                        // here.
+                                        None,
                                         0,
                                     ) {
                                         tainted.insert((shape, field.to_string()));
@@ -4905,6 +4982,28 @@ fn collect_bigint_tainted_shape_fields_walk(
                                 }
                             }
                         }
+                    }
+                }
+            }
+
+            // R-11 T6 audit, route 7: WHOLE-BINDING reassignment
+            // (`o = <expr>`) where `o` holds a `Repr::Object(shape)`. The same
+            // inflow choke point as the declarator init above — an object
+            // arriving from anywhere this scan cannot read taints every field
+            // of the shape.
+            if lhs_node.kind == LirNodeKind::Value && lhs_node.children.is_empty() {
+                if let Some(name) = lhs_node.text.as_deref() {
+                    if let kali_common::Repr::Object(shape) = repr_table.scalar(func, name) {
+                        taint_shape_fields_from_object_inflow(
+                            nodes,
+                            node.children[1],
+                            shape,
+                            func,
+                            repr_table,
+                            function_params,
+                            call_args,
+                            tainted,
+                        );
                     }
                 }
             }
@@ -5070,6 +5169,8 @@ fn mark_non_i64_tainted_captured_scalars(
                         func,
                         function_params,
                         call_args,
+                        // Declarator init: no self-reference (see the twin).
+                        None,
                         0,
                     ) {
                         tainted.insert(name.to_string());
@@ -5095,6 +5196,8 @@ fn mark_non_i64_tainted_captured_scalars(
                             func,
                             function_params,
                             call_args,
+                            // Reassignment: self-reference allowed (see the twin).
+                            Some(name),
                             0,
                         )
                     {
@@ -5129,12 +5232,22 @@ fn mark_non_i64_tainted_captured_scalars(
 /// (an `f64::parse`, which SUCCEEDS on `"6.5"`). `expr_is_provably_not_bigint`
 /// treats a float literal exactly like a safe plain integer — correct for
 /// ITS axis (a float is not a BigInt), wrong for this one.
+///
+/// `self_target` carries `write_value_is_numeric`'s `allow_self` — see
+/// `expr_is_provably_not_bigint`'s own doc for the soundness argument, which
+/// applies verbatim on this axis (a write `n = <arith over n and provably-i64
+/// leaves>` cannot introduce float-ness that some OTHER, separately-scanned
+/// write did not already introduce). Kept in lockstep with its twin
+/// deliberately: these two predicates are hand-mirrored, and this project's
+/// standing lesson is that hand-mirrored predicates which drift are where the
+/// next fail-open lives.
 fn expr_is_provably_i64_literal_or_arith(
     nodes: &[LirNode],
     id: LirNodeId,
     func: &str,
     function_params: &BTreeMap<String, Vec<String>>,
     call_args: &BTreeMap<String, Vec<(String, Vec<LirNodeId>)>>,
+    self_target: Option<&str>,
     depth: usize,
 ) -> bool {
     if depth > 24 {
@@ -5154,6 +5267,17 @@ fn expr_is_provably_i64_literal_or_arith(
                 let Some(t) = node.text.as_deref() else {
                     return false;
                 };
+                // Self-reference (`n = n + 1`): safe, see the doc header.
+                // Checked BEFORE the literal arms on purpose — `t` is a bare
+                // `Value` node's text, which is either an IDENTIFIER or a
+                // literal, and `self_target` is a binding NAME, so a match
+                // proves `t` is the identifier. Placing this after the
+                // `ends_with('n')` BigInt-literal arm would make it dead for
+                // every binding whose name ends in `n` — including the
+                // canonical `let n = ...` of this whole feature.
+                if self_target == Some(t) {
+                    return true;
+                }
                 if t.ends_with('n') {
                     return false;
                 }
@@ -5178,6 +5302,11 @@ fn expr_is_provably_i64_literal_or_arith(
                                 caller,
                                 function_params,
                                 call_args,
+                                // The argument is evaluated in the CALLER's
+                                // scope, where `self_target`'s name denotes a
+                                // different binding — drop it rather than
+                                // carry it across the boundary.
+                                None,
                                 depth + 1,
                             )
                         })
@@ -5192,6 +5321,7 @@ fn expr_is_provably_i64_literal_or_arith(
                         func,
                         function_params,
                         call_args,
+                        self_target,
                         depth + 1,
                     )
             }
@@ -5206,6 +5336,7 @@ fn expr_is_provably_i64_literal_or_arith(
                     func,
                     function_params,
                     call_args,
+                    self_target,
                     depth + 1,
                 ) && expr_is_provably_i64_literal_or_arith(
                     nodes,
@@ -5213,6 +5344,7 @@ fn expr_is_provably_i64_literal_or_arith(
                     func,
                     function_params,
                     call_args,
+                    self_target,
                     depth + 1,
                 )
             }
@@ -5237,12 +5369,35 @@ fn expr_is_provably_i64_literal_or_arith(
 /// `undefined`/`null` — is UNSAFE (returns `false`, i.e. tainted) by
 /// default. Depth-capped (not cycle-tracked) against a pathological/mutually
 /// recursive call graph; exceeding the cap is treated as unproven (tainted).
+///
+/// **R-11 T6 audit, work item 5 — `self_target`.** This predicate claims to
+/// mirror `write_value_is_numeric` (`kali_types::repr_infer`) but had no
+/// counterpart to that function's `allow_self` arm, so a self-referential
+/// write (`n = n + 1`) tainted the binding and denied the whole lane — the
+/// commonest counter idiom there is, and a fail-CLOSED but unpinned
+/// divergence between the two "mirrors". `self_target` restores the arm with
+/// the same caller-chosen gating `write_value_is_numeric` uses: `Some(name)`
+/// on a REASSIGNMENT (`record_numeric_binding_write(.., allow_self = true)`),
+/// `None` on a declarator init (`allow_self = false`).
+///
+/// Soundness: the taint set is a UNION over every write to the binding, from
+/// every function, and the whole set is computed before any of it is
+/// consulted. A self-referential write can only propagate BigInt-ness the
+/// binding ALREADY had; for it to already have it some OTHER write must have
+/// introduced it, and that write is itself scanned — a BigInt literal there
+/// is refused by the literal arm, and any expression this closure does not
+/// recognise (a call, a member read, a non-self identifier) is refused by
+/// default. So no BigInt can enter a binding whose every write is either
+/// provably-safe or self-referential-over-provably-safe. `n = n + 1n` still
+/// taints (the `1n` leaf is refused) and `n = n / 2` still taints (`/` is not
+/// in the binary allowlist).
 fn expr_is_provably_not_bigint(
     nodes: &[LirNode],
     id: LirNodeId,
     func: &str,
     function_params: &BTreeMap<String, Vec<String>>,
     call_args: &BTreeMap<String, Vec<(String, Vec<LirNodeId>)>>,
+    self_target: Option<&str>,
     depth: usize,
 ) -> bool {
     if depth > 24 {
@@ -5262,6 +5417,17 @@ fn expr_is_provably_not_bigint(
                 let Some(t) = node.text.as_deref() else {
                     return false;
                 };
+                // Self-reference (`n = n + 1`): safe, see the doc header.
+                // Checked BEFORE the literal arms on purpose — `t` is a bare
+                // `Value` node's text, which is either an IDENTIFIER or a
+                // literal, and `self_target` is a binding NAME, so a match
+                // proves `t` is the identifier. Placing this after the
+                // `ends_with('n')` BigInt-literal arm would make it dead for
+                // every binding whose name ends in `n` — including the
+                // canonical `let n = ...` of this whole feature.
+                if self_target == Some(t) {
+                    return true;
+                }
                 // A literal-shaped bare `Value` node (mirrors
                 // `is_numeric_expr`'s own dual literal check): a raw BigInt
                 // literal is unsafe; a plain numeric literal is safe.
@@ -5295,6 +5461,10 @@ fn expr_is_provably_not_bigint(
                                 caller,
                                 function_params,
                                 call_args,
+                                // Evaluated in the CALLER's scope, where
+                                // `self_target`'s name denotes a different
+                                // binding — drop it at the boundary.
+                                None,
                                 depth + 1,
                             )
                         })
@@ -5309,6 +5479,7 @@ fn expr_is_provably_not_bigint(
                         func,
                         function_params,
                         call_args,
+                        self_target,
                         depth + 1,
                     )
             }
@@ -5323,6 +5494,7 @@ fn expr_is_provably_not_bigint(
                     func,
                     function_params,
                     call_args,
+                    self_target,
                     depth + 1,
                 ) && expr_is_provably_not_bigint(
                     nodes,
@@ -5330,6 +5502,7 @@ fn expr_is_provably_not_bigint(
                     func,
                     function_params,
                     call_args,
+                    self_target,
                     depth + 1,
                 )
             }

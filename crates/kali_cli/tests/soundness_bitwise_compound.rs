@@ -1365,3 +1365,302 @@ fn bitwise_compound_tripwire_forof_element_write_not_covered_by_bigint_taint_sca
         "for-of",
     );
 }
+
+// =====================================================================
+// --- Task 6: the default-deny audit ---
+//
+// Task 6 is not a feature task. Its job is the standing R-11 invariant:
+// for EVERY assignment target and EVERY one of the six operators, kali
+// either computes node's value or fails closed with `E5506` at a nonzero
+// exit — never the unmodified operand at exit 0 (the R-11 signature
+// failure), and never an internal `E4201`.
+//
+// The audit corpus itself (37 target kinds x 6 ops = 222 cells, plus 1212
+// float/string/BigInt laundering routes and 85 read routes) lives in the
+// task report; what is pinned HERE is every row the audit MOVED and every
+// invariant a future change could break silently.
+// =====================================================================
+
+#[test]
+fn bitwise_compound_on_unsupported_targets_fails_closed() {
+    // Array element on a const-literal array (R-06-R3 / R-12 lane): `+=` is
+    // not a sound lowering here, so bitwise must fail closed — never a
+    // silent no-op.
+    //
+    // Needle note: the brief's draft used `"unavailable"`, the wording every
+    // per-LANE arm's own message uses. Both rows here are denied EARLIER, by
+    // the Task 1.5 resolve gate's generic default-deny, whose wording is
+    // different — so the needle pins the arm that actually fires. Getting
+    // this wrong would have made the pin pass on an unrelated diagnostic,
+    // which is the failure mode `assert_fails_closed`'s needle exists to
+    // prevent.
+    assert_fails_closed(
+        "const a = [6]; a[0] <<= 2; console.log(a[0]);\n",
+        "no codegen lowering yet",
+    );
+    // Computed variable key (R-13 lane).
+    assert_fails_closed(
+        "const o = { a: 6 }; const k = \"a\"; o[k] <<= 2; console.log(o[k]);\n",
+        "no codegen lowering yet",
+    );
+}
+
+#[test]
+fn bitwise_compound_never_returns_unmodified_operand() {
+    // The R-11 signature failure: exit 0 with the operand unchanged. For
+    // every target this must be impossible — either the value changed
+    // (lowered) or the program failed closed (nonzero exit). These two
+    // scalar shapes MUST lower, and the asserted value is one the
+    // unmodified operand can never be.
+    assert_stdout("let n = 6; n &= 0; console.log(n);\n", "0\n"); // 0, not 6
+    assert_stdout("let n = 6; n ^= 6; console.log(n);\n", "0\n"); // 0, not 6
+}
+
+// --- Task 6 work item 1: BigInt taint-scan write route 6 (a declarator
+// init that is NOT an object literal) and route 7 (a whole-binding
+// reassignment). Both were live silent miscompiles on `e2578aa7e`:
+// `function m() { return {a: 7n}; } let o = m(); o.a &= 3;` printed `3`
+// at exit 0 where node throws `TypeError: Cannot mix BigInt`. Closed by
+// `taint_shape_fields_from_object_inflow` (`kali_codegen::lower`), which
+// taints every field of the shape on ANY inflow it cannot fully parse as
+// an object literal. ---
+
+#[test]
+fn bitwise_compound_fails_closed_on_object_field_from_non_literal_declarator_init() {
+    // Route 6a: the object arrives from a function RETURN.
+    assert_fails_closed(
+        "function m() { return { a: 7n }; }\nlet o = m();\no.a &= 3;\nconsole.log(o.a);\n",
+        "BigInt",
+    );
+    // Route 6b: the BigInt is threaded through a PARAMETER into the literal
+    // the callee returns.
+    assert_fails_closed(
+        "function m(v) { return { a: v }; }\nlet o = m(7n);\no.a &= 3;\nconsole.log(o.a);\n",
+        "BigInt",
+    );
+}
+
+#[test]
+fn bitwise_compound_fails_closed_on_object_field_from_whole_binding_reassignment() {
+    // Route 7a: `o = { a: 7n }` — a reassignment of the whole binding, not
+    // of one field. (The underlying object reassignment is itself a
+    // PRE-EXISTING silently-dropped write — `let o={a:6}; o={a:9};
+    // console.log(o.a)` prints `0` with no bitwise op anywhere — so what
+    // this route buys is refusal, not a correct value.)
+    assert_fails_closed(
+        "let o = { a: 6 };\no = { a: 7n };\no.a &= 3;\nconsole.log(o.a);\n",
+        "BigInt",
+    );
+    // Route 7b: same, reached from a declarator with no initializer.
+    assert_fails_closed(
+        "let o;\no = { a: 7n };\no.a &= 3;\nconsole.log(o.a);\n",
+        "BigInt",
+    );
+}
+
+#[test]
+fn bitwise_compound_over_denies_object_fields_reached_by_a_non_literal_inflow() {
+    // DELIBERATE-COST PINS for the work-item-1 closure, not correctness
+    // pins — the sibling of
+    // `bitwise_compound_over_denies_write_values_outside_the_numeric_proof`
+    // on the object-field lane. The taint is keyed by SHAPE, so ANY binding
+    // of the shape reached by an inflow the scan cannot parse denies the
+    // bitwise compound assign on EVERY binding of that shape.
+    //
+    // Measured against `e2578aa7e`: this closure moved 17 rows of the 1212-row
+    // laundering corpus — 2 from a WRONG VALUE to fail-closed (the two rows
+    // pinned above) and 15 from a correct value to fail-closed (the rows this
+    // test samples). Every move is ok -> DENY; none is ok -> wrong.
+    //
+    // These rows are EXPECTED to flip back to `assert_stdout` value
+    // assertions one day. The follow-up that does it is teaching the scan to
+    // FOLLOW a non-literal inflow (a callee's returned literal, an alias's
+    // own declarator) — NOT deleting the default-deny.
+
+    // The object arrives from a call; the field value is a plain integer and
+    // node computes 2.
+    assert_fails_closed(
+        "function m() { return { a: 22 }; }\nlet o = m();\no.a &= 3;\nconsole.log(o.a);\n",
+        "BigInt",
+    );
+    // An ALIAS of a perfectly safe literal-initialised object.
+    assert_fails_closed(
+        "let src = { a: 22 };\nlet o = src;\no.a &= 3;\nconsole.log(o.a);\n",
+        "BigInt",
+    );
+    // A SECOND, unrelated binding of the same shape reached by a call: the
+    // shape-level key denies the literal-initialised `o` too. node: 2.
+    assert_fails_closed(
+        "function m() { return { a: 5 }; }\nlet q = m();\nlet o = { a: 22 };\no.a &= 3;\nconsole.log(o.a);\n",
+        "BigInt",
+    );
+}
+
+// --- Task 6 work item 5: `expr_is_provably_not_bigint` (and its float-axis
+// twin `expr_is_provably_i64_literal_or_arith`) had no self-reference arm,
+// unlike the `write_value_is_numeric` they claim to mirror, so the
+// commonest counter idiom in JS denied the whole lane. ---
+
+#[test]
+fn bitwise_compound_admits_a_self_referential_counter_write() {
+    // Module-global lane: `n = n + 1` is a self-reference. node: 3.
+    assert_stdout(
+        "let n = 6;\nfunction g() { n = n + 1; }\ng();\nfunction f() { n &= 3; }\nf();\nconsole.log(n);\n",
+        "3\n",
+    );
+    // Captured env-cell lane: same write, same result. node: 3.
+    assert_stdout(
+        "function o() {\n  let n = 6;\n  function g() { n = n + 1; }\n  function s() { n &= 3; }\n  g(); s();\n  console.log(n);\n}\no();\n",
+        "3\n",
+    );
+    // The arm must not be dead for a binding whose NAME ends in `n`: the
+    // bare-`Value` BigInt-literal check is `text.ends_with('n')`, so a
+    // self-check placed after it would never fire for `n` itself — which is
+    // the name every program in this file uses. (This is why the two rows
+    // above are the load-bearing ones; a differently-named binding would
+    // have passed either way.)
+    assert_stdout(
+        "let count = 6;\nfunction g() { count = count + 1; }\ng();\nfunction f() { count &= 3; }\nf();\nconsole.log(count);\n",
+        "3\n",
+    );
+}
+
+#[test]
+fn bitwise_compound_self_reference_arm_does_not_launder_bigint_or_float() {
+    // The self-reference arm is sound ONLY because the taint set is a union
+    // over every write: a BigInt/float introduced by any OTHER write is
+    // still caught. Each row below has a self-referential write AND a
+    // second, tainting write; each must still fail closed.
+
+    // BigInt declarator + self-referential BigInt arithmetic.
+    assert_fails_closed(
+        "let n = 6n;\nfunction g() { n = n + 1n; }\ng();\nfunction f() { n &= 3; }\nf();\nconsole.log(n);\n",
+        "&=",
+    );
+    // Plain declarator, but the self-referential expression itself carries a
+    // BigInt leaf — the leaf is refused, so the whole write is refused.
+    assert_fails_closed(
+        "let n = 6;\nfunction g() { n = n + 1n; }\ng();\nfunction f() { n &= 3; }\nf();\nconsole.log(n);\n",
+        "&=",
+    );
+    // A second, non-self write from a BigInt-holding global.
+    assert_fails_closed(
+        "let n = 6;\nlet q = 7n;\nfunction g() { n = n + 1; n = q; }\ng();\nfunction f() { n &= 3; }\nf();\nconsole.log(n);\n",
+        "&=",
+    );
+    // `/` is not in the arithmetic allowlist, so a self-referential division
+    // is still unproven. node: 3.
+    assert_fails_closed(
+        "let n = 6;\nfunction g() { n = n / 2; }\ng();\nfunction f() { n &= 3; }\nf();\nconsole.log(n);\n",
+        "&=",
+    );
+    // Float axis, captured lane: a self-referential integer write plus a
+    // float write elsewhere. node: 2.
+    assert_fails_closed(
+        "function o() {\n  let n = 6;\n  function g() { n = n + 1; }\n  function h() { n = 6.5; }\n  function s() { n &= 3; }\n  g(); h(); s();\n  console.log(n);\n}\no();\n",
+        "captured binding",
+    );
+}
+
+// --- Task 6 work item 3: KNOWN, OUT-OF-SCOPE RESIDUAL. Imported modules are
+// never analyzed, so neither the R-11 resolve gate nor any codegen guard can
+// fire inside imported code. This is the tracked pre-existing "static named
+// imports never link" bug (an imported `f(x){return x+1}` also returns 0),
+// NOT an R-11 hole — but it is the one place where an unsound bitwise
+// compound assign provably raises no diagnostic, so it is pinned rather than
+// left to be rediscovered. Confirmed still behaving this way at Task 6:
+// `lib.ts` exporting `function bad(){ let s="hi"; let n=22; n &= s; return n; }`
+// runs to exit 0 with zero diagnostics.
+//
+// There is no `assert_*` for it here because `run_source` writes a single
+// file; the measurement is recorded in the Task 6 report with its transcript.
+// If multi-file test support is ever added, this becomes a real pin. ---
+
+// --- Task 6 work item 2 / register: routes whose wrong value is entirely
+// PRE-EXISTING and reproduces with NO bitwise operator in the program.
+// Pinned as tripwires (current behavior, NOT certified correct) so that
+// fixing the underlying bug is noticed here rather than silently changing
+// an R-11 lane's output. ---
+
+#[test]
+fn bitwise_compound_tripwire_object_reassignment_write_is_dropped() {
+    // `o = { a: 22 }` after `let o = { a: 6 }` is silently dropped:
+    // `console.log(o.a)` prints `0` with NO bitwise op in the program at all
+    // (node prints 22), so the bitwise form reads that same garbage. The
+    // bitwise op is now REFUSED for this shape (route 7 above), so what is
+    // pinned here is the pre-existing plain-read miscompile that motivates
+    // the refusal.
+    assert_stdout(
+        "let o = { a: 6 };\no = { a: 22 };\nconsole.log(o.a);\n",
+        "0\n",
+    );
+}
+
+#[test]
+fn bitwise_compound_tripwire_local_scalar_bigint_target_matches_the_plain_operator() {
+    // STANDING DEFERRED ITEM ("local-lane BigInt truncation" / "BigInt
+    // through the ten pre-existing compound ops"), pinned so it cannot move
+    // silently. The local-scalar lane has no BigInt taint scan (the
+    // module-global, captured-cell and object-field lanes all do), so a
+    // BigInt-literal target is treated as a plain i64.
+    //
+    // The pre-task binary (`e416b22a1`) printed the UNMODIFIED operand `7`
+    // here — the R-11 signature failure. HEAD prints `3`, which is exactly
+    // what kali's own PLAIN operator prints for `let m = n & 3` on BOTH the
+    // pre-task binary and HEAD. node throws `TypeError: Cannot mix BigInt`
+    // for all of them. So R-11 makes the compound form agree with the plain
+    // form; it does not introduce the BigInt model's wrongness.
+    assert_stdout("let n = 7n;\nn &= 3;\nconsole.log(n);\n", "3\n");
+    assert_stdout("let n = 7n;\nlet m = n & 3;\nconsole.log(m);\n", "3\n");
+    // The truncation row from the Task 2 review, same class.
+    assert_stdout("let n = 4294967296n;\nn |= 0;\nconsole.log(n);\n", "0\n");
+    assert_stdout(
+        "let n = 4294967296n;\nlet m = n | 0;\nconsole.log(m);\n",
+        "0\n",
+    );
+}
+
+// --- Task 6 Global-Constraint audit: every remaining `E4201` reachable with a
+// bitwise compound assign in the program. The constraint is that R-11 never
+// turns a clean `E5506` into an internal invalid-module error; these rows are
+// pinned because they are `E4201`, so a future change that makes R-11 the
+// CAUSE of one would have to move a pin instead of landing silently.
+//
+// All three shapes below were measured BYTE-FOR-BYTE identical on the
+// pre-task binary `e416b22a1` — both WITH and WITHOUT the bitwise line — so
+// R-11 changes nothing about them. The root cause is the standing deferred
+// "float-into-i64-cell storage bug". Whoever fixes that bug flips these to
+// value assertions (node's values are in the comments), NOT deletes them.
+//
+// A fourth shape (a float write to a CAPTURED cell) used to E4201 on the
+// pre-task binary and is now a clean `E5506` — closed by Task 4's float taint
+// scan, and pinned by
+// `bitwise_compound_fails_closed_on_float_write_reaching_captured_target_from_sibling_function`.
+//
+// The remaining `E4201` shape (a dot-field float write off an arrow-function
+// PARAMETER) is already pinned by
+// `bitwise_compound_object_field_unmasks_preexisting_float_into_i64_cell_e4201`
+// above; these two complete the set. ---
+
+fn assert_fails_with_e4201(src: &str) {
+    let out = run_source(src);
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(!out.status.success(), "expected a failure, got: {out:?}");
+    assert!(stderr.contains("E4201"), "expected E4201, got: {stderr}");
+}
+
+#[test]
+fn bitwise_compound_module_global_float_write_hits_preexisting_e4201() {
+    // node: 2 (6.5 | 0 coerces). Pre-existing: identical output with the
+    // `n &= 3;` line deleted, and identical on `e416b22a1`.
+    assert_fails_with_e4201(
+        "let n = 6;\nfunction ww() { n = 6.5; }\nww();\nn &= 3;\nconsole.log(n);\n",
+    );
+}
+
+#[test]
+fn bitwise_compound_object_field_computed_key_float_write_hits_preexisting_e4201() {
+    // node: 2. Pre-existing: identical with the `o.a &= 3;` line deleted, and
+    // identical on `e416b22a1`.
+    assert_fails_with_e4201("let o = { a: 6 };\no[\"a\"] = 6.5;\no.a &= 3;\nconsole.log(o.a);\n");
+}
