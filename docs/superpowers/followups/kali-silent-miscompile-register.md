@@ -862,6 +862,8 @@ tier, ordering is by blast radius.
   name in a loop body is correct. The bug is specifically same-name re-declaration.
 - **Confidence**: high on behavior (7 transcripts, both scopes, 4 block forms); medium on
   mechanism.
+- **Re-measured 2026-07-25** on `fc777af54` and on the `main`-identical `e416b22a1`, in the
+  declaration-only form (`let n = 6; { let n = 7; … }` → `7`/`7`, node `7`/`6`) — see §7.10.
 
 ### R-11: Every bitwise compound assignment (`&= |= ^= <<= >>= >>>=`) is a silent no-op — **CLOSED 2026-07-25**
 
@@ -940,15 +942,22 @@ tier, ordering is by blast radius.
   `WRONG→E5506`, 12 `node-throws→E5506`, 6 `E4201→E5506`, 2 `MATCH→E5506`). No R-11 signature
   failure survives in any independently-run corpus (the 1596-row laundering corpus, the
   390-program object-inflow corpus, the 85-row read-route corpus, or the Task-7 review sweeps).
-  **The 2 `MATCH→E5506` cells are the total main-relative cost of this project, and both are
-  coincidences**, not working programs: they are `member-of-string` with `&=` and `|=`
+  **The 2 `MATCH→E5506` cells are the total main-relative cost of this project over the
+  294-cell matrix, and both are coincidences**, not working programs: they are
+  `member-of-string` with `&=` and `|=`
   (`const s="abc"; let n=s.length; n&=3;` → `main` `3`, node `3`) — the R-11 silent no-op
   matched node only because `3&3 == 3` and `3|3 == 3`. The identical target with
   `^= <<= >>= >>>=` was WRONG on `main`. Those two are also the ONLY `MATCH` cells `main` scored
   in the whole 294-cell matrix, so **`main` never once computed a bitwise compound assignment
-  correctly**. Any later claim that this project "lost working behavior" should be checked
-  against that fact first — see §7.10, where an earlier revision of this very entry made
-  exactly that error.
+  correctly**. The scope qualifier is load-bearing, not hedging: §7.10 records two *further*
+  programs outside this matrix that matched node on `main` and now return `E5506`
+  (`let a=3, b=3; let n=a*b; n |= 0;` → `9` and `let o={a:3}; let n=o.a; n |= 1;` → `3`), and
+  they are coincidence matches of the same kind (`9|0 == 9`, `3|1 == 3`). The claim to carry
+  forward is therefore the **direction** — every main-relative move is silently-wrong or
+  already-refused → fail-closed, and no measured corpus contains a program `main` genuinely got
+  right that HEAD refuses — not any single total. Any later claim that this project "lost
+  working behavior" should be checked against that fact first — see §7.10, where an earlier
+  revision of this very entry made exactly that error.
   *Note on an earlier figure*: the Task-6 report's "143" was measured over the round-1 222-cell
   corpus under a slightly narrower signature definition; over that same 37-target subset this
   re-derivation counts 149. The corpus-bound count is not the claim — the **direction** is: no
@@ -2209,6 +2218,18 @@ existing entries are NOT renumbered. Oracle: node v26.5.0.
   console.log(o.a);` → `0` (node `[ 1, 2 ]`); identical through an alias (`let b=[1,2]; o.a=b`).
   The field keeps its `Repr::I64` and the handle is lost. **≈ R-14 / the P5
   aggregate-array-provenance family in §7.9.**
+- **There is no block-scoped `let` — the inner declaration aliases the outer binding, with no
+  assignment anywhere in the program.**
+  `let n = 6;` / `{ let n = 7; console.log(n); }` / `console.log(n);` prints **`7`** then
+  **`7`**; node prints `7` then `6`. Exit 0, no diagnostic. Measured on the HEAD binary
+  (`fc777af54`) and on the `main`-identical `e416b22a1` — **identical on both**, so it is
+  pre-existing and entirely unrelated to R-11: there is not one assignment operator in the
+  repro, the inner *declaration* alone is the write. This is **R-10** re-confirmed on current
+  `main` in its most minimal form; R-10's own repro
+  (`let x = 1; { let x = 2; } console.log("r=" + x);` → node `r=1`, kali `r=2`) also still
+  reproduces verbatim on HEAD. Recorded here because R-10 is `sweep-only`-verified and this is a
+  direct re-measurement, and because the declaration-only spelling shows the defect needs no
+  mutation at all to bite: it is a binding-storage bug (**G7**), not an assignment bug.
 - **`expr_is_provably_not_bigint`'s BigInt-literal check is `text.ends_with('n')`**
   (`crates/kali_codegen/src/lower.rs`). A bare `Value` node's text is either a literal *or an
   identifier*, so any identifier ending in `n` — `n`, `len`, `min`, `fn`, `in`, `train` — is read
@@ -2257,10 +2278,17 @@ existing entries are NOT renumbered. Oracle: node v26.5.0.
   `main` where node gives `2/23/21/176/2/2`, and HEAD denies all of them.
   **Correction (2026-07-25).** An earlier revision of this bullet said "node `14`, pre-R-11
   `14`, HEAD `E5506`" and reported "**168 rows `MATCH → E5506`**". Both were baselined on a
-  **mid-branch** binary, not on `main`: the `14` comes from a mid-branch build in which the
-  bitwise lowering already existed but the float scan did not, and the 168 rows are an
-  **intra-branch, round-over-round** delta measured over a 576-program shadow corpus against
-  that same mid-branch parent. Stated against `main`, the honest count from the 294-cell matrix
+  **mid-branch** binary, not on `main`. **The baseline binary, named:** both numbers are
+  relative to **`d61821a46`** — the Task-6 review round-1 build, i.e. the parent of
+  `961726acd`, which is the commit that introduced this scan
+  (`collect_float_tainted_module_scalars` and the shared `collect_float_tainted_scalars`; the
+  captured-cell half, `collect_float_tainted_captured_cells`, already existed at `d61821a46`).
+  So the `14` comes from a build in which the bitwise lowering existed but the module-global
+  float scan did not, and the 168 rows are an **intra-branch, round-over-round** delta
+  `d61821a46 → 961726acd`, measured by the round-2 reviewer over a 576-program shadow corpus —
+  and over that corpus **0 rows moved `ok → wrong`**, the same bound the next bullet states for
+  `write_value_is_numeric`: this over-denial is entirely refusals, never a new wrong value.
+  Stated against `main`, the honest count from the 294-cell matrix
   is **2 cells move `MATCH → E5506`** — and see the next bullet for what those two are.
   `flags = flags | 8` (the plain-operator spelling) does give `14` on `main`, which is
   presumably how the wrong value was captured.
@@ -2338,6 +2366,69 @@ existing entries are NOT renumbered. Oracle: node v26.5.0.
   bitwise admission — in particular before `write_value_is_numeric` is taught new inflow
   shapes, since that is the change most likely to admit a binding this list does not track.
 
+### Follow-up inventory — structure and coherence debt (whole-branch review, 2026-07-25)
+
+**None of these is a defect and none blocks merge.** They are the structural debt the final
+whole-branch review found after eight review rounds; the reviewer explicitly preferred one
+recorded inventory over further churn on a branch this deep. Recorded so the work is findable,
+in priority order. All line numbers are as of `fc777af54`.
+
+1. **Unify the provenance-scan family (largest, ~350 lines and one whole-program AST walk).**
+   `collect_bigint_tainted_module_scalars` (`crates/kali_codegen/src/lower.rs:4454`) and
+   `mark_non_i64_tainted_captured_scalars` (`:5198`) are line-for-line identical after comment
+   stripping — **93 normalized lines each**, differing only in the function name, the candidate
+   container type (`BTreeMap` vs `BTreeSet`, hence `contains_key` vs `contains`) and which
+   predicate they call. Their predicates are likewise identical — `expr_is_provably_not_bigint`
+   (`:5469`) and `expr_is_provably_i64_literal_or_arith` (`:5319`), **100 normalized lines
+   each**, differing only in the recursive self-call and `parse_numeric_literal_value` vs
+   `parse_number_literal` at two sites. Because i64-parseable ⇒ f64-parseable,
+   `bigint_tainted ⊆ float_tainted`, and both consumers test the two sets in a single
+   disjunction (`crates/kali_codegen/src/emit/literal.rs:1454-1455`,
+   `crates/kali_codegen/src/emit/closure_access.rs:394-395`) — so **the two BigInt scalar sets
+   can never be the sole reason a program is denied**. One predicate-parameterized walk would
+   do. **The shape-field BigInt scan at `:4726`
+   (`collect_bigint_tainted_shape_fields`) is NOT subsumed and must stay** — it keys on
+   `(shape, field)`, walks object-literal inits and dot-field writes, and has no float twin (see
+   item 4).
+2. **`unstable_provenance_names` should call the complete twin it already has.**
+   `lower.rs:2892` is a hand-written assignment-op list that omits the six bitwise operators;
+   `is_assignment_operator_text` (`:4231`, same file) is its complete twin and already contains
+   all six. **One-line fix: call that function.** Verified inert today — such programs are
+   denied twice over — but it is a denylist the language surface has just grown past. Full
+   analysis and the ordering constraint are in the DEFERRED bullet above.
+3. **A misleading diagnostic (product-side; needs a re-gate).**
+   `crates/kali_codegen/src/emit/object.rs:573` reports "*a BigInt value was observed for this
+   field elsewhere in the program*" for **every** denial from the object-inflow closure,
+   including programs that contain no BigInt at all — e.g. `const o = { a: 6 }; const p = o;
+   p.a &= 3;`. The **verdict is correct**; only the stated cause is wrong. Three tests pin the
+   substring `"BigInt"` (`crates/kali_cli/tests/soundness_bitwise_compound.rs:1488-1502`), so
+   fixing the message means updating those needles — which makes this the one item here that
+   touches product code and therefore requires a full re-gate.
+4. **Close the object-field float axis.** The object-field lane
+   (`crates/kali_codegen/src/emit/object.rs:501`) has BigInt taint but **no float taint**,
+   unlike the module-global and captured lanes. That asymmetry is the cause of both pinned
+   `E4201` tests. Recorded explicitly as a **confirmed decision, not an inherited oversight**:
+   the `E4201` pre-exists and reproduces without the bitwise line at all, but the
+   **reachability change is real** — pre-R-11 those programs got a clean `E5506` at resolve, and
+   now they reach the invalid-module path. Closing the axis means giving this lane the
+   `(shape, field)`-keyed float twin item 1 says the BigInt shape-field scan lacks.
+5. **Minor cleanups.**
+   - `ReprTable::scalar_entry` (`crates/kali_common/src/repr.rs:279`) is **dead**: public,
+     unit-tested (`crates/kali_common/src/repr_tests.rs`), discussed in five doc comments, and
+     called by **nothing** — it was superseded in Task 2 round 3 by `binding_is_proven_numeric`
+     (an explicit `scalar_entry` record denies 100% of the lane; see the "A default is not a
+     proof" lesson). Delete it, or the next reader will assume it is the target-axis proof.
+   - `object.rs:584` keeps a redundant `is_float_valued` belt that the other three arms dropped
+     once `bitwise_compound_rhs_is_provably_i64` became the positive proof.
+   - The deny trio (diagnostic + `I64Const(0)` + `return`) is copy-pasted at four sites.
+   - `closure_access.rs:391` holds the only `?` in a bitwise lane (`scalar_capture_owner(name)?`)
+     — unreachable, and it wants an `expect` naming the invariant instead of silently
+     short-circuiting if that ever changes.
+   - `object.rs:596-620` recomputes the store address **around** the RHS evaluation. That is
+     safe **only** because the RHS oracle currently admits literals alone, which cannot
+     invalidate the base. Wants a note at the site so a future widening of
+     `bitwise_compound_rhs_is_provably_i64` does not silently corrupt the reload.
+
 ### Lessons this project produced
 
 - **A default is not a proof.** `ReprTable::scalar` is `unwrap_or_default()` with default
@@ -2380,6 +2471,25 @@ existing entries are NOT renumbered. Oracle: node v26.5.0.
   round's blast-radius numbers were computed over a program space that excluded the change the
   round had just made, so the reported cost was of the *previous* build. Re-run the corpus after
   the last edit, not before it.
+- **A plan whose examples contradict its own constraints will have the examples followed — and
+  that was this branch's single largest avoidable cost.** The plan
+  (`docs/superpowers/plans/2026-07-24-r11-bitwise-compound-assign.md`) states Global Constraint
+  #2 in one line: *"Allowlist, never denylist. Admit integer targets explicitly; everything else
+  fails closed `E5506`. Never add a 'shape to skip' list."* Every one of its code sketches for
+  Tasks 2-5 is then a **denylist** — `if <is float> { reject }` at plan lines 296-299, 396, 481
+  and 555, with nothing admitted positively. The sketches won: Task 2 needed **four review
+  rounds** to convert its guard into a positive proof (`binding_is_proven_numeric` +
+  `bitwise_compound_rhs_is_provably_i64`), and Tasks 3, 4 and 5 each re-derived the *same*
+  conversion independently on their own lane, each under review pressure, each after shipping a
+  first cut built from the sketch. Prose stating a constraint does not compete with code showing
+  a shape; an implementer copies the shape. This is the **second instance of one underlying
+  issue** — the same issue as the plan's false root cause recorded in §2: *the plan was written
+  against code paths never verified to receive input, and its sample code contradicted its own
+  stated constraint*. Both are failures of the plan to be checked against anything — the first
+  against the running compiler (one token dump would have falsified it), the second against its
+  own page. **Rule: if a plan states a constraint, every code sketch in it must be an instance
+  of that constraint, or the sketch must be deleted.** A plan reviewer should diff the sketches
+  against the constraints before any task starts.
 
 ---
 
