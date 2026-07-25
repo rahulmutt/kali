@@ -927,7 +927,9 @@ tier, ordering is by blast radius.
   `captured_cell_bigint_targets`, `captured_cell_float_targets`, `shape_field_bigint_targets`);
   the RHS must be positively proven by `bitwise_compound_rhs_is_provably_i64`.
   **Headline, precisely.** Re-derived for this close on a freshly built `e416b22a1` binary
-  against the final 49-target × 6-op matrix (294 cells), oracle node v26.5.0:
+  against the final 49-target × 6-op matrix (294 cells), oracle node v26.5.0. `e416b22a1` is
+  the correct stand-in for `main` here: `62d786e74..e416b22a1` touches only two `docs/` files,
+  so the two are **code-identical**.
 
   | binary | MATCH | `E5506` | WRONG | node-throws | `E4201` | **prints the unmodified operand at exit 0** |
   |---|---|---|---|---|---|---|
@@ -938,6 +940,15 @@ tier, ordering is by blast radius.
   `WRONG→E5506`, 12 `node-throws→E5506`, 6 `E4201→E5506`, 2 `MATCH→E5506`). No R-11 signature
   failure survives in any independently-run corpus (the 1596-row laundering corpus, the
   390-program object-inflow corpus, the 85-row read-route corpus, or the Task-7 review sweeps).
+  **The 2 `MATCH→E5506` cells are the total main-relative cost of this project, and both are
+  coincidences**, not working programs: they are `member-of-string` with `&=` and `|=`
+  (`const s="abc"; let n=s.length; n&=3;` → `main` `3`, node `3`) — the R-11 silent no-op
+  matched node only because `3&3 == 3` and `3|3 == 3`. The identical target with
+  `^= <<= >>= >>>=` was WRONG on `main`. Those two are also the ONLY `MATCH` cells `main` scored
+  in the whole 294-cell matrix, so **`main` never once computed a bitwise compound assignment
+  correctly**. Any later claim that this project "lost working behavior" should be checked
+  against that fact first — see §7.10, where an earlier revision of this very entry made
+  exactly that error.
   *Note on an earlier figure*: the Task-6 report's "143" was measured over the round-1 222-cell
   corpus under a slightly narrower signature definition; over that same 37-target subset this
   re-derivation counts 149. The corpus-bound count is not the claim — the **direction** is: no
@@ -960,7 +971,15 @@ tier, ordering is by blast radius.
   computed for-in-key form); a BigInt-literal target on the **local** lane is treated as a plain
   i64 (`let n=7n; n&=3` → `3`, which is exactly what kali's own plain `n & 3` prints on every
   binary back to `e416b22a1`; node throws) — pinned by
-  `bitwise_compound_tripwire_local_scalar_bigint_target_matches_the_plain_operator`. See §7.10
+  `bitwise_compound_tripwire_local_scalar_bigint_target_matches_the_plain_operator`.
+  **The PARAMETER lane has the same divergence and is NOT covered by that pin**, nor by the
+  param-inflow pin in §7.10 (`bitwise_compound_fails_closed_on_bigint_via_parameter_argument_inflow`
+  covers a parameter flowing INTO a module-global/captured target, not a parameter used AS the
+  target): `function f(p){ p &= 3; return p; } console.log(f(7n));` → kali `3` at exit 0
+  (`main`/`e416b22a1`: `7`), node throws `TypeError: Cannot mix BigInt`. Same class and no valid
+  program is miscompiled — kali's own plain `function f(p){ return p & 3; }` also returns `3`
+  on every binary back to `e416b22a1` — so R-11 makes the compound form agree with the plain
+  form rather than introducing new wrongness; recorded here because it is un-pinned. See §7.10
   for the measured over-denial costs and their recovery routes.
 - **Pins**: `crates/kali_cli/tests/soundness_bitwise_compound.rs` — 66 tests, all green
   (`test result: ok. 66 passed; 0 failed`).
@@ -1661,7 +1680,13 @@ act on, so each cluster states plainly what would raise its confidence.
 
 ### G3 — Guards whose own diagnostic text names the unsoundness that leaks past them (high confidence as a *pattern*, inference as a shared *mechanism*)
 
-- **Members**: R-11 (bitwise compound assign bypasses the `E5506` that `+=` honors), R-12
+- **Members**: ~~R-11 (bitwise compound assign bypasses the `E5506` that `+=` honors)~~ —
+  **CLOSED 2026-07-25, and the claim is now INVERTED on the object-field lane**: `o.a &= 3`
+  lowers and computes `2` (node `2`), while its arithmetic sibling `o.a += 1` still fails
+  closed `E5506` (measured on both `main` and HEAD). The G3 *pattern* stands — that pairing
+  was real when written — but R-11 is no longer an instance of it, and the specific "bitwise
+  bypasses the `E5506` that `+=` honors" phrasing no longer describes any lane. See §2's R-11
+  close note. Remaining members: R-12
   (one alias binding bypasses the literal-array-store `E5506`), R-18 (a string *literal*
   operand bypasses the `&&`/`||` runtime-string `E5506`), R-08's `??` half (`??=` fails closed
   on the exact indistinguishability that `??` fails open on), R-03 (`forEach` absent from the
@@ -1885,7 +1910,9 @@ inventory's evidence was collected:
 4. **Aliasing (R-12).** One interposed binding turns a correctly-refused array store into a
    silent no-op. A row classified **A** (refuses) on the direct form may be **B** (silently
    wrong) on the fixture's actual aliased form, and vice versa.
-5. **The A/B boundary itself is unstable.** R-11, R-12, R-18, R-03, R-13 and R-08's `??` half
+5. **The A/B boundary itself is unstable.** R-11 (**CLOSED 2026-07-25** — see §2; its pair is
+   now inverted, `o.a &= 3` lowers while `o.a += 1` fails closed, so it no longer illustrates
+   this in the direction written), R-12, R-18, R-03, R-13 and R-08's `??` half
    each show a *pair* of near-identical shapes where one fails closed and the sibling fails
    open. The class-A/class-B distinction is therefore not a property of a *feature*; it is a
    property of the exact syntactic shape the fixture happens to use. Classifying by feature
@@ -2204,28 +2231,82 @@ existing entries are NOT renumbered. Oracle: node v26.5.0.
 
 ### Accepted costs and follow-ups (deliberate, fail-closed, pinned — recovery work, not defects)
 
-- **The float taint set is name-keyed.** `collect_float_tainted_module_scalars` /
-  `collect_float_tainted_captured_cells` key on the binding NAME over module-global slot names,
-  so an unrelated same-named local elsewhere in the program over-denies the real target
-  (`let flags=6; function other(){ let flags=6.5; return flags; } other(); function f(){
-  flags|=8; } f();` → node `14`, pre-R-11 `14`, HEAD `E5506`). Measured over a 576-program
-  shadow-axis corpus: **168 rows `MATCH → E5506`, 0 `ok → wrong`** — a corpus-bound count, so
-  the claim is the direction: every move is toward fail-closed. Recovery: re-key by
+- **The float taint set is name-keyed** — an over-denial, but **not** of correct programs.
+  `collect_float_tainted_module_scalars` / `collect_float_tainted_captured_cells` key on the
+  binding NAME over module-global slot names, so an unrelated same-named local elsewhere in the
+  program over-denies the real target. **Every number here names the binary it was measured on**
+  (see the correction note below):
+
+  ```
+  let flags = 6;
+  function other(){ let flags = 6.5; return flags; }   // unrelated, same name
+  other();
+  function f(){ flags |= 8; }
+  f();
+  console.log(flags);
+  ```
+  | binary | result |
+  |---|---|
+  | `main` / `e416b22a1` (code-identical — `62d786e74..e416b22a1` is docs-only) | **`6`** — the R-11 silent no-op |
+  | HEAD `9dcdcc3c1` | `E5506` |
+  | node v26.5.0 | `14` |
+
+  So relative to `main` this is **silently-wrong → fail-closed, i.e. an improvement**, not a
+  lost-correct program. The same holds across the whole shadow axis of the 294-cell matrix:
+  every `shadow-float-*` and `shadow-bigint-*` row (18 rows) prints the unmodified `22` on
+  `main` where node gives `2/23/21/176/2/2`, and HEAD denies all of them.
+  **Correction (2026-07-25).** An earlier revision of this bullet said "node `14`, pre-R-11
+  `14`, HEAD `E5506`" and reported "**168 rows `MATCH → E5506`**". Both were baselined on a
+  **mid-branch** binary, not on `main`: the `14` comes from a mid-branch build in which the
+  bitwise lowering already existed but the float scan did not, and the 168 rows are an
+  **intra-branch, round-over-round** delta measured over a 576-program shadow corpus against
+  that same mid-branch parent. Stated against `main`, the honest count from the 294-cell matrix
+  is **2 cells move `MATCH → E5506`** — and see the next bullet for what those two are.
+  `flags = flags | 8` (the plain-operator spelling) does give `14` on `main`, which is
+  presumably how the wrong value was captured.
+  Recovery: re-key by
   `(owner, name)` for the module-global **and** captured lanes **at once** — they share
   `collect_float_tainted_scalars`, and re-keying one alone would leave the other blind.
   **Never delete the scan**: it is the only guard that refuses a float on either lane
   (`is_f64` reads the promoted slot's repr, and `write_value_is_numeric`'s literal arm accepts
   `6.5` — a float IS "numeric" by that proof), and without it the lane emits an invalid module
-  (`E4201`).
+  (`E4201`). Deleting it to "recover" the 168 rows would recover nothing that ever worked.
 - **`write_value_is_numeric`'s allowlist is narrower than correctness needs.**
   (`crates/kali_types/src/repr_infer.rs`.) It admits only a numeric/BigInt literal, a
   self-reference, a PARAMETER of the current function, and unary/binary arithmetic over those.
   A target initialized from a non-parameter identifier (another local or a `const`), a CALL, a
-  MEMBER read, or an INDEX read therefore gets no positive evidence and is denied even where
-  node computes the program correctly — measured at **6 of 32 previously-correct programs
-  (~19%)** of the local-scalar bitwise lane, **all `ok → DENY`, none `ok → wrong`**. Recovery:
-  teach `write_value_is_numeric` member/call/local-identifier
-  inflow — **not** a loosening of the codegen guard. Pinned by
+  MEMBER read, or an INDEX read therefore gets no positive evidence and is denied.
+  **Baselines, because this number has two of them and they say opposite things:**
+  - **Relative to mid-branch commit `820e3dd91`** (the round-2 parent, where the bitwise
+    lowering existed but `binding_is_proven_numeric` was not yet in the target guard):
+    **6 of 32 programs (~19%)** of the local-scalar bitwise lane move `ok → DENY`, none
+    `ok → wrong`. This is the number the pin's own comment records, and it is an
+    **intra-branch, round-over-round** delta.
+  - **Relative to `main`** (`e416b22a1`, code-identical): of those same six pinned rows,
+    **four were ALREADY WRONG on `main`**, and the two that matched node did so **only by
+    coincidence, because the operator was a mathematical identity on that value** — so the
+    R-11 silent no-op happened to equal node's answer:
+
+    | # | program | `main` | node | HEAD |
+    |---|---|---|---|---|
+    | 1 | `let a=3; let b=3; let n=a*b; n\|=0;` | `9` | `9` | `E5506` — coincidence (`9\|0 == 9`) |
+    | 2 | `function f(){return 6;} let n=f(); n<<=2;` | `6` | `24` | `E5506` — already wrong |
+    | 3 | `let o={a:3}; let n=o.a; n\|=1;` | `3` | `3` | `E5506` — coincidence (`3\|1 == 3`) |
+    | 4 | `const c=6; let n=c; n<<=2;` | `6` | `24` | `E5506` — already wrong |
+    | 5 | `let m=6; let n=m; n<<=2;` | `6` | `24` | `E5506` — already wrong |
+    | 6 | `function f(){return 7;} let n=0; n=f(); n<<=2;` | `7` | `28` | `E5506` — already wrong |
+
+    **`main` never once computed a bitwise compound assignment correctly.** The 294-cell matrix
+    says the same thing independently: its only two pre-R-11 `MATCH` cells are
+    `member-of-string` with `&=` and `|=` (`const s="abc"; let n=s.length; n&=3;` → `3`, node
+    `3` — because `3&3 == 3` and `3|3 == 3`), and the same target with
+    `^= <<= >>= >>>=` was WRONG on `main`. So the honest main-relative figure is **2 of 294
+    cells `MATCH → E5506`, both coincidence matches**, and there is **no** program in any
+    measured corpus that `main` genuinely got right and HEAD refuses.
+
+  Recovery: teach `write_value_is_numeric` member/call/local-identifier
+  inflow — **not** a loosening of the codegen guard, and emphatically not a "recovery" of
+  behavior that never existed. Pinned by
   `bitwise_compound_over_denies_write_values_outside_the_numeric_proof`; **do not weaken that
   test** — widening the proof should make it need updating on the *admit* side, not deletion.
 - **Three object-field write routes are uncovered by the BigInt/float taint scan and are safe
@@ -2244,11 +2325,18 @@ existing entries are NOT renumbered. Oracle: node v26.5.0.
   (`shape_field(..) == Some((_, Repr::I64))` **and** `shape_field_is_proven_numeric` **and**
   `!shape_field_bigint_targets.contains(&(shape, field))`), not the `Repr::I64` default —
   `Repr::I64` is `ReprTable::scalar`'s `#[default]` and proves nothing.
-- One related latent gap, safe today: `unstable_provenance_names`
-  (`crates/kali_codegen/src/lower.rs`) does not list the six bitwise compound operators, so a
-  bitwise write does not invalidate function-value provenance. Safe **only** because the resolve
-  gate and `binding_is_proven_numeric` deny a bitwise compound on a function-valued binding
-  (verified: `let f=()=>1; f &= 1;` → `E5506`). Any widening of admission must extend that list.
+- **DEFERRED — `unstable_provenance_names` omits the six bitwise operators.**
+  `crates/kali_codegen/src/lower.rs:2892` lists `= += -= *= /= %= **= ??= &&= ||=` but not
+  `&= |= ^= <<= >>= >>>=`, so a bitwise write does not invalidate function-value provenance
+  (the guard that refuses to resolve a name through `fn_valued_locals` once a reassignment or
+  shadow could have made the recorded mapping stale). **Latent only — no live defect today**,
+  and the protection turns out to be double-barrelled: independently confirmed across 13
+  shapes, a `let`-bound function value denies the *call*, and the one spelling where provenance
+  does resolve a call (`const f = () => 7`) denies the *assignment*
+  (`let f=()=>1; f &= 1;` → `E5506` "on a non-integer binding 'f'"; same for the
+  function-scoped and called-through spellings). It must be extended **before** any widening of
+  bitwise admission — in particular before `write_value_is_numeric` is taught new inflow
+  shapes, since that is the change most likely to admit a binding this list does not track.
 
 ### Lessons this project produced
 
@@ -2268,12 +2356,26 @@ existing entries are NOT renumbered. Oracle: node v26.5.0.
   both consumers `match` it exhaustively with no `_` arm, and a new resolution arm is a compile
   error until handled at both sites. Divergence is prevented by the type system, not by
   discipline.
-- **State the direction, not the count, unless the axis is proven exhaustive.** Three audit
-  rounds each replaced a corpus-bound count with a stronger absolute ("all N cells", "the cost
-  is exactly this one shape"), and each time a missing corpus axis falsified it in about five
-  lines. This close does the same to its own predecessor: the Task-6 "143 cells" figure is a
-  222-cell-corpus number, and the same measurement over the final 294-cell corpus gives 209.
-  Both support the claim that actually matters, which is directional.
+- **State the direction, not the count, unless the axis is proven exhaustive — and name the
+  baseline binary, every time.** Three audit rounds each replaced a corpus-bound count with a
+  stronger absolute ("all N cells", "the cost is exactly this one shape"), and each time a
+  missing corpus axis falsified it in about five lines. This close did the same to its own
+  predecessor: the Task-6 "143 cells" figure is a 222-cell-corpus number, and the same
+  measurement over the final 294-cell corpus gives 209.
+  **And then this document violated the lesson in the very edit that recorded it** — which is
+  the most instructive form of it, so it is written down rather than quietly fixed. The first
+  revision of §7.10 carried two corpus-bound numbers ("pre-R-11 `14`", "168 rows
+  `MATCH → E5506`", "6 of 32 previously-correct programs") that named **no baseline binary**.
+  In a document whose stated baseline is `main`, "previously-correct" reads as "correct before
+  this project" — and it was false: measured on `main`, those programs were **already silently
+  wrong**, and the handful that matched node did so only because the operator was a
+  mathematical identity. An unbaselined count is not a weaker claim than a baselined one; it is
+  a claim about a binary the reader cannot identify, and here it inverted the sign of the
+  finding — turning "we replaced a silent miscompile with a refusal" into "we lost working
+  behavior". The concrete hazard is real: it invites future work to loosen
+  `write_value_is_numeric`, or delete the float scan this same section warns against deleting,
+  in order to recover behavior that never existed. **A number without a named baseline is not
+  a measurement.**
 - **A fix a task adds must enter that task's own measurement corpus in the same round.** Twice a
   round's blast-radius numbers were computed over a program space that excluded the change the
   round had just made, so the reported cost was of the *previous* build. Re-run the corpus after
