@@ -147,6 +147,12 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     // alone.
     let captured_cell_float_targets =
         collect_float_tainted_captured_cells(lir, &function_plans, &ctx.env_plans);
+    // R-11 T6 review Important 1: the MODULE-GLOBAL twin of the float taint
+    // above. The module-global lane never had one — see
+    // `collect_float_tainted_module_scalars`'s own doc for why its absence was
+    // invisible until T6 removed an unrelated over-taint that was masking it.
+    let module_global_float_targets =
+        collect_float_tainted_module_scalars(lir, &function_plans, &module_global_slots);
     // R-11 T5: the heap-object-FIELD twin of the two BigInt-taint scans above
     // — see `collect_bigint_tainted_shape_fields`'s own doc.
     let shape_field_bigint_targets =
@@ -1586,6 +1592,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             &module_global_bigint_targets,
             &captured_cell_bigint_targets,
             &captured_cell_float_targets,
+            &module_global_float_targets,
             &shape_field_bigint_targets,
             ctx.env_plans
                 .get(&function.name)
@@ -4682,7 +4689,15 @@ pub(crate) fn collect_bigint_tainted_captured_cells(
 ///      through the same choke point. (The underlying object reassignment is
 ///      itself a pre-existing silently-dropped write — `let o={a:6}; o={a:9};
 ///      console.log(o.a)` prints `0`, no bitwise op involved — so this route
-///      buys refusal, not a correct value.)
+///      buys refusal, not a correct value.) **Scope, T6 review Important 2:**
+///      like every route through this choke point, it taints only when the
+///      inflow is not a cleanly-parsed, provably-safe literal. A SAFE-literal
+///      reassignment (`o = { a: 22 }`) is still admitted and still reads the
+///      dropped write's garbage — `o.a |= 3` prints `3` where node prints
+///      `23`, exactly as kali's own plain `o.a | 3` does on every binary
+///      back to the pre-task baseline. That is the deferred dropped-write
+///      bug, not a bitwise defect, and it is pinned in both forms in
+///      `soundness_bitwise_compound.rs`.
 ///
 /// Routes 1, 2, 6 and 7 all funnel through
 /// `taint_shape_fields_from_object_inflow` / the dot-field arm below; routes
@@ -5081,6 +5096,66 @@ pub(crate) fn collect_float_tainted_captured_cells(
             }
         }
     }
+    collect_float_tainted_scalars(lir, function_plans, candidates)
+}
+
+/// R-11 T6 review Important 1: the MODULE-GLOBAL twin of
+/// `collect_float_tainted_captured_cells`, over the promoted module-global
+/// slot names.
+///
+/// **Why this did not exist before, and why its absence was invisible.** The
+/// module-global bitwise arm's four guards are `is_f64`,
+/// `binding_is_proven_numeric`, `module_global_bigint_targets` and the RHS
+/// oracle. None of them refuses a FLOAT written from another function:
+/// `is_f64` reads the promoted slot's own repr (a float written elsewhere does
+/// not necessarily flip it), and `binding_is_proven_numeric` rests on
+/// `write_value_is_numeric`, whose literal arm accepts `6.5` — a float IS
+/// "numeric" by that proof's definition, which is exactly the distinction T4
+/// built `collect_float_tainted_captured_cells` to make for the captured lane.
+///
+/// The lane was nonetheless safe *by accident*: a program that writes a float
+/// to a module global from one function and bitwise-compound-assigns it from
+/// another almost always also contains a write the BigInt scan could not prove
+/// (`n = n + 1` was, until T6, one such write, because that scan had no
+/// self-reference arm). The BigInt taint therefore refused the program on an
+/// unrelated axis. T6's work-item-5 fix removed that over-taint — correct on
+/// the BigInt axis — and the float hole underneath it became reachable:
+///
+/// ```text
+/// let n = 6;
+/// function g() { n = n + 1; }   // g need not even be called
+/// function h() { n = 6.5; }
+/// h();
+/// function f() { n &= 3; }
+/// f();                          // parent: clean E5506.  T6 before this fix:
+/// console.log(n);               // E4201 invalid module.  node: 2
+/// ```
+///
+/// That is a Global-Constraint violation (a non-integer target must fail
+/// closed `E5506`, never an internal `E4201`), so the lane gets the real
+/// signal rather than keeping the incidental one. Reuses
+/// `mark_non_i64_tainted_captured_scalars` VERBATIM — the same walk, the same
+/// `expr_is_provably_i64_literal_or_arith` predicate, only a different
+/// candidate name set — so the two lanes cannot drift.
+pub(crate) fn collect_float_tainted_module_scalars(
+    lir: &LirProgram,
+    function_plans: &[FunctionPlan],
+    module_global_slots: &BTreeMap<String, (u32, kali_common::Repr)>,
+) -> HashSet<String> {
+    let candidates: std::collections::BTreeSet<String> =
+        module_global_slots.keys().cloned().collect();
+    collect_float_tainted_scalars(lir, function_plans, candidates)
+}
+
+/// The body shared by `collect_float_tainted_captured_cells` and
+/// `collect_float_tainted_module_scalars` — extracted so the two lanes are one
+/// implementation rather than two hand-mirrored copies (this project's
+/// standing lesson about mirrored predicates that drift).
+fn collect_float_tainted_scalars(
+    lir: &LirProgram,
+    function_plans: &[FunctionPlan],
+    candidates: std::collections::BTreeSet<String>,
+) -> HashSet<String> {
     if candidates.is_empty() {
         return HashSet::new();
     }

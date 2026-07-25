@@ -1447,6 +1447,12 @@ fn bitwise_compound_fails_closed_on_object_field_from_whole_binding_reassignment
     // PRE-EXISTING silently-dropped write — `let o={a:6}; o={a:9};
     // console.log(o.a)` prints `0` with no bitwise op anywhere — so what
     // this route buys is refusal, not a correct value.)
+    //
+    // SCOPE (T6 review Important 2): route 7 taints only when the inflow is
+    // NOT a cleanly-parsed, provably-safe literal. A SAFE-literal
+    // reassignment such as `o = { a: 22 }` is still ADMITTED and still reads
+    // the dropped write's garbage — pinned, with its plain-operator sibling,
+    // in `bitwise_compound_tripwire_object_reassignment_write_is_dropped`.
     assert_fails_closed(
         "let o = { a: 6 };\no = { a: 7n };\no.a &= 3;\nconsole.log(o.a);\n",
         "BigInt",
@@ -1586,12 +1592,68 @@ fn bitwise_compound_self_reference_arm_does_not_launder_bigint_or_float() {
 fn bitwise_compound_tripwire_object_reassignment_write_is_dropped() {
     // `o = { a: 22 }` after `let o = { a: 6 }` is silently dropped:
     // `console.log(o.a)` prints `0` with NO bitwise op in the program at all
-    // (node prints 22), so the bitwise form reads that same garbage. The
-    // bitwise op is now REFUSED for this shape (route 7 above), so what is
-    // pinned here is the pre-existing plain-read miscompile that motivates
-    // the refusal.
+    // (node prints 22). Pre-existing; identical on `e416b22a1`.
     assert_stdout(
         "let o = { a: 6 };\no = { a: 22 };\nconsole.log(o.a);\n",
+        "0\n",
+    );
+    // T6 review Important 2 — CORRECTION. An earlier version of this comment
+    // claimed the bitwise form of this shape is "now REFUSED (route 7)", so
+    // R-11 could not surface the garbage. That was FALSE. Route 7 taints only
+    // when the inflow is NOT a cleanly-parsed, provably-safe literal, so a
+    // SAFE-literal reassignment is still admitted and the bitwise op does read
+    // the dropped write's garbage:
+    //
+    //   let o = {a:6}; o = {a:22}; o.a |= 3;   -> kali 3, node 23
+    //
+    // This is the same defence as the local-scalar BigInt residual below, and
+    // it is a real defence, not an excuse: kali's own PLAIN operator gives the
+    // identical `3` on the pre-task binary, on `e2578aa7e` and on HEAD, so the
+    // compound form agrees with the plain form and the wrongness is entirely
+    // the deferred dropped-write bug. Pinned in BOTH forms so neither can move
+    // without the other.
+    //
+    // What these rows DO and DO NOT discriminate (measured, not assumed). The
+    // stale field reads back as `0`, so the expected `3` is `0 | 3`. That
+    // catches three real regressions: the row failing closed (nonzero exit),
+    // the row starting to print node's `23` (the dropped write became real —
+    // at which point these flip to `23` and to nothing else), and the bitwise
+    // arm becoming a no-op again (`o.a` would read `0`, not `3`). It does NOT
+    // discriminate `|=` from `^=`: over a zero base the two coincide, verified
+    // by forcing the shared combiner to `^=` and rebuilding — this row stayed
+    // `3` while the ordinary admitted row moved `23` -> `21`. The
+    // operator-discriminating coverage lives in
+    // `bitwise_compound_on_object_field`, not here.
+    assert_stdout(
+        "let o = { a: 6 };\no = { a: 22 };\no.a |= 3;\nconsole.log(o.a);\n",
+        "3\n",
+    );
+    assert_stdout(
+        "let o = { a: 6 };\no = { a: 22 };\nconsole.log(o.a | 3);\n",
+        "3\n",
+    );
+    assert_stdout(
+        "let o = { a: 6 };\no = { a: 22 };\no.a ^= 3;\nconsole.log(o.a);\n",
+        "3\n",
+    );
+    // The no-initializer form behaves identically.
+    assert_stdout(
+        "let o;\no = { a: 22 };\no.a |= 3;\nconsole.log(o.a);\n",
+        "3\n",
+    );
+    assert_stdout("let o;\no = { a: 22 };\nconsole.log(o.a | 3);\n", "3\n");
+    // The rest of the class, for completeness — a denser A/B (10 object-inflow
+    // routes x 13 values x 3 ops = 390 programs) shows the surviving
+    // wrong-value rows here are exactly {`&=`, `|=`, `<<=`} x {reassign,
+    // no-init form}. These two expect `0` and so do NOT discriminate a no-op
+    // (over a zero base both `&` and `<<` give `0` whether the arm ran or
+    // not); they are here so the class cannot move partially. node: `2`, `176`.
+    assert_stdout(
+        "let o = { a: 6 };\no = { a: 22 };\no.a &= 3;\nconsole.log(o.a);\n",
+        "0\n",
+    );
+    assert_stdout(
+        "let o = { a: 6 };\no = { a: 22 };\no.a <<= 3;\nconsole.log(o.a);\n",
         "0\n",
     );
 }
@@ -1626,21 +1688,24 @@ fn bitwise_compound_tripwire_local_scalar_bigint_target_matches_the_plain_operat
 // pinned because they are `E4201`, so a future change that makes R-11 the
 // CAUSE of one would have to move a pin instead of landing silently.
 //
-// All three shapes below were measured BYTE-FOR-BYTE identical on the
-// pre-task binary `e416b22a1` — both WITH and WITHOUT the bitwise line — so
-// R-11 changes nothing about them. The root cause is the standing deferred
-// "float-into-i64-cell storage bug". Whoever fixes that bug flips these to
-// value assertions (node's values are in the comments), NOT deletes them.
-//
-// A fourth shape (a float write to a CAPTURED cell) used to E4201 on the
-// pre-task binary and is now a clean `E5506` — closed by Task 4's float taint
-// scan, and pinned by
-// `bitwise_compound_fails_closed_on_float_write_reaching_captured_target_from_sibling_function`.
-//
-// The remaining `E4201` shape (a dot-field float write off an arrow-function
-// PARAMETER) is already pinned by
+// EXACTLY TWO such shapes remain, both on the OBJECT-FIELD lane, and both
+// measured BYTE-FOR-BYTE identical on the pre-task binary `e416b22a1` — with
+// AND without the bitwise line — so R-11 changes nothing about them. The root
+// cause is the standing deferred "float-into-i64-cell storage bug". Whoever
+// fixes that bug flips these to value assertions (node's values are in the
+// comments), NOT deletes them. One of the two is pinned above as
 // `bitwise_compound_object_field_unmasks_preexisting_float_into_i64_cell_e4201`
-// above; these two complete the set. ---
+// (the arrow-parameter write); the computed-key write is pinned below.
+//
+// Two OTHER shapes that used to reach `E4201` no longer do, and each has a
+// fail-closed pin instead of an `E4201` pin:
+//   * a float write to a CAPTURED cell — closed by Task 4's
+//     `collect_float_tainted_captured_cells`, pinned by
+//     `bitwise_compound_fails_closed_on_float_write_reaching_captured_target_from_sibling_function`;
+//   * a float write to a MODULE GLOBAL — closed by Task 6 review round 1's
+//     `collect_float_tainted_module_scalars`, pinned immediately below. This
+//     one E4201'd on `e416b22a1` AND on `e2578aa7e`, so the module-global lane
+//     is now strictly better than it was before R-11 started. ---
 
 fn assert_fails_with_e4201(src: &str) {
     let out = run_source(src);
@@ -1650,11 +1715,36 @@ fn assert_fails_with_e4201(src: &str) {
 }
 
 #[test]
-fn bitwise_compound_module_global_float_write_hits_preexisting_e4201() {
-    // node: 2 (6.5 | 0 coerces). Pre-existing: identical output with the
-    // `n &= 3;` line deleted, and identical on `e416b22a1`.
-    assert_fails_with_e4201(
+fn bitwise_compound_fails_closed_on_module_global_written_with_a_float() {
+    // T6 review Important 1. The module-global lane's four other guards all
+    // ACCEPT a float written from another function — `is_f64` reads the
+    // promoted slot's own repr, and `binding_is_proven_numeric` rests on
+    // `write_value_is_numeric`, whose literal arm accepts `6.5`. The lane was
+    // safe only INCIDENTALLY: such a program almost always also carried a
+    // write the BigInt scan could not prove. T6's self-reference arm removed
+    // one such over-taint (`n = n + 1`) and the hole underneath became a
+    // reachable `E4201` — a Global-Constraint violation. Closed by
+    // `collect_float_tainted_module_scalars`, the module-global twin of the
+    // captured lane's float scan.
+    //
+    // Row 1 is the shape the self-reference arm exposed; it fails closed on
+    // the parent `e2578aa7e` too, but for the wrong reason (BigInt over-taint),
+    // so it would have gone green either way — the mutation test in the task
+    // report is the real evidence. node: 2.
+    assert_fails_closed(
+        "let n = 6;\nfunction g() { n = n + 1; }\nfunction h() { n = 6.5; }\nh();\nfunction f() { n &= 3; }\nf();\nconsole.log(n);\n",
+        "module global",
+    );
+    // Rows 2 and 3 have NO self-reference at all: they produced `E4201` on
+    // `e2578aa7e` AND on the pre-task `e416b22a1`, so these are the
+    // non-vacuous ones — the lane is now better than it has ever been. node: 2.
+    assert_fails_closed(
         "let n = 6;\nfunction ww() { n = 6.5; }\nww();\nn &= 3;\nconsole.log(n);\n",
+        "module global",
+    );
+    assert_fails_closed(
+        "let n = 6;\nfunction ww() { n = 6.5; }\nww();\nfunction f() { n |= 3; }\nf();\nconsole.log(n);\n",
+        "module global",
     );
 }
 

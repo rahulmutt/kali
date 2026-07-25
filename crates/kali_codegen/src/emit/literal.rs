@@ -1434,9 +1434,25 @@ impl<'a> FunctionEmitter<'a> {
                 // positive-evidence RHS oracle the local arm uses instead:
                 // `bitwise_compound_rhs_is_provably_i64` (literal non-BigInt
                 // numeral, or unary `-` over one).
+                // Also target axis — R-11 T6 review Important 1: a FLOAT
+                // written to this global from ANOTHER function is refused by
+                // none of the three checks above. `is_f64` reads the promoted
+                // slot's own repr; `binding_is_proven_numeric` rests on
+                // `write_value_is_numeric`, whose literal arm accepts `6.5`
+                // (a float IS "numeric" by that proof — the exact distinction
+                // T4 built the captured lane's float scan to make); and the
+                // BigInt scan is a different axis. Until T6 the lane was safe
+                // only INCIDENTALLY, because such a program almost always also
+                // carried a write the BigInt scan could not prove. T6's
+                // self-reference arm removed one such over-taint and the hole
+                // underneath became reachable as an `E4201` invalid module —
+                // a Global-Constraint violation. `module_global_float_targets`
+                // (`collect_float_tainted_module_scalars`, `lower.rs`) is the
+                // real signal, and reuses the captured lane's walk verbatim.
                 if is_f64
                     || !self.binding_is_proven_numeric(name)
                     || self.module_global_bigint_targets.contains(name)
+                    || self.module_global_float_targets.contains(name)
                     || !self.bitwise_compound_rhs_is_provably_i64(right)
                 {
                     self.diagnostics.push(Diagnostic::error(

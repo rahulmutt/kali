@@ -453,6 +453,16 @@ pub(crate) struct FunctionEmitter<'a> {
     /// keyed by NAME ONLY, for the same reason
     /// `captured_cell_bigint_targets` is.
     pub(crate) captured_cell_float_targets: &'a HashSet<String>,
+    /// R-11 T6 review Important 1: whole-program FLOAT-taint set for promoted
+    /// MODULE-GLOBAL scalars (`collect_float_tainted_module_scalars`) — the
+    /// module-global twin of `captured_cell_float_targets`, and the only guard
+    /// on this lane that actually refuses a float. `is_f64` reads the promoted
+    /// slot's own repr, and `binding_is_proven_numeric` rests on
+    /// `write_value_is_numeric`, whose literal arm accepts `6.5` — a float IS
+    /// "numeric" by that proof. Without this set the lane emits an invalid
+    /// module (`E4201`) instead of a clean `E5506`. Keyed by NAME ONLY, for
+    /// the same reason its captured-cell sibling is.
+    pub(crate) module_global_float_targets: &'a HashSet<String>,
     /// R-11 T5: whole-program BigInt-taint set for HEAP-OBJECT FIELDS, keyed
     /// by `(ShapeId, field name)` rather than by binding name (a field's
     /// static type is a property of the shape, not of any one binding that
@@ -528,6 +538,7 @@ impl<'a> FunctionEmitter<'a> {
         module_global_bigint_targets: &'a HashSet<String>,
         captured_cell_bigint_targets: &'a HashSet<String>,
         captured_cell_float_targets: &'a HashSet<String>,
+        module_global_float_targets: &'a HashSet<String>,
         shape_field_bigint_targets: &'a HashSet<(kali_common::ShapeId, String)>,
         env_plan: kali_mir::EnvPlan,
         env_plans: &'a std::collections::BTreeMap<String, kali_mir::EnvPlan>,
@@ -665,6 +676,7 @@ impl<'a> FunctionEmitter<'a> {
             module_global_bigint_targets,
             captured_cell_bigint_targets,
             captured_cell_float_targets,
+            module_global_float_targets,
             shape_field_bigint_targets,
             env_plan,
             env_plans,
