@@ -179,22 +179,34 @@ unsupported and the message misdiagnoses it. Honest (exit 1) but misleading.
 
 ## 1. Executive summary
 
-**42 raw defects → 33 after deduplication.** Nine entries were folded into siblings that
+**42 raw defects → 33 after deduplication** *(the original four-sweep intake; historical, and
+one short — see the note under the table. The register now holds **48** numbered entries:
+R-01..R-48.)* Nine entries were folded into siblings that
 share a demonstrated or strongly-inferred root cause (noted per entry).
 
 Severity split (each entry ranked at the most severe class it carries):
 
-| tier | class | count |
+| tier | class | count (historical R-01..R-34 / now) |
 |---|---|---|
-| 1 | **silently drops code or output** — statements never run, calls never fire, output vanishes | 5 |
-| 2 | **silently produces a wrong value** | 23 |
-| 3 | **silently wrong control flow only** (value otherwise intact) | 1 |
-| 4 | **rendering-only** (in-memory value is correct) | 4 |
+| 1 | **silently drops code or output** — statements never run, calls never fire, output vanishes | 5 / 5 |
+| 2 | **silently produces a wrong value** | 23 / **25** |
+| 3 | **silently wrong control flow only** (value otherwise intact) | 1 / 1 |
+| 4 | **rendering-only** (in-memory value is correct) | 4 (see note) / 5 |
 
-The counts above are the original R-01..R-34 sweep and are left as the historical record. Since
+The left-hand counts are the original R-01..R-34 sweep, left as the historical record. Since
 then §0.3 added **R-35..R-46** (2026-07-24 re-derivation) and §2 added **R-47** and **R-48**
-(2026-07-25, promoted from §7.10 sightings; both Tier 2, with R-47 also carrying a Tier-3
-wrong-trip-count half). Tier 2 as it stands is therefore **25** entries, not 23.
+(2026-07-25, promoted from §7.10 sightings). Only the last two changed a tier count: both are
+filed in Tier 2, and R-47 additionally carries a **Tier-3** wrong-trip-count half (its entry
+says so). **R-35..R-46 are excluded from these counts entirely** — the re-derivation recorded
+them as §0.3 bullets and never tier-ranked them, so tier-ranking them here would be an
+unmeasured claim.
+
+Right-hand column = **36** tier-ranked entries in §2 (5 + 25 + 1 + 5), counted 2026-07-25 by
+`### R-` headers per tier heading; the register holds 48 numbered entries in total, the other 12
+being the un-ranked §0.3 set. **The historical Tier-4 cell reads `4` but Tier 4 has always held
+five entries (R-30..R-34)** — an off-by-one in the original table, which is also why the
+"33 after deduplication" headline is one short of the 34 entries R-01..R-34 actually comprise.
+Recorded rather than silently corrected, since the left-hand column is the historical record.
 
 Every entry in this document is an **exit-0, no-diagnostic** divergence unless the entry
 says otherwise. Fail-closed behavior (`E5506`, `E3100`, `E4201`, traps) is recorded only as
@@ -456,11 +468,12 @@ tier, ordering is by blast radius.
   - **Residuals (out of scope this stage; left no-worse, tracked):**
     - **R-06-R1 — returned/escaping objects.** `function h(){var o={f:7}; return o;} h().f` → silent-`0` today (the member-on-call hole, R-14 territory) — even for `const`/write objects. Verified no-worse (no new crash, no new nonzero) after this fix. Real fix = R-14 escape stage.
     - **R-06-R2 — whole-object reassignment.** `var o={f:1}; o={f:2}; o.f` → silent-`0`; the object-literal-RHS assignment store is a distinct mechanism from the declarator init. Unchanged. **Re-measured on merged `main` (`372a3f440`) 2026-07-25, and the `let` spelling measures IDENTICAL**: `var o={f:1}; o={f:2}; o.f` → `0` (node `2`) and `let o={a:6}; o={a:9}; o.a` → `0` (node `9`), both exit 0, no diagnostic. `var` and `let` are one lane here, not two — see §7.10, where the `let` sighting is now a cross-reference to this residual.
-    - **R-06-R3 — arrays.** `var a=[7,9]` / `var a=[1,2]; a[0]=9` read back `0` — var-array runtime storage largely unimplemented. Own later stage (entangled with R-12/R-13/arena lanes). **Re-measured on merged `main` (`372a3f440`) 2026-07-25; the `let` spelling measures IDENTICAL to the `var` one on every shape, so `var` and `let` are ONE lane and `const` is the discriminator that behaves correctly:**
+    - **R-06-R3 — arrays.** `var a=[7,9]` / `var a=[1,2]; a[0]=9` read back `0` — var-array runtime storage largely unimplemented. Own later stage (entangled with R-12/R-13/arena lanes). **Re-measured on merged `main` (`372a3f440`) 2026-07-25; on the indexing and `.length` shapes the `let` spelling measures IDENTICAL to the `var` one, so `var` and `let` are ONE lane there:**
       - store: `var a=[1,2]; a[0]=9; a[0]` → `0` and `let a=[1,2]; a[0]=9; a[0]` → `0`, node `9` for both; `let a=[1,2,3]; a[1]=5; a[1]` → `0`, node `5`.
       - element read: `let a=[1,2,3]; a[0]` → `0`, node `1`.
       - **`.length` read (datum this residual previously lacked): `let a=[1,2,3]; a.length` → `0`, node `3`.** So the binding does not merely lose its stores — the whole thing reads back as an empty/zero array.
-      - the `for..of` consumer of this same `let`-array storage gap is worse than `0`: it iterates the binding's NAME. That is **R-47**, promoted to its own entry in Tier 2.
+      - **`const` is NOT a clean control — it is correct on READS only.** `const a=[1,2,3]; a[0]` → `1` ✓ and `a.length` → `3` ✓, but a module-scope `const` **store** is silently dropped exactly like `var`/`let`, only from a *correct* starting value rather than `0`: `const a=[1,2]; a[0]=9; a[0]` → **`1`** (node `9`) and `const a=[1,2,3]; a[1]=5; a[1]` → **`2`** (node `5`), both exit 0, no diagnostic. In-function the `const` store instead fails closed `E5506` — as do `let` and `var`. **See R-12**, whose entry and §0.2 row record the same scope-not-declarator discriminator. (Correction 2026-07-25: an earlier revision of this residual said "`const` is the discriminator that behaves correctly", which is false for stores.)
+      - **the `for..of` consumer is where `let` and `var` DIVERGE**, so the one-lane claim above is scoped to indexing/`.length`: on the same `let`-array storage gap `for..of` is worse than `0` — it iterates the binding's NAME — while the `var` spelling fails closed `E5506`. That is **R-47**, promoted to its own entry in Tier 2.
     - **R-06-R4 — object string-field value-SINK corruption (PRE-EXISTING, const-reproducible; broader than first thought).** A materialized object's String field reads back correctly ONLY in sole-`console.log`-arg / `==` / assignment / return positions; it CORRUPTS to its raw i64 handle through `+` concat, template `${}`, multi-arg `console.log`, and `.length` — e.g. `console.log("x"+o.f)` → `x-9223354444668731390`. `const o={f:"hi"}; console.log("x"+o.f)` corrupts IDENTICALLY (const never touches R-06), proving it is a downstream sink bug, not something R-06 introduces in kind; R-06 merely routes read-only var string objects to the same broken sinks. Its real fix is an object-field-String repr/sink stage. (Single-arg string fields ARE supported and shipped green.)
     - **R-06-R5 — non-literal-valued fields honest over-deny.** `var n=5; var o={a:n}`, `var o={f:3+4}`, `var o={f:null}`, leading-dot float `{f:.5}` → `E5506` even though several would read correctly if materialized. The literal-only allowlist is conservative by design (default-deny on unprovable repr). A later refinement can query each field value's inferred repr and admit provably-{I64,F64,String} non-literals.
 
@@ -997,7 +1010,10 @@ tier, ordering is by blast radius.
 ### R-10: Block-scoped `let`/`const` shadowing is unmodeled — the inner declaration aliases the outer binding
 
 - **Folds in**: D-C-5.
-- **Verification**: `sweep-only` (both scopes).
+- **Verification**: `sweep-only` (both scopes) for the full shape inventory, **upgraded to
+  `CONFIRMED-BY-CONTROLLER` for the core repro**: the Repro line below was directly re-measured
+  on a freshly-built binary at merged `main` (`372a3f440`) against node v26.5.0 on 2026-07-25 and
+  still reproduces verbatim (kali `r=2`, node `r=1`), as did the declaration-only form (see §7.10).
 - **Root-cause group**: G7.
 - **Repro**: `let x = 1; { let x = 2; } console.log("r=" + x);` → node `r=1`, kali `r=2` (exit 0).
 - **Worse variant — writes inside the block escape**: `let x=1; { let x=2; x=99; } return x;`
@@ -1019,8 +1035,11 @@ tier, ordering is by blast radius.
   name in a loop body is correct. The bug is specifically same-name re-declaration.
 - **Confidence**: high on behavior (7 transcripts, both scopes, 4 block forms); medium on
   mechanism.
-- **Re-measured 2026-07-25** on `fc777af54` and on the `main`-identical `e416b22a1`, in the
-  declaration-only form (`let n = 6; { let n = 7; … }` → `7`/`7`, node `7`/`6`) — see §7.10.
+- **Re-measured 2026-07-25** on `fc777af54`, on the `main`-identical `e416b22a1`, and on merged
+  `main` `372a3f440`, in the declaration-only form (`let n = 6; { let n = 7; … }` → `7`/`7`,
+  node `7`/`6`) — see §7.10. Identical on all three, so the defect is pre-existing and
+  unrelated to R-11: the repro contains no assignment operator at all, which makes this a
+  **binding-storage** defect, not an assignment one.
 
 ### R-11: Every bitwise compound assignment (`&= |= ^= <<= >>= >>>=`) is a silent no-op — **CLOSED 2026-07-25**
 
@@ -1618,9 +1637,12 @@ tier, ordering is by blast radius.
   owning ID because nothing in §0.2, §0.3 (R-35..R-46) or §7.9 covers iteration at all.
 - **Verification**: `CONFIRMED-BY-CONTROLLER` — all three declarator lanes re-measured on a
   freshly-built binary at merged `main` (`372a3f440`) against node v26.5.0, 2026-07-25.
-- **Root-cause group**: G3 (the `for..of` iterable admittance test keyed on binding *shape*, so
-  the `let` spelling falls through into the string-iterable lane instead of failing closed) —
-  with a G7 flavour, since the discriminator is the declarator's binding storage.
+- **Root-cause group**: unclustered. It has **G3**'s shape — the `for..of` iterable admittance
+  test is keyed on binding *form*, so the `let` spelling slips past into the string-iterable lane
+  instead of failing closed — with a **G7** flavour, since the discriminator is the declarator's
+  binding storage. It is deliberately *not* added to G3's member list, whose "six" and "four of
+  the six" counts are stated for the original R-01..R-34 set; R-35..R-46 sit in no §3 cluster
+  either.
 - **Repro** (module scope): `let a=[1,2,3]; for (const x of a) console.log(x);` → **kali** prints
   one line, the letter `a`; **node** prints `1` `2` `3`. Exit 0, no diagnostic.
 - **The name really is the iterand**: `let zz=[1,2,3]; for (const x of zz) …` prints `z` then
@@ -1632,12 +1654,13 @@ tier, ordering is by blast radius.
   - `var a=[1,2,3]` → **FAIL-CLOSED**, `error[E5506]: for-of array iteration lowering is
     unavailable unless the iterable is a literal array or supported string iterable with
     literal elements and the loop target is a variable declaration or simple identifier
-    binding` (exit 1).
+    binding; use a supported loop form or the later compatibility path` (exit 1).
   - `const a=[1,2,3]` → **CORRECT**, `1` `2` `3`.
 - **Scopes affected**: both — `function f(){ let a=[1,2,3]; for (const x of a) console.log(x); }
   f();` prints `a`, identically to the module-scope form.
-- **Severity**: silent-wrong-value **and** silently wrong control flow — the loop trip count is
-  wrong too, so this straddles Tier 1/2 rather than sitting cleanly in either.
+- **Severity**: **Tier 2** (silently produces a wrong value) **and** **Tier 3** (silently wrong
+  control flow) — every value is wrong *and* the loop trip count is wrong, so it straddles
+  Tier 2/3 rather than sitting cleanly in either. Filed in Tier 2.
 - **Blast radius**: high, and this is among the most *deceptive* shapes in the register. The
   loop body genuinely runs, exit is 0, and the output is plausible-looking data rather than
   `0` or an empty result — the failure mode every other entry's `0` at least makes visible.
@@ -1650,7 +1673,8 @@ tier, ordering is by blast radius.
   name-length/trip-count correspondence is exact); low on mechanism.
 - **Cross-references**: §7.10 sightings (where it was first measured); **R-06-R3** (`let` arrays
   read back as zero/empty through the *indexing* lane — the same `let`-array storage gap seen
-  through a different consumer); cluster **G3**.
+  through a different consumer); cluster **G3** for the shape of the mistake (see Root-cause
+  group above for why it is not listed as a G3 member).
 
 ### R-48: An array stored into an object field typed `I64` reads back `0`
 
@@ -2406,16 +2430,6 @@ Appears NEW (no clean pre-existing register entry):
   entry is R-02** (calling through a first-class function value returns `0`) / the
   G2 unresolvable-callee-folds-to-`0` cluster, but the specific
   `globalThis.<builtin>(...)` member spelling is not separately entried.
-- **Parser silently drops destructuring assignment** (§8.6 #18,
-  P5-R-destructuring-assign, HIGH) — `let a=0n; [a]=[1n]; console.log(a)` → 0,
-  node `1n`; the AST shows the statement decaying into two unrelated
-  `ExpressionStatement`s, no diagnostic. A parser fail-open recovery (cluster G1).
-  **Correction 2026-07-25: this bullet's original claim that "no register entry covers
-  destructuring-assignment drop specifically" is FALSE — the 2026-07-24 re-derivation gave
-  the same defect an owning ID, **R-43** (§0.3).** Measured identical on
-  merged `main` (`372a3f440`): `let a=0n; [a]=[1n]; a` → `0` (node `1n`) and R-43's own
-  repro `let a=1,b=2; [a,b]=[b,a]` → `1,2` (node `2,1`). **R-43 is the owning ID**; this
-  bullet is retained for its AST-decay mechanism datum, which R-43 lacks.
 - **The for-of / block-`const`-redeclaration shadow family, now PARTIALLY CLOSED**
   by the P5 T-new-D `stale_provenance_shadow_lane` guard — a for-of or block-const
   redeclaration shadowing a name bound to a TextEncoder/TextDecoder marker, a bytes
@@ -2425,6 +2439,20 @@ Appears NEW (no clean pre-existing register entry):
   slice of the R-10 shadow hazard is closed for the eight P5/P4/P3 name-keyed lanes;
   the block-fn-decl introduction site (F-newD-1 above) and the general R-10 scope
   model remain open.
+
+Was filed as "Appears NEW", but is NOT — re-categorized 2026-07-25:
+
+- **Parser silently drops destructuring assignment** (§8.6 #18,
+  P5-R-destructuring-assign, HIGH) — `let a=0n; [a]=[1n]; console.log(a)` → 0,
+  node `1n`; the AST shows the statement decaying into two unrelated
+  `ExpressionStatement`s, no diagnostic. A parser fail-open recovery (cluster G1).
+  **The owning ID is `R-43`** (§0.3), which the 2026-07-24 re-derivation gave the same defect;
+  this bullet's original claim that *"no register entry covers destructuring-assignment drop
+  specifically"* is **FALSE**, and it was moved out from under the "Appears NEW" heading above
+  because that heading asserts the very thing R-43 refutes. Both repros measured identical on
+  merged `main` (`372a3f440`), 2026-07-25: `let a=0n; [a]=[1n]; a` → `0` (node `1n`) and R-43's
+  own `let a=1,b=2; [a,b]=[b,a]` → `1,2` (node `2,1`). Retained here only for its AST-decay
+  mechanism datum, which R-43 lacks.
 
 ---
 
@@ -2459,8 +2487,9 @@ owning entry lacked was folded into that entry first.
   `P5-R-aggregate-array-provenance` (which reads a wrong *length*, not `0`).
   Cross-reference only.
 - **There is no block-scoped `let`** — owned by **R-10** (§2) and stated in §0.2's R-10 row;
-  both agree with what was measured here, so only the datum they lack is retained: the
-  **declaration-only** spelling needs no assignment anywhere in the program.
+  all three agree, so this is a cross-reference. Retained in full only because it is R-10's
+  **declaration-only** form, which needs no assignment anywhere in the program (R-10's own entry
+  now also carries this datum and the direct re-measurement, under Verification).
   `let n = 6;` / `{ let n = 7; console.log(n); }` / `console.log(n);` prints **`7`** then
   **`7`**; node prints `7` then `6`. Exit 0, no diagnostic; re-measured on merged `main`
   (`372a3f440`). There is not one assignment operator in the repro — the inner *declaration*
