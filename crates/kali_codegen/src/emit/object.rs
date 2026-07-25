@@ -525,6 +525,27 @@ impl<'a> FunctionEmitter<'a> {
                 ),
             );
         };
+        // T5 review Critical 1: a shape carrying a field literally named
+        // `length` is excluded ENTIRELY, not just when `length` is this
+        // compound-assign's own target field — see the identical guard (and
+        // its full doc) on `bitwise_compound_dot_field_target_is_admitted`
+        // in `kali_types::resolve::expression`, mirrored here as
+        // defense-in-depth so codegen never trusts the resolve gate alone.
+        // Measured: `o={a:6,length:9}; o.a&=3;` computes `o.a` correctly
+        // (this store never touches the `length` slot) but a LATER
+        // `o.length` read elsewhere in the program silently returns `0`
+        // (node: `9`) via the pre-existing array-`.length` read ambiguity —
+        // unrelated to which field this arm targets, so the whole shape is
+        // refused rather than just the `field == "length"` case.
+        if self.repr_table.shape_field(shape, "length").is_some() {
+            return fail_closed(
+                self,
+                function,
+                format!(
+                    "bitwise compound assignment '{op}' is unavailable on an object shape with a field named 'length' in the current phase (ambiguous with the array `.length` read)"
+                ),
+            );
+        }
         let Some((index, repr)) = self.repr_table.shape_field(shape, field) else {
             return fail_closed(
                 self,

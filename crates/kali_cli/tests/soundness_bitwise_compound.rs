@@ -1231,3 +1231,137 @@ fn bitwise_compound_fails_closed_on_object_field_forin_key_computed_target() {
         "&=",
     );
 }
+
+// --- T5 review Critical 1: a shape carrying a field literally named
+// `length` must be refused ENTIRELY, not just when `length` is the
+// compound-assign's own target. `object_shape_of_node` treats ANY
+// `<expr>.length` dot access as an ARRAY length read before it ever tries
+// the object-field interpretation, so a LATER read of `o.length` silently
+// returns `0` instead of the real field value — independent of which field
+// this compound-assign targets. Measured pre-fix: `o.length &= 3` itself
+// computed `0` (node: `2`); `o.a &= 3` on a shape ALSO carrying an unrelated
+// `length` field computed `o.a` correctly but a later `o.length` read still
+// printed `0` (node: `9`). Both closed by refusing the whole SHAPE.
+
+#[test]
+fn bitwise_compound_fails_closed_on_object_field_named_length() {
+    // node: 2 (6 & 3). kali must refuse, not compute 0.
+    assert_fails_closed(
+        "let o = { length: 6 }; o.length &= 3; console.log(o.length);\n",
+        "&=",
+    );
+}
+
+#[test]
+fn bitwise_compound_fails_closed_on_object_field_shape_with_unrelated_length_field() {
+    // The compound-assign TARGET here is `a`, not `length` — this pins that
+    // the refusal is keyed on the SHAPE carrying a `length` field at all,
+    // not just on `length` being the immediate target. node: "2,9".
+    assert_fails_closed(
+        "let o = { a: 6, length: 9 }; o.a &= 3; console.log(o.a + \",\" + o.length);\n",
+        "&=",
+    );
+}
+
+// --- T5 review Important 1: a pre-existing codegen bug ("float-into-i64-cell
+// storage", standing deferred item) unmasked by this task's admission, not
+// caused by it. ---
+
+#[test]
+fn bitwise_compound_object_field_unmasks_preexisting_float_into_i64_cell_e4201() {
+    // This program hits `E4201` ("failed to load WASM module") — an
+    // INTERNAL codegen defect, not a clean `E5506`. It is NOT introduced by
+    // this task: the identical program with the bitwise line deleted
+    // (`const w = (x) => { x.a = 1.5; }; let o = { a: 6 }; w(o);
+    // console.log(o.a);`) already emits `E4201` on this build — it is the
+    // deferred "float-into-i64-cell storage bug" (standing deferred list),
+    // caused entirely by the arrow function `w`'s own pre-existing
+    // `x.a = 1.5` write; nothing this task's new codegen touches.
+    //
+    // What T5 changes is REACHABILITY, not correctness: pre-T5, ANY bitwise
+    // compound-assign on a member target was denied at resolve (`E5506`)
+    // before codegen ever ran, so a program that also happens to contain
+    // `o.a &= 3` never got far enough to hit this pre-existing codegen bug.
+    // Post-T5 the admission lets compilation proceed into it.
+    //
+    // Closing this for real would need proving "this shape's field is never
+    // written a float by ANY function that receives it as a parameter" —
+    // the same interprocedural FLOAT-write taint infrastructure the
+    // Important-2 finding explicitly says not to build this task (partial
+    // coverage of only SOME write routes would be actively dangerous, a
+    // false sense of soundness — see `collect_bigint_tainted_shape_fields`'s
+    // doc). Recorded here as an explicit, PINNED, accepted unmasking rather
+    // than a silent one. If a future task closes the underlying
+    // float-into-i64-cell bug (or adds the missing parameter-write taint
+    // route), this test should start failing with a clean `E5506` instead —
+    // that is progress; update this assertion to `assert_fails_closed` at
+    // that point, don't just delete the test.
+    let out = run_source(
+        "const w = (x) => { x.a = 1.5; }; let o = { a: 6 }; w(o); o.a &= 3; console.log(o.a);\n",
+    );
+    assert!(
+        !out.status.success(),
+        "expected a compile failure, got success: {out:?}"
+    );
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("E4201"),
+        "expected the documented pre-existing E4201; got: {stderr}"
+    );
+}
+
+// --- T5 review Important 2: `collect_bigint_tainted_shape_fields` sees only
+// 2 of (at least) 5 source-language write routes into an admitted field.
+// These three tripwires pin the CURRENT (write-silently-dropped) behavior
+// for the uncovered routes — NOT as certified-correct output (all three
+// diverge from node, which throws), but so that a future change which makes
+// any of these writes real is caught immediately if it does not ALSO extend
+// the taint scan first. See the scan's own doc in `lower.rs` for the full
+// route inventory and why partial coverage is dangerous. ---
+
+#[test]
+fn bitwise_compound_tripwire_computed_key_write_not_covered_by_bigint_taint_scan() {
+    // `o["a"] = 7n` is a computed-key write the taint scan does not walk.
+    // It is currently silently dropped (pre-existing, reproduces with no
+    // bitwise op in the program at all), so `o.a` is still `6` when
+    // `o.a &= 3` runs: 6 & 3 = 2. node throws `TypeError: Cannot mix
+    // BigInt`. If this write ever becomes real, this value must change —
+    // if it silently doesn't (this test still passes) while the taint scan
+    // is untouched, that is exactly the unsoundness this pin exists to
+    // catch.
+    assert_stdout(
+        "let o = {a: 6}; o[\"a\"] = 7n; o.a &= 3; console.log(o.a);\n",
+        "2\n",
+    );
+}
+
+#[test]
+fn bitwise_compound_tripwire_arrow_parameter_write_not_covered_by_bigint_taint_scan() {
+    // A dot-field write off an arrow-function PARAMETER — params carry
+    // their `Repr::Object(shape)` via `ReprTable::set_param`, a different
+    // accessor than the `scalar()` lookup this scan's write-detection
+    // consults, so this base is invisible to it. Currently silently
+    // dropped (reproduces with no bitwise op at all), so `o.a` is still `6`
+    // when `o.a &= 3` runs: 6 & 3 = 2. node throws `TypeError: Cannot mix
+    // BigInt`.
+    assert_stdout(
+        "const w = (x) => { x.a = 7n; }; let o = { a: 6 }; w(o); o.a &= 3; console.log(o.a);\n",
+        "2\n",
+    );
+}
+
+#[test]
+fn bitwise_compound_tripwire_forof_element_write_not_covered_by_bigint_taint_scan() {
+    // The third uncovered route: a `for..of` element dot-field write.
+    // Currently the WHOLE for-of loop over an array of objects is denied by
+    // a separate, pre-existing structural gate (unrelated to the taint
+    // scan) — this program fails closed today for that reason alone, not
+    // because the taint scan caught anything. If a future task admits this
+    // for-of shape without ALSO extending `collect_bigint_tainted_shape_fields`
+    // to see element writes, a BigInt reaching the field through this route
+    // would go undetected. node throws `TypeError: Cannot mix BigInt`.
+    assert_fails_closed(
+        "let os = [{a: 6}]; for (const o of os) { o.a = 7n; } os[0].a &= 3; console.log(os[0].a);\n",
+        "for-of",
+    );
+}

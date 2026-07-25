@@ -4650,12 +4650,43 @@ pub(crate) fn collect_bigint_tainted_captured_cells(
 ///
 /// Purely additive: never widens what the codegen arm can admit on its own,
 /// only narrows it further when a taint is found. A field this scan cannot
-/// see at all (e.g. reached only through an array-of-objects element, or a
-/// parameter whose argument-inflow this scan does not trace) is simply never
-/// added to the taint set — but R-11 T5's own admission gate
-/// (`bitwise_compound_dot_field_target_is_admitted`, `kali_types`) only ever
-/// reaches an identifier-base dot field in the first place, so this scan's
-/// coverage matches the admitted surface exactly.
+/// see at all is simply never added to the taint set.
+///
+/// **T5 review Important 2 — coverage gap, read before touching either this
+/// scan or any of the write routes below.** This scan sees only TWO of (at
+/// least) five source-language routes that can write a value into an
+/// admitted field:
+///   1. an object-literal declarator init — covered;
+///   2. a static dot-field `=` write off a BARE IDENTIFIER — covered;
+///   3. a computed-key write `o["a"] = <expr>` — NOT covered;
+///   4. a dot-field write off a PARAMETER (e.g. an arrow-function body
+///      `(x) => { x.a = <expr>; }`) — NOT covered. Params get their
+///      `Repr::Object(shape)` via `ReprTable::set_param`, a DIFFERENT
+///      accessor than the `repr_table.scalar(func, name)` lookup this scan's
+///      write-detection consults, so a parameter-based base is invisible to
+///      it;
+///   5. a `for..of`/`for..in` element dot-field write — NOT covered.
+///
+/// Routes 3-5 do not produce a wrong VALUE today only because each of those
+/// WRITES is itself currently silently dropped (a pre-existing gap,
+/// independent of this scan and of bitwise entirely — reproduces with no
+/// bitwise op in the program at all) — the field genuinely keeps its
+/// original, scan-visible value. **The moment any of routes 3-5 starts
+/// actually storing**, this scan and `shape_field_is_proven_numeric` (which
+/// has the identical blind spot on the same three routes, for the STRING
+/// axis) both go unsound SILENTLY: a BigInt or string could reach an
+/// admitted `Repr::I64` field through one of them and this arm would
+/// `I32WrapI64` it. Do NOT implement routes 3-5 without extending this scan
+/// (and its float-axis analogue, if one is ever added — see the R-11 T5
+/// review's Important 1 note on the arrow-parameter-write route surfacing
+/// `E4201` through the SAME blind spot on the FLOAT axis) FIRST. Tripwire
+/// tests pin the current (write-dropped) behavior for routes 3 and 4 in
+/// `crates/kali_cli/tests/soundness_bitwise_compound.rs`
+/// (`bitwise_compound_tripwire_computed_key_write_not_covered_by_bigint_taint_scan`,
+/// `bitwise_compound_tripwire_arrow_parameter_write_not_covered_by_bigint_taint_scan`);
+/// route 5 is separately denied by the for-of-over-object-array gate today,
+/// pinned by
+/// `bitwise_compound_tripwire_forof_element_write_not_covered_by_bigint_taint_scan`.
 pub(crate) fn collect_bigint_tainted_shape_fields(
     lir: &LirProgram,
     repr_table: &kali_common::ReprTable,
@@ -4691,10 +4722,37 @@ pub(crate) fn collect_bigint_tainted_shape_fields(
 /// list) and returns `(key, value node id)` pairs when `id` is an
 /// object-literal expression; `None` for anything else (a non-literal init, a
 /// getter/setter property, or a non-literal key).
+/// Result of scanning a candidate object-literal node for its
+/// `(key, value node)` properties.
+enum ObjectLiteralPropertyScan {
+    /// Every property was `init`/`get`/`set` with a `Literal` key — the
+    /// scan can name each field precisely.
+    Clean(Vec<(String, LirNodeId)>),
+    /// The node IS object-literal-shaped, but at least one property could
+    /// not be read this way (a spread, a computed key, or anything else
+    /// this scan does not model). Currently unreachable in practice —
+    /// `repr_infer`'s `record_object_literal` already denies such a literal
+    /// a `Repr::Object` shape at all (`obj_pending_conflicts`), so a
+    /// declarator this scan reaches with a confirmed `Repr::Object(shape)`
+    /// should never carry one — kept as a real, handled case rather than an
+    /// assumption, per the MINOR 1 review finding below.
+    Partial,
+}
+
+/// T5 review Minor 1: on ANY unparsable property, the ORIGINAL version of
+/// this scan returned `None` for the WHOLE literal — silently dropping
+/// taint for every OTHER field too, not just the unparsable one. For an
+/// ADDITIVE, default-deny taint set that is exactly backwards: the caller
+/// must taint every field of a literal it cannot fully parse
+/// (`ObjectLiteralPropertyScan::Partial`), never treat "could not parse" as
+/// "nothing to taint." This is the same denylist-vs-allowlist failure shape
+/// this project has hit repeatedly — a partial-information default must
+/// fail toward MORE taint, not less. Inverted here while it is cheap, even
+/// though it is currently unreachable (see `Partial`'s own doc).
 fn resolve_object_literal_properties(
     nodes: &[LirNode],
     id: LirNodeId,
-) -> Option<Vec<(String, LirNodeId)>> {
+) -> Option<ObjectLiteralPropertyScan> {
     let mut id = id;
     let mut guard = 0;
     loop {
@@ -4715,20 +4773,26 @@ fn resolve_object_literal_properties(
         }
         let mut props = Vec::with_capacity(node.children.len());
         for child in &node.children {
-            let child_node = nodes.get(child.0 as usize)?;
+            let Some(child_node) = nodes.get(child.0 as usize) else {
+                return Some(ObjectLiteralPropertyScan::Partial);
+            };
             if child_node.children.len() != 2
                 || !matches!(child_node.text.as_deref(), Some("init" | "get" | "set"))
             {
-                return None;
+                return Some(ObjectLiteralPropertyScan::Partial);
             }
-            let key_node = nodes.get(child_node.children[0].0 as usize)?;
+            let Some(key_node) = nodes.get(child_node.children[0].0 as usize) else {
+                return Some(ObjectLiteralPropertyScan::Partial);
+            };
             if key_node.kind != LirNodeKind::Literal {
-                return None;
+                return Some(ObjectLiteralPropertyScan::Partial);
             }
-            let key = key_node.text.as_deref()?.trim_matches('"').to_string();
-            props.push((key, child_node.children[1]));
+            let Some(key) = key_node.text.as_deref() else {
+                return Some(ObjectLiteralPropertyScan::Partial);
+            };
+            props.push((key.trim_matches('"').to_string(), child_node.children[1]));
         }
-        return Some(props);
+        return Some(ObjectLiteralPropertyScan::Clean(props));
     }
 }
 
@@ -4779,19 +4843,31 @@ fn collect_bigint_tainted_shape_fields_walk(
             };
             if let kali_common::Repr::Object(shape) = repr_table.scalar(func, name) {
                 if let Some(&init) = declarator.children.get(1) {
-                    if let Some(props) = resolve_object_literal_properties(nodes, init) {
-                        for (key, value_id) in props {
-                            if !expr_is_provably_not_bigint(
-                                nodes,
-                                value_id,
-                                func,
-                                function_params,
-                                call_args,
-                                0,
-                            ) {
-                                tainted.insert((shape, key));
+                    match resolve_object_literal_properties(nodes, init) {
+                        Some(ObjectLiteralPropertyScan::Clean(props)) => {
+                            for (key, value_id) in props {
+                                if !expr_is_provably_not_bigint(
+                                    nodes,
+                                    value_id,
+                                    func,
+                                    function_params,
+                                    call_args,
+                                    0,
+                                ) {
+                                    tainted.insert((shape, key));
+                                }
                             }
                         }
+                        // MINOR 1: an unparsable property taints EVERY known
+                        // field of this shape, not just the one property
+                        // this scan could not read — see
+                        // `ObjectLiteralPropertyScan::Partial`'s doc.
+                        Some(ObjectLiteralPropertyScan::Partial) => {
+                            for (field_name, _) in repr_table.shape_fields(shape) {
+                                tainted.insert((shape, field_name.clone()));
+                            }
+                        }
+                        None => {}
                     }
                 }
             }

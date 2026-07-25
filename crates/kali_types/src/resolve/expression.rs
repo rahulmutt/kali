@@ -627,6 +627,24 @@ impl TypeContext {
     /// "structural admission only" pattern
     /// `bitwise_compound_target_is_admitted_local_scalar`'s doc establishes
     /// for the local/module/captured shapes.
+    ///
+    /// T5 review Critical 1: a shape carrying a field literally named
+    /// `length` is excluded ENTIRELY (not just when `length` is the
+    /// compound-assign's own target field) — a plain read `o.length`
+    /// elsewhere in the program is ambiguous with an ARRAY `.length` read at
+    /// the same 1-child dot-node shape, and `object_shape_of_node`
+    /// (`kali_codegen`) resolves that ambiguity by treating ANY `.length`
+    /// access as the array form first, never routing to the object-field
+    /// lookup — so a later `o.length` read silently returns `0` instead of
+    /// the real field value, regardless of which OTHER field this
+    /// compound-assign targets. That read bug is pre-existing and
+    /// reproduces identically via a plain `=` write (out of scope to fix
+    /// here), but this admission is what makes it newly REACHABLE for a
+    /// program that also uses a bitwise compound-assign on the same shape —
+    /// denying the whole shape here (mirrored in
+    /// `emit_object_field_bitwise_compound_assign`, `object.rs`) closes it
+    /// by construction rather than trying to prove exactly when the later
+    /// read would fire.
     pub(crate) fn bitwise_compound_dot_field_target_is_admitted(&self, left: &Expression) -> bool {
         let Expression::MemberExpression(member) = left else {
             return false;
@@ -637,6 +655,9 @@ impl TypeContext {
         let Some(shape) = self.object_shape_of_expression(&member.object) else {
             return false;
         };
+        if self.repr_table.shape_field(shape, "length").is_some() {
+            return false;
+        }
         self.repr_table
             .shape_field(shape, &member.property)
             .is_some()
