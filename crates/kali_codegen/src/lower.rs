@@ -132,7 +132,8 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     // stays a `_start` local (byte-identical); heap types (object/array/string)
     // are NEVER promoted — a mutable global heap root is a persistent GC root
     // the region reclamation does not model, so those stay fail-closed (E5506).
-    let module_global_slots = collect_module_scalar_globals(lir, &ctx.repr_table, &function_plans);
+    let (module_global_slots, module_global_bigint_targets) =
+        collect_module_scalar_globals(lir, &ctx.repr_table, &function_plans);
     if function_plans.iter().any(|plan| {
         matches!(
             plan.flavor,
@@ -1565,6 +1566,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             &module_const_inits,
             &module_binding_names,
             &module_global_slots,
+            &module_global_bigint_targets,
             ctx.env_plans
                 .get(&function.name)
                 .cloned()
@@ -3975,11 +3977,16 @@ pub(crate) const RESERVED_GLOBAL_COUNT: u32 = 9;
 /// A `const` is excluded (it stays on the compile-time inline path). A scalar
 /// referenced only at module scope is NOT promoted (it keeps its byte-identical
 /// `_start`-local lowering).
+///
+/// The second return value is the R-11 T3 review Important-1 BigInt-taint set
+/// (`collect_bigint_tainted_module_scalars`), filtered to promoted names only
+/// — purely additive provenance for the bitwise compound-assign codegen arm;
+/// it does not influence which names end up in the first return value.
 pub(crate) fn collect_module_scalar_globals(
     lir: &LirProgram,
     repr_table: &kali_common::ReprTable,
     function_plans: &[FunctionPlan],
-) -> BTreeMap<String, (u32, kali_common::Repr)> {
+) -> (BTreeMap<String, (u32, kali_common::Repr)>, HashSet<String>) {
     // Top-level `var`/`let` numeric scalar declarators (never `const`).
     let mut candidates: BTreeMap<String, kali_common::Repr> = BTreeMap::new();
     let mut stack = vec![lir.root];
@@ -4016,7 +4023,7 @@ pub(crate) fn collect_module_scalar_globals(
         }
     }
     if candidates.is_empty() {
-        return BTreeMap::new();
+        return (BTreeMap::new(), HashSet::new());
     }
 
     // Names used ANYWHERE as a member/index base (`o.x`, `a[i]`) are heap
@@ -4057,6 +4064,21 @@ pub(crate) fn collect_module_scalar_globals(
         );
     }
 
+    // R-11 T3 review Important 1: BigInt-literal taint, scanned over the same
+    // `candidates` set BEFORE it is consumed below. Purely additive — does
+    // not affect `numeric_ok`, `referenced`, or `slots`.
+    let mut bigint_tainted: HashSet<String> = HashSet::new();
+    {
+        let mut seen = HashSet::new();
+        collect_bigint_tainted_module_scalars(
+            &lir.nodes,
+            lir.root,
+            &candidates,
+            &mut seen,
+            &mut bigint_tainted,
+        );
+    }
+
     // Only bindings referenced from inside a function need a persistent global;
     // a module-only scalar stays a `_start` local (byte-identical).
     let mut referenced: HashSet<String> = HashSet::new();
@@ -4079,7 +4101,8 @@ pub(crate) fn collect_module_scalar_globals(
             next_index += 1;
         }
     }
-    slots
+    bigint_tainted.retain(|name| slots.contains_key(name));
+    (slots, bigint_tainted)
 }
 
 /// Collect every identifier used as a member/index base — the `o` in `o.x`,
@@ -4361,6 +4384,111 @@ fn scan_numeric_assignments(
             nodes, *child, func, repr_table, candidates, seen, numeric_ok,
         );
     }
+}
+
+/// R-11 T3 review Important 1: identifies every CANDIDATE module-scope
+/// scalar (`candidates`, from `collect_module_scalar_globals`'s own
+/// declarator scan) whose declarator init OR any reassignment RHS — reached
+/// from module scope or from inside any function, mirroring
+/// `scan_numeric_assignments`'s own function-boundary-crossing walk exactly
+/// so this cannot diverge from what that promotion proof already visits — is
+/// a raw BigInt literal (optionally negated). `is_numeric_expr`'s literal
+/// branch strips a trailing `n` before checking
+/// (`parse_numeric_literal_value`), so a BigInt-initialized/reassigned
+/// module global is "provably numeric" to promotion and gets promoted
+/// exactly like a genuine integer — a pre-existing, deferred gap for the ten
+/// arithmetic/plain-assignment operators (BigInt truncation) this task does
+/// not touch or fix. This scan is purely ADDITIVE: it does not change
+/// `candidates`, `numeric_ok`, or which names get promoted. It is consumed
+/// ONLY by the bitwise compound-assign codegen arm (`emit/literal.rs`),
+/// which cannot silently share that pre-existing gap — the raw
+/// `I32WrapI64` combiner would turn it into a NEW wrong-value-at-exit-0
+/// regression instead of the pre-existing (and out of scope) truncation.
+fn collect_bigint_tainted_module_scalars(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    candidates: &BTreeMap<String, kali_common::Repr>,
+    seen: &mut HashSet<LirNodeId>,
+    tainted: &mut HashSet<String>,
+) {
+    if !seen.insert(id) {
+        return;
+    }
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return;
+    };
+
+    // Function boundary: descend into the body, mirroring
+    // `scan_numeric_assignments` (no function-name tracking needed here —
+    // `candidates` is already module-scope-only, so the gate below never
+    // needs a scoped repr lookup the way `is_numeric_expr` does).
+    if let Some((_, _, body_id, _)) = function_shape(nodes, id) {
+        collect_bigint_tainted_module_scalars(nodes, body_id, candidates, seen, tainted);
+        return;
+    }
+
+    // Declarator init (`var`/`let name = init`).
+    if node.kind == LirNodeKind::Instruction && matches!(node.text.as_deref(), Some("let" | "var"))
+    {
+        for declarator_id in &node.children {
+            let Some(declarator) = nodes.get(declarator_id.0 as usize) else {
+                continue;
+            };
+            let Some(name) = declarator.text.as_deref() else {
+                continue;
+            };
+            if candidates.contains_key(name) {
+                if let Some(&init) = declarator.children.get(1) {
+                    if expr_is_bigint_literal(nodes, init) {
+                        tainted.insert(name.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    // Reassignment (`name = rhs`, or a compound `name op= rhs`).
+    if node.kind == LirNodeKind::Value
+        && node.children.len() == 2
+        && is_assignment_operator_text(node.text.as_deref().unwrap_or_default())
+    {
+        let lhs = unwrap_transparent_value(nodes, node.children[0]);
+        if let Some(lhs_node) = nodes.get(lhs.0 as usize) {
+            if lhs_node.kind == LirNodeKind::Value && lhs_node.children.is_empty() {
+                if let Some(name) = lhs_node.text.as_deref() {
+                    if candidates.contains_key(name)
+                        && expr_is_bigint_literal(nodes, node.children[1])
+                    {
+                        tainted.insert(name.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    for child in &node.children {
+        collect_bigint_tainted_module_scalars(nodes, *child, candidates, seen, tainted);
+    }
+}
+
+/// True when `id` (after unwrapping a transparent wrapper and an optional
+/// leading unary `-`) is a raw BigInt literal (the lexer/parser keep the
+/// trailing `n` in the literal's text). Standalone mirror of
+/// `FunctionEmitter::is_bigint_literal_valued` (`emit/operators.rs`) for use
+/// from `lower.rs`'s free functions, which run before any `FunctionEmitter`
+/// exists.
+fn expr_is_bigint_literal(nodes: &[LirNode], id: LirNodeId) -> bool {
+    let id = unwrap_transparent_value(nodes, id);
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return false;
+    };
+    if node.kind == LirNodeKind::Value
+        && node.children.len() == 1
+        && node.text.as_deref() == Some("-")
+    {
+        return expr_is_bigint_literal(nodes, node.children[0]);
+    }
+    node.kind == LirNodeKind::Literal && node.text.as_deref().is_some_and(|t| t.ends_with('n'))
 }
 
 /// Collect every bare identifier name (a childless `Value` node with non-empty

@@ -321,6 +321,77 @@ fn bitwise_compound_on_module_global_read_via_closure() {
     );
 }
 
+// --- Task 3 review Critical 1 / Important 3: the module-global TARGET axis
+// needs its own provenance pins, mirroring the local-scalar ones below
+// (`bitwise_compound_fails_closed_on_target_from_string_object_field`,
+// `..._target_from_array_element`). Round 1 of this arm trusted `is_f64`
+// alone for the target proof, reasoning that `collect_module_scalar_globals`
+// / `scan_numeric_assignments`'s `is_numeric_expr` already proved the
+// binding numeric — but that helper's bare-identifier branch is
+// `repr_table.scalar(func, t)`, `ReprTable::scalar`'s `unwrap_or_default()`
+// accessor whose default is `Repr::I64`. A TWO-HOP indirection through a
+// bare-identifier copy (`let s = o.a; let n = s;` — `o.a` alone is directly
+// rejected by `is_numeric_expr`, but the copy `n = s` is not, since `s`
+// itself silently defaults to `Repr::I64`) routes a lost-`Repr::String`
+// binding (the pre-existing R-06-R4 residual) straight through promotion.
+// Measured on the round-1 build: `n &= 3` printed `1` at exit 0 where node
+// prints `3` — the exact string-handle-truncation miscompile class this
+// project exists to close, one lane over from the local arm's already-fixed
+// leak. Fixed by threading `name` into `emit_module_global_assignment` and
+// reusing `binding_is_proven_numeric` there too. These two pins exist so
+// that fix cannot silently regress.
+
+#[test]
+fn bitwise_compound_fails_closed_on_module_global_target_from_string_object_field() {
+    // node: 3. Module-global twin of
+    // `bitwise_compound_fails_closed_on_target_from_string_object_field`:
+    // `n` is written from inside a function (`f`), so it promotes to a WASM
+    // global instead of staying a `_start` local — exercising
+    // `emit_module_global_assignment`'s bitwise arm instead of the local
+    // one. The `let s = o.a;` hop is required: a direct `let n = o.a;`
+    // is rejected by `is_numeric_expr` at promotion time and never reaches
+    // this arm at all (a less interesting, differently-denied shape).
+    assert_fails_closed(
+        "let o = {a: \"3\"}; let s = o.a; let n = s; function f(){ n &= 3; } f(); console.log(n);\n",
+        "&=",
+    );
+}
+
+#[test]
+fn bitwise_compound_fails_closed_on_module_global_target_from_array_element() {
+    // node: 3. Module-global twin of
+    // `bitwise_compound_fails_closed_on_target_from_array_element`, same
+    // two-hop shape (a direct `let n = a[1];` is rejected by
+    // `is_numeric_expr` at promotion time and never reaches this arm).
+    assert_fails_closed(
+        "let a = [1, 2, 3]; let idx = a[1]; let n = idx; function f(){ n |= 1; } f(); console.log(n);\n",
+        "|=",
+    );
+}
+
+// --- Task 3 review Important 1: a BigInt-literal-initialized module global
+// is a NEW wrong-value-at-exit-0 regression, distinct from Critical 1 above
+// and NOT closed by the same `binding_is_proven_numeric` fix — `n`'s write
+// (`6n`) genuinely satisfies that proof's own definition (a numeric/BigInt
+// literal is exactly what `write_value_is_numeric` admits). `is_numeric_expr`
+// strips the trailing `n` before parsing, so the declarator promotes with
+// `is_f64 == false` regardless. node throws `TypeError: Cannot mix BigInt
+// and other types`; before this task the six bitwise ops were denied on
+// EVERY module global uniformly (T2's resolve gate), so this specific
+// combination read as `E5506`; measured on the T3-Critical-1-round build:
+// it printed `2` at exit 0. Denied via a separate, narrow, ADDITIVE
+// provenance set (`module_global_bigint_targets`) that does not touch
+// promotion or the ten pre-existing operators — general BigInt semantics on
+// a module global stay exactly as deferred as before this task.
+
+#[test]
+fn bitwise_compound_fails_closed_on_bigint_initialized_module_global() {
+    assert_fails_closed(
+        "let n = 6n; function f(){ n &= 3; } f(); console.log(n);\n",
+        "&=",
+    );
+}
+
 // --- Task 2 review round 2: Critical 1 was still open on the RHS-IDENTIFIER
 // axis — `bitwise_compound_rhs_is_provably_i64`'s identifier branch admitted
 // via `scalar_repr(name) == Repr::I64`, which is `ReprTable::scalar`'s

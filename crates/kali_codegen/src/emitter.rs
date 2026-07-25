@@ -375,6 +375,20 @@ pub(crate) struct FunctionEmitter<'a> {
     /// write to `GlobalSet`; the declarator init in `_start` stores through
     /// `GlobalSet`. See `kali_codegen::lower::collect_module_scalar_globals`.
     pub(crate) module_global_slots: &'a BTreeMap<String, (u32, kali_common::Repr)>,
+    /// R-11 T3 review Important 1: names in `module_global_slots` whose
+    /// declarator init OR some reassignment RHS is a raw BigInt literal
+    /// (optionally negated, e.g. `let n = 6n;` or `n = -3n;` reached from any
+    /// scope). `is_numeric_expr` (the promotion proof in
+    /// `collect_module_scalar_globals`/`scan_numeric_assignments`) strips the
+    /// trailing `n` before checking, so such a name is "provably numeric" and
+    /// promotes exactly like a genuine integer — a pre-existing, deferred gap
+    /// for the ten arithmetic/plain-assignment operators (BigInt truncation)
+    /// this task does not touch. The six bitwise ops' raw `I32WrapI64`
+    /// combiner cannot share that gap silently: consulted ONLY by the
+    /// bitwise compound-assign arm (`literal.rs`) to fail closed instead of
+    /// computing a wrong value from a truncated BigInt. See
+    /// `kali_codegen::lower::collect_module_scalar_bigint_targets`.
+    pub(crate) module_global_bigint_targets: &'a HashSet<String>,
     /// This function's closure environment plan (Stage C, `derive_env_plans`):
     /// the promoted scalar/heap cells it OWNS in its own env record and the
     /// outer bindings it captures through the parent chain. Default (owns_env
@@ -434,6 +448,7 @@ impl<'a> FunctionEmitter<'a> {
         module_const_inits: &'a BTreeMap<String, LirNodeId>,
         module_binding_names: &'a BTreeSet<String>,
         module_global_slots: &'a BTreeMap<String, (u32, kali_common::Repr)>,
+        module_global_bigint_targets: &'a HashSet<String>,
         env_plan: kali_mir::EnvPlan,
         env_plans: &'a std::collections::BTreeMap<String, kali_mir::EnvPlan>,
     ) -> Self {
@@ -567,6 +582,7 @@ impl<'a> FunctionEmitter<'a> {
             module_const_inits,
             module_binding_names,
             module_global_slots,
+            module_global_bigint_targets,
             env_plan,
             env_plans,
         }

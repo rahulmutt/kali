@@ -786,7 +786,14 @@ impl<'a> FunctionEmitter<'a> {
         // (In `_start` a promoted name is never a local, so this still fires.)
         if !self.locals.contains_key(&name) {
             if let Some(&(global_index, repr)) = self.module_global_slots.get(&name) {
-                return self.emit_module_global_assignment(function, op, global_index, repr, right);
+                return self.emit_module_global_assignment(
+                    function,
+                    op,
+                    global_index,
+                    repr,
+                    right,
+                    &name,
+                );
             }
             // Stage C: a captured scalar promoted to an env cell (own cell or a
             // single-level synchronous outer capture) — route the write through
@@ -1195,6 +1202,7 @@ impl<'a> FunctionEmitter<'a> {
         global_index: u32,
         repr: kali_common::Repr,
         right: LirNodeId,
+        name: &str,
     ) -> bool {
         let is_f64 = repr == kali_common::Repr::F64;
         match op {
@@ -1262,35 +1270,66 @@ impl<'a> FunctionEmitter<'a> {
                 // (promoted to a persistent WASM global — `flags` mutated
                 // inside a function AND read at module scope, or vice
                 // versa). Mirrors the local-scalar bitwise arm above
-                // (`emit_local_compound_assignment`) but the TARGET-axis
-                // proof is different and does NOT need
-                // `binding_is_proven_numeric` here: a name only ever reaches
-                // `module_global_slots` (and therefore this function) when
-                // `collect_module_scalar_globals` / `scan_numeric_assignments`
-                // (`lower.rs`) already proved every declarator init and every
-                // reassignment RHS across the WHOLE program — including this
-                // very compound op — `is_numeric_expr`, and `repr` here is
-                // one of exactly `I64`/`F64` (never `ReprTable::scalar`'s bare
-                // default guess). The pre-existing arithmetic-compound arm
-                // just above trusts the identical `is_f64` split for the same
-                // reason.
+                // (`emit_local_compound_assignment`, `:1143`) as closely as
+                // this shape allows.
                 //
-                // The RHS axis is NOT covered by that promotion proof to the
-                // precision this lane's raw `I32WrapI64` combiner needs:
-                // `scan_numeric_assignments`'s `is_numeric_expr` admits an
+                // TARGET axis — review Critical 1 (round 1): `is_f64` alone
+                // is NOT a proof `repr` is genuinely `I64`. A name reaches
+                // `module_global_slots` (and therefore this function) once
+                // `collect_module_scalar_globals` / `scan_numeric_assignments`
+                // (`lower.rs`) call every declarator init and every
+                // reassignment RHS across the whole program `is_numeric_expr`
+                // — but that helper's bare-identifier branch is
+                // `repr_table.scalar(func, t)` (`lower.rs:4249`), the
+                // `unwrap_or_default()` accessor whose default is `Repr::I64`
+                // (`kali_common::Repr`'s `#[default]`). A binding whose
+                // `Repr::String` provenance was lost (the pre-existing
+                // R-06-R4 residual — e.g. `let o={a:"3"}; let s=o.a; let
+                // n=s;`) is therefore "proven numeric" by DEFAULT, promoted,
+                // and reaches here with `is_f64 == false` despite never
+                // holding a real integer — measured: `n&=3` printed `1` at
+                // exit 0 where node prints `3` (a truncated string handle).
+                // The local arm already closed this exact leak in Task 2
+                // round 3 with `binding_is_proven_numeric` — a DIFFERENT,
+                // AFFIRMATIVELY-written allowlist (`repr_infer`'s numeric
+                // proof, never defaulted); this arm must reuse it too, on
+                // `name` (now threaded through from the call site, which
+                // already had it).
+                //
+                // Also target axis — review Important 1: a BigInt-literal
+                // declarator/reassignment (`let n = 6n;`) is likewise
+                // "numeric" to `is_numeric_expr` (it strips the trailing `n`
+                // before parsing) and promotes with `is_f64 == false` too —
+                // `binding_is_proven_numeric` does NOT close this one (the
+                // binding genuinely holds a proven-numeric-shaped write by
+                // that proof's own definition). Denied separately via
+                // `module_global_bigint_targets`
+                // (`collect_bigint_tainted_module_scalars`, `lower.rs`), a
+                // narrow ADDITIVE scan that does not change promotion and is
+                // consulted only here — restores the pre-T3 refusal for this
+                // one shape without attempting BigInt semantics generally
+                // (the ten pre-existing operators' BigInt-module-global
+                // truncation stays exactly as deferred as before).
+                //
+                // RHS axis — unchanged from round 1: NOT covered by the
+                // promotion proof to the precision this lane's raw
+                // `I32WrapI64` combiner needs (`is_numeric_expr` admits an
                 // F64-repr'd identifier or a numeric-returning call as
-                // "numeric", neither of which `emit_bitwise_i32_op_extend`'s
-                // int32 combiner can safely consume without a float-aware
-                // conversion path this slice does not implement. Guarding on
-                // `is_float_valued(right)` alone would repeat Task 2 round
-                // 1's defect (it answers "is the RHS a float", not "is the
-                // RHS safe" — a STRING RHS is neither float nor float-valued
-                // and would fall through to `I32WrapI64`, truncating a tagged
-                // handle into a wrong-but-plausible i32). Reuse the same
-                // narrow positive-evidence RHS oracle the local arm uses
-                // instead: `bitwise_compound_rhs_is_provably_i64` (literal
-                // non-BigInt numeral, or unary `-` over one).
-                if is_f64 || !self.bitwise_compound_rhs_is_provably_i64(right) {
+                // "numeric", neither of which the combiner can safely
+                // consume). Guarding on `is_float_valued(right)` alone would
+                // repeat Task 2 round 1's defect (it answers "is the RHS a
+                // float", not "is the RHS safe" — a STRING RHS is neither
+                // float nor float-valued and would fall through to
+                // `I32WrapI64`, truncating a tagged handle into a
+                // wrong-but-plausible i32). Reuse the same narrow
+                // positive-evidence RHS oracle the local arm uses instead:
+                // `bitwise_compound_rhs_is_provably_i64` (literal non-BigInt
+                // numeral, or unary `-` over one).
+                if is_f64
+                    || !self.binding_is_proven_numeric(name)
+                    || self.module_global_bigint_targets.contains(name)
+                    || !self.bitwise_compound_rhs_is_provably_i64(right)
+                {
                     self.diagnostics.push(Diagnostic::error(
                         e5::FEATURE_UNAVAILABLE as u32,
                         format!(
