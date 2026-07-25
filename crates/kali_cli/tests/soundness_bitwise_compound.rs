@@ -170,12 +170,20 @@ fn bitwise_compound_fails_closed_on_every_target_shape() {
     // codegen change (`try_emit_captured_assign`'s bitwise branch) lower it
     // — and was moved to `bitwise_compound_on_captured_scalar` below as a
     // value assertion, for the same reason the module-global row moved.
+    //
+    // R-11 T5: the "Member target" row that used to live here (`let o = {
+    // a: 6 }; o.a &= 3; console.log(o.a);`) is likewise now an ADMITTED
+    // shape — a static dot-field target on a proven fixed-shape integer
+    // field (`bitwise_compound_dot_field_target_is_admitted` at resolve,
+    // `emit_object_field_bitwise_compound_assign` at codegen) — and was
+    // moved to `bitwise_compound_on_object_field` below as a value
+    // assertion. Unlike the local/module/captured shapes, this admission is
+    // NOT restricted to `const`: field mutation is legal on a `let`-bound
+    // object too, and the proof chain (shape existence, `Repr::I64`,
+    // `shape_field_is_proven_numeric`, the whole-program BigInt-taint set)
+    // is entirely shape/field-keyed, not binding-keyed, so it holds for
+    // `let`/`var` exactly as it does for `const`.
     let needle = "&=";
-    assert_fails_closed(
-        // Member target (`o.a`).
-        "let o = { a: 6 }; o.a &= 3; console.log(o.a);\n",
-        needle,
-    );
     assert_fails_closed(
         // Array element (`a[0]`).
         "let a = [6, 1, 2]; a[0] &= 3; console.log(a[0]);\n",
@@ -1098,5 +1106,128 @@ fn bitwise_compound_fails_closed_on_every_emit_identifier_interception_arm() {
     assert_fails_closed(
         "function f(){ let undefined=12; function s(){ undefined &= 7; } s(); console.log(undefined); } f();\n",
         "reserved word",
+    );
+}
+
+// --- Task 5: integer object field ---
+
+#[test]
+fn bitwise_compound_on_object_field() {
+    // A fixed-shape integer field compound-assigned. Reachability note (Step
+    // 2 of the R-11 T5 brief): this does NOT reach
+    // `emit_object_field_compound_assign_dynamic` — that function lowers the
+    // COMPUTED for-in-key member form (`obj[c] op= v`), never a static dot
+    // field. Before T5 there was no codegen lowering at all for a static
+    // dot-field compound assign (arithmetic OR bitwise) — this is new
+    // lowering (`emit_object_field_bitwise_compound_assign`, `object.rs`),
+    // not a widened existing arm.
+    assert_stdout("const o = { a: 6 }; o.a <<= 2; console.log(o.a);\n", "24\n");
+    // All six ops.
+    assert_stdout("const o = { a: 6 }; o.a &= 3; console.log(o.a);\n", "2\n");
+    assert_stdout("const o = { a: 6 }; o.a |= 8; console.log(o.a);\n", "14\n");
+    assert_stdout("const o = { a: 6 }; o.a ^= 1; console.log(o.a);\n", "7\n");
+    assert_stdout("const o = { a: 6 }; o.a >>= 1; console.log(o.a);\n", "3\n");
+    assert_stdout(
+        "const o = { a: -1 }; o.a >>>= 0; console.log(o.a);\n",
+        "4294967295\n",
+    );
+    // `let`/`var`-bound object: field mutation is legal on a non-const
+    // binding too, and the admission proof (shape/field-keyed, not
+    // binding-keyed) holds identically. Moved out of
+    // `bitwise_compound_fails_closed_on_every_target_shape`'s "Member
+    // target" row now that this shape is admitted.
+    assert_stdout("let o = { a: 6 }; o.a &= 3; console.log(o.a);\n", "2\n");
+    assert_stdout("var o = { a: 6 }; o.a <<= 2; console.log(o.a);\n", "24\n");
+    // A field WRITE between construction and the compound-assign is visible
+    // (real read-modify-write off the heap, not a fold of the original
+    // literal): 101 & 3 = 1, distinct from both 0 (would indicate a bare
+    // wrong-value bug) and 2 (6 & 3, would indicate a stale read of the
+    // original literal instead of the current heap value).
+    assert_stdout(
+        "let o = { a: 6 }; o.a = 101; o.a &= 3; console.log(o.a);\n",
+        "1\n",
+    );
+    // Multiple fields on the same shape; only the targeted field mutates.
+    assert_stdout(
+        "let o = { a: 6, b: 9 }; o.a <<= 2; console.log(o.a + \",\" + o.b);\n",
+        "24,9\n",
+    );
+}
+
+#[test]
+fn bitwise_compound_fails_closed_on_object_field_float() {
+    // A float-repr'd field has no bitwise lowering — E5506, not a truncated
+    // value.
+    assert_fails_closed("const o = { a: 6.5 }; o.a &= 3; console.log(o.a);\n", "&=");
+}
+
+#[test]
+fn bitwise_compound_fails_closed_on_object_field_string() {
+    // `repr_infer` interns a string field as `Repr::I64` too (see review C-5
+    // in `emit/call.rs`) — `shape_field_is_proven_numeric` is what actually
+    // excludes it. node computes `2` (ToNumber("6") coerces before the
+    // bitwise op — it does NOT throw here); kali refuses instead of
+    // truncating the tagged string HANDLE through `I32WrapI64`, a deliberate
+    // over-denial matching the local-scalar precedent
+    // (`bitwise_compound_on_non_integer_fails_closed`'s string-target row).
+    assert_fails_closed(
+        "const o = { a: \"6\" }; o.a &= 3; console.log(o.a);\n",
+        "&=",
+    );
+}
+
+#[test]
+fn bitwise_compound_fails_closed_on_object_field_bigint_literal() {
+    // Target-axis BigInt guard (`collect_bigint_tainted_shape_fields`): a
+    // BigInt-literal field interns as plain `Repr::I64` and passes
+    // `shape_field_is_proven_numeric` (which only excludes strings) — the
+    // object-field analogue of the module-global/captured-cell BigInt taint
+    // Task 3/4 needed. node throws `TypeError: Cannot mix BigInt`.
+    assert_fails_closed("const o = { a: 6n }; o.a &= 3; console.log(o.a);\n", "&=");
+    // The taint also closes a LATER write of a BigInt literal into an
+    // originally-safe field, not just the declarator init.
+    assert_fails_closed(
+        "let o = { a: 6 }; o.a = 7n; o.a &= 3; console.log(o.a);\n",
+        "&=",
+    );
+}
+
+#[test]
+fn bitwise_compound_fails_closed_on_object_field_unknown_field() {
+    assert_fails_closed("const o = { a: 6 }; o.z &= 3; console.log(o.z);\n", "&=");
+}
+
+#[test]
+fn bitwise_compound_fails_closed_on_object_field_rhs_string() {
+    // RHS-axis proof reused verbatim (`bitwise_compound_rhs_is_provably_i64`)
+    // — a string RHS must not truncate through `I32WrapI64` the way the
+    // local-scalar review Critical 1 measured. node: 5.
+    assert_fails_closed(
+        "const o = { a: 0 }; o.a |= \"5\"; console.log(o.a);\n",
+        "|=",
+    );
+}
+
+#[test]
+fn bitwise_compound_fails_closed_on_object_field_array_element_target() {
+    // Array element target (`a[0] &= 3`) must stay denied: it never reaches
+    // `object_shape_of_node` as an object (it is an array binding), and the
+    // resolve-side gate (`bitwise_compound_dot_field_target_is_admitted`)
+    // requires `member.computed_index.is_none()`, which `a[0]` never
+    // satisfies. Guards against T5's widening leaking into the array-element
+    // shape Task 6 is scoped to audit.
+    assert_fails_closed("let a = [6, 1, 2]; a[0] &= 3; console.log(a[0]);\n", "&=");
+}
+
+#[test]
+fn bitwise_compound_fails_closed_on_object_field_forin_key_computed_target() {
+    // Computed for-in-key target (`o[k] &= 3`) must stay denied: it has
+    // `computed_index.is_some()`, so `bitwise_compound_dot_field_target_is_admitted`
+    // rejects it structurally — this task opens the STATIC dot-field shape
+    // only, not the computed/for-in-key one (`emit_object_field_compound_assign_dynamic`
+    // is untouched by T5).
+    assert_fails_closed(
+        "let o = { a: 6, b: 6 }; for (const k in o) { o[k] &= 3; } console.log(o.a);\n",
+        "&=",
     );
 }

@@ -453,6 +453,19 @@ pub(crate) struct FunctionEmitter<'a> {
     /// keyed by NAME ONLY, for the same reason
     /// `captured_cell_bigint_targets` is.
     pub(crate) captured_cell_float_targets: &'a HashSet<String>,
+    /// R-11 T5: whole-program BigInt-taint set for HEAP-OBJECT FIELDS, keyed
+    /// by `(ShapeId, field name)` rather than by binding name (a field's
+    /// static type is a property of the shape, not of any one binding that
+    /// happens to hold an instance of it — the same key
+    /// `shape_field_is_proven_numeric` already uses on the string axis).
+    /// `shape_field_is_proven_numeric` alone cannot tell a BigInt-literal
+    /// field (`{a: 6n}`, interned as plain `Repr::I64`) from a genuine
+    /// integer one — this is the object-field twin of
+    /// `module_global_bigint_targets` / `captured_cell_bigint_targets`.
+    /// Consulted ONLY by the bitwise compound-assign object-field arm
+    /// (`object.rs`'s `emit_object_field_bitwise_compound_assign`). See
+    /// `kali_codegen::lower::collect_bigint_tainted_shape_fields`'s doc.
+    pub(crate) shape_field_bigint_targets: &'a HashSet<(kali_common::ShapeId, String)>,
     /// This function's closure environment plan (Stage C, `derive_env_plans`):
     /// the promoted scalar/heap cells it OWNS in its own env record and the
     /// outer bindings it captures through the parent chain. Default (owns_env
@@ -515,6 +528,7 @@ impl<'a> FunctionEmitter<'a> {
         module_global_bigint_targets: &'a HashSet<String>,
         captured_cell_bigint_targets: &'a HashSet<String>,
         captured_cell_float_targets: &'a HashSet<String>,
+        shape_field_bigint_targets: &'a HashSet<(kali_common::ShapeId, String)>,
         env_plan: kali_mir::EnvPlan,
         env_plans: &'a std::collections::BTreeMap<String, kali_mir::EnvPlan>,
     ) -> Self {
@@ -651,6 +665,7 @@ impl<'a> FunctionEmitter<'a> {
             module_global_bigint_targets,
             captured_cell_bigint_targets,
             captured_cell_float_targets,
+            shape_field_bigint_targets,
             env_plan,
             env_plans,
         }

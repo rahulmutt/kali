@@ -147,6 +147,10 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     // alone.
     let captured_cell_float_targets =
         collect_float_tainted_captured_cells(lir, &function_plans, &ctx.env_plans);
+    // R-11 T5: the heap-object-FIELD twin of the two BigInt-taint scans above
+    // — see `collect_bigint_tainted_shape_fields`'s own doc.
+    let shape_field_bigint_targets =
+        collect_bigint_tainted_shape_fields(lir, &ctx.repr_table, &function_plans);
     if function_plans.iter().any(|plan| {
         matches!(
             plan.flavor,
@@ -1582,6 +1586,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             &module_global_bigint_targets,
             &captured_cell_bigint_targets,
             &captured_cell_float_targets,
+            &shape_field_bigint_targets,
             ctx.env_plans
                 .get(&function.name)
                 .cloned()
@@ -4609,6 +4614,239 @@ pub(crate) fn collect_bigint_tainted_captured_cells(
         );
     }
     tainted
+}
+
+/// R-11 T5: whole-program BigInt taint for HEAP-OBJECT FIELDS — the
+/// shape-field twin of `collect_bigint_tainted_module_scalars` /
+/// `collect_bigint_tainted_captured_cells` above, reapplied to a `Repr::Object`
+/// field instead of a scalar binding/cell.
+///
+/// `shape_field_is_proven_numeric` (`repr_infer`'s per-field proof, consulted
+/// by the bitwise compound-assign object-field arm in `object.rs`) proves only
+/// that NO value flowing into the field is a STRING — `repr_infer` interns a
+/// field's repr as `I64` for a plain integer, a boolean, AND a BigInt literal
+/// alike (there is no separate BigInt axis), so it cannot by itself tell `{a:
+/// 6n}` from `{a: 6}`. This scan closes that gap the same way Task 3/4 closed
+/// it for a scalar binding/cell: an ADDITIVE, allowlist-based
+/// (`expr_is_provably_not_bigint`, reused verbatim) taint set, keyed by
+/// `(ShapeId, field name)` rather than by binding name — the natural key
+/// here, since a field's static type is a property of the SHAPE, not of any
+/// one binding that happens to hold an instance of it (mirrors
+/// `shape_field_is_proven_numeric`'s own shape-level, not binding-level, key).
+///
+/// Scans two sources per function, both attributed to that function's own
+/// `func` name (mirroring the declarator/reassignment split the scalar scans
+/// use):
+///   * a declarator init that is an object-literal expression
+///     (`resolve_object_literal_properties`) whose bound name's repr is
+///     `Repr::Object(shape)` — every property value must be provably not
+///     BigInt;
+///   * a static dot-field WRITE (`name.field = rhs`) whose base is a bare
+///     identifier with a `Repr::Object(shape)` repr — the store-site sibling,
+///     since a later write can inject a BigInt value into an
+///     otherwise-literal-safe field. Restricted to `=` (a bitwise/arithmetic
+///     compound dot-field write has no lowering at all as of this task, so it
+///     cannot exist in an accepted program yet).
+///
+/// Purely additive: never widens what the codegen arm can admit on its own,
+/// only narrows it further when a taint is found. A field this scan cannot
+/// see at all (e.g. reached only through an array-of-objects element, or a
+/// parameter whose argument-inflow this scan does not trace) is simply never
+/// added to the taint set — but R-11 T5's own admission gate
+/// (`bitwise_compound_dot_field_target_is_admitted`, `kali_types`) only ever
+/// reaches an identifier-base dot field in the first place, so this scan's
+/// coverage matches the admitted surface exactly.
+pub(crate) fn collect_bigint_tainted_shape_fields(
+    lir: &LirProgram,
+    repr_table: &kali_common::ReprTable,
+    function_plans: &[FunctionPlan],
+) -> HashSet<(kali_common::ShapeId, String)> {
+    let function_params: BTreeMap<String, Vec<String>> = function_plans
+        .iter()
+        .map(|plan| (plan.name.clone(), plan.params.clone()))
+        .collect();
+    let mut call_args: BTreeMap<String, Vec<(String, Vec<LirNodeId>)>> = BTreeMap::new();
+    {
+        let mut seen = HashSet::new();
+        collect_call_argument_sites(&lir.nodes, lir.root, "_start", &mut seen, &mut call_args);
+    }
+    let mut tainted: HashSet<(kali_common::ShapeId, String)> = HashSet::new();
+    let mut seen = HashSet::new();
+    collect_bigint_tainted_shape_fields_walk(
+        &lir.nodes,
+        lir.root,
+        "_start",
+        repr_table,
+        &function_params,
+        &call_args,
+        &mut seen,
+        &mut tainted,
+    );
+    tainted
+}
+
+/// Unwraps sequence wrappers (mirrors `declarator_init_is_object_literal`,
+/// which this duplicates the unwrap loop of because that function reports
+/// only a boolean and this caller additionally needs the resolved property
+/// list) and returns `(key, value node id)` pairs when `id` is an
+/// object-literal expression; `None` for anything else (a non-literal init, a
+/// getter/setter property, or a non-literal key).
+fn resolve_object_literal_properties(
+    nodes: &[LirNode],
+    id: LirNodeId,
+) -> Option<Vec<(String, LirNodeId)>> {
+    let mut id = id;
+    let mut guard = 0;
+    loop {
+        let node = nodes.get(id.0 as usize)?;
+        if node.kind == LirNodeKind::Value
+            && node.text.as_deref() == Some("")
+            && !node.children.is_empty()
+        {
+            id = *node.children.last()?;
+            guard += 1;
+            if guard > 64 {
+                return None;
+            }
+            continue;
+        }
+        if node.kind != LirNodeKind::Value || node.text.is_some() || node.children.is_empty() {
+            return None;
+        }
+        let mut props = Vec::with_capacity(node.children.len());
+        for child in &node.children {
+            let child_node = nodes.get(child.0 as usize)?;
+            if child_node.children.len() != 2
+                || !matches!(child_node.text.as_deref(), Some("init" | "get" | "set"))
+            {
+                return None;
+            }
+            let key_node = nodes.get(child_node.children[0].0 as usize)?;
+            if key_node.kind != LirNodeKind::Literal {
+                return None;
+            }
+            let key = key_node.text.as_deref()?.trim_matches('"').to_string();
+            props.push((key, child_node.children[1]));
+        }
+        return Some(props);
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn collect_bigint_tainted_shape_fields_walk(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    func: &str,
+    repr_table: &kali_common::ReprTable,
+    function_params: &BTreeMap<String, Vec<String>>,
+    call_args: &BTreeMap<String, Vec<(String, Vec<LirNodeId>)>>,
+    seen: &mut HashSet<LirNodeId>,
+    tainted: &mut HashSet<(kali_common::ShapeId, String)>,
+) {
+    if !seen.insert(id) {
+        return;
+    }
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return;
+    };
+
+    // Function boundary: descend into the body under the function's own
+    // name, exactly like `collect_bigint_tainted_module_scalars`.
+    if let Some((name, _, body_id, _)) = function_shape(nodes, id) {
+        collect_bigint_tainted_shape_fields_walk(
+            nodes,
+            body_id,
+            &name,
+            repr_table,
+            function_params,
+            call_args,
+            seen,
+            tainted,
+        );
+        return;
+    }
+
+    // Declarator init (`const`/`let`/`var name = {...}`).
+    if node.kind == LirNodeKind::Instruction
+        && matches!(node.text.as_deref(), Some("let" | "var" | "const"))
+    {
+        for declarator_id in &node.children {
+            let Some(declarator) = nodes.get(declarator_id.0 as usize) else {
+                continue;
+            };
+            let Some(name) = declarator.text.as_deref() else {
+                continue;
+            };
+            if let kali_common::Repr::Object(shape) = repr_table.scalar(func, name) {
+                if let Some(&init) = declarator.children.get(1) {
+                    if let Some(props) = resolve_object_literal_properties(nodes, init) {
+                        for (key, value_id) in props {
+                            if !expr_is_provably_not_bigint(
+                                nodes,
+                                value_id,
+                                func,
+                                function_params,
+                                call_args,
+                                0,
+                            ) {
+                                tainted.insert((shape, key));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Static dot-field WRITE (`name.field = rhs`) — the store-site sibling of
+    // the declarator init above, needed because a later write can inject a
+    // BigInt value into an otherwise-safe field.
+    if node.kind == LirNodeKind::Value
+        && node.children.len() == 2
+        && node.text.as_deref() == Some("=")
+    {
+        let lhs = unwrap_transparent_value(nodes, node.children[0]);
+        if let Some(lhs_node) = nodes.get(lhs.0 as usize) {
+            if lhs_node.kind == LirNodeKind::Value && lhs_node.children.len() == 1 {
+                if let Some(field) = lhs_node.text.as_deref().filter(|t| !t.is_empty()) {
+                    let base = unwrap_transparent_value(nodes, lhs_node.children[0]);
+                    if let Some(base_node) = nodes.get(base.0 as usize) {
+                        if base_node.kind == LirNodeKind::Value && base_node.children.is_empty() {
+                            if let Some(base_name) = base_node.text.as_deref() {
+                                if let kali_common::Repr::Object(shape) =
+                                    repr_table.scalar(func, base_name)
+                                {
+                                    if !expr_is_provably_not_bigint(
+                                        nodes,
+                                        node.children[1],
+                                        func,
+                                        function_params,
+                                        call_args,
+                                        0,
+                                    ) {
+                                        tainted.insert((shape, field.to_string()));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    for child in &node.children {
+        collect_bigint_tainted_shape_fields_walk(
+            nodes,
+            *child,
+            func,
+            repr_table,
+            function_params,
+            call_args,
+            seen,
+            tainted,
+        );
+    }
 }
 
 /// R-11 T4 review Important 1: whole-program taint for a promoted SCALAR

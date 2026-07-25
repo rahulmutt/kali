@@ -610,6 +610,38 @@ impl TypeContext {
             )
     }
 
+    /// R-11 T5: STRUCTURAL admission for a bitwise compound-assign target
+    /// that is a STATIC dot-field member on a proven fixed-shape object
+    /// (`o.a <<= 2`) — the identifier-base, non-computed twin of
+    /// `forin_key_member_target_is_uniform` just above (that one only
+    /// bypasses the COMPUTED for-in-key member form; a plain dot field never
+    /// sets `computed_index`, so it never reaches that check at all).
+    ///
+    /// Proves only: `left` is a `MemberExpression` with no computed index,
+    /// its base is a bare identifier bound to a proven object shape, and the
+    /// named field exists on that shape. Deliberately does NOT prove the
+    /// field's repr is integer (a float or string field), that the field is
+    /// free of BigInt taint, or that the RHS is a safe i64 — codegen's own
+    /// arm (`emit_object_field_bitwise_compound_assign`, `object.rs`) proves
+    /// all of that and fails closed E5506 on anything it cannot, exactly the
+    /// "structural admission only" pattern
+    /// `bitwise_compound_target_is_admitted_local_scalar`'s doc establishes
+    /// for the local/module/captured shapes.
+    pub(crate) fn bitwise_compound_dot_field_target_is_admitted(&self, left: &Expression) -> bool {
+        let Expression::MemberExpression(member) = left else {
+            return false;
+        };
+        if member.computed_index.is_some() {
+            return false;
+        }
+        let Some(shape) = self.object_shape_of_expression(&member.object) else {
+            return false;
+        };
+        self.repr_table
+            .shape_field(shape, &member.property)
+            .is_some()
+    }
+
     /// `Some(shape)` iff `expr` is a bare identifier whose `ReprTable` scalar
     /// is proven `Repr::Object(shape)` — used to derive the shape a
     /// `for..in`'s `right` enumerates (Spec 4a Task 2). Reuses the same
@@ -1823,6 +1855,27 @@ impl TypeContext {
                 // operators only, and must not silently inherit an unaudited
                 // 11th-16th.
                 if let Some(op_text) = bitwise_compound_assign_op_text(&expr.operator) {
+                    // R-11 T5: a STATIC dot-field target on a proven fixed
+                    // shape (`o.a <<= 2`) — a MemberExpression, so it can
+                    // never satisfy `resolve_update_binding_name` (identifier
+                    // targets only) and would otherwise always fall to the
+                    // generic deny below `bitwise_compound_target_is_admitted_local_scalar`.
+                    // Structural admission ONLY (mirrors the local/module/
+                    // captured comment just below: this does not prove the
+                    // field's repr is integer, that no write ever stored a
+                    // string into it, or that the field is BigInt-free —
+                    // codegen's own arm, `emit_object_field_bitwise_compound_assign`
+                    // in `object.rs`, proves all three and fails closed
+                    // E5506 on anything it cannot). Returns immediately
+                    // (rather than falling through to the identifier-keyed
+                    // generic path below, which does not understand a
+                    // MemberExpression target and would otherwise emit a
+                    // SECOND, misleading diagnostic and still deny it) —
+                    // there is no scalar binding NAME here to invalidate or
+                    // re-check mutability for.
+                    if self.bitwise_compound_dot_field_target_is_admitted(&expr.left) {
+                        return;
+                    }
                     if !self.bitwise_compound_target_is_admitted_local_scalar(&expr.left) {
                         self.diagnostics.push(Diagnostic::error(
                             e5::FEATURE_UNAVAILABLE as u32,

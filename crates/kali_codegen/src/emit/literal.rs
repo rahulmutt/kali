@@ -421,6 +421,33 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
 
+        // R-11 T5: bitwise compound-assign to a STATIC dot-field target on a
+        // fixed-shape object (`o.a <<= 2`). Same 1-child dot-member node
+        // shape as the `op == "="` fixed-shape field store arm just above
+        // (base in `children[0]`, field name in `text`) — restricted to the
+        // six bitwise ops so it can never intercept the `=`/arithmetic
+        // compound targets those other arms (and the growable/abort/URL
+        // member-write gates above, which all run under `op == "="` only)
+        // already own. All target/RHS proofs (shape existence, `Repr::I64`,
+        // `shape_field_is_proven_numeric`, and the BigInt-literal-field
+        // guard) live in `emit_object_field_bitwise_compound_assign`
+        // (`object.rs`), which fails closed E5506 on anything it cannot
+        // prove — including when `base_id` is not an object at all (e.g. an
+        // array element target `a[0] &= 3`, denied earlier at the resolve
+        // stage and never reaching a real object shape here either).
+        if matches!(op, "&=" | "|=" | "^=" | "<<=" | ">>=" | ">>>=") {
+            let left_node = self.node(left).clone();
+            if left_node.kind == LirNodeKind::Value && left_node.children.len() == 1 {
+                if let Some(field) = left_node.text.clone().filter(|text| !text.is_empty()) {
+                    let base_id = left_node.children[0];
+                    self.emit_object_field_bitwise_compound_assign(
+                        function, base_id, &field, right, op,
+                    );
+                    return true;
+                }
+            }
+        }
+
         // Stage P3 Task 4 (alongside the C-1 field-store gate): a WRITE whose
         // TARGET is a member of a proven abort handle has no sound lowering —
         // node ignores `.aborted = x`/`.signal = x` silently (or throws in strict
