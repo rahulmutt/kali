@@ -4064,16 +4064,32 @@ pub(crate) fn collect_module_scalar_globals(
         );
     }
 
-    // R-11 T3 review Important 1: BigInt-literal taint, scanned over the same
-    // `candidates` set BEFORE it is consumed below. Purely additive — does
-    // not affect `numeric_ok`, `referenced`, or `slots`.
+    // R-11 T3 review round 2, Important 1: BigInt taint (allowlist —
+    // `expr_is_provably_not_bigint` — not the round-1 denylist of shapes),
+    // scanned over the same `candidates` set BEFORE it is consumed below.
+    // Purely additive — does not affect `numeric_ok`, `referenced`, or
+    // `slots`. `function_params` and `call_args` are the interprocedural
+    // parameter-argument-inflow evidence the allowlist's identifier branch
+    // needs.
+    let function_params: BTreeMap<String, Vec<String>> = function_plans
+        .iter()
+        .map(|plan| (plan.name.clone(), plan.params.clone()))
+        .collect();
+    let mut call_args: BTreeMap<String, Vec<(String, Vec<LirNodeId>)>> = BTreeMap::new();
+    {
+        let mut seen = HashSet::new();
+        collect_call_argument_sites(&lir.nodes, lir.root, "_start", &mut seen, &mut call_args);
+    }
     let mut bigint_tainted: HashSet<String> = HashSet::new();
     {
         let mut seen = HashSet::new();
         collect_bigint_tainted_module_scalars(
             &lir.nodes,
             lir.root,
+            "_start",
             &candidates,
+            &function_params,
+            &call_args,
             &mut seen,
             &mut bigint_tainted,
         );
@@ -4386,14 +4402,17 @@ fn scan_numeric_assignments(
     }
 }
 
-/// R-11 T3 review Important 1: identifies every CANDIDATE module-scope
-/// scalar (`candidates`, from `collect_module_scalar_globals`'s own
-/// declarator scan) whose declarator init OR any reassignment RHS — reached
-/// from module scope or from inside any function, mirroring
+/// R-11 T3 review round 2, Important 1: identifies every CANDIDATE
+/// module-scope scalar (`candidates`, from `collect_module_scalar_globals`'s
+/// own declarator scan) whose declarator init OR any reassignment RHS —
+/// reached from module scope or from inside any function, mirroring
 /// `scan_numeric_assignments`'s own function-boundary-crossing walk exactly
-/// so this cannot diverge from what that promotion proof already visits — is
-/// a raw BigInt literal (optionally negated). `is_numeric_expr`'s literal
-/// branch strips a trailing `n` before checking
+/// so this cannot diverge from what that promotion proof already visits —
+/// MAY be a BigInt at runtime (`!expr_is_provably_not_bigint`, an ALLOWLIST:
+/// taint unless proven safe, never a denylist of BigInt-producing shapes —
+/// review round 1 closed only the exact literal/unary-minus row it was
+/// shown and missed the class this round closes). `is_numeric_expr`'s
+/// literal branch strips a trailing `n` before checking
 /// (`parse_numeric_literal_value`), so a BigInt-initialized/reassigned
 /// module global is "provably numeric" to promotion and gets promoted
 /// exactly like a genuine integer — a pre-existing, deferred gap for the ten
@@ -4404,10 +4423,14 @@ fn scan_numeric_assignments(
 /// which cannot silently share that pre-existing gap — the raw
 /// `I32WrapI64` combiner would turn it into a NEW wrong-value-at-exit-0
 /// regression instead of the pre-existing (and out of scope) truncation.
+#[allow(clippy::too_many_arguments)]
 fn collect_bigint_tainted_module_scalars(
     nodes: &[LirNode],
     id: LirNodeId,
+    func: &str,
     candidates: &BTreeMap<String, kali_common::Repr>,
+    function_params: &BTreeMap<String, Vec<String>>,
+    call_args: &BTreeMap<String, Vec<(String, Vec<LirNodeId>)>>,
     seen: &mut HashSet<LirNodeId>,
     tainted: &mut HashSet<String>,
 ) {
@@ -4418,12 +4441,22 @@ fn collect_bigint_tainted_module_scalars(
         return;
     };
 
-    // Function boundary: descend into the body, mirroring
-    // `scan_numeric_assignments` (no function-name tracking needed here —
-    // `candidates` is already module-scope-only, so the gate below never
-    // needs a scoped repr lookup the way `is_numeric_expr` does).
-    if let Some((_, _, body_id, _)) = function_shape(nodes, id) {
-        collect_bigint_tainted_module_scalars(nodes, body_id, candidates, seen, tainted);
+    // Function boundary: descend into the body under the function's own
+    // name, mirroring `scan_numeric_assignments` — needed here (unlike
+    // round 1) because `expr_is_provably_not_bigint`'s identifier branch
+    // resolves a bare name against the ENCLOSING function's own parameter
+    // list.
+    if let Some((name, _, body_id, _)) = function_shape(nodes, id) {
+        collect_bigint_tainted_module_scalars(
+            nodes,
+            body_id,
+            &name,
+            candidates,
+            function_params,
+            call_args,
+            seen,
+            tainted,
+        );
         return;
     }
 
@@ -4439,7 +4472,14 @@ fn collect_bigint_tainted_module_scalars(
             };
             if candidates.contains_key(name) {
                 if let Some(&init) = declarator.children.get(1) {
-                    if expr_is_bigint_literal(nodes, init) {
+                    if !expr_is_provably_not_bigint(
+                        nodes,
+                        init,
+                        func,
+                        function_params,
+                        call_args,
+                        0,
+                    ) {
                         tainted.insert(name.to_string());
                     }
                 }
@@ -4457,7 +4497,14 @@ fn collect_bigint_tainted_module_scalars(
             if lhs_node.kind == LirNodeKind::Value && lhs_node.children.is_empty() {
                 if let Some(name) = lhs_node.text.as_deref() {
                     if candidates.contains_key(name)
-                        && expr_is_bigint_literal(nodes, node.children[1])
+                        && !expr_is_provably_not_bigint(
+                            nodes,
+                            node.children[1],
+                            func,
+                            function_params,
+                            call_args,
+                            0,
+                        )
                     {
                         tainted.insert(name.to_string());
                     }
@@ -4467,28 +4514,185 @@ fn collect_bigint_tainted_module_scalars(
     }
 
     for child in &node.children {
-        collect_bigint_tainted_module_scalars(nodes, *child, candidates, seen, tainted);
+        collect_bigint_tainted_module_scalars(
+            nodes,
+            *child,
+            func,
+            candidates,
+            function_params,
+            call_args,
+            seen,
+            tainted,
+        );
     }
 }
 
-/// True when `id` (after unwrapping a transparent wrapper and an optional
-/// leading unary `-`) is a raw BigInt literal (the lexer/parser keep the
-/// trailing `n` in the literal's text). Standalone mirror of
-/// `FunctionEmitter::is_bigint_literal_valued` (`emit/operators.rs`) for use
-/// from `lower.rs`'s free functions, which run before any `FunctionEmitter`
-/// exists.
-fn expr_is_bigint_literal(nodes: &[LirNode], id: LirNodeId) -> bool {
+/// R-11 T3 review round 2: TRUE only when `id` is STRUCTURALLY proven to
+/// never evaluate to a BigInt — the allowlist Review Important 1 required
+/// ("taint unless you can prove the write is not BigInt"), mirroring
+/// `write_value_is_numeric`'s exact closure (`kali_types::repr_infer`,
+/// `:1002-1039`) one level down at the LIR/free-function layer: a plain
+/// numeric literal (never a BigInt literal — round 1's `expr_is_bigint_literal`
+/// checked only this shape, which is why it missed the other five), unary
+/// `- + ~` over a provably-safe operand, binary `+ - * % & | ^ << >> >>>`
+/// over two provably-safe operands, or a PARAMETER whose EVERY call-site
+/// argument (`call_args`, interprocedural) is itself provably safe. Anything
+/// this closure does not recognize — a non-parameter identifier, a call
+/// result, a member/index read, an object/array literal, `true`/`false`/
+/// `undefined`/`null` — is UNSAFE (returns `false`, i.e. tainted) by
+/// default. Depth-capped (not cycle-tracked) against a pathological/mutually
+/// recursive call graph; exceeding the cap is treated as unproven (tainted).
+fn expr_is_provably_not_bigint(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    func: &str,
+    function_params: &BTreeMap<String, Vec<String>>,
+    call_args: &BTreeMap<String, Vec<(String, Vec<LirNodeId>)>>,
+    depth: usize,
+) -> bool {
+    if depth > 24 {
+        return false;
+    }
     let id = unwrap_transparent_value(nodes, id);
     let Some(node) = nodes.get(id.0 as usize) else {
         return false;
     };
-    if node.kind == LirNodeKind::Value
-        && node.children.len() == 1
-        && node.text.as_deref() == Some("-")
-    {
-        return expr_is_bigint_literal(nodes, node.children[0]);
+    match node.kind {
+        LirNodeKind::Literal => node
+            .text
+            .as_deref()
+            .is_some_and(|t| !t.ends_with('n') && parse_numeric_literal_value(t).is_some()),
+        LirNodeKind::Value => match node.children.len() {
+            0 => {
+                let Some(t) = node.text.as_deref() else {
+                    return false;
+                };
+                // A literal-shaped bare `Value` node (mirrors
+                // `is_numeric_expr`'s own dual literal check): a raw BigInt
+                // literal is unsafe; a plain numeric literal is safe.
+                if t.ends_with('n') {
+                    return false;
+                }
+                if parse_numeric_literal_value(t).is_some() {
+                    return true;
+                }
+                // Bare identifier: safe ONLY as a parameter of `func` with
+                // every call-site argument at that position proven safe
+                // (interprocedural parameter-argument inflow). No recorded
+                // call site at all (never called by a plain named call this
+                // scan can see, e.g. a callback alias) is UNPROVEN — fails
+                // closed, not assumed safe.
+                let Some(params) = function_params.get(func) else {
+                    return false;
+                };
+                let Some(idx) = params.iter().position(|p| p == t) else {
+                    return false;
+                };
+                let Some(sites) = call_args.get(func) else {
+                    return false;
+                };
+                !sites.is_empty()
+                    && sites.iter().all(|(caller, args)| {
+                        args.get(idx).is_some_and(|&arg| {
+                            expr_is_provably_not_bigint(
+                                nodes,
+                                arg,
+                                caller,
+                                function_params,
+                                call_args,
+                                depth + 1,
+                            )
+                        })
+                    })
+            }
+            1 => {
+                let t = node.text.as_deref().unwrap_or_default();
+                matches!(t, "-" | "+" | "~")
+                    && expr_is_provably_not_bigint(
+                        nodes,
+                        node.children[0],
+                        func,
+                        function_params,
+                        call_args,
+                        depth + 1,
+                    )
+            }
+            2 => {
+                let t = node.text.as_deref().unwrap_or_default();
+                matches!(
+                    t,
+                    "+" | "-" | "*" | "%" | "&" | "|" | "^" | "<<" | ">>" | ">>>"
+                ) && expr_is_provably_not_bigint(
+                    nodes,
+                    node.children[0],
+                    func,
+                    function_params,
+                    call_args,
+                    depth + 1,
+                ) && expr_is_provably_not_bigint(
+                    nodes,
+                    node.children[1],
+                    func,
+                    function_params,
+                    call_args,
+                    depth + 1,
+                )
+            }
+            _ => false,
+        },
+        _ => false,
     }
-    node.kind == LirNodeKind::Literal && node.text.as_deref().is_some_and(|t| t.ends_with('n'))
+}
+
+/// R-11 T3 review round 2: for every plain named call `f(...)` anywhere in
+/// the program, records `(caller_function_name, positional_argument_ids)`
+/// keyed by the callee name `f` — the parameter-argument inflow evidence
+/// `expr_is_provably_not_bigint` needs to prove (or refute) that a
+/// parameter is safe. Crosses function boundaries via `function_shape`
+/// (mirroring `scan_numeric_assignments`) so every call site is attributed
+/// to the function that lexically contains it, never the callee. A member
+/// call (`o.f(...)`) or a computed/aliased callee is not tracked — the
+/// target parameter, if any, then has no recorded call site and
+/// `expr_is_provably_not_bigint` fails closed (tainted) for it, never
+/// silently assumes safety.
+fn collect_call_argument_sites(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    func: &str,
+    seen: &mut HashSet<LirNodeId>,
+    out: &mut BTreeMap<String, Vec<(String, Vec<LirNodeId>)>>,
+) {
+    if !seen.insert(id) {
+        return;
+    }
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return;
+    };
+
+    if let Some((name, _, body_id, _)) = function_shape(nodes, id) {
+        collect_call_argument_sites(nodes, body_id, &name, seen, out);
+        return;
+    }
+
+    if node.kind == LirNodeKind::Call {
+        if let Some(&callee_id) = node.children.first() {
+            let callee = unwrap_transparent_value(nodes, callee_id);
+            if let Some(callee_node) = nodes.get(callee.0 as usize) {
+                if callee_node.kind == LirNodeKind::Value && callee_node.children.is_empty() {
+                    if let Some(callee_name) = callee_node.text.clone() {
+                        let args: Vec<LirNodeId> = node.children[1..].to_vec();
+                        out.entry(callee_name)
+                            .or_default()
+                            .push((func.to_string(), args));
+                    }
+                }
+            }
+        }
+    }
+
+    for child in &node.children {
+        collect_call_argument_sites(nodes, *child, func, seen, out);
+    }
 }
 
 /// Collect every bare identifier name (a childless `Value` node with non-empty

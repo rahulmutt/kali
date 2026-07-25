@@ -321,6 +321,27 @@ fn bitwise_compound_on_module_global_read_via_closure() {
     );
 }
 
+// --- Task 3 review round 2, Important 2: a function-local `let` that a
+// NESTED closure captures is promoted OUT of `self.locals` (Stage C env-cell
+// storage), so the `!self.locals.contains_key` check guarding the
+// `module_global_slots` lookup does not exclude it. A same-named MODULE
+// global then silently absorbed the write meant for the function's own
+// shadowing local. The read must happen AFTER the call (not folded into the
+// same expression as the call, which would read the module `n` before `f`
+// runs and hide the bug behind evaluation order) to actually observe the
+// corruption: measured with the guard removed, `f(); console.log(n);`
+// printed `1` where node prints `6` (the module `n`, never touched by a
+// correct program, was silently written by `f`'s own unrelated local `n`).
+// Pinned as a diagnostic (fail-closed), not that — or any — value.
+
+#[test]
+fn bitwise_compound_fails_closed_on_module_global_shadowed_by_captured_local() {
+    assert_fails_closed(
+        "let n = 6; function f(){ let n = 9; const g = () => n; n &= 3; return n + g(); } f(); console.log(n);\n",
+        "shadowed by a same-named module global",
+    );
+}
+
 // --- Task 3 review Critical 1 / Important 3: the module-global TARGET axis
 // needs its own provenance pins, mirroring the local-scalar ones below
 // (`bitwise_compound_fails_closed_on_target_from_string_object_field`,
@@ -388,7 +409,79 @@ fn bitwise_compound_fails_closed_on_module_global_target_from_array_element() {
 fn bitwise_compound_fails_closed_on_bigint_initialized_module_global() {
     assert_fails_closed(
         "let n = 6n; function f(){ n &= 3; } f(); console.log(n);\n",
-        "&=",
+        "non-integer module global",
+    );
+}
+
+// --- Task 3 review round 2, Important 1: round 1's BigInt guard
+// (`expr_is_bigint_literal`) recognized only a bare BigInt literal or unary
+// `-` over one — a DENYLIST of shapes, the exact pattern this project has
+// now been bitten by repeatedly. `write_value_is_numeric` (the proof
+// `binding_is_proven_numeric` is built from) admits a whole closure of
+// write shapes as "numeric" — unary `- + ~`, binary
+// `+ - * % & | ^ << >> >>>`, and a parameter — and a BigInt literal
+// anywhere in that closure survives to a bitwise op untouched by round 1's
+// narrow check. Fixed with an ALLOWLIST instead
+// (`expr_is_provably_not_bigint`): taint unless the write is STRUCTURALLY
+// proven not BigInt. All six of the reviewer's reproduction shapes are
+// pinned below asserting the specific "non-integer module global"
+// diagnostic (not merely the op text), so a shape that reaches some OTHER,
+// unrelated denial cannot pass this pin by accident.
+
+#[test]
+fn bitwise_compound_fails_closed_on_bigint_arithmetic_declarator() {
+    // node: throws. `6n + 1n` is a binary `+` over two BigInt literals —
+    // outside round 1's literal-or-unary-minus check.
+    assert_fails_closed(
+        "let n = 6n + 1n; function f(){ n &= 3; } f(); console.log(n);\n",
+        "non-integer module global",
+    );
+    // `6n * 2n` — same shape, `*`.
+    assert_fails_closed(
+        "let n = 6n * 2n; function f(){ n |= 1; } f(); console.log(n);\n",
+        "non-integer module global",
+    );
+}
+
+#[test]
+fn bitwise_compound_fails_closed_on_bigint_bitwise_not_declarator() {
+    // node: throws. Unary `~` over a BigInt literal — round 1 only handled
+    // unary `-`.
+    assert_fails_closed(
+        "let n = ~6n; function f(){ n &= 3; } f(); console.log(n);\n",
+        "non-integer module global",
+    );
+}
+
+#[test]
+fn bitwise_compound_fails_closed_on_bigint_reassignment_from_another_function() {
+    // node: throws. The BigInt-tainting write is a REASSIGNMENT
+    // (`n = 6n + 1n;`) inside a DIFFERENT function than the one performing
+    // the bitwise op — round 1's scan only inspected declarator inits and
+    // reassignment RHS for the LITERAL/unary-minus shape, not this
+    // arithmetic-over-literals shape reached from a sibling function.
+    assert_fails_closed(
+        "let n = 0; function g(){ n = 6n + 1n; } g(); function f(){ n &= 3; } f(); console.log(n);\n",
+        "non-integer module global",
+    );
+}
+
+#[test]
+fn bitwise_compound_fails_closed_on_bigint_via_parameter_argument_inflow() {
+    // node: throws (both). A BigInt literal reaches the module global
+    // through a PARAMETER — interprocedural call-site inflow, the axis
+    // round 1 did not model at all (`write_value_is_numeric`'s own
+    // definition of "numeric" already covers a parameter; the taint must
+    // follow every call site's argument at that position).
+    assert_fails_closed(
+        "let n = 0; function f(p){ n = p; n &= 3; } f(6n); console.log(n);\n",
+        "non-integer module global",
+    );
+    // Two-hop: the parameter belongs to a DIFFERENT function than the one
+    // doing the bitwise op.
+    assert_fails_closed(
+        "let n = 0; function g(p){ n = p; } g(9n); function f(){ n &= 3; } f(); console.log(n);\n",
+        "non-integer module global",
     );
 }
 

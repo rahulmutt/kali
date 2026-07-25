@@ -387,7 +387,7 @@ pub(crate) struct FunctionEmitter<'a> {
     /// combiner cannot share that gap silently: consulted ONLY by the
     /// bitwise compound-assign arm (`literal.rs`) to fail closed instead of
     /// computing a wrong value from a truncated BigInt. See
-    /// `kali_codegen::lower::collect_module_scalar_bigint_targets`.
+    /// `kali_codegen::lower::collect_bigint_tainted_module_scalars`.
     pub(crate) module_global_bigint_targets: &'a HashSet<String>,
     /// This function's closure environment plan (Stage C, `derive_env_plans`):
     /// the promoted scalar/heap cells it OWNS in its own env record and the

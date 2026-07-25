@@ -785,6 +785,53 @@ impl<'a> FunctionEmitter<'a> {
         // slot (JS lexical scoping), so this yields to the local lookup below.
         // (In `_start` a promoted name is never a local, so this still fires.)
         if !self.locals.contains_key(&name) {
+            // R-11 T3 review round 2, Important 2: a `let`/`var` declared
+            // inside THIS function but captured by a NESTED closure is
+            // promoted OUT of `self.locals` (Stage C — "the cell IS its
+            // storage", see the `module_global_slots` field doc in
+            // `emitter.rs`), so the `!self.locals.contains_key` check above
+            // does NOT exclude it. Without this guard, a same-named module
+            // global silently absorbs the write meant for this function's
+            // OWN shadowing local (measured, with the guard below removed:
+            // `let n=6; function f(){ let n=9; const g=()=>n; n&=3; return
+            // n+g(); } f(); console.log(n);` — reading the MODULE `n` AFTER
+            // calling `f()`, so the read is not itself evaluated before the
+            // mutation — printed `1` where node prints `6`; the module `n`
+            // was silently corrupted from inside `f`'s unrelated local
+            // scope). `try_emit_captured_assign`
+            // below cannot catch this for the bitwise ops — it returns `None`
+            // for any op outside `{= += -= *= /= %=}` UNCONDITIONALLY,
+            // before it ever inspects `name`, so reordering it ahead of the
+            // `module_global_slots` lookup would not help. This bug is
+            // PRE-EXISTING for `=`/`+=`/etc. (byte-identical wrong output on
+            // the pre-task parent — confirmed, out of scope, not this task's
+            // to fix) but the parent refused every bitwise op on EVERY
+            // module global uniformly, so silently writing the WRONG target
+            // here is a NEW regression this task introduced. Scoped to the
+            // six bitwise ops only — does not touch general assignment
+            // dispatch or `=`/`+=`'s existing (wrong) behavior. Also gated
+            // on an ACTUAL same-named module global existing (not just
+            // `name` being a cell/capture in isolation): a captured local
+            // with NO colliding module global already denies correctly via
+            // the pre-existing fallback further down (Task 2's pinned
+            // `bitwise_compound_fails_closed_on_owning_function_captured_variable`)
+            // and that message stays accurate — this arm exists only to
+            // intercept the shadow case before it reaches
+            // `module_global_slots`.
+            if matches!(op, "&=" | "|=" | "^=" | "<<=" | ">>=" | ">>>=")
+                && self.module_global_slots.contains_key(&name)
+                && (self.env_plan.cell_for(&name).is_some()
+                    || self.env_plan.captured_for(&name).is_some())
+            {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    format!(
+                        "bitwise compound assignment '{op}' on binding '{name}' is unavailable in the current phase (the binding is shadowed by a same-named module global; use a mutable variable or the later compatibility path)"
+                    ),
+                ));
+                function.instruction(&Instruction::I64Const(0));
+                return true;
+            }
             if let Some(&(global_index, repr)) = self.module_global_slots.get(&name) {
                 return self.emit_module_global_assignment(
                     function,
@@ -1280,7 +1327,7 @@ impl<'a> FunctionEmitter<'a> {
                 // (`lower.rs`) call every declarator init and every
                 // reassignment RHS across the whole program `is_numeric_expr`
                 // — but that helper's bare-identifier branch is
-                // `repr_table.scalar(func, t)` (`lower.rs:4249`), the
+                // `repr_table.scalar(func, t)` (`lower.rs:4288`), the
                 // `unwrap_or_default()` accessor whose default is `Repr::I64`
                 // (`kali_common::Repr`'s `#[default]`). A binding whose
                 // `Repr::String` provenance was lost (the pre-existing
