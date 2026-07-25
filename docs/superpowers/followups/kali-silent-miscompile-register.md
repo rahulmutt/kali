@@ -179,9 +179,10 @@ unsupported and the message misdiagnoses it. Honest (exit 1) but misleading.
 
 ## 1. Executive summary
 
-**42 raw defects → 33 after deduplication** *(the original four-sweep intake; historical, and
-one short — see the note under the table. The register now holds **48** numbered entries:
-R-01..R-48.)* Nine entries were folded into siblings that
+**42 raw defects → 33 after deduplication** *(the original four-sweep intake — correct when
+written, for the 33 entries R-01..R-33 that then existed; stale since R-34 landed. See the note
+under the table. The register now holds **48** numbered entries: R-01..R-48.)* Nine entries were
+folded into siblings that
 share a demonstrated or strongly-inferred root cause (noted per entry).
 
 Severity split (each entry ranked at the most severe class it carries):
@@ -203,10 +204,14 @@ unmeasured claim.
 
 Right-hand column = **36** tier-ranked entries in §2 (5 + 25 + 1 + 5), counted 2026-07-25 by
 `### R-` headers per tier heading; the register holds 48 numbered entries in total, the other 12
-being the un-ranked §0.3 set. **The historical Tier-4 cell reads `4` but Tier 4 has always held
-five entries (R-30..R-34)** — an off-by-one in the original table, which is also why the
-"33 after deduplication" headline is one short of the 34 entries R-01..R-34 actually comprise.
-Recorded rather than silently corrected, since the left-hand column is the historical record.
+being the un-ranked §0.3 set. **The historical Tier-4 cell reads `4` where Tier 4 now holds five
+entries (R-30..R-34) — but it was CORRECT when written and went stale afterwards, not an
+off-by-one.** Verified in history 2026-07-25: `ee0225f37`, the commit that created this table,
+had Tier 4 = R-30..R-33, exactly four entries, and no R-34 anywhere in the file; `2727252f6`
+(the first and only commit introducing `### R-34`) appended it to Tier 4 without updating the
+cell. The same applies to the "33 after deduplication" headline — correct for the 33 entries
+R-01..R-33 that existed at authoring, one short only once R-34 landed. Both are recorded rather
+than silently corrected, since the left-hand column is the historical record.
 
 Every entry in this document is an **exit-0, no-diagnostic** divergence unless the entry
 says otherwise. Fail-closed behavior (`E5506`, `E3100`, `E4201`, traps) is recorded only as
