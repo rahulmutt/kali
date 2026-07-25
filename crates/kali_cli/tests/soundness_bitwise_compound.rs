@@ -991,18 +991,24 @@ fn bitwise_compound_fails_closed_on_unrelated_float_local_sharing_a_captured_cel
     );
 }
 
-// --- Task 4 review round 3: the shadow guard is INVERTED
+// --- Task 4 review rounds 3-4: the shadow guard
 // (`FunctionEmitter::identifier_read_resolves_only_through_captured_cell`,
-// `closure_access.rs`) — rather than enumerating the module-binding TABLES
-// that can intercept a same-named identifier read ahead of
-// `try_emit_captured_read`, it positively re-derives whether
-// `emit_identifier` (`control_flow.rs:1987-2308`) would resolve the name
-// through ANY earlier arm at all, calling the same predicates that function
-// calls. This test walks EVERY arm in that resolution order (not just the
-// `Set`/`Map`/`Infinity`/`NaN` names the review measured) and pins each one
-// as a same-named captured-cell shadow, so a future arm inserted ahead of
-// the captured read that this helper does NOT also cover shows up here as a
-// newly-passing VALUE assertion instead of silently staying green.
+// `closure_access.rs`) now defers to the SHARED classifier
+// (`control_flow.rs::resolve_identifier_kind`, returning
+// `IdentifierResolution`) both it and `emit_identifier` match — see that
+// classifier's own doc for why round 3's hand-mirrored `!(A || B || …)`
+// version of this same idea was proven, not just suspected, to drift the
+// moment a new arm was added to `emit_identifier` (the round-3 review's
+// `"Reflect"` experiment).
+//
+// IMPORTANT — what THIS TEST does and does not prove: it enumerates arms
+// that exist TODAY and checks each one denies TODAY. It does NOT, by itself,
+// guarantee a FUTURE arm added to `emit_identifier` is caught — that
+// guarantee now comes from the exhaustive `match` on `IdentifierResolution`
+// at BOTH `emit_identifier`'s dispatch and (via equality against the one
+// admitted variant) this guard, which the Rust compiler enforces
+// independently of any test ever running. This test is a regression pin for
+// the arms enumerated below, not the mechanism that makes new arms safe.
 //
 // Two arms in `emit_value`'s dispatch (`is_process_kill`,
 // `is_supported_callable_reference`) are NOT included below: both require a
@@ -1010,14 +1016,15 @@ fn bitwise_compound_fails_closed_on_unrelated_float_local_sharing_a_captured_cel
 // match a bare 0-children identifier at all, so there is no repro to pin.
 //
 // Every row was measured against BOTH the round-2 build (commit
-// `5e7dbb622`, before this round's choke-point inversion) and the current
-// build. The `Set`/`Map`/`Infinity`/`NaN` rows are non-vacuous — they
-// printed a WRONG VALUE at exit 0 on round 2 and now fail closed. The
-// EventTarget/AbortController/URL/URLSearchParams/TextEncoder/Event rows
-// were ALREADY fail-closed on round 2 too (via the pre-existing resolve-side
-// scalar-repr gate, or the pre-existing module-binding read gate) — included
-// here anyway as defense-in-depth against a FUTURE loosening of those
-// upstream gates, not because round 2 leaked them.
+// `5e7dbb622`, before round 3's choke-point inversion) and the current
+// build. ONLY the four `Set`/`Map`/`Infinity`/`NaN` rows are non-vacuous —
+// they printed a WRONG VALUE at exit 0 on round 2 and now fail closed. Every
+// OTHER row below (EventTarget, AbortController, URL, URLSearchParams,
+// TextEncoder, Event, `undefined`) is caught by a completely UNRELATED,
+// pre-existing diagnostic (byte-identical stderr confirmed against the
+// parent) and would still pass with this task's guard deleted entirely —
+// they are included as a REGRESSION PIN against those upstream gates ever
+// loosening, not as evidence this guard is doing anything for them.
 
 #[test]
 fn bitwise_compound_fails_closed_on_every_emit_identifier_interception_arm() {

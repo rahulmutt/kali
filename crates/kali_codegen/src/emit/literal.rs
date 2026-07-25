@@ -786,7 +786,7 @@ impl<'a> FunctionEmitter<'a> {
         // (In `_start` a promoted name is never a local, so this still fires.)
         if !self.locals.contains_key(&name) {
             // R-11 T3 review round 2, Important 2 / R-11 T4 review Critical 1
-            // / R-11 T4 review round 3: a `let`/`var` declared inside THIS
+            // / R-11 T4 review rounds 3-4: a `let`/`var` declared inside THIS
             // function but captured by a NESTED closure is promoted OUT of
             // `self.locals` (Stage C — "the cell IS its storage", see the
             // `module_global_slots` field doc in `emitter.rs`), so the
@@ -799,24 +799,36 @@ impl<'a> FunctionEmitter<'a> {
             //
             // Rounds 1-2 enumerated a growing DENYLIST of the specific tables
             // measured to leak (`module_global_slots`, then `+
-            // module_const_inits + module_binding_names`) — round 3's review
-            // measured that denylist was STILL incomplete (`Set`/`Map` text,
-            // and the whole EventTarget/AbortController/URL/TextEncoder/Event
-            // escape-choke family, none of which live in those three tables)
-            // and named this the SIXTH project-wide incident of a guard
-            // leaking to a sibling class. Rather than add a fourth (or
-            // eighth) table, the guard now calls
-            // `identifier_read_resolves_only_through_captured_cell`
-            // (`closure_access.rs`) — a single, positively-derived mirror of
-            // `emit_identifier`'s ENTIRE resolution order ahead of the
-            // captured read, kept in lockstep with that function by
-            // construction (see that helper's own doc for the full
-            // arm-by-arm justification, the deliberate `Infinity`/`NaN`
-            // carve-out, and why two arms are provably inapplicable and
-            // omitted). A module-scope named `function` declaration is
-            // PROVEN — by this same helper, and independently measured — NOT
-            // part of the shadow class (functions are never a module
-            // "binding" any of these tables track), so it stays a
+            // module_const_inits + module_binding_names`). Round 3 replaced
+            // that with a HAND-MIRRORED copy of every predicate
+            // `emit_identifier` calls — which the round-3 review proved was
+            // STILL not enough: adding one new arm to `emit_identifier`
+            // (`"Reflect"`) silently reopened the identical wrong-value hole,
+            // because a hand-mirror is a SECOND copy of the resolution order
+            // with nothing forcing it to stay in sync with the first. This is
+            // the SIXTH project-wide incident of a guard leaking to a sibling
+            // class. Round 4 does not add a fourth (or eighth, or a smarter)
+            // mirror — it deletes the second copy: `emit_identifier`'s
+            // resolution order now lives in EXACTLY ONE place
+            // (`control_flow.rs::resolve_identifier_kind`, returning
+            // `IdentifierResolution`), `emit_identifier` dispatches on it
+            // with an EXHAUSTIVE `match`, and this guard
+            // (`identifier_read_resolves_only_through_captured_cell`,
+            // `closure_access.rs`) asks that SAME classifier whether anything
+            // ahead of the captured-cell lane claims `name`. A future arm
+            // added to `emit_identifier` must add an `IdentifierResolution`
+            // variant (the exhaustive match makes omitting it a compile
+            // error there) and this guard denies any variant it does not
+            // explicitly recognize as the captured-cell case — divergence is
+            // now prevented by the type system, not by a comment asking the
+            // next implementer to remember. `"Infinity"`/`"NaN"` remain a
+            // separate, explicit, documented carve-out (see the guard's own
+            // doc) because their interception is NOT part of
+            // `emit_identifier`'s resolution order at all. A module-scope
+            // named `function` declaration is PROVEN — by this same
+            // classifier, and independently measured — NOT part of the
+            // shadow class (functions are never a module "binding" any
+            // `IdentifierResolution` variant tracks), so it stays a
             // value-computing shape
             // (`bitwise_compound_on_module_function_name_does_not_shadow_captured_cell`).
             //

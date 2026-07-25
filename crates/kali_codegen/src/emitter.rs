@@ -24,6 +24,45 @@ pub(crate) enum ValueShape {
     Float,
 }
 
+/// R-11 T4 review round 4: the SINGLE resolution `emit_value`'s bare-
+/// identifier arm (`emit/control_flow.rs`'s `resolve_identifier_kind`, which
+/// owns this enum's full ordering doc) reaches for a name — the shared
+/// classifier both that function's dispatch and the bitwise compound-assign
+/// captured-cell shadow guard (`emit/closure_access.rs`) `match`
+/// EXHAUSTIVELY, so the two cannot independently drift. See
+/// `resolve_identifier_kind`'s doc for the full arm-by-arm mapping and why
+/// this replaces three prior rounds of hand-mirrored denylists.
+#[derive(Clone, Debug)]
+pub(crate) enum IdentifierResolution {
+    EventTargetHandle,
+    AbortHandleDenied,
+    ModuleScopeAbortHandle,
+    UrlHandleDenied,
+    BytesHandleDenied,
+    EventMarker,
+    ModuleScopeOrCapturedEventMarker,
+    ModuleScopeUrlHandle,
+    CapturedUrlHandle,
+    /// `(data-segment table base, ordinal local index)`.
+    ForInKeyStringHandle(u32, u32),
+    /// `(WASM global index, repr)`.
+    ModuleGlobal(u32, kali_common::Repr),
+    /// WASM local index.
+    Local(u32),
+    /// Compile-time bound alias node.
+    Binding(LirNodeId),
+    /// Module `const` compile-time-pure initializer node.
+    ModuleConstPureInline(LirNodeId),
+    ModuleBindingDenied,
+    NumericLiteral(i64),
+    KeywordTrue,
+    KeywordFalsyBoolean,
+    KeywordSetOrMap,
+    /// Not resolved by any earlier lane — eligible for the captured-scalar
+    /// lane, or the terminal placeholder fallback.
+    CapturedCellOrPlaceholder,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum ObjectEnumerationMode {
     Keys,

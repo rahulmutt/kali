@@ -13,8 +13,8 @@ use ctx::{
     StaticObjectIdentityValue, StaticStringAtResult, StringPool,
 };
 use emitter::{
-    ArenaFrame, ControlFlowLabelKind, EmittedValue, FunctionEmitter, FunctionPlan, LoopFrame,
-    ObjectEnumerationMode, ValueShape,
+    ArenaFrame, ControlFlowLabelKind, EmittedValue, FunctionEmitter, FunctionPlan,
+    IdentifierResolution, LoopFrame, ObjectEnumerationMode, ValueShape,
 };
 pub(crate) use intrinsics::{
     is_supported_static_ascii_char_code, parse_number_literal, parse_numeric_literal_value,

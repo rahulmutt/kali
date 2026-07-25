@@ -1849,6 +1849,141 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// R-11 T4 review round 4: the resolution `emit_value`'s bare-identifier
+    /// arm (below) computes for `text`, extracted into its OWN function so
+    /// that arm and any other consumer that needs to know "what would a read
+    /// of `text` do right now" — the bitwise compound-assign captured-cell
+    /// shadow guard, `emit/closure_access.rs`'s
+    /// `identifier_read_resolves_only_through_captured_cell` — share ONE
+    /// source of truth instead of two independently maintained copies.
+    ///
+    /// Rounds 1-3 each re-derived this resolution order by hand in the
+    /// guard: round 1/2 widened a denylist of specific tables; round 3
+    /// replaced that with a hand-mirrored `!(A || B || … )` of every
+    /// predicate this function calls, in order. Both of those are a SECOND
+    /// copy of this order that can drift the moment a new arm is added HERE
+    /// without also being added THERE — the review proved round 3's mirror
+    /// stale within one added arm (`"Reflect"`). This function is the fix:
+    /// there is now exactly ONE place this resolution order is written.
+    /// Both `emit_value`'s dispatch (below) and the shadow guard `match`
+    /// [`IdentifierResolution`] EXHAUSTIVELY — no `_` arm on either side —
+    /// so the compiler, not discipline, forces every new variant to be
+    /// handled at both call sites before the crate builds.
+    ///
+    /// Mirrors, in the SAME order (first match wins — a literal
+    /// transliteration of the sequential `if`-chain this replaced, including
+    /// its fall-through semantics for the multi-condition arms), every arm
+    /// ahead of the captured-cell / placeholder fallback. Two SEPARATE
+    /// `emit_value` checks (`is_process_kill`, `is_supported_callable_reference`,
+    /// both above the `match node.children.len()` dispatch) are NOT part of
+    /// this resolution: both require a member-expression or
+    /// single-child-call node shape and cannot structurally match a bare
+    /// 0-children identifier at all, so there is no variant for them.
+    pub(crate) fn resolve_identifier_kind(&self, text: &str) -> IdentifierResolution {
+        // Stage D event-lane handle-escape choke (spec §2.4).
+        if self.event_target_locals.contains(text) {
+            return IdentifierResolution::EventTargetHandle;
+        }
+        // Stage P3 abort-handle escape choke (spec §3).
+        if self.is_abort_handle(text) && !self.admit_abort_handle_read {
+            return IdentifierResolution::AbortHandleDenied;
+        }
+        // Task 8 round-2 read-position twin of the call-side gate.
+        if self.is_module_scope_abort_handle(text) {
+            return IdentifierResolution::ModuleScopeAbortHandle;
+        }
+        // Stage P4 URL/URLSearchParams escape choke (spec §3).
+        if (self.is_url(text) || self.is_url_search_params(text)) && !self.admit_url_handle_read {
+            return IdentifierResolution::UrlHandleDenied;
+        }
+        // Stage P5 byte-array escape choke.
+        if (self.is_bytes_handle(text)
+            || self.is_text_encoder_marker(text)
+            || self.is_text_decoder_marker(text))
+            && !self.admit_bytes_handle_read
+        {
+            return IdentifierResolution::BytesHandleDenied;
+        }
+        // Stage P5 T-new-C event-marker escape choke.
+        if self.is_event_marker(text) {
+            return IdentifierResolution::EventMarker;
+        }
+        // The module-scope and CAPTURED twins of the event-marker choke.
+        if self.is_module_scope_event_marker(text) || self.is_captured_event_marker(text) {
+            return IdentifierResolution::ModuleScopeOrCapturedEventMarker;
+        }
+        // Read-position twin of the module-scope abort gate.
+        if self.is_module_scope_url_handle(text) {
+            return IdentifierResolution::ModuleScopeUrlHandle;
+        }
+        // Task 6 (enumeration-wave close): the CAPTURED twin.
+        if self.is_captured_url_handle(text) {
+            return IdentifierResolution::CapturedUrlHandle;
+        }
+        // Spec 4a Task 5: for-in key STRING-context materialization. Only
+        // intercepts when ALL THREE conditions hold (table entry, String
+        // scalar repr, AND a live ordinal local) — matching the original
+        // triple-nested `if let`/`if` exactly; any one missing falls through
+        // to the next arm below, never a hard stop here.
+        if let Some(&table_base) = self.for_in_key_handle_tables.get(text) {
+            if self.scalar_repr(text) == kali_common::Repr::String {
+                if let Some(&ord_local) = self.locals.get(text) {
+                    return IdentifierResolution::ForInKeyStringHandle(table_base, ord_local);
+                }
+            }
+        }
+        // Module-scope mutable scalar promoted to a persistent WASM global.
+        // Gated on NOT being a local first — a shadowing local/param wins.
+        if !self.locals.contains_key(text) {
+            if let Some(&(global_index, repr)) = self.module_global_slots.get(text) {
+                return IdentifierResolution::ModuleGlobal(global_index, repr);
+            }
+        }
+        if let Some(index) = self.locals.get(text).copied() {
+            return IdentifierResolution::Local(index);
+        }
+        if let Some(bound) = self.bindings.get(text).copied() {
+            return IdentifierResolution::Binding(bound);
+        }
+        // Module-scope binding read from inside a function (never consulted
+        // from `_start` itself — a module-scope read of its own binding goes
+        // through the local/global lanes above).
+        if self.function_name != "_start" {
+            if let Some(&init) = self.module_const_inits.get(text) {
+                if self.is_pure_module_const_init(init, 0) {
+                    return IdentifierResolution::ModuleConstPureInline(init);
+                }
+                // NOT pure: falls through, exactly like the original —
+                // `module_binding_names` also contains every `const` name
+                // (see `lower.rs`'s construction), so an impure const's name
+                // is caught by the very next check, not silently skipped.
+            }
+            if self.module_binding_names.contains(text) {
+                return IdentifierResolution::ModuleBindingDenied;
+            }
+        }
+        if let Some(constant) = parse_number_literal(text) {
+            return IdentifierResolution::NumericLiteral(constant);
+        }
+        match text {
+            "true" => IdentifierResolution::KeywordTrue,
+            "false" | "null" | "undefined" => IdentifierResolution::KeywordFalsyBoolean,
+            "Set" | "Map" => IdentifierResolution::KeywordSetOrMap,
+            // Stage C: a bare identifier resolving to neither a local,
+            // module global, nor module binding, nor any escape-choke/
+            // keyword arm above, may be a captured scalar promoted to an
+            // env cell (own cell, or a single-level synchronous outer
+            // capture) — or, if `try_emit_captured_read` also does not
+            // claim it, the terminal placeholder fallback. Both outcomes
+            // share this ONE variant because `emit_value` decides between
+            // them itself (`try_emit_captured_read` returns `Option`); no
+            // OTHER consumer of this function needs to distinguish them —
+            // in particular, the bitwise shadow guard only needs to know
+            // "nothing else intercepts this read", which is true either way.
+            _ => IdentifierResolution::CapturedCellOrPlaceholder,
+        }
+    }
+
     pub(crate) fn emit_value(
         &mut self,
         function: &mut Function,
@@ -1987,260 +2122,123 @@ impl<'a> FunctionEmitter<'a> {
         match node.children.len() {
             0 => {
                 if let Some(text) = node.text.as_deref() {
-                    // Stage D event-lane handle-escape choke point (spec §2.4):
-                    // a binding holding an opaque `new EventTarget()` handle may
-                    // ONLY be consumed as the receiver of
-                    // addEventListener/dispatchEvent — and Task 4's emit arms
-                    // read that receiver directly (a local/global access), never
-                    // through this generic identifier lane. Every OTHER read
-                    // (`console.log(t)`, `t` as an argument, arithmetic on `t`,
-                    // a `return t`) reaches HERE and fails closed: the raw i64
-                    // handle must never escape as an observable value. Allowlist
-                    // safe positions at the single read site, don't denylist
-                    // sinks (the Spec-4a lesson) — the deny is total by
-                    // construction because the only allowed consumer bypasses
-                    // this lane entirely.
-                    if self.event_target_locals.contains(text) {
-                        self.diagnostics.push(Diagnostic::error(
-                            e5::FEATURE_UNAVAILABLE as u32,
-                            format!(
-                                "'{text}' holds an EventTarget handle, which may only be used as the \
-                                 receiver of addEventListener/dispatchEvent in the current phase; any \
-                                 other use would leak the internal handle representation"
-                            ),
-                        ));
-                        return EmittedValue {
-                            produced: false,
-                            shape: ValueShape::Unknown,
-                        };
-                    }
-                    // Stage P3 abort-handle escape choke point (spec §3): a bare
-                    // read of an AbortController/AbortSignal handle is E5506
-                    // unless an allowlisted consumer set `admit_abort_handle_read`
-                    // while emitting its receiver (`emit_abort_receiver_handle`).
-                    // The raw i64 pointer must never escape as an observable
-                    // value (`console.log(c)`, `c` as an argument, arithmetic,
-                    // `return c`). Allowlist the safe position at the single read
-                    // site, don't denylist sinks — the deny is total by
-                    // construction because every admitted consumer sets the flag.
-                    if self.is_abort_handle(text) && !self.admit_abort_handle_read {
-                        return self.deny_e5506(
+                    // R-11 T4 review round 4: dispatch on the SHARED
+                    // classifier (`resolve_identifier_kind`, above) instead
+                    // of a private sequential `if`-chain — see that
+                    // function's doc for why, and `IdentifierResolution`'s
+                    // doc for the shared-source-of-truth contract. This
+                    // `match` is EXHAUSTIVE (no `_` arm): a new variant is a
+                    // compile error here until handled, not a silent
+                    // fall-through.
+                    match self.resolve_identifier_kind(text) {
+                        IdentifierResolution::EventTargetHandle => {
+                            self.diagnostics.push(Diagnostic::error(
+                                e5::FEATURE_UNAVAILABLE as u32,
+                                format!(
+                                    "'{text}' holds an EventTarget handle, which may only be used as the \
+                                     receiver of addEventListener/dispatchEvent in the current phase; any \
+                                     other use would leak the internal handle representation"
+                                ),
+                            ));
+                            EmittedValue {
+                                produced: false,
+                                shape: ValueShape::Unknown,
+                            }
+                        }
+                        IdentifierResolution::AbortHandleDenied => self.deny_e5506(
                             function,
                             "an AbortController/AbortSignal handle cannot be read in this \
                              position: kali admits it only as an `abort()`/`signal`/`aborted` \
                              receiver or a `const s = c.signal` alias (fail-closed)",
-                        );
-                    }
-                    // Task 8 round-2 read-position twin of the call-side gate: a
-                    // BARE read (`console.log(c)`, `c` as an argument) of a
-                    // `_start`-owned abort handle reached from a non-`_start`
-                    // emitter. `is_abort_handle` excludes the `_start` owner (its
-                    // captured env cell is never populated — the declarator
-                    // intercept bound it as a plain `_start` LOCAL), so absent
-                    // this gate the read falls through to the generic
-                    // module-binding / placeholder lanes and silently yields 0
-                    // (the raw-print REGRESSION `console.log(c)` → `0`). Mirror
-                    // the method-call `is_module_scope_abort_handle` deny.
-                    if self.is_module_scope_abort_handle(text) {
-                        return self.deny_e5506(
+                        ),
+                        IdentifierResolution::ModuleScopeAbortHandle => self.deny_e5506(
                             function,
                             "an AbortController/AbortSignal handle declared at module scope \
                              (`_start`) cannot cross the module/function boundary as a value in \
                              the current phase; reading it from inside a function/closure fails \
                              closed (fail-closed)",
-                        );
-                    }
-                    // Stage P4 URL/URLSearchParams escape choke point (spec §3):
-                    // a bare read of a URL/USP handle is E5506 unless an
-                    // allowlisted consumer set `admit_url_handle_read` while
-                    // emitting its receiver (`emit_url_receiver_handle`). The raw
-                    // i64 handle (a URL struct pointer or a tagged USP pair-store)
-                    // must never escape as an observable value
-                    // (`console.log(u)`, `u` as an argument, `return u`).
-                    // Allowlist the safe position at the single read site, don't
-                    // denylist sinks — the deny is total by construction because
-                    // every admitted consumer sets the flag.
-                    if (self.is_url(text) || self.is_url_search_params(text))
-                        && !self.admit_url_handle_read
-                    {
-                        return self.deny_e5506(
+                        ),
+                        IdentifierResolution::UrlHandleDenied => self.deny_e5506(
                             function,
                             "a URL/URLSearchParams handle cannot be read in this position: kali \
                              admits it only as a recognized method/component receiver \
                              (fail-closed)",
-                        );
-                    }
-                    // Stage P5 byte-array escape choke: a bare read of a
-                    // TextEncoder().encode byte handle (or a stateless encoder /
-                    // DECODER marker — Task 4) is E5506 unless an allowlisted
-                    // consumer set
-                    // `admit_bytes_handle_read` (crypto.subtle.digest operand,
-                    // later TextDecoder().decode receiver-arg, `.byteLength`). The
-                    // raw i64 handle must never escape as an observable value
-                    // (`console.log(b)` — JS prints `104,105` not `hi` —,
-                    // `return b`, `'' + b`, `b.length`, store). Allowlist the safe
-                    // position at the single read site, don't denylist sinks — the
-                    // deny is total by construction because every admitted consumer
-                    // sets the flag.
-                    if (self.is_bytes_handle(text)
-                        || self.is_text_encoder_marker(text)
-                        || self.is_text_decoder_marker(text))
-                        && !self.admit_bytes_handle_read
-                    {
-                        return self.deny_e5506(
+                        ),
+                        IdentifierResolution::BytesHandleDenied => self.deny_e5506(
                             function,
                             "a TextEncoder byte buffer cannot be read in this position: kali \
                              admits it only as a TextDecoder().decode or crypto.subtle.digest \
                              operand (fail-closed)",
-                        );
-                    }
-                    // Stage P5 T-new-C event-marker escape choke: a bare read of
-                    // an Event/CustomEvent marker is ALWAYS E5506 — there is no
-                    // admitted consumer that reads the name, because the single
-                    // supported observable (`.type`) materializes its interned
-                    // text from the compile-time side-table WITHOUT emitting the
-                    // receiver. So the deny needs no admit flag and is total by
-                    // construction: `console.log(e)` (node prints
-                    // `Event { type: 'tick', … }`), `f(e)`, `return e`, `'' + e`,
-                    // a field/element store — all denied, where each previously
-                    // yielded a silent `0`.
-                    if self.is_event_marker(text) {
-                        return self.deny_e5506(
+                        ),
+                        IdentifierResolution::EventMarker => self.deny_e5506(
                             function,
                             "an Event/CustomEvent cannot be read as a value in the current phase: kali \
                              admits only its `.type` property (fail-closed)",
-                        );
-                    }
-                    // The module-scope and CAPTURED twins of the choke above: a
-                    // marker owned by `_start` (read from a function) or by an
-                    // enclosing function (read through the closure env plan). The
-                    // marker's type text lives in the DECLARING emitter's
-                    // side-table only, so an inner emitter cannot reproduce it —
-                    // deny instead of falling through to the module-binding /
-                    // zero-placeholder lanes.
-                    if self.is_module_scope_event_marker(text)
-                        || self.is_captured_event_marker(text)
-                    {
-                        return self.deny_e5506(
+                        ),
+                        IdentifierResolution::ModuleScopeOrCapturedEventMarker => self.deny_e5506(
                             function,
                             "an Event/CustomEvent declared in an enclosing scope cannot be read inside a \
                              function/closure in the current phase (fail-closed)",
-                        );
-                    }
-                    // Read-position twin of the module-scope abort gate: a bare
-                    // read of a `_start`-owned URL/USP handle from a non-`_start`
-                    // emitter (arena lifetime unproven across frames, never
-                    // captured into the callee env). Deny fail-closed.
-                    if self.is_module_scope_url_handle(text) {
-                        return self.deny_e5506(
+                        ),
+                        IdentifierResolution::ModuleScopeUrlHandle => self.deny_e5506(
                             function,
                             "a URL/URLSearchParams handle declared at module scope (`_start`) \
                              cannot cross the module/function boundary as a value in the current \
                              phase; reading it from inside a function/closure fails closed \
                              (fail-closed)",
-                        );
-                    }
-                    // Task 6 (enumeration-wave close): the CAPTURED twin — a
-                    // URL/USP handle owned by an enclosing function, reached via
-                    // the closure env plan. No captured lane exists for these
-                    // handles (the repr is not env-promotable), so absent this
-                    // gate the read falls through to the silent zero-placeholder
-                    // lane (`console.log(q)` inside a callback printed `0`).
-                    // Same choke point, same default-deny.
-                    if self.is_captured_url_handle(text) {
-                        return self.deny_e5506(
+                        ),
+                        IdentifierResolution::CapturedUrlHandle => self.deny_e5506(
                             function,
                             "a URL/URLSearchParams handle captured from an enclosing function \
                              cannot be read inside a closure/callback in the current phase \
                              (fail-closed)",
-                        );
-                    }
-                    // Spec 4a Task 5: a for-in key (or alias) emitted in a
-                    // STRING-VALUE context materializes its interned field-name
-                    // handle from this loop's key handle table at `base + ord*8`,
-                    // instead of yielding the raw ordinal local. PROVENANCE is
-                    // structural (`for_in_key_handle_tables` membership, the
-                    // Task-4 threaded signal — not re-derived from repr); the
-                    // STRING context is the key's scalar repr being `String`
-                    // (lifted by `repr_infer` only where the key flows into a
-                    // string sink). The ORDINAL uses — computed index
-                    // (`table[c]`, via `emit_forin_key_ordinal`), `if`-truthiness
-                    // (`emit_branch`), and the alias ordinal-copy (`last = c`) —
-                    // never reach here as strings, so this arm is the sole
-                    // string-materialization site (the dual-role disambiguation).
-                    if let Some(&table_base) = self.for_in_key_handle_tables.get(text) {
-                        if self.scalar_repr(text) == kali_common::Repr::String {
-                            if let Some(&ord_local) = self.locals.get(text) {
-                                // addr = table_base(const) + ord*8, load the i64
-                                // handle. `table_base` is now a compile-time
-                                // data-segment offset (fasta Spec 7 Task 4g), not
-                                // a runtime local holding a bump-allocated base.
-                                function.instruction(&Instruction::I32Const(table_base as i32));
-                                function.instruction(&Instruction::LocalGet(ord_local));
-                                function.instruction(&Instruction::I32WrapI64);
-                                function.instruction(&Instruction::I32Const(8));
-                                function.instruction(&Instruction::I32Mul);
-                                function.instruction(&Instruction::I32Add);
-                                function.instruction(&Instruction::I64Load(MemArg {
-                                    offset: 0,
-                                    align: 3,
-                                    memory_index: 0,
-                                }));
-                                return EmittedValue {
-                                    produced: true,
-                                    shape: ValueShape::String,
-                                };
+                        ),
+                        IdentifierResolution::ForInKeyStringHandle(table_base, ord_local) => {
+                            // addr = table_base(const) + ord*8, load the i64
+                            // handle. `table_base` is a compile-time
+                            // data-segment offset (fasta Spec 7 Task 4g), not
+                            // a runtime local holding a bump-allocated base.
+                            function.instruction(&Instruction::I32Const(table_base as i32));
+                            function.instruction(&Instruction::LocalGet(ord_local));
+                            function.instruction(&Instruction::I32WrapI64);
+                            function.instruction(&Instruction::I32Const(8));
+                            function.instruction(&Instruction::I32Mul);
+                            function.instruction(&Instruction::I32Add);
+                            function.instruction(&Instruction::I64Load(MemArg {
+                                offset: 0,
+                                align: 3,
+                                memory_index: 0,
+                            }));
+                            EmittedValue {
+                                produced: true,
+                                shape: ValueShape::String,
                             }
                         }
-                    }
-                    // Module-scope mutable scalar promoted to a persistent
-                    // global (see `collect_module_scalar_globals`): read it with
-                    // `GlobalGet` from a function OR module scope. Gated on the
-                    // name NOT being a local/param FIRST — a param or local
-                    // `var`/`let` that shadows a same-named module global wins
-                    // (JS lexical scoping), so this must yield to the local
-                    // lookup below. (In `_start` a promoted name is never a
-                    // local — it is filtered out of `_start`'s locals — so this
-                    // still fires there.) Also wins ahead of the E5506
-                    // module-binding gate, which only handled the inline-const case.
-                    if !self.locals.contains_key(text) {
-                        if let Some(&(global_index, repr)) = self.module_global_slots.get(text) {
+                        IdentifierResolution::ModuleGlobal(global_index, repr) => {
                             function.instruction(&Instruction::GlobalGet(global_index));
-                            return EmittedValue {
+                            EmittedValue {
                                 produced: true,
                                 shape: if repr == kali_common::Repr::F64 {
                                     ValueShape::Float
                                 } else {
                                     ValueShape::Scalar
                                 },
-                            };
-                        }
-                    }
-
-                    if let Some(index) = self.locals.get(text).copied() {
-                        function.instruction(&Instruction::LocalGet(index));
-                        return EmittedValue {
-                            produced: true,
-                            shape: ValueShape::Unknown,
-                        };
-                    }
-
-                    if let Some(bound) = self.bindings.get(text).copied() {
-                        return self.emit_node(function, bound, want_value);
-                    }
-
-                    // Module-scope binding read from inside a function: inline
-                    // a compile-time-pure `const` initializer (all emitters
-                    // share one LirProgram node space), and gate every other
-                    // module binding — the old path lowered these through a
-                    // silent zero placeholder (a wrong answer, not an error).
-                    if self.function_name != "_start" {
-                        if let Some(&init) = self.module_const_inits.get(text) {
-                            if self.is_pure_module_const_init(init, 0) {
-                                return self.emit_node(function, init, want_value);
                             }
                         }
-                        if self.module_binding_names.contains(text) {
+                        IdentifierResolution::Local(index) => {
+                            function.instruction(&Instruction::LocalGet(index));
+                            EmittedValue {
+                                produced: true,
+                                shape: ValueShape::Unknown,
+                            }
+                        }
+                        IdentifierResolution::Binding(bound) => {
+                            self.emit_node(function, bound, want_value)
+                        }
+                        IdentifierResolution::ModuleConstPureInline(init) => {
+                            self.emit_node(function, init, want_value)
+                        }
+                        IdentifierResolution::ModuleBindingDenied => {
                             self.diagnostics.push(Diagnostic::error(
                                 e5::FEATURE_UNAVAILABLE as u32,
                                 format!(
@@ -2248,62 +2246,58 @@ impl<'a> FunctionEmitter<'a> {
                                 ),
                             ));
                             function.instruction(&Instruction::I64Const(0));
-                            return EmittedValue {
+                            EmittedValue {
                                 produced: true,
                                 shape: ValueShape::Unknown,
-                            };
+                            }
                         }
-                    }
-
-                    if let Some(constant) = parse_number_literal(text) {
-                        function.instruction(&Instruction::I64Const(constant));
-                        return EmittedValue {
-                            produced: true,
-                            shape: ValueShape::Scalar,
-                        };
-                    }
-
-                    match text {
-                        "true" => {
+                        IdentifierResolution::NumericLiteral(constant) => {
+                            function.instruction(&Instruction::I64Const(constant));
+                            EmittedValue {
+                                produced: true,
+                                shape: ValueShape::Scalar,
+                            }
+                        }
+                        IdentifierResolution::KeywordTrue => {
                             function.instruction(&Instruction::I64Const(1));
-                            return EmittedValue {
+                            EmittedValue {
                                 produced: true,
                                 shape: ValueShape::Boolean,
-                            };
+                            }
                         }
-                        "false" | "null" | "undefined" => {
+                        IdentifierResolution::KeywordFalsyBoolean => {
                             function.instruction(&Instruction::I64Const(0));
-                            return EmittedValue {
+                            EmittedValue {
                                 produced: true,
                                 shape: ValueShape::Boolean,
-                            };
+                            }
                         }
-                        "Set" | "Map" => {
+                        IdentifierResolution::KeywordSetOrMap => {
                             function.instruction(&Instruction::I64Const(0));
-                            return EmittedValue {
+                            EmittedValue {
                                 produced: true,
                                 shape: ValueShape::Unknown,
-                            };
+                            }
                         }
-                        _ => {}
-                    }
-
-                    // Stage C: a bare identifier resolving to neither a local,
-                    // module global, nor module binding may be a captured scalar
-                    // promoted to an env cell (own cell, or a single-level
-                    // synchronous outer capture). MUST precede the zero
-                    // placeholder — an in-plan name that this returns for is
-                    // either a real cell load or an E5506 reject, never a silent
-                    // zero.
-                    if let Some(value) = self.try_emit_captured_read(function, text) {
-                        return value;
-                    }
-
-                    self.push_placeholder_fallback_diagnostic("identifier", text);
-                    function.instruction(&Instruction::I64Const(0));
-                    EmittedValue {
-                        produced: true,
-                        shape: ValueShape::Unknown,
+                        IdentifierResolution::CapturedCellOrPlaceholder => {
+                            // Stage C: a bare identifier resolving to neither
+                            // a local, module global, nor module binding may
+                            // be a captured scalar promoted to an env cell
+                            // (own cell, or a single-level synchronous outer
+                            // capture). MUST precede the zero placeholder —
+                            // an in-plan name that this returns for is either
+                            // a real cell load or an E5506 reject, never a
+                            // silent zero.
+                            if let Some(value) = self.try_emit_captured_read(function, text) {
+                                return value;
+                            }
+                            self.push_placeholder_fallback_diagnostic("identifier", text);
+                            function.instruction(&Instruction::I64Const(0));
+                            EmittedValue {
+                                produced: true,
+                                shape: ValueShape::Unknown,
+                            }
+                        }
                     }
                 } else {
                     function.instruction(&Instruction::I64Const(0));
