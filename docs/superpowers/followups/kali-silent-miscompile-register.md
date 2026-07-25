@@ -29,15 +29,23 @@ and `.../scratchpad/consolidate/` (controller re-verification).
 
 ---
 
-## 0. RE-DERIVATION 2026-07-24 (HEAD `62d786e74`, main) — READ THIS FIRST
+## 0. RE-DERIVATION 2026-07-24 (baseline `62d786e74`) — READ THIS FIRST
 
 The register below was written against branch `soundness-batch1-pra` and is now
 **substantially stale**. Every entry was re-verified on a freshly-built binary
-(`./target/debug/kali`, HEAD `62d786e74`) against `node v26.5.0` on 2026-07-24 by
+(`./target/debug/kali`) at **commit `62d786e74`** against `node v26.5.0` on 2026-07-24 by
 four independent surface sweeps (A output/coercion, B operators/control-flow,
 C functions/calls, D data-structures). **Where a per-entry headline below conflicts
-with this section, this section wins.** Full per-surface probe logs:
+with this section, this section wins** — except where this section is itself superseded by a
+later measurement, which is now the case for **R-11** (see below). Full per-surface probe logs:
 `scratchpad/resweep/sweep-{a,b,c,d}-rederived.md`.
+
+**`62d786e74` is a named baseline, not "main".** This section was originally headed "HEAD
+`62d786e74`, main"; `main` has since moved (`28f18b3ff` R-11, `372a3f440` this section). Applying
+this document's own lesson to itself — *a number without a named baseline is not a measurement* —
+the baseline is stated as the commit, and the section is **superseded for R-11 by `28f18b3ff`**,
+which closed it. Rows and bullets re-measured after `62d786e74` name the commit they were
+measured on (`372a3f440`) inline.
 
 ### 0.1 Headline
 
@@ -62,15 +70,15 @@ FL-INTERNAL = nonzero but wrong *kind* (E4201/E4003 internal, not honest E5506).
 | R-02 call through fn value → 0 | **FAIL-CLOSED** | every broken lane now E5506 (the recommended G2 interim fix); callee never runs, but honestly. Supported set unchanged (direct call, const-arrow/fnlit, IIFE, sibling capture). |
 | R-03 forEach / expr-arrow filter | **FAIL-CLOSED** | E5506 via first-class-fn-value guard; `reduce`/`map` unchanged. |
 | R-04 console drops later args | **FIXED** | all sinks, both scopes; multi-arg now routes booleans through `emit_as_string` correctly. |
-| R-05 object-literal method / `this` → 0 | **FAIL-CLOSED** | E5506. BUT class-method `this.field` REGRESSED to SILENT — see **R-36**. |
-| R-06 var/let composite init | **objects FIXED / arrays SILENT** | objects-half closed PR #26. Arrays-half is **R-06-R3**, still silent (see below). |
+| R-05 object-literal method / `this` → 0 | **FAIL-CLOSED** | `const o={m(){return 7;}}; o.m()` → **`E3100` "undefined identifier 'm'"** (not E5506 as first recorded — code corrected 2026-07-25 on `372a3f440`; fail-loud either way, so the verdict class is unchanged). BUT class-method `this.field` REGRESSED to SILENT — see **R-36**. |
+| R-06 var/let composite init | **object *declarator init* FIXED / R-06-R2 reassignment still SILENT / arrays SILENT** | objects-half closed PR #26 covers the **declarator initializer only**. Whole-object *reassignment* (`let o={a:6}; o={a:9}; o.a`→`0`, node `9`) is **R-06-R2**, still silent. Arrays-half is **R-06-R3**, still silent; `let` measures identical to `var` on both (see below). |
 | R-07 `const` is not a binding | **FIXED** | all 6 shapes (swap/stale/param/double-read/loop-carry) match; `const` is a real binding now. |
 | R-08 `===`/`!==`/`==`/`!=` half | **FIXED** | conflation cases all correct; null-guard now fail-closed. |
 | R-08 `??` half | **SILENT** | `let a=0; a??9`→9, param/var/call-return all →9/10. `0??9` & `const c=0;c??9` match. Residual-3 `f(false)===0`→111 also silent. Unchanged. |
 | R-09 `continue` skips for-update | **SILENT (+ hang)** | skip-ahead form silent-wrong; `i%2` form now **FL-INTERNAL E4003** (infinite loop → fuel trap). |
 | R-10 block-scope shadowing | **SILENT** | 5/5 shapes alias the outer binding. Unchanged. |
-| R-11 bitwise compound assign | **SILENT — 48/48** | 6 ops × 8 target kinds, uniform no-op returning the unmodified operand. Object-field/array-elem/computed bypass the E5506 their `+=` sibling honors. **ACTIVE FIX TARGET.** |
-| R-12 alias defeats array-store guard | **SILENT** | both scopes; unaliased control still correctly E5506. |
+| R-11 bitwise compound assign | **CLOSED 2026-07-25** (`28f18b3ff`, post-dating this section's `62d786e74` baseline) | see §2's R-11 entry. Re-measured on merged `main` `372a3f440`: `let n=6; n&=3`→`2` ✓, `n\|=8`→`14` ✓, `let o={a:6}; o.a&=3`→`2` ✓ (`var` receiver identical); array-elem `a[0]&=3` (`const` and `let` alike) and computed `o[k]&=3` → honest **E5506**. The row's old "SILENT — 48/48 / bypasses the E5506 their `+=` sibling honors" is false in all four of its sub-claims. The `&=`/`+=` relation is now **INVERTED** on the object-field lane: `o.a &= 3` lowers → `2` while `o.a += 1` → E5506 — see §3's G3 edit. |
+| R-12 alias defeats array-store guard | **SILENT** | both scopes. The discriminator is **SCOPE, not declarator kind**: module-scope un-aliased is also SILENT (`const a=[1,2]; a[0]=7; a[0]`→`1`, node `7`); only **in-function** un-aliased fails closed E5506, and there `const`/`let`/`var` alike do. Corrected 2026-07-25 on `372a3f440`. |
 | R-13 computed var-key get/set | **SILENT** | read →0, write vanishes; literal-key control correct. |
 | R-14 returned array reads zeros | **SILENT** | + the "object-return is correct" control has FLIPPED (`f().a`→0) — now **R-44**; arrays broken even when bound. |
 | R-15 `.split()` result | **SILENT** | element-read shape → len 0 + garbage handle; `.length`-only folds correctly. |
@@ -93,8 +101,10 @@ FL-INTERNAL = nonzero but wrong *kind* (E4201/E4003 internal, not honest E5506).
 | R-32 no exponential notation | **SILENT** | `1e21`/`1e-7` direct wrong; concat path correct. |
 | R-33 `console.warn` `[warn]` prefix | **SILENT/WARN** | prefix persists; `console.error` correct. |
 | R-34 bool user-fn renders 1/0 (concat & multi-arg) | **SILENT** | live; concat AND multi-arg both `1`. |
+| R-47 `for..of` over a `let` array iterates the binding's NAME | **SILENT** | added 2026-07-25 (post-sweep, from the R-11 project), measured on `372a3f440`. `let a=[1,2,3]; for (const x of a) log(x)` prints `a` (node `1 2 3`); `var` fails closed E5506, `const` is correct. Exit 0, plausible-looking output — see §2. |
+| R-48 array stored into an `I64` object field reads `0` | **SILENT** | added 2026-07-25 (post-sweep, from the R-11 project), measured on `372a3f440`. `let o={a:6}; o.a=[1,2]; o.a`→`0` (node `[ 1, 2 ]`); `const` receiver identical. See §2. |
 
-**Net:** of the register's ~29 silent-class entries, the sweep confirms **FIXED/fail-closed: R-01, R-02, R-03, R-04, R-05, R-07, R-08(=== half), R-19, R-20**; **still SILENT: R-06-R3, R-08(?? half), R-09, R-10, R-11, R-12, R-13, R-14, R-15, R-16, R-17, R-18, R-21, R-22, R-23, R-24, R-25(residual), R-26, R-27, R-28, R-29, R-30, R-31, R-32, R-33, R-34.**
+**Net:** of the register's ~29 silent-class entries, the sweep confirms **FIXED/fail-closed: R-01, R-02, R-03, R-04, R-05, R-07, R-08(=== half), R-19, R-20**, plus **R-11, CLOSED after this section's baseline** (`28f18b3ff`); **still SILENT: R-06-R2, R-06-R3, R-08(?? half), R-09, R-10, R-12, R-13, R-14, R-15, R-16, R-17, R-18, R-21, R-22, R-23, R-24, R-25(residual), R-26, R-27, R-28, R-29, R-30, R-31, R-32, R-33, R-34.** Added post-sweep 2026-07-25 and also **SILENT: R-47, R-48.**
 
 ### 0.3 NEW silent miscompiles found this re-derivation (exit 0, no diagnostic, wrong)
 
@@ -115,15 +125,27 @@ FL-INTERNAL = nonzero but wrong *kind* (E4201/E4003 internal, not honest E5506).
   (node true), and `if(s.has(3))` takes the ELSE branch — a silent branch flip, not just a value.
 - **R-39 — `Array.prototype.pop()` returns `0`.** `[1,2,3].pop()`→0 (node 3).
 - **R-40 — `.push` on a const array-literal is silently ignored.** `const a=[1,2]; a.push(3);
-  a.length`→2 (node 3); `a[2]`→undefined. (The supported growable-array lane is fine; the
-  literal-array lane swallows the push.)
+  a.length`→2 (node 3); `a[2]`→undefined. (The supported growable-array lane is fine
+  **in-function only** — `function f(){const g=[]; g.push(7); return g.length} f()`→`1` ✓; at
+  **module scope** it is a silent no-op too, `const g=[]; g.push(7); g.length`→`0` (node `1`),
+  which is §7.9's "Module-scope growable `push` is a silent no-op"
+  (`P5-R-modulescope-growable-push`). Both re-measured on merged `main` `372a3f440`,
+  2026-07-25. The literal-array lane swallows the push in either scope.)
 - **R-41 — `Array.prototype.concat` is ignored.** `[1,2].concat([3,4]).length`→2 (node 4); result
   is just the receiver.
-- **R-42 — `Array.prototype.slice` element reads `0`.** `[1,2,3].slice(1)[0]`→0 (node 2); the
-  result `.length`→2 is correct, contents zeroed (R-14-flavored).
+- **R-42 — `Array.prototype.slice` element reads `0` — in the BOUND form.**
+  `const a=[1,2,3]; const b=a.slice(1); b[0]`→`0` (node `2`), while `b.length`→`2` is correct:
+  contents zeroed (R-14-flavored). **Repro corrected 2026-07-25** (measured on merged `main`
+  `372a3f440`): the originally-recorded literal form `[1,2,3].slice(1)[0]` does **NOT**
+  reproduce — it folds statically and prints `2`, correct, as does
+  `[1,2,3].slice(1).length`→`2`. The defect is real only once the slice result is bound.
 - **R-43 — array destructuring ASSIGNMENT is a no-op.** `let a=1,b=2; [a,b]=[b,a]`→`1,2` (node
-  `2,1`). (Destructuring DECLARATION fails closed, but with a *misdiagnosed* "reserved word"
-  message — see 0.5.)
+  `2,1`); `let a=0n; [a]=[1n]; a`→`0` (node `1n`). (Destructuring DECLARATION fails closed, but
+  with a *misdiagnosed* "reserved word" message — see 0.5.) **R-43 is the owning ID for
+  §7.9's `P5-R-destructuring-assign` bullet**, which is the same defect (both repros re-measured
+  identical on merged `main` `372a3f440`, 2026-07-25) and whose claim that "no register entry
+  covers destructuring-assignment drop specifically" R-43 falsifies; that bullet is retained
+  for its AST-decay mechanism datum. Cluster **G1**.
 - **R-44 — chained member on a function-CALL result → `0`.** `function f(){return{a:1}} f().a`→0
   (node 1); `const r=f(); r.a`→1 is correct. This is the R-06-R1 "member-on-call hole" and it
   FALSIFIES R-14's old "object-return is correct" control. `"a,b,c".split(",").length`→0 is the
@@ -168,6 +190,11 @@ Severity split (each entry ranked at the most severe class it carries):
 | 2 | **silently produces a wrong value** | 23 |
 | 3 | **silently wrong control flow only** (value otherwise intact) | 1 |
 | 4 | **rendering-only** (in-memory value is correct) | 4 |
+
+The counts above are the original R-01..R-34 sweep and are left as the historical record. Since
+then §0.3 added **R-35..R-46** (2026-07-24 re-derivation) and §2 added **R-47** and **R-48**
+(2026-07-25, promoted from §7.10 sightings; both Tier 2, with R-47 also carrying a Tier-3
+wrong-trip-count half). Tier 2 as it stands is therefore **25** entries, not 23.
 
 Every entry in this document is an **exit-0, no-diagnostic** divergence unless the entry
 says otherwise. Fail-closed behavior (`E5506`, `E3100`, `E4201`, traps) is recorded only as
@@ -428,8 +455,12 @@ tier, ordering is by blast radius.
   - **Two whole-stage-review CRITICALs (the signature "denylist leaks; only an allowlist at the choke closes the class" lesson, twice):** (1) an initial bare-`Literal(Boolean)` denylist leaked — `var t=true; var o={f:t}`, `{f:!0}`, `{f:1>0}` → new nonzero-wrong `1`; and `{f:7n}` → `7`. Converted to the allowlist above. (2) the allowlist's unary arm recursed into ITS argument unconditionally, admitting unary-`+`-on-string: `{f:+"hi"}`→`617` (node NaN), `{f:+"3.5"}`→`285`; decimal strings `{f:+"3"}`→3 coincidentally matched and masked it. Closed by restricting the unary operand to a numeric literal.
   - **Residuals (out of scope this stage; left no-worse, tracked):**
     - **R-06-R1 — returned/escaping objects.** `function h(){var o={f:7}; return o;} h().f` → silent-`0` today (the member-on-call hole, R-14 territory) — even for `const`/write objects. Verified no-worse (no new crash, no new nonzero) after this fix. Real fix = R-14 escape stage.
-    - **R-06-R2 — whole-object reassignment.** `var o={f:1}; o={f:2}; o.f` → silent-`0`; the object-literal-RHS assignment store is a distinct mechanism from the declarator init. Unchanged.
-    - **R-06-R3 — arrays.** `var a=[7,9]` / `var a=[1,2]; a[0]=9` read back `0` — var-array runtime storage largely unimplemented. Own later stage (entangled with R-12/R-13/arena lanes).
+    - **R-06-R2 — whole-object reassignment.** `var o={f:1}; o={f:2}; o.f` → silent-`0`; the object-literal-RHS assignment store is a distinct mechanism from the declarator init. Unchanged. **Re-measured on merged `main` (`372a3f440`) 2026-07-25, and the `let` spelling measures IDENTICAL**: `var o={f:1}; o={f:2}; o.f` → `0` (node `2`) and `let o={a:6}; o={a:9}; o.a` → `0` (node `9`), both exit 0, no diagnostic. `var` and `let` are one lane here, not two — see §7.10, where the `let` sighting is now a cross-reference to this residual.
+    - **R-06-R3 — arrays.** `var a=[7,9]` / `var a=[1,2]; a[0]=9` read back `0` — var-array runtime storage largely unimplemented. Own later stage (entangled with R-12/R-13/arena lanes). **Re-measured on merged `main` (`372a3f440`) 2026-07-25; the `let` spelling measures IDENTICAL to the `var` one on every shape, so `var` and `let` are ONE lane and `const` is the discriminator that behaves correctly:**
+      - store: `var a=[1,2]; a[0]=9; a[0]` → `0` and `let a=[1,2]; a[0]=9; a[0]` → `0`, node `9` for both; `let a=[1,2,3]; a[1]=5; a[1]` → `0`, node `5`.
+      - element read: `let a=[1,2,3]; a[0]` → `0`, node `1`.
+      - **`.length` read (datum this residual previously lacked): `let a=[1,2,3]; a.length` → `0`, node `3`.** So the binding does not merely lose its stores — the whole thing reads back as an empty/zero array.
+      - the `for..of` consumer of this same `let`-array storage gap is worse than `0`: it iterates the binding's NAME. That is **R-47**, promoted to its own entry in Tier 2.
     - **R-06-R4 — object string-field value-SINK corruption (PRE-EXISTING, const-reproducible; broader than first thought).** A materialized object's String field reads back correctly ONLY in sole-`console.log`-arg / `==` / assignment / return positions; it CORRUPTS to its raw i64 handle through `+` concat, template `${}`, multi-arg `console.log`, and `.length` — e.g. `console.log("x"+o.f)` → `x-9223354444668731390`. `const o={f:"hi"}; console.log("x"+o.f)` corrupts IDENTICALLY (const never touches R-06), proving it is a downstream sink bug, not something R-06 introduces in kind; R-06 merely routes read-only var string objects to the same broken sinks. Its real fix is an object-field-String repr/sink stage. (Single-arg string fields ARE supported and shipped green.)
     - **R-06-R5 — non-literal-valued fields honest over-deny.** `var n=5; var o={a:n}`, `var o={f:3+4}`, `var o={f:null}`, leading-dot float `{f:.5}` → `E5506` even though several would read correctly if materialized. The literal-only allowlist is conservative by design (default-deny on unprovable repr). A later refinement can query each field value's inferred repr and admit provably-{I64,F64,String} non-literals.
 
@@ -1138,8 +1169,19 @@ tier, ordering is by blast radius.
   **kali**: `error[E5506]: mutating a literal array is unavailable in the current
   direct-runtime path unless the whole access folds statically; use new Array(n) for runtime
   mutation` (exit 1).
+- **Correction 2026-07-25 — the un-aliased control fails closed only IN-FUNCTION; the
+  discriminator is SCOPE, not declarator kind.** Re-measured on merged `main` (`372a3f440`)
+  against node v26.5.0:
+  - module scope, un-aliased: `const a=[1,2]; a[0]=7; console.log(a[0]);` → kali `1`, node `7`,
+    **exit 0, no diagnostic — SILENT**, not fail-closed.
+  - in-function, un-aliased: `const` **and** `let` **and** `var` all give the `E5506` above
+    (exit 1) — the declarator kind makes no difference.
+  - aliased (`const b=a; b[0]=7`) is silent in **both** scopes (module `1`, in-function `1`;
+    node `7`).
+  So the "correctly fail-closed control" above is a statement about the in-function lane only.
 - So **interposing a single binding (`const b=a`) converts a correctly-refused program into a
-  silently-wrong one.** Aliasing an array into a shorter local name is ubiquitous.
+  silently-wrong one** — in-function. At module scope there is nothing to defeat: the
+  un-aliased store is already silent. Aliasing an array into a shorter local name is ubiquitous.
 - **Scopes affected**: both.
 - **Contrast**: the **object** equivalent is CORRECT — object aliasing propagates mutation
   properly in both scopes. The defect is array-specific.
@@ -1569,6 +1611,75 @@ tier, ordering is by blast radius.
 - **Mechanism hypothesis**: `-0` is folded to the integer `0` (kali's default numeric repr is
   i64), so the sign bit never reaches the f64 division.
 - **Confidence**: high on behavior; medium on mechanism.
+
+### R-47: `for..of` over a `let`-declared array binding iterates the characters of the binding's own NAME
+
+- **Folds in**: nothing. Found 2026-07-25 while closing R-11 (§7.10 sightings); promoted to an
+  owning ID because nothing in §0.2, §0.3 (R-35..R-46) or §7.9 covers iteration at all.
+- **Verification**: `CONFIRMED-BY-CONTROLLER` — all three declarator lanes re-measured on a
+  freshly-built binary at merged `main` (`372a3f440`) against node v26.5.0, 2026-07-25.
+- **Root-cause group**: G3 (the `for..of` iterable admittance test keyed on binding *shape*, so
+  the `let` spelling falls through into the string-iterable lane instead of failing closed) —
+  with a G7 flavour, since the discriminator is the declarator's binding storage.
+- **Repro** (module scope): `let a=[1,2,3]; for (const x of a) console.log(x);` → **kali** prints
+  one line, the letter `a`; **node** prints `1` `2` `3`. Exit 0, no diagnostic.
+- **The name really is the iterand**: `let zz=[1,2,3]; for (const x of zz) …` prints `z` then
+  `z` — two iterations for a two-character name, over a three-element array.
+  `let a=[10,20]; for (const q of a) …` prints `a` — one iteration, and the *element* values
+  never appear. So both the iteration count and every value come from the identifier's text.
+- **The three declarator lanes differ, and only `let` is silent**:
+  - `let a=[1,2,3]` → **SILENT**, prints `a` (above).
+  - `var a=[1,2,3]` → **FAIL-CLOSED**, `error[E5506]: for-of array iteration lowering is
+    unavailable unless the iterable is a literal array or supported string iterable with
+    literal elements and the loop target is a variable declaration or simple identifier
+    binding` (exit 1).
+  - `const a=[1,2,3]` → **CORRECT**, `1` `2` `3`.
+- **Scopes affected**: both — `function f(){ let a=[1,2,3]; for (const x of a) console.log(x); }
+  f();` prints `a`, identically to the module-scope form.
+- **Severity**: silent-wrong-value **and** silently wrong control flow — the loop trip count is
+  wrong too, so this straddles Tier 1/2 rather than sitting cleanly in either.
+- **Blast radius**: high, and this is among the most *deceptive* shapes in the register. The
+  loop body genuinely runs, exit is 0, and the output is plausible-looking data rather than
+  `0` or an empty result — the failure mode every other entry's `0` at least makes visible.
+  `let xs = [...]; for (const x of xs)` is everyday JS.
+- **Mechanism hypothesis**: the iterable operand resolves to the identifier's own text, which
+  is then routed to the *string* for-of lane and iterated per character. Consistent with the
+  `var` diagnostic, whose text ("literal array or supported string iterable") names exactly
+  the two lanes and shows the admittance test is shape-keyed. Not located in source.
+- **Confidence**: high on behavior (6 transcripts, 3 declarator lanes, both scopes, and the
+  name-length/trip-count correspondence is exact); low on mechanism.
+- **Cross-references**: §7.10 sightings (where it was first measured); **R-06-R3** (`let` arrays
+  read back as zero/empty through the *indexing* lane — the same `let`-array storage gap seen
+  through a different consumer); cluster **G3**.
+
+### R-48: An array stored into an object field typed `I64` reads back `0`
+
+- **Folds in**: nothing. Found 2026-07-25 while closing R-11 (§7.10 sightings); given an owning
+  ID because it had none anywhere in this document.
+- **Verification**: `CONFIRMED-BY-CONTROLLER` — re-measured on a freshly-built binary at merged
+  `main` (`372a3f440`) against node v26.5.0, 2026-07-25.
+- **Root-cause group**: unclustered (escape/provenance-loss family, with R-14).
+- **Repro**: `let o={a:6}; o.a=[1,2]; console.log(o.a);` → **kali** `0`, **node** `[ 1, 2 ]`
+  (exit 0, no diagnostic).
+- **Identical through an alias**: `let o={a:6}; let b=[1,2]; o.a=b; console.log(o.a);` → `0`.
+- **Not a `let`/`var` lane**: the `const` receiver behaves identically —
+  `const o={a:6}; o.a=[1,2]; console.log(o.a);` → `0` (node `[ 1, 2 ]`). The declarator kind is
+  not the discriminator here; the field's already-inferred scalar repr is.
+- **Scopes affected**: both, measured —
+  `function f(){ let o={a:6}; o.a=[1,2]; return o.a; } f()` → `0` (node `[ 1, 2 ]`), identical
+  to the module-scope form.
+- **Severity**: silent-wrong-value (a dropped store observed as a wrong read).
+- **Blast radius**: medium-high. "Initialize a field to a scalar placeholder, then fill it with
+  a list" is a common shape, and the `0` read-back is indistinguishable from a legitimately
+  empty result.
+- **Mechanism hypothesis**: the field's repr is fixed at `Repr::I64` by its numeric-literal
+  initializer, and the later array store neither widens the field nor fails closed, so the
+  array handle is truncated/lost and the slot reads its zero.
+- **Distinct from §7.9's `P5-R-aggregate-array-provenance`**, which is the same *family* but a
+  different observable: that one reads a plausible **wrong length** (child-count / holder-length)
+  where this one reads **`0`**. Also **≈ R-14** (an array losing provenance across a boundary).
+- **Confidence**: high on behavior (3 transcripts incl. the alias and `const` controls); low on
+  mechanism.
 
 ---
 
@@ -2296,10 +2407,15 @@ Appears NEW (no clean pre-existing register entry):
   G2 unresolvable-callee-folds-to-`0` cluster, but the specific
   `globalThis.<builtin>(...)` member spelling is not separately entried.
 - **Parser silently drops destructuring assignment** (§8.6 #18,
-  P5-R-destructuring-assign, NEW, HIGH) — `let a=0n; [a]=[1n]; console.log(a)` → 0,
+  P5-R-destructuring-assign, HIGH) — `let a=0n; [a]=[1n]; console.log(a)` → 0,
   node `1n`; the AST shows the statement decaying into two unrelated
-  `ExpressionStatement`s, no diagnostic. A parser fail-open recovery (cluster G1),
-  but no register entry covers destructuring-assignment drop specifically.
+  `ExpressionStatement`s, no diagnostic. A parser fail-open recovery (cluster G1).
+  **Correction 2026-07-25: this bullet's original claim that "no register entry covers
+  destructuring-assignment drop specifically" is FALSE — the 2026-07-24 re-derivation gave
+  the same defect an owning ID, **R-43** (§0.3).** Measured identical on
+  merged `main` (`372a3f440`): `let a=0n; [a]=[1n]; a` → `0` (node `1n`) and R-43's own
+  repro `let a=1,b=2; [a,b]=[b,a]` → `1,2` (node `2,1`). **R-43 is the owning ID**; this
+  bullet is retained for its AST-decay mechanism datum, which R-43 lacks.
 - **The for-of / block-`const`-redeclaration shadow family, now PARTIALLY CLOSED**
   by the P5 T-new-D `stale_provenance_shadow_lane` guard — a for-of or block-const
   redeclaration shadowing a name bound to a TextEncoder/TextDecoder marker, a bytes
@@ -2318,44 +2434,38 @@ Found while closing **R-11** (bitwise compound assignment, branch
 `r11-bitwise-compound-assign`). Everything in the first block is **pre-existing** — each was
 re-measured on a `main`-worktree binary (`62d786e74`) with no bitwise operator anywhere in the
 program, so none of it is caused by R-11. **Nothing here was fixed**; these are sightings, and
-existing entries are NOT renumbered. Oracle: node v26.5.0.
+no existing entry was renumbered. Oracle: node v26.5.0.
+
+**Reconciled 2026-07-25** (after the 2026-07-24 register re-derivation landed as `372a3f440`,
+which was written from the same `62d786e74` base and merged separately, so the two efforts
+documented several of the same defects twice). Every sighting below was re-measured on a
+freshly-built binary at merged `main` (`372a3f440`); the four that duplicated an existing entry
+are now one-line cross-references to the ID that owns them, and the two that owned nothing were
+promoted to **R-47** and **R-48**. No finding was dropped: every datum a bullet carried and its
+owning entry lacked was folded into that entry first.
 
 ### Sightings (pre-existing, verified by measurement, unfixed)
 
-- **An element store into a `let` array literal is silently dropped.**
-  `let a=[1,2,3]; a[1] = 5; console.log(a[1]);` → `0`, node `5`, exit 0, no diagnostic. Same
-  family as **R-12**/**R-06-R3**, but this is the un-aliased `let` spelling, which R-12's entry
-  records as *correctly fail-closed* for `const`.
-- **Reads off a `let` array literal return `0` too.** `let a=[1,2,3]; console.log(a.length)` →
-  `0` (node `3`); `console.log(a[0])` → `0` (node `1`). So the store above is not merely lost —
-  the whole binding reads back as an empty/zero array. **≈ R-06-R3.**
-- **`for..of` over a `let` array binding iterates the characters of the binding's NAME.**
-  `let a=[1,2,3]; for (const x of a) console.log(x);` prints `a` — one line, the letter `a` —
-  where node prints `1 2 3`. `let zz=[1,2,3]; …` prints `z` then `z`; `let a=[10,20]; for
-  (const q of a) …` prints `a`. Exit 0, no diagnostic. The `const` spelling
-  (`const a=[1,2,3]`) is CORRECT (`1 2 3`) and the `var` spelling fails **closed** (`E5506`
-  "for-of array iteration lowering is unavailable…"), so this is the `let` lane only: the
-  iterable is being resolved as the identifier's own text and iterated as a string. Maximally
-  deceptive — the output is plausible-looking data, and the loop body does run.
-- **Whole-object reassignment is a dropped write.** `let o={a:6}; o={a:9}; console.log(o.a);` →
-  `0`, node `9`, exit 0. This is **R-06-R2** re-confirmed on current `main` (R-06's objects-half
-  close did not touch the assignment-store mechanism, only the declarator init).
-- **An array stored into an `I64` object field reads back `0`.** `let o={a:6}; o.a=[1,2];
-  console.log(o.a);` → `0` (node `[ 1, 2 ]`); identical through an alias (`let b=[1,2]; o.a=b`).
-  The field keeps its `Repr::I64` and the handle is lost. **≈ R-14 / the P5
-  aggregate-array-provenance family in §7.9.**
-- **There is no block-scoped `let` — the inner declaration aliases the outer binding, with no
-  assignment anywhere in the program.**
+- **Element stores into, and reads off, a `let` array literal are silently dropped** — owned by
+  **R-06-R3** (§2, R-06 residuals), which now records the `let` spelling and the `.length`
+  datum. Cross-reference only; nothing here is a separate lane from the `var` spelling.
+- **`for..of` over a `let` array binding iterates the characters of the binding's NAME** —
+  genuinely new; it now owns **R-47** (§2, Tier 2). Cross-reference only.
+- **Whole-object reassignment is a dropped write** — owned by **R-06-R2** (§2, R-06 residuals),
+  which now records that the `let` spelling measures identical to the `var` one.
+  Cross-reference only.
+- **An array stored into an `I64` object field reads back `0`** — it had no owning ID; it now
+  owns **R-48** (§2, Tier 2), a distinct observable from §7.9's
+  `P5-R-aggregate-array-provenance` (which reads a wrong *length*, not `0`).
+  Cross-reference only.
+- **There is no block-scoped `let`** — owned by **R-10** (§2) and stated in §0.2's R-10 row;
+  both agree with what was measured here, so only the datum they lack is retained: the
+  **declaration-only** spelling needs no assignment anywhere in the program.
   `let n = 6;` / `{ let n = 7; console.log(n); }` / `console.log(n);` prints **`7`** then
-  **`7`**; node prints `7` then `6`. Exit 0, no diagnostic. Measured on the HEAD binary
-  (`fc777af54`) and on the `main`-identical `e416b22a1` — **identical on both**, so it is
-  pre-existing and entirely unrelated to R-11: there is not one assignment operator in the
-  repro, the inner *declaration* alone is the write. This is **R-10** re-confirmed on current
-  `main` in its most minimal form; R-10's own repro
-  (`let x = 1; { let x = 2; } console.log("r=" + x);` → node `r=1`, kali `r=2`) also still
-  reproduces verbatim on HEAD. Recorded here because R-10 is `sweep-only`-verified and this is a
-  direct re-measurement, and because the declaration-only spelling shows the defect needs no
-  mutation at all to bite: it is a binding-storage bug (**G7**), not an assignment bug.
+  **`7`**; node prints `7` then `6`. Exit 0, no diagnostic; re-measured on merged `main`
+  (`372a3f440`). There is not one assignment operator in the repro — the inner *declaration*
+  alone is the write — which makes R-10 a **binding-storage** defect (**G7**), not an
+  assignment defect, and confirms it is unrelated to R-11.
 - **`expr_is_provably_not_bigint`'s BigInt-literal check is `text.ends_with('n')`**
   (`crates/kali_codegen/src/lower.rs`). A bare `Value` node's text is either a literal *or an
   identifier*, so any identifier ending in `n` — `n`, `len`, `min`, `fn`, `in`, `train` — is read
