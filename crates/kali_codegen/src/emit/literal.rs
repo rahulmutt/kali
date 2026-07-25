@@ -785,48 +785,78 @@ impl<'a> FunctionEmitter<'a> {
         // slot (JS lexical scoping), so this yields to the local lookup below.
         // (In `_start` a promoted name is never a local, so this still fires.)
         if !self.locals.contains_key(&name) {
-            // R-11 T3 review round 2, Important 2: a `let`/`var` declared
-            // inside THIS function but captured by a NESTED closure is
-            // promoted OUT of `self.locals` (Stage C — "the cell IS its
-            // storage", see the `module_global_slots` field doc in
+            // R-11 T3 review round 2, Important 2 / R-11 T4 review Critical 1:
+            // a `let`/`var` declared inside THIS function but captured by a
+            // NESTED closure is promoted OUT of `self.locals` (Stage C — "the
+            // cell IS its storage", see the `module_global_slots` field doc in
             // `emitter.rs`), so the `!self.locals.contains_key` check above
-            // does NOT exclude it. Without this guard, a same-named module
-            // global silently absorbs the write meant for this function's
-            // OWN shadowing local (measured, with the guard below removed:
-            // `let n=6; function f(){ let n=9; const g=()=>n; n&=3; return
-            // n+g(); } f(); console.log(n);` — reading the MODULE `n` AFTER
-            // calling `f()`, so the read is not itself evaluated before the
-            // mutation — printed `1` where node prints `6`; the module `n`
-            // was silently corrupted from inside `f`'s unrelated local
-            // scope). `try_emit_captured_assign`
-            // below cannot catch this for the bitwise ops — it returns `None`
-            // for any op outside `{= += -= *= /= %=}` UNCONDITIONALLY,
-            // before it ever inspects `name`, so reordering it ahead of the
-            // `module_global_slots` lookup would not help. This bug is
-            // PRE-EXISTING for `=`/`+=`/etc. (byte-identical wrong output on
-            // the pre-task parent — confirmed, out of scope, not this task's
-            // to fix) but the parent refused every bitwise op on EVERY
-            // module global uniformly, so silently writing the WRONG target
-            // here is a NEW regression this task introduced. Scoped to the
+            // does NOT exclude it. Without this guard, a same-named MODULE
+            // binding silently absorbs the write (or a subsequent read)
+            // meant for this function's OWN shadowing local. Originally
+            // measured only against `module_global_slots` (a same-named
+            // mutable module global — `let n=6; function f(){ let n=9; const
+            // g=()=>n; n&=3; return n+g(); } f(); console.log(n);` — reading
+            // the MODULE `n` after calling `f()` printed `1` where node
+            // prints `6`), but T4 review Critical 1 measured the identical
+            // class through a DIFFERENT module-binding storage mechanism: a
+            // module-scope `const` is never in `module_global_slots` (consts
+            // are never promoted to a WASM global — they are compile-time
+            // INLINED at each read site from `module_const_inits`, a wholly
+            // separate table `emit_identifier`, `control_flow.rs:2238`,
+            // consults BEFORE `try_emit_captured_read`, `:2298`). Denying the
+            // bitwise WRITE only when `module_global_slots` contains `name`
+            // therefore let the write to the captured cell through (correctly
+            // targeting the right storage) while a LATER read of the same
+            // name from the owning function's own body silently inlined the
+            // UNRELATED module `const` instead of loading the cell (measured:
+            // `const n=6; function f(){ let n=12; function s(){ n&=7; } s();
+            // console.log(n); } f();` printed `6` where node prints `4`, at
+            // exit 0 — a wrong value, not a diagnostic). Widened to ALSO deny
+            // whenever `name` is a module-scope `const` (`module_const_inits`)
+            // or any other top-level module binding at all
+            // (`module_binding_names` — every top-level `const`/`let`/`var`
+            // name, whether or not it was promoted; covers a module `let`/
+            // `var` that fails promotion for a reason unrelated to this
+            // shadow, e.g. a non-numeric module scalar, so this guard does not
+            // depend on `collect_module_scalar_globals`'s promotion heuristic
+            // agreeing in every case). A module-scope named `function`
+            // declaration is NOT in any of these three tables (functions are
+            // never module "bindings" in this sense) and is not part of this
+            // shadow class — measured separately, it does not intercept the
+            // captured read at all (`bitwise_compound_on_module_function_name_does_not_shadow_captured_cell`).
+            // `try_emit_captured_assign` below still cannot catch this itself
+            // for the bitwise ops even after T4's widening — the shadow
+            // resolution has to happen HERE, before either the const-inline
+            // or the module-global-slot lookup, so the write is refused
+            // uniformly regardless of which module-binding table would have
+            // won the read. This bug (a captured local silently losing to a
+            // same-named module const/global/binding) is PRE-EXISTING for
+            // `=`/`+=`/etc. and general reads (byte-identical wrong output on
+            // the pre-T4 parent — confirmed, out of scope, not this task's to
+            // fix) but the parent refused every bitwise op on EVERY captured
+            // cell uniformly at resolve, so silently computing through to the
+            // WRONG target here is a regression T4 introduced. Scoped to the
             // six bitwise ops only — does not touch general assignment
-            // dispatch or `=`/`+=`'s existing (wrong) behavior. Also gated
-            // on an ACTUAL same-named module global existing (not just
-            // `name` being a cell/capture in isolation): a captured local
-            // with NO colliding module global already denies correctly via
-            // the pre-existing fallback further down (Task 2's pinned
+            // dispatch or `=`/`+=`'s existing (wrong) behavior. Also gated on
+            // an ACTUAL same-named module binding existing (not just `name`
+            // being a cell/capture in isolation): a captured local with NO
+            // colliding module binding already denies correctly via the
+            // pre-existing fallback further down (Task 2's pinned
             // `bitwise_compound_fails_closed_on_owning_function_captured_variable`)
             // and that message stays accurate — this arm exists only to
-            // intercept the shadow case before it reaches
-            // `module_global_slots`.
+            // intercept the shadow case before it reaches any module-binding
+            // lookup.
             if matches!(op, "&=" | "|=" | "^=" | "<<=" | ">>=" | ">>>=")
-                && self.module_global_slots.contains_key(&name)
+                && (self.module_global_slots.contains_key(&name)
+                    || self.module_const_inits.contains_key(&name)
+                    || self.module_binding_names.contains(&name))
                 && (self.env_plan.cell_for(&name).is_some()
                     || self.env_plan.captured_for(&name).is_some())
             {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
                     format!(
-                        "bitwise compound assignment '{op}' on binding '{name}' is unavailable in the current phase (the binding is shadowed by a same-named module global; use a mutable variable or the later compatibility path)"
+                        "bitwise compound assignment '{op}' on binding '{name}' is unavailable in the current phase (the binding is shadowed by a same-named module-scope binding; use a mutable variable or the later compatibility path)"
                     ),
                 ));
                 function.instruction(&Instruction::I64Const(0));

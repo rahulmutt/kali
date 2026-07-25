@@ -141,6 +141,12 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     // available here.
     let captured_cell_bigint_targets =
         collect_bigint_tainted_captured_cells(lir, &function_plans, &ctx.env_plans);
+    // R-11 T4 review Important 1: the float-taint twin — see
+    // `collect_float_tainted_captured_cells`'s own doc for why this cannot be
+    // folded into the BigInt scan above or left to `cell_is_promotable`
+    // alone.
+    let captured_cell_float_targets =
+        collect_float_tainted_captured_cells(lir, &function_plans, &ctx.env_plans);
     if function_plans.iter().any(|plan| {
         matches!(
             plan.flavor,
@@ -1575,6 +1581,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             &module_global_slots,
             &module_global_bigint_targets,
             &captured_cell_bigint_targets,
+            &captured_cell_float_targets,
             ctx.env_plans
                 .get(&function.name)
                 .cloned()
@@ -4602,6 +4609,303 @@ pub(crate) fn collect_bigint_tainted_captured_cells(
         );
     }
     tainted
+}
+
+/// R-11 T4 review Important 1: whole-program taint for a promoted SCALAR
+/// captured cell whose declarator OR any reassignment (from ANY function)
+/// might store a FLOAT — the sibling of `collect_bigint_tainted_captured_cells`
+/// on a different axis, needed because `repr_infer`'s own scalar-repr
+/// union-find CANNOT be trusted to catch this the way
+/// `crate::closure::cell_is_promotable`'s owner-scoped `scalar(owner, name)
+/// == I64` check normally would.
+///
+/// The reason is a real gap in `repr_infer::binding_scope` (`kali_types`,
+/// used by BOTH the scalar-repr union AND the `numeric_bindings` proof this
+/// module's `binding_is_proven_numeric` check already leans on): it resolves
+/// an off-scope write's node key to `TOP_LEVEL` when the true owner is module
+/// scope, or to the WRITING function when the write happens inside the
+/// binding's own declaring scope — but has no way to resolve to the true
+/// owner when the write is reached from a THIRD function that is neither the
+/// declaring scope nor top-level (e.g. a SIBLING closure of the one
+/// performing the bitwise op, both nested inside the true owner). Such a
+/// write is filed under `scalar_node[(writing_func, name)]` — a DIFFERENT,
+/// disconnected union-find node from `scalar_node[(owner, name)]` — so it
+/// never reaches `ReprTable::scalar(&owner, name)` at all. Measured: `function
+/// o(){ let n=6; function w(){ n=6.5; } function s(){ n&=3; } w(); s();
+/// console.log(n); } o();` — `cell_is_promotable`/`scalar(&owner,name)` both
+/// see only `n`'s I64 declarator (blind to `w`'s float write), so the cell
+/// promotes and the target check passes; the raw `I32WrapI64` combiner then
+/// either reads garbage or — because the cell's own store width disagrees
+/// with `w`'s untouched f64 write elsewhere — the module fails WASM
+/// validation outright (`E4201`), which the plan's Global Constraints
+/// forbid (non-integer targets must fail closed `E5506`, never an internal
+/// `E4201`).
+///
+/// This scan closes the gap the SAME way Task 3 closed the analogous BigInt
+/// gap: an ADDITIVE, whole-program, NAME-keyed taint that does not depend on
+/// `binding_scope` naming the right owner — it walks every declarator and
+/// reassignment ANYWHERE in the program (crossing every function boundary,
+/// mirroring `collect_bigint_tainted_module_scalars`'s own walk) and taints
+/// the target NAME whenever the write is not STRUCTURALLY proven to be a
+/// plain, non-BigInt, non-float, integer-literal-or-arithmetic value
+/// (`expr_is_provably_i64_literal_or_arith`, below). Kept as its OWN walk
+/// (`mark_non_i64_tainted_captured_scalars`) rather than reusing or
+/// parameterizing `collect_bigint_tainted_module_scalars` — that function has
+/// two existing callers (the module-global BigInt lane and
+/// `collect_bigint_tainted_captured_cells` above), and this task must leave
+/// Task 3's module-global lane byte-for-byte unchanged; duplicating the small
+/// walk is cheaper than risking that.
+pub(crate) fn collect_float_tainted_captured_cells(
+    lir: &LirProgram,
+    function_plans: &[FunctionPlan],
+    env_plans: &std::collections::BTreeMap<String, kali_mir::EnvPlan>,
+) -> HashSet<String> {
+    let mut candidates: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    for plan in env_plans.values() {
+        for cell in &plan.cells {
+            if cell.is_scalar {
+                candidates.insert(cell.name.clone());
+            }
+        }
+    }
+    if candidates.is_empty() {
+        return HashSet::new();
+    }
+    let function_params: BTreeMap<String, Vec<String>> = function_plans
+        .iter()
+        .map(|plan| (plan.name.clone(), plan.params.clone()))
+        .collect();
+    let mut call_args: BTreeMap<String, Vec<(String, Vec<LirNodeId>)>> = BTreeMap::new();
+    {
+        let mut seen = HashSet::new();
+        collect_call_argument_sites(&lir.nodes, lir.root, "_start", &mut seen, &mut call_args);
+    }
+    let mut tainted: HashSet<String> = HashSet::new();
+    {
+        let mut seen = HashSet::new();
+        mark_non_i64_tainted_captured_scalars(
+            &lir.nodes,
+            lir.root,
+            "_start",
+            &candidates,
+            &function_params,
+            &call_args,
+            &mut seen,
+            &mut tainted,
+        );
+    }
+    tainted
+}
+
+/// The walk `collect_float_tainted_captured_cells` uses — structurally
+/// IDENTICAL to `collect_bigint_tainted_module_scalars` (function-boundary
+/// descent via `function_shape`, a declarator scan, a reassignment scan, then
+/// recurse into every child), the only difference being the safety predicate
+/// (`expr_is_provably_i64_literal_or_arith` instead of
+/// `expr_is_provably_not_bigint`) and a `BTreeSet<String>` candidates filter
+/// (this scan needs no `Repr` payload per name, unlike the module-global
+/// scan's `BTreeMap<String, Repr>`, which the shared function it does NOT
+/// reuse was written against).
+#[allow(clippy::too_many_arguments)]
+fn mark_non_i64_tainted_captured_scalars(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    func: &str,
+    candidates: &std::collections::BTreeSet<String>,
+    function_params: &BTreeMap<String, Vec<String>>,
+    call_args: &BTreeMap<String, Vec<(String, Vec<LirNodeId>)>>,
+    seen: &mut HashSet<LirNodeId>,
+    tainted: &mut HashSet<String>,
+) {
+    if !seen.insert(id) {
+        return;
+    }
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return;
+    };
+
+    if let Some((name, _, body_id, _)) = function_shape(nodes, id) {
+        mark_non_i64_tainted_captured_scalars(
+            nodes,
+            body_id,
+            &name,
+            candidates,
+            function_params,
+            call_args,
+            seen,
+            tainted,
+        );
+        return;
+    }
+
+    // Declarator init (`var`/`let name = init`).
+    if node.kind == LirNodeKind::Instruction && matches!(node.text.as_deref(), Some("let" | "var"))
+    {
+        for declarator_id in &node.children {
+            let Some(declarator) = nodes.get(declarator_id.0 as usize) else {
+                continue;
+            };
+            let Some(name) = declarator.text.as_deref() else {
+                continue;
+            };
+            if candidates.contains(name) {
+                if let Some(&init) = declarator.children.get(1) {
+                    if !expr_is_provably_i64_literal_or_arith(
+                        nodes,
+                        init,
+                        func,
+                        function_params,
+                        call_args,
+                        0,
+                    ) {
+                        tainted.insert(name.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    // Reassignment (`name = rhs`, or a compound `name op= rhs`).
+    if node.kind == LirNodeKind::Value
+        && node.children.len() == 2
+        && is_assignment_operator_text(node.text.as_deref().unwrap_or_default())
+    {
+        let lhs = unwrap_transparent_value(nodes, node.children[0]);
+        if let Some(lhs_node) = nodes.get(lhs.0 as usize) {
+            if lhs_node.kind == LirNodeKind::Value && lhs_node.children.is_empty() {
+                if let Some(name) = lhs_node.text.as_deref() {
+                    if candidates.contains(name)
+                        && !expr_is_provably_i64_literal_or_arith(
+                            nodes,
+                            node.children[1],
+                            func,
+                            function_params,
+                            call_args,
+                            0,
+                        )
+                    {
+                        tainted.insert(name.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    for child in &node.children {
+        mark_non_i64_tainted_captured_scalars(
+            nodes,
+            *child,
+            func,
+            candidates,
+            function_params,
+            call_args,
+            seen,
+            tainted,
+        );
+    }
+}
+
+/// R-11 T4 review Important 1: TRUE only when `id` is STRUCTURALLY proven to
+/// never evaluate to anything other than a plain (non-BigInt, non-float)
+/// integer — `expr_is_provably_not_bigint`'s exact closure shape (unary
+/// `- + ~`, binary `+ - * % & | ^ << >> >>>`, a parameter whose every
+/// call-site argument is itself proven safe), but with a STRICTER literal
+/// check: `parse_number_literal` (`kali_codegen::intrinsics::number`, a plain
+/// `i64::parse`, fails on `"6.5"`) instead of `parse_numeric_literal_value`
+/// (an `f64::parse`, which SUCCEEDS on `"6.5"`). `expr_is_provably_not_bigint`
+/// treats a float literal exactly like a safe plain integer — correct for
+/// ITS axis (a float is not a BigInt), wrong for this one.
+fn expr_is_provably_i64_literal_or_arith(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    func: &str,
+    function_params: &BTreeMap<String, Vec<String>>,
+    call_args: &BTreeMap<String, Vec<(String, Vec<LirNodeId>)>>,
+    depth: usize,
+) -> bool {
+    if depth > 24 {
+        return false;
+    }
+    let id = unwrap_transparent_value(nodes, id);
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return false;
+    };
+    match node.kind {
+        LirNodeKind::Literal => node
+            .text
+            .as_deref()
+            .is_some_and(|t| !t.ends_with('n') && parse_number_literal(t).is_some()),
+        LirNodeKind::Value => match node.children.len() {
+            0 => {
+                let Some(t) = node.text.as_deref() else {
+                    return false;
+                };
+                if t.ends_with('n') {
+                    return false;
+                }
+                if parse_number_literal(t).is_some() {
+                    return true;
+                }
+                let Some(params) = function_params.get(func) else {
+                    return false;
+                };
+                let Some(idx) = params.iter().position(|p| p == t) else {
+                    return false;
+                };
+                let Some(sites) = call_args.get(func) else {
+                    return false;
+                };
+                !sites.is_empty()
+                    && sites.iter().all(|(caller, args)| {
+                        args.get(idx).is_some_and(|&arg| {
+                            expr_is_provably_i64_literal_or_arith(
+                                nodes,
+                                arg,
+                                caller,
+                                function_params,
+                                call_args,
+                                depth + 1,
+                            )
+                        })
+                    })
+            }
+            1 => {
+                let t = node.text.as_deref().unwrap_or_default();
+                matches!(t, "-" | "+" | "~")
+                    && expr_is_provably_i64_literal_or_arith(
+                        nodes,
+                        node.children[0],
+                        func,
+                        function_params,
+                        call_args,
+                        depth + 1,
+                    )
+            }
+            2 => {
+                let t = node.text.as_deref().unwrap_or_default();
+                matches!(
+                    t,
+                    "+" | "-" | "*" | "%" | "&" | "|" | "^" | "<<" | ">>" | ">>>"
+                ) && expr_is_provably_i64_literal_or_arith(
+                    nodes,
+                    node.children[0],
+                    func,
+                    function_params,
+                    call_args,
+                    depth + 1,
+                ) && expr_is_provably_i64_literal_or_arith(
+                    nodes,
+                    node.children[1],
+                    func,
+                    function_params,
+                    call_args,
+                    depth + 1,
+                )
+            }
+            _ => false,
+        },
+        _ => false,
+    }
 }
 
 /// R-11 T3 review round 2: TRUE only when `id` is STRUCTURALLY proven to

@@ -290,9 +290,47 @@ impl<'a> FunctionEmitter<'a> {
                 // captured cell refused uniformly (resolve denied it
                 // entirely), so silently truncating a BigInt now would be a
                 // fresh regression, not an inherited one.
+                //
+                // FLOAT target axis — T4 review Important 1.
+                // `self.repr_table.scalar(&owner, name) != Repr::I64` (never
+                // `self.scalar_repr`, which is `self.function_name`-scoped —
+                // the CAPTURING function, not the owner, the identical
+                // capturer/owner mismatch the target-axis paragraph above
+                // already closed for `binding_is_proven_numeric`) mirrors the
+                // local/module arms' own additional check
+                // (`literal.rs`'s local arm, `:1196`) and is harmless to keep,
+                // but by ITSELF it is not sufficient here: it queries the
+                // exact same `(owner, name)` key
+                // `crate::closure::cell_is_promotable` already required to be
+                // `I64` before this cell was ever promoted in the first
+                // place, so it is redundant for every case promotion already
+                // saw — and blind to exactly the same case promotion was
+                // blind to. That blind spot is real: `repr_infer`'s
+                // scalar-repr union-find resolves an off-scope write's node
+                // key via `binding_scope`, which cannot name the true OWNER
+                // when the write is reached from a THIRD function (neither
+                // the owner nor top-level module scope) — e.g. a SIBLING
+                // closure of the one performing the bitwise op, both nested
+                // inside the true owner. Such a write is filed under a
+                // DIFFERENT, disconnected union-find node
+                // `scalar(&owner, name)` never sees (measured: `function
+                // o(){ let n=6; function w(){ n=6.5; } function s(){ n&=3; }
+                // w(); s(); ... }` — `w`'s float write reaches neither this
+                // check nor `cell_is_promotable`, so the cell promotes and
+                // this check passes, and the raw `I32WrapI64` combiner then
+                // emits WASM the validator rejects outright, `E4201`, which
+                // the plan's Global Constraints forbid). Closed instead by
+                // `captured_cell_bigint_targets`'s sibling,
+                // `captured_cell_float_targets`
+                // (`collect_float_tainted_captured_cells`, `lower.rs`): an
+                // ADDITIVE, whole-program, NAME-keyed scan that does not
+                // depend on `binding_scope` naming the right owner at all —
+                // it walks every declarator/reassignment directly.
                 let owner = self.scalar_capture_owner(name)?;
-                if !self.repr_table.binding_is_proven_numeric(&owner, name)
+                if self.repr_table.scalar(&owner, name) != kali_common::Repr::I64
+                    || !self.repr_table.binding_is_proven_numeric(&owner, name)
                     || self.captured_cell_bigint_targets.contains(name)
+                    || self.captured_cell_float_targets.contains(name)
                     || !self.bitwise_compound_rhs_is_provably_i64(right)
                 {
                     self.diagnostics.push(Diagnostic::error(

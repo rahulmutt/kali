@@ -401,6 +401,19 @@ pub(crate) struct FunctionEmitter<'a> {
     /// doc for why that is a deliberate, conservative over-denial rather
     /// than an under-taint.
     pub(crate) captured_cell_bigint_targets: &'a HashSet<String>,
+    /// R-11 T4 review Important 1: whole-program FLOAT-taint set for promoted
+    /// SCALAR env cells (`collect_float_tainted_captured_cells`), the sibling
+    /// of `captured_cell_bigint_targets` on a different axis.
+    /// `crate::closure::cell_is_promotable`'s owner-scoped `scalar(owner,
+    /// name) == I64` check cannot be trusted to exclude every float write to
+    /// a captured cell: `repr_infer`'s scalar-repr union-find resolves an
+    /// off-scope write's node key via `binding_scope`, which cannot name the
+    /// true owner when the write is reached from a THIRD function (neither
+    /// the owner nor top-level module scope) — such a write is filed under a
+    /// disconnected union-find node the owner-scoped query never sees. Also
+    /// keyed by NAME ONLY, for the same reason
+    /// `captured_cell_bigint_targets` is.
+    pub(crate) captured_cell_float_targets: &'a HashSet<String>,
     /// This function's closure environment plan (Stage C, `derive_env_plans`):
     /// the promoted scalar/heap cells it OWNS in its own env record and the
     /// outer bindings it captures through the parent chain. Default (owns_env
@@ -462,6 +475,7 @@ impl<'a> FunctionEmitter<'a> {
         module_global_slots: &'a BTreeMap<String, (u32, kali_common::Repr)>,
         module_global_bigint_targets: &'a HashSet<String>,
         captured_cell_bigint_targets: &'a HashSet<String>,
+        captured_cell_float_targets: &'a HashSet<String>,
         env_plan: kali_mir::EnvPlan,
         env_plans: &'a std::collections::BTreeMap<String, kali_mir::EnvPlan>,
     ) -> Self {
@@ -597,6 +611,7 @@ impl<'a> FunctionEmitter<'a> {
             module_global_slots,
             module_global_bigint_targets,
             captured_cell_bigint_targets,
+            captured_cell_float_targets,
             env_plan,
             env_plans,
         }

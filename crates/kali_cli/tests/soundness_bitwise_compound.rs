@@ -341,7 +341,7 @@ fn bitwise_compound_on_module_global_read_via_closure() {
 fn bitwise_compound_fails_closed_on_module_global_shadowed_by_captured_local() {
     assert_fails_closed(
         "let n = 6; function f(){ let n = 9; const g = () => n; n &= 3; return n + g(); } f(); console.log(n);\n",
-        "shadowed by a same-named module global",
+        "shadowed by a same-named module-scope binding",
     );
 }
 
@@ -795,5 +795,160 @@ fn bitwise_compound_fails_closed_on_two_hop_captured_chain() {
     assert_fails_closed(
         "function outer(){\n  let x = 6;\n  function mid(){\n    let y = 1;\n    function h(){ return y; }\n    function inner(){ x &= 3; }\n    inner();\n    return h();\n  }\n  mid();\n  console.log(x);\n}\nouter();\n",
         "unless it is a mutable local binding",
+    );
+}
+
+// --- Task 4 review Critical 1: a module-scope binding of ANY kind (`const`,
+// `let`, `var`) shadowing a captured cell must refuse the bitwise WRITE, not
+// just the pre-existing (and already-guarded) `module_global_slots` case.
+//
+// A module-scope `const` is never in `module_global_slots` — it is compile-
+// time INLINED at each read site from `module_const_inits`, a wholly separate
+// table `emit_identifier` (`control_flow.rs:2238`) consults BEFORE
+// `try_emit_captured_read` (`:2298`). Before this fix, denying the bitwise
+// WRITE only when `module_global_slots.contains_key(name)` let the write to
+// the captured cell through (correctly targeting the owner's cell) while a
+// LATER read of the same name from the owning function's own body silently
+// inlined the UNRELATED module `const` instead — a wrong value at exit 0,
+// not a diagnostic. Confirmed non-vacuous: every row below reproduces the
+// wrong value shown in its comment against the pre-fix build (commit
+// `135bc0904`, this task's own first round) and now fails closed E5506 on
+// this build.
+
+#[test]
+fn bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell() {
+    let needle = "shadowed by a same-named module-scope binding";
+    // node: 4. Pre-fix (135bc0904): printed `6` (the untouched module const).
+    assert_fails_closed(
+        "const n = 6;\nfunction f() { let n = 12; function s() { n &= 7; } s(); console.log(n); }\nf();\n",
+        needle,
+    );
+    // All six ops through the same shadow shape. node: 28 / 9 / 48 / 6 / 6.
+    // Pre-fix: printed `6` (the const) for every one of them.
+    for op in ["|= 16", "^= 5", "<<= 2", ">>= 1", ">>>= 1"] {
+        let src = format!(
+            "const n = 6;\nfunction f() {{ let n = 12; function s() {{ n {op}; }} s(); console.log(n); }}\nf();\n"
+        );
+        assert_fails_closed(&src, needle);
+    }
+    // A different const value/op pair. node: 1. Pre-fix: printed `100`.
+    assert_fails_closed(
+        "const n = 100;\nfunction f() { let n = 9; function s() { n &= 3; } s(); console.log(n); }\nf();\n",
+        needle,
+    );
+    // The module const is a STRING — the captured write still must not let a
+    // rendered string handle leak through. node: 4. Pre-fix: printed `abc`.
+    assert_fails_closed(
+        "const n = \"abc\";\nfunction f() { let n = 12; function s() { n &= 7; } s(); console.log(n); }\nf();\n",
+        needle,
+    );
+    // The module const is a FLOAT. node: 4. Pre-fix: printed `1.5`.
+    assert_fails_closed(
+        "const n = 1.5;\nfunction f() { let n = 12; function s() { n &= 7; } s(); console.log(n); }\nf();\n",
+        needle,
+    );
+    // Own-cell write (T2/T4's `is_own_scope` admitted shape), read TWICE —
+    // directly and through a second closure `g`. Confirms the shadow is not
+    // merely a stale constant fold: a second, independent closure's read
+    // also loses to the const. node: 1 / 1. Pre-fix: printed `100` / `100`.
+    assert_fails_closed(
+        "const n = 100;\nfunction f() { let n = 9; const g = () => n; n &= 3; console.log(n); console.log(g()); }\nf();\n",
+        needle,
+    );
+    // Arrow-function capturer instead of a `function` declaration. node: 4.
+    // Pre-fix: printed `6`.
+    assert_fails_closed(
+        "const n = 6;\nfunction f() { let n = 12; const s = () => { n &= 7; }; s(); console.log(n); }\nf();\n",
+        needle,
+    );
+    // Read in a fold-sensitive `===` comparison position, matching the
+    // `invalidate_static_binding` fold-sensitivity check used elsewhere in
+    // this file's provenance suite. node: true. Pre-fix: printed `0`
+    // (`false`) — reading the module const `6`, not `4`.
+    assert_fails_closed(
+        "const n = 6;\nfunction f() { let n = 12; function s() { n &= 7; } s(); return n === 4; }\nconsole.log(f());\n",
+        needle,
+    );
+}
+
+#[test]
+fn bitwise_compound_fails_closed_on_module_let_or_var_shadowing_captured_cell() {
+    let needle = "shadowed by a same-named module-scope binding";
+    // Module `let`, numeric — promotes to `module_global_slots` (the
+    // pre-existing T3 guard's own case), still covered after the widening.
+    // node: 4 / 6.
+    assert_fails_closed(
+        "let n = 6;\nfunction f() { let n = 12; function s() { n &= 7; } s(); console.log(n); }\nf();\nconsole.log(n);\n",
+        needle,
+    );
+    // Module `var`, numeric — same shape, `var` instead of `let`.
+    assert_fails_closed(
+        "var n = 6;\nfunction f() { let n = 12; function s() { n &= 7; } s(); console.log(n); }\nf();\nconsole.log(n);\n",
+        needle,
+    );
+    // Module `let` holding a STRING — never promoted to `module_global_slots`
+    // (only `I64`/`F64` scalars promote), so only `module_binding_names`
+    // covers it. Confirms the widening's third clause is load-bearing, not
+    // just "for completeness": the write-side shadow guard now denies this
+    // BEFORE the pre-existing (and already fail-closed) read-side
+    // `module_binding_names` gate would have. node: 4 / "hi".
+    assert_fails_closed(
+        "let n = \"hi\";\nfunction f() { let n = 12; function s() { n &= 7; } s(); console.log(n); }\nf();\nconsole.log(n);\n",
+        needle,
+    );
+}
+
+#[test]
+fn bitwise_compound_on_module_function_name_does_not_shadow_captured_cell() {
+    // A module-scope named `function` declaration is NOT in
+    // `module_global_slots`, `module_const_inits`, or `module_binding_names`
+    // (those tables hold only `const`/`let`/`var` names) — it does not
+    // intercept the captured read at all, so this shape is NOT part of the
+    // shadow class the two tests above cover and must keep computing the
+    // real value. node: 4.
+    assert_stdout(
+        "function n() { return 99; }\nfunction f() { let n = 12; function s() { n &= 7; } s(); console.log(n); }\nf();\n",
+        "4\n",
+    );
+}
+
+// --- Task 4 review Important 1: a FLOAT write reaching a promoted captured
+// cell from a THIRD function (neither the cell's owner nor the function
+// performing the bitwise op) must refuse the bitwise op, not reach codegen's
+// raw `I32WrapI64` combiner. `repr_infer`'s scalar-repr union-find resolves
+// an off-scope write's node key via `binding_scope`, which cannot name the
+// true owner for a write reached from such a third function — the write is
+// filed under a disconnected union-find node
+// `crate::closure::cell_is_promotable`'s owner-scoped query never sees, so
+// the cell promotes as if it were safely `I64` and the target check passes.
+// Confirmed non-vacuous: every row below reproduced `E4201: failed to load
+// WASM module` against the pre-fix build (commit `135bc0904`) — an internal
+// error the plan's Global Constraints forbid — and now fails closed E5506 on
+// this build.
+
+#[test]
+fn bitwise_compound_fails_closed_on_float_write_reaching_captured_target_from_sibling_function() {
+    let needle = "on a captured binding";
+    // node: 2. Pre-fix: E4201.
+    assert_fails_closed(
+        "function o(){ let n=6; function w(){ n=6.5; } function s(){ n&=3; } w(); s(); console.log(n); } o();\n",
+        needle,
+    );
+    // Deep-nested: the float write is TWO function boundaries away from the
+    // owner (`mid` -> `w`), not just one. node: 2. Pre-fix: E4201.
+    assert_fails_closed(
+        "function o(){ let n=6; function mid(){ function w(){ n=6.5; } w(); } function s(){ n&=3; } mid(); s(); console.log(n); } o();\n",
+        needle,
+    );
+    // The float write is an ARITHMETIC expression, not a bare literal. node:
+    // 2. Pre-fix: E4201.
+    assert_fails_closed(
+        "function o(){ let n=6; function w(){ n=6.5+0; } function s(){ n&=3; } w(); s(); console.log(n); } o();\n",
+        needle,
+    );
+    // A negative float literal. node: 0. Pre-fix: E4201.
+    assert_fails_closed(
+        "function o(){ let n=6; function w(){ n=-0.5; } function s(){ n&=3; } w(); s(); console.log(n); } o();\n",
+        needle,
     );
 }
