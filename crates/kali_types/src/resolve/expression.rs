@@ -2303,20 +2303,30 @@ impl TypeContext {
     ///   there and returns `Some("_start")` regardless of which function
     ///   actually owns it (mirrors codegen's locals-miss fallback), which
     ///   disagrees with `current_function_name()` for any real function
-    ///   scope. **NOT excluded by this check alone:** a variable referenced
-    ///   from INSIDE the function that owns it, even when some OTHER nested
-    ///   closure also captures it (`function outer(){ let x = 6; const g =
-    ///   () => x; x &= 3; }`, the `x &= 3` line itself, still inside
-    ///   `outer`) — `x` is structurally `outer`'s own binding, so this
-    ///   predicate admits it. Codegen's later env-cell promotion (Stage C:
-    ///   `x` is captured by `g`, so it is NOT a plain `self.locals` entry
-    ///   even inside `outer`) is what actually denies that shape today, via
-    ///   the generic `literal.rs` fallback a few lines below the local match
-    ///   — which is why that fallback's message was fixed (Important 3) to
-    ///   also carry the operator text, so the `"&="`-style needle contract
-    ///   holds regardless of WHICH choke point catches a given shape. Pinned
-    ///   by `bitwise_compound_fails_closed_on_owning_function_captured_variable`
-    ///   and `bitwise_compound_fails_closed_on_module_global_read_via_closure`.
+    ///   scope, so `is_own_scope` is `false` for BOTH sub-cases. As of R-11
+    ///   T3/T4 this bullet's two sub-cases are each admitted by a DIFFERENT,
+    ///   narrower check below (never by `is_own_scope`): the module-global
+    ///   free reference by `is_module_global` (T3), and the outer-function
+    ///   closure-captured variable by `is_captured_ancestor` (T4) — the exact
+    ///   pair `binding_declared_at_module_scope`/
+    ///   `binding_declared_at_ancestor_function_scope` were written to tell
+    ///   apart, since `binding_repr_function_key` alone cannot. **NOT
+    ///   excluded by this check alone:** a variable referenced from INSIDE
+    ///   the function that owns it, even when some OTHER nested closure also
+    ///   captures it (`function outer(){ let x = 6; const g = () => x; x &=
+    ///   3; }`, the `x &= 3` line itself, still inside `outer`) — `x` is
+    ///   structurally `outer`'s own binding, so this predicate admits it via
+    ///   `is_own_scope` directly (T2, unchanged by T3/T4). Before T4,
+    ///   codegen's env-cell promotion (Stage C: `x` is captured by `g`, so it
+    ///   is NOT a plain `self.locals` entry even inside `outer`) denied that
+    ///   shape via the generic `literal.rs` fallback a few lines below the
+    ///   local match — which is why that fallback's message was fixed
+    ///   (Important 3) to also carry the operator text, so the `"&="`-style
+    ///   needle contract holds regardless of WHICH choke point catches a
+    ///   given shape. T4's codegen change now lowers it (own-cell branch of
+    ///   `try_emit_captured_assign`) — see
+    ///   `bitwise_compound_on_owning_function_captured_variable` and
+    ///   `bitwise_compound_on_module_global_read_via_closure`.
     /// - a for-in-key alias — structurally a plain identifier local to this
     ///   function (would otherwise pass the two checks above), but its
     ///   `self.locals` slot holds an ENUMERATION ORDINAL, not a JS-visible
@@ -2417,7 +2427,39 @@ impl TypeContext {
         // `Function` scope, never `Module`, so shape (b) is excluded by
         // construction — only a real module global is admitted here.
         let is_module_global = !is_own_scope && self.binding_declared_at_module_scope(&name);
-        if !is_own_scope && !is_module_global {
+        // R-11 T4: also admit shape (b) from the doc above — a reference to
+        // an ENCLOSING function's own local, written from the CAPTURING
+        // closure (`function outer(){ let x; function g(){ x &= 3; } }`,
+        // from inside `g`) — now that Stage C's env-cell promotion lane
+        // (`FunctionEmitter::try_emit_captured_assign`) has a real bitwise
+        // lowering for it. `binding_declared_at_ancestor_function_scope`
+        // walks the SAME full scope chain `binding_declared_at_module_scope`
+        // does, so it can tell shape (b) apart from shape (a) (already
+        // admitted above) and from a genuinely unresolvable name (declaring
+        // scope not found at all, e.g. a program-level resolve error
+        // elsewhere) exactly the way that walk already does for the module
+        // case — the only difference is which scope TYPE the found
+        // declaration counts as.
+        //
+        // This is a STRUCTURAL admission only: it does not itself prove the
+        // cell is promotable, that the env-walk depth to its owner is
+        // provable, or that the owner's `numeric_bindings` proof holds —
+        // codegen's own gates (`resolve_scalar_capture_access`'s
+        // `cell_is_promotable`/`env_walk_depth_for`, and the bitwise arm's
+        // owner-keyed `binding_is_proven_numeric` /
+        // `bitwise_compound_rhs_is_provably_i64` / BigInt-taint checks) still
+        // fail closed on every shape this predicate cannot see (a multi-hop
+        // capture chain, a non-scalar cell, a BigInt-tainted target, an
+        // unproven RHS) via the SAME generic "compound assignment lowering is
+        // unavailable ... unless it is a mutable local binding" fallback that
+        // already caught this whole shape before this task — duplicating
+        // those proofs here would just be two gates disagreeing about the
+        // same fact, exactly as the doc above already argues for the
+        // float/string RHS axis.
+        let is_captured_ancestor = !is_own_scope
+            && !is_module_global
+            && self.binding_declared_at_ancestor_function_scope(&name);
+        if !is_own_scope && !is_module_global && !is_captured_ancestor {
             return false;
         }
         if self.for_in_key_shape(&name).is_some() {
@@ -2443,6 +2485,36 @@ impl TypeContext {
             };
             if scope.contains(name) {
                 return scope.scope_type == ScopeType::Module;
+            }
+            current = scope.parent;
+        }
+        false
+    }
+
+    /// R-11 T4: the sibling of `binding_declared_at_module_scope` above —
+    /// same FULL scope-chain walk (never stopping at a function boundary,
+    /// unlike `binding_repr_function_key`), but reporting whether the scope
+    /// that actually declares `name` is anything OTHER than the top-level
+    /// `Module` scope. Called only after the caller has already established
+    /// `!is_own_scope && !is_module_global`, so a `true` here means `name`'s
+    /// declaring scope is some ANCESTOR function's own `Function` scope (or a
+    /// block nested inside one) reached by walking OUT of the current,
+    /// possibly deeply-nested, function — i.e. a genuine lexical capture,
+    /// exactly the shape Stage C's env-cell promotion exists for.
+    ///
+    /// This does not by itself prove the capture is PROMOTABLE, that its
+    /// env-walk depth to the owner is provable, or that the owner's
+    /// `numeric_bindings` proof holds for it — see the call site's own doc on
+    /// why leaving those to codegen's independent gates is intentional, not
+    /// an oversight.
+    fn binding_declared_at_ancestor_function_scope(&self, name: &str) -> bool {
+        let mut current = self.current_scope_id();
+        while let Some(scope_id) = current {
+            let Some(scope) = self.scopes.get(&scope_id) else {
+                return false;
+            };
+            if scope.contains(name) {
+                return scope.scope_type != ScopeType::Module;
             }
             current = scope.parent;
         }

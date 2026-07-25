@@ -162,6 +162,14 @@ fn bitwise_compound_fails_closed_on_every_target_shape() {
     // assertion — leaving it here asserting `assert_fails_closed` would pin
     // the exact silent-no-op-turned-diagnostic regression this project
     // exists to fix, the wrong direction now that the shape is supported.
+    //
+    // R-11 T4: the "Closure-captured variable" row that used to live here
+    // (`function outer(){ let x = 6; function g(){ x &= 3; } g();
+    // console.log(x); } outer();`) is likewise now an ADMITTED shape —
+    // T4's resolve-gate widening (`is_captured_ancestor`) plus its
+    // codegen change (`try_emit_captured_assign`'s bitwise branch) lower it
+    // — and was moved to `bitwise_compound_on_captured_scalar` below as a
+    // value assertion, for the same reason the module-global row moved.
     let needle = "&=";
     assert_fails_closed(
         // Member target (`o.a`).
@@ -176,11 +184,6 @@ fn bitwise_compound_fails_closed_on_every_target_shape() {
     assert_fails_closed(
         // For-in-key computed target (`o[k]`).
         "let o = { a: 6, b: 6 }; for (const k in o) { o[k] &= 3; } console.log(o.a);\n",
-        needle,
-    );
-    assert_fails_closed(
-        // Closure-captured variable.
-        "function outer(){ let x = 6; function g(){ x &= 3; } g(); console.log(x); } outer();\n",
         needle,
     );
     assert_fails_closed(
@@ -658,23 +661,139 @@ fn bitwise_compound_fails_closed_on_target_from_array_element() {
 
 // --- Task 2 review Important 3: the admit predicate's actual boundary on a
 // variable that is captured by SOME closure but referenced from the function
-// that OWNS it (as opposed to referenced from the CAPTURING closure, already
-// covered by `bitwise_compound_fails_closed_on_every_target_shape`'s
-// "Closure-captured variable" row). `bitwise_compound_target_is_admitted_local_scalar`
-// admits both of these at resolve — `x`/`g` below are structurally owned by
-// the function doing the write. The FUNCTION-scope row (`outer`'s own `x`,
-// captured by a nested `g`) still fails closed at codegen (Stage C env-cell
-// promotion, T4's unopened territory). The MODULE-scope row (module-level
-// `x`, read by a closure `g`) is now admitted — R-11 T3's codegen change
-// lowers it via the same module-global lane a plain "written from a
-// function" module global uses — see
-// `bitwise_compound_on_module_global_read_via_closure` above, which replaces
-// the fail-closed pin this comment used to describe for it.
+// that OWNS it (as opposed to referenced from the CAPTURING closure, now
+// covered by `bitwise_compound_on_captured_scalar` below).
+// `bitwise_compound_target_is_admitted_local_scalar` admits both of these at
+// resolve — `x`/`g` below are structurally owned by the function doing the
+// write. Before R-11 T4, the FUNCTION-scope row (`outer`'s own `x`, captured
+// by a nested `g`) failed closed at codegen (Stage C env-cell promotion had
+// no bitwise lowering yet). T4's codegen change
+// (`try_emit_captured_assign`'s bitwise branch, own-cell path — `x` is
+// `outer`'s OWN cell, written from `outer`'s own body, so this shape needed
+// no resolve-gate widening, only the codegen guard) now lowers it. The
+// MODULE-scope row (module-level `x`, read by a closure `g`) was already
+// admitted by R-11 T3's codegen change via the same module-global lane a
+// plain "written from a function" module global uses — see
+// `bitwise_compound_on_module_global_read_via_closure` above.
+//
+// node: `x = 6 & 3 = 2`; `return x + g()` reads the already-updated `x`
+// (`2`) then calls `g()`, which reads the SAME cell (`2`) — `2 + 2 = 4`.
 
 #[test]
-fn bitwise_compound_fails_closed_on_owning_function_captured_variable() {
-    assert_fails_closed(
+fn bitwise_compound_on_owning_function_captured_variable() {
+    assert_stdout(
         "function outer(){ let x = 6; const g = () => x; x &= 3; return x + g(); } console.log(outer());\n",
+        "4\n",
+    );
+}
+
+// --- Task 4: captured scalar (env-cell) target ---
+
+#[test]
+fn bitwise_compound_on_captured_scalar() {
+    // `flags` is captured and compound-assigned by a sibling closure — the
+    // Stage C env-cell write path (`try_emit_captured_assign`).
+    assert_stdout(
+        "function outer() {\n  let flags = 6;\n  function set() { flags |= 8; }\n  set();\n  console.log(flags);\n}\nouter();\n",
+        "14\n",
+    );
+    // Moved from `bitwise_compound_fails_closed_on_every_target_shape`'s
+    // "Closure-captured variable" row (R-11 T4: now an ADMITTED shape — see
+    // that test's updated comment). node: `6 & 3 = 2`.
+    assert_stdout(
+        "function outer(){ let x = 6; function g(){ x &= 3; } g(); console.log(x); } outer();\n",
+        "2\n",
+    );
+    // Both directions of the parent chain: TWO sibling closures share the
+    // same owner's cell, one writing and one reading, confirming the write
+    // is visible through the SAME cell regardless of which closure reads it
+    // (not a copy). node: `6 | 8 = 14`.
+    assert_stdout(
+        "function outer(){ let flags = 6; function set(){ flags |= 8; } function get(){ return flags; } set(); console.log(get()); } outer();\n",
+        "14\n",
+    );
+}
+
+// --- Task 4 review: target/RHS provenance and the C1 promotion boundary,
+// mirroring the local (Task 2) and module-global (Task 3) provenance pins
+// over the THIRD storage location the bitwise ops now reach — a captured env
+// cell. Every row asserts `assert_fails_closed` (never a wrong value).
+
+#[test]
+fn bitwise_compound_fails_closed_on_captured_target_non_integer_and_rhs() {
+    // String RHS on a captured int target — the exact string-handle-
+    // truncation miscompile class the RHS oracle exists to close (node: `7`,
+    // `6 | "5"` coerces `"5"` to `5`).
+    assert_fails_closed(
+        "function outer(){ let n = 6; function set(){ n |= \"5\"; } set(); console.log(n); } outer();\n",
+        "|=",
+    );
+    // Float RHS on a captured int target (node: `6 << 1.5` truncates `1.5`
+    // to `1` — `12`).
+    assert_fails_closed(
+        "function outer(){ let n = 6; function set(){ n <<= 1.5; } set(); console.log(n); } outer();\n",
+        "<<=",
+    );
+    // A captured target whose only initializer is a string-object-field copy
+    // through a bare-identifier hop (the R-06-R4-adjacent target-axis
+    // over-denial the local/module arms document — `s`/`n` are not
+    // parameters, so `write_value_is_numeric` proves nothing about them;
+    // fails closed rather than truncating the string handle). node: `1`
+    // (`"3" & 1` coerces to `3 & 1`).
+    assert_fails_closed(
+        "function outer(){ let o = {a: \"3\"}; let s = o.a; let n = s; function set(){ n &= 1; } set(); console.log(n); } outer();\n",
         "&=",
+    );
+}
+
+#[test]
+fn bitwise_compound_fails_closed_on_bigint_initialized_captured_target() {
+    // node: throws (`TypeError: Cannot mix BigInt and other types`). `n`'s
+    // declarator init is a raw BigInt literal — `write_value_is_numeric`
+    // admits a BigInt literal exactly like a plain number, so
+    // `binding_is_proven_numeric` alone cannot refuse this; closed by the
+    // separate, additive `captured_cell_bigint_targets` scan
+    // (`collect_bigint_tainted_captured_cells`, mirroring Task 3's
+    // `module_global_bigint_targets`).
+    assert_fails_closed(
+        "function outer(){ let n = 6n; function set(){ n &= 3; } set(); console.log(n); } outer();\n",
+        "&=",
+    );
+}
+
+#[test]
+fn bitwise_compound_fails_closed_on_captured_target_from_object_or_array_element() {
+    // A captured MEMBER target (`o.a`) is not a bare identifier —
+    // `resolve_update_binding_name` returns `None` regardless of capture —
+    // still Task 5's territory, untouched by this task. node: `2`.
+    assert_fails_closed(
+        "function outer(){ let o = { a: 6 }; function set(){ o.a &= 3; } set(); console.log(o.a); } outer();\n",
+        "&=",
+    );
+    // A captured ARRAY ELEMENT target — same reasoning, plus the pre-existing
+    // literal-array-mutation reject. node: `2`.
+    assert_fails_closed(
+        "function outer(){ let a = [6, 1, 2]; function set(){ a[0] &= 3; } set(); console.log(a[0]); } outer();\n",
+        "&=",
+    );
+}
+
+#[test]
+fn bitwise_compound_fails_closed_on_two_hop_captured_chain() {
+    // `inner` captures `x` through TWO env-owning hops: `mid` owns its own
+    // record (its nested `h` captures `mid`'s own `y`), so `mid` is a
+    // genuine, non-transparent intermediate between `inner` and `outer` —
+    // `mir_depth == 2` for `inner`'s reference to `x`. `env_walk_depth_for`
+    // only proves `mir_depth == 1` (see its own doc on why a deeper chain is
+    // not provable against the runtime env-record chain); this shape falls
+    // through to the pre-existing local-miss fallback exactly as it did
+    // before this task, unaffected by the resolve-gate widening (which is
+    // purely structural and does not itself distinguish hop count) or the
+    // codegen change (`resolve_scalar_capture_access` returns `None` for
+    // it). node: `2` (`6 & 3`) — a real value this compiler does not yet
+    // reach, not a program that should error.
+    assert_fails_closed(
+        "function outer(){\n  let x = 6;\n  function mid(){\n    let y = 1;\n    function h(){ return y; }\n    function inner(){ x &= 3; }\n    inner();\n    return h();\n  }\n  mid();\n  console.log(x);\n}\nouter();\n",
+        "unless it is a mutable local binding",
     );
 }

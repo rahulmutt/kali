@@ -134,6 +134,13 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     // the region reclamation does not model, so those stay fail-closed (E5506).
     let (module_global_slots, module_global_bigint_targets) =
         collect_module_scalar_globals(lir, &ctx.repr_table, &function_plans);
+    // R-11 T4: the captured-cell twin of the BigInt-taint scan just above —
+    // see `collect_bigint_tainted_captured_cells`'s own doc. `ctx.env_plans`
+    // is already populated by the caller (`kali_cli`'s build driver sets it
+    // before invoking this function) so every function's promoted-cell set is
+    // available here.
+    let captured_cell_bigint_targets =
+        collect_bigint_tainted_captured_cells(lir, &function_plans, &ctx.env_plans);
     if function_plans.iter().any(|plan| {
         matches!(
             plan.flavor,
@@ -1567,6 +1574,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             &module_binding_names,
             &module_global_slots,
             &module_global_bigint_targets,
+            &captured_cell_bigint_targets,
             ctx.env_plans
                 .get(&function.name)
                 .cloned()
@@ -4525,6 +4533,75 @@ fn collect_bigint_tainted_module_scalars(
             tainted,
         );
     }
+}
+
+/// R-11 T4: whole-program BigInt taint for scalar CAPTURED cells (a `let`/
+/// `var` some nested closure promotes into an env cell) — the identical class
+/// Task 3 closed for module globals (`collect_bigint_tainted_module_scalars`,
+/// just above), reapplied to this shape. `write_value_is_numeric` admits a
+/// BigInt literal write exactly like a plain number, so
+/// `binding_is_proven_numeric` cannot by itself tell `let flags = 6n;` from
+/// `let flags = 6;` — the bitwise compound-assign captured-cell codegen arm
+/// (`closure_access.rs`) needs the same separate, additive provenance signal
+/// the module-global arm already has.
+///
+/// Reuses `collect_bigint_tainted_module_scalars`'s exact walk UNCHANGED — no
+/// new traversal logic, so this cannot diverge from the proven declarator /
+/// reassignment / cross-function / parameter-argument-inflow coverage that
+/// walk already has. Its `candidates` parameter is consulted only as a NAME
+/// filter (`candidates.contains_key(name)`); passing the set of promoted
+/// SCALAR cell names (from every function's `EnvPlan::cells`, across the
+/// whole program) in place of module-global names taints identically.
+///
+/// Keyed by NAME ONLY, not `(owner, name)`: two different functions that each
+/// own a same-named captured local share one taint bucket. That is a
+/// deliberate, conservative OVER-denial (this project's standing "refuse
+/// rather than miscompile" cost — matching `module_global_bigint_targets`'s
+/// own name-only key, which has the analogous property against unrelated
+/// same-named module/local bindings), never an under-taint: the walk itself
+/// still resolves each write's own safety against its OWN enclosing function
+/// (`expr_is_provably_not_bigint`'s `func` parameter), so tainting is never
+/// weaker than the module-global scan's.
+pub(crate) fn collect_bigint_tainted_captured_cells(
+    lir: &LirProgram,
+    function_plans: &[FunctionPlan],
+    env_plans: &std::collections::BTreeMap<String, kali_mir::EnvPlan>,
+) -> HashSet<String> {
+    let mut candidates: BTreeMap<String, kali_common::Repr> = BTreeMap::new();
+    for plan in env_plans.values() {
+        for cell in &plan.cells {
+            if cell.is_scalar {
+                candidates.insert(cell.name.clone(), kali_common::Repr::I64);
+            }
+        }
+    }
+    if candidates.is_empty() {
+        return HashSet::new();
+    }
+    let function_params: BTreeMap<String, Vec<String>> = function_plans
+        .iter()
+        .map(|plan| (plan.name.clone(), plan.params.clone()))
+        .collect();
+    let mut call_args: BTreeMap<String, Vec<(String, Vec<LirNodeId>)>> = BTreeMap::new();
+    {
+        let mut seen = HashSet::new();
+        collect_call_argument_sites(&lir.nodes, lir.root, "_start", &mut seen, &mut call_args);
+    }
+    let mut tainted: HashSet<String> = HashSet::new();
+    {
+        let mut seen = HashSet::new();
+        collect_bigint_tainted_module_scalars(
+            &lir.nodes,
+            lir.root,
+            "_start",
+            &candidates,
+            &function_params,
+            &call_args,
+            &mut seen,
+            &mut tainted,
+        );
+    }
+    tainted
 }
 
 /// R-11 T3 review round 2: TRUE only when `id` is STRUCTURALLY proven to

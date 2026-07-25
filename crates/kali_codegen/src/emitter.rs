@@ -389,6 +389,18 @@ pub(crate) struct FunctionEmitter<'a> {
     /// computing a wrong value from a truncated BigInt. See
     /// `kali_codegen::lower::collect_bigint_tainted_module_scalars`.
     pub(crate) module_global_bigint_targets: &'a HashSet<String>,
+    /// R-11 T4: whole-program BigInt-taint set for promoted SCALAR env
+    /// cells — the identical class `module_global_bigint_targets` closes for
+    /// module globals, reapplied to captured bindings. `numeric_bindings`
+    /// (the proof `binding_is_proven_numeric` reads) admits a BigInt literal
+    /// write exactly like a plain number, so it cannot by itself tell `let
+    /// flags = 6n;` from `let flags = 6;`. Consulted ONLY by the bitwise
+    /// compound-assign captured-cell arm (`closure_access.rs`'s
+    /// `try_emit_captured_assign`), keyed by NAME ONLY (not `(owner, name)`)
+    /// — see `kali_codegen::lower::collect_bigint_tainted_captured_cells`'s
+    /// doc for why that is a deliberate, conservative over-denial rather
+    /// than an under-taint.
+    pub(crate) captured_cell_bigint_targets: &'a HashSet<String>,
     /// This function's closure environment plan (Stage C, `derive_env_plans`):
     /// the promoted scalar/heap cells it OWNS in its own env record and the
     /// outer bindings it captures through the parent chain. Default (owns_env
@@ -449,6 +461,7 @@ impl<'a> FunctionEmitter<'a> {
         module_binding_names: &'a BTreeSet<String>,
         module_global_slots: &'a BTreeMap<String, (u32, kali_common::Repr)>,
         module_global_bigint_targets: &'a HashSet<String>,
+        captured_cell_bigint_targets: &'a HashSet<String>,
         env_plan: kali_mir::EnvPlan,
         env_plans: &'a std::collections::BTreeMap<String, kali_mir::EnvPlan>,
     ) -> Self {
@@ -583,6 +596,7 @@ impl<'a> FunctionEmitter<'a> {
             module_binding_names,
             module_global_slots,
             module_global_bigint_targets,
+            captured_cell_bigint_targets,
             env_plan,
             env_plans,
         }
