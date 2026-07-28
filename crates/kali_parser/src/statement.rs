@@ -512,7 +512,14 @@ impl Parser {
             if self.stream.eof() {
                 break;
             }
-            if self.stream.current_kind() == Some(&TokenType::RightBrace) {
+            // Consume the switch's closing brace. Inspecting it without
+            // consuming left it for the ENCLOSING block parser, which then
+            // treated it as its own terminator — silently reparenting every
+            // statement after the switch to module scope (a function that was
+            // never called still ran its post-switch assignment at module
+            // load). Every other block-closing site in this parser consumes
+            // its closer; this was the only one that did not.
+            if self.stream.accept(TokenType::RightBrace) {
                 break;
             }
 

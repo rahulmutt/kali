@@ -521,6 +521,38 @@ mod switch {
             _ => panic!("Expected SwitchStatement"),
         }
     }
+
+    // The switch's closing brace must be CONSUMED. If it is not, the enclosing
+    // function-body block parser sees it as its own terminator and every
+    // statement after the switch is reparented to module scope.
+    #[test]
+    fn test_switch_does_not_leak_following_statements_out_of_a_function() {
+        let output = parse("function s(x) { switch (x) { case 1: x = 1; } return x; }");
+
+        // The whole program is ONE statement: the function declaration.
+        assert_eq!(
+            output.statements.len(),
+            1,
+            "statements leaked out of the function body: {:?}",
+            output.statements
+        );
+
+        match &output.statements[0] {
+            kali_ast::Statement::FunctionDeclaration(fd) => {
+                // switch, then return — both inside the function.
+                assert_eq!(fd.body.body.len(), 2, "function body: {:?}", fd.body.body);
+                assert!(matches!(
+                    fd.body.body[0],
+                    kali_ast::Statement::SwitchStatement(_)
+                ));
+                assert!(matches!(
+                    fd.body.body[1],
+                    kali_ast::Statement::ReturnStatement(_)
+                ));
+            }
+            other => panic!("Expected FunctionDeclaration, got {other:?}"),
+        }
+    }
 }
 
 /// Tests for expression constants
