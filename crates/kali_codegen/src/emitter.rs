@@ -360,6 +360,10 @@ pub(crate) struct FunctionEmitter<'a> {
     /// from `loop_ordinals`/`arena_table` — never consulted for arena
     /// placement.
     pub(crate) for_in_ordinals: HashMap<LirNodeId, u32>,
+    /// Pre-order switch ordinals (see `crate::lower::switch_preorder_ordinals`),
+    /// resolved once at construction so `emit_switch` can find each switch's
+    /// dedicated discriminant local (`crate::lower::switch_disc_local_name`).
+    pub(crate) switch_ordinals: HashMap<LirNodeId, u32>,
     /// `for..in` key binding name → the fixed shape its object enumerates,
     /// recorded by `emit_for_in` BEFORE it emits the loop body (Spec 4a Task
     /// 3). The codegen-side mirror of `kali_types`'s `for_in_key_bindings`
@@ -547,6 +551,7 @@ impl<'a> FunctionEmitter<'a> {
         let string_site_ordinals =
             crate::lower::string_site_preorder_ordinals(&program.nodes, body);
         let for_in_ordinals = crate::lower::for_in_preorder_ordinals(&program.nodes, body);
+        let switch_ordinals = crate::lower::switch_preorder_ordinals(&program.nodes, body);
         let for_in_key_aliases = crate::lower::for_in_key_alias_names(&program.nodes, body);
         let unstable_provenance_names =
             crate::lower::unstable_provenance_names(&program.nodes, body);
@@ -666,6 +671,7 @@ impl<'a> FunctionEmitter<'a> {
             loop_ordinals,
             string_site_ordinals,
             for_in_ordinals,
+            switch_ordinals,
             for_in_key_shapes: HashMap::new(),
             for_in_key_aliases,
             for_in_key_handle_tables: HashMap::new(),
