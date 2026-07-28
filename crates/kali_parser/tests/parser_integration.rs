@@ -554,6 +554,66 @@ mod switch {
         }
     }
 
+    // A whole function declared AFTER a switch-containing function used to vanish,
+    // because the leaked `return` terminated the module before it was reached.
+    // This is a parser-containment property (does the following function stay
+    // parsed as its own module-level statement?), independent of whether the
+    // switch inside `s` is ever lowerable — so it is pinned here at the AST
+    // level rather than end-to-end (see the note at the end of this module).
+    #[test]
+    fn test_function_declared_after_a_switch_function_survives_as_sibling_statement() {
+        let output = parse(
+            "function s(x) { switch (x) { case 1: return \"A\"; } return \"Z\"; } \
+             function t() { return \"T\"; }",
+        );
+        assert_eq!(
+            output.statements.len(),
+            2,
+            "the function declared after the switch-containing function did not \
+             survive as a sibling module-level statement: {:?}",
+            output.statements
+        );
+        match &output.statements[0] {
+            kali_ast::Statement::FunctionDeclaration(fd) => assert_eq!(fd.name, "s"),
+            other => panic!("Expected FunctionDeclaration `s`, got {other:?}"),
+        }
+        match &output.statements[1] {
+            kali_ast::Statement::FunctionDeclaration(fd) => assert_eq!(fd.name, "t"),
+            other => panic!("Expected FunctionDeclaration `t`, got {other:?}"),
+        }
+    }
+
+    // The callee's own output used to disappear entirely: the leaked `return 0;`
+    // terminated the module, so the module-scope console.log never ran. This is
+    // a parser-containment property (does the module-scope call statement
+    // survive as its own statement?), independent of whether the switch inside
+    // `s` is ever lowerable — so it is pinned here at the AST level rather than
+    // end-to-end (see the note at the end of this module).
+    #[test]
+    fn test_call_to_a_switch_containing_function_leaves_module_scope_statement_intact() {
+        let output = parse(
+            "function s(x) { var r = 0; switch (x) { case 10: r = 1; } return 0; } \
+             console.log(\"v=\" + s(10));",
+        );
+        assert_eq!(
+            output.statements.len(),
+            2,
+            "the module-scope call statement was swallowed: {:?}",
+            output.statements
+        );
+        assert!(matches!(
+            output.statements[0],
+            kali_ast::Statement::FunctionDeclaration(_)
+        ));
+        match &output.statements[1] {
+            kali_ast::Statement::ExpressionStatement(es) => match es.expression.as_ref() {
+                kali_ast::Expression::CallExpression(_) => {}
+                other => panic!("Expected CallExpression, got {other:?}"),
+            },
+            other => panic!("Expected ExpressionStatement, got {other:?}"),
+        }
+    }
+
     // E2000 (`e2::EXPECTED_TOKEN`) is declared in kali_error but was emitted
     // nowhere in the compiler: the parser had never once reported a required
     // token as missing. A malformed switch header was silently accepted.
@@ -588,6 +648,16 @@ mod switch {
             output.diagnostics
         );
     }
+
+    // NOTE: the end-to-end (run-and-observe-stdout) form of these containment
+    // pins used to live in `crates/kali_cli/tests/switch_parser_containment.rs`.
+    // It was retired at Task 6 (R-35): `emit_switch`'s fail-closed E5506 makes
+    // ANY switch-containing program non-compiling regardless of whether the
+    // switch is ever reached, so an end-to-end test can no longer observe these
+    // properties without itself becoming permanently red. The properties are
+    // pinned above at the AST level instead, which needs no lowering. Task 11
+    // should re-add an end-to-end containment pin once the allowlist admits a
+    // switch shape it can build a fixture from.
 }
 
 /// Tests for expression constants

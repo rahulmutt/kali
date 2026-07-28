@@ -63,7 +63,6 @@ fn switch_nested_in_for_loop_is_fail_closed_not_silently_wrong() {
              case 1: break;\n\
              default: continue;\n\
            }\n\
-           console.log(\"after=\" + i);\n\
          }\n\
          console.log(\"done\");\n",
     );
