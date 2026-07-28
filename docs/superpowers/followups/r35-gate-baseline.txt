@@ -1,0 +1,8 @@
+# Workspace gate baseline for the R-35 switch project
+# Baseline commit: f1d02e872871e4f7ccd6a2f6d5d748ed329ffde0
+# Command: cargo test --workspace --no-fail-fast
+# Measured: 2026-07-28
+# Failing test count: 0
+#
+# Every later "zero newly-red" claim in this project is diffed against THIS list.
+# A test failing here and failing on the branch is baseline, not a regression.
