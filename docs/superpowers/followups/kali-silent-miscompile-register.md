@@ -65,7 +65,7 @@ a *parser* defect strictly worse than R-35 itself: **R-49**, in which
 `parse_switch_statement` never consumed the switch's closing brace and every statement after
 a `switch` was reparented to module scope and executed at module load. R-49 is **CLOSED**
 (`9db9150c0`). R-35's recorded boundary was measured through R-49 and is **void**; the true
-boundary is a 32-cell both-scopes matrix (24 SILENT / 2 FAIL-CLOSED / 4 FL-INTERNAL /
+boundary is a 32-cell both-scopes matrix (22 SILENT / 2 FAIL-CLOSED / 6 FL-INTERNAL /
 2 CORRECT) in `docs/superpowers/followups/r35-switch-boundary-rederived.md`, and R-35 is
 **Tier 1**, not Tier 2 — clauses beyond the second are never emitted at all. R-35 itself
 remains **SILENT and open**; Stage 2 of that branch is the lowering fix.
@@ -87,7 +87,7 @@ FL-INTERNAL = nonzero but wrong *kind* (E4201/E4003 internal, not honest E5506).
 | R-07 `const` is not a binding | **FIXED** | all 6 shapes (swap/stale/param/double-read/loop-carry) match; `const` is a real binding now. |
 | R-08 `===`/`!==`/`==`/`!=` half | **FIXED** | conflation cases all correct; null-guard now fail-closed. |
 | R-08 `??` half | **SILENT** | `let a=0; a??9`→9, param/var/call-return all →9/10. `0??9` & `const c=0;c??9` match. Residual-3 `f(false)===0`→111 also silent. Unchanged. |
-| R-09 `continue` skips for-update | **SILENT (+ hang)** | skip-ahead form silent-wrong; `i%2` form now **FL-INTERNAL E4003** (infinite loop → fuel trap). |
+| R-09 `continue` skips for-update | **SILENT (+ hang)** | skip-ahead form silent-wrong; `i%2` form now **FL-INTERNAL E4003** (infinite loop → fuel trap). **Evidence widened 2026-07-28 on `5c9bbd051`** (R-35 stage, fix round 1): the hang is **not** specific to `let`/`i++`, to a `%` test, or to any nesting. It reproduces with `var` + `i = i + 1`, with a bare un-nested `if (i === 1) continue;`, with an `if`/`else` block, and with the `continue` inside a **`switch` clause** — 7 fixtures, both scopes, every one `E4003`. **R-09 is the owning ID for the switch-clause `continue` hang**; it is *not* an R-35 defect and no `switch` allowlist can fix it. See §2's R-09 entry and `r35-switch-boundary-rederived.md` "Cell 13 — corrected". |
 | R-10 block-scope shadowing | **SILENT** | 5/5 shapes alias the outer binding. Unchanged. |
 | R-11 bitwise compound assign | **CLOSED 2026-07-25** (`28f18b3ff`, post-dating this section's `62d786e74` baseline) | see §2's R-11 entry. Re-measured on merged `main` `372a3f440`: `let n=6; n&=3`→`2` ✓, `n\|=8`→`14` ✓, `let o={a:6}; o.a&=3`→`2` ✓ (`var` receiver identical); array-elem `a[0]&=3` (`const` and `let` alike) and computed `o[k]&=3` → honest **E5506**. The row's old "SILENT — 48/48 / bypasses the E5506 their `+=` sibling honors" is false in all four of its sub-claims. The `&=`/`+=` relation is now **INVERTED** on the object-field lane: `o.a &= 3` lowers → `2` while `o.a += 1` → E5506 — see §3's G3 edit. |
 | R-12 alias defeats array-store guard | **SILENT** | both scopes. The discriminator is **SCOPE, not declarator kind**: module-scope un-aliased is also SILENT (`const a=[1,2]; a[0]=7; a[0]`→`1`, node `7`); only **in-function** un-aliased fails closed E5506, and there `const`/`let`/`var` alike do. Corrected 2026-07-25 on `372a3f440`. |
@@ -115,7 +115,7 @@ FL-INTERNAL = nonzero but wrong *kind* (E4201/E4003 internal, not honest E5506).
 | R-34 bool user-fn renders 1/0 (concat & multi-arg) | **SILENT** | live; concat AND multi-arg both `1`. |
 | R-47 `for..of` over a `let` array iterates the binding's NAME | **SILENT** | added 2026-07-25 (post-sweep, from the R-11 project), measured on `372a3f440`. `let a=[1,2,3]; for (const x of a) log(x)` prints `a` (node `1 2 3`); `var` fails closed E5506, `const` is correct. Exit 0, plausible-looking output — see §2. |
 | R-48 array stored into an `I64` object field reads `0` | **SILENT** | added 2026-07-25 (post-sweep, from the R-11 project), measured on `372a3f440`. `let o={a:6}; o.a=[1,2]; o.a`→`0` (node `[ 1, 2 ]`); `const` receiver identical. See §2. |
-| R-35 `switch` selects the wrong clause | **SILENT (Tier 1 — also drops clauses)** | **re-measured 2026-07-28 on `5c9bbd051`** (branch `r35-switch-lowering`, post parser containment), superseding both the `62d786e74` row and §0.3's original boundary. 32-cell matrix, both scopes: **24 SILENT, 2 FAIL-CLOSED, 4 FL-INTERNAL, 2 CORRECT**. `switch` lowers as `if (discriminant) { clause-1 } else { clause-2 }` — case tests are never consulted, clauses beyond the second are never emitted, and the wrong clause's **side effects run**. String discriminants are always truthy so they always take clause 1. Full matrix: `r35-switch-boundary-rederived.md`. |
+| R-35 `switch` selects the wrong clause | **SILENT (Tier 1 — also drops clauses)** | **re-measured 2026-07-28 on `5c9bbd051`** (branch `r35-switch-lowering`, post parser containment), superseding both the `62d786e74` row and §0.3's original boundary. 32-cell matrix, both scopes: **22 SILENT, 2 FAIL-CLOSED, 6 FL-INTERNAL, 2 CORRECT** (corrected in fix round 1 from 24/2/4/2; cell 13 is R-09, see that entry). `switch` lowers as `if (discriminant) { clause-1 } else { clause-2 }` — case tests are never consulted, clauses beyond the second are never emitted, and the wrong clause's **side effects run**. String discriminants are always truthy so they always take clause 1. Full matrix: `r35-switch-boundary-rederived.md`. |
 | R-49 `parse_switch_statement` reparented every post-switch statement to module scope | **CLOSED 2026-07-28** (`9db9150c0`, branch `r35-switch-lowering`) | Tier 1, cluster **G1**, higher severity than R-35 and a different layer. The clause loop inspected `RightBrace` without consuming it, so the enclosing block parser took that brace as its own closer. Decisive repro: a function that is **never called** still ran its post-switch assignment at module load — `g=99` where node prints `g=0`. **Unique** such site in the parser. See §2. |
 
 **Net:** of the register's ~29 silent-class entries, the sweep confirms **FIXED/fail-closed: R-01, R-02, R-03, R-04, R-05, R-07, R-08(=== half), R-19, R-20**, plus **R-11, CLOSED after this section's baseline** (`28f18b3ff`); **still SILENT: R-06-R2, R-06-R3, R-08(?? half), R-09, R-10, R-12, R-13, R-14, R-15, R-16, R-17, R-18, R-21, R-22, R-23, R-24, R-25(residual), R-26, R-27, R-28, R-29, R-30, R-31, R-32, R-33, R-34.** Added post-sweep 2026-07-25 and also **SILENT: R-47, R-48.**
@@ -136,7 +136,7 @@ FL-INTERNAL = nonzero but wrong *kind* (E4201/E4003 internal, not honest E5506).
   all-return/no-break/no-local"* — was **measured THROUGH the R-49 parser leak and is void**;
   that `break` was a leaked break evaluated at module scope with no loop frame and that
   `E3100` was a leaked identifier read resolved against module scope. The true boundary,
-  from a 32-cell both-scopes matrix (24 SILENT / 2 FAIL-CLOSED / 4 FL-INTERNAL / 2 CORRECT):
+  from a 32-cell both-scopes matrix (22 SILENT / 2 FAIL-CLOSED / 6 FL-INTERNAL / 2 CORRECT):
   - **Clauses beyond the second are never emitted at all** — so R-35 **silently drops code**
     (Tier 1), not merely a wrong value (Tier 2). A five-clause switch can never produce its
     3rd, 4th or `default` answer for *any* input; empty-clause grouping at **module scope**
@@ -147,8 +147,12 @@ FL-INTERNAL = nonzero but wrong *kind* (E4201/E4003 internal, not honest E5506).
     truthy, so a string switch *always* takes clause 1 (even `""`, where node takes
     `default`).
   - `break`/`continue` in a clause is honest `E5506` **only when the switch is not inside a
-    loop**; nested in a `for` loop it compiles and silently breaks the **enclosing loop**
-    (`r=1` where node prints `r=505`). A clause declaring **and reading its own** `var`,
+    loop**; a `break` nested in a `for` loop compiles and silently breaks the **enclosing
+    loop** (`r=1` where node prints `r=505`). A `continue` nested in a `for` loop is a
+    *different* defect and **belongs to R-09, not R-35** — it hangs to `E4003` fuel
+    exhaustion, and the identical hang reproduces with no `switch` anywhere (corrected in
+    fix round 1; see R-09 and the matrix file's "Cell 13 — corrected"). A clause declaring
+    **and reading its own** `var`,
     `let` or `const` does **not** fail closed — all three measure identically SILENT.
     `throw` in a clause is `E4000` where it fires and SILENT where it does not.
   - Superseded by **`docs/superpowers/followups/r35-switch-boundary-rederived.md`**, which
@@ -1087,6 +1091,25 @@ tier, ordering is by blast radius.
   `for (let i=0; i<5; i++) { if (i%2===0) continue; s = s + i; }` → node `s=4` (exit 0);
   kali `error[E4003]: CPU fuel budget exhausted` (exit 1) — infinite loop, because the only
   thing advancing `i` is the skipped update.
+- **Evidence widened 2026-07-28** on `5c9bbd051` (branch `r35-switch-lowering`, fix round 1),
+  while re-deriving the R-35 boundary. The hang is **not** specific to `let`, to `i++`, to a
+  `%` test, or to any nesting depth. Seven fixtures, both scopes, **every one** exits 1 with
+  `error[E4003]: CPU fuel budget exhausted: the program ran past the runaway guard`:
+  | fixture | shape | node |
+  |---|---|---|
+  | `c13D_mod.js` | `for (var i=0;i<4;i=i+1) { if (i === 1) continue; r = r + 1; }` — bare, un-nested | `r=3` |
+  | `c13C_{fn,mod}.js` | the same guarded by an `if`/`else` **block** | `r4=3` / `r=3` |
+  | `c13B_{fn,mod}.js` | the same with the `continue` inside a **`switch` clause** | `r4=3` / `r=3` |
+  | `c13E_mod.js` | switch form with `let` + `i++` | `r=3` |
+  | `c13F_mod.js` | this entry's own recorded hang repro, re-run | `s=4` |
+  **R-09 is the owning ID for the `continue`-in-a-`switch`-clause hang**, which the R-35
+  boundary re-derivation first recorded (wrongly) as an R-35 cell. It is **independent of
+  R-35**: the switch is not in the causal path, the no-switch controls hang identically, and
+  no `switch` allowlist can fix it. Cross-referenced from cell 13 of
+  `docs/superpowers/followups/r35-switch-boundary-rederived.md`. **No new `R-nn` was minted**
+  — the next free ID was R-50, but this entry already covers the mechanism, both
+  manifestations and both scopes, and a duplicate would recreate exactly the split-entry
+  problem PRs #28 and #29 existed to clean up.
 - **Scopes affected**: both.
 - **Not affected**: `continue` in `while`, `do/while` and `for…of` are all correct; `break` in
   `for`/`for…of`/nested loops is correct.

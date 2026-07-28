@@ -123,8 +123,8 @@ Exit status was captured unpiped (`cmd > out 2> err; x=$?`).
 | 11 | " | mod | `s11r_mod_{10,40,0}.js` | `hit=100`✓ / `hit=100` / `hit=111` | 0 | `hit=100` / `hit=900` / `hit=900` | 0 | **SILENT** |
 | 12 | switch nested in a `for` loop, clause contains `break` | fn | `s12_fn.js` | `r1=1`✓ `r2=1` `r3=1` | 0 | `r1=1 r2=11 r3=12` | 0 | **SILENT** |
 | 12 | " | mod | `s12_mod_{1,2,3}.js`, `m10_mod.js` | `r=1`✓ / `r=1` / `r=1`; `m10`: `r=1` | 0 | `r=1` / `r=11` / `r=12`; `m10`: `r=505` | 0 | **SILENT** |
-| 13 | switch nested in a `for` loop, clause contains `continue` | fn | `s13_fn.js` | `r1=0 r2=0 r4=0` | 0 | `r1=1 r2=1 r4=3` | 0 | **SILENT** |
-| 13 | " | mod | `s13_mod_{1,2,4}.js` | `r=0` / `r=0` / `r=0` | 0 | `r=1` / `r=1` / `r=3` | 0 | **SILENT** |
+| 13 | switch nested in a `for` loop, clause contains `continue` | fn | `c13B_fn.js` | *(empty)* — `error[E4003]: CPU fuel budget exhausted: the program ran past the runaway guard` | 1 | `r4=3` | 0 | **FL-INTERNAL** |
+| 13 | " | mod | `c13B_mod.js`, `c13E_mod.js` | *(empty)* — same `E4003` | 1 | `r=3` / `r=3` | 0 | **FL-INTERNAL** |
 | 14 | non-literal case test (`case y:`, `y` a binding) | fn | `s14r_fn.js` | `r20=100 r40=100 r10=100`✓ | 0 | `r20=200 r40=900 r10=100` | 0 | **SILENT** |
 | 14 | " | mod | `s14r_mod_{10,20,40}.js` | `hit=100`✓ / `hit=100` / `hit=100` | 0 | `hit=100` / `hit=200` / `hit=900` | 0 | **SILENT** |
 | 15 | float discriminant | fn | `s15r_fn.js` | *(empty)* — `error[E4201]: failed to load WASM module: failed to compile: wasm[0]::function[40]` | 1 | `r25=200 r35=900 r15=100` | 0 | **FL-INTERNAL** |
@@ -132,7 +132,57 @@ Exit status was captured unpiped (`cmd > out 2> err; x=$?`).
 | 16 | boolean discriminant | fn | `s16r_fn.js` | `rtrue=100 rfalse=200` | 0 | `rtrue=100 rfalse=200` | 0 | **CORRECT** |
 | 16 | " | mod | `s16r_mod_{true,false}.js` | `hit=100` / `hit=200` | 0 | `hit=100` / `hit=200` | 0 | **CORRECT** |
 
-**Tally (32 cells, baseline `5c9bbd051`): SILENT 24 · FAIL-CLOSED 2 · FL-INTERNAL 4 · CORRECT 2.**
+**Tally (32 cells, baseline `5c9bbd051`): SILENT 22 · FAIL-CLOSED 2 · FL-INTERNAL 6 · CORRECT 2.**
+*(Corrected 2026-07-28, fix round 1: cell 13 was first recorded SILENT/exit 0 in both scopes
+from a fixture that never reached its own `continue`. See "Cell 13 — corrected" below. The
+original tally read 24/2/4/2.)*
+
+### Cell 13 — corrected, and it is **R-09**, not R-35
+
+The first measurement of cell 13 used `s13_{fn,mod}.js`, whose `default` clause was
+`default: break;`. Under R-35's `if (d) { clause-1 } else { clause-2 }` lowering that is
+`if (i) { continue } else { break }`, so at `i = 0` the **`else` fires and breaks the
+enclosing loop** — cell 12's defect — and the loop terminates during its first iteration.
+The `continue` is never executed. That fixture was measuring cell 12 a second time.
+
+Two controls prove it, both at `5c9bbd051`:
+
+- `c13G_mod.js` — the same fixture with a `console.log("iter=" + i)` added at the end of the
+  loop body: kali prints **no `iter=` line at all** and `r=0`, exit 0; node prints
+  `iter=0 iter=2 iter=3 r=3`. Not one iteration of the body completes.
+- `c13H_mod.js` — the same fixture with the `continue` clause replaced by `r = r + 10`: kali
+  prints the **identical** `r=0`, exit 0 (node `r=14`). The answer does not depend on the
+  `continue` being there.
+
+With the `break` removed so the `continue` is actually reachable
+(`case 1: continue; default: r = r + 1;`), the real behaviour appears in **both scopes**:
+
+```
+$ ./target/debug/kali run c13B_fn.js   → (no stdout)  exit 1
+  error[E4003]: CPU fuel budget exhausted: the program ran past the runaway guard
+  (default ~60s-equivalent when no sandbox policy is set); grant more compute by
+  raising `resources.maxCpuTimeMs` in a --sandbox policy
+$ node c13B_fn.js                       → r4=3        exit 0
+$ ./target/debug/kali run c13B_mod.js  → (no stdout)  exit 1   (same E4003)
+$ node c13B_mod.js                      → r=3         exit 0
+```
+
+**The switch is not the mechanism.** The same hang reproduces with no `switch` anywhere:
+
+| fixture | shape | kali | node |
+|---|---|---|---|
+| `c13C_fn.js` / `c13C_mod.js` | `for (var i…) { if (i === 1) { continue; } else { r = r + 1; } }` — **no switch** | `E4003`, exit 1 | `r4=3` / `r=3`, exit 0 |
+| `c13D_mod.js` | `for (var i…) { if (i === 1) continue; r = r + 1; }` — **no switch, no nesting** | `E4003`, exit 1 | `r=3`, exit 0 |
+| `c13F_mod.js` | `for (let i=0; i<5; i++) { if (i % 2 === 0) continue; s = s + i; }` | `E4003`, exit 1 | `s=4`, exit 0 |
+| `c13E_mod.js` | the switch form with `let` + `i++` instead of `var` + `i = i + 1` | `E4003`, exit 1 | `r=3`, exit 0 |
+
+`c13F_mod.js` is **R-09's own recorded hang repro**. This is R-09 (*`continue` inside a
+C-style `for` loop skips the update expression*) — already in the register as a §2 Tier-2
+entry with the `E4003` hang form and "scopes affected: both" — surfacing through a switch
+clause. **No new register ID was minted for it**; see the register's R-09 entry, whose
+evidence this round widens (`var` + `i = i + 1` as well as `let` + `i++`; a `switch` clause
+and an `if`/`else` block as well as a bare `if`). Cell 13 tells an allowlist author *nothing
+about `switch`*: put a `continue` in a `for` loop by any route and the program hangs.
 
 ### Cell 16 is a coincidence, not a capability
 
@@ -201,8 +251,11 @@ any shape Tasks 7-10 do not admit becomes FAIL-CLOSED rather than staying SILENT
   silent lane lives: cells 1, 2, 4, 5, 6, 9, 10, 11, 14 are all SILENT in both scopes in
   their `return` form. Task 7's choice to admit `return` first is aimed at the live
   damage. Deferring `break` to Task 9 is *not* cost-free the way the non-loop `E5506`
-  suggests: cells 12 and 13 (and `m10_mod`) show `break`/`continue` in a clause of a
-  loop-nested switch is SILENT and truncates the enclosing loop. Deferring empty-clause
+  suggests: cell 12 (and `m10_mod`) shows `break` in a clause of a loop-nested switch is
+  SILENT and truncates the enclosing loop. **`continue` is a different hazard and Task 9
+  must not size it against `break`**: cell 13 is `E4003` fuel exhaustion (FL-INTERNAL) in
+  both scopes, it is **R-09, not R-35** — the identical hang reproduces with no `switch`
+  anywhere (`c13C`, `c13D`, `c13F`) — and no `switch` allowlist can fix it. Deferring empty-clause
   grouping to Task 10 leaves the single worst cell (9/mod, which drops all output)
   longest — though Task 6 converts it to `E5506` in the meantime. `throw` (cell 7) is
   FL-INTERNAL where it fires and SILENT where it does not (`m05_fn`), so it is a real
