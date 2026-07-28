@@ -1,0 +1,24 @@
+===== c13E_mod.js
+kali exit=1
+kali_stdout: []
+kali_stderr: error[E4003]: CPU fuel budget exhausted: the program ran past the runaway guard (default ~60s-equivalent when no sandbox policy is set); grant more compute by raising `resources.maxCpuTimeMs` in a --s
+node exit=0
+node_stdout: [r=3|]
+===== c13F_mod.js
+kali exit=1
+kali_stdout: []
+kali_stderr: error[E4003]: CPU fuel budget exhausted: the program ran past the runaway guard (default ~60s-equivalent when no sandbox policy is set); grant more compute by raising `resources.maxCpuTimeMs` in a --s
+node exit=0
+node_stdout: [s=4|]
+===== c13G_mod.js
+kali exit=0
+kali_stdout: [r=0|]
+kali_stderr: 
+node exit=0
+node_stdout: [iter=0|iter=2|iter=3|r=3|]
+===== c13H_mod.js
+kali exit=0
+kali_stdout: [r=0|]
+kali_stderr: 
+node exit=0
+node_stdout: [r=14|]

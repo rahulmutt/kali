@@ -94,8 +94,16 @@ shapes, so shapes 4, 5, 6, 9, 10, 11, 14, 15, 16 are measured in their **`return
 form — the form Task 7's allowlist actually targets. The `break`-terminated variants of
 those nine shapes are reported separately as a confound control.
 
-Fixtures: `scratchpad/r35/f/`, raw transcripts `scratchpad/r35/results{,2,3}.txt`.
-Exit status was captured unpiped (`cmd > out 2> err; x=$?`).
+**Fixtures and raw transcripts are tracked in this repository** at
+`docs/superpowers/followups/r35-switch-boundary-fixtures/` — every `.js` file named in the
+tables below, the five raw transcripts, a `README.md` mapping the naming scheme to the cells,
+and `run.sh`, which re-runs the whole set under both runtimes and emits a transcript in the
+same format so a re-run can be diffed against the checked-in one. Exit status is captured
+**unpiped** (`cmd > out 2> err; x=$?`) on both sides, there and here.
+
+*(Corrected in fix round 2: this line previously cited `scratchpad/r35/f/` and
+`scratchpad/r35/results{,2,3}.txt`, an untracked scratch path that no longer existed — the
+matrix was unauditable from artifacts while Stage 2 was being sized against it.)*
 
 | # | shape | scope | fixture | kali stdout | kali exit | node stdout | node exit | verdict |
 |---|---|---|---|---|---|---|---|---|

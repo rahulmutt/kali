@@ -2305,9 +2305,24 @@ $ kali run <switch missing its ')'>    error[E2000]: expected RightParen but fou
 ```
 
 **Consequence for future probing**: a malformed fixture now produces a diagnostic where the
-old parser was silent. Do not read an `E2000` on a switch fixture as a *lowering* verdict — it
-is a statement about the fixture. This currently holds for `parse_switch_statement` only;
-every other required-token position in the parser still recovers silently.
+old parser was silent. An `E2000` on a switch fixture is **never** a *lowering* verdict — it is
+a statement about the parse. This currently holds for `parse_switch_statement` only; every
+other required-token position in the parser still recovers silently.
+
+**CORRECTED 2026-07-28 (fix round 2) — `E2000` does NOT imply the fixture is malformed.** This
+paragraph originally read "it is a statement about the fixture", which a reviewer falsified
+with **well-formed** JS that node accepts. The actual rule is wider and worse:
+
+> `E2000` fires whenever `parse_expression` cannot fully consume the discriminant, whether or
+> not the program is valid JavaScript.
+
+The confirmed trigger is a **sequence-expression discriminant** — `switch (x, x) { … }` is
+valid JS, but `parse_expression` stops at the comma, so the `expect(TokenType::RightParen)` at
+`crates/kali_parser/src/statement.rs:508` reports `error[E2000]: expected RightParen but found
+Comma` and the file is rejected. This is a **fail-closed regression on valid JS introduced by
+this stage**, and it is filed as its own entry — see **R-50** in §7. Anyone reading an `E2000`
+must check whether the fixture is malformed *or* merely uses a discriminant form the
+expression parser stops short on.
 
 ### 4.2 Follow-up work: the blind-`advance()` inventory (NOT attempted in this stage)
 
@@ -2549,6 +2564,72 @@ opaque compiler-internals message instead of a clear one. Added by soundness-bat
 - **No fix in this wave** — inventory only, per the wave-0 brief. A fix would need to make the
   const-arrow return-type inference agree with the arithmetic lowering's float classification
   (or vice versa) for the expression-body shape specifically.
+
+---
+
+### R-50: A sequence-expression `switch` discriminant is rejected `E2000` — valid JS that this stage stopped accepting
+
+- **Added**: 2026-07-28, R-35 switch-lowering stage, fix round 2, from the whole-stage
+  adversarial review of `f1d02e872..0b1c48532`.
+- **Verification**: `CONFIRMED-BY-CONTROLLER` — reproduced on freshly built binaries at
+  **both** the pre-stage baseline and the current branch tip, and differentially compared.
+- **Numbering note**: this is a numbered `R-nn` entry filed in **§7**, not §2, because it is
+  **not** a silent miscompile — kali exits nonzero with a diagnostic. It is therefore *not*
+  counted in §1's tier table, which counts `### R-` headers under §2's tier headings only.
+  `grep -c "^### R-"` over the whole file now returns **38** while §2 still holds **37**
+  tier-ranked entries; both numbers are correct and they measure different things.
+- **Root-cause group**: G1 (parser fail-open recovery) — inverted. G1's other members fail
+  *open*; this one fails *closed* on valid input, from the same underlying cause: a parser
+  position whose contract with the token stream is wrong.
+- **Repro** (`docs/superpowers/followups/r35-switch-boundary-fixtures/seq1.js`, also
+  `disc/d01_seqexpr.js`):
+  ```js
+  function s(x) {
+    switch (x, x) {
+      case 1: return "A";
+      default: return "D";
+    }
+  }
+  console.log("v=" + s(1));
+  ```
+  **node v26.5.0**: `v=A` (exit 0). **kali at `f1d02e872`** (pre-stage): `v=A` (exit 0) —
+  agreed with node. **kali at `0b1c48532`** (this stage):
+  ```
+  error[E2000]: expected RightParen but found Comma
+  error[E2000]: expected LeftBrace but found Comma
+  ```
+  empty stdout, **exit 1**.
+- **Mechanism (traced)**: a sequence expression is valid in a discriminant position, but
+  `parse_expression` stops at the comma. Task 3 routed the discriminant's closing paren
+  through the new `expect(TokenType::RightParen)` at
+  `crates/kali_parser/src/statement.rs:508`, which now reports the residual comma. Before
+  Task 3 that position discarded its result, so the leftover tokens were skipped silently and
+  the program happened to compile.
+- **Severity**: **fail-closed, not a miscompile.** No exit-0 wrong answer is created and no
+  trust is misplaced — a valid program is refused, loudly. That is a usability and
+  compatibility regression, strictly better than the silent acceptance it replaced, and it is
+  recorded here so it is not mistaken for a lowering verdict (see §4.1).
+- **Blast radius**: low. A comma operator in a `switch` discriminant is rare. But the *class* —
+  "a discriminant form `parse_expression` stops short on is now a hard error" — is only as
+  narrow as the search that bounded it.
+- **Bounding search — empirical, NOT exhaustive.** 13 discriminant forms were measured on both
+  binaries plus node (`r35-switch-boundary-fixtures/disc/`, 2026-07-28). **`x, x` is the only
+  form of the 13 whose verdict this stage changed**; the other 12 measure identically at
+  `f1d02e872` and at the branch tip:
+
+  | form | pre-stage | this stage | node | changed by this stage? |
+  |---|---|---|---|---|
+  | `x, x` | `v=A` exit 0 | **`E2000` exit 1** | `v=A` exit 0 | **YES — this entry** |
+  | `typeof x` / `!x` / `x.length` | `v=D` exit 0 | `v=D` exit 0 | `v=D` exit 0 | no |
+  | `a[0]` | `E5506` exit 1 | `E5506` exit 1 | `v=A` exit 0 | no (pre-existing) |
+  | `"lit"` / `x === 1` / `-x` | `v=A` exit 0 | `v=A` exit 0 | `v=D` exit 0 | no (pre-existing **R-35**) |
+  | `(x)` / `x ? 1 : 2` / `x++` / `g(x)` / `x` | `v=A` exit 0 | `v=A` exit 0 | `v=A` exit 0 | no |
+
+  Other unlisted forms — `yield`, `await`, assignment expressions, `in`/`instanceof`,
+  destructuring — were **not** tested. Treat the bound as "no second instance found in 13
+  forms", never as "the sequence expression is the only one".
+- **Confidence**: high on behavior (differential, both binaries, both freshly built); high on
+  mechanism (the `file:line` is named and the error text matches the token exactly).
 
 ---
 
