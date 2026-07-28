@@ -3,7 +3,10 @@
 use crate::TokenStream;
 use kali_ast::{ASTBuilder, BlockStatement, Statement, AST};
 use kali_common::FileId;
-use kali_error::{_error_codes::e5, diagnostic::Diagnostic};
+use kali_error::{
+    _error_codes::{e2, e5},
+    diagnostic::Diagnostic,
+};
 use kali_lexer::{Token, TokenType};
 
 pub struct Parser {
@@ -44,6 +47,31 @@ impl Parser {
             e5::FEATURE_UNAVAILABLE as u32,
             message.into(),
         ));
+    }
+
+    /// Consume `kind` if present; otherwise report `E2000` and consume nothing.
+    ///
+    /// The parser had only `accept -> bool`, so every REQUIRED-token position
+    /// was a blind `advance()` or a discarded bool — each silently accepting
+    /// whatever token happened to be there. `e2::EXPECTED_TOKEN` was declared
+    /// in `kali_error` and emitted nowhere in the compiler.
+    ///
+    /// Returns whether the token was consumed, so a caller can decide between
+    /// continuing and bailing. It deliberately does NOT skip the offending
+    /// token: recovery stays the caller's decision.
+    pub(crate) fn expect(&mut self, kind: TokenType) -> bool {
+        if self.stream.accept(kind) {
+            return true;
+        }
+        let found = match self.stream.current_kind() {
+            Some(k) => format!("{k:?}"),
+            None => "end of input".to_string(),
+        };
+        self.diagnostics.push(Diagnostic::error(
+            e2::EXPECTED_TOKEN as u32,
+            format!("expected {kind:?} but found {found}"),
+        ));
+        false
     }
 
     pub(crate) fn skip_class_body(&mut self) {

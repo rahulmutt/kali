@@ -501,15 +501,18 @@ impl Parser {
     }
 
     pub(crate) fn parse_switch_statement(&mut self) -> Option<Statement> {
-        let _ = self.stream.advance();
-        let _ = self.stream.advance();
+        let _ = self.stream.advance(); // `switch`, established by the dispatch
+        self.expect(TokenType::LeftParen);
 
         let discriminant = self.parse_expression();
-        let _ = self.stream.advance();
+        self.expect(TokenType::RightParen);
+        self.expect(TokenType::LeftBrace);
 
         let mut cases = Vec::new();
         loop {
             if self.stream.eof() {
+                // Ran out of tokens without ever seeing the closing brace.
+                self.expect(TokenType::RightBrace);
                 break;
             }
             // Consume the switch's closing brace. Inspecting it without
@@ -524,9 +527,9 @@ impl Parser {
             }
 
             if self.stream.current_kind() == Some(&TokenType::Case) {
-                let _ = self.stream.advance();
+                let _ = self.stream.advance(); // `case`, established by the check above
                 let test = self.parse_expression();
-                let _ = self.stream.advance();
+                self.expect(TokenType::Colon);
 
                 let mut consequent = Vec::new();
                 loop {
@@ -550,8 +553,8 @@ impl Parser {
                     consequent,
                 });
             } else if self.stream.current_kind() == Some(&TokenType::Default) {
-                let _ = self.stream.advance();
-                let _ = self.stream.advance();
+                let _ = self.stream.advance(); // `default`, established by the check above
+                self.expect(TokenType::Colon);
 
                 let mut consequent = Vec::new();
                 loop {

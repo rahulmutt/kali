@@ -553,6 +553,41 @@ mod switch {
             other => panic!("Expected FunctionDeclaration, got {other:?}"),
         }
     }
+
+    // E2000 (`e2::EXPECTED_TOKEN`) is declared in kali_error but was emitted
+    // nowhere in the compiler: the parser had never once reported a required
+    // token as missing. A malformed switch header was silently accepted.
+    #[test]
+    fn test_switch_missing_paren_reports_expected_token() {
+        let output = parse("switch x { case 1: break; }");
+        assert!(
+            output.diagnostics.iter().any(|d| d.code == Some(2000)),
+            "expected an E2000 diagnostic, got {:?}",
+            output.diagnostics
+        );
+    }
+
+    #[test]
+    fn test_switch_missing_case_colon_reports_expected_token() {
+        let output = parse("switch (x) { case 1 break; }");
+        assert!(
+            output.diagnostics.iter().any(|d| d.code == Some(2000)),
+            "expected an E2000 diagnostic, got {:?}",
+            output.diagnostics
+        );
+    }
+
+    // A well-formed switch must stay clean — the helper must not fire on the
+    // shapes that already parse.
+    #[test]
+    fn test_well_formed_switch_reports_no_expected_token() {
+        let output = parse("switch (x) { case 1: break; default: break; }");
+        assert!(
+            !output.diagnostics.iter().any(|d| d.code == Some(2000)),
+            "well-formed switch produced E2000: {:?}",
+            output.diagnostics
+        );
+    }
 }
 
 /// Tests for expression constants
