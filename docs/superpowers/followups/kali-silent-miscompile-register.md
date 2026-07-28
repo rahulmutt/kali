@@ -37,7 +37,9 @@ The register below was written against branch `soundness-batch1-pra` and is now
 four independent surface sweeps (A output/coercion, B operators/control-flow,
 C functions/calls, D data-structures). **Where a per-entry headline below conflicts
 with this section, this section wins** — except where this section is itself superseded by a
-later measurement, which is now the case for **R-11** (see below). Full per-surface probe logs:
+later measurement, which is now the case for **R-11** (closed `28f18b3ff`) and for **R-35**
+(boundary re-derived 2026-07-28 on `5c9bbd051`; the §0.3 bullet below carries the corrected
+text and `r35-switch-boundary-rederived.md` carries the matrix). Full per-surface probe logs:
 `scratchpad/resweep/sweep-{a,b,c,d}-rederived.md`.
 
 **`62d786e74` is a named baseline, not "main".** This section was originally headed "HEAD
@@ -57,6 +59,16 @@ register recommended for cluster G2. As a result the silent-miscompile frontier 
 **moved**: the highest-blast-radius *silent* defect on the current binary is no
 longer any original Tier-1 entry but **R-35 (`switch` selects the wrong clause)**,
 newly found this re-derivation.
+
+**Amendment 2026-07-28 (`5c9bbd051`, branch `r35-switch-lowering`).** Probing R-35 uncovered
+a *parser* defect strictly worse than R-35 itself: **R-49**, in which
+`parse_switch_statement` never consumed the switch's closing brace and every statement after
+a `switch` was reparented to module scope and executed at module load. R-49 is **CLOSED**
+(`9db9150c0`). R-35's recorded boundary was measured through R-49 and is **void**; the true
+boundary is a 32-cell both-scopes matrix (24 SILENT / 2 FAIL-CLOSED / 4 FL-INTERNAL /
+2 CORRECT) in `docs/superpowers/followups/r35-switch-boundary-rederived.md`, and R-35 is
+**Tier 1**, not Tier 2 — clauses beyond the second are never emitted at all. R-35 itself
+remains **SILENT and open**; Stage 2 of that branch is the lowering fix.
 
 ### 0.2 Current status of every register entry
 
@@ -103,19 +115,44 @@ FL-INTERNAL = nonzero but wrong *kind* (E4201/E4003 internal, not honest E5506).
 | R-34 bool user-fn renders 1/0 (concat & multi-arg) | **SILENT** | live; concat AND multi-arg both `1`. |
 | R-47 `for..of` over a `let` array iterates the binding's NAME | **SILENT** | added 2026-07-25 (post-sweep, from the R-11 project), measured on `372a3f440`. `let a=[1,2,3]; for (const x of a) log(x)` prints `a` (node `1 2 3`); `var` fails closed E5506, `const` is correct. Exit 0, plausible-looking output — see §2. |
 | R-48 array stored into an `I64` object field reads `0` | **SILENT** | added 2026-07-25 (post-sweep, from the R-11 project), measured on `372a3f440`. `let o={a:6}; o.a=[1,2]; o.a`→`0` (node `[ 1, 2 ]`); `const` receiver identical. See §2. |
+| R-35 `switch` selects the wrong clause | **SILENT (Tier 1 — also drops clauses)** | **re-measured 2026-07-28 on `5c9bbd051`** (branch `r35-switch-lowering`, post parser containment), superseding both the `62d786e74` row and §0.3's original boundary. 32-cell matrix, both scopes: **24 SILENT, 2 FAIL-CLOSED, 4 FL-INTERNAL, 2 CORRECT**. `switch` lowers as `if (discriminant) { clause-1 } else { clause-2 }` — case tests are never consulted, clauses beyond the second are never emitted, and the wrong clause's **side effects run**. String discriminants are always truthy so they always take clause 1. Full matrix: `r35-switch-boundary-rederived.md`. |
+| R-49 `parse_switch_statement` reparented every post-switch statement to module scope | **CLOSED 2026-07-28** (`9db9150c0`, branch `r35-switch-lowering`) | Tier 1, cluster **G1**, higher severity than R-35 and a different layer. The clause loop inspected `RightBrace` without consuming it, so the enclosing block parser took that brace as its own closer. Decisive repro: a function that is **never called** still ran its post-switch assignment at module load — `g=99` where node prints `g=0`. **Unique** such site in the parser. See §2. |
 
 **Net:** of the register's ~29 silent-class entries, the sweep confirms **FIXED/fail-closed: R-01, R-02, R-03, R-04, R-05, R-07, R-08(=== half), R-19, R-20**, plus **R-11, CLOSED after this section's baseline** (`28f18b3ff`); **still SILENT: R-06-R2, R-06-R3, R-08(?? half), R-09, R-10, R-12, R-13, R-14, R-15, R-16, R-17, R-18, R-21, R-22, R-23, R-24, R-25(residual), R-26, R-27, R-28, R-29, R-30, R-31, R-32, R-33, R-34.** Added post-sweep 2026-07-25 and also **SILENT: R-47, R-48.**
 
 ### 0.3 NEW silent miscompiles found this re-derivation (exit 0, no diagnostic, wrong)
 
-- **R-35 — `switch` selects the wrong clause (HEADLINE, high blast radius).** codegen has
-  **no `Switch` arm** (`grep Switch crates/kali_codegen` = 0); an all-`return`, no-`break`,
-  no-local `switch` emits its cases sequentially, so "first `return` wins regardless of
-  discriminant" (+ an erratic case for `disc=0`).
+- **R-35 — `switch` selects the wrong clause (HEADLINE, high blast radius). Tier 1.**
+  codegen has **no `Switch` arm** (`grep -rn Switch crates/kali_codegen/src/` = 1 hit, an
+  unrelated comment). `kali_hir` allocates `SwitchStmt` with children
+  `[discriminant, clause-block-0, clause-block-1, …]`, `kali_mir` folds it into the same
+  generic `ControlFlow` bucket as `IfStmt`, and the generic arm reads it as
+  **`if (discriminant) { clause-1 } else { clause-2 }`**.
   `switch(x){case 10:return"A";case 20:return"B";default:return"D"}` → `s(20)`="A" (node "B"),
-  `s(40)`="A" (node "D"), `s(0)`="B" (node "D"). `s(10)` coincidentally correct. Boundary: a
-  `break` in a case → E5506; a local read in a case → E3100 — so the silent window is exactly
-  all-return/no-break/no-local, but that is an everyday enum-dispatch shape.
+  `s(40)`="A" (node "D"), `s(0)`="B" (node "D"). `s(10)` coincidentally correct.
+  **BOUNDARY RE-DERIVED 2026-07-28 on `5c9bbd051`** (branch `r35-switch-lowering`, after the
+  R-49 parser-containment fix). The previously recorded boundary — *"a `break` in a case →
+  E5506; a local read in a case → E3100, so the silent window is exactly
+  all-return/no-break/no-local"* — was **measured THROUGH the R-49 parser leak and is void**;
+  that `break` was a leaked break evaluated at module scope with no loop frame and that
+  `E3100` was a leaked identifier read resolved against module scope. The true boundary,
+  from a 32-cell both-scopes matrix (24 SILENT / 2 FAIL-CLOSED / 4 FL-INTERNAL / 2 CORRECT):
+  - **Clauses beyond the second are never emitted at all** — so R-35 **silently drops code**
+    (Tier 1), not merely a wrong value (Tier 2). A five-clause switch can never produce its
+    3rd, 4th or `default` answer for *any* input; empty-clause grouping at **module scope**
+    produces **no output whatsoever** where node prints.
+  - **The wrong clause's side effects RUN**, not just its value: a `console.log` in clause 1
+    prints where node prints clause 2's (`hit=100` vs node `hit=200`).
+  - **String discriminants are affected** — a string is a nonzero handle, hence always
+    truthy, so a string switch *always* takes clause 1 (even `""`, where node takes
+    `default`).
+  - `break`/`continue` in a clause is honest `E5506` **only when the switch is not inside a
+    loop**; nested in a `for` loop it compiles and silently breaks the **enclosing loop**
+    (`r=1` where node prints `r=505`). A clause declaring **and reading its own** `var`,
+    `let` or `const` does **not** fail closed — all three measure identically SILENT.
+    `throw` in a clause is `E4000` where it fires and SILENT where it does not.
+  - Superseded by **`docs/superpowers/followups/r35-switch-boundary-rederived.md`**, which
+    carries the full matrix, the fixtures and both runtimes' stdout/exit per cell.
 - **R-36 — class instance fields round-trip to `0` (REGRESSION).** `constructor(){this.v=3}` then
   `this.v` / `c.v` reads →0; the method body runs, only the field value is lost. The register had
   class `this` as FAIL-CLOSED (E4201); it is now silent, exit 0. Single-field only (2+ fields →
@@ -181,7 +218,7 @@ unsupported and the message misdiagnoses it. Honest (exit 1) but misleading.
 
 **42 raw defects → 33 after deduplication** *(the original four-sweep intake — correct when
 written, for the 33 entries R-01..R-33 that then existed; stale since R-34 landed. See the note
-under the table. The register now holds **48** numbered entries: R-01..R-48.)* Nine entries were
+under the table. The register now holds **49** numbered entries: R-01..R-49.)* Nine entries were
 folded into siblings that
 share a demonstrated or strongly-inferred root cause (noted per entry).
 
@@ -189,21 +226,26 @@ Severity split (each entry ranked at the most severe class it carries):
 
 | tier | class | count (historical R-01..R-34 / now) |
 |---|---|---|
-| 1 | **silently drops code or output** — statements never run, calls never fire, output vanishes | 5 / 5 |
+| 1 | **silently drops code or output** — statements never run, calls never fire, output vanishes | 5 / **6** |
 | 2 | **silently produces a wrong value** | 23 / **25** |
 | 3 | **silently wrong control flow only** (value otherwise intact) | 1 / 1 |
 | 4 | **rendering-only** (in-memory value is correct) | 4 (see note) / 5 |
 
 The left-hand counts are the original R-01..R-34 sweep, left as the historical record. Since
-then §0.3 added **R-35..R-46** (2026-07-24 re-derivation) and §2 added **R-47** and **R-48**
-(2026-07-25, promoted from §7.10 sightings). Only the last two changed a tier count: both are
-filed in Tier 2, and R-47 additionally carries a **Tier-3** wrong-trip-count half (its entry
-says so). **R-35..R-46 are excluded from these counts entirely** — the re-derivation recorded
+then §0.3 added **R-35..R-46** (2026-07-24 re-derivation), §2 added **R-47** and **R-48**
+(2026-07-25, promoted from §7.10 sightings), and §2 added **R-49** (2026-07-28, from the R-35
+switch-lowering stage). R-47 and R-48 are filed in Tier 2, and R-47 additionally carries a
+**Tier-3** wrong-trip-count half (its entry says so); R-49 is filed in **Tier 1**, which is
+the change recorded in this table's Tier-1 cell. **R-35..R-46 are excluded from these counts entirely** — the re-derivation recorded
 them as §0.3 bullets and never tier-ranked them, so tier-ranking them here would be an
-unmeasured claim.
+unmeasured claim. (R-35's 2026-07-28 re-derivation now *establishes* that it is Tier 1 — it
+drops clauses, not just values — but it remains an un-ranked §0.3 bullet and is still outside
+these counts; see §0.3 and `r35-switch-boundary-rederived.md`.) **R-49** was added
+2026-07-28 as a tier-ranked §2 **Tier 1** entry and *is* counted, which is the only change to
+the right-hand column since 2026-07-25.
 
-Right-hand column = **36** tier-ranked entries in §2 (5 + 25 + 1 + 5), counted 2026-07-25 by
-`### R-` headers per tier heading; the register holds 48 numbered entries in total, the other 12
+Right-hand column = **37** tier-ranked entries in §2 (6 + 25 + 1 + 5), re-counted 2026-07-28 by
+`### R-` headers per tier heading; the register holds 49 numbered entries in total, the other 12
 being the un-ranked §0.3 set. **The historical Tier-4 cell reads `4` where Tier 4 now holds five
 entries (R-30..R-34) — but it was CORRECT when written and went stale afterwards, not an
 off-by-one.** Verified in history 2026-07-25: `ee0225f37`, the commit that created this table,
@@ -438,6 +480,53 @@ tier, ordering is by blast radius.
 - **Confidence**: high on behavior; medium on sharing R-02's root.
 - **Fail-closed context**: method shorthand `{ f() {...} }` → `E3100`; class methods
   *without* `this` are correct including arguments and side effects.
+
+---
+
+### R-49: `parse_switch_statement` silently reparented every post-switch statement to module scope — **CLOSED 2026-07-28**
+
+- **Added**: 2026-07-28, from the R-35 switch-lowering project (branch
+  `r35-switch-lowering`). **This is not R-35** — different layer (parser, not codegen),
+  different blast radius (every statement after *any* `switch`, not the switch's own
+  clauses), and higher severity.
+- **Verification**: `CONFIRMED-BY-CONTROLLER` — traced in source, reproduced on a freshly
+  built binary, closed with a regression test in the same commit.
+- **Root-cause group**: G1 (parser fail-open recovery).
+- **Mechanism (traced)**: `parse_switch_statement` ended its clause loop by *inspecting*
+  `TokenType::RightBrace` without consuming it. The switch's closing brace was therefore
+  still on the stream when control returned to the enclosing block parser, which took it as
+  **its own** terminator and stopped. Everything after the `switch` — to the end of the
+  enclosing function — was reparented into the module body.
+  `parse_block_statement`, `parse_class_body` and `parse_arrow_function_body_expression`
+  all already `accept()` their closer; this was the **unique** non-consuming closer site in
+  the parser.
+- **Decisive repro** (a function that is never called still runs):
+  ```js
+  var g = 0;
+  function f(x) {
+    switch (x) { case 1: g = 1; break; }
+    g = 99;
+  }
+  console.log("g=" + g);
+  ```
+  **node**: `g=0` (exit 0) — `f` is never called. **kali (pre-fix)**: `g=99` (exit 0) — the
+  `g = 99` was hoisted out of `f` and executed at module load. A function *declared* after a
+  switch-containing function disappeared entirely by the same mechanism.
+- **Severity**: Tier 1 — silently drops and silently *relocates* code. Worse than a wrong
+  value: statements execute that the program never reached, and statements the program did
+  reach never execute.
+- **Evidence-integrity consequence**: **every probe in this repository that placed a
+  statement after a `switch` was measuring the leak, not the feature.** R-35's originally
+  recorded boundary is the known casualty (see §0.3 and
+  `r35-switch-boundary-rederived.md`); any other pre-2026-07-28 finding whose fixture
+  contains a `switch` should be re-derived before it is relied on.
+- **CLOSED** by `9db9150c0` ("fix(parser): consume the switch closing brace — stop
+  reparenting post-switch statements to module scope") on branch `r35-switch-lowering`,
+  with `crates/kali_cli/tests/switch_parser_containment.rs` and a parser-integration test
+  as regression cover.
+- **Related, same stage**: `5c9bbd051` added the parser's missing `expect(kind)` helper and
+  routed all six required-token positions in `parse_switch_statement` through it — see §4's
+  note on `e2::EXPECTED_TOKEN`.
 
 ---
 
@@ -1930,13 +2019,21 @@ act on, so each cluster states plainly what would raise its confidence.
 
 ### G1 — Parser fail-open recovery (**traced in source**, high confidence)
 
-- **Members**: R-01.
+- **Members**: R-01, R-43, **R-49** (CLOSED 2026-07-28).
 - A failed `accept(...)` whose `Result` is discarded (`let _ = …`) followed by `break` leaves
   the token stream desynchronized and silently drops the remaining statements.
-- **Traced**: `crates/kali_parser/src/declaration.rs:29-30`.
+- **Traced**: `crates/kali_parser/src/declaration.rs:29-30`; R-49 at
+  `crates/kali_parser/src/statement.rs` (`parse_switch_statement`'s clause loop, pre-`9db9150c0`).
+- **R-49 is the same cluster with the dual failure mode**: not a discarded `accept` result but
+  a closer that was *inspected and never consumed*, which desynchronizes the stream in the
+  opposite direction — the enclosing parser stops early instead of running on. Confirmed the
+  **unique** non-consuming block-closer in the parser; the three sibling sites
+  (`parse_block_statement`, `parse_class_body`, `parse_arrow_function_body_expression`) all
+  consume theirs.
 - **Standing risk**: this is a *pattern*, not one site. Every discarded `accept` result in the
   parser is a candidate for the same class. A sweep of `let _ = self.stream.accept` is cheap
-  and should be done as part of any fix.
+  and should be done as part of any fix. See §4's blind-`advance()` inventory for the
+  measured size of the un-swept surface.
 
 ### G2 — Call lowering: unresolvable callee folds to constant `0` (inference, medium confidence)
 
@@ -2155,6 +2252,75 @@ trusting it.**
    correct; only returned closures are broken), and the controller's own `E4201` observation
    for a mixed-shape file did not reproduce on two nearby variants. Both corrections are in
    R-02.
+
+9. **Any statement after a `switch` was reparented to module scope until 2026-07-28 (R-49).**
+   `parse_switch_statement` never consumed the switch's closing brace, so the enclosing block
+   parser stopped at it and everything after the `switch` — to the end of the enclosing
+   function — was hoisted into the module body and executed at module load, even when the
+   function was never called. **Every probe in this repository whose fixture contains a
+   `switch` was measuring that leak, not the feature under test.** R-35's originally recorded
+   boundary is the known casualty and has been re-derived
+   (`r35-switch-boundary-rederived.md`); other pre-`9db9150c0` findings with a `switch` in
+   the fixture should be re-run before being relied on. CLOSED by `9db9150c0`.
+
+### 4.1 `e2::EXPECTED_TOKEN` (E2000) is now emitted — a standing fact about the evidence base has changed
+
+Until 2026-07-28, **"the parser has never reported a missing required token" was true of this
+compiler.** `e2::EXPECTED_TOKEN` (E2000) and `e2::UNEXPECTED_TOKEN` (E2001) were declared in
+`crates/kali_error/src/_error_codes.rs` and emitted from **nowhere**; a required token that
+was simply absent fell into a recovery arm that skipped it silently. Any past inference of the
+form "kali accepted this file, therefore the syntax is supported" is unsound for that period.
+
+`5c9bbd051` added `Parser::expect(kind)` (`crates/kali_parser/src/parser.rs:62`) and routed
+all six required-token positions in `parse_switch_statement` through it: `switch`, `(`, `)`,
+`{`, each clause's `:`, and the closing `}` at EOF. Verified on the built binary at that
+commit:
+
+```
+$ kali run <switch missing its '('>    error[E2000]: expected LeftParen but found Identifier   (exit 1)
+$ kali run <switch missing its ')'>    error[E2000]: expected RightParen but found LeftBrace   (exit 1)
+```
+
+**Consequence for future probing**: a malformed fixture now produces a diagnostic where the
+old parser was silent. Do not read an `E2000` on a switch fixture as a *lowering* verdict — it
+is a statement about the fixture. This currently holds for `parse_switch_statement` only;
+every other required-token position in the parser still recovers silently.
+
+### 4.2 Follow-up work: the blind-`advance()` inventory (NOT attempted in this stage)
+
+Measured on `5c9bbd051`, 2026-07-28 (a count without a named baseline is not a measurement):
+
+```
+$ grep -rn "let _ = self.stream.advance();" crates/kali_parser/src/ | wc -l
+103
+```
+
+Per file at that commit:
+
+| count | file |
+|---|---|
+| 24 | `crates/kali_parser/src/statement.rs` |
+| 19 | `crates/kali_parser/src/module.rs` |
+| 15 | `crates/kali_parser/src/declaration.rs` |
+| 14 | `crates/kali_parser/src/expression/mod.rs` |
+| 12 | `crates/kali_parser/src/expression/primary.rs` |
+| 12 | `crates/kali_parser/src/expression/call.rs` |
+| 4  | `crates/kali_parser/src/parser.rs` |
+| 3  | `crates/kali_parser/src/expression/object.rs` |
+
+`statement.rs` line numbers at `5c9bbd051`: 113, 144, 173, 185, 194, 224, 240, 245, 298, 333,
+410, 433, 488, 504, 530, 556, 590, 604, 618, 626, 633, 654, 676, 696.
+
+The pre-stage baseline `f1d02e872` held **28** in `statement.rs` and **107** parser-wide;
+Tasks 2 and 3 of the R-35 stage replaced four of them with `accept`/`expect`. Every remaining
+site advances the stream **without checking what it consumed**, which is the R-49 / G1 failure
+mode with the check removed rather than discarded.
+
+**This was deliberately not attempted here.** A parser-wide sweep is its own project: each
+converted site can turn a currently-silent acceptance into a new diagnostic, so it carries a
+full test-census cost (the R-35 stage's own gate baseline exists precisely because that cost
+is not free), and it cannot be validated by the switch fixtures this stage owns. Filed as
+follow-up work, sized above.
 
 ---
 
@@ -2771,3 +2937,8 @@ in priority order. All line numbers are as of `fc777af54`.
   the ALLOWLIST-1 tripwire; cluster G3 is the same lesson at sweep scale.
 - `.superpowers/sdd/sweep-{a,b,c,d}-*.md` — the four source registers, retained for their full
   probe logs, correct-shape inventories (which bound the damage) and fail-closed maps.
+- `docs/superpowers/followups/r35-switch-boundary-rederived.md` — the 32-cell, both-scopes
+  R-35 boundary matrix measured on `5c9bbd051` (2026-07-28) after the R-49 parser-containment
+  fix. **Supersedes the boundary sentence §0.3's R-35 bullet originally carried**, which was
+  measured through the R-49 leak. Also carries the traced `switch` lowering mechanism and the
+  consequences for the Stage 2 allowlist.
