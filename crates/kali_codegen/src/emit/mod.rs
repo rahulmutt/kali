@@ -10,5 +10,6 @@ pub(crate) mod growable;
 mod literal;
 mod object;
 mod operators;
+mod switch;
 mod throw;
 pub(crate) mod url;

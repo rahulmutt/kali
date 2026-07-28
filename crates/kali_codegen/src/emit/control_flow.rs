@@ -1795,6 +1795,7 @@ impl<'a> FunctionEmitter<'a> {
                 }
                 Some("for-in") => self.emit_for_in(function, id, &node),
                 Some("throw") => self.emit_throw(function, &node),
+                Some("switch") => self.emit_switch(function, id, &node),
                 _ => self.emit_branch(function, &node, want_value),
             },
             LirNodeKind::Unknown => {
