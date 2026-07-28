@@ -162,15 +162,71 @@ fn a_boolean_discriminant_is_fail_closed() {
     );
 }
 
+// Fix round 1 (Critical 2 companion, cell 16 closed for real): a bare
+// identifier bound to a boolean is a DIFFERENT trap than `x > 0` above.
+// `static_equality_class` proves boolean-ness only for a SYNTACTIC form
+// (a literal, a comparison, `!`, `delete`) — a bare identifier like `d` here
+// carries no such proof, so this must be denied by the identifier arm's
+// positive-evidence requirement (`name_is_declared_parameter(name) ||
+// binding_is_proven_numeric(name)`) instead: `d` is not a parameter, and its
+// only write (`var d = true;`) is not `write_value_is_numeric`, so
+// `binding_is_proven_numeric` is false and this fails Rule 1. Before fix
+// round 1 this ran to completion and printed `v=one` where node prints
+// `v=other` (measured, exit 0 both sides) — a silent miscompile, not a
+// rejection.
+#[test]
+fn a_boolean_identifier_discriminant_is_fail_closed() {
+    let out = run_js_expect_failure(
+        "function s() {\n\
+           var d = true;\n\
+           switch (d) {\n\
+             case 1: return \"one\";\n\
+             default: return \"other\";\n\
+           }\n\
+         }\n\
+         console.log(\"v=\" + s());\n",
+    );
+    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+    assert!(
+        out.contains("the discriminant is not a proven integer"),
+        "must be denied by Rule 1 (the discriminant), not some other rule; got: {out}"
+    );
+}
+
 // A `let`/`const` declaration in a clause body is denied (Rule 5): block
 // shadowing across case labels is unmodeled (register R-10), so a
 // case-scoped binding would build on a known-broken foundation.
+//
+// NOTE (fix round 1): this braced form is denied by RULE 4 (the clause's
+// last statement is a `Block`, not a `Branch("return")`), not Rule 5 —
+// `declares_block_scoped_binding` is never even consulted for it. Kept as a
+// pin on its own right (a braced clause with an inner `let` must still
+// fail), but see the unbraced test below for actual Rule-5 coverage.
 #[test]
-fn a_let_declaration_in_a_clause_is_fail_closed() {
+fn a_let_declaration_in_a_braced_clause_is_fail_closed_via_rule_4() {
     let out = run_js_expect_failure(
         "function s(x) {\n\
            switch (x) {\n\
              case 1: { let a = 1; return \"A\" + a; }\n\
+             default: return \"D\";\n\
+           }\n\
+         }\n\
+         console.log(\"v=\" + s(1));\n",
+    );
+    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+}
+
+// The unbraced form: `let a = 1;` and `return ...;` are two SIBLING
+// statements in the clause body (not nested inside a `Block`), so this
+// clause's last statement genuinely IS a `return` (Rule 4 passes) and Rule 5
+// (`declares_block_scoped_binding`) is what must catch the `let`. Without
+// this fixture `declares_block_scoped_binding` had zero test coverage.
+#[test]
+fn a_let_declaration_in_an_unbraced_clause_is_fail_closed_via_rule_5() {
+    let out = run_js_expect_failure(
+        "function s(x) {\n\
+           switch (x) {\n\
+             case 1: let a = 1; return \"A\" + a;\n\
              default: return \"D\";\n\
            }\n\
          }\n\

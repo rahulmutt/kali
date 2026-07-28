@@ -154,19 +154,33 @@ impl<'a> FunctionEmitter<'a> {
     ///   scalar carries no boolean axis of its own; see that module's doc
     ///   comment on why `EqClass::Boolean` is the one class that can tell a
     ///   `true`/`false`/comparison/`!`/`delete` result apart from a genuine
-    ///   number sharing the same `0`/`1` bit pattern),
-    /// - the identifier arm mirrors `binding_is_proven_string_coercion_scalar`
-    ///   (`emit/call.rs`) narrowed from its `I64 | F64` union down to `I64`
-    ///   only, since a float discriminant must be denied here (unlike that
-    ///   coercion sink, which accepts either),
-    /// - the call arm mirrors `is_string_valued`'s own call arm
-    ///   (`return_repr(callee) == Repr::String`): the callee's SOLVED return
-    ///   repr, not the stricter `return_is_proven_numeric` allowlist that
-    ///   the bitwise-compound-assign axis requires — that stricter proof
-    ///   requires literal-only call-site inflow and would deny
-    ///   `switch (d(x))` where `x` is itself a proven-scalar parameter passed
-    ///   through unchanged, the exact shape this task's "evaluate once" test
-    ///   pins.
+    ///   number sharing the same `0`/`1` bit pattern) — NOTE this only proves
+    ///   a SYNTACTIC boolean form (a literal, a comparison, `!`, `delete`); a
+    ///   bare identifier bound to a boolean elsewhere is NOT caught here, it
+    ///   is caught by the identifier arm's POSITIVE-proof requirement below,
+    /// - `bitwise_compound_rhs_is_provably_i64` (`emit/operators.rs`) — the
+    ///   literal (optionally unary `-`) proof, reused verbatim rather than
+    ///   re-derived (One query, one caller),
+    /// - the identifier arm mirrors the TWO-source disjunction
+    ///   `string_coercion_arg_is_proven_at_depth` / the coercion-sink call
+    ///   site (`emit/call.rs:4146`) uses — `name_is_declared_parameter(name)
+    ///   || binding_is_proven_numeric(name)` — narrowed from that sink's
+    ///   `I64 | F64` union down to `I64` only, since a float discriminant
+    ///   must be denied here,
+    /// - the call arm mirrors the STRICT sibling arm at `emit/call.rs:4230-4242`
+    ///   (`return_is_proven_numeric(name) && return_repr(name) == Repr::I64`),
+    ///   not `is_string_valued`'s own lenient call arm — fix round 1: the
+    ///   lenient `return_repr(..) == I64` alone is a comparison against
+    ///   `Repr`'s `#[default]` (`kali_common::repr.rs:18-21`), which
+    ///   `emit/call.rs:4220-4229` and `emit/operators.rs:1522-1545` (the doc
+    ///   of `bitwise_compound_rhs_is_provably_i64` itself) both already rule
+    ///   out for exactly this reason — measured to admit a boolean-returning
+    ///   function's result as a switch discriminant (`g_boolret`) before this
+    ///   fix. The evaluate-once test's fixture was rewritten
+    ///   (`switch (d(2))`, not `switch (d(x))`) so `d`'s own parameter gets
+    ///   literal call-site inflow and this stricter proof actually holds —
+    ///   weakening the proof to fit the old fixture would have been the wrong
+    ///   direction of fix.
     pub(crate) fn is_provable_i64_scalar(&self, id: LirNodeId) -> bool {
         let id = self.unwrap_transparent(id);
         let id = self.resolve_bound_node(id);
@@ -182,31 +196,37 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         let node = self.node(id);
+        // Unary `+`: `bitwise_compound_rhs_is_provably_i64` only recognizes
+        // `-` for its own RHS shape, so a leading `+` is peeled here and the
+        // operand re-enters this same proof.
+        if node.kind == LirNodeKind::Value
+            && node.children.len() == 1
+            && node.text.as_deref() == Some("+")
+        {
+            return self.is_provable_i64_scalar(node.children[0]);
+        }
+        // The literal (optionally unary `-`) proof: delegate to the EXISTING
+        // oracle instead of re-deriving it.
+        if self.bitwise_compound_rhs_is_provably_i64(id) {
+            return true;
+        }
+
         match node.kind {
-            LirNodeKind::Literal => node
-                .text
-                .as_deref()
-                .is_some_and(|text| !text.ends_with('n') && parse_number_literal(text).is_some()),
-            // Unary `-`/`+` over a proven operand stays on the scalar lane.
-            LirNodeKind::Value
-                if node.children.len() == 1
-                    && matches!(node.text.as_deref(), Some("-") | Some("+")) =>
-            {
-                self.is_provable_i64_scalar(node.children[0])
-            }
             // Bare identifier: proven i64 iff it carries none of the
             // aggregate taints that SHARE the default `Repr::I64` (an array,
             // a growable array, a non-scalar param, an object-initialized
-            // binding) and its own solved repr IS the plain `I64` default —
-            // never `F64`/`String`/`Object`/any other tagged handle variant.
+            // binding), is EITHER a declared parameter OR positively proven
+            // numeric by `repr_infer` (never trusted on the unrecorded
+            // default alone), and its own solved repr IS the plain `I64`
+            // default — never `F64`/`String`/`Object`/any other tagged
+            // handle variant.
             LirNodeKind::Value if node.children.is_empty() => node
                 .text
                 .as_deref()
                 .is_some_and(|name| self.identifier_is_provable_i64_scalar(name)),
-            // Call to a program function whose SOLVED return repr is the
-            // plain `I64` default (never float/string/object/etc). See this
-            // method's own doc for why the stricter `return_is_proven_numeric`
-            // allowlist is not required here.
+            // Call to a program function whose return is POSITIVELY proven
+            // numeric AND whose solved return repr is the plain `I64`
+            // default — the exact conjunction `emit/call.rs:4230-4242` uses.
             LirNodeKind::Call => node
                 .children
                 .first()
@@ -214,6 +234,7 @@ impl<'a> FunctionEmitter<'a> {
                 .and_then(|callee| self.node(callee).text.clone())
                 .is_some_and(|name| {
                     self.functions.contains_key(&name)
+                        && self.repr_table.return_is_proven_numeric(&name)
                         && self.repr_table.return_repr(&name) == kali_common::Repr::I64
                 }),
             _ => false,
@@ -221,10 +242,34 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     /// `name` resolution + aggregate-taint checks mirror
-    /// `binding_is_proven_string_coercion_scalar` (`emit/call.rs`) exactly,
-    /// narrowed to `I64` only (that coercion sink accepts `I64 | F64`; a
-    /// switch discriminant must not, since a float must be denied).
+    /// `binding_is_proven_string_coercion_scalar` (`emit/call.rs`), narrowed
+    /// to `I64` only (that coercion sink accepts `I64 | F64`; a switch
+    /// discriminant must not, since a float must be denied).
+    ///
+    /// Fix round 1: restores the `name_is_program_bound` gate that
+    /// sink's own first line applies (denies `globalThis` / `undefined` /
+    /// `NaN` / every other free global — dropping it let `globalThis` reach
+    /// the unrecorded-`Repr::I64`-default fallthrough below and be admitted;
+    /// measured as the `j_globalthis` differential), and replaces the bare
+    /// `scalar(func, name) == Repr::I64` comparison (a comparison against
+    /// `Repr`'s `#[default]`, not positive evidence — the exact defect
+    /// `emit/call.rs:4220-4229` and `bitwise_compound_rhs_is_provably_i64`'s
+    /// own doc both name) with the SAME two-source positive-evidence gate the
+    /// coercion sink's own call site requires alongside it
+    /// (`emit/call.rs:4146`): `name_is_declared_parameter(name) ||
+    /// binding_is_proven_numeric(name)`. A parameter is trusted without
+    /// further write-evidence (the one binding kind with no in-scope
+    /// initializer to prove — see `name_is_declared_parameter`'s own doc);
+    /// every other identifier (a local/module `var`, a `const`) must have an
+    /// explicit `repr_infer` numeric-write proof, which a boolean write
+    /// (`var d = true;`) never earns — closing the `cell16` differential
+    /// (`var d = true; switch (d) { case 1: ... }`), which the boolean
+    /// SYNTACTIC check above cannot catch since `d` is a bare identifier, not
+    /// a literal/comparison.
     fn identifier_is_provable_i64_scalar(&self, name: &str) -> bool {
+        if !self.name_is_program_bound(name) {
+            return false;
+        }
         let func: &str = if !self.locals.contains_key(name) && self.function_name != "_start" {
             "_start"
         } else {
@@ -237,30 +282,31 @@ impl<'a> FunctionEmitter<'a> {
         {
             return false;
         }
+        if !(self.name_is_declared_parameter(name) || self.binding_is_proven_numeric(name)) {
+            return false;
+        }
         self.repr_table.scalar(func, name) == kali_common::Repr::I64
     }
 
     /// A `case` test is admitted iff it is a numeric literal, optionally
-    /// under a unary `+`/`-`. Mirrors `bitwise_compound_rhs_is_provably_i64`
-    /// (`emit/operators.rs`) exactly for the literal proof (including its
-    /// explicit BigInt-suffix rejection), widened to also recognize unary
-    /// `+` — that predicate only needs `-` for its own RHS shape, but a
-    /// `case +1:` test is equally a plain numeric literal.
+    /// under a unary `+`/`-`. Delegates the literal (optionally unary `-`)
+    /// proof entirely to `bitwise_compound_rhs_is_provably_i64`
+    /// (`emit/operators.rs`) rather than re-deriving it (fix round 1: this
+    /// used to duplicate that function's body inline, one of three
+    /// independently-drifting copies) — widened only to also recognize
+    /// unary `+`, which that predicate does not need for its own RHS shape
+    /// but a `case +1:` test is equally a plain numeric literal.
     fn is_numeric_literal_case_test(&self, id: LirNodeId) -> bool {
         let id = self.unwrap_transparent(id);
         let id = self.resolve_bound_node(id);
         let node = self.node(id);
         if node.kind == LirNodeKind::Value
             && node.children.len() == 1
-            && matches!(node.text.as_deref(), Some("-") | Some("+"))
+            && node.text.as_deref() == Some("+")
         {
             return self.is_numeric_literal_case_test(node.children[0]);
         }
-        node.kind == LirNodeKind::Literal
-            && node
-                .text
-                .as_deref()
-                .is_some_and(|text| !text.ends_with('n') && parse_number_literal(text).is_some())
+        self.bitwise_compound_rhs_is_provably_i64(id)
     }
 
     /// `id` is a `return` statement. The SAME node shape `emit_node`'s own
@@ -369,14 +415,13 @@ impl<'a> FunctionEmitter<'a> {
         }
         function.instruction(&Instruction::I64Eq);
 
-        let frame = self.push_control_frame(ControlFlowLabelKind::If);
+        self.push_control_frame(ControlFlowLabelKind::If);
         function.instruction(&Instruction::If(BlockType::Empty));
         self.emit_clause_body(function, clause);
         function.instruction(&Instruction::Else);
         self.emit_clause_chain(function, disc_local, clauses, index + 1);
         function.instruction(&Instruction::End);
         self.pop_control_frame(ControlFlowLabelKind::If);
-        let _ = frame;
     }
 
     /// Emit a clause's statements, skipping a `case` clause's leading test
