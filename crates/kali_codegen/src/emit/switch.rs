@@ -36,8 +36,10 @@ pub(crate) enum ClauseTerminator {
 
 /// One admitted clause.
 pub(crate) struct SwitchClause {
-    /// `None` for the `default` clause.
-    pub(crate) test: Option<LirNodeId>,
+    /// The case tests that select this clause. More than one means a run of
+    /// EMPTY clauses grouped onto this body (`case 1: case 2: return x;`).
+    /// Empty for the `default` clause.
+    pub(crate) tests: Vec<LirNodeId>,
     pub(crate) body: LirNodeId,
     pub(crate) terminator: ClauseTerminator,
 }
@@ -81,6 +83,12 @@ impl<'a> FunctionEmitter<'a> {
             return Err("the discriminant is not a proven integer or string".to_string());
         };
 
+        // Pass 1: one `SwitchClause` per SYNTACTIC clause, exactly mirroring
+        // source order. An empty non-`default` clause gets
+        // `ClauseTerminator::EmptyGroup` here instead of being rejected —
+        // Task 10's widening — and carries only its OWN test (`tests` has at
+        // most one entry per raw clause at this point; grouping happens in
+        // pass 2 below).
         let mut clauses = Vec::new();
         let mut default_seen = false;
         for case_id in children {
@@ -131,51 +139,112 @@ impl<'a> FunctionEmitter<'a> {
             };
 
             // Rule 4: a clause must end in a proven control TRANSFER —
-            // `return`, an unlabeled `break`, or an unlabeled `continue`. Task
-            // 9 widened this from `return`-only by ADDING the two transfer
-            // proofs beside it; it removed nothing, so a clause ending in a
-            // bare assignment (true fallthrough) is denied exactly as before,
-            // and so is a LABELED `break`/`continue` (those bind to an
-            // enclosing labeled statement, not to this switch, and
-            // `emit_break_or_continue` rejects labels globally anyway).
-            // Empty grouping arrives in Task 10.
-            let terminator = match stmts.last() {
-                Some(last) if self.is_return_statement(*last) => ClauseTerminator::Return,
-                Some(last) if self.is_unlabeled_break_statement(*last) => ClauseTerminator::Break,
-                Some(last) if self.is_unlabeled_continue_statement(*last) => {
-                    ClauseTerminator::Continue
-                }
-                _ => {
-                    return Err(
-                        "a clause that does not end in `return`, `break` or `continue` \
-                         (true fallthrough is not in the supported lowering set)"
-                            .to_string(),
-                    )
+            // `return`, an unlabeled `break`, or an unlabeled `continue` — OR
+            // (Task 10) have NO statements at all and be a non-`default`
+            // clause, which groups its test onto the next clause instead of
+            // needing a terminator of its own. Task 9 widened this from
+            // `return`-only by ADDING the two transfer proofs beside it; it
+            // removed nothing, so a clause ending in a bare assignment (true
+            // fallthrough) is denied exactly as before, and so is a LABELED
+            // `break`/`continue` (those bind to an enclosing labeled
+            // statement, not to this switch, and `emit_break_or_continue`
+            // rejects labels globally anyway). An EMPTY `default` clause is
+            // NOT eligible for `EmptyGroup` — it has no test of its own to
+            // hand forward — so it falls to the same "no terminator" denial
+            // as true fallthrough, which is accurate: it is exactly as
+            // unsupported as fallthrough is.
+            let terminator = if stmts.is_empty() && !is_default {
+                ClauseTerminator::EmptyGroup
+            } else {
+                match stmts.last() {
+                    Some(last) if self.is_return_statement(*last) => ClauseTerminator::Return,
+                    Some(last) if self.is_unlabeled_break_statement(*last) => {
+                        ClauseTerminator::Break
+                    }
+                    Some(last) if self.is_unlabeled_continue_statement(*last) => {
+                        ClauseTerminator::Continue
+                    }
+                    _ => {
+                        return Err(
+                            "a clause that does not end in `return`, `break` or `continue` \
+                             (true fallthrough is not in the supported lowering set)"
+                                .to_string(),
+                        )
+                    }
                 }
             };
 
             // Rule 5: `let`/`const` in a clause body is denied — block
             // shadowing is unmodeled (register R-10), so a case-scoped binding
             // would build on a known-broken foundation. `var` is
-            // function-scoped and admitted.
+            // function-scoped and admitted. Vacuously satisfied for an
+            // `EmptyGroup` clause (`stmts` is empty).
             if stmts.iter().any(|s| self.declares_block_scoped_binding(*s)) {
                 return Err("a `let`/`const` declaration in a clause body".to_string());
             }
 
             clauses.push(SwitchClause {
-                test,
+                tests: test.into_iter().collect(),
                 body: case_id,
                 terminator,
             });
         }
 
-        if clauses.is_empty() {
+        // Pass 2: fold each run of `EmptyGroup` clauses forward onto the next
+        // clause, in source order, so `disc === t1 || disc === t2 || ...`
+        // guards ONE body — no clause body is ever emitted twice. This is the
+        // one place `SwitchClause::terminator` is read: identifying an
+        // `EmptyGroup` clause so its test can be carried forward and the
+        // clause itself dropped (it has no body to emit).
+        let mut folded = Vec::with_capacity(clauses.len());
+        let mut pending_tests: Vec<LirNodeId> = Vec::new();
+        for clause in clauses {
+            if clause.terminator == ClauseTerminator::EmptyGroup {
+                pending_tests.extend(clause.tests);
+                continue;
+            }
+            // A `default` clause (the only clause whose OWN `tests` is empty
+            // at this point — every `case` clause pushed exactly one test in
+            // pass 1) can never absorb tests grouped from a preceding empty
+            // `case` clause: `default` already means "every value not
+            // otherwise matched", so folding preceding tests into it as an
+            // equality disjunction would silently NARROW it to just those
+            // tests. Node returns the SAME answer for every input on this
+            // shape (`case 1: case 2: default: return "x";` — see the Task 10
+            // report's oracle output), which is exactly why narrowing it
+            // would be a silent miscompile, not a merely-incomplete lowering.
+            // Denying is always sound; only widening ever needs a proof.
+            if clause.tests.is_empty() && !pending_tests.is_empty() {
+                return Err(
+                    "a `default` clause cannot be grouped with a preceding empty `case` clause"
+                        .to_string(),
+                );
+            }
+            let mut tests = std::mem::take(&mut pending_tests);
+            tests.extend(clause.tests);
+            folded.push(SwitchClause {
+                tests,
+                body: clause.body,
+                terminator: clause.terminator,
+            });
+        }
+
+        // A trailing run of empty clauses with nothing left to group onto
+        // (`case 1: return "a"; case 2:` at the end of the switch) is legal
+        // JS — it falls out of the switch, per the Task 10 report's oracle
+        // output — but there is no clause left in this plan to carry the
+        // test, so it is denied explicitly rather than silently dropped.
+        if !pending_tests.is_empty() {
+            return Err("an empty trailing clause with no body to group onto".to_string());
+        }
+
+        if folded.is_empty() {
             return Err("a switch with no clauses".to_string());
         }
         Ok(SwitchPlan {
             discriminant,
             disc_is_string,
-            clauses,
+            clauses: folded,
         })
     }
 
@@ -778,44 +847,60 @@ impl<'a> FunctionEmitter<'a> {
         let Some(clause) = clauses.get(index) else {
             return;
         };
-        let Some(test) = clause.test else {
+        if clause.tests.is_empty() {
             // The default clause: run it unconditionally at this depth.
             self.emit_clause_body(function, clause);
             return;
-        };
-
-        function.instruction(&Instruction::LocalGet(disc_local));
-        let produced = self.emit_node(function, test, true);
-        if !produced.produced {
-            function.instruction(&Instruction::I64Const(0));
         }
-        if disc_is_string {
-            // Reuse the EXISTING runtime string-equality helper `__streq` —
-            // the same one `emit_binary`'s both-string `===`/`!==` arm calls
-            // (`emit/operators.rs`), reached through the same
-            // `streq_fn_index()` accessor. Nothing about the comparison is
-            // hand-rolled here, so `switch` inherits R-08's fixed strict-
-            // equality semantics by construction and cannot drift from them:
-            // CONTENT equality (length + bytes, with handle identity only as
-            // an internal fast path), which is why a runtime-built `"a" + "b"`
-            // selects `case "ab"` instead of missing every clause.
-            //
-            // No env-get relocation is needed (unlike the `===` arm's
-            // env-vs-env case): the discriminant is already materialized in
-            // its own local before any clause test is emitted, and a case test
-            // is an interned literal, so the two operands never share the
-            // reserved scratch buffer.
-            //
-            // `__streq` returns an i64 that is exactly 0 or 1, and `If` needs
-            // an i32, so the result is compared against 1. Deliberately NOT
-            // `i64.eqz`: `__streq` is present in every module and
-            // `pipeline_basics::boolean_branches_use_the_layout_fast_path`
-            // pins module-wide printed text as containing no `i64.eqz`.
-            function.instruction(&Instruction::Call(self.streq_fn_index()));
-            function.instruction(&Instruction::I64Const(1));
-            function.instruction(&Instruction::I64Eq);
-        } else {
-            function.instruction(&Instruction::I64Eq);
+
+        // `disc === t1 || disc === t2 || ...` — ONE body guarded by ALL the
+        // grouped tests, in source order, so no clause body is ever emitted
+        // twice and a group of N tests costs N comparisons, not N clauses.
+        // Each comparison (both branches below) leaves an i32 on the stack —
+        // wasm's `i64.eq` itself returns i32 regardless of operand width, and
+        // the string branch's extra `i64.eq` against the `__streq` result is
+        // the same shape — so `i32.or` is the correct fold with no wrapping:
+        // confirmed by this file's own single-test form doing the identical
+        // sequence before this task, and unchanged by it.
+        for (i, test) in clause.tests.iter().enumerate() {
+            function.instruction(&Instruction::LocalGet(disc_local));
+            let produced = self.emit_node(function, *test, true);
+            if !produced.produced {
+                function.instruction(&Instruction::I64Const(0));
+            }
+            if disc_is_string {
+                // Reuse the EXISTING runtime string-equality helper `__streq`
+                // — the same one `emit_binary`'s both-string `===`/`!==` arm
+                // calls (`emit/operators.rs`), reached through the same
+                // `streq_fn_index()` accessor. Nothing about the comparison is
+                // hand-rolled here, so `switch` inherits R-08's fixed strict-
+                // equality semantics by construction and cannot drift from
+                // them: CONTENT equality (length + bytes, with handle
+                // identity only as an internal fast path), which is why a
+                // runtime-built `"a" + "b"` selects `case "ab"` instead of
+                // missing every clause.
+                //
+                // No env-get relocation is needed (unlike the `===` arm's
+                // env-vs-env case): the discriminant is already materialized
+                // in its own local before any clause test is emitted, and a
+                // case test is an interned literal, so the two operands never
+                // share the reserved scratch buffer.
+                //
+                // `__streq` returns an i64 that is exactly 0 or 1, and `If`
+                // (and `i32.or`) need an i32, so the result is compared
+                // against 1. Deliberately NOT `i64.eqz`: `__streq` is present
+                // in every module and
+                // `pipeline_basics::boolean_branches_use_the_layout_fast_path`
+                // pins module-wide printed text as containing no `i64.eqz`.
+                function.instruction(&Instruction::Call(self.streq_fn_index()));
+                function.instruction(&Instruction::I64Const(1));
+                function.instruction(&Instruction::I64Eq);
+            } else {
+                function.instruction(&Instruction::I64Eq);
+            }
+            if i > 0 {
+                function.instruction(&Instruction::I32Or);
+            }
         }
 
         self.push_control_frame(ControlFlowLabelKind::If);
@@ -831,7 +916,14 @@ impl<'a> FunctionEmitter<'a> {
     /// child (a `default` clause has no test child).
     fn emit_clause_body(&mut self, function: &mut Function, clause: &SwitchClause) {
         let body = self.node(clause.body);
-        let skip = usize::from(clause.test.is_some());
+        // `clause.body` is always the LAST (non-empty) case node in the group
+        // — the earlier grouped-in EMPTY clauses contributed only a test, no
+        // body — so whether to skip a leading test child depends on whether
+        // THIS node is a `case` or `default`, which `tests.is_empty()` still
+        // tells us: a `case` clause always pushes its own test (even with an
+        // empty `pending_tests`), so `tests` is non-empty iff this is a
+        // `case`, never `default`.
+        let skip = usize::from(!clause.tests.is_empty());
         let stmts: Vec<LirNodeId> = body.children.iter().copied().skip(skip).collect();
         for stmt in stmts {
             let produced = self.emit_node(function, stmt, false);

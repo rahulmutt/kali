@@ -817,3 +817,173 @@ fn a_duplicate_string_case_is_first_match_wins() {
                console.log(\"v=\" + s(\"a\"));\n";
     assert_eq!(run_js(src), "v=1\n");
 }
+// ===========================================================================
+// R-35 Task 10: empty-clause grouping. A run of EMPTY clauses
+// (`case 1: case 2: body`) collapses onto the next terminated clause, which
+// carries all of the grouped tests and ORs them: `disc === 1 || disc === 2`
+// guarding ONE body. Node's oracle output for every fixture below is recorded
+// in the Task 10 report.
+
+#[test]
+fn empty_clauses_group_onto_the_next() {
+    let src = "function s(x) {\n\
+                 switch (x) {\n\
+                   case 1:\n\
+                   case 2: return \"low\";\n\
+                   case 3: return \"mid\";\n\
+                   default: return \"high\";\n\
+                 }\n\
+               }\n";
+    assert_eq!(
+        run_js(&format!("{src}console.log(\"v=\" + s(1));")),
+        "v=low\n"
+    );
+    assert_eq!(
+        run_js(&format!("{src}console.log(\"v=\" + s(2));")),
+        "v=low\n"
+    );
+    assert_eq!(
+        run_js(&format!("{src}console.log(\"v=\" + s(3));")),
+        "v=mid\n"
+    );
+    assert_eq!(
+        run_js(&format!("{src}console.log(\"v=\" + s(9));")),
+        "v=high\n"
+    );
+}
+
+#[test]
+fn a_grouped_body_is_emitted_once_not_per_test() {
+    // If the body were duplicated per grouped test, `hits` would be 2.
+    let src = "var hits = 0;\n\
+               function s(x) {\n\
+                 switch (x) {\n\
+                   case 1:\n\
+                   case 2: hits = hits + 1; break;\n\
+                   default: break;\n\
+                 }\n\
+                 return 0;\n\
+               }\n\
+               s(1);\n\
+               console.log(\"hits=\" + hits);\n";
+    assert_eq!(run_js(src), "hits=1\n");
+}
+
+#[test]
+fn empty_clauses_group_with_a_string_discriminant() {
+    let src = "function s(x) {\n\
+                 switch (x) {\n\
+                   case \"a\":\n\
+                   case \"b\": return \"ab\";\n\
+                   default: return \"other\";\n\
+                 }\n\
+               }\n";
+    assert_eq!(
+        run_js(&format!("{src}console.log(\"v=\" + s(\"b\"));")),
+        "v=ab\n"
+    );
+    assert_eq!(
+        run_js(&format!("{src}console.log(\"v=\" + s(\"z\"));")),
+        "v=other\n"
+    );
+}
+
+// Moved (and flipped) from `switch_fail_closed.rs`'s
+// `an_empty_grouped_clause_is_still_fail_closed_at_task_9`. Task 10's
+// `EmptyGroup` makes this exact fixture correctness, not denial — the same
+// move Task 9 made for `switch_nested_in_a_loop_selects_correctly_with_break_
+// and_continue`. Not deleted or weakened: kept verbatim, now asserting node's
+// bytes, and both group members (`s(1)` AND `s(2)`) are checked so a bug that
+// mapped the whole group to the first arm cannot pass.
+#[test]
+fn an_empty_grouped_clause_beside_a_break_clause_is_admitted() {
+    let src = "function s(x) {\n\
+                 var r = 0;\n\
+                 switch (x) {\n\
+                   case 1:\n\
+                   case 2: r = 2; break;\n\
+                   default: r = 9; break;\n\
+                 }\n\
+                 return r;\n\
+               }\n";
+    assert_eq!(
+        run_js(&format!("{src}console.log(\"v=\" + s(1));")),
+        "v=2\n"
+    );
+    assert_eq!(
+        run_js(&format!("{src}console.log(\"v=\" + s(2));")),
+        "v=2\n"
+    );
+    assert_eq!(
+        run_js(&format!("{src}console.log(\"v=\" + s(9));")),
+        "v=9\n"
+    );
+}
+
+// Scope is a required test axis, and module scope can't use `return`, so this
+// is the module-scope grouping cell (function-scope is covered above). It
+// also serves the anti-spot-check: `x = 2` (the SECOND group member, not the
+// first) is checked, plus `x = 1` and the default fall-through.
+#[test]
+fn empty_clause_group_is_admitted_at_module_scope() {
+    let src = "var x = 1;\n\
+               var r = 0;\n\
+               switch (x) {\n\
+                 case 1:\n\
+                 case 2: r = 100; break;\n\
+                 default: r = 9; break;\n\
+               }\n\
+               console.log(\"v=\" + r);\n";
+    assert_eq!(run_js(src), "v=100\n");
+    assert_eq!(run_js(&src.replace("var x = 1;", "var x = 2;")), "v=100\n");
+    assert_eq!(run_js(&src.replace("var x = 1;", "var x = 9;")), "v=9\n");
+}
+
+// Grouping combined with `break` inside a LOOP: per-iteration `console.log`
+// is mandatory here (any switch fixture with `break` measures loop-truncation
+// FIRST — a loop can die at iteration 0 before the switch's behaviour is ever
+// observed, which produced a wrong matrix cell in Task 4). Both grouped
+// members (`i = 0` and `i = 1`) must take the grouped clause, so the running
+// sum discriminates a "first-arm-only" grouping bug from a correct one.
+#[test]
+fn grouped_clauses_terminated_by_break_select_correctly_in_a_loop() {
+    let src = "var i = 0;\n\
+               var s = 0;\n\
+               while (i < 4) {\n\
+                 console.log(\"iter=\" + i);\n\
+                 switch (i) {\n\
+                   case 0:\n\
+                   case 1: s = s + 100; break;\n\
+                   default: s = s + i; break;\n\
+                 }\n\
+                 i = i + 1;\n\
+               }\n\
+               console.log(\"s=\" + s);\n";
+    assert_eq!(run_js(src), "iter=0\niter=1\niter=2\niter=3\ns=205\n");
+}
+
+// Grouping combined with `continue` under a FAITHFUL enclosing loop (`while`
+// — see the register's R-09 note on why a `for` `continue` fixture measures
+// loop-truncation/R-09 instead of this task's property). Per-iteration
+// `console.log` again mandatory. `i = 1` and `i = 2` both take the grouped
+// clause and `continue` (skipping the `s = s + i` add); if the grouping only
+// bound the FIRST test, `i = 2` would fall to `default` and add 2 to `s`,
+// changing the total from 12 to 14 — the anti-spot-check.
+#[test]
+fn grouped_clauses_terminated_by_continue_select_correctly_under_a_faithful_loop() {
+    let src = "var i = 0;\n\
+               var s = 0;\n\
+               while (i < 6) {\n\
+                 console.log(\"iter=\" + i);\n\
+                 switch (i) {\n\
+                   case 1:\n\
+                   case 2: i = i + 1; continue;\n\
+                   default: s = s + i; i = i + 1; break;\n\
+                 }\n\
+               }\n\
+               console.log(\"s=\" + s);\n";
+    assert_eq!(
+        run_js(src),
+        "iter=0\niter=1\niter=2\niter=3\niter=4\niter=5\ns=12\n"
+    );
+}

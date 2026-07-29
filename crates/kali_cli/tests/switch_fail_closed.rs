@@ -62,6 +62,23 @@ const UNFAITHFUL_CONTINUE: &str =
 // `switch_plan` ever runs. Tests that pin a SWITCH-side conjunct must assert
 // this is ABSENT, or they cannot tell the two apart.
 const REPR_MIXED_CONFLICT: &str = "is used as both a string and a number";
+// Task 10: a trailing run of empty clauses with nothing left to group onto
+// (`case 1: return "a"; case 2:` at the end of the switch) is legal JS — it
+// falls out of the switch — but this compiler has no clause left to carry its
+// test, so it is denied rather than silently dropped.
+const TRAILING_EMPTY_GROUP: &str = "an empty trailing clause with no body to group onto";
+// Task 10: a NON-EMPTY `default` cannot ABSORB tests grouped onto it from a
+// preceding empty `case` clause (`case 1: case 2: default: return "x";`) —
+// `default` already means "every value not otherwise matched", so folding
+// preceding tests into it as an equality disjunction would silently narrow it
+// to those tests only. Node returns the SAME answer for every input on this
+// fixture (see the Task 10 report), which is exactly why a narrowed
+// disjunction would be a silent miscompile rather than a merely-incomplete
+// one. (An EMPTY `default`, e.g. `case 1: default: case 2: …`, denies via
+// Rule 4 instead — see `a_mid_group_empty_default_is_fail_closed` — because
+// it is not eligible for `EmptyGroup` at all, so it never reaches this rule.)
+const DEFAULT_CANNOT_GROUP: &str =
+    "a `default` clause cannot be grouped with a preceding empty `case` clause";
 
 /// Assert `out` was denied by the named rule, not merely denied.
 fn assert_denied_by(out: &str, rule: &str, what: &str) {
@@ -778,25 +795,15 @@ fn a_braced_break_clause_is_fail_closed() {
     assert_denied_by(&out, RULE_4_TERMINATOR, "a braced break clause");
 }
 
-// An EMPTY clause grouping onto the next (`case 1: case 2: …`) has no last
-// statement at all, so Rule 4 denies it. This is Task 10's `EmptyGroup`
-// territory; pinned here so the flip is deliberate and visible when it happens.
-#[test]
-fn an_empty_grouped_clause_is_still_fail_closed_at_task_9() {
-    let out = run_js_expect_failure(
-        "function s(x) {\n\
-           var r = 0;\n\
-           switch (x) {\n\
-             case 1:\n\
-             case 2: r = 2; break;\n\
-             default: r = 9; break;\n\
-           }\n\
-           return r;\n\
-         }\n\
-         console.log(\"v=\" + s(1));\n",
-    );
-    assert_denied_by(&out, RULE_4_TERMINATOR, "an empty grouped clause");
-}
+// NOTE (Task 10): `an_empty_grouped_clause_is_still_fail_closed_at_task_9` used
+// to live here. Task 6/9-era Rule 4 denied an EMPTY clause because it has no
+// last statement to classify as a terminator. Task 10 admits `EmptyGroup`,
+// which folds an empty clause's test onto the next terminated clause instead
+// of rejecting it, so this exact fixture FLIPS from denial to correctness —
+// the same move Task 9 made for `switch_nested_in_for_loop_is_fail_closed_
+// not_silently_wrong`. It was neither deleted nor weakened; it moved verbatim
+// (both group members checked) to `switch_runtime.rs` as
+// `an_empty_grouped_clause_beside_a_break_clause_is_admitted`.
 
 // The same boundary at MODULE scope (scope is a required test axis), and on the
 // STRING axis, so the terminator rule cannot have been widened on one axis only.
@@ -1170,4 +1177,99 @@ fn string_switch_still_obeys_the_clause_rules() {
          console.log(\"v=\" + s(\"a\"));\n",
     );
     assert_denied_by(&out, RULE_5_BLOCK_BINDING, "a `let` in a string clause");
+}
+
+// ===========================================================================
+// R-35 Task 10: `EmptyGroup` widens Rule 4 to fold an empty clause's test onto
+// the next terminated clause. What stays denied: a trailing empty group with
+// nothing to fall onto, and `default` on either side of a group.
+
+// A trailing empty clause (`case 2:` last, nothing after it) is legal JS —
+// node falls out of the switch for it (see the Task 10 report's oracle
+// output) — but there is no clause left in this compiler's plan to carry its
+// test, so the plan denies it explicitly rather than silently dropping it.
+#[test]
+fn a_trailing_empty_clause_with_nothing_after_is_fail_closed() {
+    let out = run_js_expect_failure(
+        "function s(x) {\n\
+           var r = 0;\n\
+           switch (x) {\n\
+             case 1: r = 1; break;\n\
+             case 2:\n\
+           }\n\
+           return r;\n\
+         }\n\
+         console.log(\"v=\" + s(1));\n",
+    );
+    assert_denied_by(&out, TRAILING_EMPTY_GROUP, "a trailing empty clause");
+}
+
+// Same shape on the STRING axis and at MODULE scope — scope and domain are
+// both required test axes, and this is a NEW rule, not a re-exercise of one
+// already covered elsewhere.
+#[test]
+fn a_trailing_empty_clause_is_fail_closed_on_the_string_axis_at_module_scope() {
+    let out = run_js_expect_failure(
+        "var r = \"?\";\n\
+         var x = \"a\";\n\
+         switch (x) {\n\
+           case \"a\": r = \"A\"; break;\n\
+           case \"b\":\n\
+         }\n\
+         console.log(\"v=\" + r);\n",
+    );
+    assert_denied_by(
+        &out,
+        TRAILING_EMPTY_GROUP,
+        "a trailing empty clause on the string axis at module scope",
+    );
+}
+
+// An EMPTY `default` in the middle of a group (`case 1: default: case 2: …`)
+// is legal JS — node returns "x" for every input, per the Task 10 report —
+// but `default` is NOT eligible for `EmptyGroup` (it has no test of its own
+// to hand forward), so an empty `default` denies for the SAME reason any
+// other terminator-less clause does: Rule 4, not the `default`-specific
+// absorption rule below (that rule fires only for a NON-empty `default`,
+// which this clause is not). Pinning Rule 4 here — not `DEFAULT_CANNOT_GROUP`
+// — is deliberate: it is the honest mechanism, verified by reading
+// `switch_plan`, not assumed from the shape's resemblance to the other cell.
+#[test]
+fn a_mid_group_empty_default_is_fail_closed() {
+    let out = run_js_expect_failure(
+        "function s(x) {\n\
+           switch (x) {\n\
+             case 1:\n\
+             default:\n\
+             case 2: return \"x\";\n\
+           }\n\
+         }\n\
+         console.log(\"v=\" + s(1));\n",
+    );
+    assert_denied_by(&out, RULE_4_TERMINATOR, "a mid-group empty default");
+}
+
+// A NON-empty `default` that ABSORBS tests grouped onto it from a preceding
+// empty `case` (`case 1: case 2: default: return "x";`) is the other
+// direction of the same hazard: node still returns "x" for every input
+// (`default` already means "anything else"), but representing that as
+// `disc === 1 || disc === 2` would silently NARROW it to just those two
+// values — the exact miscompile this denial exists to prevent.
+#[test]
+fn a_default_clause_cannot_absorb_a_preceding_empty_group() {
+    let out = run_js_expect_failure(
+        "function s(x) {\n\
+           switch (x) {\n\
+             case 1:\n\
+             case 2:\n\
+             default: return \"x\";\n\
+           }\n\
+         }\n\
+         console.log(\"v=\" + s(1));\n",
+    );
+    assert_denied_by(
+        &out,
+        DEFAULT_CANNOT_GROUP,
+        "a default clause absorbing a preceding empty group",
+    );
 }
