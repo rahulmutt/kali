@@ -49,6 +49,14 @@ const RULE_5_BLOCK_BINDING: &str = "a `let`/`const` declaration in a clause body
 // admitted and the `continue` had nowhere to go".
 const NO_ENCLOSING_LOOP: &str =
     "`continue` inside a `switch` requires an enclosing loop; there is none here";
+// The OTHER `None` cause, and pairwise disjoint from the one above: there IS an
+// enclosing loop, but its `continue` lowering is unfaithful (register R-09), so
+// the switch declines to inherit its continue target. Pinned separately because
+// a test that accepted either message could not tell "you have no loop" from
+// "your loop's `continue` would silently skip iterations" — and the first would
+// be a lie to anyone with a perfectly good `for` loop.
+const UNFAITHFUL_CONTINUE: &str =
+    "does not re-run the update/test faithfully in the current lowering (register R-09)";
 // Not a switch rule: `kali_types`'s `plain_write_targets` shape conflict, which
 // refuses a string-reachable binding fed by an unbacked plain source BEFORE
 // `switch_plan` ever runs. Tests that pin a SWITCH-side conjunct must assert
@@ -72,7 +80,7 @@ fn assert_denied_by(out: &str, rule: &str, what: &str) {
 // and Rule 4 admitted only `return`. Task 9 admits those terminators, so the
 // cell FLIPPED to correctness and moved verbatim (per-iteration `console.log`
 // intact) to `switch_runtime.rs` as
-// `switch_nested_in_for_loop_selects_correctly_with_break_and_continue`. It was
+// `switch_nested_in_a_loop_selects_correctly_with_break_and_continue`. It was
 // neither deleted nor weakened; it now asserts node's exact bytes.
 
 // Scope is a required test axis. Module scope cannot use `return`, so this
@@ -517,6 +525,142 @@ fn continue_in_a_switch_with_no_enclosing_loop_is_fail_closed() {
         "the `continue` must be denied by the no-enclosing-loop arm of \
          `emit_break_or_continue`, not by Rule 4 refusing the clause (that \
          would mean the `None` branch is dead code and untested); got: {out}"
+    );
+}
+
+// ===========================================================================
+// FIX ROUND 1: a `continue` that would bind to a loop whose `continue` lowering
+// is UNFAITHFUL must fail closed. Admitting `continue` moved these from
+// fail-closed to SILENTLY WRONG; the fix filters the inheritance at
+// `emit_switch_plan`, so `emit_break_or_continue`'s existing `None` arm catches
+// both the terminator form and the nested form with no clause-body walk.
+// ===========================================================================
+
+// LEAK 1 (the reviewer's cell). `continue` as a clause TERMINATOR inside a
+// C-style `for`. Measured at `a82d8499be`, exit 0 and no diagnostic:
+//   kali iter=0|iter=1|iter=2|iter=3|iter=4|iter=5|s=13
+//   node iter=0|iter=1|iter=2|iter=4|iter=5|s=10
+// The `continue` skipped the loop's `i = i + 1` update (register R-09), so the
+// `i = i + 1` written inside the clause was undone and iteration 3 ran when
+// node skips it. Per-iteration logging is what makes that visible as a changed
+// iteration SEQUENCE rather than just a wrong total.
+#[test]
+fn continue_in_a_switch_in_a_c_style_for_loop_is_fail_closed() {
+    let out = run_js_expect_failure(
+        "var s = 0;\n\
+         for (var i = 0; i < 6; i = i + 1) {\n\
+           console.log(\"iter=\" + i);\n\
+           switch (i) {\n\
+             case 2: i = i + 1; continue;\n\
+             default: s = s + i; break;\n\
+           }\n\
+         }\n\
+         console.log(\"s=\" + s);\n",
+    );
+    assert_denied_by(&out, UNFAITHFUL_CONTINUE, "continue in a C-style for");
+    assert!(
+        !out.contains("iter="),
+        "it must be refused at compile time, not part-way through the loop; got: {out}"
+    );
+}
+
+// LEAK 2, and the reason reverting the `Continue` TERMINATOR would not have
+// been enough: the identical wrongness through a `continue` NESTED INSIDE a
+// `return`-terminated clause. Rule 4 has admitted that clause shape since Task
+// 7, so this leak PREDATES Task 9's terminator widening — Task 9 widened an
+// already-leaking surface rather than creating it. Measured at `a82d8499be`,
+// exit 0, no diagnostic: kali `v=s=13` / six `iter=` lines against node's
+// `v=s=10` / five.
+#[test]
+fn continue_nested_in_a_return_clause_in_a_c_style_for_loop_is_fail_closed() {
+    let out = run_js_expect_failure(
+        "function f() {\n\
+           var s = 0; var i = 0;\n\
+           for (i = 0; i < 6; i = i + 1) {\n\
+             console.log(\"iter=\" + i);\n\
+             switch (i) {\n\
+               case 2: if (i === 2) { i = i + 1; continue; } return \"unreachable\";\n\
+               default: s = s + i; break;\n\
+             }\n\
+           }\n\
+           return \"s=\" + s;\n\
+         }\n\
+         console.log(\"v=\" + f());\n",
+    );
+    assert_denied_by(&out, UNFAITHFUL_CONTINUE, "continue nested in a return clause");
+    assert!(
+        !out.contains("iter="),
+        "it must be refused at compile time, not part-way through the loop; got: {out}"
+    );
+}
+
+// `do`/`while` is unfaithful too, and this cell is the one that contradicts
+// `emit_loop`'s original doc comment (which claimed do-while "re-tests
+// correctly on `continue`" because it has no update). It does not: the test is
+// at the BOTTOM and `continue` branches to the loop TOP. Measured switch-free,
+// `do { i = i + 1; console.log("iter=" + i); continue; } while (i < 3);` printed
+// 1,578,155 lines before trapping at exit 1 where node prints three and `i=3`.
+#[test]
+fn continue_in_a_switch_in_a_do_while_is_fail_closed() {
+    let out = run_js_expect_failure(
+        "var s = 0; var i = 0;\n\
+         do {\n\
+           i = i + 1;\n\
+           console.log(\"iter=\" + i);\n\
+           switch (i) { case 2: continue; default: s = s + i; break; }\n\
+         } while (i < 4);\n\
+         console.log(\"s=\" + s);\n",
+    );
+    assert_denied_by(&out, UNFAITHFUL_CONTINUE, "continue in a do-while");
+}
+
+// `for...in` advances its ordinal AFTER the body, so `continue` re-reads the
+// same key forever. Measured switch-free: `key=b` 1,249,832 times, exit 1,
+// against node's a/b/c and `n=2`. (That hang is R-09 family and is routed to
+// Task 11's register work; this cell only pins that `switch` refuses to widen
+// into it.)
+#[test]
+fn continue_in_a_switch_in_a_for_in_is_fail_closed() {
+    let out = run_js_expect_failure(
+        "var o = { a: 1, b: 2 }; var n = 0;\n\
+         for (var k in o) {\n\
+           console.log(\"key=\" + k);\n\
+           switch (k) { case \"b\": continue; default: n = n + 1; break; }\n\
+         }\n\
+         console.log(\"n=\" + n);\n",
+    );
+    assert_denied_by(&out, UNFAITHFUL_CONTINUE, "continue in a for-in");
+}
+
+// The two `None` causes must stay DISTINGUISHABLE. A switch with no enclosing
+// loop must NOT be told its loop form is unsupported, and a switch in a
+// C-style `for` must NOT be told it has no loop. Without this, one message
+// could quietly replace the other and both cells above would still pass.
+#[test]
+fn the_two_continue_denial_causes_are_reported_distinctly() {
+    let no_loop = run_js_expect_failure(
+        "function s(x) {\n\
+           var r = 0;\n\
+           switch (x) { case 1: continue; default: r = 9; break; }\n\
+           return r;\n\
+         }\n\
+         console.log(\"v=\" + s(1));\n",
+    );
+    assert!(no_loop.contains(NO_ENCLOSING_LOOP), "got: {no_loop}");
+    assert!(
+        !no_loop.contains(UNFAITHFUL_CONTINUE),
+        "a switch with NO loop must not be told its loop form is unsupported; got: {no_loop}"
+    );
+    let bad_form = run_js_expect_failure(
+        "for (var i = 0; i < 3; i = i + 1) {\n\
+           console.log(\"iter=\" + i);\n\
+           switch (i) { case 1: continue; default: break; }\n\
+         }\n",
+    );
+    assert!(bad_form.contains(UNFAITHFUL_CONTINUE), "got: {bad_form}");
+    assert!(
+        !bad_form.contains(NO_ENCLOSING_LOOP),
+        "a switch inside a real `for` must not be told there is no loop; got: {bad_form}"
     );
 }
 

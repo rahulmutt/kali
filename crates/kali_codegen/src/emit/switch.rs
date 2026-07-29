@@ -696,12 +696,48 @@ impl<'a> FunctionEmitter<'a> {
         // `iter=1` / `v=def0`, exit 0 both sides — a silent miscompile this
         // unconditional push closes. Gating on `terminator` would reopen it,
         // which is why `SwitchClause::terminator` is NOT read here.
-        let inherited_continue = self.loop_frames.last().and_then(|f| f.continue_index);
+        //
+        // FIX ROUND 1 — the inheritance is CONDITIONAL on the enclosing loop's
+        // `continue` lowering being faithful. Admitting `continue` at all moved
+        // two shapes from fail-closed to silently wrong, because a `continue`
+        // that binds to a C-style `for` skips that loop's update (register
+        // R-09). Measured at `a82d8499be`, exit 0 and no diagnostic on both:
+        //
+        //   for (var i = 0; i < 6; i = i + 1) { …
+        //     switch (i) { case 2: i = i + 1; continue; default: s = s + i; break; } }
+        //   node iter=0/1/2/4/5 s=10   kali iter=0/1/2/3/4/5 s=13
+        //
+        // and the SAME wrongness with the `continue` nested inside a
+        // `return`-terminated clause — a shape Rule 4 has admitted since Task 7,
+        // so this leak predates the `Continue` terminator and reverting that
+        // terminator would not have closed it.
+        //
+        // Filtering here rather than walking clause bodies for `continue` keeps
+        // the whole thing at the one choke point and preserves the
+        // by-construction property: `emit_break_or_continue` still has no test
+        // for what kind of frame it is looking at, and its existing `None` arm
+        // now fails closed for BOTH shapes for free. Faithfulness is a property
+        // of the LOOP (see `LoopFrame::continue_is_faithful`), so `switch`
+        // states no opinion about loops here — it only declines to widen into
+        // one whose `continue` it cannot lower honestly.
+        let enclosing = self.loop_frames.last().copied();
+        let (inherited_continue, inherited_faithful) = match enclosing {
+            // A faithful enclosing frame: inherit its continue target verbatim.
+            // (Transitive through nested switches — an inner switch inherits
+            // whatever the outer switch inherited.)
+            Some(frame) if frame.continue_is_faithful => (frame.continue_index, true),
+            // An unfaithful enclosing loop: inherit NOTHING, and record WHY so
+            // the diagnostic can say so instead of claiming there is no loop.
+            Some(_) => (None, false),
+            // No enclosing loop at all.
+            None => (None, true),
+        };
         let break_index = self.push_control_frame(ControlFlowLabelKind::LoopBreak);
         function.instruction(&Instruction::Block(BlockType::Empty));
         self.loop_frames.push(LoopFrame {
             break_index,
             continue_index: inherited_continue,
+            continue_is_faithful: inherited_faithful,
         });
 
         self.emit_clause_chain(function, disc_local, plan.disc_is_string, &plan.clauses, 0);

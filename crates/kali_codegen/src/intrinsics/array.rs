@@ -1258,6 +1258,7 @@ impl<'a> FunctionEmitter<'a> {
         self.loop_frames.push(LoopFrame {
             break_index,
             continue_index: Some(continue_index),
+            continue_is_faithful: true,
         });
 
         // if i >= n break
@@ -1412,6 +1413,7 @@ impl<'a> FunctionEmitter<'a> {
                 self.loop_frames.push(LoopFrame {
                     break_index,
                     continue_index: Some(continue_index),
+                    continue_is_faithful: true,
                 });
                 function.instruction(&Instruction::Block(BlockType::Empty));
                 if let Some(body) = body {
@@ -1480,6 +1482,7 @@ impl<'a> FunctionEmitter<'a> {
                 self.loop_frames.push(LoopFrame {
                     break_index,
                     continue_index: Some(continue_index),
+                    continue_is_faithful: true,
                 });
                 function.instruction(&Instruction::Block(BlockType::Empty));
                 if let Some(body) = body {
@@ -1548,6 +1551,7 @@ impl<'a> FunctionEmitter<'a> {
                 self.loop_frames.push(LoopFrame {
                     break_index,
                     continue_index: Some(continue_index),
+                    continue_is_faithful: true,
                 });
                 function.instruction(&Instruction::Block(BlockType::Empty));
                 if let Some(body) = body {
@@ -1627,6 +1631,7 @@ impl<'a> FunctionEmitter<'a> {
                 self.loop_frames.push(LoopFrame {
                     break_index,
                     continue_index: Some(continue_index),
+                    continue_is_faithful: true,
                 });
                 function.instruction(&Instruction::Block(BlockType::Empty));
                 if let Some(body) = body {
@@ -1659,6 +1664,7 @@ impl<'a> FunctionEmitter<'a> {
                 self.loop_frames.push(LoopFrame {
                     break_index,
                     continue_index: Some(continue_index),
+                    continue_is_faithful: true,
                 });
                 function.instruction(&Instruction::Block(BlockType::Empty));
                 if let Some(body) = body {
@@ -1733,6 +1739,7 @@ impl<'a> FunctionEmitter<'a> {
             self.loop_frames.push(LoopFrame {
                 break_index,
                 continue_index: Some(continue_index),
+                continue_is_faithful: true,
             });
             function.instruction(&Instruction::Block(BlockType::Empty));
             if let Some(body) = body {

@@ -576,6 +576,80 @@ fn a_break_nested_inside_a_return_clause_binds_to_the_switch_not_the_loop() {
     assert_eq!(run_js(src), "iter=0\niter=1\nv=def0\n");
 }
 
+// FIX ROUND 1, the ADMITTED side of the faithfulness condition. The denial is
+// a property of the LOOP FORM, not of `switch`, so the loop forms whose
+// `continue` IS faithful must keep working — otherwise the fix would be a
+// blanket ban dressed up as a proof.
+//
+// A C-style `for` with NO update clause has nothing for `continue` to skip, so
+// it is faithful and admitted. This is the cell that proves the flag is keyed
+// on `update.is_none()` — the same binding `emit_loop` dispatches its own
+// emission with — rather than on the string `"for"`.
+#[test]
+fn continue_in_a_switch_in_an_update_free_for_loop_is_admitted() {
+    let src = "var s = 0;\n\
+               for (var i = 0; i < 4; ) {\n\
+                 i = i + 1;\n\
+                 console.log(\"iter=\" + i);\n\
+                 switch (i) {\n\
+                   case 2: continue;\n\
+                   default: s = s + i; break;\n\
+                 }\n\
+                 console.log(\"after=\" + i);\n\
+               }\n\
+               console.log(\"s=\" + s);\n";
+    assert_eq!(
+        run_js(src),
+        "iter=1\nafter=1\niter=2\niter=3\nafter=3\niter=4\nafter=4\ns=8\n"
+    );
+}
+
+// `for...of` advances its index BEFORE the body precisely so `continue` visits
+// the next element, so it is faithful and admitted. Verified by measurement
+// rather than assumed, across the literal-array, string and `Set` lanes; this
+// pins the literal-array one. The missing `after=2` is the proof the `continue`
+// reached the LOOP: had it bound to the switch's exit, `after=2` would print.
+#[test]
+fn continue_in_a_switch_in_a_for_of_loop_is_admitted() {
+    let src = "var s = 0;\n\
+               for (const v of [1, 2, 3, 4]) {\n\
+                 console.log(\"iter=\" + v);\n\
+                 switch (v) {\n\
+                   case 2: continue;\n\
+                   default: s = s + v; break;\n\
+                 }\n\
+                 console.log(\"after=\" + v);\n\
+               }\n\
+               console.log(\"s=\" + s);\n";
+    assert_eq!(
+        run_js(src),
+        "iter=1\nafter=1\niter=2\niter=3\nafter=3\niter=4\nafter=4\ns=8\n"
+    );
+}
+
+// `break` is UNAFFECTED by the faithfulness condition — it binds to the
+// switch's own block and never touches `continue_index`. So a `break`-only
+// switch inside a C-style `for` (the very loop form whose `continue` is
+// refused) must still be admitted and correct. Without this cell, the fix could
+// have over-denied every switch in a `for` loop and the suite would not notice.
+#[test]
+fn break_in_a_switch_in_a_c_style_for_loop_is_still_admitted() {
+    let src = "var sum = 0;\n\
+               for (var i = 0; i < 3; i = i + 1) {\n\
+                 console.log(\"iter=\" + i);\n\
+                 switch (i) {\n\
+                   case 0: sum = sum + 10; break;\n\
+                   default: sum = sum + 1; break;\n\
+                 }\n\
+                 console.log(\"after=\" + i);\n\
+               }\n\
+               console.log(\"sum=\" + sum);\n";
+    assert_eq!(
+        run_js(src),
+        "iter=0\nafter=0\niter=1\nafter=1\niter=2\nafter=2\nsum=12\n"
+    );
+}
+
 // A switch with NO `default` clause. `emit_clause_chain` ends by recursing past
 // the last clause and returning without emitting anything, so the innermost
 // `else` arm is EMPTY — a distinct emit path that every other fixture in this

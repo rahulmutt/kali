@@ -91,10 +91,50 @@ pub(crate) enum ControlFlowLabelKind {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct LoopFrame {
     pub(crate) break_index: usize,
-    /// `None` for a switch frame with no enclosing loop: `continue` then has
-    /// no target and must fail closed rather than branch to the switch's exit
-    /// (which would silently turn `continue` into `break`).
+    /// `None` for a switch frame that has nothing safe to inherit: either
+    /// there is no enclosing loop at all, or the enclosing loop's `continue`
+    /// lowering is not faithful (see `continue_is_faithful`). `continue` then
+    /// has no target and must fail closed rather than branch to the switch's
+    /// exit (which would silently turn `continue` into `break`).
+    ///
+    /// Always `Some` for a real loop frame — the two `None` cases are reached
+    /// only through a switch frame, so ordinary loop lowering is untouched.
     pub(crate) continue_index: Option<usize>,
+    /// Whether an unlabeled `continue` branching to `continue_index` is a
+    /// FAITHFUL lowering of JS `continue` for this construct — i.e. it re-runs
+    /// whatever the language says runs between iterations.
+    ///
+    /// This is a property of the LOOP LOWERING, not of `switch`. Measured
+    /// switch-free, one fixture per construct (see the Task 9 fix-round-1
+    /// report):
+    ///
+    /// - `while` — **faithful**: `continue` targets the loop top, which is the
+    ///   test, exactly as JS specifies.
+    /// - `for` with NO update clause — **faithful**: same shape as `while`.
+    ///   Keyed on the SAME `update` binding `emit_loop` dispatches its own
+    ///   emission with, so the flag cannot disagree with the code it describes.
+    /// - `for` WITH an update clause — **unfaithful**: `update` is emitted at
+    ///   the tail of the body, so `continue` skips it. This is register R-09.
+    /// - `do`/`while` — **unfaithful**, and this one contradicts `emit_loop`'s
+    ///   own doc comment, which claimed do-while "re-tests correctly on
+    ///   `continue`". It does not: the test sits at the BOTTOM and `continue`
+    ///   branches to the loop TOP, so the test is skipped for that pass.
+    ///   Measured: `do { i = i + 1; console.log(...); continue; } while (i < 3)`
+    ///   printed 1,578,155 lines before trapping at exit 1, where node prints
+    ///   three lines and `i=3`.
+    /// - `for...in` — **unfaithful**: the ordinal increment is emitted after
+    ///   the body, so `continue` skips it and re-reads the same key forever.
+    /// - `for...of` (every lane) — **faithful**: the index advance is emitted
+    ///   BEFORE the body precisely so `continue` visits the next element, and
+    ///   the static-unroll lanes give each iteration its own `Block` whose
+    ///   label lands at the next iteration.
+    ///
+    /// A switch frame inherits `continue_index` ONLY from a faithful frame
+    /// (`emit/switch.rs`), which is what keeps a `continue` inside a `switch`
+    /// from silently changing which iterations run. Nothing else reads this:
+    /// a `continue` written directly in an unfaithful loop keeps its existing
+    /// (R-09) behaviour, which is not this task's to change.
+    pub(crate) continue_is_faithful: bool,
 }
 
 /// A live per-loop arena scope: the three local slots holding the
