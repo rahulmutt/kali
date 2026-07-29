@@ -84,6 +84,41 @@ fn expr_is_nonneg_int_literal(expr: &Expression) -> bool {
     )
 }
 
+/// `expr` is a numeric literal, optionally wrapped in a single unary `+`/`-`
+/// applied DIRECTLY to the literal — R-35 Task 7 fix round 3, the
+/// discriminant-parameter-inflow-grade widening of
+/// `expr_is_nonneg_int_literal` immediately above. Bound tightly on purpose:
+/// the unary operand must itself satisfy `expr_is_nonneg_int_literal` (so its
+/// `n.fract() == 0.0` / magnitude-`<=` 2^53-1 checks apply on BOTH sides of
+/// zero, and a float literal stays denied under `-` exactly as it is bare) —
+/// `-x`, `-(-1)`, `-true`, and every other non-literal unary operand are
+/// therefore NOT admitted; only `-`/`+` directly over `Literal(Number(_))`
+/// is.
+///
+/// This is the `kali_ast::Expression` (pre-lowering, parser AST) twin of
+/// `kali_codegen`'s `is_numeric_literal_case_test` /
+/// `bitwise_compound_rhs_is_provably_i64` (`crates/kali_codegen/src/emit/
+/// switch.rs`, `crates/kali_codegen/src/emit/operators.rs`), which prove the
+/// SAME "signed numeric literal" concept over `kali_lir::LirNode` — a
+/// DIFFERENT type from a DIFFERENT, later compiler stage (`kali_types` runs
+/// on the parsed AST before lowering; `kali_codegen` runs after HIR->MIR->LIR
+/// lowering, and `kali_types` has no dependency on `kali_lir` or
+/// `kali_codegen` at all — see `kali_types/Cargo.toml`). No single Rust
+/// function can serve both call sites, so this is a deliberate, minimal,
+/// same-shape twin — not the "third copy" round 1 flagged (that finding was
+/// three copies of the identical LIR-side proof within ONE crate,
+/// `kali_codegen`). Keep this one, single call site in `resolve_calls`
+/// (`arg_numeric_literal`) as the ONLY place in `kali_types` that needs this
+/// shape; do not add a second one here either.
+fn expr_is_signed_int_literal(expr: &Expression) -> bool {
+    match expr {
+        Expression::UnaryExpression(unary) if matches!(unary.operator.as_str(), "+" | "-") => {
+            expr_is_nonneg_int_literal(&unary.argument)
+        }
+        _ => expr_is_nonneg_int_literal(expr),
+    }
+}
+
 /// A deferred interprocedural call constraint, resolved after every function
 /// body has been walked (so all param/return/element nodes already exist).
 struct CallEdge {
@@ -113,6 +148,16 @@ struct CallEdge {
     /// identifier argument is NEVER scalar evidence, even when it names a
     /// param already proven scalar (no pass-through: see `resolve_calls`).
     arg_scalar_syntactic: Vec<bool>,
+    /// For each positional argument, `true` when the argument is a
+    /// numeric-literal-grade expression: `expr_is_nonneg_int_literal`, or
+    /// (R-35 Task 7 fix round 3) a single unary `+`/`-` applied directly to
+    /// one (`expr_is_signed_int_literal`) — `-1`/`+1` admit, but a float
+    /// literal, a boolean, or anything wrapping a non-literal operand still
+    /// does not. Strictly narrower than `arg_scalar_syntactic` (which also
+    /// admits a boolean/string literal or an arbitrary arithmetic
+    /// expression): this is the sole positive evidence
+    /// `numeric_literal_inflow_params` is derived from.
+    arg_numeric_literal: Vec<bool>,
     /// Result node of the call expression itself (target of the callee's
     /// return-flow edge).
     result_node: usize,
@@ -461,6 +506,37 @@ struct ReprInfer {
     /// cannot see), so the param compound/update gate must reject it. Copied
     /// (negated) into [`ReprTable::params_lacking_scalar_inflow`] at emit time.
     scalar_inflow_params: BTreeSet<(String, String)>,
+    /// Names of every declared function whose identifier text was read
+    /// SOMEWHERE in the program in a position OTHER than the direct callee of
+    /// a bare-identifier call expression — R-35 Task 7 fix round 2. Populated
+    /// by `visit_expr`'s ordinary `Expression::Identifier` arm, which is
+    /// reached by EVERY identifier read except a bare-identifier call's own
+    /// callee (that shape is intercepted earlier, in the
+    /// `Expression::CallExpression` match, and never recurses through
+    /// `visit_expr` on the callee itself — see that arm's own comment). A
+    /// name landing here was assigned to a variable, returned, passed as a
+    /// callback argument, compared, or otherwise turned into a value — any of
+    /// which lets the function be INVOKED through a call site `self.calls`
+    /// cannot enumerate (an aliased identifier is never resolved back to the
+    /// function it holds). `numeric_literal_inflow_params` below excludes
+    /// every escaping function's params outright: "every ENUMERATED call site
+    /// passed a literal" is not "every call site passed a literal" once an
+    /// unenumerable one might exist.
+    escaping_function_names: BTreeSet<String>,
+    /// `(func, param)` parameters POSITIVELY proven (R-35 Task 7 fix round 2)
+    /// that EVERY enumerated call-site edge supplies a numeric-literal
+    /// argument (`expr_is_nonneg_int_literal`) at this position, with `func`
+    /// itself proven non-escaping (`escaping_function_names`). A strictly
+    /// narrower sibling of `scalar_inflow_params` above: that one accepts any
+    /// syntactically-scalar argument (a boolean/string literal included —
+    /// the switch discriminant proof's exact hole), this one accepts only a
+    /// numeric literal. Same ∃/∀ shape as `scalar_inflow_params`: at least one
+    /// call-site edge (∃, so a never-called function is excluded — no
+    /// evidence is not vacuous truth) and NO call-site edge supplies anything
+    /// else (∀). Copied verbatim into
+    /// [`ReprTable::numeric_literal_inflow_params`](kali_common::ReprTable) at
+    /// emit time.
+    numeric_literal_inflow_params: BTreeSet<(String, String)>,
     /// `(func, binding)` var/let/const locals whose declarator RHS is an
     /// object literal — copied verbatim into
     /// [`ReprTable::object_initialized_bindings`](kali_common::ReprTable) at
@@ -2886,6 +2962,20 @@ impl ReprInfer {
     fn visit_expr(&mut self, func: &str, expr: &Expression) -> usize {
         match expr {
             Expression::Identifier(name) => {
+                // R-35 Task 7 fix round 2: this arm is reached by EVERY
+                // identifier read except a bare-identifier call's own callee
+                // (that shape is intercepted in the `CallExpression` match
+                // below and never recurses through `visit_expr` on the callee
+                // — see its own comment). So a declared function's name
+                // landing here means the program used it as a VALUE (a
+                // variable assignment, a return, a callback argument, a
+                // comparison, ...), which can hide a call site this table's
+                // `self.calls` can never enumerate. Record it unconditionally
+                // — `escaping_function_names`'s own doc explains why
+                // `numeric_literal_inflow_params` must exclude it outright.
+                if self.functions.contains_key(name) {
+                    self.escaping_function_names.insert(name.clone());
+                }
                 // A read of a name not locally bound in `func`'s own scope
                 // but declared at module scope is a module-const/binding
                 // read (see `kali_codegen`'s matching identifier fallback):
@@ -3961,6 +4051,7 @@ impl ReprInfer {
                 let mut arg_obj_slots = Vec::with_capacity(call.args.len());
                 let mut arg_array_literal = Vec::with_capacity(call.args.len());
                 let mut arg_scalar_syntactic = Vec::with_capacity(call.args.len());
+                let mut arg_numeric_literal = Vec::with_capacity(call.args.len());
                 for arg in &call.args {
                     if matches!(arg, Expression::ObjectExpression(_)) {
                         self.obj_conflicts.push(
@@ -3971,6 +4062,7 @@ impl ReprInfer {
                     arg_obj_slots.push(self.arg_obj_slot(func, arg));
                     arg_array_literal.push(self.init_is_array(arg));
                     arg_scalar_syntactic.push(Self::expr_is_syntactic_scalar(arg));
+                    arg_numeric_literal.push(expr_is_signed_int_literal(arg));
                     arg_nodes.push(self.visit_expr(func, arg));
                     arg_array_names.push(match arg {
                         Expression::Identifier(name) => Some((func.to_string(), name.clone())),
@@ -3985,6 +4077,7 @@ impl ReprInfer {
                     arg_obj_slots,
                     arg_array_literal,
                     arg_scalar_syntactic,
+                    arg_numeric_literal,
                     result_node,
                 });
                 result_node
@@ -4180,6 +4273,46 @@ impl ReprInfer {
         for key in scalar_evidence {
             if !veto.contains(&key) {
                 self.scalar_inflow_params.insert(key);
+            }
+        }
+
+        // Step 1c (R-35 Task 7 fix round 2): the NUMERIC-LITERAL-grade
+        // sibling proof `numeric_literal_inflow_params` — same ∃/∀ shape as
+        // Step 1b above (some edge is evidence AND no edge is a veto), but
+        // keyed on `arg_numeric_literal` instead of `arg_scalar_syntactic`
+        // (a boolean/string literal is scalar-syntactic but is NOT numeric-
+        // literal evidence, so it vetoes here where it would not above), and
+        // with every edge partitioned strictly into evidence XOR veto (a
+        // numeric-literal argument is the ONLY non-veto shape — unlike Step
+        // 1b, an array/object argument gets no separate carve-out here
+        // because it is already `!is_numeric_literal`, hence a veto).
+        // Additionally gated on the callee NEVER escaping
+        // (`escaping_function_names`): an escaping function may be invoked
+        // through a call site `self.calls` cannot enumerate, so "every
+        // ENUMERATED site passed a literal" would not mean "every site
+        // passed a literal" for it.
+        let mut numeric_literal_evidence: BTreeSet<(String, String)> = BTreeSet::new();
+        let mut numeric_literal_veto: BTreeSet<(String, String)> = BTreeSet::new();
+        for edge in &self.calls {
+            let Some(params) = self.functions.get(&edge.callee) else {
+                continue;
+            };
+            for (k, param_name) in params.iter().enumerate() {
+                let key = (edge.callee.clone(), param_name.clone());
+                let is_numeric_literal =
+                    edge.arg_numeric_literal.get(k).copied().unwrap_or(false);
+                if is_numeric_literal {
+                    numeric_literal_evidence.insert(key);
+                } else {
+                    numeric_literal_veto.insert(key);
+                }
+            }
+        }
+        for key in numeric_literal_evidence {
+            if !numeric_literal_veto.contains(&key)
+                && !self.escaping_function_names.contains(&key.0)
+            {
+                self.numeric_literal_inflow_params.insert(key);
             }
         }
 
@@ -5306,6 +5439,13 @@ impl ReprInfer {
                     table.mark_param_lacking_scalar_inflow(func, name);
                 }
             }
+        }
+
+        // R-35 Task 7 fix round 2: copy the numeric-literal-grade positive
+        // proof verbatim — see `numeric_literal_inflow_params`'s own doc for
+        // exactly what is (and is not) proven.
+        for (func, name) in std::mem::take(&mut self.numeric_literal_inflow_params) {
+            table.mark_param_numeric_literal_inflow(&func, &name);
         }
 
         // Review I-2, finalize the POSITIVE numeric-return allowlist. The axes

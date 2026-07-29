@@ -254,18 +254,33 @@ impl<'a> FunctionEmitter<'a> {
     /// `scalar(func, name) == Repr::I64` comparison (a comparison against
     /// `Repr`'s `#[default]`, not positive evidence — the exact defect
     /// `emit/call.rs:4220-4229` and `bitwise_compound_rhs_is_provably_i64`'s
-    /// own doc both name) with the SAME two-source positive-evidence gate the
-    /// coercion sink's own call site requires alongside it
-    /// (`emit/call.rs:4146`): `name_is_declared_parameter(name) ||
-    /// binding_is_proven_numeric(name)`. A parameter is trusted without
-    /// further write-evidence (the one binding kind with no in-scope
-    /// initializer to prove — see `name_is_declared_parameter`'s own doc);
-    /// every other identifier (a local/module `var`, a `const`) must have an
-    /// explicit `repr_infer` numeric-write proof, which a boolean write
-    /// (`var d = true;`) never earns — closing the `cell16` differential
-    /// (`var d = true; switch (d) { case 1: ... }`), which the boolean
-    /// SYNTACTIC check above cannot catch since `d` is a bare identifier, not
-    /// a literal/comparison.
+    /// own doc both name) with a two-source positive-evidence gate:
+    /// `binding_is_proven_numeric(name)` for a non-parameter identifier
+    /// (an explicit `repr_infer` numeric-write proof, which a boolean write
+    /// like `var d = true;` never earns — closing the `cell16` differential),
+    /// OR, for a parameter, `param_has_numeric_literal_inflow(func, name)`.
+    ///
+    /// Fix round 2 (human ruling): a bare `name_is_declared_parameter(name)`
+    /// trust — with NO further evidence — is what the coercion sink's own
+    /// call site (`emit/call.rs:4146`) uses, and round 1 mirrored it
+    /// verbatim. That trust is NOT narrow enough for a switch discriminant:
+    /// `kali_common::Repr` has no `Boolean` variant, so a boolean-valued
+    /// parameter (`function s(b) { switch (b) {...} } s(true)`) carries
+    /// nothing to distinguish it from a genuinely numeric one, and every
+    /// existing per-parameter taint (`is_non_scalar_param`, the
+    /// `arg_scalar_syntactic` evidence behind `binding_is_proven_numeric`'s
+    /// own writes) treats a boolean/string primitive as "scalar", not
+    /// specifically "numeric" — measured to admit `s(true)` and print
+    /// `v=one` where node prints `v=other`, both exit 0. Narrowed here to
+    /// `param_has_numeric_literal_inflow` (`kali_types::repr_infer`'s
+    /// `numeric_literal_inflow_params`): every ENUMERATED call site of the
+    /// enclosing function supplies a numeric literal for this parameter, AND
+    /// the function itself never escapes as a value (assigned to a
+    /// variable, returned, passed as a callback, exported) — an escaping
+    /// function could be invoked through a call site this proof cannot
+    /// enumerate, which would make "every enumerated site" unsound. A
+    /// function with zero enumerated call sites is excluded too (no
+    /// evidence is not vacuous truth).
     fn identifier_is_provable_i64_scalar(&self, name: &str) -> bool {
         if !self.name_is_program_bound(name) {
             return false;
@@ -282,7 +297,15 @@ impl<'a> FunctionEmitter<'a> {
         {
             return false;
         }
-        if !(self.name_is_declared_parameter(name) || self.binding_is_proven_numeric(name)) {
+        // A parameter is trusted ONLY when narrowed by the numeric-literal
+        // proof (never bare `name_is_declared_parameter` alone — fix round
+        // 2). `binding_is_proven_numeric` remains available independently
+        // for any identifier (parameter or not) that separately earns an
+        // explicit `repr_infer` numeric-write proof.
+        let positively_proven = (self.name_is_declared_parameter(name)
+            && self.repr_table.param_has_numeric_literal_inflow(func, name))
+            || self.binding_is_proven_numeric(name);
+        if !positively_proven {
             return false;
         }
         self.repr_table.scalar(func, name) == kali_common::Repr::I64

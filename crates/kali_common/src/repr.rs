@@ -138,6 +138,24 @@ pub struct ReprTable {
     /// repr evidence and are unaffected). A never-called function's params all
     /// land here (no flow evidence at all) and correctly reject.
     params_lacking_scalar_inflow: HashSet<(String, String)>,
+    /// `(func, param)` parameters POSITIVELY proven that EVERY call-site edge
+    /// of `func` supplies a numeric-literal argument (optionally BigInt, never
+    /// negative or fractional — see `expr_is_nonneg_int_literal` in
+    /// `kali_types::repr_infer`) at this position — R-35 Task 7 fix round 2.
+    /// A strictly NARROWER, per-parameter positive proof than
+    /// `params_lacking_scalar_inflow`'s complement: that one only asks for a
+    /// syntactically-scalar argument (which a boolean or string literal also
+    /// satisfies — the exact hole the switch discriminant proof needs
+    /// closed); this one asks specifically for a numeric literal, and ALSO
+    /// requires `func`'s own name to never appear anywhere in the program
+    /// except as the direct callee of a call (see `escaping_function_names`)
+    /// — an escaping function (assigned to a variable, passed as a callback,
+    /// exported, aliased) may be invoked through a call site this table
+    /// cannot enumerate, so trusting "every ENUMERATED call site passed a
+    /// literal" would be a laundering hole for it. A function with ZERO
+    /// enumerated call sites is correctly excluded too (no evidence, not
+    /// "vacuously true").
+    numeric_literal_inflow_params: HashSet<(String, String)>,
     /// `(func, binding)` var/let/const locals whose declarator RHS is an
     /// object literal. Object shape inference only assigns `Repr::Object`
     /// when the object is "materialized" (reached by a field read somewhere
@@ -573,6 +591,27 @@ impl ReprTable {
     /// parameters are ever recorded, so this is always false for a var local.
     pub fn param_lacks_scalar_inflow(&self, func: &str, binding: &str) -> bool {
         self.params_lacking_scalar_inflow
+            .contains(&(func.to_string(), binding.to_string()))
+    }
+
+    /// Record that param `binding` of `func` is POSITIVELY proven to receive
+    /// a numeric-literal argument at every enumerated call site, with the
+    /// function itself proven non-escaping — see
+    /// [`numeric_literal_inflow_params`](Self::numeric_literal_inflow_params).
+    pub fn mark_param_numeric_literal_inflow(&mut self, func: &str, binding: &str) {
+        self.numeric_literal_inflow_params
+            .insert((func.to_string(), binding.to_string()));
+    }
+
+    /// True when `binding` is a PARAM of `func` PROVEN (R-35 Task 7 fix round
+    /// 2) to receive a numeric-literal argument at every enumerated call
+    /// site, with `func` itself proven never to escape as a value (so every
+    /// runtime call to it IS one of the enumerated sites). Defaults to false
+    /// — a param with no such proof (no call sites, an escaping function, or
+    /// any non-numeric-literal argument at any site) reports false, matching
+    /// this being a POSITIVE allowlist, not a default.
+    pub fn param_has_numeric_literal_inflow(&self, func: &str, binding: &str) -> bool {
+        self.numeric_literal_inflow_params
             .contains(&(func.to_string(), binding.to_string()))
     }
 

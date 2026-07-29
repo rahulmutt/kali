@@ -193,6 +193,97 @@ fn a_boolean_identifier_discriminant_is_fail_closed() {
     );
 }
 
+// Fix round 2 (human ruling): a boolean-valued PARAMETER discriminant is the
+// residual fix round 1 disclosed but did not close. `kali_common::Repr` has
+// no `Boolean` variant, so nothing distinguishes a boolean-passed parameter
+// from a numeric one by repr alone -- the fix is narrowing WHICH parameters
+// the identifier arm trusts at all: `identifier_is_provable_i64_scalar` now
+// requires `param_has_numeric_literal_inflow`, positive proof that EVERY
+// enumerated call site of `s` passes a numeric literal for `b`. `s(true)` is
+// the (only) call site and its argument is not a numeric literal, so `b`
+// fails this proof and Rule 1 denies. Before fix round 2 this ran to
+// completion and printed `v=one` where node prints `v=other` (measured, exit
+// 0 both sides) -- a silent miscompile, not a rejection.
+#[test]
+fn a_boolean_parameter_discriminant_is_fail_closed() {
+    let out = run_js_expect_failure(
+        "function s(b) {\n\
+           switch (b) {\n\
+             case 1: return \"one\";\n\
+             default: return \"other\";\n\
+           }\n\
+         }\n\
+         console.log(\"v=\" + s(true));\n",
+    );
+    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+    assert!(
+        out.contains("the discriminant is not a proven integer"),
+        "must be denied by Rule 1 (the discriminant), not some other rule; got: {out}"
+    );
+}
+
+// Fix round 2 positive-direction coverage: a parameter fed a COMPUTED
+// (non-literal) argument at its only call site must ALSO be denied --
+// `param_has_numeric_literal_inflow` requires the argument to be
+// `expr_is_nonneg_int_literal`-grade specifically, not merely
+// arithmetic/scalar. `n + 1` is syntactically scalar (it would satisfy the
+// weaker `scalar_inflow_params`/`binding_is_proven_numeric`-style proof) but
+// is NOT a numeric literal, so this must still fail Rule 1 -- proving the new
+// rule actually denies computed arguments and is not vacuously satisfied by
+// anything scalar-shaped.
+#[test]
+fn a_computed_parameter_argument_discriminant_is_fail_closed() {
+    let out = run_js_expect_failure(
+        "function s(x) {\n\
+           switch (x) {\n\
+             case 1: return \"one\";\n\
+             default: return \"other\";\n\
+           }\n\
+         }\n\
+         var n = 0;\n\
+         console.log(\"v=\" + s(n + 1));\n",
+    );
+    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+    assert!(
+        out.contains("the discriminant is not a proven integer"),
+        "must be denied by Rule 1 (the discriminant), not some other rule; got: {out}"
+    );
+}
+
+// Fix round 3: the inflow predicate was widened to accept unary `+`/`-`
+// DIRECTLY over a numeric literal (so `s(-1)` admits again -- see
+// `numeric_switch_selects_correctly_with_a_negative_case_test` in
+// `switch_runtime.rs`). This pins the float axis specifically, not just the
+// boolean axis: `-1.5` is unary `-` over a LITERAL, syntactically the same
+// shape as `-1`, but `expr_is_nonneg_int_literal`'s `n.fract() == 0.0` check
+// must still catch the fractional magnitude on both sides of zero. If the
+// widening had been done by loosening that check instead of by peeling the
+// unary wrapper around the UNCHANGED nonneg-int check, this is the fixture
+// that would have caught it (Task 4's float requirement depends on this
+// staying closed).
+#[test]
+fn a_negative_float_parameter_argument_discriminant_is_fail_closed() {
+    let out = run_js_expect_failure(
+        "function s(x) {\n\
+           switch (x) {\n\
+             case 1: return \"one\";\n\
+             default: return \"other\";\n\
+           }\n\
+         }\n\
+         console.log(\"v=\" + s(-1.5));\n",
+    );
+    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+    assert!(
+        !out.contains("E4201"),
+        "must be denied at the switch choke point (E5506), not fall through to an \
+         invalid-module error (E4201); got: {out}"
+    );
+    assert!(
+        out.contains("the discriminant is not a proven integer"),
+        "must be denied by Rule 1 (the discriminant), not some other rule; got: {out}"
+    );
+}
+
 // A `let`/`const` declaration in a clause body is denied (Rule 5): block
 // shadowing across case labels is unmodeled (register R-10), so a
 // case-scoped binding would build on a known-broken foundation.
