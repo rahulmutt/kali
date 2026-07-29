@@ -150,7 +150,9 @@ pub struct ReprTable {
     /// requires `func`'s own name to never appear anywhere in the program
     /// except as the direct callee of a call (see `escaping_function_names`)
     /// — an escaping function (assigned to a variable, passed as a callback,
-    /// exported, aliased) may be invoked through a call site this table
+    /// `new`-ed, aliased; NOT merely `export`ed — see
+    /// [`escaping_function_names`](Self::escaping_function_names) for why that
+    /// long-standing claim is false) may be invoked through a call site this table
     /// cannot enumerate, so trusting "every ENUMERATED call site passed a
     /// literal" would be a laundering hole for it. A function with ZERO
     /// enumerated call sites is correctly excluded too (no evidence, not
@@ -186,8 +188,21 @@ pub struct ReprTable {
     readonly_params: HashSet<(String, String)>,
     /// Function names whose value ESCAPES — the name appears somewhere other
     /// than as the direct callee of a call (assigned to a variable, returned,
-    /// passed as a callback, exported, `new`-ed) — `kali_types::repr_infer`'s
+    /// passed as a callback, `new`-ed) — `kali_types::repr_infer`'s
     /// `escaping_function_names`, exposed here verbatim (R-35 Task 8).
+    ///
+    /// NOT triggered by `export` (corrected in R-35 Task 8 fix round 1; the
+    /// claim was inherited from Task 7 and is simply false).
+    /// `Statement::ExportNamed` is an explicit no-op in the walk that builds
+    /// this set — `kali_types::repr_infer`'s `_ => {}` statement arm lists it
+    /// among the "no direct expressions to scan" variants — so
+    /// `export function s(x) { switch (x) { case "a": … } }` IS admitted;
+    /// measured byte-matching node at exit 0 on both the string and the
+    /// numeric domain. It is not exploitable today only because a
+    /// cross-module imported call returns `0` wholesale, so the unenumerable
+    /// call site an export nominally creates cannot actually deliver an
+    /// argument. Any work that makes cross-module calls real must add
+    /// `export` to this set BEFORE it lands.
     ///
     /// DOMAIN-INDEPENDENT on purpose, exactly like
     /// [`readonly_params`](Self::readonly_params): it says nothing about the

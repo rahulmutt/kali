@@ -333,6 +333,26 @@ fn string_switch_on_a_string_returning_call_discriminant() {
     assert_eq!(run_js(src), "v=2\n");
 }
 
+// Fix round 1: `export` is NOT an escape trigger. `Statement::ExportNamed` is
+// an explicit no-op in the walk that builds `escaping_function_names`, so an
+// exported switch function IS admitted — three doc comments claimed otherwise
+// and were corrected. This pins the ACTUAL behaviour so the next implementer
+// reads a test rather than prose. It is safe only while a cross-module
+// imported call returns `0` wholesale; if that ever changes, `export` must
+// become an escape trigger and this test must flip to fail-closed.
+#[test]
+fn an_exported_function_is_admitted_because_export_is_not_an_escape() {
+    let src = "export function s(x) {\n\
+                 switch (x) {\n\
+                   case \"a\": return 1;\n\
+                   case \"b\": return 2;\n\
+                   default: return 3;\n\
+                 }\n\
+               }\n\
+               console.log(\"v=\" + s(\"b\"));\n";
+    assert_eq!(run_js(src), "v=2\n");
+}
+
 // The numeric axis must be UNCHANGED by the string widening: the same function
 // answers correctly for two different string call sites in one program, and
 // duplicate cases stay first-match-wins.

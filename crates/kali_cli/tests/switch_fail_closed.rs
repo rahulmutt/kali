@@ -26,6 +26,34 @@ fn run_js_expect_failure(source: &str) -> String {
     combined
 }
 
+// The exact denial reason each rule emits. A test that asserts only "some
+// E5506" silently degrades the moment the cell it names starts denying for a
+// DIFFERENT reason — most often Rule 1, since a discriminant proof regression
+// makes every switch in the file deny — and it keeps passing while having lost
+// its entire purpose. That failure mode has now been found twice on this plan,
+// so it is closed structurally: every fail-closed test below pins the rule, via
+// `assert_denied_by`, and a new one has an obvious shape to copy.
+const RULE_1_DISCRIMINANT: &str = "the discriminant is not a proven integer or string";
+const RULE_2_CASE_TEST: &str = "a `case` test that is not a literal in the discriminant's domain";
+const RULE_4_TERMINATOR: &str = "a clause that does not end in `return`";
+const RULE_5_BLOCK_BINDING: &str = "a `let`/`const` declaration in a clause body";
+// Not a switch rule: `kali_types`'s `plain_write_targets` shape conflict, which
+// refuses a string-reachable binding fed by an unbacked plain source BEFORE
+// `switch_plan` ever runs. Tests that pin a SWITCH-side conjunct must assert
+// this is ABSENT, or they cannot tell the two apart.
+const REPR_MIXED_CONFLICT: &str = "is used as both a string and a number";
+
+/// Assert `out` was denied by the named rule, not merely denied.
+fn assert_denied_by(out: &str, rule: &str, what: &str) {
+    assert!(out.contains("E5506"), "expected E5506 for {what}, got: {out}");
+    assert!(
+        out.contains(rule),
+        "{what} must be denied by `{rule}`, not some other rule — a test that \
+         accepted any E5506 would still pass if this cell silently degraded \
+         into a different denial, losing the whole point of the test; got: {out}"
+    );
+}
+
 // A switch nested inside a `for` loop is its own risk surface (the loop can
 // die at iteration 0 before the switch's behavior is ever observed), so this
 // pins fail-closed on that shape too. Every iteration logs first, so a
@@ -68,7 +96,10 @@ fn true_fallthrough_at_module_scope_is_fail_closed() {
          }\n\
          console.log(\"v=\" + v);\n",
     );
-    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+    // Rule 4, not Rule 1: `x` here IS a proven i64, so a Rule 1 denial would
+    // mean the discriminant proof had regressed and this cell had stopped
+    // testing fallthrough at all.
+    assert_denied_by(&out, RULE_4_TERMINATOR, "module-scope true fallthrough");
 }
 
 // True fallthrough (a clause with no `return`/`break`) is denied at function
@@ -87,7 +118,7 @@ fn true_fallthrough_is_fail_closed() {
          }\n\
          console.log(\"v=\" + s(1));\n",
     );
-    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+    assert_denied_by(&out, RULE_4_TERMINATOR, "function-scope true fallthrough");
 }
 
 // A `case` test must be a numeric literal (Rule 2). A non-literal test (here,
@@ -103,7 +134,10 @@ fn a_non_literal_case_test_is_fail_closed() {
          }\n\
          console.log(\"v=\" + s(1, 1));\n",
     );
-    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+    // Rule 2, not Rule 1: `s(1, 1)` gives BOTH parameters clean numeric-literal
+    // inflow, so `x` is a proven discriminant and the only thing left to deny
+    // is the `case y:` test itself.
+    assert_denied_by(&out, RULE_2_CASE_TEST, "a bare-identifier case test");
 }
 
 // ADDITIVE (Task 4's re-derived boundary matrix, cell 15): a float
@@ -481,7 +515,12 @@ fn a_string_case_against_a_numeric_discriminant_is_fail_closed() {
          }\n\
          console.log(\"v=\" + s(1));\n",
     );
-    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+    // RULE 2 is the whole point. `s(1)` gives `x` clean numeric-literal inflow,
+    // so the discriminant IS proven and Rule 1 has nothing to say; only a
+    // domain-matched rule 2 can deny this. If the string proof ever regressed
+    // and this started denying at Rule 1, the test would still "pass" while no
+    // longer testing domain matching at all — hence the pin.
+    assert_denied_by(&out, RULE_2_CASE_TEST, "a string case on a numeric disc");
 }
 
 // The OTHER direction: a numeric `case` test against a PROVEN STRING
@@ -498,7 +537,11 @@ fn a_numeric_case_against_a_string_discriminant_is_fail_closed() {
          }\n\
          console.log(\"v=\" + s(\"a\"));\n",
     );
-    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+    // RULE 2 again, and for the same reason mirrored: `s("a")` proves `x` a
+    // string, so the discriminant is admitted and only the numeric `case 1:`
+    // can deny. Pinning BOTH directions at Rule 2 is what makes this a claim
+    // about domain MATCHING rather than two unrelated one-way checks.
+    assert_denied_by(&out, RULE_2_CASE_TEST, "a numeric case on a string disc");
 }
 
 // String analogue of Task 7 fix round 4 LEAK 2: a WRITE launders a non-string
@@ -520,7 +563,11 @@ fn a_boolean_written_into_a_string_parameter_is_fail_closed() {
          }\n\
          console.log(\"v=\" + s(\"b\"));\n",
     );
-    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+    // Denied UPSTREAM of the switch, by `repr_infer`'s `plain_write_targets`
+    // shape conflict — pinned on that message specifically, because the claim
+    // this test makes is "the write is caught at the source, program-wide",
+    // not merely "this switch was refused".
+    assert_denied_by(&out, REPR_MIXED_CONFLICT, "a boolean written into a string param");
 }
 
 // Same leak through a SECOND PARAMETER rather than a literal -- the exact
@@ -538,7 +585,7 @@ fn a_write_from_another_parameter_into_a_string_parameter_is_fail_closed() {
          }\n\
          console.log(\"v=\" + s(\"b\", true));\n",
     );
-    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+    assert_denied_by(&out, REPR_MIXED_CONFLICT, "a write from another parameter");
 }
 
 // Same leak through a comparison RESULT copied via a local -- the shape
@@ -557,7 +604,7 @@ fn a_write_from_a_comparison_result_into_a_string_parameter_is_fail_closed() {
          }\n\
          console.log(\"v=\" + s(\"b\"));\n",
     );
-    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+    assert_denied_by(&out, REPR_MIXED_CONFLICT, "a write from a comparison result");
 }
 
 // A write of a STRING into the parameter is denied too. Nothing about the
@@ -580,7 +627,21 @@ fn a_written_string_parameter_is_fail_closed_even_when_written_with_a_string() {
          }\n\
          console.log(\"v=\" + s(\"b\"));\n",
     );
-    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+    // This is the SOLE pin on `param_is_readonly` being load-bearing, so it has
+    // to isolate that conjunct rather than accept any denial. A string-RHS
+    // write builds a string-reachable edge, so `plain_write_targets` does NOT
+    // fire here (measured: the same function without the switch,
+    // `function s(x) { x = "z"; return x + "!"; } s("b")`, compiles and runs at
+    // exit 0). With the mixed-conflict message asserted ABSENT, the only thing
+    // left that can produce this Rule 1 denial is `param_is_readonly`.
+    assert_denied_by(&out, RULE_1_DISCRIMINANT, "a string-written string param");
+    assert!(
+        !out.contains(REPR_MIXED_CONFLICT),
+        "this cell must isolate `param_is_readonly`: a string-RHS write is NOT \
+         a mixed string/number flow, so if the shape conflict fires here the \
+         test is measuring `plain_write_targets` instead and proves nothing \
+         about the readonly conjunct; got: {out}"
+    );
 }
 
 // `new s(true)` builds NO call edge, so the call-edge quantifier cannot see
@@ -600,7 +661,17 @@ fn a_new_expression_call_site_denies_a_string_parameter_discriminant() {
          new s(true);\n\
          console.log(\"v=\" + s(\"b\"));\n",
     );
-    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+    // Isolates `!function_escapes` the same way the readonly cell above
+    // isolates its conjunct: `new s(true)` builds no call edge and writes
+    // nothing, so no shape conflict is raised (measured: the same program
+    // without the switch, `function s(x) { return x + "!"; } new s(true);
+    // s("b")`, compiles and runs at exit 0). With the conflict asserted absent
+    // and `x` never written, the escape gate is the only remaining conjunct.
+    assert_denied_by(&out, RULE_1_DISCRIMINANT, "a `new` call site");
+    assert!(
+        !out.contains(REPR_MIXED_CONFLICT),
+        "this cell must isolate the escape gate, not a shape conflict; got: {out}"
+    );
 }
 
 // The escape gate proper: `s` passed as a callback can be invoked through a
@@ -618,7 +689,11 @@ fn an_escaping_function_denies_a_string_parameter_discriminant() {
          setTimeout(s, 0);\n\
          console.log(\"v=\" + s(\"b\"));\n",
     );
-    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+    assert_denied_by(&out, RULE_1_DISCRIMINANT, "an escaping function");
+    assert!(
+        !out.contains(REPR_MIXED_CONFLICT),
+        "this cell must isolate the escape gate, not a shape conflict; got: {out}"
+    );
 }
 
 // Existential laundering through a PASS-THROUGH chain: `s`'s only argument is
@@ -636,7 +711,7 @@ fn a_pass_through_chain_carrying_a_boolean_is_fail_closed() {
          function t(y) { return s(y); }\n\
          console.log(\"v=\" + t(true));\n",
     );
-    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+    assert_denied_by(&out, RULE_1_DISCRIMINANT, "a boolean pass-through chain");
 }
 
 // No evidence is not vacuous truth: a function with ZERO call sites has no
@@ -652,7 +727,7 @@ fn a_string_switch_in_a_never_called_function_is_fail_closed() {
          }\n\
          console.log(\"v=\" + \"no-call\");\n",
     );
-    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+    assert_denied_by(&out, RULE_1_DISCRIMINANT, "a never-called function");
 }
 
 // Free globals against STRING cases. `globalThis`/`undefined`/`NaN` are not
@@ -671,7 +746,10 @@ fn free_globals_against_string_cases_are_fail_closed() {
              }}\n\
              console.log(\"v=\" + s());\n"
         ));
-        assert!(out.contains("E5506"), "expected E5506 for {disc}, got: {out}");
+        // Rule 1 specifically: this pins `name_is_program_bound` as the gate
+        // that denies a free global, which is the check Task 7's identifier arm
+        // originally omitted.
+        assert_denied_by(&out, RULE_1_DISCRIMINANT, &format!("`switch ({disc})`"));
         assert!(
             !out.contains("E4201"),
             "{disc} must be denied at the switch choke point, not by an \
@@ -694,7 +772,9 @@ fn a_concatenated_case_test_against_a_string_discriminant_is_fail_closed() {
          }\n\
          console.log(\"v=\" + s(\"ab\"));\n",
     );
-    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+    // Rule 2: `s("ab")` proves the discriminant a string, so the only thing
+    // left to deny is the case test's non-literal shape.
+    assert_denied_by(&out, RULE_2_CASE_TEST, "a concatenated case test");
 }
 
 // An object / array discriminant against string cases. Both are i64-shaped
@@ -712,7 +792,7 @@ fn aggregate_discriminants_against_string_cases_are_fail_closed() {
          var o = { k: 1 };\n\
          console.log(\"v=\" + s(o));\n",
     );
-    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+    assert_denied_by(&out, RULE_1_DISCRIMINANT, "an object discriminant");
     let out = run_js_expect_failure(
         "function s(x) {\n\
            switch (x) {\n\
@@ -723,7 +803,7 @@ fn aggregate_discriminants_against_string_cases_are_fail_closed() {
          var a = [1, 2];\n\
          console.log(\"v=\" + s(a));\n",
     );
-    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+    assert_denied_by(&out, RULE_1_DISCRIMINANT, "an array discriminant");
 }
 
 // Rules 4 and 5 are unchanged by the string widening: a non-`return` clause
@@ -743,7 +823,12 @@ fn string_switch_still_obeys_the_clause_rules() {
          }\n\
          console.log(\"v=\" + s(\"a\"));\n",
     );
-    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+    // Rule 4 SPECIFICALLY, not Rule 1. `s("a")` proves the discriminant, so
+    // this cell's whole claim is "the clause-terminator rule still applies on
+    // the string axis". A Rule 1 denial here would mean the string proof had
+    // regressed and the clause rules were no longer being exercised at all —
+    // the exact silent degradation this pin exists to catch.
+    assert_denied_by(&out, RULE_4_TERMINATOR, "a non-`return` string clause");
     let out = run_js_expect_failure(
         "function s(x) {\n\
            switch (x) {\n\
@@ -753,5 +838,5 @@ fn string_switch_still_obeys_the_clause_rules() {
          }\n\
          console.log(\"v=\" + s(\"a\"));\n",
     );
-    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+    assert_denied_by(&out, RULE_5_BLOCK_BINDING, "a `let` in a string clause");
 }

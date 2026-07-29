@@ -304,7 +304,8 @@ impl<'a> FunctionEmitter<'a> {
     /// `numeric_literal_inflow_params`): every ENUMERATED call site of the
     /// enclosing function supplies a numeric literal for this parameter, AND
     /// the function itself never escapes as a value (assigned to a
-    /// variable, returned, passed as a callback, exported) — an escaping
+    /// variable, returned, passed as a callback, `new`-ed — but NOT merely
+    /// `export`ed; see `ReprTable::escaping_function_names`) — an escaping
     /// function could be invoked through a call site this proof cannot
     /// enumerate, which would make "every enumerated site" unsound. A
     /// function with zero enumerated call sites is excluded too (no
@@ -485,12 +486,15 @@ impl<'a> FunctionEmitter<'a> {
     ///        provably only READ, where every unenumerated form denies, so it
     ///        also covers a write form that builds no edge at all.
     ///      * `!function_escapes(func)` — an escaping function (assigned,
-    ///        returned, passed as a callback, `new`-ed, exported) can be
-    ///        invoked through a site the call-edge builder cannot enumerate,
-    ///        so no fact derived from its enumerated call sites is a fact
-    ///        about all of its invocations. `new s("x")` builds no call edge
-    ///        at all and is visible ONLY through this set
-    ///        (`mark_new_callee_escapes`).
+    ///        returned, passed as a callback, `new`-ed) can be invoked
+    ///        through a site the call-edge builder cannot enumerate, so no
+    ///        fact derived from its enumerated call sites is a fact about all
+    ///        of its invocations. `new s("x")` builds no call edge at all and
+    ///        is visible ONLY through this set (`mark_new_callee_escapes`).
+    ///        `export` is NOT an escape trigger — see
+    ///        `ReprTable::escaping_function_names`; an exported switch
+    ///        function is admitted, and that is safe only for as long as a
+    ///        cross-module imported call returns `0` wholesale.
     ///    - A NON-PARAMETER binding uses `Repr::String` alone, which is the
     ///      SAME evidence `is_string_valued`'s identifier arm — and therefore
     ///      every `+`, `===`, `.length` and `console.log` in this compiler —
