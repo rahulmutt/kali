@@ -3,6 +3,30 @@
 # Command: cargo test --workspace --no-fail-fast
 # Measured: 2026-07-28
 # Failing test count: 0
+# Passing test count: 9466   (0 failed, 27 ignored, across 376 suite summaries)
+#
+# The PASSING figure was added 2026-07-29 at the R-35 close-out (Task 11). Until
+# then this file recorded only "Failing test count: 0", so the "9466" that six of
+# this project's task reports quote could not be checked against the artifact
+# that names the baseline. It now can. Provenance: Task 1's gate run, whose raw
+# log this figure was aggregated from -- see
+# `.superpowers/sdd/2026-07-27-r35-switch-lowering/task-1-report.md` ("Raw
+# result" and "`test result:` summary lines"), which records the exit code, the
+# zero `^test .* FAILED$` matches, the 376 true suite summaries (377 naive grep
+# hits, one being a test literally named `result::result_tests::...`), and the
+# per-suite aggregation that yields 9466/0/27. It was NOT re-measured at the
+# close-out: re-running the gate at `f1d02e872` needs a cold rebuild of the
+# wasmtime/cranelift dependency graph, and the recorded figure is a transcript,
+# not a recollection.
 #
 # Every later "zero newly-red" claim in this project is diffed against THIS list.
 # A test failing here and failing on the branch is baseline, not a regression.
+# The FAILING list (the empty body below) is what `comm -13` consumes; the two
+# counts above are context for reading the branch's own numbers, not gate inputs.
+#
+# NOTE on using this file with `comm`: the body is empty today, but this file is
+# NOT sorted (the `#` comment block precedes it), so the literal
+# `comm -13 docs/superpowers/followups/r35-gate-baseline.txt <branch-failed>`
+# warns and exits 1. Strip the comments first:
+#   comm -13 <(grep -v '^#' docs/superpowers/followups/r35-gate-baseline.txt) <branch-failed>
+# Empty stdout with exit 0 is the pass.

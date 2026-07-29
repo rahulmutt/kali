@@ -248,6 +248,28 @@ parameters anywhere** (R-01 truncation). No `console.log` receives an array, an 
 a bare boolean, so R-30/R-31 rendering defects cannot contaminate a cell. Exit status was
 recorded **unpiped** for both sides of every run.
 
+### What this matrix does NOT cover, and the entry that does
+
+This matrix measures the discriminant × clause-shape product **as it reaches codegen**. It
+therefore cannot see a shape the *parser* rejects before a cell can be formed — and the
+Stage 2 work produced exactly one such shape, filed as **`R-50`** (register §7): a
+**sequence-expression discriminant**, `switch (x, x) { … }`. That is valid JS that node
+accepts and that kali accepted at the pre-stage baseline `f1d02e872` (`v=A`, exit 0), and
+that this stage's `parse_switch_statement` hardening turned into two `E2000`s. It is a
+**fail-closed regression on valid input**, not a silent miscompile, which is why it is
+filed in §7 rather than §2 and why no cell of this matrix carries it: the program never
+reaches the `switch_plan` allowlist at all.
+
+It is cross-referenced here because a reader using this file as *the* R-35 boundary
+document would otherwise conclude the boundary is exactly "what `switch_plan` admits". It
+is not. The true boundary is the **intersection** of what the parser accepts and what
+`switch_plan` admits, and R-50 is the one known place where the parser is the narrower of
+the two. Register: `R-50` in
+`docs/superpowers/followups/kali-silent-miscompile-register.md` §7, cluster **G1**
+(inverted — it fails *closed* where G1's other members fail *open*), with the fixture at
+`docs/superpowers/followups/r35-switch-boundary-fixtures/seq1.js` and
+`disc/d01_seqexpr.js`.
+
 ---
 
 ## Consequences for the Stage 2 allowlist

@@ -644,12 +644,11 @@ impl<'a> FunctionEmitter<'a> {
         {
             return false;
         }
-        if self.name_is_declared_parameter(name) {
-            if !self.repr_table.param_is_readonly(func, name)
-                || self.repr_table.function_escapes(func)
-            {
-                return false;
-            }
+        if self.name_is_declared_parameter(name)
+            && (!self.repr_table.param_is_readonly(func, name)
+                || self.repr_table.function_escapes(func))
+        {
+            return false;
         }
         self.repr_table.scalar(func, name) == kali_common::Repr::String
     }

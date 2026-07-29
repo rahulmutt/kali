@@ -91,9 +91,9 @@ impl HirLowerer {
                 // `if` lowering — the discriminant got truthiness-tested,
                 // clauses 0/1 became then/else and clauses 2+ were never
                 // emitted. Exactly the hole recorded for `throw` below.
-                let id = self
-                    .builder
-                    .alloc_text(HirNodeKind::SwitchStmt, None, "switch".to_string());
+                let id =
+                    self.builder
+                        .alloc_text(HirNodeKind::SwitchStmt, None, "switch".to_string());
                 push_child!(self, id, self.lower_expression(discriminant));
                 for case in cases {
                     // Tag "case" vs "default": a case block's children are
@@ -101,7 +101,11 @@ impl HirLowerer {
                     // without the tag a `default` is positionally
                     // indistinguishable from a `case` whose first statement is
                     // an expression statement.
-                    let tag = if case.test.is_some() { "case" } else { "default" };
+                    let tag = if case.test.is_some() {
+                        "case"
+                    } else {
+                        "default"
+                    };
                     let case_id =
                         self.builder
                             .alloc_text(HirNodeKind::Block, None, tag.to_string());

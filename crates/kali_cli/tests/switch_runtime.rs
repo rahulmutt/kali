@@ -63,9 +63,18 @@ fn numeric_switch_reaches_the_third_clause() {
                    default: return \"other\";\n\
                  }\n\
                }\n";
-    assert_eq!(run_js(&format!("{src}console.log(\"v=\" + s(3));")), "v=three\n");
-    assert_eq!(run_js(&format!("{src}console.log(\"v=\" + s(4));")), "v=four\n");
-    assert_eq!(run_js(&format!("{src}console.log(\"v=\" + s(9));")), "v=other\n");
+    assert_eq!(
+        run_js(&format!("{src}console.log(\"v=\" + s(3));")),
+        "v=three\n"
+    );
+    assert_eq!(
+        run_js(&format!("{src}console.log(\"v=\" + s(4));")),
+        "v=four\n"
+    );
+    assert_eq!(
+        run_js(&format!("{src}console.log(\"v=\" + s(9));")),
+        "v=other\n"
+    );
 }
 #[test]
 fn numeric_switch_evaluates_the_discriminant_exactly_once() {
@@ -124,7 +133,10 @@ fn numeric_switch_is_correct_for_the_shape_that_was_previously_denied() {
                    default: return \"D\";\n\
                  }\n\
                }\n";
-    assert_eq!(run_js(&format!("{src}console.log(\"v=\" + s(20));")), "v=B\n");
+    assert_eq!(
+        run_js(&format!("{src}console.log(\"v=\" + s(20));")),
+        "v=B\n"
+    );
 }
 #[test]
 fn numeric_switch_selects_correctly_with_a_negative_case_test() {
@@ -135,7 +147,10 @@ fn numeric_switch_selects_correctly_with_a_negative_case_test() {
                    default: return \"other\";\n\
                  }\n\
                }\n";
-    assert_eq!(run_js(&format!("{src}console.log(\"v=\" + s(-1));")), "v=neg\n");
+    assert_eq!(
+        run_js(&format!("{src}console.log(\"v=\" + s(-1));")),
+        "v=neg\n"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -152,11 +167,17 @@ const SS: &str = "function s(x) {\n\
 
 #[test]
 fn string_switch_selects_the_matching_clause() {
-    assert_eq!(run_js(&format!("{SS}console.log(\"v=\" + s(\"b\"));")), "v=2\n");
+    assert_eq!(
+        run_js(&format!("{SS}console.log(\"v=\" + s(\"b\"));")),
+        "v=2\n"
+    );
 }
 #[test]
 fn string_switch_falls_to_default() {
-    assert_eq!(run_js(&format!("{SS}console.log(\"v=\" + s(\"z\"));")), "v=3\n");
+    assert_eq!(
+        run_js(&format!("{SS}console.log(\"v=\" + s(\"z\"));")),
+        "v=3\n"
+    );
 }
 #[test]
 fn string_switch_compares_by_content_not_handle() {
@@ -179,7 +200,10 @@ fn string_switch_compares_by_content_not_handle() {
 // program (first case, second case, default).
 #[test]
 fn string_switch_selects_the_first_clause() {
-    assert_eq!(run_js(&format!("{SS}console.log(\"v=\" + s(\"a\"));")), "v=1\n");
+    assert_eq!(
+        run_js(&format!("{SS}console.log(\"v=\" + s(\"a\"));")),
+        "v=1\n"
+    );
 }
 
 // The empty string is the string-axis analogue of the `0` discriminant cell: a
@@ -194,7 +218,10 @@ fn string_switch_handles_an_empty_string_discriminant() {
                    default: return 3;\n\
                  }\n\
                }\n";
-    assert_eq!(run_js(&format!("{src}console.log(\"v=\" + s(\"\"));")), "v=1\n");
+    assert_eq!(
+        run_js(&format!("{src}console.log(\"v=\" + s(\"\"));")),
+        "v=1\n"
+    );
 }
 
 // A non-ASCII discriminant: `__streq` compares BYTES, so a multi-byte literal
@@ -404,9 +431,18 @@ fn break_terminated_clauses_select_correctly() {
                  }\n\
                  return r;\n\
                }\n";
-    assert_eq!(run_js(&format!("{src}console.log(\"v=\" + s(20));")), "v=2\n");
-    assert_eq!(run_js(&format!("{src}console.log(\"v=\" + s(40));")), "v=9\n");
-    assert_eq!(run_js(&format!("{src}console.log(\"v=\" + s(0));")), "v=9\n");
+    assert_eq!(
+        run_js(&format!("{src}console.log(\"v=\" + s(20));")),
+        "v=2\n"
+    );
+    assert_eq!(
+        run_js(&format!("{src}console.log(\"v=\" + s(40));")),
+        "v=9\n"
+    );
+    assert_eq!(
+        run_js(&format!("{src}console.log(\"v=\" + s(0));")),
+        "v=9\n"
+    );
 }
 
 #[test]
@@ -542,9 +578,18 @@ fn break_and_return_clauses_mix_in_one_switch() {
                  }\n\
                  return \"late\" + r;\n\
                }\n";
-    assert_eq!(run_js(&format!("{src}console.log(\"v=\" + s(1));")), "v=early\n");
-    assert_eq!(run_js(&format!("{src}console.log(\"v=\" + s(2));")), "v=late2\n");
-    assert_eq!(run_js(&format!("{src}console.log(\"v=\" + s(7));")), "v=late9\n");
+    assert_eq!(
+        run_js(&format!("{src}console.log(\"v=\" + s(1));")),
+        "v=early\n"
+    );
+    assert_eq!(
+        run_js(&format!("{src}console.log(\"v=\" + s(2));")),
+        "v=late2\n"
+    );
+    assert_eq!(
+        run_js(&format!("{src}console.log(\"v=\" + s(7));")),
+        "v=late9\n"
+    );
 }
 
 // A `break` NESTED INSIDE a `return`-terminated clause. Rule 4 admitted this
@@ -801,8 +846,14 @@ fn break_terminated_clauses_work_on_the_string_axis() {
                  }\n\
                  return r;\n\
                }\n";
-    assert_eq!(run_js(&format!("{src}console.log(\"v=\" + s(\"b\"));")), "v=2\n");
-    assert_eq!(run_js(&format!("{src}console.log(\"v=\" + s(\"z\"));")), "v=9\n");
+    assert_eq!(
+        run_js(&format!("{src}console.log(\"v=\" + s(\"b\"));")),
+        "v=2\n"
+    );
+    assert_eq!(
+        run_js(&format!("{src}console.log(\"v=\" + s(\"z\"));")),
+        "v=9\n"
+    );
 }
 
 #[test]
@@ -1016,6 +1067,104 @@ fn a_trailing_default_after_a_group_is_still_admitted() {
     assert_eq!(
         run_js(&format!("{src}console.log(\"v=\" + s(9));")),
         "v=def\n"
+    );
+}
+
+// ===========================================================================
+// R-35 Task 11: acceptance-matrix completion. Four cells that the per-task
+// files left uncovered, each naming the axis it fills. Node's oracle output
+// for all four is recorded in the Task 11 report (verified byte-for-byte
+// before these assertions were written, not after).
+
+// AXIS: clause COUNT — a switch with exactly ONE clause, a `case` (not the
+// `default`-only shape `a_default_only_break_switch_runs_its_body` already
+// pins). `emit_clause_chain` emits a single `If` whose `else` arm recurses
+// past the end and emits nothing, so this is the minimal chain: one test, one
+// body, an empty else. `s(7)` must fall past the whole switch and leave `r` at
+// its initial `0` — the anti-spot-check that distinguishes "selected clause 1
+// unconditionally" from "compared the discriminant".
+#[test]
+fn a_single_case_switch_with_no_default_is_admitted() {
+    let src = "function s(x) {\n\
+                 var r = 0;\n\
+                 switch (x) {\n\
+                   case 1: r = 1; break;\n\
+                 }\n\
+                 return r;\n\
+               }\n\
+               console.log(\"a=\" + s(1));\n\
+               console.log(\"b=\" + s(7));\n";
+    assert_eq!(run_js(src), "a=1\nb=0\n");
+}
+
+// AXIS: `default` ABSENT × the STRING discriminant. Every other string-axis
+// fixture in this file carries a `default`, so the empty-innermost-`else` path
+// was pinned on the numeric axis only (`a_break_switch_with_no_default_falls_
+// out_of_the_chain`). Control must fall PAST the whole switch — proven by
+// `return r;` reading the untouched initial `0` for a non-matching
+// discriminant.
+#[test]
+fn a_string_switch_with_no_default_falls_out_of_the_chain() {
+    let src = "function s(x) {\n\
+                 var r = 0;\n\
+                 switch (x) {\n\
+                   case \"a\": r = 1; break;\n\
+                   case \"b\": r = 2; break;\n\
+                 }\n\
+                 return r;\n\
+               }\n\
+               console.log(\"a=\" + s(\"b\"));\n\
+               console.log(\"b=\" + s(\"z\"));\n";
+    assert_eq!(run_js(src), "a=2\nb=0\n");
+}
+
+// AXIS: STRING discriminant × MODULE scope. Scope is a required axis and the
+// module-scope cells (`break_terminated_switch_works_at_module_scope`,
+// `empty_clause_group_is_admitted_at_module_scope`) were both numeric;
+// `string_switch_on_a_module_const_binding` reads a module binding but the
+// SWITCH is inside a function. This is the string switch emitted into
+// `_start` itself.
+#[test]
+fn string_switch_works_at_module_scope() {
+    let src = "var v = \"?\";\n\
+               var x = \"b\";\n\
+               switch (x) {\n\
+                 case \"a\": v = \"A\"; break;\n\
+                 case \"b\": v = \"B\"; break;\n\
+                 default: v = \"D\"; break;\n\
+               }\n\
+               console.log(\"v=\" + v);\n";
+    assert_eq!(run_js(src), "v=B\n");
+}
+
+// AXIS: STRING discriminant × NESTING inside a loop, with BOTH `break` and
+// `continue` clauses. The whole nesting axis was numeric-only; `break`/
+// `continue` binding is domain-independent by construction (the frame stack
+// knows nothing about the discriminant), and this is the cell that would fail
+// if it were not. `while` is used deliberately — see the R-09 note above on
+// why a C-style `for` with an update measures loop faithfulness rather than
+// this property. Per-iteration `iter=` logging plus the `after=` discriminator
+// are both mandatory here: `after=` is absent exactly on the `continue`
+// iteration.
+#[test]
+fn string_switch_in_a_loop_binds_break_and_continue_correctly() {
+    let src = "var i = -1;\n\
+               var acc = \"\";\n\
+               while (i < 2) {\n\
+                 i = i + 1;\n\
+                 var k = \"k\" + i;\n\
+                 console.log(\"iter=\" + k);\n\
+                 switch (k) {\n\
+                   case \"k0\": continue;\n\
+                   case \"k1\": acc = acc + \"B\"; break;\n\
+                   default: acc = acc + \"D\"; break;\n\
+                 }\n\
+                 console.log(\"after=\" + k);\n\
+               }\n\
+               console.log(\"acc=\" + acc);\n";
+    assert_eq!(
+        run_js(src),
+        "iter=k0\niter=k1\nafter=k1\niter=k2\nafter=k2\nacc=BD\n"
     );
 }
 

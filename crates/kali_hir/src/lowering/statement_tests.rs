@@ -4,9 +4,7 @@ use kali_ast::AST;
 
 #[test]
 fn switch_and_its_case_blocks_are_text_tagged() {
-    let statements = parse(
-        "function f(x) { switch (x) { case 1: return 1; default: return 2; } }",
-    );
+    let statements = parse("function f(x) { switch (x) { case 1: return 1; default: return 2; } }");
     let mut lowerer = HirLowerer::new();
     let result = lowerer.lower_statements(&statements);
 

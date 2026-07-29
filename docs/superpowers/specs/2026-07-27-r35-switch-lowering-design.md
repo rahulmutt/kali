@@ -258,8 +258,33 @@ Notes on what is deliberately *not* a rule:
 
 - **Duplicate case tests are admitted.** An if-else chain yields first-match-wins by
   construction, which is the correct JS semantics. No rule needed.
-- **A `default` in a non-final position is admitted.** Once fallthrough is denied, `default`'s
-  position carries no semantics. No rule needed.
+- ~~**A `default` in a non-final position is admitted.** Once fallthrough is denied, `default`'s
+  position carries no semantics. No rule needed.~~
+  **FALSE — struck 2026-07-29 at the R-35 close-out (Task 11). Do not re-derive this.**
+  The claim is true of JS **selection** semantics and false of this document's own
+  **emission** strategy, and the gap between those two is what made it dangerous.
+  `emit_clause_chain` lowers the clause list as a right-nested `if`/`else` chain and lowers
+  `default` to an **unconditional body at its own source position, with an early `return`
+  from the recursion** — so every clause *after* a non-final `default` is never emitted at
+  all. `switch (x) { case 1: return "one"; default: return "other"; case 2: return "two"; }`
+  therefore answers `"other"` for `s(2)` where node answers `"two"`: a silent miscompile,
+  exit 0.
+  It **shipped**, from Task 7 (when `default` first became reachable in a chain) until
+  Task 10's fix round 1 closed it. `switch_plan` now denies the shape by construction —
+  `DEFAULT_NOT_LAST`, message *"a `default` clause that is not the last clause in the
+  switch (this lowering emits `default` unconditionally at its own position, so any later
+  clause would be silently unreachable)"* — see
+  `crates/kali_codegen/src/emit/switch.rs`'s pre-pass-2 check and the three pins
+  `a_grouped_non_final_default_is_fail_closed`,
+  `an_ungrouped_non_final_default_is_fail_closed_at_module_scope` and
+  `a_grouped_non_final_default_is_fail_closed_at_module_scope` in
+  `crates/kali_cli/tests/switch_fail_closed.rs`.
+  **The generalizable lesson, which is why this is struck in place rather than deleted:**
+  "the source language gives this construct no semantics" does not imply "the lowering
+  gives it no semantics". A reasoning step that jumps from a *language* property to an
+  *emission* property without visiting the emitter is unsound, and this note is the worked
+  example. Any future "no rule needed" in this table must be justified against
+  `emit_clause_chain` as written, not against the JS spec.
 
 Notes on deliberate conservatism:
 

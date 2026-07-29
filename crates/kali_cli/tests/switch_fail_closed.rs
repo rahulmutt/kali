@@ -95,7 +95,10 @@ const DEFAULT_NOT_LAST: &str = "a `default` clause that is not the last clause i
 
 /// Assert `out` was denied by the named rule, not merely denied.
 fn assert_denied_by(out: &str, rule: &str, what: &str) {
-    assert!(out.contains("E5506"), "expected E5506 for {what}, got: {out}");
+    assert!(
+        out.contains("E5506"),
+        "expected E5506 for {what}, got: {out}"
+    );
     assert!(
         out.contains(rule),
         "{what} must be denied by `{rule}`, not some other rule — a test that \
@@ -617,7 +620,11 @@ fn continue_nested_in_a_return_clause_in_a_c_style_for_loop_is_fail_closed() {
          }\n\
          console.log(\"v=\" + f());\n",
     );
-    assert_denied_by(&out, UNFAITHFUL_CONTINUE, "continue nested in a return clause");
+    assert_denied_by(
+        &out,
+        UNFAITHFUL_CONTINUE,
+        "continue nested in a return clause",
+    );
     assert!(
         !out.contains("iter="),
         "it must be refused at compile time, not part-way through the loop; got: {out}"
@@ -918,7 +925,11 @@ fn a_boolean_written_into_a_string_parameter_is_fail_closed() {
     // shape conflict — pinned on that message specifically, because the claim
     // this test makes is "the write is caught at the source, program-wide",
     // not merely "this switch was refused".
-    assert_denied_by(&out, REPR_MIXED_CONFLICT, "a boolean written into a string param");
+    assert_denied_by(
+        &out,
+        REPR_MIXED_CONFLICT,
+        "a boolean written into a string param",
+    );
 }
 
 // Same leak through a SECOND PARAMETER rather than a literal -- the exact
@@ -955,7 +966,11 @@ fn a_write_from_a_comparison_result_into_a_string_parameter_is_fail_closed() {
          }\n\
          console.log(\"v=\" + s(\"b\"));\n",
     );
-    assert_denied_by(&out, REPR_MIXED_CONFLICT, "a write from a comparison result");
+    assert_denied_by(
+        &out,
+        REPR_MIXED_CONFLICT,
+        "a write from a comparison result",
+    );
 }
 
 // A write of a STRING into the parameter is denied too. Nothing about the
