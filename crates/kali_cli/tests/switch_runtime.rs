@@ -333,13 +333,25 @@ fn string_switch_on_a_string_returning_call_discriminant() {
     assert_eq!(run_js(src), "v=2\n");
 }
 
-// Fix round 1: `export` is NOT an escape trigger. `Statement::ExportNamed` is
-// an explicit no-op in the walk that builds `escaping_function_names`, so an
-// exported switch function IS admitted — three doc comments claimed otherwise
-// and were corrected. This pins the ACTUAL behaviour so the next implementer
-// reads a test rather than prose. It is safe only while a cross-module
-// imported call returns `0` wholesale; if that ever changes, `export` must
-// become an escape trigger and this test must flip to fail-closed.
+// `export` is NOT an escape trigger, so an exported switch function IS
+// admitted. Doc comments claimed the opposite (fix round 1) and then claimed
+// the right conclusion for the wrong reason (fix round 2); this test pins the
+// behaviour so the next implementer reads a measurement rather than prose.
+//
+// The reason is in the PARSER, not the escape walk: `parse_export_declaration`
+// (`kali_parser::module`) discards the `export` token and dispatches straight
+// to `parse_function_declaration()`, and `kali_ast::FunctionDeclaration` has no
+// `exported` field — so `export function s() {}` and `function s() {}` produce
+// the SAME AST and nothing downstream can distinguish them.
+// `Statement::ExportNamed` is the `export { name }` LIST form only, and is not
+// what this test exercises.
+//
+// Admission is sound only while a cross-module imported call returns `0`
+// wholesale. If cross-module calls ever deliver real arguments, exported
+// functions must be marked escaping and this test must flip to fail-closed —
+// and that needs a PARSER change first (preserve the export marker on the
+// declaration), because matching `Statement::ExportNamed` alone would miss
+// exactly the shape below.
 #[test]
 fn an_exported_function_is_admitted_because_export_is_not_an_escape() {
     let src = "export function s(x) {\n\

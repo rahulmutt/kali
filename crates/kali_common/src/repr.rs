@@ -191,18 +191,38 @@ pub struct ReprTable {
     /// passed as a callback, `new`-ed) — `kali_types::repr_infer`'s
     /// `escaping_function_names`, exposed here verbatim (R-35 Task 8).
     ///
-    /// NOT triggered by `export` (corrected in R-35 Task 8 fix round 1; the
-    /// claim was inherited from Task 7 and is simply false).
-    /// `Statement::ExportNamed` is an explicit no-op in the walk that builds
-    /// this set — `kali_types::repr_infer`'s `_ => {}` statement arm lists it
-    /// among the "no direct expressions to scan" variants — so
-    /// `export function s(x) { switch (x) { case "a": … } }` IS admitted;
+    /// NOT triggered by `export` (R-35 Task 8: the claim that it was is
+    /// inherited from Task 7 and is false; fix round 1 corrected the fact and
+    /// fix round 2 corrected the MECHANISM, which was also wrong).
+    /// `export function s(x) { switch (x) { case "a": … } }` IS admitted —
     /// measured byte-matching node at exit 0 on both the string and the
-    /// numeric domain. It is not exploitable today only because a
-    /// cross-module imported call returns `0` wholesale, so the unenumerable
-    /// call site an export nominally creates cannot actually deliver an
-    /// argument. Any work that makes cross-module calls real must add
-    /// `export` to this set BEFORE it lands.
+    /// numeric domain, pinned by
+    /// `an_exported_function_is_admitted_because_export_is_not_an_escape`.
+    ///
+    /// THE ACTUAL MECHANISM — read this before trying to change it, because
+    /// the obvious change does not work. For the DECLARATION form, the export
+    /// marker is erased in the PARSER and leaves no AST trace at all:
+    /// `parse_export_declaration` (`kali_parser::module`) discards the
+    /// `export` token (`let _ = self.stream.advance();`) and dispatches
+    /// straight to `parse_function_declaration()` / `parse_class_declaration()`,
+    /// and `kali_ast::FunctionDeclaration` has no `exported` field (it is
+    /// exactly `name`, `params`, `body`, `is_async`, `generator`). So
+    /// `export function s() {}` and `function s() {}` are the SAME AST, and no
+    /// pass downstream of the parser can tell them apart.
+    /// `Statement::ExportNamed` is NOT that shape: it is built at a single
+    /// site, for the `export { name }` / `export … from` LIST form only. (The
+    /// `export default` forms do survive, as `Statement::ExportDefault`.)
+    ///
+    /// This is safe today only because a cross-module imported call returns
+    /// `0` wholesale, so the unenumerable call site an export nominally
+    /// creates cannot actually deliver an argument. WORK THAT MAKES
+    /// CROSS-MODULE CALLS REAL MUST MARK EXPORTED FUNCTIONS AS ESCAPING
+    /// FIRST — and doing that requires a PARSER change before any escape-walk
+    /// change, because there is currently nothing in the AST to key off.
+    /// Matching `Statement::ExportNamed` alone would catch only the
+    /// re-export-list form and silently miss every `export function` /
+    /// `export class`, which is the common case and the exact shape of the
+    /// pin test above.
     ///
     /// DOMAIN-INDEPENDENT on purpose, exactly like
     /// [`readonly_params`](Self::readonly_params): it says nothing about the
