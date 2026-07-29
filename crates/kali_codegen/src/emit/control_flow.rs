@@ -71,12 +71,24 @@ impl<'a> FunctionEmitter<'a> {
                         // There IS an enclosing loop, but its `continue`
                         // lowering is not faithful, so binding a `continue` to
                         // it would silently change which iterations run.
+                        // The suggested rewrites are MEASURED against node
+                        // v26.5.0 at this commit, not assumed. `while` and
+                        // `for (const v of [...])` each run this exact fixture
+                        // byte-identically to node. `for (let v of [...])` and
+                        // `for (var v of [...])` do NOT — they are register
+                        // R-53 and read every element as `0`, silently — so the
+                        // binding kind is named explicitly. Never widen this
+                        // sentence to a construct that has not been re-measured:
+                        // routing a user out of an honest denial and into a
+                        // silent miscompile is strictly worse than the denial.
                         "`continue` inside a `switch` is unavailable in this loop form: an \
                          unlabeled `continue` in a C-style `for` with an update clause, a \
                          `do`/`while`, or a `for...in` does not re-run the update/test \
                          faithfully in the current lowering (register R-09), so binding one \
-                         here would silently skip or repeat iterations; use a `while` or \
-                         `for...of` loop, or rewrite the clause without `continue` \
+                         here would silently skip or repeat iterations; use a `while` loop, \
+                         or a `for...of` loop whose loop variable is declared `const` (a \
+                         `var` or `let` for-of binding is register R-53 and reads every \
+                         element as 0), or rewrite the clause without `continue` \
                          (fail-closed)"
                     };
                     self.diagnostics

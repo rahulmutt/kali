@@ -139,9 +139,29 @@ pub(crate) struct LoopFrame {
 
 /// A live per-loop arena scope: the three local slots holding the
 /// current-arena trio (`g1`/`g2`/`g3`) as it was *before* this loop opened
-/// (restored on release), and the index into `FunctionEmitter::loop_frames`
-/// of the loop this arena belongs to (used by `break` to decide whether it is
-/// exiting the loop that owns this frame).
+/// (restored on release), and `loop_frame_index`.
+///
+/// **`loop_frame_index` IS NOT AN INDEX. Do not index with it.** The doc here
+/// used to say it was "used by `break` to decide whether it is exiting the loop
+/// that owns this frame". That has been false since Task 9:
+/// `emit_break_or_continue` does no arena work at all and never reads this
+/// field. Its ONLY value-reader in the whole crate is
+/// `emit/growable.rs`'s `.any(|frame| frame.loop_frame_index.is_some())`,
+/// which asks a pure yes/no question — "is any live arena frame loop-owned?"
+/// — and `emit/control_flow.rs`'s function-arena assertion, which checks it is
+/// `None`. So the field is a `bool` wearing an `Option<usize>`'s clothes.
+///
+/// **INVARIANT, stated so a future edit that starts indexing with it fails
+/// review rather than silently corrupting arenas:** the `usize` inside is NOT
+/// a valid subscript into `FunctionEmitter::loop_frames`. It is computed at
+/// `emit/control_flow.rs`'s `let loop_frame_index = self.loop_frames.len();`,
+/// and since Task 9 a `switch` pushes a `LoopFrame` too — so `loop_frames`
+/// counts SWITCH frames as well as loop frames, and a loop nested inside a
+/// switch records an index shifted past every enclosing switch. It is harmless
+/// today only because nothing subscripts with it. Anyone who wants a real
+/// loop-frame back-reference must first make `loop_frames` (or a parallel
+/// stack) distinguish loop frames from switch frames; until then, treat this
+/// field as `Option<()>`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct ArenaFrame {
     pub(crate) saved_page_local: u32,

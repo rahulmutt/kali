@@ -31,8 +31,25 @@ fn run_js_expect_failure(source: &str) -> String {
 // DIFFERENT reason — most often Rule 1, since a discriminant proof regression
 // makes every switch in the file deny — and it keeps passing while having lost
 // its entire purpose. That failure mode has now been found twice on this plan,
-// so it is closed structurally: every fail-closed test below pins the rule, via
-// `assert_denied_by`, and a new one has an obvious shape to copy.
+// so it is closed structurally: every fail-closed test below pins the rule, and
+// a new one has an obvious shape to copy.
+//
+// PRECISELY (corrected in the pre-merge fix wave — this header used to say
+// "every fail-closed test below pins the rule, VIA `assert_denied_by`", which
+// was false in two ways and had already let one test drift):
+//   - Every `E5506` cell pins its rule through `assert_denied_by`. The one
+//     that did not — `a_float_discriminant_is_fail_closed`, which asserted
+//     only `contains("E5506")` — was fixed in the same wave.
+//   - Three cells legitimately do NOT call `assert_denied_by`, and must not:
+//     `a_labeled_break_in_a_clause_is_fail_closed` denies with **E3100** from
+//     name resolution, never reaching E5506 at all; and the two
+//     `NO_ENCLOSING_LOOP` cells assert on that constant directly because they
+//     also assert the OTHER cause's message is ABSENT, which is a
+//     disjointness claim `assert_denied_by` does not make. All three still
+//     pin an exact constant — none asserts a bare "some denial".
+// Rule literals are never hand-rolled: a hand-copied PREFIX goes insensitive
+// exactly when the rule text widens, which has already happened once here
+// (Rule 4, Task 9). Always use the constants below.
 const RULE_1_DISCRIMINANT: &str = "the discriminant is not a proven integer or string";
 const RULE_2_CASE_TEST: &str = "a `case` test that is not a literal in the discriminant's domain";
 // Task 9 widened Rule 4 from `return`-only to "a proven control transfer", so
@@ -196,12 +213,29 @@ fn a_float_discriminant_is_fail_closed() {
          }\n\
          console.log(\"v=\" + s(1.5));\n",
     );
-    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+    // Fix wave item 4: this cell asserted only "some E5506, and not E4201",
+    // which is exactly the degradation the file header (and `assert_denied_by`)
+    // exist to prevent. Pin the rule.
+    assert_denied_by(&out, RULE_1_DISCRIMINANT, "a float discriminant");
     assert!(
         !out.contains("E4201"),
         "the float discriminant must be denied at the switch choke point \
          (E5506), not fall through to an invalid-module error (E4201); got: {out}"
     );
+    // KNOWN OVERDETERMINATION — recorded, deliberately not fixed in this wave.
+    // Three INDEPENDENT gates now deny this one fixture at Rule 1: the
+    // parameter-inflow proof added by `83a401c311`, the second gate added by
+    // `2bc904375e`, and `emit/switch.rs`'s `scalar(…) == Repr::I64` check.
+    // Deleting `is_float_valued` from `is_provable_i64_scalar` today would
+    // leave this test GREEN, so the pin above does not actually measure the
+    // float check this test's comment claims it does. The same vacuity applies
+    // to `a_negative_float_parameter_argument_discriminant_is_fail_closed`
+    // below, whose comment claims it pins `expr_is_nonneg_int_literal`'s
+    // `fract()` check — unreachable, because the parameter-inflow gate at
+    // `emit/switch.rs` returns first. FOLLOW-UP: closing the vacuity needs a
+    // fixture that the parameter-inflow and `Repr::I64` gates both ADMIT and
+    // only the float check denies; constructing one is its own task and was
+    // deliberately out of scope here.
 }
 
 // ADDITIVE (Task 4's re-derived boundary matrix, cell 16): a boolean
@@ -223,13 +257,11 @@ fn a_boolean_discriminant_is_fail_closed() {
          }\n\
          console.log(\"v=\" + s(1));\n",
     );
-    assert!(out.contains("E5506"), "expected E5506, got: {out}");
-    assert!(
-        out.contains("the discriminant is not a proven integer"),
-        "the boolean discriminant must be denied by is_provable_i64_scalar's \
-         boolean check, not by a different rule (e.g. the numeric case-test \
-         rule); got: {out}"
-    );
+    // Fix wave item 5: was a hand-rolled PREFIX of the rule text, which goes
+    // insensitive the moment Rule 1's message widens. Routed through the
+    // constant. (The claim it makes is unchanged: this must be Rule 1 — the
+    // discriminant — not the numeric case-test rule.)
+    assert_denied_by(&out, RULE_1_DISCRIMINANT, "a boolean discriminant");
 }
 
 // Fix round 1 (Critical 2 companion, cell 16 closed for real): a bare
@@ -256,10 +288,14 @@ fn a_boolean_identifier_discriminant_is_fail_closed() {
          }\n\
          console.log(\"v=\" + s());\n",
     );
-    assert!(out.contains("E5506"), "expected E5506, got: {out}");
-    assert!(
-        out.contains("the discriminant is not a proven integer"),
-        "must be denied by Rule 1 (the discriminant), not some other rule; got: {out}"
+    // Fix wave item 5: was a hand-rolled PREFIX of the rule text
+    // (`"the discriminant is not a proven integer"`), which goes
+    // insensitive the moment Rule 1's message widens — as Rule 4's
+    // already did once on this branch. Routed through the constant.
+    assert_denied_by(
+        &out,
+        RULE_1_DISCRIMINANT,
+        "a boolean identifier discriminant",
     );
 }
 
@@ -285,10 +321,14 @@ fn a_boolean_parameter_discriminant_is_fail_closed() {
          }\n\
          console.log(\"v=\" + s(true));\n",
     );
-    assert!(out.contains("E5506"), "expected E5506, got: {out}");
-    assert!(
-        out.contains("the discriminant is not a proven integer"),
-        "must be denied by Rule 1 (the discriminant), not some other rule; got: {out}"
+    // Fix wave item 5: was a hand-rolled PREFIX of the rule text
+    // (`"the discriminant is not a proven integer"`), which goes
+    // insensitive the moment Rule 1's message widens — as Rule 4's
+    // already did once on this branch. Routed through the constant.
+    assert_denied_by(
+        &out,
+        RULE_1_DISCRIMINANT,
+        "a boolean parameter discriminant",
     );
 }
 
@@ -313,10 +353,14 @@ fn a_computed_parameter_argument_discriminant_is_fail_closed() {
          var n = 0;\n\
          console.log(\"v=\" + s(n + 1));\n",
     );
-    assert!(out.contains("E5506"), "expected E5506, got: {out}");
-    assert!(
-        out.contains("the discriminant is not a proven integer"),
-        "must be denied by Rule 1 (the discriminant), not some other rule; got: {out}"
+    // Fix wave item 5: was a hand-rolled PREFIX of the rule text
+    // (`"the discriminant is not a proven integer"`), which goes
+    // insensitive the moment Rule 1's message widens — as Rule 4's
+    // already did once on this branch. Routed through the constant.
+    assert_denied_by(
+        &out,
+        RULE_1_DISCRIMINANT,
+        "a computed parameter argument discriminant",
     );
 }
 
@@ -342,16 +386,21 @@ fn a_negative_float_parameter_argument_discriminant_is_fail_closed() {
          }\n\
          console.log(\"v=\" + s(-1.5));\n",
     );
-    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+    // Fix wave item 5: routed through the constant (was a hand-rolled prefix).
+    assert_denied_by(
+        &out,
+        RULE_1_DISCRIMINANT,
+        "a negative-float parameter argument",
+    );
     assert!(
         !out.contains("E4201"),
         "must be denied at the switch choke point (E5506), not fall through to an \
          invalid-module error (E4201); got: {out}"
     );
-    assert!(
-        out.contains("the discriminant is not a proven integer"),
-        "must be denied by Rule 1 (the discriminant), not some other rule; got: {out}"
-    );
+    // See the overdetermination note on `a_float_discriminant_is_fail_closed`:
+    // this cell's comment claims it pins `expr_is_nonneg_int_literal`'s
+    // `fract()` check, but the parameter-inflow gate denies first, so that
+    // claim is VACUOUS. Recorded, not fixed in this wave.
 }
 
 // A `let`/`const` declaration in a clause body is denied (Rule 5): block
@@ -398,15 +447,18 @@ fn a_let_declaration_in_an_unbraced_clause_is_fail_closed_via_rule_5() {
          }\n\
          console.log(\"v=\" + s(1));\n",
     );
-    assert!(out.contains("E5506"), "expected E5506, got: {out}");
     // Fix round 4: pin the Rule-5 reason this test's name claims — without it
-    // the assertion above is satisfied by ANY denial, including the Rule-4 one
-    // the test above pins, which would make this test's whole premise
+    // an "any E5506" assertion is satisfied by ANY denial, including the Rule-4
+    // one the test above pins, which would make this test's whole premise
     // (`declares_block_scoped_binding` has coverage) untrue.
-    assert!(
-        out.contains("a `let`/`const` declaration in a clause body"),
-        "the unbraced form must be denied by Rule 5 \
-         (declares_block_scoped_binding), as this test's name claims; got: {out}"
+    //
+    // Fix wave item 5: the rule text was HAND-COPIED here rather than taken
+    // from `RULE_5_BLOCK_BINDING`, so a widening of Rule 5's message would
+    // leave this pin matching a stale prefix. Routed through the constant.
+    assert_denied_by(
+        &out,
+        RULE_5_BLOCK_BINDING,
+        "an unbraced `let` clause (declares_block_scoped_binding)",
     );
 }
 
@@ -432,10 +484,14 @@ fn a_written_parameter_discriminant_is_fail_closed() {
          }\n\
          console.log(\"v=\" + s(1));\n",
     );
-    assert!(out.contains("E5506"), "expected E5506, got: {out}");
-    assert!(
-        out.contains("the discriminant is not a proven integer"),
-        "must be denied by Rule 1 (the discriminant), not some other rule; got: {out}"
+    // Fix wave item 5: was a hand-rolled PREFIX of the rule text
+    // (`"the discriminant is not a proven integer"`), which goes
+    // insensitive the moment Rule 1's message widens — as Rule 4's
+    // already did once on this branch. Routed through the constant.
+    assert_denied_by(
+        &out,
+        RULE_1_DISCRIMINANT,
+        "a written parameter discriminant",
     );
 }
 
@@ -462,10 +518,14 @@ fn a_parameter_overwritten_from_a_boolean_binding_is_fail_closed() {
          }\n\
          console.log(\"v=\" + s(1));\n",
     );
-    assert!(out.contains("E5506"), "expected E5506, got: {out}");
-    assert!(
-        out.contains("the discriminant is not a proven integer"),
-        "must be denied by Rule 1 (the discriminant), not some other rule; got: {out}"
+    // Fix wave item 5: was a hand-rolled PREFIX of the rule text
+    // (`"the discriminant is not a proven integer"`), which goes
+    // insensitive the moment Rule 1's message widens — as Rule 4's
+    // already did once on this branch. Routed through the constant.
+    assert_denied_by(
+        &out,
+        RULE_1_DISCRIMINANT,
+        "a parameter overwritten from a boolean binding",
     );
 }
 
@@ -488,10 +548,14 @@ fn a_parameter_overwritten_from_another_parameter_is_fail_closed() {
          }\n\
          console.log(\"v=\" + s(1, true));\n",
     );
-    assert!(out.contains("E5506"), "expected E5506, got: {out}");
-    assert!(
-        out.contains("the discriminant is not a proven integer"),
-        "must be denied by Rule 1 (the discriminant), not some other rule; got: {out}"
+    // Fix wave item 5: was a hand-rolled PREFIX of the rule text
+    // (`"the discriminant is not a proven integer"`), which goes
+    // insensitive the moment Rule 1's message widens — as Rule 4's
+    // already did once on this branch. Routed through the constant.
+    assert_denied_by(
+        &out,
+        RULE_1_DISCRIMINANT,
+        "a parameter overwritten from another parameter",
     );
 }
 
@@ -519,10 +583,14 @@ fn a_new_invocation_site_of_the_enclosing_function_is_fail_closed() {
          console.log(\"a=\" + s(1));\n\
          new s(true);\n",
     );
-    assert!(out.contains("E5506"), "expected E5506, got: {out}");
-    assert!(
-        out.contains("the discriminant is not a proven integer"),
-        "must be denied by Rule 1 (the discriminant), not some other rule; got: {out}"
+    // Fix wave item 5: was a hand-rolled PREFIX of the rule text
+    // (`"the discriminant is not a proven integer"`), which goes
+    // insensitive the moment Rule 1's message widens — as Rule 4's
+    // already did once on this branch. Routed through the constant.
+    assert_denied_by(
+        &out,
+        RULE_1_DISCRIMINANT,
+        "a new invocation site of the enclosing function",
     );
 }
 
@@ -649,6 +717,16 @@ fn continue_in_a_switch_in_a_do_while_is_fail_closed() {
          console.log(\"s=\" + s);\n",
     );
     assert_denied_by(&out, UNFAITHFUL_CONTINUE, "continue in a do-while");
+    // Fix wave item 9: NOT redundant with the rule pin. `deny_e5506` pushes a
+    // diagnostic and emits `Unreachable`, but it still emits a COMPLETE module,
+    // and `run_js_expect_failure` gates only on `!status.success()`. If codegen
+    // diagnostics ever stop being fatal for `run`, this cell goes green WHILE
+    // THE LOOP EXECUTES — and this is the worst measured blow-up on record
+    // (1,578,155 lines before trapping).
+    assert!(
+        !out.contains("iter="),
+        "it must be refused at compile time, not part-way through the loop; got: {out}"
+    );
 }
 
 // `for...in` advances its ordinal AFTER the body, so `continue` re-reads the
@@ -667,6 +745,14 @@ fn continue_in_a_switch_in_a_for_in_is_fail_closed() {
          console.log(\"n=\" + n);\n",
     );
     assert_denied_by(&out, UNFAITHFUL_CONTINUE, "continue in a for-in");
+    // Fix wave item 9, and note the MARKER: this fixture logs `key=`, not
+    // `iter=`. A copy-pasted `!contains("iter=")` would be vacuously true here
+    // and would pin nothing at all. Same rationale as the do-while cell above;
+    // this form's measured blow-up is 1,249,832 lines.
+    assert!(
+        !out.contains("key="),
+        "it must be refused at compile time, not part-way through the loop; got: {out}"
+    );
 }
 
 // The two `None` causes must stay DISTINGUISHABLE. A switch with no enclosing
@@ -698,6 +784,13 @@ fn the_two_continue_denial_causes_are_reported_distinctly() {
     assert!(
         !bad_form.contains(NO_ENCLOSING_LOOP),
         "a switch inside a real `for` must not be told there is no loop; got: {bad_form}"
+    );
+    // Fix wave item 9: the `bad_form` fixture has a real loop with a
+    // per-iteration `console.log("iter=" + i)`, so it must also be proven not
+    // to have RUN. Same rationale as the do-while / for-in cells above.
+    assert!(
+        !bad_form.contains("iter="),
+        "it must be refused at compile time, not part-way through the loop; got: {bad_form}"
     );
 }
 
