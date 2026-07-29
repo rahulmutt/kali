@@ -155,6 +155,17 @@ pub struct ReprTable {
     /// literal" would be a laundering hole for it. A function with ZERO
     /// enumerated call sites is correctly excluded too (no evidence, not
     /// "vacuously true").
+    ///
+    /// R-35 Task 7 fix round 4: the proof additionally requires the parameter
+    /// to be POSITIVELY proven NEVER WRITTEN in `func`'s own body (see
+    /// `kali_types::repr_infer`'s `readonly_params`). Without that conjunct
+    /// this set proves only what flowed IN at the call sites, while its
+    /// consumer reads it as a fact about the value the parameter HOLDS where
+    /// it is used — and every write in between (`x = true`, `x = y`,
+    /// `x = b()`, `x += 1`, `x++`, a loop binding, …) laundered a
+    /// non-numeric value through a clean numeric-literal call site. With it,
+    /// "what flowed in" and "what it holds" are the same fact, which is what
+    /// the name of this set has always implied.
     numeric_literal_inflow_params: HashSet<(String, String)>,
     /// `(func, binding)` var/let/const locals whose declarator RHS is an
     /// object literal. Object shape inference only assigns `Repr::Object`
@@ -606,10 +617,13 @@ impl ReprTable {
     /// True when `binding` is a PARAM of `func` PROVEN (R-35 Task 7 fix round
     /// 2) to receive a numeric-literal argument at every enumerated call
     /// site, with `func` itself proven never to escape as a value (so every
-    /// runtime call to it IS one of the enumerated sites). Defaults to false
-    /// — a param with no such proof (no call sites, an escaping function, or
-    /// any non-numeric-literal argument at any site) reports false, matching
-    /// this being a POSITIVE allowlist, not a default.
+    /// runtime call to it IS one of the enumerated sites) and the param
+    /// itself proven never written in `func`'s body (fix round 4, so the
+    /// inflow fact is also a fact about the value at every point of the
+    /// body). Defaults to false — a param with no such proof (no call sites,
+    /// an escaping function, a written parameter, or any non-numeric-literal
+    /// argument at any site) reports false, matching this being a POSITIVE
+    /// allowlist, not a default.
     pub fn param_has_numeric_literal_inflow(&self, func: &str, binding: &str) -> bool {
         self.numeric_literal_inflow_params
             .contains(&(func.to_string(), binding.to_string()))

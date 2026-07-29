@@ -119,6 +119,233 @@ fn expr_is_signed_int_literal(expr: &Expression) -> bool {
     }
 }
 
+/// POSITIVE proof that `name` is only ever READ across `stmts` — R-35 Task 7
+/// fix round 4, the "the inflow proof is a proof of VALUE" conjunct (see
+/// `ReprInfer::readonly_params`).
+///
+/// Shape of the proof, and the reason it is shaped this way: this is an
+/// ALLOWLIST of the forms in which a name provably cannot be written, not a
+/// denylist of write forms. Every arm below returns `true` only after proving
+/// the whole sub-tree write-free, and EVERY form not enumerated returns
+/// `false`. So a new AST node kind, a new assignment operator, a new
+/// destructuring shape, a new loop-binding form — anything at all that this
+/// file has never heard of — makes the proof FAIL, which denies. A "list of
+/// write forms to exclude" would fail the other way, which is precisely the
+/// leak class this task exists to close.
+///
+/// Non-obvious denials, all deliberate:
+/// - any nested function/class (`FunctionDeclaration`, a fn-expr, an arrow, a
+///   class): a closure can capture and write the name, and its body is not
+///   in this walk's reach,
+/// - any declaration or catch/loop binding OF the name (`var x = …`,
+///   `let x`, `catch (x)`, `for (x of …)`): `var` re-initialization writes the
+///   parameter outright, and a block-scoped shadow is unmodeled (R-10),
+/// - any read of `arguments` or `eval` anywhere: `arguments[0] = v` aliases a
+///   sloppy-mode parameter and `eval("x = v")` can write any binding, and
+///   neither is visible as a syntactic write to `name`,
+/// - `with`, and every import/export/type declaration form.
+fn stmts_are_write_free(name: &str, stmts: &[Statement]) -> bool {
+    stmts.iter().all(|stmt| stmt_is_write_free(name, stmt))
+}
+
+fn block_is_write_free(name: &str, block: &BlockStatement) -> bool {
+    stmts_are_write_free(name, &block.body)
+}
+
+fn opt_expr_is_write_free(name: &str, expr: Option<&Expression>) -> bool {
+    expr.is_none_or(|e| expr_is_write_free(name, e))
+}
+
+/// A `var`/`let`/`const` declaration is write-free for `name` only when it
+/// does not DECLARE `name` at all (a `var x = 1` with `x` a parameter writes
+/// the parameter; a `let x` shadow is unmodeled) and every initializer is
+/// itself write-free.
+fn declaration_is_write_free(name: &str, decl: &kali_ast::VariableDeclaration) -> bool {
+    decl.declarations
+        .iter()
+        .all(|d| d.id != name && opt_expr_is_write_free(name, d.init.as_ref()))
+}
+
+fn stmt_is_write_free(name: &str, stmt: &Statement) -> bool {
+    match stmt {
+        Statement::ExpressionStatement(node) => expr_is_write_free(name, &node.expression),
+        Statement::ReturnStatement(node) => opt_expr_is_write_free(name, node.argument.as_ref()),
+        Statement::ThrowStatement(node) => expr_is_write_free(name, &node.argument),
+        Statement::BreakStatement(_)
+        | Statement::ContinueStatement(_)
+        | Statement::DebuggerStatement(_) => true,
+        Statement::BlockStatement(block) => stmts_are_write_free(name, &block.body),
+        Statement::LabeledStatement(node) => stmt_is_write_free(name, &node.body),
+        Statement::IfStatement(node) => {
+            expr_is_write_free(name, &node.test)
+                && block_is_write_free(name, &node.consequent)
+                && node
+                    .alternate
+                    .as_ref()
+                    .is_none_or(|alt| block_is_write_free(name, alt))
+        }
+        Statement::SwitchStatement(node) => {
+            expr_is_write_free(name, &node.discriminant)
+                && node.cases.iter().all(|case| {
+                    opt_expr_is_write_free(name, case.test.as_ref())
+                        && stmts_are_write_free(name, &case.consequent)
+                })
+        }
+        Statement::WhileStatement(node) => {
+            expr_is_write_free(name, &node.test) && block_is_write_free(name, &node.body)
+        }
+        Statement::DoWhileStatement(node) => {
+            expr_is_write_free(name, &node.test) && block_is_write_free(name, &node.body)
+        }
+        Statement::ForStatement(node) => {
+            let init_ok = match &node.init {
+                None => true,
+                Some(ForInit::VariableDeclaration(decl)) => declaration_is_write_free(name, decl),
+                Some(ForInit::Expression(expr)) => expr_is_write_free(name, expr),
+            };
+            init_ok
+                && opt_expr_is_write_free(name, node.test.as_ref())
+                && opt_expr_is_write_free(name, node.update.as_ref())
+                && block_is_write_free(name, &node.body)
+        }
+        // `for (x of …)` / `for (x in …)` BIND the loop variable on every
+        // iteration, so a lefthand naming the parameter is a write.
+        Statement::ForInStatement(node) => {
+            let left_ok = match &node.left {
+                ForInLefthand::VariableDeclaration(decl) => declaration_is_write_free(name, decl),
+                ForInLefthand::Expression(expr) => {
+                    assign_target_is_not_binding(name, expr) && expr_is_write_free(name, expr)
+                }
+            };
+            left_ok && expr_is_write_free(name, &node.right) && stmt_is_write_free(name, &node.body)
+        }
+        Statement::ForOfStatement(node) => {
+            let left_ok = match &node.left {
+                ForOfLefthand::VariableDeclaration(decl) => declaration_is_write_free(name, decl),
+                ForOfLefthand::Expression(expr) => {
+                    assign_target_is_not_binding(name, expr) && expr_is_write_free(name, expr)
+                }
+            };
+            left_ok && expr_is_write_free(name, &node.right) && stmt_is_write_free(name, &node.body)
+        }
+        Statement::TryStatement(node) => {
+            block_is_write_free(name, &node.block)
+                && node
+                    .handler
+                    .as_ref()
+                    .is_none_or(|h| h.param != name && block_is_write_free(name, &h.body))
+                && node
+                    .finalizer
+                    .as_ref()
+                    .is_none_or(|f| stmts_are_write_free(name, &f.body))
+        }
+        Statement::VariableDeclaration(decl) => declaration_is_write_free(name, decl),
+        // NOT enumerated as write-free (see this function's doc): nested
+        // functions and classes (a closure can write the captured name from a
+        // body outside this walk), `with` (an object property can shadow the
+        // name), and every module/type declaration form.
+        Statement::FunctionDeclaration(_)
+        | Statement::ClassDeclaration(_)
+        | Statement::WithStatement(_)
+        | Statement::ImportDeclaration(_)
+        | Statement::ExportAll(_)
+        | Statement::ExportNamed(_)
+        | Statement::ExportDefault(_)
+        | Statement::EnumDeclaration(_)
+        | Statement::TypeAliasDeclaration(_)
+        | Statement::InterfaceDeclaration(_) => false,
+    }
+}
+
+/// PROOF that an assignment/update TARGET writes something other than the
+/// binding `name`. Only three target shapes are proven: another bare
+/// identifier, a property/element write (which mutates the referenced object,
+/// never the binding), and either of those in parentheses. Every other target
+/// — a destructuring array/object pattern above all — is denied.
+fn assign_target_is_not_binding(name: &str, target: &Expression) -> bool {
+    match target {
+        Expression::Identifier(other) => other != name,
+        Expression::MemberExpression(_) => true,
+        Expression::ParenthesizedExpression(inner) => {
+            assign_target_is_not_binding(name, &inner.expression)
+        }
+        _ => false,
+    }
+}
+
+fn expr_is_write_free(name: &str, expr: &Expression) -> bool {
+    match expr {
+        // A plain read. `arguments` and `eval` are the two reads that can
+        // write a binding without naming it syntactically, so neither is ever
+        // proven read-only.
+        Expression::Identifier(other) => other != "arguments" && other != "eval",
+        Expression::Literal(_)
+        | Expression::BigIntLiteral(_)
+        | Expression::ThisExpression
+        | Expression::JsxEmptyExpression => true,
+        Expression::TemplateLiteral(template) => template
+            .expressions
+            .iter()
+            .all(|e| expr_is_write_free(name, e)),
+        Expression::ParenthesizedExpression(inner) => expr_is_write_free(name, &inner.expression),
+        Expression::BinaryExpression(bin) => {
+            expr_is_write_free(name, &bin.left) && expr_is_write_free(name, &bin.right)
+        }
+        Expression::LogicalExpression(logical) => {
+            expr_is_write_free(name, &logical.left) && expr_is_write_free(name, &logical.right)
+        }
+        Expression::ConditionalExpression(cond) => {
+            expr_is_write_free(name, &cond.test)
+                && expr_is_write_free(name, &cond.consequent)
+                && expr_is_write_free(name, &cond.alternate)
+        }
+        Expression::SequenceExpression(seq) => {
+            seq.expressions.iter().all(|e| expr_is_write_free(name, e))
+        }
+        Expression::UnaryExpression(unary) => expr_is_write_free(name, &unary.argument),
+        Expression::AwaitExpression(await_expr) => expr_is_write_free(name, &await_expr.argument),
+        Expression::SpreadElement(spread) => expr_is_write_free(name, &spread.argument),
+        Expression::TypeAssertion(node) => expr_is_write_free(name, &node.expression),
+        Expression::SatisfiesExpression(node) => expr_is_write_free(name, &node.expression),
+        Expression::MemberExpression(member) => {
+            expr_is_write_free(name, &member.object)
+                && member
+                    .computed_index
+                    .as_ref()
+                    .is_none_or(|index| expr_is_write_free(name, index))
+        }
+        // A call cannot rebind the CALLER's binding: JS argument passing is
+        // by value. (A callee that writes its OWN parameter of the same name
+        // is irrelevant — that is a different binding, and it is proven
+        // separately under its own function's key.)
+        Expression::CallExpression(call) => {
+            expr_is_write_free(name, &call.callee)
+                && call.args.iter().all(|a| expr_is_write_free(name, a))
+        }
+        Expression::NewExpression(new_expr) => {
+            expr_is_write_free(name, &new_expr.callee)
+                && new_expr.args.iter().all(|a| expr_is_write_free(name, a))
+        }
+        // `x = …`, `x += …`, `x++`, `--x`: proven write-free only when the
+        // TARGET is provably some other binding (or a property write).
+        Expression::AssignmentExpression(assign) => {
+            assign_target_is_not_binding(name, &assign.left)
+                && expr_is_write_free(name, &assign.left)
+                && expr_is_write_free(name, &assign.right)
+        }
+        Expression::UpdateExpression(update) => {
+            assign_target_is_not_binding(name, &update.argument)
+                && expr_is_write_free(name, &update.argument)
+        }
+        // Everything else — a fn-expr/arrow/class body (a closure can write
+        // the captured name), an array/object literal (whose element and
+        // property shapes this walk does not model), a tagged template, a
+        // yield, an optional chain, JSX, an `import()` — is NOT enumerated,
+        // so it is not proven, so it denies.
+        _ => false,
+    }
+}
+
 /// A deferred interprocedural call constraint, resolved after every function
 /// body has been walked (so all param/return/element nodes already exist).
 struct CallEdge {
@@ -533,10 +760,37 @@ struct ReprInfer {
     /// numeric literal. Same ∃/∀ shape as `scalar_inflow_params`: at least one
     /// call-site edge (∃, so a never-called function is excluded — no
     /// evidence is not vacuous truth) and NO call-site edge supplies anything
-    /// else (∀). Copied verbatim into
+    /// else (∀), AND (R-35 Task 7 fix round 4) the parameter is proven
+    /// NEVER-WRITTEN inside `func`'s own body (`readonly_params` below) — so
+    /// what flowed IN is also what the parameter holds at every point of the
+    /// body, which is what every consumer actually needs. Copied verbatim into
     /// [`ReprTable::numeric_literal_inflow_params`](kali_common::ReprTable) at
     /// emit time.
     numeric_literal_inflow_params: BTreeSet<(String, String)>,
+    /// `(func, param)` parameters POSITIVELY proven never written anywhere in
+    /// `func`'s own body — R-35 Task 7 fix round 4, LEAK 2.
+    ///
+    /// Why this exists: `numeric_literal_inflow_params` above proves what
+    /// flowed IN at the call sites. Its only consumer (the switch
+    /// discriminant proof, `kali_codegen`'s `emit/switch.rs`) needs a fact
+    /// about the parameter's value AT THE SWITCH, and inflow is not that fact
+    /// — `function s(x) { x = true; switch (x) {...} } s(1)` had clean
+    /// numeric-literal inflow and a boolean discriminant, and was measured at
+    /// HEAD 83a401c311 printing `v=one` where node prints `v=other`, exit 0,
+    /// no diagnostic. Eight write forms laundered through it (`x = true`,
+    /// `x = x > 0`, `x = !x`, an `if`-guarded write, a `for`-body write, a
+    /// second-parameter copy, a call result, and a `var t = 1 > 0; x = t;`
+    /// copy of a binding `binding_is_proven_numeric` itself refuses).
+    /// Conjoining this set makes the inflow proof a proof of VALUE.
+    ///
+    /// Populated by `stmts_are_write_free`, which is a positive enumeration of
+    /// the statement/expression forms in which a name is provably only READ.
+    /// Every form it does not enumerate — including every form a future AST
+    /// variant could add — yields `false`, i.e. the parameter is simply absent
+    /// from this set and every proof conjoined on it denies. There is
+    /// deliberately no list of "write forms" to keep in sync with the AST:
+    /// that is the leak shape this whole task exists to close.
+    readonly_params: BTreeSet<(String, String)>,
     /// `(func, binding)` var/let/const locals whose declarator RHS is an
     /// object literal — copied verbatim into
     /// [`ReprTable::object_initialized_bindings`](kali_common::ReprTable) at
@@ -1738,6 +1992,24 @@ impl ReprInfer {
                 for param in &func.params {
                     // Eagerly allocate the param's scalar node.
                     self.scalar_node_for(&func.name, param);
+                    // R-35 Task 7 fix round 4, LEAK 2: prove — here, at the
+                    // same single site that registers the signature, so the
+                    // two sets can never cover different functions — which
+                    // parameters this body only ever READS. See
+                    // `readonly_params` and `stmts_are_write_free`.
+                    //
+                    // Insert-OR-REMOVE, not insert-on-success: function names
+                    // are flat in this pass, so a redeclaration (or a
+                    // same-named nested function) overwrites `self.functions`
+                    // last-wins, and the readonly set must track that exactly
+                    // — a union of both declarations' proofs would let the
+                    // read-only one vouch for the writing one.
+                    let key = (func.name.clone(), param.clone());
+                    if stmts_are_write_free(param, &func.body.body) {
+                        self.readonly_params.insert(key);
+                    } else {
+                        self.readonly_params.remove(&key);
+                    }
                 }
                 self.collect_functions(&func.body.body);
             }
@@ -2958,6 +3230,110 @@ impl ReprInfer {
 
     // ---- Phase B: expression walk --------------------------------------
 
+    /// Mark every declared function whose VALUE could reach the callee
+    /// position of a `new` as escaping — R-35 Task 7 fix round 4, LEAK 1.
+    ///
+    /// A `new f(...)` site invokes `f` but builds no `CallEdge`, so it is not
+    /// one of the sites `numeric_literal_inflow_params` quantifies over. The
+    /// only sound response is to treat `f` exactly as any other unenumerable
+    /// invocation route is treated: mark it escaping, which removes all of
+    /// its parameters from that positive-evidence set.
+    ///
+    /// Pure: it inserts into `escaping_function_names` and does nothing else.
+    /// No node is allocated, no seed added, no edge wired — so it cannot
+    /// perturb any repr solution, only narrow the switch allowlist. (Routing
+    /// the callee through `visit_expr` instead WOULD be complete, but it
+    /// seeds: measured breaking four `runtime_smoke` browser-bundle tests via
+    /// `new Error(...)`'s callee.)
+    ///
+    /// Fail-closed by construction. The `_` arm does not "give up quietly":
+    /// for a callee shape this walk cannot classify, it marks EVERY declared
+    /// function escaping, because such a shape could evaluate to any of them
+    /// and this pass has no way to tell which. Only shapes that provably
+    /// cannot evaluate to a declared function (a literal, `this`, `super`, a
+    /// meta-property, a private name) are silently skipped. The composite
+    /// arms recurse into every sub-expression, so `new (Object.freeze(f))()`,
+    /// `new (c ? f : g)()`, `new (null ?? f)()` and `new (f)()` all mark.
+    fn mark_new_callee_escapes(&mut self, expr: &Expression) {
+        match expr {
+            Expression::Identifier(name) => {
+                if self.functions.contains_key(name) {
+                    self.escaping_function_names.insert(name.clone());
+                }
+            }
+            // Shapes that cannot evaluate to a declared function value.
+            Expression::Literal(_)
+            | Expression::BigIntLiteral(_)
+            | Expression::TemplateLiteral(_)
+            | Expression::ThisExpression
+            | Expression::SuperExpression
+            | Expression::MetaProperty(_)
+            | Expression::PrivateIdentifier(_) => {}
+            // Composites: recurse into every sub-expression.
+            Expression::ParenthesizedExpression(inner) => {
+                self.mark_new_callee_escapes(&inner.expression)
+            }
+            Expression::TypeAssertion(node) => self.mark_new_callee_escapes(&node.expression),
+            Expression::SatisfiesExpression(node) => self.mark_new_callee_escapes(&node.expression),
+            Expression::ChainExpression(node) => self.mark_new_callee_escapes(&node.expression),
+            Expression::DecoratedExpression(node) => self.mark_new_callee_escapes(&node.expression),
+            Expression::AwaitExpression(node) => self.mark_new_callee_escapes(&node.argument),
+            Expression::SpreadElement(node) => self.mark_new_callee_escapes(&node.argument),
+            Expression::RestElement(node) => self.mark_new_callee_escapes(&node.argument),
+            Expression::UnaryExpression(unary) => self.mark_new_callee_escapes(&unary.argument),
+            Expression::UpdateExpression(update) => self.mark_new_callee_escapes(&update.argument),
+            Expression::BinaryExpression(bin) => {
+                self.mark_new_callee_escapes(&bin.left);
+                self.mark_new_callee_escapes(&bin.right);
+            }
+            Expression::LogicalExpression(logical) => {
+                self.mark_new_callee_escapes(&logical.left);
+                self.mark_new_callee_escapes(&logical.right);
+            }
+            Expression::AssignmentExpression(assign) => {
+                self.mark_new_callee_escapes(&assign.left);
+                self.mark_new_callee_escapes(&assign.right);
+            }
+            Expression::ConditionalExpression(cond) => {
+                self.mark_new_callee_escapes(&cond.test);
+                self.mark_new_callee_escapes(&cond.consequent);
+                self.mark_new_callee_escapes(&cond.alternate);
+            }
+            Expression::SequenceExpression(seq) => {
+                for e in &seq.expressions {
+                    self.mark_new_callee_escapes(e);
+                }
+            }
+            Expression::MemberExpression(member) => {
+                self.mark_new_callee_escapes(&member.object);
+                if let Some(index) = &member.computed_index {
+                    self.mark_new_callee_escapes(index);
+                }
+            }
+            Expression::CallExpression(call) => {
+                self.mark_new_callee_escapes(&call.callee);
+                for arg in &call.args {
+                    self.mark_new_callee_escapes(arg);
+                }
+            }
+            Expression::NewExpression(new_expr) => {
+                self.mark_new_callee_escapes(&new_expr.callee);
+                for arg in &new_expr.args {
+                    self.mark_new_callee_escapes(arg);
+                }
+            }
+            // Unclassifiable: a fn-expr/arrow/class body, a yield, an
+            // `import()`, a tagged template, JSX, an array/object literal
+            // whose elements this walk does not model — any of which could
+            // deliver a declared function value that then gets constructed.
+            // Fail CLOSED: every declared function is marked escaping.
+            _ => {
+                let all: Vec<String> = self.functions.keys().cloned().collect();
+                self.escaping_function_names.extend(all);
+            }
+        }
+    }
+
     /// Walk `expr`, wiring seeds/edges, and return its result node.
     fn visit_expr(&mut self, func: &str, expr: &Expression) -> usize {
         match expr {
@@ -3196,6 +3572,30 @@ impl ReprInfer {
             Expression::CallExpression(call) => self.visit_call(func, call),
 
             Expression::NewExpression(new_expr) => {
+                // R-35 Task 7 fix round 4 — LEAK 1. `new s(true)` INVOKES `s`
+                // with `true` bound to its first parameter, but it builds no
+                // `CallEdge` (only a bare-identifier `CallExpression` does),
+                // so `resolve_calls`'s "∀ enumerated edges passed a numeric
+                // literal" proof never saw it — AND the callee was not
+                // visited at all, so `s` never reached the
+                // `Expression::Identifier` arm that raises the
+                // `escaping_function_names` backstop whose whole job is to
+                // make "∀ enumerated edges" mean "∀ invocation sites".
+                // Measured at HEAD 83a401c311: `s(1); new s(true);` printed
+                // `one`/`one` where node prints `one`/`other`, exit 0, no
+                // diagnostic.
+                //
+                // Marked with a dedicated escape-only walk rather than by
+                // routing the callee through `visit_expr`: `visit_expr` is
+                // the complete walker, but it also SEEDS — and seeding a
+                // callee that this pass has never seeded moved the ASCII/
+                // string proofs for `new Error(...)` enough to break four
+                // `runtime_smoke` bundle tests (measured). This walk has no
+                // repr side effects at all; it can only ever ADD escape
+                // marks, i.e. only ever REMOVE parameters from a positive-
+                // evidence set. It is fail-closed on shapes it cannot
+                // classify — see its own doc.
+                self.mark_new_callee_escapes(&new_expr.callee);
                 // `new TextEncoder().encode(<string>)` (throw-fallout Stage 3
                 // bucket #6 part 2): the parser hoists the `new` to wrap the whole
                 // member-call chain, so this arrives as a `NewExpression` whose
@@ -4299,8 +4699,7 @@ impl ReprInfer {
             };
             for (k, param_name) in params.iter().enumerate() {
                 let key = (edge.callee.clone(), param_name.clone());
-                let is_numeric_literal =
-                    edge.arg_numeric_literal.get(k).copied().unwrap_or(false);
+                let is_numeric_literal = edge.arg_numeric_literal.get(k).copied().unwrap_or(false);
                 if is_numeric_literal {
                     numeric_literal_evidence.insert(key);
                 } else {
@@ -4308,9 +4707,19 @@ impl ReprInfer {
                 }
             }
         }
+        // The third conjunct (R-35 Task 7 fix round 4, LEAK 2) is
+        // `readonly_params`: the parameter must be proven NEVER WRITTEN in
+        // its own body. Without it this set proves only what flowed IN, while
+        // its consumer reads it as a fact about the parameter's value where
+        // it is USED — and every write between entry and that use launders
+        // through (measured: `function s(x) { x = true; switch (x) {…} }
+        // s(1)` printed `v=one` against node's `v=other`, exit 0, at HEAD
+        // 83a401c311). With it, "what flowed in" and "what it holds" are the
+        // same fact.
         for key in numeric_literal_evidence {
             if !numeric_literal_veto.contains(&key)
                 && !self.escaping_function_names.contains(&key.0)
+                && self.readonly_params.contains(&key)
             {
                 self.numeric_literal_inflow_params.insert(key);
             }

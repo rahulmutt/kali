@@ -281,6 +281,29 @@ impl<'a> FunctionEmitter<'a> {
     /// enumerate, which would make "every enumerated site" unsound. A
     /// function with zero enumerated call sites is excluded too (no
     /// evidence is not vacuous truth).
+    ///
+    /// Fix round 4 closed the two remaining ways a non-numeric value reached
+    /// this proof, both measured as silent miscompiles (exit 0, empty stderr,
+    /// wrong answer) at HEAD `83a401c311`:
+    ///
+    /// - a `new s(true)` INVOCATION was invisible to both halves of the
+    ///   parameter proof — it builds no `CallEdge`, and `repr_infer`'s
+    ///   `visit_expr` never visited a `NewExpression`'s callee at all, so it
+    ///   raised no escape mark either. Closed in `kali_types::repr_infer` by
+    ///   routing that callee through `visit_expr`, the one walker that
+    ///   reaches every identifier read;
+    /// - `param_has_numeric_literal_inflow` proved what flowed IN and was
+    ///   consumed here as a proof of the discriminant's value AT THE SWITCH,
+    ///   so any write to the parameter first (`x = true`, `x = y`, `x = b()`,
+    ///   `x += 1`, `x++`, a `for (x of …)` binding, …) laundered through.
+    ///   Closed in `kali_types::repr_infer` by conjoining `readonly_params`
+    ///   into that proof — a POSITIVE enumeration of the forms in which a
+    ///   name is provably only read, where every unenumerated form denies —
+    ///   so the inflow proof is now a proof of VALUE. Fixed at the source
+    ///   rather than by a second check here so every future consumer of
+    ///   `param_has_numeric_literal_inflow` inherits the honest meaning; a
+    ///   codegen-side conjunct would have left the misleading name in place
+    ///   for the next caller to trip over.
     fn identifier_is_provable_i64_scalar(&self, name: &str) -> bool {
         if !self.name_is_program_bound(name) {
             return false;
@@ -299,12 +322,30 @@ impl<'a> FunctionEmitter<'a> {
         }
         // A parameter is trusted ONLY when narrowed by the numeric-literal
         // proof (never bare `name_is_declared_parameter` alone — fix round
-        // 2). `binding_is_proven_numeric` remains available independently
-        // for any identifier (parameter or not) that separately earns an
-        // explicit `repr_infer` numeric-write proof.
-        let positively_proven = (self.name_is_declared_parameter(name)
-            && self.repr_table.param_has_numeric_literal_inflow(func, name))
-            || self.binding_is_proven_numeric(name);
+        // 2), and that is now its ONLY admitted proof (fix round 4): the
+        // disjunction that also let a parameter qualify through
+        // `binding_is_proven_numeric` was itself a leak. That proof accepts a
+        // write whose RHS is another PARAMETER, gated only on that
+        // parameter's SCALAR inflow (`param_lacks_scalar_inflow`, see
+        // `repr_infer`'s `numeric_bindings` finalize step) — and a boolean
+        // literal argument is scalar-syntactic, so
+        // `function s(x, y) { x = y; switch (x) {…} } s(1, true)` earned the
+        // numeric-binding proof for `x` with a boolean in it, measured
+        // printing `v=one` against node's `v=other` at exit 0. Making this an
+        // if/else rather than an `||` means: for a parameter, the ONLY
+        // evidence is "every call site passed a numeric literal AND the body
+        // never writes it" (`param_has_numeric_literal_inflow`, which since
+        // fix round 4 carries the never-written conjunct — see
+        // `kali_types::repr_infer`'s `readonly_params`). A parameter that IS
+        // written is denied outright, which is strictly narrower: a written
+        // parameter's value at the switch is whatever the writes put there,
+        // and no proof in this compiler establishes that it is a NUMBER
+        // rather than a same-repr boolean.
+        let positively_proven = if self.name_is_declared_parameter(name) {
+            self.repr_table.param_has_numeric_literal_inflow(func, name)
+        } else {
+            self.binding_is_proven_numeric(name)
+        };
         if !positively_proven {
             return false;
         }

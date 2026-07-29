@@ -305,6 +305,14 @@ fn a_let_declaration_in_a_braced_clause_is_fail_closed_via_rule_4() {
          console.log(\"v=\" + s(1));\n",
     );
     assert!(out.contains("E5506"), "expected E5506, got: {out}");
+    // Fix round 4: this test's NAME claims Rule 4, so pin the Rule-4 reason —
+    // otherwise nothing distinguishes it from the Rule-5 test below (or from a
+    // Rule-1 denial that would make both of them pass for the wrong reason).
+    assert!(
+        out.contains("a clause that does not end in `return`"),
+        "the braced form must be denied by Rule 4 (the clause's last statement \
+         is a Block, not a return), as this test's name claims; got: {out}"
+    );
 }
 
 // The unbraced form: `let a = 1;` and `return ...;` are two SIBLING
@@ -324,4 +332,129 @@ fn a_let_declaration_in_an_unbraced_clause_is_fail_closed_via_rule_5() {
          console.log(\"v=\" + s(1));\n",
     );
     assert!(out.contains("E5506"), "expected E5506, got: {out}");
+    // Fix round 4: pin the Rule-5 reason this test's name claims — without it
+    // the assertion above is satisfied by ANY denial, including the Rule-4 one
+    // the test above pins, which would make this test's whole premise
+    // (`declares_block_scoped_binding` has coverage) untrue.
+    assert!(
+        out.contains("a `let`/`const` declaration in a clause body"),
+        "the unbraced form must be denied by Rule 5 \
+         (declares_block_scoped_binding), as this test's name claims; got: {out}"
+    );
+}
+
+// Fix round 4, LEAK 2 (Critical): `param_has_numeric_literal_inflow` proves
+// what flowed IN at the call sites; it was being consumed as a proof of the
+// discriminant's value AT THE SWITCH. Any write to the parameter between
+// function entry and the switch laundered a non-numeric value through a clean
+// numeric-literal call site. Measured at HEAD 83a401c311: `v=one` where node
+// prints `v=other`, exit 0 on both sides, no diagnostic — a silent
+// miscompile. Closed by conjoining `kali_types::repr_infer`'s
+// `readonly_params` (a POSITIVE enumeration of the forms in which a name is
+// provably only read) into `numeric_literal_inflow_params`, which makes the
+// inflow proof a proof of VALUE.
+#[test]
+fn a_written_parameter_discriminant_is_fail_closed() {
+    let out = run_js_expect_failure(
+        "function s(x) {\n\
+           x = true;\n\
+           switch (x) {\n\
+             case 1: return \"one\";\n\
+             default: return \"other\";\n\
+           }\n\
+         }\n\
+         console.log(\"v=\" + s(1));\n",
+    );
+    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+    assert!(
+        out.contains("the discriminant is not a proven integer"),
+        "must be denied by Rule 1 (the discriminant), not some other rule; got: {out}"
+    );
+}
+
+// Fix round 4, LEAK 2, the sharpest variant. `t` is a `var` holding a boolean
+// that `binding_is_proven_numeric` correctly REFUSES — `switch (t)` directly
+// is already denied (`a_boolean_identifier_discriminant_is_fail_closed`). This
+// pins that copying that same refused value into a parameter does not launder
+// it past the refusal: the parameter's numeric-literal inflow from `s(1)` must
+// not stand in for the value it actually holds at the switch. This is also the
+// fixture that pins the OTHER half of the fix — the identifier arm's parameter
+// branch is now an if/else, not an `||` with `binding_is_proven_numeric`, so a
+// PARAMETER can no longer be rescued by the numeric-binding write proof (which
+// accepts a write whose RHS is another parameter on SCALAR inflow alone).
+#[test]
+fn a_parameter_overwritten_from_a_boolean_binding_is_fail_closed() {
+    let out = run_js_expect_failure(
+        "function s(x) {\n\
+           var t = 1 > 0;\n\
+           x = t;\n\
+           switch (x) {\n\
+             case 1: return \"one\";\n\
+             default: return \"other\";\n\
+           }\n\
+         }\n\
+         console.log(\"v=\" + s(1));\n",
+    );
+    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+    assert!(
+        out.contains("the discriminant is not a proven integer"),
+        "must be denied by Rule 1 (the discriminant), not some other rule; got: {out}"
+    );
+}
+
+// Fix round 4, LEAK 2 companion: a second PARAMETER copied into the
+// discriminant parameter. `x = y` earns the numeric-binding write proof for
+// `x` on nothing stronger than `y`'s SCALAR inflow, and a boolean literal
+// argument is scalar-syntactic — so `s(1, true)` had a "proven numeric" `x`
+// holding `true`. Measured at HEAD 83a401c311: `v=one` vs node's `v=other`,
+// exit 0. Denied now because a declared parameter's ONLY admitted proof is
+// numeric-literal inflow AND never-written.
+#[test]
+fn a_parameter_overwritten_from_another_parameter_is_fail_closed() {
+    let out = run_js_expect_failure(
+        "function s(x, y) {\n\
+           x = y;\n\
+           switch (x) {\n\
+             case 1: return \"one\";\n\
+             default: return \"other\";\n\
+           }\n\
+         }\n\
+         console.log(\"v=\" + s(1, true));\n",
+    );
+    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+    assert!(
+        out.contains("the discriminant is not a proven integer"),
+        "must be denied by Rule 1 (the discriminant), not some other rule; got: {out}"
+    );
+}
+
+// Fix round 4, LEAK 1 (Critical): a `new`-invocation site was invisible to
+// BOTH halves of the parameter proof. `new s(true)` is not a `CallEdge` (only
+// a bare-identifier CallExpression builds one), so Step 1c's ∀-over-enumerated
+// -edges never saw it, AND `repr_infer`'s `visit_expr` never visited a
+// NewExpression's CALLEE at all, so `s` never reached the identifier arm that
+// populates `escaping_function_names` — the backstop whose entire job is to
+// guarantee that "∀ enumerated edges" means "∀ invocation sites". The `s(1)`
+// site supplied clean ∃-evidence and nothing vetoed. Measured at HEAD
+// 83a401c311: kali printed `one`/`one` where node prints `one`/`other`, exit
+// 0, no diagnostic. Note this fixture NEEDS the `s(1)` call: without an
+// enumerated numeric-literal site there is no ∃-evidence and the switch would
+// deny for an unrelated reason, proving nothing about the `new` site.
+#[test]
+fn a_new_invocation_site_of_the_enclosing_function_is_fail_closed() {
+    let out = run_js_expect_failure(
+        "function s(x) {\n\
+           switch (x) {\n\
+             case 1: return \"one\";\n\
+             default: return \"other\";\n\
+           }\n\
+         }\n\
+         console.log(\"a=\" + s(1));\n\
+         new s(true);\n",
+    );
+    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+    assert!(
+        out.contains("the discriminant is not a proven integer"),
+        "must be denied by Rule 1 (the discriminant), not some other rule; got: {out}"
+    );
 }
