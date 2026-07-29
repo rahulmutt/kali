@@ -78,10 +78,23 @@ pub(crate) enum ControlFlowLabelKind {
     LoopContinue,
 }
 
+/// The innermost construct an UNLABELED `break`/`continue` binds to.
+///
+/// Every real loop pushes one of these with both indices set. A `switch` also
+/// pushes one (`emit/switch.rs`), and that is the whole mechanism by which
+/// `break` binds to the switch while `continue` reaches past it to the loop:
+/// the switch's frame carries its OWN `break_index` (the switch's end block)
+/// but INHERITS `continue_index` verbatim from the enclosing loop frame. There
+/// is deliberately no "is this a switch frame?" test anywhere in
+/// `emit_break_or_continue` — a precedence rule there would be one edit away
+/// from being wrong, whereas an inherited field cannot disagree with itself.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct LoopFrame {
     pub(crate) break_index: usize,
-    pub(crate) continue_index: usize,
+    /// `None` for a switch frame with no enclosing loop: `continue` then has
+    /// no target and must fail closed rather than branch to the switch's exit
+    /// (which would silently turn `continue` into `break`).
+    pub(crate) continue_index: Option<usize>,
 }
 
 /// A live per-loop arena scope: the three local slots holding the

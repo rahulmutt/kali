@@ -46,8 +46,34 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        // NOTE there is deliberately NO test here for "is the innermost frame a
+        // switch?". `break` binds to the switch and `continue` reaches past it
+        // to the loop purely because a switch frame carries its own
+        // `break_index` and INHERITS the enclosing loop's `continue_index`
+        // verbatim (`emit/switch.rs`'s `emit_switch_plan`). Resolving the two
+        // keywords against two independent fields of the innermost frame makes
+        // that true by construction; a precedence rule written here would be
+        // one careless edit away from retargeting `break`/`continue` in
+        // ordinary `for`/`while` code that has nothing to do with `switch`.
         let target_index = if is_continue {
-            loop_frame.continue_index
+            match loop_frame.continue_index {
+                Some(index) => index,
+                // A switch frame with no enclosing loop. `continue` has no
+                // target at all here, and branching to `break_index` — the
+                // switch's own exit — would silently turn it into `break`.
+                None => {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        "`continue` inside a `switch` requires an enclosing loop; there is \
+                         none here (fail-closed)",
+                    ));
+                    function.instruction(&Instruction::Unreachable);
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                }
+            }
         } else {
             loop_frame.break_index
         };
@@ -267,7 +293,7 @@ impl<'a> FunctionEmitter<'a> {
         let loop_frame_index = self.loop_frames.len();
         self.loop_frames.push(LoopFrame {
             break_index,
-            continue_index,
+            continue_index: Some(continue_index),
         });
 
         // Per-iteration reset: recycle the PREVIOUS iteration's pages onto
@@ -524,7 +550,7 @@ impl<'a> FunctionEmitter<'a> {
         function.instruction(&Instruction::Loop(BlockType::Empty));
         self.loop_frames.push(LoopFrame {
             break_index,
-            continue_index,
+            continue_index: Some(continue_index),
         });
 
         // break when ord >= N

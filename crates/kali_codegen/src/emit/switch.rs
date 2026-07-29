@@ -23,6 +23,13 @@ pub(crate) enum ClauseTerminator {
     Return,
     /// The clause's last statement is an unlabeled `break`.
     Break,
+    /// The clause's last statement is an unlabeled `continue`. Admitted for
+    /// the same reason `Break` is — it is a control TRANSFER, not fallthrough
+    /// — and it needs no separate emission rule: the statement itself lowers
+    /// through `emit_break_or_continue`, which resolves it against the switch
+    /// frame's INHERITED `continue_index` and fails closed when there is no
+    /// enclosing loop to inherit from.
+    Continue,
     /// The clause has no statements at all and groups onto the next clause.
     EmptyGroup,
 }
@@ -123,15 +130,25 @@ impl<'a> FunctionEmitter<'a> {
                 (Some(test), &case.children[1..])
             };
 
-            // Rule 4: this task admits ONLY `return`-terminated clauses.
-            // Empty grouping arrives in Task 10, `break` in Task 9. Anything
-            // else is true fallthrough and stays denied.
+            // Rule 4: a clause must end in a proven control TRANSFER —
+            // `return`, an unlabeled `break`, or an unlabeled `continue`. Task
+            // 9 widened this from `return`-only by ADDING the two transfer
+            // proofs beside it; it removed nothing, so a clause ending in a
+            // bare assignment (true fallthrough) is denied exactly as before,
+            // and so is a LABELED `break`/`continue` (those bind to an
+            // enclosing labeled statement, not to this switch, and
+            // `emit_break_or_continue` rejects labels globally anyway).
+            // Empty grouping arrives in Task 10.
             let terminator = match stmts.last() {
                 Some(last) if self.is_return_statement(*last) => ClauseTerminator::Return,
+                Some(last) if self.is_unlabeled_break_statement(*last) => ClauseTerminator::Break,
+                Some(last) if self.is_unlabeled_continue_statement(*last) => {
+                    ClauseTerminator::Continue
+                }
                 _ => {
                     return Err(
-                        "a clause that does not end in `return` (true fallthrough is not \
-                         in the supported lowering set)"
+                        "a clause that does not end in `return`, `break` or `continue` \
+                         (true fallthrough is not in the supported lowering set)"
                             .to_string(),
                     )
                 }
@@ -578,6 +595,31 @@ impl<'a> FunctionEmitter<'a> {
         node.kind == LirNodeKind::Branch && node.text.as_deref() == Some("return")
     }
 
+    /// `id` is an UNLABELED `break` statement.
+    ///
+    /// The text encoding is the one `kali_hir`'s statement lowering writes
+    /// (`crates/kali_hir/src/lowering/statement.rs:25-32`): `"break"` for the
+    /// unlabeled form and `"break:<label>"` for a labeled one — the same
+    /// encoding `emit_break_or_continue` decodes
+    /// (`emit/control_flow.rs:22-33`). The comparison is therefore EXACT, never
+    /// a `starts_with("break")` prefix: `break outer;` inside a switch binds to
+    /// the labeled statement, NOT to this switch, so admitting it here would be
+    /// planning a clause whose terminator goes somewhere the plan does not
+    /// model. Labels are rejected globally by `emit_break_or_continue` too;
+    /// this is the allowlist half of the same fact, so the plan never depends
+    /// on the emitter's rejection to stay honest.
+    fn is_unlabeled_break_statement(&self, id: LirNodeId) -> bool {
+        let node = self.node(id);
+        node.kind == LirNodeKind::Branch && node.text.as_deref() == Some("break")
+    }
+
+    /// `id` is an UNLABELED `continue` statement. Exact-match twin of
+    /// `is_unlabeled_break_statement`, for the same reasons.
+    fn is_unlabeled_continue_statement(&self, id: LirNodeId) -> bool {
+        let node = self.node(id);
+        node.kind == LirNodeKind::Branch && node.text.as_deref() == Some("continue")
+    }
+
     /// True when `id` (or, recursively, any statement nested inside a bare
     /// `{ ... }` block reached through `id`) is a `let`/`const` declarator.
     /// Reuses the SAME `Instruction` + `"let" | "var" | "const"` tagging
@@ -638,13 +680,43 @@ impl<'a> FunctionEmitter<'a> {
         }
         function.instruction(&Instruction::LocalSet(disc_local));
 
-        self.emit_clause_chain(
-            function,
-            disc_local,
-            plan.disc_is_string,
-            &plan.clauses,
-            0,
-        );
+        // The switch's own break target. `continue_index` is INHERITED verbatim
+        // from the enclosing loop frame, so an unlabeled `break` binds to this
+        // switch while an unlabeled `continue` reaches past it to the loop — by
+        // construction, not by a precedence rule in `emit_break_or_continue` a
+        // later edit could get wrong. `None` (no enclosing loop) makes
+        // `continue` fail closed there rather than degrade into `break`.
+        //
+        // The push is UNCONDITIONAL — deliberately NOT gated on any clause
+        // having a `Break` terminator. A `break` nested INSIDE a
+        // `return`-terminated clause (`case 1: if (q) { break; } return "a";`)
+        // is admitted by Rule 4 and must still bind to the switch. Measured at
+        // HEAD a8cc36ea9f, where no switch frame existed at all: that shape in
+        // a `for` loop printed `iter=0` / `v=end` against node's `iter=0` /
+        // `iter=1` / `v=def0`, exit 0 both sides — a silent miscompile this
+        // unconditional push closes. Gating on `terminator` would reopen it,
+        // which is why `SwitchClause::terminator` is NOT read here.
+        let inherited_continue = self.loop_frames.last().and_then(|f| f.continue_index);
+        let break_index = self.push_control_frame(ControlFlowLabelKind::LoopBreak);
+        function.instruction(&Instruction::Block(BlockType::Empty));
+        self.loop_frames.push(LoopFrame {
+            break_index,
+            continue_index: inherited_continue,
+        });
+
+        self.emit_clause_chain(function, disc_local, plan.disc_is_string, &plan.clauses, 0);
+
+        // A switch opens NO arena frame, so nothing is pushed to or popped from
+        // `arena_frames` here and no `__arena_reset` is emitted. That is not a
+        // gap: `emit_break_or_continue`'s comment (`emit/control_flow.rs:57-75`)
+        // records that an earlier inline release double-released, splicing an
+        // enclosing arena's still-live pages onto the free list. A `break` out
+        // of a switch nested in a loop lands after this `End` and then falls
+        // through to that loop's single unconditional release, exactly as a
+        // normal switch exit does.
+        self.loop_frames.pop();
+        function.instruction(&Instruction::End);
+        self.pop_control_frame(ControlFlowLabelKind::LoopBreak);
 
         EmittedValue {
             produced: false,

@@ -35,8 +35,20 @@ fn run_js_expect_failure(source: &str) -> String {
 // `assert_denied_by`, and a new one has an obvious shape to copy.
 const RULE_1_DISCRIMINANT: &str = "the discriminant is not a proven integer or string";
 const RULE_2_CASE_TEST: &str = "a `case` test that is not a literal in the discriminant's domain";
-const RULE_4_TERMINATOR: &str = "a clause that does not end in `return`";
+// Task 9 widened Rule 4 from `return`-only to "a proven control transfer", so
+// its message changed and this constant tracks it EXACTLY (not a prefix — the
+// old text is still a prefix of the new one, so leaving it would have made
+// every Rule-4 pin silently insensitive to the widening it is meant to bound).
+const RULE_4_TERMINATOR: &str = "a clause that does not end in `return`, `break` or `continue`";
 const RULE_5_BLOCK_BINDING: &str = "a `let`/`const` declaration in a clause body";
+// Not a `switch_plan` rule: `emit_break_or_continue`'s own fail-closed arm, for
+// a `continue` whose innermost frame is a SWITCH frame carrying no inherited
+// `continue_index` (i.e. there is no enclosing loop). Pinned separately from
+// Rule 4 because the two deny at different choke points, and a test that
+// accepted either could not tell "the clause was refused" from "the clause was
+// admitted and the `continue` had nowhere to go".
+const NO_ENCLOSING_LOOP: &str =
+    "`continue` inside a `switch` requires an enclosing loop; there is none here";
 // Not a switch rule: `kali_types`'s `plain_write_targets` shape conflict, which
 // refuses a string-reachable binding fed by an unbacked plain source BEFORE
 // `switch_plan` ever runs. Tests that pin a SWITCH-side conjunct must assert
@@ -54,31 +66,14 @@ fn assert_denied_by(out: &str, rule: &str, what: &str) {
     );
 }
 
-// A switch nested inside a `for` loop is its own risk surface (the loop can
-// die at iteration 0 before the switch's behavior is ever observed), so this
-// pins fail-closed on that shape too. Every iteration logs first, so a
-// truncated loop is distinguishable from a mis-selected clause — if this ever
-// ran instead of failing closed, the output would visibly reveal which defect
-// occurred rather than passing by accident.
-#[test]
-fn switch_nested_in_for_loop_is_fail_closed_not_silently_wrong() {
-    let out = run_js_expect_failure(
-        "for (let i = 0; i < 3; i = i + 1) {\n\
-           console.log(\"iter=\" + i);\n\
-           switch (i) {\n\
-             case 0: continue;\n\
-             case 1: break;\n\
-             default: continue;\n\
-           }\n\
-         }\n\
-         console.log(\"done\");\n",
-    );
-    assert!(out.contains("E5506"), "expected E5506, got: {out}");
-    assert!(
-        out.contains("switch"),
-        "the diagnostic must name switch as the limit, got: {out}"
-    );
-}
+// NOTE (Task 9): `switch_nested_in_for_loop_is_fail_closed_not_silently_wrong`
+// used to live here. Task 6 added it as an additive fail-closed requirement and
+// Tasks 7-8 denied it correctly, because its clauses end in `break`/`continue`
+// and Rule 4 admitted only `return`. Task 9 admits those terminators, so the
+// cell FLIPPED to correctness and moved verbatim (per-iteration `console.log`
+// intact) to `switch_runtime.rs` as
+// `switch_nested_in_for_loop_selects_correctly_with_break_and_continue`. It was
+// neither deleted nor weakened; it now asserts node's exact bytes.
 
 // Scope is a required test axis. Module scope cannot use `return`, so this
 // pins the DENIAL side at module scope (the admitted twin arrives with
@@ -338,15 +333,12 @@ fn a_let_declaration_in_a_braced_clause_is_fail_closed_via_rule_4() {
          }\n\
          console.log(\"v=\" + s(1));\n",
     );
-    assert!(out.contains("E5506"), "expected E5506, got: {out}");
     // Fix round 4: this test's NAME claims Rule 4, so pin the Rule-4 reason —
     // otherwise nothing distinguishes it from the Rule-5 test below (or from a
     // Rule-1 denial that would make both of them pass for the wrong reason).
-    assert!(
-        out.contains("a clause that does not end in `return`"),
-        "the braced form must be denied by Rule 4 (the clause's last statement \
-         is a Block, not a return), as this test's name claims; got: {out}"
-    );
+    // Task 9: routed through `assert_denied_by` so it tracks the widened
+    // message via the shared constant rather than its own stale copy.
+    assert_denied_by(&out, RULE_4_TERMINATOR, "a braced clause");
 }
 
 // The unbraced form: `let a = 1;` and `return ...;` are two SIBLING
@@ -490,6 +482,201 @@ fn a_new_invocation_site_of_the_enclosing_function_is_fail_closed() {
     assert!(
         out.contains("the discriminant is not a proven integer"),
         "must be denied by Rule 1 (the discriminant), not some other rule; got: {out}"
+    );
+}
+
+// ===========================================================================
+// R-35 Task 9: `break`/`continue` terminators. Every cell below pins that
+// admitting them removed no rejection.
+// ===========================================================================
+
+// The `None` half of `LoopFrame.continue_index`. `case 1: continue;` IS an
+// admitted clause terminator now, so `switch_plan` builds a plan and the switch
+// frame is pushed — but that frame inherits `continue_index` from the enclosing
+// loop frame, and at function scope there is no enclosing loop, so it inherits
+// `None`. `emit_break_or_continue` then has no target and fails closed rather
+// than branching to the switch's own exit (which would silently turn `continue`
+// into `break`). This is the cell that proves the inheritance is `None`-typed
+// and not defaulted to `break_index`.
+#[test]
+fn continue_in_a_switch_with_no_enclosing_loop_is_fail_closed() {
+    let out = run_js_expect_failure(
+        "function s(x) {\n\
+           var r = 0;\n\
+           switch (x) {\n\
+             case 1: continue;\n\
+             default: r = 9; break;\n\
+           }\n\
+           return r;\n\
+         }\n\
+         console.log(\"v=\" + s(1));\n",
+    );
+    assert!(!out.is_empty(), "expected a diagnostic, got nothing");
+    assert!(
+        out.contains(NO_ENCLOSING_LOOP),
+        "the `continue` must be denied by the no-enclosing-loop arm of \
+         `emit_break_or_continue`, not by Rule 4 refusing the clause (that \
+         would mean the `None` branch is dead code and untested); got: {out}"
+    );
+}
+
+// A LABELED break in a clause is NOT admitted. `is_unlabeled_break_statement`
+// accepts only the text EXACTLY `"break"`; the HIR encodes a labeled one as
+// `"break:<label>"` (`kali_hir/src/lowering/statement.rs:25-32`), the same
+// encoding `emit_break_or_continue` decodes (`emit/control_flow.rs:22-33`).
+// Admitting the prefix would have let a `break L` targeting an OUTER loop be
+// planned as if it bound to the switch.
+//
+// MEASURED BOUNDARY (do not mistake this cell for a Rule-4 pin): labeled
+// STATEMENTS are unsupported in kali entirely, well upstream of `switch`. The
+// label declaration itself resolves as a bare identifier and raises
+// `E3100 undefined identifier 'outer'` — verified independently of any switch:
+// the same loop with no switch in it (`outer: for (...) { sum = sum + 1; }`)
+// raises the identical E3100, where node prints `sum=3`. So no `"break:<label>"`
+// node can reach `switch_plan` today, and `is_unlabeled_break_statement`'s
+// exact match is DEFENCE IN DEPTH rather than the operative gate. This test
+// pins the operative one; if labeled statements are ever supported, this cell
+// must be re-pinned on RULE_4_TERMINATOR and will start measuring the exact
+// match for real.
+#[test]
+fn a_labeled_break_in_a_clause_is_fail_closed() {
+    let out = run_js_expect_failure(
+        "var sum = 0;\n\
+         outer: for (var i = 0; i < 3; i = i + 1) {\n\
+           console.log(\"iter=\" + i);\n\
+           switch (i) {\n\
+             case 1: break outer;\n\
+             default: sum = sum + 1; break;\n\
+           }\n\
+         }\n\
+         console.log(\"sum=\" + sum);\n",
+    );
+    assert!(
+        out.contains("E3100"),
+        "a labeled statement must be refused upstream of the switch (E3100), \
+         which is what keeps a `break:<label>` node from ever reaching \
+         `switch_plan`; got: {out}"
+    );
+    assert!(
+        !out.contains("iter="),
+        "it must not have RUN — node prints iter=0/iter=1/sum=1 here, so any \
+         partial output would mean kali produced a module for a shape it does \
+         not model; got: {out}"
+    );
+}
+
+// The boundary Rule 4 now draws: `break` is admitted, a BARE ASSIGNMENT is
+// still true fallthrough. This is the mixed cell — one clause `break`s and one
+// does not — so it cannot pass by the whole switch being denied for an
+// unrelated reason, and it proves the widening is per-clause POSITIVE evidence
+// rather than "any switch containing a `break` is admitted".
+#[test]
+fn a_fallthrough_clause_beside_a_break_clause_is_fail_closed() {
+    let out = run_js_expect_failure(
+        "function s(x) {\n\
+           var r = 0;\n\
+           switch (x) {\n\
+             case 1: r = 1;\n\
+             case 2: r = 2; break;\n\
+             default: r = 9; break;\n\
+           }\n\
+           return r;\n\
+         }\n\
+         console.log(\"v=\" + s(1));\n",
+    );
+    // Rule 4 specifically: `s(1)` gives `x` clean numeric-literal inflow, so
+    // the discriminant is proven and the ONLY thing left to deny is the
+    // terminator-less `case 1:`.
+    assert_denied_by(&out, RULE_4_TERMINATOR, "fallthrough beside a break");
+}
+
+// Rule 4 keys on the clause's LAST statement, so a `break` followed by dead
+// code does NOT satisfy it — the last statement is the assignment. Node runs
+// this fine (`v=1`, the dead `r = 5` never executes) and kali refuses it. That
+// is deliberate and it is the honest side of the trade: `is_unlabeled_break_
+// statement` is a positive proof about the terminator POSITION, not a search
+// for a `break` somewhere in the clause. A search would be a denylist inversion
+// — "contains a break, therefore fine" — and would admit
+// `case 1: break; while (q) { … }` whose real terminator is unmodeled.
+#[test]
+fn a_break_followed_by_dead_code_in_a_clause_is_fail_closed() {
+    let out = run_js_expect_failure(
+        "function s(x) {\n\
+           var r = 0;\n\
+           switch (x) {\n\
+             case 1: r = 1; break; r = 5;\n\
+             default: r = 9; break;\n\
+           }\n\
+           return r;\n\
+         }\n\
+         console.log(\"v=\" + s(1));\n",
+    );
+    assert_denied_by(&out, RULE_4_TERMINATOR, "a break followed by dead code");
+}
+
+// A BRACED clause whose block ends in `break` is denied by Rule 4 too: the
+// clause's last statement is a `Block`, not a `Branch`. Same shape as the
+// pre-existing braced-`let` cell, but with the terminator that Task 9 just
+// admitted — so it pins that the widening did not reach INSIDE a block.
+#[test]
+fn a_braced_break_clause_is_fail_closed() {
+    let out = run_js_expect_failure(
+        "function s(x) {\n\
+           var r = 0;\n\
+           switch (x) {\n\
+             case 1: { r = 1; break; }\n\
+             default: r = 9; break;\n\
+           }\n\
+           return r;\n\
+         }\n\
+         console.log(\"v=\" + s(1));\n",
+    );
+    assert_denied_by(&out, RULE_4_TERMINATOR, "a braced break clause");
+}
+
+// An EMPTY clause grouping onto the next (`case 1: case 2: …`) has no last
+// statement at all, so Rule 4 denies it. This is Task 10's `EmptyGroup`
+// territory; pinned here so the flip is deliberate and visible when it happens.
+#[test]
+fn an_empty_grouped_clause_is_still_fail_closed_at_task_9() {
+    let out = run_js_expect_failure(
+        "function s(x) {\n\
+           var r = 0;\n\
+           switch (x) {\n\
+             case 1:\n\
+             case 2: r = 2; break;\n\
+             default: r = 9; break;\n\
+           }\n\
+           return r;\n\
+         }\n\
+         console.log(\"v=\" + s(1));\n",
+    );
+    assert_denied_by(&out, RULE_4_TERMINATOR, "an empty grouped clause");
+}
+
+// The same boundary at MODULE scope (scope is a required test axis), and on the
+// STRING axis, so the terminator rule cannot have been widened on one axis only.
+#[test]
+fn a_fallthrough_clause_beside_a_break_clause_is_fail_closed_on_the_string_axis() {
+    let out = run_js_expect_failure(
+        "var v = \"?\";\n\
+         var x = \"a\";\n\
+         switch (x) {\n\
+           case \"a\": v = \"A\";\n\
+           case \"b\": v = \"B\"; break;\n\
+           default: v = \"D\"; break;\n\
+         }\n\
+         console.log(\"v=\" + v);\n",
+    );
+    assert_denied_by(
+        &out,
+        RULE_4_TERMINATOR,
+        "string-axis fallthrough beside break",
+    );
+    assert!(
+        !out.contains(REPR_MIXED_CONFLICT),
+        "this cell must isolate the SWITCH-side terminator rule, not a \
+         types-side shape conflict; got: {out}"
     );
 }
 
