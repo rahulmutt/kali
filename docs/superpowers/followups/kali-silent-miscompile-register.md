@@ -55,10 +55,11 @@ The register's own top priority — the **Group-1 evidence-corrupting defects
 (R-01, R-04, R-07)** — are all resolved, and the entire **functions/calls/scope
 surface** (R-02, R-05) has moved from silent-miscompile to honest **fail-closed
 E5506**. That validates the "allowlist at the call-lowering choke" interim fix the
-register recommended for cluster G2. As a result the silent-miscompile frontier has
+register recommended for cluster G2. ~~As a result the silent-miscompile frontier has
 **moved**: the highest-blast-radius *silent* defect on the current binary is no
 longer any original Tier-1 entry but **R-35 (`switch` selects the wrong clause)**,
-newly found this re-derivation.
+newly found this re-derivation.~~ **STRUCK 2026-07-29 (`64438bf0ef`) — R-35 is closed and
+this sentence is false; see the second amendment below for the re-derived frontier.**
 
 **Amendment 2026-07-28 (`5c9bbd051`, branch `r35-switch-lowering`).** Probing R-35 uncovered
 a *parser* defect strictly worse than R-35 itself: **R-49**, in which
@@ -67,8 +68,76 @@ a `switch` was reparented to module scope and executed at module load. R-49 is *
 (`9db9150c0`). R-35's recorded boundary was measured through R-49 and is **void**; the true
 boundary is a 32-cell both-scopes matrix (22 SILENT / 2 FAIL-CLOSED / 6 FL-INTERNAL /
 2 CORRECT) in `docs/superpowers/followups/r35-switch-boundary-rederived.md`, and R-35 is
-**Tier 1**, not Tier 2 — clauses beyond the second are never emitted at all. R-35 itself
-remains **SILENT and open**; Stage 2 of that branch is the lowering fix.
+**Tier 1**, not Tier 2 — clauses beyond the second are never emitted at all. ~~R-35 itself
+remains **SILENT and open**; Stage 2 of that branch is the lowering fix.~~ **STRUCK
+2026-07-29 (`64438bf0ef`) — false; see the second amendment immediately below.**
+
+**Amendment 2026-07-29 (`64438bf0ef`, branch `r35-switch-lowering`) — R-35 IS CLOSED, AND
+THE FRONTIER CLAIM IS RE-DERIVED.** This amendment supersedes both struck sentences above
+and takes this section's own precedence over everything below it.
+
+**1. R-35 is CLOSED.** Stage 2 landed: `switch` is lowered by an **allowlist** at
+`crates/kali_codegen/src/emit/switch.rs`'s `switch_plan`, which admits only shapes it can
+*prove* and returns `Err(reason)` otherwise, surfacing as honest `E5506`. The admitted set
+matches `node v26.5.0` byte-for-byte; **no silent lane remains in `switch`**. The
+authoritative boundary — admitted set, fourteen-item residual, two accepted regressions,
+three standing couplings — is **§7.11**, not §0.2's row and not §0.3's bullet. R-35 is the
+second Tier-1 entry closed by this project, after R-49 (`9db9150c0`).
+
+**2. The frontier does NOT pass to R-51, R-52 or R-53 — and it is UNRANKED.** The
+temptation on closing a headline entry is to promote the newest finding into the vacancy.
+That would be a confident wrong answer, so it is not given here. Measured at
+`64438bf0ef` against `node v26.5.0`:
+
+- The three new close-out entries all reproduce, all silent, all exit 0 — but each is a
+  **narrow** construct with a correct sibling, which is the opposite of high blast radius.
+  **R-51** needs the optional-call form specifically (`s?.(7)` → `w=0`/`c=0`, node
+  `w=7`/`c=1`; the plain `s(7)` control is correct on both). **R-52** needs a `for` with an
+  omitted clause *and* a present later one (`for (var i = 0; ;)` → kali prints only `s=0`,
+  node prints six `iter=` lines and `s=15`). **R-53**'s silent lane is narrower than its
+  own headline says — see point 3.
+- Meanwhile **four pre-existing SILENT entries reproduce at this same HEAD on far more
+  ordinary constructs**, each re-measured here rather than carried over:
+  - **R-13** — `var o = {a:1,b:2}; var k = "a"; o[k]` → kali `read=0`, node `read=1`, exit 0.
+  - **R-31** — `console.log(o)` → kali `0`, node `{ a: 1 }`; `console.log(a)` → kali `0`,
+    node `[ 1, 2, 3 ]`, exit 0. (Note the array lane printed `0`, not the length §0.2's row
+    records — one more reason the table below needs re-measuring, not re-reading.)
+  - **R-10** — `var x=1; { let x=2; } x` → kali `outer=2`, node `outer=1`, exit 0.
+  - **R-14** — `function f(){return [1,2,3];} f()[0]` → kali `e0=0`, node `e0=1`, exit 0.
+
+  A computed property read, `console.log` of an object, a block-scoped `let`, and indexing a
+  returned array are each vastly more common in real JS than `s?.(x)` or `for (init; ;)`.
+  So the frontier falls **back into the pre-existing SILENT set**, not onto the new entries.
+
+  **Which member of that set is highest is not established by any measurement in this
+  document, and this section will not assert one.** Two reasons, both structural: (a)
+  "blast radius" has never been given an operational definition here — it has been used
+  informally to mean *tier × construct frequency*, and no frequency model over real JS has
+  ever been built for this project; (b) the ~26 SILENT verdicts in §0.2's table are dated
+  **2026-07-24 / `62d786e74`** and have **not** been re-measured wholesale since, and at
+  least one has already moved — R-21's absent-field lane (`o.b` for undeclared `b`) now
+  **fails closed** `E5506 unknown field 'b' on fixed-shape object` at `64438bf0ef`, where
+  §0.2 still records it SILENT. Ranking a stale table is not a measurement.
+
+  **What would settle it, in order:** (i) write down an operational definition of blast
+  radius (proposed: tier × a counted frequency of the triggering construct over a fixed JS
+  corpus, so the ranking is reproducible rather than argued); (ii) re-run the four surface
+  sweeps at the current HEAD to refresh every §0.2 verdict, since entries have demonstrably
+  moved in both directions; (iii) *then* rank. Until (i)-(iii) are done the honest statement
+  is the one made here: **the frontier is unranked, and it is somewhere in
+  {R-10, R-13, R-14, R-31, and the rest of the pre-existing SILENT set} — not in
+  {R-51, R-52, R-53}.**
+
+**3. R-53 is WIDER than its §0.2 headline: `let` is affected, not only `var`.** Measured at
+`64438bf0ef`, switch-free: `for (let v of [1,2,3,4]) { console.log("iter=" + v); s = s + v; }`
+→ kali `iter=0` ×4 and `s=0`, node `iter=1/2/3/4` and `s=10`, **exit 0 both sides**. The
+`const` form is correct on the identical fixture (`s=10`). The silent lane is also bounded on
+the other axis: over a **binding** iterable rather than an array literal
+(`var a=[1,2,3]; for (const v of a)`) kali fails closed with an honest `E5506`. So R-53's
+silent surface is precisely *for-of over an **array literal** with a **`var` or `let`**
+loop variable*. This matters beyond bookkeeping: it is why this branch's own fail-closed
+message names `const` explicitly (see §7.11's note) — recommending a bare "`for...of`" would
+have routed users out of an honest denial and into R-53.
 
 ### 0.2 Current status of every register entry
 
@@ -115,10 +184,10 @@ FL-INTERNAL = nonzero but wrong *kind* (E4201/E4003 internal, not honest E5506).
 | R-34 bool user-fn renders 1/0 (concat & multi-arg) | **SILENT** | live; concat AND multi-arg both `1`. |
 | R-47 `for..of` over a `let` array iterates the binding's NAME | **SILENT** | added 2026-07-25 (post-sweep, from the R-11 project), measured on `372a3f440`. `let a=[1,2,3]; for (const x of a) log(x)` prints `a` (node `1 2 3`); `var` fails closed E5506, `const` is correct. Exit 0, plausible-looking output — see §2. |
 | R-48 array stored into an `I64` object field reads `0` | **SILENT** | added 2026-07-25 (post-sweep, from the R-11 project), measured on `372a3f440`. `let o={a:6}; o.a=[1,2]; o.a`→`0` (node `[ 1, 2 ]`); `const` receiver identical. See §2. |
-| R-35 `switch` selects the wrong clause | **CLOSED-BY-ALLOWLIST 2026-07-29** (branch `r35-switch-lowering`) — the admitted set is **FIXED**, everything else is **FAIL-CLOSED** (`E5506`); **no silent lane remains** | Codegen half closed by the R-35 Stage 2 allowlist. **ADMITTED and correct:** a proven i64-scalar or proven-string discriminant; numeric-literal (incl. unary `+`/`-`) or string-literal case tests **in the discriminant's own domain**; clauses terminated by `return`, unlabeled `break`, or unlabeled `continue` under a **faithful** enclosing loop; runs of empty non-`default` clauses grouping onto the next terminated clause; zero or one `default`, **last only**; both scopes; nesting inside loops and inside other switches. **RESIDUAL FAIL-CLOSED (`E5506`, honest, not silent) — the full list is §7.11:** true fallthrough; `let`/`const` in a clause body; non-literal or cross-domain case tests; float/boolean/object/array/unknown discriminants; `continue` with **no** enclosing loop; `continue` under an **unfaithful** enclosing loop (`UNFAITHFUL_CONTINUE`); a `default` that is **not last** (`DEFAULT_NOT_LAST`); a `default` grouped with a preceding empty `case` (`DEFAULT_CANNOT_GROUP`); a trailing empty clause with no body to group onto (`TRAILING_EMPTY_GROUP`); `throw` as a terminator (deferred, not denied on principle). **Read §7.11 before extending** — it also records the two accepted regressions and three standing couplings. The pre-fix measurement is preserved here for the historical record: **re-measured 2026-07-28 on `5c9bbd051`** (branch `r35-switch-lowering`, post parser containment), superseding both the `62d786e74` row and §0.3's original boundary. 32-cell matrix, both scopes: **22 SILENT, 2 FAIL-CLOSED, 6 FL-INTERNAL, 2 CORRECT** (corrected in fix round 1 from 24/2/4/2; cell 13 is R-09, see that entry). `switch` lowers as `if (discriminant) { clause-1 } else { clause-2 }` — case tests are never consulted, clauses beyond the second are never emitted, and the wrong clause's **side effects run**. String discriminants are always truthy so they always take clause 1. Full matrix: `r35-switch-boundary-rederived.md`. |
+| R-35 `switch` selects the wrong clause | **CLOSED-BY-ALLOWLIST 2026-07-29** (branch `r35-switch-lowering`) — the admitted set is **FIXED**, everything else is **FAIL-CLOSED** (`E5506`); **no silent lane remains** | Codegen half closed by the R-35 Stage 2 allowlist. **ADMITTED and correct:** a proven i64-scalar or proven-string discriminant; numeric-literal (incl. unary `+`/`-`) or string-literal case tests **in the discriminant's own domain**; clauses terminated by `return`, unlabeled `break`, or unlabeled `continue` under a **faithful** enclosing loop; runs of empty non-`default` clauses grouping onto the next terminated clause; zero or one `default`, **last only**; both scopes; nesting inside loops and inside other switches. **RESIDUAL FAIL-CLOSED (`E5506`, honest, not silent) — the full list is §7.11:** true fallthrough; `let`/`const` in a clause body; non-literal or cross-domain case tests; float/boolean/object/array/unknown discriminants; `continue` with **no** enclosing loop; `continue` under an **unfaithful** enclosing loop (`UNFAITHFUL_CONTINUE`); a `default` that is **not last** (`DEFAULT_NOT_LAST`); a `default` grouped with a preceding empty `case` (`DEFAULT_CANNOT_GROUP`); a trailing empty clause with no body to group onto (`TRAILING_EMPTY_GROUP`); an **empty switch** `switch (x) {}` — **valid JS**, node exits 0, denied with `"a switch with no clauses"` (added to the residual set 2026-07-29, `64438bf0ef`, fix wave item 2; see §7.11 row 14); `throw` as a terminator (deferred, not denied on principle). **Read §7.11 before extending** — it also records the two accepted regressions and three standing couplings. The pre-fix measurement is preserved here for the historical record: **re-measured 2026-07-28 on `5c9bbd051`** (branch `r35-switch-lowering`, post parser containment), superseding both the `62d786e74` row and §0.3's original boundary. 32-cell matrix, both scopes: **22 SILENT, 2 FAIL-CLOSED, 6 FL-INTERNAL, 2 CORRECT** (corrected in fix round 1 from 24/2/4/2; cell 13 is R-09, see that entry). `switch` lowers as `if (discriminant) { clause-1 } else { clause-2 }` — case tests are never consulted, clauses beyond the second are never emitted, and the wrong clause's **side effects run**. String discriminants are always truthy so they always take clause 1. Full matrix: `r35-switch-boundary-rederived.md`. |
 | R-51 optional call `s?.(x)` returns `0` and never runs the callee | **SILENT (Tier 1)** | added 2026-07-29 at the R-35 close-out, measured on `58234e87c7`. `function s(x){return x;} s?.(7)` → `w=0`, node `w=7`; a side-effect counter in the callee stays `0` where node reads `1`, so the body **never runs**. Exit 0, **no diagnostic on `kali run` and none on `kali build`** — completely silent, not a warning. The non-optional control `s(7)` is correct on both engines, so the defect is the optional-call route specifically. Carries a **standing coupling warning to R-35's parameter proof** — see §2's R-51 entry and §7.11. |
 | R-52 `for`-clause arity misclassification (omitted clauses) | **SILENT (Tier 1) + FL-INTERNAL** | added 2026-07-29 at the R-35 close-out, measured on `58234e87c7`. The HIR omits absent `for` clauses and codegen classifies the survivors **by count**, so any `for` with an omitted clause and a present later one is misread. `for (var i = 0; ;) { … }` **skips the entire loop** (kali prints only `s=0`, exit 0, no diagnostic; node prints six `iter=` lines and `s=15`) — the `var i = 0` DECLARATION is used as the loop test and is falsy. `for (init; ; update)` **drops the first iteration** (silent, exit 0). `for (; test; update)` **runs away to `E4003`** (loud). Distinct from R-09, which is about update PLACEMENT, not clause identification. Carries a **standing coupling to `continue_is_faithful`** — see §2's R-52 entry. |
-| R-53 `for (var v of […])` binds every element to `0` | **SILENT (Tier 2)** | added 2026-07-29 at the R-35 close-out, measured on `58234e87c7`. `for (var v of [1,2,3]) { log("iter="+v); t=t+v; }` → kali `iter=0` ×3 and `t=0`, node `iter=1/2/3` and `t=6`. Exit 0, no diagnostic, no `break`/`continue`/`switch` involved. **`const` is correct** on the identical fixture. Distinct from R-47 (`for..of` over a `let`-declared array BINDING iterates the binding's NAME) — this is the loop VARIABLE's declarator kind over an array LITERAL. Consequence for probe design: **`for (var v of …)` must not be used as a faithful-loop control.** |
+| R-53 `for (var v of […])` — **and `for (let v of […])`** — binds every element to `0` | **SILENT (Tier 2)** | **WIDENED 2026-07-29 (`64438bf0ef`, fix wave item 1): `let` is affected too, not only `var`** — measured switch-free, `for (let v of [1,2,3,4])` → kali `iter=0` ×4 / `s=0`, node `iter=1..4` / `s=10`, exit 0 both sides. The silent lane is bounded on the other axis: over a **binding** iterable rather than an array literal, kali fails closed `E5506`. So the silent surface is *for-of over an **array literal** with a **`var` or `let`** loop variable*; `const` is correct. See §0.1's 2026-07-29 amendment, point 3. ORIGINAL ENTRY: added 2026-07-29 at the R-35 close-out, measured on `58234e87c7`. `for (var v of [1,2,3]) { log("iter="+v); t=t+v; }` → kali `iter=0` ×3 and `t=0`, node `iter=1/2/3` and `t=6`. Exit 0, no diagnostic, no `break`/`continue`/`switch` involved. **`const` is correct** on the identical fixture. Distinct from R-47 (`for..of` over a `let`-declared array BINDING iterates the binding's NAME) — this is the loop VARIABLE's declarator kind over an array LITERAL. Consequence for probe design: **`for (var v of …)` must not be used as a faithful-loop control.** |
 | R-54 a second `default` clause is absorbed into the first (node: `SyntaxError`) | **ACCEPTS-INVALID (Tier 3)** | added 2026-07-29 at the R-35 close-out, measured on `58234e87c7`. `parse_switch_statement`'s **`default`** arm stops its statement loop on `Case \| RightBrace` only — `Default` is **missing from the stop set**, where the sibling **`case`** arm at `crates/kali_parser/src/statement.rs:536-541` correctly stops on `Case \| Default \| RightBrace`. A second `default` and everything after it is therefore swallowed into the FIRST `default`'s consequent, and **both bodies run merged**: `default: g = 5; default: return "d2";` → kali `v=d2` / `g=5` (exit 0); node refuses the whole file with `SyntaxError: More than one default clause in switch statement` (exit 1). Cluster **G1**, in the **same function as R-49** and independent of it. Makes `switch_plan`'s `"more than one \`default\` clause"` denial (`crates/kali_codegen/src/emit/switch.rs:105`) **unreachable dead code**. Only invalid JS is affected. |
 | R-49 `parse_switch_statement` reparented every post-switch statement to module scope | **CLOSED 2026-07-28** (`9db9150c0`, branch `r35-switch-lowering`) | Tier 1, cluster **G1**, higher severity than R-35 and a different layer. The clause loop inspected `RightBrace` without consuming it, so the enclosing block parser took that brace as its own closer. Decisive repro: a function that is **never called** still ran its post-switch assignment at module load — `g=99` where node prints `g=0`. **Unique** such site in the parser. See §2. |
 
@@ -2205,6 +2274,28 @@ tier, ordering is by blast radius.
 - **Control — `const` is correct.** The byte-identical fixture with `for (const v of [1,2,3])`
   gives `iter=1` / `iter=2` / `iter=3` / `t=6` on **both** engines. So this is the loop
   variable's **declarator kind**, not `for…of` and not array literals.
+- **WIDENED 2026-07-29 (`64438bf0ef`, fix wave item 1): `let` is affected too.** The original
+  entry probed `var` and `const` only and left `let` untested, which made the headline read
+  as if `let` were on the correct side. It is not. Measured switch-free at `64438bf0ef`
+  against `node v26.5.0`:
+  ```js
+  var s = 0;
+  for (let v of [1, 2, 3, 4]) {
+    console.log("iter=" + v);
+    s = s + v;
+  }
+  console.log("s=" + s);
+  ```
+  **node**: `iter=1` / `iter=2` / `iter=3` / `iter=4` / `s=10` (exit 0).
+  **kali**: `iter=0` ×4 / `s=0` (exit 0, no diagnostic).
+  The `const` twin of this exact fixture gives `s=10` on both engines. So the correct side is
+  **`const` alone**, and the silent side is **`var` *and* `let`**.
+- **The silent lane is bounded on the ITERABLE axis.** Over a *binding* rather than an array
+  literal — `var a = [1,2,3]; for (const v of a)` — kali fails closed with an honest `E5506`
+  ("for-of array iteration lowering is unavailable unless the iterable is a literal array…").
+  So R-53's silent surface is precisely **for-of over an array LITERAL with a `var` or `let`
+  loop variable**. Everything outside that is either correct (`const` over a literal) or
+  fail-closed (any declarator over a binding).
 - **Distinct from R-47**, with which it will otherwise be confused — they are near-mirror
   images and both involve `for…of` and `let`/`var`/`const`:
   | | R-47 | R-53 |
@@ -2217,8 +2308,14 @@ tier, ordering is by blast radius.
   Note especially that `var` is the **fail-closed** case in R-47 and the **silent** case
   here, so "R-47 covers the `var` story for `for…of`" is false in both directions.
 - **Severity**: Tier 2 — silently produces a wrong value, with a correct trip count.
-- **Blast radius**: moderate. `for (const x of …)` is the idiomatic modern spelling and is
-  correct; `for (var x of …)` is the transpiled-output / older-style spelling and is not.
+- **Blast radius**: moderate, and **revised upward 2026-07-29** by the `let` widening above.
+  The original reasoning — *"`for (const x of …)` is the idiomatic modern spelling and is
+  correct; `for (var x of …)` is the transpiled-output / older-style spelling and is not"* —
+  understated it, because `for (let x of …)` is **also** idiomatic modern JS (it is the
+  spelling anyone reaches for when the loop body reassigns, and many codebases prefer it
+  uniformly) and it is **also** silent. Still short of frontier rank — see §0.1's 2026-07-29
+  amendment, point 2, which declines to promote R-53 (or R-51/R-52) into R-35's vacancy and
+  explains why the frontier is unranked.
 - **PROBE-DESIGN CONSEQUENCE, and this is why the entry is worth its length: `for (var v of
   […])` must NOT be used as a faithful-loop control.** It was under consideration as one
   during this project precisely because `for…of`'s `continue` **is** faithful (see R-09) —
@@ -3601,8 +3698,22 @@ throughout.
 
 ### RESIDUAL FAIL-CLOSED — the named follow-up list
 
-Every item below is honest `E5506` with a message naming the actual limit, routed through the
-single `switch_plan` choke point, and pinned in `crates/kali_cli/tests/switch_fail_closed.rs`.
+Every item below is a fail-closed limit with a message naming the actual limit. **Corrected
+2026-07-29 (`64438bf0ef`) — the preamble here previously claimed all of them were "routed
+through the single `switch_plan` choke point, and pinned in
+`crates/kali_cli/tests/switch_fail_closed.rs`". That over-claims on three counts, and the
+exceptions are exactly where a future reader would otherwise go looking in the wrong file:**
+
+- **Most rows** (1-4, 7-10, 14) do route through `switch_plan` and are pinned in
+  `switch_fail_closed.rs`. For those the original sentence was accurate.
+- **Rows 5 and 6** deny at a *different* choke point — `emit_break_or_continue`'s
+  `continue_index: None` arm in `crates/kali_codegen/src/emit/control_flow.rs`, not
+  `switch_plan`. `switch_plan` *admits* these clauses; the denial happens later, during
+  emission. They are pinned (`NO_ENCLOSING_LOOP`, `UNFAITHFUL_CONTINUE`).
+- **Row 11** never reaches codegen at all and is not `E5506` — it surfaces as **`E3100`**
+  from name resolution. See the row.
+- **Row 12** has **no pin**, and cannot have one: it is unreachable dead code (R-54).
+
 **These are named so a later stage can pick one up without re-deriving the boundary.** None is
 a defect of this stage; each is work not yet done.
 
@@ -3613,14 +3724,15 @@ a defect of this stage; each is work not yet done.
 | 3 | **Non-literal case tests**, and **cross-domain** literal tests (a string case against an i64 discriminant or vice versa) | Rule 2. Cross-domain is denied rather than "silently never matches": node falls to `default` for it and `__streq`'s tag guard happens to agree, but *the two engines agreeing by accident* is not a lowering proof. |
 | 4 | **Float, boolean, object, array and unknown discriminants** | Rule 1 — denied by **failing to construct a proof**, not by being listed. See the accepted-regression note on booleans below. |
 | 5 | **`continue` with no enclosing loop** | There is no `continue_index` to inherit; `emit_break_or_continue` fails closed. |
-| 6 | **`continue` under an UNFAITHFUL enclosing loop** | `UNFAITHFUL_CONTINUE`. **Faithful**: `while`, `for…of`, and a C-style `for` with **no** update clause. **Unfaithful**: a C-style `for` **with** an update, `for…in`, and `do`/`while` — their `continue` skips the update or the test. **This is R-09, not R-35**, and the switch deliberately refuses to widen into it: no switch allowlist can fix a loop-lowering defect. See R-09's corrected "Not affected" line. |
+| 6 | **`continue` under an UNFAITHFUL enclosing loop** | `UNFAITHFUL_CONTINUE`. **Faithful**: `while`, `for…of`, and a C-style `for` with **no** update clause. **Unfaithful**: a C-style `for` **with** an update, `for…in`, and `do`/`while` — their `continue` skips the update or the test. **This is R-09, not R-35**, and the switch deliberately refuses to widen into it: no switch allowlist can fix a loop-lowering defect. See R-09's corrected "Not affected" line. **THE DENIAL MESSAGE'S SUGGESTED REWRITES ARE MEASURED, AND THE `for…of` ONE IS BINDING-QUALIFIED (corrected 2026-07-29, `64438bf0ef`, fix wave item 3).** This message advised *"use a `while` or `for...of` loop"* — but a bare `for…of` recommendation routes the user straight into **R-53**: `for (let v of […])` and `for (var v of […])` bind every element to `0`, silently, exit 0. Re-measured on this exact fixture at `64438bf0ef`: `while` → kali matches node byte-for-byte (`iter=1..6`, `s=19`); `for (const v of [1,2,3,4])` → matches node (`iter=1..4`, `s=8`); `for (let v of …)` and `for (var v of …)` → kali `iter=0` ×4 and `s=0` where node gives `s=8`. The message now names **`while`**, or **`for…of` whose loop variable is declared `const`**, and says why. Note the two properties are independent and both are needed: `continue`-faithfulness is about *where the index advance is emitted* (all `for…of` lanes are faithful), while R-53 is about *what the loop variable is bound to* (only `const` is right). A future edit to this sentence must re-measure against `node v26.5.0` before naming any construct — routing a user out of an honest denial and into a silent miscompile is strictly worse than the denial. |
 | 7 | **A `default` that is not the LAST clause** | `DEFAULT_NOT_LAST`. This lowering emits `default` **unconditionally at its own source position** with an early return from the chain recursion, so any later clause is silently unreachable. See the design-doc correction below — this one **shipped**. |
 | 8 | **A `default` grouped with a preceding empty `case`** | `DEFAULT_CANNOT_GROUP`. Grouping would narrow `default`'s "everything else" semantics into a plain equality disjunction. |
 | 9 | **A trailing empty clause with no body to group onto** | `TRAILING_EMPTY_GROUP`. No clause remains to carry the accumulated test. |
 | 10 | **An empty `default` clause** | Not eligible for `EmptyGroup` (it has no test to hand forward), so it denies via the same Rule-4 "no terminator" message every terminator-less clause gets. |
-| 11 | **Labeled `break` / `continue` in a clause** | Binds to an enclosing labeled statement, not to this switch; `emit_break_or_continue` rejects labels globally. |
+| 11 | **Labeled `break` / `continue` in a clause** | ~~Binds to an enclosing labeled statement, not to this switch; `emit_break_or_continue` rejects labels globally.~~ **CORRECTED 2026-07-29 (`64438bf0ef`) — that mechanism is wrong.** Labeled STATEMENTS do not survive at all, far upstream of codegen: the label declaration resolves as a bare identifier and raises **`error[E3100]: undefined identifier 'outer'`**. Measured both with and without a switch in the loop — the switch-free `outer: for (var i=0;i<3;i=i+1) { sum = sum + 1; }` raises the *identical* E3100 where node prints `sum=3`, and the switch-bearing fixture emits **E3100 and no E5506 at all** (grep count 0). So no `"break:<label>"` node ever reaches `switch_plan`, `emit_break_or_continue` never gets the chance to reject a label here, and this row is **not an `E5506` row**. `is_unlabeled_break_statement`'s exact-`"break"` match is **defence in depth**, not the operative gate. If labeled statements are ever supported, a clause *ending* in `break outer;` would then be denied by **Rule 4** (that exact match fails), and this row plus `a_labeled_break_in_a_clause_is_fail_closed` must be re-pinned on `RULE_4_TERMINATOR`. `crates/kali_cli/tests/switch_fail_closed.rs`'s `a_labeled_break_in_a_clause_is_fail_closed` already states this correctly and explicitly warns against this row's old phrasing; the row now agrees with its own pin. |
 | 12 | **Two or more `default` clauses** | Rule 3, message `"more than one `default` clause"` — **but the check is UNREACHABLE DEAD CODE**, see the note below. |
 | 13 | **`throw` as a clause terminator** | **DEFERRED, not denied on principle** (design §5.2). It terminates in principle, but kali's `throw` lowering is its own lane and admitting it needs its own measurement. Pre-stage it measured `E4000` where it fires and **SILENT where it does not**, so it is a real hazard rather than a quiet one. **This is the most valuable single item on this list to pick up next.** |
+| 14 | **An EMPTY switch — `switch (x) {}` — with no clauses at all** | **ADDED 2026-07-29 (`64438bf0ef`), fix wave item 2. This is a DENIAL ON VALID JS and was recorded nowhere** — not in this table, not in §0.2's residual list. Node runs `var x = 1; switch (x) {} console.log("done=" + x);` and prints `done=1` at **exit 0**; kali refuses it with `error[E5506]: this `switch` is not in the supported lowering set (a switch with no clauses); rewrite it as `if`/`else if` or use a supported switch shape (fail-closed)`, exit 1 (both measured). **Mechanism:** `switch_plan` folds clauses into `folded`, and after the trailing-empty-group check it returns `Err("a switch with no clauses")` when `folded.is_empty()` (`crates/kali_codegen/src/emit/switch.rs`). The guard is load-bearing, not gratuitous — `emit_clause_chain` has no base case for an empty chain and every downstream invariant in the plan assumes at least one clause — but the shape it refuses is legal and side-effect-free in JS (evaluate the discriminant, match nothing, fall out), so it belongs beside the **two accepted regressions** below rather than among the "work not yet done" rows. Cost is negligible in practice; the point of recording it is that the residual set must be *complete*, since an unrecorded denial on valid input is how a fail-closed compiler's honesty claim erodes. **No pin added in this wave** (documentation-only); a `switch_fail_closed.rs` cell asserting this exact message would be a cheap follow-up. |
 
 **Rule 3's denial cannot fire, and that is R-54.** `switch_plan` checks for a second
 `default` at `crates/kali_codegen/src/emit/switch.rs:105`, but the AST can never carry one:
@@ -3759,7 +3871,7 @@ that test must flip to fail-closed.
   consequences for the Stage 2 allowlist. **It describes a compiler that no longer exists** —
   for the post-fix boundary read **§7.11**, not this file. Cross-references **R-50** for the
   one shape where the parser is narrower than the allowlist.
-- **§7.11 of this document** — the R-35 close-out: the admitted set, the twelve-item residual
+- **§7.11 of this document** — the R-35 close-out: the admitted set, the fourteen-item residual
   fail-closed list with its denial constants, the parameter-discriminant rule, the two
   accepted regressions, the three standing couplings, and the design note for cross-module
   calls. **This is the authoritative R-35 boundary**; §0.2's row and §0.3's bullet are
