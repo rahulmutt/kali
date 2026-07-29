@@ -987,3 +987,60 @@ fn grouped_clauses_terminated_by_continue_select_correctly_under_a_faithful_loop
         "iter=0\niter=1\niter=2\niter=3\niter=4\niter=5\ns=12\n"
     );
 }
+
+// ===========================================================================
+// R-35 Task 10, FIX ROUND 1.
+
+// Over-denial guard for the non-final-`default` fix: a TRAILING `default`
+// AFTER a group (the ordinary, still-admitted position) must NOT be caught by
+// that check — it has to key on POSITION (is this `default` the last clause),
+// not on the mere presence of a group anywhere in the switch. Both group
+// members checked.
+#[test]
+fn a_trailing_default_after_a_group_is_still_admitted() {
+    let src = "function s(x) {\n\
+                 switch (x) {\n\
+                   case 1:\n\
+                   case 2: return \"low\";\n\
+                   default: return \"def\";\n\
+                 }\n\
+               }\n";
+    assert_eq!(
+        run_js(&format!("{src}console.log(\"v=\" + s(1));")),
+        "v=low\n"
+    );
+    assert_eq!(
+        run_js(&format!("{src}console.log(\"v=\" + s(2));")),
+        "v=low\n"
+    );
+    assert_eq!(
+        run_js(&format!("{src}console.log(\"v=\" + s(9));")),
+        "v=def\n"
+    );
+}
+
+// Grouping + `continue` under the OTHER faithful loop form named in this
+// task's review: a C-style `for` with NO update clause (`for...of` is
+// deliberately NOT used as a faithful-loop probe here — with no switch at all
+// it prints `iter=0` five times, a separate out-of-scope defect). Per-
+// iteration `console.log` plus an `after=` line that is absent exactly on the
+// iterations that `continue`, both mandatory per this task's method note.
+#[test]
+fn grouped_clauses_terminated_by_continue_select_correctly_under_a_c_style_for_with_no_update() {
+    let src = "var s = 0;\n\
+               for (var i = 0; i < 6; ) {\n\
+                 i = i + 1;\n\
+                 console.log(\"iter=\" + i);\n\
+                 switch (i) {\n\
+                   case 1:\n\
+                   case 2: continue;\n\
+                   default: s = s + i; break;\n\
+                 }\n\
+                 console.log(\"after=\" + i);\n\
+               }\n\
+               console.log(\"s=\" + s);\n";
+    assert_eq!(
+        run_js(src),
+        "iter=1\niter=2\niter=3\nafter=3\niter=4\nafter=4\niter=5\nafter=5\niter=6\nafter=6\ns=18\n"
+    );
+}

@@ -79,6 +79,19 @@ const TRAILING_EMPTY_GROUP: &str = "an empty trailing clause with no body to gro
 // it is not eligible for `EmptyGroup` at all, so it never reaches this rule.)
 const DEFAULT_CANNOT_GROUP: &str =
     "a `default` clause cannot be grouped with a preceding empty `case` clause";
+// Task 10 FIX ROUND 1: a `default` clause that is NOT the last clause in the
+// switch. `emit_clause_chain` lowers `default` to an UNCONDITIONAL body at its
+// own source position with an early `return` from the recursion, so a clause
+// AFTER `default` in source order is never visited by that recursion at all
+// — independent of whether that later clause is grouped. This is an
+// EMISSION-STRATEGY limitation, not a JS-selection-semantics one (JS itself
+// does not care where `default` sits once fallthrough is denied), and it was
+// silently WRONG for the ungrouped shape since Task 7 (see
+// `an_ungrouped_non_final_default_is_fail_closed_and_was_silently_wrong_
+// since_task_7` below) — this constant and its two pinning tests are the
+// fix. Message text is pairwise-disjoint from every constant above: it names
+// POSITION, not grouping, absorption, or a missing terminator.
+const DEFAULT_NOT_LAST: &str = "a `default` clause that is not the last clause in the switch";
 
 /// Assert `out` was denied by the named rule, not merely denied.
 fn assert_denied_by(out: &str, rule: &str, what: &str) {
@@ -1273,3 +1286,99 @@ fn a_default_clause_cannot_absorb_a_preceding_empty_group() {
         "a default clause absorbing a preceding empty group",
     );
 }
+
+// ===========================================================================
+// R-35 Task 10, FIX ROUND 1: a `default` clause in a NON-FINAL position.
+//
+// `emit_clause_chain` lowers `default` to an UNCONDITIONAL body at its own
+// source position and `return`s from the recursion there — it never visits
+// any clause after it. JS itself does not care where `default` sits (once
+// true fallthrough is denied), so this is an EMISSION-STRATEGY limitation,
+// not a semantics one, and it must be denied rather than silently dropping
+// every later clause.
+
+// The UNGROUPED form — no `EmptyGroup` involved at all. THIS IS A REGRESSION
+// TEST for a defect that has been admitted and silently wrong since Task 7:
+// `default` in a non-final position was never denied, and `emit_clause_chain`
+// has always `return`ed unconditionally from the `default` arm without
+// recursing further. Measured at this project's pre-fix-round-1 commit
+// `2c7df5341a` (and, by inspection of the unchanged code path, at every
+// commit back through Task 7): node prints `v=one|two|def`, kali printed
+// `v=one|def|def` — exit 0 on both sides, no diagnostic.
+#[test]
+fn an_ungrouped_non_final_default_is_fail_closed_and_was_silently_wrong_since_task_7() {
+    let out = run_js_expect_failure(
+        "function s(x) {\n\
+           switch (x) {\n\
+             case 1: return \"one\";\n\
+             default: return \"def\";\n\
+             case 2: return \"two\";\n\
+           }\n\
+         }\n\
+         console.log(\"v=\" + s(1) + \"|\" + s(2) + \"|\" + s(9));\n",
+    );
+    assert_denied_by(&out, DEFAULT_NOT_LAST, "an ungrouped non-final default");
+}
+
+// The GROUPED form — new at this task's commit (the empty `case 7:` was
+// Rule-4-denied, hence unreachable, at the pre-Task-10 HEAD `e05458af91`).
+// Node prints `v=one|grp|grp|def`; the pre-fix-round-1 lowering printed
+// `v=one|def|def|def`, exit 0 both sides.
+#[test]
+fn a_grouped_non_final_default_is_fail_closed() {
+    let out = run_js_expect_failure(
+        "function s(x) {\n\
+           switch (x) {\n\
+             case 1: return \"one\";\n\
+             default: return \"def\";\n\
+             case 7:\n\
+             case 8: return \"grp\";\n\
+           }\n\
+         }\n\
+         console.log(\"v=\" + s(1) + \"|\" + s(7) + \"|\" + s(8) + \"|\" + s(9));\n",
+    );
+    assert_denied_by(&out, DEFAULT_NOT_LAST, "a grouped non-final default");
+}
+
+// Scope is a required test axis: the same two shapes at MODULE scope, using
+// `break` (module scope cannot use `return`).
+#[test]
+fn an_ungrouped_non_final_default_is_fail_closed_at_module_scope() {
+    let out = run_js_expect_failure(
+        "var x = 2;\n\
+         switch (x) {\n\
+           case 1: console.log(\"v=one\"); break;\n\
+           default: console.log(\"v=def\"); break;\n\
+           case 2: console.log(\"v=two\"); break;\n\
+         }\n",
+    );
+    assert_denied_by(
+        &out,
+        DEFAULT_NOT_LAST,
+        "an ungrouped non-final default at module scope",
+    );
+}
+
+#[test]
+fn a_grouped_non_final_default_is_fail_closed_at_module_scope() {
+    let out = run_js_expect_failure(
+        "var x = 7;\n\
+         switch (x) {\n\
+           case 1: console.log(\"v=one\"); break;\n\
+           default: console.log(\"v=def\"); break;\n\
+           case 7:\n\
+           case 8: console.log(\"v=grp\"); break;\n\
+         }\n",
+    );
+    assert_denied_by(
+        &out,
+        DEFAULT_NOT_LAST,
+        "a grouped non-final default at module scope",
+    );
+}
+
+// Over-denial guard: a TRAILING `default` after a group (the normal, still-
+// admitted position) must NOT be caught by this check — it must key on
+// POSITION, not on the mere presence of a group anywhere in the switch. This
+// belongs in `switch_runtime.rs` as a correctness pin, not here; see
+// `a_trailing_default_after_a_group_is_still_admitted`.

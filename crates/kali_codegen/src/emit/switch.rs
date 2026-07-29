@@ -190,6 +190,39 @@ impl<'a> FunctionEmitter<'a> {
             });
         }
 
+        // FIX ROUND 1 — a `default` clause must be the LAST clause. This is
+        // an EMISSION-STRATEGY constraint, not a JS-semantics one: JS
+        // selection genuinely does not care where `default` sits once true
+        // fallthrough is denied, but `emit_clause_chain` below lowers the
+        // clause list to a nested if/else chain where `default`'s body is
+        // emitted UNCONDITIONALLY at its own position and the recursion
+        // simply `return`s there — it never visits any clause after it. A
+        // non-final `default` therefore silently drops every later clause
+        // from the emitted module, independent of whether those later
+        // clauses are grouped: measured at this task's own pre-fix commit
+        // `2c7df5341a`, both with a later GROUPED clause
+        // (`case 1: return "one"; default: return "def"; case 7: case 8:
+        // return "grp";` — node `v=one|grp|grp|def`, kali
+        // `v=one|def|def|def`) and — the more serious finding — with a later
+        // UNGROUPED clause, a shape that has been admitted and silently wrong
+        // since Task 7 (`case 1: return "one"; default: return "def"; case 2:
+        // return "two";` — node `v=one|two|def`, kali `v=one|def|def`), both
+        // exit 0 with no diagnostic. `default`'s position is identified here
+        // by `tests.is_empty()` on this RAW (pre-fold) list — the same
+        // invariant pass 2 below already relies on (a `case` clause always
+        // pushed exactly one test above; only `default` pushed none) — so
+        // this check needs no separate `is_default` bookkeeping.
+        if let Some(default_index) = clauses.iter().position(|c| c.tests.is_empty()) {
+            if default_index != clauses.len() - 1 {
+                return Err(
+                    "a `default` clause that is not the last clause in the switch (this \
+                     lowering emits `default` unconditionally at its own position, so any \
+                     later clause would be silently unreachable)"
+                        .to_string(),
+                );
+            }
+        }
+
         // Pass 2: fold each run of `EmptyGroup` clauses forward onto the next
         // clause, in source order, so `disc === t1 || disc === t2 || ...`
         // guards ONE body — no clause body is ever emitted twice. This is the
@@ -833,9 +866,19 @@ impl<'a> FunctionEmitter<'a> {
     /// clause becomes the innermost `else`.
     ///
     /// A duplicate case test needs no rule: an if/else chain is first-match-
-    /// wins by construction, which is the correct JS semantics. A `default` in
-    /// a non-final position needs no rule either: once true fallthrough is
-    /// denied, `default`'s position carries no semantics.
+    /// wins by construction, which is the correct JS semantics.
+    ///
+    /// FIX ROUND 1 — a `default` in a non-final position DOES need a rule,
+    /// and `switch_plan` denies it before this function ever runs: below,
+    /// `default`'s body is emitted UNCONDITIONALLY at its own position with
+    /// an early `return` from the recursion, so any clause after it in
+    /// `clauses` is simply never visited by this function at all. The
+    /// earlier version of this comment claimed JS-semantics equivalence
+    /// ("`default`'s position carries no semantics") and used that to argue
+    /// no rule was needed — true of JS *selection* semantics, false of THIS
+    /// EMISSION STRATEGY, and measured to silently drop every later clause
+    /// (admitted and wrong since Task 7 for an ungrouped later clause; see
+    /// `switch_plan`'s pre-pass-2 check above for the full measurement).
     fn emit_clause_chain(
         &mut self,
         function: &mut Function,
@@ -853,10 +896,19 @@ impl<'a> FunctionEmitter<'a> {
             return;
         }
 
-        // `disc === t1 || disc === t2 || ...` — ONE body guarded by ALL the
-        // grouped tests, in source order, so no clause body is ever emitted
-        // twice and a group of N tests costs N comparisons, not N clauses.
-        // Each comparison (both branches below) leaves an i32 on the stack —
+        // `disc === t1 || disc === t2 || ...` guards ONE body — no clause
+        // body is ever emitted twice — but the shape emitted below is `i32.or`
+        // over N EAGERLY-evaluated comparisons, NOT a short-circuiting `||`:
+        // wasm has no lazy boolean instruction, so every one of the N `i64.eq`
+        // (or, on the string axis, `__streq` call + `i64.eq`) executes on
+        // every pass through this clause, even after an earlier test in the
+        // SAME group already matched. Unobservable today — a case test is
+        // restricted to a literal, so no test here can have a side effect or
+        // fail to terminate — but future authors reading this loop as
+        // literal JS `||` semantics would be wrong, so it is stated exactly:
+        // in source order (so the comparisons read the same as the group
+        // reads), evaluated exhaustively, folded with `i32.or`. Each
+        // comparison (both branches below) leaves an i32 on the stack —
         // wasm's `i64.eq` itself returns i32 regardless of operand width, and
         // the string branch's extra `i64.eq` against the `__streq` result is
         // the same shape — so `i32.or` is the correct fold with no wrapping:
