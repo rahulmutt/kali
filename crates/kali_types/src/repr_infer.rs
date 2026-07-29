@@ -5857,6 +5857,20 @@ impl ReprInfer {
             table.mark_param_numeric_literal_inflow(&func, &name);
         }
 
+        // R-35 Task 8: surface the two DOMAIN-INDEPENDENT conjuncts of that
+        // proof on their own, so the string-discriminant proof can reuse the
+        // SAME sets instead of growing a second, string-specific copy that
+        // could drift. Neither set says anything about numbers or strings:
+        // `readonly_params` says a parameter is provably never written,
+        // `escaping_function_names` says a function's call sites cannot be
+        // enumerated. Both facts are needed identically on every value domain.
+        for (func, name) in &self.readonly_params {
+            table.mark_param_readonly(func, name);
+        }
+        for name in &self.escaping_function_names {
+            table.mark_function_escapes(name);
+        }
+
         // Review I-2, finalize the POSITIVE numeric-return allowlist. The axes
         // + syntactic halves were collected above; this adds the conditions
         // that need the finished table:

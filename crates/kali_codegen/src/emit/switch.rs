@@ -38,28 +38,41 @@ pub(crate) struct SwitchClause {
 /// A switch this emitter has proven it can lower correctly.
 pub(crate) struct SwitchPlan {
     pub(crate) discriminant: LirNodeId,
+    /// Which PROVEN value domain the discriminant is in: `true` = string,
+    /// `false` = i64 scalar. There is no third state — `switch_plan` returns
+    /// `Err` unless one of the two proofs holds — so the emit cannot be
+    /// reached with an unproven domain and cannot "default" to a comparison.
+    pub(crate) disc_is_string: bool,
     pub(crate) clauses: Vec<SwitchClause>,
 }
 
 impl<'a> FunctionEmitter<'a> {
     /// Build a plan, or explain why this switch is not admitted.
     ///
-    /// Task 7 admits exactly one shape: a PROVEN i64 discriminant, numeric-
+    /// Task 7 admitted exactly one shape: a PROVEN i64 discriminant, numeric-
     /// literal (optionally unary `+`/`-`) case tests, at most one `default`,
-    /// and every clause ending in `return`. Tasks 8-10 widen this further by
-    /// adding MORE proofs here — never by removing a rejection.
+    /// and every clause ending in `return`. Task 8 ADDS a second discriminant
+    /// domain — a PROVEN string — and makes rule 2 domain-matched, so a case
+    /// test in the other domain is denied rather than silently never matching.
+    /// It removes no rejection: every shape Task 7 denied is still denied,
+    /// because the widening is a second proof placed beside the first, not a
+    /// relaxation of it. Tasks 9-10 widen further the same way.
     pub(crate) fn switch_plan(&self, node: &LirNode) -> Result<SwitchPlan, String> {
         let mut children = node.children.iter().copied();
         let discriminant = children
             .next()
             .ok_or_else(|| "a switch with no discriminant".to_string())?;
 
-        // Rule 1: the discriminant must be a PROVEN i64 scalar. Anything not
-        // proven — float, boolean, object, array, unknown — is denied. Task 8
-        // widens this to proven strings.
-        if !self.is_provable_i64_scalar(discriminant) {
-            return Err("the discriminant is not a proven integer".to_string());
-        }
+        // Rule 1: the discriminant must be PROVEN to be an i64 scalar or a
+        // string. Float, boolean, object, array and unknown stay denied — not
+        // by being listed, but by failing to construct either proof.
+        let disc_is_string = if self.is_provable_i64_scalar(discriminant) {
+            false
+        } else if self.is_provable_string(discriminant) {
+            true
+        } else {
+            return Err("the discriminant is not a proven integer or string".to_string());
+        };
 
         let mut clauses = Vec::new();
         let mut default_seen = false;
@@ -88,10 +101,24 @@ impl<'a> FunctionEmitter<'a> {
                     .children
                     .first()
                     .ok_or_else(|| "a `case` clause with no test".to_string())?;
-                // Rule 2: the test must be a literal in the discriminant's
-                // domain, including unary +/- on a numeric literal.
-                if !self.is_numeric_literal_case_test(test) {
-                    return Err("a `case` test that is not a numeric literal".to_string());
+                // Rule 2: the test must be a literal in the DISCRIMINANT's
+                // domain — a numeric literal (including unary `+`/`-`) for an
+                // i64 discriminant, a string literal for a string one. A
+                // string case against an integer discriminant, or vice versa,
+                // is DENIED rather than silently never matching: node would
+                // fall to `default` for it, and while `__streq`'s tag guard
+                // happens to produce that same answer, "the two engines agree
+                // by accident" is not a lowering proof.
+                let test_ok = if disc_is_string {
+                    self.is_string_literal_case_test(test)
+                } else {
+                    self.is_numeric_literal_case_test(test)
+                };
+                if !test_ok {
+                    return Err(
+                        "a `case` test that is not a literal in the discriminant's domain"
+                            .to_string(),
+                    );
                 }
                 (Some(test), &case.children[1..])
             };
@@ -130,6 +157,7 @@ impl<'a> FunctionEmitter<'a> {
         }
         Ok(SwitchPlan {
             discriminant,
+            disc_is_string,
             clauses,
         })
     }
@@ -352,6 +380,171 @@ impl<'a> FunctionEmitter<'a> {
         self.repr_table.scalar(func, name) == kali_common::Repr::I64
     }
 
+    /// PROOF that `id`'s emitted value is a genuine tagged STRING handle.
+    ///
+    /// The string axis is not symmetric with the i64 axis, and the asymmetry
+    /// is what makes this proof short. `Repr::I64` is `Repr`'s `#[default]`
+    /// (`kali_common::repr.rs`), so `== Repr::I64` cannot distinguish "proven
+    /// a number" from "nothing was ever recorded" — the defect
+    /// `emit/call.rs:4220-4229` and `emit/operators.rs`'s
+    /// `bitwise_compound_rhs_is_provably_i64` both already rule out, and the
+    /// reason `is_provable_i64_scalar` above had to be assembled out of five
+    /// separate oracles plus a call-site inflow proof. `Repr::String` is NOT
+    /// the default: nothing is ever classified `String` by omission, so
+    /// `== Repr::String` IS positive evidence. EVERY arm below rests on that.
+    ///
+    /// It rests on more than "some string reached this node", too.
+    /// `kali_types::repr_infer::emit_table` only writes `Repr::String` for a
+    /// scalar when the node is string-reachable AND NOT float-reachable AND
+    /// NOT in `plain_write_targets` — the last being a node fed by any
+    /// UNBACKED source (a plain integer/boolean, or a downgraded mixed
+    /// return). A node failing that third conjunct is an `add_shape_conflict`,
+    /// i.e. E5506 for the whole program, not a silent `String`. That is
+    /// exactly the "mixed inflow / laundering write" family the i64 axis had
+    /// to close by hand, already closed at the source and program-wide:
+    /// `s("a"); s(1)`, `x = true`, `x = y`, `x = 1 > 0`, `x = g()` for an
+    /// int-returning `g` are all rejected before this proof is ever consulted
+    /// (measured: `error[E5506]: param 0 of `s` is used as both a string and a
+    /// number`).
+    ///
+    /// Composition, mirroring `is_provable_i64_scalar`'s "reuse the oracles
+    /// the emitter already dispatches with" rule:
+    /// - the BARE IDENTIFIER arm is hand-written here rather than delegated,
+    ///   because that is the one node shape where the emitter performs no
+    ///   coercion of its own — it loads whatever is in the local — so the
+    ///   oracle carries the whole burden. See
+    ///   `identifier_is_provable_string`.
+    /// - EVERY OTHER shape delegates to `is_string_valued`
+    ///   (`emit/operators.rs`), the SAME oracle `+`, `===`/`!==`,
+    ///   `console.log` and `String()` already dispatch with. Its non-identifier
+    ///   arms are documented one by one as keying on "the SAME recognizer the
+    ///   emit arm dispatches with, so oracle and emission agree by
+    ///   construction" — a string literal, a `+` concat (a `+` with a
+    ///   string-valued operand is a string in JS unconditionally, and the
+    ///   emitter emits `string_concat` for exactly this predicate), a
+    ///   string-armed ternary, `typeof`, `a[i]` on a `Repr::String` element
+    ///   axis, `.join`, `.substring`, `process.argv[n]`, a URL component read,
+    ///   `TextDecoder().decode`, an admitted `String(..)` coercion, and a call
+    ///   whose `return_repr` is `String`. Re-deriving any of those here would
+    ///   be the hand-mirrored-oracle drift this repository has paid for
+    ///   repeatedly; delegating means `switch` cannot disagree with `===`
+    ///   about what a string is.
+    ///
+    /// NOTE the delegation is deliberately NOT the first thing tried: an
+    /// identifier reaching `is_string_valued` would take ITS identifier arm,
+    /// which is a bare `scalar(..) == Repr::String` with no
+    /// `name_is_program_bound` gate, no aggregate-taint checks and no
+    /// parameter narrowing. Matching on the identifier shape FIRST is what
+    /// routes it to the hardened arm instead.
+    pub(crate) fn is_provable_string(&self, id: LirNodeId) -> bool {
+        let id = self.unwrap_transparent(id);
+        let id = self.resolve_bound_node(id);
+        let node = self.node(id);
+        match node.kind {
+            LirNodeKind::Value if node.children.is_empty() => node
+                .text
+                .as_deref()
+                .is_some_and(|name| self.identifier_is_provable_string(name)),
+            _ => self.is_string_valued(id),
+        }
+    }
+
+    /// The bare-identifier half of `is_provable_string`. Structurally the
+    /// twin of `identifier_is_provable_i64_scalar` above — same gate order,
+    /// same scope resolution, same if/else (NEVER `||`) split between a
+    /// parameter's evidence and a binding's — with the numeric conjuncts
+    /// swapped for the string ones:
+    ///
+    /// 1. `name_is_program_bound(name)` (`emit/call.rs`) FIRST, exactly as the
+    ///    i64 twin does: it denies `globalThis`, `undefined`, `NaN` and every
+    ///    other free global. Task 7 shipped its identifier arm without this
+    ///    and admitted `switch (globalThis)`. (On this axis it is belt to the
+    ///    `Repr::String` braces — a free global has no recorded repr, so it is
+    ///    `I64` by default, not `String` — but the check is free and the
+    ///    ordering lesson is not worth re-learning.)
+    /// 2. the SAME four aggregate taints the i64 twin and
+    ///    `binding_is_proven_string_coercion_scalar` (`emit/call.rs`) both
+    ///    check: array binding, growable array binding, non-scalar param,
+    ///    object-initialized binding. An array/object handle is an i64-shaped
+    ///    wasm value like every other, so the wasm validator cannot catch one
+    ///    reaching `__streq`.
+    /// 3. an if/else on `name_is_declared_parameter`, NEVER an `||`. Fix round
+    ///    3 of Task 7 established this shape: an `||` lets a parameter
+    ///    short-circuit past the proof that was written for parameters, which
+    ///    is precisely how `s(1, true)` with `x = y` leaked on the i64 axis.
+    ///    - A PARAMETER additionally requires both DOMAIN-INDEPENDENT
+    ///      conjuncts of Task 7's parameter proof, reused from the same sets
+    ///      rather than re-derived (`kali_types::repr_infer`'s
+    ///      `readonly_params` and `escaping_function_names`, surfaced on
+    ///      `ReprTable` for this):
+    ///      * `param_is_readonly` — the parameter is POSITIVELY proven never
+    ///        written anywhere in the body. `plain_write_targets` already
+    ///        catches every write whose source is a plain/unbacked value, but
+    ///        it can only see writes that build a repr EDGE; `readonly_params`
+    ///        is a positive enumeration of the forms in which a name is
+    ///        provably only READ, where every unenumerated form denies, so it
+    ///        also covers a write form that builds no edge at all.
+    ///      * `!function_escapes(func)` — an escaping function (assigned,
+    ///        returned, passed as a callback, `new`-ed, exported) can be
+    ///        invoked through a site the call-edge builder cannot enumerate,
+    ///        so no fact derived from its enumerated call sites is a fact
+    ///        about all of its invocations. `new s("x")` builds no call edge
+    ///        at all and is visible ONLY through this set
+    ///        (`mark_new_callee_escapes`).
+    ///    - A NON-PARAMETER binding uses `Repr::String` alone, which is the
+    ///      SAME evidence `is_string_valued`'s identifier arm — and therefore
+    ///      every `+`, `===`, `.length` and `console.log` in this compiler —
+    ///      already trusts for a bare identifier. A binding that is ALSO
+    ///      written with a plain value is an E5506 shape conflict, per this
+    ///      function's caller's doc, so `switch` here is not extending trust
+    ///      beyond what the rest of the emitter already rests on; it inherits
+    ///      exactly that contract instead of inventing a parallel one.
+    /// 4. `scalar(func, name) == Repr::String` last: the positive evidence,
+    ///    sound as evidence ONLY because `String` is not `Repr`'s default.
+    fn identifier_is_provable_string(&self, name: &str) -> bool {
+        if !self.name_is_program_bound(name) {
+            return false;
+        }
+        // Mirrors `is_string_valued`'s / the i64 twin's local-vs-module
+        // resolution: a name not declared locally in a non-`_start` function
+        // reads the module table, so the proof is looked up under the key
+        // `repr_infer` recorded it under.
+        let func: &str = if !self.locals.contains_key(name) && self.function_name != "_start" {
+            "_start"
+        } else {
+            &self.function_name
+        };
+        if self.repr_table.is_array_binding(func, name)
+            || self.repr_table.is_growable_array_binding(func, name)
+            || self.repr_table.is_non_scalar_param(func, name)
+            || self.repr_table.object_initialized_binding(func, name)
+        {
+            return false;
+        }
+        if self.name_is_declared_parameter(name) {
+            if !self.repr_table.param_is_readonly(func, name)
+                || self.repr_table.function_escapes(func)
+            {
+                return false;
+            }
+        }
+        self.repr_table.scalar(func, name) == kali_common::Repr::String
+    }
+
+    /// A `case` test is admitted iff it is a STRING LITERAL — a node the LIR
+    /// still carries as a `Literal`, which `emit_node` materializes as an
+    /// INTERNED string handle. The stringness question is delegated to
+    /// `is_string_valued` (`emit/operators.rs`), the same oracle
+    /// `is_provable_string` delegates to, rather than re-deriving the quoting
+    /// rules here; the `Literal` kind check is what keeps it to a LITERAL,
+    /// so an interpolated template (lowered to a concat `Value` node) or any
+    /// other runtime string expression is not admitted as a case test.
+    fn is_string_literal_case_test(&self, id: LirNodeId) -> bool {
+        let id = self.unwrap_transparent(id);
+        let id = self.resolve_bound_node(id);
+        self.node(id).kind == LirNodeKind::Literal && self.is_string_valued(id)
+    }
+
     /// A `case` test is admitted iff it is a numeric literal, optionally
     /// under a unary `+`/`-`. Delegates the literal (optionally unary `-`)
     /// proof entirely to `bitwise_compound_rhs_is_provably_i64`
@@ -441,7 +634,13 @@ impl<'a> FunctionEmitter<'a> {
         }
         function.instruction(&Instruction::LocalSet(disc_local));
 
-        self.emit_clause_chain(function, disc_local, &plan.clauses, 0);
+        self.emit_clause_chain(
+            function,
+            disc_local,
+            plan.disc_is_string,
+            &plan.clauses,
+            0,
+        );
 
         EmittedValue {
             produced: false,
@@ -460,6 +659,7 @@ impl<'a> FunctionEmitter<'a> {
         &mut self,
         function: &mut Function,
         disc_local: u32,
+        disc_is_string: bool,
         clauses: &[SwitchClause],
         index: usize,
     ) {
@@ -477,13 +677,40 @@ impl<'a> FunctionEmitter<'a> {
         if !produced.produced {
             function.instruction(&Instruction::I64Const(0));
         }
-        function.instruction(&Instruction::I64Eq);
+        if disc_is_string {
+            // Reuse the EXISTING runtime string-equality helper `__streq` —
+            // the same one `emit_binary`'s both-string `===`/`!==` arm calls
+            // (`emit/operators.rs`), reached through the same
+            // `streq_fn_index()` accessor. Nothing about the comparison is
+            // hand-rolled here, so `switch` inherits R-08's fixed strict-
+            // equality semantics by construction and cannot drift from them:
+            // CONTENT equality (length + bytes, with handle identity only as
+            // an internal fast path), which is why a runtime-built `"a" + "b"`
+            // selects `case "ab"` instead of missing every clause.
+            //
+            // No env-get relocation is needed (unlike the `===` arm's
+            // env-vs-env case): the discriminant is already materialized in
+            // its own local before any clause test is emitted, and a case test
+            // is an interned literal, so the two operands never share the
+            // reserved scratch buffer.
+            //
+            // `__streq` returns an i64 that is exactly 0 or 1, and `If` needs
+            // an i32, so the result is compared against 1. Deliberately NOT
+            // `i64.eqz`: `__streq` is present in every module and
+            // `pipeline_basics::boolean_branches_use_the_layout_fast_path`
+            // pins module-wide printed text as containing no `i64.eqz`.
+            function.instruction(&Instruction::Call(self.streq_fn_index()));
+            function.instruction(&Instruction::I64Const(1));
+            function.instruction(&Instruction::I64Eq);
+        } else {
+            function.instruction(&Instruction::I64Eq);
+        }
 
         self.push_control_frame(ControlFlowLabelKind::If);
         function.instruction(&Instruction::If(BlockType::Empty));
         self.emit_clause_body(function, clause);
         function.instruction(&Instruction::Else);
-        self.emit_clause_chain(function, disc_local, clauses, index + 1);
+        self.emit_clause_chain(function, disc_local, disc_is_string, clauses, index + 1);
         function.instruction(&Instruction::End);
         self.pop_control_frame(ControlFlowLabelKind::If);
     }

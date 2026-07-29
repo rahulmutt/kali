@@ -167,6 +167,35 @@ pub struct ReprTable {
     /// "what flowed in" and "what it holds" are the same fact, which is what
     /// the name of this set has always implied.
     numeric_literal_inflow_params: HashSet<(String, String)>,
+    /// `(func, param)` parameters POSITIVELY proven never written anywhere in
+    /// `func`'s own body — `kali_types::repr_infer`'s `readonly_params`,
+    /// exposed here verbatim (R-35 Task 8).
+    ///
+    /// DOMAIN-INDEPENDENT on purpose: it says nothing about numbers or
+    /// strings, only that the name is provably never assigned. Task 7 already
+    /// consumed it as one conjunct of
+    /// [`numeric_literal_inflow_params`](Self::numeric_literal_inflow_params);
+    /// Task 8's string-discriminant proof needs the SAME fact on the string
+    /// axis, so it is surfaced here to be REUSED rather than re-derived as a
+    /// second, string-specific copy that could drift from this one.
+    ///
+    /// Populated by a POSITIVE enumeration of the forms in which a name is
+    /// provably only read (`stmts_are_write_free`); every unenumerated form —
+    /// including every form a future AST variant could add — leaves the
+    /// parameter ABSENT, so every proof conjoined on it denies.
+    readonly_params: HashSet<(String, String)>,
+    /// Function names whose value ESCAPES — the name appears somewhere other
+    /// than as the direct callee of a call (assigned to a variable, returned,
+    /// passed as a callback, exported, `new`-ed) — `kali_types::repr_infer`'s
+    /// `escaping_function_names`, exposed here verbatim (R-35 Task 8).
+    ///
+    /// DOMAIN-INDEPENDENT on purpose, exactly like
+    /// [`readonly_params`](Self::readonly_params): it says nothing about the
+    /// VALUES flowing through the function, only that call sites cannot be
+    /// enumerated for it. Any per-parameter proof that quantifies over "every
+    /// call site" is unsound for an escaping function, on any domain, so both
+    /// domains conjoin this one set instead of each carrying its own.
+    escaping_function_names: HashSet<String>,
     /// `(func, binding)` var/let/const locals whose declarator RHS is an
     /// object literal. Object shape inference only assigns `Repr::Object`
     /// when the object is "materialized" (reached by a field read somewhere
@@ -627,6 +656,40 @@ impl ReprTable {
     pub fn param_has_numeric_literal_inflow(&self, func: &str, binding: &str) -> bool {
         self.numeric_literal_inflow_params
             .contains(&(func.to_string(), binding.to_string()))
+    }
+
+    /// Record that param `binding` of `func` is POSITIVELY proven never
+    /// written in `func`'s body — see [`readonly_params`](Self::readonly_params).
+    pub fn mark_param_readonly(&mut self, func: &str, binding: &str) {
+        self.readonly_params
+            .insert((func.to_string(), binding.to_string()));
+    }
+
+    /// True when param `binding` of `func` is POSITIVELY proven never written
+    /// anywhere in `func`'s body. Defaults to false — a parameter with no such
+    /// proof (written, or holding any form the write-free enumeration does not
+    /// cover) reports false, matching this being a POSITIVE allowlist, not a
+    /// default. See [`readonly_params`](Self::readonly_params).
+    pub fn param_is_readonly(&self, func: &str, binding: &str) -> bool {
+        self.readonly_params
+            .contains(&(func.to_string(), binding.to_string()))
+    }
+
+    /// Record that function `name`'s value escapes — see
+    /// [`escaping_function_names`](Self::escaping_function_names).
+    pub fn mark_function_escapes(&mut self, name: &str) {
+        self.escaping_function_names.insert(name.to_string());
+    }
+
+    /// True when function `name`'s value ESCAPES, i.e. its name appears
+    /// somewhere other than as the direct callee of a call, so its runtime
+    /// invocations cannot be enumerated. Defaults to false, which is the
+    /// permissive direction — but the set is built by a walk that reaches
+    /// EVERY identifier read, so a name it does not mark is one no expression
+    /// mentions outside a direct-callee position. See
+    /// [`escaping_function_names`](Self::escaping_function_names).
+    pub fn function_escapes(&self, name: &str) -> bool {
+        self.escaping_function_names.contains(name)
     }
 
     /// Record that `(func, binding)`'s declarator RHS is an object literal —

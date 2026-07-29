@@ -458,3 +458,300 @@ fn a_new_invocation_site_of_the_enclosing_function_is_fail_closed() {
         "must be denied by Rule 1 (the discriminant), not some other rule; got: {out}"
     );
 }
+
+// ===========================================================================
+// R-35 Task 8: the STRING discriminant axis. Every test below is the string
+// analogue of a leak Task 7 measured on the numeric axis, plus the two
+// mismatched-domain directions. They are the regression suite for the claim
+// "the allowlist widened by adding a proof, and no rejection was removed".
+// ===========================================================================
+
+// Step 6 (brief): a string `case` test against a NUMERIC discriminant. Rule 2
+// is domain-matched, so this is DENIED rather than compiled into a comparison
+// that can never be true. Node falls to `default` here; agreeing with node by
+// accident is not a lowering proof, so kali refuses instead.
+#[test]
+fn a_string_case_against_a_numeric_discriminant_is_fail_closed() {
+    let out = run_js_expect_failure(
+        "function s(x) {\n\
+           switch (x) {\n\
+             case \"1\": return \"A\";\n\
+             default: return \"D\";\n\
+           }\n\
+         }\n\
+         console.log(\"v=\" + s(1));\n",
+    );
+    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+}
+
+// The OTHER direction: a numeric `case` test against a PROVEN STRING
+// discriminant. Both directions must be denied or rule 2 is not actually
+// domain-matched -- it would just be two independent one-way checks.
+#[test]
+fn a_numeric_case_against_a_string_discriminant_is_fail_closed() {
+    let out = run_js_expect_failure(
+        "function s(x) {\n\
+           switch (x) {\n\
+             case 1: return \"A\";\n\
+             default: return \"D\";\n\
+           }\n\
+         }\n\
+         console.log(\"v=\" + s(\"a\"));\n",
+    );
+    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+}
+
+// String analogue of Task 7 fix round 4 LEAK 2: a WRITE launders a non-string
+// value into a parameter with clean string inflow. On the numeric axis this
+// silently miscompiled; on the string axis `repr_infer`'s own
+// `plain_write_targets` rule already turns "string-reachable node fed by an
+// unbacked plain source" into a shape conflict, so the program is refused
+// before the switch proof is even consulted. Pinned here so a future change to
+// that rule cannot quietly reopen the switch cell.
+#[test]
+fn a_boolean_written_into_a_string_parameter_is_fail_closed() {
+    let out = run_js_expect_failure(
+        "function s(x) {\n\
+           x = true;\n\
+           switch (x) {\n\
+             case \"a\": return 1;\n\
+             default: return 3;\n\
+           }\n\
+         }\n\
+         console.log(\"v=\" + s(\"b\"));\n",
+    );
+    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+}
+
+// Same leak through a SECOND PARAMETER rather than a literal -- the exact
+// shape (`x = y` with `s(<good>, <bad>)`) that defeated the numeric proof's
+// `||` disjunction in fix round 3.
+#[test]
+fn a_write_from_another_parameter_into_a_string_parameter_is_fail_closed() {
+    let out = run_js_expect_failure(
+        "function s(x, y) {\n\
+           x = y;\n\
+           switch (x) {\n\
+             case \"a\": return 1;\n\
+             default: return 3;\n\
+           }\n\
+         }\n\
+         console.log(\"v=\" + s(\"b\", true));\n",
+    );
+    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+}
+
+// Same leak through a comparison RESULT copied via a local -- the shape
+// `binding_is_proven_numeric` itself refuses but the numeric proof's
+// disjunction admitted anyway.
+#[test]
+fn a_write_from_a_comparison_result_into_a_string_parameter_is_fail_closed() {
+    let out = run_js_expect_failure(
+        "function s(x) {\n\
+           var t = 1 > 0;\n\
+           x = t;\n\
+           switch (x) {\n\
+             case \"a\": return 1;\n\
+             default: return 3;\n\
+           }\n\
+         }\n\
+         console.log(\"v=\" + s(\"b\"));\n",
+    );
+    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+}
+
+// A write of a STRING into the parameter is denied too. Nothing about the
+// value is wrong here -- node prints `v=9` and a string discriminant would
+// still be a string. It is denied because `readonly_params` is a POSITIVE
+// enumeration of read-only forms and a written parameter simply is not in it.
+// Fail-closed, deliberately: this pins that the parameter arm's evidence is
+// "never written", not "never written with something bad", so no future edit
+// can turn it into a denylist of bad write RHSs.
+#[test]
+fn a_written_string_parameter_is_fail_closed_even_when_written_with_a_string() {
+    let out = run_js_expect_failure(
+        "function s(x) {\n\
+           x = \"z\";\n\
+           switch (x) {\n\
+             case \"a\": return 1;\n\
+             case \"z\": return 9;\n\
+             default: return 3;\n\
+           }\n\
+         }\n\
+         console.log(\"v=\" + s(\"b\"));\n",
+    );
+    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+}
+
+// `new s(true)` builds NO call edge, so the call-edge quantifier cannot see
+// it; it is visible only as an ESCAPE (`mark_new_callee_escapes`). The string
+// parameter arm conjoins the SAME `escaping_function_names` set Task 7's
+// numeric proof does, so this denies even though the only enumerable call site
+// (`s("b")`) supplies a clean string.
+#[test]
+fn a_new_expression_call_site_denies_a_string_parameter_discriminant() {
+    let out = run_js_expect_failure(
+        "function s(x) {\n\
+           switch (x) {\n\
+             case \"a\": return 1;\n\
+             default: return 3;\n\
+           }\n\
+         }\n\
+         new s(true);\n\
+         console.log(\"v=\" + s(\"b\"));\n",
+    );
+    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+}
+
+// The escape gate proper: `s` passed as a callback can be invoked through a
+// site no analysis in this compiler enumerates, so no per-parameter fact
+// derived from the enumerated sites is a fact about every invocation.
+#[test]
+fn an_escaping_function_denies_a_string_parameter_discriminant() {
+    let out = run_js_expect_failure(
+        "function s(x) {\n\
+           switch (x) {\n\
+             case \"a\": return 1;\n\
+             default: return 3;\n\
+           }\n\
+         }\n\
+         setTimeout(s, 0);\n\
+         console.log(\"v=\" + s(\"b\"));\n",
+    );
+    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+}
+
+// Existential laundering through a PASS-THROUGH chain: `s`'s only argument is
+// a bare identifier, so nothing about `s`'s parameter is proven unless `t`'s
+// parameter is itself proven a string -- and `t(true)` proves it is not.
+#[test]
+fn a_pass_through_chain_carrying_a_boolean_is_fail_closed() {
+    let out = run_js_expect_failure(
+        "function s(x) {\n\
+           switch (x) {\n\
+             case \"a\": return 1;\n\
+             default: return 3;\n\
+           }\n\
+         }\n\
+         function t(y) { return s(y); }\n\
+         console.log(\"v=\" + t(true));\n",
+    );
+    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+}
+
+// No evidence is not vacuous truth: a function with ZERO call sites has no
+// proof for its parameter and is denied.
+#[test]
+fn a_string_switch_in_a_never_called_function_is_fail_closed() {
+    let out = run_js_expect_failure(
+        "function s(x) {\n\
+           switch (x) {\n\
+             case \"a\": return 1;\n\
+             default: return 3;\n\
+           }\n\
+         }\n\
+         console.log(\"v=\" + \"no-call\");\n",
+    );
+    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+}
+
+// Free globals against STRING cases. `globalThis`/`undefined`/`NaN` are not
+// program-bound, so the identifier arm's first gate (`name_is_program_bound`,
+// the check Task 7's identifier arm originally omitted) denies them. Pinned on
+// the string axis too so the gate cannot be dropped from one arm only.
+#[test]
+fn free_globals_against_string_cases_are_fail_closed() {
+    for disc in ["globalThis", "undefined", "NaN"] {
+        let out = run_js_expect_failure(&format!(
+            "function s() {{\n\
+               switch ({disc}) {{\n\
+                 case \"a\": return 1;\n\
+                 default: return 3;\n\
+               }}\n\
+             }}\n\
+             console.log(\"v=\" + s());\n"
+        ));
+        assert!(out.contains("E5506"), "expected E5506 for {disc}, got: {out}");
+        assert!(
+            !out.contains("E4201"),
+            "{disc} must be denied at the switch choke point, not by an \
+             invalid module, got: {out}"
+        );
+    }
+}
+
+// A `case` test that is a runtime string EXPRESSION rather than a literal is
+// denied: rule 2 admits a string LITERAL only, so a concat -- which would
+// materialize a fresh handle per clause evaluation -- never reaches the emit.
+#[test]
+fn a_concatenated_case_test_against_a_string_discriminant_is_fail_closed() {
+    let out = run_js_expect_failure(
+        "function s(x) {\n\
+           switch (x) {\n\
+             case \"a\" + \"b\": return 1;\n\
+             default: return 3;\n\
+           }\n\
+         }\n\
+         console.log(\"v=\" + s(\"ab\"));\n",
+    );
+    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+}
+
+// An object / array discriminant against string cases. Both are i64-shaped
+// wasm values exactly like a string handle, so only the proof stands between
+// them and `__streq` reading a non-string handle's bits.
+#[test]
+fn aggregate_discriminants_against_string_cases_are_fail_closed() {
+    let out = run_js_expect_failure(
+        "function s(x) {\n\
+           switch (x) {\n\
+             case \"a\": return 1;\n\
+             default: return 3;\n\
+           }\n\
+         }\n\
+         var o = { k: 1 };\n\
+         console.log(\"v=\" + s(o));\n",
+    );
+    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+    let out = run_js_expect_failure(
+        "function s(x) {\n\
+           switch (x) {\n\
+             case \"a\": return 1;\n\
+             default: return 3;\n\
+           }\n\
+         }\n\
+         var a = [1, 2];\n\
+         console.log(\"v=\" + s(a));\n",
+    );
+    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+}
+
+// Rules 4 and 5 are unchanged by the string widening: a non-`return` clause
+// and a `let` in a clause body stay denied on the string axis too. Without
+// these, "widened the discriminant domain" could silently have meant "widened
+// the clause allowlist as well".
+#[test]
+fn string_switch_still_obeys_the_clause_rules() {
+    let out = run_js_expect_failure(
+        "function s(x) {\n\
+           var r = 0;\n\
+           switch (x) {\n\
+             case \"a\": r = 1;\n\
+             default: return 3;\n\
+           }\n\
+           return r;\n\
+         }\n\
+         console.log(\"v=\" + s(\"a\"));\n",
+    );
+    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+    let out = run_js_expect_failure(
+        "function s(x) {\n\
+           switch (x) {\n\
+             case \"a\": let q = 1; return q;\n\
+             default: return 3;\n\
+           }\n\
+         }\n\
+         console.log(\"v=\" + s(\"a\"));\n",
+    );
+    assert!(out.contains("E5506"), "expected E5506, got: {out}");
+}
