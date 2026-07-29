@@ -1,0 +1,801 @@
+===== s01_fn.js
+--- kali exit=0
+kali_stdout:
+r20=100
+r40=100
+r0=200
+r10=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+r20=200
+r40=900
+r0=900
+r10=100
+node_stderr:
+===== s01_mod_0.js
+--- kali exit=0
+kali_stdout:
+hit=200
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=900
+node_stderr:
+===== s01_mod_10.js
+--- kali exit=0
+kali_stdout:
+hit=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=100
+node_stderr:
+===== s01_mod_20.js
+--- kali exit=0
+kali_stdout:
+hit=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=200
+node_stderr:
+===== s01_mod_40.js
+--- kali exit=0
+kali_stdout:
+hit=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=900
+node_stderr:
+===== s02_fn.js
+--- kali exit=0
+kali_stdout:
+ra=100
+rb=100
+rz=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+ra=100
+rb=200
+rz=900
+node_stderr:
+===== s02_mod_a.js
+--- kali exit=0
+kali_stdout:
+hit=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=100
+node_stderr:
+===== s02_mod_b.js
+--- kali exit=0
+kali_stdout:
+hit=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=200
+node_stderr:
+===== s02_mod_z.js
+--- kali exit=0
+kali_stdout:
+hit=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=900
+node_stderr:
+===== s03_fn.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r20=200
+r40=900
+r0=900
+r10=100
+node_stderr:
+===== s03_mod_0.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r=900
+node_stderr:
+===== s03_mod_10.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r=100
+node_stderr:
+===== s03_mod_20.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r=200
+node_stderr:
+===== s03_mod_40.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r=900
+node_stderr:
+===== s04_fn.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r20=200
+r40=900
+r0=900
+r10=100
+node_stderr:
+===== s04_mod_0.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r=900
+node_stderr:
+===== s04_mod_10.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r=100
+node_stderr:
+===== s04_mod_20.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r=200
+node_stderr:
+===== s04_mod_40.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r=900
+node_stderr:
+===== s05_fn.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r20=200
+r40=900
+r0=900
+r10=100
+node_stderr:
+===== s05_mod_0.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r=900
+node_stderr:
+===== s05_mod_10.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r=100
+node_stderr:
+===== s05_mod_20.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r=200
+node_stderr:
+===== s05_mod_40.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r=900
+node_stderr:
+===== s06_fn.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r20=200
+r40=900
+r0=900
+r10=100
+node_stderr:
+===== s06_mod_0.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r=900
+node_stderr:
+===== s06_mod_10.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r=100
+node_stderr:
+===== s06_mod_20.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r=200
+node_stderr:
+===== s06_mod_40.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r=900
+node_stderr:
+===== s07_fn_10.js
+--- kali exit=1
+kali_stdout:
+hit=100
+kali_stderr:
+Uncaught t100
+error[E4000]: runtime trap (unreachable — allocation failure or an unsupported-path guard): error while executing at wasm backtrace:
+    0:   0x13fb - <unknown>!<wasm function 40>
+    1:    0x572 - <unknown>!<wasm function 22>
+--- node exit=1
+node_stdout:
+hit=100
+node_stderr:
+
+/tmp/claude-1000/-workspace/634f1832-cfc2-4bdf-8de1-d91534f7f603/scratchpad/r35/f/s07_fn_10.js:3
+    case 10: console.log("hit=100"); throw "t100";
+                                     ^
+t100
+(Use `node --trace-uncaught ...` to show where the exception was thrown)
+
+Node.js v26.5.0
+===== s07_fn_20.js
+--- kali exit=1
+kali_stdout:
+hit=100
+kali_stderr:
+Uncaught t100
+error[E4000]: runtime trap (unreachable — allocation failure or an unsupported-path guard): error while executing at wasm backtrace:
+    0:   0x13fb - <unknown>!<wasm function 40>
+    1:    0x572 - <unknown>!<wasm function 22>
+--- node exit=1
+node_stdout:
+hit=200
+node_stderr:
+
+/tmp/claude-1000/-workspace/634f1832-cfc2-4bdf-8de1-d91534f7f603/scratchpad/r35/f/s07_fn_20.js:4
+    case 20: console.log("hit=200"); throw "t200";
+                                     ^
+t200
+(Use `node --trace-uncaught ...` to show where the exception was thrown)
+
+Node.js v26.5.0
+===== s07_fn_40.js
+--- kali exit=1
+kali_stdout:
+hit=100
+kali_stderr:
+Uncaught t100
+error[E4000]: runtime trap (unreachable — allocation failure or an unsupported-path guard): error while executing at wasm backtrace:
+    0:   0x13fb - <unknown>!<wasm function 40>
+    1:    0x572 - <unknown>!<wasm function 22>
+--- node exit=1
+node_stdout:
+hit=900
+node_stderr:
+
+/tmp/claude-1000/-workspace/634f1832-cfc2-4bdf-8de1-d91534f7f603/scratchpad/r35/f/s07_fn_40.js:5
+    default: console.log("hit=900"); throw "t900";
+                                     ^
+t900
+(Use `node --trace-uncaught ...` to show where the exception was thrown)
+
+Node.js v26.5.0
+===== s07_mod_10.js
+--- kali exit=1
+kali_stdout:
+hit=100
+kali_stderr:
+Uncaught t100
+error[E4000]: runtime trap (unreachable — allocation failure or an unsupported-path guard): error while executing at wasm backtrace:
+    0:    0x580 - <unknown>!<wasm function 22>
+--- node exit=1
+node_stdout:
+hit=100
+node_stderr:
+
+/tmp/claude-1000/-workspace/634f1832-cfc2-4bdf-8de1-d91534f7f603/scratchpad/r35/f/s07_mod_10.js:3
+  case 10: console.log("hit=100"); throw "t100";
+                                   ^
+t100
+(Use `node --trace-uncaught ...` to show where the exception was thrown)
+
+Node.js v26.5.0
+===== s07_mod_20.js
+--- kali exit=1
+kali_stdout:
+hit=100
+kali_stderr:
+Uncaught t100
+error[E4000]: runtime trap (unreachable — allocation failure or an unsupported-path guard): error while executing at wasm backtrace:
+    0:    0x580 - <unknown>!<wasm function 22>
+--- node exit=1
+node_stdout:
+hit=200
+node_stderr:
+
+/tmp/claude-1000/-workspace/634f1832-cfc2-4bdf-8de1-d91534f7f603/scratchpad/r35/f/s07_mod_20.js:4
+  case 20: console.log("hit=200"); throw "t200";
+                                   ^
+t200
+(Use `node --trace-uncaught ...` to show where the exception was thrown)
+
+Node.js v26.5.0
+===== s07_mod_40.js
+--- kali exit=1
+kali_stdout:
+hit=100
+kali_stderr:
+Uncaught t100
+error[E4000]: runtime trap (unreachable — allocation failure or an unsupported-path guard): error while executing at wasm backtrace:
+    0:    0x580 - <unknown>!<wasm function 22>
+--- node exit=1
+node_stdout:
+hit=900
+node_stderr:
+
+/tmp/claude-1000/-workspace/634f1832-cfc2-4bdf-8de1-d91534f7f603/scratchpad/r35/f/s07_mod_40.js:5
+  default: console.log("hit=900"); throw "t900";
+                                   ^
+t900
+(Use `node --trace-uncaught ...` to show where the exception was thrown)
+
+Node.js v26.5.0
+===== s08_fn.js
+--- kali exit=0
+kali_stdout:
+hit=100
+call20=0
+hit=100
+call40=0
+hit=100
+call10=0
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=200
+hit=900
+call20=0
+hit=900
+call40=0
+hit=100
+hit=200
+hit=900
+call10=0
+node_stderr:
+===== s08_mod_10.js
+--- kali exit=0
+kali_stdout:
+hit=100
+done=1
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=100
+hit=200
+hit=900
+done=1
+node_stderr:
+===== s08_mod_20.js
+--- kali exit=0
+kali_stdout:
+hit=100
+done=1
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=200
+hit=900
+done=1
+node_stderr:
+===== s08_mod_40.js
+--- kali exit=0
+kali_stdout:
+hit=100
+done=1
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=900
+done=1
+node_stderr:
+===== s09_fn.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r1=200
+r2=200
+r5=900
+node_stderr:
+===== s09_mod_1.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r=200
+node_stderr:
+===== s09_mod_2.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r=200
+node_stderr:
+===== s09_mod_5.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r=900
+node_stderr:
+===== s10_fn.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r20=200
+r40=900
+r10=100
+node_stderr:
+===== s10_mod_10.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r=100
+node_stderr:
+===== s10_mod_20.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r=200
+node_stderr:
+===== s10_mod_40.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r=900
+node_stderr:
+===== s11_fn.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r10=100
+r40=900
+r0=900
+node_stderr:
+===== s11_mod_0.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r=900
+node_stderr:
+===== s11_mod_10.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r=100
+node_stderr:
+===== s11_mod_40.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r=900
+node_stderr:
+===== s12_fn.js
+--- kali exit=0
+kali_stdout:
+r1=1
+r2=1
+r3=1
+kali_stderr:
+--- node exit=0
+node_stdout:
+r1=1
+r2=11
+r3=12
+node_stderr:
+===== s12_mod_1.js
+--- kali exit=0
+kali_stdout:
+r=1
+kali_stderr:
+--- node exit=0
+node_stdout:
+r=1
+node_stderr:
+===== s12_mod_2.js
+--- kali exit=0
+kali_stdout:
+r=1
+kali_stderr:
+--- node exit=0
+node_stdout:
+r=11
+node_stderr:
+===== s12_mod_3.js
+--- kali exit=0
+kali_stdout:
+r=1
+kali_stderr:
+--- node exit=0
+node_stdout:
+r=12
+node_stderr:
+===== s13_fn.js
+--- kali exit=0
+kali_stdout:
+r1=0
+r2=0
+r4=0
+kali_stderr:
+--- node exit=0
+node_stdout:
+r1=1
+r2=1
+r4=3
+node_stderr:
+===== s13_mod_1.js
+--- kali exit=0
+kali_stdout:
+r=0
+kali_stderr:
+--- node exit=0
+node_stdout:
+r=1
+node_stderr:
+===== s13_mod_2.js
+--- kali exit=0
+kali_stdout:
+r=0
+kali_stderr:
+--- node exit=0
+node_stdout:
+r=1
+node_stderr:
+===== s13_mod_4.js
+--- kali exit=0
+kali_stdout:
+r=0
+kali_stderr:
+--- node exit=0
+node_stdout:
+r=3
+node_stderr:
+===== s14_fn.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r20=200
+r40=900
+r10=100
+node_stderr:
+===== s14_mod_10.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r=100
+node_stderr:
+===== s14_mod_20.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r=200
+node_stderr:
+===== s14_mod_40.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r=900
+node_stderr:
+===== s15_fn.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r25=200
+r35=900
+r15=100
+node_stderr:
+===== s15_mod_15.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r=100
+node_stderr:
+===== s15_mod_25.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r=200
+node_stderr:
+===== s15_mod_35.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r=900
+node_stderr:
+===== s16_fn.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+rtrue=100
+rfalse=200
+node_stderr:
+===== s16_mod_false.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r=200
+node_stderr:
+===== s16_mod_true.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+--- node exit=0
+node_stdout:
+r=100
+node_stderr:

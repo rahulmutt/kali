@@ -4252,7 +4252,13 @@ impl<'a> FunctionEmitter<'a> {
     /// capture gate uses. A parameter is the one binding kind with no in-scope
     /// declarator initializer to prove, which is why it keeps the repr-taint
     /// admission while every other identifier is denied for lack of evidence.
-    fn name_is_declared_parameter(&self, name: &str) -> bool {
+    ///
+    /// `pub(crate)` (R-35 Task 7 fix round 1): `emit/switch.rs`'s
+    /// `is_provable_i64_scalar` reuses this SAME parameter proof rather than
+    /// re-deriving it, mirroring the `name_is_declared_parameter(name) ||
+    /// binding_is_proven_numeric(name)` disjunction this module's own
+    /// `binding_is_proven_string_coercion_scalar` call site already uses.
+    pub(crate) fn name_is_declared_parameter(&self, name: &str) -> bool {
         self.function_param_names
             .get(&self.function_name)
             .is_some_and(|params| params.iter().any(|param| param == name))
@@ -4646,7 +4652,12 @@ impl<'a> FunctionEmitter<'a> {
     /// function parameters, anywhere in the module (nested functions included),
     /// plus this function's own in-scope locals and bindings. A name outside
     /// this set is a free global that no program value can be stored into.
-    fn name_is_program_bound(&self, name: &str) -> bool {
+    ///
+    /// `pub(crate)` (R-35 Task 7 fix round 1): `emit/switch.rs`'s
+    /// `is_provable_i64_scalar` reuses this SAME check so `globalThis` /
+    /// `undefined` / `NaN` / any other free global cannot reach its identifier
+    /// arm and be admitted through the unrecorded-default `Repr::I64` gap.
+    pub(crate) fn name_is_program_bound(&self, name: &str) -> bool {
         if self.locals.contains_key(name)
             || self.bindings.contains_key(name)
             || self.fn_valued_locals.contains_key(name)

@@ -1257,7 +1257,8 @@ impl<'a> FunctionEmitter<'a> {
         function.instruction(&Instruction::Loop(BlockType::Empty));
         self.loop_frames.push(LoopFrame {
             break_index,
-            continue_index,
+            continue_index: Some(continue_index),
+            continue_is_faithful: true,
         });
 
         // if i >= n break
@@ -1411,7 +1412,8 @@ impl<'a> FunctionEmitter<'a> {
                 let continue_index = self.push_control_frame(ControlFlowLabelKind::LoopContinue);
                 self.loop_frames.push(LoopFrame {
                     break_index,
-                    continue_index,
+                    continue_index: Some(continue_index),
+                    continue_is_faithful: true,
                 });
                 function.instruction(&Instruction::Block(BlockType::Empty));
                 if let Some(body) = body {
@@ -1479,7 +1481,8 @@ impl<'a> FunctionEmitter<'a> {
                 let continue_index = self.push_control_frame(ControlFlowLabelKind::LoopContinue);
                 self.loop_frames.push(LoopFrame {
                     break_index,
-                    continue_index,
+                    continue_index: Some(continue_index),
+                    continue_is_faithful: true,
                 });
                 function.instruction(&Instruction::Block(BlockType::Empty));
                 if let Some(body) = body {
@@ -1547,7 +1550,8 @@ impl<'a> FunctionEmitter<'a> {
                 let continue_index = self.push_control_frame(ControlFlowLabelKind::LoopContinue);
                 self.loop_frames.push(LoopFrame {
                     break_index,
-                    continue_index,
+                    continue_index: Some(continue_index),
+                    continue_is_faithful: true,
                 });
                 function.instruction(&Instruction::Block(BlockType::Empty));
                 if let Some(body) = body {
@@ -1626,7 +1630,8 @@ impl<'a> FunctionEmitter<'a> {
                 let continue_index = self.push_control_frame(ControlFlowLabelKind::LoopContinue);
                 self.loop_frames.push(LoopFrame {
                     break_index,
-                    continue_index,
+                    continue_index: Some(continue_index),
+                    continue_is_faithful: true,
                 });
                 function.instruction(&Instruction::Block(BlockType::Empty));
                 if let Some(body) = body {
@@ -1658,7 +1663,8 @@ impl<'a> FunctionEmitter<'a> {
                 let continue_index = self.push_control_frame(ControlFlowLabelKind::LoopContinue);
                 self.loop_frames.push(LoopFrame {
                     break_index,
-                    continue_index,
+                    continue_index: Some(continue_index),
+                    continue_is_faithful: true,
                 });
                 function.instruction(&Instruction::Block(BlockType::Empty));
                 if let Some(body) = body {
@@ -1732,7 +1738,8 @@ impl<'a> FunctionEmitter<'a> {
             let continue_index = self.push_control_frame(ControlFlowLabelKind::LoopContinue);
             self.loop_frames.push(LoopFrame {
                 break_index,
-                continue_index,
+                continue_index: Some(continue_index),
+                continue_is_faithful: true,
             });
             function.instruction(&Instruction::Block(BlockType::Empty));
             if let Some(body) = body {

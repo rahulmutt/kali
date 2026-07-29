@@ -138,6 +138,99 @@ pub struct ReprTable {
     /// repr evidence and are unaffected). A never-called function's params all
     /// land here (no flow evidence at all) and correctly reject.
     params_lacking_scalar_inflow: HashSet<(String, String)>,
+    /// `(func, param)` parameters POSITIVELY proven that EVERY call-site edge
+    /// of `func` supplies a numeric-literal argument (optionally BigInt, never
+    /// negative or fractional — see `expr_is_nonneg_int_literal` in
+    /// `kali_types::repr_infer`) at this position — R-35 Task 7 fix round 2.
+    /// A strictly NARROWER, per-parameter positive proof than
+    /// `params_lacking_scalar_inflow`'s complement: that one only asks for a
+    /// syntactically-scalar argument (which a boolean or string literal also
+    /// satisfies — the exact hole the switch discriminant proof needs
+    /// closed); this one asks specifically for a numeric literal, and ALSO
+    /// requires `func`'s own name to never appear anywhere in the program
+    /// except as the direct callee of a call (see `escaping_function_names`)
+    /// — an escaping function (assigned to a variable, passed as a callback,
+    /// `new`-ed, aliased; NOT merely `export`ed — see
+    /// [`escaping_function_names`](Self::escaping_function_names) for why that
+    /// long-standing claim is false) may be invoked through a call site this table
+    /// cannot enumerate, so trusting "every ENUMERATED call site passed a
+    /// literal" would be a laundering hole for it. A function with ZERO
+    /// enumerated call sites is correctly excluded too (no evidence, not
+    /// "vacuously true").
+    ///
+    /// R-35 Task 7 fix round 4: the proof additionally requires the parameter
+    /// to be POSITIVELY proven NEVER WRITTEN in `func`'s own body (see
+    /// `kali_types::repr_infer`'s `readonly_params`). Without that conjunct
+    /// this set proves only what flowed IN at the call sites, while its
+    /// consumer reads it as a fact about the value the parameter HOLDS where
+    /// it is used — and every write in between (`x = true`, `x = y`,
+    /// `x = b()`, `x += 1`, `x++`, a loop binding, …) laundered a
+    /// non-numeric value through a clean numeric-literal call site. With it,
+    /// "what flowed in" and "what it holds" are the same fact, which is what
+    /// the name of this set has always implied.
+    numeric_literal_inflow_params: HashSet<(String, String)>,
+    /// `(func, param)` parameters POSITIVELY proven never written anywhere in
+    /// `func`'s own body — `kali_types::repr_infer`'s `readonly_params`,
+    /// exposed here verbatim (R-35 Task 8).
+    ///
+    /// DOMAIN-INDEPENDENT on purpose: it says nothing about numbers or
+    /// strings, only that the name is provably never assigned. Task 7 already
+    /// consumed it as one conjunct of
+    /// [`numeric_literal_inflow_params`](Self::numeric_literal_inflow_params);
+    /// Task 8's string-discriminant proof needs the SAME fact on the string
+    /// axis, so it is surfaced here to be REUSED rather than re-derived as a
+    /// second, string-specific copy that could drift from this one.
+    ///
+    /// Populated by a POSITIVE enumeration of the forms in which a name is
+    /// provably only read (`stmts_are_write_free`); every unenumerated form —
+    /// including every form a future AST variant could add — leaves the
+    /// parameter ABSENT, so every proof conjoined on it denies.
+    readonly_params: HashSet<(String, String)>,
+    /// Function names whose value ESCAPES — the name appears somewhere other
+    /// than as the direct callee of a call (assigned to a variable, returned,
+    /// passed as a callback, `new`-ed) — `kali_types::repr_infer`'s
+    /// `escaping_function_names`, exposed here verbatim (R-35 Task 8).
+    ///
+    /// NOT triggered by `export` (R-35 Task 8: the claim that it was is
+    /// inherited from Task 7 and is false; fix round 1 corrected the fact and
+    /// fix round 2 corrected the MECHANISM, which was also wrong).
+    /// `export function s(x) { switch (x) { case "a": … } }` IS admitted —
+    /// measured byte-matching node at exit 0 on both the string and the
+    /// numeric domain, pinned by
+    /// `an_exported_function_is_admitted_because_export_is_not_an_escape`.
+    ///
+    /// THE ACTUAL MECHANISM — read this before trying to change it, because
+    /// the obvious change does not work. For the DECLARATION form, the export
+    /// marker is erased in the PARSER and leaves no AST trace at all:
+    /// `parse_export_declaration` (`kali_parser::module`) discards the
+    /// `export` token (`let _ = self.stream.advance();`) and dispatches
+    /// straight to `parse_function_declaration()` / `parse_class_declaration()`,
+    /// and `kali_ast::FunctionDeclaration` has no `exported` field (it is
+    /// exactly `name`, `params`, `body`, `is_async`, `generator`). So
+    /// `export function s() {}` and `function s() {}` are the SAME AST, and no
+    /// pass downstream of the parser can tell them apart.
+    /// `Statement::ExportNamed` is NOT that shape: it is built at a single
+    /// site, for the `export { name }` / `export … from` LIST form only. (The
+    /// `export default` forms do survive, as `Statement::ExportDefault`.)
+    ///
+    /// This is safe today only because a cross-module imported call returns
+    /// `0` wholesale, so the unenumerable call site an export nominally
+    /// creates cannot actually deliver an argument. WORK THAT MAKES
+    /// CROSS-MODULE CALLS REAL MUST MARK EXPORTED FUNCTIONS AS ESCAPING
+    /// FIRST — and doing that requires a PARSER change before any escape-walk
+    /// change, because there is currently nothing in the AST to key off.
+    /// Matching `Statement::ExportNamed` alone would catch only the
+    /// re-export-list form and silently miss every `export function` /
+    /// `export class`, which is the common case and the exact shape of the
+    /// pin test above.
+    ///
+    /// DOMAIN-INDEPENDENT on purpose, exactly like
+    /// [`readonly_params`](Self::readonly_params): it says nothing about the
+    /// VALUES flowing through the function, only that call sites cannot be
+    /// enumerated for it. Any per-parameter proof that quantifies over "every
+    /// call site" is unsound for an escaping function, on any domain, so both
+    /// domains conjoin this one set instead of each carrying its own.
+    escaping_function_names: HashSet<String>,
     /// `(func, binding)` var/let/const locals whose declarator RHS is an
     /// object literal. Object shape inference only assigns `Repr::Object`
     /// when the object is "materialized" (reached by a field read somewhere
@@ -574,6 +667,64 @@ impl ReprTable {
     pub fn param_lacks_scalar_inflow(&self, func: &str, binding: &str) -> bool {
         self.params_lacking_scalar_inflow
             .contains(&(func.to_string(), binding.to_string()))
+    }
+
+    /// Record that param `binding` of `func` is POSITIVELY proven to receive
+    /// a numeric-literal argument at every enumerated call site, with the
+    /// function itself proven non-escaping — see
+    /// [`numeric_literal_inflow_params`](Self::numeric_literal_inflow_params).
+    pub fn mark_param_numeric_literal_inflow(&mut self, func: &str, binding: &str) {
+        self.numeric_literal_inflow_params
+            .insert((func.to_string(), binding.to_string()));
+    }
+
+    /// True when `binding` is a PARAM of `func` PROVEN (R-35 Task 7 fix round
+    /// 2) to receive a numeric-literal argument at every enumerated call
+    /// site, with `func` itself proven never to escape as a value (so every
+    /// runtime call to it IS one of the enumerated sites) and the param
+    /// itself proven never written in `func`'s body (fix round 4, so the
+    /// inflow fact is also a fact about the value at every point of the
+    /// body). Defaults to false — a param with no such proof (no call sites,
+    /// an escaping function, a written parameter, or any non-numeric-literal
+    /// argument at any site) reports false, matching this being a POSITIVE
+    /// allowlist, not a default.
+    pub fn param_has_numeric_literal_inflow(&self, func: &str, binding: &str) -> bool {
+        self.numeric_literal_inflow_params
+            .contains(&(func.to_string(), binding.to_string()))
+    }
+
+    /// Record that param `binding` of `func` is POSITIVELY proven never
+    /// written in `func`'s body — see [`readonly_params`](Self::readonly_params).
+    pub fn mark_param_readonly(&mut self, func: &str, binding: &str) {
+        self.readonly_params
+            .insert((func.to_string(), binding.to_string()));
+    }
+
+    /// True when param `binding` of `func` is POSITIVELY proven never written
+    /// anywhere in `func`'s body. Defaults to false — a parameter with no such
+    /// proof (written, or holding any form the write-free enumeration does not
+    /// cover) reports false, matching this being a POSITIVE allowlist, not a
+    /// default. See [`readonly_params`](Self::readonly_params).
+    pub fn param_is_readonly(&self, func: &str, binding: &str) -> bool {
+        self.readonly_params
+            .contains(&(func.to_string(), binding.to_string()))
+    }
+
+    /// Record that function `name`'s value escapes — see
+    /// [`escaping_function_names`](Self::escaping_function_names).
+    pub fn mark_function_escapes(&mut self, name: &str) {
+        self.escaping_function_names.insert(name.to_string());
+    }
+
+    /// True when function `name`'s value ESCAPES, i.e. its name appears
+    /// somewhere other than as the direct callee of a call, so its runtime
+    /// invocations cannot be enumerated. Defaults to false, which is the
+    /// permissive direction — but the set is built by a walk that reaches
+    /// EVERY identifier read, so a name it does not mark is one no expression
+    /// mentions outside a direct-callee position. See
+    /// [`escaping_function_names`](Self::escaping_function_names).
+    pub fn function_escapes(&self, name: &str) -> bool {
+        self.escaping_function_names.contains(name)
     }
 
     /// Record that `(func, binding)`'s declarator RHS is an object literal —

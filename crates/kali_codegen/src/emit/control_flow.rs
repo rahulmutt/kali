@@ -46,21 +46,87 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        // NOTE there is deliberately NO test here for "is the innermost frame a
+        // switch?". `break` binds to the switch and `continue` reaches past it
+        // to the loop purely because a switch frame carries its own
+        // `break_index` and INHERITS the enclosing loop's `continue_index`
+        // verbatim (`emit/switch.rs`'s `emit_switch_plan`). Resolving the two
+        // keywords against two independent fields of the innermost frame makes
+        // that true by construction; a precedence rule written here would be
+        // one careless edit away from retargeting `break`/`continue` in
+        // ordinary `for`/`while` code that has nothing to do with `switch`.
         let target_index = if is_continue {
-            loop_frame.continue_index
+            match loop_frame.continue_index {
+                Some(index) => index,
+                // Reached ONLY through a switch frame — a real loop frame always
+                // carries `Some`. Two distinct causes, two honest messages;
+                // conflating them would tell a user with a perfectly good
+                // `for` loop that they have no loop.
+                None => {
+                    let message = if loop_frame.continue_is_faithful {
+                        // Nothing to inherit: no enclosing loop at all.
+                        "`continue` inside a `switch` requires an enclosing loop; there is \
+                         none here (fail-closed)"
+                    } else {
+                        // There IS an enclosing loop, but its `continue`
+                        // lowering is not faithful, so binding a `continue` to
+                        // it would silently change which iterations run.
+                        // The suggested rewrites are MEASURED against node
+                        // v26.5.0 at this commit, not assumed. `while` and
+                        // `for (const v of [...])` each run this exact fixture
+                        // byte-identically to node. `for (let v of [...])` and
+                        // `for (var v of [...])` do NOT — they are register
+                        // R-53 and read every element as `0`, silently — so the
+                        // binding kind is named explicitly. Never widen this
+                        // sentence to a construct that has not been re-measured:
+                        // routing a user out of an honest denial and into a
+                        // silent miscompile is strictly worse than the denial.
+                        "`continue` inside a `switch` is unavailable in this loop form: an \
+                         unlabeled `continue` in a C-style `for` with an update clause, a \
+                         `do`/`while`, or a `for...in` does not re-run the update/test \
+                         faithfully in the current lowering (register R-09), so binding one \
+                         here would silently skip or repeat iterations; use a `while` loop, \
+                         or a `for...of` loop whose loop variable is declared `const` (a \
+                         `var` or `let` for-of binding is register R-53 and reads every \
+                         element as 0), or rewrite the clause without `continue` \
+                         (fail-closed)"
+                    };
+                    self.diagnostics
+                        .push(Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, message));
+                    function.instruction(&Instruction::Unreachable);
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                }
+            }
         } else {
             loop_frame.break_index
         };
         let depth = self.control_frame_depth(target_index);
 
         // No inline arena release here — this is intentional, not a gap.
-        // Labels are rejected above, so an unlabeled `break`/`continue`
-        // always targets the innermost open loop, and a `break`'s `Br` lands
-        // exactly where `emit_loop` already emits its own unconditional
-        // normal-exit release (`arena_frames.pop()` + `emit_arena_release`,
-        // right after that loop's closing `End`s — a wasm branch to a
-        // `block`'s label lands immediately after its `End`, the same target
-        // as normal fallthrough). An earlier version of this function ALSO
+        //
+        // PREMISE, corrected in Task 9 fix round 1: an unlabeled `break` no
+        // longer always targets the innermost open LOOP. Since Task 9 a
+        // `switch` pushes a `LoopFrame` too, so a `break` inside a switch
+        // targets the SWITCH's `block` and its `Br` lands after that block's
+        // `End` — not at the enclosing loop's release code. The conclusion is
+        // unchanged, and for a stronger reason than the original text gave: a
+        // switch opens NO `ArenaFrame` (`emit/switch.rs`'s `emit_switch_plan`
+        // pushes nothing onto `arena_frames`), so landing after its `End`
+        // leaves the enclosing loop's arena untouched and control then falls
+        // through the rest of that loop's body to the loop's own single
+        // unconditional release (`arena_frames.pop()` + `emit_arena_release`,
+        // right after its closing `End`s — a wasm branch to a `block`'s label
+        // lands immediately after its `End`, the same target as normal
+        // fallthrough). So every path still releases exactly once, whether the
+        // `break` exits a loop directly or exits a switch nested in one.
+        // Verified, not assumed: a `break` out of a switch inside an
+        // allocating loop across 200 iterations matches node byte-for-byte
+        // (`break_out_of_a_switch_in_an_allocating_loop_does_not_corrupt_the_arena`).
+        //
+        // An earlier version of this function ALSO
         // emitted an inline release here, reasoning that it "only executes on
         // the break path" — true, but irrelevant: the break path then falls
         // straight into `emit_loop`'s unconditional release too, so the same
@@ -153,10 +219,22 @@ impl<'a> FunctionEmitter<'a> {
     /// with a back-edge, so the body can run more than once and `break`/`continue`
     /// resolve via the loop-frame stack.
     ///
-    /// Known limitation: in a `for` loop, `update` is emitted at the tail of the
-    /// body (since wasm's `loop` has no native init/update clause), so a
-    /// `continue` re-enters the loop *without* running `update`. `while` /
-    /// `do-while` re-test correctly on `continue` since they have no `update`.
+    /// Known limitation (register R-09): in a `for` loop, `update` is emitted at
+    /// the tail of the body (since wasm's `loop` has no native init/update
+    /// clause), so a `continue` re-enters the loop *without* running `update`.
+    /// `while` re-tests correctly on `continue`, and so does a `for` with no
+    /// update clause — both have nothing to skip.
+    ///
+    /// CORRECTION (Task 9 fix round 1): this comment used to add `do-while` to
+    /// the "re-tests correctly" list, on the reasoning that it has no `update`.
+    /// That is wrong. A `do-while`'s test is emitted at the BOTTOM of the loop
+    /// body and `continue` branches to the loop TOP, so `continue` skips the
+    /// test and re-runs the body unconditionally. Measured switch-free:
+    /// `do { i = i + 1; console.log("iter=" + i); continue; } while (i < 3);`
+    /// printed 1,578,155 `iter=` lines before trapping at exit 1, where node
+    /// prints three and then `i=3`. `LoopFrame::continue_is_faithful` records
+    /// this per construct, and `switch` refuses to bind a `continue` into any
+    /// loop form where it does not hold.
     pub(crate) fn emit_loop(
         &mut self,
         function: &mut Function,
@@ -265,9 +343,25 @@ impl<'a> FunctionEmitter<'a> {
         let continue_index = self.push_control_frame(ControlFlowLabelKind::LoopContinue);
         function.instruction(&Instruction::Loop(BlockType::Empty));
         let loop_frame_index = self.loop_frames.len();
+        // Is an unlabeled `continue` in THIS loop a faithful lowering of JS
+        // `continue`? Keyed on the SAME two values the emission below dispatches
+        // with — `update` and `kind` — so the flag cannot drift from the code it
+        // describes (see `LoopFrame::continue_is_faithful` for the per-construct
+        // measurements):
+        //
+        // - an `update` clause is emitted at the TAIL of the body, so a
+        //   `continue` re-enters without running it (register R-09). A `for`
+        //   with no update clause has nothing to skip and IS faithful, exactly
+        //   like `while`.
+        // - `do-while` puts its test at the BOTTOM, and `continue` branches to
+        //   the loop TOP, so the test is skipped for that pass. This function's
+        //   own doc comment used to claim otherwise; it was wrong, and the
+        //   correction is measured.
+        let continue_is_faithful = update.is_none() && kind != "do-while";
         self.loop_frames.push(LoopFrame {
             break_index,
-            continue_index,
+            continue_index: Some(continue_index),
+            continue_is_faithful,
         });
 
         // Per-iteration reset: recycle the PREVIOUS iteration's pages onto
@@ -524,7 +618,14 @@ impl<'a> FunctionEmitter<'a> {
         function.instruction(&Instruction::Loop(BlockType::Empty));
         self.loop_frames.push(LoopFrame {
             break_index,
-            continue_index,
+            continue_index: Some(continue_index),
+            // UNFAITHFUL: the `ord = ord + 1` advance below is emitted AFTER the
+            // body, so an unlabeled `continue` branches to the loop top without
+            // it and re-reads the same key forever. Measured switch-free:
+            // `for (var k in {a:1,b:2,c:3}) { …; if (k === "b") { continue; } … }`
+            // printed `key=b` 1,249,832 times before trapping at exit 1, where
+            // node prints a/b/c and `n=2`. Same family as R-09.
+            continue_is_faithful: false,
         });
 
         // break when ord >= N
@@ -1795,6 +1896,7 @@ impl<'a> FunctionEmitter<'a> {
                 }
                 Some("for-in") => self.emit_for_in(function, id, &node),
                 Some("throw") => self.emit_throw(function, &node),
+                Some("switch") => self.emit_switch(function, id, &node),
                 _ => self.emit_branch(function, &node, want_value),
             },
             LirNodeKind::Unknown => {

@@ -3,6 +3,27 @@ use crate::*;
 use kali_ast::AST;
 
 #[test]
+fn switch_and_its_case_blocks_are_text_tagged() {
+    let statements = parse("function f(x) { switch (x) { case 1: return 1; default: return 2; } }");
+    let mut lowerer = HirLowerer::new();
+    let result = lowerer.lower_statements(&statements);
+
+    let switch = result
+        .nodes
+        .iter()
+        .find(|node| node.kind == HirNodeKind::SwitchStmt)
+        .expect("a SwitchStmt node");
+    assert_eq!(switch.text.as_deref(), Some("switch"));
+
+    // children[0] is the discriminant; children[1..] are the case blocks.
+    let cases: Vec<_> = switch.children[1..]
+        .iter()
+        .map(|id| result.nodes[id.0 as usize].text.as_deref())
+        .collect();
+    assert_eq!(cases, vec![Some("case"), Some("default")]);
+}
+
+#[test]
 fn test_lower_statements_to_hir() {
     let statements = parse("const answer = 40 + 2; function add(a, b) { return a + b; }");
     let mut lowerer = HirLowerer::new();

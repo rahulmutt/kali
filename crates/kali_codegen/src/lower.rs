@@ -3161,6 +3161,55 @@ pub(crate) fn for_in_ord_local_name(ordinal: u32) -> String {
     format!("__for_in_ord#{ordinal}")
 }
 
+/// Pre-order, function-scoped ordinal for each `switch`-text `Branch` node.
+///
+/// Exists ONLY to name a dedicated per-switch i64 local
+/// (`switch_disc_local_name`) holding the evaluated discriminant, so nested
+/// emission inside a clause body cannot clobber it. Wholly independent of
+/// `loop_preorder_ordinals` (which must never learn about switch — see its doc
+/// comment on the arena-ordinal desync danger) and never threaded into
+/// `ArenaTable`/`loop_arena` lookups. Consulted from exactly two call sites,
+/// both inside `kali_codegen`: `collect_function_locals`, which reserves the
+/// local, and `FunctionEmitter::new`, which resolves it back for `emit_switch`.
+pub(crate) fn switch_preorder_ordinals(
+    nodes: &[LirNode],
+    body: LirNodeId,
+) -> HashMap<LirNodeId, u32> {
+    let mut ordinals = HashMap::new();
+    let mut next = 0u32;
+    switch_preorder_ordinals_walk(nodes, body, &mut next, &mut ordinals);
+    ordinals
+}
+
+fn switch_preorder_ordinals_walk(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    next: &mut u32,
+    ordinals: &mut HashMap<LirNodeId, u32>,
+) {
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return;
+    };
+    if node.kind == LirNodeKind::Branch && node.text.as_deref() == Some("switch") {
+        ordinals.insert(id, *next);
+        *next += 1;
+    }
+    for child in &node.children {
+        if is_function_like(nodes, *child) {
+            continue;
+        }
+        switch_preorder_ordinals_walk(nodes, *child, next, ordinals);
+    }
+}
+
+/// Name of the dedicated i64 local holding switch `ordinal`'s evaluated
+/// discriminant. The discriminant is evaluated exactly once into this slot;
+/// re-emitting it per clause test would call `f` once per clause in
+/// `switch (f(x))`.
+pub(crate) fn switch_disc_local_name(ordinal: u32) -> String {
+    format!("__switch_disc#{ordinal}")
+}
+
 /// Names of the three synthetic i32 locals that save/restore the
 /// current-arena trio (`g1`/`g2`/`g3`) around the arena'd loop with pre-order
 /// ordinal `ordinal` in its function. Shared by locals provisioning
@@ -3469,6 +3518,18 @@ pub(crate) fn collect_function_locals(
         // anymore — the table is module-constant data referenced by a fixed
         // offset (`StringPool::intern_key_table`), not a bump-allocated base
         // held in a runtime local.
+    }
+
+    // Reserve one dedicated i64 local per `switch` in this function (R-35
+    // Task 7) — see `switch_preorder_ordinals`'s doc comment for why this is a
+    // wholly separate, codegen-internal counter from every other ordinal
+    // above.
+    let mut switch_ordinals: Vec<u32> = switch_preorder_ordinals(nodes, body_id)
+        .into_values()
+        .collect();
+    switch_ordinals.sort_unstable();
+    for ordinal in switch_ordinals {
+        locals.push(switch_disc_local_name(ordinal));
     }
 
     // Reserve the two i32 scratch locals for a `process.argv[<int>]` element

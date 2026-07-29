@@ -37,7 +37,9 @@ The register below was written against branch `soundness-batch1-pra` and is now
 four independent surface sweeps (A output/coercion, B operators/control-flow,
 C functions/calls, D data-structures). **Where a per-entry headline below conflicts
 with this section, this section wins** — except where this section is itself superseded by a
-later measurement, which is now the case for **R-11** (see below). Full per-surface probe logs:
+later measurement, which is now the case for **R-11** (closed `28f18b3ff`) and for **R-35**
+(boundary re-derived 2026-07-28 on `5c9bbd051`; the §0.3 bullet below carries the corrected
+text and `r35-switch-boundary-rederived.md` carries the matrix). Full per-surface probe logs:
 `scratchpad/resweep/sweep-{a,b,c,d}-rederived.md`.
 
 **`62d786e74` is a named baseline, not "main".** This section was originally headed "HEAD
@@ -53,10 +55,89 @@ The register's own top priority — the **Group-1 evidence-corrupting defects
 (R-01, R-04, R-07)** — are all resolved, and the entire **functions/calls/scope
 surface** (R-02, R-05) has moved from silent-miscompile to honest **fail-closed
 E5506**. That validates the "allowlist at the call-lowering choke" interim fix the
-register recommended for cluster G2. As a result the silent-miscompile frontier has
+register recommended for cluster G2. ~~As a result the silent-miscompile frontier has
 **moved**: the highest-blast-radius *silent* defect on the current binary is no
 longer any original Tier-1 entry but **R-35 (`switch` selects the wrong clause)**,
-newly found this re-derivation.
+newly found this re-derivation.~~ **STRUCK 2026-07-29 (`64438bf0ef`) — R-35 is closed and
+this sentence is false; see the second amendment below for the re-derived frontier.**
+
+**Amendment 2026-07-28 (`5c9bbd051`, branch `r35-switch-lowering`).** Probing R-35 uncovered
+a *parser* defect strictly worse than R-35 itself: **R-49**, in which
+`parse_switch_statement` never consumed the switch's closing brace and every statement after
+a `switch` was reparented to module scope and executed at module load. R-49 is **CLOSED**
+(`9db9150c0`). R-35's recorded boundary was measured through R-49 and is **void**; the true
+boundary is a 32-cell both-scopes matrix (22 SILENT / 2 FAIL-CLOSED / 6 FL-INTERNAL /
+2 CORRECT) in `docs/superpowers/followups/r35-switch-boundary-rederived.md`, and R-35 is
+**Tier 1**, not Tier 2 — clauses beyond the second are never emitted at all. ~~R-35 itself
+remains **SILENT and open**; Stage 2 of that branch is the lowering fix.~~ **STRUCK
+2026-07-29 (`64438bf0ef`) — false; see the second amendment immediately below.**
+
+**Amendment 2026-07-29 (`64438bf0ef`, branch `r35-switch-lowering`) — R-35 IS CLOSED, AND
+THE FRONTIER CLAIM IS RE-DERIVED.** This amendment supersedes both struck sentences above
+and takes this section's own precedence over everything below it.
+
+**1. R-35 is CLOSED.** Stage 2 landed: `switch` is lowered by an **allowlist** at
+`crates/kali_codegen/src/emit/switch.rs`'s `switch_plan`, which admits only shapes it can
+*prove* and returns `Err(reason)` otherwise, surfacing as honest `E5506`. The admitted set
+matches `node v26.5.0` byte-for-byte; **no silent lane remains in `switch`**. The
+authoritative boundary — admitted set, fourteen-item residual, two accepted regressions,
+three standing couplings — is **§7.11**, not §0.2's row and not §0.3's bullet. R-35 is the
+second Tier-1 entry closed by this project, after R-49 (`9db9150c0`).
+
+**2. The frontier does NOT pass to R-51, R-52 or R-53 — and it is UNRANKED.** The
+temptation on closing a headline entry is to promote the newest finding into the vacancy.
+That would be a confident wrong answer, so it is not given here. Measured at
+`64438bf0ef` against `node v26.5.0`:
+
+- The three new close-out entries all reproduce, all silent, all exit 0 — but each is a
+  **narrow** construct with a correct sibling, which is the opposite of high blast radius.
+  **R-51** needs the optional-call form specifically (`s?.(7)` → `w=0`/`c=0`, node
+  `w=7`/`c=1`; the plain `s(7)` control is correct on both). **R-52** needs a `for` with an
+  omitted clause *and* a present later one (`for (var i = 0; ;)` → kali prints only `s=0`,
+  node prints six `iter=` lines and `s=15`). **R-53**'s silent lane is narrower than its
+  own headline says — see point 3.
+- Meanwhile **four pre-existing SILENT entries reproduce at this same HEAD on far more
+  ordinary constructs**, each re-measured here rather than carried over:
+  - **R-13** — `var o = {a:1,b:2}; var k = "a"; o[k]` → kali `read=0`, node `read=1`, exit 0.
+  - **R-31** — `console.log(o)` → kali `0`, node `{ a: 1 }`; `console.log(a)` → kali `0`,
+    node `[ 1, 2, 3 ]`, exit 0. (Note the array lane printed `0`, not the length §0.2's row
+    records — one more reason the table below needs re-measuring, not re-reading.)
+  - **R-10** — `var x=1; { let x=2; } x` → kali `outer=2`, node `outer=1`, exit 0.
+  - **R-14** — `function f(){return [1,2,3];} f()[0]` → kali `e0=0`, node `e0=1`, exit 0.
+
+  A computed property read, `console.log` of an object, a block-scoped `let`, and indexing a
+  returned array are each vastly more common in real JS than `s?.(x)` or `for (init; ;)`.
+  So the frontier falls **back into the pre-existing SILENT set**, not onto the new entries.
+
+  **Which member of that set is highest is not established by any measurement in this
+  document, and this section will not assert one.** Two reasons, both structural: (a)
+  "blast radius" has never been given an operational definition here — it has been used
+  informally to mean *tier × construct frequency*, and no frequency model over real JS has
+  ever been built for this project; (b) the ~26 SILENT verdicts in §0.2's table are dated
+  **2026-07-24 / `62d786e74`** and have **not** been re-measured wholesale since, and at
+  least one has already moved — R-21's absent-field lane (`o.b` for undeclared `b`) now
+  **fails closed** `E5506 unknown field 'b' on fixed-shape object` at `64438bf0ef`, where
+  §0.2 still records it SILENT. Ranking a stale table is not a measurement.
+
+  **What would settle it, in order:** (i) write down an operational definition of blast
+  radius (proposed: tier × a counted frequency of the triggering construct over a fixed JS
+  corpus, so the ranking is reproducible rather than argued); (ii) re-run the four surface
+  sweeps at the current HEAD to refresh every §0.2 verdict, since entries have demonstrably
+  moved in both directions; (iii) *then* rank. Until (i)-(iii) are done the honest statement
+  is the one made here: **the frontier is unranked, and it is somewhere in
+  {R-10, R-13, R-14, R-31, and the rest of the pre-existing SILENT set} — not in
+  {R-51, R-52, R-53}.**
+
+**3. R-53 is WIDER than its §0.2 headline: `let` is affected, not only `var`.** Measured at
+`64438bf0ef`, switch-free: `for (let v of [1,2,3,4]) { console.log("iter=" + v); s = s + v; }`
+→ kali `iter=0` ×4 and `s=0`, node `iter=1/2/3/4` and `s=10`, **exit 0 both sides**. The
+`const` form is correct on the identical fixture (`s=10`). The silent lane is also bounded on
+the other axis: over a **binding** iterable rather than an array literal
+(`var a=[1,2,3]; for (const v of a)`) kali fails closed with an honest `E5506`. So R-53's
+silent surface is precisely *for-of over an **array literal** with a **`var` or `let`**
+loop variable*. This matters beyond bookkeeping: it is why this branch's own fail-closed
+message names `const` explicitly (see §7.11's note) — recommending a bare "`for...of`" would
+have routed users out of an honest denial and into R-53.
 
 ### 0.2 Current status of every register entry
 
@@ -75,7 +156,7 @@ FL-INTERNAL = nonzero but wrong *kind* (E4201/E4003 internal, not honest E5506).
 | R-07 `const` is not a binding | **FIXED** | all 6 shapes (swap/stale/param/double-read/loop-carry) match; `const` is a real binding now. |
 | R-08 `===`/`!==`/`==`/`!=` half | **FIXED** | conflation cases all correct; null-guard now fail-closed. |
 | R-08 `??` half | **SILENT** | `let a=0; a??9`→9, param/var/call-return all →9/10. `0??9` & `const c=0;c??9` match. Residual-3 `f(false)===0`→111 also silent. Unchanged. |
-| R-09 `continue` skips for-update | **SILENT (+ hang)** | skip-ahead form silent-wrong; `i%2` form now **FL-INTERNAL E4003** (infinite loop → fuel trap). |
+| R-09 `continue` skips for-update | **SILENT (+ hang)** | skip-ahead form silent-wrong; `i%2` form now **FL-INTERNAL E4003** (infinite loop → fuel trap). **Evidence widened 2026-07-28 on `5c9bbd051`** (R-35 stage, fix round 1): the hang is **not** specific to `let`/`i++`, to a `%` test, or to any nesting. It reproduces with `var` + `i = i + 1`, with a bare un-nested `if (i === 1) continue;`, with an `if`/`else` block, and with the `continue` inside a **`switch` clause** — 7 fixtures, both scopes, every one `E4003`. **R-09 is the owning ID for the switch-clause `continue` hang**; it is *not* an R-35 defect and no `switch` allowlist can fix it. See §2's R-09 entry and `r35-switch-boundary-rederived.md` "Cell 13 — corrected". **Evidence widened again 2026-07-29 on `58234e87c7`** (R-35 close-out): the entry's "Not affected" line was wrong in **two** directions and is corrected in §2. **`do`/`while` IS affected** (`continue` branches to the loop top, skipping the BOTTOM-placed test → `E4003`), and **`for…in` IS affected** and was missing from the line entirely (→ `E4003`). The genuinely faithful forms, re-measured switch-free, are **`while`**, **`for…of`**, and a **C-style `for` with NO update clause** — those three only. |
 | R-10 block-scope shadowing | **SILENT** | 5/5 shapes alias the outer binding. Unchanged. |
 | R-11 bitwise compound assign | **CLOSED 2026-07-25** (`28f18b3ff`, post-dating this section's `62d786e74` baseline) | see §2's R-11 entry. Re-measured on merged `main` `372a3f440`: `let n=6; n&=3`→`2` ✓, `n\|=8`→`14` ✓, `let o={a:6}; o.a&=3`→`2` ✓ (`var` receiver identical); array-elem `a[0]&=3` (`const` and `let` alike) and computed `o[k]&=3` → honest **E5506**. The row's old "SILENT — 48/48 / bypasses the E5506 their `+=` sibling honors" is false in all four of its sub-claims. The `&=`/`+=` relation is now **INVERTED** on the object-field lane: `o.a &= 3` lowers → `2` while `o.a += 1` → E5506 — see §3's G3 edit. |
 | R-12 alias defeats array-store guard | **SILENT** | both scopes. The discriminator is **SCOPE, not declarator kind**: module-scope un-aliased is also SILENT (`const a=[1,2]; a[0]=7; a[0]`→`1`, node `7`); only **in-function** un-aliased fails closed E5506, and there `const`/`let`/`var` alike do. Corrected 2026-07-25 on `372a3f440`. |
@@ -103,19 +184,78 @@ FL-INTERNAL = nonzero but wrong *kind* (E4201/E4003 internal, not honest E5506).
 | R-34 bool user-fn renders 1/0 (concat & multi-arg) | **SILENT** | live; concat AND multi-arg both `1`. |
 | R-47 `for..of` over a `let` array iterates the binding's NAME | **SILENT** | added 2026-07-25 (post-sweep, from the R-11 project), measured on `372a3f440`. `let a=[1,2,3]; for (const x of a) log(x)` prints `a` (node `1 2 3`); `var` fails closed E5506, `const` is correct. Exit 0, plausible-looking output — see §2. |
 | R-48 array stored into an `I64` object field reads `0` | **SILENT** | added 2026-07-25 (post-sweep, from the R-11 project), measured on `372a3f440`. `let o={a:6}; o.a=[1,2]; o.a`→`0` (node `[ 1, 2 ]`); `const` receiver identical. See §2. |
+| R-35 `switch` selects the wrong clause | **CLOSED-BY-ALLOWLIST 2026-07-29** (branch `r35-switch-lowering`) — the admitted set is **FIXED**, everything else is **FAIL-CLOSED** (`E5506`); **no silent lane remains** | Codegen half closed by the R-35 Stage 2 allowlist. **ADMITTED and correct:** a proven i64-scalar or proven-string discriminant; numeric-literal (incl. unary `+`/`-`) or string-literal case tests **in the discriminant's own domain**; clauses terminated by `return`, unlabeled `break`, or unlabeled `continue` under a **faithful** enclosing loop; runs of empty non-`default` clauses grouping onto the next terminated clause; zero or one `default`, **last only**; both scopes; nesting inside loops and inside other switches. **RESIDUAL FAIL-CLOSED (`E5506`, honest, not silent) — the full list is §7.11:** true fallthrough; `let`/`const` in a clause body; non-literal or cross-domain case tests; float/boolean/object/array/unknown discriminants; `continue` with **no** enclosing loop; `continue` under an **unfaithful** enclosing loop (`UNFAITHFUL_CONTINUE`); a `default` that is **not last** (`DEFAULT_NOT_LAST`); a `default` grouped with a preceding empty `case` (`DEFAULT_CANNOT_GROUP`); a trailing empty clause with no body to group onto (`TRAILING_EMPTY_GROUP`); an **empty switch** `switch (x) {}` — **valid JS**, node exits 0, denied with `"a switch with no clauses"` (added to the residual set 2026-07-29, `64438bf0ef`, fix wave item 2; see §7.11 row 14); `throw` as a terminator (deferred, not denied on principle). **Read §7.11 before extending** — it also records the two accepted regressions and three standing couplings. The pre-fix measurement is preserved here for the historical record: **re-measured 2026-07-28 on `5c9bbd051`** (branch `r35-switch-lowering`, post parser containment), superseding both the `62d786e74` row and §0.3's original boundary. 32-cell matrix, both scopes: **22 SILENT, 2 FAIL-CLOSED, 6 FL-INTERNAL, 2 CORRECT** (corrected in fix round 1 from 24/2/4/2; cell 13 is R-09, see that entry). `switch` lowers as `if (discriminant) { clause-1 } else { clause-2 }` — case tests are never consulted, clauses beyond the second are never emitted, and the wrong clause's **side effects run**. String discriminants are always truthy so they always take clause 1. Full matrix: `r35-switch-boundary-rederived.md`. |
+| R-51 optional call `s?.(x)` returns `0` and never runs the callee | **SILENT (Tier 1)** | added 2026-07-29 at the R-35 close-out, measured on `58234e87c7`. `function s(x){return x;} s?.(7)` → `w=0`, node `w=7`; a side-effect counter in the callee stays `0` where node reads `1`, so the body **never runs**. Exit 0, **no diagnostic on `kali run` and none on `kali build`** — completely silent, not a warning. The non-optional control `s(7)` is correct on both engines, so the defect is the optional-call route specifically. Carries a **standing coupling warning to R-35's parameter proof** — see §2's R-51 entry and §7.11. |
+| R-52 `for`-clause arity misclassification (omitted clauses) | **SILENT (Tier 1) + FL-INTERNAL** | added 2026-07-29 at the R-35 close-out, measured on `58234e87c7`. The HIR omits absent `for` clauses and codegen classifies the survivors **by count**, so any `for` with an omitted clause and a present later one is misread. `for (var i = 0; ;) { … }` **skips the entire loop** (kali prints only `s=0`, exit 0, no diagnostic; node prints six `iter=` lines and `s=15`) — the `var i = 0` DECLARATION is used as the loop test and is falsy. `for (init; ; update)` **drops the first iteration** (silent, exit 0). `for (; test; update)` **runs away to `E4003`** (loud). Distinct from R-09, which is about update PLACEMENT, not clause identification. Carries a **standing coupling to `continue_is_faithful`** — see §2's R-52 entry. |
+| R-53 `for (var v of […])` — **and `for (let v of […])`** — binds every element to `0` | **SILENT (Tier 2)** | **WIDENED 2026-07-29 (`64438bf0ef`, fix wave item 1): `let` is affected too, not only `var`** — measured switch-free, `for (let v of [1,2,3,4])` → kali `iter=0` ×4 / `s=0`, node `iter=1..4` / `s=10`, exit 0 both sides. The silent lane is bounded on the other axis: over a **binding** iterable rather than an array literal, kali fails closed `E5506`. So the silent surface is *for-of over an **array literal** with a **`var` or `let`** loop variable*; `const` is correct. See §0.1's 2026-07-29 amendment, point 3. ORIGINAL ENTRY: added 2026-07-29 at the R-35 close-out, measured on `58234e87c7`. `for (var v of [1,2,3]) { log("iter="+v); t=t+v; }` → kali `iter=0` ×3 and `t=0`, node `iter=1/2/3` and `t=6`. Exit 0, no diagnostic, no `break`/`continue`/`switch` involved. **`const` is correct** on the identical fixture. Distinct from R-47 (`for..of` over a `let`-declared array BINDING iterates the binding's NAME) — this is the loop VARIABLE's declarator kind over an array LITERAL. Consequence for probe design: **`for (var v of …)` must not be used as a faithful-loop control.** |
+| R-54 a second `default` clause is absorbed into the first (node: `SyntaxError`) | **ACCEPTS-INVALID (Tier 3)** | added 2026-07-29 at the R-35 close-out, measured on `58234e87c7`. `parse_switch_statement`'s **`default`** arm stops its statement loop on `Case \| RightBrace` only — `Default` is **missing from the stop set**, where the sibling **`case`** arm at `crates/kali_parser/src/statement.rs:536-541` correctly stops on `Case \| Default \| RightBrace`. A second `default` and everything after it is therefore swallowed into the FIRST `default`'s consequent, and **both bodies run merged**: `default: g = 5; default: return "d2";` → kali `v=d2` / `g=5` (exit 0); node refuses the whole file with `SyntaxError: More than one default clause in switch statement` (exit 1). Cluster **G1**, in the **same function as R-49** and independent of it. Makes `switch_plan`'s `"more than one \`default\` clause"` denial (`crates/kali_codegen/src/emit/switch.rs:105`) **unreachable dead code**. Only invalid JS is affected. |
+| R-49 `parse_switch_statement` reparented every post-switch statement to module scope | **CLOSED 2026-07-28** (`9db9150c0`, branch `r35-switch-lowering`) | Tier 1, cluster **G1**, higher severity than R-35 and a different layer. The clause loop inspected `RightBrace` without consuming it, so the enclosing block parser took that brace as its own closer. Decisive repro: a function that is **never called** still ran its post-switch assignment at module load — `g=99` where node prints `g=0`. **Unique** such site in the parser. See §2. |
 
 **Net:** of the register's ~29 silent-class entries, the sweep confirms **FIXED/fail-closed: R-01, R-02, R-03, R-04, R-05, R-07, R-08(=== half), R-19, R-20**, plus **R-11, CLOSED after this section's baseline** (`28f18b3ff`); **still SILENT: R-06-R2, R-06-R3, R-08(?? half), R-09, R-10, R-12, R-13, R-14, R-15, R-16, R-17, R-18, R-21, R-22, R-23, R-24, R-25(residual), R-26, R-27, R-28, R-29, R-30, R-31, R-32, R-33, R-34.** Added post-sweep 2026-07-25 and also **SILENT: R-47, R-48.**
 
+**Update 2026-07-29 (R-35 close-out, branch `r35-switch-lowering`).** Two changes to the
+sentence above, recorded here rather than rewritten into it so the sweep's own record stays
+legible:
+
+- **R-35 leaves the silent class.** Its admitted set is FIXED and everything else is honest
+  `E5506`. It is the second Tier-1 entry (after R-49) closed by this project. Its residual
+  is FAIL-CLOSED, which this register counts as *acceptable*, not as a defect — but the
+  residual is a real limit on what kali compiles, and it is enumerated in **§7.11**, which
+  is the authoritative list. Neither this row nor §0.3's bullet is.
+- **Three new SILENT entries came out of the close-out's own probing: R-51, R-52, R-53.**
+  None of them involves `switch`. All three were found while building switch-free
+  **controls** for the loop-faithfulness and escape-analysis questions R-35 raised — the
+  recurring pattern this register documents: *the control is where the new defect lives.*
+  All three have a correct sibling form (`s(x)` for R-51, a full four-clause `for` for
+  R-52, `const` for R-53). R-52 and R-53 additionally **invalidate probe shapes**:
+  `for (init; ;)` runs zero iterations and `for (var v of …)` yields all-zero elements, so
+  a fixture built on either measures nothing while *looking* like it passed.
+
 ### 0.3 NEW silent miscompiles found this re-derivation (exit 0, no diagnostic, wrong)
 
-- **R-35 — `switch` selects the wrong clause (HEADLINE, high blast radius).** codegen has
-  **no `Switch` arm** (`grep Switch crates/kali_codegen` = 0); an all-`return`, no-`break`,
-  no-local `switch` emits its cases sequentially, so "first `return` wins regardless of
-  discriminant" (+ an erratic case for `disc=0`).
+- **R-35 — `switch` selects the wrong clause (HEADLINE, high blast radius). Tier 1.**
+  **STATUS 2026-07-29: CLOSED-BY-ALLOWLIST on branch `r35-switch-lowering`. Everything
+  below this paragraph describes the PRE-FIX behaviour and is retained as the historical
+  record — do not read it as current.** The admitted set is now FIXED (matches node
+  byte-for-byte) and every unadmitted shape is honest `E5506`; **there is no silent lane
+  left in `switch`**. The authoritative statement of what is admitted, what is refused, the
+  two accepted regressions and the three standing couplings is **§7.11**, not this bullet
+  and not §0.2's row. The one shape where the *parser* is narrower than the allowlist is
+  **R-50** (a sequence-expression discriminant, §7). Historical detail follows:
+  codegen has **no `Switch` arm** (`grep -rn Switch crates/kali_codegen/src/` = 1 hit, an
+  unrelated comment). `kali_hir` allocates `SwitchStmt` with children
+  `[discriminant, clause-block-0, clause-block-1, …]`, `kali_mir` folds it into the same
+  generic `ControlFlow` bucket as `IfStmt`, and the generic arm reads it as
+  **`if (discriminant) { clause-1 } else { clause-2 }`**.
   `switch(x){case 10:return"A";case 20:return"B";default:return"D"}` → `s(20)`="A" (node "B"),
-  `s(40)`="A" (node "D"), `s(0)`="B" (node "D"). `s(10)` coincidentally correct. Boundary: a
-  `break` in a case → E5506; a local read in a case → E3100 — so the silent window is exactly
-  all-return/no-break/no-local, but that is an everyday enum-dispatch shape.
+  `s(40)`="A" (node "D"), `s(0)`="B" (node "D"). `s(10)` coincidentally correct.
+  **BOUNDARY RE-DERIVED 2026-07-28 on `5c9bbd051`** (branch `r35-switch-lowering`, after the
+  R-49 parser-containment fix). The previously recorded boundary — *"a `break` in a case →
+  E5506; a local read in a case → E3100, so the silent window is exactly
+  all-return/no-break/no-local"* — was **measured THROUGH the R-49 parser leak and is void**;
+  that `break` was a leaked break evaluated at module scope with no loop frame and that
+  `E3100` was a leaked identifier read resolved against module scope. The true boundary,
+  from a 32-cell both-scopes matrix (22 SILENT / 2 FAIL-CLOSED / 6 FL-INTERNAL / 2 CORRECT):
+  - **Clauses beyond the second are never emitted at all** — so R-35 **silently drops code**
+    (Tier 1), not merely a wrong value (Tier 2). A five-clause switch can never produce its
+    3rd, 4th or `default` answer for *any* input; empty-clause grouping at **module scope**
+    produces **no output whatsoever** where node prints.
+  - **The wrong clause's side effects RUN**, not just its value: a `console.log` in clause 1
+    prints where node prints clause 2's (`hit=100` vs node `hit=200`).
+  - **String discriminants are affected** — a string is a nonzero handle, hence always
+    truthy, so a string switch *always* takes clause 1 (even `""`, where node takes
+    `default`).
+  - `break`/`continue` in a clause is honest `E5506` **only when the switch is not inside a
+    loop**; a `break` nested in a `for` loop compiles and silently breaks the **enclosing
+    loop** (`r=1` where node prints `r=505`). A `continue` nested in a `for` loop is a
+    *different* defect and **belongs to R-09, not R-35** — it hangs to `E4003` fuel
+    exhaustion, and the identical hang reproduces with no `switch` anywhere (corrected in
+    fix round 1; see R-09 and the matrix file's "Cell 13 — corrected"). A clause declaring
+    **and reading its own** `var`,
+    `let` or `const` does **not** fail closed — all three measure identically SILENT.
+    `throw` in a clause is `E4000` where it fires and SILENT where it does not.
+  - Superseded by **`docs/superpowers/followups/r35-switch-boundary-rederived.md`**, which
+    carries the full matrix, the fixtures and both runtimes' stdout/exit per cell.
 - **R-36 — class instance fields round-trip to `0` (REGRESSION).** `constructor(){this.v=3}` then
   `this.v` / `c.v` reads →0; the method body runs, only the field value is lost. The register had
   class `this` as FAIL-CLOSED (E4201); it is now silent, exit 0. Single-field only (2+ fields →
@@ -156,6 +296,56 @@ FL-INTERNAL = nonzero but wrong *kind* (E4201/E4003 internal, not honest E5506).
 - **R-46 — `-Infinity` rendering / handling.** `console.log(-Infinity)`→`-inf` (C-style, silent);
   a `var`-bound `-Infinity` instead crashes (FL-02). Positive `Infinity`/`NaN` direct-log correct.
 
+Added 2026-07-29 by the **R-35 close-out** (Task 11), all measured on `58234e87c7` with
+`node v26.5.0` as oracle, all switch-free, all exit 0 unless stated. Full entries in §2.
+
+- **R-51 — an optional call `s?.(x)` returns `0` and never runs the callee. Tier 1.**
+  `var hits = 0; function s(x) { hits = hits + 1; return x; } console.log("w=" + s?.(7));
+  console.log("hits=" + hits);` → kali `w=0` / `hits=0`, node `w=7` / `hits=1`. Exit 0 with
+  **no diagnostic at all** — not on `kali run`, not on `kali build`. The callee body does
+  not execute, so this drops code, not just a value. The non-optional control `s(7)` is
+  correct on both engines. **Standing coupling to R-35**: `s?.(x)` is an invocation route
+  invisible to *both* halves of R-35's switch-parameter proof — see §2's R-51 entry.
+- **R-52 — `for`-clause arity misclassification silently skips or truncates the loop.
+  Tier 1 (+ an FL-INTERNAL manifestation).** kali's HIR omits absent `for` clauses and
+  codegen classifies the survivors **by count**, so it cannot tell which clause is missing.
+  `for (var i = 0; ;) { i = i+1; log("iter="+i); if (i>5) break; s = s+i; }` → kali prints
+  **only `s=0`** (exit 0, no diagnostic) where node prints six `iter=` lines and `s=15`:
+  the `var i = 0` *declaration* is used as the loop test and is falsy, so the body never
+  runs. `for (init; ; update)` drops the **first** iteration (node `iter=0..5`, kali
+  `iter=1..5`, both exit 0). `for (; test; update)` runs away to `E4003` (loud). Distinct
+  from R-09, which is about update PLACEMENT, not clause identification.
+- **R-53 — `for (var v of […])` binds every element to `0`. Tier 2.**
+  `var t = 0; for (var v of [1,2,3]) { log("iter="+v); t = t+v; }` → kali `iter=0` three
+  times and `t=0`, node `iter=1/2/3` and `t=6`. Exit 0, no diagnostic, no `break`,
+  `continue` or `switch` involved. **`const` is correct** on the byte-identical fixture.
+  Distinct from **R-47** (`for..of` over a `let`-declared array BINDING iterates the
+  binding's own NAME): this is the loop VARIABLE's declarator kind over an array LITERAL.
+  **Probe-design consequence: `for (var v of …)` is not a usable faithful-loop control.**
+- **R-54 — a second `default` clause is absorbed into the first; kali accepts a file node
+  rejects. Tier 3.** Found while completing the acceptance matrix's `default` axis — the
+  "two or more `default`s" **denied** cell would not deny.
+  ```js
+  var g = 0;
+  function s(x) {
+    switch (x) {
+      case 1: return "one";
+      default: g = 5;
+      default: return "d2";
+    }
+  }
+  console.log("v=" + s(9));
+  console.log("g=" + g);
+  ```
+  **node**: `SyntaxError: More than one default clause in switch statement`, whole file
+  refused, exit 1. **kali**: `v=d2` / `g=5`, exit 0 — **both `default` bodies ran**, merged
+  into one clause. Traced: `parse_switch_statement`'s **`default`** arm stops its statement
+  loop on `Case | RightBrace` only, omitting `Default`, where the sibling **`case`** arm
+  (`crates/kali_parser/src/statement.rs:536-541`) correctly stops on
+  `Case | Default | RightBrace`. **Only invalid JS is affected** — no valid program can
+  contain two `default`s — which is why this is Tier 3 and not Tier 1. Cluster **G1**, in
+  the **same function as R-49** and independent of it.
+
 ### 0.4 NEW fail-loud-INTERNAL crashes (exit 1, wrong error KIND — belong with §7 FL family)
 
 These exit nonzero (so no silent-trust is at stake) but via an internal `E4201`/`E4003`
@@ -181,7 +371,7 @@ unsupported and the message misdiagnoses it. Honest (exit 1) but misleading.
 
 **42 raw defects → 33 after deduplication** *(the original four-sweep intake — correct when
 written, for the 33 entries R-01..R-33 that then existed; stale since R-34 landed. See the note
-under the table. The register now holds **48** numbered entries: R-01..R-48.)* Nine entries were
+under the table. The register now holds **49** numbered entries: R-01..R-49.)* Nine entries were
 folded into siblings that
 share a demonstrated or strongly-inferred root cause (noted per entry).
 
@@ -189,22 +379,38 @@ Severity split (each entry ranked at the most severe class it carries):
 
 | tier | class | count (historical R-01..R-34 / now) |
 |---|---|---|
-| 1 | **silently drops code or output** — statements never run, calls never fire, output vanishes | 5 / 5 |
-| 2 | **silently produces a wrong value** | 23 / **25** |
-| 3 | **silently wrong control flow only** (value otherwise intact) | 1 / 1 |
+| 1 | **silently drops code or output** — statements never run, calls never fire, output vanishes | 5 / **8** |
+| 2 | **silently produces a wrong value** | 23 / **26** |
+| 3 | **silently wrong control flow only** (value otherwise intact) | 1 / **2** |
 | 4 | **rendering-only** (in-memory value is correct) | 4 (see note) / 5 |
 
 The left-hand counts are the original R-01..R-34 sweep, left as the historical record. Since
-then §0.3 added **R-35..R-46** (2026-07-24 re-derivation) and §2 added **R-47** and **R-48**
-(2026-07-25, promoted from §7.10 sightings). Only the last two changed a tier count: both are
-filed in Tier 2, and R-47 additionally carries a **Tier-3** wrong-trip-count half (its entry
-says so). **R-35..R-46 are excluded from these counts entirely** — the re-derivation recorded
+then §0.3 added **R-35..R-46** (2026-07-24 re-derivation), §2 added **R-47** and **R-48**
+(2026-07-25, promoted from §7.10 sightings), and §2 added **R-49** (2026-07-28, from the R-35
+switch-lowering stage). R-47 and R-48 are filed in Tier 2, and R-47 additionally carries a
+**Tier-3** wrong-trip-count half (its entry says so); R-49 is filed in **Tier 1**, which is
+the change recorded in this table's Tier-1 cell. **R-35..R-46 are excluded from these counts entirely** — the re-derivation recorded
 them as §0.3 bullets and never tier-ranked them, so tier-ranking them here would be an
-unmeasured claim.
+unmeasured claim. (R-35's 2026-07-28 re-derivation now *establishes* that it is Tier 1 — it
+drops clauses, not just values — but it remains an un-ranked §0.3 bullet and is still outside
+these counts; see §0.3 and `r35-switch-boundary-rederived.md`.) **R-49** was added
+2026-07-28 as a tier-ranked §2 **Tier 1** entry and *is* counted, which is the only change to
+the right-hand column since 2026-07-25.
 
-Right-hand column = **36** tier-ranked entries in §2 (5 + 25 + 1 + 5), counted 2026-07-25 by
-`### R-` headers per tier heading; the register holds 48 numbered entries in total, the other 12
-being the un-ranked §0.3 set. **The historical Tier-4 cell reads `4` where Tier 4 now holds five
+**Updated 2026-07-29 (R-35 close-out, Task 11).** The right-hand column moved twice more:
+**R-51** and **R-52** were added as tier-ranked §2 **Tier 1** entries, **R-53** as a
+tier-ranked §2 **Tier 2** entry and **R-54** as a tier-ranked §2 **Tier 3** entry — R-51,
+R-52 and R-53 new silent miscompiles found by the close-out's own switch-free control
+fixtures, R-54 an accepts-invalid parser fail-open found by the acceptance matrix's own
+`default` axis (see §0.3 and §7.11). **R-35 itself is now
+CLOSED-BY-ALLOWLIST** — its admitted set matches node and everything else is honest
+`E5506` — but it remains an un-ranked §0.3 bullet and stays outside these counts for the
+same reason it always did, so **closing it changes no cell in this table**. R-50 is filed
+in §7 and is likewise not counted (see its own numbering note).
+
+Right-hand column = **41** tier-ranked entries in §2 (8 + 26 + 2 + 5), re-counted 2026-07-29
+by `### R-` headers per tier heading; the register holds **54** numbered entries in total
+(R-01..R-54), the other 13 being the un-ranked §0.3 set (R-35..R-46) plus §7's R-50. **The historical Tier-4 cell reads `4` where Tier 4 now holds five
 entries (R-30..R-34) — but it was CORRECT when written and went stale afterwards, not an
 off-by-one.** Verified in history 2026-07-25: `ee0225f37`, the commit that created this table,
 had Tier 4 = R-30..R-33, exactly four entries, and no R-34 anywhere in the file; `2727252f6`
@@ -438,6 +644,245 @@ tier, ordering is by blast radius.
 - **Confidence**: high on behavior; medium on sharing R-02's root.
 - **Fail-closed context**: method shorthand `{ f() {...} }` → `E3100`; class methods
   *without* `this` are correct including arguments and side effects.
+
+---
+
+### R-49: `parse_switch_statement` silently reparented every post-switch statement to module scope — **CLOSED 2026-07-28**
+
+- **Added**: 2026-07-28, from the R-35 switch-lowering project (branch
+  `r35-switch-lowering`). **This is not R-35** — different layer (parser, not codegen),
+  different blast radius (every statement after *any* `switch`, not the switch's own
+  clauses), and higher severity.
+- **Verification**: `CONFIRMED-BY-CONTROLLER` — traced in source, reproduced on a freshly
+  built binary, closed with a regression test in the same commit.
+- **Root-cause group**: G1 (parser fail-open recovery).
+- **Mechanism (traced)**: `parse_switch_statement` ended its clause loop by *inspecting*
+  `TokenType::RightBrace` without consuming it. The switch's closing brace was therefore
+  still on the stream when control returned to the enclosing block parser, which took it as
+  **its own** terminator and stopped. Everything after the `switch` — to the end of the
+  enclosing function — was reparented into the module body.
+  `parse_block_statement`, `parse_class_body` and `parse_arrow_function_body_expression`
+  all already `accept()` their closer; this was the **unique** non-consuming closer site in
+  the parser.
+- **Decisive repro** (a function that is never called still runs):
+  ```js
+  var g = 0;
+  function f(x) {
+    switch (x) { case 1: g = 1; break; }
+    g = 99;
+  }
+  console.log("g=" + g);
+  ```
+  **node**: `g=0` (exit 0) — `f` is never called. **kali (pre-fix)**: `g=99` (exit 0) — the
+  `g = 99` was hoisted out of `f` and executed at module load. A function *declared* after a
+  switch-containing function disappeared entirely by the same mechanism.
+- **Severity**: Tier 1 — silently drops and silently *relocates* code. Worse than a wrong
+  value: statements execute that the program never reached, and statements the program did
+  reach never execute.
+- **Evidence-integrity consequence**: **every probe in this repository that placed a
+  statement after a `switch` was measuring the leak, not the feature.** R-35's originally
+  recorded boundary is the known casualty (see §0.3 and
+  `r35-switch-boundary-rederived.md`); any other pre-2026-07-28 finding whose fixture
+  contains a `switch` should be re-derived before it is relied on.
+- **CLOSED** by `9db9150c0` ("fix(parser): consume the switch closing brace — stop
+  reparenting post-switch statements to module scope") on branch `r35-switch-lowering`.
+- **Regression cover — citation corrected 2026-07-29 (R-35 close-out).** This entry
+  previously named `crates/kali_cli/tests/switch_parser_containment.rs`. **That file no
+  longer exists**: Task 6 of the R-35 stage deleted it and moved its pins **up a layer**,
+  from an end-to-end `kali run` harness into the parser's own integration suite, where the
+  defect actually lives. A reader following the old path found nothing and could reasonably
+  have concluded the closure was unpinned. The live pins are in
+  **`crates/kali_parser/tests/parser_integration.rs`, `mod switch`**:
+  - `test_switch_does_not_leak_following_statements_out_of_a_function` — the containment
+    property itself.
+  - `test_function_declared_after_a_switch_function_survives_as_sibling_statement` — the
+    "a whole later declaration disappeared" half.
+  - `test_call_to_a_switch_containing_function_leaves_module_scope_statement_intact` — the
+    decisive repro above, as an assertion.
+  - `test_parse_switch_statement`, plus
+    `test_switch_missing_paren_reports_expected_token`,
+    `test_switch_missing_case_colon_reports_expected_token` and
+    `test_well_formed_switch_reports_no_expected_token` — the `expect(kind)` hardening from
+    `5c9bbd051` noted below.
+  **Lesson worth keeping**: a register citation that names a *file path* rots when the file
+  moves. Where a test's name is stable, cite the test name and the module, as above.
+- **Related, same stage**: `5c9bbd051` added the parser's missing `expect(kind)` helper and
+  routed all six required-token positions in `parse_switch_statement` through it — see §4's
+  note on `e2::EXPECTED_TOKEN`.
+
+### R-51: An optional call `s?.(x)` returns `0` and never runs the callee
+
+- **Added**: 2026-07-29, by the **R-35 close-out** (Task 11, branch `r35-switch-lowering`).
+  Found while enumerating every route by which a function can be *invoked*, in order to
+  check whether R-35's switch-parameter proof could miss one. It can.
+- **Verification**: `CONFIRMED-BY-CONTROLLER` — measured on a freshly built binary at
+  `58234e87c7`, against `node v26.5.0`, with a paired non-optional control.
+- **Root-cause group**: G2 (call lowering: unresolvable callee folds to constant `0`) — the
+  symptom is G2's exactly, though the *route* is the optional-chain lowering rather than an
+  unresolvable callee. Recorded as G2 by symptom; the mechanism is named below.
+- **Repro** (one argument per `console.log`, literal-rooted, no default parameters):
+  ```js
+  var hits = 0;
+  function s(x) { hits = hits + 1; return x; }
+  console.log("w=" + s?.(7));
+  console.log("hits=" + hits);
+  ```
+  **node**: `w=7` / `hits=1` (exit 0). **kali**: `w=0` / `hits=0` (exit 0).
+- **The side-effect counter is the load-bearing half of the repro.** `w=0` alone would be
+  consistent with "the call ran and its result was lost" — the ordinary G2 shape. `hits=0`
+  proves the **callee body never executed**, which makes this Tier 1 (silently drops code),
+  not Tier 2. Any observable the callee was responsible for — a write, a log, a push — is
+  simply gone.
+- **Control**: the identical program with `s(7)` instead of `s?.(7)` gives `w=7` / `hits=1`
+  on **both** engines. So this is the optional-call route specifically, not the call
+  lowering generally and not this fixture's shape.
+- **There is no diagnostic, on either subcommand.** `kali run` prints nothing on stderr and
+  exits 0; `kali build` prints only `Built executable artifact at d7.wasm` and exits 0.
+  Worth stating explicitly because an early note on this defect described it as emitting
+  "only a warning" — it does not emit even that. It is fully silent.
+- **Mechanism (partly traced)**: `kali_hir`'s `lower_optional_chain`
+  (`crates/kali_hir/src/lowering/expression.rs:244`) handles `OptionalChainInner::NonNull`
+  and the call form does not survive it as a call. Downstream, `kali_types`' `repr_infer`
+  has an `OptionalChainExpression` arm that **descends into the object only**
+  (`crates/kali_types/src/repr_infer.rs:2343-2344`), so the invocation is never seen as an
+  invocation by the inference pass either. Not fully traced to the emit site.
+- **STANDING COUPLING TO R-35 — this is why the entry exists, and it must not be dropped
+  when this defect is fixed.** `s?.(x)` is an invocation route invisible to **both** halves
+  of R-35's switch-parameter proof:
+  1. it produces **no escape mark**, because the escape walk has no
+     `OptionalChainExpression` arm; and
+  2. it produces **no `CallEdge`** (`crates/kali_types/src/repr_infer.rs:351`, built at
+     `:4473` for a bare-identifier `CallExpression` only), so it contributes no argument
+     evidence.
+  R-35 admits a **parameter** discriminant only when the parameter's inflow is proven and
+  the enclosing function does not escape. An invisible invocation site therefore satisfies
+  that proof *vacuously* — exactly the leak `new s(true)` produced before Task 7 closed it
+  (`crates/kali_codegen/src/emit/switch.rs:438`,
+  `crates/kali_types/src/repr_infer.rs:3236,3577`, pinned by
+  `a_new_invocation_site_of_the_enclosing_function_is_fail_closed` and
+  `a_new_expression_call_site_denies_a_string_parameter_discriminant`).
+  **It is latent TODAY only because optional calls are dropped entirely** — the call never
+  happens, so it cannot deliver a discriminant of the wrong domain. The two defects mask
+  each other.
+  **WARNING, standing: if optional-call lowering is ever implemented, the escape gate must
+  be extended in or before that same change.** Fixing R-51 alone un-masks the R-35
+  parameter leak *verbatim* — a `switch` on a parameter would be admitted on a proof that
+  never saw the call site that supplies it, and the result is a silent miscompile in
+  territory the allowlist believes it has proven. Do not treat R-51 as an isolated
+  call-lowering fix. See §7.11's "design note for whoever makes cross-module calls real",
+  which specifies the shape the extension should take (**extend the escape notion once, at
+  the walk**, covering `export`, dynamic `import()` and the optional call together — do not
+  add per-route checks).
+- **Severity**: Tier 1 — silently drops the callee's execution and yields `0`.
+- **Blast radius**: bounded by how often `?.()` appears in the corpus, which this entry did
+  not measure — but the failure is total (no execution, no value, no diagnostic) wherever it
+  does appear, and `?.()` is the idiomatic spelling for optional callbacks.
+- **Confidence**: high on behavior (paired control, side-effect counter, both subcommands);
+  medium on mechanism (the HIR and inference gaps are traced; the emit site is not).
+
+### R-52: `for`-clause arity misclassification — an omitted clause silently skips or truncates the loop
+
+- **Added**: 2026-07-29, by the **R-35 close-out** (Task 11, branch `r35-switch-lowering`).
+  Found while building switch-free **controls** for the R-09 loop-faithfulness question.
+- **Verification**: `CONFIRMED-BY-CONTROLLER` — traced in source, measured on a freshly
+  built binary at `58234e87c7` against `node v26.5.0`, three arities differentially compared
+  against the correct four-clause form.
+- **Root-cause group**: unclustered (an isolated lowering/emit contract mismatch), but it is
+  a textbook instance of the pattern §3's G-clusters keep circling: **two passes with an
+  unwritten agreement about a positional encoding**.
+- **Mechanism (traced, both halves)**:
+  1. `kali_hir`'s `for` lowering pushes a child **only for clauses that are present**
+     (`crates/kali_hir/src/lowering/statement.rs:189-209`: `if let Some(init) … if let
+     Some(test) … if let Some(update) …`, then unconditionally the body). An absent clause
+     leaves **no hole** — nothing marks its position.
+  2. `kali_codegen`'s `emit_loop` recovers the clauses **by counting children**
+     (`crates/kali_codegen/src/emit/control_flow.rs:280-297`, whose own comment says
+     *"[init?, test?, update?, body] — body is always last; classify by count"*): 2 children
+     ⇒ `(None, first, None)`; 3 ⇒ `(first, second, None)`; 4 ⇒ `(first, second, third)`.
+  Count cannot distinguish *which* clause is missing, so every arity with an omitted clause
+  and a present later one is misread. The four-clause form is correct, which is why this
+  survived: the overwhelmingly common `for (a; b; c)` shape is fine.
+- **Repro A — the loop is skipped ENTIRELY, silently** (`for (init; ;)`, 2 children, so the
+  `init` **declaration** is used as the test and is falsy):
+  ```js
+  var s = 0;
+  for (var i = 0; ;) {
+    i = i + 1;
+    console.log("iter=" + i);
+    if (i > 5) break;
+    s = s + i;
+  }
+  console.log("s=" + s);
+  ```
+  **node**: `iter=1` … `iter=6` then `s=15` (exit 0). **kali**: **`s=0` and nothing else** —
+  exit 0, no diagnostic. Zero iterations. This is the Tier-1 cell: the body is *emitted* but
+  never *entered*, and the program looks like it ran.
+- **Repro B — the FIRST iteration is dropped, silently** (`for (init; ; update)`, 3 children
+  ⇒ `(init, update-as-test, None)`, so the update runs as the test and advances the counter
+  once before the body is ever entered):
+  ```js
+  var s = 0;
+  for (var i = 0; ; i = i + 1) {
+    console.log("iter=" + i);
+    if (i > 4) break;
+    s = s + i;
+  }
+  console.log("s=" + s);
+  ```
+  **node**: `iter=0` … `iter=5`, `s=10` (exit 0). **kali**: `iter=1` … `iter=5`, `s=10`
+  (exit 0). **Note the sums agree** — `s=10` on both sides — which is exactly why the
+  per-iteration `console.log` is mandatory: a fixture asserting only the final value would
+  have scored this cell CORRECT. The `iter=` lines are the whole evidence.
+- **Repro C — runaway, loud** (`for (; test; update)`, 3 children ⇒ `(test-as-init,
+  update-as-test, None)`: the real test is evaluated once and discarded, and the update is
+  used as a test that is always truthy):
+  ```js
+  var s = 0;
+  var i = 0;
+  for (; i < 4; i = i + 1) {
+    console.log("iter=" + i);
+    s = s + i;
+  }
+  console.log("s=" + s);
+  ```
+  **node**: `iter=0..3`, `s=6` (exit 0). **kali**: `iter=1`, `iter=2`, … to
+  `error[E4003]: CPU fuel budget exhausted` (exit 1). Lower severity — it is loud.
+- **Control**: `for (; i < 3; )` (2 children ⇒ `(None, test, None)`, correctly classified)
+  matches node byte-for-byte, as does the full four-clause `for (var i = 0; i < 3; i = i+1)`
+  used throughout `switch_runtime.rs`. So this is arity-specific, not a general `for` defect.
+- **Distinct from R-09**, and the distinction matters when fixing either. R-09 is about
+  where the update is *placed* relative to `continue`'s branch target — the clauses are
+  identified correctly and the loop runs. R-52 is about the clauses being *identified*
+  wrongly in the first place; `continue` need not appear at all.
+- **STANDING COUPLING — `continue_is_faithful` is currently right for the wrong reason.**
+  `crates/kali_codegen/src/emit/control_flow.rs:348` computes
+  `let continue_is_faithful = update.is_none() && kind != "do-while";` **from the
+  misclassified triple**. In all three broken arities above the real update has been
+  consumed as the `test`, so `update` is `None` and the loop is flagged
+  `continue_is_faithful = true`. That flag is what R-35's `switch` allowlist consumes to
+  decide whether a clause's `continue` may be admitted (denial constant
+  `UNFAITHFUL_CONTINUE`). It is **harmless today only because those loops are already
+  broken** — Repro A never enters the body, so no `continue` inside it can execute; Repros B
+  and C are already wrong or already trapping.
+  **WARNING, standing: if this arity bug is ever fixed, `control_flow.rs:348` must be
+  re-derived in the same change.** The moment the triple is classified correctly, `update`
+  becomes `Some(…)` for these shapes and the flag must flip to `false` — otherwise a
+  `switch` clause's `continue` will be **admitted into a loop that skips its update**, which
+  is R-09's silent-wrong-value form reached *through* a construct the allowlist certified.
+  This is the third documented instance in this project of a fix un-masking a leak that a
+  second defect was covering; see also R-51's coupling to the R-35 escape gate.
+- **Severity**: Tier 1 for Repro A (drops the entire loop body's execution), Tier 2 for
+  Repro B (wrong value / wrong trip count), FL-INTERNAL for Repro C.
+- **Blast radius**: bounded — `for` loops with omitted clauses are a minority of `for`
+  loops. But the shapes are idiomatic (`for (var i = 0; ;)` with an internal `break` is a
+  standard reader loop) and the Repro A failure is total and silent.
+- **Probe-design consequence**: **`for (init; ;)` cannot be used as a fixture loop.** It
+  runs zero iterations, so any assertion about its body vacuously "passes" while measuring
+  nothing. Prefer `while`, or a C-style `for` with **no init and no update** (`for (; t; )`,
+  verified correct above), when an update-free faithful loop is what is wanted.
+- **Confidence**: high on behavior and high on mechanism (both halves traced to named
+  lines; the arity table predicts all three observed failures and the two observed
+  successes).
 
 ---
 
@@ -998,11 +1443,102 @@ tier, ordering is by blast radius.
   `for (let i=0; i<5; i++) { if (i%2===0) continue; s = s + i; }` → node `s=4` (exit 0);
   kali `error[E4003]: CPU fuel budget exhausted` (exit 1) — infinite loop, because the only
   thing advancing `i` is the skipped update.
+- **Evidence widened 2026-07-28** on `5c9bbd051` (branch `r35-switch-lowering`, fix round 1),
+  while re-deriving the R-35 boundary. The hang is **not** specific to `let`, to `i++`, to a
+  `%` test, or to any nesting depth. Seven fixtures, both scopes, **every one** exits 1 with
+  `error[E4003]: CPU fuel budget exhausted: the program ran past the runaway guard`:
+  | fixture | shape | node |
+  |---|---|---|
+  | `c13D_mod.js` | `for (var i=0;i<4;i=i+1) { if (i === 1) continue; r = r + 1; }` — bare, un-nested | `r=3` |
+  | `c13C_{fn,mod}.js` | the same guarded by an `if`/`else` **block** | `r4=3` / `r=3` |
+  | `c13B_{fn,mod}.js` | the same with the `continue` inside a **`switch` clause** | `r4=3` / `r=3` |
+  | `c13E_mod.js` | switch form with `let` + `i++` | `r=3` |
+  | `c13F_mod.js` | this entry's own recorded hang repro, re-run | `s=4` |
+  **R-09 is the owning ID for the `continue`-in-a-`switch`-clause hang**, which the R-35
+  boundary re-derivation first recorded (wrongly) as an R-35 cell. It is **independent of
+  R-35**: the switch is not in the causal path, the no-switch controls hang identically, and
+  no `switch` allowlist can fix it. Cross-referenced from cell 13 of
+  `docs/superpowers/followups/r35-switch-boundary-rederived.md`. **No new `R-nn` was minted**
+  — the next free ID was R-50, but this entry already covers the mechanism, both
+  manifestations and both scopes, and a duplicate would recreate exactly the split-entry
+  problem PRs #28 and #29 existed to clean up.
+- **Evidence widened again 2026-07-29** on `58234e87c7` (R-35 close-out, Task 11), while
+  re-deriving which loop forms a `switch` clause's `continue` may be admitted into. **The
+  "Not affected" line below was wrong in TWO directions and is corrected in place.** Both
+  corrections are measured switch-free, one argument per `console.log`, per-iteration
+  logging, exit status captured unpiped:
+  - **`do`/`while` IS affected** — it was listed as unaffected and is not.
+    ```js
+    var i = 0;
+    do {
+      i = i + 1;
+      console.log("iter=" + i);
+      if (i >= 3) { continue; }
+    } while (i < 3);
+    console.log("i=" + i);
+    ```
+    **node**: `iter=1` / `iter=2` / `iter=3` / `i=3` (exit 0). **kali**: `iter=1`,
+    `iter=2`, `iter=3`, `iter=4`, … runaway to `error[E4003]: CPU fuel budget exhausted`
+    (exit 1). The mechanism is the *mirror image* of the `for` case rather than the same
+    one: `continue` branches to the loop **top**, and `do`/`while` puts its test at the
+    **bottom**, so the test is skipped for that pass and the loop cannot terminate. Same
+    owning ID because it is the same root question — *what does `continue` branch to, and
+    what sits between there and the back edge* — and splitting it would recreate the
+    split-entry problem PRs #28 and #29 existed to clean up.
+  - **`for…in` IS affected** and was **missing from the line entirely**, in neither
+    direction.
+    ```js
+    var o = { a: 1, b: 2 };
+    var n = 0;
+    for (var k in o) {
+      console.log("iter=" + k);
+      if (k === "a") { continue; }
+      n = n + 1;
+    }
+    console.log("n=" + n);
+    ```
+    **node**: `iter=a` / `iter=b` / `n=1` (exit 0). **kali**: `iter=a` repeated to
+    `error[E4003]` (exit 1) — the key cursor is not advanced past the `continue`.
+  - **Re-derived: the genuinely unaffected forms are `while`, `for…of`, and a C-style `for`
+    with NO update clause — those three, and no others.** Each verified switch-free with
+    the same shape (`if (i === 2) { continue; }` inside a three-iteration loop with a
+    per-iteration `console.log`), each matching node byte-for-byte at exit 0. The unifying
+    property is stated positively, so it can be checked rather than remembered: **a form is
+    faithful exactly when nothing the loop needs for progress or termination sits between
+    `continue`'s branch target and the back edge.** `while` has nothing there; `for…of`
+    advances its cursor *before* the body; an update-free `for` has no update to skip. A
+    C-style `for` *with* an update has the update there; `do`/`while` has the test there;
+    `for…in` has the key advance there.
+  - This is the predicate `crates/kali_codegen/src/emit/control_flow.rs:348` now encodes
+    (`update.is_none() && kind != "do-while"`) and that R-35's `switch` allowlist consumes
+    to decide whether a clause's `continue` is admissible (denial constant
+    `UNFAITHFUL_CONTINUE`). **`for…in` is covered by that predicate only because `for-in`
+    is a different HIR node kind that reaches a different emit path, not because the
+    predicate names it** — anyone editing that line must re-check `for…in` explicitly.
+    See also **R-52**, which records a coupling in the opposite direction: three `for`
+    arities are currently flagged faithful *only because the loops are already broken*.
 - **Scopes affected**: both.
-- **Not affected**: `continue` in `while`, `do/while` and `for…of` are all correct; `break` in
-  `for`/`for…of`/nested loops is correct.
+- **Not affected**: `continue` in **`while`**, **`for…of`**, and a **C-style `for` with no
+  update clause** is correct; `break` in `for`/`for…of`/nested loops is correct.
+  **Corrected 2026-07-29** — this line previously read "`while`, `do/while` and `for…of`",
+  which was wrong twice over: `do/while` **is** affected (verified above) and `for…in`
+  **is** affected and was absent from the line altogether. The original claim was never
+  measured; it was asserted alongside the `for` finding.
 - **Severity**: silent-wrong-value (the `p28b` form) degrading to a hang when the body does
   not otherwise advance the loop variable.
+- **The SILENT variant is the dangerous one and it is easy to miss — R-35 → R-09
+  cross-reference.** Readers arriving here from R-35 (whose `switch` clauses may contain a
+  `continue`) tend to take away "R-09 is the `E4003` hang", because that is the loud, memorable
+  manifestation and the one every R-35-stage fixture hit. **That is only half the entry.**
+  When the loop body *also* mutates the counter, the loop still terminates and R-09 produces
+  a **wrong answer at exit 0 with no diagnostic** — documented in this entry's own
+  "Repro — silent (exit 0) form" above (`s=13` where node gives `s=10`, and the arithmetic
+  trace matches digit for digit), and again in the "Blast radius" note below (skip-ahead
+  scanners, tokenizers, run-length loops). A `switch` clause that does `i = i + 1; continue;`
+  inside a C-style `for` with an update is exactly that shape. R-35's allowlist refuses it
+  (`UNFAITHFUL_CONTINUE`) rather than emitting it, so the silent form is currently
+  unreachable *through a switch* — but that is a refusal, not a fix, and it evaporates the
+  moment anyone widens the faithfulness predicate.
 - **Blast radius**: **very high.** `for (…;…;i++) { if (cond) continue; … }` is one of the
   most common loop shapes in JS. Most instances will *hang* rather than mis-answer, which is
   at least loud — but any loop whose body also mutates the counter (skip-ahead scanners,
@@ -1710,6 +2246,86 @@ tier, ordering is by blast radius.
 - **Confidence**: high on behavior (3 transcripts incl. the alias and `const` controls); low on
   mechanism.
 
+### R-53: `for (var v of […])` binds every element to `0`; `const` is correct
+
+- **Added**: 2026-07-29, by the **R-35 close-out** (Task 11, branch `r35-switch-lowering`).
+  Found while validating `for…of` as a *faithful-loop control* for the R-09 re-derivation —
+  i.e. while building the instrument, not while testing the feature.
+- **Verification**: `CONFIRMED-BY-CONTROLLER` — measured on a freshly built binary at
+  `58234e87c7` against `node v26.5.0`, with the `const` form as a paired control.
+- **Root-cause group**: G4 (there is no value distinct from the scalar `0`) by symptom;
+  plausibly G7 (binding storage) by mechanism, which is not traced. Recorded as G4.
+- **Repro** (per-iteration `console.log`, one argument, literal-rooted):
+  ```js
+  var t = 0;
+  for (var v of [1, 2, 3]) {
+    console.log("iter=" + v);
+    t = t + v;
+  }
+  console.log("t=" + t);
+  ```
+  **node**: `iter=1` / `iter=2` / `iter=3` / `t=6` (exit 0).
+  **kali**: `iter=0` / `iter=0` / `iter=0` / `t=0` (exit 0, no diagnostic).
+- **The trip count is CORRECT — three iterations — and only the bound value is lost.** That
+  is what makes it Tier 2 rather than Tier 1, and it is also what makes it dangerous as an
+  instrument: a fixture that asserts *"the loop ran three times"* passes, and a fixture that
+  asserts a sum gets a plausible `0`. No `break`, `continue` or `switch` appears anywhere in
+  the repro.
+- **Control — `const` is correct.** The byte-identical fixture with `for (const v of [1,2,3])`
+  gives `iter=1` / `iter=2` / `iter=3` / `t=6` on **both** engines. So this is the loop
+  variable's **declarator kind**, not `for…of` and not array literals.
+- **WIDENED 2026-07-29 (`64438bf0ef`, fix wave item 1): `let` is affected too.** The original
+  entry probed `var` and `const` only and left `let` untested, which made the headline read
+  as if `let` were on the correct side. It is not. Measured switch-free at `64438bf0ef`
+  against `node v26.5.0`:
+  ```js
+  var s = 0;
+  for (let v of [1, 2, 3, 4]) {
+    console.log("iter=" + v);
+    s = s + v;
+  }
+  console.log("s=" + s);
+  ```
+  **node**: `iter=1` / `iter=2` / `iter=3` / `iter=4` / `s=10` (exit 0).
+  **kali**: `iter=0` ×4 / `s=0` (exit 0, no diagnostic).
+  The `const` twin of this exact fixture gives `s=10` on both engines. So the correct side is
+  **`const` alone**, and the silent side is **`var` *and* `let`**.
+- **The silent lane is bounded on the ITERABLE axis.** Over a *binding* rather than an array
+  literal — `var a = [1,2,3]; for (const v of a)` — kali fails closed with an honest `E5506`
+  ("for-of array iteration lowering is unavailable unless the iterable is a literal array…").
+  So R-53's silent surface is precisely **for-of over an array LITERAL with a `var` or `let`
+  loop variable**. Everything outside that is either correct (`const` over a literal) or
+  fail-closed (any declarator over a binding).
+- **Distinct from R-47**, with which it will otherwise be confused — they are near-mirror
+  images and both involve `for…of` and `let`/`var`/`const`:
+  | | R-47 | R-53 |
+  |---|---|---|
+  | what is mis-declared | the **array**, `let a = […]` | the **loop variable**, `for (var v of …)` |
+  | what is iterated | the characters of the binding's own **name** | the right elements, three times |
+  | observed | `a` printed | `0` printed, per element |
+  | `var` form | fails closed `E5506` | **SILENT (this entry)** |
+  | `const` form | correct | correct |
+  Note especially that `var` is the **fail-closed** case in R-47 and the **silent** case
+  here, so "R-47 covers the `var` story for `for…of`" is false in both directions.
+- **Severity**: Tier 2 — silently produces a wrong value, with a correct trip count.
+- **Blast radius**: moderate, and **revised upward 2026-07-29** by the `let` widening above.
+  The original reasoning — *"`for (const x of …)` is the idiomatic modern spelling and is
+  correct; `for (var x of …)` is the transpiled-output / older-style spelling and is not"* —
+  understated it, because `for (let x of …)` is **also** idiomatic modern JS (it is the
+  spelling anyone reaches for when the loop body reassigns, and many codebases prefer it
+  uniformly) and it is **also** silent. Still short of frontier rank — see §0.1's 2026-07-29
+  amendment, point 2, which declines to promote R-53 (or R-51/R-52) into R-35's vacancy and
+  explains why the frontier is unranked.
+- **PROBE-DESIGN CONSEQUENCE, and this is why the entry is worth its length: `for (var v of
+  […])` must NOT be used as a faithful-loop control.** It was under consideration as one
+  during this project precisely because `for…of`'s `continue` **is** faithful (see R-09) —
+  but the elements it binds are all `0`, so any fixture keyed on the element value measures
+  nothing while appearing to run. Use `while`, or a C-style `for` with no update, or
+  `for (const v of …)`. Recorded alongside R-52's `for (init; ;)` consequence: this project
+  produced **two** independent instrument invalidations, both in loop forms, both silent.
+- **Confidence**: high on behavior (paired `const` control, per-iteration logging, both
+  engines); **no mechanism traced.**
+
 ---
 
 ## Tier 3 — silently wrong control flow (value otherwise intact)
@@ -1730,6 +2346,68 @@ tier, ordering is by blast radius.
   `const` has no storage at all, so "the write is discarded" is the expected consequence
   rather than an independent decision.
 - **Confidence**: high on behavior.
+
+### R-54: A second `default` clause is absorbed into the first — kali accepts a file node rejects
+
+- **Added**: 2026-07-29, by the **R-35 close-out** (Task 11, branch `r35-switch-lowering`).
+  Found while completing the acceptance matrix's `default` axis: the matrix requires a
+  **denied** cell for Rule 3 ("two or more `default` clauses"), and the denial would not fire.
+- **Verification**: `CONFIRMED-BY-CONTROLLER` — traced in source, reproduced on a freshly
+  built binary at `58234e87c7`, differentially compared against `node v26.5.0`.
+- **Root-cause group**: **G1** (parser fail-open recovery). In the **same function as R-49**
+  (`parse_switch_statement`) and **independent of it** — R-49 was a closer that was inspected
+  and never consumed; this is an **incomplete stop set**. R-49's fix did not touch it, and
+  R-49's "unique non-consuming block-closer" claim is not falsified: that claim was about
+  closers, and this is a different shape.
+- **Repro**:
+  ```js
+  var g = 0;
+  function s(x) {
+    switch (x) {
+      case 1: return "one";
+      default: g = 5;
+      default: return "d2";
+    }
+  }
+  console.log("v=" + s(9));
+  console.log("g=" + g);
+  ```
+  **node**: refuses the whole file — `SyntaxError: More than one default clause in switch
+  statement` (exit 1), nothing executes. **kali**: `v=d2` / `g=5` (exit 0).
+- **`g=5` is the load-bearing half of the repro.** `v=d2` alone would be consistent with
+  "the second `default` replaced the first". `g=5` proves **both bodies ran, merged into a
+  single clause** — so this is not a selection difference, it is two clauses becoming one.
+- **Mechanism (traced, and it is a two-line asymmetry)**: `parse_switch_statement` has two
+  sibling clause arms with two different stop sets for their statement loops.
+  | arm | stop set | correct? |
+  |---|---|---|
+  | `case` (`crates/kali_parser/src/statement.rs:536-541`) | `Case \| Default \| RightBrace` | yes |
+  | `default` (`crates/kali_parser/src/statement.rs:561-564`) | `Case \| RightBrace` | **no — `Default` is missing** |
+  So a `case` clause correctly stops when it sees `default`, but a `default` clause does not.
+  The second `default` token and everything after it is consumed as *statements of the first
+  `default`'s consequent* (the bare `default` token itself falls to the loop's
+  `else { self.stream.advance(); }` recovery and decays to nothing).
+- **Consequence for R-35's allowlist: `switch_plan`'s `"more than one `default` clause"`
+  denial (`crates/kali_codegen/src/emit/switch.rs:105`) is UNREACHABLE DEAD CODE.** The AST
+  can never carry two `default`s, so the check can never fire. The rule is correctly *stated*
+  and is simply enforced at the wrong layer — or rather, not enforced at all. This is worth
+  keeping visible because it is a **denial that a reader would reasonably believe is
+  tested**, and it is the one Rule-3 cell of the acceptance matrix that has no pin.
+- **Severity**: Tier 3. **Only invalid JS is affected** — no valid program can contain two
+  `default` clauses, so no correct program is miscompiled. Filed alongside R-29 (assignment
+  to a `const` is silently ignored where node throws), which is the same class: kali is
+  permissive where node refuses.
+- **Blast radius**: low, and it is a *diagnostic* failure rather than a correctness one — but
+  it is a real fail-open in a parser this project has already had to fix once, and the
+  asymmetry that causes it is the kind that a stop-set audit would catch in bulk. **G1's
+  standing recommendation applies**: sweep the sibling stop sets, do not patch this one site.
+- **Not fixed in this stage, deliberately.** The R-35 close-out's scope is the probe, the
+  matrix, the register and the gate; a parser behaviour change would land after the
+  whole-stage adversarial review that has already run, and this defect affects no valid
+  program. Recorded rather than patched.
+- **Confidence**: high on behavior (both engines, side-effect discriminator, exit statuses
+  captured unpiped); **high on mechanism** (the asymmetry is two adjacent literal stop sets
+  and it predicts the observed merge exactly).
 
 ---
 
@@ -1930,13 +2608,61 @@ act on, so each cluster states plainly what would raise its confidence.
 
 ### G1 — Parser fail-open recovery (**traced in source**, high confidence)
 
-- **Members**: R-01.
+- **Members**: R-01 *(traced)*, **R-49** *(traced, CLOSED 2026-07-28)*, **R-50**
+  *(traced, inverted — added to this line 2026-07-29)*, **R-54** *(traced, added
+  2026-07-29)*, R-43 *(**inferred, untraced** — see the membership-evidence note below)*.
+- **Membership evidence, added 2026-07-29 at the R-35 close-out.** This line previously
+  listed R-43 flat alongside R-01 and R-49 while the "Traced" bullet below named sites for
+  R-01 and R-49 **only**, so a reader could not tell which memberships were measured and
+  which were inferred. They are now labelled, and the two corrections are:
+  - **R-50 was claiming G1 membership that this line did not record.** R-50's own entry
+    (§7) states *"Root-cause group: G1 (parser fail-open recovery) — inverted"*, but G1's
+    Members line never listed it. The claim is sound and is now recorded here: R-50 is
+    the **inverted** member — the other members fail *open* (the stream desynchronizes and
+    the parser runs on or stops early, silently), whereas R-50 fails *closed* on valid
+    input (`E2000` on a sequence-expression `switch` discriminant that both node and kali's
+    own pre-stage baseline `f1d02e872` accepted). Same underlying cause — *a parser
+    position whose contract with the token stream is wrong* — opposite failure direction.
+    It is included deliberately: a cluster defined by its **mechanism** must hold members
+    that fail in either direction, or the mechanism is being confused with the symptom.
+  - **R-43's membership is INFERRED, not traced, and is now labelled as such.** R-43 (array
+    destructuring assignment is a no-op) has **no parser site named anywhere in this
+    file**, and unlike R-01 and R-49 it has no `### R-43` §2 entry to carry one — it exists
+    only as a §0.3 bullet, which asserts *"Cluster G1"* without evidence. The **only**
+    supporting datum in the register is §7.9's retained `P5-R-destructuring-assign` bullet,
+    which records that *"the AST shows the statement decaying into two unrelated
+    `ExpressionStatement`s, no diagnostic"* — an **AST-shape observation**, which is
+    consistent with a G1 fail-open recovery but does not identify the recovery site and
+    does not exclude the alternative that the parser never had a destructuring-assignment
+    production at all (an unimplemented form, not a fail-open one). **Locating that site is
+    the open work**; until it is located, R-43's G1 membership should be read as a
+    hypothesis. The cheapest discriminator: if a discarded `accept` or a blind `advance()`
+    is on the path, it is G1; if the expression parser simply has no target-pattern arm,
+    it is not, and R-43 belongs in its own group.
 - A failed `accept(...)` whose `Result` is discarded (`let _ = …`) followed by `break` leaves
   the token stream desynchronized and silently drops the remaining statements.
-- **Traced**: `crates/kali_parser/src/declaration.rs:29-30`.
+- **Traced**: R-01 at `crates/kali_parser/src/declaration.rs:29-30`; R-49 at
+  `crates/kali_parser/src/statement.rs` (`parse_switch_statement`'s clause loop,
+  pre-`9db9150c0`); R-50 at the same function post-`5c9bbd051` (the `expect(kind)`
+  hardening — the discriminant position accepts no comma); **R-54** at
+  `crates/kali_parser/src/statement.rs:561-564` (the `default` arm's statement-loop stop set,
+  which omits `Default` where the sibling `case` arm at `:536-541` includes it). **R-43 has
+  no traced site**; see the membership-evidence note above.
+- **`parse_switch_statement` has now yielded THREE independent G1-class defects** — R-49 (a
+  closer inspected but not consumed), R-50 (a required-token position too strict after the
+  hardening) and R-54 (an incomplete stop set). None was found by looking for the next two
+  after fixing the first. That is the strongest available argument for G1's standing
+  recommendation: **sweep the pattern, do not patch the site.**
+- **R-49 is the same cluster with the dual failure mode**: not a discarded `accept` result but
+  a closer that was *inspected and never consumed*, which desynchronizes the stream in the
+  opposite direction — the enclosing parser stops early instead of running on. Confirmed the
+  **unique** non-consuming block-closer in the parser; the three sibling sites
+  (`parse_block_statement`, `parse_class_body`, `parse_arrow_function_body_expression`) all
+  consume theirs.
 - **Standing risk**: this is a *pattern*, not one site. Every discarded `accept` result in the
   parser is a candidate for the same class. A sweep of `let _ = self.stream.accept` is cheap
-  and should be done as part of any fix.
+  and should be done as part of any fix. See §4's blind-`advance()` inventory for the
+  measured size of the un-swept surface.
 
 ### G2 — Call lowering: unresolvable callee folds to constant `0` (inference, medium confidence)
 
@@ -2156,6 +2882,90 @@ trusting it.**
    for a mixed-shape file did not reproduce on two nearby variants. Both corrections are in
    R-02.
 
+9. **Any statement after a `switch` was reparented to module scope until 2026-07-28 (R-49).**
+   `parse_switch_statement` never consumed the switch's closing brace, so the enclosing block
+   parser stopped at it and everything after the `switch` — to the end of the enclosing
+   function — was hoisted into the module body and executed at module load, even when the
+   function was never called. **Every probe in this repository whose fixture contains a
+   `switch` was measuring that leak, not the feature under test.** R-35's originally recorded
+   boundary is the known casualty and has been re-derived
+   (`r35-switch-boundary-rederived.md`); other pre-`9db9150c0` findings with a `switch` in
+   the fixture should be re-run before being relied on. CLOSED by `9db9150c0`.
+
+### 4.1 `e2::EXPECTED_TOKEN` (E2000) is now emitted — a standing fact about the evidence base has changed
+
+Until 2026-07-28, **"the parser has never reported a missing required token" was true of this
+compiler.** `e2::EXPECTED_TOKEN` (E2000) and `e2::UNEXPECTED_TOKEN` (E2001) were declared in
+`crates/kali_error/src/_error_codes.rs` and emitted from **nowhere**; a required token that
+was simply absent fell into a recovery arm that skipped it silently. Any past inference of the
+form "kali accepted this file, therefore the syntax is supported" is unsound for that period.
+
+`5c9bbd051` added `Parser::expect(kind)` (`crates/kali_parser/src/parser.rs:62`) and routed
+all six required-token positions in `parse_switch_statement` through it: `switch`, `(`, `)`,
+`{`, each clause's `:`, and the closing `}` at EOF. Verified on the built binary at that
+commit:
+
+```
+$ kali run <switch missing its '('>    error[E2000]: expected LeftParen but found Identifier   (exit 1)
+$ kali run <switch missing its ')'>    error[E2000]: expected RightParen but found LeftBrace   (exit 1)
+```
+
+**Consequence for future probing**: a malformed fixture now produces a diagnostic where the
+old parser was silent. An `E2000` on a switch fixture is **never** a *lowering* verdict — it is
+a statement about the parse. This currently holds for `parse_switch_statement` only; every
+other required-token position in the parser still recovers silently.
+
+**CORRECTED 2026-07-28 (fix round 2) — `E2000` does NOT imply the fixture is malformed.** This
+paragraph originally read "it is a statement about the fixture", which a reviewer falsified
+with **well-formed** JS that node accepts. The actual rule is wider and worse:
+
+> `E2000` fires whenever `parse_expression` cannot fully consume the discriminant, whether or
+> not the program is valid JavaScript.
+
+The confirmed trigger is a **sequence-expression discriminant** — `switch (x, x) { … }` is
+valid JS, but `parse_expression` stops at the comma, so the `expect(TokenType::RightParen)` at
+`crates/kali_parser/src/statement.rs:508` reports `error[E2000]: expected RightParen but found
+Comma` and the file is rejected. This is a **fail-closed regression on valid JS introduced by
+this stage**, and it is filed as its own entry — see **R-50** in §7. Anyone reading an `E2000`
+must check whether the fixture is malformed *or* merely uses a discriminant form the
+expression parser stops short on.
+
+### 4.2 Follow-up work: the blind-`advance()` inventory (NOT attempted in this stage)
+
+Measured on `5c9bbd051`, 2026-07-28 (a count without a named baseline is not a measurement):
+
+```
+$ grep -rn "let _ = self.stream.advance();" crates/kali_parser/src/ | wc -l
+103
+```
+
+Per file at that commit:
+
+| count | file |
+|---|---|
+| 24 | `crates/kali_parser/src/statement.rs` |
+| 19 | `crates/kali_parser/src/module.rs` |
+| 15 | `crates/kali_parser/src/declaration.rs` |
+| 14 | `crates/kali_parser/src/expression/mod.rs` |
+| 12 | `crates/kali_parser/src/expression/primary.rs` |
+| 12 | `crates/kali_parser/src/expression/call.rs` |
+| 4  | `crates/kali_parser/src/parser.rs` |
+| 3  | `crates/kali_parser/src/expression/object.rs` |
+
+`statement.rs` line numbers at `5c9bbd051`: 113, 144, 173, 185, 194, 224, 240, 245, 298, 333,
+410, 433, 488, 504, 530, 556, 590, 604, 618, 626, 633, 654, 676, 696.
+
+The pre-stage baseline `f1d02e872` held **28** in `statement.rs` and **107** parser-wide;
+Tasks 2 and 3 of the R-35 stage replaced four of them with `accept`/`expect`. Every remaining
+site advances the stream **without checking what it consumed**, which is the R-49 / G1 failure
+mode with the check removed rather than discarded.
+
+**This was deliberately not attempted here.** A parser-wide sweep is its own project: each
+converted site can turn a currently-silent acceptance into a new diagnostic, so it carries a
+full test-census cost (the R-35 stage's own gate baseline exists precisely because that cost
+is not free), and it cannot be validated by the switch fixtures this stage owns. Filed as
+follow-up work, sized above.
+
 ---
 
 ## 5. Impact on the PR #16 merge-readiness effort
@@ -2360,6 +3170,83 @@ opaque compiler-internals message instead of a clear one. Added by soundness-bat
 - **No fix in this wave** — inventory only, per the wave-0 brief. A fix would need to make the
   const-arrow return-type inference agree with the arithmetic lowering's float classification
   (or vice versa) for the expression-body shape specifically.
+
+---
+
+### R-50: A sequence-expression `switch` discriminant is rejected `E2000` — valid JS that this stage stopped accepting
+
+- **Added**: 2026-07-28, R-35 switch-lowering stage, fix round 2, from the whole-stage
+  adversarial review of `f1d02e872..0b1c48532`.
+- **Verification**: `CONFIRMED-BY-CONTROLLER` — reproduced on freshly built binaries at
+  **both** the pre-stage baseline and the current branch tip, and differentially compared.
+- **Numbering note**: this is a numbered `R-nn` entry filed in **§7**, not §2, because it is
+  **not** a silent miscompile — kali exits nonzero with a diagnostic. It is therefore *not*
+  counted in §1's tier table, which counts `### R-` headers under §2's tier headings only.
+  `grep -c "^### R-"` over the whole file returned **38** while §2 held **37** tier-ranked
+  entries; both numbers were correct and they measure different things.
+  **Re-counted 2026-07-29** at the R-35 close-out, after R-51/R-52 were added to §2's
+  Tier 1 and R-53 to §2's Tier 2: `grep -c "^### R-"` now returns **42** while §2 holds
+  **41** tier-ranked entries (8 + 26 + 2 + 5). The difference is still exactly **1**, and it
+  is still this entry — R-50 is the sole `### R-` header outside §2's tier headings.
+- **Cross-referenced 2026-07-29** from
+  `docs/superpowers/followups/r35-switch-boundary-rederived.md` ("What this matrix does NOT
+  cover, and the entry that does"). That file had no reference to R-50 at all, which meant a
+  reader treating it as *the* R-35 boundary document would have concluded the boundary is
+  exactly what `switch_plan` admits. It is not: the true boundary is the **intersection** of
+  what the parser accepts and what `switch_plan` admits, and R-50 is the one known shape
+  where the parser is the narrower of the two.
+- **Root-cause group**: G1 (parser fail-open recovery) — inverted. G1's other members fail
+  *open*; this one fails *closed* on valid input, from the same underlying cause: a parser
+  position whose contract with the token stream is wrong.
+- **Repro** (`docs/superpowers/followups/r35-switch-boundary-fixtures/seq1.js`, also
+  `disc/d01_seqexpr.js`):
+  ```js
+  function s(x) {
+    switch (x, x) {
+      case 1: return "A";
+      default: return "D";
+    }
+  }
+  console.log("v=" + s(1));
+  ```
+  **node v26.5.0**: `v=A` (exit 0). **kali at `f1d02e872`** (pre-stage): `v=A` (exit 0) —
+  agreed with node. **kali at `0b1c48532`** (this stage):
+  ```
+  error[E2000]: expected RightParen but found Comma
+  error[E2000]: expected LeftBrace but found Comma
+  ```
+  empty stdout, **exit 1**.
+- **Mechanism (traced)**: a sequence expression is valid in a discriminant position, but
+  `parse_expression` stops at the comma. Task 3 routed the discriminant's closing paren
+  through the new `expect(TokenType::RightParen)` at
+  `crates/kali_parser/src/statement.rs:508`, which now reports the residual comma. Before
+  Task 3 that position discarded its result, so the leftover tokens were skipped silently and
+  the program happened to compile.
+- **Severity**: **fail-closed, not a miscompile.** No exit-0 wrong answer is created and no
+  trust is misplaced — a valid program is refused, loudly. That is a usability and
+  compatibility regression, strictly better than the silent acceptance it replaced, and it is
+  recorded here so it is not mistaken for a lowering verdict (see §4.1).
+- **Blast radius**: low. A comma operator in a `switch` discriminant is rare. But the *class* —
+  "a discriminant form `parse_expression` stops short on is now a hard error" — is only as
+  narrow as the search that bounded it.
+- **Bounding search — empirical, NOT exhaustive.** 13 discriminant forms were measured on both
+  binaries plus node (`r35-switch-boundary-fixtures/disc/`, 2026-07-28). **`x, x` is the only
+  form of the 13 whose verdict this stage changed**; the other 12 measure identically at
+  `f1d02e872` and at the branch tip:
+
+  | form | pre-stage | this stage | node | changed by this stage? |
+  |---|---|---|---|---|
+  | `x, x` | `v=A` exit 0 | **`E2000` exit 1** | `v=A` exit 0 | **YES — this entry** |
+  | `typeof x` / `!x` / `x.length` | `v=D` exit 0 | `v=D` exit 0 | `v=D` exit 0 | no |
+  | `a[0]` | `E5506` exit 1 | `E5506` exit 1 | `v=A` exit 0 | no (pre-existing) |
+  | `"lit"` / `x === 1` / `-x` | `v=A` exit 0 | `v=A` exit 0 | `v=D` exit 0 | no (pre-existing **R-35**) |
+  | `(x)` / `x ? 1 : 2` / `x++` / `g(x)` / `x` | `v=A` exit 0 | `v=A` exit 0 | `v=A` exit 0 | no |
+
+  Other unlisted forms — `yield`, `await`, assignment expressions, `in`/`instanceof`,
+  destructuring — were **not** tested. Treat the bound as "no second instance found in 13
+  forms", never as "the sequence expression is the only one".
+- **Confidence**: high on behavior (differential, both binaries, both freshly built); high on
+  mechanism (the `file:line` is named and the error text matches the token exactly).
 
 ---
 
@@ -2763,6 +3650,212 @@ in priority order. All line numbers are as of `fc777af54`.
 
 ---
 
+## 7.11 R-35 close-out — the switch allowlist, its residual, and what it is coupled to (2026-07-29)
+
+Branch `r35-switch-lowering`, Stage 2, closed at this section's commit. **This section is the
+authoritative statement of R-35's boundary.** §0.2's row and §0.3's bullet are summaries and
+defer to it; `r35-switch-boundary-rederived.md` is the *pre-fix* measurement and describes a
+compiler that no longer exists.
+
+The stage's shape, because it is the reusable part: `SwitchStmt` was allocated with **no
+text**, so it reached codegen as a `Branch` with `text: None`, fell into the generic arm — the
+`if` lowering — and was emitted as `if (discriminant) { clause-0 } else { clause-1 }`, with
+clauses 2+ never emitted at all. The fix was **not** to write a `switch` emitter and then
+harden it. It was to add `emit_switch` with an **empty allowlist first**, so that every
+intermediate commit on the branch failed closed rather than miscompiling silently, and then
+admit one proven shape per task. `switch_plan` returns `Err(reason)` unless it can *prove*
+every part of the switch is admitted; there is no denylist of bad shapes anywhere in
+`crates/kali_codegen/src/emit/switch.rs`. Extending the admitted set means **adding a proof**,
+never removing a rejection.
+
+### What is now CORRECT (matches `node v26.5.0` byte-for-byte)
+
+Pinned by `crates/kali_cli/tests/switch_runtime.rs`. Both module scope and function scope
+throughout.
+
+- **Discriminant**: a proven `Repr::I64` scalar, or a proven `Repr::String`. Includes
+  parameters, module bindings, function locals, call results, and runtime-built strings
+  (`"a" + "b"`, `t.substring(1,2)`) — string comparison is **content** equality via the
+  existing `__streq`, not handle identity, so a freshly allocated equal string selects its
+  clause.
+- **Case tests**: numeric literals including unary `+`/`-`, or string literals — **in the
+  discriminant's own domain**. Duplicates are admitted and are first-match-wins by
+  construction.
+- **Clause terminators**: `return`, unlabeled `break`, unlabeled `continue` under a
+  **faithful** enclosing loop, and empty non-`default` clauses that group onto the next
+  terminated clause.
+- **Grouping**: a run of consecutive empty non-`default` `case` clauses collapses onto the
+  following clause with a **non-short-circuiting `i32.or`** fold over N eagerly-evaluated
+  comparisons, guarding **one** emission of the body. Unobservable today (case tests are
+  literals — no side effects, no non-termination) but it is *not* JS `||` semantics and the
+  next reader should not assume it is.
+- **`default`**: zero or one, **last position only**.
+- **Structure**: `break` binds to the switch and `continue` reaches past it to the enclosing
+  loop **by construction** — the switch frame's `continue_index` *is* the enclosing loop's.
+  Nesting (switch in switch, switch in loop) works from the same frame stack. The
+  discriminant is evaluated **exactly once** into a dedicated per-switch local. A switch opens
+  **no arena frame**, verified across 200 allocating iterations.
+
+### RESIDUAL FAIL-CLOSED — the named follow-up list
+
+Every item below is a fail-closed limit with a message naming the actual limit. **Corrected
+2026-07-29 (`64438bf0ef`) — the preamble here previously claimed all of them were "routed
+through the single `switch_plan` choke point, and pinned in
+`crates/kali_cli/tests/switch_fail_closed.rs`". That over-claims on three counts, and the
+exceptions are exactly where a future reader would otherwise go looking in the wrong file:**
+
+- **Most rows** (1-4, 7-10, 14) do route through `switch_plan` and are pinned in
+  `switch_fail_closed.rs`. For those the original sentence was accurate.
+- **Rows 5 and 6** deny at a *different* choke point — `emit_break_or_continue`'s
+  `continue_index: None` arm in `crates/kali_codegen/src/emit/control_flow.rs`, not
+  `switch_plan`. `switch_plan` *admits* these clauses; the denial happens later, during
+  emission. They are pinned (`NO_ENCLOSING_LOOP`, `UNFAITHFUL_CONTINUE`).
+- **Row 11** never reaches codegen at all and is not `E5506` — it surfaces as **`E3100`**
+  from name resolution. See the row.
+- **Row 12** has **no pin**, and cannot have one: it is unreachable dead code (R-54).
+
+**These are named so a later stage can pick one up without re-deriving the boundary.** None is
+a defect of this stage; each is work not yet done.
+
+| # | shape | denial constant / note |
+|---|---|---|
+| 1 | **True fallthrough** — a non-empty clause ending in neither `return`, `break` nor `continue` | Rule 4. The original R-35 hazard; do not widen without re-deriving §7.11's grouping section. |
+| 2 | **`let` / `const` in a clause body** | Rule 5. Blocked on **R-10** (block shadowing unmodeled), not on switch. Measured: `let`/`const` in a clause do **not** fail closed on their own — they measured byte-identical to `var` pre-stage — so this denial is load-bearing and must stay on the deny path. |
+| 3 | **Non-literal case tests**, and **cross-domain** literal tests (a string case against an i64 discriminant or vice versa) | Rule 2. Cross-domain is denied rather than "silently never matches": node falls to `default` for it and `__streq`'s tag guard happens to agree, but *the two engines agreeing by accident* is not a lowering proof. |
+| 4 | **Float, boolean, object, array and unknown discriminants** | Rule 1 — denied by **failing to construct a proof**, not by being listed. See the accepted-regression note on booleans below. |
+| 5 | **`continue` with no enclosing loop** | There is no `continue_index` to inherit; `emit_break_or_continue` fails closed. |
+| 6 | **`continue` under an UNFAITHFUL enclosing loop** | `UNFAITHFUL_CONTINUE`. **Faithful**: `while`, `for…of`, and a C-style `for` with **no** update clause. **Unfaithful**: a C-style `for` **with** an update, `for…in`, and `do`/`while` — their `continue` skips the update or the test. **This is R-09, not R-35**, and the switch deliberately refuses to widen into it: no switch allowlist can fix a loop-lowering defect. See R-09's corrected "Not affected" line. **THE DENIAL MESSAGE'S SUGGESTED REWRITES ARE MEASURED, AND THE `for…of` ONE IS BINDING-QUALIFIED (corrected 2026-07-29, `64438bf0ef`, fix wave item 3).** This message advised *"use a `while` or `for...of` loop"* — but a bare `for…of` recommendation routes the user straight into **R-53**: `for (let v of […])` and `for (var v of […])` bind every element to `0`, silently, exit 0. Re-measured on this exact fixture at `64438bf0ef`: `while` → kali matches node byte-for-byte (`iter=1..6`, `s=19`); `for (const v of [1,2,3,4])` → matches node (`iter=1..4`, `s=8`); `for (let v of …)` and `for (var v of …)` → kali `iter=0` ×4 and `s=0` where node gives `s=8`. The message now names **`while`**, or **`for…of` whose loop variable is declared `const`**, and says why. Note the two properties are independent and both are needed: `continue`-faithfulness is about *where the index advance is emitted* (all `for…of` lanes are faithful), while R-53 is about *what the loop variable is bound to* (only `const` is right). A future edit to this sentence must re-measure against `node v26.5.0` before naming any construct — routing a user out of an honest denial and into a silent miscompile is strictly worse than the denial. |
+| 7 | **A `default` that is not the LAST clause** | `DEFAULT_NOT_LAST`. This lowering emits `default` **unconditionally at its own source position** with an early return from the chain recursion, so any later clause is silently unreachable. See the design-doc correction below — this one **shipped**. |
+| 8 | **A `default` grouped with a preceding empty `case`** | `DEFAULT_CANNOT_GROUP`. Grouping would narrow `default`'s "everything else" semantics into a plain equality disjunction. |
+| 9 | **A trailing empty clause with no body to group onto** | `TRAILING_EMPTY_GROUP`. No clause remains to carry the accumulated test. |
+| 10 | **An empty `default` clause** | Not eligible for `EmptyGroup` (it has no test to hand forward), so it denies via the same Rule-4 "no terminator" message every terminator-less clause gets. |
+| 11 | **Labeled `break` / `continue` in a clause** | ~~Binds to an enclosing labeled statement, not to this switch; `emit_break_or_continue` rejects labels globally.~~ **CORRECTED 2026-07-29 (`64438bf0ef`) — that mechanism is wrong.** Labeled STATEMENTS do not survive at all, far upstream of codegen: the label declaration resolves as a bare identifier and raises **`error[E3100]: undefined identifier 'outer'`**. Measured both with and without a switch in the loop — the switch-free `outer: for (var i=0;i<3;i=i+1) { sum = sum + 1; }` raises the *identical* E3100 where node prints `sum=3`, and the switch-bearing fixture emits **E3100 and no E5506 at all** (grep count 0). So no `"break:<label>"` node ever reaches `switch_plan`, `emit_break_or_continue` never gets the chance to reject a label here, and this row is **not an `E5506` row**. `is_unlabeled_break_statement`'s exact-`"break"` match is **defence in depth**, not the operative gate. If labeled statements are ever supported, a clause *ending* in `break outer;` would then be denied by **Rule 4** (that exact match fails), and this row plus `a_labeled_break_in_a_clause_is_fail_closed` must be re-pinned on `RULE_4_TERMINATOR`. `crates/kali_cli/tests/switch_fail_closed.rs`'s `a_labeled_break_in_a_clause_is_fail_closed` already states this correctly and explicitly warns against this row's old phrasing; the row now agrees with its own pin. |
+| 12 | **Two or more `default` clauses** | Rule 3, message `"more than one `default` clause"` — **but the check is UNREACHABLE DEAD CODE**, see the note below. |
+| 13 | **`throw` as a clause terminator** | **DEFERRED, not denied on principle** (design §5.2). It terminates in principle, but kali's `throw` lowering is its own lane and admitting it needs its own measurement. Pre-stage it measured `E4000` where it fires and **SILENT where it does not**, so it is a real hazard rather than a quiet one. **This is the most valuable single item on this list to pick up next.** |
+| 14 | **An EMPTY switch — `switch (x) {}` — with no clauses at all** | **ADDED 2026-07-29 (`64438bf0ef`), fix wave item 2. This is a DENIAL ON VALID JS and was recorded nowhere** — not in this table, not in §0.2's residual list. Node runs `var x = 1; switch (x) {} console.log("done=" + x);` and prints `done=1` at **exit 0**; kali refuses it with `error[E5506]: this `switch` is not in the supported lowering set (a switch with no clauses); rewrite it as `if`/`else if` or use a supported switch shape (fail-closed)`, exit 1 (both measured). **Mechanism:** `switch_plan` folds clauses into `folded`, and after the trailing-empty-group check it returns `Err("a switch with no clauses")` when `folded.is_empty()` (`crates/kali_codegen/src/emit/switch.rs`). The guard is load-bearing, not gratuitous — `emit_clause_chain` has no base case for an empty chain and every downstream invariant in the plan assumes at least one clause — but the shape it refuses is legal and side-effect-free in JS (evaluate the discriminant, match nothing, fall out), so it belongs beside the **two accepted regressions** below rather than among the "work not yet done" rows. Cost is negligible in practice; the point of recording it is that the residual set must be *complete*, since an unrecorded denial on valid input is how a fail-closed compiler's honesty claim erodes. **No pin added in this wave** (documentation-only); a `switch_fail_closed.rs` cell asserting this exact message would be a cheap follow-up. |
+
+**Rule 3's denial cannot fire, and that is R-54.** `switch_plan` checks for a second
+`default` at `crates/kali_codegen/src/emit/switch.rs:105`, but the AST can never carry one:
+`parse_switch_statement`'s `default` arm omits `Default` from its statement-loop stop set
+(`crates/kali_parser/src/statement.rs:561-564`) where the sibling `case` arm includes it
+(`:536-541`), so a second `default` is **absorbed into the first** and both bodies run
+merged. kali therefore accepts a file node refuses outright with `SyntaxError: More than one
+default clause in switch statement`. **Only invalid JS is affected**, so no correct program
+is miscompiled and the allowlist's soundness is untouched — but the rule is stated and not
+enforced, and it is the one cell of the acceptance matrix that has **no pin** (a `switch_runtime`
+test would have to assert a divergence, and a `switch_fail_closed` test would have to assert
+an `E5506` that never arrives). Found by this close-out while completing the matrix's
+`default` axis; filed as **R-54** (§2, Tier 3, cluster G1) and deliberately **not fixed here**
+— a parser behaviour change would land after the whole-stage adversarial review that has
+already run.
+
+**Parameter discriminants have an extra, load-bearing rule — read this before extending
+anything.** A `switch` on a **parameter** is admitted only when *all* of:
+
+1. the parameter's inflow is proven — numeric-literal, or a proven string — at **every**
+   enumerable call site; **and**
+2. the parameter is **never written** anywhere in the function body; **and**
+3. the enclosing function **does not escape**.
+
+and it is *additionally* denied whenever the function body contains an **array literal, object
+literal, or function expression** — **even when the parameter is provably untouched**. That
+last clause is not a modelling nicety; it is the conservative boundary of the repr inference
+this proof delegates to, and removing it re-opens the aggregate-provenance family (R-06, R-12,
+R-14, R-48). Do not "tidy" it away.
+
+### Two ACCEPTED REGRESSIONS — deliberate, recorded as such, not defects
+
+1. **Boolean discriminants (matrix cell 16) now fail closed, and they were previously
+   CORRECT.** Cell 16 was one of only **two** cells in the whole 32-cell pre-stage matrix
+   where kali agreed with node. It is now `E5506`. This is **deliberate and accepted**:
+   `r35-switch-boundary-rederived.md`'s own analysis ("Cell 16 is a coincidence, not a
+   capability") shows the agreement was an **ordering artifact** — a boolean is truthy or
+   falsy in exactly the way the broken `if`-lowering happened to need, so it was right for a
+   reason that had nothing to do with `switch`. **Fail-closed beats accidentally-right**: an
+   honest `E5506` tells the user the truth, while a coincidence that survives a refactor
+   silently is precisely how this register fills up. Recorded here so a future reader running
+   a before/after comparison finds the explanation instead of filing a regression.
+2. **`switch (x, x)` — a sequence-expression discriminant — regressed from correct to
+   `E2000`.** Filed as its own entry, **R-50** (§7), because it is a *parser* regression on
+   valid input, not a lowering decision. Also a fail-closed-on-valid-input cost of this stage,
+   and unlike cell 16 it is **not** endorsed — it should be fixed.
+
+### A design-doc claim that was FALSE and caused a shipped miscompile
+
+`docs/superpowers/specs/2026-07-27-r35-switch-lowering-design.md:261-262` asserted:
+
+> *"A `default` in a non-final position is admitted. Once fallthrough is denied, `default`'s
+> position carries no semantics. No rule needed."*
+
+**True of JS selection semantics. False of this emission strategy.** `emit_clause_chain`
+lowers `default` unconditionally at its own position and returns early from the chain
+recursion, so every clause after a non-final `default` is never emitted. It shipped from
+Task 7 (when `default` first became reachable in a chain) until Task 10's fix. The claim is
+now **struck in place** in the design doc, with the mechanism and the three regression pins,
+rather than deleted — because the reasoning error generalizes and is worth keeping visible:
+
+> **"The source language gives this construct no semantics" does not imply "the lowering gives
+> it no semantics."** A step from a *language* property to an *emission* property that never
+> visits the emitter is unsound. Any future "no rule needed" must be justified against the
+> emitter as written.
+
+Noted here as well as in the design doc so that a reader arriving from either direction hits
+it. This is the second time in this project a *documented* conclusion was wrong in a way no
+test caught — the first was R-09's "Not affected" line.
+
+### Standing couplings — three places a future fix un-masks a leak
+
+Each of these is currently safe **only because a second defect is covering it**. They are
+listed together because the pattern is the point: this project produced three instances of
+it in one stage.
+
+1. **Optional calls ↔ the switch parameter proof.** `s?.(x)` is an invocation route invisible
+   to **both** halves of the parameter proof — the escape walk has no
+   `OptionalChainExpression` arm (so no escape mark) and no `CallEdge` is built (so no
+   argument evidence). It is latent **only because optional calls are dropped entirely**
+   (**R-51**). **If optional-call lowering is ever implemented, the escape gate must be
+   extended before or within that change, or the `new`-site leak returns verbatim.**
+2. **`for`-clause arity ↔ `continue_is_faithful`.** Three broken `for` arities are flagged
+   `continue_is_faithful = true` at `crates/kali_codegen/src/emit/control_flow.rs:348`,
+   harmless **only because those loops are already wrong** (**R-52**). **If the arity bug is
+   ever fixed, `control_flow.rs:348` must be re-derived in the same change**, or a switch
+   `continue` will be admitted into a loop that skips its update — R-09's silent form,
+   reached through a construct the allowlist certified.
+3. **`for…in` ↔ the faithfulness predicate.** `control_flow.rs:348` reads
+   `update.is_none() && kind != "do-while"`. `for…in` is excluded from it only because
+   `for-in` is a **different HIR node kind reaching a different emit path**, not because the
+   predicate names it. Anyone editing that line must re-check `for…in` explicitly.
+
+### Design note for whoever makes cross-module calls real
+
+Today an exported function **is** admitted as a switch host, and that is correct **only
+while a cross-module imported call returns `0` wholesale**. If cross-module calls ever
+deliver real arguments, an exported function's parameters can be supplied by a call site the
+edge builder cannot see, and the parameter proof becomes vacuous.
+
+**Do NOT fix this by adding an `exported` field to the AST.** That makes every consumer
+responsible for remembering a new check — the **denylist-shaped** failure this plan paid for
+repeatedly. The real concept is *"an invocation site the edge builder cannot enumerate"*.
+**Extend the escape notion once, at the walk**, covering `export`, dynamic `import()` and the
+optional call (**R-51**) together.
+
+**And note that the three export spellings differ — matching `ExportNamed` alone silently
+misses the common case:**
+
+| spelling | what survives to the AST |
+|---|---|
+| `export function s(){}` | **Nothing.** `parse_export_declaration` (`crates/kali_parser/src/module.rs:88`) discards the `export` token at `:89` and dispatches straight to `parse_function_declaration()` at `:136-142`. `export function s(){}` and `function s(){}` produce the **identical** AST — no export statement node exists, and nothing downstream can distinguish them. |
+| `export { s }` | Survives as `Statement::ExportNamed` (`crates/kali_parser/src/module.rs:176`). |
+| `export default …` | Survives as `Statement::ExportDefault` (`crates/kali_parser/src/module.rs:127`). |
+
+So the **first** row — the most common spelling by far — needs a **parser change** before any
+downstream escape rule can see it at all. Pinned today by
+`an_exported_function_is_admitted_because_export_is_not_an_escape` in `switch_runtime.rs`,
+which records the *measurement* rather than the prose; when cross-module calls become real,
+that test must flip to fail-closed.
+
+---
+
 ## 8. Cross-references
 
 - `docs/superpowers/followups/pr16-honest-repin-inventory.md` — the 694-test adjudication map
@@ -2771,3 +3864,29 @@ in priority order. All line numbers are as of `fc777af54`.
   the ALLOWLIST-1 tripwire; cluster G3 is the same lesson at sweep scale.
 - `.superpowers/sdd/sweep-{a,b,c,d}-*.md` — the four source registers, retained for their full
   probe logs, correct-shape inventories (which bound the damage) and fail-closed maps.
+- `docs/superpowers/followups/r35-switch-boundary-rederived.md` — the 32-cell, both-scopes
+  R-35 boundary matrix measured on `5c9bbd051` (2026-07-28) after the R-49 parser-containment
+  fix. **Supersedes the boundary sentence §0.3's R-35 bullet originally carried**, which was
+  measured through the R-49 leak. Also carries the traced `switch` lowering mechanism and the
+  consequences for the Stage 2 allowlist. **It describes a compiler that no longer exists** —
+  for the post-fix boundary read **§7.11**, not this file. Cross-references **R-50** for the
+  one shape where the parser is narrower than the allowlist.
+- **§7.11 of this document** — the R-35 close-out: the admitted set, the fourteen-item residual
+  fail-closed list with its denial constants, the parameter-discriminant rule, the two
+  accepted regressions, the three standing couplings, and the design note for cross-module
+  calls. **This is the authoritative R-35 boundary**; §0.2's row and §0.3's bullet are
+  summaries that defer to it.
+- `docs/superpowers/specs/2026-07-27-r35-switch-lowering-design.md` — the Stage 2 design.
+  Read with §7.11's correction: its §5.2 note *"a `default` in a non-final position is
+  admitted … no rule needed"* is **struck as false** and caused a shipped silent miscompile.
+- `docs/superpowers/followups/r35-gate-baseline.txt` — the zero-newly-red gate baseline for
+  this project: commit `f1d02e872`, **9466 passed / 0 failed / 27 ignored** across 376 suites.
+  The failing list is empty; the file is unsorted, so strip its comment block before feeding
+  it to `comm` (the file says how).
+- `crates/kali_cli/tests/switch_runtime.rs` and `crates/kali_cli/tests/switch_fail_closed.rs`
+  — the admitted-side and denied-side pins for §7.11. Every denied-side assertion checks the
+  **specific** denial constant, not merely that some `E5506` occurred, so a cell that
+  silently degraded to a different rule still fails.
+- `crates/kali_parser/tests/parser_integration.rs`, `mod switch` — R-49's regression pins.
+  They moved here from the deleted `crates/kali_cli/tests/switch_parser_containment.rs`; see
+  R-49's corrected citation.

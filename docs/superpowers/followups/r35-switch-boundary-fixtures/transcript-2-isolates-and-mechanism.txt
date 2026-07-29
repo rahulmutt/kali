@@ -1,0 +1,472 @@
+===== m01_fn.js
+--- kali exit=0
+kali_stdout:
+r1=100
+r2=100
+r3=100
+r4=100
+r9=100
+r0=200
+kali_stderr:
+--- node exit=0
+node_stdout:
+r1=100
+r2=200
+r3=300
+r4=400
+r9=900
+r0=900
+node_stderr:
+===== m02b_mod.js
+--- kali exit=0
+kali_stdout:
+c=1
+kali_stderr:
+--- node exit=0
+node_stdout:
+c=3
+node_stderr:
+===== m02_mod.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path
+error[E5506]: break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compati--- node exit=0
+node_stdout:
+c=3
+node_stderr:
+===== m03b_mod.js
+--- kali exit=0
+kali_stdout:
+c=2
+kali_stderr:
+--- node exit=0
+node_stdout:
+node_stderr:
+===== m03_mod.js
+--- kali exit=0
+kali_stdout:
+c=1
+kali_stderr:
+--- node exit=0
+node_stdout:
+node_stderr:
+===== m04_mod.js
+--- kali exit=0
+kali_stdout:
+after=1
+kali_stderr:
+--- node exit=0
+node_stdout:
+after=1
+node_stderr:
+===== m05_fn.js
+--- kali exit=0
+kali_stdout:
+r10=100
+r40=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+r10=100
+r40=900
+node_stderr:
+===== m06_fn.js
+--- kali exit=0
+kali_stdout:
+r10=101
+r0=901
+kali_stderr:
+--- node exit=0
+node_stdout:
+r10=101
+r0=901
+node_stderr:
+===== m07_fn.js
+--- kali exit=0
+kali_stdout:
+r10=100
+r0=900
+kali_stderr:
+--- node exit=0
+node_stdout:
+r10=100
+r0=900
+node_stderr:
+===== s04r_fn.js
+--- kali exit=0
+kali_stdout:
+r20=100
+r40=100
+r0=200
+r10=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+r20=200
+r40=900
+r0=900
+r10=100
+node_stderr:
+===== s04r_mod_0.js
+--- kali exit=0
+kali_stdout:
+hit=200
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=900
+node_stderr:
+===== s04r_mod_10.js
+--- kali exit=0
+kali_stdout:
+hit=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=100
+node_stderr:
+===== s04r_mod_20.js
+--- kali exit=0
+kali_stdout:
+hit=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=200
+node_stderr:
+===== s04r_mod_40.js
+--- kali exit=0
+kali_stdout:
+hit=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=900
+node_stderr:
+===== s05r_fn.js
+--- kali exit=0
+kali_stdout:
+r20=100
+r40=100
+r0=200
+r10=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+r20=200
+r40=900
+r0=900
+r10=100
+node_stderr:
+===== s05r_mod_0.js
+--- kali exit=0
+kali_stdout:
+hit=200
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=900
+node_stderr:
+===== s05r_mod_10.js
+--- kali exit=0
+kali_stdout:
+hit=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=100
+node_stderr:
+===== s05r_mod_20.js
+--- kali exit=0
+kali_stdout:
+hit=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=200
+node_stderr:
+===== s05r_mod_40.js
+--- kali exit=0
+kali_stdout:
+hit=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=900
+node_stderr:
+===== s06r_fn.js
+--- kali exit=0
+kali_stdout:
+r20=100
+r40=100
+r0=200
+r10=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+r20=200
+r40=900
+r0=900
+r10=100
+node_stderr:
+===== s06r_mod_0.js
+--- kali exit=0
+kali_stdout:
+hit=200
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=900
+node_stderr:
+===== s06r_mod_10.js
+--- kali exit=0
+kali_stdout:
+hit=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=100
+node_stderr:
+===== s06r_mod_20.js
+--- kali exit=0
+kali_stdout:
+hit=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=200
+node_stderr:
+===== s06r_mod_40.js
+--- kali exit=0
+kali_stdout:
+hit=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=900
+node_stderr:
+===== s09r_fn.js
+--- kali exit=0
+kali_stdout:
+r1=1
+r2=1
+r5=1
+kali_stderr:
+--- node exit=0
+node_stdout:
+r1=200
+r2=200
+r5=900
+node_stderr:
+===== s09r_mod_1.js
+--- kali exit=0
+kali_stdout:
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=200
+node_stderr:
+===== s09r_mod_2.js
+--- kali exit=0
+kali_stdout:
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=200
+node_stderr:
+===== s09r_mod_5.js
+--- kali exit=0
+kali_stdout:
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=900
+node_stderr:
+===== s10r_fn.js
+--- kali exit=0
+kali_stdout:
+r20=100
+r40=100
+r10=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+r20=200
+r40=900
+r10=100
+node_stderr:
+===== s10r_mod_10.js
+--- kali exit=0
+kali_stdout:
+hit=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=100
+node_stderr:
+===== s10r_mod_20.js
+--- kali exit=0
+kali_stdout:
+hit=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=200
+node_stderr:
+===== s10r_mod_40.js
+--- kali exit=0
+kali_stdout:
+hit=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=900
+node_stderr:
+===== s11r_fn.js
+--- kali exit=0
+kali_stdout:
+r10=100
+r40=100
+r0=111
+kali_stderr:
+--- node exit=0
+node_stdout:
+r10=100
+r40=900
+r0=900
+node_stderr:
+===== s11r_mod_0.js
+--- kali exit=0
+kali_stdout:
+hit=111
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=900
+node_stderr:
+===== s11r_mod_10.js
+--- kali exit=0
+kali_stdout:
+hit=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=100
+node_stderr:
+===== s11r_mod_40.js
+--- kali exit=0
+kali_stdout:
+hit=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=900
+node_stderr:
+===== s14r_fn.js
+--- kali exit=0
+kali_stdout:
+r20=100
+r40=100
+r10=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+r20=200
+r40=900
+r10=100
+node_stderr:
+===== s14r_mod_10.js
+--- kali exit=0
+kali_stdout:
+hit=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=100
+node_stderr:
+===== s14r_mod_20.js
+--- kali exit=0
+kali_stdout:
+hit=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=200
+node_stderr:
+===== s14r_mod_40.js
+--- kali exit=0
+kali_stdout:
+hit=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=900
+node_stderr:
+===== s15r_fn.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E4201]: failed to load WASM module: failed to compile: wasm[0]::function[40]
+--- node exit=0
+node_stdout:
+r25=200
+r35=900
+r15=100
+node_stderr:
+===== s15r_mod_15.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E4201]: failed to load WASM module: failed to compile: wasm[0]::function[22]
+--- node exit=0
+node_stdout:
+hit=100
+node_stderr:
+===== s15r_mod_25.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E4201]: failed to load WASM module: failed to compile: wasm[0]::function[22]
+--- node exit=0
+node_stdout:
+hit=200
+node_stderr:
+===== s15r_mod_35.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E4201]: failed to load WASM module: failed to compile: wasm[0]::function[22]
+--- node exit=0
+node_stdout:
+hit=900
+node_stderr:
+===== s16r_fn.js
+--- kali exit=0
+kali_stdout:
+rtrue=100
+rfalse=200
+kali_stderr:
+--- node exit=0
+node_stdout:
+rtrue=100
+rfalse=200
+node_stderr:
+===== s16r_mod_false.js
+--- kali exit=0
+kali_stdout:
+hit=200
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=200
+node_stderr:
+===== s16r_mod_true.js
+--- kali exit=0
+kali_stdout:
+hit=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=100
+node_stderr:

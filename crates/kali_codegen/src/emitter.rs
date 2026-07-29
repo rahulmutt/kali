@@ -78,17 +78,90 @@ pub(crate) enum ControlFlowLabelKind {
     LoopContinue,
 }
 
+/// The innermost construct an UNLABELED `break`/`continue` binds to.
+///
+/// Every real loop pushes one of these with both indices set. A `switch` also
+/// pushes one (`emit/switch.rs`), and that is the whole mechanism by which
+/// `break` binds to the switch while `continue` reaches past it to the loop:
+/// the switch's frame carries its OWN `break_index` (the switch's end block)
+/// but INHERITS `continue_index` verbatim from the enclosing loop frame. There
+/// is deliberately no "is this a switch frame?" test anywhere in
+/// `emit_break_or_continue` — a precedence rule there would be one edit away
+/// from being wrong, whereas an inherited field cannot disagree with itself.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct LoopFrame {
     pub(crate) break_index: usize,
-    pub(crate) continue_index: usize,
+    /// `None` for a switch frame that has nothing safe to inherit: either
+    /// there is no enclosing loop at all, or the enclosing loop's `continue`
+    /// lowering is not faithful (see `continue_is_faithful`). `continue` then
+    /// has no target and must fail closed rather than branch to the switch's
+    /// exit (which would silently turn `continue` into `break`).
+    ///
+    /// Always `Some` for a real loop frame — the two `None` cases are reached
+    /// only through a switch frame, so ordinary loop lowering is untouched.
+    pub(crate) continue_index: Option<usize>,
+    /// Whether an unlabeled `continue` branching to `continue_index` is a
+    /// FAITHFUL lowering of JS `continue` for this construct — i.e. it re-runs
+    /// whatever the language says runs between iterations.
+    ///
+    /// This is a property of the LOOP LOWERING, not of `switch`. Measured
+    /// switch-free, one fixture per construct (see the Task 9 fix-round-1
+    /// report):
+    ///
+    /// - `while` — **faithful**: `continue` targets the loop top, which is the
+    ///   test, exactly as JS specifies.
+    /// - `for` with NO update clause — **faithful**: same shape as `while`.
+    ///   Keyed on the SAME `update` binding `emit_loop` dispatches its own
+    ///   emission with, so the flag cannot disagree with the code it describes.
+    /// - `for` WITH an update clause — **unfaithful**: `update` is emitted at
+    ///   the tail of the body, so `continue` skips it. This is register R-09.
+    /// - `do`/`while` — **unfaithful**, and this one contradicts `emit_loop`'s
+    ///   own doc comment, which claimed do-while "re-tests correctly on
+    ///   `continue`". It does not: the test sits at the BOTTOM and `continue`
+    ///   branches to the loop TOP, so the test is skipped for that pass.
+    ///   Measured: `do { i = i + 1; console.log(...); continue; } while (i < 3)`
+    ///   printed 1,578,155 lines before trapping at exit 1, where node prints
+    ///   three lines and `i=3`.
+    /// - `for...in` — **unfaithful**: the ordinal increment is emitted after
+    ///   the body, so `continue` skips it and re-reads the same key forever.
+    /// - `for...of` (every lane) — **faithful**: the index advance is emitted
+    ///   BEFORE the body precisely so `continue` visits the next element, and
+    ///   the static-unroll lanes give each iteration its own `Block` whose
+    ///   label lands at the next iteration.
+    ///
+    /// A switch frame inherits `continue_index` ONLY from a faithful frame
+    /// (`emit/switch.rs`), which is what keeps a `continue` inside a `switch`
+    /// from silently changing which iterations run. Nothing else reads this:
+    /// a `continue` written directly in an unfaithful loop keeps its existing
+    /// (R-09) behaviour, which is not this task's to change.
+    pub(crate) continue_is_faithful: bool,
 }
 
 /// A live per-loop arena scope: the three local slots holding the
 /// current-arena trio (`g1`/`g2`/`g3`) as it was *before* this loop opened
-/// (restored on release), and the index into `FunctionEmitter::loop_frames`
-/// of the loop this arena belongs to (used by `break` to decide whether it is
-/// exiting the loop that owns this frame).
+/// (restored on release), and `loop_frame_index`.
+///
+/// **`loop_frame_index` IS NOT AN INDEX. Do not index with it.** The doc here
+/// used to say it was "used by `break` to decide whether it is exiting the loop
+/// that owns this frame". That has been false since Task 9:
+/// `emit_break_or_continue` does no arena work at all and never reads this
+/// field. Its ONLY value-reader in the whole crate is
+/// `emit/growable.rs`'s `.any(|frame| frame.loop_frame_index.is_some())`,
+/// which asks a pure yes/no question — "is any live arena frame loop-owned?"
+/// — and `emit/control_flow.rs`'s function-arena assertion, which checks it is
+/// `None`. So the field is a `bool` wearing an `Option<usize>`'s clothes.
+///
+/// **INVARIANT, stated so a future edit that starts indexing with it fails
+/// review rather than silently corrupting arenas:** the `usize` inside is NOT
+/// a valid subscript into `FunctionEmitter::loop_frames`. It is computed at
+/// `emit/control_flow.rs`'s `let loop_frame_index = self.loop_frames.len();`,
+/// and since Task 9 a `switch` pushes a `LoopFrame` too — so `loop_frames`
+/// counts SWITCH frames as well as loop frames, and a loop nested inside a
+/// switch records an index shifted past every enclosing switch. It is harmless
+/// today only because nothing subscripts with it. Anyone who wants a real
+/// loop-frame back-reference must first make `loop_frames` (or a parallel
+/// stack) distinguish loop frames from switch frames; until then, treat this
+/// field as `Option<()>`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct ArenaFrame {
     pub(crate) saved_page_local: u32,
@@ -360,6 +433,10 @@ pub(crate) struct FunctionEmitter<'a> {
     /// from `loop_ordinals`/`arena_table` — never consulted for arena
     /// placement.
     pub(crate) for_in_ordinals: HashMap<LirNodeId, u32>,
+    /// Pre-order switch ordinals (see `crate::lower::switch_preorder_ordinals`),
+    /// resolved once at construction so `emit_switch` can find each switch's
+    /// dedicated discriminant local (`crate::lower::switch_disc_local_name`).
+    pub(crate) switch_ordinals: HashMap<LirNodeId, u32>,
     /// `for..in` key binding name → the fixed shape its object enumerates,
     /// recorded by `emit_for_in` BEFORE it emits the loop body (Spec 4a Task
     /// 3). The codegen-side mirror of `kali_types`'s `for_in_key_bindings`
@@ -547,6 +624,7 @@ impl<'a> FunctionEmitter<'a> {
         let string_site_ordinals =
             crate::lower::string_site_preorder_ordinals(&program.nodes, body);
         let for_in_ordinals = crate::lower::for_in_preorder_ordinals(&program.nodes, body);
+        let switch_ordinals = crate::lower::switch_preorder_ordinals(&program.nodes, body);
         let for_in_key_aliases = crate::lower::for_in_key_alias_names(&program.nodes, body);
         let unstable_provenance_names =
             crate::lower::unstable_provenance_names(&program.nodes, body);
@@ -666,6 +744,7 @@ impl<'a> FunctionEmitter<'a> {
             loop_ordinals,
             string_site_ordinals,
             for_in_ordinals,
+            switch_ordinals,
             for_in_key_shapes: HashMap::new(),
             for_in_key_aliases,
             for_in_key_handle_tables: HashMap::new(),

@@ -1,0 +1,104 @@
+===== m08_fn.js
+--- kali exit=0
+kali_stdout:
+r10=100
+r0=1
+kali_stderr:
+--- node exit=1
+node_stdout:
+r10=100
+node_stderr:
+/tmp/claude-1000/-workspace/634f1832-cfc2-4bdf-8de1-d91534f7f603/scratchpad/r35/f/m08_fn.js:5
+    default: return v;
+             ^
+
+ReferenceError: Cannot access 'v' before initialization
+    at s (/tmp/claude-1000/-workspace/634f1832-cfc2-4bdf-8de1===== m08b_fn.js
+--- kali exit=0
+kali_stdout:
+r10=100
+r0=1
+kali_stderr:
+--- node exit=0
+node_stdout:
+r10=100
+r0=1
+node_stderr:
+===== m09_fn.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E3100]: undefined identifier 'q'
+  = help: declare the name in the current module or import it
+--- node exit=0
+node_stdout:
+r10=1
+node_stderr:
+===== m10_mod.js
+--- kali exit=0
+kali_stdout:
+r=1
+kali_stderr:
+--- node exit=0
+node_stdout:
+r=505
+node_stderr:
+===== m11_mod.js
+--- kali exit=0
+kali_stdout:
+hit=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=900
+node_stderr:
+===== m12_fn.js
+--- kali exit=0
+kali_stdout:
+rtrue=200
+rfalse=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+rtrue=100
+rfalse=200
+node_stderr:
+===== m12_mod_true.js
+--- kali exit=0
+kali_stdout:
+hit=200
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=100
+node_stderr:
+===== m12_mod_false.js
+--- kali exit=0
+kali_stdout:
+hit=100
+kali_stderr:
+--- node exit=0
+node_stdout:
+hit=200
+node_stderr:
+===== m13_fn.js
+--- kali exit=0
+kali_stdout:
+r1=100
+r0=900
+kali_stderr:
+--- node exit=0
+node_stdout:
+r1=100
+r0=900
+node_stderr:
+===== m14_fn.js
+--- kali exit=1
+kali_stdout:
+kali_stderr:
+error[E4201]: failed to load WASM module: failed to compile: wasm[0]::function[40]
+--- node exit=0
+node_stdout:
+r25=900
+r0=900
+node_stderr:
