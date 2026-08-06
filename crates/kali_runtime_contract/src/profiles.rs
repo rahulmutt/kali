@@ -81,9 +81,7 @@ pub fn parse_optional_runtime_host_contract_label(
     parse_runtime_host_contract_label(label)
 }
 
-pub fn parse_optional_runtime_backend_label(
-    value: Option<&Value>,
-) -> Option<RuntimeBackend> {
+pub fn parse_optional_runtime_backend_label(value: Option<&Value>) -> Option<RuntimeBackend> {
     let label = value?.as_str()?.trim();
     if label.is_empty() {
         return None;

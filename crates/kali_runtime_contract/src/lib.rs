@@ -16,21 +16,20 @@ pub use profiles::{
 };
 
 mod browser;
-#[cfg(test)]
-pub(crate) use browser::contract::browser_runtime_contract_descriptor_is_canonical;
+pub use browser::command::{
+    browser_harness_command_parts, browser_harness_command_parts_checked,
+    browser_harness_command_parts_for, browser_harness_uses_html_entrypoint, split_command_spec,
+};
 #[cfg(test)]
 pub(crate) use browser::command::{
     browser_harness_command_parts_for_browser_executable,
     browser_harness_default_command_parts_from, BROWSER_HARNESS_BROWSER_EXECUTABLE_NAMES,
 };
+#[cfg(test)]
+pub(crate) use browser::contract::browser_runtime_contract_descriptor_is_canonical;
 pub use browser::contract::{
     browser_runtime_contract_value, browser_runtime_request_context,
     browser_runtime_unavailable_diagnostic, BrowserRuntimeContract,
     BrowserRuntimeContractDescriptor, BROWSER_HARNESS_COMMAND_ENV,
     BROWSER_HARNESS_SUMMARY_FILE_ENV,
-};
-pub use browser::command::{
-    browser_harness_command_parts, browser_harness_command_parts_checked,
-    browser_harness_command_parts_for, browser_harness_uses_html_entrypoint,
-    split_command_spec,
 };

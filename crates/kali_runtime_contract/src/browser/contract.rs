@@ -1,8 +1,6 @@
 //! Browser runtime contract, descriptor, and unavailability helpers.
 use crate::{RuntimeBackend, RuntimeHostContract};
-use kali_error::{
-    _error_codes::e5, Diagnostic, DiagnosticContext, DiagnosticContextOrigin,
-};
+use kali_error::{_error_codes::e5, Diagnostic, DiagnosticContext, DiagnosticContextOrigin};
 use serde_json::{json, Value};
 use std::collections::BTreeSet;
 

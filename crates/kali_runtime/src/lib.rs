@@ -6,11 +6,9 @@ pub(crate) use ctx::*;
 mod outcome;
 pub use outcome::RuntimeOutcome;
 mod state;
-pub use state::{KaliHostState, ScheduledTimer};
 pub(crate) use kali_runtime_contract::*;
-pub use kali_runtime_contract::{
-    normalize_runtime_profiles, RuntimeBackend, RuntimeHostContract,
-};
+pub use kali_runtime_contract::{normalize_runtime_profiles, RuntimeBackend, RuntimeHostContract};
+pub use state::{KaliHostState, ScheduledTimer};
 mod host;
 pub(crate) use host::{diagnostics::*, enforce::*, io::*, memory::*};
 pub(crate) use host::{imports_default::*, imports_node::*};
@@ -18,15 +16,6 @@ mod browser;
 pub(crate) use browser::summary::*;
 mod execute;
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-pub use kali_runtime_contract::{
-    browser_harness_command_parts, browser_harness_command_parts_checked,
-    browser_harness_command_parts_for, split_command_spec,
-};
-pub use kali_runtime_contract::{
-    browser_runtime_contract_value, browser_runtime_request_context,
-    browser_runtime_unavailable_diagnostic, BrowserRuntimeContract,
-    BrowserRuntimeContractDescriptor, BROWSER_HARNESS_COMMAND_ENV,
-};
 pub use browser::execute::{
     browser_bundle_runtime_execute_checked, browser_harness_invocation_checked,
     browser_harness_run_checked, browser_harness_run_checked_with_env,
@@ -49,12 +38,21 @@ use kali_api_web::{
     fill_random_values, performance_now, random_uuid, SubtleCrypto, ThreadRuntimeInstanceSnapshot,
     ThreadRuntimeShutdownReport, ThreadRuntimeTopology,
 };
+#[cfg(test)]
+use kali_error::DiagnosticContext;
 use kali_error::{
     _error_codes::{e4, e5},
     Diagnostic, DiagnosticContextOrigin,
 };
-#[cfg(test)]
-use kali_error::DiagnosticContext;
+pub use kali_runtime_contract::{
+    browser_harness_command_parts, browser_harness_command_parts_checked,
+    browser_harness_command_parts_for, split_command_spec,
+};
+pub use kali_runtime_contract::{
+    browser_runtime_contract_value, browser_runtime_request_context,
+    browser_runtime_unavailable_diagnostic, BrowserRuntimeContract,
+    BrowserRuntimeContractDescriptor, BROWSER_HARNESS_COMMAND_ENV,
+};
 use kali_sandbox::{HostOperation, SandboxPolicy};
 use reqwest::blocking;
 use std::{
