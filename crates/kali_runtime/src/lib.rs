@@ -15,18 +15,11 @@ pub(crate) use host::{imports_default::*, imports_node::*};
 mod browser;
 pub(crate) use browser::summary::*;
 mod execute;
-use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 pub use browser::execute::{
     browser_bundle_runtime_execute_checked, browser_harness_invocation_checked,
     browser_harness_run_checked, browser_harness_run_checked_with_env,
     browser_runtime_execute_checked, BrowserHarnessError, BrowserHarnessInvocation,
     BrowserHarnessOutcome, BrowserRuntimeExecutionOutcome,
-};
-pub use browser::harness::{
-    browser_bundle_harness_page, browser_bundle_harness_prelude, browser_bundle_harness_script,
-    browser_bundle_runtime_harness_module_script, browser_bundle_runtime_harness_page,
-    browser_bundle_runtime_harness_script, browser_runtime_harness_page,
-    browser_runtime_harness_script, BROWSER_HARNESS_DONE_BINDING,
 };
 #[cfg(test)]
 pub(crate) use execute::execute_browser_runtime;
@@ -43,6 +36,12 @@ use kali_error::DiagnosticContext;
 use kali_error::{
     _error_codes::{e4, e5},
     Diagnostic, DiagnosticContextOrigin,
+};
+pub use kali_runtime_contract::{
+    browser_bundle_harness_page, browser_bundle_harness_prelude, browser_bundle_harness_script,
+    browser_bundle_runtime_harness_module_script, browser_bundle_runtime_harness_page,
+    browser_bundle_runtime_harness_script, browser_runtime_harness_page,
+    browser_runtime_harness_script, BROWSER_HARNESS_DONE_BINDING,
 };
 pub use kali_runtime_contract::{
     browser_harness_command_parts, browser_harness_command_parts_checked,

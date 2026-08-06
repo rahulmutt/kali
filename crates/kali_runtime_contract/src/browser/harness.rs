@@ -1,5 +1,5 @@
 //! Browser harness-script generators: prelude, module script, page, and bundle variants.
-use crate::*;
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 
 /// Build the shared browser-bundle smoke harness prelude.
 ///

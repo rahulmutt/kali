@@ -8,6 +8,3 @@ license.workspace = true
 kali_error = { workspace = true }
 serde_json = { workspace = true }
 base64 = { workspace = true }
-
-[dev-dependencies]
-kali_test_support = { workspace = true }

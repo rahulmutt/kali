@@ -33,3 +33,10 @@ pub use browser::contract::{
     BrowserRuntimeContractDescriptor, BROWSER_HARNESS_COMMAND_ENV,
     BROWSER_HARNESS_SUMMARY_FILE_ENV,
 };
+
+pub use browser::harness::{
+    browser_bundle_harness_page, browser_bundle_harness_prelude, browser_bundle_harness_script,
+    browser_bundle_runtime_harness_module_script, browser_bundle_runtime_harness_page,
+    browser_bundle_runtime_harness_script, browser_runtime_harness_page,
+    browser_runtime_harness_script, BROWSER_HARNESS_DONE_BINDING,
+};

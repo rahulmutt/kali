@@ -1,5 +1,5 @@
-//! Browser-runtime backend: contract, command resolution, harness generation,
-//! checked execution, and summary parsing.
+//! Browser-runtime backend: checked execution and summary parsing.
+//! Contract, command resolution, and harness generation live in
+//! `kali_runtime_contract`.
 pub(crate) mod execute;
-pub(crate) mod harness;
 pub(crate) mod summary;
