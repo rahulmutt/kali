@@ -1,5 +1,8 @@
 //! Browser harness command resolution and executable helpers.
-use crate::*;
+use super::contract::BROWSER_HARNESS_COMMAND_ENV;
+use std::path::Path;
+use std::process::Command;
+use std::sync::OnceLock;
 
 /// Split an argv-style command specification into deterministic tokens.
 ///
@@ -282,7 +285,7 @@ pub fn browser_harness_command_parts_for(command: Option<&str>) -> Vec<String> {
     browser_harness_command_parts_checked(command).unwrap_or_else(|error| panic!("{error}"))
 }
 
-pub(crate) fn browser_harness_uses_html_entrypoint(executable: &str) -> bool {
+pub fn browser_harness_uses_html_entrypoint(executable: &str) -> bool {
     browser_harness_command_parts_for_browser_executable(executable).is_some()
 }
 

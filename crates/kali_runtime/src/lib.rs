@@ -15,10 +15,10 @@ mod host;
 pub(crate) use host::{diagnostics::*, enforce::*, io::*, memory::*};
 pub(crate) use host::{imports_default::*, imports_node::*};
 mod browser;
-pub(crate) use browser::{command::*, summary::*};
+pub(crate) use browser::summary::*;
 mod execute;
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-pub use browser::command::{
+pub use kali_runtime_contract::{
     browser_harness_command_parts, browser_harness_command_parts_checked,
     browser_harness_command_parts_for, split_command_spec,
 };
@@ -62,7 +62,6 @@ use std::{
     fs,
     path::{Path, PathBuf},
     process::Command,
-    sync::OnceLock,
 };
 use tempfile::tempdir;
 use url::Url;
