@@ -9,6 +9,10 @@ autobins = false
 name = "kali"
 path = "src/bin/kali.rs"
 
+[[test]]
+name = "inprocess"
+path = "tests/inprocess.rs"
+
 [dependencies]
 clap = { workspace = true }
 kali_common = { workspace = true }
